@@ -39,6 +39,9 @@ desktop.ini
 *.swo
 *~
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # Test artifacts
 coverage/
 .nyc_output/
