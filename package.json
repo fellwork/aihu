@@ -11,11 +11,11 @@
     "node": ">=20.18.0"
   },
   "scripts": {
-    "build": "bun run --filter '*' build",
+    "build": "moon run :build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config tests/vitest.config.ts",
-    "typecheck": "bun run --filter '*' typecheck",
+    "typecheck": "moon run :typecheck",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "size": "size-limit"
