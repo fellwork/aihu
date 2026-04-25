@@ -6,7 +6,9 @@
 
 **Architecture:** bun workspace orchestrated by [moon](https://moonrepo.dev), four focused packages. `@scribe/signals` provides reactive primitives (signal, computed, effect). `@scribe/arbor` builds a persistent reactive tree (branch/leaf) on top of signals with lifecycle scopes. `@scribe/runtime` wires arbor into Web Components via `defineElement`. `@scribe/agent` exposes a static-metadata accessor. Every package is individually buildable, testable, and size-gated.
 
-**Tech Stack:** [proto](https://moonrepo.dev/proto) toolchain manager pinning bun 1.3+ and node 20.18+, [moon](https://moonrepo.dev) for cross-package task orchestration, TypeScript 5.5+, [Biome](https://biomejs.dev) for lint + format, vitest 2+, fast-check 3+, jsdom 24+, tsup (package builds), size-limit (bundle gates), GitHub Actions (CI).
+**Tech Stack:** [proto](https://moonrepo.dev/proto) toolchain manager pinning bun 1.3+ and node 20.18+, [moon](https://moonrepo.dev) for cross-package task orchestration, TypeScript 5.5+, [Biome](https://biomejs.dev) for lint + format, vitest 2+, fast-check 3+, jsdom 24+, [Rolldown](https://rolldown.rs) for package builds (uses oxc-parser, oxc-transformer, oxc-minifier internally) with [rolldown-plugin-dts](https://github.com/sxzz/rolldown-plugin-dts) for type emission, size-limit (bundle gates), GitHub Actions (CI).
+
+**Ecosystem alignment:** Rolldown is the bundler that powers Vite 6+, so the runtime packages are built with the same toolchain that consuming apps use in dev/build. This keeps Plans B/C (Vite plugin, SFC compiler) on a single OXC-based pipeline end to end.
 
 **Out of scope:** Rust crates, Vite plugin, SFC compiler, `.scribe` files, Playwright e2e. All of those land in Plans B and C.
 
@@ -34,7 +36,7 @@ fellwork/scribe/
 │   ├── signals/
 │   │   ├── package.json                # @scribe/signals
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── signal.ts               # signal() primitive
@@ -51,7 +53,7 @@ fellwork/scribe/
 │   ├── arbor/
 │   │   ├── package.json                # @scribe/arbor
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── types.ts                # Branch, Leaf, AttrMap, ChildList
@@ -71,7 +73,7 @@ fellwork/scribe/
 │   ├── runtime/
 │   │   ├── package.json                # @scribe/runtime
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── define-element.ts       # defineElement(spec)
@@ -81,7 +83,7 @@ fellwork/scribe/
 │   └── agent/
 │       ├── package.json                # @scribe/agent
 │       ├── tsconfig.json
-│       ├── tsup.config.ts
+│       ├── rolldown.config.ts
 │       ├── src/
 │       │   ├── index.ts
 │       │   ├── registry.ts             # registerAgentMetadata, getAgentMetadata
@@ -151,7 +153,8 @@ node = "20.18.0"
     "jsdom": "^25.0.1",
     "prettier": "^3.3.3",
     "size-limit": "^11.1.6",
-    "tsup": "^8.3.0",
+    "rolldown": "^1.0.0-rc.17",
+    "rolldown-plugin-dts": "^0.23.2",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1"
   }
@@ -440,11 +443,11 @@ fileGroups:
     - "tests/**/*"
   configs:
     - "tsconfig.json"
-    - "tsup.config.ts"
+    - "rolldown.config.ts"
 
 tasks:
   build:
-    command: "tsup"
+    command: "rolldown -c"
     inputs:
       - "@group(sources)"
       - "@group(configs)"

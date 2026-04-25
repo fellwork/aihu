@@ -9,11 +9,11 @@ fileGroups:
     - "tests/**/*"
   configs:
     - "tsconfig.json"
-    - "tsup.config.ts"
+    - "rolldown.config.ts"
 
 tasks:
   build:
-    command: "tsup"
+    command: "rolldown -c"
     inputs:
       - "@group(sources)"
       - "@group(configs)"
