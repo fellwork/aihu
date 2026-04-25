@@ -14,7 +14,7 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
-      - run: bun run lint
+      - run: bunx biome ci .
       - run: bun run typecheck
       - run: bun run test --coverage
       - run: bun run build

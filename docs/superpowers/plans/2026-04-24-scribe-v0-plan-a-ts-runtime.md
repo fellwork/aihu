@@ -6,7 +6,7 @@
 
 **Architecture:** bun workspace orchestrated by [moon](https://moonrepo.dev), four focused packages. `@scribe/signals` provides reactive primitives (signal, computed, effect). `@scribe/arbor` builds a persistent reactive tree (branch/leaf) on top of signals with lifecycle scopes. `@scribe/runtime` wires arbor into Web Components via `defineElement`. `@scribe/agent` exposes a static-metadata accessor. Every package is individually buildable, testable, and size-gated.
 
-**Tech Stack:** [proto](https://moonrepo.dev/proto) toolchain manager pinning bun 1.3+ and node 20.18+, [moon](https://moonrepo.dev) for cross-package task orchestration, TypeScript 5.5+, vitest 2+, fast-check 3+, jsdom 24+, tsup (package builds), size-limit (bundle gates), GitHub Actions (CI).
+**Tech Stack:** [proto](https://moonrepo.dev/proto) toolchain manager pinning bun 1.3+ and node 20.18+, [moon](https://moonrepo.dev) for cross-package task orchestration, TypeScript 5.5+, [Biome](https://biomejs.dev) for lint + format, vitest 2+, fast-check 3+, jsdom 24+, tsup (package builds), size-limit (bundle gates), GitHub Actions (CI).
 
 **Out of scope:** Rust crates, Vite plugin, SFC compiler, `.scribe` files, Playwright e2e. All of those land in Plans B and C.
 
@@ -25,8 +25,7 @@ fellwork/scribe/
 │   └── tasks.yml                       # shared build/typecheck tasks
 ├── tsconfig.base.json                  # shared TS config
 ├── .size-limit.json                    # bundle-size CI gate config
-├── .eslintrc.cjs                       # lint config
-├── .prettierrc                         # format config
+├── biome.json                          # Biome lint + format config
 ├── vitest.config.ts                    # root test config (coverage, aliases)
 ├── .github/
 │   └── workflows/
@@ -247,84 +246,87 @@ git commit -m "chore: add root TypeScript config"
 
 ---
 
-### Task 3: Lint and format config
+### Task 3: Lint and format config (Biome)
 
 **Files:**
-- Create: `.eslintrc.cjs`
-- Create: `.prettierrc`
-- Create: `.prettierignore`
-- Create: `.eslintignore`
+- Create: `biome.json`
+- Add devDep: `@biomejs/biome`
 
-- [x] **Step 1: Create `.prettierrc`**
-```json
-{
-  "semi": false,
-  "singleQuote": true,
-  "trailingComma": "all",
-  "printWidth": 100,
-  "arrowParens": "always",
-  "endOfLine": "lf"
-}
-```
+[Biome](https://biomejs.dev) replaces both ESLint and Prettier in one binary. It has no plugin system to wire up, runs in milliseconds, and respects `.gitignore` automatically (`vcs.useIgnoreFile`).
 
-- [x] **Step 2: Create `.prettierignore`**
-
-```
-node_modules
-dist
-coverage
-pnpm-lock.yaml
-bun.lock
-target
-```
-
-- [x] **Step 3: Create `.eslintrc.cjs`**
-```cjs
-module.exports = {
-  root: true,
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
-    ecmaVersion: 2022,
-    sourceType: 'module',
-  },
-  plugins: ['@typescript-eslint'],
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier',
-  ],
-  rules: {
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/consistent-type-imports': 'error',
-  },
-  env: {
-    browser: true,
-    node: true,
-    es2022: true,
-  },
-  ignorePatterns: ['dist', 'node_modules', 'coverage', 'target'],
-}
-```
-
-- [x] **Step 4: Create `.eslintignore`**
-
-```
-node_modules
-dist
-coverage
-target
-*.cjs
-```
-
-- [x] **Step 5: Skip verification until Phase 2**
-
-`bun run lint` errors with `No files matching the pattern "." were found` until packages exist. Config itself is valid; defer verification to Task 6.
-
-- [x] **Step 6: Commit**
+- [x] **Step 1: Install Biome**
 
 ```bash
-git add .eslintrc.cjs .prettierrc .prettierignore .eslintignore
-git commit -m "chore: add lint and format config"
+bun add -D @biomejs/biome
+```
+
+- [x] **Step 2: Initialize and configure `biome.json`**
+
+```bash
+bunx biome init
+```
+Then replace generated `biome.json` with project-tuned config:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!dist", "!coverage", "!target", "!bun.lock", "!**/*.cjs"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": { "recommended": true }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": { "organizeImports": "on" }
+    }
+  }
+}
+```
+
+- [x] **Step 3: Wire `lint`, `format`, and `check` scripts in root `package.json`**
+
+```json
+"lint": "biome lint .",
+"format": "biome format --write .",
+"check": "biome check --write ."
+```
+
+`biome check` combines lint + format + import-organize in one pass — preferred for local dev. CI uses `biome ci` (read-only).
+
+- [x] **Step 4: Verify**
+
+Run: `bun run lint`
+Expected: `Checked N files in <time>. No fixes applied.` Exits 0 even on an empty workspace (Biome doesn't fail on missing matches).
+
+- [x] **Step 5: Commit**
+
+```bash
+git add biome.json package.json bun.lock
+git commit -m "chore: replace eslint+prettier with biome"
 ```
 
 ---
@@ -481,7 +483,7 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
-      - run: bun run lint
+      - run: bunx biome ci .
       - run: bun run typecheck
       - run: bun run test --coverage
       - run: bun run build
