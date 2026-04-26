@@ -4,9 +4,11 @@
 
 **Goal:** Ship four TypeScript packages (`@scribe/signals`, `@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`) that together let a developer hand-write reactive custom elements with signals, mount them in a browser, and retrieve static agent metadata — all within a ~4 KB gzipped bundle, with a full test pyramid running in CI.
 
-**Architecture:** pnpm monorepo, four focused packages. `@scribe/signals` provides reactive primitives (signal, computed, effect). `@scribe/arbor` builds a persistent reactive tree (branch/leaf) on top of signals with lifecycle scopes. `@scribe/runtime` wires arbor into Web Components via `defineElement`. `@scribe/agent` exposes a static-metadata accessor. Every package is individually buildable, testable, and size-gated.
+**Architecture:** bun workspace orchestrated by [moon](https://moonrepo.dev), four focused packages. `@scribe/signals` provides reactive primitives (signal, computed, effect). `@scribe/arbor` builds a persistent reactive tree (branch/leaf) on top of signals with lifecycle scopes. `@scribe/runtime` wires arbor into Web Components via `defineElement`. `@scribe/agent` exposes a static-metadata accessor. Every package is individually buildable, testable, and size-gated.
 
-**Tech Stack:** Node 20+, pnpm 9+, TypeScript 5.5+, vitest 2+, fast-check 3+, jsdom 24+, tsup (package builds), size-limit (bundle gates), GitHub Actions (CI).
+**Tech Stack:** [proto](https://moonrepo.dev/proto) toolchain manager pinning bun 1.3+ and node 20.18+, [moon](https://moonrepo.dev) for cross-package task orchestration, TypeScript 5.5+, [Biome](https://biomejs.dev) for lint + format, vitest 2+, fast-check 3+, jsdom 24+, [Rolldown](https://rolldown.rs) for package builds (uses oxc-parser, oxc-transformer, oxc-minifier internally) with [rolldown-plugin-dts](https://github.com/sxzz/rolldown-plugin-dts) for type emission, size-limit (bundle gates), GitHub Actions (CI).
+
+**Ecosystem alignment:** Rolldown is the bundler that powers Vite 6+, so the runtime packages are built with the same toolchain that consuming apps use in dev/build. This keeps Plans B/C (Vite plugin, SFC compiler) on a single OXC-based pipeline end to end.
 
 **Out of scope:** Rust crates, Vite plugin, SFC compiler, `.scribe` files, Playwright e2e. All of those land in Plans B and C.
 
@@ -16,12 +18,16 @@
 
 ```
 fellwork/scribe/
-├── package.json                        # workspace root; scripts, dev deps
-├── pnpm-workspace.yaml                 # workspace definition
+├── package.json                        # workspace root; bun workspaces, scripts, dev deps
+├── bun.lock                            # bun lockfile
+├── .prototools                         # proto-pinned bun + node versions
+├── .moon/
+│   ├── workspace.yml                   # moon project graph
+│   ├── toolchain.yml                   # moon toolchain (bun)
+│   └── tasks.yml                       # shared build/typecheck tasks
 ├── tsconfig.base.json                  # shared TS config
 ├── .size-limit.json                    # bundle-size CI gate config
-├── .eslintrc.cjs                       # lint config
-├── .prettierrc                         # format config
+├── biome.json                          # Biome lint + format config
 ├── vitest.config.ts                    # root test config (coverage, aliases)
 ├── .github/
 │   └── workflows/
@@ -30,7 +36,7 @@ fellwork/scribe/
 │   ├── signals/
 │   │   ├── package.json                # @scribe/signals
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── signal.ts               # signal() primitive
@@ -47,7 +53,7 @@ fellwork/scribe/
 │   ├── arbor/
 │   │   ├── package.json                # @scribe/arbor
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── types.ts                # Branch, Leaf, AttrMap, ChildList
@@ -67,7 +73,7 @@ fellwork/scribe/
 │   ├── runtime/
 │   │   ├── package.json                # @scribe/runtime
 │   │   ├── tsconfig.json
-│   │   ├── tsup.config.ts
+│   │   ├── rolldown.config.ts
 │   │   ├── src/
 │   │   │   ├── index.ts                # public exports
 │   │   │   ├── define-element.ts       # defineElement(spec)
@@ -77,7 +83,7 @@ fellwork/scribe/
 │   └── agent/
 │       ├── package.json                # @scribe/agent
 │       ├── tsconfig.json
-│       ├── tsup.config.ts
+│       ├── rolldown.config.ts
 │       ├── src/
 │       │   ├── index.ts
 │       │   ├── registry.ts             # registerAgentMetadata, getAgentMetadata
@@ -94,48 +100,44 @@ fellwork/scribe/
 
 ## Phase 1 — Workspace Scaffolding
 
-### Task 1: Initialize pnpm workspace root
+> **Toolchain note:** versions are pinned by [proto](https://moonrepo.dev/proto) via `.prototools`. Cross-package task orchestration is handled by [moon](https://moonrepo.dev). Package management uses [bun](https://bun.sh) workspaces. There is no `pnpm-workspace.yaml`, no `.nvmrc`, no `pnpm-lock.yaml`.
+
+### Task 1: Initialize bun workspace with proto-pinned toolchain
 
 **Files:**
+- Create: `.prototools`
 - Create: `package.json`
-- Create: `pnpm-workspace.yaml`
-- Create: `.nvmrc`
+- Create: `bun.lock` (generated by `bun install`)
+- Create: `.moon/workspace.yml`, `.moon/toolchain.yml` (via `moon init`)
 
-- [ ] **Step 1: Create `.nvmrc`**
+**Prerequisite:** `proto`, `bun`, and `moon` must be on PATH. With proto installed, `proto install` will read `.prototools` once written.
 
-Create file at `C:\git\scribe\.nvmrc`:
-```
-20.18.0
-```
+- [x] **Step 1: Create `.prototools`**
 
-- [ ] **Step 2: Create `pnpm-workspace.yaml`**
-
-Create file at `C:\git\scribe\pnpm-workspace.yaml`:
-```yaml
-packages:
-  - 'packages/*'
-  - 'tests'
+```toml
+bun = "1.3.8"
+node = "20.18.0"
 ```
 
-- [ ] **Step 3: Create root `package.json`**
+- [x] **Step 2: Create root `package.json`**
 
-Create file at `C:\git\scribe\package.json`:
 ```json
 {
   "name": "fellwork-scribe",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@9.12.0",
+  "workspaces": ["packages/*"],
   "engines": {
+    "bun": ">=1.3.0",
     "node": ">=20.18.0"
   },
   "scripts": {
-    "build": "pnpm -r --filter './packages/*' run build",
+    "build": "moon run :build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config tests/vitest.config.ts",
-    "typecheck": "pnpm -r --filter './packages/*' run typecheck",
+    "typecheck": "moon run :typecheck",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "size": "size-limit"
@@ -151,23 +153,39 @@ Create file at `C:\git\scribe\package.json`:
     "jsdom": "^25.0.1",
     "prettier": "^3.3.3",
     "size-limit": "^11.1.6",
-    "tsup": "^8.3.0",
+    "rolldown": "^1.0.0-rc.17",
+    "rolldown-plugin-dts": "^0.23.2",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1"
   }
 }
 ```
 
-- [ ] **Step 4: Install dependencies**
+> Note: the `tests/` directory is **not** a bun workspace member; it's picked up by `vitest.config.ts` directly. Bun errors if a workspace path doesn't exist.
 
-Run: `cd /c/git/scribe && pnpm install`
-Expected: Creates `node_modules/` and `pnpm-lock.yaml`. No packages yet so this just installs devDeps.
+- [x] **Step 3: Install dependencies**
 
-- [ ] **Step 5: Commit**
+Run: `bun install`
+Expected: Creates `node_modules/` and `bun.lock`. Workspaces glob matches no packages yet, so only root devDeps install.
+
+- [x] **Step 4: Initialize moon workspace**
+
+Run: `moon init --yes --minimal`
+Then edit `.moon/workspace.yml` so `vcs.defaultBranch` is `"main"` (moon defaults to the current branch, which may not be main during feature work).
+Add `.moon/toolchain.yml`:
+```yaml
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/toolchain.json
+bun:
+  version: "1.3.8"
+```
+
+- [x] **Step 5: Commit**
 
 ```bash
-git add package.json pnpm-workspace.yaml .nvmrc pnpm-lock.yaml
-git commit -m "chore: initialize pnpm workspace"
+git add .prototools package.json bun.lock
+git commit -m "chore: initialize bun workspace with proto-pinned toolchain"
+git add .moon/ package.json
+git commit -m "chore: add moon workspace config for task orchestration"
 ```
 
 ---
@@ -178,9 +196,9 @@ git commit -m "chore: initialize pnpm workspace"
 - Create: `tsconfig.base.json`
 - Create: `tsconfig.json`
 
-- [ ] **Step 1: Create `tsconfig.base.json`**
+- [x] **Step 1: Create `tsconfig.base.json`**
 
-Create file at `C:\git\scribe\tsconfig.base.json`:
+Create file at the repo root:
 ```json
 {
   "compilerOptions": {
@@ -206,9 +224,8 @@ Create file at `C:\git\scribe\tsconfig.base.json`:
 }
 ```
 
-- [ ] **Step 2: Create root `tsconfig.json`**
+- [x] **Step 2: Create root `tsconfig.json`**
 
-Create file at `C:\git\scribe\tsconfig.json`:
 ```json
 {
   "extends": "./tsconfig.base.json",
@@ -219,12 +236,11 @@ Create file at `C:\git\scribe\tsconfig.json`:
 }
 ```
 
-- [ ] **Step 3: Verify TypeScript compiles nothing yet**
+- [x] **Step 3: Skip verification until Phase 2**
 
-Run: `cd /c/git/scribe && pnpm exec tsc --noEmit`
-Expected: Exits 0 with no errors (no source files yet).
+`bunx tsc --noEmit` errors with `TS18003: No inputs were found` until the first package lands. Config itself is valid; the verification step happens at the end of Task 6 when `@scribe/signals/src/index.ts` exists.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tsconfig.base.json tsconfig.json
@@ -233,90 +249,87 @@ git commit -m "chore: add root TypeScript config"
 
 ---
 
-### Task 3: Lint and format config
+### Task 3: Lint and format config (Biome)
 
 **Files:**
-- Create: `.eslintrc.cjs`
-- Create: `.prettierrc`
-- Create: `.prettierignore`
-- Create: `.eslintignore`
+- Create: `biome.json`
+- Add devDep: `@biomejs/biome`
 
-- [ ] **Step 1: Create `.prettierrc`**
+[Biome](https://biomejs.dev) replaces both ESLint and Prettier in one binary. It has no plugin system to wire up, runs in milliseconds, and respects `.gitignore` automatically (`vcs.useIgnoreFile`).
 
-Create file at `C:\git\scribe\.prettierrc`:
-```json
-{
-  "semi": false,
-  "singleQuote": true,
-  "trailingComma": "all",
-  "printWidth": 100,
-  "arrowParens": "always",
-  "endOfLine": "lf"
-}
-```
-
-- [ ] **Step 2: Create `.prettierignore`**
-
-Create file at `C:\git\scribe\.prettierignore`:
-```
-node_modules
-dist
-coverage
-pnpm-lock.yaml
-target
-```
-
-- [ ] **Step 3: Create `.eslintrc.cjs`**
-
-Create file at `C:\git\scribe\.eslintrc.cjs`:
-```cjs
-module.exports = {
-  root: true,
-  parser: '@typescript-eslint/parser',
-  parserOptions: {
-    ecmaVersion: 2022,
-    sourceType: 'module',
-  },
-  plugins: ['@typescript-eslint'],
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier',
-  ],
-  rules: {
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/consistent-type-imports': 'error',
-  },
-  env: {
-    browser: true,
-    node: true,
-    es2022: true,
-  },
-  ignorePatterns: ['dist', 'node_modules', 'coverage', 'target'],
-}
-```
-
-- [ ] **Step 4: Create `.eslintignore`**
-
-Create file at `C:\git\scribe\.eslintignore`:
-```
-node_modules
-dist
-coverage
-target
-*.cjs
-```
-
-- [ ] **Step 5: Run lint to verify clean start**
-
-Run: `cd /c/git/scribe && pnpm lint`
-Expected: Exits 0 (nothing to lint yet).
-
-- [ ] **Step 6: Commit**
+- [x] **Step 1: Install Biome**
 
 ```bash
-git add .eslintrc.cjs .prettierrc .prettierignore .eslintignore
-git commit -m "chore: add lint and format config"
+bun add -D @biomejs/biome
+```
+
+- [x] **Step 2: Initialize and configure `biome.json`**
+
+```bash
+bunx biome init
+```
+Then replace generated `biome.json` with project-tuned config:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!dist", "!coverage", "!target", "!bun.lock", "!**/*.cjs"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": { "recommended": true }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": { "organizeImports": "on" }
+    }
+  }
+}
+```
+
+- [x] **Step 3: Wire `lint`, `format`, and `check` scripts in root `package.json`**
+
+```json
+"lint": "biome lint .",
+"format": "biome format --write .",
+"check": "biome check --write ."
+```
+
+`biome check` combines lint + format + import-organize in one pass — preferred for local dev. CI uses `biome ci` (read-only).
+
+- [x] **Step 4: Verify**
+
+Run: `bun run lint`
+Expected: `Checked N files in <time>. No fixes applied.` Exits 0 even on an empty workspace (Biome doesn't fail on missing matches).
+
+- [x] **Step 5: Commit**
+
+```bash
+git add biome.json package.json bun.lock
+git commit -m "chore: replace eslint+prettier with biome"
 ```
 
 ---
@@ -326,9 +339,10 @@ git commit -m "chore: add lint and format config"
 **Files:**
 - Create: `vitest.config.ts`
 
-- [ ] **Step 1: Create `vitest.config.ts`**
+- [x] **Step 1: Create `vitest.config.ts`**
 
-Create file at `C:\git\scribe\vitest.config.ts`:
+> Includes `passWithNoTests: true` so `bun run test` exits 0 in the empty workspace state. Remove this flag (or leave it — it's harmless) once tests exist.
+
 ```ts
 import { defineConfig } from 'vitest/config'
 
@@ -336,6 +350,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['packages/*/tests/**/*.test.ts'],
+    passWithNoTests: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
@@ -354,12 +369,12 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 2: Run vitest to verify config loads**
+- [x] **Step 2: Run vitest to verify config loads**
 
-Run: `cd /c/git/scribe && pnpm test`
-Expected: "No test files found" — exits 0 or with a "no tests" warning. Config loads without error.
+Run: `bun run test`
+Expected: "No test files found, exiting with code 0" — config loads without error.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add vitest.config.ts
@@ -368,15 +383,14 @@ git commit -m "chore: add root vitest config with package aliases"
 
 ---
 
-### Task 5: size-limit config and CI workflow
+### Task 5: size-limit config, shared moon tasks, and CI workflow
 
 **Files:**
 - Create: `.size-limit.json`
+- Create: `.moon/tasks.yml`
 - Create: `.github/workflows/plan-a.yml`
 
-- [ ] **Step 1: Create `.size-limit.json`**
-
-Create file at `C:\git\scribe\.size-limit.json`:
+- [x] **Step 1: Create `.size-limit.json`**
 ```json
 [
   {
@@ -417,9 +431,44 @@ Create file at `C:\git\scribe\.size-limit.json`:
 ]
 ```
 
-- [ ] **Step 2: Create CI workflow**
+- [x] **Step 2: Create shared moon tasks**
 
-Create file at `C:\git\scribe\.github\workflows\plan-a.yml`:
+Create `.moon/tasks.yml`. These tasks are inherited by every project under `packages/*` so per-package `moon.yml` files only need overrides:
+```yaml
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/tasks.json
+fileGroups:
+  sources:
+    - "src/**/*"
+  tests:
+    - "tests/**/*"
+  configs:
+    - "tsconfig.json"
+    - "rolldown.config.ts"
+
+tasks:
+  build:
+    command: "rolldown -c"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+      - "package.json"
+    outputs:
+      - "dist"
+    deps:
+      - "^:build"
+
+  typecheck:
+    command: "tsc --noEmit"
+    inputs:
+      - "@group(sources)"
+      - "@group(tests)"
+      - "@group(configs)"
+```
+
+- [x] **Step 3: Create CI workflow**
+
+`moonrepo/setup-toolchain@v0` installs both proto and moon, then `auto-install: true` reads `.prototools` and installs bun + node. One step replaces the previous pnpm/setup-node combo.
+
 ```yaml
 name: Plan A — TS runtime family
 on:
@@ -433,38 +482,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: moonrepo/setup-toolchain@v0
         with:
-          version: 9.12.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test -- --coverage
-      - run: pnpm build
-      - run: pnpm size
+          auto-install: true
+      - run: bun install --frozen-lockfile
+      - run: bunx biome ci .
+      - run: bun run typecheck
+      - run: bun run test --coverage
+      - run: bun run build
+      - run: bun run size
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .size-limit.json .github/workflows/plan-a.yml
 git commit -m "ci: add size-limit gate and Plan A workflow"
+git add .moon/tasks.yml
+git commit -m "chore(moon): add shared build and typecheck tasks"
 ```
 
 ---
 
 ## Status checkpoint
 
-Phase 1 (scaffolding) complete after Task 5. Repo has workspace tooling, lint/format, tests, builds, and CI. No source code yet. Remaining phases:
+Phase 1 (scaffolding) **complete** on branch `plan-a-phase-1`. Repo has workspace tooling, lint/format, tests, builds, and CI wired through bun + proto + moon. No source code yet. Remaining phases:
 
 - **Phase 2:** `@scribe/signals` — reactive primitives (Tasks 6–11)
 - **Phase 3:** `@scribe/arbor` — persistent reactive tree (Tasks 12–19)
 - **Phase 4:** `@scribe/runtime` — WC wiring (Tasks 20–22)
 - **Phase 5:** `@scribe/agent` — metadata registry (Tasks 23–24)
 - **Phase 6:** Integration tests and bundle verification (Tasks 25–27)
+
+### Toolchain conventions for Phases 2–6
+
+When detailed task content for Phases 2–6 is authored, the following toolchain conventions apply (replacing all pnpm/`.nvmrc` references in the original plan draft):
+
+- **Per-package `package.json`** — declare scripts only as escape hatches. Build/typecheck flow through moon, not bun's `--filter`. Each `packages/<name>/package.json` should set `"name": "@scribe/<name>"` and a peer/dev dep on workspace siblings via `"workspace:*"`.
+- **Per-package `moon.yml`** — minimal; inherits `build` and `typecheck` from `.moon/tasks.yml`. Only override when a package needs custom inputs/outputs (e.g. `arbor` if it adds bench tasks).
+- **Adding a dep** — `bun add -D <pkg>` at the root for shared dev deps; `bun add --filter @scribe/<name> <pkg>` for package-scoped deps.
+- **Running a single package's tasks** — `moon run signals:build`, `moon run arbor:typecheck`, etc.
+- **Tests** — root-level vitest already discovers `packages/*/tests/**/*.test.ts`. No per-package test task needed unless a package wants its own config.
+- **CI** — already covers lint → typecheck → test → build → size via root scripts; no workflow change needed when packages land.
 
 *Phases 2–6 follow in the next document edits.*

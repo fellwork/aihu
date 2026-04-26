@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/tasks.json
+# Shared task definitions inherited by every project under packages/*.
+# Per-package moon.yml files can override or extend these.
+
+fileGroups:
+  sources:
+    - "src/**/*"
+  tests:
+    - "tests/**/*"
+  configs:
+    - "tsconfig.json"
+    - "rolldown.config.ts"
+
+tasks:
+  build:
+    command: "rolldown -c"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+      - "package.json"
+    outputs:
+      - "dist"
+    deps:
+      - "^:build"
+
+  typecheck:
+    command: "tsc --noEmit"
+    inputs:
+      - "@group(sources)"
+      - "@group(tests)"
+      - "@group(configs)"

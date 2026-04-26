@@ -1,0 +1,37 @@
+{
+  "name": "fellwork-scribe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "build": "moon run :build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config tests/vitest.config.ts",
+    "typecheck": "moon run :typecheck",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "size": "size-limit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.13",
+    "@size-limit/preset-small-lib": "^11.1.6",
+    "@types/node": "^20.16.5",
+    "@vitest/coverage-v8": "^2.1.9",
+    "fast-check": "^3.22.0",
+    "jsdom": "^25.0.1",
+    "rolldown": "^1.0.0-rc.17",
+    "rolldown-plugin-dts": "^0.23.2",
+    "size-limit": "^11.1.6",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}

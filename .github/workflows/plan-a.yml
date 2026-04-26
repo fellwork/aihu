@@ -1,0 +1,26 @@
+name: Plan A — TS runtime family
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - run: bun install --frozen-lockfile
+      - run: bunx biome ci .
+      # Phase 1 (scaffolding) ships without source. typecheck/build/size
+      # require packages/* to exist and are re-enabled in Phase 2 alongside
+      # @scribe/signals (see docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md).
+      # - run: bun run typecheck
+      - run: bun run test --coverage
+      # - run: bun run build
+      # - run: bun run size
