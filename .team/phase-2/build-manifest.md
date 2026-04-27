@@ -59,7 +59,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 9 — `computed()`
 
-**Commit:** (pending)
+**Commit:** `539ab3b`
 **Files:**
 - `packages/signals/src/computed.ts` — created — `computed<T>(fn, options?)` returns `Read<T>` per spec §1.3; lazy STALE flag (initialized true so first read evaluates), forward observation via `peekCurrentObserver`, cascade via `subs` Set; `ComputedOptions<T>.equals` accepted on type, reserved for future cascade-suppression
 - `packages/signals/tests/computed.test.ts` — created — 4 unit tests (derived value, cached re-derive, downstream effect, chained-lazy)
@@ -70,4 +70,21 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 419 B gz
 - `bun run size` — PASS, 419 B / 1024 B budget
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 10 — `$state()`
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/state.ts` — created — `$state<T>(initial)` returns `{ value: T }` accessor over a single underlying `signal()` cell per spec §1.4. Same tracking, equality, notify path as the underlying signal.
+- `packages/signals/tests/state.test.ts` — created — 4 unit tests (read .value, write .value, track in effect, Object.is short-circuit)
+- `packages/signals/src/index.ts` — modified — re-exports `$state`, type `State`
+
+**Verification:**
+- Tests: 19 passing (4 files)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 451 B gz
+- `bun run size` — PASS, 451 B / 1024 B budget
 - `bunx biome ci .` — PASS
