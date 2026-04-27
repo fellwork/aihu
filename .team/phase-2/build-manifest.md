@@ -112,7 +112,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 11.4 — `batch()`
 
-**Commit:** (pending)
+**Commit:** `2bb8ae3`
 **Files:**
 - `packages/signals/src/signal.ts` — modified — added `batchDepth`, `batchQueue`, `MAX_BATCH_ITERATIONS`, and `getBatchDepth`/`enterBatch`/`exitBatch`/`drainBatch` (`/** @internal */`); switched `signal.write()` to enqueue via `enqueueIfNeeded` when `batchDepth > 0`; drain throws `SignalCircularError` (default message) on 100-iteration overflow per Team Lead adjudication B-A
 - `packages/signals/src/batch.ts` — created — public `batch(fn): void` per spec §1.5; outermost batch drains the queue on `fn` return (or throw), handles nesting via depth count
@@ -125,4 +125,19 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 629 B gz
 - `bun run size` — PASS, 629 B / 1024 B budget (395 B headroom)
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 11.5 — re-enable CI
+
+**Commit:** (pending)
+**Files:**
+- `.github/workflows/plan-a.yml` — modified — uncommented lines for `bun run typecheck`, `bun run build`, `bun run size`; removed the now-stale 3-line comment block that explained why those lines were disabled
+
+**Verification (local pre-flight before CI):**
+- `bun run typecheck` — PASS (Moon delegates to `signals:typecheck`)
+- `bun run test --coverage` — PASS, 32 tests, coverage: 100% stmts / 95% branch / 100% funcs / 100% lines
+- `bun run build` — PASS
+- `bun run size` — PASS, 629 B / 1024 B
 - `bunx biome ci .` — PASS
