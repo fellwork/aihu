@@ -100,7 +100,7 @@ Per spec §1.2 + §5 (Task 14). `branch(tag, attrs?, children?)` lands as a thin
 
 **Mount-coupled tests deferred:** Spec §4 lists 4 tests; tests #2–#4 require `mount()` (Task 16) which is not yet implemented. Per Builder Option A, mount-coupled tests are deferred to Task 16's batch where they land naturally alongside `mount()` in `mount.test.ts`. The shape/storage/identity-preservation subset (9 tests) covers everything testable now.
 
-**Commit:** `<task-14-sha>`
+**Commit:** `9d6639a`
 **Files:**
 - `packages/arbor/src/branch.ts` — created — `branch()` factory; delegates to internal `_makeBranch` with `??` fallbacks for the §2.9 shape-lock; ~25 source lines.
 - `packages/arbor/tests/branch.test.ts` — created — 9 unit tests across two `describe` blocks (element branches: kind, tag preservation, omitted-attrs/children normalization, EMPTY_CHILDREN identity sharing across calls, frozen-children invariant, attrs object identity, children array contents; fragment/null-tag: tag stays null, children stored on the node).
