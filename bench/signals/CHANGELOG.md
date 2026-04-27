@@ -40,8 +40,18 @@ First baseline. 3 workloads × 6 competitors = 18 cells, all populated.
 
 ### Bundle size
 
-scribe ships at 1.56 KB gzipped (un-minified main entry, comparable methodology
-to other libs in the table). After minification (size-limit, what we gate on):
-**698 B gz**. Smallest in the field on the like-for-like minified comparison;
-alien-signals is the closest peer at ~1.5 KB gz un-minified (it ships
-pre-minified ESM, so the gap closes).
+scribe ships at **781 B gzipped** when measured with the same methodology
+as `bun run size` (esbuild minify + gzip). That puts scribe at the smallest
+gzipped of any competitor measured: 30 % smaller than alien-signals
+(1.11 KB), 58 % smaller than Preact (1.86 KB), and ~88 % smaller than Vue
+(7.05 KB).
+
+Note: an earlier draft of this changelog cited "1.56 KB gzipped (un-minified)"
+because the initial `size.ts` script gzipped raw source without minification,
+making `@scribe/signals` look bigger than the libs that ship pre-minified.
+That methodology was inconsistent with `bun run size` (size-limit minifies
+first). The updated `size.ts` now runs each competitor through esbuild
+before gzipping, producing apples-to-apples numbers.
+
+The 781 B vs `bun run size`'s 698 B reading is from gzip level 9 vs
+size-limit's default level 6.

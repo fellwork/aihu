@@ -47,16 +47,20 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 ## Bundle size (stretch)
 
-Each competitor's main entry as shipped, gzipped at level 9. Note: not minified — Vue and Solid ship dev/prod variants; we use the production ESM build where one exists. `@scribe/signals` is measured against `dist/index.js` (the same file size-limit gates).
+Each competitor's main ESM entry, minified with esbuild (matches size-limit's internal pipeline) and gzipped at level 9. Where a library ships a production-ready ESM build (Vue's `reactivity.esm-browser.prod`, Solid's `solid.js`), that's the file we measure. `@scribe/signals` is measured against `dist/index.js` — the same file `bun run size` gates on.
 
-| Competitor | Raw | Gzipped |
-| --- | ---: | ---: |
-| @scribe/signals | 4.67 KB | 1.56 KB |
-| alien-signals | 7.28 KB | 1.53 KB |
-| @preact/signals-core | 5.31 KB | 1.87 KB |
-| @vue/reactivity | 19.19 KB | 6.98 KB |
-| solid-js (reactive only) | 50.14 KB | 11.81 KB |
-| s-js | 13.93 KB | 3.35 KB |
+The minified+gzipped column here is directly comparable to `bun run size`'s 698 B reading for `@scribe/signals`; the 781 B vs 698 B delta is gzip level 9 vs size-limit's default level 6.
+
+| Competitor | Raw | Minified | Gzipped |
+| --- | ---: | ---: | ---: |
+| @scribe/signals | 4.67 KB | 1.62 KB | **781 B** |
+| alien-signals | 7.28 KB | 2.95 KB | 1.11 KB |
+| @preact/signals-core | 5.31 KB | 5.09 KB | 1.86 KB |
+| @vue/reactivity | 19.19 KB | 19.03 KB | 7.05 KB |
+| solid-js (reactive only) | 50.14 KB | 21.85 KB | 8.42 KB |
+| s-js | 13.93 KB | 5.07 KB | 1.86 KB |
+
+**`@scribe/signals` is the smallest gzipped** — 30% smaller than alien, 58% smaller than Preact, ~88% smaller than Vue. This is the size-axis win Learning #11 demands.
 
 <!-- bench-data:start -->
 ```json

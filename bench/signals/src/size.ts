@@ -2,17 +2,14 @@ import { readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
+import { transformSync } from 'esbuild'
 
 /**
- * Stretch deliverable: gzipped size of each competitor's main entry, alongside
- * `@scribe/signals`'s own dist. Reads from the bench's node_modules so the
- * pinned versions match RESULTS.md. Output prints to stdout as a markdown
- * table that can be pasted into RESULTS.md "Bundle size" section.
- *
- * Caveat: this measures the *main entry file* gzipped, which is *not* the
- * minified user-facing bundle. Each lib ships pre-built. For a fully fair
- * comparison we'd run each through terser+gzip; that's a future enhancement.
- * For Phase 2.5 the relative ordering is the signal users care about.
+ * Bundle-size methodology: minify with esbuild (matches size-limit's internal
+ * approach), then gzip at level 9. This makes `@scribe/signals` directly
+ * comparable to `bun run size`'s 698 B reading. Pre-minified ESM builds
+ * (Vue's reactivity.esm-browser.prod, Solid's solid.js) pass through esbuild
+ * cleanly without re-minification artifacts.
  */
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(HERE, '..', '..', '..')
@@ -22,6 +19,7 @@ interface SizeRow {
   name: string
   path: string
   raw: number
+  minified: number
   gz: number
 }
 
@@ -43,15 +41,25 @@ const targets: Array<{ name: string; path: string }> = [
   { name: 's-js', path: resolve(BENCH_NM, 's-js/dist/es/S.js') },
 ]
 
-function sizeOf(path: string): { raw: number; gz: number } | null {
+function sizeOf(path: string): { raw: number; minified: number; gz: number } | null {
   try {
     statSync(path)
   } catch {
     return null
   }
-  const buf = readFileSync(path)
-  const gz = gzipSync(buf, { level: 9 })
-  return { raw: buf.byteLength, gz: gz.byteLength }
+  const source = readFileSync(path, 'utf8')
+  const minified = transformSync(source, {
+    minify: true,
+    target: 'es2022',
+    format: 'esm',
+    legalComments: 'none',
+  }).code
+  const gz = gzipSync(minified, { level: 9 })
+  return {
+    raw: Buffer.byteLength(source, 'utf8'),
+    minified: Buffer.byteLength(minified, 'utf8'),
+    gz: gz.byteLength,
+  }
 }
 
 const rows: SizeRow[] = []
@@ -61,7 +69,7 @@ for (const t of targets) {
     console.error(`MISSING: ${t.name} at ${t.path}`)
     continue
   }
-  rows.push({ name: t.name, path: t.path, raw: s.raw, gz: s.gz })
+  rows.push({ name: t.name, path: t.path, raw: s.raw, minified: s.minified, gz: s.gz })
 }
 
 const fmtBytes = (n: number): string => {
@@ -69,8 +77,8 @@ const fmtBytes = (n: number): string => {
   return `${(n / 1024).toFixed(2)} KB`
 }
 
-console.log('| Competitor | Raw | Gzipped |')
-console.log('| --- | ---: | ---: |')
+console.log('| Competitor | Raw | Minified | Gzipped |')
+console.log('| --- | ---: | ---: | ---: |')
 for (const r of rows) {
-  console.log(`| ${r.name} | ${fmtBytes(r.raw)} | ${fmtBytes(r.gz)} |`)
+  console.log(`| ${r.name} | ${fmtBytes(r.raw)} | ${fmtBytes(r.minified)} | ${fmtBytes(r.gz)} |`)
 }
