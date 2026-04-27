@@ -1,3 +1,4 @@
+export { branch } from './branch.ts'
 export { ArborError, ArborNotImplementedError } from './errors.ts'
 export { leaf } from './leaf.ts'
 export type {

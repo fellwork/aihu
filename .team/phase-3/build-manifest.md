@@ -78,7 +78,7 @@ Per spec §1.3 + §5 (Task 13). `LeafFactory` interface (callable + `.element` m
 
 **Mount-coupled tests deferred:** Spec §4 lists 5 tests; tests #2–#5 require `mount()` (Task 16) which is not yet implemented. Per Builder Option A, the mount-coupled tests are deferred to Task 16's batch where they land naturally alongside `mount()` in `mount.test.ts`. The shape/discriminant/value-storage subset (9 tests) covers everything testable now.
 
-**Commit:** `<task-13-sha>`
+**Commit:** `7853253`
 **Files:**
 - `packages/arbor/src/leaf.ts` — created — `LeafFactory` + `leaf` const; delegates to internal `_makeTextLeaf` / `_makeElementLeaf`; ~30 source lines.
 - `packages/arbor/tests/leaf.test.ts` — created — 9 unit tests across two `describe` blocks (text leaves: kind, leafKind, value preservation, shape-lock null tag/attrs, signal-tuple identity; element leaves: kind, leafKind, tag/attrs/value preservation, omitted-attrs normalization to null).
@@ -90,6 +90,28 @@ Per spec §1.3 + §5 (Task 13). `LeafFactory` interface (callable + `.element` m
 - `bun run typecheck` — PASS (`arbor:typecheck` 7s)
 - `bun run build` — PASS, `arbor/dist/index.js` 1.85 kB raw / **249 B gz** (was 134 B; +115 B for the `leaf` factory + delegation)
 - `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 249 B / 2048 B** (1.8 kB headroom)
+- `bunx biome ci .` — PASS (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
+
+---
+
+## Task 14 — `branch()`
+
+Per spec §1.2 + §5 (Task 14). `branch(tag, attrs?, children?)` lands as a thin delegation layer over the internal `_makeBranch` constructor in `node.ts`. Two normalizations happen here so the §2.9 shape-lock is preserved at the boundary: omitted `attrs` becomes `null` (NOT `undefined`), and omitted `children` becomes the frozen module-level `EMPTY_CHILDREN` reused across every childless branch (saves a per-call allocation per spec §2.9). Null-tag branches are accepted directly — runtime defensiveness for `null` tag with non-empty attrs lands in v1 per spec §1.2; the compiler never emits that combination.
+
+**Mount-coupled tests deferred:** Spec §4 lists 4 tests; tests #2–#4 require `mount()` (Task 16) which is not yet implemented. Per Builder Option A, mount-coupled tests are deferred to Task 16's batch where they land naturally alongside `mount()` in `mount.test.ts`. The shape/storage/identity-preservation subset (9 tests) covers everything testable now.
+
+**Commit:** `<task-14-sha>`
+**Files:**
+- `packages/arbor/src/branch.ts` — created — `branch()` factory; delegates to internal `_makeBranch` with `??` fallbacks for the §2.9 shape-lock; ~25 source lines.
+- `packages/arbor/tests/branch.test.ts` — created — 9 unit tests across two `describe` blocks (element branches: kind, tag preservation, omitted-attrs/children normalization, EMPTY_CHILDREN identity sharing across calls, frozen-children invariant, attrs object identity, children array contents; fragment/null-tag: tag stays null, children stored on the node).
+- `packages/arbor/src/index.ts` — modified — added `export { branch } from './branch.ts'` (one line, alphabetical position before `errors.ts`). `Branch` and `ChildList` type re-exports unchanged from Task 12.
+
+**Verification:**
+- `bun run test packages/arbor/tests/branch.test.ts` — PASS, **9/9** (9 failures before `branch` export added — TDD confirmed)
+- `bun run test` — PASS, **57/57** across 9 files (was 48/48 across 8; +9 branch tests)
+- `bun run typecheck` — PASS (`arbor:typecheck` 5.4s)
+- `bun run build` — PASS, `arbor/dist/index.js` 4.13 kB raw / **285 B gz** (was 249 B; +36 B for the `branch` factory)
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 285 B / 2048 B** (1.76 kB headroom for Tasks 15–18)
 - `bunx biome ci .` — PASS (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
 
 ---
