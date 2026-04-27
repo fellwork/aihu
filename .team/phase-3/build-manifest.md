@@ -71,3 +71,25 @@ Per spec §3.1 + §5 (Task 12 file-level change list). Establishes `@scribe/arbo
 - `bunx biome ci .` — PASS (one info-level diagnostic on `ArborError` constructor's `noUselessConstructor` — kept verbatim per spec §1.8 mandate; biome treats as info, exit 0)
 
 ---
+
+## Task 13 — `leaf()` and `leaf.element()`
+
+Per spec §1.3 + §5 (Task 13). `LeafFactory` interface (callable + `.element` method) lands as a thin delegation layer over the internal `_makeTextLeaf` / `_makeElementLeaf` constructors that batch 1 placed in `node.ts`. The callable form forwards `Signal<string> | string` directly — `Array.isArray` is the discriminant the consuming materialize step (Task 16) will use, so no detection logic lives here. `leaf.element(tag, attrs?)` normalizes omitted `attrs` to `null` before calling the internal factory, preserving the §2.9 shape-lock.
+
+**Mount-coupled tests deferred:** Spec §4 lists 5 tests; tests #2–#5 require `mount()` (Task 16) which is not yet implemented. Per Builder Option A, the mount-coupled tests are deferred to Task 16's batch where they land naturally alongside `mount()` in `mount.test.ts`. The shape/discriminant/value-storage subset (9 tests) covers everything testable now.
+
+**Commit:** `<task-13-sha>`
+**Files:**
+- `packages/arbor/src/leaf.ts` — created — `LeafFactory` + `leaf` const; delegates to internal `_makeTextLeaf` / `_makeElementLeaf`; ~30 source lines.
+- `packages/arbor/tests/leaf.test.ts` — created — 9 unit tests across two `describe` blocks (text leaves: kind, leafKind, value preservation, shape-lock null tag/attrs, signal-tuple identity; element leaves: kind, leafKind, tag/attrs/value preservation, omitted-attrs normalization to null).
+- `packages/arbor/src/index.ts` — modified — added `export { leaf } from './leaf.ts'` (one line, alphabetical position after `errors.ts`). `Leaf` type re-export unchanged from Task 12.
+
+**Verification:**
+- `bun run test packages/arbor/tests/leaf.test.ts` — PASS, **9/9** (9 failures before `leaf` export added — TDD confirmed)
+- `bun run test` — PASS, **48/48** across 8 files (was 39/39 across 7; +9 leaf tests)
+- `bun run typecheck` — PASS (`arbor:typecheck` 7s)
+- `bun run build` — PASS, `arbor/dist/index.js` 1.85 kB raw / **249 B gz** (was 134 B; +115 B for the `leaf` factory + delegation)
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 249 B / 2048 B** (1.8 kB headroom)
+- `bunx biome ci .` — PASS (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
+
+---
