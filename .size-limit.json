@@ -4,34 +4,5 @@
     "path": "packages/signals/dist/index.js",
     "limit": "1024 B",
     "gzip": true
-  },
-  {
-    "name": "@scribe/arbor",
-    "path": "packages/arbor/dist/index.js",
-    "limit": "2048 B",
-    "gzip": true
-  },
-  {
-    "name": "@scribe/runtime",
-    "path": "packages/runtime/dist/index.js",
-    "limit": "1024 B",
-    "gzip": true
-  },
-  {
-    "name": "@scribe/agent",
-    "path": "packages/agent/dist/index.js",
-    "limit": "512 B",
-    "gzip": true
-  },
-  {
-    "name": "Combined runtime family",
-    "path": [
-      "packages/signals/dist/index.js",
-      "packages/arbor/dist/index.js",
-      "packages/runtime/dist/index.js",
-      "packages/agent/dist/index.js"
-    ],
-    "limit": "4096 B",
-    "gzip": true
   }
 ]

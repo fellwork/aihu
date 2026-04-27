@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest'
+import { effect } from '../src/effect.ts'
+import { SignalCircularError } from '../src/errors.ts'
+import { signal } from '../src/signal.ts'
+
+describe('effect', () => {
+  it('runs once on registration', () => {
+    let runs = 0
+    effect(() => {
+      runs++
+    })
+    expect(runs).toBe(1)
+  })
+
+  it('re-runs on tracked signal change', () => {
+    const [n, setN] = signal(0)
+    let observed = -1
+    effect(() => {
+      observed = n()
+    })
+    expect(observed).toBe(0)
+    setN(7)
+    expect(observed).toBe(7)
+    setN(42)
+    expect(observed).toBe(42)
+  })
+
+  it('equality short-circuit suppresses re-run', () => {
+    const [n, setN] = signal(0)
+    let runs = 0
+    effect(() => {
+      n()
+      runs++
+    })
+    expect(runs).toBe(1)
+    setN(0) // Object.is short-circuit — no notify, no re-run
+    expect(runs).toBe(1)
+    setN(1)
+    expect(runs).toBe(2)
+  })
+
+  it('equals: false forces re-run on identical value', () => {
+    const [n, setN] = signal(0, { equals: false })
+    let runs = 0
+    effect(() => {
+      n()
+      runs++
+    })
+    expect(runs).toBe(1)
+    setN(0)
+    expect(runs).toBe(2)
+    setN(0)
+    expect(runs).toBe(3)
+  })
+
+  it('dispose() stops further re-runs and is idempotent', () => {
+    const [n, setN] = signal(0)
+    let runs = 0
+    const dispose = effect(() => {
+      n()
+      runs++
+    })
+    expect(runs).toBe(1)
+    setN(1)
+    expect(runs).toBe(2)
+    dispose()
+    setN(2)
+    expect(runs).toBe(2)
+    // idempotent
+    expect(() => dispose()).not.toThrow()
+    setN(3)
+    expect(runs).toBe(2)
+  })
+
+  it('direct self-write inside an effect throws SignalCircularError', () => {
+    const [n, setN] = signal(0)
+    expect(() => {
+      effect(() => {
+        // Reads n() (creating the dep), then writes — a re-entrant cycle.
+        const v = n()
+        setN(v + 1)
+      })
+    }).toThrow(SignalCircularError)
+  })
+
+  it('multiple effects on one signal each fire (fan-out)', () => {
+    const [n, setN] = signal(0)
+    let a = 0
+    let b = 0
+    effect(() => {
+      n()
+      a++
+    })
+    effect(() => {
+      n()
+      b++
+    })
+    expect(a).toBe(1)
+    expect(b).toBe(1)
+    setN(1)
+    expect(a).toBe(2)
+    expect(b).toBe(2)
+  })
+})
