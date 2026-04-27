@@ -1,7 +1,7 @@
 # Configures all projects within the workspace to create a project graph.
 # Accepts a list of globs, a mapping of projects to relative file paths,
 # or both values.
-projects: ["packages/*"]
+projects: ["packages/*", "bench/*"]
 
 # Configures the version control system (VCS). Also known as
 # source code management (SCM).
