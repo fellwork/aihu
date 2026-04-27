@@ -73,3 +73,143 @@
 **Why.** The Builder's "eager recompute when subs > 0" pivot during the equals wiring (`build-manifest.md` Task 12) is a structural fact about scribe's forward-subscription model that no prior artifact captured. The spec couldn't have predicted it; only writing the code surfaced it. Verifier traced four scenarios (`verification-report.md` §6: lazy preservation, linear chain, cycle, diamond) and confirmed correctness.
 
 **How to apply.** When a teammate at the keyboard discovers that the briefed approach doesn't fit the codebase, document the discovery in the manifest (or blocker note) with the structural reason, and let the implementation deviate. Don't force the brief through. Verifier will trace correctness; that's their job. Predictions made before keyboard time should always defer to facts discovered at keyboard time.
+
+---
+
+## 10. Runtime packages are in-house; the 4 KB budget is the enforcement mechanism
+
+**Why.** The Phase 3 spec session surfaced "should we vendor alien-signals?" as a real question. Answer: no, and the reason isn't NIH — it's that scribe's thesis (signals → resumability → MCP-observable state → AI profile-guided optimization) requires *evolving* the primitive, not consuming it. Vendoring alien means forking alien for every thesis feature. Building it ourselves means every feature is just a feature. The 4 KB total bundle budget (v0 spec §6.6) makes the constraint structural, not preferential.
+
+**How to apply.** Three rules:
+- Code that **must evolve to deliver the thesis** (signals, arbor, hydration, MCP-shaped agent surface) is in-house. No exceptions; vendoring is forking.
+- Code that **is commodity and not on the thesis path** (build tools, test runners, YAML parsers, Rust crates the compiler uses) is vendored ruthlessly.
+- Code that **is a published protocol with a reference SDK** (MCP, GraphQL, etc.) uses the reference SDK at integration boundaries — but adapter layers in front of it must be ours so we can shape the agent ergonomics.
+
+When in doubt, ask: "would vendoring this prevent us from shipping a thesis feature?" If yes, build in-house. If no, vendor.
+
+---
+
+## 11. Every runtime PR drops bench receipts; we beat SOTA on a named axis or we don't ship
+
+**Why.** "We're fast" is a vibe. The Phase 2 spec promised a bench gate (v0 spec §11.2 lists one) but it was loose. The Phase 3 spec session locked an aggressive R&D performance posture (Learning #10's companion): scribe is positioned as runtime-reactivity research, not just an app framework. That commitment requires CI-enforced numbers, not aspirational ones.
+
+**How to apply.** The Phase 2.5 bench-spike brief (`.team/phase-2-5-bench-spike.md`) operationalizes this. After the bench harness lands:
+- Every runtime PR runs `bench/<package>/RESULTS.md` regression checks. Regression ≥10% on `p50` of any workload fails CI.
+- Every PR claiming "this makes runtime faster" must drop bench receipts in the PR description, and update `RESULTS.md` and `CHANGELOG.md` in the bench directory.
+- Performance is measured against the state of the art in the same release — alien-signals, Solid, Vue's `@vue/reactivity`, Preact signals. If we are not competitive on at least one axis (size, speed-on-real-workload, capability), the package ISN'T done.
+- "Real workload" includes wide-fanout (Phase 2 retro's canonical concern) and arbor-shaped DOM updates. Synthetic micro-bench alone is necessary but not sufficient.
+
+Override path: PR commit message containing `[bench-bump]` lets a regressing change land when correctness requires it. Justify in the PR description.
+
+---
+
+## 12. Functional components are the user-facing model; the compiler emits classes
+
+**Why.** Phase 3 spec session pivot (User decision, 2026-04-26): user-facing component model is functional (`defineComponent(setup)`), separated by concerns, type-safe end-to-end. But v0 spec §7.2 locks the compiler to emit `class extends HTMLElement` (Custom Elements API requires a constructor). This means scribe has a **two-layer authoring model** (spec-arbor.md §0):
+
+1. **Compiler-emission layer** — Rust compiler reads `.scribe` SFCs, emits classes calling arbor primitives directly. Minimal-byte. Never calls `defineComponent`.
+2. **Hand-author layer** — humans write `defineComponent(setup)` for tests, examples, hand-authored components. Functional. Internally produces a class consumable by `defineElement`.
+
+The two layers interoperate: both produce `class extends HTMLElement` registered via `defineElement`.
+
+**How to apply.** When designing any user-facing API in scribe, ask: "is this what users *write*, or what the compiler *emits*?" If it's user-written, it must be functional, type-safe, and ergonomic. If it's compiler-emitted, it must be byte-minimal and direct. Don't conflate the two layers — `defineElement(name, Ctor)` is for the compiler; `defineComponent(setup)` is for humans.
+
+**Concrete v0 mapping:**
+- `@scribe/arbor` exports primitives (`branch`, `leaf`, `mount`, `MountScope`) that the compiler emits direct calls to. No functional wrapper.
+- `@scribe/runtime` exports `defineElement(name, Ctor)` for compiler use AND `defineComponent(setup)` for hand-authoring.
+- `.scribe` SFC files are the dominant user-facing surface; hand-authored components are a secondary surface for tests/examples/escape-hatch usage.
+
+---
+
+## 13. Module sizing rule: 150-line cap, one concern per file, named by concern
+
+**Why.** Phase 3 spec session decision (2026-04-26): scribe's source code must be deterministically navigable by both human readers and AI agents. "Where does X live?" must have exactly one answer findable from filename alone — no grep. Empirical grounding (alien-signals, @preact/signals-core, @vue/reactivity, lit-html, solid-js): the median module size in well-architected small TS frameworks is 80–150 lines; outliers above 200 are reliably the hardest files for first-time readers to navigate.
+
+**How to apply.** Every TypeScript module in scribe runtime packages:
+- **≤ 150 source lines** (excluding blank lines and standalone JSDoc blocks). Aim for 80–120; allow up to 150 before splitting becomes mandatory.
+- **One concern per file.** A module that defines both `signal()` and `computed()` is two concerns; split.
+- **Named by the concern, not the type.** `effect.ts`, not `functions.ts`. `cycle.ts`, not `helpers.ts`. `branch.ts`, not `nodes.ts`.
+- **Public re-exports live in `index.ts` only.** No module re-exports its siblings. Internal symbols are `/** @internal */` and never appear in `index.ts`.
+
+Phase 2's `@scribe/signals` shipped before this rule landed; it should be refactored to comply when a small refactor PR makes sense (probably alongside the Phase 2.5 bench-spike, since the bench harness already touches signals' internals).
+
+---
+
+## 14. Specs from prior sessions can drift between authoring and execution; new sessions must reconcile
+
+**Why.** Phase 3 spec session: three Architects spawned in parallel produced specs that subtly disagreed on `host` parameter typing (`Element` vs `ShadowRoot`), `MountScope` shape, `mount()` re-mount semantics, and `defineElement` call shape. Architect B's spec listed 10 open questions (Q1–Q10) about Architect A's surface; reconciliation was the Team Lead's job and required 30 minutes of cross-spec walking after both landed. The friction was inherent — each Architect operated in isolation per the parallel-spawn brief.
+
+**How to apply.** When parallel sub-agents produce specs that consume each other's APIs (one spec's runtime imports another spec's primitives):
+- Each spec authors a §7 "Open Questions" list of every assumption they made about siblings' APIs.
+- The Team Lead post-spawn walks every "Open Question" against the actual produced sibling spec. Each question gets one of: (a) "A answered B's way → no action," (b) "A answered differently → user picks one and the other rewrites," (c) "A didn't answer → escalate to user."
+- The Team Lead's cross-walk takes ~10 min per pair of specs in scribe-sized packages. Budget it.
+
+Don't try to prevent the friction by pre-coordinating Architects. Pre-coordination via shared brief is brittle (drift); cross-walk reconciliation via Open Questions is robust (drift surfaces explicitly).
+
+---
+
+## 15. AI-first means in-tree binding, not MCP-only
+
+**Why.** Phase 3 spec session decision (2026-04-26): the user named the load-bearing AI principle and contrasted it with MCP-server-only architectures. The truth source for agent capabilities is `<agent>` blocks in `.scribe` SFCs (already in v0 spec §9), not external MCP server registries. MCP is one *adapter* of the in-process binding layer, not the foundation. This solves three concrete MCP criticisms: (1) agents forget tools they haven't used; (2) responses are opaque snapshots, not subscribable handles; (3) JSON-RPC tax for in-process work.
+
+**How to apply.** Three rules:
+- **The in-tree primitive ships first; the MCP adapter ships second.** Sub-project #7's brief is reframed: build the binding layer that addresses signals by path identity (arbor §2.7), then expose it over MCP for cross-process agents.
+- **Agents need a live data feed, not a JSON snapshot.** Where a tool returns a value, prefer returning a subscribable handle (the signal itself, addressed by path key from arbor §2.7). Static-snapshot tools are for stateless lookups only.
+- **The build-time capability manifest is a single artifact.** The compiler emits one `dist/agent-manifest.json` describing the whole app's agent surface — the registry that `@scribe/agent` aggregates per-component is the runtime-side complement, not the only source.
+
+This direction reshapes sub-project #7 from "MCP server" to "binding layer + MCP adapter + manifest aggregation."
+
+---
+
+## 16. v0 sets up Tier 3 hooks even when v0 doesn't consume them; retrofit cost is prohibitive
+
+**Why.** Phase 3 spec session decision (2026-04-26): aggressive R&D performance posture means v0 must not paint into a corner that prevents Tier 3 wins (resumable hydration, AI PGO, MCP-observable state). Three Tier 3 hooks are mandatory in v0 even with no v0 consumer:
+- **Subscription identity (arbor §2.7)** — every `_mountEffect` carries a stable path key. Sub-project #6 (resumable hydration) maps serialized graphs to live subscriptions via these keys; sub-project #7 (agent binding layer) addresses signals by path. Without this, both are blocked.
+- **Telemetry hooks (arbor §2.8)** — `_observeMount` is a no-op in production, dev-mode replaces it. Sub-project #10 (AI PGO) consumes the events. Tree-shaking eliminates production cost.
+- **Hidden-class shape locking (arbor §2.9)** — `Branch` and `Leaf` always have the same fields (nulls for absent). V8 inline-cache friendly. ~30% faster on V8.
+
+Total v0 cost: ~25 B gz + minor Builder discipline.
+
+**How to apply.** When designing any v0 surface for a thesis-feature stack (arbor, signals, future runtime packages):
+- Identify which sub-projects depend on what hooks (resumability, PGO, MCP, etc.).
+- Cost the hook implementation in v0. If under ~50 B gz total, ship it now.
+- Retrofit cost dominates: subscription identity added in v1 means re-walking every mounted tree, which is expensive and error-prone. Hidden-class shape locking added in v1 means rewriting every node constructor.
+- Document the v0 hook with a "v0 commitment" note: "Builder ships this even with no consumer; sub-project #X consumes."
+
+---
+
+## 17. Magna is the canonical scribe backend; integration is research-led, not bolted on
+
+**Why.** Phase 3 spec session reveal (2026-04-26): scribe is being designed alongside fellwork/magna (a fast Rust GraphQL-from-Postgres engine, dual-licensed MIT/Apache, technical-preview status). Magna runs server-side; scribe's runtime is browser-side. They are designed to be used *together* as a high-performance stack — not "scribe with optional magna integration."
+
+**How to apply.** Five integration angles to research and ship over time (none gating Phase 3):
+- **High-performance data:** zero-copy from magna's GraphQL response buffer into signal-bound state.
+- **Hydration coupling:** magna's deterministic responses + arbor's subscription identity (§2.7) = signal-graph resumability. Path keys on the JS side map to magna query identities.
+- **Schema introspection:** magna auto-generates GraphQL schemas from Postgres; scribe can derive TypeScript types from that schema at build time.
+- **Agent work:** unified capability manifest (Learning #15) = `<agent>` blocks per-component + magna introspection schema-wide. Agents loading the manifest get the complete picture.
+- **Build-time tooling:** Rust scribe-compiler can validate `.scribe` queries against magna's schema at compile time, surfacing diagnostics in the Vite overlay.
+
+**Sub-project #4 (data layer) is "magna integration with a clean escape hatch for non-magna backends" — not "generic data adapters."** Tight integration is the canonical path; users who want REST or tRPC can use scribe but won't get the resumability/manifest/build-time wins.
+
+**The bench-spike (`.team/phase-2-5-bench-spike.md`) ships two tracks: vanilla scribe vs SOTA JS, and scribe+magna end-to-end.** The two-track posture operationalizes "magna is canonical" without making magna a hard dep for non-data-app uses of scribe.
+
+---
+
+## 18. Self-contained launch briefs survive session boundaries; one-line task pointers don't
+
+**Why.** Phase 3 launch brief (`.team/phase-3-launch.md`) was readable cold by a fresh session two days after authoring. Phases 1 and 2 of the original implementation plan had no equivalent — they were one-line items on a long list. The launch brief format makes a session resumable; the line-item format makes a session re-spawnable from scratch.
+
+**How to apply.** Every multi-step session that won't be done in-conversation needs a self-contained brief in `.team/<descriptive-name>.md`:
+- Why this session exists (what problem it solves)
+- Source-of-truth docs (every reader must read)
+- Decisions inherited from prior sessions
+- Roster (who does what)
+- Step-by-step spawn instructions
+- Hard stops
+- What this session does NOT do
+- Token / wall-clock ceilings
+- Final pre-spawn checklist
+
+The Phase 3 launch brief and the Phase 2.5 bench-spike brief are the templates. New sessions follow the template.
+
+When the work is small enough to fit in one conversation (a Builder shipping a single feature), no brief is needed. When the work spans agents (Architect → Builder → Verifier) or sessions (this conversation → next conversation), a brief is the contract.

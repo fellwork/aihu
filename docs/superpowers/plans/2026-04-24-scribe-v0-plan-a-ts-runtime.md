@@ -1644,3 +1644,98 @@ Phase 2 (`@scribe/signals`) **complete** when all Task 11 verifications pass: fu
 - **Phase 6:** Integration tests and bundle verification (Tasks 25–27)
 
 *Phases 3–6 follow in the next document edits.*
+
+---
+
+## Phase 3 — `@scribe/arbor` persistent reactive tree
+
+> **Authoritative source:** `.team/phase-3/spec-arbor.md` (Team Lead, 2026-04-26).
+> The plan section below is a navigational index — full task definitions, test plans, file lists, and rationale live in the spec.
+>
+> The Phase 3 spec session also locked four project-level decisions that affect later phases. Read `.team/learnings.md` Learnings #10–#18 before consuming this section.
+
+### Task 12.5 — Add `untrack` to `@scribe/signals` (prep commit)
+
+Authorized by Team Lead Call 1 in the Phase 3 launch brief. Builder ships before Task 12. Spec §1.1.
+
+### Task 12 — Scaffold `@scribe/arbor`
+
+Package scaffold (package.json, tsconfig, moon.yml, rolldown.config), errors, types, `.size-limit.json` arbor row at 2048 B gz. Spec §3, §5.
+
+### Task 13 — `leaf()` and `leaf.element()`
+
+Text leaf and element leaf factories. Spec §1.3, §4 Task 13.
+
+### Task 14 — `branch()`
+
+Branch factory with static children. Spec §1.2, §4 Task 14.
+
+### Task 15 — AttrMap subscription
+
+Static attrs, reactive signal attrs, event handlers. Three runtime detection paths. Spec §1.2, §2.4, §4 Task 15.
+
+### Task 16 — `mount()` and `MountScope`
+
+DOM materialization and scope-collector (`_activeMountDisposers`). Spec §1.4, §1.5, §2.2, §2.3.
+
+### Task 17 — `MountScope.dispose()`
+
+LIFO effect teardown + DOM removal + idempotency. Spec §1.5, §4 Task 17.
+
+### Task 18 — `when()` and `each()` stubs
+
+Throw `ArborNotImplementedError` immediately. Spec §1.6, §4 Task 18.
+
+### Task 19 — Microbench, integration, size
+
+10k-leaf smoke benchmark, batch+arbor integration test, size-limit verification. Phase 2.5 bench-spike (`.team/phase-2-5-bench-spike.md`) ships the comparative regression gate. Spec §4 Task 19.
+
+---
+
+## Phase 4 — `@scribe/runtime` Custom Elements wiring
+
+> **Authoritative source:** `.team/phase-4/spec-runtime.md` (Architect B, 2026-04-26; touched up by Team Lead with §1.5 forward-compat note).
+
+### Task 20 — Scaffold `@scribe/runtime`
+
+Package scaffold, types, stub `defineElement`, CI trigger fix. Spec §3, §5.
+
+### Task 21 — Implement `defineElement` + tests + size row
+
+Class-wrap with shadow root injection, double-registration guard, observed-attributes propagation. 10 unit tests. `.size-limit.json` runtime row at 1024 B gz. Spec §1.2, §2, §4 Task 21.
+
+### Task 22 — Integration test (gated on Phase 3)
+
+Cross-package test exercising arbor + signals + runtime. Builder must not start until `@scribe/arbor` ships. Spec §4 Task 22.
+
+### Task 22.5 (Phase 4 Architect's call) — `defineComponent(setup)` for hand-authored components
+
+Functional wrapper for hand-authored custom elements per Learning #12 (two-layer authoring model). Recommended for v0; Phase 4 Architect adjudicates. Spec §1.5.
+
+---
+
+## Phase 5 — `@scribe/agent` static metadata registry
+
+> **Authoritative source:** `.team/phase-5/spec-agent.md` (Architect C, 2026-04-26; touched up by Team Lead with §1.4 forward-compat note for app-wide manifest aggregation per Learning #15).
+
+### Task 23 — Scaffold + implement registry
+
+Two source files (`registry.ts`, `types.ts`), three exports (`getAgentMetadata`, `registerAgentMetadata`, `AgentMetadata`). 7 unit tests. Spec §1, §2, §4 Task 23.
+
+### Task 24 — Verify and ship
+
+`moon run agent:typecheck`, `moon run agent:build`, `bun run size` (`@scribe/agent` row at 100 B gz hard gate), full test suite green. Spec §3, §4 Task 24.
+
+---
+
+## Phase 6 — Integration tests and bundle verification (Tasks 25–27)
+
+Not yet specced. The Phase 3 spec session left this to a future Architect once Phases 3/4/5 specs are validated by Builders. v0 spec §11 lays out the integration test scope.
+
+---
+
+## Phase 2.5 — Bench-spike (between Phase 3 specs and Phase 3 implementation)
+
+> **Authoritative source:** `.team/phase-2-5-bench-spike.md`.
+
+One-Builder spike, ~1 day wall-clock. Two tracks: (Track A) vanilla scribe vs SOTA JS reactivity (alien-signals, Solid, Vue, Preact, S.js); (Track B) scribe+magna end-to-end. Establishes the regression gate for every subsequent runtime PR per Learning #11.
