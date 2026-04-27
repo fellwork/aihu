@@ -1,0 +1,25 @@
+{
+  "name": "@scribe/bench-signals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bench harness comparing @scribe/signals against SOTA reactivity libs (Phase 2.5).",
+  "scripts": {
+    "run": "bun src/runner.ts",
+    "size": "bun src/size.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@scribe/signals": "workspace:*",
+    "@preact/signals-core": "1.14.1",
+    "@vue/reactivity": "3.5.33",
+    "alien-signals": "3.1.2",
+    "mitata": "1.0.34",
+    "s-js": "0.4.9",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "typescript": "^5.6.2"
+  }
+}

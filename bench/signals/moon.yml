@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+id: bench-signals
+language: typescript
+layer: application
+
+# Inherits typecheck from .moon/tasks/tasks.yml. The bench is an executable,
+# not a library — override inherited build to a no-op (no rolldown config) and
+# add a `run` task that is what humans and CI invoke.
+tasks:
+  build:
+    command: noop
+    outputs: []
+    options:
+      runFromWorkspaceRoot: false
+      mergeOutputs: replace
+
+  run:
+    command: 'bun src/runner.ts'
+    inputs:
+      - 'src/**/*'
+      - 'package.json'
+    options:
+      cache: false
+
+  size:
+    command: 'bun src/size.ts'
+    inputs:
+      - 'src/size.ts'
+      - 'package.json'
+    options:
+      cache: false
