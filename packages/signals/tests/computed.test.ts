@@ -204,25 +204,15 @@ describe('computed', () => {
     expect(c2Evals).toBe(2)
   })
 
-  it('diamond graph: round-trip correct, no regression in eval bounds', () => {
+  it('diamond graph: each node runs exactly once per signal write', () => {
     // Mini-diamond (1 source, 2 layers of 2 computeds each, 1 effect).
-    // Verifies the diamond correctness invariant: round-trip produces the
-    // correct final value, and the fix does not REGRESS evaluation counts
-    // vs the Phase 2 baseline. Spec §4.3 originally asserted "exactly once
-    // per signal write" (l2*=2, effectRuns=2), but that count is not
-    // achievable on this 2-layer shape under either the OLD (Phase 2) or
-    // the NEW (Phase 2.5) implementation: there is no lazy layer between
-    // the signal and the eager (effect-sub'd) layer-2 computeds, so the
-    // first eager `l2*.notify()` triggered by `l1a.notify()`'s cascade
-    // recomputes BEFORE `l1b.notify()` has marked `l1b` STALE — the
-    // classic diamond glitch — producing a second cascade and thus a
-    // second eager recompute on l2*. The Phase 2 baseline produces
-    // {l1*=2, l2*=3, effectRuns=5} for this shape; the fix matches that
-    // exactly. cellx avoids this because it has 3 lazy layers (l1/l2/l3)
-    // between the signal and the eager l4, so all upstream is STALE
-    // before any eager recompute. The asserted bounds below match the
-    // Phase 2 baseline and the cellx-fix structural intent. See
-    // build-manifest deviation #1 for the rationale.
+    // Under the new two-phase mark/propagate scheduler (.team/phase-2-5/
+    // cellx-structural-rewrite-spec.md §5.4), the diamond glitch is
+    // structurally eliminated: phase-1 marks every reachable node once
+    // (NOTIFIED dedup), phase-2 settles computeds with effect subs in
+    // visited order so all upstream is fresh before any equality check
+    // fires, phase-3 runs effects whose MARKED bit survived. Counts
+    // tighten from the wip's `≤2 / ≤3 / ≤5` ranges to exact `===` values.
     const [n, setN] = signal(0)
     const evals = { l1a: 0, l1b: 0, l2a: 0, l2b: 0 }
     const l1a = computed(() => {
@@ -256,25 +246,166 @@ describe('computed', () => {
     // n=0 → l1a=1, l1b=2, l2a=3, l2b=2, observed = 5.
     expect(observed).toBe(5)
 
-    // Write to n. The Phase 2 baseline for this shape is l1*=2, l2*=3,
-    // effectRuns=5. The fix must not regress these bounds and must
-    // produce a correct final value.
+    // Write to n. The new design produces exactly {l1*=2, l2*=2,
+    // effectRuns=2} — no glitch storm. (Counts include the construction
+    // run + the post-write run.)
     setN(10)
-    expect(evals.l1a).toBeLessThanOrEqual(2)
-    expect(evals.l1b).toBeLessThanOrEqual(2)
-    expect(evals.l2a).toBeLessThanOrEqual(3)
-    expect(evals.l2b).toBeLessThanOrEqual(3)
-    expect(effectRuns).toBeLessThanOrEqual(5)
-    // Each computed must have run at least once after the write (proves
-    // the notify cascade reached every node).
-    expect(evals.l1a).toBeGreaterThanOrEqual(2)
-    expect(evals.l1b).toBeGreaterThanOrEqual(2)
-    expect(evals.l2a).toBeGreaterThanOrEqual(2)
-    expect(evals.l2b).toBeGreaterThanOrEqual(2)
-    expect(effectRuns).toBeGreaterThanOrEqual(2)
+    expect(evals.l1a).toBe(2)
+    expect(evals.l1b).toBe(2)
+    expect(evals.l2a).toBe(2)
+    expect(evals.l2b).toBe(2)
+    expect(effectRuns).toBe(2)
     // n=10 → l1a=11, l1b=12, l2a=23, l2b=132, observed = 155.
-    // This is the correctness invariant — final value must converge.
     expect(observed).toBe(155)
+  })
+
+  it('cellx 4×4 diamond: exactly 17 body executions per signal write', () => {
+    // Mirrors .team/phase-2-5/scratch/cellx-counter.ts as a unit test.
+    // Spec §5.3 — binding diamond-glitch-absence regression check.
+    const counters = {
+      l1: [0, 0, 0, 0],
+      l2: [0, 0, 0, 0],
+      l3: [0, 0, 0, 0],
+      l4: [0, 0, 0, 0],
+      eff: 0,
+    }
+    const [src, setSrc] = signal(0)
+    const l1 = [0, 1, 2, 3].map((i) =>
+      computed(() => {
+        counters.l1[i]++
+        return src() + i
+      }),
+    )
+    const l2 = [
+      computed(() => {
+        counters.l2[0]++
+        return l1[0]() + l1[1]()
+      }),
+      computed(() => {
+        counters.l2[1]++
+        return l1[1]() + l1[2]()
+      }),
+      computed(() => {
+        counters.l2[2]++
+        return l1[2]() + l1[3]()
+      }),
+      computed(() => {
+        counters.l2[3]++
+        return l1[3]() + l1[0]()
+      }),
+    ]
+    const l3 = [
+      computed(() => {
+        counters.l3[0]++
+        return l2[0]() + l2[1]()
+      }),
+      computed(() => {
+        counters.l3[1]++
+        return l2[1]() + l2[2]()
+      }),
+      computed(() => {
+        counters.l3[2]++
+        return l2[2]() + l2[3]()
+      }),
+      computed(() => {
+        counters.l3[3]++
+        return l2[3]() + l2[0]()
+      }),
+    ]
+    const l4 = [
+      computed(() => {
+        counters.l4[0]++
+        return l3[0]() + l3[1]()
+      }),
+      computed(() => {
+        counters.l4[1]++
+        return l3[1]() + l3[2]()
+      }),
+      computed(() => {
+        counters.l4[2]++
+        return l3[2]() + l3[3]()
+      }),
+      computed(() => {
+        counters.l4[3]++
+        return l3[3]() + l3[0]()
+      }),
+    ]
+    let sink = 0
+    effect(() => {
+      counters.eff++
+      sink = l4[0]() + l4[1]() + l4[2]() + l4[3]()
+    })
+    // Reset post-construction.
+    counters.l1 = [0, 0, 0, 0]
+    counters.l2 = [0, 0, 0, 0]
+    counters.l3 = [0, 0, 0, 0]
+    counters.l4 = [0, 0, 0, 0]
+    counters.eff = 0
+    setSrc(1)
+    // Exactly 1 body execution per computed; effect runs exactly once.
+    for (let i = 0; i < 4; i++) {
+      expect(counters.l1[i]).toBe(1)
+      expect(counters.l2[i]).toBe(1)
+      expect(counters.l3[i]).toBe(1)
+      expect(counters.l4[i]).toBe(1)
+    }
+    expect(counters.eff).toBe(1)
+    // Sink converged (acts as a touch-test on `sink` so it isn't
+    // dead-code-eliminated by V8).
+    expect(typeof sink).toBe('number')
+  })
+
+  it('NOTIFIED dedup: a write reaching the same computed via multiple paths only marks it once', () => {
+    // Two-parent diamond: src → a, src → b; both → c → effect.
+    // Without NOTIFIED dedup, c would be marked twice and (under the wip
+    // eager design) recomputed twice. The new design caps it at once.
+    const [src, setSrc] = signal(0)
+    let aEvals = 0
+    let bEvals = 0
+    let cEvals = 0
+    let effRuns = 0
+    const a = computed(() => {
+      aEvals++
+      return src() + 1
+    })
+    const b = computed(() => {
+      bEvals++
+      return src() + 2
+    })
+    const c = computed(() => {
+      cEvals++
+      return a() + b()
+    })
+    effect(() => {
+      effRuns++
+      c()
+    })
+    expect(aEvals).toBe(1)
+    expect(bEvals).toBe(1)
+    expect(cEvals).toBe(1)
+    expect(effRuns).toBe(1)
+    setSrc(10)
+    expect(aEvals).toBe(2)
+    expect(bEvals).toBe(2)
+    expect(cEvals).toBe(2) // exactly once, not twice
+    expect(effRuns).toBe(2)
+  })
+
+  it('effect dedup: two cascades reaching the same effect run it once', () => {
+    // Two computeds that both reach the same effect.
+    const [src, setSrc] = signal(0)
+    let effRuns = 0
+    const a = computed(() => src() + 1)
+    const b = computed(() => src() + 2)
+    effect(() => {
+      effRuns++
+      a()
+      b()
+    })
+    expect(effRuns).toBe(1)
+    setSrc(5)
+    // Effect is reached via a-cascade AND b-cascade; QUEUED dedup runs once.
+    expect(effRuns).toBe(2)
   })
 
   it('mixed subs: computed with both effect and computed subs takes eager path', () => {
