@@ -581,7 +581,7 @@ export { SignalError, SignalCircularError } from './errors.ts'
 | 5 | `tsconfig.base.json` adds `allowImportingTsExtensions: true` | Scout R-T2 | One-line fix vs. many-file rewrite |
 | 6 | New Task 11.4 (batch tests) and Task 11.5 (CI re-enable) | This spec | Plan didn't cover batch (deferred) or the CI un-comment (implicit) |
 | 7 | `Subscriber` carries a packed `flags: number` instead of separate booleans | Architect (Decision 2B) | Saves ~30 B gz across Effect and Computed node literals; tightens the size budget margin |
-| 8 | `ComputedOptions<T>` exists with `equals` field | Architect (Decision 2B) | Enables suppressing downstream cascades when recomputed value equals previous; ~20 B gz; matches plan's signal `equals` posture for a 7-byte API consistency win |
+| 8 | `ComputedOptions<T>` exists with `equals` field | Architect (Decision 2B) | Wired through to runtime cascade-suppression — see §1.3 for behavior |
 | 9 | `peekCurrentObserver`, `setCurrentObserver`, `Subscriber`, batch internals all `/** @internal */` and never re-exported from `index.ts` | Scout R-A3 | Encapsulation; no accidental cross-package coupling |
 | 10 | fast-check property tests run with `numRuns: 50` (not default 100) | Scout R-X2 | Windows CI startup latency; 50 runs are sufficient signal at our shrink-tree depth |
 | 11 | `batch` does not return the inner closure value (signature is `void`, not `<T>(fn: () => T): T`) | Architect (Decision 2B) | Saves ~5 B gz; matches Preact; closure capture is the idiomatic workaround |

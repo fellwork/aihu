@@ -93,4 +93,85 @@ describe('computed', () => {
     expect(innerEvals).toBe(2)
     expect(outerEvals).toBe(2)
   })
+
+  it('cascade suppressed on equal recompute (default Object.is)', () => {
+    // Computed yields the same value (parity bit) for two distinct dep
+    // values: 0 and 2 both produce 0. Default equals=Object.is should
+    // suppress the cascade so the downstream effect does not re-run.
+    const [n, setN] = signal(0)
+    const parity = computed(() => n() % 2)
+    let runs = 0
+    let observed = -1
+    effect(() => {
+      observed = parity()
+      runs++
+    })
+    expect(runs).toBe(1)
+    expect(observed).toBe(0)
+    setN(2) // n%2 still 0 — equal recompute, cascade suppressed
+    expect(runs).toBe(1)
+    expect(observed).toBe(0)
+    setN(4) // still 0 — still suppressed
+    expect(runs).toBe(1)
+  })
+
+  it('cascade fires on unequal recompute', () => {
+    // Same shape as the suppression test, but writes that produce a
+    // different parity must fire the downstream effect.
+    const [n, setN] = signal(0)
+    const parity = computed(() => n() % 2)
+    let runs = 0
+    let observed = -1
+    effect(() => {
+      observed = parity()
+      runs++
+    })
+    expect(runs).toBe(1)
+    setN(1) // 1 ≠ 0 — cascade fires
+    expect(runs).toBe(2)
+    expect(observed).toBe(1)
+    setN(3) // 3%2=1 — equal to cached 1, suppressed
+    expect(runs).toBe(2)
+    setN(4) // 4%2=0 — different again
+    expect(runs).toBe(3)
+    expect(observed).toBe(0)
+  })
+
+  it('equals: false always cascades, even on identical recomputed value', () => {
+    const [n, setN] = signal(0)
+    // Even though the recomputed value is identical, equals: false means
+    // "never short-circuit" — every dep change cascades.
+    const c = computed(() => n() % 2, { equals: false })
+    let runs = 0
+    effect(() => {
+      c()
+      runs++
+    })
+    expect(runs).toBe(1)
+    setN(2) // n%2 still 0 — but equals:false forces cascade
+    expect(runs).toBe(2)
+    setN(4) // still 0 — still forced
+    expect(runs).toBe(3)
+  })
+
+  it('custom comparator gates cascade', () => {
+    // Comparator that treats values as "equal" when their integer parts
+    // match (so 1.1 and 1.9 are equal, but 1.9 and 2.0 are not).
+    const sameInt = (a: number, b: number) => Math.trunc(a) === Math.trunc(b)
+    const [n, setN] = signal(1.1)
+    const c = computed(() => n(), { equals: sameInt })
+    let runs = 0
+    let observed = -1
+    effect(() => {
+      observed = c()
+      runs++
+    })
+    expect(runs).toBe(1)
+    expect(observed).toBe(1.1)
+    setN(1.9) // sameInt(1.1, 1.9) → true; cascade suppressed
+    expect(runs).toBe(1)
+    setN(2.0) // sameInt(1.9, 2.0) → false; cascade fires
+    expect(runs).toBe(2)
+    expect(observed).toBe(2.0)
+  })
 })
