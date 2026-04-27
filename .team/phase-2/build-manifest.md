@@ -24,7 +24,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 7 — `signal()`
 
-**Commit:** (pending)
+**Commit:** `c04941e`
 **Files:**
 - `packages/signals/src/signal.ts` — created — `signal<T>` cell, `Subscriber` interface with `flags` bitfield (RUNNING/DISPOSED/QUEUED/STALE), `setCurrentObserver`/`peekCurrentObserver` (`/** @internal */`), default equality `Object.is`, `equals: false` opt-out
 - `packages/signals/tests/signal.test.ts` — created — 5 unit tests (read, set, updater, Object.is short-circuit, equals:false no-throw)
@@ -36,4 +36,21 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 251 B gz
 - `bun run size` — PASS, 251 B / 1024 B budget
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 8 — `effect()`
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/effect.ts` — created — `effect(fn): Dispose` per spec §1.2; sync re-run on dep notify; idempotent dispose via `flags |= DISPOSED`
+- `packages/signals/tests/effect.test.ts` — created — 6 unit tests (init run, re-run, eq short-circuit, equals:false re-run, dispose+idempotent, fan-out)
+- `packages/signals/src/index.ts` — modified — re-exports `effect`, types `Dispose`/`EffectFn`
+
+**Verification:**
+- Tests: 11 passing (2 files)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 336 B gz
+- `bun run size` — PASS, 336 B / 1024 B budget
 - `bunx biome ci .` — PASS
