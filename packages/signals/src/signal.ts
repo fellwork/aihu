@@ -10,7 +10,7 @@ import { SignalCircularError } from './errors.ts'
 /** @internal */
 export interface Subscriber {
   notify(): void
-  /** @internal — packed bitfield (RUNNING | DISPOSED | QUEUED | STALE) */
+  /** @internal — packed bitfield (RUNNING | DISPOSED | QUEUED | STALE | EFFECT) */
   flags: number
 }
 
@@ -18,6 +18,7 @@ export interface Subscriber {
 /** @internal */ export const DISPOSED = 0x2
 /** @internal */ export const QUEUED = 0x4
 /** @internal */ export const STALE = 0x8
+/** @internal */ export const EFFECT = 0x10
 
 /** @internal — module-level current observer for dependency capture. */
 let currentObserver: Subscriber | null = null

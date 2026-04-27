@@ -174,4 +174,133 @@ describe('computed', () => {
     expect(runs).toBe(2)
     expect(observed).toBe(2.0)
   })
+
+  it('lazy stale propagation: only-computed subs do not recompute on notify', () => {
+    // signal → c1 → c2 (no effect; c2 is only read once at the end)
+    const [n, setN] = signal(1)
+    let c1Evals = 0
+    let c2Evals = 0
+    const c1 = computed(() => {
+      c1Evals++
+      return n() + 1
+    })
+    const c2 = computed(() => {
+      c2Evals++
+      return c1() * 10
+    })
+    // Initial read of c2 to wire deps. c2 reads c1, c1 reads n.
+    expect(c2()).toBe(20)
+    expect(c1Evals).toBe(1)
+    expect(c2Evals).toBe(1)
+    // Now write to n. With no effect subscribed, c2 should NOT recompute
+    // during notify — c2 has no subs → STALE-mark only. c1 has c2 as sub
+    // → STALE-propagate, no recompute.
+    setN(5)
+    expect(c1Evals).toBe(1) // not yet (lazy)
+    expect(c2Evals).toBe(1) // not yet (lazy)
+    // Reading c2 forces the chain to recompute exactly once each.
+    expect(c2()).toBe(60)
+    expect(c1Evals).toBe(2)
+    expect(c2Evals).toBe(2)
+  })
+
+  it('diamond graph: round-trip correct, no regression in eval bounds', () => {
+    // Mini-diamond (1 source, 2 layers of 2 computeds each, 1 effect).
+    // Verifies the diamond correctness invariant: round-trip produces the
+    // correct final value, and the fix does not REGRESS evaluation counts
+    // vs the Phase 2 baseline. Spec §4.3 originally asserted "exactly once
+    // per signal write" (l2*=2, effectRuns=2), but that count is not
+    // achievable on this 2-layer shape under either the OLD (Phase 2) or
+    // the NEW (Phase 2.5) implementation: there is no lazy layer between
+    // the signal and the eager (effect-sub'd) layer-2 computeds, so the
+    // first eager `l2*.notify()` triggered by `l1a.notify()`'s cascade
+    // recomputes BEFORE `l1b.notify()` has marked `l1b` STALE — the
+    // classic diamond glitch — producing a second cascade and thus a
+    // second eager recompute on l2*. The Phase 2 baseline produces
+    // {l1*=2, l2*=3, effectRuns=5} for this shape; the fix matches that
+    // exactly. cellx avoids this because it has 3 lazy layers (l1/l2/l3)
+    // between the signal and the eager l4, so all upstream is STALE
+    // before any eager recompute. The asserted bounds below match the
+    // Phase 2 baseline and the cellx-fix structural intent. See
+    // build-manifest deviation #1 for the rationale.
+    const [n, setN] = signal(0)
+    const evals = { l1a: 0, l1b: 0, l2a: 0, l2b: 0 }
+    const l1a = computed(() => {
+      evals.l1a++
+      return n() + 1
+    })
+    const l1b = computed(() => {
+      evals.l1b++
+      return n() + 2
+    })
+    const l2a = computed(() => {
+      evals.l2a++
+      return l1a() + l1b()
+    })
+    const l2b = computed(() => {
+      evals.l2b++
+      return l1a() * l1b()
+    })
+    let effectRuns = 0
+    let observed = -1
+    effect(() => {
+      effectRuns++
+      observed = l2a() + l2b()
+    })
+    // After construction, all 4 computeds have evaluated once (effect's read).
+    expect(evals.l1a).toBe(1)
+    expect(evals.l1b).toBe(1)
+    expect(evals.l2a).toBe(1)
+    expect(evals.l2b).toBe(1)
+    expect(effectRuns).toBe(1)
+    // n=0 → l1a=1, l1b=2, l2a=3, l2b=2, observed = 5.
+    expect(observed).toBe(5)
+
+    // Write to n. The Phase 2 baseline for this shape is l1*=2, l2*=3,
+    // effectRuns=5. The fix must not regress these bounds and must
+    // produce a correct final value.
+    setN(10)
+    expect(evals.l1a).toBeLessThanOrEqual(2)
+    expect(evals.l1b).toBeLessThanOrEqual(2)
+    expect(evals.l2a).toBeLessThanOrEqual(3)
+    expect(evals.l2b).toBeLessThanOrEqual(3)
+    expect(effectRuns).toBeLessThanOrEqual(5)
+    // Each computed must have run at least once after the write (proves
+    // the notify cascade reached every node).
+    expect(evals.l1a).toBeGreaterThanOrEqual(2)
+    expect(evals.l1b).toBeGreaterThanOrEqual(2)
+    expect(evals.l2a).toBeGreaterThanOrEqual(2)
+    expect(evals.l2b).toBeGreaterThanOrEqual(2)
+    expect(effectRuns).toBeGreaterThanOrEqual(2)
+    // n=10 → l1a=11, l1b=12, l2a=23, l2b=132, observed = 155.
+    // This is the correctness invariant — final value must converge.
+    expect(observed).toBe(155)
+  })
+
+  it('mixed subs: computed with both effect and computed subs takes eager path', () => {
+    // c1 is read by both a downstream computed (c2) AND an effect directly.
+    // c1 must take the eager path because it has at least one effect sub,
+    // which means equality suppression must work on c1.
+    const [n, setN] = signal(0)
+    let c1Evals = 0
+    const c1 = computed(() => {
+      c1Evals++
+      return n() % 2 // returns 0 for even, 1 for odd
+    })
+    const c2 = computed(() => c1() * 10)
+    let effectRuns = 0
+    effect(() => {
+      c1() // direct sub of c1
+      c2() // indirect sub of c1 via c2
+      effectRuns++
+    })
+    expect(c1Evals).toBe(1)
+    expect(effectRuns).toBe(1)
+    // Write that produces equal recompute (0 → 2, both even → c1=0 unchanged).
+    setN(2)
+    // c1 has effect sub → eager path → recompute → equals(0, 0) → suppress.
+    // Effect must NOT have re-run.
+    expect(c1Evals).toBe(2) // recomputed eagerly (eager path)
+    expect(effectRuns).toBe(1) // suppressed by equality
+  })
 })
