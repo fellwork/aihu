@@ -115,3 +115,28 @@ Per spec §1.2 + §5 (Task 14). `branch(tag, attrs?, children?)` lands as a thin
 - `bunx biome ci .` — PASS (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
 
 ---
+
+## Task 15 — AttrMap binding (`_applyAttrs` + `_setAttrOrProp`)
+
+Per spec §1.2 + §2.4 + §2.7 + §5 (Task 15). The internal AttrMap binding lands as `attrs.ts`: `_applyAttrs` walks each `[key, value]` entry and dispatches in three-path precedence order (event handler → reactive signal → static primitive); `_setAttrOrProp` resolves the property-vs-attribute split via `key in el` per spec §2.4. Path keys per §2.7 are constructed as `<pathBase>.attr:<key>` so sub-projects #6 (resumable hydration) and #7 (agent live-binding) can address subscriptions later.
+
+**Option C (dependency injection) for `mountEffect`.** `_applyAttrs` accepts `mountEffect` as a function parameter rather than importing from `mount.ts` (which doesn't exist yet — Task 16). This keeps the module testable in isolation against a spy and avoids any forward-reference / circular-import shape between `attrs.ts` and `mount.ts`. The signature `MountEffectFn = (disposers, fn, path) => void` is also exported as `/** @internal */`. Task 16's `_materialize` will pass the real `_mountEffect` through.
+
+**Mount-coupled tests deferred:** Spec §4 lists 6 tests; the signal-firing test (#4: signal write updates `getAttribute`) requires the real `_mountEffect` and is deferred to Task 16's `mount.test.ts`. The directly-testable subset (9 tests) covers `_setAttrOrProp`'s three-path mechanics (attr write, property write, `String()` coercion) plus `_applyAttrs`'s three detection paths (event listener + dispatch verification, reactive path's mountEffect invocation + path-key shape, static-primitive path, on*-vs-static precedence, null no-op, multi-key path-suffix construction).
+
+**Index unchanged.** `_applyAttrs` and `_setAttrOrProp` are `/** @internal */` and never re-exported. Per Learning #13 only public symbols re-export. Confirmed `git diff packages/arbor/src/index.ts` is empty for this task. The `AttrMap` and `EventHandler` type re-exports listed in spec §5 already shipped in Task 12's index.
+
+**Commit:** `e407a76`
+**Files:**
+- `packages/arbor/src/attrs.ts` — created — `_applyAttrs(el, attrs, disposers, pathBase, mountEffect)` + `_setAttrOrProp(el, key, value)` + exported `MountEffectFn` type alias; ~108 lines (≈ 50 SLOC + JSDoc), well under the 150-line cap.
+- `packages/arbor/tests/attrs.test.ts` — created — 9 unit tests across two `describe` blocks. `_setAttrOrProp` block: static attr write, property assignment for `disabled`, `String()` coercion of numbers. `_applyAttrs` block: event handler registration + dispatch, static-primitive path, reactive path with `<pathBase>.attr:<key>` path-key verification, `on*`-takes-precedence-over-static corner case, null-attrs no-op, multi-key path-suffix construction.
+
+**Verification:**
+- `bun run test packages/arbor/tests/attrs.test.ts` — PASS, **9/9** (failed before `attrs.ts` existed — TDD confirmed)
+- `bun run test` — PASS, **66/66** across 10 files (was 57/57 across 9; +9 attrs tests)
+- `bun run typecheck` — PASS (`arbor:typecheck` 2.1s after `as never` casts on the fake-Signal test fixtures to bypass `Signal<unknown>`'s strict tuple variance)
+- `bun run build` — PASS, `arbor/dist/index.js` 4.13 kB raw / **285 B gz** — UNCHANGED from Task 14, confirming `attrs.ts` is fully tree-shaken from the public bundle (it has no consumer until `materialize.ts` lands in Task 16)
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 285 B / 2048 B** (1.76 kB headroom for Tasks 16–18)
+- `bunx biome ci .` — PASS, exit 0 (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
+
+---
