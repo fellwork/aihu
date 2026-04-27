@@ -76,7 +76,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 10 — `$state()`
 
-**Commit:** (pending)
+**Commit:** `93ff722`
 **Files:**
 - `packages/signals/src/state.ts` — created — `$state<T>(initial)` returns `{ value: T }` accessor over a single underlying `signal()` cell per spec §1.4. Same tracking, equality, notify path as the underlying signal.
 - `packages/signals/tests/state.test.ts` — created — 4 unit tests (read .value, write .value, track in effect, Object.is short-circuit)
@@ -87,4 +87,23 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 451 B gz
 - `bun run size` — PASS, 451 B / 1024 B budget
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 11 — cycle detection + property tests
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/effect.ts` — modified — `notify()` throws `SignalCircularError` if `flags & RUNNING`
+- `packages/signals/src/computed.ts` — modified — `notify()` and `read()` both throw `SignalCircularError` on RUNNING re-entry
+- `packages/signals/tests/effect.test.ts` — modified — +1 cycle test (direct self-write inside effect)
+- `packages/signals/tests/computed.test.ts` — modified — +1 cycle test (computed body writes to its dep)
+- `packages/signals/tests/properties.test.ts` — created — 3 fast-check properties (`numRuns: 50` global) + 1 sanity check: last-write-wins, effect runs = 1 + distinct consecutive writes, computed = f(signal)
+
+**Verification:**
+- Tests: 25 passing (5 files; 21 unit + 3 property + 1 sanity)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 466 B gz
+- `bun run size` — PASS, 466 B / 1024 B budget
 - `bunx biome ci .` — PASS

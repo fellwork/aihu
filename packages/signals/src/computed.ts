@@ -1,3 +1,4 @@
+import { SignalCircularError } from './errors.ts'
 import {
   DISPOSED,
   peekCurrentObserver,
@@ -23,6 +24,7 @@ export function computed<T>(fn: () => T, _options?: ComputedOptions<T>): Read<T>
     flags: STALE,
     notify() {
       if (node.flags & DISPOSED) return
+      if (node.flags & RUNNING) throw new SignalCircularError()
       // If already stale, downstream was already notified on the prior write —
       // suppress the redundant cascade.
       if (node.flags & STALE) return
@@ -34,6 +36,8 @@ export function computed<T>(fn: () => T, _options?: ComputedOptions<T>): Read<T>
   }
 
   const read: Read<T> = () => {
+    // Re-entry while running is a synchronous cycle.
+    if (node.flags & RUNNING) throw new SignalCircularError()
     // Forward observation: register the calling observer as a sub of this computed.
     const observer = peekCurrentObserver()
     if (observer !== null) subs.add(observer)

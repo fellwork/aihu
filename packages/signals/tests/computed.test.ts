@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computed } from '../src/computed.ts'
 import { effect } from '../src/effect.ts'
+import { SignalCircularError } from '../src/errors.ts'
 import { signal } from '../src/signal.ts'
 
 describe('computed', () => {
@@ -43,6 +44,24 @@ describe('computed', () => {
     setN(4)
     expect(observed).toBe(8)
     expect(runs).toBe(2)
+  })
+
+  it('indirect cycle through a computed throws SignalCircularError', () => {
+    // A computed that, while running, writes to a signal it (indirectly) reads
+    // through an effect that depends on the computed. The write triggers the
+    // effect's notify, which calls the computed's read, which is currently
+    // RUNNING — cycle detected.
+    const [n, setN] = signal(0)
+    expect(() => {
+      const c = computed(() => {
+        // Reads n, then writes back to it — re-entrant via the dep chain.
+        const v = n()
+        setN(v + 1)
+        return v
+      })
+      // Force evaluation to surface the cycle synchronously.
+      c()
+    }).toThrow(SignalCircularError)
   })
 
   it('chained computeds stay lazy (outer recomputes only on read after dep change)', () => {

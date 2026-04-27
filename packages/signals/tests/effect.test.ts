@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { effect } from '../src/effect.ts'
+import { SignalCircularError } from '../src/errors.ts'
 import { signal } from '../src/signal.ts'
 
 describe('effect', () => {
@@ -69,6 +70,17 @@ describe('effect', () => {
     expect(() => dispose()).not.toThrow()
     setN(3)
     expect(runs).toBe(2)
+  })
+
+  it('direct self-write inside an effect throws SignalCircularError', () => {
+    const [n, setN] = signal(0)
+    expect(() => {
+      effect(() => {
+        // Reads n() (creating the dep), then writes — a re-entrant cycle.
+        const v = n()
+        setN(v + 1)
+      })
+    }).toThrow(SignalCircularError)
   })
 
   it('multiple effects on one signal each fire (fan-out)', () => {

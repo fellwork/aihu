@@ -1,3 +1,4 @@
+import { SignalCircularError } from './errors.ts'
 import { DISPOSED, RUNNING, type Subscriber, setCurrentObserver } from './signal.ts'
 
 export type EffectFn = () => void
@@ -8,6 +9,7 @@ export function effect(fn: EffectFn): Dispose {
     flags: 0,
     notify() {
       if (node.flags & DISPOSED) return
+      if (node.flags & RUNNING) throw new SignalCircularError()
       run()
     },
   }
