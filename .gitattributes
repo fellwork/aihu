@@ -1,0 +1,11 @@
+# Normalize line endings on commit; check out with the platform's native eol.
+# Prevents CRLF artifacts on Windows that bit Phase 2 (see .team/learnings.md).
+* text=auto eol=lf
+
+# Lockfiles and binary blobs stay verbatim.
+bun.lock binary
+*.png binary
+*.ico binary
+*.jpg binary
+*.gif binary
+*.webp binary
