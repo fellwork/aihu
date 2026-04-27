@@ -144,9 +144,44 @@ Append-only log of files created/modified per task, with verification results.
 
 ---
 
-## Final summary — Phase 2 complete
+## Task 12 — Follow-up 1: wire ComputedOptions.equals through to cascade suppression
 
-**Commits added on top of plan-a-phase-2 (since rebase from main):** 8
+Adjudicated from Verifier-code Finding 3 + DX Verifier Friction #5. Spec §1.3 prose says `equals` gates downstream cascade on equal recomputes; Deviation 8 said "for API symmetry" — Team Lead resolved in favor of §1.3 prose.
+
+**Commit:** `8d535a8`
+**Files:**
+- `packages/signals/src/computed.ts` — modified — wired `options.equals` through to runtime: notify() with no subs stays lazy (sets STALE only); notify() with subs eagerly recomputes, compares new vs cached value via the configured comparator, suppresses cascade when equal, propagates when different. equals resolver mirrors signal()'s pattern: `undefined` → `Object.is`, `false` → never short-circuit, function → custom comparator. Dropped the leading underscore on `_options` (now used). Implementation chose Option X (re-think when STALE cascades) over Option Y (version counters) per brief recommendation — no `Subscriber` schema change required.
+- `packages/signals/tests/computed.test.ts` — modified — +4 tests (5 → 9): cascade suppressed on equal recompute (default Object.is), cascade fires on unequal recompute, `equals: false` always cascades, custom comparator gates cascade.
+- `.team/phase-2/spec-signals.md` — modified — Deviation 8 rationale updated: "for API symmetry" → "wired through to runtime cascade-suppression — see §1.3 for behavior".
+
+**Verification:**
+- Tests: 36 passing (6 files; 31 unit + 4 property + 1 sanity)
+- `moon run :typecheck` — PASS
+- `moon run :build` — PASS, `dist/index.js` 698 B gz (was 629 B; +69 B)
+- `bun run size` — PASS, 698 B / 1024 B budget (326 B headroom)
+- `bunx biome ci .` — PASS
+- Coverage: computed.ts branch 87.5% (was 78.57%); 3 defensive lines remain uncovered (DISPOSED bail, already-STALE re-notify return, RUNNING re-entry on direct read — same set as before, all pre-existing per Verifier Finding 1)
+
+---
+
+## Task 13 — Follow-up 2: README
+
+Adjudicated from DX Verifier §5 (recommended starter).
+
+**Commit:** `cada859`
+**Files:**
+- `packages/signals/README.md` — created — 79 lines, 6 sections per dx-report.md §5: hook, hello counter, computed, batch, $state for Vue users, cross-library cheat sheet, v0 limitations. Dropped the bullet about `ComputedOptions.equals` being reserved (no longer accurate after Task 12).
+
+**Verification:**
+- `bunx biome ci .` — PASS (still 22 files; biome ignores .md)
+- Eyeballed the rendered Markdown: code blocks closed, import paths match the public API in `src/index.ts`, cross-library row for `computed` reads "(lazy, call-shape)".
+- No `package.json` change needed: npm/bun ship README + LICENSE + package.json by default regardless of `files: ["dist"]`.
+
+---
+
+## Final summary — Phase 2 complete (with follow-ups)
+
+**Commits added on top of plan-a-phase-2 (since rebase from main):** 11
 
 | # | Commit | Subject |
 |---|---|---|
@@ -158,12 +193,15 @@ Append-only log of files created/modified per task, with verification results.
 | 6 | `e047293` | feat(signals): cycle detection + property tests |
 | 7 | `2bb8ae3` | feat(signals): batch() |
 | 8 | `63d02d1` | ci(plan-a): re-enable typecheck/build/size |
+| 9 | `257c2b3` | docs(phase-2): finalize build-manifest with summary, coverage, deviations |
+| 10 | `8d535a8` | feat(signals): wire ComputedOptions.equals through to cascade suppression |
+| 11 | `cada859` | docs(signals): add README with hello-world examples and cross-library cheat sheet |
 
-**Tests:** 32 passing across 6 files (27 unit + 4 fast-check property + 1 sanity)
-**Coverage:** 100% statements / 95% branch / 100% functions / 100% lines
-**Build:** `dist/index.js` 4,426 B raw, **629 B gzipped** vs. **1024 B budget** (395 B headroom)
-**Public API surface:** 14 exports total (7 value + 7 type-only) per spec §1
-**Deviations from spec:** zero substantive deviations. One out-of-scope tooling fix (Moon 2.x `.moon/tasks.yml` migration to `.moon/tasks/tasks.yml` directory + `bunx`-prefixed commands) was applied as part of Task 6 corrections; rationale documented in `builder-blockers.md` §1.
+**Tests:** 36 passing across 6 files (31 unit + 4 fast-check property + 1 sanity)
+**Coverage:** 100% statements / 95.71% branch / 100% functions / 100% lines (computed.ts branch 87.5%)
+**Build:** `dist/index.js` raw size grew with the equals wiring; **698 B gzipped** vs. **1024 B budget** (326 B headroom, 31.8%)
+**Public API surface:** 14 value/type exports + `ComputedOptions` per spec Deviation 8 = 15 total
+**Deviations from spec:** zero substantive deviations. One out-of-scope tooling fix (Moon 2.x `.moon/tasks.yml` migration to `.moon/tasks/tasks.yml` directory + `bunx`-prefixed commands) was applied as part of Task 6 corrections; rationale documented in `builder-blockers.md` §1. Spec internal inconsistency around `ComputedOptions.equals` resolved in Task 12 (Follow-up 1) by wiring through to runtime per spec §1.3 prose.
 
 **CI status:** The `.github/workflows/plan-a.yml` workflow only triggers on `push: [main]` and `pull_request: [main]` — pushes to `plan-a-phase-2` do not trigger CI. CI will run when a PR from `plan-a-phase-2` → `main` is opened (Verifier / Team Lead's responsibility per the role contract). All four CI gates (`bun run typecheck`, `bun run test --coverage`, `bun run build`, `bun run size`) plus `bunx biome ci .` PASS locally on the worktree.
 
