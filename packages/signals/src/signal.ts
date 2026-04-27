@@ -1,3 +1,5 @@
+import { SignalCircularError } from './errors.ts'
+
 /**
  * Internal — never re-exported from index.ts.
  *
@@ -32,6 +34,54 @@ export function peekCurrentObserver(): Subscriber | null {
   return currentObserver
 }
 
+// --- batch internals ----------------------------------------------------
+//
+// Module-level batch state (spec §2). Re-exported as `/** @internal */` so
+// `batch.ts` can drive the depth + drain loop. Never re-exported from index.ts.
+
+/** @internal */ export const MAX_BATCH_ITERATIONS = 100
+
+/** @internal */ let batchDepth = 0
+/** @internal */ const batchQueue: Subscriber[] = []
+
+/** @internal */
+export function getBatchDepth(): number {
+  return batchDepth
+}
+
+/** @internal */
+export function enterBatch(): void {
+  batchDepth++
+}
+
+/** @internal */
+export function exitBatch(): void {
+  batchDepth--
+}
+
+/** @internal */
+export function drainBatch(): void {
+  let iterations = 0
+  while (batchQueue.length > 0) {
+    if (++iterations > MAX_BATCH_ITERATIONS) {
+      // Reset queue + flags so the system is recoverable post-throw, then bail.
+      for (const sub of batchQueue) sub.flags &= ~QUEUED
+      batchQueue.length = 0
+      throw new SignalCircularError()
+    }
+    const sub = batchQueue.shift() as Subscriber
+    sub.flags &= ~QUEUED
+    if (!(sub.flags & DISPOSED)) sub.notify()
+  }
+}
+
+/** @internal — append `sub` to the batch queue if not already queued. */
+function enqueueIfNeeded(sub: Subscriber): void {
+  if (sub.flags & QUEUED) return
+  sub.flags |= QUEUED
+  batchQueue.push(sub)
+}
+
 export type Read<T> = () => T
 export type Write<T> = (next: T | ((prev: T) => T)) => void
 export type Signal<T> = readonly [Read<T>, Write<T>]
@@ -62,8 +112,10 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     if (equals !== false && equals(value, resolved)) return
     value = resolved
     // Snapshot to avoid mutation during iteration if a sub disposes itself mid-notify.
-    for (const sub of [...subs]) {
-      sub.notify()
+    if (batchDepth > 0) {
+      for (const sub of [...subs]) enqueueIfNeeded(sub)
+    } else {
+      for (const sub of [...subs]) sub.notify()
     }
   }
 

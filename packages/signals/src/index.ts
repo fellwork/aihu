@@ -1,3 +1,4 @@
+export { batch } from './batch.ts'
 export type { ComputedOptions } from './computed.ts'
 export { computed } from './computed.ts'
 export type { Dispose, EffectFn } from './effect.ts'

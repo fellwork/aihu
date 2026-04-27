@@ -93,7 +93,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 11 — cycle detection + property tests
 
-**Commit:** (pending)
+**Commit:** `e047293`
 **Files:**
 - `packages/signals/src/effect.ts` — modified — `notify()` throws `SignalCircularError` if `flags & RUNNING`
 - `packages/signals/src/computed.ts` — modified — `notify()` and `read()` both throw `SignalCircularError` on RUNNING re-entry
@@ -106,4 +106,23 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 466 B gz
 - `bun run size` — PASS, 466 B / 1024 B budget
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 11.4 — `batch()`
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/signal.ts` — modified — added `batchDepth`, `batchQueue`, `MAX_BATCH_ITERATIONS`, and `getBatchDepth`/`enterBatch`/`exitBatch`/`drainBatch` (`/** @internal */`); switched `signal.write()` to enqueue via `enqueueIfNeeded` when `batchDepth > 0`; drain throws `SignalCircularError` (default message) on 100-iteration overflow per Team Lead adjudication B-A
+- `packages/signals/src/batch.ts` — created — public `batch(fn): void` per spec §1.5; outermost batch drains the queue on `fn` return (or throw), handles nesting via depth count
+- `packages/signals/src/index.ts` — modified — re-exports `batch`
+- `packages/signals/tests/batch.test.ts` — created — 6 unit tests (single batched write, N writes same signal, N writes N signals dedup, nested batch, effect-writes-during-flush extend the batch, pathological cycle → SignalCircularError)
+- `packages/signals/tests/properties.test.ts` — modified — +1 batch property (writes inside batch produce 1 init + 1 flush effect run, accounting for first-write Object.is short-circuit when all writes equal 0)
+
+**Verification:**
+- Tests: 32 passing (6 files; 27 unit + 4 property + 1 sanity)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 629 B gz
+- `bun run size` — PASS, 629 B / 1024 B budget (395 B headroom)
 - `bunx biome ci .` — PASS
