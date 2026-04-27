@@ -1,3 +1,5 @@
+export type { ComputedOptions } from './computed.ts'
+export { computed } from './computed.ts'
 export type { Dispose, EffectFn } from './effect.ts'
 export { effect } from './effect.ts'
 export { SignalCircularError, SignalError } from './errors.ts'

@@ -42,7 +42,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 8 — `effect()`
 
-**Commit:** (pending)
+**Commit:** `9a18460`
 **Files:**
 - `packages/signals/src/effect.ts` — created — `effect(fn): Dispose` per spec §1.2; sync re-run on dep notify; idempotent dispose via `flags |= DISPOSED`
 - `packages/signals/tests/effect.test.ts` — created — 6 unit tests (init run, re-run, eq short-circuit, equals:false re-run, dispose+idempotent, fan-out)
@@ -53,4 +53,21 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:typecheck` — PASS
 - `moon run signals:build` — PASS, `dist/index.js` 336 B gz
 - `bun run size` — PASS, 336 B / 1024 B budget
+- `bunx biome ci .` — PASS
+
+---
+
+## Task 9 — `computed()`
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/computed.ts` — created — `computed<T>(fn, options?)` returns `Read<T>` per spec §1.3; lazy STALE flag (initialized true so first read evaluates), forward observation via `peekCurrentObserver`, cascade via `subs` Set; `ComputedOptions<T>.equals` accepted on type, reserved for future cascade-suppression
+- `packages/signals/tests/computed.test.ts` — created — 4 unit tests (derived value, cached re-derive, downstream effect, chained-lazy)
+- `packages/signals/src/index.ts` — modified — re-exports `computed`, type `ComputedOptions`
+
+**Verification:**
+- Tests: 15 passing (3 files)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 419 B gz
+- `bun run size` — PASS, 419 B / 1024 B budget
 - `bunx biome ci .` — PASS
