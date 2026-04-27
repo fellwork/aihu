@@ -50,7 +50,7 @@ Per spec §1.1 (Team Lead Call 1). Authorized addition to `@scribe/signals` ahea
 
 Per spec §3.1 + §5 (Task 12 file-level change list). Establishes `@scribe/arbor` as a workspace package with build/typecheck/size gates wired through Moon + size-limit. Source surface lands now: `errors.ts` (ArborError class hierarchy), `types.ts` (public type aliases), `node.ts` (internal Branch/Leaf runtime constructors with shape-locked fields per §2.9 + frozen `EMPTY_CHILDREN`). Index re-exports only the errors and types — primitives (`branch`, `leaf`, `mount`, `when`, `each`) follow in Tasks 13–18.
 
-**Commit:** `<pending>`
+**Commit:** `99dfffb`
 **Files:**
 - `packages/arbor/package.json` — created — manifest mirroring signals' shape; dep on `@scribe/signals: workspace:*`; `scripts: { build, typecheck }`.
 - `packages/arbor/tsconfig.json` — created — extends `../../tsconfig.base.json`; `rootDir: "."`, `outDir: "dist"`, `noEmit: true`, explicit `lib: ["ES2022", "DOM", "DOM.Iterable"]` per spec §3.1 because arbor touches the DOM.
