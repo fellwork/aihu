@@ -131,7 +131,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 11.5 — re-enable CI
 
-**Commit:** (pending)
+**Commit:** `63d02d1`
 **Files:**
 - `.github/workflows/plan-a.yml` — modified — uncommented lines for `bun run typecheck`, `bun run build`, `bun run size`; removed the now-stale 3-line comment block that explained why those lines were disabled
 
@@ -141,3 +141,35 @@ Append-only log of files created/modified per task, with verification results.
 - `bun run build` — PASS
 - `bun run size` — PASS, 629 B / 1024 B
 - `bunx biome ci .` — PASS
+
+---
+
+## Final summary — Phase 2 complete
+
+**Commits added on top of plan-a-phase-2 (since rebase from main):** 8
+
+| # | Commit | Subject |
+|---|---|---|
+| 1 | `9094043` | chore(signals): Task 6 scaffold corrections |
+| 2 | `c04941e` | feat(signals): signal() primitive |
+| 3 | `9a18460` | feat(signals): effect() |
+| 4 | `539ab3b` | feat(signals): computed() |
+| 5 | `93ff722` | feat(signals): $state() |
+| 6 | `e047293` | feat(signals): cycle detection + property tests |
+| 7 | `2bb8ae3` | feat(signals): batch() |
+| 8 | `63d02d1` | ci(plan-a): re-enable typecheck/build/size |
+
+**Tests:** 32 passing across 6 files (27 unit + 4 fast-check property + 1 sanity)
+**Coverage:** 100% statements / 95% branch / 100% functions / 100% lines
+**Build:** `dist/index.js` 4,426 B raw, **629 B gzipped** vs. **1024 B budget** (395 B headroom)
+**Public API surface:** 14 exports total (7 value + 7 type-only) per spec §1
+**Deviations from spec:** zero substantive deviations. One out-of-scope tooling fix (Moon 2.x `.moon/tasks.yml` migration to `.moon/tasks/tasks.yml` directory + `bunx`-prefixed commands) was applied as part of Task 6 corrections; rationale documented in `builder-blockers.md` §1.
+
+**CI status:** The `.github/workflows/plan-a.yml` workflow only triggers on `push: [main]` and `pull_request: [main]` — pushes to `plan-a-phase-2` do not trigger CI. CI will run when a PR from `plan-a-phase-2` → `main` is opened (Verifier / Team Lead's responsibility per the role contract). All four CI gates (`bun run typecheck`, `bun run test --coverage`, `bun run build`, `bun run size`) plus `bunx biome ci .` PASS locally on the worktree.
+
+**For Verifier / DX-Verifier first look:**
+
+1. Verify `.moon/tasks.yml` → `.moon/tasks/tasks.yml` move was acceptable (out of original frozen scope but documented in `builder-blockers.md`). If undesired, the migration can be reverted and replaced with a different shape (e.g. dropping the Moon delegation in root `package.json` typecheck/build scripts).
+2. Computed.ts branch coverage 78.57% (3 lines uncovered): lines 26 (DISPOSED bail in notify), 30 (already-STALE re-notify return), 40 (RUNNING re-entry on read). The first two are defensive guards for paths the v0 tests don't reach (no public dispose for computed); the third is exercised by the cycle test indirectly. Verifier may want a coverage-only test for completeness.
+3. The IDE / VS Code TS server may flash TS5097 on `.ts` extension imports — that's a stale tsserver picking up the wrong tsconfig. `moon run signals:typecheck` and `bun run typecheck` both PASS, confirming the `allowImportingTsExtensions` in `tsconfig.base.json` is honored at the build-truth layer.
+4. The `core.autocrlf=true` setup on the original Phase 1 scaffold caused CRLF artifacts in working-tree files on Windows checkouts. I ran `bunx biome check --write .` once during Task 6 to normalize line endings. CI on Ubuntu runners is unaffected. Long-term, a `.gitattributes` with `* text=auto eol=lf` would prevent the issue.
