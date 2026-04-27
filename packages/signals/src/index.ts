@@ -1,1 +1,1 @@
-export { SignalError, SignalCircularError } from './errors.ts'
+export { SignalCircularError, SignalError } from './errors.ts'

@@ -13,7 +13,7 @@ fileGroups:
 
 tasks:
   build:
-    command: "rolldown -c"
+    command: "bunx rolldown -c"
     inputs:
       - "@group(sources)"
       - "@group(configs)"
@@ -24,7 +24,7 @@ tasks:
       - "^:build"
 
   typecheck:
-    command: "tsc --noEmit"
+    command: "bunx tsc --noEmit"
     inputs:
       - "@group(sources)"
       - "@group(tests)"
