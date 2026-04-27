@@ -6,7 +6,7 @@ Append-only log of files created/modified per task, with verification results.
 
 ## Task 6 — scaffold corrections
 
-**Commit:** (pending)
+**Commit:** `9094043`
 **Files:**
 - `tsconfig.base.json` — modified — added `"allowImportingTsExtensions": true` (R-T2 fix per spec §3.2)
 - `packages/signals/moon.yml` — modified — `type: library` → `layer: library` (R-T1 fix per spec §3.1)
@@ -19,3 +19,21 @@ Append-only log of files created/modified per task, with verification results.
 - `moon run signals:build` — PASS, `dist/index.js` 108 B gz
 - `bun run size` — PASS, 108 B / 1024 B budget
 - `bun run test` — PASS (no tests yet, exit 0)
+
+---
+
+## Task 7 — `signal()`
+
+**Commit:** (pending)
+**Files:**
+- `packages/signals/src/signal.ts` — created — `signal<T>` cell, `Subscriber` interface with `flags` bitfield (RUNNING/DISPOSED/QUEUED/STALE), `setCurrentObserver`/`peekCurrentObserver` (`/** @internal */`), default equality `Object.is`, `equals: false` opt-out
+- `packages/signals/tests/signal.test.ts` — created — 5 unit tests (read, set, updater, Object.is short-circuit, equals:false no-throw)
+- `packages/signals/src/index.ts` — modified — re-exports `signal` and types `Read`/`Signal`/`SignalOptions`/`Write`
+- `packages/signals/tsconfig.json` — modified — `rootDir: "src"` → `rootDir: "."` so `tests/` doesn't trigger TS6059 under `include`
+
+**Verification:**
+- Tests: 5 passing (1 file)
+- `moon run signals:typecheck` — PASS
+- `moon run signals:build` — PASS, `dist/index.js` 251 B gz
+- `bun run size` — PASS, 251 B / 1024 B budget
+- `bunx biome ci .` — PASS
