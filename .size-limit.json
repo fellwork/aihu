@@ -4,5 +4,11 @@
     "path": "packages/signals/dist/index.js",
     "limit": "1024 B",
     "gzip": true
+  },
+  {
+    "name": "@scribe/arbor",
+    "path": "packages/arbor/dist/index.js",
+    "limit": "2048 B",
+    "gzip": true
   }
 ]
