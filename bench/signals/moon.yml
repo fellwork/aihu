@@ -3,6 +3,13 @@ id: bench-signals
 language: typescript
 layer: application
 
+# bench-signals imports @scribe/signals (and other reactivity libs) for the
+# competitor harness. Declaring the workspace dep here so Moon's `^:build`
+# resolves — without this, `bench-signals:typecheck` may run in parallel
+# with `signals:build` and fail on a clean checkout (TS2307).
+dependsOn:
+  - 'signals'
+
 # Inherits typecheck from .moon/tasks/tasks.yml. The bench is an executable,
 # not a library — override inherited build to a no-op (no rolldown config) and
 # add a `run` task that is what humans and CI invoke.

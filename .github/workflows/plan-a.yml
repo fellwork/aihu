@@ -1,7 +1,7 @@
 name: Plan A — TS runtime family
 on:
   push:
-    branches: [main, 'plan-a-phase-*', 'plan-*', 'bench/**', 'spec/**']
+    branches: [main, 'plan-a-phase-*', 'plan-*', 'phase-*/**', 'bench/**', 'spec/**']
   pull_request:
     branches: [main]
 

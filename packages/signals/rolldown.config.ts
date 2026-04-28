@@ -7,6 +7,10 @@ export default defineConfig({
     dir: 'dist',
     format: 'esm',
     sourcemap: true,
+    // Match the arbor rolldown config — without minify the published tarball
+    // ships unminified source. See packages/arbor/rolldown.config.ts and
+    // .team/phase-3/telemetry-treeshake-investigation.md for context.
+    minify: true,
   },
   plugins: [dts()],
 })

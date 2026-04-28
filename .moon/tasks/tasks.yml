@@ -29,3 +29,11 @@ tasks:
       - "@group(sources)"
       - "@group(tests)"
       - "@group(configs)"
+    # Workspace packages import each other through `package.json` exports,
+    # which resolve to `./dist/index.d.ts`. Typecheck therefore needs the
+    # dists of upstream workspace deps to exist; without `^:build` Moon may
+    # parallelize typecheck against the upstream's still-running build and
+    # fail with TS2307 (Cannot find module). On a clean checkout (CI) this
+    # is the difference between a green and a red gate.
+    deps:
+      - "^:build"
