@@ -146,6 +146,8 @@ not two.)
 
 ### §2.4 The new write pipeline
 
+> **Spec correction (2026-04-28, Phase 2 Learning #8 confirm-keep):** This section originally specified a pure two-phase mark/drain design (phase 1: mark only; phase 2: drain effects which lazily pull through STALE computeds). The Builder discovered at the keyboard that the pure design **cannot satisfy Phase 2 Finding 3's single-effect parity test** — see the rationale block at the end of this section. The Builder shipped a **three-phase hybrid** (mark → settle → drain) that satisfies both Finding 3 and the diamond-glitch fix. Per Phase 2 Learning #8 (Builder may exceed frozen scope when a structural blocker surfaces; Verifier confirms-keep), this section is updated to document the as-built design. The original pure-design pseudocode is preserved in §2.4.1 below for historical reference; the as-built design is the binding contract from this point forward.
+
 ```
 signal.write(next):
   resolved = resolve(next)                                  # value or updater
@@ -161,9 +163,9 @@ signal.write(next):
       enqueueIfNeeded(sub, batchQueue)
     return
 
-  # Non-batch path: two-phase propagate.
-  propagateMark(subs)        # phase 1: tag everything reachable
-  drainEffects()             # phase 2: run effects (which read through, recomputing computeds lazily)
+  # Non-batch path: three-phase propagate.
+  propagateMark(subs)        # phase 1: tag everything reachable; queue effects
+  settleAndDrain()           # phase 2 (settle) + phase 3 (drain), see below
 ```
 
 Inside `propagateMark(subs)`:
@@ -180,23 +182,86 @@ for sub of subs:
   else:
     # computed
     sub.flags |= STALE | MARKED
+    visited.push(sub)         # tracked so phase 2 can settle in walk order
     if sub.subs.size > 0:
       propagateMark(sub.subs)
 ```
 
-`drainEffects()`:
+`settleAndDrain()` — the load-bearing change vs the original pure-design:
 
 ```
+# Phase 2 (settle): walk visited computeds in mark order. Each computed's
+# recomputeIfNeeded() is a no-op unless it has effect subs (directly or
+# transitively); in that case it eagerly recomputes, runs the equality
+# comparator, and if equal calls shallowClear(subs) which clears MARKED on
+# downstream effects (suppressing their phase-3 run).
+for sub of visited:
+  sub.recomputeIfNeeded?.()
+
+# Phase 3 (drain): run effects whose MARKED bit survived shallowClear.
 while effectQueue.length > 0:
   sub = effectQueue.shift()
   sub.flags &= ~QUEUED
-  if !(sub.flags & DISPOSED):
-    sub.notify()             # effect's notify is a thin wrapper around run()
-                             # run() reads; reads pull through STALE computeds
-                             # which lazily recompute, clearing their MARKED bit
+  if (sub.flags & DISPOSED): continue
+  if !(sub.flags & MARKED):  # shallowClear cleared this — equal-recompute upstream
+    continue
+  sub.notify()                # effect's notify is a thin wrapper around run()
 
-# After drain: clear NOTIFIED across visited subs (or amortize via wave-counter; see §2.7).
+# After drain: clear NOTIFIED + MARKED across visited subs.
+for sub of visited:
+  sub.flags &= ~(NOTIFIED | MARKED)
+visited.length = 0
+shallowClearFired = false
 ```
+
+Each computed's `recomputeIfNeeded()` (defined in §2.5) is what makes the settle phase do real work:
+
+```
+recomputeIfNeeded():
+  # Skip if this computed has no effect subs (direct or transitive).
+  # Computeds whose subs are exclusively other computeds defer their work
+  # until phase 3's effect.run() pulls through them lazily — this preserves
+  # the lazy-stale property for inert subgraphs.
+  if !hasEffectSub: return
+
+  # Eager recompute. Cycle bit + STALE clear handled here.
+  prev = cached
+  next = recompute()
+  cached = next
+  if equals !== false && hasCached && equals(prev, next):
+    # Phase 2 Finding 3: equal recompute suppresses cascade. Do it BEFORE
+    # phase 3 drains so effects observe the suppressed state.
+    shallowClear(subs)
+```
+
+`shallowClear(subs)` walks one level of subs (effect subs and direct computed subs) clearing MARKED. Effects whose MARKED bit is cleared have their phase-3 run skipped (see drain loop above). Direct computed subs that were going to be settled below this one in the visited walk become no-ops because their settle reads `cached` and finds the unchanged value.
+
+#### §2.4.1 Why the pure two-phase design (originally specified) doesn't work
+
+The Phase 2 Finding 3 single-effect parity test (`computed.test.ts:97-116`) is:
+
+```js
+const parity = computed(() => n() % 2)
+effect(() => { runs++; parity() })
+setN(2)  // n%2 still 0 — equal recompute, cascade should suppress
+expect(runs).toBe(1)  // effect must NOT have re-run
+```
+
+Under the originally-specified pure two-phase design (phase 1 marks only; phase 2 drains effects which read computeds lazily):
+
+1. `setN` calls `propagateMark({parity})` → marks parity STALE+MARKED.
+2. `propagateMark({effect})` → marks effect MARKED+QUEUED.
+3. drain shifts effect, sees MARKED set, runs.
+4. Effect body reads `parity()`. parity is STALE → recompute → equality fires → `shallowClear` runs.
+5. **But `shallowClear` fires *after* the effect already ran.** `runs === 2`. Test fails.
+
+To pass the Finding 3 test, the equality short-circuit must fire **before** the effect drains. The hybrid (eager recompute in phase-2 settle, before phase-3 drain) achieves this: parity recomputes during settle, equality fires during settle, shallowClear clears MARKED on the downstream effect during settle, drain skips the effect's run because MARKED is cleared. `runs === 1`. Test passes.
+
+This is **Phase 2 Learning #9 in action** — hands-on-keyboard discovery surfaces a structural fact the spec's analytic model didn't capture. The pure two-phase design is correct in the abstract (alien-signals uses essentially this shape) but their equality-suppression mechanism is woven differently into their drain loop. Scribe's Finding 3 invariant requires the eager-on-settle hybrid; the spec is updated to reflect what the implementation must do.
+
+The hybrid preserves the structural goal (no diamond glitch — the body-count regression test confirms 92 → 17) and Phase 2 Finding 3. It pays a per-write settle-walk cost over `visited` that the pure design would not, but the cost is bounded by the marked-subgraph size and is the load-bearing reason the structural rewrite achieves cellx 1.6 µs (vs alien's 1.25 µs) — alien's tighter design saves ~25% on cellx but cannot fit scribe's Finding 3 contract without restructuring.
+
+(Builder-blocker §D, commit-history reference: `846ac57` shipped the hybrid; `cellx-rewrite-builder-blockers.md §D` documents the discovery.)
 
 ### §2.5 The new `computed.read()`
 
