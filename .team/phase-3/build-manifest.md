@@ -196,3 +196,106 @@ Per spec §1.5 + Deviation 9 + §5 (Task 17). The `mount()` function in `mount.t
 - `bunx biome ci .` — PASS, exit 0 (only the pre-existing `noUselessConstructor` info from `errors.ts`).
 
 ---
+
+## Task 18 — `when()` and `each()` v1-reconciler stubs
+
+Per spec §1.6 + §5 (Task 18). Both factories throw `ArborNotImplementedError` immediately on call — before `mount()` ever sees them — so the v1 reconciler upgrade is a no-public-API change. Signatures are locked: `when(condition: Signal<boolean>, grow: () => Branch | Leaf)` and `each<T>(list: Signal<T[]>, key: (item: T) => string | number, grow: (item: T, index: number) => Branch | Leaf)`. Per spec §1.6 + Architect B's runtime spec Q10, silent no-ops would mask bugs in compiler-emitted code — the typed throw fails fast.
+
+Parameters are prefixed with `_` to mark them unused at the body level while preserving the locked public signature. `index.ts` now matches spec §5's "Final `packages/arbor/src/index.ts`" target exactly (7 value/class exports + 9 type exports = 16 total; biome's organize-imports orders them alphabetically by source path, which is a presentation-only difference from spec §5's hand-grouped order — same exports, same surface).
+
+**Commit:** `87c4504`
+**Files:**
+- `packages/arbor/src/structural.ts` — created — `when()` and `each()` stubs throwing `ArborNotImplementedError` with locked v1-reconciler signatures; ~30 SLOC + JSDoc, well under the 150-line cap.
+- `packages/arbor/tests/structural.test.ts` — created — 2 unit tests verbatim per spec §4 Task 18: synchronous-throw contract for both factories. Args are coerced via `as never` because the stubs throw before reading them.
+- `packages/arbor/src/index.ts` — modified — added `export { each, when } from './structural.ts'`. Final 10-module surface complete per spec §2.1.
+
+**Verification:**
+- `bun run test packages/arbor/tests/structural.test.ts` — PASS, **2/2** (failed before `structural.ts` existed — TDD confirmed: `TypeError: __vite_ssr_import_1__.each is not a function` on the pre-implementation run).
+- `bun run test` — PASS, **88/88** across 12 files (was 86/86; +2 structural tests).
+- `bun run typecheck` — PASS (`arbor:typecheck` ~6s).
+- `bun run build` — PASS, `arbor/dist/index.js` 13.77 kB raw / **1.16 kB gz** (was 1.14 kB; +24 B for the two stubs).
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 1.16 kB / 2.05 kB** (889 B headroom for Task 19).
+- `bunx biome ci .` — PASS, exit 0 (only the pre-existing `noUselessConstructor` info from `errors.ts`).
+
+---
+
+## Task 19 — Microbench + integration + size verification
+
+Per spec §4 + §5 (Task 19). Final batch of Phase 3: a 10k-leaf JSDOM smoke microbench, a cross-package batch+arbor integration test, and the final size receipts.
+
+**Microbench threshold widened from 100ms → 250ms.** Spec §4 suggested 100ms; in isolation the 10k-leaf mount runs in ~80ms on the dev machine. But vitest runs test files in parallel, and under parallel CPU pressure the same workload inflates to ~170ms — the bench failed in the full-suite run though it passed in isolation. Per spec §4's authorization to widen, threshold is 250ms — keeps the order-of-magnitude smoke property (catches accidental O(n²) regressions) without flaking on parallel CI runs. A precise regression gate lands in the Phase 2.5 bench-spike with isolation guarantees (separate brief).
+
+**Integration test signature deviation from spec §4 example.** Spec §4's example destructures `const [text, setText] = signal('hello')` and then passes `leaf(text)` / `class: [cls]`. But destructuring makes `text` the GETTER (a function), not the Signal tuple — and arbor's `Array.isArray` discriminant per spec §1.2 + Deviation #11 requires the WHOLE tuple. Pass-the-whole-tuple form: `const text = signal('hello'); const [, setText] = text` — the spec brief explicitly authorized this adaptation in the IMPORTANT block ("you may need to cast or pass `text` as the whole tuple"). Test verifies that batch coalescing through arbor's mountEffect produces the correct final DOM state (no intermediate flicker visible at end-of-batch DOM read).
+
+**Cross-package integration scaffolding.** `tests/integration/` did not exist prior to this task; created it along with `tests/vitest.config.ts` (the integration vitest config referenced by the existing root-package script `test:integration`). The config aliases `@scribe/signals` and `@scribe/arbor` to their src `index.ts` directly (same pattern as the root `vitest.config.ts`).
+
+**Commit:** `ebf40bf`
+**Files:**
+- `packages/arbor/tests/bench.test.ts` — created — 10k-leaf JSDOM smoke microbench; threshold 250ms; logs elapsed time as a diagnostic for trend-watching.
+- `tests/integration/mount-arbor-with-signals.test.ts` — created — `batch + arbor` cross-package integration test verifying batch-coalesced writes produce the correct final DOM state for both a text leaf and a reactive `class` attr.
+- `tests/vitest.config.ts` — created — integration test runner config (jsdom env, alias to package src, `passWithNoTests: false`).
+
+**Verification:**
+- `bun run test packages/arbor/tests/bench.test.ts` (isolated) — PASS, **1/1**, mount elapsed **81.40 ms** for 10k leaves.
+- `bun run test:integration` — PASS, **1/1** integration test (cross-package batch+arbor).
+- `bun run test` — PASS, **89/89** across 13 files (88 from Task 18 + 1 bench). In the parallel run the bench took 167.75 ms — under the 250ms threshold.
+- `bun run typecheck` — PASS (`arbor:typecheck` ~6s).
+- `bun run build` — PASS, `arbor/dist/index.js` 13.77 kB raw / **1.16 kB gz** (unchanged — bench/integration are tests).
+- `bun run size` — PASS, **signals 716 B / 1024 B** (308 B / 30% headroom), **arbor 1.16 kB / 2.05 kB** (889 B / 43% headroom).
+- `bunx biome ci .` — PASS, exit 0 (only the pre-existing `noUselessConstructor` info from `errors.ts`; 62 files checked total).
+
+---
+
+## Phase 3 summary
+
+`@scribe/arbor` v0 ships per spec. 10 source modules, 89 unit tests, 1 cross-package integration test, two size budgets green with double-digit-percent headroom on both.
+
+**Commit chain on `phase-3/arbor-implementation`** (12 commits):
+
+| # | SHA | Subject |
+|---|-----|---|
+| 1 | `e3ac1ce` | feat(signals): add untrack() for context-free reads (Phase 3 prep) |
+| 2 | `99dfffb` | feat(arbor): scaffold package with errors, types, build, size gate |
+| 3 | `247150e` | docs(phase-3): record Task 12 commit SHA in build manifest |
+| 4 | `7853253` | feat(arbor): leaf() and leaf.element() factories |
+| 5 | `9d6639a` | feat(arbor): branch() factory |
+| 6 | `bc33096` | docs(phase-3): backfill Tasks 13 + 14 commit SHAs in build manifest |
+| 7 | `e407a76` | feat(arbor): _applyAttrs and _setAttrOrProp internal binding |
+| 8 | `1a78710` | docs(phase-3): backfill Task 15 commit SHA in build manifest |
+| 9 | `d3fdaf0` | feat(arbor): mount(), MountScope, _materialize + scope collector + telemetry |
+| 10 | `8983e78` | feat(arbor): MountScope.dispose() — LIFO + DOM removal + idempotent |
+| 11 | `1da5e6d` | docs(phase-3): backfill Tasks 16 + 17 commit SHAs in build manifest |
+| 12 | `87c4504` | feat(arbor): when() and each() stubs throwing ArborNotImplementedError |
+| 13 | `ebf40bf` | feat(arbor): complete v0 arbor — bench, integration, size verification |
+
+(13 commits total — the table headers count primary feat/docs only.)
+
+**Final test counts:**
+- `@scribe/signals` unit: **39** (signal 5, computed 9, effect 7, batch 6, state 4, untrack 3, properties 5)
+- `@scribe/arbor` unit: **50** (leaf 9, branch 9, attrs 9, mount 20, structural 2, bench 1)
+- Cross-package integration: **1** (batch + arbor)
+- **Total: 90 tests** (89 unit + 1 integration)
+
+**Final size receipts (gzipped):**
+
+| Package | Size | Budget | Headroom |
+|---|---|---|---|
+| `@scribe/signals` | **716 B** | 1024 B | 308 B (30%) |
+| `@scribe/arbor` | **1.16 kB** | 2.05 kB | 889 B (43%) |
+
+**Bench result:** 10k-leaf JSDOM smoke mount: **81.40 ms isolated**, **167.75 ms in parallel suite**, threshold **250 ms**. PASS.
+
+**CI status:** all `bun run` scripts pass on the worktree (typecheck, build, test, test:integration, size, biome ci). The `phase-*/**` push trigger added in Task 12.5 is exercising CI on every push to this branch.
+
+**Deviations from spec recorded in commit/manifest text:**
+
+1. **Task 16 — telemetry tree-shake partial elimination.** Spec §2.8 expected the production observer to tree-shake to ~5 B; in practice five `_observeMount` literals survive Rolldown + esbuild minification (~100-200 B overhead). Documented in `.team/phase-3/builder-notes.md`. Not blocking — arbor finished at 1.16 kB / 2.05 kB with 889 B headroom. Verifier to adjudicate.
+2. **Task 19 — bench threshold widened from 100ms → 250ms.** Spec §4 authorized widening for parallel-run flakiness. Mount-only elapsed is well under the threshold (~80ms isolated, ~170ms parallel).
+3. **Task 19 — integration test signature.** Spec §4's example destructures Signal-tuple incorrectly; test passes the whole tuple per spec §1.2 + Deviation #11 + brief's IMPORTANT-block authorization.
+4. **Tasks 13/14/15 — mount-coupled tests folded forward.** Some unit tests in spec §4 require `mount()` (Task 16); per Builder Option A those landed in `mount.test.ts` alongside Task 16 rather than in Tasks 13/14/15's pre-mount files.
+
+No bug-shaped deviations. No `builder-blocker.md` entries filed.
+
+**Sign-off:** Phase 3 complete. Verifier may proceed.
+
+---
