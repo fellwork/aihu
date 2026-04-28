@@ -155,7 +155,7 @@ Disposal is wired in this commit (LIFO + DOM removal + idempotency) since the sy
 
 **Telemetry tree-shake verification.** Per spec §2.8 the production observer should tree-shake to zero bytes; in practice five `_observeMount` call sites survive Rolldown + esbuild minification because each call constructs a `Date.now()` literal (impure expression — minifier preserves). Overhead is ~100-200 B, not the spec's ~5 B target. Not blocking — arbor headroom is 913 B. Builder note in `.team/phase-3/builder-notes.md` documents the `__DEV__`-constant fallback for when budget tightens.
 
-**Commit:** `<sha-pending>`
+**Commit:** `d3fdaf0`
 **Files:**
 - `packages/arbor/src/materialize.ts` — created — `_materialize(node, host, disposers, pathBase, mountEffect)` recursive walk; ~95 source lines.
 - `packages/arbor/src/mount.ts` — created — `mount()`, `MountScope`, `_mountEffect`, `_observeMount`, `_setMountObserver`, `_activeMountDisposers`, `MountTelemetry` interface; LIFO disposal + DOM removal + idempotency baked in (Task 17 verifies); ~135 source lines.
@@ -183,7 +183,7 @@ Per spec §1.5 + Deviation 9 + §5 (Task 17). The `mount()` function in `mount.t
 3. `dispose()` twice — second call is a no-op (idempotency).
 4. LIFO disposal order verified via the telemetry observer: three reactive attrs registered in order a, b, c dispose in order c, b, a (spec §2.7's path keys make this directly observable through `effect-dispose` events).
 
-**Commit:** `<sha-pending>`
+**Commit:** `8983e78`
 **Files:**
 - `packages/arbor/tests/mount.test.ts` — modified — appended `MountScope.dispose() — Task 17 spec tests` describe block with four tests (#6 host clearance, #7 post-dispose silence, #8 idempotency, #9 LIFO via telemetry observer).
 
