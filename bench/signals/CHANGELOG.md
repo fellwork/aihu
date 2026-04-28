@@ -9,6 +9,77 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-28 — Deep perf wins · Phase 0: single-sub fast path
+
+**Branch:** `perf/signals-cellx-fix`
+**Spec:** `.team/phase-2-5/deep-perf-wins-spec.md` §2 Phase 0
+**Size cap raised:** 1024 B → 1500 B (`.size-limit.json`) per Team Lead authorization.
+
+Replace `Subscriber.subs?: Set<Subscriber>` with a tagged union
+`undefined | Subscriber | Set<Subscriber>` and inline the dispatch at every
+hot-path call site (signal.read, signal.write batched-enqueue, markOne's
+restricted-leaf branch, propagateMark's fan-out, shallowClear, computed.read,
+computed.recomputeIfNeeded). Out-of-line helpers (subAdd / subForEach / etc.)
+were measured to regress wide-fanout-100 by ~5% on this machine versus
+inlined dispatch — the helpers are documented in source as inlined sites
+rather than exported.
+
+The 100 effects in wide-fanout-100 each subscribe to their own private
+computed, so every node is single-sub; the new fast path eliminates the
+per-write Set iterator allocation across all 100 nodes. The 1-effect
+subscriber on a signal in batched-writes-100 likewise now skips the
+`[...subs]` snapshot allocation entirely.
+
+### Bench deltas (this machine, median p50 of 5 runs)
+
+| Workload | HEAD median | Phase 0 median | Δ | Phase 0 gate | Status |
+|---|---:|---:|---:|---|---|
+| cellx | 1.77 µs | 1.68 µs | -5.1 % | ≥ 5 % improvement | PASS |
+| wide-fanout-100 | 14.67 µs | 12.35 µs | -15.8 % | ≥ 15 % improvement | PASS |
+| batched-writes-100 | 9.70 µs | 6.80 µs | -29.9 % | ≥ 10 % improvement | PASS |
+
+5-run samples (sorted):
+- cellx: 1.60, 1.62, 1.68, 1.68, 2.17 µs
+- wide-fanout-100: 11.62, 11.88, 12.35, 13.06, 13.80 µs
+- batched-writes-100: 5.32, 5.54, 6.80, 6.85, 7.41 µs
+
+### Spec §3.1 deviation tracking
+
+| Workload | Predicted (ref) | Predicted (Builder) | Actual (Builder) | Δ vs Builder pred |
+|---|---:|---:|---:|---:|
+| cellx | 1.45 µs | 1.48 µs | 1.68 µs | +0.20 µs (+13.5 %) — within ±15 % |
+| wide-fanout-100 | 7.0 µs | 9.8 µs | 12.35 µs | +2.55 µs (+26 %) — outside ±10 % |
+| batched-writes-100 | 6.8 µs | 7.8 µs | 6.80 µs | -1.0 µs (-12.8 %) — over-delivered |
+
+Wide-fanout outside spec §3.3 absolute tolerance band but cleared the
+§7.1 *relative-improvement* gate (≥15% vs HEAD). The absolute miss is
+consistent with the Builder-machine offset documented in the v2 builder
+blockers (~+40 % vs reference). Direction matches; magnitude reflects
+machine baseline. Surprise on batched-writes — over-delivery noted per
+§3.3 (the elimination of `[...subs]` per write yielded more than the
+predicted 30 % saving because allocation pressure on this machine
+dominates the steady-state cost).
+
+### Bundle size
+
+1043 B → 1146 B gz (+103 B), within Phase 0 cap of 1150 B. The +103 B
+is +63 B over the spec's +80 B prediction; the additional bytes are the
+inlined dispatch at six hot-path sites (the spec planned out-of-line
+helpers; inlining cost ~30 B at sites and was needed to clear the
+wide-fanout perf gate on this machine).
+
+### cellx body-count contract
+
+`bun .team/phase-2-5/scratch/cellx-counter.ts` reports 16 + 1 = 17 ✓.
+
+### Tests
+
+44/44 pass — 42 prior + 2 new dispatcher coverage tests
+(`signal.test.ts`: shape transitions 0→1→2→3+ all reach the right subs;
+dispose-mid-write does not lose remaining subscribers).
+
+---
+
 ## 2026-04-28 — wide-fanout-100 recovery v2 (Option 4: stacked)
 
 **Branch:** `perf/signals-cellx-fix`

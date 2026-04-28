@@ -4,11 +4,17 @@ import { SignalCircularError } from './errors.ts'
 export interface Subscriber {
   notify(): void
   /** @internal */ flags: number
-  /** @internal */ subs?: Set<Subscriber>
+  /** @internal — tagged-union subs storage: undefined (0 subs), Subscriber (1 sub),
+   * or Set<Subscriber> (2+ subs). The type widens internally for the single-sub
+   * fast path; not part of the public surface. */
+  subs?: SubsField
   /** @internal */ recomputeIfNeeded?(): void
   /** @internal — set to current wave when this sub is reached during marking; replaces the NOTIFIED bit. */
   lastWave?: number
 }
+
+/** @internal — tagged-union storage for subscriber lists. */
+export type SubsField = Subscriber | Set<Subscriber> | undefined
 
 /** @internal */ export const RUNNING = 0x1
 /** @internal */ export const DISPOSED = 0x2
@@ -70,6 +76,19 @@ export function exitBatch(): void {
   batchDepth--
 }
 
+// ───────── Mark / settle / drain pipeline ─────────
+//
+// SubsField is a tagged union of three shapes (Phase 0):
+//   - undefined         (0 subs)
+//   - Subscriber        (1 sub — the single-sub fast path)
+//   - Set<Subscriber>   (2+ subs — V8-iterable hash set)
+//
+// All dispatch is inlined at hot-path sites (markOne, propagateMark,
+// shallowClear, signal.read, computed.read, computed.recomputeIfNeeded)
+// so V8 sees monomorphic typeof / instanceof branches per site instead
+// of a polymorphic helper call. Out-of-line helpers were measured to
+// regress wide-fanout-100 by ~5% on this machine versus inlined dispatch.
+
 /** @internal — mark one sub with wave-counter dedup; recurse into computed subs. */
 function markOne(sub: Subscriber): void {
   if (sub.flags & DISPOSED) return
@@ -85,32 +104,39 @@ function markOne(sub: Subscriber): void {
   }
   visited.push(sub)
   sub.flags |= STALE
-  const inner = sub.subs as Set<Subscriber>
+  const inner = sub.subs
+  if (inner === undefined) return
   // Restricted leaf fast path: a confirmed source-only computed
   // (HAS_COMPUTED_DEPS unset) with exactly one effect sub can settle
   // inline during marking — phase 2 dispatch becomes a STALE-cleared
   // early-return. Correctness invariant: spec §3.
-  if (inner.size === 1 && !(sub.flags & HAS_COMPUTED_DEPS)) {
-    let only: Subscriber | undefined
-    for (const s of inner) {
-      only = s
-      break
-    }
-    if (only !== undefined && only.flags & EFFECT) {
-      markOne(only)
+  // Inlined single-shape probe (`inner instanceof Set` is the late branch
+  // because Set is the dominant cellx shape; the single shape is a
+  // direct ref).
+  if (!(inner instanceof Set)) {
+    if (!(sub.flags & HAS_COMPUTED_DEPS) && inner.flags & EFFECT) {
+      markOne(inner)
       sub.recomputeIfNeeded?.()
       return
     }
+    markOne(inner)
+    return
   }
-  propagateMark(inner)
+  // Set fan-out (2+ subs): no leaf fast path possible.
+  for (const s of inner) markOne(s)
 }
 
 /**
  * @internal — phase 1: mark every reachable sub once. Pure flag work; no
  * computed body runs here. Throws on RUNNING (cycle detection).
  */
-export function propagateMark(subs: Set<Subscriber>): void {
-  for (const sub of subs) markOne(sub)
+export function propagateMark(subs: SubsField): void {
+  if (subs === undefined) return
+  if (subs instanceof Set) {
+    for (const sub of subs) markOne(sub)
+    return
+  }
+  markOne(subs)
 }
 
 /**
@@ -118,11 +144,17 @@ export function propagateMark(subs: Set<Subscriber>): void {
  * Clears MARKED on direct effect subs (drain skips) and STALE+MARKED on
  * direct computed subs (their settle becomes a no-op).
  */
-export function shallowClear(subs: Set<Subscriber>): void {
-  for (const sub of subs) {
-    if (sub.flags & EFFECT) sub.flags &= ~MARKED
-    else sub.flags &= ~(STALE | MARKED)
+export function shallowClear(subs: SubsField): void {
+  if (subs === undefined) return
+  if (subs instanceof Set) {
+    for (const sub of subs) {
+      if (sub.flags & EFFECT) sub.flags &= ~MARKED
+      else sub.flags &= ~(STALE | MARKED)
+    }
+    return
   }
+  if (subs.flags & EFFECT) subs.flags &= ~MARKED
+  else subs.flags &= ~(STALE | MARKED)
 }
 
 /**
@@ -217,12 +249,19 @@ export interface SignalOptions<T> {
 
 export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
   let value = initial
-  const subs = new Set<Subscriber>()
+  // Tagged-union sub list (Phase 0): undefined / single / Set.
+  let subs: SubsField
   const eq = options?.equals
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
 
   const read: Read<T> = () => {
-    if (currentObserver !== null) subs.add(currentObserver)
+    const obs = currentObserver
+    if (obs !== null) {
+      // Inlined subAdd: undefined → single, Set → add, single → Set/no-op.
+      if (subs === undefined) subs = obs
+      else if (subs instanceof Set) subs.add(obs)
+      else if (subs !== obs) subs = new Set<Subscriber>([subs, obs])
+    }
     return value
   }
 
@@ -230,9 +269,14 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : (next as T)
     if (equals !== false && equals(value, resolved)) return
     value = resolved
-    if (subs.size === 0) return
+    if (subs === undefined) return
     if (batchDepth > 0) {
-      for (const sub of [...subs]) enqueueIfNeeded(sub)
+      // Snapshot only when iterating a Set; single shape needs no copy.
+      if (subs instanceof Set) {
+        for (const sub of [...subs]) enqueueIfNeeded(sub)
+      } else {
+        enqueueIfNeeded(subs)
+      }
       return
     }
     wave++

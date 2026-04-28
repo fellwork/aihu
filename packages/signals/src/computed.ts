@@ -30,7 +30,6 @@ export interface ComputedOptions<T> {
 export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> {
   let cached: T
   let hasCached = false
-  const subs = new Set<Subscriber>()
   const eq = options?.equals
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
   // Set when any effect subscribes (directly). Lazy chains (computeds whose
@@ -53,7 +52,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
 
   const node: Subscriber = {
     flags: STALE,
-    subs,
+    // subs starts undefined (Phase 0 single-sub fast path).
     notify() {
       if (node.flags & DISPOSED) return
       if (node.flags & RUNNING) throw new SignalCircularError()
@@ -62,25 +61,31 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
       if (node.flags & DISPOSED) return
       if (!hasEffectSub) return
       if (!(node.flags & STALE)) return
-      if (subs.size === 0) return
+      if (node.subs === undefined) return
       const hadCache = hasCached
       const prev = cached
       const next = recompute()
       cached = next
       hasCached = true
       if (hadCache && equals !== false && equals(prev, next)) {
-        shallowClear(subs)
+        shallowClear(node.subs)
         return
       }
-      // Re-assert MARKED on direct subs unconditionally. In the common
-      // no-equality-clear case the bits are already set so the OR is a
-      // no-op; correctness > the saved iteration. Removed the
-      // shallowClearFired guard to free 14 B for the restricted leaf
-      // fast path (spec §5).
-      for (const sub of subs) {
-        if (sub.flags & DISPOSED) continue
-        if (sub.flags & EFFECT) sub.flags |= MARKED
-        else sub.flags |= STALE | MARKED
+      // Re-assert MARKED on direct subs unconditionally. Inlined dispatch
+      // (single vs Set) — this is in the cellx hot path for every L4 → L1
+      // computed with a downstream effect.
+      const s = node.subs
+      if (s !== undefined) {
+        if (s instanceof Set) {
+          for (const sub of s) {
+            if (sub.flags & DISPOSED) continue
+            if (sub.flags & EFFECT) sub.flags |= MARKED
+            else sub.flags |= STALE | MARKED
+          }
+        } else if (!(s.flags & DISPOSED)) {
+          if (s.flags & EFFECT) s.flags |= MARKED
+          else s.flags |= STALE | MARKED
+        }
       }
     },
   }
@@ -88,13 +93,31 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
   const read: Read<T> = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
     const observer = peekCurrentObserver()
-    if (observer !== null && !subs.has(observer)) {
-      subs.add(observer)
-      if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
-      // Computed-observer reading a computed source: mark observer as
-      // having computed deps so markOne's restricted leaf fast path
-      // skips it forever (spec §3 sufficiency invariant).
-      else if (observer.subs !== undefined) observer.flags |= HAS_COMPUTED_DEPS
+    if (observer !== null) {
+      // Inlined subAdd-with-dedup. `cur` is undefined / single / Set.
+      const cur = node.subs
+      let added = false
+      if (cur === undefined) {
+        node.subs = observer
+        added = true
+      } else if (cur instanceof Set) {
+        if (!cur.has(observer)) {
+          cur.add(observer)
+          added = true
+        }
+      } else if (cur !== observer) {
+        node.subs = new Set<Subscriber>([cur, observer])
+        added = true
+      }
+      if (added) {
+        if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
+        // Computed-observer reading a computed source: mark observer as
+        // having computed deps so markOne's restricted leaf fast path
+        // skips it forever (spec §3 sufficiency invariant). Only
+        // computeds expose `recomputeIfNeeded`; effects don't, so this
+        // is the canonical "observer is a computed" probe.
+        else if (observer.recomputeIfNeeded !== undefined) observer.flags |= HAS_COMPUTED_DEPS
+      }
     }
     if (!hasCached || node.flags & STALE) {
       cached = recompute()
