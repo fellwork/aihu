@@ -198,3 +198,70 @@ describe('mount() — path keys (spec §2.7)', () => {
     }
   })
 })
+
+describe('MountScope.dispose() — Task 17 spec tests', () => {
+  it('dispose() clears host children (spec §4 Task 17 #6)', () => {
+    const host = document.createElement('div')
+    const scope = mount(branch('div'), host)
+    expect(host.children.length).toBe(1)
+    scope.dispose()
+    expect(host.children.length).toBe(0)
+  })
+
+  it('after dispose() → signal write does NOT update DOM (spec §4 Task 17 #7)', () => {
+    const host = document.createElement('div')
+    const sig = signal('hello')
+    const setText = sig[1]
+    const scope = mount(leaf(sig), host)
+    const textNode = host.childNodes[0] as Text
+    expect(textNode.nodeValue).toBe('hello')
+    scope.dispose()
+    setText('after-dispose')
+    // Effect torn down → detached textNode retains pre-dispose value.
+    expect(host.childNodes.length).toBe(0)
+    expect(textNode.nodeValue).toBe('hello')
+  })
+
+  it('dispose() twice → no error on second call (spec §4 Task 17 #8 — idempotent)', () => {
+    const host = document.createElement('div')
+    const scope = mount(branch('div'), host)
+    scope.dispose()
+    expect(() => scope.dispose()).not.toThrow()
+    expect(host.children.length).toBe(0)
+  })
+
+  it('LIFO disposal order — effects registered later dispose first (spec §4 Task 17 #9)', () => {
+    const host = document.createElement('div')
+    const order: string[] = []
+    const events: MountTelemetry[] = []
+
+    // Capture dispose order via the telemetry observer; each effect's
+    // dispose carries a unique path key (§2.7). LIFO is verified by
+    // comparing disposal order against creation order.
+    _setMountObserver((event) => {
+      if (event.kind === 'effect-dispose') {
+        order.push(event.path)
+      }
+      events.push(event)
+    })
+
+    try {
+      const a = signal('a')
+      const b = signal('b')
+      const c = signal('c')
+      // Three reactive attrs — registered in DOM walk order (a, b, c).
+      const scope = mount(
+        branch('p', { 'data-a': a as never, 'data-b': b as never, 'data-c': c as never }),
+        host,
+      )
+      const creates = events.filter((e) => e.kind === 'effect-create').map((e) => e.path)
+      expect(creates.length).toBe(3)
+      const [pathA, pathB, pathC] = creates as [string, string, string]
+      scope.dispose()
+      // LIFO: dispose order is the reverse of create order.
+      expect(order).toEqual([pathC, pathB, pathA])
+    } finally {
+      _setMountObserver(() => {})
+    }
+  })
+})

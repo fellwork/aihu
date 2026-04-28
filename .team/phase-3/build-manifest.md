@@ -173,3 +173,26 @@ Disposal is wired in this commit (LIFO + DOM removal + idempotency) since the sy
 - **Telemetry tree-shake check:** five `_observeMount` literals (`mount-start`, `mount-end`, `effect-create`, `effect-fire`, `effect-dispose`) survive minification — see `.team/phase-3/builder-notes.md`. ~100-200 B overhead vs. spec's ~5 B target. Not blocking.
 
 ---
+
+## Task 17 — `MountScope.dispose()` LIFO + DOM removal + idempotent
+
+Per spec §1.5 + Deviation 9 + §5 (Task 17). The `mount()` function in `mount.ts` already wired LIFO + DOM removal + idempotency in Task 16's commit (the dispose contract was needed for the Task 16 spec test "scope.dispose() does not throw"). This commit adds the four verification tests appended to `mount.test.ts` per spec §4 (Task 17 #6–#9):
+
+1. `dispose()` clears `host.children`.
+2. After `dispose()`, signal writes are silent — detached text node retains pre-dispose value.
+3. `dispose()` twice — second call is a no-op (idempotency).
+4. LIFO disposal order verified via the telemetry observer: three reactive attrs registered in order a, b, c dispose in order c, b, a (spec §2.7's path keys make this directly observable through `effect-dispose` events).
+
+**Commit:** `<sha-pending>`
+**Files:**
+- `packages/arbor/tests/mount.test.ts` — modified — appended `MountScope.dispose() — Task 17 spec tests` describe block with four tests (#6 host clearance, #7 post-dispose silence, #8 idempotency, #9 LIFO via telemetry observer).
+
+**Verification:**
+- `bun run test packages/arbor/tests/mount.test.ts` — PASS, **20/20** (16 from Task 16 + 4 new Task 17)
+- `bun run test` — PASS, **86/86** across 11 files (was 82/82; +4 dispose tests)
+- `bun run typecheck` — PASS (`arbor:typecheck` ~5s)
+- `bun run build` — PASS, `arbor/dist/index.js` 12.22 kB raw / **1.14 kB gz** — UNCHANGED from Task 16 (this commit is tests-only).
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 1.14 kB / 2.05 kB** (913 B headroom for Tasks 18 + 19).
+- `bunx biome ci .` — PASS, exit 0 (only the pre-existing `noUselessConstructor` info from `errors.ts`).
+
+---
