@@ -11,39 +11,81 @@ import {
 export type EffectFn = () => void
 export type Dispose = () => void
 
-export function effect(fn: EffectFn): Dispose {
-  const node: Subscriber = {
-    flags: EFFECT,
-    subsHead: null,
-    subsTail: null,
-    depsHead: null,
-    depsTail: null,
-    notify() {
-      if (node.flags & DISPOSED) return
-      if (node.flags & RUNNING) throw new SignalCircularError()
-      run()
-    },
-  }
+// ───────── Effect node pool (parent §9.5; §6.2 Team-Lead override) ─────────
+//
+// Short-lived effects (test fixtures, arbor remounts) re-allocate the
+// Subscriber node + closures on every call. The pool retains disposed
+// nodes and reuses them on the next `effect()` call. The closure
+// captured by `notify`/`run` is bound via `node.fn` (set fresh per
+// reuse). Each dispose closure carries its own `disposed` flag so a
+// late dispose() of a recycled node is a no-op for the new effect.
+//
+// Pool size cap: small constant to avoid retaining unbounded memory in
+// long-running apps. The cap is informed by typical arbor remount
+// burst size; 8 is enough to absorb a typical mount/unmount pulse
+// without re-allocating.
 
-  const run = (): void => {
-    node.flags |= RUNNING
-    const prev = setCurrentObserver(node)
-    try {
-      fn()
-    } finally {
-      setCurrentObserver(prev)
-      node.flags &= ~RUNNING
+const MAX_POOL = 8
+const pool: Subscriber[] = []
+
+interface EffectNode extends Subscriber {
+  fn: EffectFn | null
+}
+
+function runEffect(node: EffectNode): void {
+  node.flags |= RUNNING
+  const prev = setCurrentObserver(node)
+  try {
+    const fn = node.fn
+    if (fn !== null) fn()
+  } finally {
+    setCurrentObserver(prev)
+    node.flags &= ~RUNNING
+  }
+}
+
+export function effect(fn: EffectFn): Dispose {
+  const reused = pool.pop() as EffectNode | undefined
+  let node: EffectNode
+  if (reused !== undefined) {
+    node = reused
+    // Reset state for reuse. subsHead/subsTail of an effect are always
+    // null (effects are leaves of the dep direction); depsHead/depsTail
+    // were nulled by the prior dispose's unlinkAllDeps.
+    node.flags = EFFECT
+    // Force a re-mark on the next wave by setting lastWave to a value
+    // that cannot match the live wave counter (NaN never compares equal).
+    node.lastWave = Number.NaN
+    node.fn = fn
+  } else {
+    node = {
+      flags: EFFECT,
+      subsHead: null,
+      subsTail: null,
+      depsHead: null,
+      depsTail: null,
+      fn,
+      notify() {
+        if (node.flags & DISPOSED) return
+        if (node.flags & RUNNING) throw new SignalCircularError()
+        runEffect(node)
+      },
     }
   }
+  runEffect(node)
 
-  run()
-
+  let disposed = false
   return () => {
+    if (disposed) return
+    disposed = true
+    // Guard against double-dispose-via-recycle: if the pool already
+    // resurrected this node into a different effect, our closure's
+    // `disposed = true` makes us a no-op for *this* dispose handle,
+    // and we don't touch the node.
     if (node.flags & DISPOSED) return
     node.flags |= DISPOSED
-    // §6.3 ACCEPTED — splice every dep edge so the effect no longer
-    // appears in any signal/computed's subs list. Eliminates the
-    // long-running-app leak (effect remounts under arbor).
     unlinkAllDeps(node)
+    node.fn = null
+    if (pool.length < MAX_POOL) pool.push(node)
   }
 }

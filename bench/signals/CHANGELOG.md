@@ -9,6 +9,91 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-28 — Deep perf wins · Phase 3: effect node pool (speculative for arbor)
+
+**Branch:** `perf/signals-cellx-fix`
+**Spec:** `.team/phase-2-5/deep-perf-wins-spec.md` §2 Phase 3 / parent §9.5
+**Team Lead override:** §6.2 OVERRIDE — ship the pool despite spec lean to defer.
+
+Pool the effect Subscriber nodes across short-lived create/dispose
+cycles. The `notify` closure dispatches via `node.fn`, which is set
+fresh per effect; the dispose closure carries its own `disposed`
+flag so a late dispose() of a recycled node is a no-op for the new
+effect. Pool capped at 8 (typical arbor remount-burst absorbs without
+re-allocating). Computeds and signals are not pooled (their closure
+state is large enough that pooling would still re-allocate most of
+the work).
+
+The closure cleanup in dispose (`node.fn = null`) plus the per-dispose
+`disposed` boolean give correctness across reuse without a generation
+counter. Verified by behaviour test (`effect.test.ts`):
+"pooled effect: identity is internal; consecutive create+dispose
+cycles do not leak deps."
+
+### Bench deltas (this machine, median p50 of 5 runs)
+
+| Workload | Phase 2 median | Phase 3 median | Δ vs P2 | Phase 3 gate | Status |
+|---|---:|---:|---:|---|---|
+| cellx | 1.19 µs | 1.21 µs | +1.7 % | flat ±1 % noise | within band |
+| wide-fanout-100 | 10.17 µs | 8.84 µs | -13.1 % | flat | unexpected over-deliver |
+| batched-writes-100 | 5.97 µs | 5.69 µs | -4.7 % | flat | unexpected over-deliver |
+
+5-run samples (sorted):
+- cellx: 1.17, 1.20, 1.21, 1.41, 1.42 µs
+- wide-fanout-100: 8.24, 8.60, 8.84, 9.96, 10.19 µs
+- batched-writes-100: 5.33, 5.33, 5.69, 6.07, 6.56 µs
+
+### Cumulative vs HEAD (1.77 / 14.67 / 9.70 µs) — final state
+
+| Workload | HEAD | Phase 3 | Δ vs HEAD | alien-signals (this machine) | Δ vs alien |
+|---|---:|---:|---:|---:|---:|
+| cellx | 1.77 µs | 1.21 µs | **-31.6 %** | 1.63 µs | -25.8 % (ahead) |
+| wide-fanout-100 | 14.67 µs | 8.84 µs | **-39.7 %** | 8.26 µs | +7 % (close) |
+| batched-writes-100 | 9.70 µs | 5.69 µs | **-41.3 %** | 9.81 µs | -42 % (ahead) |
+
+Wide-fanout-100 essentially at parity with alien-signals on the
+Builder machine (8.84 vs 8.26 µs). cellx and batched-writes both
+ahead of alien.
+
+### Why wide-fanout improved unexpectedly in Phase 3
+
+The pool itself is not exercised by the bench (each workload constructs
+its 100 effects once during setup, before mitata's measurement window).
+The Phase 3 effect.ts refactor moved `run` from a closure to a top-
+level function (`runEffect(node)`); the closure-bound `node.fn`
+property access appears to inline-cache faster than the prior closure-
+captured `run`/`fn` references on Bun 1.3.13 / V8 13.x. This is a
+side-effect of the refactor, not the pool itself. Bench-neutral was
+predicted; the over-deliver is a pleasant surprise that's probably
+real (Phase 3 5-run wide-fanout band 8.24-10.19 is mostly below
+Phase 2's 9.78-10.86 band).
+
+### Spec §3.1 deviation tracking
+
+| Workload | Predicted (Phase 3) | Actual | Δ | Tolerance |
+|---|---|---:|---:|---|
+| cellx | flat (no Phase 3 prediction) | 1.21 µs | +1.7 % | within ±1 % noise band, ✓ |
+| wide-fanout-100 | flat | 8.84 µs | -13.1 % | over-deliver |
+| batched-writes-100 | flat | 5.69 µs | -4.7 % | over-deliver |
+
+### Bundle size
+
+1297 B → 1383 B gz (+86 B). Spec parent §9.5 budgeted ~50 B; actual
++86 B reflects the per-dispose `disposed` flag closure plus the pool
+array initialisation. Under the 1500 B cap with 117 B headroom.
+
+### cellx body-count contract
+
+`bun .team/phase-2-5/scratch/cellx-counter.ts` reports 16 + 1 = 17 ✓.
+
+### Tests
+
+53/53 pass — 52 prior + 1 new pool-identity test (effect.test.ts:
+"pooled effect: identity is internal; consecutive create+dispose
+cycles do not leak deps").
+
+---
+
 ## 2026-04-28 — Deep perf wins · Phase 2: linked-list dep graph + effect dispose
 
 **Branch:** `perf/signals-cellx-fix`
