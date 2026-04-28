@@ -262,7 +262,8 @@ describe('computed', () => {
   it('cellx 4×4 diamond: exactly 17 body executions per signal write', () => {
     // Mirrors .team/phase-2-5/scratch/cellx-counter.ts as a unit test.
     // Spec §5.3 — binding diamond-glitch-absence regression check.
-    const counters = {
+    type Tup4 = [number, number, number, number]
+    const counters: { l1: Tup4; l2: Tup4; l3: Tup4; l4: Tup4; eff: number } = {
       l1: [0, 0, 0, 0],
       l2: [0, 0, 0, 0],
       l3: [0, 0, 0, 0],
@@ -270,70 +271,73 @@ describe('computed', () => {
       eff: 0,
     }
     const [src, setSrc] = signal(0)
-    const l1 = [0, 1, 2, 3].map((i) =>
+    const l1 = ([0, 1, 2, 3] as const).map((i) =>
       computed(() => {
         counters.l1[i]++
         return src() + i
       }),
     )
+    /* biome-ignore-start lint/style/noNonNullAssertion: fixed-shape array, indices known */
     const l2 = [
       computed(() => {
         counters.l2[0]++
-        return l1[0]() + l1[1]()
+        return l1[0]!() + l1[1]!()
       }),
       computed(() => {
         counters.l2[1]++
-        return l1[1]() + l1[2]()
+        return l1[1]!() + l1[2]!()
       }),
       computed(() => {
         counters.l2[2]++
-        return l1[2]() + l1[3]()
+        return l1[2]!() + l1[3]!()
       }),
       computed(() => {
         counters.l2[3]++
-        return l1[3]() + l1[0]()
+        return l1[3]!() + l1[0]!()
       }),
     ]
     const l3 = [
       computed(() => {
         counters.l3[0]++
-        return l2[0]() + l2[1]()
+        return l2[0]!() + l2[1]!()
       }),
       computed(() => {
         counters.l3[1]++
-        return l2[1]() + l2[2]()
+        return l2[1]!() + l2[2]!()
       }),
       computed(() => {
         counters.l3[2]++
-        return l2[2]() + l2[3]()
+        return l2[2]!() + l2[3]!()
       }),
       computed(() => {
         counters.l3[3]++
-        return l2[3]() + l2[0]()
+        return l2[3]!() + l2[0]!()
       }),
     ]
     const l4 = [
       computed(() => {
         counters.l4[0]++
-        return l3[0]() + l3[1]()
+        return l3[0]!() + l3[1]!()
       }),
       computed(() => {
         counters.l4[1]++
-        return l3[1]() + l3[2]()
+        return l3[1]!() + l3[2]!()
       }),
       computed(() => {
         counters.l4[2]++
-        return l3[2]() + l3[3]()
+        return l3[2]!() + l3[3]!()
       }),
       computed(() => {
         counters.l4[3]++
-        return l3[3]() + l3[0]()
+        return l3[3]!() + l3[0]!()
       }),
     ]
+    /* biome-ignore-end lint/style/noNonNullAssertion: fixed-shape array, indices known */
     let sink = 0
     effect(() => {
       counters.eff++
-      sink = l4[0]() + l4[1]() + l4[2]() + l4[3]()
+      // biome-ignore lint/style/noNonNullAssertion: fixed-shape array, indices known
+      sink = l4[0]!() + l4[1]!() + l4[2]!() + l4[3]!()
     })
     // Reset post-construction.
     counters.l1 = [0, 0, 0, 0]
