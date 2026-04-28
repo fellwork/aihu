@@ -2,6 +2,7 @@ import { SignalCircularError } from './errors.ts'
 import {
   DISPOSED,
   EFFECT,
+  HAS_COMPUTED_DEPS,
   MARKED,
   peekCurrentObserver,
   type Read,
@@ -10,7 +11,6 @@ import {
   type Subscriber,
   setCurrentObserver,
   shallowClear,
-  shallowClearFired,
 } from './signal.ts'
 
 export interface ComputedOptions<T> {
@@ -72,12 +72,11 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
         shallowClear(subs)
         return
       }
-      // Re-assert MARKED on direct subs only when a prior equality cascade
-      // in this wave has fired (which may have cleared them). In the
-      // common no-equality-clear case, MARKED is still set from phase 1
-      // and this loop is a no-op — skipping it saves O(subs) work per
-      // computed in shallow fan-outs (e.g. wide-fanout-100).
-      if (!shallowClearFired) return
+      // Re-assert MARKED on direct subs unconditionally. In the common
+      // no-equality-clear case the bits are already set so the OR is a
+      // no-op; correctness > the saved iteration. Removed the
+      // shallowClearFired guard to free 14 B for the restricted leaf
+      // fast path (spec §5).
       for (const sub of subs) {
         if (sub.flags & DISPOSED) continue
         if (sub.flags & EFFECT) sub.flags |= MARKED
@@ -92,6 +91,10 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     if (observer !== null && !subs.has(observer)) {
       subs.add(observer)
       if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
+      // Computed-observer reading a computed source: mark observer as
+      // having computed deps so markOne's restricted leaf fast path
+      // skips it forever (spec §3 sufficiency invariant).
+      else if (observer.subs !== undefined) observer.flags |= HAS_COMPUTED_DEPS
     }
     if (!hasCached || node.flags & STALE) {
       cached = recompute()

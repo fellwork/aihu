@@ -16,6 +16,14 @@ export interface Subscriber {
 /** @internal */ export const STALE = 0x8
 /** @internal */ export const EFFECT = 0x10
 /** @internal */ export const MARKED = 0x20
+/**
+ * @internal — set on a computed observer the first time it reads another
+ * computed during its body. One-way (once true, stays true). Used by
+ * markOne's restricted leaf fast path to confirm the computed has only
+ * source-signal deps (sufficient, not necessary, for the inline-recompute
+ * correctness invariant — see wide-fanout-recovery-v2-spec.md §3).
+ */
+/** @internal */ export const HAS_COMPUTED_DEPS = 0x80
 
 /** @internal */
 let currentObserver: Subscriber | null = null
@@ -46,13 +54,6 @@ const effectQueue: Subscriber[] = []
  * (saves 6 per-wave bit-clear iteration sites in signal.ts).
  */
 let wave = 0
-/**
- * @internal — true when shallowClear has fired during the current wave.
- * Lets recomputeIfNeeded skip the re-assert MARKED loop in the common
- * case where no sibling equality cascade has cleared the downstream
- * MARKED bits. Reset at clearVisited.
- */
-export let shallowClearFired = false
 
 /** @internal */
 export function getBatchDepth(): number {
@@ -84,8 +85,24 @@ function markOne(sub: Subscriber): void {
   }
   visited.push(sub)
   sub.flags |= STALE
-  const inner = sub.subs
-  if (inner !== undefined && inner.size > 0) propagateMark(inner)
+  const inner = sub.subs as Set<Subscriber>
+  // Restricted leaf fast path: a confirmed source-only computed
+  // (HAS_COMPUTED_DEPS unset) with exactly one effect sub can settle
+  // inline during marking — phase 2 dispatch becomes a STALE-cleared
+  // early-return. Correctness invariant: spec §3.
+  if (inner.size === 1 && !(sub.flags & HAS_COMPUTED_DEPS)) {
+    let only: Subscriber | undefined
+    for (const s of inner) {
+      only = s
+      break
+    }
+    if (only !== undefined && only.flags & EFFECT) {
+      markOne(only)
+      sub.recomputeIfNeeded?.()
+      return
+    }
+  }
+  propagateMark(inner)
 }
 
 /**
@@ -102,7 +119,6 @@ export function propagateMark(subs: Set<Subscriber>): void {
  * direct computed subs (their settle becomes a no-op).
  */
 export function shallowClear(subs: Set<Subscriber>): void {
-  shallowClearFired = true
   for (const sub of subs) {
     if (sub.flags & EFFECT) sub.flags &= ~MARKED
     else sub.flags &= ~(STALE | MARKED)
@@ -136,7 +152,6 @@ function clearVisited(): void {
   // Clear any leftover effectQueue entries' MARKED too (cycle-throw recovery).
   for (const sub of effectQueue) sub.flags &= ~MARKED
   effectQueue.length = 0
-  shallowClearFired = false
 }
 
 /**
