@@ -9,6 +9,47 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-28 — Two-phase mark/propagate scheduler (cellx structural fix)
+
+**Branch:** `perf/signals-cellx-fix`
+**Commit:** `b7dc00c` (replaces wip 99ea2c8)
+**Spec:** `.team/phase-2-5/cellx-structural-rewrite-spec.md`
+
+Replaces the wip lazy-stale-hybrid scheduler with a two-phase mark /
+settle / drain pipeline. Phase 1 marks every reachable sub once
+(NOTIFIED bit dedups diamond fan-in); phase 2 settles computeds with
+effect subs (eager recompute + equality cascade-suppression); phase 3
+runs effects whose MARKED bit survived. The Investigator's regression
+check (`.team/phase-2-5/scratch/cellx-counter.ts`) confirms 92 → 17
+body executions per cellx op — the structural minimum.
+
+### Bench deltas (median p50 of 4 runs)
+
+| Workload | Pre-rewrite (wip) | Post-rewrite | Delta |
+| --- | ---: | ---: | ---: |
+| cellx | 5.71 µs | 1.61 µs | **−72 %** |
+| wide-fanout-100 | 8.97 µs | 10.81 µs | +20 % |
+| batched-writes-100 | 11.16 µs | 7.99 µs | **−28 %** |
+
+Wide-fanout-100 trips the 10 % regression gate. Per
+`.team/phase-2-5/cellx-rewrite-builder-blockers.md` §A: the workload
+has no algorithmic benefit from the new design (no diamond glitch
+exists in a 1-deep fan-out), only the constant-factor overhead of the
+two-phase dispatch. cellx-shaped graphs (which dominate real-app
+reactive surfaces) win by 3.5×; the trade is favorable. Tagged for
+`[bench-bump]` adjudication at PR-review time.
+
+### Bundle size
+
+scribe ships at **1.01 KB gzipped** under size-limit's measurement
+(was 742 B). +37 % over the wip baseline; the structural rewrite
+spends bytes on the two-phase pipeline + visited/effectQueue + the
+NOTIFIED dedup bit infrastructure. Fits inside the 1024 B hard cap
+with ~10 B headroom. Spec §9 deeper wins (single-sub fast path,
+linked-list dep graph) deferred to a follow-up perf session.
+
+---
+
 ## 2026-04-27 — Phase 2.5 baseline (Track A, initial)
 
 **Branch:** `bench/phase-2-5-track-a`
