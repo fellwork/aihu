@@ -14,6 +14,14 @@ tasks:
       runFromWorkspaceRoot: false
       mergeOutputs: replace
 
+  # bench/signals imports `@scribe/signals` via the workspace package, which
+  # resolves through `package.json` exports to `./dist/index.d.ts`. Typecheck
+  # therefore requires the signals dist to exist; without this dep the inherited
+  # `bunx tsc --noEmit` fails on a clean checkout (TS2307: Cannot find module).
+  typecheck:
+    deps:
+      - 'signals:build'
+
   run:
     command: 'bun src/runner.ts'
     inputs:
