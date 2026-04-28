@@ -174,4 +174,373 @@ describe('computed', () => {
     expect(runs).toBe(2)
     expect(observed).toBe(2.0)
   })
+
+  it('lazy stale propagation: only-computed subs do not recompute on notify', () => {
+    // signal → c1 → c2 (no effect; c2 is only read once at the end)
+    const [n, setN] = signal(1)
+    let c1Evals = 0
+    let c2Evals = 0
+    const c1 = computed(() => {
+      c1Evals++
+      return n() + 1
+    })
+    const c2 = computed(() => {
+      c2Evals++
+      return c1() * 10
+    })
+    // Initial read of c2 to wire deps. c2 reads c1, c1 reads n.
+    expect(c2()).toBe(20)
+    expect(c1Evals).toBe(1)
+    expect(c2Evals).toBe(1)
+    // Now write to n. With no effect subscribed, c2 should NOT recompute
+    // during notify — c2 has no subs → STALE-mark only. c1 has c2 as sub
+    // → STALE-propagate, no recompute.
+    setN(5)
+    expect(c1Evals).toBe(1) // not yet (lazy)
+    expect(c2Evals).toBe(1) // not yet (lazy)
+    // Reading c2 forces the chain to recompute exactly once each.
+    expect(c2()).toBe(60)
+    expect(c1Evals).toBe(2)
+    expect(c2Evals).toBe(2)
+  })
+
+  it('diamond graph: each node runs exactly once per signal write', () => {
+    // Mini-diamond (1 source, 2 layers of 2 computeds each, 1 effect).
+    // Under the new two-phase mark/propagate scheduler (.team/phase-2-5/
+    // cellx-structural-rewrite-spec.md §5.4), the diamond glitch is
+    // structurally eliminated: phase-1 marks every reachable node once
+    // (NOTIFIED dedup), phase-2 settles computeds with effect subs in
+    // visited order so all upstream is fresh before any equality check
+    // fires, phase-3 runs effects whose MARKED bit survived. Counts
+    // tighten from the wip's `≤2 / ≤3 / ≤5` ranges to exact `===` values.
+    const [n, setN] = signal(0)
+    const evals = { l1a: 0, l1b: 0, l2a: 0, l2b: 0 }
+    const l1a = computed(() => {
+      evals.l1a++
+      return n() + 1
+    })
+    const l1b = computed(() => {
+      evals.l1b++
+      return n() + 2
+    })
+    const l2a = computed(() => {
+      evals.l2a++
+      return l1a() + l1b()
+    })
+    const l2b = computed(() => {
+      evals.l2b++
+      return l1a() * l1b()
+    })
+    let effectRuns = 0
+    let observed = -1
+    effect(() => {
+      effectRuns++
+      observed = l2a() + l2b()
+    })
+    // After construction, all 4 computeds have evaluated once (effect's read).
+    expect(evals.l1a).toBe(1)
+    expect(evals.l1b).toBe(1)
+    expect(evals.l2a).toBe(1)
+    expect(evals.l2b).toBe(1)
+    expect(effectRuns).toBe(1)
+    // n=0 → l1a=1, l1b=2, l2a=3, l2b=2, observed = 5.
+    expect(observed).toBe(5)
+
+    // Write to n. The new design produces exactly {l1*=2, l2*=2,
+    // effectRuns=2} — no glitch storm. (Counts include the construction
+    // run + the post-write run.)
+    setN(10)
+    expect(evals.l1a).toBe(2)
+    expect(evals.l1b).toBe(2)
+    expect(evals.l2a).toBe(2)
+    expect(evals.l2b).toBe(2)
+    expect(effectRuns).toBe(2)
+    // n=10 → l1a=11, l1b=12, l2a=23, l2b=132, observed = 155.
+    expect(observed).toBe(155)
+  })
+
+  it('cellx 4×4 diamond: exactly 17 body executions per signal write', () => {
+    // Mirrors .team/phase-2-5/scratch/cellx-counter.ts as a unit test.
+    // Spec §5.3 — binding diamond-glitch-absence regression check.
+    type Tup4 = [number, number, number, number]
+    const counters: { l1: Tup4; l2: Tup4; l3: Tup4; l4: Tup4; eff: number } = {
+      l1: [0, 0, 0, 0],
+      l2: [0, 0, 0, 0],
+      l3: [0, 0, 0, 0],
+      l4: [0, 0, 0, 0],
+      eff: 0,
+    }
+    const [src, setSrc] = signal(0)
+    const l1 = ([0, 1, 2, 3] as const).map((i) =>
+      computed(() => {
+        counters.l1[i]++
+        return src() + i
+      }),
+    )
+    /* biome-ignore-start lint/style/noNonNullAssertion: fixed-shape array, indices known */
+    const l2 = [
+      computed(() => {
+        counters.l2[0]++
+        return l1[0]!() + l1[1]!()
+      }),
+      computed(() => {
+        counters.l2[1]++
+        return l1[1]!() + l1[2]!()
+      }),
+      computed(() => {
+        counters.l2[2]++
+        return l1[2]!() + l1[3]!()
+      }),
+      computed(() => {
+        counters.l2[3]++
+        return l1[3]!() + l1[0]!()
+      }),
+    ]
+    const l3 = [
+      computed(() => {
+        counters.l3[0]++
+        return l2[0]!() + l2[1]!()
+      }),
+      computed(() => {
+        counters.l3[1]++
+        return l2[1]!() + l2[2]!()
+      }),
+      computed(() => {
+        counters.l3[2]++
+        return l2[2]!() + l2[3]!()
+      }),
+      computed(() => {
+        counters.l3[3]++
+        return l2[3]!() + l2[0]!()
+      }),
+    ]
+    const l4 = [
+      computed(() => {
+        counters.l4[0]++
+        return l3[0]!() + l3[1]!()
+      }),
+      computed(() => {
+        counters.l4[1]++
+        return l3[1]!() + l3[2]!()
+      }),
+      computed(() => {
+        counters.l4[2]++
+        return l3[2]!() + l3[3]!()
+      }),
+      computed(() => {
+        counters.l4[3]++
+        return l3[3]!() + l3[0]!()
+      }),
+    ]
+    /* biome-ignore-end lint/style/noNonNullAssertion: fixed-shape array, indices known */
+    let sink = 0
+    effect(() => {
+      counters.eff++
+      // biome-ignore lint/style/noNonNullAssertion: fixed-shape array, indices known
+      sink = l4[0]!() + l4[1]!() + l4[2]!() + l4[3]!()
+    })
+    // Reset post-construction.
+    counters.l1 = [0, 0, 0, 0]
+    counters.l2 = [0, 0, 0, 0]
+    counters.l3 = [0, 0, 0, 0]
+    counters.l4 = [0, 0, 0, 0]
+    counters.eff = 0
+    setSrc(1)
+    // Exactly 1 body execution per computed; effect runs exactly once.
+    for (let i = 0; i < 4; i++) {
+      expect(counters.l1[i]).toBe(1)
+      expect(counters.l2[i]).toBe(1)
+      expect(counters.l3[i]).toBe(1)
+      expect(counters.l4[i]).toBe(1)
+    }
+    expect(counters.eff).toBe(1)
+    // Sink converged (acts as a touch-test on `sink` so it isn't
+    // dead-code-eliminated by V8).
+    expect(typeof sink).toBe('number')
+  })
+
+  it('NOTIFIED dedup: a write reaching the same computed via multiple paths only marks it once', () => {
+    // Two-parent diamond: src → a, src → b; both → c → effect.
+    // Without NOTIFIED dedup, c would be marked twice and (under the wip
+    // eager design) recomputed twice. The new design caps it at once.
+    const [src, setSrc] = signal(0)
+    let aEvals = 0
+    let bEvals = 0
+    let cEvals = 0
+    let effRuns = 0
+    const a = computed(() => {
+      aEvals++
+      return src() + 1
+    })
+    const b = computed(() => {
+      bEvals++
+      return src() + 2
+    })
+    const c = computed(() => {
+      cEvals++
+      return a() + b()
+    })
+    effect(() => {
+      effRuns++
+      c()
+    })
+    expect(aEvals).toBe(1)
+    expect(bEvals).toBe(1)
+    expect(cEvals).toBe(1)
+    expect(effRuns).toBe(1)
+    setSrc(10)
+    expect(aEvals).toBe(2)
+    expect(bEvals).toBe(2)
+    expect(cEvals).toBe(2) // exactly once, not twice
+    expect(effRuns).toBe(2)
+  })
+
+  it('effect dedup: two cascades reaching the same effect run it once', () => {
+    // Two computeds that both reach the same effect.
+    const [src, setSrc] = signal(0)
+    let effRuns = 0
+    const a = computed(() => src() + 1)
+    const b = computed(() => src() + 2)
+    effect(() => {
+      effRuns++
+      a()
+      b()
+    })
+    expect(effRuns).toBe(1)
+    setSrc(5)
+    // Effect is reached via a-cascade AND b-cascade; QUEUED dedup runs once.
+    expect(effRuns).toBe(2)
+  })
+
+  it('subs shape: promoting from 2-tuple to Set on third sub preserves order', () => {
+    // Phase 1 — exercises the 2-tuple → Set promotion. Three effects
+    // subscribed to a computed in known order; each must fire on a write.
+    const [n, setN] = signal(0)
+    const c = computed(() => n() * 10)
+    let aRuns = 0
+    let bRuns = 0
+    let cRuns = 0
+    effect(() => {
+      c()
+      aRuns++
+    })
+    effect(() => {
+      c()
+      bRuns++
+    })
+    // At this point computed has 2 effect subs (tuple shape).
+    setN(1)
+    expect(aRuns).toBe(2)
+    expect(bRuns).toBe(2)
+    // Add a 3rd sub → promote tuple → Set.
+    effect(() => {
+      c()
+      cRuns++
+    })
+    setN(2)
+    expect(aRuns).toBe(3)
+    expect(bRuns).toBe(3)
+    expect(cRuns).toBe(2)
+  })
+
+  it('subs shape: demoting from Set to 2-tuple on dispose preserves remaining edges', () => {
+    // Phase 1 — exercises Set → tuple demote on dispose. 3 effects → dispose
+    // 1 → assert remaining 2 still fire on subsequent writes.
+    const [n, setN] = signal(0)
+    const c = computed(() => n() + 1)
+    let aRuns = 0
+    let bRuns = 0
+    let cRuns = 0
+    effect(() => {
+      c()
+      aRuns++
+    })
+    const disposeB = effect(() => {
+      c()
+      bRuns++
+    })
+    effect(() => {
+      c()
+      cRuns++
+    })
+    expect(aRuns).toBe(1)
+    expect(bRuns).toBe(1)
+    expect(cRuns).toBe(1)
+    setN(1)
+    expect(aRuns).toBe(2)
+    expect(bRuns).toBe(2)
+    expect(cRuns).toBe(2)
+    // Dispose B; A and C must still fire. (Note: current implementation
+    // marks B disposed but leaves it in the subs Set; the next write
+    // will skip B via the DISPOSED flag check, leaving the Set at
+    // size-3 with one disposed entry. Phase 2 introduces real splice.)
+    disposeB()
+    setN(2)
+    expect(aRuns).toBe(3)
+    expect(bRuns).toBe(2) // disposed; flat
+    expect(cRuns).toBe(3)
+  })
+
+  it('linked-list: same-signal-read-twice does not create duplicate edges', async () => {
+    // Phase 2 — computed reads the same signal twice in its body; the
+    // dep graph must contain exactly one edge n→c-as-observer (not two).
+    const { __countSubs } = await import('../src/signal.ts')
+    const [n, setN] = signal(3)
+    const c = computed(() => n() + n() + n())
+    expect(c()).toBe(9)
+    // The signal has at most 1 outbound edge (to c).
+    expect(__countSubs(n)).toBe(1)
+    setN(5)
+    expect(c()).toBe(15)
+    expect(__countSubs(n)).toBe(1)
+  })
+
+  it('linked-list: read order preserves dep insertion order across recomputes', () => {
+    // Phase 2 — observer reads signals in a known order; the order of
+    // edges in the observer's deps list reflects insertion order.
+    // Property test scope: behaviour-observable (the order subscribers
+    // notify is the order signals were read), not implementation-shape.
+    const [a, setA] = signal(1)
+    const [b, setB] = signal(2)
+    let observed = 0
+    const c = computed(() => a() + b())
+    expect(c()).toBe(3)
+    effect(() => {
+      observed = c()
+    })
+    setA(10)
+    expect(observed).toBe(12)
+    setB(20)
+    expect(observed).toBe(30)
+    // Recompute body re-reads in same order; deps list shape preserved.
+    setA(100)
+    expect(observed).toBe(120)
+  })
+
+  it('mixed subs: computed with both effect and computed subs takes eager path', () => {
+    // c1 is read by both a downstream computed (c2) AND an effect directly.
+    // c1 must take the eager path because it has at least one effect sub,
+    // which means equality suppression must work on c1.
+    const [n, setN] = signal(0)
+    let c1Evals = 0
+    const c1 = computed(() => {
+      c1Evals++
+      return n() % 2 // returns 0 for even, 1 for odd
+    })
+    const c2 = computed(() => c1() * 10)
+    let effectRuns = 0
+    effect(() => {
+      c1() // direct sub of c1
+      c2() // indirect sub of c1 via c2
+      effectRuns++
+    })
+    expect(c1Evals).toBe(1)
+    expect(effectRuns).toBe(1)
+    // Write that produces equal recompute (0 → 2, both even → c1=0 unchanged).
+    setN(2)
+    // c1 has effect sub → eager path → recompute → equals(0, 0) → suppress.
+    // Effect must NOT have re-run.
+    expect(c1Evals).toBe(2) // recomputed eagerly (eager path)
+    expect(effectRuns).toBe(1) // suppressed by equality
+  })
 })

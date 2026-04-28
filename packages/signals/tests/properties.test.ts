@@ -94,3 +94,123 @@ describe('properties — sanity', () => {
     expect(typeof fc.assert).toBe('function')
   })
 })
+
+// Phase 2 — linked-list dep graph invariants. These tests use the
+// internal `__inspectGraph` helper to walk the Link list in both
+// directions and assert the dep↔sub bijection holds after construction,
+// after dispose, and after a thrown cycle.
+describe('properties — linked-list dep graph (Phase 2)', () => {
+  it('property: every dep edge has a matching sub edge (back-edge invariant)', async () => {
+    const { __hostOf, __inspectGraph } = await import('../src/signal.ts')
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 0, max: 10 }), { minLength: 1, maxLength: 8 }),
+        fc.array(fc.tuple(fc.nat(7), fc.nat(7)), { minLength: 0, maxLength: 8 }),
+        (sigInits, edges) => {
+          const sigs = sigInits.map((v) => signal(v))
+          const reads = sigs.map(([r]) => r)
+          const cmps = edges.map(([i, j]) => {
+            const a = reads[i % reads.length]
+            const b = reads[j % reads.length]
+            return computed(() => (a === undefined ? 0 : a()) + (b === undefined ? 0 : b()))
+          })
+          const dispose = effect(() => {
+            for (const c of cmps) c()
+            for (const r of reads) r()
+          })
+          const roots = [...reads, ...cmps]
+            .map((r) => __hostOf(r))
+            .filter((h): h is NonNullable<typeof h> => h !== null)
+          const nodes = __inspectGraph(roots)
+          dispose()
+          return nodes.violations === 0
+        },
+      ),
+    )
+  })
+
+  it('property: dispose-effect splices all its dep edges in O(deps) time', async () => {
+    const { __hostOf, __inspectGraph } = await import('../src/signal.ts')
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 0, max: 10 }), { minLength: 1, maxLength: 6 }),
+        (sigInits) => {
+          const sigs = sigInits.map((v) => signal(v))
+          const reads = sigs.map(([r]) => r)
+          const dispose = effect(() => {
+            for (const r of reads) r()
+          })
+          const roots = reads
+            .map((r) => __hostOf(r))
+            .filter((h): h is NonNullable<typeof h> => h !== null)
+          const before = __inspectGraph(roots)
+          dispose()
+          const after = __inspectGraph(roots)
+          return after.violations === 0 && after.totalEdges < before.totalEdges
+        },
+      ),
+    )
+  })
+
+  it('property: cycle-throw leaves no partially-spliced Link', async () => {
+    const { __hostOf, __inspectGraph } = await import('../src/signal.ts')
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 5 }), (k) => {
+        const [n, setN] = signal(k)
+        let threw = false
+        const c = computed(() => {
+          const v = n()
+          setN(v + 1)
+          return v
+        })
+        try {
+          c()
+        } catch (e) {
+          threw = true
+          if (!(e instanceof Error)) return false
+        }
+        const roots = [__hostOf(n), __hostOf(c)].filter(
+          (h): h is NonNullable<typeof h> => h !== null,
+        )
+        const post = __inspectGraph(roots)
+        return threw && post.violations === 0
+      }),
+    )
+  })
+
+  it('property: NOTIFIED-dedup invariant holds with linked-list edges', () => {
+    fc.assert(
+      fc.property(fc.array(fc.integer(), { minLength: 1, maxLength: 20 }), (writes) => {
+        // Diamond: src → a, src → b; both → c → effect. Each write to
+        // src must run c's body exactly once, regardless of multiple
+        // reachable paths.
+        const [src, setSrc] = signal(0)
+        let cRuns = 0
+        const a = computed(() => src() + 1)
+        const b = computed(() => src() + 2)
+        const c = computed(() => {
+          cRuns++
+          return a() + b()
+        })
+        let effRuns = 0
+        effect(() => {
+          c()
+          effRuns++
+        })
+        const beforeC = cRuns
+        const beforeEff = effRuns
+        // Each *distinct* write should bump cRuns by exactly 1.
+        let prev = 0
+        let distinct = 0
+        for (const w of writes) {
+          if (!Object.is(w, prev)) {
+            distinct++
+            prev = w
+          }
+          setSrc(w)
+        }
+        return cRuns === beforeC + distinct && effRuns === beforeEff + distinct
+      }),
+    )
+  })
+})

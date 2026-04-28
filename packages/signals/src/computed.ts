@@ -1,12 +1,19 @@
 import { SignalCircularError } from './errors.ts'
 import {
+  __HOST,
   DISPOSED,
+  EFFECT,
+  HAS_COMPUTED_DEPS,
+  type Link,
+  linkAdd,
+  MARKED,
   peekCurrentObserver,
   type Read,
   RUNNING,
   STALE,
   type Subscriber,
   setCurrentObserver,
+  shallowClear,
 } from './signal.ts'
 
 export interface ComputedOptions<T> {
@@ -26,9 +33,12 @@ export interface ComputedOptions<T> {
 export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> {
   let cached: T
   let hasCached = false
-  const subs = new Set<Subscriber>()
   const eq = options?.equals
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
+  // Set when any effect subscribes (directly). Lazy chains (computeds whose
+  // subs are exclusively other computeds) skip the phase-2 recompute and
+  // let downstream readers pull via STALE.
+  let hasEffectSub = false
 
   const recompute = (): T => {
     node.flags |= RUNNING
@@ -37,49 +47,64 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
       return fn()
     } finally {
       setCurrentObserver(prevObserver)
-      node.flags &= ~RUNNING
-      node.flags &= ~STALE
+      node.flags &= ~(RUNNING | STALE | MARKED)
     }
   }
 
   const node: Subscriber = {
     flags: STALE,
+    subsHead: null,
+    subsTail: null,
+    depsHead: null,
+    depsTail: null,
     notify() {
       if (node.flags & DISPOSED) return
       if (node.flags & RUNNING) throw new SignalCircularError()
-      // If already stale, downstream was already notified on the prior write —
-      // suppress the redundant cascade.
-      if (node.flags & STALE) return
-      node.flags |= STALE
-      // No subscribers → nothing to cascade. Stay lazy.
-      if (subs.size === 0) return
-      // Eagerly recompute to determine whether subscribers actually need to
-      // be notified. If the recomputed value is equal to the cached value
-      // (under the configured comparator), suppress the cascade — downstream
-      // effects/computeds shouldn't re-run on equal recomputes.
+    },
+    recomputeIfNeeded() {
+      if (node.flags & DISPOSED) return
+      if (!hasEffectSub) return
+      if (!(node.flags & STALE)) return
+      if (node.subsHead === null) return
+      const hadCache = hasCached
       const prev = cached
       const next = recompute()
       cached = next
       hasCached = true
-      if (equals !== false && equals(prev, next)) return
-      for (const sub of [...subs]) {
-        sub.notify()
+      if (hadCache && equals !== false && equals(prev, next)) {
+        shallowClear(node.subsHead)
+        return
+      }
+      // Re-assert MARKED on direct subs (linked-list walk).
+      for (let l: Link | null = node.subsHead; l !== null; l = l.nextSub) {
+        const sub = l.sub
+        if (sub.flags & DISPOSED) continue
+        if (sub.flags & EFFECT) sub.flags |= MARKED
+        else sub.flags |= STALE | MARKED
       }
     },
   }
 
-  const read: Read<T> = () => {
-    // Re-entry while running is a synchronous cycle.
+  const read: Read<T> & { [__HOST]?: Subscriber } = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
-    // Forward observation: register the calling observer as a sub of this computed.
     const observer = peekCurrentObserver()
-    if (observer !== null) subs.add(observer)
+    if (observer !== null) {
+      const added = linkAdd(node, observer)
+      if (added) {
+        if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
+        // Computed-observer reading a computed source: mark observer as
+        // having computed deps so markOne's restricted leaf fast path
+        // skips it forever (parent spec §3 sufficiency invariant).
+        else if (observer.recomputeIfNeeded !== undefined) observer.flags |= HAS_COMPUTED_DEPS
+      }
+    }
     if (!hasCached || node.flags & STALE) {
       cached = recompute()
       hasCached = true
     }
     return cached
   }
+  read[__HOST] = node
 
   return read
 }

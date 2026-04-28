@@ -83,6 +83,43 @@ describe('effect', () => {
     }).toThrow(SignalCircularError)
   })
 
+  it('pooled effect: identity is internal; consecutive create+dispose cycles do not leak deps', async () => {
+    // Phase 3 (§9.5 effect pool, §6.2 OVERRIDE): the effect node is
+    // pooled across short-lived create/dispose cycles. Behaviour
+    // contract: each disposed effect's dispose() is idempotent and
+    // does NOT affect a later effect that may have reused the same
+    // pooled node. Each effect runs only its own body.
+    const [n, setN] = signal(0)
+    const aRuns: number[] = []
+    const bRuns: number[] = []
+    const disposeA = effect(() => {
+      aRuns.push(n())
+    })
+    expect(aRuns).toEqual([0])
+    setN(1)
+    expect(aRuns).toEqual([0, 1])
+    disposeA()
+    // Subsequent writes do not re-run A, even after we create another
+    // effect (which may reuse A's pooled node).
+    const disposeB = effect(() => {
+      bRuns.push(n())
+    })
+    expect(aRuns).toEqual([0, 1])
+    expect(bRuns).toEqual([1])
+    setN(2)
+    // A is disposed; only B fires.
+    expect(aRuns).toEqual([0, 1])
+    expect(bRuns).toEqual([1, 2])
+    // Late dispose-A is idempotent and must NOT cancel B.
+    disposeA()
+    setN(3)
+    expect(aRuns).toEqual([0, 1])
+    expect(bRuns).toEqual([1, 2, 3])
+    disposeB()
+    setN(4)
+    expect(bRuns).toEqual([1, 2, 3])
+  })
+
   it('multiple effects on one signal each fire (fan-out)', () => {
     const [n, setN] = signal(0)
     let a = 0
