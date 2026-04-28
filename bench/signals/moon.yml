@@ -3,6 +3,13 @@ id: bench-signals
 language: typescript
 layer: application
 
+# bench-signals imports @scribe/signals (and other reactivity libs) for the
+# competitor harness. Declaring the workspace dep here so Moon's `^:build`
+# resolves — without this, `bench-signals:typecheck` may run in parallel
+# with `signals:build` and fail on a clean checkout (TS2307).
+dependsOn:
+  - 'signals'
+
 # Inherits typecheck from .moon/tasks/tasks.yml. The bench is an executable,
 # not a library — override inherited build to a no-op (no rolldown config) and
 # add a `run` task that is what humans and CI invoke.
@@ -13,14 +20,6 @@ tasks:
     options:
       runFromWorkspaceRoot: false
       mergeOutputs: replace
-
-  # bench/signals imports `@scribe/signals` via the workspace package, which
-  # resolves through `package.json` exports to `./dist/index.d.ts`. Typecheck
-  # therefore requires the signals dist to exist; without this dep the inherited
-  # `bunx tsc --noEmit` fails on a clean checkout (TS2307: Cannot find module).
-  typecheck:
-    deps:
-      - 'signals:build'
 
   run:
     command: 'bun src/runner.ts'
