@@ -156,6 +156,29 @@ describe('mount() — folded attrs integration tests', () => {
     expect(p.getAttribute('class')).toBe('b')
     scope.dispose()
   })
+
+  it('reactive signal on property key updates the DOM property (spec §4 Task 15 #5)', () => {
+    // Closes Verifier Finding 2: §4 Task 15 #5 ("reactive Signal on a key
+    // that triggers `key in el` → property assignment under mountEffect")
+    // was covered by composition of two tested paths but not isolated.
+    // `'value' in HTMLInputElement` is true, so the mountEffect routes
+    // through the property branch of `_setAttrOrProp` (not the attribute
+    // branch). Asserting on `input.value` (property) — and confirming
+    // `getAttribute('value')` does NOT change — proves the property path.
+    const host = document.createElement('div')
+    const sig = signal('initial')
+    const setVal = sig[1]
+    const scope = mount(branch('input', { value: sig as never }), host)
+    const input = host.querySelector('input') as HTMLInputElement
+    // Initial: property reflects signal; attribute is unchanged from default.
+    expect(input.value).toBe('initial')
+    expect(input.getAttribute('value')).toBeNull()
+    // Reactive write: property updates; attribute remains untouched.
+    setVal('updated')
+    expect(input.value).toBe('updated')
+    expect(input.getAttribute('value')).toBeNull()
+    scope.dispose()
+  })
 })
 
 describe('mount() — telemetry hooks (spec §2.8)', () => {
