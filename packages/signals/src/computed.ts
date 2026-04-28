@@ -1,9 +1,11 @@
 import { SignalCircularError } from './errors.ts'
 import {
+  __HOST,
   DISPOSED,
   EFFECT,
-  eachSub,
   HAS_COMPUTED_DEPS,
+  type Link,
+  linkAdd,
   MARKED,
   peekCurrentObserver,
   type Read,
@@ -35,9 +37,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
   // Set when any effect subscribes (directly). Lazy chains (computeds whose
   // subs are exclusively other computeds) skip the phase-2 recompute and
-  // let downstream readers pull via STALE. As soon as an effect is sub'd,
-  // we switch to eager-in-phase-2 so the equality cascade-suppression
-  // check (Phase 2 Finding 3) fires before the effect runs.
+  // let downstream readers pull via STALE.
   let hasEffectSub = false
 
   const recompute = (): T => {
@@ -53,7 +53,10 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
 
   const node: Subscriber = {
     flags: STALE,
-    // subs starts undefined (Phase 0 single-sub fast path).
+    subsHead: null,
+    subsTail: null,
+    depsHead: null,
+    depsTail: null,
     notify() {
       if (node.flags & DISPOSED) return
       if (node.flags & RUNNING) throw new SignalCircularError()
@@ -62,61 +65,36 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
       if (node.flags & DISPOSED) return
       if (!hasEffectSub) return
       if (!(node.flags & STALE)) return
-      if (node.subs === undefined) return
+      if (node.subsHead === null) return
       const hadCache = hasCached
       const prev = cached
       const next = recompute()
       cached = next
       hasCached = true
       if (hadCache && equals !== false && equals(prev, next)) {
-        shallowClear(node.subs)
+        shallowClear(node.subsHead)
         return
       }
-      // Re-assert MARKED on direct subs unconditionally. Cold-ish path
-      // (only fires when the equality cascade-suppression *did not*
-      // trigger and we have an effect sub somewhere downstream); shape
-      // dispatch is delegated to eachSub to keep bytes down.
-      eachSub(node.subs, (sub) => {
-        if (sub.flags & DISPOSED) return
+      // Re-assert MARKED on direct subs (linked-list walk).
+      for (let l: Link | null = node.subsHead; l !== null; l = l.nextSub) {
+        const sub = l.sub
+        if (sub.flags & DISPOSED) continue
         if (sub.flags & EFFECT) sub.flags |= MARKED
         else sub.flags |= STALE | MARKED
-      })
+      }
     },
   }
 
-  const read: Read<T> = () => {
+  const read: Read<T> & { [__HOST]?: Subscriber } = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
     const observer = peekCurrentObserver()
     if (observer !== null) {
-      // Inlined subAdd-with-dedup. `cur` is undefined / single / tuple / Set.
-      const cur = node.subs
-      let added = false
-      if (cur === undefined) {
-        node.subs = observer
-        added = true
-      } else if (cur instanceof Set) {
-        if (!cur.has(observer)) {
-          cur.add(observer)
-          added = true
-        }
-      } else if (Array.isArray(cur)) {
-        if (cur[0] !== observer && cur[1] !== observer) {
-          // tuple → Set promotion (3rd unique sub).
-          node.subs = new Set<Subscriber>([cur[0], cur[1], observer])
-          added = true
-        }
-      } else if (cur !== observer) {
-        // single → tuple promotion (2nd unique sub).
-        node.subs = [cur, observer]
-        added = true
-      }
+      const added = linkAdd(node, observer)
       if (added) {
         if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
         // Computed-observer reading a computed source: mark observer as
         // having computed deps so markOne's restricted leaf fast path
-        // skips it forever (spec §3 sufficiency invariant). Only
-        // computeds expose `recomputeIfNeeded`; effects don't, so this
-        // is the canonical "observer is a computed" probe.
+        // skips it forever (parent spec §3 sufficiency invariant).
         else if (observer.recomputeIfNeeded !== undefined) observer.flags |= HAS_COMPUTED_DEPS
       }
     }
@@ -126,6 +104,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     }
     return cached
   }
+  read[__HOST] = node
 
   return read
 }

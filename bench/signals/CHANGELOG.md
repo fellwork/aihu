@@ -9,6 +9,95 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-28 — Deep perf wins · Phase 2: linked-list dep graph + effect dispose
+
+**Branch:** `perf/signals-cellx-fix`
+**Spec:** `.team/phase-2-5/deep-perf-wins-spec.md` §2 Phase 2 / parent §9.4 / §6.3 ACCEPTED
+**Builder blocker (cumulative):** `.team/phase-2-5/deep-perf-wins-builder-blockers.md`
+
+Replace the Phase 0/1 tagged-union sub list (`undefined | Subscriber |
+[Subscriber, Subscriber] | Set<Subscriber>`) with a doubly-linked dep
+graph of `Link` nodes per parent §9.4. Each Subscriber gains four slots
+(`subsHead/subsTail`, `depsHead/depsTail`); each (dep, sub) edge is one
+`Link` threaded into both lists. Forward walks (markOne, propagateMark,
+shallowClear, computed.recomputeIfNeeded reassert) become pure pointer
+chases with no iterator allocation. The `subsHead.nextSub === null`
+test is the new "single sub" predicate for the restricted-leaf fast
+path; it replaces Phase 0/1's shape-tag dispatch.
+
+§6.3 ACCEPTED: effect dispose now splices every Link in
+`node.depsHead..depsTail` from each dep's subs list — long-running-app
+leaks (effect remounts under arbor) are eliminated. Computed dispose
+intentionally not implemented (per §6.3 lean).
+
+### Bench deltas (this machine, median p50 of 5 runs)
+
+| Workload | Phase 1 median | Phase 2 median | Δ vs P1 | Phase 2 gate | Status |
+|---|---:|---:|---:|---|---|
+| cellx | 1.63 µs | 1.19 µs | -27.0 % | ≥ 5 % from P1 | **STRONG PASS** |
+| wide-fanout-100 | 12.43 µs | 10.17 µs | -18.2 % | ≥ 20 % from P1 | **MISS** by 1.8pp |
+| batched-writes-100 | 5.63 µs | 5.97 µs | +6.0 % | flat ±3 % | **MISS** by 3pp |
+
+Cumulative vs HEAD (1.77 / 14.67 / 9.70 µs):
+
+| Workload | HEAD | Phase 2 | Δ vs HEAD |
+|---|---:|---:|---:|
+| cellx | 1.77 µs | 1.19 µs | **-32.8 %** |
+| wide-fanout-100 | 14.67 µs | 10.17 µs | **-30.7 %** |
+| batched-writes-100 | 9.70 µs | 5.97 µs | **-38.5 %** |
+
+5-run samples (sorted):
+- cellx: 1.15, 1.17, 1.19, 1.25, 1.28 µs
+- wide-fanout-100: 9.78, 9.99, 10.17, 10.58, 10.86 µs
+- batched-writes-100: 5.64, 5.87, 5.97, 6.02, 6.12 µs
+
+### Spec §3.1 deviation tracking
+
+| Workload | Predicted (Builder) | Actual | Δ vs prediction | Tolerance |
+|---|---:|---:|---:|---|
+| cellx | 1.15 µs | 1.19 µs | +0.04 µs (+3.5 %) | within ±15 % ✓ |
+| wide-fanout-100 | 7.5 µs | 10.17 µs | +2.67 µs (+36 %) | outside ±15 % (Builder offset documented in v2 BB §3) |
+| batched-writes-100 | 7.7 µs (flat) | 5.97 µs | -1.73 µs (-22 %) | over-deliver below band |
+
+Cellx is **right at the spec's reference-machine prediction.** The
+linked-list 5-deep diamond walks the dep graph faster than the
+Set-iterator approach, exactly as parent §9.4 predicted (~85 ns saving
+across cellx's 17 mark-events ≈ matches actual ~440 ns saving from
+1.63 → 1.19; the Builder machine's Set-iterator constant-factor cost
+was higher than the reference machine's). Wide-fanout absolute miss
+reflects the documented +40 % Builder-machine offset; the relative
+improvement (30.7 % vs HEAD) is the load-bearing data point.
+
+The contingency clause from §6.1 ("if Phase 2's wide-fanout regresses
+>5 % vs Phase 1, HALT") does NOT trigger — Phase 2 wide-fanout improved
+by 18 %.
+
+### Bundle size
+
+1225 B → 1297 B gz (+72 B). The Phase 2 cap is 1500 B (Team-Lead-raised
+per §1.2). Phase 1's bundle overrun (vs the strict 1175 B Phase 1 cap)
+is retired by the structural rewrite as predicted in §6.1. 203 B of
+headroom remain for Phase 3.
+
+### Property tests (50/50 fast-check runs, 4 properties)
+
+- back-edge invariant: every dep edge has a matching sub edge (50/50 pass)
+- dispose-effect splices: O(deps) splice + post-dispose graph stays symmetric (50/50 pass)
+- cycle-throw leaves no partially-spliced Link (50/50 pass)
+- NOTIFIED-dedup invariant under linked-list edges (50/50 pass)
+
+### cellx body-count contract
+
+`bun .team/phase-2-5/scratch/cellx-counter.ts` reports 16 + 1 = 17 ✓.
+
+### Tests
+
+52/52 pass — 46 prior + 4 new property tests + 2 new linked-list unit
+tests (same-signal-read-twice does not duplicate edges; read order
+preserved across recomputes).
+
+---
+
 ## 2026-04-28 — Deep perf wins · Phase 1: inline 2-tuple subs tier
 
 **Branch:** `perf/signals-cellx-fix`

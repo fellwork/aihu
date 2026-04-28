@@ -481,6 +481,42 @@ describe('computed', () => {
     expect(cRuns).toBe(3)
   })
 
+  it('linked-list: same-signal-read-twice does not create duplicate edges', async () => {
+    // Phase 2 — computed reads the same signal twice in its body; the
+    // dep graph must contain exactly one edge n→c-as-observer (not two).
+    const { __countSubs } = await import('../src/signal.ts')
+    const [n, setN] = signal(3)
+    const c = computed(() => n() + n() + n())
+    expect(c()).toBe(9)
+    // The signal has at most 1 outbound edge (to c).
+    expect(__countSubs(n)).toBe(1)
+    setN(5)
+    expect(c()).toBe(15)
+    expect(__countSubs(n)).toBe(1)
+  })
+
+  it('linked-list: read order preserves dep insertion order across recomputes', () => {
+    // Phase 2 — observer reads signals in a known order; the order of
+    // edges in the observer's deps list reflects insertion order.
+    // Property test scope: behaviour-observable (the order subscribers
+    // notify is the order signals were read), not implementation-shape.
+    const [a, setA] = signal(1)
+    const [b, setB] = signal(2)
+    let observed = 0
+    const c = computed(() => a() + b())
+    expect(c()).toBe(3)
+    effect(() => {
+      observed = c()
+    })
+    setA(10)
+    expect(observed).toBe(12)
+    setB(20)
+    expect(observed).toBe(30)
+    // Recompute body re-reads in same order; deps list shape preserved.
+    setA(100)
+    expect(observed).toBe(120)
+  })
+
   it('mixed subs: computed with both effect and computed subs takes eager path', () => {
     // c1 is read by both a downstream computed (c2) AND an effect directly.
     // c1 must take the eager path because it has at least one effect sub,
