@@ -4,17 +4,24 @@ import { SignalCircularError } from './errors.ts'
 export interface Subscriber {
   notify(): void
   /** @internal */ flags: number
-  /** @internal — tagged-union subs storage: undefined (0 subs), Subscriber (1 sub),
-   * or Set<Subscriber> (2+ subs). The type widens internally for the single-sub
-   * fast path; not part of the public surface. */
+  /** @internal — tagged-union subs storage. See SubsField. */
   subs?: SubsField
   /** @internal */ recomputeIfNeeded?(): void
   /** @internal — set to current wave when this sub is reached during marking; replaces the NOTIFIED bit. */
   lastWave?: number
 }
 
-/** @internal — tagged-union storage for subscriber lists. */
-export type SubsField = Subscriber | Set<Subscriber> | undefined
+/** @internal — fixed-shape 2-tuple of subs (Phase 1 tier). Never mutated
+ * in place; the array length is exactly 2 by construction. Detected via
+ * `Array.isArray`. */
+export type SubsTuple = [Subscriber, Subscriber]
+
+/** @internal — tagged-union storage for subscriber lists.
+ *   undefined          (0 subs)
+ *   Subscriber         (1 sub — single-sub fast path)
+ *   SubsTuple          (2 subs — fixed-length tuple, no holes, no growth)
+ *   Set<Subscriber>    (3+ subs — V8-iterable hash set) */
+export type SubsField = Subscriber | SubsTuple | Set<Subscriber> | undefined
 
 /** @internal */ export const RUNNING = 0x1
 /** @internal */ export const DISPOSED = 0x2
@@ -78,18 +85,28 @@ export function exitBatch(): void {
 
 // ───────── Mark / settle / drain pipeline ─────────
 //
-// SubsField is a tagged union of three shapes (Phase 0):
-//   - undefined         (0 subs)
-//   - Subscriber        (1 sub — the single-sub fast path)
-//   - Set<Subscriber>   (2+ subs — V8-iterable hash set)
+// SubsField is a tagged union of four shapes (Phase 0 + Phase 1):
+//   - undefined           (0 subs)
+//   - Subscriber          (1 sub — single-sub fast path)
+//   - [Subscriber, Subscriber] (2 subs — fixed tuple, no growth, no holes)
+//   - Set<Subscriber>     (3+ subs — V8-iterable hash set)
 //
 // All dispatch is inlined at hot-path sites (markOne, propagateMark,
-// shallowClear, signal.read, computed.read, computed.recomputeIfNeeded)
-// so V8 sees monomorphic typeof / instanceof branches per site instead
-// of a polymorphic helper call. Out-of-line helpers were measured to
-// regress wide-fanout-100 by ~5% on this machine versus inlined dispatch.
+// shallowClear, signal.read, signal.write, computed.read,
+// computed.recomputeIfNeeded) so V8 sees monomorphic typeof /
+// Array.isArray / instanceof branches per site instead of a polymorphic
+// helper call. Out-of-line helpers were measured to regress wide-fanout
+// by ~5 % on this machine versus inlined dispatch.
+//
+// The tuple shape is a real Array of length 2; Array.isArray is V8-
+// specialised and the tuple is never push/pop'd (promotion to Set or
+// demotion to single allocates a fresh container of the new shape).
+// This keeps each shape monomorphic at its hidden class.
 
-/** @internal — mark one sub with wave-counter dedup; recurse into computed subs. */
+/** @internal — mark one sub with wave-counter dedup; recurse into computed subs.
+ * The inner-walk dispatch is duplicated as `propagateMark` (entry from
+ * signal.write) — they share the same shape table; keeping them inlined
+ * in one function each lets V8 specialise their callsites independently. */
 function markOne(sub: Subscriber): void {
   if (sub.flags & DISPOSED) return
   if (sub.lastWave === wave) return
@@ -106,34 +123,36 @@ function markOne(sub: Subscriber): void {
   sub.flags |= STALE
   const inner = sub.subs
   if (inner === undefined) return
-  // Restricted leaf fast path: a confirmed source-only computed
-  // (HAS_COMPUTED_DEPS unset) with exactly one effect sub can settle
-  // inline during marking — phase 2 dispatch becomes a STALE-cleared
-  // early-return. Correctness invariant: spec §3.
-  // Inlined single-shape probe (`inner instanceof Set` is the late branch
-  // because Set is the dominant cellx shape; the single shape is a
-  // direct ref).
-  if (!(inner instanceof Set)) {
-    if (!(sub.flags & HAS_COMPUTED_DEPS) && inner.flags & EFFECT) {
-      markOne(inner)
-      sub.recomputeIfNeeded?.()
-      return
-    }
-    markOne(inner)
+  if (inner instanceof Set) {
+    for (const s of inner) markOne(s)
     return
   }
-  // Set fan-out (2+ subs): no leaf fast path possible.
-  for (const s of inner) markOne(s)
+  if (Array.isArray(inner)) {
+    markOne(inner[0])
+    markOne(inner[1])
+    return
+  }
+  // Single sub. Restricted leaf fast path: confirmed source-only computed
+  // (HAS_COMPUTED_DEPS unset) with one effect sub settles inline.
+  if (!(sub.flags & HAS_COMPUTED_DEPS) && inner.flags & EFFECT) {
+    markOne(inner)
+    sub.recomputeIfNeeded?.()
+    return
+  }
+  markOne(inner)
 }
 
-/**
- * @internal — phase 1: mark every reachable sub once. Pure flag work; no
- * computed body runs here. Throws on RUNNING (cycle detection).
- */
+/** @internal — phase-1 mark entry from signal.write. Same shape dispatch
+ * as markOne's inner walk. */
 export function propagateMark(subs: SubsField): void {
   if (subs === undefined) return
   if (subs instanceof Set) {
     for (const sub of subs) markOne(sub)
+    return
+  }
+  if (Array.isArray(subs)) {
+    markOne(subs[0])
+    markOne(subs[1])
     return
   }
   markOne(subs)
@@ -144,17 +163,28 @@ export function propagateMark(subs: SubsField): void {
  * Clears MARKED on direct effect subs (drain skips) and STALE+MARKED on
  * direct computed subs (their settle becomes a no-op).
  */
-export function shallowClear(subs: SubsField): void {
+/** @internal — shared dispatch over the four sub-shapes. Used by the
+ * cold paths (shallowClear, computed.recomputeIfNeeded MARKED reassert)
+ * to keep their bytes small; hot paths inline the dispatch directly. */
+export function eachSub(subs: SubsField, fn: (sub: Subscriber) => void): void {
   if (subs === undefined) return
   if (subs instanceof Set) {
-    for (const sub of subs) {
-      if (sub.flags & EFFECT) sub.flags &= ~MARKED
-      else sub.flags &= ~(STALE | MARKED)
-    }
+    for (const sub of subs) fn(sub)
     return
   }
-  if (subs.flags & EFFECT) subs.flags &= ~MARKED
-  else subs.flags &= ~(STALE | MARKED)
+  if (Array.isArray(subs)) {
+    fn(subs[0])
+    fn(subs[1])
+    return
+  }
+  fn(subs)
+}
+
+export function shallowClear(subs: SubsField): void {
+  eachSub(subs, (sub) => {
+    if (sub.flags & EFFECT) sub.flags &= ~MARKED
+    else sub.flags &= ~(STALE | MARKED)
+  })
 }
 
 /**
@@ -257,10 +287,15 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
   const read: Read<T> = () => {
     const obs = currentObserver
     if (obs !== null) {
-      // Inlined subAdd: undefined → single, Set → add, single → Set/no-op.
+      // Inlined subAdd dispatch over the four shapes. Hot path (every
+      // signal read by an effect/computed body).
       if (subs === undefined) subs = obs
       else if (subs instanceof Set) subs.add(obs)
-      else if (subs !== obs) subs = new Set<Subscriber>([subs, obs])
+      else if (Array.isArray(subs)) {
+        if (subs[0] !== obs && subs[1] !== obs) {
+          subs = new Set<Subscriber>([subs[0], subs[1], obs])
+        }
+      } else if (subs !== obs) subs = [subs, obs]
     }
     return value
   }
@@ -271,9 +306,12 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     value = resolved
     if (subs === undefined) return
     if (batchDepth > 0) {
-      // Snapshot only when iterating a Set; single shape needs no copy.
+      // Snapshot only when iterating a Set; smaller shapes don't need it.
       if (subs instanceof Set) {
         for (const sub of [...subs]) enqueueIfNeeded(sub)
+      } else if (Array.isArray(subs)) {
+        enqueueIfNeeded(subs[0])
+        enqueueIfNeeded(subs[1])
       } else {
         enqueueIfNeeded(subs)
       }

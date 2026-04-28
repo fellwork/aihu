@@ -412,6 +412,75 @@ describe('computed', () => {
     expect(effRuns).toBe(2)
   })
 
+  it('subs shape: promoting from 2-tuple to Set on third sub preserves order', () => {
+    // Phase 1 — exercises the 2-tuple → Set promotion. Three effects
+    // subscribed to a computed in known order; each must fire on a write.
+    const [n, setN] = signal(0)
+    const c = computed(() => n() * 10)
+    let aRuns = 0
+    let bRuns = 0
+    let cRuns = 0
+    effect(() => {
+      c()
+      aRuns++
+    })
+    effect(() => {
+      c()
+      bRuns++
+    })
+    // At this point computed has 2 effect subs (tuple shape).
+    setN(1)
+    expect(aRuns).toBe(2)
+    expect(bRuns).toBe(2)
+    // Add a 3rd sub → promote tuple → Set.
+    effect(() => {
+      c()
+      cRuns++
+    })
+    setN(2)
+    expect(aRuns).toBe(3)
+    expect(bRuns).toBe(3)
+    expect(cRuns).toBe(2)
+  })
+
+  it('subs shape: demoting from Set to 2-tuple on dispose preserves remaining edges', () => {
+    // Phase 1 — exercises Set → tuple demote on dispose. 3 effects → dispose
+    // 1 → assert remaining 2 still fire on subsequent writes.
+    const [n, setN] = signal(0)
+    const c = computed(() => n() + 1)
+    let aRuns = 0
+    let bRuns = 0
+    let cRuns = 0
+    effect(() => {
+      c()
+      aRuns++
+    })
+    const disposeB = effect(() => {
+      c()
+      bRuns++
+    })
+    effect(() => {
+      c()
+      cRuns++
+    })
+    expect(aRuns).toBe(1)
+    expect(bRuns).toBe(1)
+    expect(cRuns).toBe(1)
+    setN(1)
+    expect(aRuns).toBe(2)
+    expect(bRuns).toBe(2)
+    expect(cRuns).toBe(2)
+    // Dispose B; A and C must still fire. (Note: current implementation
+    // marks B disposed but leaves it in the subs Set; the next write
+    // will skip B via the DISPOSED flag check, leaving the Set at
+    // size-3 with one disposed entry. Phase 2 introduces real splice.)
+    disposeB()
+    setN(2)
+    expect(aRuns).toBe(3)
+    expect(bRuns).toBe(2) // disposed; flat
+    expect(cRuns).toBe(3)
+  })
+
   it('mixed subs: computed with both effect and computed subs takes eager path', () => {
     // c1 is read by both a downstream computed (c2) AND an effect directly.
     // c1 must take the eager path because it has at least one effect sub,

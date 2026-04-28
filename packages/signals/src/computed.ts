@@ -2,6 +2,7 @@ import { SignalCircularError } from './errors.ts'
 import {
   DISPOSED,
   EFFECT,
+  eachSub,
   HAS_COMPUTED_DEPS,
   MARKED,
   peekCurrentObserver,
@@ -71,22 +72,15 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
         shallowClear(node.subs)
         return
       }
-      // Re-assert MARKED on direct subs unconditionally. Inlined dispatch
-      // (single vs Set) — this is in the cellx hot path for every L4 → L1
-      // computed with a downstream effect.
-      const s = node.subs
-      if (s !== undefined) {
-        if (s instanceof Set) {
-          for (const sub of s) {
-            if (sub.flags & DISPOSED) continue
-            if (sub.flags & EFFECT) sub.flags |= MARKED
-            else sub.flags |= STALE | MARKED
-          }
-        } else if (!(s.flags & DISPOSED)) {
-          if (s.flags & EFFECT) s.flags |= MARKED
-          else s.flags |= STALE | MARKED
-        }
-      }
+      // Re-assert MARKED on direct subs unconditionally. Cold-ish path
+      // (only fires when the equality cascade-suppression *did not*
+      // trigger and we have an effect sub somewhere downstream); shape
+      // dispatch is delegated to eachSub to keep bytes down.
+      eachSub(node.subs, (sub) => {
+        if (sub.flags & DISPOSED) return
+        if (sub.flags & EFFECT) sub.flags |= MARKED
+        else sub.flags |= STALE | MARKED
+      })
     },
   }
 
@@ -94,7 +88,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     if (node.flags & RUNNING) throw new SignalCircularError()
     const observer = peekCurrentObserver()
     if (observer !== null) {
-      // Inlined subAdd-with-dedup. `cur` is undefined / single / Set.
+      // Inlined subAdd-with-dedup. `cur` is undefined / single / tuple / Set.
       const cur = node.subs
       let added = false
       if (cur === undefined) {
@@ -105,8 +99,15 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
           cur.add(observer)
           added = true
         }
+      } else if (Array.isArray(cur)) {
+        if (cur[0] !== observer && cur[1] !== observer) {
+          // tuple → Set promotion (3rd unique sub).
+          node.subs = new Set<Subscriber>([cur[0], cur[1], observer])
+          added = true
+        }
       } else if (cur !== observer) {
-        node.subs = new Set<Subscriber>([cur, observer])
+        // single → tuple promotion (2nd unique sub).
+        node.subs = [cur, observer]
         added = true
       }
       if (added) {

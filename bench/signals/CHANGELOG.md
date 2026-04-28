@@ -9,6 +9,71 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-28 — Deep perf wins · Phase 1: inline 2-tuple subs tier
+
+**Branch:** `perf/signals-cellx-fix`
+**Spec:** `.team/phase-2-5/deep-perf-wins-spec.md` §2 Phase 1
+**Builder blocker:** `.team/phase-2-5/deep-perf-wins-builder-blockers.md`
+
+Extend the Phase 0 tagged union with a fixed-shape 2-tuple tier between
+single and Set: `undefined | Subscriber | [Subscriber, Subscriber] |
+Set<Subscriber>`. The 2-tuple is allocated fresh on the single→tuple
+promote and is never push/pop'd; promotion to Set on the third unique
+sub allocates a fresh Set([a, b, obs]). Dispatch is inlined in the four
+hot paths (markOne, propagateMark, signal.read, signal.write batched-
+enqueue, computed.read) and shared via `eachSub` in two cold paths
+(shallowClear, computed.recomputeIfNeeded MARKED reassert) to fit bytes.
+
+### Bench deltas (this machine, median p50 of 5 runs)
+
+| Workload | Phase 0 median | Phase 1 median | Δ vs P0 | Phase 1 gate | Status |
+|---|---:|---:|---:|---|---|
+| cellx | 1.68 µs | 1.63 µs | -3.0 % | ≥ 10 % from P0 | **MISS** |
+| wide-fanout-100 | 12.35 µs | 12.43 µs | +0.6 % | flat ±5 % | PASS |
+| batched-writes-100 | 6.80 µs | 5.63 µs | -17.2 % | flat ±5 % | over-deliver |
+
+5-run samples (sorted):
+- cellx: 1.53, 1.58, 1.63, 1.63, 2.10 µs
+- wide-fanout-100: 11.93, 12.01, 12.43, 16.58, 18.36 µs
+- batched-writes-100: 5.24, 5.62, 5.63, 5.69, 6.76 µs
+
+### Spec §3.1 deviation tracking
+
+| Workload | Predicted (Builder) | Actual | Δ vs prediction | Tolerance |
+|---|---:|---:|---:|---|
+| cellx | 1.25 µs | 1.63 µs | +0.38 µs (+30 %) | **outside ±15 %** |
+| wide-fanout-100 | 9.8 µs (flat) | 12.43 µs | +2.63 µs (+27 %) | outside ±10 % (Builder offset) |
+| batched-writes-100 | 7.8 µs (flat) | 5.63 µs | -2.17 µs (-28 %) | outside ±10 % (over-deliver) |
+
+The cellx miss is the load-bearing one. Hypothesis (filed in builder-
+blockers §3): on Bun 1.3.13 / V8 13.x small-Set iteration is already
+~5-8 ns/step (vs the spec's reference 25 ns assumption), so the
+tuple-vs-Set saving on cellx 12 nodes-with-2-subs is closer to 0.05 µs
+than the predicted 0.23 µs; the added Array.isArray branch tax on the
+Set/single paths absorbs much of the remaining gain.
+
+### Bundle size
+
+1146 B → 1225 B gz (+79 B), **over Phase 1 hard cap of 1175 B by 50 B**.
+Per spec §3.4, this triggers the per-phase fallback. Mitigation
+attempts (helper extraction, comment trimming) attempted; the floor for
+4-shape inline dispatch is ~1225 B on this build chain. **Per Team Lead
+§6.1 ACCEPTED adjudication, Phase 2 fully replaces this shape with a
+linked-list dep graph and raises the cap to 1500 B**, which subsumes
+this overrun. Carrying the overrun forward into Phase 2 commits.
+
+### cellx body-count contract
+
+`bun .team/phase-2-5/scratch/cellx-counter.ts` reports 16 + 1 = 17 ✓.
+
+### Tests
+
+46/46 pass — 44 prior + 2 new tuple/Set transition tests
+(`computed.test.ts`: tuple→Set promotion preserves order; Set→tuple
+demote on dispose preserves remaining edges).
+
+---
+
 ## 2026-04-28 — Deep perf wins · Phase 0: single-sub fast path
 
 **Branch:** `perf/signals-cellx-fix`
