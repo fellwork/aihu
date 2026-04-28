@@ -7,6 +7,14 @@ export default defineConfig({
     dir: 'dist',
     format: 'esm',
     sourcemap: true,
+    // Without this, the published dist/index.js ships unminified (~14 kB raw)
+    // and consumer bundlers without aggressive minify (e.g., a downstream
+    // Rollup or default Vite production build that trusts our package as
+    // pre-optimized) carry the full source. oxc-minify shrinks the published
+    // tarball ~45×; size-limit numbers improve too because telemetry call
+    // sites collapse against the no-op _observeMount default — see
+    // .team/phase-3/telemetry-treeshake-investigation.md for empirics.
+    minify: true,
   },
   plugins: [dts()],
 })
