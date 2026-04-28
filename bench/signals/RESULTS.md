@@ -12,12 +12,12 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 1.76 µs | 1.59 µs | 2.66 µs | 569.23K |
-| alien-signals | 1.71 µs | 1.63 µs | 3.03 µs | 584.05K |
-| @preact/signals-core | 1.56 µs | 1.42 µs | 2.69 µs | 640.46K |
-| @vue/reactivity | 3.25 µs | 3.01 µs | 5.18 µs | 308.11K |
-| solid-js | 4.44 µs | 3.91 µs | 8.03 µs | 225.42K |
-| s-js | 1.84 µs | 1.66 µs | 2.89 µs | 543.33K |
+| @scribe/signals | 1.26 µs | 1.18 µs | 2.04 µs | 796.70K |
+| alien-signals | 1.72 µs | 1.45 µs | 3.09 µs | 582.11K |
+| @preact/signals-core | 1.55 µs | 1.41 µs | 2.73 µs | 646.82K |
+| @vue/reactivity | 2.72 µs | 2.51 µs | 4.16 µs | 367.36K |
+| solid-js | 4.53 µs | 4.08 µs | 7.37 µs | 220.86K |
+| s-js | 2.03 µs | 1.74 µs | 3.09 µs | 492.10K |
 
 ## Workload: `wide-fanout-100`
 
@@ -25,12 +25,12 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 13.14 µs | 12.67 µs | 14.28 µs | 76.09K |
-| alien-signals | 8.38 µs | 8.26 µs | 9.27 µs | 119.31K |
-| @preact/signals-core | 11.97 µs | 11.71 µs | 13.42 µs | 83.57K |
-| @vue/reactivity | 19.86 µs | 19.23 µs | 23.35 µs | 50.36K |
-| solid-js | 32.02 µs | 23.20 µs | 113.40 µs | 31.23K |
-| s-js | 9.51 µs | 9.27 µs | 10.78 µs | 105.10K |
+| @scribe/signals | 10.62 µs | 8.71 µs | 16.61 µs | 94.13K |
+| alien-signals | 9.77 µs | 9.36 µs | 11.78 µs | 102.39K |
+| @preact/signals-core | 12.54 µs | 11.71 µs | 16.05 µs | 79.76K |
+| @vue/reactivity | 17.32 µs | 16.01 µs | 19.80 µs | 57.74K |
+| solid-js | 28.52 µs | 23.00 µs | 84.80 µs | 35.06K |
+| s-js | 11.01 µs | 10.05 µs | 15.03 µs | 90.83K |
 
 ## Workload: `batched-writes-100`
 
@@ -38,12 +38,12 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 10.16 µs | 9.67 µs | 13.14 µs | 98.44K |
-| alien-signals | 10.31 µs | 9.81 µs | 13.02 µs | 96.97K |
-| @preact/signals-core | 10.44 µs | 10.33 µs | 11.39 µs | 95.74K |
-| @vue/reactivity | 22.89 µs | 22.01 µs | 25.36 µs | 43.70K |
-| solid-js | 17.49 µs | 17.20 µs | 18.01 µs | 57.17K |
-| s-js | 6.96 µs | 6.82 µs | 8.02 µs | 143.67K |
+| @scribe/signals | 5.49 µs | 4.98 µs | 7.90 µs | 182.20K |
+| alien-signals | 9.36 µs | 9.21 µs | 10.51 µs | 106.80K |
+| @preact/signals-core | 12.86 µs | 12.66 µs | 14.65 µs | 77.73K |
+| @vue/reactivity | 25.02 µs | 23.81 µs | 30.14 µs | 39.97K |
+| solid-js | 22.55 µs | 20.50 µs | 28.60 µs | 44.34K |
+| s-js | 6.79 µs | 6.76 µs | 7.39 µs | 147.36K |
 
 ## Bundle size (stretch)
 
@@ -51,7 +51,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
 
 | Competitor | Raw | Gzipped |
 | --- | ---: | ---: |
-| @scribe/signals | 8.06 KB | 2.68 KB |
+| @scribe/signals | 10.06 KB | 3.28 KB |
 | alien-signals | 7.28 KB | 1.53 KB |
 | @preact/signals-core | 5.31 KB | 1.87 KB |
 | @vue/reactivity | 19.19 KB | 6.98 KB |
@@ -66,146 +66,146 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     {
       "workload": "cellx",
       "competitor": "@scribe/signals",
-      "mean": 1756.7466621968283,
-      "p50": 1591.1376953125,
-      "p99": 2659.0087890625,
-      "opsPerSec": 569234.0401259055
+      "mean": 1255.171130952381,
+      "p50": 1176.1474609375,
+      "p99": 2041.9189453125,
+      "opsPerSec": 796704.1109695012
     },
     {
       "workload": "cellx",
       "competitor": "alien-signals",
-      "mean": 1712.186359489051,
-      "p50": 1625.4150390625,
-      "p99": 3028.857421875,
-      "opsPerSec": 584048.5730177286
+      "mean": 1717.8880232093977,
+      "p50": 1453.1982421875,
+      "p99": 3085.1318359375,
+      "opsPerSec": 582110.1180575071
     },
     {
       "workload": "cellx",
       "competitor": "@preact/signals-core",
-      "mean": 1561.3702351614934,
-      "p50": 1415.185546875,
-      "p99": 2688.4033203125,
-      "opsPerSec": 640463.086512322
+      "mean": 1546.0282175164473,
+      "p50": 1406.396484375,
+      "p99": 2732.861328125,
+      "opsPerSec": 646818.7246972816
     },
     {
       "workload": "cellx",
       "competitor": "@vue/reactivity",
-      "mean": 3245.636416153169,
-      "p50": 3014.9658203125,
-      "p99": 5182.2265625,
-      "opsPerSec": 308105.98347464675
+      "mean": 2722.1351260230654,
+      "p50": 2505.908203125,
+      "p99": 4164.599609375,
+      "opsPerSec": 367358.6922413222
     },
     {
       "workload": "cellx",
       "competitor": "solid-js",
-      "mean": 4436.16015625,
-      "p50": 3905.3466796875,
-      "p99": 8029.1259765625,
-      "opsPerSec": 225420.17528179724
+      "mean": 4527.65283203125,
+      "p50": 4084.765625,
+      "p99": 7371.3623046875,
+      "opsPerSec": 220864.99055877657
     },
     {
       "workload": "cellx",
       "competitor": "s-js",
-      "mean": 1840.5183792114258,
-      "p50": 1655.517578125,
-      "p99": 2892.7734375,
-      "opsPerSec": 543325.191041261
+      "mean": 2032.086813038793,
+      "p50": 1738.5986328125,
+      "p99": 3090.13671875,
+      "opsPerSec": 492104.96007530054
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@scribe/signals",
-      "mean": 13142.464192708334,
-      "p50": 12669.384765625,
-      "p99": 14277.34375,
-      "opsPerSec": 76089.23146656297
+      "mean": 10623.44392475329,
+      "p50": 8707.8369140625,
+      "p99": 16607.373046875,
+      "opsPerSec": 94131.43299697166
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "alien-signals",
-      "mean": 8381.870524088541,
-      "p50": 8263.76953125,
-      "p99": 9265.7958984375,
-      "opsPerSec": 119305.11180363785
+      "mean": 9766.934058779761,
+      "p50": 9358.349609375,
+      "p99": 11777.3193359375,
+      "opsPerSec": 102386.27536356436
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@preact/signals-core",
-      "mean": 11966.50390625,
-      "p50": 11713.4033203125,
-      "p99": 13416.357421875,
-      "opsPerSec": 83566.59621175645
+      "mean": 12537.097981770834,
+      "p50": 11705.37109375,
+      "p99": 16045.9716796875,
+      "opsPerSec": 79763.27547683028
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@vue/reactivity",
-      "mean": 19855.430772569445,
-      "p50": 19228.22265625,
-      "p99": 23345.263671875,
-      "opsPerSec": 50364.05462335846
+      "mean": 17319.94140625,
+      "p50": 16012.59765625,
+      "p99": 19795.1904296875,
+      "opsPerSec": 57736.91587889231
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "solid-js",
-      "mean": 32018.907671462675,
-      "p50": 23200,
-      "p99": 113400,
-      "opsPerSec": 31231.546380680087
+      "mean": 28522.693015763434,
+      "p50": 23000,
+      "p99": 84800,
+      "opsPerSec": 35059.80306443494
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "s-js",
-      "mean": 9514.959161931818,
-      "p50": 9273.5595703125,
-      "p99": 10775.439453125,
-      "opsPerSec": 105097.6659995428
+      "mean": 11009.765625,
+      "p50": 10047.5341796875,
+      "p99": 15032.2509765625,
+      "opsPerSec": 90828.45485187156
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@scribe/signals",
-      "mean": 10158.336181640625,
-      "p50": 9673.2177734375,
-      "p99": 13138.7939453125,
-      "opsPerSec": 98441.31776297392
+      "mean": 5488.4906005859375,
+      "p50": 4976.5380859375,
+      "p99": 7896.044921875,
+      "opsPerSec": 182199.4556924708
     },
     {
       "workload": "batched-writes-100",
       "competitor": "alien-signals",
-      "mean": 10312.219880756578,
-      "p50": 9813.8427734375,
-      "p99": 13015.4541015625,
-      "opsPerSec": 96972.33103670331
+      "mean": 9363.664106889204,
+      "p50": 9212.40234375,
+      "p99": 10508.544921875,
+      "opsPerSec": 106795.80008260462
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@preact/signals-core",
-      "mean": 10444.92919921875,
-      "p50": 10331.396484375,
-      "p99": 11387.353515625,
-      "opsPerSec": 95740.23728899924
+      "mean": 12864.384765625,
+      "p50": 12663.623046875,
+      "p99": 14646.2158203125,
+      "opsPerSec": 77733.99336376396
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@vue/reactivity",
-      "mean": 22885.707600911457,
-      "p50": 22006.9091796875,
-      "p99": 25361.6943359375,
-      "opsPerSec": 43695.393537238655
+      "mean": 25020.756022135418,
+      "p50": 23810.25390625,
+      "p99": 30139.208984375,
+      "opsPerSec": 39966.81791370804
     },
     {
       "workload": "batched-writes-100",
       "competitor": "solid-js",
-      "mean": 17492.17529296875,
-      "p50": 17200.9521484375,
-      "p99": 18013.5009765625,
-      "opsPerSec": 57168.41863584374
+      "mean": 22552.207438151043,
+      "p50": 20503.662109375,
+      "p99": 28595.2880859375,
+      "opsPerSec": 44341.557372708594
     },
     {
       "workload": "batched-writes-100",
       "competitor": "s-js",
-      "mean": 6960.358650453629,
-      "p50": 6821.5576171875,
-      "p99": 8017.919921875,
-      "opsPerSec": 143670.75753126986
+      "mean": 6786.180877685547,
+      "p50": 6764.2578125,
+      "p99": 7387.1826171875,
+      "opsPerSec": 147358.28856083393
     }
   ]
 }
