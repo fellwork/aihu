@@ -6,6 +6,8 @@ export interface Subscriber {
   /** @internal */ flags: number
   /** @internal */ subs?: Set<Subscriber>
   /** @internal */ recomputeIfNeeded?(): void
+  /** @internal — set to current wave when this sub is reached during marking; replaces the NOTIFIED bit. */
+  lastWave?: number
 }
 
 /** @internal */ export const RUNNING = 0x1
@@ -14,7 +16,6 @@ export interface Subscriber {
 /** @internal */ export const STALE = 0x8
 /** @internal */ export const EFFECT = 0x10
 /** @internal */ export const MARKED = 0x20
-/** @internal */ export const NOTIFIED = 0x40
 
 /** @internal */
 let currentObserver: Subscriber | null = null
@@ -38,6 +39,14 @@ export function peekCurrentObserver(): Subscriber | null {
 const visited: Subscriber[] = []
 const effectQueue: Subscriber[] = []
 /**
+ * @internal — monotonic wave counter. Incremented at the start of every
+ * top-level signal write and at every drainBatch iteration. Subscribers
+ * record their `lastWave` at mark time; later mark attempts in the same
+ * wave dedup via `sub.lastWave === wave`. Replaces the NOTIFIED bit
+ * (saves 6 per-wave bit-clear iteration sites in signal.ts).
+ */
+let wave = 0
+/**
  * @internal — true when shallowClear has fired during the current wave.
  * Lets recomputeIfNeeded skip the re-assert MARKED loop in the common
  * case where no sibling equality cascade has cleared the downstream
@@ -60,14 +69,16 @@ export function exitBatch(): void {
   batchDepth--
 }
 
-/** @internal — mark one sub with NOTIFIED dedup; recurse into computed subs. */
+/** @internal — mark one sub with wave-counter dedup; recurse into computed subs. */
 function markOne(sub: Subscriber): void {
-  if (sub.flags & (DISPOSED | NOTIFIED)) return
+  if (sub.flags & DISPOSED) return
+  if (sub.lastWave === wave) return
   if (sub.flags & RUNNING) throw new SignalCircularError()
-  sub.flags |= NOTIFIED | MARKED
+  sub.lastWave = wave
+  sub.flags |= MARKED
   if (sub.flags & EFFECT) {
-    // Effects only live in effectQueue; the drain clears NOTIFIED+MARKED
-    // when shifted. Skip the visited push (saves O(N) for wide-fanout).
+    // Effects only live in effectQueue; the drain clears MARKED when
+    // shifted. Skip the visited push (saves O(N) for wide-fanout).
     effectQueue.push(sub)
     return
   }
@@ -105,11 +116,9 @@ export function shallowClear(subs: Set<Subscriber>): void {
  */
 function settleAndDrain(): void {
   // Visited contains only computeds (effects skip the visited push for
-  // perf; their NOTIFIED+MARKED clear happens here on the effectQueue
-  // walk).
+  // perf; their MARKED clear happens here on the effectQueue walk).
   for (const sub of visited) sub.recomputeIfNeeded?.()
   for (const sub of effectQueue) {
-    sub.flags &= ~NOTIFIED
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
     sub.flags &= ~MARKED
@@ -118,12 +127,14 @@ function settleAndDrain(): void {
   effectQueue.length = 0
 }
 
-/** @internal — clear NOTIFIED+MARKED across visited; reset to recoverable state. */
+/** @internal — clear MARKED across visited; reset to recoverable state.
+ * NOTIFIED-equivalent dedup state is invalidated by the next wave++ — no
+ * iteration needed for that. */
 function clearVisited(): void {
-  for (const sub of visited) sub.flags &= ~(NOTIFIED | MARKED)
+  for (const sub of visited) sub.flags &= ~MARKED
   visited.length = 0
-  // Clear any leftover effectQueue entries' flags too (cycle-throw recovery).
-  for (const sub of effectQueue) sub.flags &= ~(NOTIFIED | MARKED)
+  // Clear any leftover effectQueue entries' MARKED too (cycle-throw recovery).
+  for (const sub of effectQueue) sub.flags &= ~MARKED
   effectQueue.length = 0
   shallowClearFired = false
 }
@@ -143,6 +154,9 @@ export function drainBatch(): void {
         batchQueue.length = 0
         throw new SignalCircularError()
       }
+      // New wave per iteration: invalidates prior lastWave matches so
+      // re-enqueued subs get re-marked next iteration.
+      wave++
       const drainList = batchQueue.splice(0)
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
@@ -150,17 +164,12 @@ export function drainBatch(): void {
       }
       for (const sub of visited) sub.recomputeIfNeeded?.()
       for (const sub of effectQueue) {
-        sub.flags &= ~NOTIFIED
         if (sub.flags & DISPOSED) continue
         if (!(sub.flags & MARKED)) continue
         sub.flags &= ~MARKED
         sub.notify()
       }
       effectQueue.length = 0
-      // Clear NOTIFIED on visited computeds at iteration boundary so
-      // re-enqueued subs get re-marked next iteration (cap guard relies
-      // on this).
-      for (const sub of visited) sub.flags &= ~NOTIFIED
       visited.length = 0
     }
   } finally {
@@ -211,6 +220,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
       for (const sub of [...subs]) enqueueIfNeeded(sub)
       return
     }
+    wave++
     try {
       propagateMark(subs)
       settleAndDrain()
