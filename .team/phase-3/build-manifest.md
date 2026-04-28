@@ -140,3 +140,36 @@ Per spec §1.2 + §2.4 + §2.7 + §5 (Task 15). The internal AttrMap binding lan
 - `bunx biome ci .` — PASS, exit 0 (still only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
 
 ---
+
+## Task 16 — `mount()` + `MountScope` + `_materialize` + scope collector + telemetry
+
+Per spec §1.4 + §1.5 + §2.2 + §2.3 + §2.7 + §2.8 + §5 (Task 16). `mount()` materializes synchronously into the host (`Element | ShadowRoot`), wires reactive subscriptions through `_mountEffect`, and returns a `MountScope` exposing `dispose`/`agent`/`serialize`. Path keys per §2.7 flow through every `_mountEffect` registration as `<rootId>.<index-chain>.<binding-kind>` (e.g. `0.0.text`, `0.1.attr:class`). Telemetry hooks per §2.8 emit at five reactivity boundaries (`mount-start`, `mount-end`, `effect-create`, `effect-fire`, `effect-dispose`); production observer is a no-op slot and `_setMountObserver` is the dev-plugin override seam.
+
+`_materialize` is a small (≤ 100 SLOC) recursive walk per spec §2.3 with four cases (text leaf, element leaf, branch with tag, fragment branch with null tag). The fragment case appends children directly to host and returns the flat list of DOM nodes for disposal-time removal. Branch+tag wraps children inside `createElement(tag)` with attrs applied via `_applyAttrs` (the Task 15 DI seam — `mount.ts`'s `_mountEffect` is now the real consumer).
+
+Disposal is wired in this commit (LIFO + DOM removal + idempotency) since the synchronous `dispose` contract is needed for the spec test "scope.dispose() does not throw." Task 17's commit only appends the four verification tests.
+
+`agent` returns the frozen `Object.freeze({ _brand: 'AgentContext' as const })` stub; `serialize()` throws `ArborNotImplementedError('serialize()')`.
+
+**Folded-in mount-coupled tests (Builder Option A).** Tests deferred from Tasks 13/14/15 land in `mount.test.ts` alongside the spec tests for Task 16. Total in this file (Task 16 commit): 16 tests.
+
+**Telemetry tree-shake verification.** Per spec §2.8 the production observer should tree-shake to zero bytes; in practice five `_observeMount` call sites survive Rolldown + esbuild minification because each call constructs a `Date.now()` literal (impure expression — minifier preserves). Overhead is ~100-200 B, not the spec's ~5 B target. Not blocking — arbor headroom is 913 B. Builder note in `.team/phase-3/builder-notes.md` documents the `__DEV__`-constant fallback for when budget tightens.
+
+**Commit:** `<sha-pending>`
+**Files:**
+- `packages/arbor/src/materialize.ts` — created — `_materialize(node, host, disposers, pathBase, mountEffect)` recursive walk; ~95 source lines.
+- `packages/arbor/src/mount.ts` — created — `mount()`, `MountScope`, `_mountEffect`, `_observeMount`, `_setMountObserver`, `_activeMountDisposers`, `MountTelemetry` interface; LIFO disposal + DOM removal + idempotency baked in (Task 17 verifies); ~135 source lines.
+- `packages/arbor/src/index.ts` — modified — added `mount` value re-export and `MountScope` type re-export.
+- `packages/arbor/tests/mount.test.ts` — created — 16 tests across six `describe` blocks: Task 16 spec tests (5 + one exactly-once propagation), folded leaf integration tests (4 covering Tasks 13#2-#5), folded branch integration tests (3 covering Tasks 14#2-#4), folded attrs integration tests (1 covering Task 15#4), telemetry hooks (1 covering §2.8), path keys (1 covering §2.7).
+- `.team/phase-3/builder-notes.md` — created — non-blocking note on telemetry tree-shaking partial elimination + `_activeMountDisposers` `export let` rationale.
+
+**Verification:**
+- `bun run test packages/arbor/tests/mount.test.ts` — PASS, **16/16**
+- `bun run test` — PASS, **82/82** across 11 files (was 66/66 across 10; +16 mount tests)
+- `bun run typecheck` — PASS (`arbor:typecheck` ~3s)
+- `bun run build` — PASS, `arbor/dist/index.js` 12.22 kB raw / **1.14 kB gz** (was 285 B; +855 B for `mount.ts` + `materialize.ts` + telemetry hooks + DI wiring of `_applyAttrs`)
+- `bun run size` — PASS, **signals 716 B / 1024 B**, **arbor 1.14 kB / 2.05 kB** (913 B headroom for Tasks 17 + 18 + 19)
+- `bunx biome ci .` — PASS, exit 0 (only the pre-existing `noUselessConstructor` info from `errors.ts`; no new diagnostics)
+- **Telemetry tree-shake check:** five `_observeMount` literals (`mount-start`, `mount-end`, `effect-create`, `effect-fire`, `effect-dispose`) survive minification — see `.team/phase-3/builder-notes.md`. ~100-200 B overhead vs. spec's ~5 B target. Not blocking.
+
+---
