@@ -10,6 +10,7 @@ import {
   type Subscriber,
   setCurrentObserver,
   shallowClear,
+  shallowClearFired,
 } from './signal.ts'
 
 export interface ComputedOptions<T> {
@@ -71,10 +72,12 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
         shallowClear(subs)
         return
       }
-      // Re-assert MARKED on direct subs in case a prior equality cascade
-      // (a sibling parent) had cleared them. propagateMark already set
-      // these bits in phase 1; this is the corrective pass when both an
-      // equal and an unequal parent target the same downstream sub.
+      // Re-assert MARKED on direct subs only when a prior equality cascade
+      // in this wave has fired (which may have cleared them). In the
+      // common no-equality-clear case, MARKED is still set from phase 1
+      // and this loop is a no-op — skipping it saves O(subs) work per
+      // computed in shallow fan-outs (e.g. wide-fanout-100).
+      if (!shallowClearFired) return
       for (const sub of subs) {
         if (sub.flags & DISPOSED) continue
         if (sub.flags & EFFECT) sub.flags |= MARKED

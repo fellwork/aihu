@@ -36,6 +36,14 @@ export function peekCurrentObserver(): Subscriber | null {
 /** @internal */ let batchDepth = 0
 /** @internal */ const batchQueue: Subscriber[] = []
 const visited: Subscriber[] = []
+const effectQueue: Subscriber[] = []
+/**
+ * @internal — true when shallowClear has fired during the current wave.
+ * Lets recomputeIfNeeded skip the re-assert MARKED loop in the common
+ * case where no sibling equality cascade has cleared the downstream
+ * MARKED bits. Reset at clearVisited.
+ */
+export let shallowClearFired = false
 
 /** @internal */
 export function getBatchDepth(): number {
@@ -57,12 +65,16 @@ function markOne(sub: Subscriber): void {
   if (sub.flags & (DISPOSED | NOTIFIED)) return
   if (sub.flags & RUNNING) throw new SignalCircularError()
   sub.flags |= NOTIFIED | MARKED
-  visited.push(sub)
-  if (!(sub.flags & EFFECT)) {
-    sub.flags |= STALE
-    const inner = sub.subs
-    if (inner !== undefined && inner.size > 0) propagateMark(inner)
+  if (sub.flags & EFFECT) {
+    // Effects only live in effectQueue; the drain clears NOTIFIED+MARKED
+    // when shifted. Skip the visited push (saves O(N) for wide-fanout).
+    effectQueue.push(sub)
+    return
   }
+  visited.push(sub)
+  sub.flags |= STALE
+  const inner = sub.subs
+  if (inner !== undefined && inner.size > 0) propagateMark(inner)
 }
 
 /**
@@ -79,6 +91,7 @@ export function propagateMark(subs: Set<Subscriber>): void {
  * direct computed subs (their settle becomes a no-op).
  */
 export function shallowClear(subs: Set<Subscriber>): void {
+  shallowClearFired = true
   for (const sub of subs) {
     if (sub.flags & EFFECT) sub.flags &= ~MARKED
     else sub.flags &= ~(STALE | MARKED)
@@ -88,26 +101,31 @@ export function shallowClear(subs: Set<Subscriber>): void {
 /**
  * @internal — phase 2 settle + phase 3 effect drain. Computeds with
  * effect subs eagerly recompute (running their equality check); effects
- * whose MARKED bit survived run in visited (insertion) order.
+ * whose MARKED bit survived run in mark order.
  */
 function settleAndDrain(): void {
+  // Visited contains only computeds (effects skip the visited push for
+  // perf; their NOTIFIED+MARKED clear happens here on the effectQueue
+  // walk).
   for (const sub of visited) sub.recomputeIfNeeded?.()
-  // Effects in visited order. Mid-walk new entries (e.g. effect writes
-  // outside batch fire signal.write recursively, which clears visited
-  // via try/finally in signal.write) only happen via batch path.
-  for (const sub of visited) {
-    if (!(sub.flags & EFFECT)) continue
+  for (const sub of effectQueue) {
+    sub.flags &= ~NOTIFIED
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
     sub.flags &= ~MARKED
     sub.notify()
   }
+  effectQueue.length = 0
 }
 
 /** @internal — clear NOTIFIED+MARKED across visited; reset to recoverable state. */
 function clearVisited(): void {
   for (const sub of visited) sub.flags &= ~(NOTIFIED | MARKED)
   visited.length = 0
+  // Clear any leftover effectQueue entries' flags too (cycle-throw recovery).
+  for (const sub of effectQueue) sub.flags &= ~(NOTIFIED | MARKED)
+  effectQueue.length = 0
+  shallowClearFired = false
 }
 
 /**
@@ -131,27 +149,17 @@ export function drainBatch(): void {
         markOne(sub)
       }
       for (const sub of visited) sub.recomputeIfNeeded?.()
-      // Run effects in batch insertion order, then any cascade-reached
-      // effects in mark order.
-      for (const sub of drainList) {
-        if (sub.flags & DISPOSED) continue
-        if (!(sub.flags & EFFECT)) {
-          sub.flags &= ~MARKED
-          continue
-        }
-        if (!(sub.flags & MARKED)) continue
-        sub.flags &= ~MARKED
-        sub.notify()
-      }
-      for (const sub of visited) {
-        if (!(sub.flags & EFFECT)) continue
+      for (const sub of effectQueue) {
+        sub.flags &= ~NOTIFIED
         if (sub.flags & DISPOSED) continue
         if (!(sub.flags & MARKED)) continue
         sub.flags &= ~MARKED
         sub.notify()
       }
-      // Clear NOTIFIED at iteration boundary so re-enqueued subs get
-      // re-marked next iteration (cap guard relies on this).
+      effectQueue.length = 0
+      // Clear NOTIFIED on visited computeds at iteration boundary so
+      // re-enqueued subs get re-marked next iteration (cap guard relies
+      // on this).
       for (const sub of visited) sub.flags &= ~NOTIFIED
       visited.length = 0
     }
