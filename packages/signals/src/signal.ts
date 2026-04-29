@@ -376,7 +376,23 @@ function enqueueIfNeeded(sub: Subscriber): void {
 }
 
 export type Read<T> = () => T
-export type Write<T> = (next: T | ((prev: T) => T)) => void
+/**
+ * Write a new value or apply an updater function. The runtime
+ * distinguishes by `typeof next === 'function'`, so a raw function value
+ * cannot be stored without ambiguity.
+ *
+ * The `Exclude<U, Function> & T` constraint refuses any function-typed
+ * raw write at compile time when `T` itself is a function: callers of
+ * `Signal<() => X>` MUST use the updater form `setX(() => () => X)`.
+ * For non-function `T` the constraint is a no-op (`Exclude<U, Function>`
+ * is `U`).
+ *
+ * Mirrors SolidJS's `Setter<T>` shape; chosen for zero runtime cost and
+ * no compiler-emit changes. See `.team/phase-2/spec-signals-write-of-functions.md`.
+ */
+export type Write<T> = <U extends T>(
+  next: (Exclude<U, Function> & T) | ((prev: T) => U),
+) => void
 export type Signal<T> = readonly [Read<T>, Write<T>]
 
 export interface SignalOptions<T> {
