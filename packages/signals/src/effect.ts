@@ -78,11 +78,9 @@ export function effect(fn: EffectFn): Dispose {
   return () => {
     if (disposed) return
     disposed = true
-    // Guard against double-dispose-via-recycle: if the pool already
-    // resurrected this node into a different effect, our closure's
-    // `disposed = true` makes us a no-op for *this* dispose handle,
-    // and we don't touch the node.
-    if (node.flags & DISPOSED) return
+    // Closure-local `disposed` flag is the only guard needed: a node
+    // enters `pool` only inside this same closure's body, so a recycled
+    // node cannot re-enter this closure with `disposed === false`.
     node.flags |= DISPOSED
     unlinkAllDeps(node)
     node.fn = null

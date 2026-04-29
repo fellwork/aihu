@@ -1,6 +1,6 @@
 # @scribe/signals
 
-Tiny (~1 KB gz) reactive primitives — the foundation layer for Scribe's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
+Small (≤ 1.6 kB gz) reactive primitives — the foundation layer for Scribe's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
 
 ## Hello counter
 
@@ -73,7 +73,49 @@ Same underlying cell as `signal` — pick the shape that fits your code.
 | `watchEffect(fn)` → `WatchHandle.stop()` | `createEffect(fn)` (microtask) | `effect(fn)` → dispose | `effect(fn)` → dispose (sync) |
 | `nextTick` (no batch) | `batch(fn)` (returns) | `batch(fn)` (void) | `batch(fn)` (void) |
 
+## Untrack a read
+
+```ts
+import { signal, computed, untrack } from '@scribe/signals'
+
+const [a, setA] = signal(1)
+const [b, setB] = signal(10)
+
+const sum = computed(() => a() + untrack(() => b()))
+// sum tracks `a` only; setB updates won't recompute `sum`
+```
+
+## Effect error isolation
+
+When multiple effects fire in the same wave and one throws, sibling effects still run. The first thrown error rethrows directly; multiple thrown errors surface as `AggregateError`:
+
+```ts
+const [n, setN] = signal(0)
+effect(() => { /* runs */ })
+effect(() => { if (n() > 0) throw new Error('boom') })
+effect(() => { /* still runs after sibling throws */ })
+
+try { setN(1) } catch (e) { /* e is the original Error */ }
+```
+
+Computed-body throws bypass this path and continue to fail fast.
+
+## Storing functions in signals
+
+`Signal<T>` for function-typed `T` requires the closure-of-closure idiom:
+
+```ts
+const [getFn, setFn] = signal<() => number>(() => 5)
+setFn(() => 6)            // ❌ TypeScript error
+setFn(() => () => 6)      // ✅ stores the function
+```
+
+The runtime disambiguates `value` vs `updater` by `typeof === 'function'`, so a raw function is unambiguous *only* via the updater form. Mirrors SolidJS's `Setter<T>`. Detail: [`.team/phase-2/spec-signals-write-of-functions.md`](../../.team/phase-2/spec-signals-write-of-functions.md).
+
+> **`$state<T>` for function-typed `T`** retains a pre-existing runtime quirk (the underlying write invokes the function rather than storing it). Use `signal()` directly for function-valued reactive state until the v1 fix lands.
+
 ## v0 limitations
 
 - **Cycle errors carry no chain context.** `SignalCircularError` is thrown synchronously from the writer; richer chain info lands with devtools.
-- **No `untrack` / `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@scribe/arbor`.
+- **No `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@scribe/arbor`.
+- **`MAX_BATCH_ITERATIONS = 100`** caps `batch` re-iterations before `SignalCircularError`. Exposed as a public constant for tooling that wants to sanity-check legitimate cascade depth.

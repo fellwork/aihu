@@ -1,0 +1,109 @@
+# @scribe/arbor
+
+DOM materialization primitives for the [scribe](../../README.md) project. Build a tree of `branch` / `leaf` nodes, hand it to `mount`, and the renderer wires every reactive binding once and tears it down LIFO when the scope disposes. No JSX runtime, no virtual DOM, no scheduler queue — just direct DOM operations against the live nodes.
+
+**Status:** v0 surface frozen (Phase 3). Spec: [`.team/phase-3/spec-arbor.md`](../../.team/phase-3/spec-arbor.md). Bundle ≤ 2 kB gzipped.
+
+## Hello mount
+
+```ts
+import { signal } from '@scribe/signals'
+import { branch, leaf, mount } from '@scribe/arbor'
+
+const [count, setCount] = signal(0)
+
+const tree = branch('div', { class: 'counter' }, [
+  leaf('Count: '),
+  leaf([count, setCount]),    // signal as text content (reactive)
+  branch('button', { onClick: () => setCount(c => c + 1) }, [
+    leaf('+1'),
+  ]),
+])
+
+const scope = mount(tree, document.body)
+// later…
+scope.dispose()  // removes the DOM and tears down every binding LIFO
+```
+
+## API
+
+### `branch(tag, attrs?, children?): Branch`
+
+Constructs a branch node. `tag` is the element tag name, or `null` for a fragment (children mount directly into the parent).
+
+```ts
+branch('section', { id: 'main' }, [ leaf('hi') ])
+branch(null, null, [ leaf('a'), leaf('b') ])  // fragment
+```
+
+### `leaf(value): Leaf` / `leaf.element(tag, attrs?): Leaf`
+
+Two shapes share one symbol:
+
+- `leaf(value)` — text leaf. `value` is `string` (static) or a `Signal<string>` tuple (reactive).
+- `leaf.element(tag, attrs?)` — terminal element leaf for `<img>`, `<br>`, `<input>`, `<hr>`, etc.
+
+```ts
+leaf('hi')                     // static text
+leaf([greeting, setGreeting])  // reactive text
+leaf.element('img', { src: '/logo.png' })
+leaf.element('hr')
+```
+
+### `mount(node, host): MountScope`
+
+Materializes `node` into `host` (an `Element` or `ShadowRoot`) synchronously. By the time `mount` returns, every reactive binding has run once and subscribed to its signal, every static attr is applied, and every DOM node is appended.
+
+```ts
+const scope = mount(tree, document.querySelector('#app')!)
+scope.dispose()         // synchronous teardown, idempotent
+scope.agent             // sub-project #7 stub (don't use in v0)
+scope.serialize()       // throws ArborNotImplementedError in v0
+```
+
+## Attribute semantics
+
+Inside `attrs`, each `[key, value]` pair is dispatched at mount time:
+
+| Detection | Treatment |
+|---|---|
+| `key.startsWith('on')` AND value is a function | `el.addEventListener(key.slice(2).toLowerCase(), value)` |
+| `Array.isArray(value)` (a Signal tuple `[Read, Write]`) | Wired through an effect — the DOM property/attribute tracks the signal. |
+| `string` / `number` / `boolean` | Static. Set once at mount; never re-applied. |
+
+Property vs attribute split: if `key in el` (e.g. `disabled`, `value`, `className`), the value is set as a DOM property; otherwise `setAttribute(key, String(value))`. See [`.team/phase-3/spec-arbor.md`](../../.team/phase-3/spec-arbor.md) §2.4.
+
+> **Trust boundary.** `attrs` is the renderer's trust boundary. The compiler is responsible for never emitting attacker-controllable keys. If you call `branch()` / `leaf.element()` from hand-written code with user-controlled data, **do not** let user data flow into attribute *keys* — keys like `innerHTML`, `srcdoc`, `outerHTML` are real DOM properties and the runtime will assign them directly. Allow-list known-safe keys at your boundary.
+
+## Disposal
+
+`MountScope.dispose()` runs **LIFO**: deepest/latest effects first (so parent effects don't re-run against partially-cleaned children), then DOM root removal. Idempotent — calling twice is a no-op.
+
+```ts
+const a = mount(treeA, host)
+const b = mount(treeB, host)
+b.dispose()   // tears down b's effects then removes its roots
+a.dispose()   // independent
+```
+
+## Coming in v1 (today: stubs that throw)
+
+```ts
+import { when, each } from '@scribe/arbor'
+when(condition, () => branch(...))                     // ArborNotImplementedError in v0
+each(list, item => item.id, item => branch(...))      // ArborNotImplementedError in v0
+```
+
+The signatures are locked; the v1 reconciler will swap the bodies.
+
+## Pairing with non-`@scribe/signals` reactive systems
+
+Arbor only requires the signal shape: a tuple `readonly [Read<T>, Write<T>]` where `Read<T> = () => T`. Anything that exposes that shape works. The runtime detects it via `Array.isArray(value)` (per the [Deviation #11 invariant](../../.team/phase-3/spec-arbor.md)).
+
+## Tests
+
+```bash
+bunx vitest run packages/arbor
+```
+
+Includes an arbor microbench (`tests/bench.test.ts`) that mounts 10K static-leaf nodes in JSDOM.

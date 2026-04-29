@@ -8,7 +8,11 @@ export const scribe: SignalAdapter = {
   name: '@scribe/signals',
   version: 'workspace',
   signal<T>(init: T) {
-    return signal<T>(init)
+    // The Option-B `Write<T>` is `<U extends T>(...) => void`; the bench
+    // adapter exposes the simpler `(v: T) => void` shape (function-typed
+    // signals aren't part of any bench workload). Cast at the boundary.
+    const [get, set] = signal<T>(init)
+    return [get, set as (v: T) => void] as const
   },
   computed<T>(fn: () => T) {
     return computed(fn)
