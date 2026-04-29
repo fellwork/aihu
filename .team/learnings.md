@@ -42,6 +42,13 @@
 
 **How to apply.** Two rules, both enforceable: (a) when scaffolding tooling, prove the gate works *now* on a representative file even if there's nothing real to check yet — a `placeholder.ts` is enough. (b) When configuring CI triggers, include the phase branches, not just `main`. If you need to defer a gate, either don't add it, or add it green-but-meaningful — not green-because-skipped.
 
+**Amendment (Phase 3 retro, 2026-04-28).** "Commented out" is just one shape of this bug class. Two more shapes surfaced:
+
+- **Triggers that don't reach the right branches.** Phase 2.5's PR #6 merged with red CI on `main` because the workflow only ran on `main` push/PR — the phase branch never fired CI, the bug landed on `main`, and `main`'s next push (Phase 3 PR #7) was the first time anyone saw red. Fix: include `phase-*/**` and any other working-branch glob in the workflow `on:` clause. Audit branch protection on `main` so a red required check is *un-mergeable*, not "merge anyway."
+- **Local PASS that depends on stale `dist` artifacts.** `bench-signals:typecheck` passed locally because `packages/signals/dist` was already built from a prior dev run; in CI's clean checkout it failed (TS2307 — `@scribe/signals` resolves through `package.json` exports to `./dist/index.d.ts`). The Verifier ran every gate locally and reported PASS without a clean-state run. Fix: every Verifier brief includes `bun run clean && bun run <gate>` (or equivalent dist-purge) for any gate whose inputs include build outputs.
+
+The unifying rule: **a gate is only as strong as the environment it runs in, and the environment must match CI.** Commented gates, mis-triggered gates, and stale-artifact gates are all the same failure mode.
+
 ---
 
 ## 6. Plans drift between authoring and execution; flag stale prescriptions in Scout
@@ -49,6 +56,16 @@
 **Why.** Plan §542 ("no batching API in Phase 2") and plan §602 (`type: library`) were written 2 days before Phase 2 spawned. By spawn time, both were stale: Architect overrode the batching call with rationale (Decision 1 — arbor needs it on day one), Moon 2.x rejected the `type:` field. Scout's prior-art survey (`scout-report.md` §3) compared five competitor libs the plan didn't reference. Every staleness item required dual edits — code AND plan — to prevent re-introduction.
 
 **How to apply.** Scout's report should include a "plan staleness" section that calls out: (a) any tooling-version assumptions the plan made that no longer hold, (b) any design prescriptions the prior-art survey now contradicts. Architect carries those forward and edits *both* the spec and the plan, never just one.
+
+**Amendment (Phase 3 retro, 2026-04-28).** Specs drift the same way plans do, on a shorter timescale. The Phase 3 spec §3.4 noted `.prototools` pinned `node = "20.18.0"` and authorized a bump in Task 12; the Builder's Task 12 inspection found `.prototools` already at `node = "22.12.0"` — bumped between spec authoring and Phase 3 spawn. The spec was outdated at spawn time, not at execution time.
+
+Apply the same staleness check to specs:
+
+- **Team Lead pre-spawn read includes a "spec vs current state" diff** for any version pins, dependency lists, or environment claims the spec makes. Anything the spec asserts about the repo's current state should be confirmed before Builder spawn.
+- **Builder's first action on any task that references repo state re-confirms the assumption** and notes the result in the build manifest (e.g. "spec said X, current state is Y, no action needed" or "X is now Z, deviation logged").
+- **Architects run a freshness check before publishing.** Re-read every "current repo state" claim in the spec against `git log --since=<spec-start-date>` and update.
+
+The pattern: any document making claims about the repo's *current* state has a half-life. Plans drift in days, specs drift in hours, briefs drift in minutes. Reconcile against reality at every handoff.
 
 ---
 
@@ -213,3 +230,63 @@ Total v0 cost: ~25 B gz + minor Builder discipline.
 The Phase 3 launch brief and the Phase 2.5 bench-spike brief are the templates. New sessions follow the template.
 
 When the work is small enough to fit in one conversation (a Builder shipping a single feature), no brief is needed. When the work spans agents (Architect → Builder → Verifier) or sessions (this conversation → next conversation), a brief is the contract.
+
+---
+
+## 19. Pattern B with batched Builder spawns is the M-scope default for scribe
+
+**Why.** Phase 3 (`@scribe/arbor` orchestration, 2026-04-28) ran nomos v3.0 Pattern B with 5 sequential Builder spawns of 1–3 tasks each, deliberately calibrated to the prior session's 600s no-progress watchdog. Result: no Builder stalled, the longest spawn (batch 4: mount + dispose) clocked ~1072s of agent runtime distributed across many sub-actions, and atomic per-task commits meant any single batch failure would have cost minutes rather than hours. The alternative — one mega-spawn of "implement all of arbor" — would have been watchdog bait, with the entire context of a half-finished package lost on a single timeout.
+
+**How to apply.** For any nomos M-scope or larger session in scribe:
+
+- **Batch Builder spawns at 1–3 tasks per spawn.** A "task" is a unit defined in the spec's task list (e.g. spec §4 Task 13). 1 task per spawn for any task involving a non-trivial design decision; 2–3 tasks per spawn when the tasks are tightly coupled and share context.
+- **Atomic per-task commits, never batched.** Each spec-task gets exactly one commit (plus follow-up SHA-backfill commits per Learning #20). The Builder lands the commit before moving to the next task within the batch.
+- **Per-instance amend ban.** No Builder instance amends a commit from a prior instance. Use SHA-backfill commits instead.
+- **Sequential, not parallel, within a single Builder agent.** Parallel Builder spawns are reserved for non-overlapping packages/files (the cellx + arbor pattern in Phase 3) — never for tasks within the same package.
+
+The watchdog is a feature, not a bug: it forces sessions into resumable units. Pattern B + batching is how you stay below the watchdog without losing context.
+
+---
+
+## 20. SHA-backfill commits are the right answer when subagents can't amend
+
+**Why.** Phase 3 enforced a per-instance amend ban — no Builder instance amends a commit from a prior instance. This collided with the build manifest's design: each task entry lists the SHA of the commit that landed the task, and the spec required entries written *during* the task (not retro-filled at end of phase). Solution: when a manifest entry needed the SHA of a just-created commit, the Builder created a follow-up `docs(phase-3): backfill <task> SHA in build manifest` commit. Five such backfill commits in the final history. Total cost: 5 extra commits. Total benefit: every `HEAD~N` checkout has a manifest matching the actual code at that revision; rollback is well-defined; per-task atomicity preserved.
+
+**How to apply.** When a spec or process requires a document to reference a SHA that doesn't exist until *after* the document is written:
+
+- **Write the document with a placeholder SHA** (`<TBD>` or the committed file's pre-commit hash from `git hash-object`).
+- **Land the document commit first** so the work commit's tree is clean.
+- **Land the work commit.** Now the work-commit SHA exists.
+- **Land a `docs: backfill <work> SHA` commit** that updates the placeholder to the real SHA.
+
+Three commits per task, but every revision is internally consistent. Cheaper than amend-related history rewrites, atomic, and reviewable. Use this pattern any time subagents are forbidden from amending and a doc needs to reference a not-yet-existent SHA.
+
+---
+
+## 21. Builder Option A — defer dependency-coupled tests to the dependency-landing batch
+
+**Why.** Phase 3 spec §4 Tasks 13/14/15 each listed unit tests that required `mount()` (Task 16) to exist. The Builder's choices were: (a) write stub tests now, replace later (high churn, easy to forget the replacement); (b) skip the tests entirely and add a TODO (coverage gap risk); (c) Option A — write the directly-testable subset of each task's tests now, fold mount-coupled tests into `mount.test.ts` when mount lands. Option A shipped: the Verifier's 71-row spec-compliance matrix mapped every spec test to its actual location and confirmed 100% coverage with zero gaps. The "test relocation" deviation was logged in the build manifest.
+
+**How to apply.** When a spec lists tests that require not-yet-built dependencies:
+
+- **Name the pattern explicitly in the spec or Team Lead brief.** "Builder Option A — write the directly-testable subset for this task now; fold dependency-coupled tests into the dependency's test file when it lands. Document the relocation in the build manifest."
+- **Builder logs the relocation as a deviation in the build manifest** with the source-task ID, target-test-file, and reason. Format: `Task N test #M relocated to <file>.test.ts because <dependency> not yet built at Task N execution time.`
+- **Verifier's compliance matrix follows the relocation.** Each spec-listed test gets one row, citing the actual file:line where the test lives — not where the spec said it would live.
+
+Option A beats stub-and-replace because there's never a wrong test in the tree; it beats skip-and-TODO because there's never a coverage gap. The cost is one deviation row per relocated test — cheap.
+
+---
+
+## 22. Spec tree-shake claims must be verified with a real bundle before publishing
+
+**Why.** Phase 3 spec §2.8 promised telemetry hooks would have "production cost is **zero bytes**" because Rolldown would tree-shake the no-op `_observeMount` calls. Reality after build: ~100–150 B of telemetry remained in the production bundle. Two root causes the spec author missed: (1) `Date.now()` is not pure from a tree-shake perspective — Rolldown can't prove the call is side-effect-free without explicit annotation; (2) `_observeMount` is `export let` (mutable binding visible to external consumers via `_setMountObserver`), so its call sites can't be statically eliminated even when the default is a no-op. The spec correctly placed a `bun run size` gate to catch this (§2.8) — but the headroom was 43%, so the deviation was accepted as "v1 fix" instead of "land the fix now." Investigation later showed the fix is one line (`output.minify: true` in `rolldown.config.ts`), recovering ~80 B with no source change.
+
+**How to apply.** When a spec makes a tree-shake or dead-code-elimination claim:
+
+- **Run a real bundle before publishing the spec.** Stub the API, build it with the production config, inspect the output. "I expect Rolldown to eliminate this" is a hypothesis; a passing `bun run size` against a stub is a contract.
+- **Annotate side-effect-free calls Rolldown can't prove.** `Date.now()`, `performance.now()`, and any external call need `/* @__PURE__ */` (or equivalent) at every call site, or the bundler keeps the call.
+- **Avoid `export let` for tree-shake-sensitive symbols.** Mutable bindings defeat dead-code elimination because external code may swap the value at runtime. If you need a swap-out hook for testing/dev, gate it behind `__DEV__` or a build flag instead.
+- **The headroom-to-budget ratio shapes adjudication.** With 43% headroom, ~120 B of bloat is "land it later"; with 5% headroom the same bloat is HIGH severity. Specs with tight budgets get tighter tree-shake gates.
+- **Where v0 has slack, prefer "land the fix now" over "v1 cleanup."** A v1 cleanup is a debt that drags forward; a 5-minute fix during the original spawn is free.
+
+The pattern: every byte claim is empirical. Specs that hand-wave bundle behavior are specs that miss budgets six months in.
