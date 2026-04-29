@@ -381,18 +381,20 @@ export type Read<T> = () => T
  * distinguishes by `typeof next === 'function'`, so a raw function value
  * cannot be stored without ambiguity.
  *
- * The `Exclude<U, Function> & T` constraint refuses any function-typed
+ * The `Exclude<U, AnyFn> & T` constraint refuses any function-typed
  * raw write at compile time when `T` itself is a function: callers of
  * `Signal<() => X>` MUST use the updater form `setX(() => () => X)`.
- * For non-function `T` the constraint is a no-op (`Exclude<U, Function>`
- * is `U`).
+ * For non-function `T` the constraint is a no-op (`Exclude<U, AnyFn>`
+ * is `U`). `AnyFn` is `(...args: never) => unknown` rather than the
+ * banned `Function` type so the lint is silent without an inline
+ * suppression — both produce identical Exclude behavior under TS's
+ * structural function compatibility rules.
  *
  * Mirrors SolidJS's `Setter<T>` shape; chosen for zero runtime cost and
  * no compiler-emit changes. See `.team/phase-2/spec-signals-write-of-functions.md`.
  */
-export type Write<T> = <U extends T>(
-  next: (Exclude<U, Function> & T) | ((prev: T) => U),
-) => void
+type AnyFn = (...args: never) => unknown
+export type Write<T> = <U extends T>(next: (Exclude<U, AnyFn> & T) | ((prev: T) => U)) => void
 export type Signal<T> = readonly [Read<T>, Write<T>]
 
 export interface SignalOptions<T> {
