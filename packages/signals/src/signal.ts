@@ -63,7 +63,14 @@ export function peekCurrentObserver(): Subscriber | null {
   return currentObserver
 }
 
-/** @internal */ export const MAX_BATCH_ITERATIONS = 100
+/**
+ * Cap on `drainBatch` re-iteration count before throwing
+ * `SignalCircularError`. Each iteration corresponds to a wave of
+ * effects that wrote signals, re-queueing more subscribers. Exposed for
+ * tooling that wants to sanity-check whether a legitimate cascade is
+ * approaching the cap; not a runtime knob.
+ */
+export const MAX_BATCH_ITERATIONS = 100
 
 /** @internal */ let batchDepth = 0
 /** @internal */ const batchQueue: Subscriber[] = []
@@ -207,19 +214,46 @@ export function shallowClear(head: Link | null): void {
 }
 
 /**
+ * @internal — drain effectQueue, isolating user-thrown errors. Each
+ * effect's `notify()` is wrapped in try/catch so a single thrown effect
+ * does not strand its siblings; thrown errors accumulate in `errors` and
+ * are surfaced by `_throwEffectErrors` after the wave completes.
+ */
+function drainEffectQueue(errors: unknown[]): void {
+  for (const sub of effectQueue) {
+    if (sub.flags & DISPOSED) continue
+    if (!(sub.flags & MARKED)) continue
+    sub.flags &= ~MARKED
+    try {
+      sub.notify()
+    } catch (e) {
+      errors.push(e)
+    }
+  }
+  effectQueue.length = 0
+}
+
+/**
+ * @internal — surface accumulated effect errors. Single error throws
+ * directly (preserving stack); multiple errors throw as AggregateError.
+ * Computed-body throws bypass this path entirely (they fail fast).
+ */
+function throwEffectErrors(errors: unknown[]): void {
+  if (errors.length === 0) return
+  if (errors.length === 1) throw errors[0]
+  throw new AggregateError(errors, 'multiple effects threw during drain')
+}
+
+/**
  * @internal — phase 2 settle + phase 3 effect drain. Computeds with
  * effect subs eagerly recompute (running their equality check); effects
  * whose MARKED bit survived run in mark order.
  */
 function settleAndDrain(): void {
   for (const sub of visited) sub.recomputeIfNeeded?.()
-  for (const sub of effectQueue) {
-    if (sub.flags & DISPOSED) continue
-    if (!(sub.flags & MARKED)) continue
-    sub.flags &= ~MARKED
-    sub.notify()
-  }
-  effectQueue.length = 0
+  const errors: unknown[] = []
+  drainEffectQueue(errors)
+  throwEffectErrors(errors)
 }
 
 /** @internal — clear MARKED across visited; reset to recoverable state. */
@@ -238,6 +272,7 @@ function clearVisited(): void {
  */
 export function drainBatch(): void {
   let iterations = 0
+  const errors: unknown[] = []
   try {
     while (batchQueue.length > 0) {
       if (++iterations > MAX_BATCH_ITERATIONS) {
@@ -252,13 +287,7 @@ export function drainBatch(): void {
         markOne(sub)
       }
       for (const sub of visited) sub.recomputeIfNeeded?.()
-      for (const sub of effectQueue) {
-        if (sub.flags & DISPOSED) continue
-        if (!(sub.flags & MARKED)) continue
-        sub.flags &= ~MARKED
-        sub.notify()
-      }
-      effectQueue.length = 0
+      drainEffectQueue(errors)
       visited.length = 0
     }
   } finally {
@@ -266,6 +295,7 @@ export function drainBatch(): void {
     for (const sub of batchQueue) sub.flags &= ~QUEUED
     batchQueue.length = 0
   }
+  throwEffectErrors(errors)
 }
 
 /** @internal */
