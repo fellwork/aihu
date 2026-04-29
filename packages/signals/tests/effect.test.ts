@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { computed } from '../src/computed.ts'
 import { effect } from '../src/effect.ts'
 import { SignalCircularError } from '../src/errors.ts'
-import { signal } from '../src/signal.ts'
+import { type Read, signal } from '../src/signal.ts'
 
 describe('effect', () => {
   it('runs once on registration', () => {
@@ -191,5 +192,48 @@ describe('effect', () => {
     const messages = agg.errors.map((e) => (e as Error).message).sort()
     expect(messages).toEqual(['boom-a', 'boom-b'])
     expect(cRuns).toBe(2)
+  })
+
+  it('deep dep chain: 20000-level computed chain does not overflow stack on write', () => {
+    // Regression for the recursive markOne (signal.ts ~lines 164-188).
+    // For a chain `signal → c1 → c2 → ... → cN → effect`, the
+    // recursive markOne descends N+1 frames in one go. V8 blows the
+    // stack at ~10-13K frames, so 20000 reliably overflows the
+    // recursive impl on every host while remaining instant under
+    // the iterative work-stack version (O(1) JS-stack frames
+    // regardless of chain depth).
+    //
+    // Each level gets its own effect so that `recomputeIfNeeded`
+    // settles each computed iteratively in `visited` order (no
+    // lazy-pull recursion through `computed.read → recompute → fn
+    // → next.read` on STALE chains). This isolates the regression
+    // to markOne's traversal, which is the function under test.
+    const DEPTH = 20000
+    const [src, setSrc] = signal(0)
+    const observedPerLevel: number[] = new Array(DEPTH).fill(-1)
+    let prev: Read<number> = src
+    for (let i = 0; i < DEPTH; i++) {
+      const cur = prev
+      const next = computed(() => cur() + 1)
+      // Attach an effect at every level so each computed has
+      // `hasEffectSub === true`. settleAndDrain then recomputes them
+      // in pre-order; each recompute reads the previous level, which
+      // by then has cleared STALE — no recursive descent.
+      const idx = i
+      effect(() => {
+        observedPerLevel[idx] = next()
+      })
+      prev = next
+    }
+    const final = prev
+    let observedFinal = -1
+    effect(() => {
+      observedFinal = final()
+    })
+    expect(observedFinal).toBe(DEPTH)
+    expect(observedPerLevel[DEPTH - 1]).toBe(DEPTH)
+    expect(() => setSrc(1)).not.toThrow()
+    expect(observedFinal).toBe(DEPTH + 1)
+    expect(observedPerLevel[DEPTH - 1]).toBe(DEPTH + 1)
   })
 })

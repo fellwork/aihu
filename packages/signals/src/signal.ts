@@ -167,31 +167,101 @@ export function unlinkAllDeps(node: Subscriber): void {
 
 // ───────── Mark / settle / drain pipeline ─────────
 
-/** @internal — mark one sub with wave-counter dedup; recurse into computed subs. */
-function markOne(sub: Subscriber): void {
-  if (sub.flags & DISPOSED) return
-  if (sub.lastWave === wave) return
-  if (sub.flags & RUNNING) throw new SignalCircularError()
-  sub.lastWave = wave
-  sub.flags |= MARKED
-  if (sub.flags & EFFECT) {
-    effectQueue.push(sub)
-    return
+/** @internal — mark one sub with wave-counter dedup; iteratively walk
+ * computed subs.
+ *
+ * Iterative DFS over the dep→sub graph using an explicit work stack
+ * (heap-allocated) to bound JS stack depth at O(1) regardless of dep-
+ * chain length. Pre-order traversal matches the prior recursive shape
+ * exactly so the order of pushes into `visited` / `effectQueue` is
+ * preserved — the cellx 4×4 and effect-dedup tests assert exact run
+ * counts that depend on settle order.
+ *
+ * Each work-stack entry is a `Subscriber` whose interpretation is
+ * disambiguated by its slot in a parallel `markKindStack`:
+ *   - MARK_KIND_MARK      — enter the sub: dedup, mark, push children
+ *                            in reverse list order (LIFO pop yields
+ *                            the same forward `nextSub` traversal as
+ *                            the recursive `for (l = head; l; …)`).
+ *   - MARK_KIND_RECOMPUTE — post-action used by the restricted-leaf
+ *                            fast path: after the lone effect child
+ *                            is marked, call the parent's
+ *                            `recomputeIfNeeded` inline (parent spec
+ *                            §3 sufficiency invariant — same behavior
+ *                            as the recursive version's
+ *                            `sub.recomputeIfNeeded?.()` immediately
+ *                            after the recursive call).
+ *
+ * Two parallel arrays of primitives (Subscriber refs and a number)
+ * avoid per-frame object allocation on the hot path. */
+const markStackSubs: Subscriber[] = []
+const markStackKinds: number[] = []
+const MARK_KIND_MARK = 0
+const MARK_KIND_RECOMPUTE = 1
+
+function markOne(root: Subscriber): void {
+  // Watermark for re-entrant safety: a recompute fired inline by the
+  // restricted-leaf fast path can synchronously trigger another signal
+  // write → propagateMark → markOne. Each call drains only the frames
+  // it pushed, leaving outer-call frames untouched on the shared
+  // module arrays.
+  const baseLen = markStackSubs.length
+  markStackSubs.push(root)
+  markStackKinds.push(MARK_KIND_MARK)
+  try {
+    while (markStackSubs.length > baseLen) {
+      const sub = markStackSubs.pop() as Subscriber
+      const kind = markStackKinds.pop() as number
+      if (kind === MARK_KIND_RECOMPUTE) {
+        sub.recomputeIfNeeded?.()
+        continue
+      }
+      if (sub.flags & DISPOSED) continue
+      if (sub.lastWave === wave) continue
+      if (sub.flags & RUNNING) throw new SignalCircularError()
+      sub.lastWave = wave
+      sub.flags |= MARKED
+      if (sub.flags & EFFECT) {
+        effectQueue.push(sub)
+        continue
+      }
+      visited.push(sub)
+      sub.flags |= STALE
+      const head = sub.subsHead
+      if (head === null) continue
+      // Restricted leaf fast path: a confirmed source-only computed
+      // (HAS_COMPUTED_DEPS unset) with exactly one effect sub settles
+      // inline during marking. Single-edge case: head.nextSub === null.
+      // Iteratively: push the post-action recompute first, then the
+      // child mark — LIFO popping fires the child mark before the
+      // recompute, mirroring the recursive
+      // `markOne(head.sub); sub.recomputeIfNeeded?.()` sequence.
+      if (head.nextSub === null && !(sub.flags & HAS_COMPUTED_DEPS) && head.sub.flags & EFFECT) {
+        markStackSubs.push(sub)
+        markStackKinds.push(MARK_KIND_RECOMPUTE)
+        markStackSubs.push(head.sub)
+        markStackKinds.push(MARK_KIND_MARK)
+        continue
+      }
+      // General forward-walk fan-out: push children in reverse list
+      // order (tail → head via prevSub) so LIFO popping yields the
+      // same nextSub-forward pre-order as the recursive walk. The
+      // list is doubly-linked and `sub` is the dep that owns it, so
+      // `sub.subsTail` is the live tail.
+      for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
+        markStackSubs.push(l.sub)
+        markStackKinds.push(MARK_KIND_MARK)
+      }
+    }
+  } catch (e) {
+    // On error (e.g. SignalCircularError) drain only the frames this
+    // call pushed so outer markOne invocations keep their pending
+    // work intact. clearVisited() in the caller's finally block
+    // handles per-sub flag reset.
+    markStackSubs.length = baseLen
+    markStackKinds.length = baseLen
+    throw e
   }
-  visited.push(sub)
-  sub.flags |= STALE
-  const head = sub.subsHead
-  if (head === null) return
-  // Restricted leaf fast path: a confirmed source-only computed
-  // (HAS_COMPUTED_DEPS unset) with exactly one effect sub settles
-  // inline during marking. Single-edge case: head.nextSub === null.
-  if (head.nextSub === null && !(sub.flags & HAS_COMPUTED_DEPS) && head.sub.flags & EFFECT) {
-    markOne(head.sub)
-    sub.recomputeIfNeeded?.()
-    return
-  }
-  // General forward-walk fan-out: pure pointer chase.
-  for (let l: Link | null = head; l !== null; l = l.nextSub) markOne(l.sub)
 }
 
 /** @internal — phase-1 mark entry from signal.write. Walks the linked
