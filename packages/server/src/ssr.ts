@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * CRITICAL CONSTRAINTS:
  * 1. Zero client runtime imports. Zero DOM globals (no window, document, HTMLElement).
@@ -6,6 +7,8 @@
  * The `SsrOptions.serializer` field accepts an injected serialize function.
  * In v0 the arbor stub always throws; the spec path is wired for sub-project #6.
  */
+
+import type { StreamOptions } from './stream-types.ts'
 
 export interface MetaTag {
   readonly name?: string
@@ -109,34 +112,202 @@ function buildHead(head: HeadConfig): string {
   return parts.join('')
 }
 
-export async function renderToString(
-  component: ComponentDescription,
-  opts?: SsrOptions,
-): Promise<string> {
-  const hydratable = opts?.hydratable ?? false
-  let content: string
+// ---------------------------------------------------------------------------
+// Internal async tree-walker for renderToStream
+// ---------------------------------------------------------------------------
 
-  if (typeof component === 'function') {
-    const result = component()
-    content = renderNode(result, '0', hydratable)
-  } else {
-    content = component.toHtml()
+async function renderNodeAsync(
+  node: unknown,
+  path: string,
+  hydratable: boolean,
+  controller: ReadableStreamDefaultController<string>,
+  pendingState: { count: number; walkDone: boolean; opts: StreamOptions | undefined },
+): Promise<void> {
+  if (typeof node !== 'object' || node === null) {
+    controller.enqueue('')
+    return
+  }
+  const obj = node as Record<string, unknown>
+  if (!('kind' in obj)) {
+    controller.enqueue('')
+    return
   }
 
-  let stateScript = ''
+  if (obj.kind === 'leaf') {
+    const text = typeof obj.text === 'string' ? obj.text : ''
+    controller.enqueue(text)
+    return
+  }
+
+  if (obj.kind === 'branch') {
+    const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
+    const attrs = typeof obj.attrs === 'object' && obj.attrs !== null
+      ? obj.attrs as Record<string, string | boolean>
+      : {}
+    let attrStr = ''
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v === true) attrStr += ` ${k}`
+      else if (v !== false && v !== undefined) attrStr += ` ${k}="${escapeAttr(String(v))}"`
+    }
+    if (hydratable) attrStr += ` data-scribe-path="${escapeAttr(path)}"`
+
+    const children = Array.isArray(obj.children) ? obj.children : []
+
+    // Check for DataSource boundary (duck-type check — no arbor type changes needed)
+    const dataSource = obj.dataSource as
+      | { status: 'pending' | 'ready' | 'error'; value?: unknown; error?: unknown; onReady(cb: () => void): () => void }
+      | undefined
+
+    if (!dataSource || typeof dataSource !== 'object') {
+      // Synchronous branch — no async boundary
+      controller.enqueue(`<${tag}${attrStr}>`)
+      for (let i = 0; i < children.length; i++) {
+        await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
+      }
+      controller.enqueue(`</${tag}>`)
+      return
+    }
+
+    // Async boundary handling
+    controller.enqueue(`<${tag}${attrStr}>`)
+
+    if (dataSource.status === 'error') {
+      controller.error(dataSource.error)
+      return
+    }
+
+    if (dataSource.status === 'ready') {
+      // Already resolved — render children synchronously (no suspension)
+      for (let i = 0; i < children.length; i++) {
+        await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
+      }
+      controller.enqueue(`</${tag}>`)
+      return
+    }
+
+    // status === 'pending' — register callback and increment pending counter
+    pendingState.count++
+
+    dataSource.onReady(async () => {
+      try {
+        if (dataSource.status === 'error') {
+          controller.error(dataSource.error)
+          return
+        }
+        for (let i = 0; i < children.length; i++) {
+          await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
+        }
+        controller.enqueue(`</${tag}>`)
+        pendingState.count--
+        if (pendingState.count === 0 && pendingState.walkDone) {
+          emitStateScriptAndClose(controller, pendingState.opts)
+        }
+      } catch (err) {
+        controller.error(err)
+      }
+    })
+
+    // Return from renderNodeAsync — the synchronous walk continues past this boundary.
+    return
+  }
+
+  // Unknown kind
+  controller.enqueue('')
+}
+
+function emitStateScriptAndClose(
+  controller: ReadableStreamDefaultController<string>,
+  opts: StreamOptions | undefined,
+): void {
   if (opts?.serializer) {
     try {
       const state = opts.serializer()
-      stateScript = `<script type="application/json" id="__scribe_state__">${JSON.stringify(state)}</script>`
+      controller.enqueue(
+        `<script type="application/json" id="__scribe_state__">${JSON.stringify(state)}</script>`,
+      )
     } catch {
       // swallow — no state script emitted
     }
   }
-
   if (opts?.head) {
-    const headHtml = buildHead(opts.head)
-    return `<!DOCTYPE html><html${opts.head.lang ? ` lang="${escapeAttr(opts.head.lang)}"` : ''}><head>${headHtml}</head><body>${content}${stateScript}</body></html>`
+    controller.enqueue('</body></html>')
   }
+  controller.close()
+}
 
-  return content
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function renderToStream(
+  component: ComponentDescription,
+  opts?: StreamOptions,
+): ReadableStream<string> {
+  return new ReadableStream<string>({
+    start(controller) {
+      const pendingState = { count: 0, walkDone: false, opts }
+
+      // Step 1: Emit document preamble if opts.head is set
+      if (opts?.head) {
+        const headHtml = buildHead(opts.head)
+        const lang = opts.head.lang ? ` lang="${escapeAttr(opts.head.lang)}"` : ''
+        controller.enqueue(`<!DOCTYPE html><html${lang}><head>${headHtml}</head><body>`)
+      }
+
+      // Step 2: Resolve component
+      if (typeof component !== 'function') {
+        // { toHtml() } provider — no async boundaries possible
+        let html: string
+        try {
+          html = component.toHtml()
+        } catch (err) {
+          controller.error(err)
+          return
+        }
+        controller.enqueue(html)
+        emitStateScriptAndClose(controller, opts)
+        return
+      }
+
+      // Factory (function) — may produce async boundaries
+      let root: unknown
+      try {
+        root = component()
+      } catch (err) {
+        controller.error(err)
+        return
+      }
+
+      // Kick off async tree walk
+      renderNodeAsync(root, '0', opts?.hydratable ?? false, controller, pendingState)
+        .then(() => {
+          pendingState.walkDone = true
+          if (pendingState.count === 0) {
+            emitStateScriptAndClose(controller, opts)
+          }
+        })
+        .catch((err: unknown) => {
+          controller.error(err)
+        })
+    },
+  })
+}
+
+export async function renderToString(
+  component: ComponentDescription,
+  opts?: SsrOptions,
+): Promise<string> {
+  const stream = renderToStream(component, opts)
+  const reader = stream.getReader()
+  const chunks: string[] = []
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return chunks.join('')
 }

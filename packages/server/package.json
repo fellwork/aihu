@@ -15,6 +15,9 @@
     "dist"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit"
