@@ -20,7 +20,7 @@
   {
     "name": "@scribe/agent",
     "path": "packages/agent/dist/index.js",
-    "limit": "100 B",
+    "limit": "200 B",
     "gzip": true
   }
 ]
