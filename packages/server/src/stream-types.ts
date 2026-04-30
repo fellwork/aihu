@@ -2,8 +2,10 @@ import type { SsrOptions } from './ssr.ts'
 
 /**
  * Describes an async data boundary that renderToStream can suspend on.
- * Track B's createResource will implement this interface.
- * Defined here to allow Track C to build and test independently.
+ * Used internally by @scribe/server — this is the SSR streaming-suspension
+ * contract, not the same as @scribe/data's Resource<T> (the createResource
+ * return type). The two types are unrelated; they have different shapes and
+ * different names.
  */
 export interface DataSource<T> {
   /** Current resolution state. */

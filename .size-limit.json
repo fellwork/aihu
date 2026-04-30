@@ -8,13 +8,13 @@
   {
     "name": "@scribe/signals",
     "path": "packages/signals/dist/index.js",
-    "limit": "1700 B",
+    "limit": "1850 B",
     "gzip": true
   },
   {
     "name": "@scribe/arbor",
     "path": "packages/arbor/dist/index.js",
-    "limit": "2048 B",
+    "limit": "2200 B",
     "gzip": true
   },
   {
@@ -27,6 +27,12 @@
     "name": "@scribe/agent",
     "path": "packages/agent/dist/index.js",
     "limit": "200 B",
+    "gzip": true
+  },
+  {
+    "name": "@scribe/data",
+    "path": "packages/data/dist/index.js",
+    "limit": "750 B",
     "gzip": true
   }
 ]

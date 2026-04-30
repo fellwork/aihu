@@ -1,18 +1,18 @@
 # State — Track B (Context + Data)
 
 **Track:** `track-b`
-**Last updated:** 2026-04-30 (Round 3)
-**HEAD at session start:** `a0e579f` (verification reports commit, 2 ahead of `8223dbb`)
-**Active branch:** `feat/v1-data` (to create for Plan 2.2)
-**Mode:** 2 (Plan 2.1 COMPLETE; Plan 2.2 READY FOR BUILDER)
+**Last updated:** 2026-04-30 (Round 4)
+**HEAD at session close:** `acd56fe`
+**Active branch:** `main` (Plan 2.2 merged)
+**Mode:** 3 (Plans 2.1 and 2.2 COMPLETE; next step: integration testing or Plan 2.3)
 
 ---
 
 ## Current phase
 
-**Phase 2 — Plan 2.1 COMPLETE; Plan 2.2 READY FOR BUILDER**
+**Phase 3 — Plan 2.2 COMPLETE; integration path or Plan 2.3 to be defined**
 
-Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 ✓ → Architect spec ✓ → Builder 2.1 ✓ → **Builder 2.2**
+Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 ✓ → Architect spec ✓ → Builder 2.1 ✓ → Architect spec 2.2 ✓ → Builder 2.2 ✓ → Verifier 2.2 ✓
 
 ---
 
@@ -21,7 +21,7 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 | Plan | Package | Status |
 |------|---------|--------|
 | 2.1  | `@scribe/context` | COMPLETE (main `8223dbb`) |
-| 2.2  | `@scribe/data`    | READY FOR BUILDER — spec design in `director-notes/track-b-round-002.md` §4 |
+| 2.2  | `@scribe/data`    | COMPLETE (main `8e74a95`) |
 
 ---
 
@@ -35,7 +35,9 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 | 2     | 2.1  | Architect | COMPLETE (`spec-2.1-context.md`) |
 | 2     | 2.1  | Builder  | COMPLETE (main `8223dbb`) — fixup `3e93838` on `feat/v1-context-data` |
 | 2     | 2.1  | Verifier | COMPLETE (`verification-report-2.1.md`) |
-| 3     | 2.2  | Builder  | READY — unblocked, GO |
+| 3     | 2.2  | Architect | COMPLETE (`spec-2.2-data.md`, `7244747`) |
+| 3     | 2.2  | Builder  | COMPLETE (main `8e74a95`) — 24 tests, 687 B gz, all 9 AC PASS first try |
+| 3     | 2.2  | Verifier | COMPLETE (`verification-report-2.2.md`) — PASS |
 
 ---
 
@@ -113,20 +115,22 @@ The following are read-only from Track B's perspective:
 | v1 roadmap | `.team/v1/plan-v1-roadmap.md` | COMPLETE (authored) |
 | Scout report | `.team/v1/scout-report-track-b.md` | COMPLETE |
 | Architect spec 2.1 | `.team/v1/spec-2.1-context.md` | COMPLETE |
-| Architect spec 2.2 | `.team/v1/spec-2.2-data.md` | PENDING — Architect to write before Builder starts |
+| Architect spec 2.2 | `.team/v1/spec-2.2-data.md` | COMPLETE (`7244747`; naming-collision fix `f7a25c4`) |
 | Build manifest 2.1 | `.team/v1/build-manifest-2.1.md` | COMPLETE |
 | Verification report 2.1 | `.team/v1/verification-report-2.1.md` | COMPLETE |
-| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | NOT STARTED |
+| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | COMPLETE |
+| Verification report 2.2 | `.team/v1/verification-report-2.2.md` | COMPLETE — PASS (all 9 AC) |
 | State file | `.team/v1/state-track-b.md` | THIS FILE |
 
 ---
 
 ## Next actions
 
-1. **Architect** — write `.team/v1/spec-2.2-data.md` per director-notes/track-b-round-002.md §4 (UNBLOCKED — GO)
-2. **Builder** — after `spec-2.2-data.md` approved: scaffold `packages/data/` on `feat/v1-data` from `main`
-3. **Verifier** — verify Plan 2.2 build against spec acceptance matrix
-4. **Director (Round 3 close)** — review 2.2 PR when ready
+1. **Integration test — `@scribe/data` + `@scribe/context` SSR path** — OPTIONAL but recommended before v1 ship. Verify that `createResource` dehydration and `ResourceStore` serialize correctly through `renderToString`/`renderToStream` with a live context map. No spec exists for this yet; Director to scope if needed.
+2. **Plan 2.3** — not yet defined. If scope expands (e.g., derived resources, cache invalidation policies, server-side streaming of resource state), Director will open a Round 4 note.
+3. **Monitor arbor bundle size** — `@scribe/data` does not bundle signals, but if Track B ever adds a signals dependency, the same bundling-spillover pattern that hit arbor in Session 003 applies. Keep it external.
 
 ### Do-not-break list update
 `packages/server/src/ssr.ts` now receives **additive** changes (two new optional fields in `SsrOptions`) as part of Plan 2.1 scope. It is no longer strictly read-only for Track B.
+
+`packages/data/src/` is now a new read-only package from other tracks' perspective. Do not modify it outside Track B builder passes.

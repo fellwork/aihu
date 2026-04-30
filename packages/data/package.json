@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/arbor",
+  "name": "@scribe/data",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -7,8 +7,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "files": [
@@ -16,10 +16,11 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "rolldown -c && node scripts/mangle-dist.mjs",
+    "build": "rolldown -c",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/signals": "workspace:*"
+    "@scribe/signals": "workspace:*",
+    "@scribe/context": "workspace:*"
   }
 }

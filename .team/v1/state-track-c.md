@@ -1,9 +1,9 @@
 # Track C State — SSR + Signals
 **Track:** C
-**Branch:** `feat/v1-ssr-signals`
+**Branch:** `feat/v1-ssr-signals` (merged; all active work on `main`)
 **Plans:** 3.1 (Streaming SSR), 6.2 (Signals Deep-Chain Optimization)
 **Initialized:** 2026-04-30
-**Last updated:** 2026-04-30 (Round 3 — Session 002 complete)
+**Last updated:** 2026-04-30 (Round 4 — Session 003 complete)
 
 ---
 
@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 3.1 Streaming SSR | COMPLETE (main `ec24d41`) | — | `renderToStream`, `DataSource<T>`, `StreamOptions`; `ssr-stream.test.ts` 167 lines |
 | 6.2 Deep-chain Phase 0 (Option C) | COMPLETE (main `8223dbb`) | — | `HAS_EFFECT_SUB` flag + conditional push; ~18% improvement (4.00→3.27 µs p50); ≤1.54 kB gz |
-| 6.2 Deep-chain Phase 1 (Option D) | READY FOR ARCHITECT SPEC | TBD | Phase 0 bench confirmed ≥18% (≥10% threshold met); Option D hybrid fanout/lazy |
+| 6.2 Deep-chain Phase 1 (Option D) | CONDITIONAL PASS (main `8e74a95`) | — | Hybrid fanout/lazy; correctness PASS; perf unverified on Windows — Linux bench required |
 
 ---
 
@@ -121,18 +121,26 @@ These are the passing baselines that 6.2 must not regress by more than 10% (per 
 - [x] All 6 no-regression gates confirmed green
 - [x] All existing signal tests pass
 
-**Phase 1 (Option D) — PENDING ARCHITECT SPEC:**
-- [ ] Architect spec for Option D (hybrid fanout/lazy)
-- [ ] Builder implementation
-- [ ] Bench confirmation ≥25% total improvement
-- [ ] No-regression gates hold
+**Phase 1 (Option D) — CONDITIONAL PASS (correctness PASS; perf unverified on Windows):**
+- [x] Architect spec for Option D — `spec-6.2-phase1-option-d.md` (`7ff92c0`)
+- [x] Builder implementation — `8e74a95` (merged to main alongside Plan 2.2)
+- [x] All correctness AC pass
+- [ ] Bench confirmation ≥25% total improvement — PENDING Linux/macOS run
+- [ ] No-regression gates confirmed on reference hardware — PENDING Linux/macOS run
+
+**Phase 1 key additions:** `PENDING = 0x100` flag; `markOne` linear/fan-out split; `checkDirty` iterative function; `drainEffectQueue` PENDING check; cascade-suppression settle step; `lastWave` signal detection; 4 new deep-chain tests.
+
+**Notable deviations from spec (all assessed as sound):**
+- `checkDirty` does not clear PENDING eagerly — no-new-array approach
+- Cascade-suppression settle step not specified in §6.2 but algorithmically correct
+- `bun:test` import in test file corrected to `vitest` by Team Lead pre-merge
 
 ### Bundle size constraint
 
-Current `@scribe/signals` bundle: **4.01 KB raw / 1.64 KB gz** (from RESULTS.md).
-v1 cap (from v0 spec §6.6, Learning #10): **4 KB total bundle budget**. Headroom: ≈ none raw, ~360 B gz.
+Current `@scribe/signals` bundle post Phase 1: **1.67 kB gz** (cap raised to **1850 B** per spec §10.3).
+Pre-Phase-1 Phase 0 baseline: 1.54 kB gz. Phase 1 added ~130 B gz.
 
-Any 6.2 implementation that adds bytes to `packages/signals/src/` must be justified against this constraint. Investigation report must include size estimates.
+Note: `@scribe/arbor` bundles signals (not externalized). The Phase 1 growth flowed through into the arbor bundle, requiring the arbor cap to be raised to 2200 B. If signals grows further in any Phase 2 work, arbor's cap must be reviewed again.
 
 ---
 
@@ -143,3 +151,13 @@ Any 6.2 implementation that adds bytes to `packages/signals/src/` must be justif
 | 1 | 2026-04-30 | `director-notes/track-c-round-001.md` | Session start; GO for both plans |
 | 2 | 2026-04-30 | `director-notes/track-c-round-002.md` | Spec (3.1) and investigation (6.2) assessed; GO for Builder 3.1 and Builder 6.2-Phase0 (Option C) in parallel; Option D (Phase 1) HOLD pending bench confirmation |
 | 3 | 2026-04-30 | — | Plan 3.1 COMPLETE (`ec24d41`); Plan 6.2-P0 COMPLETE (`8223dbb`); Phase 0 bench confirmed ≥18% improvement; Phase 1 Option D unblocked for Architect spec |
+| 4 | 2026-04-30 | — | Plan 6.2-P1 Option D CONDITIONAL PASS (`8e74a95`); Architect spec `7ff92c0`; correctness verified; perf unverified on Windows; Linux/macOS bench required before track marked COMPLETE |
+
+---
+
+## Next actions
+
+1. **Linux/macOS bench run** — REQUIRED before signals optimization track closes. Run `bun run bench` on reference hardware. Target: ≤ ~2.45 µs p50 on `deep-propagation-100` (≥25% improvement over Phase 0 baseline of 3.27 µs p50). All no-regression gates must hold.
+2. **If perf target met** — Track C signals work is COMPLETE for v1. Mark 6.2-P1 PASS in this file. No Phase 2 needed.
+3. **If perf target not met** — Open Phase 2 investigation. Scope: determine whether the PENDING flag cascade-suppression approach needs additional optimization or whether the Windows/Linux delta explains the miss.
+4. **Track C maintenance** — `packages/server/` and `packages/signals/` are read-only from other tracks' perspective. Any further server or signals work routes through Track C.

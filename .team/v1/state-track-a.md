@@ -1,17 +1,18 @@
 # Track A — State File
 
 **Created:** 2026-04-30
-**Branch:** `feat/v1-reconciler` (to be created from `main` after Architect pass)
+**Branch:** `feat/v1-reconciler` (merged; use `main` as base for Plan 1.2)
 **Track director note:** `.team/v1/director-notes/track-a-round-001.md`
 
 ---
 
 ## Current Phase
 
-**Phase:** Round 2 complete — Plan 4.2 DONE; Plan 1.1 unblocked for Builder.
+**Phase:** Round 3 complete — Plans 4.2 and 1.1 DONE; Plan 1.2 unblocked for Builder.
 
-Plan 4.2 (Error Boundaries) shipped to `main` at `8223dbb`. Architect spec for Plan 1.1
-exists at `.team/v1/spec-track-a-architect-round-001.md`. Builder can start Plan 1.1 now.
+Plan 1.1 (when/each Reconciler) shipped to `main` at `b4bf47f` + `75ba4e1` (export-leak
+fix). Architect spec for Plan 1.2 exists at `.team/v1/spec-track-a-architect-round-001.md`
+(1.2 section). Builder can start Plan 1.2 now.
 
 ---
 
@@ -20,8 +21,8 @@ exists at `.team/v1/spec-track-a-architect-round-001.md`. Builder can start Plan
 | Plan | Title | Status |
 |------|-------|--------|
 | 4.2 | Error boundaries (`onError` hook in arbor + runtime) | COMPLETE (main `8223dbb`) |
-| 1.1 | Reconciler (`when()` and `each()` in `structural.ts`) | PENDING — unblocked, Architect spec at `spec-track-a-architect-round-001.md` |
-| 1.2 | Component props (typed `observedAttributes` in `@scribe/runtime`) | PENDING — blocked on 1.1 |
+| 1.1 | Reconciler (`when()` and `each()` in `structural.ts`) | COMPLETE (main `75ba4e1`) |
+| 1.2 | Component props (typed `observedAttributes` in `@scribe/runtime`) | PENDING — unblocked, Architect spec ready |
 
 **Execution order (per director note §1):** 4.2 → 1.1 → 1.2
 
@@ -37,10 +38,10 @@ exists at `.team/v1/spec-track-a-architect-round-001.md`. Builder can start Plan
 | Architect | 1.2 Props | COMPLETE | Covered in `spec-track-a-architect-round-001.md` |
 | Scout | All | COMPLETE | `scout-report-track-a.md` exists |
 | Builder | 4.2 | COMPLETE (main `8223dbb`) | 2 non-blocking Verifier findings; see notes |
-| Builder | 1.1 | PENDING | Unblocked — GO; Architect spec ready |
-| Builder | 1.2 | PENDING | Blocked on 1.1 Builder |
+| Builder | 1.1 | COMPLETE (main `75ba4e1`) | Export-leak fix applied by Team Lead; 8 new structural tests |
+| Builder | 1.2 | PENDING | Unblocked — GO; Architect spec ready |
 | Verifier | 4.2 | COMPLETE | Report at `verification-report-4.2.md` |
-| Verifier | 1.1 | PENDING | Blocked on Builder |
+| Verifier | 1.1 | COMPLETE | Report at `verification-report-1.1.md` — PARTIAL → PASS after inline fixes |
 | Verifier | 1.2 | PENDING | Blocked on Builder |
 
 ---
@@ -56,7 +57,8 @@ exists at `.team/v1/spec-track-a-architect-round-001.md`. Builder can start Plan
 | `spec-track-a-architect-round-001.md` | Architect spec (1.1, 1.2, 4.2) | COMPLETE |
 | `build-manifest-4.2.md` | Builder output | COMPLETE |
 | `verification-report-4.2.md` | Verifier output | COMPLETE — 2 non-blocking findings |
-| 1.1 build manifest | Builder output | NOT STARTED |
+| `build-manifest-1.1.md` | Builder output | COMPLETE |
+| `verification-report-1.1.md` | Verifier output | COMPLETE — PARTIAL → PASS after inline fixes |
 | 1.2 build manifest | Builder output | NOT STARTED |
 
 ---
@@ -111,12 +113,13 @@ criteria matrix.
 |-------|------|---------------|
 | 001 | 2026-04-30 | Track A bootstrapped; director note and state file authored; no spec docs yet; Architect pass required before Scout → Builder chain can start |
 | 002 | 2026-04-30 | Plan 4.2 (Error Boundaries) COMPLETE — `main` `8223dbb`; `MountOptions.onError`, `_mountDisposersStack` push-pop, try/catch in `_mountEffect`, +4 tests; 2 non-blocking Verifier findings (T1 path format, `disposeRef` race); Plan 6.2-P0 signals opt also landed in same squash; Plan 1.1 unblocked for Builder |
+| 003 | 2026-04-30 | Plan 1.1 (when/each Reconciler) COMPLETE — `main` `75ba4e1`; `StructuralNode`, `ChildScope`, keyed diff, `_materializeStructural`; +8 structural tests; 284 arbor / 312 total; arbor cap raised to 2200 B (signals bundling spillover from 6.2-P1); export-leak fixed by Team Lead; tech-debt chip spawned (shape-locking + ChildScope.key); Plan 1.2 unblocked |
 
 ---
 
 ## Next actions
 
-1. **Builder — Plan 1.1 (Reconciler)** — UNBLOCKED, GO. Architect spec ready at `.team/v1/spec-track-a-architect-round-001.md`. Property mangling MANDATORY. `StructuralNode` + `ChildScope` design from spec. Create `feat/v1-reconciler` from `main`.
-2. **Verifier — Plan 1.1** — after Builder PR; use spec acceptance matrix.
-3. **Builder — Plan 1.2 (Component props)** — after Plan 1.1 merges to `main`.
-4. **Background task — `disposeRef` first-run race** — LOW priority; spawned as background chip; does not gate 1.1 or 1.2.
+1. **Builder — Plan 1.2 (Component props)** — UNBLOCKED, GO. Create branch from `main`. Architect spec at `.team/v1/spec-track-a-architect-round-001.md` (1.2 section). Typed `observedAttributes` binding in `@scribe/runtime`. Zero cross-package value imports constraint applies.
+2. **Verifier — Plan 1.2** — after Builder PR; use spec acceptance matrix.
+3. **Background task — `disposeRef` first-run race** — LOW priority; spawned Session 002; does not gate 1.2.
+4. **Background task — shape-locking / ChildScope.key** — LOW priority; spawned Session 003; does not gate 1.2.

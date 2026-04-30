@@ -8,6 +8,7 @@ import {
   linkAdd,
   MARKED,
   peekCurrentObserver,
+  PENDING,
   type Read,
   RUNNING,
   STALE,
@@ -47,7 +48,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
       return fn()
     } finally {
       setCurrentObserver(prevObserver)
-      node.flags &= ~(RUNNING | STALE | MARKED)
+      node.flags &= ~(RUNNING | STALE | MARKED | PENDING)
     }
   }
 
@@ -64,7 +65,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     recomputeIfNeeded() {
       if (node.flags & DISPOSED) return
       if (!hasEffectSub) return
-      if (!(node.flags & STALE)) return
+      if (!(node.flags & (STALE | PENDING))) return
       if (node.subsHead === null) return
       const hadCache = hasCached
       const prev = cached
@@ -98,7 +99,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
         else if (observer.recomputeIfNeeded !== undefined) observer.flags |= HAS_COMPUTED_DEPS
       }
     }
-    if (!hasCached || node.flags & STALE) {
+    if (!hasCached || node.flags & (STALE | PENDING)) {
       cached = recompute()
       hasCached = true
     }

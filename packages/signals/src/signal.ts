@@ -33,20 +33,22 @@ export interface Subscriber {
   lastWave?: number
 }
 
-/** @internal */ export const RUNNING = 0x1
-/** @internal */ export const DISPOSED = 0x2
-/** @internal */ export const QUEUED = 0x4
-/** @internal */ export const STALE = 0x8
-/** @internal */ export const EFFECT = 0x10
-/** @internal */ export const MARKED = 0x20
+/** @internal */ export const RUNNING          = 0x001
+/** @internal */ export const DISPOSED         = 0x002
+/** @internal */ export const QUEUED           = 0x004
+/** @internal */ export const STALE            = 0x008
+/** @internal */ export const EFFECT           = 0x010
+/** @internal */ export const MARKED           = 0x020
 /**
  * @internal — set on a computed observer the first time it reads another
  * computed during its body. One-way (once true, stays true). Used by
- * markOne's restricted leaf fast path to confirm the computed has only
- * source-signal deps (sufficient, not necessary, for the inline-recompute
- * correctness invariant — see wide-fanout-recovery-v2-spec.md §3).
+ * markOne to confirm the computed has computed deps.
  */
-/** @internal */ export const HAS_COMPUTED_DEPS = 0x80
+/** @internal */ export const HAS_COMPUTED_DEPS = 0x080
+/** @internal — Option D: set on a linear-path computed during mark. Means
+ * "potentially dirty; run checkDirty at effect-drain time before recomputing."
+ * Not set on fan-out nodes (those take the STALE path unchanged). */
+/** @internal */ export const PENDING          = 0x100
 
 /** @internal */
 let currentObserver: Subscriber | null = null
@@ -155,50 +157,22 @@ export function linkUnlink(link: Link): void {
  *
  * Iterative DFS over the dep→sub graph using an explicit work stack
  * (heap-allocated) to bound JS stack depth at O(1) regardless of dep-
- * chain length. Pre-order traversal matches the prior recursive shape
- * exactly so the order of pushes into `visited` / `effectQueue` is
- * preserved — the cellx 4×4 and effect-dedup tests assert exact run
- * counts that depend on settle order.
+ * chain length.
  *
- * Each work-stack entry is a `Subscriber` whose interpretation is
- * disambiguated by its slot in a parallel `markKindStack`:
- *   - MARK_KIND_MARK      — enter the sub: dedup, mark, push children
- *                            in reverse list order (LIFO pop yields
- *                            the same forward `nextSub` traversal as
- *                            the recursive `for (l = head; l; …)`).
- *   - MARK_KIND_RECOMPUTE — post-action used by the restricted-leaf
- *                            fast path: after the lone effect child
- *                            is marked, call the parent's
- *                            `recomputeIfNeeded` inline (parent spec
- *                            §3 sufficiency invariant — same behavior
- *                            as the recursive version's
- *                            `sub.recomputeIfNeeded?.()` immediately
- *                            after the recursive call).
- *
- * Two parallel arrays of primitives (Subscriber refs and a number)
- * avoid per-frame object allocation on the hot path. */
-const markStackSubs: Subscriber[] = []
-const markStackKinds: number[] = []
-const MARK_KIND_MARK = 0
-const MARK_KIND_RECOMPUTE = 1
+ * Option D hybrid linear/fan-out mark:
+ *   - Linear path (head.nextSub === null): set PENDING on the computed,
+ *     do NOT push to visited[], do NOT set STALE. Lazy — checkDirty
+ *     will confirm dirtiness at effect-drain time.
+ *   - Fan-out path (head.nextSub !== null): set STALE + push to visited[]
+ *     (existing eager mark, unchanged from pre-Option-D). */
+const markStack: Subscriber[] = []
 
 function markOne(root: Subscriber): void {
-  // Watermark for re-entrant safety: a recompute fired inline by the
-  // restricted-leaf fast path can synchronously trigger another signal
-  // write → propagateMark → markOne. Each call drains only the frames
-  // it pushed, leaving outer-call frames untouched on the shared
-  // module arrays.
-  const baseLen = markStackSubs.length
-  markStackSubs.push(root)
-  markStackKinds.push(MARK_KIND_MARK)
+  const baseLen = markStack.length
+  markStack.push(root)
   try {
-    while (markStackSubs.length > baseLen) {
-      const sub = markStackSubs.pop() as Subscriber
-      const kind = markStackKinds.pop() as number
-      if (kind === MARK_KIND_RECOMPUTE) {
-        sub.recomputeIfNeeded?.()
-        continue
-      }
+    while (markStack.length > baseLen) {
+      const sub = markStack.pop() as Subscriber
       if (sub.flags & DISPOSED) continue
       if (sub.lastWave === wave) continue
       if (sub.flags & RUNNING) throw new SignalCircularError()
@@ -208,41 +182,36 @@ function markOne(root: Subscriber): void {
         effectQueue.push(sub)
         continue
       }
-      visited.push(sub)
-      sub.flags |= STALE
       const head = sub.subsHead
-      if (head === null) continue
-      // Restricted leaf fast path: a confirmed source-only computed
-      // (HAS_COMPUTED_DEPS unset) with exactly one effect sub settles
-      // inline during marking. Single-edge case: head.nextSub === null.
-      // Iteratively: push the post-action recompute first, then the
-      // child mark — LIFO popping fires the child mark before the
-      // recompute, mirroring the recursive
-      // `markOne(head.sub); sub.recomputeIfNeeded?.()` sequence.
-      if (head.nextSub === null && !(sub.flags & HAS_COMPUTED_DEPS) && head.sub.flags & EFFECT) {
-        markStackSubs.push(sub)
-        markStackKinds.push(MARK_KIND_RECOMPUTE)
-        markStackSubs.push(head.sub)
-        markStackKinds.push(MARK_KIND_MARK)
+      if (head === null) {
+        // Leaf computed: no downstream subscribers — mark STALE so a direct
+        // read triggers recomputation.
+        sub.flags |= STALE
         continue
       }
-      // General forward-walk fan-out: push children in reverse list
-      // order (tail → head via prevSub) so LIFO popping yields the
-      // same nextSub-forward pre-order as the recursive walk. The
-      // list is doubly-linked and `sub` is the dep that owns it, so
-      // `sub.subsTail` is the live tail.
+
+      if (head.nextSub === null) {
+        // Linear path: single subscriber — lazy PENDING, no visited push, no STALE.
+        sub.flags |= PENDING
+        // If the sole downstream subscriber is an effect, also set PENDING on
+        // it so drainEffectQueue knows to run checkDirty before executing.
+        if (head.sub.flags & EFFECT) head.sub.flags |= PENDING
+        markStack.push(head.sub)
+        continue
+      }
+
+      // Fan-out path: multiple subscribers — eager STALE mark.
+      visited.push(sub)
+      sub.flags |= STALE
+      // Push children in reverse list order (tail → head via prevSub) so
+      // LIFO popping yields the same nextSub-forward pre-order as the
+      // prior recursive walk.
       for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-        markStackSubs.push(l.sub)
-        markStackKinds.push(MARK_KIND_MARK)
+        markStack.push(l.sub)
       }
     }
   } catch (e) {
-    // On error (e.g. SignalCircularError) drain only the frames this
-    // call pushed so outer markOne invocations keep their pending
-    // work intact. clearVisited() in the caller's finally block
-    // handles per-sub flag reset.
-    markStackSubs.length = baseLen
-    markStackKinds.length = baseLen
+    markStack.length = baseLen
     throw e
   }
 }
@@ -266,6 +235,34 @@ export function shallowClear(head: Link | null): void {
   }
 }
 
+/** @internal — Option D pull-based dirtiness check for PENDING nodes.
+ * Iteratively walks the dep chain of `root` backward through PENDING
+ * computeds until a definitively dirty source (STALE dep, or signal
+ * written in current wave) is found, or all paths are clean.
+ * Clears PENDING eagerly on the false path.
+ * Returns true if the effect should run; false if the chain is clean. */
+function checkDirty(root: Subscriber): boolean {
+  const stack: Subscriber[] = [root]
+  while (stack.length > 0) {
+    const node = stack.pop() as Subscriber
+    for (let l = node.depsHead; l !== null; l = l.nextDep) {
+      const dep = l.dep
+      if (dep.flags & STALE) return true
+      if (dep.flags & PENDING) {
+        // Do NOT clear PENDING here — the settle step in drainEffectQueue
+        // needs PENDING to be set so recomputeIfNeeded runs and cascade
+        // suppression (shallowClear) can fire. PENDING is cleared by
+        // recompute() when the node is actually recomputed.
+        stack.push(dep)
+        continue
+      }
+      // Signal source: dirty if written in the current wave.
+      if (dep.recomputeIfNeeded === undefined && dep.lastWave === wave) return true
+    }
+  }
+  return false
+}
+
 /**
  * @internal — drain effectQueue, isolating user-thrown errors. Each
  * effect's `notify()` is wrapped in try/catch so a single thrown effect
@@ -276,6 +273,20 @@ function drainEffectQueue(errors: unknown[]): void {
   for (const sub of effectQueue) {
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
+    // Option D: if effect arrived via lazy linear path, verify dirtiness.
+    if (sub.flags & PENDING) {
+      sub.flags &= ~PENDING
+      if (!checkDirty(sub)) {
+        sub.flags &= ~MARKED
+        continue   // chain is clean — skip effect body
+      }
+      // Settle PENDING direct deps so equality-suppression (shallowClear) can
+      // clear MARKED on this effect before we check it below.
+      for (let l = sub.depsHead; l !== null; l = l.nextDep) {
+        if (l.dep.flags & (STALE | PENDING)) l.dep.recomputeIfNeeded?.()
+      }
+      if (!(sub.flags & MARKED)) continue   // shallowClear suppressed cascade
+    }
     sub.flags &= ~MARKED
     try {
       sub.notify()
@@ -309,11 +320,12 @@ function settleAndDrain(): void {
   throwEffectErrors(errors)
 }
 
-/** @internal — clear MARKED across visited; reset to recoverable state. */
+/** @internal — clear MARKED (and PENDING for effects) across visited;
+ * reset to recoverable state after a wave completes or aborts. */
 function clearVisited(): void {
-  for (const sub of visited) sub.flags &= ~MARKED
+  for (const sub of visited) sub.flags &= ~(MARKED | PENDING)
   visited.length = 0
-  for (const sub of effectQueue) sub.flags &= ~MARKED
+  for (const sub of effectQueue) sub.flags &= ~(MARKED | PENDING)
   effectQueue.length = 0
 }
 
@@ -337,6 +349,14 @@ export function drainBatch(): void {
       const drainList = batchQueue.splice(0)
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
+        // Patch signal lastWave for checkDirty: walk the sub's deps and
+        // set lastWave = wave on any signal source (recomputeIfNeeded ===
+        // undefined) that was written this batch but hasn't been stamped yet.
+        for (let l = sub.depsHead; l !== null; l = l.nextDep) {
+          if (l.dep.recomputeIfNeeded === undefined && l.dep.lastWave !== wave) {
+            l.dep.lastWave = wave
+          }
+        }
         markOne(sub)
       }
       for (const sub of visited) sub.recomputeIfNeeded?.()
@@ -433,6 +453,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
       return
     }
     wave++
+    host.lastWave = wave   // record write wave for checkDirty signal-source detection
     try {
       propagateMark(head)
       settleAndDrain()
