@@ -30,7 +30,8 @@ const LEAF_COUNT = 10_000
 
 export const mountTenK: WorkloadDefinition = {
   name: 'mount-10k-leaves',
-  description: 'Mount 10k static text leaves under a fragment and dispose. One mount+dispose = 1 op.',
+  description:
+    'Mount 10k static text leaves under a fragment and dispose. One mount+dispose = 1 op.',
   n: 10,
   build(adapter: DomAdapter) {
     // Pre-allocate the children array once. Building a fresh `Leaf` per op
