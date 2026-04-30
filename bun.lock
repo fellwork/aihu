@@ -43,6 +43,14 @@
         "@scribe/signals": "workspace:*",
       },
     },
+    "packages/runtime": {
+      "name": "@scribe/runtime",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@scribe/arbor": "workspace:*",
+        "@scribe/signals": "workspace:*",
+      },
+    },
     "packages/signals": {
       "name": "@scribe/signals",
       "version": "0.0.0",
@@ -256,6 +264,8 @@
     "@scribe/arbor": ["@scribe/arbor@workspace:packages/arbor"],
 
     "@scribe/bench-signals": ["@scribe/bench-signals@workspace:bench/signals"],
+
+    "@scribe/runtime": ["@scribe/runtime@workspace:packages/runtime"],
 
     "@scribe/signals": ["@scribe/signals@workspace:packages/signals"],
 
