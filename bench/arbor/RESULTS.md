@@ -11,6 +11,8 @@
 
 *Mount 10k static text leaves under a fragment and dispose. One mount+dispose = 1 op.*
 
+### Time
+
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
 | @scribe/arbor | 36.95 ms | 36.64 ms | 39.46 ms | 27.06 |
@@ -20,9 +22,22 @@
 | preact | 66.01 ms | 66.44 ms | 69.15 ms | 15.15 |
 | vanilla | 92.60 ms | 90.71 ms | 100.83 ms | 10.80 |
 
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | 0 B | 0 B | 10 |
+| lit-html | 0 B | 0 B | 10 |
+| solid-js | 4.21 MB | 42.08 MB | 10 |
+| @vue/runtime-dom | 0 B | 0 B | 10 |
+| preact | 0 B | 0 B | 10 |
+| vanilla | 0 B | 0 B | 10 |
+
 ## Workload: `mount-deep-100x10`
 
 *Mount a depth-100 spine (10 leaf siblings per level) and dispose. One mount+dispose = 1 op.*
+
+### Time
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -33,9 +48,22 @@
 | preact | 9.35 ms | 8.93 ms | 12.36 ms | 106.92 |
 | vanilla | 24.35 ms | 24.00 ms | 26.43 ms | 41.07 |
 
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | 0 B | 0 B | 10 |
+| lit-html | 0 B | 0 B | 10 |
+| solid-js | 0 B | 0 B | 10 |
+| @vue/runtime-dom | 0 B | 0 B | 10 |
+| preact | 0 B | 0 B | 10 |
+| vanilla | 0 B | 0 B | 10 |
+
 ## Workload: `mount-wide-1000`
 
 *Mount 1000 sibling branches each with 1 reactive text leaf and dispose. One mount+dispose = 1 op.*
+
+### Time
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -46,9 +74,22 @@
 | preact | 10.48 ms | 10.16 ms | 13.91 ms | 95.44 |
 | vanilla | 12.98 ms | 12.42 ms | 15.71 ms | 77.07 |
 
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | 0 B | 0 B | 100 |
+| lit-html | 0 B | 0 B | 100 |
+| solid-js | 0 B | 0 B | 100 |
+| @vue/runtime-dom | 0 B | 0 B | 100 |
+| preact | 8.2 KB | 824.6 KB | 100 |
+| vanilla | 0 B | 0 B | 100 |
+
 ## Workload: `update-1-of-10k-leaves`
 
 *Mount 10k-leaf tree once, then write the signal for leaf[0] on each op. One signal write = 1 op.*
+
+### Time
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -59,9 +100,22 @@
 | preact | 1.72 ms | 1.63 ms | 3.65 ms | 580.38 |
 | vanilla | 3.14 µs | 3.10 µs | 3.55 µs | 318.12K |
 
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | -31.12 MB | -31.12 MB | 1 |
+| lit-html | 38.62 MB | 38.62 MB | 1 |
+| solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
+| @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
+| preact | -25.40 MB | -25.40 MB | 1 |
+| vanilla | -5.23 MB | -5.23 MB | 1 |
+
 ## Workload: `attr-thrash-100x100`
 
 *100 elements × 100 reactive attrs each. Write all 10k signals once per op.*
+
+### Time
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -72,9 +126,22 @@
 | preact | 10.59 ms | 10.24 ms | 12.57 ms | 94.41 |
 | vanilla | 6.80 ms | 6.64 ms | 8.23 ms | 147.11 |
 
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | 5.82 MB | 58.24 MB | 10 |
+| lit-html | ERROR | `Attempted to assign to readonly property.` | — |
+| solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
+| @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
+| preact | 1.29 MB | 12.90 MB | 10 |
+| vanilla | -951.9 KB | -9.30 MB | 10 |
+
 ## Workload: `krausest-1k-cycle`
 
 *Create 1000 rows, partial-update every 10th, clear. Three-phase timed as one op. JSDOM-relative.*
+
+### Time
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -84,6 +151,17 @@
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
 | preact | 19.63 ms | 19.68 ms | 24.03 ms | 50.93 |
 | vanilla | 16.59 ms | 16.07 ms | 20.23 ms | 60.28 |
+
+### Memory
+
+| Competitor | buildHeapDelta/ctx | disposeResidual | n |
+| --- | ---: | ---: | ---: |
+| @scribe/arbor | 0 B | 0 B | 10 |
+| lit-html | 0 B | 0 B | 10 |
+| solid-js | 0 B | 0 B | 10 |
+| @vue/runtime-dom | 0 B | 0 B | 10 |
+| preact | 0 B | 0 B | 10 |
+| vanilla | 0 B | 0 B | 10 |
 
 ---
 

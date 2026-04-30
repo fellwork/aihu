@@ -146,6 +146,26 @@ residuals; treat values under 1 MB per context as noise.
 
 ---
 
+## Memory measurement caveats
+
+**Negative buildHeapDelta**: Negative values in the `buildHeapDelta` column
+(e.g. `-31 MB` for `update-1-of-10k-leaves`) mean GC ran during the build
+phase and collected prior-generation objects that happened to be reachable
+before the measurement window. This is a timing artifact of V8's incremental
+GC, not real memory reduction caused by the workload. Focus on the sign of
+`disposeResidual` for leak analysis; ignore negative `buildHeapDelta` values.
+
+**dispose-residual ~97–100% of buildHeapDelta**: When `disposeResidual` is
+consistently close to `buildHeapDelta` across all competitors on a workload,
+this indicates that V8's young-generation GC did not run within the 3-settle
+window after `cleanup()`. The objects are reclaimed on the next GC cycle but
+have not been freed yet at measurement time. This is not a scribe-specific
+leak — it affects preact, vanilla, and all competitors equally on the same
+workload. Treat equal residuals across all competitors as a measurement
+artifact rather than a regression signal.
+
+---
+
 ## The `[bench-bump]` override
 
 If a commit intentionally introduces a regression (e.g. a new feature with
