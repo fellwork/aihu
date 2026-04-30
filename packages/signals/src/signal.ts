@@ -454,7 +454,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
 
 /** @internal — symbol used to attach the host Subscriber to a read fn
  * so property tests can inspect the underlying Link graph. */
-export const __HOST: unique symbol = Symbol('scribe.signals.host')
+export const __HOST: unique symbol = Symbol()
 
 /** @internal — test-only: return the underlying Subscriber host of a
  * signal or computed read function. */
