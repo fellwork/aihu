@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agentsdb": {
+      "command": "bash",
+      "args": [".claude/scripts/agentsdb-mcp.sh"]
+    }
+  }
+}
