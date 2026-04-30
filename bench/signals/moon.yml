@@ -29,6 +29,21 @@ tasks:
     options:
       cache: false
 
+  # Round N+1 memory pass. Requires `--expose-gc` (Bun supports the same
+  # flag as Node). Writes RESULTS.memory.json, which `run` then folds
+  # into the markdown. Run in CI before `run` so the markdown table
+  # contains the memory cells.
+  memory:
+    command: 'bun --expose-gc src/memory.ts'
+    inputs:
+      - 'src/memory.ts'
+      - 'src/competitors/**/*'
+      - 'src/workloads/**/*'
+      - 'src/types.ts'
+      - 'package.json'
+    options:
+      cache: false
+
   size:
     command: 'bun src/size.ts'
     inputs:
