@@ -2,8 +2,8 @@
  * Time runner for `bench/arbor` per Round N+1 design §3, §5.3, §6.1.
  *
  * Mirrors `bench/signals/src/runner.ts` exactly in shape — same mitata API,
- * same warmup, same per-cell CPU budget, same JSON footer for the (spawn-3)
- * regression gate. Differences from the signals runner:
+ * same warmup, same per-cell CPU budget, same JSON footer for the regression
+ * gate. Differences from the signals runner:
  *
  *   - Imports `jsdom-host.ts` for its side effects (window/document globals)
  *     before any competitor adapter loads. Adapters that resolve `document`
@@ -13,11 +13,8 @@
  *     (microseconds → milliseconds); the per-cell CPU budget stays at 1 s
  *     so the wall-clock fits the gate timeline.
  *
- * **Spawn 1 scope.** Runs the single (mount-10k-leaves × @scribe/arbor) cell
- * to prove the pipeline end-to-end. The placeholder RESULTS.md it writes
- * carries an "INCOMPLETE — spawn 1 of 3" banner so a reader doesn't mistake
- * it for the final artifact. Spawn 3 produces the final layout (time +
- * memory + per-axis section + size table + JSON footer).
+ * Run with: `bun bench/arbor/src/runner.ts`
+ * Writes:   `bench/arbor/RESULTS.md`
  */
 
 import { writeFileSync } from 'node:fs'
@@ -92,27 +89,29 @@ const fmtOps = (ops: number): string => {
 
 function renderResultsMarkdown(cells: WorkloadCell[]): string {
   const date = new Date().toISOString().slice(0, 10)
+  const jsdomVersion = (() => {
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: version introspection
+      return (require('jsdom/package.json') as any).version as string
+    } catch {
+      return '25.x'
+    }
+  })()
   const lines: string[] = []
   lines.push('# `@scribe/arbor` Bench Results')
   lines.push('')
-  lines.push('> **INCOMPLETE — spawn 1 of 3.** This RESULTS.md is a placeholder.')
-  lines.push('> Spawn 1 wires the runner pipeline end-to-end with one workload')
-  lines.push('> (`mount-10k-leaves`) against one competitor (`@scribe/arbor`).')
-  lines.push('> Spawn 2 adds the remaining 5 competitors (lit-html, solid-js/web,')
-  lines.push('> @vue/runtime-dom, preact+htm, vanilla) and 5 workloads. Spawn 3')
-  lines.push('> adds memory + size + gate + the per-competitor-axis honesty section')
-  lines.push('> per design §5.3.')
-  lines.push('')
   lines.push(`**Generated:** ${date}`)
   lines.push(
-    `**Runner:** mitata 1.0.34 + JSDOM · Bun ${process.versions.bun ?? 'n/a'} · Node ${process.versions.node}`,
+    `**Runner:** mitata 1.0.34 · Bun ${process.versions.bun ?? 'n/a'} · JSDOM ${jsdomVersion}`,
   )
-  lines.push('**Track:** A — vanilla scribe vs. SOTA DOM-binding libs')
-  lines.push('')
   lines.push(
-    'See `HARNESS.md` (stub in spawn 1) and `.team/round-n1/bench-design.md` ' +
-      'for the authoritative plan.',
+    '**Track:** A — @scribe/arbor vs. SOTA DOM-binding libs (Round N+1)',
   )
+  lines.push(
+    '**Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.',
+  )
+  lines.push('')
+  lines.push('---')
   lines.push('')
 
   for (const wl of workloads) {
@@ -140,34 +139,69 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
     lines.push('')
   }
 
-  // Machine-readable footer placeholder. Spawn 3 fills the full schema (cells +
-  // memory cells + per-axis cells); spawn 1 just emits the time cells.
-  lines.push('<!-- bench-data:start -->')
-  lines.push('```json')
+  // Per-competitor-axis honesty section (design §5.3).
+  lines.push('---')
+  lines.push('')
+  lines.push('## Per-competitor-axis honesty')
+  lines.push('')
   lines.push(
-    JSON.stringify(
-      {
-        date,
-        spawn: '1-of-3',
-        cells: cells.map((c) => ({
-          workload: c.workload,
-          competitor: c.competitor,
-          ...('error' in c.result
-            ? { error: c.result.error }
-            : {
-                mean: c.result.mean,
-                p50: c.result.p50,
-                p99: c.result.p99,
-                opsPerSec: c.result.opsPerSec,
-              }),
-        })),
-      },
-      null,
-      2,
-    ),
+    'The competitors in this matrix each have a primary bench axis.\n' +
+    'This section answers: "how does @scribe/arbor perform on the axis\n' +
+    'each competitor holds itself to?"',
   )
-  lines.push('```')
-  lines.push('<!-- bench-data:end -->')
+  lines.push('')
+
+  const scribeCells = cells.filter((c) => c.competitor === '@scribe/arbor')
+
+  const axisCell = (workloadName: string): string => {
+    const c = scribeCells.find((x) => x.workload === workloadName)
+    if (!c) return '— (not run)'
+    if ('error' in c.result) return `ERROR: ${c.result.error}`
+    return `p50 = ${fmtNs(c.result.p50)}, ${fmtOps(c.result.opsPerSec)} ops/s`
+  }
+
+  lines.push('### vs. lit-html')
+  lines.push('*lit-html benchmarks focus on render-update-clear on row tables (krausest).*')
+  lines.push(`- \`krausest-1k-cycle\`: ${axisCell('krausest-1k-cycle')}`)
+  lines.push('')
+  lines.push('### vs. solid-js')
+  lines.push("*Solid's headline claim is granular reactive updates without diffing.*")
+  lines.push(`- \`update-1-of-10k-leaves\`: ${axisCell('update-1-of-10k-leaves')}`)
+  lines.push('')
+  lines.push('### vs. @vue/runtime-dom')
+  lines.push("*Vue's perf claim is patch flags reducing reactive diffs.*")
+  lines.push(`- \`attr-thrash-100x100\`: ${axisCell('attr-thrash-100x100')}`)
+  lines.push(`- \`update-1-of-10k-leaves\`: ${axisCell('update-1-of-10k-leaves')}`)
+  lines.push('')
+  lines.push('### vs. preact')
+  lines.push("*Preact's claim is minimal VDOM runtime cost.*")
+  lines.push(`- \`krausest-1k-cycle\`: ${axisCell('krausest-1k-cycle')}`)
+  lines.push('')
+  lines.push('### vs. vanilla DOM')
+  lines.push(
+    '*Vanilla is the floor. If we are more than 2-3x slower than vanilla on update, investigate.*',
+  )
+  lines.push(`- \`update-1-of-10k-leaves\`: ${axisCell('update-1-of-10k-leaves')}`)
+  lines.push('')
+  lines.push('---')
+  lines.push('')
+
+  // Machine-readable JSON footer for the regression gate (gate.ts reads this block).
+  // Only p50 and opsPerSec go here — the gate compares p50 only.
+  const jsonCells = cells.map((c) => ({
+    workload: c.workload,
+    competitor: c.competitor,
+    ...('error' in c.result
+      ? { error: true, p50: null }
+      : {
+          p50: c.result.p50,
+          opsPerSec: c.result.opsPerSec,
+        }),
+  }))
+
+  lines.push('<!-- bench-data:start')
+  lines.push(JSON.stringify({ date, cells: jsonCells }, null, 2))
+  lines.push('bench-data:end -->')
   lines.push('')
 
   return lines.join('\n')
