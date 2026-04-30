@@ -3,21 +3,30 @@
 This repo is wired for `fw-agent-skill` + AGENTS.db in Claude Code
 cloud sessions and locally.
 
-## Cloud-panel parameter
+## Cloud-panel parameter (Anthropic Claude Code Cloud)
 
-Paste this into the Claude Code cloud env's **setup command** field:
+The Anthropic Cloud sandbox runs your setup command from `/tmp/init-script-*.sh`,
+*not* from inside the repo. So a relative `.claude/scripts/cloud-setup.sh`
+path won't resolve. Paste this self-locating one-liner into the
+**setup command** field instead:
 
+```bash
+SCRIPT=$(find / -maxdepth 6 -path '*/.claude/scripts/cloud-setup.sh' 2>/dev/null | head -1) && cd "$(dirname "$(dirname "$(dirname "$SCRIPT")")")" && bash .claude/scripts/cloud-setup.sh
 ```
-bash .claude/scripts/cloud-setup.sh
-```
 
-That single command:
-1. Installs the AGENTS.db CLI in the sandbox (`~/.local/bin/agentsdb`).
-2. Runs `agentsdb init` if `AGENTS.db` is missing (default offline `hash` embedder — no API key needed).
-3. Compiles the vendored `fw-agent-skill` into the base layer.
+That command:
+1. Searches the sandbox filesystem for the vendored cloud-setup script.
+2. `cd`s to the repo root.
+3. Runs `cloud-setup.sh`, which installs the AGENTS.db CLI, compiles the
+   vendored `fw-agent-skill` into the base layer, and seeds empty
+   user/delta layers if missing.
 
 The MCP server is auto-registered via `.mcp.json` — once the sandbox is
 ready, subagents get `agents_search` and `agents_context_write` tools.
+
+> **Future hardening:** if you can capture the cloud env's repo path
+> (e.g. via `pwd` in a session), replace the `find` probe with a direct
+> `cd <path> && bash .claude/scripts/cloud-setup.sh` for faster cold starts.
 
 ## What's in the repo
 
@@ -31,7 +40,9 @@ ready, subagents get `agents_search` and `agents_context_write` tools.
 | `AGENTS.user.db`, `AGENTS.delta.db` | Earned + proposed layers — committed. |
 | `AGENTS.local.db` | Session scratch — gitignored. |
 
-## Local use (same setup)
+## Local use
+
+Run from the repo root (where the relative path resolves fine):
 
 ```bash
 bash .claude/scripts/cloud-setup.sh
