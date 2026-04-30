@@ -14,8 +14,10 @@ bench/signals/
 ├── CHANGELOG.md             # append-only history of bench results
 └── src/
     ├── runner.ts            # entry point — runs every workload × competitor, writes RESULTS.md
+    ├── memory.ts            # memory pass (`bun --expose-gc src/memory.ts`); writes RESULTS.memory.json
+    ├── gate.ts              # CI regression gate (time + memory)
     ├── size.ts              # gzipped-size table (stretch deliverable)
-    ├── types.ts             # SignalAdapter + WorkloadDefinition interfaces
+    ├── types.ts             # SignalAdapter + WorkloadDefinition + MemorySample interfaces
     ├── competitors/
     │   ├── index.ts         # ordered list of adapters
     │   ├── scribe.ts        # @scribe/signals
@@ -28,18 +30,72 @@ bench/signals/
         ├── index.ts         # ordered list of workloads
         ├── cellx.ts
         ├── wide-fanout-100.ts
-        └── batched-writes-100.ts
+        ├── batched-writes-100.ts
+        ├── deep-propagation-100.ts   # alien-signals molBench parity
+        ├── dynamic-deps.ts            # alien-signals kairoBench parity
+        └── creation-1to1000.ts        # solid-js createComputations1to1000 parity
 ```
 
 ## Running locally
 
 ```bash
 cd bench/signals
-bun src/runner.ts          # ~30s on a modern laptop; writes RESULTS.md
-bun src/size.ts             # prints the gz size table
+bun --expose-gc src/memory.ts   # writes RESULTS.memory.json (~30s)
+bun src/runner.ts                # writes RESULTS.md, folding in memory data (~60s)
+bun src/size.ts                  # prints the gz size table
 ```
 
-The runner takes ~1s of CPU time per (workload × competitor) cell. Three workloads × six competitors = 18 cells = ~18 s CPU + warm-up overhead. Expect 30 s wall-clock.
+The time runner takes ~1s of CPU per (workload × competitor) cell. Six workloads × six competitors = 36 cells ≈ 36 s CPU + warm-up overhead.
+
+The memory runner constructs N graphs per cell (default N=1000), settles GC three times, and records heap deltas. Expect ~30 s wall-clock for the 36-cell sweep on a modern laptop.
+
+**Run order matters when you want memory tables in RESULTS.md.** `runner.ts` reads `RESULTS.memory.json` produced by `memory.ts`; if the file is missing or stale, the markdown shows `—` in memory cells.
+
+## Memory protocol
+
+The memory runner (`src/memory.ts`) implements the bench-design §2 / Appendix A protocol. Per cell:
+
+1. **Settle.** Call `globalThis.gc()` three times in a tight loop. V8's first call is sometimes incremental; three guarantees a full sweep (the convention used by lit / solid / v8 benches).
+2. **Pre-build sample.** Record `process.memoryUsage().heapUsed` and `v8.getHeapStatistics().peak_malloced_memory`.
+3. **Build N graphs.** Default N=1000. Per-workload override via `WorkloadDefinition.memoryN` (e.g. arbor's `mount-10k-leaves` would use N=10).
+4. **Settle, post-build sample.** Same readings.
+5. **Cleanup all graphs, drop refs, settle.**
+6. **Post-dispose sample.** Read `heapUsed` again.
+
+Reported metrics:
+
+- **`buildHeapDelta` (B/graph)** — `(post-build heapUsed - pre-build heapUsed) / N`. The steady-state cost of holding the graph live. Gated at **10 % regression**.
+- **`peakMalloc` (B)** — `peak_malloced_memory` delta during build. Captures transient allocations the gc reclaims. Gated at **15 % regression** (noisier; V8 internal-cache layout swings 5-8 % across runs).
+- **`disposeResidual` (B)** — `(post-dispose heapUsed - pre-build heapUsed)`. Total residual after teardown. Should be ≤ a small constant; growth with N indicates the competitor leaks. **Informational only — NOT gated** (per design §4.4). The gate prints leak-signal lines tagged `INFO` for observability.
+
+**Threshold rationale.** Phase 2.5 chose 10 % for time. `buildHeapDelta` is a per-graph average across N=1000 — extremely stable across runs, so 10 % matches time. `peakMalloc` reflects V8 internal arena cache state; observed run-to-run variance ≈5-8 %, so 15 % gives headroom without admitting real regressions.
+
+**Hard-fail at startup if `--expose-gc` is missing.** Without the flag, `globalThis.gc` is undefined and the protocol is unsound — we'd be reporting whatever V8's default GC scheduler did during the run, not steady-state delta. The runner exits with code 2 and a clear message.
+
+**Negative buildHeapDelta is real.** The `heapUsed` reading swings: sometimes V8 reclaims more transient garbage during settle than the graph itself costs, so the post-build figure is *below* pre-build. This is not a bug — it reads as "this graph holds approximately zero bytes that V8 can't fold back into freelists." The gate's low-baseline branch (|prev| < 64 B) handles small absolute deltas accordingly.
+
+**JSDOM-fidelity caveat (signals: not applicable; arbor: critical).** Per design §8.2, JSDOM nodes are JS objects backed by ad-hoc internals — there is no native DOM memory. For `bench/signals/` this is a non-issue (all memory IS JS-side). For `bench/arbor/` (Track A's domain), the absolute numbers under-report what a real browser would show by the platform-allocator share; relative ordering remains reliable. Document this in `RESULTS.md` for arbor.
+
+## CI gate (memory dimension)
+
+The CI gate (`src/gate.ts`) compares the JSON footer in current vs previous `RESULTS.md`:
+
+- **Time / p50** — fails if any scribe row regresses ≥ 10 %.
+- **Memory / buildHeapDelta** — fails if any scribe row regresses ≥ 10 %.
+- **Memory / peakMalloc** — fails if any scribe row regresses ≥ 15 %.
+- **Memory / disposeResidual** — informational; printed but not gated.
+
+Failures print **separate per-axis messages** so the diagnoser knows which axis to investigate. Time + memory regressions can fire simultaneously; both messages print and the process exits 1.
+
+**Manual gate validation.** Two test injection env vars exist for reproducing "did the gate actually fire?":
+
+```bash
+BENCH_TEST_INJECT_TIME_REGRESSION=11   bun src/gate.ts <prev> <cur>   # exit 1
+BENCH_TEST_INJECT_MEMORY_REGRESSION=11 bun src/gate.ts <prev> <cur>   # exit 1
+BENCH_BUMP=1 BENCH_TEST_INJECT_MEMORY_REGRESSION=50 bun src/gate.ts <prev> <cur>  # exit 0
+```
+
+These multiply scribe's current p50 / buildHeapDelta in-memory after parse, before comparison. They do NOT touch any file or the real runner pipeline.
 
 ## Adding a workload
 

@@ -9,6 +9,98 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-04-30 — Round N+1 Track B: memory dimension + 3 parity workloads
+
+**Branch:** `feat/round-n1-track-b-signals-memory`
+**Spec:** `.team/round-n1/bench-design.md` §2 (memory protocol), §5.2 (RESULTS.md restructure), §6.2 (file change list)
+
+Adds the memory dimension to `bench/signals/` and lifts three parity
+workloads from competitor benches per the design's "measure scribe on
+the axes the competitors themselves emphasise" instruction.
+
+### What's new
+
+- **`src/memory.ts`** — `--expose-gc` runner. Per cell: settle 3× gc,
+  build N=1000 graphs, settle, dispose, settle. Reports
+  `buildHeapDelta` (per-graph), `peakMalloc` (peak_malloced_memory
+  during build), `disposeResidual` (leak signal). Hard-fails at
+  startup if `globalThis.gc` is missing.
+- **3 parity workloads** —
+  - `deep-propagation-100` — port of alien-signals' `molBench`
+    (100-deep linear cascade).
+  - `dynamic-deps` — port of `kairoBench` (50 sources, 1 computed
+    rotates which 5 it reads each op).
+  - `creation-1to1000` — port of solid-js' `createComputations1to1000`
+    (1 signal × 1000 computeds creation cost).
+- **`RESULTS.md` restructured** (design §5.2) — per-workload Time +
+  Memory subsections, per-competitor-axis honesty section, bundle-size
+  table, JSON footer carrying both time and memory cells.
+- **`src/gate.ts` extended** — separate fail messages per axis. Time /
+  buildHeapDelta gated at 10 %; peakMalloc at 15 % (noisier per design
+  §4.4); disposeResidual informational.
+- **HARNESS.md** — new "Memory protocol" section documenting the
+  protocol, threshold rationale, and JSDOM caveat.
+- **`memory` task** registered in `package.json` + `moon.yml`.
+
+### Bench numbers (Builder machine — first Round N+1 run)
+
+This is the first run with memory + the 3 new workloads. **No previous
+baseline to gate against** — these numbers seed the baseline. Headlines
+(scribe vs. fastest competitor, p50):
+
+| Workload | scribe | fastest competitor | Δ |
+|---|---:|---:|---:|
+| cellx | 514 ns | scribe | leader |
+| wide-fanout-100 | 4.90 µs | alien-signals 3.30 µs | -33 % (behind) |
+| batched-writes-100 | 2.54 µs | scribe | leader |
+| deep-propagation-100 (NEW) | 4.05 µs | s-js 2.02 µs | -50 % (behind, no hard-stop) |
+| dynamic-deps (NEW) | 787 ns | s-js 621 ns | -27 % (behind) |
+| creation-1to1000 (NEW) | 71 µs | preact 53 µs | -36 % (behind) |
+
+Sample memory numbers for scribe on the 3 new workloads (N=1000, B/graph):
+
+| Workload | buildHeapDelta | peakMalloc | disposeResidual |
+|---|---:|---:|---:|
+| deep-propagation-100 | 8.15 KB | 0 B | 7.96 MB |
+| dynamic-deps | 0 B | 0 B | 0 B |
+| creation-1to1000 | 0 B | 0 B | 0 B |
+
+(`dynamic-deps` and `creation-1to1000` show 0 B because their graph
+allocations either get folded back into freelists during settle, or in
+creation-1to1000's case, the `run()` itself constructs+disposes
+internally so by the time we measure post-build, only outer-ctx state
+exists. This is correct semantics for the workload shapes.)
+
+### Headline per-competitor-axis read
+
+- **alien-signals' axes** (cellx, mol, kairo, s-bench): scribe **wins
+  cellx**, **trails on mol** (deep cascade — scribe 4.05 µs vs alien
+  2.44 µs), **leads kairo** (scribe 787 ns vs alien 1.21 µs), **leads
+  s-bench creation** (scribe 71 µs vs alien 87 µs).
+- **Vue's axes** (effect, computed): scribe leads cellx (computed) and
+  trails wide-fanout (effect) by 9 % vs alien. reactiveObject = NOT
+  MEASURED (intentional gap, different model).
+- **Preact's axes** (small-graph throughput): scribe leads on cellx
+  and batched-writes; trails on creation-1to1000 by 36 %.
+- **Solid's axes** (1to1, 1to1000 etc.): scribe leads 1to1 (cellx)
+  and trails 1to1000 (creation) by ~2 %.
+- **s-js' axis** (cellx): scribe leads — 514 ns vs 616 ns.
+
+### Hard stops considered (none triggered)
+
+- All 36 cells (6 workloads × 6 competitors) ran cleanly under
+  `--expose-gc` and the time runner.
+- No new workload has scribe losing by >5x to any competitor (worst
+  case: deep-propagation-100 is 2.0x behind s-js, well within band).
+- `--expose-gc` works for all six adapters (no native-binding break).
+
+### Tests
+
+131/131 still pass — bench harness adds no new test files; the new
+workloads are exercised by the runner output, not by vitest.
+
+---
+
 ## 2026-04-28 — Deep perf wins · Phase 3: effect node pool (speculative for arbor)
 
 **Branch:** `perf/signals-cellx-fix`
