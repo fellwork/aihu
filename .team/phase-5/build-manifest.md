@@ -1,0 +1,67 @@
+# Phase 5 — `@scribe/agent` build manifest
+
+**Builder:** Mode-2 parallel Builder
+**Branch:** `phase-5/agent-implementation`
+**Base:** `claude/scribe-phase-3-team-Za4UQ` @ `0353263`
+**Spec:** `.team/phase-5/spec-agent.md` (Final, binding)
+
+## Files created / modified
+
+| File | Action |
+|---|---|
+| `packages/agent/package.json` | create |
+| `packages/agent/tsconfig.json` | create (`rootDir: "."`, `include: ["src/**/*.ts", "tests/**/*.ts"]`) |
+| `packages/agent/moon.yml` | create (`layer: library`) |
+| `packages/agent/rolldown.config.ts` | create (ESM + dts + minify) |
+| `packages/agent/src/registry.ts` | create — `Map`, `register`/`get`, `__resetRegistryForTesting`, `AgentMetadata` |
+| `packages/agent/src/index.ts` | create — re-exports `AgentMetadata`, `getAgentMetadata`, `registerAgentMetadata` |
+| `packages/agent/tests/registry.test.ts` | create — 7 unit tests per spec §4 |
+| `.size-limit.json` | modify — add `@scribe/agent` row at `100 B gzip` |
+
+## Module layout
+
+Two source files per spec §2.1:
+- `registry.ts` — `Map`, both functions, `AgentMetadata` interface, `__resetRegistryForTesting`
+- `index.ts` — public re-exports only
+
+`AgentMetadata` co-located in `registry.ts` rather than a separate `types.ts` to honour the spec's "two files" file count. `__resetRegistryForTesting` is exported from `registry.ts` but intentionally NOT re-exported from `index.ts`.
+
+## Test isolation strategy
+
+Chose **option (a)** from spec §4: `__resetRegistryForTesting` exported from `registry.ts`, called in `beforeEach`. Each test additionally uses unique `x-test-N` tag names for defence-in-depth.
+
+## Gate results (clean state)
+
+| Gate | Result |
+|---|---|
+| `bun run typecheck` | exit 0 (after build provides `dist/` for downstream packages) |
+| `bun run build` | exit 0 — agent emits `dist/index.js` (114 B raw) + `dist/index.d.ts` |
+| `bun run test` | **131 passed / 131** (including 7 new agent tests) |
+| `bun run size` | all 4 packages under budget (see below) |
+| `bunx biome ci .` | exit 0 (7 pre-existing warnings, no errors) |
+
+## Size measurements
+
+| Package | Limit | Measured | Headroom |
+|---|---|---|---|
+| `@scribe/signals` | 1.6 kB | 1.55 kB | 49 B |
+| `@scribe/arbor` | 2.05 kB | 1.28 kB | 766 B |
+| `@scribe/runtime` | 1.02 kB | 438 B | 586 B |
+| `@scribe/agent` | **100 B** | **72 B** | **28 B** |
+
+## Acceptance-criteria check
+
+- 7 spec §4 tests pass — yes
+- `@scribe/agent` ≤ 100 B gz — 72 B, 28 B headroom
+- Zero source-level imports of `@scribe/signals`/`@scribe/arbor`/`@scribe/runtime`: `grep "from '@scribe/" packages/agent/src/*.ts` returns no matches
+- `__resetRegistryForTesting` exported from `registry.ts` only — confirmed
+- No `AgentError` class — confirmed
+- All gates green from clean (`rm -rf packages/agent/dist`) state — confirmed
+
+## Commits
+
+(SHA backfilled after commit creation per Learning #20.)
+
+| SHA | Message |
+|---|---|
+| _backfill_ | feat(agent): scaffold @scribe/agent + registry + 7 tests |

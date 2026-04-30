@@ -16,5 +16,11 @@
     "path": "packages/runtime/dist/index.js",
     "limit": "1024 B",
     "gzip": true
+  },
+  {
+    "name": "@scribe/agent",
+    "path": "packages/agent/dist/index.js",
+    "limit": "100 B",
+    "gzip": true
   }
 ]
