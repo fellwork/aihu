@@ -224,7 +224,7 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push('')
   lines.push(
     'The competitors in this matrix emphasise different axes in their own READMEs. ' +
-      "This section answers: do we beat each competitor on the bench they hold *themselves* to?",
+      'This section answers: do we beat each competitor on the bench they hold *themselves* to?',
   )
   lines.push('')
 
@@ -236,10 +236,10 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push('')
   lines.push('- `cellx` (diamond): see Time table above — scribe is the head-to-head measurement.')
   lines.push(
-    '- `mol-bench` (deep-propagation-100, NEW): scribe is measured on alien-signals\' deep-chain headline axis.',
+    "- `mol-bench` (deep-propagation-100, NEW): scribe is measured on alien-signals' deep-chain headline axis.",
   )
   lines.push(
-    "- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, scribe) historically lead this; we now have receipts.",
+    '- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, scribe) historically lead this; we now have receipts.',
   )
   lines.push(
     "- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; scribe's per-graph cost is the load-bearing memory number.",
@@ -256,14 +256,14 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push('- `computed.bench` ≈ our `cellx`: see Time table.')
   lines.push(
     "- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from scribe's tuple signals. " +
-      "Intentional gap; scribe does not aim to compete on object-property thrash. Documented per design §1.3.",
+      'Intentional gap; scribe does not aim to compete on object-property thrash. Documented per design §1.3.',
   )
   lines.push('')
 
   lines.push('### vs. @preact/signals-core')
   lines.push('')
   lines.push(
-    "*Preact ships no dedicated bench dir; the implicit axis is throughput on small graphs + bundle size.*",
+    '*Preact ships no dedicated bench dir; the implicit axis is throughput on small graphs + bundle size.*',
   )
   lines.push('')
   lines.push('- All 6 workloads + bundle size table cover the implicit Preact axes head-to-head.')
@@ -289,7 +289,7 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push('')
   lines.push("*s-js' canonical bench is `cellx`.*")
   lines.push('')
-  lines.push('- `cellx`: see Time table — exact match on s-js\' published axis.')
+  lines.push("- `cellx`: see Time table — exact match on s-js' published axis.")
   lines.push('')
 
   // ---- Bundle size ----
