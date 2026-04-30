@@ -1,0 +1,28 @@
+{
+  "name": "@scribe/bench-arbor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bench harness comparing @scribe/arbor against SOTA DOM-binding libs (Round N+1, Track A).",
+  "scripts": {
+    "run": "bun src/runner.ts",
+    "memory": "bun --expose-gc src/memory.ts",
+    "size": "bun src/size.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@scribe/arbor": "workspace:*",
+    "@scribe/signals": "workspace:*",
+    "@vue/runtime-dom": "3.5.33",
+    "htm": "3.1.1",
+    "lit-html": "3.2.1",
+    "mitata": "1.0.34",
+    "preact": "10.25.4",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.2"
+  }
+}
