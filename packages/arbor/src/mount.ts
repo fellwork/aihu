@@ -1,30 +1,26 @@
 import { type Dispose, effect } from '@scribe/signals'
 import { ArborNotImplementedError } from './errors.ts'
 import { _materialize } from './materialize.ts'
+import { _observeMount } from './telemetry.ts'
 import type { AgentContext, Node, Snapshot } from './types.ts'
 
 /**
  * `mount()`, `MountScope`, scope-collector, and disposal protocol per
- * `.team/phase-3/spec-arbor.md` §1.4 + §1.5 + §2.2 + §2.7 + §2.8 + §5
- * (Tasks 16 + 17).
+ * `.team/phase-3/spec-arbor.md` §1.4 + §1.5 + §2.2 + §2.7 + §5
+ * (Tasks 16 + 17). Telemetry hooks live in `./telemetry.ts` (§2.8).
  *
  * Synchronous initial render: by the time `mount()` returns, every reactive
  * binding has run once and subscribed to its signal, every static attr is
  * applied, and every DOM node is appended to `host`.
  *
- * The internal scope-collector (`_activeMountDisposers`) is module-level
- * (Call 2A — §2.2). v0 limitation: re-entrant `mount()` overwrites the slot;
- * stack/push-pop fix is v1 per §2.2.
+ * Scope-collector (`_activeMountDisposers`, §2.2): module-level. v0 limit:
+ * re-entrant `mount()` overwrites the slot; stack/push-pop fix is v1.
  *
  * Subscription identity (§2.7): every `_mountEffect` registration carries a
  * stable path key `<rootId>.<index-chain>.<binding-kind>`. v0 doesn't
  * consume keys directly; sub-projects #6 (resumable hydration) and #7
  * (agent live-binding) need them. Retrofit cost is prohibitive (Learning
  * #16) so we pay the wiring cost now.
- *
- * Telemetry (§2.8): `_observeMount` is a no-op slot the dev plugin
- * overrides. Production tree-shakes the calls because the default is an
- * empty function — Rolldown inlines and eliminates them.
  *
  * Disposal (Task 17 + §1.5 + Deviation 9): LIFO order for effect dispose
  * (deepest/latest first) prevents parent effects from re-running against
@@ -39,13 +35,13 @@ import type { AgentContext, Node, Snapshot } from './types.ts'
 /**
  * Module-level scope-collector slot. Set to a fresh `Dispose[]` while a
  * `mount()` call is in progress; null otherwise. `_mountEffect` reads this
- * slot through the `disposers` parameter passed by `_materialize`, but the
- * slot itself is exposed for sub-project #7's binding layer to inspect
- * during materialization later.
+ * slot through the `disposers` parameter passed by `_materialize`. No v0
+ * cross-module consumer — kept module-private until sub-project #7's
+ * binding layer needs an inspection mechanism.
  *
  * @internal
  */
-export let _activeMountDisposers: Dispose[] | null = null
+let _activeMountDisposers: Dispose[] | null = null
 
 /**
  * Counter for root-id assignment per spec §2.7. Increments per `mount()`
@@ -54,47 +50,6 @@ export let _activeMountDisposers: Dispose[] | null = null
  * @internal
  */
 let _rootIdCounter = 0
-
-// ---------------------------------------------------------------------------
-// Telemetry (spec §2.8)
-// ---------------------------------------------------------------------------
-
-/**
- * Telemetry event emitted at reactivity-relevant boundaries inside
- * `mount()`. Five event kinds:
- *   - `mount-start` / `mount-end` — scope lifecycle
- *   - `effect-create` / `effect-fire` / `effect-dispose` — per-binding
- *
- * Future extensions (dependency count, propagation depth) live behind
- * sub-project #10 (PGO) and are not in v0.
- *
- * @internal
- */
-export interface MountTelemetry {
-  readonly kind: 'mount-start' | 'mount-end' | 'effect-create' | 'effect-fire' | 'effect-dispose'
-  readonly path: string
-  readonly timestamp: number
-}
-
-/**
- * No-op observer in production. Dev plugin overrides via `_setMountObserver`
- * to stream events to a profile recorder. Per spec §2.8, Rolldown should
- * eliminate the call sites in production (verify via `bun run size` after
- * Task 16; if not, switch to a `__DEV__` constant).
- *
- * @internal
- */
-export let _observeMount: (event: MountTelemetry) => void = () => {}
-
-/**
- * Replace the active observer. Used by the dev-mode build plugin.
- * Tests reset to `() => {}` in a `finally` block.
- *
- * @internal
- */
-export function _setMountObserver(fn: (event: MountTelemetry) => void): void {
-  _observeMount = fn
-}
 
 // ---------------------------------------------------------------------------
 // Scope-aware effect creator (spec §2.2 + §2.7 + §2.8)

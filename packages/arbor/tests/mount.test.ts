@@ -2,7 +2,8 @@ import { signal } from '@scribe/signals'
 import { describe, expect, it } from 'vitest'
 import { ArborNotImplementedError } from '../src/errors.ts'
 import { branch, leaf } from '../src/index.ts'
-import { _setMountObserver, type MountTelemetry, mount } from '../src/mount.ts'
+import { mount } from '../src/mount.ts'
+import { _setMountObserver, type MountTelemetry } from '../src/telemetry.ts'
 
 /**
  * Tests for `mount()` + `MountScope` per spec §1.4 + §1.5 + §2.2 + §2.3 +
