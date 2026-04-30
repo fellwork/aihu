@@ -45,6 +45,35 @@ export interface WorkloadCell {
   workload: string
   competitor: string
   result: WorkloadResult | { error: string }
+  /**
+   * Optional memory sample paired with this cell. The time runner leaves
+   * this `undefined`; the memory runner (`bun --expose-gc src/memory.ts`)
+   * fills it in when the runner is composed (see `runner.ts` Round N+1
+   * fold). Per design §2.4, memory is reported alongside time per workload.
+   */
+  memory?: MemorySample | { error: string }
+}
+
+/**
+ * Memory delta recorded for one (workload × competitor) cell using the
+ * `--expose-gc` protocol from design §2.2 / §2.6 (Round N+1).
+ *
+ * - `buildHeapDelta` — average per-graph cost in bytes. Computed as
+ *   `(post-build heapUsed - pre-build heapUsed) / N`. Measures the
+ *   steady-state cost of holding the graph live.
+ * - `peakMalloc` — V8 `peak_malloced_memory` bytes captured during the
+ *   build phase. Captures transient allocations the gc reclaims.
+ * - `disposeResidual` — `(post-dispose heapUsed - pre-build heapUsed)`,
+ *   total bytes (NOT per-graph). Should be ≤ a small constant; growth
+ *   with N indicates the competitor leaks. Informational, not gated.
+ */
+export interface MemorySample {
+  /** average per-graph build heap cost in bytes */
+  buildHeapDelta: number
+  /** peak_malloced_memory delta during build phase, in bytes */
+  peakMalloc: number
+  /** total residual heap after dispose+gc, in bytes (leak signal) */
+  disposeResidual: number
 }
 
 export interface WorkloadDefinition {

@@ -148,23 +148,6 @@ export function linkUnlink(link: Link): void {
   else link.sub.depsTail = link.prevDep
 }
 
-/** @internal — splice every edge that `node` reads (its depsHead..depsTail)
- * out of each dep's subs list. Used by effect dispose (§6.3 ACCEPTED).
- * After this call, node.depsHead and depsTail are null. */
-export function unlinkAllDeps(node: Subscriber): void {
-  for (let l = node.depsHead; l !== null; ) {
-    const next = l.nextDep
-    // Splice from dep.subs list.
-    if (l.prevSub) l.prevSub.nextSub = l.nextSub
-    else l.dep.subsHead = l.nextSub
-    if (l.nextSub) l.nextSub.prevSub = l.prevSub
-    else l.dep.subsTail = l.prevSub
-    l = next
-  }
-  node.depsHead = null
-  node.depsTail = null
-}
-
 // ───────── Mark / settle / drain pipeline ─────────
 
 /** @internal — mark one sub with wave-counter dedup; iteratively walk
@@ -471,7 +454,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
 
 /** @internal — symbol used to attach the host Subscriber to a read fn
  * so property tests can inspect the underlying Link graph. */
-export const __HOST: unique symbol = Symbol('scribe.signals.host')
+export const __HOST: unique symbol = Symbol()
 
 /** @internal — test-only: return the underlying Subscriber host of a
  * signal or computed read function. */

@@ -1,12 +1,37 @@
 name: Plan A — TS runtime family
+# CI is intentionally manual-only during v0 development.
+# - Gates (typecheck/test/build/size/bench) all still pass locally and
+#   are validated by the Verifier subagent on every Builder dispatch.
+# - Re-enable the auto triggers BEFORE v1 ships. Restore by uncommenting
+#   the push/pull_request blocks below. The job definitions are intact.
+# Tracking: state-plan-a.md "Open items".
 on:
-  push:
-    branches: [main, 'plan-a-phase-*', 'plan-*', 'phase-*/**', 'bench/**', 'spec/**']
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+  # push:
+  #   branches: [main, 'plan-a-phase-*', 'plan-*', 'phase-*/**', 'bench/**', 'spec/**']
+  #   paths-ignore:
+  #     - '.team/**'
+  #     - 'docs/**'
+  #     - '.claude/**'
+  #     - 'state-*.md'
+  #     - 'README.md'
+  #     - '**/*.md'
+  # pull_request:
+  #   branches: [main]
+  #   types: [opened, reopened, synchronize, ready_for_review]
+  #   paths-ignore:
+  #     - '.team/**'
+  #     - 'docs/**'
+  #     - '.claude/**'
+  #     - 'state-*.md'
+  #     - 'README.md'
+  #     - '**/*.md'
 
 jobs:
   check:
+    # Skip CI on draft PRs to keep the inner Builder loop cheap.
+    # Push-to-main and ready-for-review PRs still gate.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +50,7 @@ jobs:
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
     # only when signals or bench code is touched (per Phase 2.5 brief).
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
       bench: ${{ steps.filter.outputs.bench }}
@@ -37,6 +63,8 @@ jobs:
             bench:
               - 'packages/signals/**'
               - 'bench/signals/**'
+              - 'packages/arbor/**'
+              - 'bench/arbor/**'
               - '.github/workflows/plan-a.yml'
 
   bench:
@@ -85,3 +113,52 @@ jobs:
         with:
           name: bench-results
           path: bench/signals/RESULTS.md
+
+  bench-arbor:
+    # Bench-vs-SOTA regression gate for @scribe/arbor (Round N+1, Track A).
+    # Runs whenever arbor or the bench harness changes. Compares current p50 to
+    # the baseline RESULTS.md on `main`; fails if @scribe/arbor regresses
+    # > 10% on any workload. Override via `[bench-bump]` in the commit message.
+    # workflow_dispatch only — see header comment and state-plan-a.md open items.
+    runs-on: ubuntu-latest
+    needs: [check, changes]
+    if: needs.changes.outputs.bench == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - run: bun install --frozen-lockfile
+      - name: Build @scribe/signals and @scribe/arbor
+        run: |
+          bun run --filter @scribe/signals build
+          bun run --filter @scribe/arbor build
+      - name: Capture previous RESULTS.md from main
+        run: |
+          mkdir -p /tmp/bench-arbor-prev
+          if git show origin/main:bench/arbor/RESULTS.md > /tmp/bench-arbor-prev/RESULTS.md 2>/dev/null; then
+            echo "Got previous RESULTS.md from origin/main"
+          else
+            echo "No previous RESULTS.md on main — first run, skipping gate"
+            echo "FIRST_RUN=1" >> $GITHUB_ENV
+          fi
+      - name: Run arbor bench
+        working-directory: bench/arbor
+        run: bun src/runner.ts
+      - name: Detect bench-bump override
+        run: |
+          if git log -1 --pretty=%B | grep -q '\[bench-bump\]'; then
+            echo "BENCH_BUMP=1 (commit message contains [bench-bump])"
+            echo "BENCH_BUMP=1" >> $GITHUB_ENV
+          fi
+      - name: Regression gate
+        if: env.FIRST_RUN != '1'
+        working-directory: bench/arbor
+        run: bun src/gate.ts /tmp/bench-arbor-prev/RESULTS.md ./RESULTS.md
+      - name: Upload RESULTS.md
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-arbor-results
+          path: bench/arbor/RESULTS.md

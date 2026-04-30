@@ -6,6 +6,7 @@
   "description": "Bench harness comparing @scribe/signals against SOTA reactivity libs (Phase 2.5).",
   "scripts": {
     "run": "bun src/runner.ts",
+    "memory": "bun --expose-gc src/memory.ts",
     "size": "bun src/size.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -118,4 +118,4 @@ The runtime disambiguates `value` vs `updater` by `typeof === 'function'`, so a 
 
 - **Cycle errors carry no chain context.** `SignalCircularError` is thrown synchronously from the writer; richer chain info lands with devtools.
 - **No `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@scribe/arbor`.
-- **`MAX_BATCH_ITERATIONS = 100`** caps `batch` re-iterations before `SignalCircularError`. Exposed as a public constant for tooling that wants to sanity-check legitimate cascade depth.
+- **Batch cascade cap.** `batch()` re-iterates up to 100 times before throwing `SignalCircularError`. The cap is internal; if tooling needs to sanity-check legitimate cascade depth in the future, we'll re-export it.

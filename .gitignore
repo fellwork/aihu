@@ -56,3 +56,7 @@ test-results/
 
 # AGENTS.db local layer (session scratch, gitignored per fw-agent-skill middleware)
 AGENTS.local.db
+
+# Bench memory pass intermediate file (folded into RESULTS.md by runner)
+bench/signals/RESULTS.memory.json
+bench/arbor/RESULTS.memory.json

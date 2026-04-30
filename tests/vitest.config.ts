@@ -19,6 +19,7 @@ export default defineConfig({
     alias: {
       '@scribe/signals': new URL('../packages/signals/src/index.ts', import.meta.url).pathname,
       '@scribe/arbor': new URL('../packages/arbor/src/index.ts', import.meta.url).pathname,
+      '@scribe/runtime': new URL('../packages/runtime/src/index.ts', import.meta.url).pathname,
     },
   },
 })

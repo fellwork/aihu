@@ -290,3 +290,43 @@ Option A beats stub-and-replace because there's never a wrong test in the tree; 
 - **Where v0 has slack, prefer "land the fix now" over "v1 cleanup."** A v1 cleanup is a debt that drags forward; a 5-minute fix during the original spawn is free.
 
 The pattern: every byte claim is empirical. Specs that hand-wave bundle behavior are specs that miss budgets six months in.
+
+---
+
+## 23. JSDOM environment gaps block solid-js and @vue/runtime-dom
+
+**Why.** Round N+1 bench/arbor harness: solid-js/web's `render()` calls browser-only APIs and throws "Client-only API called on the server side" in JSDOM. `@vue/runtime-dom` throws `SVGElement is not defined` at module load time. Both errors surface before any bench iteration. JSDOM's DOM implementation is incomplete relative to browser APIs that these libraries assume are present.
+
+**How to apply.** Any bench harness that runs under Bun/JSDOM must pre-qualify each competitor before including it in results tables. Competitors that throw at module load or first render should be marked ERROR and documented with the exact error string (as in `bench/arbor/RESULTS.md`). A real-browser runner (Playwright or browser-native Bun) is required before solid-js and @vue/runtime-dom can contribute to arbor comparisons. Deferred to Round N+2. Don't block the harness on fixing JSDOM — the gap is in the environment, not the harness.
+
+---
+
+## 24. `textContent` vs `nodeValue` performance gap in JSDOM
+
+**Why.** Round N+1 `update-1-of-10k-leaves` result: scribe 25 ns p50 vs vanilla 3.1 µs (122× faster). Root cause: `element.textContent = v` is a multi-step DOM operation — JSDOM walks the child list, removes existing text nodes, and creates new ones. `textNode.nodeValue = v` is a direct property set on the already-existing text node. Arbor's `leaf(signal)` uses `nodeValue` internally via `materialize.ts`. The vanilla comparator used `textContent` on the element parent, not `nodeValue` on a pre-created text node.
+
+**How to apply.** When designing DOM-binding benchmarks, distinguish between the bind target (`element.textContent` vs `textNode.nodeValue`) and the signal system. A "text update" benchmark that measures `textContent` is benchmarking DOM surgery, not signal dispatch. Always pre-create text nodes and use `nodeValue` for reactive-text benchmarks. The 122× gap is real but environment-specific — the ratio will be smaller in a real browser where `textContent` has a faster implementation. Document the bind target in HARNESS.md so readers know what axis is being measured.
+
+---
+
+## 25. Memory bench under V8/Bun: GC timing noise dominates small graphs
+
+**Why.** Round N+1 signals memory runner: `buildHeapDelta` is zero or near-zero for all small-graph workloads (cellx, batched-writes-100, dynamic-deps, creation-1to1000). The `--expose-gc` protocol calls `gc()` before each measurement, but V8's young-gen GC runs between object allocations during the build phase itself — by the time the post-build heap snapshot runs, prior-iteration objects have already been collected. Only `wide-fanout-100` (1 signal → 100 computeds → 100 effects, N=1000 graphs) produces a stable signal: 38.82 KB/graph build delta, 100% residual, consistent across runs.
+
+**How to apply.** For reliable memory measurement: (a) use large N for large graphs; (b) or use an aggressive quiesce protocol — `gc({ execution: 'async', flavor: 'last-resort' })` plus a delay after each phase before snapshotting. The current protocol is correct for wide-fanout-shaped workloads and should be documented as such. Don't treat zero `buildHeapDelta` as "uses no memory" — treat it as "below GC-quiesce resolution." Add a note in HARNESS.md that zero values are GC-noise artifacts, not measurements. Round N+2 can improve the protocol if memory comparisons become load-bearing.
+
+---
+
+## 26. scribe is tuned for shallow diamond propagation; deep-chain is the gap
+
+**Why.** Round N+1 `deep-propagation-100` (100-deep linear chain `src → c0 → c1 → … → c99 → effect`): scribe 4.0 µs vs alien-signals 2.4 µs (1.65× slower). But `dynamic-deps` (1 computed reads 5 of 50 signals, rotating fan-in/fan-out): scribe 742 ns vs alien 1.21 µs (scribe wins 1.6×). The structural reason: scribe's forward-subscription model re-wires the subscription set on every dependency rotation — which is exactly what `dynamic-deps` exercises. Alien-signals' push-pull with version counters handles long chains more efficiently by short-circuiting at version equality; scribe must propagate through each node in the chain.
+
+**How to apply.** Scribe's performance posture: wins on dynamic-dependency graphs (fast re-subscription), shallow diamonds (low per-hop overhead), and batched writes (batch coalescing). Loses on deep linear chains (propagation path is long, no version-equality short-circuit). The cellx win is a shallow-diamond shape (5-deep); the deep-chain gap is the natural counterpart. Document this as a design-point trade-off in RESULTS.md and the v0+1 signals work brief. When optimizing signals in v0+1, deep-chain propagation is the named axis to close — investigate alien-signals' version-counter approach as a candidate.
+
+---
+
+## 27. krausest-in-JSDOM: vanilla wins on 1k-cycle because it skips signals entirely
+
+**Why.** Round N+1 `krausest-1k-cycle` (1k-row table, full mount+update cycle): vanilla 16.1 ms, scribe 20.9 ms (~30% overhead), preact 19.7 ms (near-tie). Vanilla builds the table with direct `createElement` + `textContent`, no reactive layer — zero subscription bookkeeping. Scribe mounts 2k signals (1 per text cell, 2 cells × 1k rows) plus 2k `_mountEffect` subscriptions. The overhead is the cost of wiring a reactive graph over the entire mounted tree.
+
+**How to apply.** The 30% overhead vs. vanilla is the "you're paying for reactivity you're not using on mount" cost. The payoff is visible in `update-1-of-10k-leaves`: when you update 1 of those 2k signals, scribe pays 25 ns while vanilla pays 3.1 µs (vanilla must re-walk the DOM). The two numbers together define scribe's design point: moderate mount overhead, wins hugely on targeted updates. Any PR that worsens the krausest overhead beyond 40% vs vanilla should be scrutinized — that's the acceptable-overhead ceiling. The current 30% is within budget.

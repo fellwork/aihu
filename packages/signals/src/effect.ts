@@ -1,12 +1,5 @@
 import { SignalCircularError } from './errors.ts'
-import {
-  DISPOSED,
-  EFFECT,
-  RUNNING,
-  type Subscriber,
-  setCurrentObserver,
-  unlinkAllDeps,
-} from './signal.ts'
+import { DISPOSED, EFFECT, RUNNING, type Subscriber, setCurrentObserver } from './signal.ts'
 
 export type EffectFn = () => void
 export type Dispose = () => void
@@ -51,7 +44,7 @@ export function effect(fn: EffectFn): Dispose {
     node = reused
     // Reset state for reuse. subsHead/subsTail of an effect are always
     // null (effects are leaves of the dep direction); depsHead/depsTail
-    // were nulled by the prior dispose's unlinkAllDeps.
+    // were nulled by the prior dispose's inlined dep-unlink loop.
     node.flags = EFFECT
     // Force a re-mark on the next wave by setting lastWave to a value
     // that cannot match the live wave counter (NaN never compares equal).
@@ -82,7 +75,18 @@ export function effect(fn: EffectFn): Dispose {
     // enters `pool` only inside this same closure's body, so a recycled
     // node cannot re-enter this closure with `disposed === false`.
     node.flags |= DISPOSED
-    unlinkAllDeps(node)
+    // Inlined unlinkAllDeps (single call site): splice every edge that
+    // `node` reads out of each dep's subs list, then null deps pointers.
+    for (let l = node.depsHead; l !== null; ) {
+      const next = l.nextDep
+      if (l.prevSub) l.prevSub.nextSub = l.nextSub
+      else l.dep.subsHead = l.nextSub
+      if (l.nextSub) l.nextSub.prevSub = l.prevSub
+      else l.dep.subsTail = l.prevSub
+      l = next
+    }
+    node.depsHead = null
+    node.depsTail = null
     node.fn = null
     if (pool.length < MAX_POOL) pool.push(node)
   }
