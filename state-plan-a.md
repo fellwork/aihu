@@ -47,8 +47,9 @@
 
 | Item | Priority | Status |
 |---|---|---|
-| Telemetry tree-shake fix — add `minify: true` to arbor+signals rolldown.config.ts | MEDIUM | Investigation done (`.team/phase-3/telemetry-treeshake-investigation.md`). Fix: 1 line each. Expected: arbor ~250 B gz (-80 B), signals ~530 B gz (-186 B) |
-| Plan staleness banner (Option 1) | LOW | Doc-only, 10 min. Add banner to `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` per cross-review recommendation |
+| ~~Telemetry tree-shake fix~~ | ✅ CLOSED | Already shipped in PR #7 (`29fe64d`). Both rolldown configs have `minify: true`. Phase 3 retro and cross-review were stale on this. Builder #1 (2026-04-30) caught it via Iron Law staleness check before edits. |
+| **Investigate signals 49 B headroom** | MEDIUM-HIGH | The 1.55 kB / 1.6 kB number IS post-minify. ~840 B of growth from 716 B baseline (Phase 2.5 perf work). Budget was bumped 1024 → 1500 → 1600 to absorb it. Not blocking Phase 4 (runtime has no signals imports), but Learning #11 yellow flag for any future work touching signals bundle. |
+| Plan staleness banner (Option 1) | LOW | Doc-only, 10 min. Add banner to `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` per cross-review recommendation. Should also update Phase 3 retro to mark item #1 closed and reference `29fe64d`. |
 | Branch protection audit on `main` | LOW | PR #6 merged with red CI. Check protection rules. |
 | **Re-enable CI before v1 ships** | HIGH (at v1) | `.github/workflows/plan-a.yml` is manual-only (`workflow_dispatch`) during v0 development. Restore triggers by uncommenting the push/pull_request blocks. Verifier subagent validates gates locally on every Builder round. |
 
