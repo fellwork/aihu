@@ -1,8 +1,15 @@
 /**
  * Public + internal types for `@scribe/runtime`.
  *
- * Per `.team/phase-4/spec-runtime.md` §1.2 / §1.3 / §2.1.
+ * Per `.team/phase-4/spec-runtime.md` §1.2 / §1.3 / §1.5 / §2.1.
+ *
+ * Cross-package types are imported with `import type` only (zero
+ * runtime cost; fully type-erased per TS `verbatimModuleSyntax`).
+ * Spec §2.4 forbids source-level *value* imports across packages —
+ * type-only imports do not count.
  */
+
+import type { Branch, Leaf, MountScope } from '@scribe/arbor'
 
 /**
  * Shadow DOM mode for the custom element.
@@ -23,6 +30,38 @@ export type ShadowMode = 'open' | 'closed' | 'none'
 export interface DefineOptions {
   shadowMode?: ShadowMode
 }
+
+/**
+ * Context passed to a `defineComponent` setup function.
+ *
+ * - `host` — the DOM target for `mount()`: a `ShadowRoot` for the
+ *   default `'open'`/`'closed'` modes, or the `HTMLElement` itself
+ *   for `shadowMode: 'none'`.
+ * - `element` — the custom element instance (`this` inside the
+ *   constructor).
+ */
+export interface SetupContext {
+  readonly host: ShadowRoot | Element
+  readonly element: HTMLElement
+}
+
+/**
+ * A `defineComponent` setup function: receives a `SetupContext`,
+ * returns the arbor tree to mount.
+ */
+export type Setup = (ctx: SetupContext) => Branch | Leaf
+
+/**
+ * Internal — signature of `mount` injected via `_setMount`.
+ *
+ * Spec §2.4 forbids source-level *value* imports from `@scribe/arbor`,
+ * so `defineComponent` cannot statically `import { mount }`. The
+ * consumer wires it once via `_setMount(mount)` at app boot. Tests
+ * and integration tests do the same.
+ *
+ * @internal
+ */
+export type MountFn = (node: Branch | Leaf, host: ShadowRoot | Element) => MountScope
 
 /**
  * Internal — NOT re-exported from `index.ts` (spec §1.3, Decision 2B).
