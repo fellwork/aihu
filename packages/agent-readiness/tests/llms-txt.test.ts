@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  agentMetadataToLlmsTxtLink,
   generateLlmsFullTxt,
   generateLlmsTxt,
 } from '../src/index.ts'
+import { agentMetadataToLlmsTxtLink } from '../src/llms-txt.ts'
 
 describe('@scribe/agent-readiness llms txt', () => {
   it('AC-1: formats llms.txt with name, summary, sections, and optional links', () => {

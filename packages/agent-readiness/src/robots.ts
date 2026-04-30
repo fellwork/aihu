@@ -12,8 +12,9 @@ export const AI_BOT_LIST: ReadonlyArray<string> = [
 
 export interface RobotsRule {
   readonly userAgent: string | ReadonlyArray<string>
-  readonly allow?: string
-  readonly disallow?: string
+  readonly allow?: ReadonlyArray<string>
+  readonly disallow?: ReadonlyArray<string>
+  readonly crawlDelay?: number
 }
 
 export interface RobotsConfig {
@@ -25,8 +26,13 @@ export interface RobotsConfig {
 const renderRule = (rule: RobotsRule): string => {
   const agents = Array.isArray(rule.userAgent) ? rule.userAgent : [rule.userAgent]
   const lines: string[] = (agents as string[]).map((a) => `User-agent: ${a}`)
-  if (rule.disallow !== undefined) lines.push(`Disallow: ${rule.disallow}`)
-  if (rule.allow !== undefined) lines.push(`Allow: ${rule.allow}`)
+  if (rule.disallow) {
+    for (const path of rule.disallow) lines.push(`Disallow: ${path}`)
+  }
+  if (rule.allow) {
+    for (const path of rule.allow) lines.push(`Allow: ${path}`)
+  }
+  if (rule.crawlDelay !== undefined) lines.push(`Crawl-delay: ${rule.crawlDelay}`)
   return lines.join('\n')
 }
 
@@ -34,7 +40,17 @@ export function generateRobotsTxt(config: RobotsConfig = {}): string {
   const blocks: string[] = []
   const { aiAgents = 'allow-all' } = config
 
+  if (config.standard?.length) {
+    for (const rule of config.standard) {
+      blocks.push(renderRule(rule))
+    }
+  }
+
   if (aiAgents === 'allow-all') {
+    // Per spec §3.4: explicit Allow: / for each AI bot in AI_BOT_LIST plus wildcard
+    for (const bot of AI_BOT_LIST) {
+      blocks.push(`User-agent: ${bot}\nAllow: /`)
+    }
     blocks.push('User-agent: *\nAllow: /')
   } else if (aiAgents === 'deny-all') {
     for (const bot of AI_BOT_LIST) {
@@ -45,10 +61,6 @@ export function generateRobotsTxt(config: RobotsConfig = {}): string {
     for (const rule of aiAgents) {
       blocks.push(renderRule(rule))
     }
-  }
-
-  for (const rule of config.standard ?? []) {
-    blocks.push(renderRule(rule))
   }
 
   let output = blocks.join('\n\n')
