@@ -1,4 +1,4 @@
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
@@ -6,11 +6,18 @@ import { gzipSync } from 'node:zlib'
 import { measure } from 'mitata'
 
 import { competitors } from './competitors/index.ts'
-import type { SignalAdapter, WorkloadCell, WorkloadDefinition, WorkloadResult } from './types.ts'
+import type {
+  MemorySample,
+  SignalAdapter,
+  WorkloadCell,
+  WorkloadDefinition,
+  WorkloadResult,
+} from './types.ts'
 import { workloads } from './workloads/index.ts'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const RESULTS_PATH = resolve(HERE, '..', 'RESULTS.md')
+const MEMORY_PATH = resolve(HERE, '..', 'RESULTS.memory.json')
 const ROOT = resolve(HERE, '..', '..', '..')
 const BENCH_NM = resolve(HERE, '..', 'node_modules')
 
@@ -51,6 +58,15 @@ function collectSizes(): SizeRow[] {
 }
 
 const fmtBytes = (n: number): string => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(2)} KB`)
+
+const fmtMemBytes = (n: number): string => {
+  if (!Number.isFinite(n)) return `${n}`
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+  if (abs < 1024) return `${sign}${abs.toFixed(0)} B`
+  if (abs < 1024 * 1024) return `${sign}${(abs / 1024).toFixed(2)} KB`
+  return `${sign}${(abs / 1024 / 1024).toFixed(2)} MB`
+}
 
 /**
  * Run one (workload, competitor) cell. Mitata's `measure()` returns p50/p99
@@ -106,14 +122,46 @@ const fmtOps = (ops: number): string => {
   return ops.toFixed(0)
 }
 
-function renderResultsMarkdown(cells: WorkloadCell[]): string {
+interface MemoryCellRecord {
+  workload: string
+  competitor: string
+  N: number
+  memory: MemorySample | { error: string }
+}
+
+interface MemoryPayload {
+  date: string
+  protocol: string
+  cells: MemoryCellRecord[]
+}
+
+function loadMemoryPayload(): MemoryPayload | null {
+  if (!existsSync(MEMORY_PATH)) return null
+  try {
+    return JSON.parse(readFileSync(MEMORY_PATH, 'utf8')) as MemoryPayload
+  } catch {
+    return null
+  }
+}
+
+function findMemoryCell(
+  payload: MemoryPayload | null,
+  workload: string,
+  competitor: string,
+): MemorySample | { error: string } | null {
+  if (!payload) return null
+  const c = payload.cells.find((c) => c.workload === workload && c.competitor === competitor)
+  return c ? c.memory : null
+}
+
+function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | null): string {
   const date = new Date().toISOString().slice(0, 10)
   const lines: string[] = []
   lines.push('# `@scribe/signals` Bench Results')
   lines.push('')
   lines.push(`**Generated:** ${date}`)
   lines.push(
-    `**Runner:** mitata 1.0.34 · Bun ${process.versions.bun ?? 'n/a'} · Node ${process.versions.node}`,
+    `**Runner:** mitata 1.0.34 + memory.ts (--expose-gc) · Bun ${process.versions.bun ?? 'n/a'} · Node ${process.versions.node}`,
   )
   lines.push('**Track:** A — vanilla scribe vs. SOTA JS reactivity libs')
   lines.push('')
@@ -123,10 +171,13 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   )
   lines.push('')
 
+  // ---- Per-workload sections: time + memory tables ----
   for (const wl of workloads) {
     lines.push(`## Workload: \`${wl.name}\``)
     lines.push('')
     lines.push(`*${wl.description}*`)
+    lines.push('')
+    lines.push('### Time')
     lines.push('')
     lines.push('| Competitor | mean | p50 | p99 | ops/s |')
     lines.push('| --- | ---: | ---: | ---: | ---: |')
@@ -146,12 +197,103 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
       )
     }
     lines.push('')
+
+    lines.push('### Memory')
+    lines.push('')
+    lines.push('| Competitor | build/graph | peak-malloc | dispose-residual |')
+    lines.push('| --- | ---: | ---: | ---: |')
+    for (const adapter of competitors) {
+      const m = findMemoryCell(memory, wl.name, adapter.name)
+      if (!m) {
+        lines.push(`| ${adapter.name} | — | — | — |`)
+        continue
+      }
+      if ('error' in m) {
+        lines.push(`| ${adapter.name} | ERROR | ERROR | \`${m.error}\` |`)
+        continue
+      }
+      lines.push(
+        `| ${adapter.name} | ${fmtMemBytes(m.buildHeapDelta)} | ${fmtMemBytes(m.peakMalloc)} | ${fmtMemBytes(m.disposeResidual)} |`,
+      )
+    }
+    lines.push('')
   }
 
-  // Stretch — gz size of each competitor's main shipped entry. NOT minified
-  // (different libs ship different minification strategies); the relative
-  // ordering is the user-facing signal.
-  lines.push('## Bundle size (stretch)')
+  // ---- Per-competitor-axis honesty section (design §5.2) ----
+  lines.push('## Per-competitor-axis honesty')
+  lines.push('')
+  lines.push(
+    'The competitors in this matrix emphasise different axes in their own READMEs. ' +
+      "This section answers: do we beat each competitor on the bench they hold *themselves* to?",
+  )
+  lines.push('')
+
+  lines.push('### vs. alien-signals')
+  lines.push('')
+  lines.push(
+    "*alien-signals' canonical bench is `transitive-bullshit/js-reactivity-benchmark` (cellx, mol, kairo, s-bench).*",
+  )
+  lines.push('')
+  lines.push('- `cellx` (diamond): see Time table above — scribe is the head-to-head measurement.')
+  lines.push(
+    '- `mol-bench` (deep-propagation-100, NEW): scribe is measured on alien-signals\' deep-chain headline axis.',
+  )
+  lines.push(
+    "- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, scribe) historically lead this; we now have receipts.",
+  )
+  lines.push(
+    "- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; scribe's per-graph cost is the load-bearing memory number.",
+  )
+  lines.push('')
+
+  lines.push('### vs. @vue/reactivity')
+  lines.push('')
+  lines.push(
+    "*Vue's `__benchmarks__` emphasise `effect.bench`, `computed.bench`, `reactiveObject.bench`.*",
+  )
+  lines.push('')
+  lines.push('- `effect.bench` ≈ our `wide-fanout-100`: see Time table.')
+  lines.push('- `computed.bench` ≈ our `cellx`: see Time table.')
+  lines.push(
+    "- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from scribe's tuple signals. " +
+      "Intentional gap; scribe does not aim to compete on object-property thrash. Documented per design §1.3.",
+  )
+  lines.push('')
+
+  lines.push('### vs. @preact/signals-core')
+  lines.push('')
+  lines.push(
+    "*Preact ships no dedicated bench dir; the implicit axis is throughput on small graphs + bundle size.*",
+  )
+  lines.push('')
+  lines.push('- All 6 workloads + bundle size table cover the implicit Preact axes head-to-head.')
+  lines.push('')
+
+  lines.push('### vs. solid-js')
+  lines.push('')
+  lines.push(
+    "*Solid's `bench.cjs` measures creation/update across `1to1`, `1to4`, `1to1000`, `2to1`, `4to1`, `1000to1` shapes (krausest is the DOM-binding axis, separate.).*",
+  )
+  lines.push('')
+  lines.push('- `1to1` ≈ our `cellx` chain: see Time table.')
+  lines.push("- `1to1000` ≈ our `creation-1to1000` (NEW): exact match on Solid's headline shape.")
+  lines.push(
+    '- `4to1` / `1000to1` (fan-in): **NOT MEASURED** — fan-in shapes deferred to v1+ (design §B mapping).',
+  )
+  lines.push(
+    "- Note: Solid's `bench.cjs` is the *signals-layer* bench; the DOM/krausest axis is `bench/arbor/`'s domain (Track A).",
+  )
+  lines.push('')
+
+  lines.push('### vs. s-js')
+  lines.push('')
+  lines.push("*s-js' canonical bench is `cellx`.*")
+  lines.push('')
+  lines.push('- `cellx`: see Time table — exact match on s-js\' published axis.')
+  lines.push('')
+
+  // ---- Bundle size ----
+  lines.push('## Bundle size (gz)')
   lines.push('')
   lines.push(
     "Each competitor's main entry as shipped, gzipped at level 9. " +
@@ -172,25 +314,37 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   }
   lines.push('')
 
-  // p50 machine-readable footer for the CI gate.
+  // ---- Machine-readable JSON footer (gate consumption) ----
   lines.push('<!-- bench-data:start -->')
   lines.push('```json')
   lines.push(
     JSON.stringify(
       {
         date,
-        cells: cells.map((c) => ({
-          workload: c.workload,
-          competitor: c.competitor,
-          ...('error' in c.result
-            ? { error: c.result.error }
-            : {
-                mean: c.result.mean,
-                p50: c.result.p50,
-                p99: c.result.p99,
-                opsPerSec: c.result.opsPerSec,
-              }),
-        })),
+        cells: cells.map((c) => {
+          const mem = findMemoryCell(memory, c.workload, c.competitor)
+          const memOut =
+            mem && !('error' in mem)
+              ? {
+                  buildHeapDelta: mem.buildHeapDelta,
+                  peakMalloc: mem.peakMalloc,
+                  disposeResidual: mem.disposeResidual,
+                }
+              : undefined
+          return {
+            workload: c.workload,
+            competitor: c.competitor,
+            ...('error' in c.result
+              ? { error: c.result.error }
+              : {
+                  mean: c.result.mean,
+                  p50: c.result.p50,
+                  p99: c.result.p99,
+                  opsPerSec: c.result.opsPerSec,
+                }),
+            ...(memOut ? { memory: memOut } : {}),
+          }
+        }),
       },
       null,
       2,
@@ -219,7 +373,20 @@ async function main(): Promise<void> {
     }
   }
 
-  const md = renderResultsMarkdown(cells)
+  // Pick up the latest memory results if they exist. They're produced by
+  // a separate `bun --expose-gc src/memory.ts` pass — the runner doesn't
+  // try to fork a child process here; that adds CI complexity for no
+  // benefit when both passes can be wired in moon.yml. If RESULTS.memory.json
+  // is absent or stale, the markdown shows "—" in memory cells and the
+  // gate falls through (no previous-baseline path).
+  const memory = loadMemoryPayload()
+  if (!memory) {
+    console.warn(
+      '\nNo RESULTS.memory.json found — run `bun --expose-gc src/memory.ts` first for memory tables.',
+    )
+  }
+
+  const md = renderResultsMarkdown(cells, memory)
   writeFileSync(RESULTS_PATH, md, 'utf8')
   console.log(`\nWrote ${RESULTS_PATH}`)
 }
