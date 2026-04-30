@@ -2,11 +2,29 @@ name: Plan A — TS runtime family
 on:
   push:
     branches: [main, 'plan-a-phase-*', 'plan-*', 'phase-*/**', 'bench/**', 'spec/**']
+    paths-ignore:
+      - '.team/**'
+      - 'docs/**'
+      - '.claude/**'
+      - 'state-*.md'
+      - 'README.md'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths-ignore:
+      - '.team/**'
+      - 'docs/**'
+      - '.claude/**'
+      - 'state-*.md'
+      - 'README.md'
+      - '**/*.md'
 
 jobs:
   check:
+    # Skip CI on draft PRs to keep the inner Builder loop cheap.
+    # Push-to-main and ready-for-review PRs still gate.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +43,7 @@ jobs:
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
     # only when signals or bench code is touched (per Phase 2.5 brief).
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
       bench: ${{ steps.filter.outputs.bench }}
