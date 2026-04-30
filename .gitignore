@@ -53,3 +53,6 @@ test-results/
 # moon
 .moon/cache
 .moon/docker
+
+# AGENTS.db local layer (session scratch, gitignored per fw-agent-skill middleware)
+AGENTS.local.db
