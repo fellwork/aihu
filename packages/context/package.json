@@ -1,0 +1,26 @@
+{
+  "name": "@scribe/context",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./ssr": {
+      "import": "./dist/ssr.js",
+      "types": "./dist/ssr.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit"
+  }
+}

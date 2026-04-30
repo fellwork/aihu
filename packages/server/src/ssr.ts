@@ -3,12 +3,38 @@
  * CRITICAL CONSTRAINTS:
  * 1. Zero client runtime imports. Zero DOM globals (no window, document, HTMLElement).
  * 2. Runs in: Workers, Deno, Bun, Node ESM.
+ * 3. NEVER import @scribe/context at module level — use injection slots (_setContextFns).
  *
  * The `SsrOptions.serializer` field accepts an injected serialize function.
  * In v0 the arbor stub always throws; the spec path is wired for sub-project #6.
  */
 
 import type { StreamOptions } from './stream-types.ts'
+
+// ---------------------------------------------------------------------------
+// Context injection slots (hard-boundary: @scribe/context is never imported here).
+// The caller populates these once at app startup via _setContextFns().
+// ---------------------------------------------------------------------------
+let _setContextMap: ((map: Map<symbol, unknown>) => void) | undefined
+let _clearContextMap: (() => void) | undefined
+
+/**
+ * Inject context activation/deactivation functions from @scribe/context/ssr.
+ * Must be called once at app startup before any renderToString calls that use
+ * SsrOptions.contextSetup.
+ *
+ * Example:
+ *   import { setSsrContextMap, clearSsrContextMap } from '@scribe/context/ssr'
+ *   import { _setContextFns } from '@scribe/server'
+ *   _setContextFns(setSsrContextMap, clearSsrContextMap)
+ */
+export function _setContextFns(
+  set: (map: Map<symbol, unknown>) => void,
+  clear: () => void,
+): void {
+  _setContextMap = set
+  _clearContextMap = clear
+}
 
 export interface MetaTag {
   readonly name?: string
@@ -48,6 +74,28 @@ export interface SsrOptions {
    * When it throws (v0 stub), the error is swallowed and no state script is emitted.
    */
   readonly serializer?: () => Record<string, unknown>
+
+  /**
+   * Optional per-render context setup hook. When provided alongside a prior call
+   * to _setContextFns, ssr.ts will:
+   *   1. Call contextSetup(activateFn, deactivateFn) so the caller can do
+   *      per-request setup (e.g. pre-populate the context map).
+   *   2. Activate a fresh context Map before the tree walk.
+   *   3. Clear it in a finally block after the walk.
+   *
+   * ssr.ts never imports @scribe/context — the hard boundary is preserved.
+   * The activate/deactivate functions are wired via _setContextFns at startup.
+   *
+   * Minimal usage:
+   *   import { setSsrContextMap, clearSsrContextMap } from '@scribe/context/ssr'
+   *   import { _setContextFns, renderToString } from '@scribe/server'
+   *   _setContextFns(setSsrContextMap, clearSsrContextMap)
+   *   await renderToString(component, { contextSetup: () => {} })
+   */
+  readonly contextSetup?: (
+    activate: (map: Map<symbol, unknown>) => void,
+    deactivate: () => void,
+  ) => void
 }
 
 /**
@@ -75,9 +123,10 @@ function renderNode(node: unknown, path: string, hydratable: boolean): string {
 
   if (obj.kind === 'branch') {
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    const attrs = typeof obj.attrs === 'object' && obj.attrs !== null
-      ? obj.attrs as Record<string, string | boolean>
-      : {}
+    const attrs =
+      typeof obj.attrs === 'object' && obj.attrs !== null
+        ? (obj.attrs as Record<string, string | boolean>)
+        : {}
     let attrStr = ''
     for (const [k, v] of Object.entries(attrs)) {
       if (v === true) attrStr += ` ${k}`
@@ -297,17 +346,31 @@ export async function renderToString(
   component: ComponentDescription,
   opts?: SsrOptions,
 ): Promise<string> {
-  const stream = renderToStream(component, opts)
-  const reader = stream.getReader()
-  const chunks: string[] = []
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-    }
-  } finally {
-    reader.releaseLock()
+  // Context setup: if configured, activate a fresh map before the render walk
+  // and clear it unconditionally in the finally block.
+  const hasContext = Boolean(opts?.contextSetup && _setContextMap && _clearContextMap)
+  if (hasContext && opts?.contextSetup) {
+    opts.contextSetup(_setContextMap!, _clearContextMap!)
+    _setContextMap!(new Map<symbol, unknown>())
   }
-  return chunks.join('')
+
+  try {
+    const stream = renderToStream(component, opts)
+    const reader = stream.getReader()
+    const chunks: string[] = []
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    return chunks.join('')
+  } finally {
+    if (hasContext) {
+      _clearContextMap?.()
+    }
+  }
 }

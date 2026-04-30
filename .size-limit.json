@@ -1,5 +1,11 @@
 [
   {
+    "name": "@scribe/context",
+    "path": "packages/context/dist/index.js",
+    "limit": "300 B",
+    "gzip": true
+  },
+  {
     "name": "@scribe/signals",
     "path": "packages/signals/dist/index.js",
     "limit": "1700 B",

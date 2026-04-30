@@ -1,5 +1,5 @@
 import { signal } from '@scribe/signals'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ArborNotImplementedError } from '../src/errors.ts'
 import { branch, leaf } from '../src/index.ts'
 import { mount } from '../src/mount.ts'
@@ -287,5 +287,162 @@ describe('MountScope.dispose() — Task 17 spec tests', () => {
     } finally {
       _setMountObserver(() => {})
     }
+  })
+})
+
+describe('mount() — onError / error boundary (Plan 4.2)', () => {
+  it('T1: synchronous materialize throw → onError called with error and path; mount() does not throw', () => {
+    // Build a node that throws during materialize by providing a bad signal
+    // value that throws when the effect body runs (initial synchronous fire).
+    const host = document.createElement('div')
+    const throwingSig = signal('x')
+    const throwGet = throwingSig[0]
+    const setThrowing = throwingSig[1]
+    let effectCallCount = 0
+
+    // We create a reactive leaf whose effect throws on first run.
+    // The throw happens inside _mountEffect (reactive effect fire), which
+    // counts as a reactive effect error, not a sync materialize error.
+    // For T1 (sync materialize throw) we directly test that a sync error
+    // in _materialize is caught. We can simulate this by using a getter
+    // that throws before mount returns.
+    const errorSpy = vi.fn()
+    let didThrow = false
+
+    // We override the signal getter to throw on the first read.
+    const sigWithInitialThrow: typeof throwingSig = [
+      () => {
+        if (!didThrow) {
+          didThrow = true
+          throw new Error('sync-materialize-error')
+        }
+        return throwGet()
+      },
+      throwingSig[1],
+    ] as unknown as typeof throwingSig
+
+    let scope: ReturnType<typeof mount> | null = null
+    expect(() => {
+      scope = mount(branch('p', undefined, [leaf(sigWithInitialThrow)]), host, {
+        onError: errorSpy,
+      })
+    }).not.toThrow()
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const [err, path] = errorSpy.mock.calls[0] as [unknown, string]
+    expect((err as Error).message).toBe('sync-materialize-error')
+    expect(typeof path).toBe('string')
+    expect(path.length).toBeGreaterThan(0)
+
+    effectCallCount = 0 // just to use the variable
+    void effectCallCount
+
+    scope?.dispose()
+  })
+
+  it('T2: reactive effect throw → onError called; subsequent signal writes do not re-call onError', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    let throwOnNext = false
+
+    const sig = signal('initial')
+    const setSig = sig[1]
+
+    // Create a reactive text leaf. The getter will throw when we set throwOnNext.
+    const reactiveGet: typeof sig[0] = () => {
+      const val = sig[0]()
+      if (throwOnNext) {
+        throw new Error('reactive-effect-error')
+      }
+      return val
+    }
+    const throwingSig: typeof sig = [reactiveGet, sig[1]] as unknown as typeof sig
+
+    const scope = mount(branch('p', undefined, [leaf(throwingSig)]), host, {
+      onError: errorSpy,
+    })
+
+    // Initially no error.
+    expect(errorSpy).not.toHaveBeenCalled()
+
+    // Now trigger the throw.
+    throwOnNext = true
+    setSig('trigger-throw')
+
+    // onError should have been called once.
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    // Effect is disposed — further signal writes should NOT re-call onError.
+    throwOnNext = false
+    setSig('after-dispose-of-effect')
+    expect(errorSpy).toHaveBeenCalledTimes(1) // still just once
+
+    scope.dispose()
+  })
+
+  it('T3: no onError provided + materialize error → error propagates from mount()', () => {
+    const host = document.createElement('div')
+    let didThrow = false
+    const sigWithInitialThrow: ReturnType<typeof signal<string>> = [
+      () => {
+        if (!didThrow) {
+          didThrow = true
+          throw new Error('no-handler-error')
+        }
+        return 'x'
+      },
+      signal('x')[1],
+    ] as unknown as ReturnType<typeof signal<string>>
+
+    // Without onError, mount() should propagate the error.
+    expect(() => {
+      mount(branch('p', undefined, [leaf(sigWithInitialThrow)]), host)
+    }).toThrow('no-handler-error')
+  })
+
+  it('T4: onError returning void → other bindings in same scope continue updating', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    let throwOnNext = false
+
+    const goodSig = signal('good-initial')
+    const setGood = goodSig[1]
+
+    const badSig = signal('bad-initial')
+    const setBad = badSig[1]
+
+    // Bad getter: throws when throwOnNext is true.
+    const badGet: typeof badSig[0] = () => {
+      const val = badSig[0]()
+      if (throwOnNext) throw new Error('bad-effect-error')
+      return val
+    }
+    const throwingSig: typeof badSig = [badGet, badSig[1]] as unknown as typeof badSig
+
+    const scope = mount(
+      branch('div', undefined, [
+        branch('span', { id: 'good' }, [leaf(goodSig)]),
+        branch('span', { id: 'bad' }, [leaf(throwingSig)]),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    const goodSpan = host.querySelector('#good') as HTMLElement
+    const badSpan = host.querySelector('#bad') as HTMLElement
+
+    expect(goodSpan.textContent).toBe('good-initial')
+    expect(badSpan.textContent).toBe('bad-initial')
+
+    // Trigger the bad binding.
+    throwOnNext = true
+    setBad('bad-throw')
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    // The good binding should still update normally.
+    setGood('good-updated')
+    expect(goodSpan.textContent).toBe('good-updated')
+
+    scope.dispose()
   })
 })

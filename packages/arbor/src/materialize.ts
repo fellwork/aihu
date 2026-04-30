@@ -1,6 +1,6 @@
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs, type MountEffectFn } from './attrs.ts'
-import type { Node } from './types.ts'
+import type { ErrorHandler, Node } from './types.ts'
 
 /**
  * Recursive DOM materialization per `.team/phase-3/spec-arbor.md` §2.3.
@@ -45,6 +45,7 @@ export function _materialize(
   disposers: Dispose[],
   pathBase: string,
   mountEffect: MountEffectFn,
+  errorHandler?: ErrorHandler,
 ): globalThis.Node[] {
   // Case 1+2: leaf
   if (node.kind === 'leaf') {
@@ -60,6 +61,7 @@ export function _materialize(
             textNode.nodeValue = String(get())
           },
           `${pathBase}.text`,
+          errorHandler,
         )
       } else {
         // Static string (or null — null is a leafKind:'element' invariant
@@ -71,7 +73,7 @@ export function _materialize(
     }
     // Element leaf (terminal — no children).
     const el = document.createElement(node.tag as string)
-    _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect)
+    _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler)
     host.appendChild(el)
     return [el]
   }
@@ -84,7 +86,7 @@ export function _materialize(
     for (let i = 0; i < children.length; i++) {
       const child = children[i] as Node
       const childPath = `${pathBase}.${i}`
-      const result = _materialize(child, host, disposers, childPath, mountEffect)
+      const result = _materialize(child, host, disposers, childPath, mountEffect, errorHandler)
       for (const n of result) appended.push(n)
     }
     return appended
@@ -92,12 +94,12 @@ export function _materialize(
 
   // Branch with tag — create wrapper, apply attrs, recurse into wrapper.
   const el = document.createElement(node.tag)
-  _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect)
+  _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler)
   const children = node.children
   for (let i = 0; i < children.length; i++) {
     const child = children[i] as Node
     const childPath = `${pathBase}.${i}`
-    _materialize(child, el, disposers, childPath, mountEffect)
+    _materialize(child, el, disposers, childPath, mountEffect, errorHandler)
   }
   host.appendChild(el)
   return [el]

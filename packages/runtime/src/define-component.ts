@@ -39,6 +39,18 @@ type _ScopeRef = ReturnType<MountFn>
 let _mount: MountFn | null = null
 
 /**
+ * Injected reference to `setSsrContextMap` from `@scribe/context`.
+ * Optional — when not set, components run without a context map.
+ */
+let _setSsrContextMap: ((m: Map<symbol, unknown>) => void) | undefined
+
+/**
+ * Injected reference to `clearSsrContextMap` from `@scribe/context`.
+ * Optional — when not set, components run without a context map.
+ */
+let _clearSsrContextMap: (() => void) | undefined
+
+/**
  * Inject the `mount` function from `@scribe/arbor`. Must be called
  * once before any element produced by `defineComponent` is connected
  * to the DOM.
@@ -52,6 +64,21 @@ let _mount: MountFn | null = null
  */
 export function _setMount(fn: MountFn): void {
   _mount = fn
+}
+
+/**
+ * Inject the `setSsrContextMap` and `clearSsrContextMap` functions from
+ * `@scribe/context`. Must be called once at app boot if context support is
+ * desired. The injection is optional — components work without it.
+ *
+ * @internal
+ */
+export function _setContext(
+  set: typeof _setSsrContextMap,
+  clear: typeof _clearSsrContextMap,
+): void {
+  _setSsrContextMap = set
+  _clearSsrContextMap = clear
 }
 
 /**
@@ -86,8 +113,14 @@ export function defineComponent(setup: Setup): typeof HTMLElement {
       }
       const host: ShadowRoot | Element = this.shadowRoot ?? this
       const ctx: SetupContext = { host, element: this }
-      const tree = setup(ctx)
-      this[SCOPE] = _mount(tree, host)
+      _setSsrContextMap?.(new Map())
+      let tree: ReturnType<Setup>
+      try {
+        tree = setup(ctx)
+      } finally {
+        _clearSsrContextMap?.()
+      }
+      this[SCOPE] = _mount(tree!, host)
     }
     disconnectedCallback(): void {
       this[SCOPE]?.dispose()

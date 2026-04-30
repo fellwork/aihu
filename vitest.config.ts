@@ -14,6 +14,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@scribe/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
+      '@scribe/context/ssr': new URL('./packages/context/src/ssr.ts', import.meta.url).pathname,
       '@scribe/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
       '@scribe/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       '@scribe/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
