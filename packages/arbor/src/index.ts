@@ -9,8 +9,10 @@ export type {
   AttrMap,
   Branch,
   ChildList,
+  ErrorHandler,
   EventHandler,
   Leaf,
+  MountOptions,
   Node,
   Snapshot,
 } from './types.ts'

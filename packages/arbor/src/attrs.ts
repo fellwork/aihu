@@ -1,5 +1,5 @@
 import type { Dispose } from '@scribe/signals'
-import type { AttrMap, EventHandler } from './types.ts'
+import type { AttrMap, ErrorHandler, EventHandler } from './types.ts'
 
 /**
  * Internal AttrMap binding per `.team/phase-3/spec-arbor.md` §1.2 + §2.4
@@ -41,7 +41,12 @@ import type { AttrMap, EventHandler } from './types.ts'
  *
  * @internal
  */
-export type MountEffectFn = (disposers: Dispose[], fn: () => void, path: string) => void
+export type MountEffectFn = (
+  disposers: Dispose[],
+  fn: () => void,
+  path: string,
+  errorHandler?: ErrorHandler,
+) => void
 
 /**
  * Apply an AttrMap to a freshly-created element. Walks each
@@ -63,6 +68,7 @@ export function _applyAttrs(
   disposers: Dispose[],
   pathBase: string,
   mountEffect: MountEffectFn,
+  errorHandler?: ErrorHandler,
 ): void {
   if (attrs === null) return
   for (const key in attrs) {
@@ -79,7 +85,12 @@ export function _applyAttrs(
     // discriminates via `Array.isArray` per Deviation #11.
     if (Array.isArray(value)) {
       const get = value[0] as () => unknown
-      mountEffect(disposers, () => _setAttrOrProp(el, key, get()), `${pathBase}.attr:${key}`)
+      mountEffect(
+        disposers,
+        () => _setAttrOrProp(el, key, get()),
+        `${pathBase}.attr:${key}`,
+        errorHandler,
+      )
       continue
     }
     // Path 3: static primitive (string | number | boolean).

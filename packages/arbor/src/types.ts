@@ -67,6 +67,24 @@ export interface Leaf {
 export type Node = Branch | Leaf
 
 /**
+ * Error handler for a mount scope. Receives the thrown value and the
+ * path key of the binding that threw (spec §2.7 format).
+ *
+ * Return a Node to replace the failed subtree (active in Plan 1.1).
+ * Return void for notify-only behavior (Plan 4.2 implementation).
+ */
+export type ErrorHandler = (error: unknown, path: string) => Node | void
+
+/**
+ * Options for mount(). All fields are optional; omitting options is
+ * identical to passing {}.
+ */
+export interface MountOptions {
+  /** Error boundary handler. See ErrorHandler. */
+  onError?: ErrorHandler
+}
+
+/**
  * Sub-project #7 stub — agent live-binding lands later. The empty/branded
  * stub type signals "don't use this in v0" through the type system.
  * `MountScope.agent` returns a frozen `{ _brand: 'AgentContext' }`.
