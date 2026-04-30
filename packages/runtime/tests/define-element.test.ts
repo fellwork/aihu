@@ -31,7 +31,7 @@ describe('defineElement — Task 21 spec tests', () => {
     el.remove()
   })
 
-  it("attaches an open shadow root by default (#3)", () => {
+  it('attaches an open shadow root by default (#3)', () => {
     class T3 extends HTMLElement {}
     defineElement('x-t3', T3)
     const el = document.createElement('x-t3')

@@ -9,9 +9,9 @@
  * uses arbor primitives backed by signals reactivity.
  */
 
-import { branch, leaf, mount, type MountScope } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
+import { branch, leaf, type MountScope, mount } from '@scribe/arbor'
 import { defineElement } from '@scribe/runtime'
+import { signal } from '@scribe/signals'
 import { describe, expect, it } from 'vitest'
 
 describe('runtime + arbor + signals integration', () => {
