@@ -39,9 +39,12 @@ import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from '.
  * `finally` block. Supports re-entrant `mount()` calls (e.g. from
  * `when()`/`each()` child scopes in Plan 1.1).
  *
+ * Exported `@internal` so `structural.ts` can push/pop child scope
+ * disposer arrays during reconciliation without importing `mount()`.
+ *
  * @internal
  */
-const _mountDisposersStack: Array<Dispose[]> = []
+export const _mountDisposersStack: Array<Dispose[]> = []
 
 /**
  * Returns the disposers array at the top of the stack (the currently

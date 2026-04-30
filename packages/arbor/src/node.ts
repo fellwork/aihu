@@ -12,6 +12,10 @@ import type { AttrMap, Branch, ChildList, Leaf } from './types.ts'
  * missing). When `children` is omitted, store `EMPTY_CHILDREN` — a frozen
  * module-level empty array (saves allocation per fragment).
  *
+ * Shape-locking also applies to `StructuralNode` (Plan 1.1): all seven
+ * fields (`kind`, `structuralKind`, `condition`, `grow`, `list`, `keyFn`,
+ * `listGrow`) are always present; unused arms are `null`. See `types.ts`.
+ *
  * The `_`-prefixed factories are `/** @internal *\/` and never re-exported
  * from `index.ts`. Public `branch()` and `leaf()` factories (Tasks 13/14)
  * call into these.

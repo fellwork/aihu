@@ -1,5 +1,6 @@
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs, type MountEffectFn } from './attrs.ts'
+import { _materializeStructural } from './structural.ts'
 import type { ErrorHandler, Node } from './types.ts'
 
 /**
@@ -47,6 +48,11 @@ export function _materialize(
   mountEffect: MountEffectFn,
   errorHandler?: ErrorHandler,
 ): globalThis.Node[] {
+  // Case 0: structural node (when/each)
+  if (node.kind === 'structural') {
+    return _materializeStructural(node, host, disposers, pathBase, mountEffect, errorHandler)
+  }
+
   // Case 1+2: leaf
   if (node.kind === 'leaf') {
     if (node.leafKind === 'text') {

@@ -1,4 +1,4 @@
-import type { Signal } from '@scribe/signals'
+import type { Dispose, Signal } from '@scribe/signals'
 
 /**
  * Public type definitions for `@scribe/arbor`.
@@ -31,10 +31,9 @@ export type AttrMap = Record<string, string | number | boolean | Signal<unknown>
 /**
  * Children are static at construction time. The list itself is not a
  * signal. Structural dynamism (conditional + list rendering) lives entirely
- * in `when()` and `each()` — both v1 reconciler stubs in v0. Per v0 spec
- * §4 "Non-goals" and Phase 3 spec §1.2.
+ * in `when()` and `each()`. Per v0 spec §4 "Non-goals" and Phase 3 spec §1.2.
  */
-export type ChildList = ReadonlyArray<Branch | Leaf>
+export type ChildList = ReadonlyArray<Branch | Leaf | StructuralNode>
 
 /**
  * A `branch` node. Returned opaque from `branch(tag, attrs?, children?)`.
@@ -62,9 +61,44 @@ export interface Leaf {
 }
 
 /**
+ * Structural node for `when()` (conditional) and `each()` (list) rendering.
+ * All fields are always present — `null` for unused union arms per §2.9.
+ *
+ * @internal
+ */
+export interface StructuralNode {
+  readonly kind: 'structural'
+  /** 'c' = conditional (when), 'l' = list (each). Optional: used for debugging only. */
+  readonly structuralKind?: 'c' | 'l'
+  /** For 'conditional': the Signal<boolean> condition */
+  readonly condition: Signal<boolean> | null
+  /** For 'conditional': the grow function for the true branch */
+  readonly grow?: (() => Node) | null
+  /** For 'list': the Signal<unknown[]> list */
+  readonly list?: Signal<unknown[]> | null
+  /** For 'list': the key extractor function */
+  readonly keyFn?: ((item: unknown) => string | number) | null
+  /** For 'list': the per-item grow function */
+  readonly listGrow?: ((item: unknown, index: number) => Node) | null
+}
+
+/**
+ * Internal child scope for when()/each() reconciler. Tracks the DOM anchor,
+ * reactive effect disposers, and appended nodes for a single conditional or
+ * list-item subtree.
+ *
+ * @internal
+ */
+export interface ChildScope {
+  readonly anchor: Comment
+  readonly disposers: Dispose[]
+  appendedNodes: globalThis.Node[]
+}
+
+/**
  * Discriminated union of node kinds accepted by `mount()`.
  */
-export type Node = Branch | Leaf
+export type Node = Branch | Leaf | StructuralNode
 
 /**
  * Error handler for a mount scope. Receives the thrown value and the
