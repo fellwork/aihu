@@ -50,7 +50,7 @@
 | Telemetry tree-shake fix — add `minify: true` to arbor+signals rolldown.config.ts | MEDIUM | Investigation done (`.team/phase-3/telemetry-treeshake-investigation.md`). Fix: 1 line each. Expected: arbor ~250 B gz (-80 B), signals ~530 B gz (-186 B) |
 | Plan staleness banner (Option 1) | LOW | Doc-only, 10 min. Add banner to `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` per cross-review recommendation |
 | Branch protection audit on `main` | LOW | PR #6 merged with red CI. Check protection rules. |
-| CI coverage for claude/* branches | LOW | Current branch `claude/scribe-phase-3-team-Za4UQ` doesn't match any CI trigger; CI fires on PR to main only |
+| **Re-enable CI before v1 ships** | HIGH (at v1) | `.github/workflows/plan-a.yml` is manual-only (`workflow_dispatch`) during v0 development. Restore triggers by uncommenting the push/pull_request blocks. Verifier subagent validates gates locally on every Builder round. |
 
 ---
 
