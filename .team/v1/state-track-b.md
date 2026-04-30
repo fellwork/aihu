@@ -1,18 +1,18 @@
 # State — Track B (Context + Data)
 
 **Track:** `track-b`
-**Last updated:** 2026-04-30
+**Last updated:** 2026-04-30 (Round 2)
 **HEAD at session start:** `79e86a6` on `feat/agent-readiness-phase0`
-**Active branch:** `feat/v1-context-data` (not yet created — awaiting OQ-V3 adjudication)
-**Mode:** 0 (Awaiting Architect / adjudication)
+**Active branch:** `feat/v1-context` (to create — Architect is now authorized)
+**Mode:** 1 (Architect active — Plan 2.1)
 
 ---
 
 ## Current phase
 
-**Phase 0 — Blocked on OQ-V3 adjudication**
+**Phase 1 — Architect active (Plan 2.1)**
 
-Sequence: OQ-V3 adjudication → **Architect spec** → Scout → Builder 2.1 → Builder 2.2
+Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 ✓ → **Architect spec** → Builder 2.1 → Builder 2.2
 
 ---
 
@@ -20,8 +20,8 @@ Sequence: OQ-V3 adjudication → **Architect spec** → Scout → Builder 2.1 �
 
 | Plan | Package | Status |
 |------|---------|--------|
-| 2.1  | `@scribe/context` | NOT STARTED — blocked on OQ-V3 |
-| 2.2  | `@scribe/data`    | NOT STARTED — blocked on Plan 2.1 + OQ-V4 clarification |
+| 2.1  | `@scribe/context` | ARCHITECT ACTIVE — spec-2.1-context.md to be written |
+| 2.2  | `@scribe/data`    | SPEC DESIGN AUTHORIZED — Builder blocked on Plan 2.1 merge |
 
 ---
 
@@ -29,35 +29,37 @@ Sequence: OQ-V3 adjudication → **Architect spec** → Scout → Builder 2.1 �
 
 | Round | Plan | Role   | Status  |
 |-------|------|--------|---------|
-| 1     | —    | Director | COMPLETE (this file) |
+| 1     | —    | Director | COMPLETE |
+| 1     | —    | Scout    | COMPLETE (`scout-report-track-b.md`) |
+| 2     | 2.1  | Director | COMPLETE (`director-notes/track-b-round-002.md`) |
 
 ---
 
 ## OQ resolution status
 
-| OQ    | Question | Spec recommendation | Director assessment | Status |
-|-------|----------|--------------------|--------------------|--------|
-| OQ-V3 | Context propagation mechanism — DOM traversal vs. registry | DOM attribute traversal | INSUFFICIENT — DOM traversal breaks SSR. Three options exist; Team Lead must adjudicate whether SSR+context is in v1 scope before Architect can write spec. | **OPEN — BLOCKING** |
-| OQ-V4 | `createResource` cache — module-level singleton vs. context-provided | Context-provided | SUFFICIENT to build against. Minor clarification needed: cache key type should be explicit `key: string` on `ResourceOptions<T>` to enable dehydration. Architect must specify in 2.2 spec. | **OPEN — NON-BLOCKING for 2.1** |
-| OQ-V6 | SSR dehydration — opt-in `{ ssr: true }` vs. automatic | Opt-in | SUFFICIENT. The `SsrOptions.serializer` hook in `ssr.ts` already handles injection; 2.2 just needs a `dehydrate()` method on the store. Architect must specify the JSON shape inside `__scribe_state__`. | **OPEN — NON-BLOCKING for 2.1** |
+| OQ    | Question | Ratified decision | Status |
+|-------|----------|-------------------|--------|
+| OQ-V3 | Context propagation mechanism | Render-scoped context map via `SsrOptions.contextMap`; browser uses module-level `_activeContextMap` slot; `setSsrContextMap` for SSR. Ratified by Track D Architect. | **CLOSED** |
+| OQ-V4 | `createResource` cache — module-level singleton vs. context-provided | Context-provided store. Cache key is reactive `Signal<string \| null \| undefined>` as first arg to `createResource`. Ratified by Track D Architect. | **CLOSED** |
+| OQ-V6 | SSR dehydration — opt-in vs. automatic | Opt-in per resource (`{ dehydrate: true }` in `ResourceOptions`). JSON shape: `{ "resources": { "<key>": DataState } }`. Ratified by Track D Architect. | **CLOSED** |
 
 ---
 
-## Spec gaps requiring Architect resolution before Builder starts
+## Spec gaps status
 
-### For 2.1 (@scribe/context) — all blocked on OQ-V3
-- `ContextToken<T>` type definition (string key vs. symbol vs. opaque object — depends on propagation mechanism)
-- `provide()` call site and lifecycle (inside setup fn? Before mount? As Node wrapper?)
-- `inject()` availability and return type (synchronous? Returns `T | undefined`? Requires default at `createContext` time?)
-- Error behavior for `inject()` with no matching provider
-- Multiple nested providers for the same token — shadow (innermost wins) or merge
+### For 2.1 (@scribe/context) — ALL RESOLVED (see director-notes/track-b-round-002.md §3)
+- `ContextToken<T>`: opaque object with `_id: symbol` + `_default: T | undefined` ✓
+- `provide()` call site: synchronous during component setup ✓
+- `inject()`: synchronous, returns `T | undefined`; returns default if given ✓
+- Error behavior: returns `undefined` (no throw by default) ✓
+- Multiple providers: shadow / innermost wins ✓
 
-### For 2.2 (@scribe/data) — blocked on 2.1 completion + OQ-V4 clarification
-- `createResource` return type (Signal? Object with refetch? Reactive accessor?)
-- `DataState<T>` state machine transitions (pending → resolved → error; refreshing state?)
-- Cache key type (`key: string` on `ResourceOptions<T>`)
-- Fetcher function signature (`() => Promise<T>` or `(key: string) => Promise<T>`)
-- Dehydration JSON shape inside `__scribe_state__` script tag
+### For 2.2 (@scribe/data) — ALL RESOLVED (see director-notes/track-b-round-002.md §4)
+- `createResource` return type: `DataSource<T>` with `.state`, `.refetch()`, `.invalidate()` ✓
+- `DataState<T>`: five-state discriminated union (idle | loading | ready | error | streaming) ✓
+- Cache key: reactive `Signal<string | null | undefined>` as first arg ✓
+- Fetcher signature: `(key: string) => Promise<T>` ✓
+- Dehydration JSON: `{ "resources": { "<key>": DataState } }` ✓
 
 ---
 
@@ -101,19 +103,26 @@ The following are read-only from Track B's perspective:
 | Artifact | Path | Status |
 |----------|------|--------|
 | Director note round 1 | `.team/v1/director-notes/track-b-round-001.md` | COMPLETE |
-| v1 architecture spec | `.team/v1/spec-v1-architecture.md` | NOT STARTED |
-| v1 roadmap (plans 2.1, 2.2) | `.team/v1/plan-v1-roadmap.md` | NOT STARTED |
-| Scout report | `.team/v1/scout-report-track-b.md` | NOT STARTED |
-| Build manifest 2.1 | `.team/v1/build-manifest-2.1.md` | NOT STARTED |
-| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | NOT STARTED |
+| Director note round 2 | `.team/v1/director-notes/track-b-round-002.md` | COMPLETE |
+| v1 architecture spec | `.team/v1/spec-v1-architecture.md` | COMPLETE (authored) |
+| v1 architecture spec (ratified) | `.team/v1/spec-v1-architecture-ratified.md` | COMPLETE (Track D ratified) |
+| v1 roadmap | `.team/v1/plan-v1-roadmap.md` | COMPLETE (authored) |
+| Scout report | `.team/v1/scout-report-track-b.md` | COMPLETE |
+| Architect spec 2.1 | `.team/v1/spec-2.1-context.md` | **PENDING (Architect active)** |
+| Architect spec 2.2 | `.team/v1/spec-2.2-data.md` | PENDING (can start now; Builder blocked on 2.1) |
+| Build manifest 2.1 | `.team/v1/build-manifest-2.1.md` | NOT STARTED — after spec-2.1 |
+| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | NOT STARTED — after 2.1 merge |
 | State file | `.team/v1/state-track-b.md` | THIS FILE |
 
 ---
 
 ## Next actions
 
-1. **Team Lead** — adjudicate OQ-V3: Is SSR + context injection required in v1? (Decision unblocks everything downstream)
-2. **Scout** — run brief from director note §5; confirm `defineLoader` shape in `packages/server/src/data.ts`, confirm `mount()` options, confirm size-limit config location. Can dispatch immediately.
-3. **Architect** — after OQ-V3 adjudication: write `spec-v1-architecture.md` §7 (`@scribe/context`) and §6 (`@scribe/data`) encoding all spec gaps listed above
-4. **Builder** — after Architect spec: scaffold `packages/context/` and implement plan 2.1 on `feat/v1-context-data`
-5. **Builder** — after 2.1 merged and OQ-V4/V6 clarified: scaffold `packages/data/` and implement plan 2.2
+1. **Architect** — write `.team/v1/spec-2.1-context.md` per director-notes/track-b-round-002.md §5 (UNBLOCKED — GO)
+2. **Architect (parallel)** — write `.team/v1/spec-2.2-data.md` per director-notes/track-b-round-002.md §4 (UNBLOCKED for spec-writing; Builder dispatch after 2.1 merge)
+3. **Builder** — after `spec-2.1-context.md` approved: scaffold `packages/context/` on `feat/v1-context`
+4. **Director (Round 3)** — review 2.1 PR when ready
+5. **Builder** — after 2.1 merged: scaffold `packages/data/` on `feat/v1-data`
+
+### Do-not-break list update
+`packages/server/src/ssr.ts` now receives **additive** changes (two new optional fields in `SsrOptions`) as part of Plan 2.1 scope. It is no longer strictly read-only for Track B.

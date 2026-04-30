@@ -11,8 +11,9 @@
 
 | Plan | Status | Owner | Notes |
 |---|---|---|---|
-| 3.1 Streaming SSR | NOT STARTED | TBD | Awaiting Architect spec |
-| 6.2 Deep-chain optimization | NOT STARTED | TBD | Awaiting Investigator report |
+| 3.1 Streaming SSR | READY FOR BUILDER | TBD | Spec complete; see `spec-3.1-streaming-ssr.md` + round-002 §2 |
+| 6.2 Deep-chain Phase 0 (Option C) | READY FOR BUILDER | TBD | Direct from investigation report; see round-002 §5 |
+| 6.2 Deep-chain Phase 1 (Option D) | HOLD | TBD | Awaiting Option C bench confirmation; Architect spec in Round 3 |
 
 ---
 
@@ -133,3 +134,4 @@ Any 6.2 implementation that adds bytes to `packages/signals/src/` must be justif
 | Round | Date | Director note | Outcome |
 |---|---|---|---|
 | 1 | 2026-04-30 | `director-notes/track-c-round-001.md` | Session start; GO for both plans |
+| 2 | 2026-04-30 | `director-notes/track-c-round-002.md` | Spec (3.1) and investigation (6.2) assessed; GO for Builder 3.1 and Builder 6.2-Phase0 (Option C) in parallel; Option D (Phase 1) HOLD pending bench confirmation |
