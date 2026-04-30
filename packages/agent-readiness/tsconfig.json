@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "paths": {
+      "@scribe/server": ["../server/src/index.ts"],
+      "@scribe/agent": ["../agent/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

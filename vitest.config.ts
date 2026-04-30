@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    include: ['packages/*/tests/**/*.test.ts'],
+    include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts'],
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
@@ -18,6 +18,8 @@ export default defineConfig({
       '@scribe/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       '@scribe/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@scribe/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
+      '@scribe/server': new URL('./packages/server/src/index.ts', import.meta.url).pathname,
+      '@scribe/agent-readiness': new URL('./packages/agent-readiness/src/index.ts', import.meta.url).pathname,
     },
   },
 })

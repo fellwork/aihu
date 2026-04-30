@@ -1,7 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@scribe/signals": ["./packages/signals/src/index.ts"],
+      "@scribe/arbor": ["./packages/arbor/src/index.ts"],
+      "@scribe/runtime": ["./packages/runtime/src/index.ts"],
+      "@scribe/agent": ["./packages/agent/src/index.ts"],
+      "@scribe/server": ["./packages/server/src/index.ts"],
+      "@scribe/agent-readiness": ["./packages/agent-readiness/src/index.ts"]
+    }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/tests/**/*.ts", "tests/**/*.ts"]
 }

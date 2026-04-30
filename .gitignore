@@ -16,6 +16,9 @@ build/
 # Vite
 .vite/
 
+# Rolldown cache files (hashed temp artifacts from build)
+rolldown.config.*.js
+
 # Logs
 *.log
 npm-debug.log*

@@ -61,6 +61,14 @@
       "name": "@scribe/agent",
       "version": "0.0.0",
     },
+    "packages/agent-readiness": {
+      "name": "@scribe/agent-readiness",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scribe/agent": "workspace:*",
+        "@scribe/server": "workspace:*",
+      },
+    },
     "packages/arbor": {
       "name": "@scribe/arbor",
       "version": "0.0.0",
@@ -74,6 +82,13 @@
       "peerDependencies": {
         "@scribe/arbor": "workspace:*",
         "@scribe/signals": "workspace:*",
+      },
+    },
+    "packages/server": {
+      "name": "@scribe/server",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scribe/agent": "workspace:*",
       },
     },
     "packages/signals": {
@@ -288,6 +303,8 @@
 
     "@scribe/agent": ["@scribe/agent@workspace:packages/agent"],
 
+    "@scribe/agent-readiness": ["@scribe/agent-readiness@workspace:packages/agent-readiness"],
+
     "@scribe/arbor": ["@scribe/arbor@workspace:packages/arbor"],
 
     "@scribe/bench-arbor": ["@scribe/bench-arbor@workspace:bench/arbor"],
@@ -295,6 +312,8 @@
     "@scribe/bench-signals": ["@scribe/bench-signals@workspace:bench/signals"],
 
     "@scribe/runtime": ["@scribe/runtime@workspace:packages/runtime"],
+
+    "@scribe/server": ["@scribe/server@workspace:packages/server"],
 
     "@scribe/signals": ["@scribe/signals@workspace:packages/signals"],
 
