@@ -8,10 +8,10 @@
 
 ## Current Phase
 
-**Phase:** Pre-flight (Architect pass required before Scout → Builder can proceed)
+**Phase:** Round 2 complete — Plan 4.2 DONE; Plan 1.1 unblocked for Builder.
 
-No building has started. The v1 spec documents that anchor this track do not
-yet exist. See the director note section 6 for the exact unblocking checklist.
+Plan 4.2 (Error Boundaries) shipped to `main` at `8223dbb`. Architect spec for Plan 1.1
+exists at `.team/v1/spec-track-a-architect-round-001.md`. Builder can start Plan 1.1 now.
 
 ---
 
@@ -19,9 +19,9 @@ yet exist. See the director note section 6 for the exact unblocking checklist.
 
 | Plan | Title | Status |
 |------|-------|--------|
-| 4.2 | Error boundaries (`onError` hook in arbor + runtime) | Spec gap — Architect needed |
-| 1.1 | Reconciler (`when()` and `each()` in `structural.ts`) | Spec gap — Architect needed |
-| 1.2 | Component props (typed `observedAttributes` in `@scribe/runtime`) | Spec gap — Architect needed |
+| 4.2 | Error boundaries (`onError` hook in arbor + runtime) | COMPLETE (main `8223dbb`) |
+| 1.1 | Reconciler (`when()` and `each()` in `structural.ts`) | PENDING — unblocked, Architect spec at `spec-track-a-architect-round-001.md` |
+| 1.2 | Component props (typed `observedAttributes` in `@scribe/runtime`) | PENDING — blocked on 1.1 |
 
 **Execution order (per director note §1):** 4.2 → 1.1 → 1.2
 
@@ -31,33 +31,33 @@ yet exist. See the director note section 6 for the exact unblocking checklist.
 
 | Role | Plan | Status | Notes |
 |------|------|--------|-------|
-| Architect | All (v1 spec docs) | NEEDED | `spec-v1-architecture.md` and `plan-v1-roadmap.md` do not exist |
-| Architect | 4.2 onError | NEEDED | Signature, placement, recovery model unspecified |
-| Architect | 1.1 Reconciler | NEEDED | Sub-scope lifecycle, DOM anchor, push-pop stack, keyed-diff unspecified |
-| Architect | 1.2 Props | NEEDED | Props surface shape, reactivity model, SetupContext compat unspecified |
-| Scout | All | PENDING | Can proceed immediately; see director note §4 for full brief |
-| Builder | 4.2 | PENDING | Blocked on Architect + Scout |
-| Builder | 1.1 | PENDING | Blocked on Architect + Scout + 4.2 Builder |
-| Builder | 1.2 | PENDING | Blocked on Architect + Scout + 1.1 Builder |
-| Verifier | All | PENDING | Blocked on respective Builders |
+| Architect | All (v1 spec docs) | COMPLETE | `spec-v1-architecture.md`, `plan-v1-roadmap.md`, `spec-track-a-architect-round-001.md` all exist |
+| Architect | 4.2 onError | COMPLETE | Shipped; see `verification-report-4.2.md` |
+| Architect | 1.1 Reconciler | COMPLETE | Spec at `spec-track-a-architect-round-001.md` |
+| Architect | 1.2 Props | COMPLETE | Covered in `spec-track-a-architect-round-001.md` |
+| Scout | All | COMPLETE | `scout-report-track-a.md` exists |
+| Builder | 4.2 | COMPLETE (main `8223dbb`) | 2 non-blocking Verifier findings; see notes |
+| Builder | 1.1 | PENDING | Unblocked — GO; Architect spec ready |
+| Builder | 1.2 | PENDING | Blocked on 1.1 Builder |
+| Verifier | 4.2 | COMPLETE | Report at `verification-report-4.2.md` |
+| Verifier | 1.1 | PENDING | Blocked on Builder |
+| Verifier | 1.2 | PENDING | Blocked on Builder |
 
 ---
 
 ## Key Artifacts
 
-*(Empty — none produced yet)*
-
-When artifacts are produced, list them here:
-
 | Artifact | Kind | Status |
 |----------|------|--------|
-| `spec-v1-architecture.md` | Spec | Not yet authored |
-| `plan-v1-roadmap.md` | Plan | Not yet authored |
-| Scout report | Investigation | Not yet authored |
-| 4.2 build manifest | Builder output | Not yet authored |
-| 1.1 build manifest | Builder output | Not yet authored |
-| 1.2 build manifest | Builder output | Not yet authored |
-| Verification report | Verifier output | Not yet authored |
+| `spec-v1-architecture.md` | Spec | COMPLETE |
+| `spec-v1-architecture-ratified.md` | Spec (ratified) | COMPLETE |
+| `plan-v1-roadmap.md` | Plan | COMPLETE |
+| `scout-report-track-a.md` | Scout report | COMPLETE |
+| `spec-track-a-architect-round-001.md` | Architect spec (1.1, 1.2, 4.2) | COMPLETE |
+| `build-manifest-4.2.md` | Builder output | COMPLETE |
+| `verification-report-4.2.md` | Verifier output | COMPLETE — 2 non-blocking findings |
+| 1.1 build manifest | Builder output | NOT STARTED |
+| 1.2 build manifest | Builder output | NOT STARTED |
 
 ---
 
@@ -110,3 +110,13 @@ criteria matrix.
 | Round | Date | What happened |
 |-------|------|---------------|
 | 001 | 2026-04-30 | Track A bootstrapped; director note and state file authored; no spec docs yet; Architect pass required before Scout → Builder chain can start |
+| 002 | 2026-04-30 | Plan 4.2 (Error Boundaries) COMPLETE — `main` `8223dbb`; `MountOptions.onError`, `_mountDisposersStack` push-pop, try/catch in `_mountEffect`, +4 tests; 2 non-blocking Verifier findings (T1 path format, `disposeRef` race); Plan 6.2-P0 signals opt also landed in same squash; Plan 1.1 unblocked for Builder |
+
+---
+
+## Next actions
+
+1. **Builder — Plan 1.1 (Reconciler)** — UNBLOCKED, GO. Architect spec ready at `.team/v1/spec-track-a-architect-round-001.md`. Property mangling MANDATORY. `StructuralNode` + `ChildScope` design from spec. Create `feat/v1-reconciler` from `main`.
+2. **Verifier — Plan 1.1** — after Builder PR; use spec acceptance matrix.
+3. **Builder — Plan 1.2 (Component props)** — after Plan 1.1 merges to `main`.
+4. **Background task — `disposeRef` first-run race** — LOW priority; spawned as background chip; does not gate 1.1 or 1.2.

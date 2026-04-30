@@ -1,18 +1,18 @@
 # State — Track B (Context + Data)
 
 **Track:** `track-b`
-**Last updated:** 2026-04-30 (Round 2)
-**HEAD at session start:** `79e86a6` on `feat/agent-readiness-phase0`
-**Active branch:** `feat/v1-context` (to create — Architect is now authorized)
-**Mode:** 1 (Architect active — Plan 2.1)
+**Last updated:** 2026-04-30 (Round 3)
+**HEAD at session start:** `a0e579f` (verification reports commit, 2 ahead of `8223dbb`)
+**Active branch:** `feat/v1-data` (to create for Plan 2.2)
+**Mode:** 2 (Plan 2.1 COMPLETE; Plan 2.2 READY FOR BUILDER)
 
 ---
 
 ## Current phase
 
-**Phase 1 — Architect active (Plan 2.1)**
+**Phase 2 — Plan 2.1 COMPLETE; Plan 2.2 READY FOR BUILDER**
 
-Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 ✓ → **Architect spec** → Builder 2.1 → Builder 2.2
+Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 ✓ → Architect spec ✓ → Builder 2.1 ✓ → **Builder 2.2**
 
 ---
 
@@ -20,8 +20,8 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 
 | Plan | Package | Status |
 |------|---------|--------|
-| 2.1  | `@scribe/context` | ARCHITECT ACTIVE — spec-2.1-context.md to be written |
-| 2.2  | `@scribe/data`    | SPEC DESIGN AUTHORIZED — Builder blocked on Plan 2.1 merge |
+| 2.1  | `@scribe/context` | COMPLETE (main `8223dbb`) |
+| 2.2  | `@scribe/data`    | READY FOR BUILDER — spec design in `director-notes/track-b-round-002.md` §4 |
 
 ---
 
@@ -32,6 +32,10 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 | 1     | —    | Director | COMPLETE |
 | 1     | —    | Scout    | COMPLETE (`scout-report-track-b.md`) |
 | 2     | 2.1  | Director | COMPLETE (`director-notes/track-b-round-002.md`) |
+| 2     | 2.1  | Architect | COMPLETE (`spec-2.1-context.md`) |
+| 2     | 2.1  | Builder  | COMPLETE (main `8223dbb`) — fixup `3e93838` on `feat/v1-context-data` |
+| 2     | 2.1  | Verifier | COMPLETE (`verification-report-2.1.md`) |
+| 3     | 2.2  | Builder  | READY — unblocked, GO |
 
 ---
 
@@ -108,21 +112,21 @@ The following are read-only from Track B's perspective:
 | v1 architecture spec (ratified) | `.team/v1/spec-v1-architecture-ratified.md` | COMPLETE (Track D ratified) |
 | v1 roadmap | `.team/v1/plan-v1-roadmap.md` | COMPLETE (authored) |
 | Scout report | `.team/v1/scout-report-track-b.md` | COMPLETE |
-| Architect spec 2.1 | `.team/v1/spec-2.1-context.md` | **PENDING (Architect active)** |
-| Architect spec 2.2 | `.team/v1/spec-2.2-data.md` | PENDING (can start now; Builder blocked on 2.1) |
-| Build manifest 2.1 | `.team/v1/build-manifest-2.1.md` | NOT STARTED — after spec-2.1 |
-| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | NOT STARTED — after 2.1 merge |
+| Architect spec 2.1 | `.team/v1/spec-2.1-context.md` | COMPLETE |
+| Architect spec 2.2 | `.team/v1/spec-2.2-data.md` | PENDING — Architect to write before Builder starts |
+| Build manifest 2.1 | `.team/v1/build-manifest-2.1.md` | COMPLETE |
+| Verification report 2.1 | `.team/v1/verification-report-2.1.md` | COMPLETE |
+| Build manifest 2.2 | `.team/v1/build-manifest-2.2.md` | NOT STARTED |
 | State file | `.team/v1/state-track-b.md` | THIS FILE |
 
 ---
 
 ## Next actions
 
-1. **Architect** — write `.team/v1/spec-2.1-context.md` per director-notes/track-b-round-002.md §5 (UNBLOCKED — GO)
-2. **Architect (parallel)** — write `.team/v1/spec-2.2-data.md` per director-notes/track-b-round-002.md §4 (UNBLOCKED for spec-writing; Builder dispatch after 2.1 merge)
-3. **Builder** — after `spec-2.1-context.md` approved: scaffold `packages/context/` on `feat/v1-context`
-4. **Director (Round 3)** — review 2.1 PR when ready
-5. **Builder** — after 2.1 merged: scaffold `packages/data/` on `feat/v1-data`
+1. **Architect** — write `.team/v1/spec-2.2-data.md` per director-notes/track-b-round-002.md §4 (UNBLOCKED — GO)
+2. **Builder** — after `spec-2.2-data.md` approved: scaffold `packages/data/` on `feat/v1-data` from `main`
+3. **Verifier** — verify Plan 2.2 build against spec acceptance matrix
+4. **Director (Round 3 close)** — review 2.2 PR when ready
 
 ### Do-not-break list update
 `packages/server/src/ssr.ts` now receives **additive** changes (two new optional fields in `SsrOptions`) as part of Plan 2.1 scope. It is no longer strictly read-only for Track B.

@@ -3,7 +3,7 @@
 **Branch:** `feat/v1-ssr-signals`
 **Plans:** 3.1 (Streaming SSR), 6.2 (Signals Deep-Chain Optimization)
 **Initialized:** 2026-04-30
-**Last updated:** 2026-04-30 (Round 1 session start)
+**Last updated:** 2026-04-30 (Round 3 — Session 002 complete)
 
 ---
 
@@ -11,9 +11,9 @@
 
 | Plan | Status | Owner | Notes |
 |---|---|---|---|
-| 3.1 Streaming SSR | READY FOR BUILDER | TBD | Spec complete; see `spec-3.1-streaming-ssr.md` + round-002 §2 |
-| 6.2 Deep-chain Phase 0 (Option C) | READY FOR BUILDER | TBD | Direct from investigation report; see round-002 §5 |
-| 6.2 Deep-chain Phase 1 (Option D) | HOLD | TBD | Awaiting Option C bench confirmation; Architect spec in Round 3 |
+| 3.1 Streaming SSR | COMPLETE (main `ec24d41`) | — | `renderToStream`, `DataSource<T>`, `StreamOptions`; `ssr-stream.test.ts` 167 lines |
+| 6.2 Deep-chain Phase 0 (Option C) | COMPLETE (main `8223dbb`) | — | `HAS_EFFECT_SUB` flag + conditional push; ~18% improvement (4.00→3.27 µs p50); ≤1.54 kB gz |
+| 6.2 Deep-chain Phase 1 (Option D) | READY FOR ARCHITECT SPEC | TBD | Phase 0 bench confirmed ≥18% (≥10% threshold met); Option D hybrid fanout/lazy |
 
 ---
 
@@ -35,12 +35,12 @@ Exports: `renderToString`, `SsrOptions`, `ComponentDescription`, `MetaTag`, `Lin
 
 ### Deliverables for 3.1
 
-- [ ] `packages/server/src/stream-types.ts` — `DataSource<T>`, `StreamOptions`
-- [ ] `renderToStream(component: ComponentDescription, opts?: StreamOptions): ReadableStream<string>` added to `ssr.ts`
-- [ ] `renderToString` refactored to drain `renderToStream` internally
-- [ ] New exports in `packages/server/src/index.ts`: `renderToStream`, `DataSource`, `StreamOptions`
-- [ ] Tests: `packages/server/tests/ssr-stream.test.ts` (≥6 tests)
-- [ ] All existing `renderToString` tests still pass
+- [x] `packages/server/src/stream-types.ts` — `DataSource<T>`, `StreamOptions`
+- [x] `renderToStream(component: ComponentDescription, opts?: StreamOptions): ReadableStream<string>` added to `ssr.ts`
+- [x] `renderToString` refactored to drain `renderToStream` internally
+- [x] New exports in `packages/server/src/index.ts`: `renderToStream`, `DataSource`, `StreamOptions`
+- [x] Tests: `packages/server/tests/ssr-stream.test.ts` (167 lines, ≥6 tests)
+- [x] All existing `renderToString` tests still pass
 
 ### Open questions (decided — see director note Round 1)
 
@@ -112,13 +112,20 @@ These are the passing baselines that 6.2 must not regress by more than 10% (per 
 
 ### Deliverables for 6.2
 
-- [ ] `investigation-deep-chain.md` in `.team/v1/` — Investigator's report with ≥2 implementation options, predicted p50 impacts, size costs
-- [ ] Architect spec for the chosen implementation option
+**Phase 0 (Option C) — COMPLETE:**
+- [x] `investigation-deep-chain.md` in `.team/v1/` — Investigator's report
+- [x] Architect spec for Option C
+- [x] Builder implementation (`HAS_EFFECT_SUB` flag + conditional `visited.push`)
+- [x] `bench/signals/RESULTS.md` updated (4.00→3.27 µs p50, ~18% improvement)
+- [x] `bench/signals/CHANGELOG.md` row appended
+- [x] All 6 no-regression gates confirmed green
+- [x] All existing signal tests pass
+
+**Phase 1 (Option D) — PENDING ARCHITECT SPEC:**
+- [ ] Architect spec for Option D (hybrid fanout/lazy)
 - [ ] Builder implementation
-- [ ] `bench/signals/RESULTS.md` updated with post-fix numbers
-- [ ] `bench/signals/CHANGELOG.md` row appended
-- [ ] All 6 no-regression gates above confirmed green
-- [ ] All existing signal tests pass (current suite: `packages/signals/tests/`)
+- [ ] Bench confirmation ≥25% total improvement
+- [ ] No-regression gates hold
 
 ### Bundle size constraint
 
@@ -135,3 +142,4 @@ Any 6.2 implementation that adds bytes to `packages/signals/src/` must be justif
 |---|---|---|---|
 | 1 | 2026-04-30 | `director-notes/track-c-round-001.md` | Session start; GO for both plans |
 | 2 | 2026-04-30 | `director-notes/track-c-round-002.md` | Spec (3.1) and investigation (6.2) assessed; GO for Builder 3.1 and Builder 6.2-Phase0 (Option C) in parallel; Option D (Phase 1) HOLD pending bench confirmation |
+| 3 | 2026-04-30 | — | Plan 3.1 COMPLETE (`ec24d41`); Plan 6.2-P0 COMPLETE (`8223dbb`); Phase 0 bench confirmed ≥18% improvement; Phase 1 Option D unblocked for Architect spec |
