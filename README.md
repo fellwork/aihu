@@ -7,6 +7,9 @@ A JavaScript/TypeScript meta-framework for building Web Components with runtime-
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
 [![tests](https://img.shields.io/badge/tests-206%20passing-brightgreen)](#)
 [![bundle](https://img.shields.io/badge/browser%20bundle-3.46%20kB%20gz-brightgreen)](#bundle-size)
+[![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](https://llmstxt.org)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](https://modelcontextprotocol.io)
+[![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](https://isitagentready.com)
 
 > **CI note:** The workflow runs on `workflow_dispatch` during v0 development. Auto-triggers (push / PR) are re-enabled at v1 cutover. Local gates (typecheck · test · build · size · bench) run on every Builder dispatch and are validated by the Verifier.
 
