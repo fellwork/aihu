@@ -35,13 +35,13 @@ import type { AgentContext, Node, Snapshot } from './types.ts'
 /**
  * Module-level scope-collector slot. Set to a fresh `Dispose[]` while a
  * `mount()` call is in progress; null otherwise. `_mountEffect` reads this
- * slot through the `disposers` parameter passed by `_materialize`, but the
- * slot itself is exposed for sub-project #7's binding layer to inspect
- * during materialization later.
+ * slot through the `disposers` parameter passed by `_materialize`. No v0
+ * cross-module consumer — kept module-private until sub-project #7's
+ * binding layer needs an inspection mechanism.
  *
  * @internal
  */
-export let _activeMountDisposers: Dispose[] | null = null
+let _activeMountDisposers: Dispose[] | null = null
 
 /**
  * Counter for root-id assignment per spec §2.7. Increments per `mount()`
