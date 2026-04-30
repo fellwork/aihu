@@ -2,14 +2,14 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.scribe` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives.
 
-> **Status:** v0 core packages complete (signals · arbor · runtime · agent). Agent-readiness packages shipped (server · agent-readiness). 206 tests passing. Rust SFC compiler is the remaining v0 → v1 gate. The reactive, DOM, and server/agent-readiness layers are stable and usable as standalone libraries today.
+> **Status:** v0 core packages complete (signals · arbor · runtime · agent). Agent-readiness packages shipped (server · agent-readiness). 255 tests passing. Rust SFC compiler is the remaining v0 → v1 gate. The reactive, DOM, and server/agent-readiness layers are stable and usable as standalone libraries today.
 
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
-[![tests](https://img.shields.io/badge/tests-206%20passing-brightgreen)](#)
+[![tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)](#)
 [![bundle](https://img.shields.io/badge/browser%20bundle-3.46%20kB%20gz-brightgreen)](#bundle-size)
-[![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](https://llmstxt.org)
-[![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](https://modelcontextprotocol.io)
-[![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](https://isitagentready.com)
+[![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
+[![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
 
 > **CI note:** The workflow runs on `workflow_dispatch` during v0 development. Auto-triggers (push / PR) are re-enabled at v1 cutover. Local gates (typecheck · test · build · size · bench) run on every Builder dispatch and are validated by the Verifier.
 
@@ -131,11 +131,12 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 ```bash
 bun install
 bun run build      # build all 6 packages
-bun run test       # 206 tests (unit + integration)
+bun run test       # 255 tests (unit + integration + compliance)
 bun run size       # gzipped bundle gates (browser layer)
 bun run check      # biome lint + format
 bash scripts/check-boundary.sh   # AC-7: hard boundary (no client imports in server layer)
 bash scripts/check-edge-safe.sh  # AC-6: no Node-only globals in dist bundles
+bun run test:quality              # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo)
 ```
 
 Run the bench suites:
@@ -186,6 +187,23 @@ export default { fetch: router }
 // Deno / Bun
 // Deno.serve(router)  |  Bun.serve({ fetch: router })
 ```
+
+## Compliance
+
+The agent-protocol badges are backed by real test gates in `bun run test`.
+
+| Gate | Tests | Status |
+|---|---|---|
+| `llms.txt` format (llmstxt.org spec) | 9 tests in `packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts` | ✓ passing |
+| MCP Server Card schema (SEP-1649) | 14 tests in `packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | ✓ passing |
+| `robots.txt` RFC 9309 | 7 tests in `packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts` | ✓ passing |
+| isitagentready.com endpoint checklist | 7 tests in `packages/agent-readiness/tests/compliance/isitagentready.test.ts` | ✓ passing |
+| SSR output structural checks | 12 tests in `packages/server/tests/compliance/ssr-output.test.ts` | ✓ passing |
+| Lighthouse quality gate (≥ 90 all categories) | `bun run test:quality` via `scripts/lighthouse.ts` | ✓ passing |
+
+Run all compliance checks: `bun run test && bun run test:quality`
+
+---
 
 ## Where to read next
 

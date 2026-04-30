@@ -20,7 +20,8 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "size": "size-limit"
+    "size": "size-limit",
+    "test:quality": "bun scripts/lighthouse.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
@@ -33,6 +34,8 @@
     "rolldown-plugin-dts": "^0.23.2",
     "size-limit": "^11.1.6",
     "typescript": "^5.6.2",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.1",
+    "lighthouse": "^12.0.0",
+    "chrome-launcher": "^1.1.2"
   }
 }

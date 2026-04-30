@@ -24,6 +24,7 @@ export interface HeadConfig {
   readonly title?: string
   readonly meta?: ReadonlyArray<MetaTag>
   readonly links?: ReadonlyArray<LinkTag>
+  readonly lang?: string
 }
 
 export interface SsrOptions {
@@ -134,7 +135,7 @@ export async function renderToString(
 
   if (opts?.head) {
     const headHtml = buildHead(opts.head)
-    return `<!DOCTYPE html><html><head>${headHtml}</head><body>${content}${stateScript}</body></html>`
+    return `<!DOCTYPE html><html${opts.head.lang ? ` lang="${escapeAttr(opts.head.lang)}"` : ''}><head>${headHtml}</head><body>${content}${stateScript}</body></html>`
   }
 
   return content

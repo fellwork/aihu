@@ -33,6 +33,7 @@ const renderDocument = (config: LlmsTxtConfig, optionalHeading: string): string 
     lines.push(`> ${config.summary}`, '')
   }
   for (const section of config.sections) {
+    if (section.links.length === 0) continue
     lines.push(`## ${section.title}`)
     for (const link of section.links) lines.push(renderLink(link))
     lines.push('')
