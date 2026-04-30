@@ -1,11 +1,11 @@
 # State — Track: plan-a
 
-**Last updated:** 2026-04-30 (post-Round-N close)
-**Written by:** Team Lead (post-Round-N closeout: Phase 4 + Phase 5 + signals headroom recovery + arbor v0+1 cleanup all landed)
+**Last updated:** 2026-04-30 (post-Round-N+1 close)
+**Written by:** Historian (post-Round-N+1 closeout: bench/arbor SOTA + signals memory + parity workloads)
 **Track:** plan-a (TypeScript runtime family — signals → arbor → runtime → agent)
 **Active branch:** `claude/scribe-phase-3-team-Za4UQ`
 **Develop-on branch (all sessions):** `claude/scribe-phase-3-team-Za4UQ`
-**Team branch HEAD:** `135c53c` (Round N close: 3 merge commits — signals headroom, Phase 5, arbor cleanup)
+**Team branch HEAD:** see `git log --oneline -1` (Round N+1 close: retro + learnings #23-27 + state update)
 
 ---
 
@@ -20,6 +20,8 @@
 | 3.5 | Arbor v0+1 cleanup | ✅ Done — telemetry.ts extracted, mount.ts 195→150 lines, `_activeMountDisposers` de-exported | team `135c53c` |
 | 4 | `@scribe/runtime` | ✅ Done — `defineElement` + `defineComponent` + `DefineOptions` + `ShadowMode` | team merge commit (Phase 4 PASS first try) |
 | 5 | `@scribe/agent` | ✅ Done — `getAgentMetadata` + `registerAgentMetadata` + `AgentMetadata` registry | team merge commit (Phase 5 PASS WITH NOTES, 3 LOW all ACCEPT) |
+| N+1 | `bench/arbor` | ✅ Done — 6×6×2 SOTA harness; scribe fastest on mount + update vs JSDOM-compatible comparators | team branch merge |
+| N+1 | `bench/signals` | ✅ Done — memory runner + 3 parity workloads; scribe wins cellx+dynamic-deps, loses deep-propagation | team branch merge |
 
 **Final v0 footprint (all 4 packages, gz, post-Round-N):**
 
@@ -58,7 +60,10 @@ No active build specs. Round N+1 is bench-spike work driven by `.team/phase-2-5-
 | ~~Telemetry tree-shake fix~~ | ✅ CLOSED | Shipped in PR #7. |
 | ~~Signals 49 B headroom investigation~~ | ✅ CLOSED | Investigation done; recovery applied (42 B raw gz); budget bumped 1.6 → 1.7 kB. |
 | ~~Arbor v0+1 cleanup (Phase 3 Findings 1+2+3)~~ | ✅ CLOSED | Round N close: telemetry.ts extracted, mount.ts at 150-line cap, `_activeMountDisposers` de-exported, missing test was already pre-shipped upstream. |
-| **Round N+1 — Arbor SOTA bench + signals memory dimension + competitor-parity workloads** | HIGH | Director-deferred to dedicated session. Learning #11 enforcement: arbor has zero SOTA receipts; signals has only time receipts (no memory). Round N+1 closes both gaps. |
+| ~~Round N+1 — Arbor SOTA bench + signals memory dimension + competitor-parity workloads~~ | ✅ CLOSED | bench/arbor + bench/signals extended; both tracks merged; all gates pass. |
+| solid-js + @vue/runtime-dom arbor bench — needs real browser runner (Playwright) | MEDIUM | Round N+2 |
+| signals deep-propagation gap vs alien-signals (1.65×) | LOW | investigate in v0+1 signals work |
+| memory bench quiesce protocol — current V8/Bun protocol gives GC-noise zeros for small graphs | LOW | v0+1 |
 | Phase 4 LOW findings (build-manifest cleanup) | LOW (v0+1) | 2 LOW found by Phase 4 Verifier; non-blocking; logged for v0+1 cleanup pass. |
 | Phase 5 LOW findings (3 cosmetic) | LOW (v0+1) | Co-located `AgentMetadata`, moon.yml precedent, index.ts export order. All ACCEPTed; non-blocking. |
 | README.md correction (signals docs) | ✅ CLOSED | Round N close: `MAX_BATCH_ITERATIONS` no longer described as public export. |
@@ -83,23 +88,27 @@ No active build specs. Round N+1 is bench-spike work driven by `.team/phase-2-5-
 - `.size-limit.json` — 4 rows: signals (1700 B), arbor (2048 B), runtime (1024 B), agent (100 B).
 - `packages/arbor/src/mount.ts` — 150 lines exactly. **Cap line — any addition breaches Learning #13.**
 - `packages/arbor/src/telemetry.ts` — new in Round N (49 lines, internal-only).
-- `bench/signals/` — exists with mitata-driven time benchmarks (cellx, wide-fanout-100, batched-writes-100); 6 competitors (alien, preact, vue, solid, sjs, scribe); `RESULTS.md` + `CHANGELOG.md`. **No memory benchmarks.**
-- `bench/arbor/` — does NOT exist.
+- `bench/signals/` — exists with mitata-driven time + memory benchmarks (cellx, wide-fanout-100, batched-writes-100, deep-propagation-100, dynamic-deps, creation-1to1000); 6 competitors; `RESULTS.md` + `CHANGELOG.md` + `HARNESS.md`. Memory runner at `src/memory.ts` (--expose-gc protocol). Gate extended with memory dimension.
+- `bench/arbor/` — exists with 6 workloads × 6 competitors × 2 metrics (time + memory). gate.ts time-only. JSDOM-relative. solid-js/vue ERROR in all workloads (deferred to Round N+2 browser runner).
 - All 4 package aliases pre-wired in `vitest.config.ts`.
-- Learnings #1–22 all present in `.team/learnings.md`.
+- Learnings #1–27 all present in `.team/learnings.md`.
 
 ---
 
-## Round N+1 scope (next session, deferred per Director)
+## Round N+1 scope — CLOSED
 
-**Mission:** close the two Learning #11 gaps that v0 cannot ship to first external eyes without:
+**Completed 2026-04-30.** Both tracks shipped:
+1. bench/arbor/ — 6 workloads × 6 competitors × 2 metrics (time + memory). Scribe fastest on all mount + update workloads vs JSDOM-compatible comparators.
+2. bench/signals/ — memory runner + 3 parity workloads (deep-propagation-100, dynamic-deps, creation-1to1000). Scribe wins on cellx, batched-writes, dynamic-deps, creation; loses deep-propagation to alien-signals (1.65×, documented as design-point gap).
+3. CI gates extended — arbor gate.ts wired (time-only); signals gate extended with memory dimension.
 
-1. **Arbor SOTA bench** — replicate Phase 2.5 bench-spike pattern at `bench/arbor/`. Workloads: 10k-leaf mount, deep tree update, wide-tree mount, attribute thrash, dispose churn. Comparators: lit-html, solid-js (DOM bindings), @vue/reactivity (effect-driven DOM), Preact (`htm` rendered), vanilla DOM baseline.
-2. **Signals memory dimension** — add `bench/signals/src/memory.ts` runner. Same workloads × competitors matrix; metrics: peak heap during build, steady-state heap after N graphs, allocation-count delta via `v8.getHeapStatistics()`. `--expose-gc` for forced collections between phases.
-3. **Competitor-parity workloads** — survey each competitor's named benches (alien-signals: deep-chain + dynamic-deps + GC profile; @vue/reactivity: reactive-object thrash + computed cascade + effect-scope teardown; solid-js: krausest js-framework-benchmark; @preact/signals-core: small-graph throughput; s-js: original sync-fine-grained micro). Lift the workloads we don't have. RESULTS.md gets a per-axis breakdown ("alien-signals' axes," "Vue's axes," etc.).
-4. **CI gates extended** — memory regression ≥10% on `p50` of any new metric fails CI (mirrors existing time gate). Apply same shape to `bench/arbor/`.
+v0 is feature-complete with receipts. Retro at `.team/round-n1/retro.md`. Learnings #23–27 in `.team/learnings.md`.
 
-After Round N+1: v0 is feature-complete with receipts. That's the natural ship gate.
+---
+
+## Round N+2 scope (deferred)
+
+Round N+2 (deferred): (1) browser-native arbor bench for solid-js and @vue/runtime-dom (Playwright runner) — JSDOM env gaps block both comparators (Learning #23); (2) signals deep-chain investigation — close the alien-signals deep-propagation gap (4.0 µs vs 2.4 µs, Learning #26); (3) memory bench protocol improvement — current V8/Bun GC-quiesce protocol gives noise zeros for small graphs (Learning #25). After Round N+2: v0 has complete receipts on all axes. That's the v0 → v1 cutover gate.
 
 ---
 
