@@ -64,4 +64,4 @@ Chose **option (a)** from spec §4: `__resetRegistryForTesting` exported from `r
 
 | SHA | Message |
 |---|---|
-| _backfill_ | feat(agent): scaffold @scribe/agent + registry + 7 tests |
+| `648d11c` | feat(agent): scaffold @scribe/agent + registry + 7 tests |
