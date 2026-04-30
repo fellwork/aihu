@@ -11,7 +11,7 @@
 
 ## 0. Summary
 
-`@scribe/data` is the signal-native, backend-agnostic data fetching primitive for scribe v1. It exposes a single public function — `createResource` — that wraps any `(key: string) => Promise<T>` fetcher in a reactive `DataSource<T>` object backed by a shared, context-injectable cache store. Resources dehydrate to JSON at SSR time and rehydrate on the client without a second network round-trip.
+`@scribe/data` is the signal-native, backend-agnostic data fetching primitive for scribe v1. It exposes a single public function — `createResource` — that wraps any `(key: string) => Promise<T>` fetcher in a reactive `Resource<T>` object backed by a shared, context-injectable cache store. Resources dehydrate to JSON at SSR time and rehydrate on the client without a second network round-trip.
 
 This is a Layer 3 (Surface) browser package. It ships in every app that uses async data. Its size budget is **500 B gzip**.
 
@@ -27,7 +27,7 @@ Components need to load async data reactively — re-fetching when a key changes
 
 - `createResource<T>` — reactive data resource backed by a signal-reactive key
 - `DataState<T>` — five-state discriminated union modelling all async lifecycle states
-- `DataSource<T>` — the return type: state signal + imperative controls (`refetch`, `invalidate`)
+- `Resource<T>` — the return type: state signal + imperative controls (`refetch`, `invalidate`)
 - `ResourceStore` — the cache backing store interface
 - `createResourceStore()` — factory for the default in-memory store
 - `ResourceStoreToken` — context token for store injection via `@scribe/context`
@@ -73,7 +73,7 @@ export type DataState<T> =
   | { readonly status: 'streaming'; readonly data: T; readonly done: false }
 ```
 
-### 2.2 `DataSource<T>` — resource handle
+### 2.2 `Resource<T>` — resource handle
 
 ```typescript
 /**
@@ -83,7 +83,7 @@ export type DataState<T> =
  * .state is a Signal<DataState<T>> — read it inside effects and templates
  * exactly as any other signal (value[0]() to get the current state).
  */
-export interface DataSource<T> {
+export interface Resource<T> {
   readonly state: Signal<DataState<T>>
   /** Immediately trigger a new fetch for the current key, bypassing cache. */
   refetch(): void
@@ -136,7 +136,7 @@ export function createResource<T>(
   key: Signal<string | null | undefined>,
   fetcher: (key: string) => Promise<T>,
   options?: ResourceOptions<T>,
-): DataSource<T>
+): Resource<T>
 ```
 
 ### 2.5 `ResourceStore` — cache store interface
@@ -256,7 +256,7 @@ packages/data/src/
   resource.ts    — createResource implementation
   store.ts       — ResourceStore interface, createResourceStore, ResourceStoreToken
   serializer.ts  — createResourceSerializer
-  types.ts       — DataState<T>, DataSource<T>, ResourceOptions<T>
+  types.ts       — DataState<T>, Resource<T>, ResourceOptions<T>
 ```
 
 ### 4.2 `createResource` internals
@@ -270,7 +270,7 @@ import { signal, effect } from '@scribe/signals'
 import type { Signal } from '@scribe/signals'
 import { inject } from '@scribe/context'
 import { ResourceStoreToken, createResourceStore } from './store.ts'
-import type { DataState, DataSource, ResourceOptions } from './types.ts'
+import type { DataState, Resource, ResourceOptions } from './types.ts'
 
 // Module-level default singleton store
 let _defaultStore: ResourceStore | null = null
@@ -283,7 +283,7 @@ export function createResource<T>(
   key: Signal<string | null | undefined>,
   fetcher: (key: string) => Promise<T>,
   options?: ResourceOptions<T>,
-): DataSource<T> {
+): Resource<T> {
   // 1. Resolve the cache store
   //    Priority: options.store > inject(ResourceStoreToken) > module singleton
   const store: ResourceStore =
@@ -351,9 +351,9 @@ export function createResource<T>(
     )
   })
 
-  // 8. Build and return the DataSource<T> handle
+  // 8. Build and return the Resource<T> handle
   return {
-    state: [getState, () => { throw new Error('DataSource state is read-only') }] as unknown as Signal<DataState<T>>,
+    state: [getState, () => { throw new Error('Resource state is read-only') }] as unknown as Signal<DataState<T>>,
     refetch(): void {
       const currentKey = key[0]()
       if (currentKey == null) return
@@ -402,9 +402,9 @@ export function createResource<T>(
 1. The `_fetchId` guard is mandatory. Without it, a slow fetch for key `"A"` could overwrite the result of a fast fetch for key `"B"` that came after.
 2. `effect()` runs synchronously once on creation. If the key is already non-null and a cache entry exists and is fresh, the resource initializes to `ready` without firing the fetcher.
 3. `invalidate()` must NOT change `getState()`. The signal stays `ready` — the stale flag is internal. This allows UIs to continue showing the last known data while a background refetch is pending.
-4. The `dispose()` method (not on the `DataSource<T>` interface but on the internal handle) calls `disposeEffect()` to stop watching the key signal. This must be exposed so tests and component teardown can release effects. See §8 (test 12) for the dispose test.
+4. The `dispose()` method (not on the `Resource<T>` interface but on the internal handle) calls `disposeEffect()` to stop watching the key signal. This must be exposed so tests and component teardown can release effects. See §8 (test 12) for the dispose test.
 
-> **Architect note on `DataSource<T>` interface vs. `dispose()`:** The `DataSource<T>` interface defined in §2.2 does not include `dispose()`. This is intentional — `dispose()` is not part of the public contract (component teardown is handled by the framework effect lifecycle). However, `createResource` should return an object that has a `dispose()` method accessible via internal typing or an extended interface. The Builder should define an internal `ResourceHandle<T>` that extends `DataSource<T>` with `dispose(): void`, and return `ResourceHandle<T>` from `createResource`'s implementation while the public return type is `DataSource<T>`.
+> **Architect note on `Resource<T>` interface vs. `dispose()`:** The `Resource<T>` interface defined in §2.2 does not include `dispose()`. This is intentional — `dispose()` is not part of the public contract (component teardown is handled by the framework effect lifecycle). However, `createResource` should return an object that has a `dispose()` method accessible via internal typing or an extended interface. The Builder should define an internal `ResourceHandle<T>` that extends `Resource<T>` with `dispose(): void`, and return `ResourceHandle<T>` from `createResource`'s implementation while the public return type is `Resource<T>`.
 
 ### 4.3 Store resolution priority
 
@@ -916,16 +916,16 @@ The following packages must not be modified as part of the Plan 2.2 PR. Any requ
 | `@scribe/server` | No changes — `SsrOptions.serializer` is an existing hook; `@scribe/data` wires into it from application code, not from within `@scribe/server` |
 | `@scribe/agent` | No changes |
 | `@scribe/agent-readiness` | No changes |
-| `packages/server/src/stream-types.ts` | The existing `DataSource<T>` in this file is a different interface (used by `renderToStream` for suspension boundaries). `@scribe/data`'s `DataSource<T>` is a different, richer type. The Builder must NOT rename or alias these to each other. Both coexist. The server's `DataSource<T>` is a stream-suspension contract; `@scribe/data`'s `DataSource<T>` is a fetch-state + controls object. The name collision is acknowledged; the two types are unrelated by design. |
+| `packages/server/src/stream-types.ts` | The existing `DataSource<T>` in this file is a different interface (used by `renderToStream` for suspension boundaries). `@scribe/data`'s `Resource<T>` is a different, richer type. The Builder must NOT rename or alias these to each other. Both coexist. The server's `DataSource<T>` is a stream-suspension contract; `@scribe/data`'s `Resource<T>` is a fetch-state + controls object. The name is different by design; the two types are unrelated. |
 
-### Note on `stream-types.ts` name collision
+### Note on `stream-types.ts` type distinction
 
-`packages/server/src/stream-types.ts` defines a `DataSource<T>` interface for the server's streaming suspension model (`status: 'pending' | 'ready' | 'error'`, plus `onReady(cb)`). This is a different, narrower interface than `@scribe/data`'s `DataSource<T>`. They share a name but are not related.
+`packages/server/src/stream-types.ts` defines a `DataSource<T>` interface for the server's streaming suspension model (`status: 'pending' | 'ready' | 'error'`, plus `onReady(cb)`). This is a different, narrower interface than `@scribe/data`'s `Resource<T>`. They serve different purposes.
 
 - The server's `DataSource<T>` is internal to `@scribe/server` and used by `renderToStream`.
-- `@scribe/data`'s `DataSource<T>` is public and used by application components.
+- `@scribe/data`'s `Resource<T>` is public and used by application components.
 
-Because `@scribe/data` does not import from `@scribe/server`, there is no runtime collision. TypeScript callers who import both may need to alias one. This is an acknowledged design debt — resolving the naming conflict (e.g., renaming the server type to `StreamBoundary<T>`) is out of scope for Plan 2.2 and should be tracked as a separate clean-up item.
+Because `@scribe/data` does not import from `@scribe/server`, there is no runtime collision. TypeScript callers who import both will see two distinct types with distinct names (`DataSource<T>` vs `Resource<T>`) and no aliasing is required.
 
 ---
 
