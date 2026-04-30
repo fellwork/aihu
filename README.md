@@ -2,11 +2,11 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.scribe` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives.
 
-> **Status:** v0 packages complete (signals · arbor · runtime · agent). 131 tests passing. Rust SFC compiler is the remaining v0 → v1 gate. The reactive + DOM layers are stable and usable as standalone libraries today.
+> **Status:** v0 core packages complete (signals · arbor · runtime · agent). Agent-readiness packages shipped (server · agent-readiness). 206 tests passing. Rust SFC compiler is the remaining v0 → v1 gate. The reactive, DOM, and server/agent-readiness layers are stable and usable as standalone libraries today.
 
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
-[![tests](https://img.shields.io/badge/tests-131%20passing-brightgreen)](#)
-[![bundle](https://img.shields.io/badge/bundle-3.32%20kB%20gz-brightgreen)](#bundle-size)
+[![tests](https://img.shields.io/badge/tests-206%20passing-brightgreen)](#)
+[![bundle](https://img.shields.io/badge/browser%20bundle-3.46%20kB%20gz-brightgreen)](#bundle-size)
 
 > **CI note:** The workflow runs on `workflow_dispatch` during v0 development. Auto-triggers (push / PR) are re-enabled at v1 cutover. Local gates (typecheck · test · build · size · bench) run on every Builder dispatch and are validated by the Verifier.
 
@@ -37,7 +37,7 @@ Compare to: Solid (single-package), Lit (templating + base class only), Vue (pro
 This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
 
 Key non-goals (today):
-- **No SSR / hydration** — `MountScope.serialize()` throws `ArborNotImplementedError`. Planned for `@scribe/server` layer.
+- **No full hydration** — `renderToString` is live in `@scribe/server`. Full serialize → client-deserialize (`MountScope.serialize()`) still throws `ArborNotImplementedError`. Planned for sub-project #6.
 - **No agent live-binding** — `MountScope.agent` returns a frozen branded stub. Planned as sub-project #7.
 - **No `when` / `each` reconciler** — both throw `ArborNotImplementedError`. v1 reconciler.
 
@@ -79,13 +79,22 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ### Bundle size (gz)
 
+**Browser layer** (ships to client — hard 4 kB budget):
+
 | Package | Size | Budget | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | 1.53 kB | 1.7 kB | 172 B |
-| `@scribe/arbor` | 1.28 kB | 2.05 kB | 772 B |
-| `@scribe/runtime` | 438 B | 1.02 kB | 586 B |
-| `@scribe/agent` | 72 B | 100 B | 28 B |
-| **Combined** | **3.32 kB** | **4.0 kB** | **~680 B** |
+| `@scribe/signals` | 1.55 kB | 1.7 kB | 150 B |
+| `@scribe/arbor` | 1.29 kB | 2.05 kB | 760 B |
+| `@scribe/runtime` | 0.48 kB | 1.02 kB | 540 B |
+| `@scribe/agent` | 0.14 kB | 100 B | — |
+| **Combined** | **3.46 kB** | **4.0 kB** | **~540 B** |
+
+**Server / agent-readiness layer** (edge runtime — no size constraint):
+
+| Package | Size | Notes |
+|---|---:|---|
+| `@scribe/server` | 1.63 kB | router · middleware · api · ssr · data · config |
+| `@scribe/agent-readiness` | 1.78 kB | llms-txt · mcp-server-card · robots · content-negotiation · vite-plugin |
 
 ---
 
@@ -97,6 +106,8 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 | [`packages/arbor`](./packages/arbor) | `@scribe/arbor` — `branch`, `leaf`, `mount`, `MountScope`. Phase 3. |
 | [`packages/runtime`](./packages/runtime) | `@scribe/runtime` — `defineElement`, `defineComponent`, `DefineOptions`, `ShadowMode`. Phase 4. |
 | [`packages/agent`](./packages/agent) | `@scribe/agent` — `AgentMetadata` registry, `getAgentMetadata`, `registerAgentMetadata`. Phase 5. |
+| [`packages/server`](./packages/server) | `@scribe/server` — fetch-API router, middleware, api helpers, SSR, data loaders, config. Edge-safe. |
+| [`packages/agent-readiness`](./packages/agent-readiness) | `@scribe/agent-readiness` — `llms.txt`, MCP Server Card, `robots.txt`, content negotiation, Vite plugin. |
 | [`bench/signals`](./bench/signals) | Signals bench harness — 6 workloads × 6 competitors × time + memory. |
 | [`bench/arbor`](./bench/arbor) | Arbor bench harness — 6 workloads × 6 competitors × time + memory (JSDOM). |
 | `tests/` | Cross-package integration tests. |
@@ -116,10 +127,12 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ```bash
 bun install
-bun run build      # build all 4 packages
-bun run test       # 131 tests (unit + integration)
-bun run size       # gzipped bundle gates
+bun run build      # build all 6 packages
+bun run test       # 206 tests (unit + integration)
+bun run size       # gzipped bundle gates (browser layer)
 bun run check      # biome lint + format
+bash scripts/check-boundary.sh   # AC-7: hard boundary (no client imports in server layer)
+bash scripts/check-edge-safe.sh  # AC-6: no Node-only globals in dist bundles
 ```
 
 Run the bench suites:
@@ -144,11 +157,38 @@ setCount(1) // DOM updates synchronously via nodeValue
 scope.dispose()
 ```
 
+Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun):
+
+```ts
+import { createRouter, defineRoute, json } from '@scribe/server'
+import { createAgentReadinessRoutes } from '@scribe/agent-readiness'
+
+const ar = createAgentReadinessRoutes({
+  name: 'My App',
+  endpoint: 'https://myapp.workers.dev/mcp',
+  summary: 'A scribe-powered app.',
+})
+
+const router = createRouter({
+  routes: [
+    defineRoute('/llms.txt', ar.llmsTxt),
+    defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
+    defineRoute('/robots.txt', ar.robotsTxt),
+    defineRoute('/api/hello', () => json({ hello: 'world' })),
+  ],
+})
+
+// Cloudflare Worker
+export default { fetch: router }
+// Deno / Bun
+// Deno.serve(router)  |  Bun.serve({ fetch: router })
+```
+
 ## Where to read next
 
 - **Specs (binding):** [`.team/phase-2/spec-signals.md`](./.team/phase-2/spec-signals.md), [`.team/phase-3/spec-arbor.md`](./.team/phase-3/spec-arbor.md), [`.team/phase-4/spec-runtime.md`](./.team/phase-4/spec-runtime.md), [`.team/phase-5/spec-agent.md`](./.team/phase-5/spec-agent.md).
-- **Agent-readiness spec:** [`.team/agent-readiness/spec-agent-readiness.md`](./.team/agent-readiness/spec-agent-readiness.md) — in-progress: `@scribe/server` + `@scribe/agent-readiness`.
-- **Phase retros:** `.team/phase-*/retro.md`, `.team/round-n1/retro.md`.
+- **Agent-readiness spec:** [`.team/agent-readiness/spec-agent-readiness.md`](./.team/agent-readiness/spec-agent-readiness.md) — complete: `@scribe/server` + `@scribe/agent-readiness` (AC-1 through AC-8).
+- **Phase retros:** `.team/phase-*/retro.md`, `.team/round-n1/retro.md`, [`.team/agent-readiness/retro-phase1-3.md`](./.team/agent-readiness/retro-phase1-3.md).
 - **Learnings:** [`.team/learnings.md`](./.team/learnings.md) — 27 entries, all durable.
 - **Bench harness:** `bench/signals/HARNESS.md`, `bench/arbor/HARNESS.md`.
 
