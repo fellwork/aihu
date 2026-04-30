@@ -66,7 +66,7 @@ Reported metrics:
 
 - **`buildHeapDelta` (B/graph)** — `(post-build heapUsed - pre-build heapUsed) / N`. The steady-state cost of holding the graph live. Gated at **10 % regression**.
 - **`peakMalloc` (B)** — `peak_malloced_memory` delta during build. Captures transient allocations the gc reclaims. Gated at **15 % regression** (noisier; V8 internal-cache layout swings 5-8 % across runs).
-- **`disposeResidual` (B)** — `(post-dispose heapUsed - pre-build heapUsed)`. Total residual after teardown. Should be ≤ a small constant; growth with N indicates the competitor leaks. **Informational only — NOT gated** (per design §4.4). The gate prints leak-signal lines tagged `INFO` for observability.
+- **`disposeResidual` (B)** — `(post-dispose heapUsed - pre-build heapUsed)`. Total residual after teardown. Should be ≤ a small constant; growth with N indicates the competitor leaks. **Informational only — NOT gated** (per design §4.4; see "Design §4.4 deviation" in Memory measurement caveats below). The gate prints leak-signal lines tagged `INFO` for observability.
 
 **Threshold rationale.** Phase 2.5 chose 10 % for time. `buildHeapDelta` is a per-graph average across N=1000 — extremely stable across runs, so 10 % matches time. `peakMalloc` reflects V8 internal arena cache state; observed run-to-run variance ≈5-8 %, so 15 % gives headroom without admitting real regressions.
 
@@ -75,6 +75,30 @@ Reported metrics:
 **Negative buildHeapDelta is real.** The `heapUsed` reading swings: sometimes V8 reclaims more transient garbage during settle than the graph itself costs, so the post-build figure is *below* pre-build. This is not a bug — it reads as "this graph holds approximately zero bytes that V8 can't fold back into freelists." The gate's low-baseline branch (|prev| < 64 B) handles small absolute deltas accordingly.
 
 **JSDOM-fidelity caveat (signals: not applicable; arbor: critical).** Per design §8.2, JSDOM nodes are JS objects backed by ad-hoc internals — there is no native DOM memory. For `bench/signals/` this is a non-issue (all memory IS JS-side). For `bench/arbor/` (Track A's domain), the absolute numbers under-report what a real browser would show by the platform-allocator share; relative ordering remains reliable. Document this in `RESULTS.md` for arbor.
+
+## Memory measurement caveats
+
+### Negative buildHeapDelta
+
+Values < 0 mean GC ran during the build phase and freed prior-generation objects, making `heapUsed` appear lower than before the build. This is a timing artifact — V8's incremental or minor-GC may sweep transient garbage from earlier allocations during the settle window. Treat values < −1 KB as noise: they indicate the graph's net live cost is near zero, not that memory was genuinely freed by building a graph.
+
+### `creation-1to1000` memory data
+
+This workload creates **and disposes** the entire signal graph inside each `run()` call — the graph is not held live between calls. The standard memory protocol's `build(adapter)` → N × `build()` structure means the adapter setup overhead is what gets measured, not steady-state graph cost. As a result, `buildHeapDelta` will be ~0 B for all competitors. This is expected and not a bug. The workload's memory profile is best read from `peakMalloc`, which captures the transient allocation burst during graph construction and teardown.
+
+### Dispose-residual ~97-100% pattern
+
+If ALL competitors show `disposeResidual` ≈ `buildHeapDelta × N` (i.e. ~97–100% of built memory remains after disposal), this is a **V8 young-gen GC timing artifact**, not a scribe-specific leak. V8's GC did not collect the objects within the 3× `gc()` settle window because they are still in the young generation and the GC quiesce schedule did not align with the measurement point.
+
+A scribe-specific leak would appear as scribe's residual notably higher than other competitors' residuals at the same workload scale. When all competitors show ~97–100% residual simultaneously, the cause is the measurement protocol, not any individual library.
+
+### Design §4.4 deviation — disposeResidual hard-fail
+
+Design §4.4 specified a hard-fail gate: "any dispose-residual > N × 32 bytes fails outright." This threshold is **intentionally absent from `gate.ts`**.
+
+The current GC quiesce protocol (3× `gc()` settle) produces near-100% residual for **all** competitors on workloads like `wide-fanout-100` — a V8 young-gen timing artifact described above. Implementing the N × 32 B threshold would false-alarm on every run regardless of whether any real leak exists. The gate instead logs `disposeResidual` as `INFO` lines for observability.
+
+Revisit in v0+1 with an improved GC quiesce protocol (e.g. `--expose-gc` + explicit full-GC + inter-sample settle time) that reliably reclaims young-gen objects before the post-dispose sample.
 
 ## CI gate (memory dimension)
 
