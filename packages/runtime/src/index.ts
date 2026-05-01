@@ -17,3 +17,10 @@
 export { defineComponent } from './define-component.ts'
 export { defineElement } from './define-element.ts'
 export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'
+
+/**
+ * Internal bootstrap exports — not part of the public API contract.
+ * Required by compiler-emitted options-form components at app boot.
+ * See decision D5 (Phase 1 engineering review).
+ */
+export { _setMount, _setSignal } from './define-component.ts'
