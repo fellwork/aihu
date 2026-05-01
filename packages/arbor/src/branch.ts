@@ -1,4 +1,4 @@
-import { _makeBranch, EMPTY_CHILDREN } from './node.ts'
+import { EMPTY_CHILDREN } from './node.ts'
 import type { AttrMap, Branch, ChildList } from './types.ts'
 
 /**
@@ -10,7 +10,8 @@ import type { AttrMap, Branch, ChildList } from './types.ts'
  * grouping case: no wrapper element is created at mount, children are
  * appended directly to the host or parent (per spec §1.2 and §2.3).
  *
- * Shape-lock per §2.9:
+ * Shape-lock per §2.9 (R3-arbor inlines the prior `_makeBranch` factory
+ * here — investigation-arbor-restructure.md §Q4 — single call site):
  * - omitted `attrs` is normalized to `null` (NOT `undefined`)
  * - omitted `children` is normalized to the frozen module-level
  *   `EMPTY_CHILDREN` array (saves a per-call allocation for fragments
@@ -21,5 +22,6 @@ import type { AttrMap, Branch, ChildList } from './types.ts'
  * passes attrs through.
  */
 export function branch(tag: string | null, attrs?: AttrMap, children?: ChildList): Branch {
-  return _makeBranch(tag, attrs ?? null, children ?? EMPTY_CHILDREN)
+  // shape per spec §2.9 — all four fields always present
+  return { kind: 'branch', tag, attrs: attrs ?? null, children: children ?? EMPTY_CHILDREN }
 }

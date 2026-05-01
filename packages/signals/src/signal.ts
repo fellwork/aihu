@@ -18,9 +18,22 @@ export interface Link {
   nextDep: Link | null
 }
 
-/** @internal */
+/** @internal — unified Subscriber shape under K1c+ (spec-6.2-phase3.md §3.1, §5.1).
+ *
+ * Phase 3 collapses H5's Linear/Merge discriminated union back into a single
+ * shape carrying `lastWave` from construction (SMI sentinel `0`). All three
+ * Subscriber roles (signal-host literal, Computed instance, Effect instance)
+ * share the slot ordering so V8 monomorphises against one hidden-class chain
+ * per role. Role detection at Sites C/D uses `(flags & HOST)` per K-1.
+ *
+ * `notify` and `recomputeIfNeeded` are NOT declared on this interface — under
+ * K1c+ both live on `Computed.prototype` / `Effect.prototype`, never as
+ * own-properties. Signal-host literals carry neither method (per §3.1: hosts
+ * are never the target of `sub.notify()`). The runtime uses optional-chain
+ * `dep.recomputeIfNeeded?.()` at the cascade-suppression settle (signal.ts
+ * :285–287), which resolves through the prototype for class instances and
+ * to `undefined` for literal hosts. */
 export interface Subscriber {
-  notify(): void
   /** @internal */ flags: number
   /** @internal — head of the forward (subscriber-direction) list. */
   subsHead: Link | null
@@ -28,9 +41,17 @@ export interface Subscriber {
   /** @internal — head of the back-edge (dependency-direction) list. */
   depsHead: Link | null
   /** @internal */ depsTail: Link | null
-  /** @internal */ recomputeIfNeeded?(): void
-  /** @internal — set to current wave when this sub is reached during marking; replaces the NOTIFIED bit. */
-  lastWave?: number
+  /** @internal — set to current wave when this sub is reached during marking;
+   * replaces the NOTIFIED bit. SMI to keep the slot off the HeapNumber path.
+   * Always present from construction (K1c+ shape collapse). */
+  lastWave: number
+  /** @internal — present on Computed instances via prototype; absent on
+   * Effect instances and signal-host literals. Optional-chain semantics at
+   * the cascade-suppression settle (signal.ts:285–287). */
+  recomputeIfNeeded?(): void
+  /** @internal — present on Computed and Effect instances via prototype;
+   * absent on signal-host literals (they are never notify-called). */
+  notify?(): void
 }
 
 /** @internal */ export const RUNNING          = 0x001
@@ -39,12 +60,17 @@ export interface Subscriber {
 /** @internal */ export const STALE            = 0x008
 /** @internal */ export const EFFECT           = 0x010
 /** @internal */ export const MARKED           = 0x020
-/**
- * @internal — set on a computed observer the first time it reads another
- * computed during its body. One-way (once true, stays true). Used by
- * markOne to confirm the computed has computed deps.
- */
-/** @internal */ export const HAS_COMPUTED_DEPS = 0x080
+/** @internal — H5: set on signals/effects at construction; lazy upgrade
+ * for computeds inside linkAdd on the second inbound dep edge. Once set,
+ * never cleared (one-way classifier). Gates the dedup path. */
+/** @internal */ export const MERGE             = 0x040
+/** @internal — K1c+ K-1 (spec-6.2-phase3.md §3.3, §4.7): set on signal-host
+ * literals at construction; never set on Computed or Effect instances. Used
+ * at Sites C/D in place of the H5 `recomputeIfNeeded === undefined` idiom
+ * (which would misclassify Effect instances under prototype methods). One-way
+ * classifier — RC-1's flags-clear mask, `clearVisited`, and `shallowClear`
+ * leave it untouched. Slots into the bit-space gap between MERGE and PENDING. */
+/** @internal */ export const HOST              = 0x080
 /** @internal — Option D: set on a linear-path computed during mark. Means
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
@@ -117,6 +143,10 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   for (let l = sub.depsTail; l !== null; l = l.prevDep) {
     if (l.dep === dep) return false
   }
+  // H5 MERGE-1: promote sub from Linear to Merge on its 2nd inbound dep.
+  // Idempotent — re-setting on an already-Merge sub is a no-op. Must run
+  // BEFORE append (depsHead non-null means a 2nd or later edge).
+  if (sub.depsHead !== null) sub.flags |= MERGE
   const link: Link = {
     dep,
     sub,
@@ -168,47 +198,51 @@ export function linkUnlink(link: Link): void {
 const markStack: Subscriber[] = []
 
 function markOne(root: Subscriber): void {
+  // H4 tail-recursive linear chase (spec-6.2-phase2.md §3 / §6). Linear-path
+  // hops never enter markStack; only fan-out frontiers do. Mirrors
+  // alien-signals system.mjs:95 `top:` label structure.
+  // Invariants: DI-1 (dedup at top), CS-1 (PENDING on every visited sub),
+  // SF-1 (STALE coexists with PENDING on fan-out exit), RC-1 unchanged.
+  // Phase-1 fan-out semantics (no PENDING on fan-out nodes) are preserved by
+  // splitting the dedup gate: outer-popped nodes get only MARKED, inner-chase
+  // visits get MARKED | PENDING.
   const baseLen = markStack.length
-  markStack.push(root)
+  let sub: Subscriber = root
+  let isChase = false
   try {
-    while (markStack.length > baseLen) {
-      const sub = markStack.pop() as Subscriber
-      if (sub.flags & DISPOSED) continue
-      if (sub.lastWave === wave) continue
-      if (sub.flags & RUNNING) throw new SignalCircularError()
-      sub.lastWave = wave
-      sub.flags |= MARKED
-      if (sub.flags & EFFECT) {
-        effectQueue.push(sub)
-        continue
+    // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
+    while (true) {
+      // H5 site A + chase-inner: dedup gate is type-guarded on MERGE.
+      // Linear subs (≤1 inbound dep) skip both the read and the write —
+      // DI-1 is vacuously satisfied (exactly one inbound mark per wave).
+      if (!(sub.flags & DISPOSED) && (!(sub.flags & MERGE) || sub.lastWave !== wave)) {
+        if (sub.flags & RUNNING) throw new SignalCircularError()
+        if (sub.flags & MERGE) sub.lastWave = wave
+        sub.flags |= isChase ? MARKED | PENDING : MARKED       // CS-1 stamp
+        if (sub.flags & EFFECT) {
+          effectQueue.push(sub)
+        } else {
+          const head = sub.subsHead
+          if (head === null) {
+            sub.flags |= STALE                                 // leaf
+          } else if (head.nextSub !== null) {
+            visited.push(sub)                                  // fan-out (SF-1)
+            sub.flags |= STALE
+            for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
+              markStack.push(l.sub)
+            }
+          } else {
+            // Linear path: inline-chase without touching markStack.
+            if (!isChase) sub.flags |= PENDING                 // promote outer→chase
+            sub = head.sub
+            isChase = true
+            continue
+          }
+        }
       }
-      const head = sub.subsHead
-      if (head === null) {
-        // Leaf computed: no downstream subscribers — mark STALE so a direct
-        // read triggers recomputation.
-        sub.flags |= STALE
-        continue
-      }
-
-      if (head.nextSub === null) {
-        // Linear path: single subscriber — lazy PENDING, no visited push, no STALE.
-        sub.flags |= PENDING
-        // If the sole downstream subscriber is an effect, also set PENDING on
-        // it so drainEffectQueue knows to run checkDirty before executing.
-        if (head.sub.flags & EFFECT) head.sub.flags |= PENDING
-        markStack.push(head.sub)
-        continue
-      }
-
-      // Fan-out path: multiple subscribers — eager STALE mark.
-      visited.push(sub)
-      sub.flags |= STALE
-      // Push children in reverse list order (tail → head via prevSub) so
-      // LIFO popping yields the same nextSub-forward pre-order as the
-      // prior recursive walk.
-      for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-        markStack.push(l.sub)
-      }
+      if (markStack.length <= baseLen) break
+      sub = markStack.pop() as Subscriber
+      isChase = false
     }
   } catch (e) {
     markStack.length = baseLen
@@ -257,7 +291,13 @@ function checkDirty(root: Subscriber): boolean {
         continue
       }
       // Signal source: dirty if written in the current wave.
-      if (dep.recomputeIfNeeded === undefined && dep.lastWave === wave) return true
+      // Site D (K1c+ K-1): HOST flag explicitly classifies signal sources
+      // (per spec-6.2-phase3.md §3.3 / §4.7). Replaces the H5
+      // `recomputeIfNeeded === undefined` idiom — under prototype methods
+      // Effect instances also lack the method, so the H5 idiom would
+      // misclassify them; the HOST bit decouples role detection from
+      // prototype-chain coincidence.
+      if ((dep.flags & HOST) && dep.lastWave === wave) return true
     }
   }
   return false
@@ -289,7 +329,11 @@ function drainEffectQueue(errors: unknown[]): void {
     }
     sub.flags &= ~MARKED
     try {
-      sub.notify()
+      // K1c+: `notify` lives on Effect.prototype; effects always carry
+      // it. Optional-chain is a defensive guard (signal-host literals
+      // have no `notify` but never reach drainEffectQueue — only EFFECT-
+      // flagged subs are pushed at markOne).
+      sub.notify?.()
     } catch (e) {
       errors.push(e)
     }
@@ -350,12 +394,17 @@ export function drainBatch(): void {
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
         // Patch signal lastWave for checkDirty: walk the sub's deps and
-        // set lastWave = wave on any signal source (recomputeIfNeeded ===
-        // undefined) that was written this batch but hasn't been stamped yet.
+        // set lastWave = wave on any signal source that was written this
+        // batch but hasn't been stamped yet.
         for (let l = sub.depsHead; l !== null; l = l.nextDep) {
-          if (l.dep.recomputeIfNeeded === undefined && l.dep.lastWave !== wave) {
-            l.dep.lastWave = wave
-          }
+          // Site C (K1c+ K-1): HOST flag explicitly classifies signal
+          // sources (per spec-6.2-phase3.md §3.3 / §4.7). Hosts always
+          // carry HOST AND MERGE; HOST subsumes the H5 MERGE check at
+          // this site and removes the `recomputeIfNeeded === undefined`
+          // idiom that would misclassify Effect prototype-method
+          // instances under K1c+.
+          const dep = l.dep
+          if ((dep.flags & HOST) && dep.lastWave !== wave) dep.lastWave = wave
         }
         markOne(sub)
       }
@@ -413,16 +462,22 @@ export interface SignalOptions<T> {
 export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
   let value = initial
   // Linked-list host: the signal-as-dep needs subsHead/subsTail. We
-  // model it as a minimal Subscriber-shaped object with no flags / no
-  // notify (the dep is never marked itself; only its subs are). The
-  // shape is internal; readers see it only via Link.dep.
+  // model it as a minimal Subscriber-shaped literal (no class wrapper;
+  // hosts are never `notify()`-called and have no `recomputeIfNeeded`,
+  // so the prototype-method conversion does not apply here).
+  //
+  // K1c+ K-1 (spec-6.2-phase3.md §3.3 / §4.7): `HOST` bit is the
+  // explicit signal-source classifier read at Sites C/D. Set once at
+  // construction; never cleared.
+  // K1c+ CL-6: the empty `notify(): void {}` literal that H5 carried is
+  // removed — signal hosts are never the target of `sub.notify()`.
   const host: Subscriber = {
-    flags: 0,
+    flags: MERGE | HOST,
     subsHead: null,
     subsTail: null,
     depsHead: null,
     depsTail: null,
-    notify() {},
+    lastWave: 0,
   }
   const eq = options?.equals
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq

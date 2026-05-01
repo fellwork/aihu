@@ -1,5 +1,4 @@
 import type { Signal } from '@scribe/signals'
-import { _makeElementLeaf, _makeTextLeaf } from './node.ts'
 import type { AttrMap, Leaf } from './types.ts'
 
 /**
@@ -17,24 +16,27 @@ import type { AttrMap, Leaf } from './types.ts'
  *   `<br>`, `<input>`, `<hr>`, etc. `attrs` follows the same semantics as
  *   `branch` attrs (see spec §1.2).
  *
- * Both forms return opaque `Leaf` nodes via the internal `_makeTextLeaf` /
- * `_makeElementLeaf` constructors in `node.ts`. The shape-lock guarantees
- * (always-present `null` for absent fields) live with those internals per
- * spec §2.9 — this module is a thin delegation layer.
+ * Both forms construct opaque `Leaf` nodes inline (R3-arbor —
+ * investigation-arbor-restructure.md §Q4 — the prior `_makeTextLeaf` and
+ * `_makeElementLeaf` factories were single-call internal helpers). The
+ * shape-lock guarantees (always-present `null` for absent fields) are
+ * enforced at the literal — see spec §2.9.
  */
 export interface LeafFactory {
   (value: Signal<string> | string): Leaf
   element(tag: string, attrs?: AttrMap): Leaf
 }
 
-const leafFn = (value: Signal<string> | string): Leaf => _makeTextLeaf(value)
+const leafFn = (value: Signal<string> | string): Leaf =>
+  // shape per spec §2.9 — text leaf carries `tag: null, attrs: null`
+  ({ kind: 'leaf', leafKind: 'text', value, tag: null, attrs: null })
 
 /**
  * `leaf.element(tag, attrs?)` — omitted `attrs` is normalized to `null`
- * before reaching the internal constructor so the runtime shape stays
- * locked per spec §2.9.
+ * before reaching the literal so the runtime shape stays locked per spec §2.9.
  */
 ;(leafFn as LeafFactory).element = (tag: string, attrs?: AttrMap): Leaf =>
-  _makeElementLeaf(tag, attrs ?? null)
+  // shape per spec §2.9 — element leaf carries `value: null`
+  ({ kind: 'leaf', leafKind: 'element', value: null, tag, attrs: attrs ?? null })
 
 export const leaf: LeafFactory = leafFn as LeafFactory
