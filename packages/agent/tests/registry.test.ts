@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   __resetRegistryForTesting,
+  type ActionSchema,
   type AgentMetadata,
+  type InputSchema,
   getAgentMetadata,
   registerAgentMetadata,
 } from '../src/registry.ts'
@@ -82,5 +84,61 @@ describe('@scribe/agent registry', () => {
     registerAgentMetadata(b)
     expect(getAgentMetadata('x-test-7-a')).toBe(a)
     expect(getAgentMetadata('x-test-7-b')).toBe(b)
+  })
+})
+
+describe('@scribe/agent registry — RC-2 ActionSchema/InputSchema', () => {
+  beforeEach(() => {
+    __resetRegistryForTesting()
+  })
+
+  // 8. ActionSchema-typed actions field round-trips correctly
+  it('accepts ActionSchema-typed actions field', () => {
+    const quoteAction: ActionSchema = {
+      returns: {
+        plan: { type: 'enum', values: ['basic', 'pro', 'enterprise'] },
+      },
+    }
+    const meta: AgentMetadata = {
+      tag: 'x-test-8',
+      actions: { quote: quoteAction },
+    }
+    registerAgentMetadata(meta)
+    const result = getAgentMetadata('x-test-8')
+    expect(result?.actions?.quote.returns.plan.type).toBe('enum')
+    expect(result?.actions?.quote.returns.plan.values).toEqual(['basic', 'pro', 'enterprise'])
+  })
+
+  // 9. InputSchema without default is valid
+  it('InputSchema without default is valid', () => {
+    const action: ActionSchema = {
+      returns: {
+        name: { type: 'string' },
+      },
+    }
+    const meta: AgentMetadata = {
+      tag: 'x-test-9',
+      actions: { describe: action },
+    }
+    registerAgentMetadata(meta)
+    const result = getAgentMetadata('x-test-9')
+    const field: InputSchema | undefined = result?.actions?.describe.returns.name
+    expect(field).toBeDefined()
+    expect(field?.default).toBeUndefined()
+  })
+
+  // 10. Multiple actions coexist on one component
+  it('multiple actions coexist on one component', () => {
+    const meta: AgentMetadata = {
+      tag: 'x-test-10',
+      actions: {
+        quote: { returns: { plan: { type: 'string' } } },
+        reset: { returns: {} },
+      },
+    }
+    registerAgentMetadata(meta)
+    const result = getAgentMetadata('x-test-10')
+    expect(Object.keys(result?.actions ?? {}).length).toBe(2)
+    expect(result?.actions?.reset.returns).toEqual({})
   })
 })
