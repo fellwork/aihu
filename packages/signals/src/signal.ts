@@ -168,47 +168,48 @@ export function linkUnlink(link: Link): void {
 const markStack: Subscriber[] = []
 
 function markOne(root: Subscriber): void {
+  // H4 tail-recursive linear chase (spec-6.2-phase2.md §3 / §6). Linear-path
+  // hops never enter markStack; only fan-out frontiers do. Mirrors
+  // alien-signals system.mjs:95 `top:` label structure.
+  // Invariants: DI-1 (dedup at top), CS-1 (PENDING on every visited sub),
+  // SF-1 (STALE coexists with PENDING on fan-out exit), RC-1 unchanged.
+  // Phase-1 fan-out semantics (no PENDING on fan-out nodes) are preserved by
+  // splitting the dedup gate: outer-popped nodes get only MARKED, inner-chase
+  // visits get MARKED | PENDING.
   const baseLen = markStack.length
-  markStack.push(root)
+  let sub: Subscriber = root
+  let isChase = false
   try {
-    while (markStack.length > baseLen) {
-      const sub = markStack.pop() as Subscriber
-      if (sub.flags & DISPOSED) continue
-      if (sub.lastWave === wave) continue
-      if (sub.flags & RUNNING) throw new SignalCircularError()
-      sub.lastWave = wave
-      sub.flags |= MARKED
-      if (sub.flags & EFFECT) {
-        effectQueue.push(sub)
-        continue
+    // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
+    while (true) {
+      if (!(sub.flags & DISPOSED) && sub.lastWave !== wave) {
+        if (sub.flags & RUNNING) throw new SignalCircularError()
+        sub.lastWave = wave
+        sub.flags |= isChase ? MARKED | PENDING : MARKED       // CS-1 stamp
+        if (sub.flags & EFFECT) {
+          effectQueue.push(sub)
+        } else {
+          const head = sub.subsHead
+          if (head === null) {
+            sub.flags |= STALE                                 // leaf
+          } else if (head.nextSub !== null) {
+            visited.push(sub)                                  // fan-out (SF-1)
+            sub.flags |= STALE
+            for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
+              markStack.push(l.sub)
+            }
+          } else {
+            // Linear path: inline-chase without touching markStack.
+            if (!isChase) sub.flags |= PENDING                 // promote outer→chase
+            sub = head.sub
+            isChase = true
+            continue
+          }
+        }
       }
-      const head = sub.subsHead
-      if (head === null) {
-        // Leaf computed: no downstream subscribers — mark STALE so a direct
-        // read triggers recomputation.
-        sub.flags |= STALE
-        continue
-      }
-
-      if (head.nextSub === null) {
-        // Linear path: single subscriber — lazy PENDING, no visited push, no STALE.
-        sub.flags |= PENDING
-        // If the sole downstream subscriber is an effect, also set PENDING on
-        // it so drainEffectQueue knows to run checkDirty before executing.
-        if (head.sub.flags & EFFECT) head.sub.flags |= PENDING
-        markStack.push(head.sub)
-        continue
-      }
-
-      // Fan-out path: multiple subscribers — eager STALE mark.
-      visited.push(sub)
-      sub.flags |= STALE
-      // Push children in reverse list order (tail → head via prevSub) so
-      // LIFO popping yields the same nextSub-forward pre-order as the
-      // prior recursive walk.
-      for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-        markStack.push(l.sub)
-      }
+      if (markStack.length <= baseLen) break
+      sub = markStack.pop() as Subscriber
+      isChase = false
     }
   } catch (e) {
     markStack.length = baseLen

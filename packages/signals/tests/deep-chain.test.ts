@@ -84,4 +84,100 @@ describe('deep-chain', () => {
     expect(runCounts.every(n => n === 3)).toBe(true)
     disposes.forEach(d => d())
   })
+
+  // ───────── Phase 2 / spec-6.2-phase2.md §9.2 — H4 property tests ─────────
+
+  describe('H4 property: depth-parameterised glitch-freedom (spec §9.2.1)', () => {
+    for (const depth of [1, 5, 10, 100, 500] as const) {
+      it(`depth-${depth}: effect runs once per write and observes value = src + depth`, () => {
+        const [src, setSrc] = signal(0)
+        let prev: () => number = src
+        for (let i = 0; i < depth; i++) {
+          const c = prev
+          prev = computed(() => c() + 1)
+        }
+        const tail = prev
+        let runCount = 0
+        let lastSeen = -1
+        let intermediateObserved = false
+        const dispose = effect(() => {
+          runCount++
+          const observed = tail()
+          // Glitch-freedom: from the second run onward the observed value must
+          // be exactly the prior lastSeen + delta of the source change.
+          if (lastSeen !== -1 && runCount > 1 && observed !== lastSeen + 1) {
+            // The expected diff per write is +1 in this test (we increment src
+            // by 1 between observations); a non-incremental observation would
+            // mean the effect saw an intermediate "glitch" state.
+            // The third write sets src=7 (delta from 2 → 7 = +5), so we only
+            // assert strict +1 increments for the first two writes.
+            if (runCount === 2 || runCount === 3) {
+              intermediateObserved = true
+            }
+          }
+          lastSeen = observed
+        })
+        // Initial run: src=0, tail = 0 + depth.
+        expect(runCount).toBe(1)
+        expect(lastSeen).toBe(depth)
+        // Write 1: src=1.
+        setSrc(1)
+        expect(runCount).toBe(2)
+        expect(lastSeen).toBe(depth + 1)
+        // Write 2: src=2.
+        setSrc(2)
+        expect(runCount).toBe(3)
+        expect(lastSeen).toBe(depth + 2)
+        // Write 3: src=7 (jump).
+        setSrc(7)
+        expect(runCount).toBe(4)
+        expect(lastSeen).toBe(depth + 7)
+        expect(intermediateObserved).toBe(false)
+        dispose()
+      })
+    }
+  })
+
+  it('H4: equality short-circuit at c50 suppresses effect when c50 value unchanged (spec §9.2.2)', () => {
+    const [src, setSrc] = signal(0)
+    let prev: () => number = src
+    for (let i = 0; i < 100; i++) {
+      const c = prev
+      if (i === 50) {
+        prev = computed(() => (c() > 0 ? 1 : 0), { equals: Object.is })
+      } else {
+        prev = computed(() => c() + 1)
+      }
+    }
+    // Chain values at src=0:
+    //   c0=1, c1=2, …, c49=50, c50 = (50 > 0 ? 1 : 0) = 1,
+    //   c51=2, c52=3, …, c99 = 1 + (99 - 50) = 50.
+    const tail = prev
+    let runCount = 0
+    let lastSeen = -1
+    const dispose = effect(() => {
+      runCount++
+      lastSeen = tail()
+    })
+    expect(runCount).toBe(1)
+    expect(lastSeen).toBe(50)
+    // Write that does NOT change c50's output (src=5 still > 0 → c50 = 1).
+    // Cascade-suppression settle (signal.ts:285–287) calls c99.recomputeIfNeeded;
+    // the lazy-pull chain reaches c50, recomputes to the same value 1,
+    // shallowClear fires, the effect is skipped.
+    setSrc(5)
+    expect(runCount).toBe(1)
+    expect(lastSeen).toBe(50)
+    // Write that DOES change c50's output. Spec §9.2.2 wrote `setSrc(-1)`
+    // but at that input c49 = -1 + 49 = 48 > 0, so c50 still emits 1 and
+    // the cascade does NOT fire. To exercise the spec's intent ("Write that
+    // DOES change c50's output (1 → 0)" — spec §9.2.2 paragraph), we use a
+    // src value that drives c49 ≤ 0: src = -100 gives c49 = -51 ≤ 0, so
+    // c50 = 0, c99 = 0 + 49 = 49. The assertion `lastSeen.toBe(49)` is
+    // preserved verbatim (matches the c50 → 0 cascade intent).
+    setSrc(-100)
+    expect(runCount).toBe(2)
+    expect(lastSeen).toBe(49)
+    dispose()
+  })
 })
