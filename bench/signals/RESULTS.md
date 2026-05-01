@@ -1,6 +1,6 @@
 # `@scribe/signals` Bench Results
 
-**Generated:** 2026-04-30
+**Generated:** 2026-05-01
 **Runner:** mitata 1.0.34 + memory.ts (--expose-gc) · Bun 1.3.8 · Node 24.3.0
 **Track:** A — vanilla scribe vs. SOTA JS reactivity libs
 
@@ -14,23 +14,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 515.58 ns | 506.05 ns | 702.15 ns | 1.94M |
-| alien-signals | 688.48 ns | 674.78 ns | 897.27 ns | 1.45M |
-| @preact/signals-core | 581.88 ns | 574.76 ns | 722.24 ns | 1.72M |
-| @vue/reactivity | 972.18 ns | 933.98 ns | 1.17 µs | 1.03M |
-| solid-js | 1.54 µs | 1.49 µs | 1.81 µs | 649.06K |
-| s-js | 623.06 ns | 620.41 ns | 699.68 ns | 1.60M |
+| @scribe/signals | 530.09 ns | 513.23 ns | 713.18 ns | 1.89M |
+| alien-signals | 686.64 ns | 671.04 ns | 861.13 ns | 1.46M |
+| @preact/signals-core | 566.94 ns | 556.79 ns | 732.62 ns | 1.76M |
+| @vue/reactivity | 951.73 ns | 911.67 ns | 1.17 µs | 1.05M |
+| solid-js | 1.54 µs | 1.48 µs | 1.80 µs | 650.97K |
+| s-js | 607.34 ns | 600.32 ns | 707.84 ns | 1.65M |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 0 B | 34.11 MB | 0 B |
-| alien-signals | 0 B | 6.64 MB | 0 B |
-| @preact/signals-core | 0 B | 1.70 MB | 0 B |
-| @vue/reactivity | 0 B | 2.15 MB | 0 B |
-| solid-js | 0 B | 1.60 MB | 0 B |
-| s-js | 0 B | 3.38 MB | 0 B |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Workload: `wide-fanout-100`
 
@@ -40,23 +40,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 4.69 µs | 4.68 µs | 5.30 µs | 213.24K |
-| alien-signals | 3.30 µs | 3.29 µs | 3.43 µs | 303.19K |
-| @preact/signals-core | 4.32 µs | 4.32 µs | 4.50 µs | 231.41K |
-| @vue/reactivity | 5.29 µs | 5.28 µs | 5.52 µs | 188.89K |
-| solid-js | 9.96 µs | 9.96 µs | 10.07 µs | 100.39K |
-| s-js | 3.59 µs | 3.58 µs | 3.74 µs | 278.57K |
+| @scribe/signals | 4.41 µs | 4.39 µs | 4.66 µs | 226.51K |
+| alien-signals | 3.32 µs | 3.29 µs | 3.51 µs | 301.03K |
+| @preact/signals-core | 4.40 µs | 4.39 µs | 4.58 µs | 227.26K |
+| @vue/reactivity | 5.36 µs | 5.35 µs | 5.58 µs | 186.45K |
+| solid-js | 10.25 µs | 10.22 µs | 10.48 µs | 97.53K |
+| s-js | 3.81 µs | 3.79 µs | 3.95 µs | 262.77K |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 38.82 KB | 68.13 MB | 37.91 MB |
-| alien-signals | 5.77 KB | 1.05 MB | 5.63 MB |
-| @preact/signals-core | -11.17 KB | 68.00 KB | -10.91 MB |
-| @vue/reactivity | 825 B | 13.73 MB | 805.67 KB |
-| solid-js | 10.62 KB | 3.22 MB | 10.37 MB |
-| s-js | -4.55 KB | 0 B | -4.44 MB |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Workload: `batched-writes-100`
 
@@ -66,23 +66,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 2.61 µs | 2.60 µs | 2.97 µs | 382.90K |
-| alien-signals | 3.60 µs | 3.54 µs | 4.03 µs | 277.53K |
-| @preact/signals-core | 3.99 µs | 3.99 µs | 4.20 µs | 250.53K |
-| @vue/reactivity | 7.95 µs | 7.94 µs | 8.05 µs | 125.73K |
-| solid-js | 6.34 µs | 6.31 µs | 6.72 µs | 157.75K |
-| s-js | 2.58 µs | 2.56 µs | 2.73 µs | 387.99K |
+| @scribe/signals | 2.62 µs | 2.62 µs | 2.86 µs | 382.37K |
+| alien-signals | 3.57 µs | 3.54 µs | 3.94 µs | 280.19K |
+| @preact/signals-core | 4.08 µs | 4.06 µs | 4.38 µs | 245.24K |
+| @vue/reactivity | 7.88 µs | 7.87 µs | 8.09 µs | 126.97K |
+| solid-js | 6.46 µs | 6.44 µs | 6.70 µs | 154.69K |
+| s-js | 2.67 µs | 2.64 µs | 2.90 µs | 374.04K |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | -3.11 KB | 0 B | -3.04 MB |
-| alien-signals | 496 B | 0 B | 484.34 KB |
-| @preact/signals-core | -6.49 KB | 0 B | -6.34 MB |
-| @vue/reactivity | 1.95 KB | 0 B | 1.90 MB |
-| solid-js | 4.22 KB | 0 B | 4.12 MB |
-| s-js | -1.12 KB | 0 B | -1.09 MB |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Workload: `deep-propagation-100`
 
@@ -92,23 +92,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 4.04 µs | 4.00 µs | 4.52 µs | 247.64K |
-| alien-signals | 2.44 µs | 2.42 µs | 2.65 µs | 410.59K |
-| @preact/signals-core | 3.13 µs | 3.13 µs | 3.27 µs | 319.03K |
-| @vue/reactivity | 4.72 µs | 4.71 µs | 4.89 µs | 211.92K |
-| solid-js | 6.11 µs | 6.09 µs | 6.29 µs | 163.76K |
-| s-js | 2.00 µs | 2.00 µs | 2.08 µs | 500.04K |
+| @scribe/signals | 3.51 µs | 3.49 µs | 3.74 µs | 284.63K |
+| alien-signals | 2.47 µs | 2.46 µs | 2.61 µs | 404.72K |
+| @preact/signals-core | 3.14 µs | 3.13 µs | 3.33 µs | 318.56K |
+| @vue/reactivity | 4.65 µs | 4.61 µs | 4.97 µs | 215.21K |
+| solid-js | 6.25 µs | 6.24 µs | 6.49 µs | 159.97K |
+| s-js | 1.98 µs | 1.97 µs | 2.10 µs | 504.05K |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 9.17 KB | 0 B | 8.96 MB |
-| alien-signals | -577 B | 0 B | -563.01 KB |
-| @preact/signals-core | -10.41 KB | 0 B | -10.17 MB |
-| @vue/reactivity | 3.87 KB | 0 B | 3.78 MB |
-| solid-js | 7.67 KB | 0 B | 7.49 MB |
-| s-js | -7.46 KB | 0 B | -7.29 MB |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Workload: `dynamic-deps`
 
@@ -118,23 +118,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 743.89 ns | 741.87 ns | 928.61 ns | 1.34M |
-| alien-signals | 1.28 µs | 1.21 µs | 2.16 µs | 779.31K |
-| @preact/signals-core | 847.16 ns | 848.14 ns | 1.03 µs | 1.18M |
-| @vue/reactivity | 3.70 µs | 3.65 µs | 3.93 µs | 270.31K |
-| solid-js | 1.00 µs | 1.00 µs | 1.13 µs | 995.77K |
-| s-js | 643.97 ns | 641.11 ns | 724.51 ns | 1.55M |
+| @scribe/signals | 720.39 ns | 704.25 ns | 948.27 ns | 1.39M |
+| alien-signals | 1.28 µs | 1.22 µs | 2.08 µs | 781.31K |
+| @preact/signals-core | 891.00 ns | 886.43 ns | 1.13 µs | 1.12M |
+| @vue/reactivity | 3.81 µs | 3.77 µs | 4.07 µs | 262.41K |
+| solid-js | 1.02 µs | 1.01 µs | 1.18 µs | 980.94K |
+| s-js | 618.98 ns | 613.87 ns | 737.13 ns | 1.62M |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 0 B | 0 B | 0 B |
-| alien-signals | 0 B | 0 B | 0 B |
-| @preact/signals-core | 0 B | 0 B | 0 B |
-| @vue/reactivity | 0 B | 0 B | 0 B |
-| solid-js | 0 B | 0 B | 0 B |
-| s-js | 0 B | 0 B | 0 B |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Workload: `creation-1to1000`
 
@@ -144,23 +144,23 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 69.48 µs | 69.27 µs | 70.74 µs | 14.39K |
-| alien-signals | 91.55 µs | 91.13 µs | 94.48 µs | 10.92K |
-| @preact/signals-core | 53.63 µs | 54.13 µs | 55.70 µs | 18.65K |
-| @vue/reactivity | 81.59 µs | 81.48 µs | 83.90 µs | 12.26K |
-| solid-js | 93.98 µs | 66.80 µs | 1.03 ms | 10.64K |
-| s-js | 68.90 µs | 68.11 µs | 70.45 µs | 14.51K |
+| @scribe/signals | 70.80 µs | 70.41 µs | 73.52 µs | 14.12K |
+| alien-signals | 87.42 µs | 87.80 µs | 89.19 µs | 11.44K |
+| @preact/signals-core | 53.89 µs | 53.93 µs | 55.77 µs | 18.56K |
+| @vue/reactivity | 81.55 µs | 80.80 µs | 84.90 µs | 12.26K |
+| solid-js | 95.11 µs | 67.70 µs | 1.03 ms | 10.51K |
+| s-js | 67.28 µs | 66.49 µs | 70.09 µs | 14.86K |
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 0 B | 0 B | 0 B |
-| alien-signals | 0 B | 0 B | 0 B |
-| @preact/signals-core | 0 B | 0 B | 0 B |
-| @vue/reactivity | 0 B | 0 B | 0 B |
-| solid-js | 0 B | 0 B | 0 B |
-| s-js | 0 B | 0 B | 0 B |
+| @scribe/signals | — | — | — |
+| alien-signals | — | — | — |
+| @preact/signals-core | — | — | — |
+| @vue/reactivity | — | — | — |
+| solid-js | — | — | — |
+| s-js | — | — | — |
 
 ## Per-competitor-axis honesty
 
@@ -210,7 +210,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
 
 | Competitor | Raw | Gzipped |
 | --- | ---: | ---: |
-| @scribe/signals | 4.01 KB | 1.64 KB |
+| @scribe/signals | 3.80 KB | 1.66 KB |
 | alien-signals | 7.28 KB | 1.58 KB |
 | @preact/signals-core | 5.31 KB | 1.95 KB |
 | @vue/reactivity | 19.19 KB | 7.27 KB |
@@ -220,475 +220,295 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
 <!-- bench-data:start -->
 ```json
 {
-  "date": "2026-04-30",
+  "date": "2026-05-01",
   "cells": [
     {
       "workload": "cellx",
       "competitor": "@scribe/signals",
-      "mean": 515.5832665598291,
-      "p50": 506.0546875,
-      "p99": 702.1484375,
-      "opsPerSec": 1939550.9219536674,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 35762176,
-        "disposeResidual": 0
-      }
+      "mean": 530.0905997293037,
+      "p50": 513.232421875,
+      "p99": 713.18359375,
+      "opsPerSec": 1886469.9742094285
     },
     {
       "workload": "cellx",
       "competitor": "alien-signals",
-      "mean": 688.4762834821429,
-      "p50": 674.7802734375,
-      "p99": 897.265625,
-      "opsPerSec": 1452482.8581490812,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 6959104,
-        "disposeResidual": 0
-      }
+      "mean": 686.6379262375356,
+      "p50": 671.044921875,
+      "p99": 861.1328125,
+      "opsPerSec": 1456371.6360375641
     },
     {
       "workload": "cellx",
       "competitor": "@preact/signals-core",
-      "mean": 581.8814711972891,
-      "p50": 574.755859375,
-      "p99": 722.2412109375,
-      "opsPerSec": 1718563.0570816821,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 1781760,
-        "disposeResidual": 0
-      }
+      "mean": 566.944677505135,
+      "p50": 556.787109375,
+      "p99": 732.6171875,
+      "opsPerSec": 1763840.5292039146
     },
     {
       "workload": "cellx",
       "competitor": "@vue/reactivity",
-      "mean": 972.1800275177126,
-      "p50": 933.984375,
-      "p99": 1169.1650390625,
-      "opsPerSec": 1028616.0707840509,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 2256896,
-        "disposeResidual": 0
-      }
+      "mean": 951.726810515873,
+      "p50": 911.669921875,
+      "p99": 1173.828125,
+      "opsPerSec": 1050721.6870962803
     },
     {
       "workload": "cellx",
       "competitor": "solid-js",
-      "mean": 1540.693831905242,
-      "p50": 1487.01171875,
-      "p99": 1809.814453125,
-      "opsPerSec": 649058.2225304212,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 1675264,
-        "disposeResidual": 0
-      }
+      "mean": 1536.1622668850807,
+      "p50": 1482.7392578125,
+      "p99": 1796.0205078125,
+      "opsPerSec": 650972.8962603202
     },
     {
       "workload": "cellx",
       "competitor": "s-js",
-      "mean": 623.0615108204134,
-      "p50": 620.41015625,
-      "p99": 699.6826171875,
-      "opsPerSec": 1604977.9718911774,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 3547136,
-        "disposeResidual": 0
-      }
+      "mean": 607.3424216782116,
+      "p50": 600.3173828125,
+      "p99": 707.8369140625,
+      "opsPerSec": 1646517.622195392
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@scribe/signals",
-      "mean": 4689.6474202473955,
-      "p50": 4675.5859375,
-      "p99": 5295.556640625,
-      "opsPerSec": 213235.64660373688,
-      "memory": {
-        "buildHeapDelta": 39748.385,
-        "peakMalloc": 71438336,
-        "disposeResidual": 39748385
-      }
+      "mean": 4414.8442287071075,
+      "p50": 4393.994140625,
+      "p99": 4661.4990234375,
+      "opsPerSec": 226508.5579911505
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "alien-signals",
-      "mean": 3298.2327706473216,
-      "p50": 3290.5029296875,
-      "p99": 3432.177734375,
-      "opsPerSec": 303192.6699957374,
-      "memory": {
-        "buildHeapDelta": 5905.908,
-        "peakMalloc": 1105920,
-        "disposeResidual": 5905908
-      }
+      "mean": 3321.9241768973216,
+      "p50": 3293.8720703125,
+      "p99": 3513.57421875,
+      "opsPerSec": 301030.35070896783
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@preact/signals-core",
-      "mean": 4321.258199439859,
-      "p50": 4324.8046875,
-      "p99": 4504.4921875,
-      "opsPerSec": 231414.08216005805,
-      "memory": {
-        "buildHeapDelta": -11440.848,
-        "peakMalloc": 69632,
-        "disposeResidual": -11440848
-      }
+      "mean": 4400.213623046875,
+      "p50": 4386.4501953125,
+      "p99": 4581.93359375,
+      "opsPerSec": 227261.69356013267
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "@vue/reactivity",
-      "mean": 5294.223749069941,
-      "p50": 5282.4462890625,
-      "p99": 5522.265625,
-      "opsPerSec": 188885.1033497922,
-      "memory": {
-        "buildHeapDelta": 825.006,
-        "peakMalloc": 14393344,
-        "disposeResidual": 825006
-      }
+      "mean": 5363.252766927083,
+      "p50": 5350.244140625,
+      "p99": 5584.0087890625,
+      "opsPerSec": 186454.01278988342
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "solid-js",
-      "mean": 9960.777064732143,
-      "p50": 9958.6669921875,
-      "p99": 10065.478515625,
-      "opsPerSec": 100393.7738492987,
-      "memory": {
-        "buildHeapDelta": 10874.512,
-        "peakMalloc": 3379200,
-        "disposeResidual": 10874512
-      }
+      "mean": 10253.63037109375,
+      "p50": 10215.576171875,
+      "p99": 10480.908203125,
+      "opsPerSec": 97526.4334492809
     },
     {
       "workload": "wide-fanout-100",
       "competitor": "s-js",
-      "mean": 3589.7403717041016,
-      "p50": 3579.1748046875,
-      "p99": 3735.2294921875,
-      "opsPerSec": 278571.6782980841,
-      "memory": {
-        "buildHeapDelta": -4654.952,
-        "peakMalloc": 0,
-        "disposeResidual": -4654952
-      }
+      "mean": 3805.6288422131147,
+      "p50": 3787.98828125,
+      "p99": 3951.953125,
+      "opsPerSec": 262768.6622793364
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@scribe/signals",
-      "mean": 2611.6578520014045,
-      "p50": 2602.294921875,
-      "p99": 2972.65625,
-      "opsPerSec": 382898.5482281552,
-      "memory": {
-        "buildHeapDelta": -3187.661,
-        "peakMalloc": 0,
-        "disposeResidual": -3187661
-      }
+      "mean": 2615.2681157830057,
+      "p50": 2619.3603515625,
+      "p99": 2863.57421875,
+      "opsPerSec": 382369.9734513079
     },
     {
       "workload": "batched-writes-100",
       "competitor": "alien-signals",
-      "mean": 3603.202438354492,
-      "p50": 3541.1376953125,
-      "p99": 4031.884765625,
-      "opsPerSec": 277530.89567087416,
-      "memory": {
-        "buildHeapDelta": 495.966,
-        "peakMalloc": 0,
-        "disposeResidual": 495966
-      }
+      "mean": 3569.0531099759614,
+      "p50": 3538.671875,
+      "p99": 3937.3046875,
+      "opsPerSec": 280186.36013145105
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@preact/signals-core",
-      "mean": 3991.6058456688597,
-      "p50": 3988.5986328125,
-      "p99": 4200.6103515625,
-      "opsPerSec": 250525.73792702056,
-      "memory": {
-        "buildHeapDelta": -6642.826,
-        "peakMalloc": 0,
-        "disposeResidual": -6642826
-      }
+      "mean": 4077.7117047991073,
+      "p50": 4064.404296875,
+      "p99": 4377.3193359375,
+      "opsPerSec": 245235.5812263746
     },
     {
       "workload": "batched-writes-100",
       "competitor": "@vue/reactivity",
-      "mean": 7953.81763599537,
-      "p50": 7941.845703125,
-      "p99": 8049.51171875,
-      "opsPerSec": 125725.78927060807,
-      "memory": {
-        "buildHeapDelta": 1994.006,
-        "peakMalloc": 0,
-        "disposeResidual": 1994006
-      }
+      "mean": 7875.89427806713,
+      "p50": 7874.12109375,
+      "p99": 8089.7705078125,
+      "opsPerSec": 126969.70841581891
     },
     {
       "workload": "batched-writes-100",
       "competitor": "solid-js",
-      "mean": 6339.112723214285,
-      "p50": 6310.0830078125,
-      "p99": 6715.91796875,
-      "opsPerSec": 157750.78369216062,
-      "memory": {
-        "buildHeapDelta": 4325.305,
-        "peakMalloc": 0,
-        "disposeResidual": 4325305
-      }
+      "mean": 6464.407887178309,
+      "p50": 6439.990234375,
+      "p99": 6696.875,
+      "opsPerSec": 154693.20894546717
     },
     {
       "workload": "batched-writes-100",
       "competitor": "s-js",
-      "mean": 2577.373529790522,
-      "p50": 2560.2783203125,
-      "p99": 2732.2265625,
-      "opsPerSec": 387991.87950117415,
-      "memory": {
-        "buildHeapDelta": -1143.575,
-        "peakMalloc": 0,
-        "disposeResidual": -1143575
-      }
+      "mean": 2673.505410380747,
+      "p50": 2641.4306640625,
+      "p99": 2895.3369140625,
+      "opsPerSec": 374040.76165964635
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "@scribe/signals",
-      "mean": 4038.0413925438597,
-      "p50": 3996.826171875,
-      "p99": 4517.2119140625,
-      "opsPerSec": 247644.81162735837,
-      "memory": {
-        "buildHeapDelta": 9391.82,
-        "peakMalloc": 0,
-        "disposeResidual": 9391820
-      }
+      "mean": 3513.335626775568,
+      "p50": 3489.306640625,
+      "p99": 3741.6748046875,
+      "opsPerSec": 284629.7952233415
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "alien-signals",
-      "mean": 2435.5244954427085,
-      "p50": 2417.236328125,
-      "p99": 2653.662109375,
-      "opsPerSec": 410589.17776075524,
-      "memory": {
-        "buildHeapDelta": -576.521,
-        "peakMalloc": 0,
-        "disposeResidual": -576521
-      }
+      "mean": 2470.849609375,
+      "p50": 2457.3974609375,
+      "p99": 2610.3515625,
+      "opsPerSec": 404719.0878011185
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "@preact/signals-core",
-      "mean": 3134.5165355785475,
-      "p50": 3126.8310546875,
-      "p99": 3269.3359375,
-      "opsPerSec": 319028.4653628177,
-      "memory": {
-        "buildHeapDelta": -10661.29,
-        "peakMalloc": 0,
-        "disposeResidual": -10661290
-      }
+      "mean": 3139.138381545608,
+      "p50": 3126.318359375,
+      "p99": 3334.423828125,
+      "opsPerSec": 318558.75034971634
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "@vue/reactivity",
-      "mean": 4718.735758463542,
-      "p50": 4708.5205078125,
-      "p99": 4889.0625,
-      "opsPerSec": 211921.1693950856,
-      "memory": {
-        "buildHeapDelta": 3967.062,
-        "peakMalloc": 0,
-        "disposeResidual": 3967062
-      }
+      "mean": 4646.591497927296,
+      "p50": 4612.1337890625,
+      "p99": 4971.4599609375,
+      "opsPerSec": 215211.5158920404
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "solid-js",
-      "mean": 6106.416151258681,
-      "p50": 6085.2294921875,
-      "p99": 6285.1806640625,
-      "opsPerSec": 163762.1765745323,
-      "memory": {
-        "buildHeapDelta": 7858.689,
-        "peakMalloc": 0,
-        "disposeResidual": 7858689
-      }
+      "mean": 6251.154920789931,
+      "p50": 6241.064453125,
+      "p99": 6490.52734375,
+      "opsPerSec": 159970.43949018535
     },
     {
       "workload": "deep-propagation-100",
       "competitor": "s-js",
-      "mean": 1999.8465401785713,
-      "p50": 1997.6318359375,
-      "p99": 2083.837890625,
-      "opsPerSec": 500038.36789932265,
-      "memory": {
-        "buildHeapDelta": -7643.495,
-        "peakMalloc": 0,
-        "disposeResidual": -7643495
-      }
+      "mean": 1983.9148256959033,
+      "p50": 1973.3154296875,
+      "p99": 2097.0458984375,
+      "opsPerSec": 504053.8973991624
     },
     {
       "workload": "dynamic-deps",
       "competitor": "@scribe/signals",
-      "mean": 743.8942238136574,
-      "p50": 741.8701171875,
-      "p99": 928.61328125,
-      "opsPerSec": 1344277.1404694978,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 720.390201043226,
+      "p50": 704.248046875,
+      "p99": 948.2666015625,
+      "opsPerSec": 1388136.593962355
     },
     {
       "workload": "dynamic-deps",
       "competitor": "alien-signals",
-      "mean": 1283.187552787162,
-      "p50": 1211.0107421875,
-      "p99": 2164.16015625,
-      "opsPerSec": 779309.3050411366,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 1279.905520203293,
+      "p50": 1222.0703125,
+      "p99": 2075.244140625,
+      "opsPerSec": 781307.6701483135
     },
     {
       "workload": "dynamic-deps",
       "competitor": "@preact/signals-core",
-      "mean": 847.1625529544455,
-      "p50": 848.14453125,
-      "p99": 1026.46484375,
-      "opsPerSec": 1180411.004372821,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 891.0025137442129,
+      "p50": 886.42578125,
+      "p99": 1130.2001953125,
+      "opsPerSec": 1122331.2892774597
     },
     {
       "workload": "dynamic-deps",
       "competitor": "@vue/reactivity",
-      "mean": 3699.393586189516,
-      "p50": 3654.2724609375,
-      "p99": 3928.7109375,
-      "opsPerSec": 270314.5736461173,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 3810.80322265625,
+      "p50": 3772.75390625,
+      "p99": 4074.8291015625,
+      "opsPerSec": 262411.8700369337
     },
     {
       "workload": "dynamic-deps",
       "competitor": "solid-js",
-      "mean": 1004.249267578125,
-      "p50": 1000.0732421875,
-      "p99": 1128.466796875,
-      "opsPerSec": 995768.7122955313,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 1019.4348404255319,
+      "p50": 1009.228515625,
+      "p99": 1179.1015625,
+      "opsPerSec": 980935.671751792
     },
     {
       "workload": "dynamic-deps",
       "competitor": "s-js",
-      "mean": 643.9743489583333,
-      "p50": 641.11328125,
-      "p99": 724.51171875,
-      "opsPerSec": 1552856.8826034132,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 618.9831229967949,
+      "p50": 613.8671875,
+      "p99": 737.1337890625,
+      "opsPerSec": 1615552.9332666118
     },
     {
       "workload": "creation-1to1000",
       "competitor": "@scribe/signals",
-      "mean": 69480.68033854167,
-      "p50": 69271.337890625,
-      "p99": 70744.189453125,
-      "opsPerSec": 14392.490043671742,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 70800.95621744792,
+      "p50": 70413.6962890625,
+      "p99": 73515.2099609375,
+      "opsPerSec": 14124.103026641944
     },
     {
       "workload": "creation-1to1000",
       "competitor": "alien-signals",
-      "mean": 91554.32942708333,
-      "p50": 91129.0283203125,
-      "p99": 94482.9833984375,
-      "opsPerSec": 10922.476372856083,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 87421.98282877605,
+      "p50": 87802.001953125,
+      "p99": 89185.8154296875,
+      "opsPerSec": 11438.770520208762
     },
     {
       "workload": "creation-1to1000",
       "competitor": "@preact/signals-core",
-      "mean": 53633.671061197914,
-      "p50": 54132.958984375,
-      "p99": 55703.955078125,
-      "opsPerSec": 18645.003786128393,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 53889.607747395836,
+      "p50": 53929.6875,
+      "p99": 55770.8740234375,
+      "opsPerSec": 18556.453494474063
     },
     {
       "workload": "creation-1to1000",
       "competitor": "@vue/reactivity",
-      "mean": 81593.06030273438,
-      "p50": 81482.0556640625,
-      "p99": 83899.21875,
-      "opsPerSec": 12255.944271359653,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 81551.77815755208,
+      "p50": 80800.5615234375,
+      "p99": 84904.248046875,
+      "opsPerSec": 12262.14832579215
     },
     {
       "workload": "creation-1to1000",
       "competitor": "solid-js",
-      "mean": 93981.37625070795,
-      "p50": 66800,
+      "mean": 95112.28019877676,
+      "p50": 67700,
       "p99": 1029800,
-      "opsPerSec": 10640.406002699574,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "opsPerSec": 10513.889456861754
     },
     {
       "workload": "creation-1to1000",
       "competitor": "s-js",
-      "mean": 68899.52596028645,
-      "p50": 68105.6640625,
-      "p99": 70452.197265625,
-      "opsPerSec": 14513.887955867765,
-      "memory": {
-        "buildHeapDelta": 0,
-        "peakMalloc": 0,
-        "disposeResidual": 0
-      }
+      "mean": 67282.70670572917,
+      "p50": 66494.921875,
+      "p99": 70085.693359375,
+      "opsPerSec": 14862.660094422885
     }
   ]
 }

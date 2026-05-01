@@ -3,7 +3,7 @@
 **Branch:** `feat/v1-ssr-signals` (merged; all active work on `main`)
 **Plans:** 3.1 (Streaming SSR), 6.2 (Signals Deep-Chain Optimization)
 **Initialized:** 2026-04-30
-**Last updated:** 2026-04-30 (Round 4 — Session 003 complete)
+**Last updated:** 2026-05-01 (Round 5 — Phase 1 Linux bench FAIL, opening Phase 2)
 
 ---
 
@@ -13,7 +13,8 @@
 |---|---|---|---|
 | 3.1 Streaming SSR | COMPLETE (main `ec24d41`) | — | `renderToStream`, `DataSource<T>`, `StreamOptions`; `ssr-stream.test.ts` 167 lines |
 | 6.2 Deep-chain Phase 0 (Option C) | COMPLETE (main `8223dbb`) | — | `HAS_EFFECT_SUB` flag + conditional push; ~18% improvement (4.00→3.27 µs p50); ≤1.54 kB gz |
-| 6.2 Deep-chain Phase 1 (Option D) | CONDITIONAL PASS (main `8e74a95`) | — | Hybrid fanout/lazy; correctness PASS; perf unverified on Windows — Linux bench required |
+| 6.2 Deep-chain Phase 1 (Option D) | **FAIL on Linux** (main `8e74a95`) | — | WSL2 bench 2026-05-01: 3.49 µs p50 vs ≤ 3.00 µs target. Correctness PASS. Phase 2 opened. |
+| 6.2 Deep-chain Phase 2 | OPEN | TBD | Goal: close gap to alien-signals (2.46 µs p50). Iron Law: investigation before fix. |
 
 ---
 
@@ -152,12 +153,47 @@ Note: `@scribe/arbor` bundles signals (not externalized). The Phase 1 growth flo
 | 2 | 2026-04-30 | `director-notes/track-c-round-002.md` | Spec (3.1) and investigation (6.2) assessed; GO for Builder 3.1 and Builder 6.2-Phase0 (Option C) in parallel; Option D (Phase 1) HOLD pending bench confirmation |
 | 3 | 2026-04-30 | — | Plan 3.1 COMPLETE (`ec24d41`); Plan 6.2-P0 COMPLETE (`8223dbb`); Phase 0 bench confirmed ≥18% improvement; Phase 1 Option D unblocked for Architect spec |
 | 4 | 2026-04-30 | — | Plan 6.2-P1 Option D CONDITIONAL PASS (`8e74a95`); Architect spec `7ff92c0`; correctness verified; perf unverified on Windows; Linux/macOS bench required before track marked COMPLETE |
+| 5 | 2026-05-01 | TBD (this session) | Phase 1 verified on WSL2: 3.49 µs p50 vs ≤ 3.00 µs target = **FAIL**. Phase 2 opened to close the remaining 1.03 µs gap to alien-signals. |
 
 ---
 
-## Next actions
+## Round 5 — Phase 1 Linux verification + Phase 2 open (2026-05-01)
 
-1. **Linux/macOS bench run** — REQUIRED before signals optimization track closes. Run `bun run bench` on reference hardware. Target: ≤ ~2.45 µs p50 on `deep-propagation-100` (≥25% improvement over Phase 0 baseline of 3.27 µs p50). All no-regression gates must hold.
-2. **If perf target met** — Track C signals work is COMPLETE for v1. Mark 6.2-P1 PASS in this file. No Phase 2 needed.
-3. **If perf target not met** — Open Phase 2 investigation. Scope: determine whether the PENDING flag cascade-suppression approach needs additional optimization or whether the Windows/Linux delta explains the miss.
-4. **Track C maintenance** — `packages/server/` and `packages/signals/` are read-only from other tracks' perspective. Any further server or signals work routes through Track C.
+### Phase 1 Linux bench result (WSL2, Bun 1.3.8, mitata 1.0.34)
+
+| Workload | scribe p50 | Target | Status |
+|---|---:|---:|---|
+| **deep-propagation-100** | **3.49 µs** | ≤ 3.00 µs | **FAIL** (~16% over) |
+| cellx | 513 ns | ≤ 557 ns | PASS (#1 vs all competitors) |
+| wide-fanout-100 | 4.39 µs | ≤ 5.15 µs | PASS |
+| batched-writes-100 | 2.62 µs | ≤ 2.86 µs | PASS (#1 vs all) |
+| dynamic-deps | 704 ns | ≤ 816 ns | PASS (#2) |
+| creation-1to1000 | 70.4 µs | ≤ 76.2 µs | PASS |
+
+5 of 6 workloads PASS. Only `deep-propagation-100` misses target. Reference data appended to `bench/signals/RESULTS.md` (commit pending).
+
+### Competitive context on deep-propagation-100
+
+| Competitor | p50 | gap to scribe |
+|---|---:|---:|
+| s-js | 1.97 µs | 1.77× faster |
+| alien-signals | 2.46 µs | 1.42× faster |
+| @preact/signals-core | 3.13 µs | 1.11× faster |
+| **@scribe/signals** | **3.49 µs** | — |
+
+Phase 0+1 closed roughly 12.7% of the original gap (4.00→3.49 µs). The remaining gap to alien (1.03 µs) is the Phase 2 target.
+
+## Next actions (Phase 2)
+
+1. **Investigator** — Read `bench/signals/node_modules/alien-signals/esm/system.mjs`. Produce `investigation-deep-chain-phase2.md` with: (a) alien's mechanism for short-circuiting deep chains, (b) per-node constant-factor cost in scribe's iterative DFS vs alien's traversal, (c) named candidate optimizations (each with expected ns/node savings), (d) compatibility analysis with cascade-suppression/PENDING flag from Phase 1.
+2. **Architect** — From the investigation, choose ONE optimization for Phase 2 and write `spec-6.2-phase2.md` with named acceptance criteria, no-regression matrix, and bundle-size budget.
+3. **Builder** — Implement on `feat/v1-signals-6.2-phase2`. Iron Law: no fix code without investigation `.md`.
+4. **Verifier** — Bidirectional: (a) bench on WSL2 confirming `deep-propagation-100` p50 ≤ target; (b) all 5 no-regression gates green; (c) signals tests pass; (d) bundle ≤ 1850 B gz cap.
+5. **Track C maintenance** — `packages/server/` and `packages/signals/` are read-only from other tracks' perspective.
+
+## Phase 2 scope rules
+
+- **Iteration budget (Mode 1):** 3 misses on the same hypothesis class → Director recommends rotate to alternate optimization.
+- **Hard cap:** 5 Builder ↔ Verifier rounds in Phase 2 total. If unconverged, Director surfaces target adjustment to user.
+- **Surface to user immediately if:** alien-signals' algorithm requires a model change incompatible with scribe's effect-settled-in-mark contract (this would be a v2 redesign, not a v1 phase).
+- **Bundle cap unchanged:** 1850 B gz. If a candidate breaks the cap, Architect must propose alternatives.
