@@ -75,6 +75,8 @@ export interface Subscriber {
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
 /** @internal */ export const PENDING          = 0x100
+/** @internal — combined mark flags for inner chase path. */
+export const MARKED_PENDING = MARKED | PENDING
 
 /** @internal */
 let currentObserver: Subscriber | null = null
@@ -198,51 +200,63 @@ export function linkUnlink(link: Link): void {
 const markStack: Subscriber[] = []
 
 function markOne(root: Subscriber): void {
-  // H4 tail-recursive linear chase (spec-6.2-phase2.md §3 / §6). Linear-path
-  // hops never enter markStack; only fan-out frontiers do. Mirrors
-  // alien-signals system.mjs:95 `top:` label structure.
-  // Invariants: DI-1 (dedup at top), CS-1 (PENDING on every visited sub),
-  // SF-1 (STALE coexists with PENDING on fan-out exit), RC-1 unchanged.
-  // Phase-1 fan-out semantics (no PENDING on fan-out nodes) are preserved by
-  // splitting the dedup gate: outer-popped nodes get only MARKED, inner-chase
-  // visits get MARKED | PENDING.
+  // H4-tactical T1+T2+T6 (spec-6.2-phase3-h4-tactical). Split into two
+  // distinct loops so V8 can monomorphise each independently — the ternary
+  // `isChase ? MARKED | PENDING : MARKED` in the unified loop is polymorphic
+  // in the hot inner path and prevents type inference.
+  //
+  // Invariants: DI-1 (dedup at top via MERGE gate), CS-1 (PENDING on every
+  // inner-chase sub), SF-1 (STALE coexists with PENDING on fan-out exit),
+  // RC-1 unchanged.  Fan-out nodes receive MARKED only (no PENDING); the
+  // first node in a linear run gets PENDING via `sub.flags |= PENDING` at
+  // the outer→inner transition; all subsequent inner-chase nodes receive
+  // MARKED_PENDING via the T2 constant (no ternary).
   const baseLen = markStack.length
-  let sub: Subscriber = root
-  let isChase = false
+  markStack.push(root)
   try {
-    // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
-    while (true) {
-      // H5 site A + chase-inner: dedup gate is type-guarded on MERGE.
-      // Linear subs (≤1 inbound dep) skip both the read and the write —
-      // DI-1 is vacuously satisfied (exactly one inbound mark per wave).
-      if (!(sub.flags & DISPOSED) && (!(sub.flags & MERGE) || sub.lastWave !== wave)) {
+    while (markStack.length > baseLen) {
+      // ── Outer loop: stack-popped nodes, MARKED only (no PENDING) ──
+      let sub = markStack.pop() as Subscriber
+      if (sub.flags & DISPOSED) continue
+      if (sub.flags & MERGE && sub.lastWave === wave) continue
+      if (sub.flags & RUNNING) throw new SignalCircularError()
+      if (sub.flags & MERGE) sub.lastWave = wave
+      sub.flags |= MARKED
+      if (sub.flags & EFFECT) { effectQueue.push(sub); continue }
+      let head = sub.subsHead
+      if (head === null) { sub.flags |= STALE; continue }
+      if (head.nextSub !== null) {
+        visited.push(sub)
+        sub.flags |= STALE
+        for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
+          markStack.push(l.sub)
+        }
+        continue
+      }
+      // Linear entry: promote outer node to PENDING, then chase
+      sub.flags |= PENDING
+      // ── Inner chase loop: MARKED | PENDING on every hop (T1 + T2 + T6) ──
+      // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
+      while (true) {
+        sub = head.sub                // T6: one .sub read per iteration
+        if (sub.flags & DISPOSED) break
+        if (sub.flags & MERGE && sub.lastWave === wave) break
         if (sub.flags & RUNNING) throw new SignalCircularError()
         if (sub.flags & MERGE) sub.lastWave = wave
-        sub.flags |= isChase ? MARKED | PENDING : MARKED       // CS-1 stamp
-        if (sub.flags & EFFECT) {
-          effectQueue.push(sub)
-        } else {
-          const head = sub.subsHead
-          if (head === null) {
-            sub.flags |= STALE                                 // leaf
-          } else if (head.nextSub !== null) {
-            visited.push(sub)                                  // fan-out (SF-1)
-            sub.flags |= STALE
-            for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-              markStack.push(l.sub)
-            }
-          } else {
-            // Linear path: inline-chase without touching markStack.
-            if (!isChase) sub.flags |= PENDING                 // promote outer→chase
-            sub = head.sub
-            isChase = true
-            continue
+        sub.flags |= MARKED_PENDING   // T2: no ternary
+        if (sub.flags & EFFECT) { effectQueue.push(sub); break }
+        head = sub.subsHead
+        if (head === null) { sub.flags |= STALE; break }
+        if (head.nextSub !== null) {
+          visited.push(sub)
+          sub.flags |= STALE
+          for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
+            markStack.push(l.sub)
           }
+          break
         }
+        // Continue inner chase: head already updated above (T6)
       }
-      if (markStack.length <= baseLen) break
-      sub = markStack.pop() as Subscriber
-      isChase = false
     }
   } catch (e) {
     markStack.length = baseLen
