@@ -400,6 +400,41 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     }).toThrow('no-handler-error')
   })
 
+  it('T5: effect that throws on first run followed by signal write causes onError exactly once (not twice)', () => {
+    // Regression for the disposeRef TDZ bug: when an effect throws on its
+    // VERY FIRST synchronous run, disposeRef.fn is null (effect() hasn't
+    // returned yet). The self-dispose call disposeRef.fn?.() is a no-op, so
+    // the effect stays subscribed. The next signal write then fires onError a
+    // second time before finally self-disposing.
+    //
+    // Precondition: the getter must read sig[0]() BEFORE throwing so that a
+    // dep edge is created on the first run. Without the subscription there
+    // would be no re-fire and the bug wouldn't manifest.
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const sig = signal('initial')
+    const setSig = sig[1]
+
+    const throwingGet = () => {
+      sig[0]() // subscribe to sig, then throw
+      throw new Error('always-throws')
+    }
+    const throwingSig = [throwingGet, sig[1]] as unknown as typeof sig
+
+    const scope = mount(branch('p', undefined, [leaf(throwingSig)]), host, {
+      onError: errorSpy,
+    })
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    // Without the fix: effect is still subscribed → this write re-fires the
+    // effect → onError is called a second time.
+    setSig('second')
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    scope.dispose()
+  })
+
   it('T4: onError returning void → other bindings in same scope continue updating', () => {
     const host = document.createElement('div')
     const errorSpy = vi.fn()

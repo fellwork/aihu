@@ -1,0 +1,15 @@
+---
+source: tests/sfc_split.rs
+assertion_line: 14
+expression: result
+---
+ScribeSource {
+    script: Some(
+        "const x = 1",
+    ),
+    template: None,
+    style: None,
+    meta: ScriptMeta {
+        name: None,
+    },
+}

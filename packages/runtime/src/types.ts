@@ -10,6 +10,7 @@
  */
 
 import type { Branch, Leaf, MountScope } from '@scribe/arbor'
+import type { Signal } from '@scribe/signals'
 
 /**
  * Shadow DOM mode for the custom element.
@@ -73,6 +74,28 @@ export type MountFn = (node: Branch | Leaf, host: ShadowRoot | Element) => Mount
  *
  * @internal
  */
+/**
+ * Context intersection added by options-form `defineComponent({ attrs, setup })`.
+ * Maps each attribute name to a `Signal<string>` created at connect time.
+ *
+ * NOT exported from `index.ts` — internal intersection type only.
+ * @internal
+ */
+export type AttrContext<A extends ReadonlyArray<string>> = {
+  readonly attrs: { readonly [K in A[number]]: Signal<string> }
+}
+
+/**
+ * Options passed to the overloaded `defineComponent` when typed
+ * `observedAttributes` + per-attribute signals are desired.
+ *
+ * Exported from `index.ts` as part of the public surface.
+ */
+export interface ComponentOptions<A extends ReadonlyArray<string> = ReadonlyArray<string>> {
+  attrs?: A
+  setup: (ctx: SetupContext & AttrContext<A>) => Branch | Leaf
+}
+
 export class RuntimeError extends Error {
   override name = 'RuntimeError'
   readonly code: string

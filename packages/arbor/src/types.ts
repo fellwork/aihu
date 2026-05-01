@@ -68,18 +68,18 @@ export interface Leaf {
  */
 export interface StructuralNode {
   readonly kind: 'structural'
-  /** 'c' = conditional (when), 'l' = list (each). Optional: used for debugging only. */
-  readonly structuralKind?: 'c' | 'l'
-  /** For 'conditional': the Signal<boolean> condition */
+  /** Discriminator: 'conditional' for when(), 'list' for each(). Always present per §2.6. */
+  readonly structuralKind: 'conditional' | 'list'
+  /** For 'conditional': the Signal<boolean> condition. null on list nodes. */
   readonly condition: Signal<boolean> | null
-  /** For 'conditional': the grow function for the true branch */
-  readonly grow?: (() => Node) | null
-  /** For 'list': the Signal<unknown[]> list */
-  readonly list?: Signal<unknown[]> | null
-  /** For 'list': the key extractor function */
-  readonly keyFn?: ((item: unknown) => string | number) | null
-  /** For 'list': the per-item grow function */
-  readonly listGrow?: ((item: unknown, index: number) => Node) | null
+  /** For 'conditional': the grow function for the true branch. null on list nodes. */
+  readonly grow: (() => Node) | null
+  /** For 'list': the Signal<unknown[]> list. null on conditional nodes. */
+  readonly list: Signal<unknown[]> | null
+  /** For 'list': the key extractor function. null on conditional nodes. */
+  readonly keyFn: ((item: unknown) => string | number) | null
+  /** For 'list': the per-item grow function. null on conditional nodes. */
+  readonly listGrow: ((item: unknown, index: number) => Node) | null
 }
 
 /**
@@ -91,6 +91,7 @@ export interface StructuralNode {
  */
 export interface ChildScope {
   readonly anchor: Comment
+  readonly key: string | number
   readonly disposers: Dispose[]
   appendedNodes: globalThis.Node[]
 }

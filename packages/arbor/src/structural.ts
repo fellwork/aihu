@@ -9,7 +9,15 @@ import type { MountEffectFn } from './attrs.ts'
  */
 
 export function when(condition: Signal<boolean>, grow: () => Node): StructuralNode {
-  return { kind: 'structural', condition, grow: grow as () => Node }
+  return {
+    kind: 'structural',
+    structuralKind: 'conditional',
+    condition,
+    grow: grow as () => Node,
+    list: null,
+    keyFn: null,
+    listGrow: null,
+  }
 }
 
 export function each<T>(
@@ -19,7 +27,9 @@ export function each<T>(
 ): StructuralNode {
   return {
     kind: 'structural',
+    structuralKind: 'list',
     condition: null,
+    grow: null,
     list: list as Signal<unknown[]>,
     keyFn: key as (item: unknown) => string | number,
     listGrow: grow as (item: unknown, index: number) => Node,
@@ -77,7 +87,7 @@ function _reconcileWhen(
   const cd: Dispose[] = []
   const ca = document.createComment('w')
   par.insertBefore(ca, anc.nextSibling)
-  st.c = { anchor: ca, disposers: cd,
+  st.c = { anchor: ca, key: 'when', disposers: cd,
     appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling) }
 }
 
@@ -103,7 +113,7 @@ function _reconcileEach(
     const cd: Dispose[] = []
     const ca = document.createComment('e')
     par.appendChild(ca)
-    sc.set(k, { anchor: ca, disposers: cd,
+    sc.set(k, { anchor: ca, key: k, disposers: cd,
       appendedNodes: _mc(lgrow(items[i], i), par, cd,
         `${pb}.list.${String(k).replace(/\./g, '_')}`, mfn, eh, null) })
   }
@@ -129,7 +139,7 @@ export function _materializeStructural(
   mfn: MountEffectFn,
   eh: ErrorHandler | undefined,
 ): globalThis.Node[] {
-  const isWhen = node.condition !== null
+  const isWhen = node.structuralKind === 'conditional'
   const anc = document.createComment(isWhen ? 'when' : 'each')
   host.appendChild(anc)
   if (isWhen) {

@@ -1,0 +1,19 @@
+---
+source: tests/sfc_split.rs
+assertion_line: 7
+expression: result
+---
+ScribeSource {
+    script: Some(
+        "import { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)",
+    ),
+    template: Some(
+        "<div>{{ count }}</div>",
+    ),
+    style: Some(
+        "div { color: red; }",
+    ),
+    meta: ScriptMeta {
+        name: None,
+    },
+}

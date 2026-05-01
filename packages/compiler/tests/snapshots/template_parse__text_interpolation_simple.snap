@@ -1,0 +1,18 @@
+---
+source: tests/template_parse.rs
+assertion_line: 18
+expression: result
+---
+Ok(
+    [
+        Element {
+            tag: "p",
+            attrs: [],
+            children: [
+                Interpolation(
+                    "count",
+                ),
+            ],
+        },
+    ],
+)

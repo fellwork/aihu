@@ -16,4 +16,4 @@
 
 export { defineComponent } from './define-component.ts'
 export { defineElement } from './define-element.ts'
-export type { DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'
+export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'

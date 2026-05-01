@@ -5,16 +5,21 @@
 **HEAD at session start:** `8b5ba32` (docs(plans): Round N+2 test-quality track + compiler track plans)
 **HEAD after session 1:** `3919bdb` on `feat/compiler-c0` — "feat(compiler): Phase C-0 — scaffold + SFC block splitter"
 **HEAD after session 2:** `2a4ad9d` on `feat/compiler-c1` — "feat(compiler): Phase C-1 — TemplateNode + recursive descent template parser"
-**Active branch:** `feat/compiler-c1` (Phase C-1 complete; Phase C-2 next)
+**HEAD after session 3:** `653252f` on `feat/compiler-c2` — "docs(team): Round 003 director note — C-2 adjudication"
+**HEAD after session 4:** `d7bd475` on `feat/compiler-c3` — "fix(compiler): re-accept multiple_signals snapshot (HashMap ordering)"
+**HEAD after session 5:** `a0af4d4` on `feat/compiler-c4` — "fix(compiler): C4-6 integration — .exe path, enforce:pre, bun integrate.ts"
+**Active branch:** `feat/compiler-c4`
 **Mode:** 2 (Build/refactor)
 
 ---
 
 ## Current phase
 
-**Phase C-2 — Signal Identity Resolver** — NOT STARTED (session 3)
+**Phase C-4 — CLI + Vite Integration** — **COMPLETE** (session 5)
 
-Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → **C-2** → C-3 → C-4
+Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3 (**COMPLETE**) → C-4 (**COMPLETE**)
+
+**Compiler track COMPLETE. No Phase C-5 planned.**
 
 ---
 
@@ -24,13 +29,15 @@ Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → **C-2** → C-3 → C-4
 |-------|-------|---------|----------|----------|--------|
 | 1     | C-0   | PASS    | PASS     | PASS     | COMPLETE |
 | 2     | C-1   | PASS    | PASS     | PASS     | COMPLETE |
-| 3     | C-2   | pending | pending  | pending  | next |
+| 3     | C-2   | PASS    | PASS (10/10) | PASS | COMPLETE |
+| 4     | C-3   | PASS    | PASS (11/11+1 SKIP) | PASS | COMPLETE |
+| 5     | C-4   | PASS    | PASS (10/10) | PASS | COMPLETE |
 
 ---
 
 ## Open questions
 
-All original OQs (C1–C8) resolved in Round 1. All Round 2 carry-forward items resolved by Director in session 2.
+All original OQs (C1–C8) resolved in Round 1. All carry-forward items resolved in sessions 2-4.
 
 | OQ | Resolution | Status |
 |----|-----------|--------|
@@ -45,13 +52,15 @@ All original OQs (C1–C8) resolved in Round 1. All Round 2 carry-forward items 
 | OQ-C9: Compiler emit pattern | Option A — `defineElement('tag', defineComponent((_ctx) => { ... }))` | CLOSED |
 | OQ-C10: `leaf()` Signal type | `as unknown as Signal<string>` cast in emitted code | CLOSED |
 | OQ-C11: Rust toolchain version | `rust = "1.87.0"` in `.prototools` + `rust-toolchain.toml` at root | CLOSED |
-| OQ-C12: ScriptMeta wiring timing | Wire `pub meta: ScriptMeta` into `ScribeSource` in C-1 (not C-2/C-3) | CLOSED |
-| OQ-C13: `_setMount` constraint | App-level bootstrap call; not a compiler concern; documented in architecture spec C-3 section | CLOSED |
-| OQ-C14: `TemplateNode` lifetime | Use owned `String` fields; no `&'a str` lifetime slices on `TemplateNode` or `Attr` | CLOSED |
+| OQ-C12: ScriptMeta wiring timing | Wire `pub meta: ScriptMeta` into `ScribeSource` in C-1 | CLOSED |
+| OQ-C13: `_setMount` constraint | App-level bootstrap call; not a compiler concern | CLOSED |
+| OQ-C14: `TemplateNode` lifetime | Use owned `String` fields | CLOSED |
+| OQ-C15: `parse_template()` wiring timing | Wire in C-2 via `compile_full()` | CLOSED |
+| OQ-C16: `SignalMap` concrete type | `HashMap<String, String>` newtype | CLOSED |
 
-**Open for Session 3:**
-- When does the `sfc.rs` parser get the full `<template>` block content wired into `parse_template()`? `ScribeSource.template` is a `&'a str` slice; `parse_template()` exists but is not called from `sfc.rs::parse()`. Decide in C-2 Director pass: does C-2 signal resolution require the template AST, or does C-2 work from script text only (wiring deferred to C-3)?
-- Signal resolver scope: does C-2 Architect need to specify the exact `SignalMap` Rust type (e.g., `HashMap<String, String>`) and visibility per `architecture.md` §8 C2-1 through C2-6? The criteria specify behaviour but not the concrete type. Confirm in C-2 Director pass.
+All OQs closed. No new open questions.
+
+**C3-2 open gate:** CLOSED. `bun tsc --noEmit` check ran at session 5 start — caught real bug (`"null"` → `"undefined"` in `emit_attrs()`). Fixed in commit `ffcbc3b`. 8 snapshots re-accepted. Gate resolved.
 
 ---
 
@@ -61,14 +70,24 @@ All original OQs (C1–C8) resolved in Round 1. All Round 2 carry-forward items 
 |----------|------|--------|
 | Plan | `.team/compiler/plan-compiler.md` | COMPLETE |
 | Scout report | `.team/compiler/scout-report.md` | COMPLETE |
-| Architecture spec | `.team/compiler/architecture.md` | FINAL (C-0 + C-1 spec; C-1 algorithm in Sections 11–14; C-2 criteria in Section 8) |
+| Architecture spec | `.team/compiler/architecture.md` | FINAL (Sections 1-17; C-4 CLI + Vite spec in Section 17) |
 | Director notes round 1 | `.team/compiler/director-notes/round-001-2026-04-30.md` | COMPLETE |
 | Director notes round 2 | `.team/compiler/director-notes/round-002-2026-04-30.md` | COMPLETE |
+| Director notes round 3 | `.team/compiler/director-notes/round-003-2026-04-30.md` | COMPLETE |
+| Director notes round 4 | `.team/compiler/director-notes/round-004-2026-04-30.md` | COMPLETE |
+| Director notes round 5 | `.team/compiler/director-notes/round-005-2026-04-30.md` | COMPLETE |
 | Build manifest C-0 | `.team/compiler/build-manifest-c0.md` | COMPLETE — 11/11 PASS |
 | Verification report C-0 | `.team/compiler/verification-report-c0.md` | COMPLETE — PASS |
 | Verification report C-1 | `.team/compiler/verification-report-c1.md` | COMPLETE — PASS (11/11) |
+| Verification report C-2 | `.team/compiler/verification-report-c2.md` | COMPLETE — PASS (10/10) |
+| Verification report C-3 | `.team/compiler/verification-report-c3.md` | COMPLETE — PASS (11/11+1 SKIP) |
+| Verification report C-4 | `.team/compiler/verification-report-c4.md` | COMPLETE — PASS (10/10) |
 | Retro session 1 | `.team/compiler/retro-session-001.md` | COMPLETE |
 | Retro session 2 | `.team/compiler/retro-session-002.md` | COMPLETE |
+| Retro session 3 | `.team/compiler/retro-session-003.md` | COMPLETE |
+| Retro session 4 | `.team/compiler/retro-session-004.md` | COMPLETE |
+| Retro session 5 | `.team/compiler/retro-session-005.md` | COMPLETE |
+| Build manifest C-4 | (none — Team Lead acted as Builder directly; no separate manifest written) | N/A |
 | Topic summary | `.team/compiler/summaries/compiler-summary.md` | NOT STARTED |
 
 ---
@@ -95,32 +114,99 @@ Files delivered:
 ## Phase C-1 deliverables (COMPLETE)
 
 **Branch:** `feat/compiler-c1` | **Commit:** `2a4ad9d`
-**New tests:** 10/10 passing (`tests/template_parse.rs`) | **Re-accepted snapshots:** 5 (sfc_split) | **New snapshots:** 10
+**New tests:** 10/10 passing | **Re-accepted snapshots:** 5 | **New snapshots:** 10
 **Clippy:** clean | **Fmt:** clean | **Criteria:** 11/11 PASS
 
 Files delivered:
-- `packages/compiler/src/types.rs` — amended: `TemplateNode`, `Attr` enums; `ScribeSource` adds `pub meta: ScriptMeta`
+- `packages/compiler/src/types.rs` — amended: `TemplateNode`, `Attr` enums; `pub meta: ScriptMeta`
 - `packages/compiler/src/lib.rs` — amended: re-exports `Attr`, `TemplateNode`
-- `packages/compiler/src/parser/mod.rs` — amended: alphabetical `pub mod directives; pub mod sfc; pub mod template;`
-- `packages/compiler/src/parser/sfc.rs` — amended: wires `extract_script_meta` result into `ScribeSource` return
-- `packages/compiler/src/parser/template.rs` — new: `parse_template()` recursive descent parser
-- `packages/compiler/src/parser/directives.rs` — new: directive discrimination + identifier validation
+- `packages/compiler/src/parser/mod.rs` — amended: alphabetical modules
+- `packages/compiler/src/parser/sfc.rs` — amended: wires `extract_script_meta`
+- `packages/compiler/src/parser/template.rs` — new: `parse_template()`
+- `packages/compiler/src/parser/directives.rs` — new: directive helpers
 - `packages/compiler/tests/template_parse.rs` — new: 10 snapshot tests
 - `packages/compiler/tests/snapshots/` — 5 re-accepted + 10 new `.snap` files
 
 ---
 
-## Phase C-2 scope (NEXT — session 3)
+## Phase C-2 deliverables (COMPLETE)
 
-**Deliverable:** `SignalMap` type in `src/codegen/signals.rs` — extracts signal read/write name pairs from `<script setup>` content. 6 snapshot tests in `tests/signal_resolve.rs`.
+**Branch:** `feat/compiler-c2` | **Commit:** `32ba955`
+**New tests:** 6/6 passing | **Total tests:** 22 | **New snapshots:** 6
+**Clippy:** clean | **Fmt:** clean | **Criteria:** 10/10 PASS
 
-**Acceptance criteria (from `architecture.md` Section 8 — Phase C-2):**
-- C2-1: `SignalMap` in `src/codegen/signals.rs` maps read-name to write-name
-- C2-2: `const [foo, setFoo] = signal(...)` → `SignalMap { "foo" => "setFoo" }`
-- C2-3: Non-signal var not in `SignalMap`
-- C2-4: Multiple signals all captured
-- C2-5: 6 snapshot tests passing
-- C2-6: Clippy + fmt clean
+Files delivered:
+- `packages/compiler/src/types.rs` — `CompileUnit<'a>` added
+- `packages/compiler/src/lib.rs` — `pub mod codegen`, `compile_full()`, updated re-exports
+- `packages/compiler/src/codegen/mod.rs` — new
+- `packages/compiler/src/codegen/signals.rs` — new: `SignalMap` + `resolve_signals()`
+- `packages/compiler/tests/signal_resolve.rs` — new: 6 named tests
+- `packages/compiler/tests/snapshots/` — 6 new `.snap` files
+
+---
+
+## Phase C-3 deliverables (COMPLETE)
+
+**Branch:** `feat/compiler-c3` | **Commit:** `d7bd475`
+**New tests:** 10/10 passing (`tests/codegen.rs`) | **Total tests:** 32
+**New snapshots:** 10 | **Clippy:** clean | **Fmt:** clean | **Criteria:** 11/11 PASS + 1 SKIP (C3-2 bun tsc)
+
+Files delivered:
+- `packages/compiler/src/codegen/emit.rs` — new: `emit()` + `build_imports()` + `extract_script_body()` + `emit_nodes()` + `emit_node()` + `emit_attrs()`
+- `packages/compiler/src/codegen/mod.rs` — amended: `pub mod emit`, re-exports `emit`
+- `packages/compiler/src/lib.rs` — amended: `emit` added to crate re-exports
+- `packages/compiler/tests/codegen.rs` — new: 10 named snapshot tests
+- `packages/compiler/tests/snapshots/` — 10 new `codegen__*.snap` files
+
+**counter_full snapshot** matches Section 7 oracle exactly. TypeScript codegen pipeline: `ScribeSource` → `CompileUnit` → `emit()` → `.ts` output.
+
+---
+
+## Phase C-4 deliverables (COMPLETE)
+
+**Branch:** `feat/compiler-c4` | **Final commit:** `a0af4d4`
+**Tests:** 32/32 passing (1 ignored) | **Clippy:** clean | **Fmt:** clean | **Criteria:** 10/10 PASS
+
+Files created or amended:
+
+| File | Commit | Notes |
+|------|--------|-------|
+| `packages/compiler/Cargo.toml` | `f82eb56` | Added `[[bin]]` entry for `scribe-compile` |
+| `packages/compiler/src/bin/main.rs` | `f82eb56` | CLI binary: file + stdin modes, `--out`, `--tag`, `--stdin` flags, exit 1 on error |
+| `packages/compiler/src/codegen/emit.rs` | `ffcbc3b` | Fix: `"null"` → `"undefined"` for empty attrs in `emit_attrs()` |
+| `packages/compiler/tests/snapshots/` (8 files) | `ffcbc3b` | Re-accepted after null→undefined fix |
+| `packages/compiler/js/index.ts` | `f82eb56`, `a0af4d4` | `transform()` + `scribeCompilerPlugin()` exports; `.exe` extension; `enforce: 'pre'` |
+| `packages/compiler/package.json` | `f82eb56` | `@scribe/compiler` npm package manifest |
+| `packages/compiler/moon.yml` | `f82eb56` | Moon task definitions for build/typecheck |
+| `packages/compiler/rolldown.config.ts` | `f82eb56` | Rolldown RC-17 build config |
+| `packages/compiler/tsconfig.json` | `f82eb56` | TypeScript project config |
+| `packages/compiler/fixtures/vite-counter/counter.scribe` | `f82eb56` | Integration fixture |
+| `packages/compiler/fixtures/vite-counter/index.html` | `f82eb56` | Integration fixture |
+| `packages/compiler/fixtures/vite-counter/main.ts` | `f82eb56` | Integration fixture |
+| `packages/compiler/fixtures/vite-counter/vite.config.ts` | `f82eb56`, `a0af4d4` | Integration fixture; updated to import from `@scribe/compiler` dist |
+| `packages/compiler/fixtures/vite-counter/integrate.ts` | `a0af4d4` | Bun script: calls `transform()` directly, asserts `defineElement(` + `map === null` |
+| `packages/compiler/tests/c4_integration.rs` | `f82eb56`, `a0af4d4` | `#[ignore]` test: `c4_transform_produces_typescript`; uses `bun run integrate.ts` |
+| `.team/compiler/architecture.md` | `012e506` | Section 17 — Phase C-4 CLI + Vite spec |
+| `.team/compiler/director-notes/round-005-2026-04-30.md` | `ffcbc3b` | Director notes for C-4 session |
+
+**`counter_full` snapshot** and all 8 codegen snapshots corrected: `branch(null,` → `branch(undefined,`. TypeScript codegen pipeline fully correct.
+
+---
+
+## Phase C-4 scope (COMPLETE — session 5)
+
+**Deliverable:** CLI binary (`scribe-compile`) + npm package (`@scribe/compiler`) with Vite transform hook.
+
+**Acceptance criteria (from architecture.md Section 8 C4-1 through C4-7):**
+- C4-1: `scribe-compile counter.scribe` → TypeScript to stdout
+- C4-2: `scribe-compile counter.scribe --out dist/` → `dist/counter.ts`
+- C4-3: Exit code 1 on error with `file:line: message` on stderr
+- C4-4: `@scribe/compiler` npm package exports `transform(source, id): { code, map }`
+- C4-5: Vite transform hook registered for `*.scribe`
+- C4-6: `bun vite build` with `.scribe` component → valid `dist/`
+- C4-7: Source map maps back to `.scribe` source lines
+
+**Tag name derivation:** filename stem from `id` parameter in Vite transform. `compile_full()` + `emit()` pipeline is already complete.
 
 ---
 
@@ -143,8 +229,6 @@ defineElement('counter', defineComponent((_ctx) => {
 }))
 ```
 
-Source: `architecture.md` Section 7. This is the Phase C-3 acceptance snapshot oracle.
-
 ---
 
 ## Do-not-break list
@@ -152,15 +236,18 @@ Source: `architecture.md` Section 7. This is the Phase C-3 acceptance snapshot o
 - All packages except `packages/compiler/` are read-only for the compiler track
 - No changes to `packages/arbor/`, `packages/runtime/`, `packages/signals/`, `packages/server/`, `packages/agent-readiness/`
 - Round N+2 (`test-quality`) track owns `packages/*/tests/compliance/`, `demo/`, `scripts/lighthouse.ts`
-- `.prototools` — only `rust = "1.87.0"` line is compiler-track property; do not modify `bun` or `node` lines
-- `rust-toolchain.toml` — must stay in sync with `.prototools` at `1.87.0`
+- `.prototools` — only `rust = "1.87.0"` line is compiler-track property
+- `rust-toolchain.toml` — must stay in sync at `1.87.0`
 
 ---
 
-## Next actions (Team Lead — Session 3)
+## Next actions (Team Lead — Session 6)
 
-1. Merge decision: merge `feat/compiler-c1` to `main`, or cut `feat/compiler-c2` directly from it
-2. Session 3 Topic Director → resolve `parse_template()` wiring timing (C-2 or C-3) + confirm `SignalMap` concrete type specification requirement
-3. Session 3 Architect → amend `architecture.md` with C-2 `SignalMap` type definition and `src/codegen/` module structure
-4. Session 3 Builder → implements Phase C-2 on `feat/compiler-c2`
-5. Approve promotion candidates from session 2 to user-layer memory: `TemplateNode` owned-String rationale, hand-rolled parser decision, `_setMount` constraint ruling
+**The compiler track is feature-complete. Session 6 is merge + integration only.**
+
+1. Merge `feat/compiler-c4` → `feat/compiler-c3` (or open PR to main — confirm merge strategy with Team Lead).
+2. Run `bun tsc --noEmit` against the built `dist/index.d.ts` and all TS fixture files (`js/index.ts`, `fixtures/vite-counter/integrate.ts`, `fixtures/vite-counter/vite.config.ts`).
+3. Promote all pending earned learnings from sessions 2–5 to the team knowledge base. Full list in retro-session-005.md.
+4. Switch `SignalMap` from `HashMap` to `BTreeMap` — eliminates snapshot ordering non-determinism permanently (low-risk, high-value cleanup).
+5. Investigate and document the `bun vite build` / Bun+Rollup4 ESM plugin incompatibility — either fix it or add a note to `@scribe/compiler` package docs.
+6. Write `.team/compiler/summaries/compiler-summary.md` (track topic summary — currently NOT STARTED).

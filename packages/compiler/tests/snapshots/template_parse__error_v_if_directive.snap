@@ -1,0 +1,12 @@
+---
+source: tests/template_parse.rs
+assertion_line: 54
+expression: result
+---
+Err(
+    CompileError {
+        message: "v-if / v-for directives are not supported in v0; see v1 roadmap",
+        line: 1,
+        col: 5,
+    },
+)
