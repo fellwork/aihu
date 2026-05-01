@@ -92,8 +92,8 @@ cargo build --release --manifest-path packages/compiler/Cargo.toml 2>&1 | tail -
 ```
 Expected: "Finished release profile [optimized]". Binary exists at `packages/compiler/target/release/scribe-compile.exe` (Windows) or `scribe-compile` (Unix).
 
-**SC-5: Binary smoke test against airtime-quote contract**
-Use the binary to compile a tmp `.scribe` with the canonical airtime-quote contract. Verify:
+**SC-5: Binary smoke test against airtime-quote agent block**
+Use the binary to compile a tmp `.scribe` with the canonical airtime-quote agent block. Verify:
 - Output JS contains `defineComponent({`, `attrs: ['plan', 'amount']`, `_plan_V`, `computed(() => Number(`, `defineElement('airtime-quote'`
 - `agent-manifest.json` is produced with `"airtime_quote"`, `"airtime-quote"`, `"plan"`, `"amount"`, `"quote"`
 
@@ -135,15 +135,15 @@ Run `bun run test` and `bun run typecheck` to confirm a green baseline. Build th
 
 ### Step C-1: `examples/airtime-quote/airtime-quote.scribe`
 
-Create the directory and the canonical `.scribe` file. Use this exact contract source:
+Create the directory and the canonical `.scribe` file. Use this exact agent-block source:
 
 ```html
-<contract>
+<agent>
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total shown to the user
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</contract>
+</agent>
 <script setup lang="ts" name="airtime-quote">
 import { computed } from '@scribe/signals'
 
@@ -186,16 +186,16 @@ export function quote() {
 
 ### Step C-2: `examples/scripture-reference/scripture-reference.scribe`
 
-Fellwork-specific dogfood. Look up a Bible verse by reference. Use this contract:
+Fellwork-specific dogfood. Look up a Bible verse by reference. Use this agent block:
 
 ```html
-<contract>
+<agent>
 input book: string = Genesis
 input chapter: number = 1
 input verse: number = 1
 state text: string   # The verse text after lookup
 action look_up() -> { book: string, chapter: number, verse: number, text: string }
-</contract>
+</agent>
 <script setup lang="ts" name="scripture-reference">
 import { signal, computed } from '@scribe/signals'
 
@@ -221,7 +221,7 @@ Same verification pattern: compile with binary, confirm manifest. Add a `README.
 
 ### Step C-3: `docs/grammar.md`
 
-Full BNF for the contract mini-language. Must include:
+Full BNF for the agent-block mini-language. Must include:
 
 1. Grammar rules in BNF for: `input`, `state`, `action`, type tokens (`string`, `number`, `boolean`, `enum(...)`), comments (`#`), enum syntax.
 2. **Null/missing behavior table:**
@@ -231,8 +231,8 @@ Full BNF for the contract mini-language. Must include:
    | `number` | `0` | `Number(attr)` via computed |
    | `boolean` | `false` | `attr === 'true'` via computed |
    | `enum(a,b,c)` | first variant `a` | Set.has check via computed; falls back to first variant |
-3. **Error code table:** C001 (unknown keyword) through C007 (duplicate input). Reference `packages/compiler/src/parser/contract.rs` test cases for canonical examples.
-4. **Manifest emission table:** how each contract construct maps to `agent-manifest.json` fields.
+3. **Error code table:** C001 (unknown keyword) through C007 (duplicate input). Reference `packages/compiler/src/parser/agent.rs` test cases for canonical examples.
+4. **Manifest emission table:** how each agent-block construct maps to `agent-manifest.json` fields.
 5. **Stability annotations:** mark all v1 grammar items as STABLE; note that `string!` (required) is reserved for v2.
 
 Length target: 200-400 lines. Concrete, no fluff. Use the `airtime-quote` and `scripture-reference` examples as worked references.
@@ -262,11 +262,11 @@ Measurements of how long it takes a developer to go from `git clone` to a workin
 
 Minimal VS Code extension:
 - `editors/vscode/package.json` — extension manifest
-- `editors/vscode/syntaxes/scribe.tmLanguage.json` — TextMate grammar for `.scribe` files. Should highlight: `<contract>`, `<script setup>`, `<template>`, `<style>` block boundaries, contract keywords (`input`, `state`, `action`), type tokens.
-- `editors/vscode/snippets/scribe.json` — 3-5 snippets: `contract-input`, `contract-action`, `contract-state`, `script-setup`, `template-block`.
+- `editors/vscode/syntaxes/scribe.tmLanguage.json` — TextMate grammar for `.scribe` files. Should highlight: `<agent>`, `<script setup>`, `<template>`, `<style>` block boundaries, agent-block keywords (`input`, `state`, `action`), type tokens.
+- `editors/vscode/snippets/scribe.json` — 3-5 snippets: `agent-input`, `agent-action`, `agent-state`, `script-setup`, `template-block`.
 - `editors/vscode/README.md` — install instructions (extension is not yet on the marketplace; load locally via "Developer: Install Extension from Folder").
 
-Length target: a working extension that highlights at minimum the contract block keywords. Do NOT publish to marketplace this round.
+Length target: a working extension that highlights at minimum the agent block keywords. Do NOT publish to marketplace this round.
 
 ### Step C-6: MIT LICENSE + package.json fields
 
@@ -375,7 +375,7 @@ Branch `feat/phase1-lane-d`. Do not merge until Verifier D clears.
 | T-2 | Lane A binary fails to compile any example | Stop, escalate — likely Round 1 regression |
 | T-3 | `bun run build` size budget fails | Stop, escalate — examples might be importing wrong path |
 | T-4 | `serde_json` or other JSON crate added to `[dependencies]` of compiler | Stop, escalate — D11 hand-rolled JSON is the design |
-| T-5 | Lane C example contract doesn't match `agent-manifest.json` from binary | Stop, escalate — example is speculation, retro learning #1 |
+| T-5 | Lane C example agent block doesn't match `agent-manifest.json` from binary | Stop, escalate — example is speculation, retro learning #1 |
 | T-6 | Lane D needs a `secrets.GITHUB_TOKEN` scope beyond default | Stop, escalate — security review |
 | T-7 | Builder attempts to extend Rust compiler scope (e.g., add `--json-errors`) | Stop, redirect — Round 2 is DX-only |
 | T-8 | Repo has a license already and adding MIT would conflict | Stop, escalate — legal question |

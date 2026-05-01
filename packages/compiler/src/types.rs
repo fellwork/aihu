@@ -4,7 +4,7 @@ pub struct ScribeSource<'a> {
     pub template: Option<&'a str>,
     pub style: Option<&'a str>,
     pub meta: ScriptMeta,
-    pub contract: Option<ContractAst>,
+    pub agent: Option<AgentBlock>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -82,7 +82,7 @@ pub struct ActionDecl {
 }
 
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct ContractAst {
+pub struct AgentBlock {
     pub inputs: Vec<InputDecl>,
     pub states: Vec<StateDecl>,
     pub actions: Vec<ActionDecl>,

@@ -1,5 +1,5 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{Attr, CompileUnit, ContractAst, InputKind, TemplateNode};
+use crate::types::{AgentBlock, Attr, CompileUnit, InputKind, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -19,14 +19,14 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         );
     }
 
-    let js = if let Some(contract) = &unit.source.contract {
-        emit_options_form(unit, tag_name, contract)
+    let js = if let Some(agent) = &unit.source.agent {
+        emit_options_form(unit, tag_name, agent)
     } else {
         emit_function_form(unit, tag_name)
     };
 
-    let manifest_json = if let Some(contract) = &unit.source.contract {
-        emit_manifest(tag_name, contract)
+    let manifest_json = if let Some(agent) = &unit.source.agent {
+        emit_manifest(tag_name, agent)
     } else {
         String::new()
     };
@@ -34,7 +34,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     EmitResult { js, manifest_json }
 }
 
-// ─── Function form (no contract) ─────────────────────────────────────────────
+// ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
@@ -75,11 +75,11 @@ fn build_function_imports(signal_map: &SignalMap) -> String {
     }
 }
 
-// ─── Options form (with contract) ─────────────────────────────────────────────
+// ─── Options form (with agent block) ─────────────────────────────────────────
 
-fn emit_options_form(unit: &CompileUnit, tag_name: &str, contract: &ContractAst) -> String {
+fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> String {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
-    let needs_computed = contract.inputs.iter().any(|i| {
+    let needs_computed = agent.inputs.iter().any(|i| {
         matches!(
             i.kind,
             InputKind::Number | InputKind::Boolean | InputKind::Enum(_)
@@ -104,23 +104,23 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, contract: &ContractAst)
     let imports = import_lines.join("\n");
 
     // attrs array
-    let attrs_list: Vec<String> = contract
+    let attrs_list: Vec<String> = agent
         .inputs
         .iter()
         .map(|i| format!("'{}'", i.name))
         .collect();
     let attrs_str = attrs_list.join(", ");
 
-    // contract bindings inside setup(ctx)
-    let contract_bindings = emit_contract_bindings(contract);
+    // agent-block bindings inside setup(ctx)
+    let agent_bindings = emit_agent_bindings(agent);
 
     let script_body = extract_script_body(unit.source.script.unwrap_or(""));
     let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "      ");
 
     let mut setup_body = String::new();
-    if !contract_bindings.is_empty() {
-        setup_body.push_str(&contract_bindings);
+    if !agent_bindings.is_empty() {
+        setup_body.push_str(&agent_bindings);
     }
     if !script_body.is_empty() {
         // script_body is already 2-space indented; re-indent to 4 spaces for setup()
@@ -149,9 +149,9 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, contract: &ContractAst)
     )
 }
 
-fn emit_contract_bindings(contract: &ContractAst) -> String {
+fn emit_agent_bindings(agent: &AgentBlock) -> String {
     let mut lines: Vec<String> = Vec::new();
-    for input in &contract.inputs {
+    for input in &agent.inputs {
         match &input.kind {
             InputKind::String => {
                 lines.push(format!(
@@ -196,18 +196,18 @@ fn emit_contract_bindings(contract: &ContractAst) -> String {
 
 // ─── Manifest JSON emission ───────────────────────────────────────────────────
 
-fn emit_manifest(tag_name: &str, contract: &ContractAst) -> String {
-    if contract.inputs.is_empty() && contract.actions.is_empty() {
+fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
+    if agent.inputs.is_empty() && agent.actions.is_empty() {
         return String::new();
     }
 
     let tool_name = tag_name.replace('-', "_");
 
     // Build inputs JSON
-    let inputs_json = if contract.inputs.is_empty() {
+    let inputs_json = if agent.inputs.is_empty() {
         "{}".to_string()
     } else {
-        let input_entries: Vec<String> = contract
+        let input_entries: Vec<String> = agent
             .inputs
             .iter()
             .map(|inp| {
@@ -241,10 +241,10 @@ fn emit_manifest(tag_name: &str, contract: &ContractAst) -> String {
     };
 
     // Build actions JSON
-    let actions_json = if contract.actions.is_empty() {
+    let actions_json = if agent.actions.is_empty() {
         "{}".to_string()
     } else {
-        let action_entries: Vec<String> = contract
+        let action_entries: Vec<String> = agent
             .actions
             .iter()
             .map(|act| {

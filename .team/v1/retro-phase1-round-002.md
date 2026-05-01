@@ -35,7 +35,7 @@ surface, not the runtime or compiler core.
   despite the two lanes running on different bases.
 - **"Author against the shipped binary" pattern, again.** Round 1 retro
   learning #1 said examples must round-trip through the binary, not be
-  speculated. Builder C followed it: both example contracts were compiled via
+  speculated. Builder C followed it: both example agent blocks were compiled via
   `cargo build --release` output and the manifests were diffed against the
   brief's expected shape before commit. The two example dist outputs
   (gitignored per the brief) match the `agent-manifest.json` contract on D11.
@@ -162,7 +162,7 @@ Three contributing factors, in descending weight:
    docs, editor scaffolds, and license metadata — all net-new files with no
    integration with the existing AST or runtime hot paths. Lane D produced a
    workflow file and a postinstall script — both run outside the test harness.
-   By contrast, Round 1's Lanes A and B threaded the contract AST and the
+   By contrast, Round 1's Lanes A and B threaded the agent-block AST and the
    `EmitResult` shape through the entire compile pipeline and re-exported
    internal symbols across package boundaries. Wider blast radius → more
    surface to lint → more findings.
@@ -173,7 +173,7 @@ Three contributing factors, in descending weight:
    acceptance gate. This caught the typecheck/build-class issues that became
    inline fixes in Round 1.
 3. **Briefs were more concrete.** The Director Note for Round 2 included a
-   Lane-vs-files matrix (§3), exact contract source for both examples
+   Lane-vs-files matrix (§3), exact agent-block source for both examples
    (verbatim), and the exact file paths and asset names for the cross-compile
    matrix. There was less interpretation surface for Builders to drift on.
    Round 1 had similarly tight briefs but more degrees of freedom in the
@@ -189,8 +189,8 @@ fix.
 
 | Regression | Status | Evidence |
 |------------|--------|----------|
-| `counter.scribe` → function form | PASS | `counter_no_contract_regression` integration test still in `tests/integration.rs`, still green. No edits to `packages/compiler/src/codegen/`. |
-| Files without `<contract>` use function form | PASS | `no_contract_manifest_empty` test still green. Lane A code unchanged this round. |
+| `counter.scribe` → function form | PASS | `counter_no_agent_block_regression` integration test still in `tests/integration.rs`, still green. No edits to `packages/compiler/src/codegen/`. |
+| Files without `<agent>` use function form | PASS | `no_agent_block_manifest_empty` test still green. Lane A code unchanged this round. |
 | `defineComponent` function-form path | PASS | No edits to `packages/runtime/src/define-component.ts` or `packages/agent/src/registry.ts`. All 323 TS tests green. |
 | Bundle size budgets (signals, arbor, runtime, agent) | PASS | `bun run build` budgets unchanged — no source files mutated. |
 | 68 Rust + 1 ignored, 323 TS | PASS | Identical to Round 1 final counts. |
@@ -226,9 +226,9 @@ This is the LAST round of Phase 1. Phase 1 is **DONE** on
 
 | ID | Status | Where |
 |----|--------|-------|
-| RC-1 (options form) | SHIPPED | `emit.rs::emit_contract` |
+| RC-1 (options form) | SHIPPED | `emit.rs::emit_agent_bindings` |
 | RC-2 (`InputSchema`/`ActionSchema`) | SHIPPED | `packages/agent/src/registry.ts` |
-| RC-3 reversed (string `''` fallback) | SHIPPED | `parse_contract` test 3 |
+| RC-3 reversed (string `''` fallback) | SHIPPED | `parse_agent` test 3 |
 | RC-4 reversed (enum Set validation) | SHIPPED | `_plan_V` codegen + snapshot test |
 | D5 (runtime re-exports) | SHIPPED | `packages/runtime/src/index.ts` |
 | D6 (import-span state machine) | SHIPPED | `emit.rs` + `5911f60` regression |
@@ -255,7 +255,7 @@ None of these block Phase 1 from shipping. All are appropriate Phase 2 inbox.
 
 ### Recommended next action
 
-1. Open PR: `feat/phase1-contract` → `main`. Title: `feat: <contract> block +
+1. Open PR: `feat/phase1-contract` → `main`. Title: `feat: <agent> block +
    DX surface + release CI (Phase 1)`. Body cites both round retros.
 2. After merge: `git tag v0.1.0 && git push origin v0.1.0` to fire the first
    cross-compile run of `release.yml`. Watch the workflow page; confirm all 4
@@ -331,7 +331,7 @@ None of these block Phase 1 from shipping. All are appropriate Phase 2 inbox.
     user actually use it: examples, docs, editor support, license, and the
     pre-built binary distribution channel. Without Round 2, Round 1 is
     invisible to anyone who isn't already in the repo with `cargo` installed.
-    With Round 2, the contract block is shippable to consumers via
+    With Round 2, the agent block is shippable to consumers via
     `bun add`. The lesson is structural: a compiler-track Phase needs both
     a "compiler core" round and a "distribution + DX" round before it's
     user-facing — neither alone is sufficient.

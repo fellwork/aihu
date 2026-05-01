@@ -1,10 +1,10 @@
-<contract>
+<agent>
 input book: string = Genesis
 input chapter: number = 1
 input verse: number = 1
 state text: string   # The verse text after lookup
 action look_up() -> { book: string, chapter: number, verse: number, text: string }
-</contract>
+</agent>
 <script setup lang="ts" name="scripture-reference">
 import { signal, computed } from '@scribe/signals'
 

@@ -1,9 +1,9 @@
-<contract>
+<agent>
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total shown to the user
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</contract>
+</agent>
 <script setup lang="ts" name="airtime-quote">
 import { computed } from '@scribe/signals'
 

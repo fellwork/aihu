@@ -1,12 +1,12 @@
 use scribe_compiler::{compile_full, emit, sfc};
 
 fn airtime_quote_source() -> &'static str {
-    r#"<contract>
+    r#"<agent>
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</contract>
+</agent>
 <script setup lang="ts" name="airtime-quote">
 import { computed } from '@scribe/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
@@ -23,7 +23,7 @@ export function quote() {
 }
 
 #[test]
-fn counter_no_contract_regression() {
+fn counter_no_agent_block_regression() {
     let source = include_str!("../fixtures/vite-counter/counter.scribe");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -40,12 +40,12 @@ fn counter_no_contract_regression() {
     assert!(!result.js.contains("attrs:"), "no attrs in function form");
     assert!(
         result.manifest_json.is_empty(),
-        "no manifest for no-contract component"
+        "no manifest for no-agent-block component"
     );
 }
 
 #[test]
-fn contract_airtime_quote_js_shape() {
+fn agent_airtime_quote_js_shape() {
     let source = airtime_quote_source();
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -68,7 +68,7 @@ fn contract_airtime_quote_js_shape() {
 }
 
 #[test]
-fn contract_airtime_quote_manifest_keys() {
+fn agent_airtime_quote_manifest_keys() {
     let source = airtime_quote_source();
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -88,15 +88,15 @@ fn contract_airtime_quote_manifest_keys() {
 }
 
 #[test]
-fn contract_parse_error_propagates() {
-    let source = r#"<contract>
+fn agent_block_parse_error_propagates() {
+    let source = r#"<agent>
 input x: uuid = 5
-</contract>
+</agent>
 <script setup lang="ts" name="x-err">
 </script>
 <template><div></div></template>"#;
     let parsed = sfc::parse(source);
-    assert!(parsed.is_err(), "sfc::parse should fail on bad contract");
+    assert!(parsed.is_err(), "sfc::parse should fail on bad agent block");
     let err = parsed.unwrap_err();
     assert_eq!(
         err.code.as_deref(),
@@ -106,7 +106,7 @@ input x: uuid = 5
 }
 
 #[test]
-fn no_contract_manifest_empty_integration() {
+fn no_agent_block_manifest_empty_integration() {
     let source = include_str!("../fixtures/vite-counter/counter.scribe");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();

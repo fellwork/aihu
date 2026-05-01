@@ -1,9 +1,9 @@
-# Scribe `<contract>` Grammar
+# Scribe `<agent>` Block Grammar
 
 > **Status:** Phase 1 — STABLE except where noted (see *Reserved for v2* at the end).
 >
-> This document describes the contract mini-language parsed by the Rust SFC compiler
-> (`packages/compiler/src/parser/contract.rs`) and the corresponding `agent-manifest.json`
+> This document describes the agent-block mini-language parsed by the Rust SFC compiler
+> (`packages/compiler/src/parser/agent.rs`) and the corresponding `agent-manifest.json`
 > emission (`packages/compiler/src/codegen/emit.rs`). It is the source of truth for the
 > developer-facing grammar; if the parser and this document disagree, file a bug —
 > the parser is authoritative.
@@ -12,7 +12,7 @@
 
 ## 1. Overview
 
-A `.scribe` SFC may begin with an optional `<contract>` block. The contract declares:
+A `.scribe` SFC may begin with an optional `<agent>` block. The block declares:
 
 - **Inputs** — typed attributes of the resulting custom element. Each `input` becomes
   one entry in `observedAttributes` and one inputs key in the MCP manifest.
@@ -31,7 +31,7 @@ A second, slightly larger example: `examples/scripture-reference/scripture-refer
 ## 2. BNF Grammar
 
 ```
-contract        ::= { line }
+agent_block     ::= { line }
 line            ::= [ statement ] [ comment ] NEWLINE
                   | comment NEWLINE
                   | NEWLINE                       # blank line (allowed anywhere)
@@ -88,12 +88,12 @@ NEWLINE         ::= "\n"
 ### `airtime-quote`
 
 ```
-<contract>
+<agent>
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total shown to the user
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</contract>
+</agent>
 ```
 
 Compiles to a manifest with `name: "airtime_quote"`, `tag: "airtime-quote"`, two
@@ -102,13 +102,13 @@ inputs, and one action whose `returns` is a four-field record.
 ### `scripture-reference`
 
 ```
-<contract>
+<agent>
 input book: string = Genesis
 input chapter: number = 1
 input verse: number = 1
 state text: string   # The verse text after lookup
 action look_up() -> { book: string, chapter: number, verse: number, text: string }
-</contract>
+</agent>
 ```
 
 Compiles to a manifest with `name: "scripture_reference"`, `tag: "scripture-reference"`,
@@ -136,7 +136,7 @@ Notes:
 - The first-variant fallback for enums means a bad attribute value never throws;
   it silently returns the first declared variant. This is the same behaviour the
   manifest implies (the first variant is the "default default").
-- Defaults declared in the contract are emitted into `agent-manifest.json` as
+- Defaults declared in the agent block are emitted into `agent-manifest.json` as
   strings under `"default"`, regardless of type. Numeric/boolean coercion happens
   on the consumer side at runtime, not at manifest-build time.
 
@@ -144,7 +144,7 @@ Notes:
 
 ## 5. Error codes
 
-Error codes are stable and emitted by `packages/compiler/src/parser/contract.rs`.
+Error codes are stable and emitted by `packages/compiler/src/parser/agent.rs`.
 A compile error always carries a `line` number (1-based) and one of these codes.
 
 | Code   | Meaning                                                   | Trigger example                                          |
@@ -163,7 +163,7 @@ The parser stops at the first error; multi-error reporting is not in scope for v
 
 ## 6. Manifest emission
 
-The `<contract>` AST is mapped into `agent-manifest.json` by `emit_manifest()` in
+The `<agent>` AST is mapped into `agent-manifest.json` by `emit_manifest()` in
 `packages/compiler/src/codegen/emit.rs`. The mapping is:
 
 | Construct          | Manifest target                                                              |
@@ -181,9 +181,9 @@ the file stem (passed through the CLI as `--tag` or derived from the input path)
 Replacing `-` with `_` produces the snake-case `name` field; no other transformation
 is applied (i.e. `plan-airtime-quote` becomes `plan_airtime_quote`).
 
-If the contract has zero inputs **and** zero actions, no manifest is written —
+If the agent block has zero inputs **and** zero actions, no manifest is written —
 the emitter returns an empty string and the CLI skips writing
-`agent-manifest.json`. A contract with only `state` declarations therefore
+`agent-manifest.json`. An agent block with only `state` declarations therefore
 produces no manifest, by design.
 
 ---

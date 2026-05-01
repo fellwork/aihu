@@ -12,7 +12,7 @@
 /**
  * Schema for a single input field exposed by a component or action return.
  * `type` is the primitive kind. `values` is present only for enum types.
- * `default` is the default value if declared in the <contract> block.
+ * `default` is the default value if declared in the <agent> block.
  */
 export interface InputSchema {
   type: 'string' | 'number' | 'boolean' | 'enum'

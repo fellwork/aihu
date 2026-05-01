@@ -9,7 +9,7 @@
 
 ## Outcome
 
-The `<contract>` block ships. One `.scribe` file now compiles to both a vanilla
+The `<agent>` block ships. One `.scribe` file now compiles to both a vanilla
 custom element (options-form `defineComponent({ attrs, setup })`) and an
 `agent-manifest.json` MCP tool schema, in a single emit pass with no AST drift.
 Lane A (Rust compiler) and Lane B (TypeScript runtime/agent) merged in parallel:
@@ -31,16 +31,16 @@ function-form path is regression-tested and untouched.
   this round opened. Every one was implementable as written; no Builder kicked
   back a "this won't work" mid-round. RC-3 and RC-4 reversals (decided at
   review time) saved a round of churn.
-- **Inline test scaffolding for the contract parser.** Builder A put 25 unit
-  tests in a `#[cfg(test)]` block inside `contract.rs` itself (D8). Tight
-  feedback loop — `cargo test contract::tests` ran in <1 s and Verifier A
+- **Inline test scaffolding for the agent-block parser.** Builder A put 25 unit
+  tests in a `#[cfg(test)]` block inside `agent.rs` itself (D8). Tight
+  feedback loop — `cargo test agent::tests` ran in <1 s and Verifier A
   could read the parser and its tests as one file.
 - **Critical-regression firewall codified, not aspirational.** `tests/integration.rs`
-  has `counter_no_contract_regression` and `no_contract_manifest_empty` as
+  has `counter_no_agent_block_regression` and `no_agent_block_manifest_empty` as
   named tests. The "do not break counter.scribe" rule is now machine-enforced,
   not a checklist item.
 - **Manifest-from-AST in one pass.** D12's `EmitResult { js, manifest_json }`
-  came out of a single `ContractAst` walk. No risk of the JS attrs and the
+  came out of a single `AgentBlock` walk. No risk of the JS attrs and the
   manifest inputs disagreeing — they're the same data structure, twice
   formatted.
 - **Scout caught the test-count drift.** Memory said 320 TS tests; Scout's
@@ -54,7 +54,7 @@ function-form path is regression-tested and untouched.
 ## What surprised us
 
 - **Contract parse errors surface from `sfc::parse()`, not `compile_full()`.**
-  Builder A noticed mid-implementation that propagating contract errors from
+  Builder A noticed mid-implementation that propagating agent-block errors from
   the SFC layer is the architecturally correct seam — `compile_full()` becomes
   a thin pipeline and parse errors stay at the parse layer. Verifier A
   upgraded this from "deviation from brief" to "sound architectural
@@ -100,14 +100,14 @@ function-form path is regression-tested and untouched.
   declaring DONE would have made Verifier B a no-finding round.
 - **Lane brief should label which sub-steps may be grouped.** Builder A
   grouped A-1+A-2+A-3 (`9246047`) and A-4a-d (`751d168`) into single commits
-  because the structural changes were entangled (`ScribeSource.contract` field
+  because the structural changes were entangled (`ScribeSource.agent` field
   ripples through every parser step; `EmitResult` ripples through every
   codegen sub-step). The brief implied finer granularity. Either label which
   sub-steps the Director thinks are individually committable, or accept that
   the Builder's judgment on entanglement is final.
-- **Reserve a "snapshot review" line item.** Adding `contract: Option<ContractAst>`
+- **Reserve a "snapshot review" line item.** Adding `agent: Option<AgentBlock>`
   to `ScribeSource` invalidated every `cargo insta` snapshot. The brief noted
-  this in passing ("accept all snapshots that now show `contract: None`") but
+  this in passing ("accept all snapshots that now show `agent: None`") but
   a Builder unfamiliar with insta could read this as a regression. Next round
   with snapshot-affecting changes: make snapshot review a named acceptance step.
 
@@ -149,15 +149,15 @@ inline. Otherwise re-spin.**
 
 | ID  | Status | One-line confirmation |
 |-----|--------|----------------------|
-| RC-1 | PASS | Options form `defineComponent({ attrs: [...] as const, setup(ctx) })` emitted when contract present (`emit.rs::emit_contract`); destructuring per-input `const [name] = ctx.attrs.name`. No new runtime API. |
+| RC-1 | PASS | Options form `defineComponent({ attrs: [...] as const, setup(ctx) })` emitted when agent block present (`emit.rs::emit_agent_bindings`); destructuring per-input `const [name] = ctx.attrs.name`. No new runtime API. |
 | RC-2 | PASS | `packages/agent/src/registry.ts` exports `InputSchema` + `ActionSchema`; `AgentMetadata.actions` is `Record<string, ActionSchema>`. `tag: string` still required. 3 round-trip tests in `registry.test.ts` (`309528a`). |
-| RC-3 | PASS | `parse_contract` accepts `input plan: string` with no default → `default: None`, no error. Test 3 in `contract.rs::tests`. C008 reserved, not raised. |
-| RC-4 | PASS | Enum codegen wraps `computed(() => _name_V.has(...) ? ... : default)` — full Set validation, not cast-only. Snapshot test `contract_airtime_quote` exercises `_plan_V`. |
+| RC-3 | PASS | `parse_agent` accepts `input plan: string` with no default → `default: None`, no error. Test 3 in `agent.rs::tests`. C008 reserved, not raised. |
+| RC-4 | PASS | Enum codegen wraps `computed(() => _name_V.has(...) ? ... : default)` — full Set validation, not cast-only. Snapshot test `agent_airtime_quote` exercises `_plan_V`. |
 | D5  | PASS | `packages/runtime/src/index.ts` re-exports `_setMount, _setSignal` from `./define-component.ts` (`e585eeb`). Smoke import resolves from package path. |
 | D6  | PASS | `extract_script_body` replaced with import-span state machine in `emit.rs`. Multiline imports, side-effect imports both handled (`5911f60` regression test added). |
 | D7  | PASS | `CompileError` has `#[derive(Default)]` + `code/hint/fix: Option<String>` fields. All construction sites use named-field syntax; existing call sites compile via `Default`. |
-| D11 | PASS | `agent-manifest.json` shape: `{ tools: [{ name, inputs, actions }] }`. Snake-case tool name (`airtime_quote` from `airtime-quote`). Hand-rolled JSON, no `serde_json` dep. Verified by `contract_airtime_quote_manifest_keys` integration test. |
-| D12 | PASS | `emit()` returns `EmitResult { js: String, manifest_json: String }`. Single `ContractAst` walk, no drift. `lib.rs`, `codegen/mod.rs`, `main.rs` all updated atomically in `751d168`. |
+| D11 | PASS | `agent-manifest.json` shape: `{ tools: [{ name, inputs, actions }] }`. Snake-case tool name (`airtime_quote` from `airtime-quote`). Hand-rolled JSON, no `serde_json` dep. Verified by `agent_airtime_quote_manifest_keys` integration test. |
+| D12 | PASS | `emit()` returns `EmitResult { js: String, manifest_json: String }`. Single `AgentBlock` walk, no drift. `lib.rs`, `codegen/mod.rs`, `main.rs` all updated atomically in `751d168`. |
 
 ---
 
@@ -165,8 +165,8 @@ inline. Otherwise re-spin.**
 
 | Regression | Status | Evidence |
 |------------|--------|----------|
-| `counter.scribe` → function form | PASS | `counter_no_contract_regression` integration test: output contains `defineComponent((_ctx)`, no `attrs:`, no options form. Manual run via `cargo run --bin scribe-compile -- packages/compiler/fixtures/vite-counter/counter.scribe` matches scout SC-2 baseline. |
-| Files without `<contract>` use function form | PASS | `emit_contract` branches on `contract: Some` vs `None`; `None` path is the unchanged function-form codegen. `no_contract_manifest_empty` test: `manifest_json` is empty when `contract: None`. |
+| `counter.scribe` → function form | PASS | `counter_no_agent_block_regression` integration test: output contains `defineComponent((_ctx)`, no `attrs:`, no options form. Manual run via `cargo run --bin scribe-compile -- packages/compiler/fixtures/vite-counter/counter.scribe` matches scout SC-2 baseline. |
+| Files without `<agent>` use function form | PASS | `emit_agent_bindings` branches on `agent: Some` vs `None`; `None` path is the unchanged function-form codegen. `no_agent_block_manifest_empty` test: `manifest_json` is empty when `agent: None`. |
 | `defineComponent` function form unchanged | PASS | No edits to `packages/runtime/src/define-component.ts`. Public `defineComponent(setup)` signature untouched; D5 only adds two re-exports. All 320 prior TS tests still green. |
 
 ---
@@ -181,7 +181,7 @@ working `cargo build --release --bin scribe-compile` and the
 parallel mini-lanes):
 - `examples/airtime-quote/airtime-quote.scribe` — canonical public example,
   must round-trip through the binary and produce a manifest matching the
-  one in `contract_airtime_quote_manifest_keys`.
+  one in `agent_airtime_quote_manifest_keys`.
 - `examples/scripture-reference/scripture-reference.scribe` — Fellwork dogfood
   fixture.
 - `docs/grammar.md` — full BNF + null/missing behavior table. Must reflect
@@ -221,7 +221,7 @@ parallel mini-lanes):
 ## Learnings
 
 1. **Manifest-from-AST in one pass beats manifest-from-rendered-output.**
-   D12's `EmitResult { js, manifest_json }` from a single `ContractAst` walk
+   D12's `EmitResult { js, manifest_json }` from a single `AgentBlock` walk
    is structurally incapable of drift — JS attrs and manifest inputs are the
    same data, twice formatted. Future emit-multiple-outputs work (e.g.,
    `.d.ts` generation, Storybook stories, OpenAPI spec) should follow this
@@ -236,7 +236,7 @@ parallel mini-lanes):
    appears under two lanes, the round must be re-scoped before dispatch.
 
 3. **Inline parser tests beat external test files for grammar work.** 25
-   `#[cfg(test)]` cases inside `contract.rs` made the parser self-documenting
+   `#[cfg(test)]` cases inside `agent.rs` made the parser self-documenting
    — Verifier A read parser + tests as one artifact. For future `.scribe`
    grammar extensions (template directives, style scoping, slot syntax),
    default to inline `#[cfg(test)]` for parser modules; reserve

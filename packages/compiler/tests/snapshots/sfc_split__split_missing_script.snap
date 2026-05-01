@@ -12,5 +12,5 @@ ScribeSource {
     meta: ScriptMeta {
         name: None,
     },
-    contract: None,
+    agent: None,
 }

@@ -1,18 +1,18 @@
 {
   "Contract block scaffold": {
-    "prefix": "contract-block",
+    "prefix": "agent-block",
     "scope": "scribe",
     "body": [
-      "<contract>",
+      "<agent>",
       "input ${1:name}: ${2|string,number,boolean|} = ${3:default}",
       "state ${4:internal}: ${5|string,number,boolean|}",
       "action ${6:run}() -> { ${7:result}: ${8|string,number,boolean|} }",
-      "</contract>$0"
+      "</agent>$0"
     ],
-    "description": "Insert a full <contract> block with one input, one state, and one action."
+    "description": "Insert a full <agent> block with one input, one state, and one action."
   },
   "Contract input declaration": {
-    "prefix": "contract-input",
+    "prefix": "agent-input",
     "scope": "scribe",
     "body": [
       "input ${1:name}: ${2|string,number,boolean|} = ${3:default}$0"
@@ -20,7 +20,7 @@
     "description": "Insert a single input declaration with a default value."
   },
   "Contract input (enum)": {
-    "prefix": "contract-input-enum",
+    "prefix": "agent-input-enum",
     "scope": "scribe",
     "body": [
       "input ${1:name}: enum(${2:variant_a}, ${3:variant_b}, ${4:variant_c}) = ${2:variant_a}$0"
@@ -28,7 +28,7 @@
     "description": "Insert an enum input with a default variant."
   },
   "Contract action with returns": {
-    "prefix": "contract-action",
+    "prefix": "agent-action",
     "scope": "scribe",
     "body": [
       "action ${1:run}() -> { ${2:field}: ${3|string,number,boolean|} }$0"
@@ -36,7 +36,7 @@
     "description": "Insert an action declaration with a single-field returns block."
   },
   "Contract state declaration": {
-    "prefix": "contract-state",
+    "prefix": "agent-state",
     "scope": "scribe",
     "body": [
       "state ${1:name}: ${2|string,number,boolean|}$0"

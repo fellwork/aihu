@@ -38,6 +38,6 @@ Deferred items captured during plan reviews. Each has enough context to act on c
 
 **Context:** RC-3 was reversed after outside voice challenge (D10). The `string!` syntax is the right long-term solution but was out-of-scope for Phase 1. The `''` fallback is the Phase 1 behavior and is documented in `docs/grammar.md` null/missing attribute section.
 
-**How to start:** Add `string!` as a new type in the contract grammar BNF. Emit: no fallback, no coercion — if attribute absent, SCR-C009 runtime warning (not error). The `!` communicates "caller must provide this."
+**How to start:** Add `string!` as a new type in the agent-block grammar BNF. Emit: no fallback, no coercion — if attribute absent, SCR-C009 runtime warning (not error). The `!` communicates "caller must provide this."
 
 **Depends on:** Phase 1-compiler grammar stable. Phase 2 grammar additions.

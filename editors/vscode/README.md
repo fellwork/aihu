@@ -5,10 +5,10 @@ Syntax highlighting and snippets for `.scribe` Single-File Components.
 ## Features
 
 - TextMate grammar for `.scribe` files
-- Region highlighting for `<contract>`, `<script setup>`, `<server setup>`, `<template>`, and `<style>` blocks
+- Region highlighting for `<agent>`, `<script setup>`, `<server setup>`, `<template>`, and `<style>` blocks
 - Embedded language support — TypeScript inside `<script setup>`, HTML inside `<template>`, CSS inside `<style>`
 - Contract-aware highlighting for `input`, `state`, `action`, the four primitive types, and `enum(…)` variants
-- Snippets: `contract-block`, `contract-input`, `contract-input-enum`, `contract-action`, `contract-state`, `script-setup`
+- Snippets: `agent-block`, `agent-input`, `agent-input-enum`, `agent-action`, `agent-state`, `script-setup`
 
 ## Install (local)
 

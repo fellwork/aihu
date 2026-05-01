@@ -3,39 +3,39 @@
   "name": "Scribe SFC",
   "scopeName": "source.scribe",
   "patterns": [
-    { "include": "#contract-block" },
+    { "include": "#agent-block" },
     { "include": "#script-setup-block" },
     { "include": "#server-setup-block" },
     { "include": "#template-block" },
     { "include": "#style-block" }
   ],
   "repository": {
-    "contract-block": {
-      "begin": "(<)(contract)(>)",
+    "agent-block": {
+      "begin": "(<)(agent)(>)",
       "beginCaptures": {
         "1": { "name": "punctuation.definition.tag.begin.scribe" },
         "2": { "name": "entity.name.tag.scribe" },
         "3": { "name": "punctuation.definition.tag.end.scribe" }
       },
-      "end": "(</)(contract)(>)",
+      "end": "(</)(agent)(>)",
       "endCaptures": {
         "1": { "name": "punctuation.definition.tag.begin.scribe" },
         "2": { "name": "entity.name.tag.scribe" },
         "3": { "name": "punctuation.definition.tag.end.scribe" }
       },
-      "name": "meta.block.contract.scribe",
+      "name": "meta.block.agent.scribe",
       "patterns": [
-        { "include": "#contract-comment" },
-        { "include": "#contract-input" },
-        { "include": "#contract-state" },
-        { "include": "#contract-action" }
+        { "include": "#agent-comment" },
+        { "include": "#agent-input" },
+        { "include": "#agent-state" },
+        { "include": "#agent-action" }
       ]
     },
-    "contract-comment": {
+    "agent-comment": {
       "match": "#.*$",
       "name": "comment.line.number-sign.scribe"
     },
-    "contract-input": {
+    "agent-input": {
       "begin": "^\\s*(input)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
       "beginCaptures": {
         "1": { "name": "keyword.declaration.input.scribe" },
@@ -44,8 +44,8 @@
       },
       "end": "$",
       "patterns": [
-        { "include": "#contract-comment" },
-        { "include": "#contract-types" },
+        { "include": "#agent-comment" },
+        { "include": "#agent-types" },
         {
           "match": "(=)\\s*([^#\\n]+)",
           "captures": {
@@ -55,7 +55,7 @@
         }
       ]
     },
-    "contract-state": {
+    "agent-state": {
       "begin": "^\\s*(state)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
       "beginCaptures": {
         "1": { "name": "keyword.declaration.state.scribe" },
@@ -64,11 +64,11 @@
       },
       "end": "$",
       "patterns": [
-        { "include": "#contract-comment" },
-        { "include": "#contract-types" }
+        { "include": "#agent-comment" },
+        { "include": "#agent-types" }
       ]
     },
-    "contract-action": {
+    "agent-action": {
       "begin": "^\\s*(action)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()(\\))",
       "beginCaptures": {
         "1": { "name": "keyword.declaration.action.scribe" },
@@ -78,7 +78,7 @@
       },
       "end": "$",
       "patterns": [
-        { "include": "#contract-comment" },
+        { "include": "#agent-comment" },
         {
           "match": "->",
           "name": "keyword.operator.arrow.scribe"
@@ -100,7 +100,7 @@
                 "2": { "name": "punctuation.separator.colon.scribe" }
               }
             },
-            { "include": "#contract-types" },
+            { "include": "#agent-types" },
             {
               "match": ",",
               "name": "punctuation.separator.comma.scribe"
@@ -109,7 +109,7 @@
         }
       ]
     },
-    "contract-types": {
+    "agent-types": {
       "patterns": [
         {
           "match": "\\b(string|number|boolean)\\b",

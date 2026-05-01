@@ -17,7 +17,7 @@ Output contains `defineElement(` and `defineComponent((_ctx)`. No errors.
 
 ## SC-3: Key source files exist
 **Status: PASS**
-All required files present. `contract.rs` and `integration.rs` do not yet exist (correct).
+All required files present. `agent.rs` and `integration.rs` do not yet exist (correct).
 
 ## SC-4: No conflicting uncommitted changes
 **Status: SOFT-FAIL (not a Phase 1 blocker)**

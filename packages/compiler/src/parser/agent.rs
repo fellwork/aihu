@@ -1,4 +1,4 @@
-use crate::types::{ActionDecl, CompileError, ContractAst, InputDecl, InputKind, StateDecl};
+use crate::types::{ActionDecl, AgentBlock, CompileError, InputDecl, InputKind, StateDecl};
 
 /// Strip an inline comment (everything from `#` onwards) and trim the result.
 fn strip_comment(line: &str) -> &str {
@@ -207,8 +207,8 @@ fn parse_action_line(rest: &str, line_no: usize) -> Result<ActionDecl, CompileEr
     Ok(ActionDecl { name, returns })
 }
 
-pub fn parse_contract(src: &str) -> Result<ContractAst, CompileError> {
-    let mut ast = ContractAst::default();
+pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError> {
+    let mut ast = AgentBlock::default();
     let mut seen_input_names: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (idx, raw_line) in src.lines().enumerate() {
@@ -261,24 +261,24 @@ pub fn parse_contract(src: &str) -> Result<ContractAst, CompileError> {
 mod tests {
     use super::*;
 
-    // 1. empty contract → ContractAst::default()
+    // 1. empty agent block → AgentBlock::default()
     #[test]
-    fn empty_contract() {
-        let result = parse_contract("").unwrap();
-        assert_eq!(result, ContractAst::default());
+    fn empty_agent_block() {
+        let result = parse_agent("").unwrap();
+        assert_eq!(result, AgentBlock::default());
     }
 
-    // 2. comment-only → ContractAst::default()
+    // 2. comment-only → AgentBlock::default()
     #[test]
     fn comment_only() {
-        let result = parse_contract("# this is a comment\n# another comment").unwrap();
-        assert_eq!(result, ContractAst::default());
+        let result = parse_agent("# this is a comment\n# another comment").unwrap();
+        assert_eq!(result, AgentBlock::default());
     }
 
     // 3. `input plan: string` → InputDecl { name:"plan", kind:String, default:None }
     #[test]
     fn input_string_no_default() {
-        let result = parse_contract("input plan: string").unwrap();
+        let result = parse_agent("input plan: string").unwrap();
         assert_eq!(result.inputs.len(), 1);
         assert_eq!(result.inputs[0].name, "plan");
         assert_eq!(result.inputs[0].kind, InputKind::String);
@@ -288,14 +288,14 @@ mod tests {
     // 4. `input plan: string = hello` → default:Some("hello")
     #[test]
     fn input_string_with_default() {
-        let result = parse_contract("input plan: string = hello").unwrap();
+        let result = parse_agent("input plan: string = hello").unwrap();
         assert_eq!(result.inputs[0].default, Some("hello".to_string()));
     }
 
     // 5. `input amount: number = 100` → kind:Number, default:Some("100")
     #[test]
     fn input_number_with_default() {
-        let result = parse_contract("input amount: number = 100").unwrap();
+        let result = parse_agent("input amount: number = 100").unwrap();
         assert_eq!(result.inputs[0].kind, InputKind::Number);
         assert_eq!(result.inputs[0].default, Some("100".to_string()));
     }
@@ -303,7 +303,7 @@ mod tests {
     // 6. `input active: boolean = false` → kind:Boolean, default:Some("false")
     #[test]
     fn input_boolean_with_default() {
-        let result = parse_contract("input active: boolean = false").unwrap();
+        let result = parse_agent("input active: boolean = false").unwrap();
         assert_eq!(result.inputs[0].kind, InputKind::Boolean);
         assert_eq!(result.inputs[0].default, Some("false".to_string()));
     }
@@ -311,7 +311,7 @@ mod tests {
     // 7. enum with default
     #[test]
     fn input_enum_with_default() {
-        let result = parse_contract("input plan: enum(daily, weekly, monthly) = daily").unwrap();
+        let result = parse_agent("input plan: enum(daily, weekly, monthly) = daily").unwrap();
         assert_eq!(
             result.inputs[0].kind,
             InputKind::Enum(vec![
@@ -326,7 +326,7 @@ mod tests {
     // 8. enum without default → Enum, default:None (no error)
     #[test]
     fn input_enum_no_default() {
-        let result = parse_contract("input plan: enum(daily, weekly, monthly)").unwrap();
+        let result = parse_agent("input plan: enum(daily, weekly, monthly)").unwrap();
         assert_eq!(
             result.inputs[0].kind,
             InputKind::Enum(vec![
@@ -341,7 +341,7 @@ mod tests {
     // 9. `state total: number`
     #[test]
     fn state_number() {
-        let result = parse_contract("state total: number").unwrap();
+        let result = parse_agent("state total: number").unwrap();
         assert_eq!(result.states.len(), 1);
         assert_eq!(result.states[0].name, "total");
         assert_eq!(result.states[0].kind, InputKind::Number);
@@ -350,7 +350,7 @@ mod tests {
     // 10. `state label: string`
     #[test]
     fn state_string() {
-        let result = parse_contract("state label: string").unwrap();
+        let result = parse_agent("state label: string").unwrap();
         assert_eq!(result.states[0].name, "label");
         assert_eq!(result.states[0].kind, InputKind::String);
     }
@@ -358,7 +358,7 @@ mod tests {
     // 11. `action quote()` → ActionDecl { name:"quote", returns:[] }
     #[test]
     fn action_no_returns() {
-        let result = parse_contract("action quote()").unwrap();
+        let result = parse_agent("action quote()").unwrap();
         assert_eq!(result.actions.len(), 1);
         assert_eq!(result.actions[0].name, "quote");
         assert!(result.actions[0].returns.is_empty());
@@ -367,7 +367,7 @@ mod tests {
     // 12. action with 4-field returns
     #[test]
     fn action_with_returns() {
-        let result = parse_contract(
+        let result = parse_agent(
             "action quote() -> { plan: string, amount: number, fee: number, total: number }",
         )
         .unwrap();
@@ -394,7 +394,7 @@ mod tests {
     #[test]
     fn mixed_declarations() {
         let src = "input plan: string\ninput amount: number\nstate total: number\naction quote()";
-        let result = parse_contract(src).unwrap();
+        let result = parse_agent(src).unwrap();
         assert_eq!(result.inputs.len(), 2);
         assert_eq!(result.states.len(), 1);
         assert_eq!(result.actions.len(), 1);
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn blank_lines_between_declarations() {
         let src = "input plan: string\n\n\nstate total: number\n\naction quote()";
-        let result = parse_contract(src).unwrap();
+        let result = parse_agent(src).unwrap();
         assert_eq!(result.inputs.len(), 1);
         assert_eq!(result.states.len(), 1);
         assert_eq!(result.actions.len(), 1);
@@ -413,7 +413,7 @@ mod tests {
     // 15. Inline comment stripped
     #[test]
     fn inline_comment_stripped() {
-        let result = parse_contract("input plan: string # the plan").unwrap();
+        let result = parse_agent("input plan: string # the plan").unwrap();
         assert_eq!(result.inputs[0].name, "plan");
         assert_eq!(result.inputs[0].kind, InputKind::String);
     }
@@ -421,56 +421,56 @@ mod tests {
     // 16. Unknown keyword → C001
     #[test]
     fn unknown_keyword_error() {
-        let err = parse_contract("output foo: string").unwrap_err();
+        let err = parse_agent("output foo: string").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C001"));
     }
 
     // 17. Unknown type → C002
     #[test]
     fn unknown_type_error() {
-        let err = parse_contract("input x: uuid").unwrap_err();
+        let err = parse_agent("input x: uuid").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C002"));
     }
 
     // 18. Missing colon → C003
     #[test]
     fn missing_colon_error() {
-        let err = parse_contract("input plan string").unwrap_err();
+        let err = parse_agent("input plan string").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C003"));
     }
 
     // 19. Missing () in action → C004
     #[test]
     fn missing_parens_error() {
-        let err = parse_contract("action quote").unwrap_err();
+        let err = parse_agent("action quote").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C004"));
     }
 
     // 20. Malformed returns block → C005
     #[test]
     fn malformed_returns_error() {
-        let err = parse_contract("action quote() -> { total number }").unwrap_err();
+        let err = parse_agent("action quote() -> { total number }").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C005"));
     }
 
     // 21. Empty enum → C006
     #[test]
     fn empty_enum_error() {
-        let err = parse_contract("input x: enum()").unwrap_err();
+        let err = parse_agent("input x: enum()").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C006"));
     }
 
     // 22. Duplicate input name → C007
     #[test]
     fn duplicate_input_name_error() {
-        let err = parse_contract("input plan: string\ninput plan: string").unwrap_err();
+        let err = parse_agent("input plan: string\ninput plan: string").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C007"));
     }
 
     // 23. Enum with spaces → parses correctly
     #[test]
     fn enum_with_spaces() {
-        let result = parse_contract("input plan: enum( daily , weekly )").unwrap();
+        let result = parse_agent("input plan: enum( daily , weekly )").unwrap();
         assert_eq!(
             result.inputs[0].kind,
             InputKind::Enum(vec!["daily".to_string(), "weekly".to_string()])
@@ -480,7 +480,7 @@ mod tests {
     // 24. action with single field in returns
     #[test]
     fn action_single_return_field() {
-        let result = parse_contract("action quote() -> { total: number }").unwrap();
+        let result = parse_agent("action quote() -> { total: number }").unwrap();
         assert_eq!(result.actions[0].returns.len(), 1);
         assert_eq!(
             result.actions[0].returns[0],
@@ -488,11 +488,11 @@ mod tests {
         );
     }
 
-    // 25. Full airtime-quote contract
+    // 25. Full airtime-quote agent block
     #[test]
-    fn full_airtime_quote_contract() {
+    fn full_airtime_quote_agent_block() {
         let src = "input plan: enum(daily, weekly, monthly) = daily\ninput amount: number = 100\nstate total: number   # Final quoted total\naction quote() -> { plan: string, amount: number, fee: number, total: number }";
-        let result = parse_contract(src).unwrap();
+        let result = parse_agent(src).unwrap();
         assert_eq!(result.inputs.len(), 2);
         assert_eq!(result.inputs[0].name, "plan");
         assert_eq!(

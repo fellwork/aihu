@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-01
 **HEAD:** `d180ac8`
-**Track:** Phase 1 — `<contract>` block, options-form emission, MCP manifest
+**Track:** Phase 1 — `<agent>` block, options-form emission, MCP manifest
 **Author:** Topic Director (subagent)
 
 ---
@@ -62,7 +62,7 @@ Confirm the following files are present:
 - `/C:/git/fellwork/scribe/packages/agent/tests/registry.test.ts`
 
 Confirm the following files do NOT yet exist (they are new files for this round):
-- `/C:/git/fellwork/scribe/packages/compiler/src/parser/contract.rs`
+- `/C:/git/fellwork/scribe/packages/compiler/src/parser/agent.rs`
 - `/C:/git/fellwork/scribe/packages/compiler/tests/integration.rs`
 
 **SC-4: No conflicting uncommitted changes**
@@ -116,27 +116,27 @@ pub struct ActionDecl {
 }
 
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct ContractAst {
+pub struct AgentBlock {
     pub inputs: Vec<InputDecl>,
     pub states: Vec<StateDecl>,
     pub actions: Vec<ActionDecl>,
 }
 ```
 
-Add `contract: Option<ContractAst>` to `ScribeSource`:
+Add `agent: Option<AgentBlock>` to `ScribeSource`:
 ```rust
-pub contract: Option<ContractAst>,   // NEW
+pub agent: Option<AgentBlock>,   // NEW
 ```
 
-Update `lib.rs` to re-export: `InputDecl`, `InputKind`, `StateDecl`, `ActionDecl`, `ContractAst`.
+Update `lib.rs` to re-export: `InputDecl`, `InputKind`, `StateDecl`, `ActionDecl`, `AgentBlock`.
 
-**Note on sfc_split snapshots:** Adding `contract` field to `ScribeSource` will change the debug output for existing snapshots. Run `cargo insta review` and accept all snapshots that now show `contract: None`. These are expected — not regressions.
+**Note on sfc_split snapshots:** Adding `agent` field to `ScribeSource` will change the debug output for existing snapshots. Run `cargo insta review` and accept all snapshots that now show `agent: None`. These are expected — not regressions.
 
-### Step A-2: `contract.rs` — contract parser
+### Step A-2: `agent.rs` — contract parser
 
-File: `/C:/git/fellwork/scribe/packages/compiler/src/parser/contract.rs` (NEW)
+File: `/C:/git/fellwork/scribe/packages/compiler/src/parser/agent.rs` (NEW)
 
-Public API: `pub fn parse_contract(src: &str) -> Result<ContractAst, CompileError>`
+Public API: `pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError>`
 
 Helper functions:
 - `fn parse_type_token(token: &str, line_no: usize) -> Result<InputKind, CompileError>`
@@ -159,8 +159,8 @@ Error codes in `CompileError.code`:
 RC-3 REVERSED: string without default → `default: None` (no error). Enum without default → `default: None` (also no error; first variant used as runtime fallback in emit). C008 is reserved but not implemented this round.
 
 Inline `#[cfg(test)]` block with 25 test cases covering:
-1. Empty contract → empty ContractAst
-2. Comment-only lines → empty ContractAst
+1. Empty contract → empty AgentBlock
+2. Comment-only lines → empty AgentBlock
 3. `input plan: string` → default None
 4. `input plan: string = hello` → default Some("hello")
 5. `input amount: number = 100` → Number default
@@ -171,7 +171,7 @@ Inline `#[cfg(test)]` block with 25 test cases covering:
 10. `state label: string` → StateDecl
 11. `action quote()` no returns → ActionDecl { returns: [] }
 12. `action quote() -> { plan: string, amount: number, fee: number, total: number }` → full ActionDecl
-13. Mixed inputs + state + action → full ContractAst
+13. Mixed inputs + state + action → full AgentBlock
 14. Blank lines between declarations → parsed correctly
 15. Inline comment (`input plan: string # the plan`) → comment stripped
 16. Unknown keyword `output foo: string` → Err C001
@@ -183,17 +183,17 @@ Inline `#[cfg(test)]` block with 25 test cases covering:
 22. Duplicate input name → Err C007
 23. `enum` with spaces `enum( daily , weekly )` → trims correctly
 24. `action quote() -> { total: number }` single-field returns → correct ActionDecl
-25. Full airtime-quote contract block → matches all 3 inputs + 1 state + 1 action
+25. Full airtime-quote agent block → matches all 3 inputs + 1 state + 1 action
 
 Update `parser/mod.rs`: add `pub mod contract;`.
 
-### Step A-3: `sfc.rs` — add `<contract>` block
+### Step A-3: `sfc.rs` — add `<agent>` block
 
 File: `/C:/git/fellwork/scribe/packages/compiler/src/parser/sfc.rs`
 
-Add `BlockKind::Contract` variant. In `next_block`, include contract detection in the offset scan. In parse loop, handle `BlockKind::Contract`: extract content, call `parser::contract::parse_contract`, propagate errors, store `Option<ContractAst>` in `ScribeSource.contract`.
+Add `BlockKind::Contract` variant. In `next_block`, include contract detection in the offset scan. In parse loop, handle `BlockKind::Contract`: extract content, call `parser::agent::parse_agent`, propagate errors, store `Option<AgentBlock>` in `ScribeSource.agent`.
 
-No changes to script/template/style logic. Files without `<contract>` parse with `contract: None`. Accept updated snapshots showing `contract: None`.
+No changes to script/template/style logic. Files without `<agent>` parse with `agent: None`. Accept updated snapshots showing `agent: None`.
 
 ### Step A-4: `emit.rs` — D6 + D12 + options-form + RC-4 + manifest
 
@@ -206,7 +206,7 @@ Add `pub struct EmitResult { pub js: String, pub manifest_json: String }`. Chang
 Replace `extract_script_body` with a stateful filter that tracks `in_import: bool` across lines. Handles multiline imports (`import { computed } from '@scribe/signals'` split across lines). Add test `multiline_import_stripped` to `codegen.rs`.
 
 **A-4c: Options-form emission**
-Add `fn emit_contract(unit: &CompileUnit, tag_name: &str, contract: &ContractAst) -> EmitResult`. Branch on `contract: Some` vs `None`. When `None`, existing function-form path runs unchanged.
+Add `fn emit_agent_bindings(unit: &CompileUnit, tag_name: &str, contract: &AgentBlock) -> EmitResult`. Branch on `agent: Some` vs `None`. When `None`, existing function-form path runs unchanged.
 
 Per-type codegen (inside `setup(ctx)`):
 - `string`: `const [<name>] = ctx.attrs.<name>`
@@ -216,21 +216,21 @@ Per-type codegen (inside `setup(ctx)`):
 
 Attrs array: only `input` declarations (not `state`). `state` items are internal.
 
-Add snapshot test `contract_airtime_quote` to `codegen.rs`. Existing `counter_full` must be unchanged.
+Add snapshot test `agent_airtime_quote` to `codegen.rs`. Existing `counter_full` must be unchanged.
 
 **A-4d: Manifest JSON**
-Add `fn emit_manifest(tag_name: &str, contract: &ContractAst) -> String`. Snake-case tag name (replace `-` with `_`). JSON shape per D11. Hand-rolled format strings only — no `serde`/`serde_json` as non-dev dependency. Set `EmitResult.manifest_json`. Update `main.rs` to write `agent-manifest.json` alongside JS when `--out` is set and `manifest_json` is non-empty.
+Add `fn emit_manifest(tag_name: &str, contract: &AgentBlock) -> String`. Snake-case tag name (replace `-` with `_`). JSON shape per D11. Hand-rolled format strings only — no `serde`/`serde_json` as non-dev dependency. Set `EmitResult.manifest_json`. Update `main.rs` to write `agent-manifest.json` alongside JS when `--out` is set and `manifest_json` is non-empty.
 
 ### Step A-5: `tests/integration.rs` — 5 E2E tests
 
 File: `/C:/git/fellwork/scribe/packages/compiler/tests/integration.rs` (NEW)
 
 Five tests:
-1. `counter_no_contract_regression` — function form emitted, no `attrs:`, no options form. CRITICAL regression firewall.
-2. `contract_airtime_quote_js_shape` — options form emitted, contains `attrs:`, `_plan_V`, `computed(() => Number(`.
-3. `contract_airtime_quote_manifest_keys` — manifest_json contains `"airtime_quote"`, `"airtime-quote"`, `"quote"`.
+1. `counter_no_agent_block_regression` — function form emitted, no `attrs:`, no options form. CRITICAL regression firewall.
+2. `agent_airtime_quote_js_shape` — options form emitted, contains `attrs:`, `_plan_V`, `computed(() => Number(`.
+3. `agent_airtime_quote_manifest_keys` — manifest_json contains `"airtime_quote"`, `"airtime-quote"`, `"quote"`.
 4. `contract_parse_error_propagates` — malformed contract → compile_full returns Err with code `Some("C002")`.
-5. `no_contract_manifest_empty` — counter.scribe → manifest_json is empty.
+5. `no_agent_block_manifest_empty` — counter.scribe → manifest_json is empty.
 
 ---
 
@@ -297,7 +297,7 @@ Run `bun run build`. Verify `packages/agent/dist/index.d.ts` now contains `Actio
 | Trigger | Condition |
 |---------|-----------|
 | T-1 | Rust test count drops below pre-round baseline, or any previously-passing test fails |
-| T-2 | `counter_no_contract_regression` test fails — function-form path broken |
+| T-2 | `counter_no_agent_block_regression` test fails — function-form path broken |
 | T-3 | `bun run build` size budget fails (hard ceiling 3.46 kB gz) |
 | T-4 | `serde`/`serde_json` added as non-dev Rust dependency |
 | T-5 | `dist/index.d.ts` committed before `bun run build` with stale `actions` type |

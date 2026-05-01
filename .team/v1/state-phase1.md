@@ -9,7 +9,7 @@
 
 ## Purpose
 
-Phase 1 implements the `<contract>` block — making one `.scribe` file simultaneously
+Phase 1 implements the `<agent>` block — making one `.scribe` file simultaneously
 emit a reactive custom element AND an MCP tool schema.
 
 "So the poor of the poor can have access to agentic endpoints."
@@ -31,9 +31,9 @@ Eng review verdict: CLEAR — 0 unresolved decisions.
 | D5 | Add `export { _setMount, _setSignal }` to `packages/runtime/src/index.ts`. |
 | D6 | `extract_script_body` in emit.rs replaced with import-span state machine. |
 | D7 | `CompileError` struct extended with `code/hint/fix` fields + `#[derive(Default)]`. |
-| D8 | Rust `#[cfg(test)]` inline in new `contract.rs` (~25 test cases). |
+| D8 | Rust `#[cfg(test)]` inline in new `agent.rs` (~25 test cases). |
 | D11 | Action inputs = component inputs. `agent-manifest.json`: `{ tools: [{ name, inputs, actions }] }`. |
-| D12 | `emit()` returns `EmitResult { js, manifest_json }` — single `ContractAst` pass, no drift. |
+| D12 | `emit()` returns `EmitResult { js, manifest_json }` — single `AgentBlock` pass, no drift. |
 | TODO-DX | `.github/workflows/release.yml` (mac-arm64/x64, linux-x64, windows-x64) PROMOTED to Phase 1-DX scope. |
 
 ---
@@ -42,7 +42,7 @@ Eng review verdict: CLEAR — 0 unresolved decisions.
 
 | Lane | Owner | Depends on | Files |
 |------|-------|-----------|-------|
-| A | Builder A (Rust) | nothing | sfc.rs, types.rs, contract.rs (new), emit.rs, main.rs, integration.rs (new) |
+| A | Builder A (Rust) | nothing | sfc.rs, types.rs, agent.rs (new), emit.rs, main.rs, integration.rs (new) |
 | B | Builder B (TypeScript) | nothing | runtime/src/index.ts, agent/src/registry.ts, agent/tests/registry.test.ts |
 | C | Builder C (DX artifacts) | Lane A binary | examples/, docs/, editors/vscode/ |
 | D | Builder D (CI binaries) | Lane A binary | .github/workflows/release.yml, compiler/js/index.ts |
@@ -54,17 +54,17 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 ## Acceptance Criteria Summary
 
 ### Lane A — Rust compiler
-- `<contract>` block parsed into `Vec<ContractItem>` via new `contract.rs` module
-- `ScribeSource.contract: Option<&str>` field populated by sfc.rs
+- `<agent>` block parsed into `Vec<ContractItem>` via new `agent.rs` module
+- `ScribeSource.agent: Option<&str>` field populated by sfc.rs
 - `CompileError` has `code/hint/fix` fields + `#[derive(Default)]`
 - `emit()` returns `EmitResult { js: String, manifest_json: String }`
-- Options form emitted when contract present: `defineComponent({ attrs: [...] as const, setup(ctx) })`
+- Options form emitted when agent block present: `defineComponent({ attrs: [...] as const, setup(ctx) })`
 - Contract bindings prepended before developer script body
 - Type coercions: string→destructure, number→`computed(Number(...))`, boolean→`computed(==='true')`, enum→Set validation wrapper
 - `agent-manifest.json` shape: `{ tools: [{ name, inputs, actions }] }`
 - `main.rs` writes `manifest_json` to disk; `--json-errors` flag works
 - `packages/compiler/tests/integration.rs`: counter.scribe regression + airtime-quote E2E
-- 3 CRITICAL regressions must pass: counter.scribe still compiles, no-contract files use function form, defineComponent function-form path works
+- 3 CRITICAL regressions must pass: counter.scribe still compiles, no-agent-block files use function form, defineComponent function-form path works
 
 ### Lane B — TypeScript
 - `packages/runtime/src/index.ts`: `export { _setMount, _setSignal }` added
@@ -92,7 +92,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 | Gate | Constraint |
 |------|-----------|
 | All existing 320 tests | `bun run test` must stay green |
-| `counter.scribe` | Must still compile to function form (no contract = no options form) |
+| `counter.scribe` | Must still compile to function form (no agent block = no options form) |
 | `@scribe/runtime` bundle | ≤ 1024 B gz (currently 630 B gz) |
 | `@scribe/arbor` bundle | ≤ 2200 B gz (currently 2117 B gz) |
 | `@scribe/signals` bundle | ≤ 1850 B gz |
@@ -152,7 +152,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 **Round 2 COMPLETE — Phase 1 ENDED.**
 
-Phase 1 (`<contract>` block + DX surface + release CI) is fully shipped on `feat/phase1-contract` at `4b37f0d`. Ready for PR to `main` and v0.1.0 tag for first cross-compile release run.
+Phase 1 (`<agent>` block + DX surface + release CI) is fully shipped on `feat/phase1-contract` at `4b37f0d`. Ready for PR to `main` and v0.1.0 tag for first cross-compile release run.
 
 Open follow-on items:
 - TODO-004: Re-enable `c4_transform_produces_typescript` integration test (out of Phase 1 scope, see TODOS.md)

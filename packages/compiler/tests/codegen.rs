@@ -253,9 +253,9 @@ fn export_keyword_stripped_from_script_body() {
     // When the user writes `export function ...` in <script setup>, the
     // emitter must strip `export ` because the body is injected inside
     // setup(ctx) where module-level exports are syntax errors.
-    let source = r#"<contract>
+    let source = r#"<agent>
 action ping() -> { ok: boolean }
-</contract>
+</agent>
 <script setup lang="ts" name="x-export">
 export function ping() {
   return { ok: true }
@@ -280,12 +280,12 @@ export function ping() {
 // ─── A-4c: options-form emission ──────────────────────────────────────────
 
 fn airtime_quote_source() -> &'static str {
-    r#"<contract>
+    r#"<agent>
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</contract>
+</agent>
 <script setup lang="ts" name="airtime-quote">
 import { computed } from '@scribe/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
@@ -302,7 +302,7 @@ export function quote() {
 }
 
 #[test]
-fn contract_airtime_quote() {
+fn agent_airtime_quote() {
     let source = airtime_quote_source();
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -313,7 +313,7 @@ fn contract_airtime_quote() {
 // ─── A-4d: manifest JSON emission ─────────────────────────────────────────
 
 #[test]
-fn contract_airtime_quote_manifest() {
+fn agent_airtime_quote_manifest() {
     let source = airtime_quote_source();
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -333,10 +333,13 @@ fn contract_airtime_quote_manifest() {
 }
 
 #[test]
-fn no_contract_manifest_empty() {
+fn no_agent_block_manifest_empty() {
     let source = include_str!("../fixtures/vite-counter/counter.scribe");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "scribe-counter");
-    assert!(result.manifest_json.is_empty(), "no contract = no manifest");
+    assert!(
+        result.manifest_json.is_empty(),
+        "no agent block = no manifest"
+    );
 }

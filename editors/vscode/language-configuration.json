@@ -29,8 +29,8 @@
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*<(contract|script|template|style|server)\\b",
-      "end": "^\\s*</(contract|script|template|style|server)>"
+      "start": "^\\s*<(agent|script|template|style|server)\\b",
+      "end": "^\\s*</(agent|script|template|style|server)>"
     }
   }
 }
