@@ -1,0 +1,24 @@
+<contract>
+input plan: enum(daily, weekly, monthly) = daily
+input amount: number = 100
+state total: number   # Final quoted total shown to the user
+action quote() -> { plan: string, amount: number, fee: number, total: number }
+</contract>
+<script setup lang="ts" name="airtime-quote">
+import { computed } from '@scribe/signals'
+
+const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
+const total = computed(() => amount() + fee())
+
+export function quote() {
+  return { plan: plan(), amount: amount(), fee: fee(), total: total() }
+}
+</script>
+<template>
+  <div class="airtime-quote">
+    <span>{{ total }}</span>
+  </div>
+</template>
+<style>
+.airtime-quote { padding: 0.5rem; font-family: system-ui; }
+</style>
