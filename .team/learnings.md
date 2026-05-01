@@ -330,3 +330,35 @@ The pattern: every byte claim is empirical. Specs that hand-wave bundle behavior
 **Why.** Round N+1 `krausest-1k-cycle` (1k-row table, full mount+update cycle): vanilla 16.1 ms, scribe 20.9 ms (~30% overhead), preact 19.7 ms (near-tie). Vanilla builds the table with direct `createElement` + `textContent`, no reactive layer — zero subscription bookkeeping. Scribe mounts 2k signals (1 per text cell, 2 cells × 1k rows) plus 2k `_mountEffect` subscriptions. The overhead is the cost of wiring a reactive graph over the entire mounted tree.
 
 **How to apply.** The 30% overhead vs. vanilla is the "you're paying for reactivity you're not using on mount" cost. The payoff is visible in `update-1-of-10k-leaves`: when you update 1 of those 2k signals, scribe pays 25 ns while vanilla pays 3.1 µs (vanilla must re-walk the DOM). The two numbers together define scribe's design point: moderate mount overhead, wins hugely on targeted updates. Any PR that worsens the krausest overhead beyond 40% vs vanilla should be scrutinized — that's the acceptable-overhead ceiling. The current 30% is within budget.
+
+---
+
+## 28. Team Lead must audit file scope before dispatching Verifier
+
+**Why.** Builder agents operate in a branch context and can make out-of-scope edits — touching CLAUDE.md, config files, or package metadata that the plan never authorized. These changes may pass all tests and size gates, so the Verifier's gate-walk will not surface them. The only reliable catch is a pre-dispatch file-scope review. Plan 1.2 did not expose this (the Builder stayed in scope), but the risk is structural: any Builder that summarizes its work by capability ("I implemented X") rather than by files touched could silently include ancillary edits.
+
+**How to apply.** The Team Lead's standard pre-dispatch step before sending a branch to Verifier is:
+
+```
+git diff main..HEAD --name-only
+```
+
+Compare the output against the spec's "Files to create / modify" table. Any file outside that list is an unauthorized change. Either revert it or document a rationale before Verifier dispatch. The Verifier's job is correctness and compliance — not scope policing. Scope policing is the Team Lead's job, and it takes 30 seconds.
+
+---
+
+## 29. Injection guards should fire only when the injected facility is actually needed
+
+**Why.** Plan 1.2 BLOCK-1: the `_signal === null` guard in `connectedCallback` was written without conditioning on `attrs.length > 0`. The options-form path is valid with no attrs declared (`defineComponent({ setup })`), in which case no signal factory is needed — but the guard fired unconditionally, throwing `RuntimeError('SCR-R0003')` for every options-form component unless `_setSignal` had been called. The fix was one line: `if (_signal === null && attrs.length > 0)`.
+
+**How to apply.** The general principle: an injection guard of the form "factory must be set before use" should be conditioned on whether the current code path *actually consumes* the factory. The pattern is:
+
+```typescript
+if (injected === null && <condition where injected is actually consumed>) {
+  throw new RuntimeError(...)
+}
+```
+
+For `_signal`: it is consumed only when `attrs.length > 0`. For `_setMount`: it is consumed on every component connect, so the guard is unconditional. Audit injection guards at spec-review time by asking: "Is there a valid caller path that does not need this factory?" If yes, narrow the guard.
+
+Companion test rule: when a spec documents an equivalence boundary ("A without condition X behaves like B"), add a test for A-with-X-false explicitly. That test would have caught BLOCK-1 before merge.
