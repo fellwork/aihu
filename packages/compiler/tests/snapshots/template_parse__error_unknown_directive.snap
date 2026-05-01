@@ -8,5 +8,8 @@ Err(
         message: "unknown directive 'v-show'; scribe v0 supports @event, :attr, and { identifier } only",
         line: 1,
         col: 5,
+        code: None,
+        hint: None,
+        fix: None,
     },
 )

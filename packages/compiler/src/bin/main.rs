@@ -69,7 +69,12 @@ fn main() {
         (src, stem, label)
     };
 
-    let unit = scribe_compiler::compile_full(&source).unwrap_or_else(|e| {
+    let parsed = scribe_compiler::compile(&source).unwrap_or_else(|e| {
+        eprintln!("{}:{}: {}", file_label, e.line, e.message);
+        process::exit(1);
+    });
+
+    let unit = scribe_compiler::compile_full(&parsed).unwrap_or_else(|e| {
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
@@ -80,22 +85,29 @@ fn main() {
         None => file_stem,
     };
 
-    let output = scribe_compiler::emit(&unit, &tag_name);
+    let result = scribe_compiler::emit(&unit, &tag_name);
 
     match out_dir {
-        Some(dir) => {
+        Some(ref dir) => {
             let out_file = format!("{}/{}.ts", dir, tag_name);
-            std::fs::create_dir_all(&dir).unwrap_or_else(|e| {
+            std::fs::create_dir_all(dir).unwrap_or_else(|e| {
                 eprintln!("error creating '{}': {}", dir, e);
                 process::exit(1);
             });
-            std::fs::write(&out_file, &output).unwrap_or_else(|e| {
+            std::fs::write(&out_file, &result.js).unwrap_or_else(|e| {
                 eprintln!("error writing '{}': {}", out_file, e);
                 process::exit(1);
             });
+            if !result.manifest_json.is_empty() {
+                let manifest_path = format!("{}/agent-manifest.json", dir);
+                std::fs::write(&manifest_path, &result.manifest_json).unwrap_or_else(|e| {
+                    eprintln!("error writing '{}': {}", manifest_path, e);
+                    process::exit(1);
+                });
+            }
         }
         None => {
-            print!("{}", output);
+            print!("{}", result.js);
         }
     }
 }
