@@ -107,12 +107,34 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 | Round | Date | What happened |
 |-------|------|---------------|
-| 0 | 2026-05-01 | Track created. Eng review complete. 0 unresolved decisions. Awaiting Topic Director + Scout + Builders. |
+| 0 | 2026-05-01 | Track created. Eng review complete. 0 unresolved decisions. |
+| 1 | 2026-05-01 | Lanes A+B COMPLETE on `feat/phase1-contract` at `469f12d`. Rust 32→68 tests (+36), TS 320→323 tests (+3). Lane A: 3 Builder commits + 1 inline-fix commit (export-strip + side-effect import). Lane B: 3 Builder commits + 1 inline-fix commit (null-chain + JSDoc). counter.scribe regression intact. |
+
+---
+
+## Round 1 Status (COMPLETE)
+
+| Role | Status | Output |
+|------|--------|--------|
+| Topic Director | DONE | `.team/v1/director-notes/phase1-round-001.md` |
+| Scout | DONE | `.team/v1/scout-report-phase1-round-001.md` (326 TS / 32 Rust baseline; SC-4 soft-fail Track-C-only) |
+| Builder A (Rust) | DONE | `feat/phase1-lane-a` → merged `469f12d` |
+| Verifier A | DONE → inline fixes | F1 (export-strip) + F2 (side-effect import) addressed; 2 regression tests added |
+| Builder B (TS) | DONE | `feat/phase1-lane-b` → merged `708b7b0` |
+| Verifier B | DONE → inline fixes | F1 (null-chain typecheck) + F2 (stale JSDoc) addressed |
+
+**Branch HEAD:** `469f12d` (`feat/phase1-contract`)
+**Test counts:** 68 Rust, 323 TS
+**CRITICAL regressions:** All protected (counter.scribe still function form)
 
 ---
 
 ## Current Phase
 
-**Round 0 — Track bootstrapped. Awaiting Topic Director direction and Scout baseline.**
+**Round 1 COMPLETE — Lanes A+B merged.**
 
-Next: Dispatch Topic Director → Scout + parallel Builder A + Builder B.
+Next: Round 2 — Lanes C (DX artifacts: examples, docs, VS Code extension) + D (GitHub Releases CI binaries). Both blocked on Lane A binary, which is now ready. Dispatch Topic Director for Round 2 scope.
+
+Open follow-on items (file as TODOs if not Phase 1 scope):
+- Phase 1-DX scope: Lane C examples (`airtime-quote.scribe`, `scripture-reference.scribe`), `docs/grammar.md`, `editors/vscode/`, MIT LICENSE
+- Phase 1-DX scope: Lane D `.github/workflows/release.yml` cross-compile + `@scribe/compiler` postinstall
