@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Default, PartialEq)]
-pub struct SignalMap(pub HashMap<String, String>);
+pub struct SignalMap(pub BTreeMap<String, String>);
 
 pub fn resolve_signals(script: &str) -> SignalMap {
     let mut map = SignalMap::default();
