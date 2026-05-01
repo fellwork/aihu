@@ -1,4 +1,4 @@
-import { effect, signal } from '@scribe/signals'
+import { batch, boolLatticeSignal, effect, signal } from '@scribe/signals'
 import type { Signal } from '@scribe/signals'
 import { inject } from '@scribe/context'
 import { ResourceStoreToken, createResourceStore } from './store.ts'
@@ -62,9 +62,10 @@ export function createResource<T>(
   // 3. Create the reactive state signal.
   const [getState, setState] = signal<DataState<T>>(initialState)
 
-  // 4. Stale flag — set by invalidate(), cleared on each new fetch start.
-  //    This is a closure variable, not a store property (see spec §5.3).
-  let _stale = false
+  // 4. Stale signal — a boolLatticeSignal coalescer. Multiple invalidate()
+  //    calls within the same batch wave coalesce into one effect re-run.
+  //    Reassigned to a fresh instance on each fetch start to reset state.
+  let _staleSignal = boolLatticeSignal(false)
 
   // 5. Active fetch guard — prevents a stale Promise from overwriting newer
   //    state. Incremented on every new fetch start (including refetch).
@@ -72,7 +73,7 @@ export function createResource<T>(
 
   // 6. Internal helper: start a fetch for a given key, writing loading/ready/error.
   function _startFetch(fetchKey: string): void {
-    _stale = false
+    _staleSignal = boolLatticeSignal(false)
     const fetchId = ++_fetchId
     setState({ status: 'loading' })
 
@@ -114,7 +115,7 @@ export function createResource<T>(
 
     // Check if a ready cache entry exists and is not stale.
     const cached = store.get(currentKey)
-    if (cached !== undefined && cached.status === 'ready' && !_stale) {
+    if (cached !== undefined && cached.status === 'ready' && !_staleSignal.read()) {
       setState(cached as DataState<T>)
       return
     }
@@ -133,7 +134,7 @@ export function createResource<T>(
       // Delete the store entry to force bypass of cache in next run,
       // then start a fresh fetch directly (don't wait for effect re-run).
       store.delete(currentKey)
-      _stale = false
+      _staleSignal = boolLatticeSignal(false)
       _startFetch(currentKey)
     },
 
@@ -145,7 +146,13 @@ export function createResource<T>(
       // Mark stale but do NOT change the signal state — the UI continues
       // showing the last known 'ready' data. The next refetch() or
       // key-signal change will bypass the cache check.
-      _stale = true
+      // batch() ensures multiple invalidate() calls in the same tick coalesce
+      // into a single effect re-run. commit() is idempotent — a second call
+      // inside the same batch wave is a no-op (already written true).
+      batch(() => {
+        _staleSignal.merge(true)
+        _staleSignal.commit()
+      })
       // No store mutation, no setState call: spec §3.3 invalidate invariant.
     },
 
