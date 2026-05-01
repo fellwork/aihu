@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { signal, computed, effect } from '../src/index.ts'
+import { batch, signal, computed, effect } from '../src/index.ts'
+import { MERGE, __hostOf } from '../src/signal.ts'
 
 describe('deep-chain', () => {
   it('signal change propagates to terminal effect through 100-node chain', () => {
@@ -179,5 +180,38 @@ describe('deep-chain', () => {
     expect(runCount).toBe(2)
     expect(lastSeen).toBe(49)
     dispose()
+  })
+
+  // H5 spec §9.3 — linkAdd MERGE-promotion test (3 properties).
+  it('linkAdd: linear sub stays Linear with 1 dep, upgrades to Merge on 2nd dep, dedups in same wave', () => {
+    // (a) Build a single-dep computed; verify Linear after first read.
+    const [src, setSrc] = signal(0)
+    const c1 = computed(() => src() + 1)
+    let observed = -1
+    const dispose = effect(() => { observed = c1() })
+    expect(observed).toBe(1)
+    // c1 has 1 inbound dep (src). Should still be Linear.
+    const c1node = __hostOf(c1)!
+    expect(c1node.flags & MERGE).toBe(0)   // (a) Linear
+
+    // (b) Build a 2-dep computed; verify it upgrades to Merge.
+    const [s2, setS2] = signal(10)
+    const c2 = computed(() => c1() + s2())
+    let merged = -1
+    const dispose2 = effect(() => { merged = c2() })
+    expect(merged).toBe(11)
+    const c2node = __hostOf(c2)!
+    expect((c2node.flags & MERGE) !== 0).toBe(true)   // (b) Merge after 2nd dep
+
+    // (c) Mark through both deps in the same wave (via batch).
+    let runCount = 0
+    const dispose3 = effect(() => { runCount++; void c2() })
+    runCount = 0
+    batch(() => { setSrc(5); setS2(20) })
+    // c2 should re-emit ONCE for the combined wave (DI-1 dedup).
+    expect(runCount).toBe(1)
+    expect(merged).toBe(26)   // (5+1) + 20
+
+    dispose(); dispose2(); dispose3()
   })
 })

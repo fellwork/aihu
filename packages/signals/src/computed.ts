@@ -3,7 +3,7 @@ import {
   __HOST,
   DISPOSED,
   EFFECT,
-  HAS_COMPUTED_DEPS,
+  type LinearSubscriber,
   type Link,
   linkAdd,
   MARKED,
@@ -12,7 +12,6 @@ import {
   type Read,
   RUNNING,
   STALE,
-  type Subscriber,
   setCurrentObserver,
   shallowClear,
 } from './signal.ts'
@@ -52,7 +51,9 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     }
   }
 
-  const node: Subscriber = {
+  // H5: computeds are born Linear (no `lastWave` slot). linkAdd promotes
+  // to Merge on the 2nd inbound dep edge (MERGE-1).
+  const node: LinearSubscriber = {
     flags: STALE,
     subsHead: null,
     subsTail: null,
@@ -86,18 +87,12 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     },
   }
 
-  const read: Read<T> & { [__HOST]?: Subscriber } = () => {
+  const read: Read<T> & { [__HOST]?: LinearSubscriber } = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
     const observer = peekCurrentObserver()
     if (observer !== null) {
       const added = linkAdd(node, observer)
-      if (added) {
-        if ((observer.flags & EFFECT) !== 0) hasEffectSub = true
-        // Computed-observer reading a computed source: mark observer as
-        // having computed deps so markOne's restricted leaf fast path
-        // skips it forever (parent spec §3 sufficiency invariant).
-        else if (observer.recomputeIfNeeded !== undefined) observer.flags |= HAS_COMPUTED_DEPS
-      }
+      if (added && (observer.flags & EFFECT) !== 0) hasEffectSub = true
     }
     if (!hasCached || node.flags & (STALE | PENDING)) {
       cached = recompute()

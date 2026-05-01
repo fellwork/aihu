@@ -67,6 +67,16 @@ const replacements = [
   [/\.notify\b/g, '.no'],
   [/\bnotify\b/g, 'no'],              // shorthand method: ,notify(
 
+  // R7: 3-char Link/EffectNode field names. Only `.X` access patterns
+  // and `X:` definition patterns (NOT bareword `X` — those are local
+  // variables/parameters in the source: `effect(fn)`, `linkAdd(dep,sub)`).
+  [/\.dep\b/g, '.d'],
+  [/dep:/g, 'd:'],
+  [/\.sub\b/g, '.s'],
+  [/sub:/g, 's:'],
+  [/\.fn\b/g, '.f'],
+  [/fn:/g, 'f:'],
+
   // flags — highest occurrence count, process last to avoid masking others
   [/\.flags\b/g, '.fl'],
   [/flags:/g, 'fl:'],

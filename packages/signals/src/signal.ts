@@ -18,8 +18,9 @@ export interface Link {
   nextDep: Link | null
 }
 
-/** @internal */
-export interface Subscriber {
+/** @internal — base shape (Linear). No `lastWave` slot — Linear nodes
+ * never read or write it. See spec-6.2-phase2-h5.md §8. */
+export interface LinearSubscriber {
   notify(): void
   /** @internal */ flags: number
   /** @internal — head of the forward (subscriber-direction) list. */
@@ -29,9 +30,18 @@ export interface Subscriber {
   depsHead: Link | null
   /** @internal */ depsTail: Link | null
   /** @internal */ recomputeIfNeeded?(): void
-  /** @internal — set to current wave when this sub is reached during marking; replaces the NOTIFIED bit. */
-  lastWave?: number
 }
+
+/** @internal — fan-in shape. SMI `lastWave` slot present from construction
+ * (initialised to 0). Discriminated from Linear via `(flags & MERGE)`. */
+export interface MergeSubscriber extends LinearSubscriber {
+  /** @internal — set to current wave when this sub is reached during marking;
+   * replaces the NOTIFIED bit. SMI to keep the slot off the HeapNumber path. */
+  lastWave: number
+}
+
+/** @internal */
+export type Subscriber = LinearSubscriber | MergeSubscriber
 
 /** @internal */ export const RUNNING          = 0x001
 /** @internal */ export const DISPOSED         = 0x002
@@ -39,12 +49,10 @@ export interface Subscriber {
 /** @internal */ export const STALE            = 0x008
 /** @internal */ export const EFFECT           = 0x010
 /** @internal */ export const MARKED           = 0x020
-/**
- * @internal — set on a computed observer the first time it reads another
- * computed during its body. One-way (once true, stays true). Used by
- * markOne to confirm the computed has computed deps.
- */
-/** @internal */ export const HAS_COMPUTED_DEPS = 0x080
+/** @internal — H5: set on signals/effects at construction; lazy upgrade
+ * for computeds inside linkAdd on the second inbound dep edge. Once set,
+ * never cleared (one-way classifier). Gates the dedup path. */
+/** @internal */ export const MERGE             = 0x040
 /** @internal — Option D: set on a linear-path computed during mark. Means
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
@@ -117,6 +125,10 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   for (let l = sub.depsTail; l !== null; l = l.prevDep) {
     if (l.dep === dep) return false
   }
+  // H5 MERGE-1: promote sub from Linear to Merge on its 2nd inbound dep.
+  // Idempotent — re-setting on an already-Merge sub is a no-op. Must run
+  // BEFORE append (depsHead non-null means a 2nd or later edge).
+  if (sub.depsHead !== null) sub.flags |= MERGE
   const link: Link = {
     dep,
     sub,
@@ -182,9 +194,12 @@ function markOne(root: Subscriber): void {
   try {
     // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
     while (true) {
-      if (!(sub.flags & DISPOSED) && sub.lastWave !== wave) {
+      // H5 site A + chase-inner: dedup gate is type-guarded on MERGE.
+      // Linear subs (≤1 inbound dep) skip both the read and the write —
+      // DI-1 is vacuously satisfied (exactly one inbound mark per wave).
+      if (!(sub.flags & DISPOSED) && (!(sub.flags & MERGE) || (sub as MergeSubscriber).lastWave !== wave)) {
         if (sub.flags & RUNNING) throw new SignalCircularError()
-        sub.lastWave = wave
+        if (sub.flags & MERGE) (sub as MergeSubscriber).lastWave = wave
         sub.flags |= isChase ? MARKED | PENDING : MARKED       // CS-1 stamp
         if (sub.flags & EFFECT) {
           effectQueue.push(sub)
@@ -258,7 +273,9 @@ function checkDirty(root: Subscriber): boolean {
         continue
       }
       // Signal source: dirty if written in the current wave.
-      if (dep.recomputeIfNeeded === undefined && dep.lastWave === wave) return true
+      // Site D — signal hosts are constructed Merge (MERGE-2), so the field is present;
+      // defensive MERGE guard narrows to MergeSubscriber for type safety.
+      if (dep.recomputeIfNeeded === undefined && (dep.flags & MERGE) && (dep as MergeSubscriber).lastWave === wave) return true
     }
   }
   return false
@@ -354,8 +371,12 @@ export function drainBatch(): void {
         // set lastWave = wave on any signal source (recomputeIfNeeded ===
         // undefined) that was written this batch but hasn't been stamped yet.
         for (let l = sub.depsHead; l !== null; l = l.nextDep) {
-          if (l.dep.recomputeIfNeeded === undefined && l.dep.lastWave !== wave) {
-            l.dep.lastWave = wave
+          // Site C — signal hosts are constructed Merge (MERGE-2); the
+          // defensive MERGE guard narrows to MergeSubscriber for type safety.
+          const dep = l.dep
+          if (dep.recomputeIfNeeded === undefined && (dep.flags & MERGE)) {
+            const m = dep as MergeSubscriber
+            if (m.lastWave !== wave) m.lastWave = wave
           }
         }
         markOne(sub)
@@ -417,12 +438,15 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
   // model it as a minimal Subscriber-shaped object with no flags / no
   // notify (the dep is never marked itself; only its subs are). The
   // shape is internal; readers see it only via Link.dep.
-  const host: Subscriber = {
-    flags: 0,
+  // H5 MERGE-2: signal hosts are constructed Merge so `lastWave` is in
+  // the hidden class from birth (no late-write polymorphism).
+  const host: MergeSubscriber = {
+    flags: MERGE,
     subsHead: null,
     subsTail: null,
     depsHead: null,
     depsTail: null,
+    lastWave: 0,
     notify() {},
   }
   const eq = options?.equals

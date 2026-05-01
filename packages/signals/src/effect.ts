@@ -1,5 +1,5 @@
 import { SignalCircularError } from './errors.ts'
-import { DISPOSED, EFFECT, RUNNING, type Subscriber, setCurrentObserver } from './signal.ts'
+import { DISPOSED, EFFECT, MERGE, type MergeSubscriber, RUNNING, setCurrentObserver } from './signal.ts'
 
 export type EffectFn = () => void
 export type Dispose = () => void
@@ -19,9 +19,9 @@ export type Dispose = () => void
 // without re-allocating.
 
 const MAX_POOL = 8
-const pool: Subscriber[] = []
+const pool: EffectNode[] = []
 
-interface EffectNode extends Subscriber {
+interface EffectNode extends MergeSubscriber {
   fn: EffectFn | null
 }
 
@@ -38,25 +38,30 @@ function runEffect(node: EffectNode): void {
 }
 
 export function effect(fn: EffectFn): Dispose {
-  const reused = pool.pop() as EffectNode | undefined
+  const reused = pool.pop()
   let node: EffectNode
   if (reused !== undefined) {
     node = reused
     // Reset state for reuse. subsHead/subsTail of an effect are always
     // null (effects are leaves of the dep direction); depsHead/depsTail
     // were nulled by the prior dispose's inlined dep-unlink loop.
-    node.flags = EFFECT
-    // Force a re-mark on the next wave by setting lastWave to a value
-    // that cannot match the live wave counter (NaN never compares equal).
-    node.lastWave = Number.NaN
+    // H5: keep MERGE bit set so the slot stays SMI-typed across pool reuse.
+    node.flags = EFFECT | MERGE
+    // H5 site E: stable SMI sentinel (was Number.NaN, which forced a
+    // Double-typed slot). `0` cannot collide with a live wave because
+    // `wave` starts at 0 and is incremented BEFORE markOne is called.
+    node.lastWave = 0
     node.fn = fn
   } else {
     node = {
-      flags: EFFECT,
+      // H5 MERGE-2: effects are constructed Merge so lastWave is in the
+      // hidden class from birth.
+      flags: EFFECT | MERGE,
       subsHead: null,
       subsTail: null,
       depsHead: null,
       depsTail: null,
+      lastWave: 0,
       fn,
       notify() {
         if (node.flags & DISPOSED) return
