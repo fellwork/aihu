@@ -33,6 +33,7 @@
     "name": "@scribe/data",
     "path": "packages/data/dist/index.js",
     "limit": "750 B",
-    "gzip": true
+    "gzip": true,
+    "ignore": ["@scribe/signals", "@scribe/context"]
   }
 ]
