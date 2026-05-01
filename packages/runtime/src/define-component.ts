@@ -26,7 +26,8 @@
  * change.
  */
 
-import type { MountFn, Setup, SetupContext } from './types.ts'
+import type { signal as SignalFactory } from '@scribe/signals'
+import type { ComponentOptions, MountFn, Setup, SetupContext } from './types.ts'
 import { RuntimeError } from './types.ts'
 
 /**
@@ -37,6 +38,25 @@ import { RuntimeError } from './types.ts'
 type _ScopeRef = ReturnType<MountFn>
 
 let _mount: MountFn | null = null
+
+/**
+ * Injected reference to the `signal` factory from `@scribe/signals`.
+ * Must be called once at app boot before any element with `attrs`
+ * connects. Function-form `defineComponent(setup)` never reaches this.
+ *
+ * @internal
+ */
+let _signal: typeof SignalFactory | null = null
+
+/**
+ * Inject the `signal` factory from `@scribe/signals`. Must be called
+ * once before any options-form element (with `attrs`) is connected.
+ *
+ * @internal
+ */
+export function _setSignal(s: typeof SignalFactory): void {
+  _signal = s
+}
 
 /**
  * Injected reference to `setSsrContextMap` from `@scribe/context`.
@@ -82,28 +102,76 @@ export function _setContext(
 }
 
 /**
+ * Symbol slot for per-attribute signal map on element instances.
+ * Module-level; never exported.
+ * @internal
+ */
+const ATTR_SIGNALS_SYM = Symbol('attr-signals')
+
+/**
  * Build a custom element class around a setup function.
  *
- * The returned class:
- * - In `connectedCallback`: builds `SetupContext`, runs `setup(ctx)`,
- *   mounts the resulting tree, stores the `MountScope` for cleanup.
- * - In `disconnectedCallback`: calls `scope.dispose()` if a scope
- *   was captured.
+ * Overload 1 — function form (existing):
+ *   `defineComponent(setup)` — no `observedAttributes`, no signal injection
+ *   required, zero change to existing call sites.
  *
- * Effects created during `setup()` auto-register with the resulting
- * `MountScope` because arbor's `mount()` owns the scope-collector
- * (`_activeMountDisposers`) for the duration of the call (arbor §2.2).
- * `setup()` itself runs *before* `mount()`, so its body must produce
- * the tree without sneaking effects out — but any effect a `branch`
- * attribute or reactive `leaf` registers during materialization is
- * captured by `mount()`'s collector.
+ * Overload 2 — options form (Plan 1.2):
+ *   `defineComponent({ attrs, setup })` — sets `static observedAttributes`,
+ *   creates per-attribute `Signal<string>` at connect time via the injected
+ *   `_signal` factory, routes `attributeChangedCallback` to signal setters.
  *
- * @throws Error if `_setMount` has not been called.
+ * @throws RuntimeError SCR-R0002 if `_setMount` has not been called.
+ * @throws RuntimeError SCR-R0003 if options-form component connects without
+ *   `_setSignal` having been called.
  */
-export function defineComponent(setup: Setup): typeof HTMLElement {
+export function defineComponent(setup: Setup): typeof HTMLElement
+export function defineComponent<A extends ReadonlyArray<string>>(
+  options: ComponentOptions<A>,
+): typeof HTMLElement
+export function defineComponent(
+  setupOrOptions: Setup | ComponentOptions,
+): typeof HTMLElement {
+  if (typeof setupOrOptions === 'function') {
+    // ── Function-form path (existing, unchanged) ──────────────────────
+    const setup = setupOrOptions
+    const SCOPE = Symbol('scribe.componentScope')
+    class Component extends HTMLElement {
+      private [SCOPE]: _ScopeRef | null = null
+      connectedCallback(): void {
+        if (_mount === null) {
+          throw new RuntimeError(
+            'SCR-R0002',
+            '_setMount(mount) must be called once at app boot before defineComponent elements connect',
+          )
+        }
+        const host: ShadowRoot | Element = this.shadowRoot ?? this
+        const ctx: SetupContext = { host, element: this }
+        _setSsrContextMap?.(new Map())
+        let tree: ReturnType<Setup>
+        try {
+          tree = setup(ctx)
+        } finally {
+          _clearSsrContextMap?.()
+        }
+        this[SCOPE] = _mount(tree!, host)
+      }
+      disconnectedCallback(): void {
+        this[SCOPE]?.dispose()
+        this[SCOPE] = null
+      }
+    }
+    return Component
+  }
+
+  // ── Options-form path (Plan 1.2) ────────────────────────────────────
+  const { attrs = [] as unknown as ReadonlyArray<string>, setup } = setupOrOptions
   const SCOPE = Symbol('scribe.componentScope')
+
   class Component extends HTMLElement {
+    static readonly observedAttributes = attrs
     private [SCOPE]: _ScopeRef | null = null
+    private [ATTR_SIGNALS_SYM]: Record<string, ReturnType<typeof SignalFactory>> | null = null
+
     connectedCallback(): void {
       if (_mount === null) {
         throw new RuntimeError(
@@ -111,17 +179,38 @@ export function defineComponent(setup: Setup): typeof HTMLElement {
           '_setMount(mount) must be called once at app boot before defineComponent elements connect',
         )
       }
+      if (_signal === null) {
+        throw new RuntimeError(
+          'SCR-R0003',
+          '_setSignal must be called before connecting a component with attrs',
+        )
+      }
+      // Create one Signal<string> per declared attribute, seeded from
+      // the current attribute value (or '' if not present).
+      const attrSignals: Record<string, ReturnType<typeof SignalFactory>> = {}
+      for (const name of attrs) {
+        attrSignals[name] = _signal(this.getAttribute(name) ?? '')
+      }
+      this[ATTR_SIGNALS_SYM] = attrSignals
+
       const host: ShadowRoot | Element = this.shadowRoot ?? this
-      const ctx: SetupContext = { host, element: this }
+      const ctx = { host, element: this, attrs: attrSignals } as Parameters<typeof setup>[0]
       _setSsrContextMap?.(new Map())
-      let tree: ReturnType<Setup>
+      let tree: ReturnType<typeof setup>
       try {
         tree = setup(ctx)
       } finally {
         _clearSsrContextMap?.()
       }
-      this[SCOPE] = _mount(tree!, host)
+      this[SCOPE] = _mount!(tree!, host)
     }
+
+    attributeChangedCallback(name: string, _old: string | null, newValue: string | null): void {
+      const signals = this[ATTR_SIGNALS_SYM]
+      const pair = signals?.[name]
+      if (pair !== undefined) pair[1](newValue ?? '')
+    }
+
     disconnectedCallback(): void {
       this[SCOPE]?.dispose()
       this[SCOPE] = null
