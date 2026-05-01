@@ -1,12 +1,13 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ScribeSource<'a> {
     pub script: Option<&'a str>,
     pub template: Option<&'a str>,
     pub style: Option<&'a str>,
     pub meta: ScriptMeta,
+    pub contract: Option<ContractAst>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ScriptMeta {
     pub name: Option<String>,
 }
@@ -35,11 +36,14 @@ pub struct CompileUnit<'a> {
     pub template_ast: Option<Vec<TemplateNode>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CompileError {
     pub message: String,
     pub line: usize,
     pub col: usize,
+    pub code: Option<String>,
+    pub hint: Option<String>,
+    pub fix: Option<String>,
 }
 
 impl std::fmt::Display for CompileError {
@@ -49,3 +53,37 @@ impl std::fmt::Display for CompileError {
 }
 
 impl std::error::Error for CompileError {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum InputKind {
+    String,
+    Number,
+    Boolean,
+    Enum(Vec<String>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct InputDecl {
+    pub name: String,
+    pub kind: InputKind,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct StateDecl {
+    pub name: String,
+    pub kind: InputKind,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ActionDecl {
+    pub name: String,
+    pub returns: Vec<(String, InputKind)>,
+}
+
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct ContractAst {
+    pub inputs: Vec<InputDecl>,
+    pub states: Vec<StateDecl>,
+    pub actions: Vec<ActionDecl>,
+}

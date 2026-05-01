@@ -236,6 +236,7 @@ impl<'a> Parser<'a> {
             message,
             line: self.line_at(self.pos),
             col: self.col_at(self.pos),
+            ..Default::default()
         }
     }
 

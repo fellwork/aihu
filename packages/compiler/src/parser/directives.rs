@@ -23,6 +23,7 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
             message: "v-if / v-for directives are not supported in v0; see v1 roadmap".to_string(),
             line: 0,
             col: 0,
+            ..Default::default()
         });
     }
 
@@ -34,6 +35,7 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
             ),
             line: 0,
             col: 0,
+            ..Default::default()
         });
     }
 
@@ -92,5 +94,6 @@ fn identifier_error() -> CompileError {
             .to_string(),
         line: 0,
         col: 0,
+        ..Default::default()
     }
 }

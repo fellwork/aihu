@@ -84,6 +84,7 @@ enum BlockKind {
     Script,
     Template,
     Style,
+    Contract,
 }
 
 /// Find the next recognized block opener starting from `pos` in `source`.
@@ -98,8 +99,11 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, usize)> {
         .find("<template>")
         .map(|i| (BlockKind::Template, pos + i));
     let style_off = slice.find("<style").map(|i| (BlockKind::Style, pos + i));
+    let contract_off = slice
+        .find("<contract>")
+        .map(|i| (BlockKind::Contract, pos + i));
 
-    [script_off, tmpl_off, style_off]
+    [script_off, tmpl_off, style_off, contract_off]
         .into_iter()
         .flatten()
         .min_by_key(|&(_, off)| off)
@@ -110,6 +114,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
     let mut template: Option<&str> = None;
     let mut style: Option<&str> = None;
     let mut meta = ScriptMeta { name: None };
+    let mut contract_raw: Option<&str> = None;
 
     let mut pos = 0usize;
 
@@ -121,6 +126,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     message: "unclosed <script setup> block".to_string(),
                     line: line_at(source, open_start),
                     col: 0,
+                    ..Default::default()
                 })?;
                 let open_tag_end = open_start + tag_close_rel + 1; // byte after '>'
                 let tag_text = &source[open_start..open_tag_end];
@@ -137,6 +143,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                             message: "unclosed <script setup> block".to_string(),
                             line: line_at(source, open_start),
                             col: 0,
+                            ..Default::default()
                         })?;
                 let content_end = content_start + close_rel;
 
@@ -145,6 +152,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                         message: "duplicate <script setup> block".to_string(),
                         line: line_at(source, open_start),
                         col: 0,
+                        ..Default::default()
                     });
                 }
                 script = Some(source[content_start..content_end].trim());
@@ -160,6 +168,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                             message: "unclosed <template> block".to_string(),
                             line: line_at(source, open_start),
                             col: 0,
+                            ..Default::default()
                         })?;
 
                 if template.is_some() {
@@ -167,6 +176,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                         message: "duplicate <template> block".to_string(),
                         line: line_at(source, open_start),
                         col: 0,
+                        ..Default::default()
                     });
                 }
                 template = Some(source[open_tag_end..close_pos].trim());
@@ -178,6 +188,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     message: "unclosed <style> block".to_string(),
                     line: line_at(source, open_start),
                     col: 0,
+                    ..Default::default()
                 })?;
                 let open_tag_end = open_start + tag_close_rel + 1;
                 let content_start = open_tag_end;
@@ -188,6 +199,7 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                             message: "unclosed <style> block".to_string(),
                             line: line_at(source, open_start),
                             col: 0,
+                            ..Default::default()
                         })?;
 
                 if style.is_some() {
@@ -195,18 +207,51 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                         message: "duplicate <style> block".to_string(),
                         line: line_at(source, open_start),
                         col: 0,
+                        ..Default::default()
                     });
                 }
                 style = Some(source[content_start..close_pos].trim());
                 pos = close_pos + "</style>".len();
             }
+
+            BlockKind::Contract => {
+                let open_tag_end = open_start + "<contract>".len();
+
+                let close_pos = source[open_tag_end..]
+                    .find("</contract>")
+                    .map(|i| open_tag_end + i)
+                    .ok_or_else(|| CompileError {
+                        message: "unclosed <contract> block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    })?;
+
+                if contract_raw.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate <contract> block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                contract_raw = Some(&source[open_tag_end..close_pos]);
+                pos = close_pos + "</contract>".len();
+            }
         }
     }
+
+    let contract = if let Some(raw) = contract_raw {
+        Some(crate::parser::contract::parse_contract(raw)?)
+    } else {
+        None
+    };
 
     Ok(ScribeSource {
         script,
         template,
         style,
         meta,
+        contract,
     })
 }

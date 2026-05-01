@@ -1,4 +1,4 @@
-use scribe_compiler::{compile_full, emit};
+use scribe_compiler::{compile_full, emit, sfc};
 
 fn counter_source() -> &'static str {
     concat!(
@@ -32,9 +32,10 @@ fn counter_source() -> &'static str {
 
 #[test]
 fn counter_full() {
-    let unit = compile_full(counter_source()).unwrap();
+    let parsed = sfc::parse(counter_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "counter");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -48,9 +49,10 @@ fn no_signals_plain_leaf() {
 ",
         "<template><p>{{ message }}</p></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-msg");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -64,9 +66,10 @@ fn event_attr_onclick() {
 ",
         "<template><button @click=\"handler\">click</button></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-btn");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -80,9 +83,10 @@ fn signal_leaf_cast() {
 ",
         "<template><span>{{ val }}</span></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-val");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -96,9 +100,10 @@ fn plain_var_no_cast() {
 ",
         "<template><h1>{{ title }}</h1></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-head");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -118,9 +123,10 @@ fn style_block_warning() {
 ",
         "</style>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-styled");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -134,13 +140,14 @@ fn ctx_param_present() {
 ",
         "<template><span>{{ val }}</span></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-ctx");
     assert!(
-        output.contains("defineComponent((_ctx)"),
+        output.js.contains("defineComponent((_ctx)"),
         "output must contain defineComponent((_ctx)"
     );
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -154,13 +161,14 @@ fn import_type_signal_present() {
 ",
         "<template><span>{{ val }}</span></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-sig");
     assert!(
-        output.contains("import type { Signal }"),
+        output.js.contains("import type { Signal }"),
         "output must contain import type {{ Signal }}"
     );
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
@@ -174,19 +182,21 @@ fn no_export_default() {
 ",
         "<template><span>{{ val }}</span></template>"
     );
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-noexp");
     assert!(
-        !output.contains("export default"),
+        !output.js.contains("export default"),
         "output must not contain export default"
     );
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }
 
 #[test]
 fn static_attr_passthrough() {
     let src = "<template><div class=\"counter\"></div></template>";
-    let unit = compile_full(src).unwrap();
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-div");
-    insta::assert_snapshot!(output);
+    insta::assert_snapshot!(output.js);
 }

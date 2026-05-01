@@ -1,7 +1,13 @@
 use crate::codegen::signals::SignalMap;
 use crate::types::{Attr, CompileUnit, TemplateNode};
 
-pub fn emit(unit: &CompileUnit, tag_name: &str) -> String {
+#[derive(Debug, Default)]
+pub struct EmitResult {
+    pub js: String,
+    pub manifest_json: String,
+}
+
+pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
 
     if unit.source.style.is_some() {
@@ -36,14 +42,18 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> String {
         )
     };
 
-    format!(
+    let js = format!(
         "{}
 
 defineElement('{}', defineComponent((_ctx) => {{
 {}}}))
 ",
         imports, tag_name, body
-    )
+    );
+    EmitResult {
+        js,
+        manifest_json: String::new(),
+    }
 }
 
 fn build_imports(signal_map: &SignalMap) -> String {
