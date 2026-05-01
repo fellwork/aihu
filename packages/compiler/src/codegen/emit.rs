@@ -285,14 +285,18 @@ fn emit_manifest(tag_name: &str, contract: &ContractAst) -> String {
 
 fn extract_script_body(script: &str) -> String {
     let mut in_import = false;
-    let mut result_lines: Vec<&str> = Vec::new();
+    let mut result_lines: Vec<String> = Vec::new();
     for line in script.lines() {
         let t = line.trim();
         if t.starts_with("import ") || t.starts_with("import\t") {
-            if t.contains(" from ") || t.ends_with(';') {
-                // single-line import, skip
+            // A multiline `import { ... } from '...'` block is detected by the
+            // presence of `{` without a matching close on the same line. Bare
+            // side-effect imports (`import 'foo'`) and single-line bracket
+            // imports complete on the opening line.
+            let opens_block = t.contains('{') && !t.contains('}');
+            if !opens_block {
+                // single-line import (with-from, side-effect, or one-line block) — skip
             } else {
-                // start of multiline import block
                 in_import = true;
             }
             continue;
@@ -303,7 +307,17 @@ fn extract_script_body(script: &str) -> String {
             }
             continue;
         }
-        result_lines.push(line);
+        // Strip top-level `export ` from function/const/let/class declarations:
+        // when the user's <script setup> declares an exported action handler
+        // (e.g. `export function quote() { ... }`), the emitted setup(ctx)
+        // body must not retain `export` — that keyword is only valid at module
+        // top level and would be a TypeScript error inside a function body.
+        let stripped = if let Some(rest) = line.strip_prefix("export ") {
+            rest.to_string()
+        } else {
+            line.to_string()
+        };
+        result_lines.push(stripped);
     }
     // trim leading/trailing blank lines, add 2-space indent
     let trimmed: Vec<_> = result_lines

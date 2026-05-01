@@ -228,6 +228,55 @@ const fee = computed(() => 5)
     );
 }
 
+#[test]
+fn side_effect_import_does_not_eat_following_lines() {
+    // Bare side-effect import (no `from`, no `;`) must not falsely open a
+    // multiline import span — it has no `{`, so should be skipped as single-line.
+    let source = r#"<script setup lang="ts" name="x-test">
+import '@scribe/polyfill'
+const fee = 5
+</script>
+<template>
+  <div>{{ fee }}</div>
+</template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-test");
+    assert!(
+        result.js.contains("const fee = 5"),
+        "line after side-effect import must be preserved"
+    );
+}
+
+#[test]
+fn export_keyword_stripped_from_script_body() {
+    // When the user writes `export function ...` in <script setup>, the
+    // emitter must strip `export ` because the body is injected inside
+    // setup(ctx) where module-level exports are syntax errors.
+    let source = r#"<contract>
+action ping() -> { ok: boolean }
+</contract>
+<script setup lang="ts" name="x-export">
+export function ping() {
+  return { ok: true }
+}
+</script>
+<template>
+  <div></div>
+</template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-export");
+    assert!(
+        result.js.contains("function ping()"),
+        "function declaration preserved"
+    );
+    assert!(
+        !result.js.contains("export function"),
+        "export keyword stripped from script body"
+    );
+}
+
 // ─── A-4c: options-form emission ──────────────────────────────────────────
 
 fn airtime_quote_source() -> &'static str {
