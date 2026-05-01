@@ -109,6 +109,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 |-------|------|---------------|
 | 0 | 2026-05-01 | Track created. Eng review complete. 0 unresolved decisions. |
 | 1 | 2026-05-01 | Lanes A+B COMPLETE on `feat/phase1-contract` at `469f12d`. Rust 32→68 tests (+36), TS 320→323 tests (+3). Lane A: 3 Builder commits + 1 inline-fix commit (export-strip + side-effect import). Lane B: 3 Builder commits + 1 inline-fix commit (null-chain + JSDoc). counter.scribe regression intact. |
+| 2 | 2026-05-01 | Lanes C+D COMPLETE at `4b37f0d`. Lane C: 4 commits — examples/airtime-quote, examples/scripture-reference, docs/grammar.md (236 lines, full BNF), docs/tthw-log.md, editors/vscode/, MIT LICENSE + 10 package.json license fields. Both example manifests verified valid via shipped binary. Lane D: 1 builder commit + 1 inline-fix — .github/workflows/release.yml (4-target cross-compile, all SHAs pinned), packages/compiler/js/postinstall.ts (SCRIBE_COMPILE_BIN override, idempotent, fail-loud), packages/compiler/RELEASE.md. Test counts unchanged: 68 Rust + 1 ignored, 323 TS. Pre-existing typecheck failures noted (unrelated to Phase 1). |
 
 ---
 
@@ -129,12 +130,31 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 ---
 
+## Round 2 Status (COMPLETE)
+
+| Role | Status | Output |
+|------|--------|--------|
+| Topic Director | DONE | `.team/v1/director-notes/phase1-round-002.md` |
+| Scout | DONE | `.team/v1/scout-report-phase1-round-002.md` (all 9 SC checks PASS, 320 baseline) |
+| Builder C (DX) | DONE → resumed | First worktree branched from main; resumed with merge of feat/phase1-contract; 4 commits direct on branch |
+| Verifier C | DONE | PASS — all 13 AC; 3 informational findings (dist gitignored, pre-existing typecheck, minor grammar imprecision) |
+| Builder D (CI) | DONE → inline fix | 1 commit on worktree; merged via `4b37f0d` |
+| Verifier D | DONE → inline fix | F1 (dropped license field) addressed inline before merge |
+
+**Branch HEAD:** `4b37f0d` (`feat/phase1-contract`)
+**Test counts:** 68 Rust + 1 ignored, 323 TS — unchanged from Round 1
+**Lane A binary:** verified end-to-end on both examples (airtime-quote + scripture-reference)
+**CRITICAL regressions:** All protected
+
+---
+
 ## Current Phase
 
-**Round 1 COMPLETE — Lanes A+B merged.**
+**Round 2 COMPLETE — Phase 1 ENDED.**
 
-Next: Round 2 — Lanes C (DX artifacts: examples, docs, VS Code extension) + D (GitHub Releases CI binaries). Both blocked on Lane A binary, which is now ready. Dispatch Topic Director for Round 2 scope.
+Phase 1 (`<contract>` block + DX surface + release CI) is fully shipped on `feat/phase1-contract` at `4b37f0d`. Ready for PR to `main` and v0.1.0 tag for first cross-compile release run.
 
-Open follow-on items (file as TODOs if not Phase 1 scope):
-- Phase 1-DX scope: Lane C examples (`airtime-quote.scribe`, `scripture-reference.scribe`), `docs/grammar.md`, `editors/vscode/`, MIT LICENSE
-- Phase 1-DX scope: Lane D `.github/workflows/release.yml` cross-compile + `@scribe/compiler` postinstall
+Open follow-on items:
+- TODO-004: Re-enable `c4_transform_produces_typescript` integration test (out of Phase 1 scope, see TODOS.md)
+- Round 2 informational findings: VSCode grammar `<script>` pattern overly permissive (Verifier C F-3); pre-existing typecheck baseline issues in compiler:typecheck/agent-readiness:typecheck/runtime:typecheck (Verifier C F-2)
+- v2 reserved syntax: `string!` for required inputs (TODOS.md TODO-003)
