@@ -5,5 +5,5 @@
  * is intentionally NOT re-exported here — it is internal to the package and
  * accessed only by tests via the registry module path.
  */
-export type { AgentMetadata } from './registry.ts'
+export type { ActionSchema, AgentMetadata, InputSchema } from './registry.ts'
 export { getAgentMetadata, registerAgentMetadata } from './registry.ts'
