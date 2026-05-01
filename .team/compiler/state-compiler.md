@@ -1,25 +1,26 @@
 # State — Compiler Track
 
 **Track:** `compiler`
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-01
 **HEAD at session start:** `8b5ba32` (docs(plans): Round N+2 test-quality track + compiler track plans)
 **HEAD after session 1:** `3919bdb` on `feat/compiler-c0` — "feat(compiler): Phase C-0 — scaffold + SFC block splitter"
 **HEAD after session 2:** `2a4ad9d` on `feat/compiler-c1` — "feat(compiler): Phase C-1 — TemplateNode + recursive descent template parser"
 **HEAD after session 3:** `653252f` on `feat/compiler-c2` — "docs(team): Round 003 director note — C-2 adjudication"
 **HEAD after session 4:** `d7bd475` on `feat/compiler-c3` — "fix(compiler): re-accept multiple_signals snapshot (HashMap ordering)"
 **HEAD after session 5:** `a0af4d4` on `feat/compiler-c4` — "fix(compiler): C4-6 integration — .exe path, enforce:pre, bun integrate.ts"
-**Active branch:** `feat/compiler-c4`
-**Mode:** 2 (Build/refactor)
+**HEAD after session 6:** `808f1c0` on `main` — PR #14 merged: "chore(compiler): session-6 cleanup — BTreeMap + Vite limitation + topic summary"
+**Active branch:** `main`
+**Mode:** CLOSED
 
 ---
 
 ## Current phase
 
-**Phase C-4 — CLI + Vite Integration** — **COMPLETE** (session 5)
+**Session 6 — Merge + cleanup** — **COMPLETE** (PR #14, `808f1c0`, 2026-05-01)
 
-Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3 (**COMPLETE**) → C-4 (**COMPLETE**)
+Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3 (**COMPLETE**) → C-4 (**COMPLETE**) → Session-6 cleanup (**COMPLETE**)
 
-**Compiler track COMPLETE. No Phase C-5 planned.**
+**Compiler track FULLY CLOSED.** All sessions complete. No further compiler sessions planned. Next compiler session scope (if any): Phase C-5 (watch mode) or consumer integration test — pending Director decision.
 
 ---
 
@@ -32,6 +33,7 @@ Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3
 | 3     | C-2   | PASS    | PASS (10/10) | PASS | COMPLETE |
 | 4     | C-3   | PASS    | PASS (11/11+1 SKIP) | PASS | COMPLETE |
 | 5     | C-4   | PASS    | PASS (10/10) | PASS | COMPLETE |
+| 6     | Cleanup | PASS (PR #14) | PASS (11/11 ACs) | PASS | COMPLETE |
 
 ---
 
@@ -88,7 +90,9 @@ All OQs closed. No new open questions.
 | Retro session 4 | `.team/compiler/retro-session-004.md` | COMPLETE |
 | Retro session 5 | `.team/compiler/retro-session-005.md` | COMPLETE |
 | Build manifest C-4 | (none — Team Lead acted as Builder directly; no separate manifest written) | N/A |
-| Topic summary | `.team/compiler/summaries/compiler-summary.md` | NOT STARTED |
+| Topic summary | `.team/compiler/summaries/compiler-summary.md` | COMPLETE (session 6) |
+| Build manifest session 6 | `.team/compiler/build-manifest-session-6.md` | COMPLETE |
+| Verification report session 6 | `.team/compiler/verification-report-session-6.md` | COMPLETE — PASS (11/11 ACs) |
 
 ---
 
@@ -241,13 +245,29 @@ defineElement('counter', defineComponent((_ctx) => {
 
 ---
 
-## Next actions (Team Lead — Session 6)
+## Session 6 — COMPLETE (PR #14, `808f1c0`, 2026-05-01)
 
-**The compiler track is feature-complete. Session 6 is merge + integration only.**
+All session-6 next actions resolved:
 
-1. Merge `feat/compiler-c4` → `feat/compiler-c3` (or open PR to main — confirm merge strategy with Team Lead).
-2. Run `bun tsc --noEmit` against the built `dist/index.d.ts` and all TS fixture files (`js/index.ts`, `fixtures/vite-counter/integrate.ts`, `fixtures/vite-counter/vite.config.ts`).
-3. Promote all pending earned learnings from sessions 2–5 to the team knowledge base. Full list in retro-session-005.md.
-4. Switch `SignalMap` from `HashMap` to `BTreeMap` — eliminates snapshot ordering non-determinism permanently (low-risk, high-value cleanup).
-5. Investigate and document the `bun vite build` / Bun+Rollup4 ESM plugin incompatibility — either fix it or add a note to `@scribe/compiler` package docs.
-6. Write `.team/compiler/summaries/compiler-summary.md` (track topic summary — currently NOT STARTED).
+1. **Merged to main** — PR #14 at `808f1c0`.
+2. **BTreeMap in `signals.rs`** — DONE. `HashMap` → `BTreeMap`. Deterministic snapshot order. All 32 Rust tests pass, affected snapshots re-accepted.
+3. **Vite limitation documented** — DONE. `bun vite build` with `scribeCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Clear note added to `packages/compiler/js/index.ts` JSDoc. `transform()` function works correctly via `bun run integrate.ts`.
+4. **Topic summary written** — DONE. `.team/compiler/summaries/compiler-summary.md` exists. Covers pipeline, architecture, key decisions, 5 known limitations.
+5. 32 Rust tests green, 320 TS tests green.
+
+## Known limitations (5)
+
+See `.team/compiler/summaries/compiler-summary.md` Section 4 for full list. Summary:
+1. Source maps deferred (OQ-C8)
+2. Conditionals and list rendering compile error (v1 roadmap message)
+3. `bun vite build` with Vite plugin hook broken under Bun+Rollup4 ESM interop
+4. Signal naming convention is enforced by convention, not compiler validation
+5. No type-checking of `.scribe` template expressions
+
+## Next compiler session (if any)
+
+Pending Director decision. Candidates:
+- **Phase C-5 (watch mode)** — incremental rebuild on file change
+- **Consumer integration test** — end-to-end `.scribe` → browser rendering test
+
+Neither gates Round 005. The compiler track is closed for current v0 scope.

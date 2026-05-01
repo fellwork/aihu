@@ -362,3 +362,25 @@ if (injected === null && <condition where injected is actually consumed>) {
 For `_signal`: it is consumed only when `attrs.length > 0`. For `_setMount`: it is consumed on every component connect, so the guard is unconditional. Audit injection guards at spec-review time by asking: "Is there a valid caller path that does not need this factory?" If yes, narrow the guard.
 
 Companion test rule: when a spec documents an equivalence boundary ("A without condition X behaves like B"), add a test for A-with-X-false explicitly. That test would have caught BLOCK-1 before merge.
+
+---
+
+## 30. `npx size-limit` / esbuild bundling fails on unresolvable peer deps — fix with `"ignore"` per entry
+
+**Why.** Pre-Round-5 blocker session: `npx size-limit` exited 1 with `Could not resolve '@scribe/signals'` and `Could not resolve '@scribe/context'` when bundling `@scribe/data`. Root cause: size-limit reads `peerDependencies` from the *workspace root* `package.json` to auto-populate its `ignore` list. In a monorepo the workspace root has no `peerDependencies`, so none are excluded. The `@scribe/data` entry needed an explicit `"ignore"` field listing its unresolvable peer deps.
+
+**How to apply.** When `npx size-limit` fails with `Could not resolve '<peer-dep>'`:
+
+1. Identify which entry in `.size-limit.json` references the package that has unresolvable peers.
+2. Add `"ignore": ["<peer-dep-1>", "<peer-dep-2>"]` to that entry *only*. Do not add `"ignore"` to entries that bundle their deps correctly.
+3. `"ignore"` is a documented per-entry option for the `@size-limit/esbuild` plugin. It does not affect what ships — it only tells size-limit's bundler pass to treat those imports as external during measurement.
+
+The canonical fix pattern for size-limit + monorepo peer deps. Do not add peer deps to the workspace root `package.json` as a workaround — that pollutes the workspace dependency graph.
+
+---
+
+## 31. Canonical size-limit measurement is tighter than raw `gzip -c` — use it for headroom decisions
+
+**Why.** Pre-Round-5 arbor investigation: raw `gzip -c packages/arbor/dist/index.js | wc -c` reported 2151 B; `npx size-limit` (esbuild minified output) reported **2117 B** — 34 B tighter. The difference arises because esbuild's minifier removes dead code, shortens identifiers, and optimizes symbol frequency before gzip sees the bytes, while raw gzip compresses whatever the unminified dist contains.
+
+**How to apply.** For authoritative headroom decisions (is this plan safe to dispatch? should I raise the cap?), always run `npx size-limit` (or the `size-limit` CLI) against the built dist. Raw `gzip -c` is a useful floor estimate during development but consistently overstates final bundle size. When a raw gzip number triggers a concern (e.g., "only 49 B headroom"), run `npx size-limit` before escalating — the true headroom may be meaningfully larger (49 B → 83 B in the arbor case).

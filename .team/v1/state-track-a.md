@@ -8,12 +8,14 @@
 
 ## Current Phase
 
-**Phase:** Round 4 complete — Plans 4.2, 1.1, and 1.2 DONE; Plan 1.3 or 1.4 is next for Round 005.
+**Phase:** Pre-Round-5 blocker session complete — Round 005 is GO.
 
 Plan 1.2 (Component props) shipped to `main` at `acf501b` (PR #13 merged 2026-05-01).
-`@scribe/runtime` is at 630 B gz / 1024 B cap (394 B headroom). Next target is Plan 1.3
-(Scoped Styles, compiler-adjacent) or Plan 1.4 (Slots, arbor-touching — 49 B headroom
-constraint applies). Round 005 Director must open with a scope-and-budget review.
+Pre-Round-5 blockers resolved 2026-05-01: size-limit CLI fixed (`20d66b7`), arbor headroom
+confirmed at 83 B (2117 B / 2200 B cap — safe for Plan 1.4), compiler session-6 cleanup
+merged (`808f1c0`, PR #14). `@scribe/runtime` is at 630 B gz / 1024 B cap (394 B headroom).
+Round 005 Director must open with a scope-selection note choosing Plan 1.3 (Scoped Styles)
+or Plan 1.4 (Slots) — both are now unblocked.
 
 ---
 
@@ -117,15 +119,16 @@ criteria matrix.
 | 002 | 2026-04-30 | Plan 4.2 (Error Boundaries) COMPLETE — `main` `8223dbb`; `MountOptions.onError`, `_mountDisposersStack` push-pop, try/catch in `_mountEffect`, +4 tests; 2 non-blocking Verifier findings (T1 path format, `disposeRef` race); Plan 6.2-P0 signals opt also landed in same squash; Plan 1.1 unblocked for Builder |
 | 003 | 2026-04-30 | Plan 1.1 (when/each Reconciler) COMPLETE — `main` `75ba4e1`; `StructuralNode`, `ChildScope`, keyed diff, `_materializeStructural`; +8 structural tests; 284 arbor / 312 total; arbor cap raised to 2200 B (signals bundling spillover from 6.2-P1); export-leak fixed by Team Lead; tech-debt chip spawned (shape-locking + ChildScope.key); Plan 1.2 unblocked |
 | 004 | 2026-05-01 | Plan 1.2 (Component props) COMPLETE — `main` `acf501b` (PR #13); `defineComponent` options-form overload, `attrs` array, per-attr `Signal<string>` via `_setSignal` injection, `attributeChangedCallback` wiring, `ATTR_SIGNALS_SYM` symbol slot, `AttrContext<A>` intersection; +7 tests (T1–T6 Builder, T7 Team Lead inline fix for BLOCK-1 guard); 320 total; runtime 630 B gz; Plans 1.3/1.4 under consideration for Round 005 |
+| Pre-5 | 2026-05-01 | Pre-Round-5 blocker session: size-limit CLI fixed (`20d66b7`); arbor headroom confirmed at 83 B (2117 B / 2200 B, canonical esbuild measurement); compiler session-6 cleanup merged via PR #14 (`808f1c0`) — BTreeMap determinism, Vite limitation documented, compiler-summary.md written; Track C 6.2-P1 CONDITIONAL PASS unchanged (hardware-blocked on Windows); Round 005 GO |
 
 ---
 
 ## Next actions
 
-1. **Round 005 Director — scope review required before Builder dispatch.** Two candidates:
-   - **Plan 1.3 (Scoped Styles)** — compiler-adjacent; requires compiler track cleanup (BTreeMap, Vite investigation, session 6 topic summary) before dispatch.
-   - **Plan 1.4 (Slots)** — arbor-touching; arbor has only **49 B headroom** against 2200 B cap. A cap-raise decision or slot-budget analysis is required before Builder dispatch.
-   Neither plan should be dispatched without an explicit Round 005 director note.
+1. **Round 005 Director — scope-selection note required before Builder dispatch.** Both candidates are now unblocked:
+   - **Plan 1.3 (Scoped Styles)** — compiler-adjacent; compiler track knowledge doc (`compiler-summary.md`) now exists; ready to dispatch.
+   - **Plan 1.4 (Slots)** — arbor-touching; arbor at **83 B headroom** (2117 B / 2200 B cap, esbuild measurement) — safe for slot infrastructure; ready to dispatch.
+   An explicit Round 005 director note with the chosen plan is required before Builder dispatch.
 2. **Background task — Track C 6.2-P1 Linux/macOS bench validation** — CONDITIONAL PASS; needs Linux/macOS run. Cannot close on Windows. Does not gate 1.3 or 1.4.
 3. **Background task — `disposeRef` first-run race** — LOW priority; spawned Session 002; does not gate 1.3 or 1.4.
 4. **Background task — shape-locking / ChildScope.key** — LOW priority; spawned Session 003; does not gate 1.3 or 1.4.
