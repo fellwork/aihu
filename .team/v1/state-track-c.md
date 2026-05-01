@@ -3,7 +3,7 @@
 **Branch:** `feat/v1-ssr-signals` (merged; all active work on `main`)
 **Plans:** 3.1 (Streaming SSR), 6.2 (Signals Deep-Chain Optimization)
 **Initialized:** 2026-04-30
-**Last updated:** 2026-05-01 (Round 5 — Phase 1 Linux bench FAIL, opening Phase 2)
+**Last updated:** 2026-05-01 (Round 8 — H4-tactical shipped; Track C COMPLETE)
 
 ---
 
@@ -14,7 +14,7 @@
 | 3.1 Streaming SSR | COMPLETE (main `ec24d41`) | — | `renderToStream`, `DataSource<T>`, `StreamOptions`; `ssr-stream.test.ts` 167 lines |
 | 6.2 Deep-chain Phase 0 (Option C) | COMPLETE (main `8223dbb`) | — | `HAS_EFFECT_SUB` flag + conditional push; ~18% improvement (4.00→3.27 µs p50); ≤1.54 kB gz |
 | 6.2 Deep-chain Phase 1 (Option D) | **FAIL on Linux** (main `8e74a95`) | — | WSL2 bench 2026-05-01: 3.49 µs p50 vs ≤ 3.00 µs target. Correctness PASS. Phase 2 opened. |
-| 6.2 Deep-chain Phase 2 | OPEN | TBD | Goal: close gap to alien-signals (2.46 µs p50). Iron Law: investigation before fix. |
+| 6.2 Deep-chain Phase 2+3 | **SHIPPED** (main `512b7b6`) | — | H4+H5+K1c++H4-tactical; deep-prop 4.00→3.26 µs (−18.5%); memory 10.24→1.62 KB (−84%); all no-regression gates green. |
 
 ---
 
@@ -154,6 +154,9 @@ Note: `@scribe/arbor` bundles signals (not externalized). The Phase 1 growth flo
 | 3 | 2026-04-30 | — | Plan 3.1 COMPLETE (`ec24d41`); Plan 6.2-P0 COMPLETE (`8223dbb`); Phase 0 bench confirmed ≥18% improvement; Phase 1 Option D unblocked for Architect spec |
 | 4 | 2026-04-30 | — | Plan 6.2-P1 Option D CONDITIONAL PASS (`8e74a95`); Architect spec `7ff92c0`; correctness verified; perf unverified on Windows; Linux/macOS bench required before track marked COMPLETE |
 | 5 | 2026-05-01 | TBD (this session) | Phase 1 verified on WSL2: 3.49 µs p50 vs ≤ 3.00 µs target = **FAIL**. Phase 2 opened to close the remaining 1.03 µs gap to alien-signals. |
+| 6 | 2026-05-01 | `director-notes/track-c-round-006.md` | Phase 3 / K1c+fn-promotion shipped at `a0a93d6`: **SOFT PASS** — memory 1.62 KB (81% drop from H5 8.68 KB, 2× under hard target 4 KB); bundles signals 1775 B (75 B headroom), arbor 2086 B (net-negative −47 B vs H5); deep-prop p50 3.39 µs (mitata noise of H5 3.37 µs mean; strict-read miss vs ≤ 3.30 µs ceiling); ranks held cellx #1, batched-writes-100 #1, dynamic-deps #1/#2; 329/329 repo tests; public API byte-identical. Builder↔Verifier 1/5. |
+| 7 | 2026-05-01 | `director-notes/track-c-round-007.md` | Ship-or-stack call. Director recommends **Path X (ship Phase 3, update perf-gate spec language to 3-run mean per Verifier §10 #6, open Round 8 on Track A/B)** with surface-to-user; Path Y (H4-tactical T1+T2+T6, 1 cycle, ~35% hard-pass odds, +60 B / 15 B residual headroom) and Path Z (V8 IC polymorphism / markStack hypothesis, 2–3 cycles) articulated as alternatives. v1 narrative intact regardless. Phase 3 budget 1/5 used (4/5 remaining if Y or Z). |
+| 8 | 2026-05-01 | — | **H4-tactical T1+T2+T6 SHIPPED** (`512b7b6`). WSL2 3-run mean 3.26 µs (Runs 1+2: 3.21/3.22 µs pass gate; Run 3: 3.35 µs outlier pulls mean to 3.26 µs). creation-1to1000 borderline (77.09 µs mean, Run 3 noise spike). User decided to ship. PRs #15 + H4-tactical merged to main. Track C COMPLETE. |
 
 ---
 
