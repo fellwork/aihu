@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { batch, signal, computed, effect } from '../src/index.ts'
-import { MERGE, __hostOf } from '../src/signal.ts'
+import { HOST, MERGE, __hostOf, type Subscriber } from '../src/signal.ts'
 
 describe('deep-chain', () => {
   it('signal change propagates to terminal effect through 100-node chain', () => {
@@ -213,5 +213,91 @@ describe('deep-chain', () => {
     expect(merged).toBe(26)   // (5+1) + 20
 
     dispose(); dispose2(); dispose3()
+  })
+
+  // Phase 3 spec §9.2 — K-1: HOST flag detection test.
+  // Verifies signal-source Subscribers carry the HOST flag bit; Computed
+  // and Effect Subscribers do NOT; the HOST bit survives a wave (not
+  // cleared by RC-1's mask, clearVisited, or shallowClear).
+  it('K-1: signal hosts carry HOST; computeds and effects do not; HOST survives waves', () => {
+    // (a) signal host carries HOST | MERGE
+    const [src, setSrc] = signal(0)
+    const srcNode = __hostOf(src)!
+    expect(srcNode).not.toBe(null)
+    expect((srcNode.flags & HOST) !== 0).toBe(true)
+    expect((srcNode.flags & MERGE) !== 0).toBe(true)   // hosts always carry HOST AND MERGE
+
+    // (b) computed does NOT carry HOST
+    const c1 = computed(() => src() + 1)
+    let observed = -1
+    const dispose1 = effect(() => { observed = c1() })
+    expect(observed).toBe(1)
+    const c1Node = __hostOf(c1)!
+    expect((c1Node.flags & HOST) === 0).toBe(true)
+
+    // (b) effect does NOT carry HOST. We reach the Effect instance by walking
+    // the subs list of c1 — the effect we just created subscribed to c1.
+    let effectNode: Subscriber | null = null
+    for (let l = c1Node.subsHead; l !== null; l = l.nextSub) {
+      effectNode = l.sub
+      break
+    }
+    expect(effectNode).not.toBe(null)
+    expect((effectNode!.flags & HOST) === 0).toBe(true)
+
+    // (c) HOST preserved across waves
+    setSrc(5)
+    expect(observed).toBe(6)
+    expect((srcNode.flags & HOST) !== 0).toBe(true)
+    setSrc(7)
+    expect(observed).toBe(8)
+    expect((srcNode.flags & HOST) !== 0).toBe(true)
+    // (c) HOST also preserved on Computed/Effect (the bit was never set, so
+    // confirming `=== 0` after waves verifies RC-1's mask does not flip it).
+    expect((c1Node.flags & HOST) === 0).toBe(true)
+    expect((effectNode!.flags & HOST) === 0).toBe(true)
+
+    dispose1()
+  })
+
+  // Phase 3 spec §9.3 — K-2: prototype-method dispatch test.
+  // Verifies notify and recomputeIfNeeded live on the prototype shared
+  // across all Computed/Effect instances. Catches any regression where a
+  // method is accidentally re-assigned as an own-property in the
+  // constructor (which would defeat K1c+'s memory savings).
+  it('K-2: notify and recomputeIfNeeded live on prototype, shared across instances', () => {
+    // (a, c) two computeds share their methods
+    const [s1] = signal(0)
+    const [s2] = signal(0)
+    const c1 = computed(() => s1())
+    const c2 = computed(() => s2())
+    // Force construction by reading through effects.
+    const dispose1 = effect(() => { void c1() })
+    const dispose2 = effect(() => { void c2() })
+    const c1Node = __hostOf(c1)!
+    const c2Node = __hostOf(c2)!
+    expect(c1Node.notify).toBeDefined()
+    expect(c1Node.notify).toBe(c2Node.notify)                            // (a) shared
+    expect(c1Node.recomputeIfNeeded).toBeDefined()
+    expect(c1Node.recomputeIfNeeded).toBe(c2Node.recomputeIfNeeded)      // (c) shared
+    // Same prototype chain.
+    expect(Object.getPrototypeOf(c1Node)).toBe(Object.getPrototypeOf(c2Node))
+
+    // (b) two effects share their notify. Reach them via the computed's subs.
+    const e1: Subscriber | null = c1Node.subsHead?.sub ?? null
+    const e2: Subscriber | null = c2Node.subsHead?.sub ?? null
+    expect(e1).not.toBe(null)
+    expect(e2).not.toBe(null)
+    expect(e1!.notify).toBeDefined()
+    expect(e1!.notify).toBe(e2!.notify)                                  // (b) shared
+    expect(Object.getPrototypeOf(e1!)).toBe(Object.getPrototypeOf(e2!))
+
+    // (d) notify and recomputeIfNeeded are NOT own-properties on Computeds
+    expect(Object.prototype.hasOwnProperty.call(c1Node, 'notify')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(c1Node, 'recomputeIfNeeded')).toBe(false)
+    // notify is also NOT an own-property on Effects.
+    expect(Object.prototype.hasOwnProperty.call(e1, 'notify')).toBe(false)
+
+    dispose1(); dispose2()
   })
 })

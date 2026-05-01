@@ -18,10 +18,22 @@ export interface Link {
   nextDep: Link | null
 }
 
-/** @internal — base shape (Linear). No `lastWave` slot — Linear nodes
- * never read or write it. See spec-6.2-phase2-h5.md §8. */
-export interface LinearSubscriber {
-  notify(): void
+/** @internal — unified Subscriber shape under K1c+ (spec-6.2-phase3.md §3.1, §5.1).
+ *
+ * Phase 3 collapses H5's Linear/Merge discriminated union back into a single
+ * shape carrying `lastWave` from construction (SMI sentinel `0`). All three
+ * Subscriber roles (signal-host literal, Computed instance, Effect instance)
+ * share the slot ordering so V8 monomorphises against one hidden-class chain
+ * per role. Role detection at Sites C/D uses `(flags & HOST)` per K-1.
+ *
+ * `notify` and `recomputeIfNeeded` are NOT declared on this interface — under
+ * K1c+ both live on `Computed.prototype` / `Effect.prototype`, never as
+ * own-properties. Signal-host literals carry neither method (per §3.1: hosts
+ * are never the target of `sub.notify()`). The runtime uses optional-chain
+ * `dep.recomputeIfNeeded?.()` at the cascade-suppression settle (signal.ts
+ * :285–287), which resolves through the prototype for class instances and
+ * to `undefined` for literal hosts. */
+export interface Subscriber {
   /** @internal */ flags: number
   /** @internal — head of the forward (subscriber-direction) list. */
   subsHead: Link | null
@@ -29,19 +41,18 @@ export interface LinearSubscriber {
   /** @internal — head of the back-edge (dependency-direction) list. */
   depsHead: Link | null
   /** @internal */ depsTail: Link | null
-  /** @internal */ recomputeIfNeeded?(): void
-}
-
-/** @internal — fan-in shape. SMI `lastWave` slot present from construction
- * (initialised to 0). Discriminated from Linear via `(flags & MERGE)`. */
-export interface MergeSubscriber extends LinearSubscriber {
   /** @internal — set to current wave when this sub is reached during marking;
-   * replaces the NOTIFIED bit. SMI to keep the slot off the HeapNumber path. */
+   * replaces the NOTIFIED bit. SMI to keep the slot off the HeapNumber path.
+   * Always present from construction (K1c+ shape collapse). */
   lastWave: number
+  /** @internal — present on Computed instances via prototype; absent on
+   * Effect instances and signal-host literals. Optional-chain semantics at
+   * the cascade-suppression settle (signal.ts:285–287). */
+  recomputeIfNeeded?(): void
+  /** @internal — present on Computed and Effect instances via prototype;
+   * absent on signal-host literals (they are never notify-called). */
+  notify?(): void
 }
-
-/** @internal */
-export type Subscriber = LinearSubscriber | MergeSubscriber
 
 /** @internal */ export const RUNNING          = 0x001
 /** @internal */ export const DISPOSED         = 0x002
@@ -53,6 +64,13 @@ export type Subscriber = LinearSubscriber | MergeSubscriber
  * for computeds inside linkAdd on the second inbound dep edge. Once set,
  * never cleared (one-way classifier). Gates the dedup path. */
 /** @internal */ export const MERGE             = 0x040
+/** @internal — K1c+ K-1 (spec-6.2-phase3.md §3.3, §4.7): set on signal-host
+ * literals at construction; never set on Computed or Effect instances. Used
+ * at Sites C/D in place of the H5 `recomputeIfNeeded === undefined` idiom
+ * (which would misclassify Effect instances under prototype methods). One-way
+ * classifier — RC-1's flags-clear mask, `clearVisited`, and `shallowClear`
+ * leave it untouched. Slots into the bit-space gap between MERGE and PENDING. */
+/** @internal */ export const HOST              = 0x080
 /** @internal — Option D: set on a linear-path computed during mark. Means
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
@@ -197,9 +215,9 @@ function markOne(root: Subscriber): void {
       // H5 site A + chase-inner: dedup gate is type-guarded on MERGE.
       // Linear subs (≤1 inbound dep) skip both the read and the write —
       // DI-1 is vacuously satisfied (exactly one inbound mark per wave).
-      if (!(sub.flags & DISPOSED) && (!(sub.flags & MERGE) || (sub as MergeSubscriber).lastWave !== wave)) {
+      if (!(sub.flags & DISPOSED) && (!(sub.flags & MERGE) || sub.lastWave !== wave)) {
         if (sub.flags & RUNNING) throw new SignalCircularError()
-        if (sub.flags & MERGE) (sub as MergeSubscriber).lastWave = wave
+        if (sub.flags & MERGE) sub.lastWave = wave
         sub.flags |= isChase ? MARKED | PENDING : MARKED       // CS-1 stamp
         if (sub.flags & EFFECT) {
           effectQueue.push(sub)
@@ -273,9 +291,13 @@ function checkDirty(root: Subscriber): boolean {
         continue
       }
       // Signal source: dirty if written in the current wave.
-      // Site D — signal hosts are constructed Merge (MERGE-2), so the field is present;
-      // defensive MERGE guard narrows to MergeSubscriber for type safety.
-      if (dep.recomputeIfNeeded === undefined && (dep.flags & MERGE) && (dep as MergeSubscriber).lastWave === wave) return true
+      // Site D (K1c+ K-1): HOST flag explicitly classifies signal sources
+      // (per spec-6.2-phase3.md §3.3 / §4.7). Replaces the H5
+      // `recomputeIfNeeded === undefined` idiom — under prototype methods
+      // Effect instances also lack the method, so the H5 idiom would
+      // misclassify them; the HOST bit decouples role detection from
+      // prototype-chain coincidence.
+      if ((dep.flags & HOST) && dep.lastWave === wave) return true
     }
   }
   return false
@@ -307,7 +329,11 @@ function drainEffectQueue(errors: unknown[]): void {
     }
     sub.flags &= ~MARKED
     try {
-      sub.notify()
+      // K1c+: `notify` lives on Effect.prototype; effects always carry
+      // it. Optional-chain is a defensive guard (signal-host literals
+      // have no `notify` but never reach drainEffectQueue — only EFFECT-
+      // flagged subs are pushed at markOne).
+      sub.notify?.()
     } catch (e) {
       errors.push(e)
     }
@@ -368,16 +394,17 @@ export function drainBatch(): void {
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
         // Patch signal lastWave for checkDirty: walk the sub's deps and
-        // set lastWave = wave on any signal source (recomputeIfNeeded ===
-        // undefined) that was written this batch but hasn't been stamped yet.
+        // set lastWave = wave on any signal source that was written this
+        // batch but hasn't been stamped yet.
         for (let l = sub.depsHead; l !== null; l = l.nextDep) {
-          // Site C — signal hosts are constructed Merge (MERGE-2); the
-          // defensive MERGE guard narrows to MergeSubscriber for type safety.
+          // Site C (K1c+ K-1): HOST flag explicitly classifies signal
+          // sources (per spec-6.2-phase3.md §3.3 / §4.7). Hosts always
+          // carry HOST AND MERGE; HOST subsumes the H5 MERGE check at
+          // this site and removes the `recomputeIfNeeded === undefined`
+          // idiom that would misclassify Effect prototype-method
+          // instances under K1c+.
           const dep = l.dep
-          if (dep.recomputeIfNeeded === undefined && (dep.flags & MERGE)) {
-            const m = dep as MergeSubscriber
-            if (m.lastWave !== wave) m.lastWave = wave
-          }
+          if ((dep.flags & HOST) && dep.lastWave !== wave) dep.lastWave = wave
         }
         markOne(sub)
       }
@@ -435,19 +462,22 @@ export interface SignalOptions<T> {
 export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
   let value = initial
   // Linked-list host: the signal-as-dep needs subsHead/subsTail. We
-  // model it as a minimal Subscriber-shaped object with no flags / no
-  // notify (the dep is never marked itself; only its subs are). The
-  // shape is internal; readers see it only via Link.dep.
-  // H5 MERGE-2: signal hosts are constructed Merge so `lastWave` is in
-  // the hidden class from birth (no late-write polymorphism).
-  const host: MergeSubscriber = {
-    flags: MERGE,
+  // model it as a minimal Subscriber-shaped literal (no class wrapper;
+  // hosts are never `notify()`-called and have no `recomputeIfNeeded`,
+  // so the prototype-method conversion does not apply here).
+  //
+  // K1c+ K-1 (spec-6.2-phase3.md §3.3 / §4.7): `HOST` bit is the
+  // explicit signal-source classifier read at Sites C/D. Set once at
+  // construction; never cleared.
+  // K1c+ CL-6: the empty `notify(): void {}` literal that H5 carried is
+  // removed — signal hosts are never the target of `sub.notify()`.
+  const host: Subscriber = {
+    flags: MERGE | HOST,
     subsHead: null,
     subsTail: null,
     depsHead: null,
     depsTail: null,
     lastWave: 0,
-    notify() {},
   }
   const eq = options?.equals
   const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq

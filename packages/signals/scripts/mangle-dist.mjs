@@ -14,7 +14,9 @@
  *   Node graph fields:  flags→fl, subsHead→sh, subsTail→st,
  *                       depsHead→dh, depsTail→dt, lastWave→lw
  *   Link fields:        nextSub→ns, prevSub→ps, nextDep→nd, prevDep→pd
- *   Method names:       recomputeIfNeeded→ri, notify→no
+ *   Method names:       recomputeIfNeeded→ri, notify→no, recompute→rc
+ *   Computed fields (K1c+ Phase 3): cached→ca, hasCached→hc,
+ *                       hasEffectSub→he, equals→eq
  *
  * Each entry is [accessPattern, definitionPattern, shortName]. Access
  * patterns use `\.name\b`; definition patterns use `name:` for data
@@ -40,6 +42,18 @@ const replacements = [
   // recomputeIfNeeded first — longest name, highest per-occurrence savings
   [/\.recomputeIfNeeded\b/g, '.ri'],
   [/\brecomputeIfNeeded\b/g, 'ri'],   // shorthand method: ,recomputeIfNeeded(
+
+  // K1c+ Computed instance fields and prototype method (Phase 3 §3.1, §3.4)
+  [/\.hasEffectSub\b/g, '.he'],
+  [/\bhasEffectSub\b/g, 'he'],
+  [/\.hasCached\b/g, '.hc'],
+  [/\bhasCached\b/g, 'hc'],
+  [/\.recompute\b/g, '.rc'],
+  [/\brecompute\b/g, 'rc'],          // method shorthand: ,recompute(
+  [/\.cached\b/g, '.ca'],
+  [/\bcached\b/g, 'ca'],
+  [/\.equals\b/g, '.eq'],
+  [/\bequals\b/g, 'eq'],
 
   // 8-char graph fields
   [/\.lastWave\b/g, '.lw'],
