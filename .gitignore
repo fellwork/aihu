@@ -12,6 +12,7 @@ Cargo.lock.bak
 dist/
 build/
 *.tsbuildinfo
+examples/*/dist/
 
 # Vite
 .vite/
