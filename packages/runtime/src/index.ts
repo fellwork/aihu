@@ -8,10 +8,9 @@
  * Decision 2B): the only throw site is a startup invariant violation,
  * not a production-time catchable condition.
  *
- * `_setMount` is internal-but-exported from `define-component.ts` for
- * the documented wiring pattern (`import { _setMount } from
- * '@scribe/runtime/src/define-component'` at app boot). It is not part
- * of the public surface.
+ * `_setMount` and `_setSignal` are re-exported here as internal bootstrap
+ * exports (decision D5). They are not public API but are accessible via the
+ * package barrel for compiler-emitted options-form components at app boot.
  */
 
 export { defineComponent } from './define-component.ts'
