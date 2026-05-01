@@ -94,17 +94,21 @@ export function _mountEffect(
   errorHandler?: ErrorHandler,
 ): void {
   _observeMount({ kind: 'effect-create', path, timestamp: Date.now() })
-  // Use a ref to hold the dispose function so the effect body can safely
-  // call it during its initial synchronous run (before `effect()` returns).
-  // A `const` captured in the effect closure would be in TDZ on the first
-  // run, causing a ReferenceError. The ref avoids this.
+  // R6a-arbor (investigation-arbor-restructure.md §Q3 Finding 2): the prior
+  // `disposeRef = { fn: null }` ref-object exists to thread `dispose` into
+  // the effect body so self-dispose works on the first synchronous run.
+  // A bare `let savedDispose: Dispose | null = null` works equivalently
+  // because the closure captures the binding (not the value); the binding
+  // is initialised to `null` BEFORE `effect()` runs, so no TDZ. Saves the
+  // `{ fn: null }` literal allocation per `_mountEffect` call AND ~10 B gz
+  // by removing the `.fn` property accesses from three sites.
   //
   // selfDisposeNeeded: set when the effect throws on the very first run and
-  // disposeRef.fn is still null (effect() hasn't returned yet, so the
+  // savedDispose is still null (effect() hasn't returned yet, so the
   // self-dispose call is a no-op). After effect() returns we immediately
   // dispose to prevent a second onError on the next signal write.
   let selfDisposeNeeded = false
-  const disposeRef: { fn: Dispose | null } = { fn: null }
+  let savedDispose: Dispose | null = null
   const dispose = effect(() => {
     _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
     if (errorHandler !== undefined) {
@@ -112,8 +116,8 @@ export function _mountEffect(
         fn()
       } catch (err: unknown) {
         errorHandler(err, path)
-        if (disposeRef.fn !== null) {
-          disposeRef.fn()
+        if (savedDispose !== null) {
+          savedDispose()
         } else {
           // First synchronous run: effect() hasn't returned yet.
           // Record that we need to self-dispose once it does.
@@ -124,7 +128,7 @@ export function _mountEffect(
       fn()
     }
   })
-  disposeRef.fn = dispose
+  savedDispose = dispose
   if (selfDisposeNeeded) {
     dispose()
     return
