@@ -16,7 +16,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "rolldown -c",
+    "build": "rolldown -c && node scripts/mangle-dist.mjs",
     "typecheck": "tsc --noEmit"
   }
 }
