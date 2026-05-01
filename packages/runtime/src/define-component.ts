@@ -179,7 +179,7 @@ export function defineComponent(
           '_setMount(mount) must be called once at app boot before defineComponent elements connect',
         )
       }
-      if (_signal === null) {
+      if (_signal === null && attrs.length > 0) {
         throw new RuntimeError(
           'SCR-R0003',
           '_setSignal must be called before connecting a component with attrs',

@@ -213,4 +213,17 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     expect(sigB![0]()).toBe('beta')
     el.remove()
   })
+
+  // T7: options-form without attrs does not require _setSignal
+  it('T7: options-form without attrs connects without _setSignal', () => {
+    _setSignal(null as unknown as typeof signal)
+    const Cmp = defineComponent({
+      setup: (_ctx) => leaf('no-attrs'),
+    })
+    defineElement('x-p7', Cmp)
+    const el = document.createElement('x-p7')
+    expect(() => document.body.appendChild(el)).not.toThrow()
+    el.remove()
+    _setSignal(signal)
+  })
 })
