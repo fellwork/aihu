@@ -1,0 +1,221 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Scribe SFC",
+  "scopeName": "source.scribe",
+  "patterns": [
+    { "include": "#contract-block" },
+    { "include": "#script-setup-block" },
+    { "include": "#server-setup-block" },
+    { "include": "#template-block" },
+    { "include": "#style-block" }
+  ],
+  "repository": {
+    "contract-block": {
+      "begin": "(<)(contract)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "end": "(</)(contract)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "name": "meta.block.contract.scribe",
+      "patterns": [
+        { "include": "#contract-comment" },
+        { "include": "#contract-input" },
+        { "include": "#contract-state" },
+        { "include": "#contract-action" }
+      ]
+    },
+    "contract-comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.scribe"
+    },
+    "contract-input": {
+      "begin": "^\\s*(input)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+      "beginCaptures": {
+        "1": { "name": "keyword.declaration.input.scribe" },
+        "2": { "name": "variable.parameter.input.scribe" },
+        "3": { "name": "punctuation.separator.colon.scribe" }
+      },
+      "end": "$",
+      "patterns": [
+        { "include": "#contract-comment" },
+        { "include": "#contract-types" },
+        {
+          "match": "(=)\\s*([^#\\n]+)",
+          "captures": {
+            "1": { "name": "keyword.operator.assignment.scribe" },
+            "2": { "name": "string.unquoted.default.scribe" }
+          }
+        }
+      ]
+    },
+    "contract-state": {
+      "begin": "^\\s*(state)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+      "beginCaptures": {
+        "1": { "name": "keyword.declaration.state.scribe" },
+        "2": { "name": "variable.other.state.scribe" },
+        "3": { "name": "punctuation.separator.colon.scribe" }
+      },
+      "end": "$",
+      "patterns": [
+        { "include": "#contract-comment" },
+        { "include": "#contract-types" }
+      ]
+    },
+    "contract-action": {
+      "begin": "^\\s*(action)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()(\\))",
+      "beginCaptures": {
+        "1": { "name": "keyword.declaration.action.scribe" },
+        "2": { "name": "entity.name.function.action.scribe" },
+        "3": { "name": "punctuation.section.parens.begin.scribe" },
+        "4": { "name": "punctuation.section.parens.end.scribe" }
+      },
+      "end": "$",
+      "patterns": [
+        { "include": "#contract-comment" },
+        {
+          "match": "->",
+          "name": "keyword.operator.arrow.scribe"
+        },
+        {
+          "begin": "\\{",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.braces.begin.scribe" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "punctuation.section.braces.end.scribe" }
+          },
+          "patterns": [
+            {
+              "match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+              "captures": {
+                "1": { "name": "variable.other.member.scribe" },
+                "2": { "name": "punctuation.separator.colon.scribe" }
+              }
+            },
+            { "include": "#contract-types" },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.scribe"
+            }
+          ]
+        }
+      ]
+    },
+    "contract-types": {
+      "patterns": [
+        {
+          "match": "\\b(string|number|boolean)\\b",
+          "name": "support.type.primitive.scribe"
+        },
+        {
+          "begin": "\\b(enum)\\s*(\\()",
+          "beginCaptures": {
+            "1": { "name": "support.type.enum.scribe" },
+            "2": { "name": "punctuation.section.parens.begin.scribe" }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": { "name": "punctuation.section.parens.end.scribe" }
+          },
+          "patterns": [
+            {
+              "match": "[A-Za-z_][A-Za-z0-9_]*",
+              "name": "constant.other.enum-variant.scribe"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.scribe"
+            }
+          ]
+        }
+      ]
+    },
+    "script-setup-block": {
+      "begin": "(<)(script)(\\s+setup\\b[^>]*)?(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "meta.tag.attributes.scribe" },
+        "4": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "end": "(</)(script)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "name": "meta.block.script.scribe",
+      "contentName": "source.ts",
+      "patterns": [
+        { "include": "source.ts" }
+      ]
+    },
+    "server-setup-block": {
+      "begin": "(<)(server)(\\s+setup\\b[^>]*)?(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "meta.tag.attributes.scribe" },
+        "4": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "end": "(</)(server)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "name": "meta.block.server.scribe",
+      "contentName": "source.ts",
+      "patterns": [
+        { "include": "source.ts" }
+      ]
+    },
+    "template-block": {
+      "begin": "(<)(template)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "end": "(</)(template)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "name": "meta.block.template.scribe",
+      "contentName": "text.html.basic",
+      "patterns": [
+        { "include": "text.html.basic" }
+      ]
+    },
+    "style-block": {
+      "begin": "(<)(style)([^>]*)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "meta.tag.attributes.scribe" },
+        "4": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "end": "(</)(style)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.scribe" },
+        "2": { "name": "entity.name.tag.scribe" },
+        "3": { "name": "punctuation.definition.tag.end.scribe" }
+      },
+      "name": "meta.block.style.scribe",
+      "contentName": "source.css",
+      "patterns": [
+        { "include": "source.css" }
+      ]
+    }
+  }
+}

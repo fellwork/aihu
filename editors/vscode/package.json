@@ -1,0 +1,48 @@
+{
+  "name": "scribe-vscode",
+  "displayName": "Scribe SFC",
+  "description": "Syntax highlighting and snippets for .scribe SFCs",
+  "version": "0.0.1",
+  "publisher": "fellwork",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "scribe",
+        "aliases": [
+          "Scribe SFC",
+          "scribe"
+        ],
+        "extensions": [
+          ".scribe"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "scribe",
+        "scopeName": "source.scribe",
+        "path": "./syntaxes/scribe.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.ts": "typescript",
+          "text.html.basic": "html",
+          "source.css": "css"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "scribe",
+        "path": "./snippets/scribe.json"
+      }
+    ]
+  }
+}
