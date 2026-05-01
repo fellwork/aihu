@@ -1,0 +1,19 @@
+---
+source: tests/template_parse.rs
+assertion_line: 30
+expression: result
+---
+Ok(
+    [
+        Element {
+            tag: "button",
+            attrs: [
+                Event {
+                    name: "click",
+                    handler: "increment",
+                },
+            ],
+            children: [],
+        },
+    ],
+)

@@ -1,0 +1,13 @@
+<script setup name="scribe-counter">
+import { signal } from '@scribe/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
+</script>
+
+<template>
+  <div class="counter">
+    <span>{{ count }}</span>
+    <button @click="increment">+</button>
+  </div>
+</template>

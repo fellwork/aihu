@@ -1,0 +1,17 @@
+---
+source: tests/sfc_split.rs
+assertion_line: 28
+expression: result
+---
+ScribeSource {
+    script: Some(
+        "const y = 2",
+    ),
+    template: Some(
+        "<p>text</p>",
+    ),
+    style: None,
+    meta: ScriptMeta {
+        name: None,
+    },
+}

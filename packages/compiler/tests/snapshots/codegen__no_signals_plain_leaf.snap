@@ -1,0 +1,12 @@
+---
+source: tests/codegen.rs
+expression: output
+---
+import { branch, leaf } from '@scribe/arbor'
+import { defineComponent, defineElement } from '@scribe/runtime'
+
+defineElement('x-msg', defineComponent((_ctx) => {
+  const message = 'hello'
+
+  return branch('p', undefined, [leaf(message)])
+}))

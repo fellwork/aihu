@@ -1,0 +1,9 @@
+---
+source: tests/signal_resolve.rs
+expression: "resolve_signals(\"// @name x-counter\\nconst [foo, setFoo] = signal(true)\")"
+---
+SignalMap(
+    {
+        "foo": "setFoo",
+    },
+)

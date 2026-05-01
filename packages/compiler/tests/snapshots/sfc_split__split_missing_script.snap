@@ -1,0 +1,15 @@
+---
+source: tests/sfc_split.rs
+assertion_line: 21
+expression: result
+---
+ScribeSource {
+    script: None,
+    template: Some(
+        "<span>hello</span>",
+    ),
+    style: None,
+    meta: ScriptMeta {
+        name: None,
+    },
+}

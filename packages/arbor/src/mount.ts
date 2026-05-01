@@ -98,6 +98,12 @@ export function _mountEffect(
   // call it during its initial synchronous run (before `effect()` returns).
   // A `const` captured in the effect closure would be in TDZ on the first
   // run, causing a ReferenceError. The ref avoids this.
+  //
+  // selfDisposeNeeded: set when the effect throws on the very first run and
+  // disposeRef.fn is still null (effect() hasn't returned yet, so the
+  // self-dispose call is a no-op). After effect() returns we immediately
+  // dispose to prevent a second onError on the next signal write.
+  let selfDisposeNeeded = false
   const disposeRef: { fn: Dispose | null } = { fn: null }
   const dispose = effect(() => {
     _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
@@ -106,18 +112,23 @@ export function _mountEffect(
         fn()
       } catch (err: unknown) {
         errorHandler(err, path)
-        // Dispose this effect to prevent repeated throws from the same
-        // binding. On the first synchronous run we use disposeRef.fn (which
-        // may be null if effect() hasn't returned yet) — in that case the
-        // effect will be cleaned up via the disposers array at scope
-        // disposal. On subsequent runs disposeRef.fn is always set.
-        disposeRef.fn?.()
+        if (disposeRef.fn !== null) {
+          disposeRef.fn()
+        } else {
+          // First synchronous run: effect() hasn't returned yet.
+          // Record that we need to self-dispose once it does.
+          selfDisposeNeeded = true
+        }
       }
     } else {
       fn()
     }
   })
   disposeRef.fn = dispose
+  if (selfDisposeNeeded) {
+    dispose()
+    return
+  }
   disposers.push(() => {
     _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
     dispose()

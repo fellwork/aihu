@@ -1,0 +1,12 @@
+---
+source: tests/codegen.rs
+expression: output
+---
+import { branch, leaf } from '@scribe/arbor'
+import { defineComponent, defineElement } from '@scribe/runtime'
+
+defineElement('x-btn', defineComponent((_ctx) => {
+  const handler = () => {}
+
+  return branch('button', { onclick: handler }, [leaf('click')])
+}))

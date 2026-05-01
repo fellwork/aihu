@@ -1,0 +1,12 @@
+---
+source: tests/template_parse.rs
+assertion_line: 60
+expression: result
+---
+Ok(
+    [
+        Text(
+            "hello world",
+        ),
+    ],
+)

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+language: typescript
+layer: library
+
+# NOTE: The Rust binary is NOT built automatically by any Moon task.
+# Run `cargo build --release` manually in packages/compiler/ before running
+# integration tests or using the Vite plugin.
+# See architecture.md §17, decision T2.
+
+tasks:
+  build:
+    command: "rolldown -c"
+    inputs:
+      - "js/**/*.ts"
+      - "rolldown.config.ts"
+    outputs:
+      - "dist"
+
+  typecheck:
+    command: "tsc --noEmit"
+    inputs:
+      - "js/**/*.ts"
+      - "tsconfig.json"
