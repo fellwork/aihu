@@ -112,6 +112,16 @@ const replacements = [
   // flags — highest occurrence count, process last to avoid masking others
   [/\.flags\b/g, '.fl'],
   [/flags:/g, 'fl:'],
+
+  // Class-body field declarations (parity with signals mangler — K1c+
+  // Computed/Effect classes inline into arbor's bundle).
+  [/\bsubsHead(?=[=;,}])/g, 'sh'],
+  [/\bsubsTail(?=[=;,}])/g, 'st'],
+  [/\bdepsHead(?=[=;,}])/g, 'dh'],
+  [/\bdepsTail(?=[=;,}])/g, 'dt'],
+  [/\blastWave(?=[=;,}])/g, 'lw'],
+  [/\bflags(?=[=;,}])/g, 'fl'],
+  [/\bfn(?=[=;,}])/g, 'f'],
 ]
 
 for (const [regex, replacement] of replacements) {

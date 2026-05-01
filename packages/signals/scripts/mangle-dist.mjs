@@ -94,6 +94,24 @@ const replacements = [
   // flags — highest occurrence count, process last to avoid masking others
   [/\.flags\b/g, '.fl'],
   [/flags:/g, 'fl:'],
+
+  // ─── Class field declarations (K1c+ Phase 3) ───
+  // Class-body field declarations (`flags=8;`, `subsHead=null;`, `fn;`) are
+  // NOT covered by `.X` / `X:` regexes — they appear bare and end with `=`,
+  // `;`, `,`, or `}`. After the access/definition patterns above run, these
+  // names ONLY survive in class-body positions. Bareword regex with a
+  // lookahead for class-body terminators is safe here.
+  //
+  // Order: longest names first to prevent prefix collisions (e.g. `subsHead`
+  // before `subs`-anything else); flags last because `\bflags\b` is the
+  // most aggressive bareword.
+  [/\bsubsHead(?=[=;,}])/g, 'sh'],
+  [/\bsubsTail(?=[=;,}])/g, 'st'],
+  [/\bdepsHead(?=[=;,}])/g, 'dh'],
+  [/\bdepsTail(?=[=;,}])/g, 'dt'],
+  [/\blastWave(?=[=;,}])/g, 'lw'],
+  [/\bflags(?=[=;,}])/g, 'fl'],
+  [/\bfn(?=[=;,}])/g, 'f'],
 ]
 
 for (const [regex, replacement] of replacements) {
