@@ -16,4 +16,5 @@ ScribeSource {
     meta: ScriptMeta {
         name: None,
     },
+    agent: None,
 }

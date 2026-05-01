@@ -1,0 +1,3 @@
+# scripture-reference
+
+The Fellwork dogfood example — the first real `.scribe` component shipped against the Phase 1 `<agent>` block surface. Demonstrates three string/number inputs, internal state populated from an action, and a single MCP action (`look_up`) returning a four-field record. Compile with `./packages/compiler/target/release/scribe-compile examples/scripture-reference/scripture-reference.scribe --out examples/scripture-reference/dist/`; the emitter produces `scripture-reference.ts` plus an `agent-manifest.json` whose tool name is `scripture_reference` (snake_case) with kebab `scripture-reference` as the custom-element tag. The action body is intentionally a placeholder — wire it to a real text source when consuming this example.

@@ -10,6 +10,25 @@
  */
 
 /**
+ * Schema for a single input field exposed by a component or action return.
+ * `type` is the primitive kind. `values` is present only for enum types.
+ * `default` is the default value if declared in the <agent> block.
+ */
+export interface InputSchema {
+  type: 'string' | 'number' | 'boolean' | 'enum'
+  values?: string[]
+  default?: string
+}
+
+/**
+ * Schema for a single callable action on a component.
+ * `returns` maps return field names to their type schemas.
+ */
+export interface ActionSchema {
+  returns: Record<string, InputSchema>
+}
+
+/**
  * Static metadata describing a `<custom-tag>` component for AI-agent
  * consumption. Sourced from each component's `<agent>` SFC block; emitted by
  * the compiler as a frozen object.
@@ -25,8 +44,8 @@ export interface AgentMetadata {
   describes?: string
   /** MCP resources — names mapped to human-readable descriptions of reactive state. */
   state?: Record<string, string>
-  /** MCP tools — names mapped to human-readable descriptions of callable operations. */
-  actions?: Record<string, string>
+  /** MCP tools — action names mapped to typed schemas. */
+  actions?: Record<string, ActionSchema>
   /** Unknown fields are preserved, not rejected (spec §9.1). */
   [key: string]: unknown
 }

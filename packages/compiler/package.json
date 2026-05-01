@@ -1,6 +1,7 @@
 {
   "name": "@scribe/compiler",
   "version": "0.0.0",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -11,13 +12,19 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "scribe-compile": "./bin/scribe-compile"
+  },
   "files": [
-    "dist"
+    "dist",
+    "js/postinstall.ts",
+    "bin"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "bun run js/postinstall.ts"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"

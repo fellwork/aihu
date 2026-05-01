@@ -8,5 +8,8 @@ Err(
         message: "v-if / v-for directives are not supported in v0; see v1 roadmap",
         line: 1,
         col: 5,
+        code: None,
+        hint: None,
+        fix: None,
     },
 )

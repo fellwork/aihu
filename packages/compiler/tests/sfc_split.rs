@@ -45,6 +45,7 @@ fn compile_empty_source() {
             template: None,
             style: None,
             meta: scribe_compiler::ScriptMeta { name: None },
+            agent: None,
         }
     );
 }
