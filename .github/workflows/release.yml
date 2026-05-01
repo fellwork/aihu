@@ -1,0 +1,112 @@
+name: Release scribe-compile binaries
+
+# Cross-compile the scribe-compile Rust binary for all supported platforms,
+# then publish a GitHub Release with all four binaries attached as assets.
+#
+# Triggers:
+#   - push of any tag matching `v*` (real release)
+#   - manual workflow_dispatch with optional `tag` input (dry run; binaries
+#     are uploaded as workflow artifacts but no GitHub Release is created
+#     unless the input parses as an actual `v*` tag).
+#
+# Consumed by packages/compiler/js/postinstall.ts via the
+# `releases/latest/download/<asset>` redirect.
+"on":
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional tag to dry-run the build against (no release created)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            asset: scribe-compile-darwin-arm64
+            ext: ''
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            asset: scribe-compile-darwin-x64
+            ext: ''
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset: scribe-compile-linux-x64
+            ext: ''
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            asset: scribe-compile-windows-x64.exe
+            ext: '.exe'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path packages/compiler/Cargo.toml
+
+      - name: Stage asset (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifact
+          cp packages/compiler/target/${{ matrix.target }}/release/scribe-compile artifact/${{ matrix.asset }}
+          chmod 0755 artifact/${{ matrix.asset }}
+
+      - name: Stage asset (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item -Path "packages/compiler/target/${{ matrix.target }}/release/scribe-compile.exe" -Destination "artifact/${{ matrix.asset }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: artifact/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    # Only create a Release when triggered by an actual tag push. The
+    # workflow_dispatch dry-run path stops after `build`; binaries are
+    # available as workflow artifacts only.
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact directory
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec cp {} release-assets/ \;
+          ls -la release-assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.2.1
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
