@@ -120,9 +120,6 @@ export function _applyAttrs(
  * @internal
  */
 export function _setAttrOrProp(el: Element, key: string, value: unknown): void {
-  if (key in el) {
-    ;(el as unknown as Record<string, unknown>)[key] = value
-    return
-  }
-  el.setAttribute(key, String(value))
+  if (key in el) (el as unknown as Record<string, unknown>)[key] = value
+  else el.setAttribute(key, String(value))
 }
