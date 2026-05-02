@@ -384,3 +384,34 @@ The canonical fix pattern for size-limit + monorepo peer deps. Do not add peer d
 **Why.** Pre-Round-5 arbor investigation: raw `gzip -c packages/arbor/dist/index.js | wc -c` reported 2151 B; `npx size-limit` (esbuild minified output) reported **2117 B** — 34 B tighter. The difference arises because esbuild's minifier removes dead code, shortens identifiers, and optimizes symbol frequency before gzip sees the bytes, while raw gzip compresses whatever the unminified dist contains.
 
 **How to apply.** For authoritative headroom decisions (is this plan safe to dispatch? should I raise the cap?), always run `npx size-limit` (or the `size-limit` CLI) against the built dist. Raw `gzip -c` is a useful floor estimate during development but consistently overstates final bundle size. When a raw gzip number triggers a concern (e.g., "only 49 B headroom"), run `npx size-limit` before escalating — the true headroom may be meaningfully larger (49 B → 83 B in the arbor case).
+
+---
+
+## 32. Three-state loader + opt-out env var is the canonical napi-rs distribution pattern
+
+**Why.** Server-native session-001/002: the loader for `@scribe/server`'s Rust addon resolves to one of three terminal states at module-load time — `NATIVE_LOADED` (use the addon), `EDGE_SKIPPED` (silent TS fallback for edge/Workers/Deno/`SCRIBE_NATIVE_SKIP=1`), or `NATIVE_FAILED_LOUD` (throw `ScribeNativeError` synchronously at import). The default-failure direction is the load-bearing decision: silent fall-through means a missed optionalDependency in production silently halves SSR throughput; loud-by-default means a misinstall fails fast with reinstall instructions. The escape hatch (`SCRIBE_NATIVE_SKIP=1`) covers the legitimate dev/CI/source-build cases without inverting the production contract. Builder R1 inverted this default; Director session-002 ruled the inversion an unacceptable contract change and Builder R2 reverted.
+
+**How to apply.** When shipping a napi-rs addon (or any optional native accelerator with a TS/JS fallback):
+
+- **Three states, not two.** Edge-skip, native-loaded, and failed-loud are mutually exclusive and resolved exactly once at module init. Two-state designs collapse "edge runtime" with "missing binary" — they are different failure modes and need different handling.
+- **Loud by default on supported platforms.** A platform that *should* have a binary (matched by `process.platform` × `process.arch` against the published triple list) but doesn't must throw at import time, not silently degrade. The error message includes platform, expected package name, expected file name, and reinstall instructions.
+- **Silent on edge runtimes.** Edge detection (`typeof EdgeRuntime !== 'undefined'`, `process.env.NEXT_RUNTIME === 'edge'`) is checked first and routes to TS fallback with no warning, no log.
+- **One documented opt-out.** A single env var like `SCRIBE_NATIVE_SKIP=1` covers dev machines without the addon built, source builds, CI without npm access, and anyone who explicitly wants the slower-but-always-correct path. Set it in the repo's test env (`vitest.config.ts test.env`) so fresh-clone test runs don't need the binary.
+- **Throw at module load, not first call.** The eager throw block at the top of the loader file means consumers see the error during `import`, with the full reinstall instructions, rather than seeing it inside a request handler under load. AC-9-style invariant: "import throws synchronously when the binary is missing on a supported platform."
+- **Don't add a `*_FORCE_NATIVE` flag.** Once the default is loud, a force flag adds zero value and creates a third lever that obscures the contract. The opt-out should be the only env var.
+
+The pattern in code: `loader.ts` resolves state once at top-level → exports `renderToString` that dispatches based on resolved state → the failed-loud branch throws at module init via a top-level `if` block. Distribution: `optionalDependencies` for the four platform packages (`@scribe/server-<platform-arch>`), each with `os`/`cpu`/`libc` fields so npm/pnpm/bun install only the matching one. No postinstall script.
+
+---
+
+## 33. Multi-agent worktree dispatches on Windows must specify ABSOLUTE paths every time
+
+**Why.** Across multiple Mode 2 sessions (server-native session-001, prior sessions in `.team/v1/`), agents writing artifacts to `.team/v1/...` from inside a worktree at `.claude/worktrees/<name>/` have repeatedly produced doubly-nested paths like `.claude/worktrees/<name>/.team/v1/...` instead of `<repo-root>/.team/v1/...`. The Historian dispatch for server-native explicitly called this out and required ABSOLUTE paths. Recurring enough across sessions that it's a structural failure mode of the Windows worktree harness, not an individual-agent slip.
+
+**How to apply.** Three rules for any multi-agent dispatch where an agent writes to a shared docs tree:
+
+- **Dispatch briefs always specify absolute paths.** "Write to `C:\git\fellwork\scribe\.team\v1\<file>.md`" — never "write to `.team/v1/<file>.md`". The dispatch text is the contract; relative paths in dispatch text get resolved relative to the agent's cwd, which on Windows worktrees is the worktree subdirectory, not the repo root.
+- **Agents verify with `Read` after every `Write`.** If the file is not at the expected absolute path, fix immediately before continuing — don't let the doubly-nested copy compound across more writes in the same session.
+- **Repo-root state files are absolute too.** Files like `state-<track>.md` that live at the repo root must be written via absolute path. A relative `state-<track>.md` write from within a worktree creates a sibling file in the worktree, not the repo root.
+
+This is a Windows-specific paper cut — `cd` between Bash invocations resets, but `Write` operates on whatever path is given without any cwd-relative resolution intuition. Treat absolute paths as the default for shared-tree writes; reserve relative paths for files inside the agent's own worktree boundary.
