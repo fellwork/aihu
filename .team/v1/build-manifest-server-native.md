@@ -145,3 +145,65 @@ cd packages/server && bun link @scribe/server-linux-x64-gnu
 # 4. Run parity gate
 SCRIBE_FORCE_NATIVE=1 bun test packages/server/tests/native-parity.test.ts
 ```
+
+---
+
+## Round 2 — Director session-002 corrections
+
+**Builder:** Claude (Opus 4.7), 2026-05-02
+**Branch:** `feat/v1-server-native` (continuing from `0af3ccb`; no force-push)
+**Reference:** `.team/v1/director-notes/server-native-session-002.md`
+
+### Why this round happened
+
+Round 1's loader inverted the spec's failure-loud default. `SCRIBE_FORCE_NATIVE=1` was added as an opt-in to promote a missing binary into a thrown `ScribeNativeError`; without it the loader silently fell through to the TS implementation. Director session-002 ruled this an unacceptable deviation: the documented contract (spec §3.1, §5.1, §5.3) is loud-on-supported-platform-with-missing-binary, with `SCRIBE_NATIVE_SKIP=1` as the **only** opt-out. Round 1's design made the safety contract opt-in instead of opt-out, exactly the silent-perf-degradation failure mode the original frame called load-bearing.
+
+### Changes in Round 2
+
+| Path | Change |
+|------|--------|
+| `packages/server/src/loader.ts` | (a) Removed `SCRIBE_FORCE_NATIVE` flag and every branch that referenced it (deleted from both `resolveState` and `renderToString`). (b) Added eager module-load resolution: a NATIVE_FAILED_LOUD state now throws a `ScribeNativeError` *at module import time* per spec §3.1 ("module never finishes loading; callers get the thrown error"). (c) Added explicit top-of-`resolveState` short-circuit on `SCRIBE_NATIVE_SKIP=1` so the documented escape hatch is impossible to miss when reading the file. (d) Updated module header comment to reflect the corrected contract and cite session-002. |
+| `vitest.config.ts` | Added `test.env = { SCRIBE_NATIVE_SKIP: '1' }` so a fresh-clone `bun run test` passes without a built native addon. This is the one-line repo-config fix Director §3 specified. |
+| `packages/server/tests/native-parity.test.ts` | Updated header doc and `beforeAll` skip logic to match the new contract: SKIP-set → skip silently with diagnostic; otherwise run only when loader resolved to NATIVE_LOADED. Removed all `SCRIBE_FORCE_NATIVE` references from comments. |
+| `.github/workflows/release.yml` | Updated the parity-gate AC-15 comment block at the top of `build-native` to remove the `SCRIBE_FORCE_NATIVE=1` reference; the new wording explains that a missing binary on a supported platform throws via the loader, so no env-var gate is needed. |
+| `.team/v1/build-manifest-server-native.md` | This Round 2 section. |
+
+### Files NOT changed (per dispatch's "Do NOT change" list, verified)
+
+- All Rust source under `packages/server/src-native/` (Cargo.toml, build.rs, src/*.rs).
+- `packages/server/npm/<platform>/package.json` × 4.
+- `packages/server/package.json` `optionalDependencies` block.
+- `packages/server/src/index.ts` line 8.
+- `packages/server/src/ssr.ts` (frozen per spec §10).
+- All other source/test files in the repo.
+
+### Self-check after Round 2
+
+| Check | Command | Result |
+|-------|---------|--------|
+| `SCRIBE_FORCE_NATIVE` removed from loader | `grep -n SCRIBE_FORCE_NATIVE packages/server/src/loader.ts` | 0 matches |
+| `SCRIBE_NATIVE_SKIP` short-circuit present | `grep -n SCRIBE_NATIVE_SKIP packages/server/src/loader.ts` | matches in resolveState top + detectEdge |
+| Test env has SKIP=1 | `grep -A 2 SCRIBE_NATIVE_SKIP vitest.config.ts` | match in `test.env` |
+| Workflow comment updated | `grep -n SCRIBE_FORCE_NATIVE .github/workflows/release.yml` | 0 matches |
+| Tests pass | `bun run test` | see commit verification below |
+| Typecheck clean | `bun run typecheck` (server scope) | see commit verification below |
+| AC-9 throw-site code | (see `loader.ts` lines 286-296) | `if (_initial.kind === 'native-failed-loud') { ... throw buildMissingBinaryError(_initial.descriptor) }` at module top level |
+
+### AC-9 logic restored — the throw site
+
+```typescript
+{
+  const _initial = resolveState()
+  if (_initial.kind === 'native-failed-loud') {
+    const cause = _initial.error
+    const code = (cause as Error & { code?: string }).code
+    const isMissing = code === 'MODULE_NOT_FOUND' || code === 'ERR_MODULE_NOT_FOUND'
+    if (isMissing) {
+      throw buildMissingBinaryError(_initial.descriptor)
+    }
+    throw buildCorruptBinaryError(_initial.descriptor, cause)
+  }
+}
+```
+
+This block runs at module-load time (top-level statement, not inside a function). On a supported platform with a missing or corrupt binary the loader throws synchronously during import — exactly the AC-9 contract. The test environment never reaches this branch because `SCRIBE_NATIVE_SKIP=1` short-circuits `resolveState` to `edge-skipped` at the top.

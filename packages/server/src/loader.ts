@@ -2,14 +2,22 @@
 /**
  * Three-state loader for @scribe/server's native (Rust napi-rs) renderer.
  *
- * States (per spec-server-native.md §3):
+ * States (per spec-server-native.md §3, as adjudicated in
+ * .team/v1/director-notes/server-native-session-002.md):
  *   - NATIVE_LOADED: addon required successfully; renderToString routes to Rust.
  *   - EDGE_SKIPPED: edge runtime detected OR SCRIBE_NATIVE_SKIP=1 OR platform
- *                   not in the four-platform support matrix; silently uses TS.
+ *                   is NOT in the four-platform support matrix; silently uses TS.
  *   - NATIVE_FAILED_LOUD: platform IS supported and addon load failed —
- *                         throws on first renderToString call (lazy throw, so
- *                         module import does not poison consumers who never
- *                         call renderToString).
+ *                         throws at module load time (eager throw per spec
+ *                         §3.1: "module never finishes loading; callers get
+ *                         the thrown error"). The thrown error is a
+ *                         `ScribeNativeError` with reinstall instructions.
+ *
+ * Default contract (spec §5.1, §5.2): on a supported platform, a missing or
+ * corrupt binary is loud. The documented escape hatch is `SCRIBE_NATIVE_SKIP=1`
+ * (spec §5.3): set it to silently fall through to the TS implementation
+ * (slower, always correct). `SCRIBE_NATIVE_SKIP` is the only env-var lever
+ * in this loader's contract.
  *
  * Hard constraint (spec §10): ssr.ts must remain byte-identical. This file
  * only adds a new export path — it does not modify existing behavior.
@@ -18,7 +26,8 @@
  *   - opts.serializer is set (JS callback can't cross FFI)
  *   - opts.contextSetup is set (JS callback can't cross FFI)
  *   - component is not a function (`{ toHtml(): string }` provider)
- *   - native state is EDGE_SKIPPED or NATIVE_FAILED_LOUD
+ *   - native state is EDGE_SKIPPED
+ *   (NATIVE_FAILED_LOUD never reaches renderToString — module load throws.)
  */
 
 import { renderToString as tsRenderToString } from './ssr.ts'
@@ -121,20 +130,30 @@ let _state: LoaderState | null = null
 function resolveState(): LoaderState {
   if (_state !== null) return _state
 
-  // SCRIBE_FORCE_NATIVE=1 overrides edge detection — used by CI parity gate (§4.4).
-  const forceNative =
+  // SCRIBE_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) — short-
+  // circuit at the very top so we never attempt platform detection or require.
+  // This is the only env-var lever in the loader contract. detectEdge() also
+  // honours SCRIBE_NATIVE_SKIP, but checking it explicitly here makes the
+  // intent obvious and keeps the early return cheap.
+  if (
     typeof process !== 'undefined' &&
     process.env &&
-    process.env.SCRIBE_FORCE_NATIVE === '1'
+    process.env.SCRIBE_NATIVE_SKIP === '1'
+  ) {
+    _state = { kind: 'edge-skipped' }
+    return _state
+  }
 
-  if (!forceNative && detectEdge()) {
+  if (detectEdge()) {
     _state = { kind: 'edge-skipped' }
     return _state
   }
 
   const descriptor = detectPlatform()
   if (descriptor === null) {
-    // Platform not supported (e.g., linux/arm64) — silent TS fallthrough.
+    // Platform not supported (e.g., linux/arm64, linux/musl) — silent TS
+    // fallthrough. This is distinct from "supported platform with missing
+    // binary" (which throws below) per spec §3.1 and Director session-002.
     _state = { kind: 'unsupported-platform' }
     return _state
   }
@@ -246,6 +265,36 @@ function buildCorruptBinaryError(
 }
 
 // ---------------------------------------------------------------------------
+// Eager module-load resolution (spec §3.1)
+// ---------------------------------------------------------------------------
+//
+// Per Director session-002, AC-9 requires that on a supported platform a
+// missing or corrupt binary throws at module load time — "module never
+// finishes loading; callers get the thrown error." Resolving state here
+// (rather than lazily on the first renderToString call) makes the failure
+// surface as an import error, which is what production consumers expect.
+//
+// The escape hatches that reach this block silently:
+//   - SCRIBE_NATIVE_SKIP=1 (documented opt-out; spec §5.3)
+//   - edge runtime detected (spec §3.2)
+//   - platform not in support matrix (e.g., linux/musl, linux/arm64)
+//
+// On a supported platform with a load failure, the descriptor + error are
+// formatted into a `ScribeNativeError` and thrown synchronously below.
+{
+  const _initial = resolveState()
+  if (_initial.kind === 'native-failed-loud') {
+    const cause = _initial.error
+    const code = (cause as Error & { code?: string }).code
+    const isMissing = code === 'MODULE_NOT_FOUND' || code === 'ERR_MODULE_NOT_FOUND'
+    if (isMissing) {
+      throw buildMissingBinaryError(_initial.descriptor)
+    }
+    throw buildCorruptBinaryError(_initial.descriptor, cause)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -265,46 +314,30 @@ export async function renderToString(
 
   const state = resolveState()
 
+  // Either silent fall-through path: SCRIBE_NATIVE_SKIP=1, edge runtime, or
+  // platform not in the support matrix. NATIVE_FAILED_LOUD is unreachable
+  // here because the module-load throw above prevents this file from
+  // finishing initialization in that case.
   if (state.kind === 'edge-skipped' || state.kind === 'unsupported-platform') {
     return tsRenderToString(component, opts)
   }
 
   if (state.kind === 'native-failed-loud') {
+    // Defensive: a test harness may have called _resetLoaderState() and
+    // mutated env after the module-load throw was bypassed. Re-throw with
+    // the same formatting as the eager path so behaviour is consistent.
     const cause = state.error
     const code = (cause as Error & { code?: string }).code
     const isMissing = code === 'MODULE_NOT_FOUND' || code === 'ERR_MODULE_NOT_FOUND'
-
-    // SCRIBE_FORCE_NATIVE=1 promotes any load failure to a thrown error
-    // (this is the CI parity-gate signal per spec §4.4).
-    const forceNative =
-      typeof process !== 'undefined' &&
-      process.env &&
-      process.env.SCRIBE_FORCE_NATIVE === '1'
-
-    // Corrupt-binary errors (anything other than MODULE_NOT_FOUND on a
-    // supported platform) are always loud — silently coercing them to the TS
-    // fallback would mask real ABI/version mismatches.
-    if (!isMissing) {
-      throw buildCorruptBinaryError(state.descriptor, cause)
-    }
-
-    // Missing binary: loud only under SCRIBE_FORCE_NATIVE=1; otherwise silent
-    // TS fallthrough so developer machines and consumers without the
-    // optionalDependency installed continue to work transparently.
-    if (forceNative) {
+    if (isMissing) {
       throw buildMissingBinaryError(state.descriptor)
     }
-    return tsRenderToString(component, opts)
+    throw buildCorruptBinaryError(state.descriptor, cause)
   }
 
   // state.kind === 'native-loaded'
   // Materialize the component; if the factory throws we let it propagate.
-  let root: unknown
-  try {
-    root = component()
-  } catch (err) {
-    throw err
-  }
+  const root = component()
 
   const treeJson = JSON.stringify(root)
   const hydratable = opts?.hydratable ?? false

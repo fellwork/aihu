@@ -8,12 +8,16 @@
  *   - { toHtml(): string } providers (JS short-circuit — no parity gain)
  *   - hydratable (deferred per OQ-SN-3 — Rust implements it but no parity AC)
  *
- * Skip behavior: when the native addon is not loaded (unsupported platform,
- * edge runtime, missing binary), all tests in this file are skipped via
- * `it.skip` so that CI on developer machines without the addon still passes.
+ * Skip behavior (per Director session-002):
+ *   - SCRIBE_NATIVE_SKIP=1 (the documented escape hatch, set in vitest.config
+ *     so fresh clones pass) → loader is in EDGE_SKIPPED state; skip all tests.
+ *   - Otherwise, if the loader resolved to NATIVE_LOADED → run all tests.
+ *   - Otherwise (loader is in any other state but SKIP isn't set in a test
+ *     env) → skip with a clear diagnostic.
  *
- * To force-fail on missing native (CI parity gate per §4.4):
- *   SCRIBE_FORCE_NATIVE=1 bun test packages/server/tests/native-parity.test.ts
+ * The CI parity-gate runner unsets SCRIBE_NATIVE_SKIP and builds the addon;
+ * if either step is missing the loader throws via AC-9 at module load time,
+ * which is the correct CI failure mode (no env-var gate needed).
  */
 
 import fc from 'fast-check'
@@ -35,19 +39,36 @@ import type { ComponentDescription } from '../src/ssr.ts'
 let nativeLoaded = false
 
 beforeAll(() => {
-  // Important: the loader caches platform/edge detection. Reset so
-  // SCRIBE_FORCE_NATIVE / SCRIBE_NATIVE_SKIP env changes are picked up if
-  // tests are re-run in watch mode.
+  // SCRIBE_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) and is
+  // set by vitest.config.ts so fresh clones pass without a built addon.
+  // When set, we skip every parity test below — there is no native path
+  // expected. CI's parity-gate runner unsets this var and builds the addon.
+  if (typeof process !== 'undefined' && process.env.SCRIBE_NATIVE_SKIP === '1') {
+    nativeLoaded = false
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[native-parity] skipping all tests — SCRIBE_NATIVE_SKIP=1 is set. ` +
+        `This is expected on developer machines without a built native addon. ` +
+        `CI unsets this var and builds the addon to run the parity gate.`,
+    )
+    return
+  }
+
+  // Important: the loader caches platform/edge detection. Reset so SKIP env
+  // changes are picked up if tests are re-run in watch mode.
   _resetLoaderState()
   const kind = _getLoaderStateKind()
   nativeLoaded = kind === 'native-loaded'
   if (!nativeLoaded) {
     // Surface the reason in stderr so CI logs make the skip cause obvious.
+    // (On a supported platform with a missing addon, the loader throws at
+    // module load — we never reach this branch in that case. This message
+    // covers unsupported-platform and edge-skipped cases.)
     // eslint-disable-next-line no-console
     console.warn(
       `[native-parity] skipping all tests — loader state is "${kind}". ` +
-        `Set SCRIBE_FORCE_NATIVE=1 and ensure the platform .node addon is built ` +
-        `and the @scribe/server-<platform> package is resolvable to enable.`,
+        `Build the platform .node addon and ensure @scribe/server-<platform> ` +
+        `is resolvable to enable.`,
     )
   }
 })

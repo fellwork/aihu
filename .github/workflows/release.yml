@@ -114,11 +114,15 @@ jobs:
   # ---------------------------------------------------------------------------
   # @scribe/server native renderer (napi-rs Rust addon).
   #
-  # Parity-gate paths (AC-15, spec-server-native.md §4.4): any PR that modifies
+  # Parity-gate paths (AC-15, spec-server-native.md §4.4): the parity gate
+  # triggers on PRs touching
   #   - packages/server/src/ssr.ts
   #   - packages/server/src-native/**
-  # MUST run packages/server/tests/native-parity.test.ts with SCRIBE_FORCE_NATIVE=1
-  # against a freshly built native addon. The PR-time enforcement of this gate
+  # The build-native job below builds the addon for the runner's platform; the
+  # parity test (packages/server/tests/native-parity.test.ts) then runs against
+  # the freshly-built binary. No env-var gate is needed — on a supported
+  # platform a missing binary throws via the loader (AC-9, spec §5.1), so CI
+  # without the addon is automatically a hard fail. The PR-time enforcement
   # lives in the per-PR CI workflow (see .github/workflows/ci.yml or moon's
   # local CI gate); this release workflow builds and publishes the per-platform
   # .node binaries that ship as @scribe/server-<platform> packages.
