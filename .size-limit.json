@@ -20,7 +20,7 @@
   {
     "name": "@scribe/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "1024 B",
+    "limit": "1140 B",
     "gzip": true
   },
   {

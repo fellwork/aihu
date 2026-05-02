@@ -189,3 +189,40 @@ Open follow-on items:
 | 6.2 Signals (Phase 0 + P1) | `8223dbb` + `9195d20` |
 
 **Pending (no builder yet):** 1.4 Slots, 3.2 Hydration, 3.3 Islands, 4.1 HMR, 4.3 TS types, 5.2 AgentService, 5.3 A2A/ACP, 6.1 Router, 7.1 v1 cutover
+
+---
+
+## Round 3 — DX Phase 2 (continued, 2026-05-02 — afternoon)
+
+**Focus:** Parallel multi-builder dispatch — 6 v1 plans landed in one round
+
+| Plan | PR | Notes |
+|------|----|-------|
+| 1.4 Slots | #20 | `slot()` arbor primitive + compiler `<slot>` codegen; 350 tests, +30 B arbor |
+| 4.1 HMR | #24 | `_hmrReplace` runtime export + Vite plugin `import.meta.hot.accept` injection (DEV-gated); +109 B runtime |
+| 5.2 AgentService | #23 | New `@scribe/agent-service` package; 580 B gz; 21 tests; manifest aggregation + middleware |
+| 6.1 Router | #21 | New `@scribe/router` package; 1.45 kB gz; file-based routing + Vite plugin |
+| 3.2 Hydration | #25 | `MountScope.serialize()` + `hydrate()` + `defineElement.hydrate?` option; 374 tests; +47B arbor / +30B runtime |
+
+**Size cap raise:** `@scribe/runtime` 1024 B → 1140 B to accommodate both `_setHydrate` (3.2) and `_hmrReplace` (4.1) being co-exported. New cap holds 43 B headroom.
+
+**Cumulative test count post-Round-3:** 407/407 passing (was 320 at start of session — +87 tests this round).
+
+**Final v1 plan completion (13 of 17):**
+
+| Plan | Status |
+|------|--------|
+| 1.1, 1.2, 1.3, 1.4 | DONE |
+| 2.1, 2.2 | DONE |
+| 3.1, 3.2 | DONE |
+| 4.1, 4.2 | DONE |
+| 5.1 (`<agent>` block), 5.2 | DONE |
+| 6.1, 6.2 (Phase 0 + P1) | DONE |
+| 3.3 Islands | PENDING (depends on 3.2 — now unblocked) |
+| 4.3 TypeScript template types | PENDING (depends on 1.2 + 1.4 — both done) |
+| 5.3 A2A/ACP adapters | PENDING (depends on 5.2 — now unblocked) |
+| 7.1 v1 cutover | PENDING (depends on all phases 1-5 — now mostly clear) |
+
+**Worktree collisions:** Three of the five parallel builders ended up working in the main repo's working directory (worktree creation may have silently fallen back). Plan 5.2 commit was on `feat/v1-hydration` branch by mistake; rescued via cherry-pick + force-push. Plan 3.2 conflict-resolved by merge-from-main during PR. No work lost.
+
+**Remote branch hygiene:** `feat/v1-slots`, `feat/v1-router`, `feat/v1-agent-service`, `feat/v1-hmr`, `feat/v1-hydration` all deleted post-merge.
