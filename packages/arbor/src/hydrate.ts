@@ -24,7 +24,7 @@
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs } from './attrs.ts'
 import { _observeMount } from './telemetry.ts'
-import { mount, _mountEffect, _mountDisposersStack, _frozenAgent } from './mount.ts'
+import { mount, _mountEffect, _mountDisposersStack, _makeScope } from './mount.ts'
 import { _materialize } from './materialize.ts'
 import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
@@ -224,13 +224,8 @@ export function hydrate(
   } catch (err) {
     if (errorHandler !== undefined) {
       errorHandler(err, 'hydrate')
-      let disposed = false
       _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
-      return {
-        dispose() { if (!disposed) { disposed = true } },
-        agent: _frozenAgent,
-        serialize(): Snapshot { return {} },
-      }
+      return _makeScope(disposers, signalRegistry)
     }
     throw err
   }
@@ -242,23 +237,5 @@ export function hydrate(
 
   _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
 
-  let disposed = false
-  return {
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      for (let i = disposers.length - 1; i >= 0; i--) {
-        const d = disposers[i]
-        if (d !== undefined) d()
-      }
-    },
-    agent: _frozenAgent,
-    serialize(): Snapshot {
-      const out: Snapshot = {}
-      for (const [path, get] of signalRegistry) {
-        out[path] = get()
-      }
-      return out
-    },
-  }
+  return _makeScope(disposers, signalRegistry)
 }

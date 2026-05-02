@@ -168,6 +168,38 @@ export const _frozenAgent: AgentContext = Object.freeze({
 })
 
 /**
+ * Build a `MountScope` over `disposers` and `registry`. `cleanup` runs
+ * after the LIFO dispose loop; mount() uses it for DOM root removal,
+ * hydrate() omits it (DOM is left intact).
+ *
+ * @internal
+ */
+export function _makeScope(
+  disposers: Dispose[],
+  registry: Map<string, () => unknown>,
+  cleanup?: () => void,
+): MountScope {
+  let disposed = false
+  return {
+    dispose(): void {
+      if (disposed) return
+      disposed = true
+      for (let i = disposers.length - 1; i >= 0; i--) {
+        const d = disposers[i]
+        if (d !== undefined) d()
+      }
+      cleanup?.()
+    },
+    agent: _frozenAgent,
+    serialize(): Snapshot {
+      const out: Snapshot = {}
+      for (const [p, g] of registry) out[p] = g()
+      return out
+    },
+  }
+}
+
+/**
  * Materialize `node` into `host` synchronously and return a `MountScope`
  * owning the lifecycle. See module JSDoc for the complete contract.
  *
@@ -223,32 +255,10 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
 
   _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
 
-  let disposed = false
-
-  return {
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      // LIFO per spec §1.5 + Deviation 9: deepest/latest effects first.
-      for (let i = disposers.length - 1; i >= 0; i--) {
-        const dispose = disposers[i]
-        if (dispose !== undefined) dispose()
-      }
-      // DOM removal last — effects must be silent before nodes detach.
-      for (const root of appendedRoots) {
-        if (root.parentNode === host) {
-          host.removeChild(root)
-        }
-      }
-    },
-    agent: _frozenAgent,
-    serialize(): Snapshot {
-      // Plan 3.2 — walk path → getter map and return current signal values.
-      const out: Snapshot = {}
-      for (const [path, get] of signalRegistry) {
-        out[path] = get()
-      }
-      return out
-    },
-  }
+  // DOM removal runs after LIFO dispose so effects are silent first.
+  return _makeScope(disposers, signalRegistry, () => {
+    for (const root of appendedRoots) {
+      if (root.parentNode === host) host.removeChild(root)
+    }
+  })
 }
