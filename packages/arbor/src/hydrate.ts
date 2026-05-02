@@ -24,9 +24,9 @@
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs } from './attrs.ts'
 import { _observeMount } from './telemetry.ts'
-import { mount, _mountEffect, _mountDisposersStack } from './mount.ts'
+import { mount, _mountEffect, _mountDisposersStack, _frozenAgent } from './mount.ts'
 import { _materialize } from './materialize.ts'
-import type { AgentContext, Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
+import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // ---------------------------------------------------------------------------
 // Internal: path-based DOM walker
@@ -55,12 +55,6 @@ function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
   }
   return map
 }
-
-/**
- * Frozen sentinel for the `agent` field — identical shape to `mount()`.
- * @internal
- */
-const _frozenAgent: AgentContext = Object.freeze({ _brand: 'AgentContext' as const })
 
 // ---------------------------------------------------------------------------
 // Internal recursive hydration walker

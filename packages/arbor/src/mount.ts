@@ -162,7 +162,8 @@ export interface MountScope {
   serialize(): Snapshot
 }
 
-const _frozenAgent: AgentContext = Object.freeze({
+/** @internal — shared frozen AgentContext sentinel (also used by hydrate). */
+export const _frozenAgent: AgentContext = Object.freeze({
   _brand: 'AgentContext' as const,
 })
 
