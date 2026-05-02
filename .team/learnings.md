@@ -415,3 +415,27 @@ The pattern in code: `loader.ts` resolves state once at top-level → exports `r
 - **Repo-root state files are absolute too.** Files like `state-<track>.md` that live at the repo root must be written via absolute path. A relative `state-<track>.md` write from within a worktree creates a sibling file in the worktree, not the repo root.
 
 This is a Windows-specific paper cut — `cd` between Bash invocations resets, but `Write` operates on whatever path is given without any cwd-relative resolution intuition. Treat absolute paths as the default for shared-tree writes; reserve relative paths for files inside the agent's own worktree boundary.
+
+---
+
+## 34. Spec ratification surfaces cross-package naming collisions invisible to single-package audits
+
+**Why.** During v1-reconciliation Round 3 Scout (2026-05-02), ratifying the Plugin Contract Spec for the multi-package framework surfaced two collisions that no single-package audit had caught: (1) `createRouter` exists as both client router factory in `@scribe/router` AND server route handler in `@scribe/server`; (2) `defineMiddleware` is hand-authored server middleware in `@scribe/server` while `contributes.middleware` is the plugin extension in the Plugin Contract. The user had narrowed the naming-pass scope to "Plugin Contract internals only" — but the collisions were invisible without the cross-package spec audit. The roadmap documents them as consequences-of-ratification (Q8 collapse), not broadening; resolution lands in v0.7.4.
+
+**How to apply.** When ratifying a cross-cutting spec like a Plugin Contract for a multi-package framework where the spec defines extension points (e.g., `contributes.middleware`) that cohabit with existing per-package APIs (e.g., `defineMiddleware` in a server package), the Architect's draft MUST audit name collisions across all packages that the spec authority touches — not just the spec's primary target. Surface collisions as facts even if the user has narrowed the naming-pass scope; document them as consequences of ratification rather than broadening the rename pass. The cost of the audit is one cross-package grep; the cost of missing the collision is a churn cycle in a future milestone.
+
+---
+
+## 35. Spec-driven framework redesigns reveal scope as percentage-implemented, not features-missing
+
+**Why.** In v1-reconciliation Round 3 (2026-05-02), Scout reported 6-8% of the spec quartet (~62/95 requirements GAP) was implemented in current scribe code. That percentage immediately framed v1.0 as "redesign, not extension" and forced the Architect's R2.1 to sequence a 9-milestone (v0.2 → v1.0) trajectory rather than pretending v1.0 was a near-term cutover. Without the percentage, the Architect might have under-scoped — a feature list ("missing: layouts, middleware, auto-imports, asset pipeline...") under-conveys the redesign scale because each item looks bounded in isolation; the percentage frames the whole.
+
+**How to apply.** When a Scout audits spec-quartet alignment against existing code, frame the gap as a percentage of total requirements (e.g., "62/95 requirements GAP = ~6-8% implemented") rather than a feature list. The percentage drives milestone scoping correctness; a feature list under-conveys when the spec describes a redesign. Companion principle: when percentage-implemented < 30%, propose milestone sub-versioning by default (the Architect should sequence at least a 0.X → 0.Y → 1.0 trajectory); when > 70%, single-release v1.0 is plausible.
+
+---
+
+## 36. Compiler-lowered macro elements via existing primitives stays under runtime byte budgets
+
+**Why.** In v1-reconciliation Q10 (2026-05-02), the ErrorBoundary home was initially framed as "runtime component (~80 B over runtime headroom) vs arbor primitive (~150 B over arbor headroom)." Both were over budget. The user's "make it thinner" prompt surfaced Approach D — compiler-lowered using `signal()` + `when()` + arbor's existing `ErrorHandler`. Cost dropped to ~5-15 B framework-wide. The spec quartet calls this `<$shield>` and provides a `createShieldBoundary` helper as the lowering target. The same pattern applies to `<$suspense>` (using `boolLatticeSignal` + `when()`), `<$guard>` (using `signal` + `when()` + auth check), and `<$warp>` (using `signal` + `when()` for routing transition). Net: 5 macro elements ship for ~30-50 B total runtime cost vs 5 × 100-150 B = 500-750 B if each were a new runtime component or arbor primitive.
+
+**How to apply.** When a surface API can be expressed as a compiler-lowering pattern using already-shipped primitives (e.g., `signal()` + `when()` + try/catch + existing per-mount `ErrorHandler`), prefer that lowering over a new runtime component or arbor primitive. Helper function naming follows the spec ("`createShieldBoundary`" for `<$shield>`); the helper just glues existing primitives. Net runtime byte cost drops from ~80-150 B per surface API to ~5-15 B. Compiler-side complexity grows but the compiler isn't browser-bundle-budgeted. Default to compiler-lowering for any framework-wide surface API where naive component or primitive implementations exceed available runtime headroom; reserve runtime components for cases where state must persist across template re-renders in ways the compiler can't see.
