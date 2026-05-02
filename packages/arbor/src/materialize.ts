@@ -58,61 +58,45 @@ export function _materialize(
     return _materializeStructural(node, host, disposers, pathBase, mountEffect, errorHandler)
   }
 
-  // Case 1+2: leaf
-  if (node.kind === 'leaf') {
-    if (node.leafKind === 'text') {
-      const textNode = document.createTextNode('')
-      const value = node.value
-      if (Array.isArray(value)) {
-        // Signal<string> — tuple [Read, Write]. Wire reactive update.
-        const get = value[0] as () => unknown
-        const path = `${pathBase}.text`
-        if (registry !== undefined) registry.set(path, get)
-        mountEffect(
-          disposers,
-          () => {
-            textNode.nodeValue = String(get())
-          },
-          path,
-          errorHandler,
-        )
-      } else {
-        // Static string (or null — null is a leafKind:'element' invariant
-        // never reached here, but the type union allows it; coerce).
-        textNode.nodeValue = value === null ? '' : (value as string)
-      }
-      host.appendChild(textNode)
-      return [textNode]
+  // Case 1: text leaf
+  if (node.kind === 'leaf' && node.leafKind === 'text') {
+    const textNode = document.createTextNode('')
+    const value = node.value
+    if (Array.isArray(value)) {
+      // Signal<string> — tuple [Read, Write]. Wire reactive update.
+      const get = value[0] as () => unknown
+      const path = `${pathBase}.text`
+      if (registry !== undefined) registry.set(path, get)
+      mountEffect(disposers, () => { textNode.nodeValue = String(get()) }, path, errorHandler)
+    } else {
+      // Static string (or null — null is a leafKind:'element' invariant
+      // never reached here, but the type union allows it; coerce).
+      textNode.nodeValue = value === null ? '' : (value as string)
     }
-    // Element leaf (terminal — no children).
-    const el = document.createElement(node.tag as string)
-    _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
-    host.appendChild(el)
-    return [el]
+    host.appendChild(textNode)
+    return [textNode]
   }
 
-  // Case 3+4: branch
-  if (node.tag === null) {
-    // Fragment — recurse children directly into host. No wrapper.
+  // Case 4: fragment branch (null tag) — recurse children directly into host.
+  if (node.kind === 'branch' && node.tag === null) {
     const appended: globalThis.Node[] = []
     const children = node.children
     for (let i = 0; i < children.length; i++) {
-      const child = children[i] as Node
-      const childPath = `${pathBase}.${i}`
-      const result = _materialize(child, host, disposers, childPath, mountEffect, errorHandler, registry)
+      const result = _materialize(children[i] as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
       for (const n of result) appended.push(n)
     }
     return appended
   }
 
-  // Branch with tag — create wrapper, apply attrs, recurse into wrapper.
-  const el = document.createElement(node.tag)
+  // Cases 2+3: element leaf or branch with tag — create wrapper, apply attrs,
+  // recurse into wrapper (no-op for leaf since its children list is empty).
+  const el = document.createElement(node.tag as string)
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
-  const children = node.children
-  for (let i = 0; i < children.length; i++) {
-    const child = children[i] as Node
-    const childPath = `${pathBase}.${i}`
-    _materialize(child, el, disposers, childPath, mountEffect, errorHandler, registry)
+  if (node.kind === 'branch') {
+    const children = node.children
+    for (let i = 0; i < children.length; i++) {
+      _materialize(children[i] as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
+    }
   }
   host.appendChild(el)
   return [el]
