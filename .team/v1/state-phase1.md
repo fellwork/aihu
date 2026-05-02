@@ -158,3 +158,34 @@ Open follow-on items:
 - TODO-004: Re-enable `c4_transform_produces_typescript` integration test (out of Phase 1 scope, see TODOS.md)
 - Round 2 informational findings: VSCode grammar `<script>` pattern overly permissive (Verifier C F-3); pre-existing typecheck baseline issues in compiler:typecheck/agent-readiness:typecheck/runtime:typecheck (Verifier C F-2)
 - v2 reserved syntax: `string!` for required inputs (TODOS.md TODO-003)
+
+---
+
+## Round 3 — DX Phase 2 (2026-05-02)
+
+**Focus:** Plan 1.3 Scoped Styles + branch hygiene + data externalization fix
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Plan 1.3 Scoped Styles | **COMPLETE** | Merged PR #18 at `2222a39` — CSSStyleSheet emission, scoped + global scope, 71+1 Rust tests |
+| Verifier F-2 (grammar.md) | **COMPLETE** | §8 `<style>` block added to `docs/grammar.md` at `53c0cff` |
+| Verifier F-3 (stale test name) | **COMPLETE** | `style_block_warning` → `style_scoped_emits_css_in_function_form` + snapshot rename at `53c0cff` |
+| Data externalization fix | **COMPLETE** | Cherry-picked `176dea3` → `e644d58` — @scribe/data rolldown now externalizes @scribe/signals + @scribe/context; restores 747 B gz (was 2012 B gz inlined) |
+| Branch hygiene | **COMPLETE** | 20+ stale branches deleted; `feat/arbor-n2-dev-gate` preserved (in progress) |
+| TODO-004 (integration test re-enable) | **DEFERRED** — gated on `cargo build --release` + `bun run build` in compiler pkg |
+| TTHW measurement | **DEFERRED** — gated on v0.1.0 release binary (GHA cross-compile run) |
+
+**Plans shipped on main (cumulative as of Round 3):**
+
+| Plan | Commit |
+|------|--------|
+| 1.1 Reconciler (when/each) | `9195d20` — Session 003 |
+| 1.2 Component props | `acf501b` — Session 004 |
+| 1.3 Scoped styles | `2222a39` — PR #18 (Round 3) |
+| 2.1 @scribe/context | `8223dbb` — Session 002 |
+| 2.2 @scribe/data | `9195d20` — Session 003 |
+| 3.1 Streaming SSR | `ec24d41` — Session 002 |
+| 4.2 Error boundaries | `8223dbb` — Session 002 |
+| 6.2 Signals (Phase 0 + P1) | `8223dbb` + `9195d20` |
+
+**Pending (no builder yet):** 1.4 Slots, 3.2 Hydration, 3.3 Islands, 4.1 HMR, 4.3 TS types, 5.2 AgentService, 5.3 A2A/ACP, 6.1 Router, 7.1 v1 cutover
