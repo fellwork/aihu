@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { signal } from '@scribe/signals'
+import { batch, signal } from '@scribe/signals'
 import { runWithContext } from '@scribe/context'
 import {
   createResource,
@@ -321,4 +321,74 @@ it('T12: dispose() stops the key-watching effect', async () => {
   expect(fetcher).not.toHaveBeenCalled()
   // State must still be idle
   expect(stateOf(resource)).toEqual({ status: 'idle' })
+})
+
+// ---------------------------------------------------------------------------
+// LT1: multiple rapid invalidations in one batch → only one refetch fires
+//
+// Setup: pre-populate the store so the initial effect run takes the cache-hit
+// path (reads _staleSignal.read()) and therefore subscribes to it. After that
+// subscription is established, batching three invalidate() calls must produce
+// exactly one effect re-run and therefore exactly one fetch.
+// ---------------------------------------------------------------------------
+it('LT1: multiple rapid invalidations in one batch coalesce to a single refetch', async () => {
+  const store = createResourceStore()
+  // Pre-populate so the initial effect run hits the cache, establishing the
+  // reactive subscription to _staleSignal before we call invalidate().
+  store.set('/api/test', { status: 'ready', data: 'cached-data' })
+
+  let fetchCount = 0
+  const fetcher = vi.fn(() => {
+    fetchCount++
+    return Promise.resolve(`data-${fetchCount}`)
+  })
+
+  const resource = createResource(signal('/api/test'), fetcher, { store })
+
+  // The initial effect run took the cache-hit path — no fetch fired yet.
+  expect(fetchCount).toBe(0)
+  expect(stateOf(resource)).toEqual({ status: 'ready', data: 'cached-data' })
+
+  // Three invalidations inside a single outer batch — should coalesce to one
+  // effect re-run and therefore exactly one fetch (not three).
+  batch(() => {
+    resource.invalidate()
+    resource.invalidate()
+    resource.invalidate()
+  })
+
+  // After the batch drains the effect ran once (stale signal changed false→true
+  // exactly once), triggering one _startFetch call.
+  expect(fetchCount).toBe(1)
+
+  await flushMicrotasks()
+  expect(stateOf(resource)).toEqual({ status: 'ready', data: 'data-1' })
+  // Still exactly one fetch — confirms 3 invalidates did not produce 3 fetches.
+  expect(fetchCount).toBe(1)
+
+  ;(resource as { dispose?: () => void }).dispose?.()
+})
+
+// ---------------------------------------------------------------------------
+// LT3: invalidate() after dispose does not throw and does not fire a fetch
+// ---------------------------------------------------------------------------
+it('LT3: invalidate() after dispose does not throw and does not fire a fetch', async () => {
+  const store = createResourceStore()
+  const fetcher = vi.fn().mockResolvedValue('data')
+
+  const resource = createResource(signal('/api/test'), fetcher, { store })
+  await flushMicrotasks()
+  expect(stateOf(resource)).toEqual({ status: 'ready', data: 'data' })
+
+  const handle = resource as { dispose?: () => void }
+  handle.dispose?.()
+
+  const fetchCountBefore = fetcher.mock.calls.length
+
+  // invalidate() after dispose — must not throw
+  expect(() => resource.invalidate()).not.toThrow()
+
+  // Because the effect is disposed, committing to _staleSignal notifies no
+  // subscribers — no new fetch fires.
+  expect(fetcher.mock.calls.length).toBe(fetchCountBefore)
 })
