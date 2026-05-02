@@ -39,7 +39,7 @@ export function each<T>(
 /** @internal LIFO-dispose + remove DOM nodes + remove anchor. */
 export function _teardownChildScope(s: ChildScope): void {
   const d = s.disposers, a = s.appendedNodes, anc = s.anchor
-  for (let i = d.length - 1; i >= 0; i--) d[i]?.()
+  for (let i = d.length; i--;) d[i]?.()
   const p = anc.parentNode
   if (p !== null) {
     for (const n of a) if (n.parentNode === p) p.removeChild(n)
