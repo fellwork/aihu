@@ -117,8 +117,8 @@ function _reconcileEach(
         `${pb}.list.${String(k).replace(/\./g, '_')}`, mfn, eh, null) })
   }
   let ref: globalThis.Node | null = anc.nextSibling
-  for (let i = 0; i < keys.length; i++) {
-    const s = sc.get(keys[i] as string | number)
+  for (const k of keys) {
+    const s = sc.get(k)
     if (s === undefined) continue
     const nl = s.appendedNodes
     if (s.anchor !== ref) par.insertBefore(s.anchor, ref)
