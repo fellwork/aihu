@@ -93,7 +93,7 @@ export function _applyAttrs(
     if (Array.isArray(value)) {
       const get = value[0] as () => unknown
       const path = `${pathBase}.attr:${key}`
-      if (registry !== undefined) registry.set(path, get)
+      registry?.set(path, get)
       mountEffect(
         disposers,
         () => _setAttrOrProp(el, key, get()),

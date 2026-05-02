@@ -66,7 +66,7 @@ export function _materialize(
       // Signal<string> — tuple [Read, Write]. Wire reactive update.
       const get = value[0] as () => unknown
       const path = `${pathBase}.text`
-      if (registry !== undefined) registry.set(path, get)
+      registry?.set(path, get)
       mountEffect(disposers, () => { textNode.nodeValue = String(get()) }, path, errorHandler)
     } else {
       // Static string (or null — null is a leafKind:'element' invariant
