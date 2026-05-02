@@ -122,7 +122,7 @@ export function createResource<T>(
   })
 
   // 8. Build and return the ResourceHandle<T>.
-  return {
+  const handle: ResourceHandle<T> = {
     state: [getState, setState] as unknown as Signal<DataState<T>>,
 
     refetch(): void {
@@ -151,5 +151,6 @@ export function createResource<T>(
     },
 
     dispose: disposeEffect,
-  } satisfies ResourceHandle<T>
+  }
+  return handle
 }
