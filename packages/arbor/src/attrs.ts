@@ -32,6 +32,9 @@ import type { AttrMap, ErrorHandler, EventHandler } from './types.ts'
  * (Task 16); this module is testable in isolation against a mock spy
  * and stays free of circular imports between `attrs.ts` and
  * `mount.ts` once `_materialize` wires both together.
+ *
+ * Plan 3.2: optional `registry` parameter added. When provided, reactive
+ * signal getters are registered by path key for `MountScope.serialize()`.
  */
 
 /**
@@ -60,6 +63,9 @@ export type MountEffectFn = (
  * `attrs === null` is the no-op shape-locked case (per spec §2.9 the
  * factories normalize omitted attrs to `null`, never `undefined`).
  *
+ * Plan 3.2: optional `registry` parameter — when provided, reactive
+ * signal getters are stored by path so `serialize()` can read them.
+ *
  * @internal
  */
 export function _applyAttrs(
@@ -69,6 +75,7 @@ export function _applyAttrs(
   pathBase: string,
   mountEffect: MountEffectFn,
   errorHandler?: ErrorHandler,
+  registry?: Map<string, () => unknown>,
 ): void {
   if (attrs === null) return
   for (const key in attrs) {
@@ -85,10 +92,12 @@ export function _applyAttrs(
     // discriminates via `Array.isArray` per Deviation #11.
     if (Array.isArray(value)) {
       const get = value[0] as () => unknown
+      const path = `${pathBase}.attr:${key}`
+      if (registry !== undefined) registry.set(path, get)
       mountEffect(
         disposers,
         () => _setAttrOrProp(el, key, get()),
-        `${pathBase}.attr:${key}`,
+        path,
         errorHandler,
       )
       continue

@@ -38,6 +38,10 @@ import type { ErrorHandler, Node } from './types.ts'
  * the factories normalize to `null`, so `_applyAttrs(el, null, ...)` is the
  * shape-locked no-op path.
  *
+ * Plan 3.2: optional `registry` parameter — when provided, reactive signal
+ * getters are stored by path key for `MountScope.serialize()`. Passed
+ * through to `_applyAttrs` for attribute bindings.
+ *
  * @internal
  */
 export function _materialize(
@@ -47,6 +51,7 @@ export function _materialize(
   pathBase: string,
   mountEffect: MountEffectFn,
   errorHandler?: ErrorHandler,
+  registry?: Map<string, () => unknown>,
 ): globalThis.Node[] {
   // Case 0: structural node (when/each)
   if (node.kind === 'structural') {
@@ -61,12 +66,14 @@ export function _materialize(
       if (Array.isArray(value)) {
         // Signal<string> — tuple [Read, Write]. Wire reactive update.
         const get = value[0] as () => unknown
+        const path = `${pathBase}.text`
+        if (registry !== undefined) registry.set(path, get)
         mountEffect(
           disposers,
           () => {
             textNode.nodeValue = String(get())
           },
-          `${pathBase}.text`,
+          path,
           errorHandler,
         )
       } else {
@@ -79,7 +86,7 @@ export function _materialize(
     }
     // Element leaf (terminal — no children).
     const el = document.createElement(node.tag as string)
-    _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler)
+    _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
     host.appendChild(el)
     return [el]
   }
@@ -92,7 +99,7 @@ export function _materialize(
     for (let i = 0; i < children.length; i++) {
       const child = children[i] as Node
       const childPath = `${pathBase}.${i}`
-      const result = _materialize(child, host, disposers, childPath, mountEffect, errorHandler)
+      const result = _materialize(child, host, disposers, childPath, mountEffect, errorHandler, registry)
       for (const n of result) appended.push(n)
     }
     return appended
@@ -100,12 +107,12 @@ export function _materialize(
 
   // Branch with tag — create wrapper, apply attrs, recurse into wrapper.
   const el = document.createElement(node.tag)
-  _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler)
+  _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   const children = node.children
   for (let i = 0; i < children.length; i++) {
     const child = children[i] as Node
     const childPath = `${pathBase}.${i}`
-    _materialize(child, el, disposers, childPath, mountEffect, errorHandler)
+    _materialize(child, el, disposers, childPath, mountEffect, errorHandler, registry)
   }
   host.appendChild(el)
   return [el]

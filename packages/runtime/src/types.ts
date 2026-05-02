@@ -30,6 +30,8 @@ export type ShadowMode = 'open' | 'closed' | 'none'
 
 export interface DefineOptions {
   shadowMode?: ShadowMode
+  /** When true, connectedCallback checks window.__scribe_state__[name] and calls the injected hydrate fn. Plan 3.2. */
+  hydrate?: boolean
 }
 
 /**

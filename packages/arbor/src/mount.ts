@@ -1,5 +1,4 @@
 import { type Dispose, effect } from '@scribe/signals'
-import { ArborNotImplementedError } from './errors.ts'
 import { _materialize } from './materialize.ts'
 import { _observeMount } from './telemetry.ts'
 import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
@@ -27,6 +26,11 @@ import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from '.
  * (deepest/latest first) prevents parent effects from re-running against
  * partially-cleaned children; DOM root removal happens last, after every
  * effect is torn down. Idempotent via internal `disposed` flag.
+ *
+ * Plan 3.2 — serialize(): `mount()` now maintains a `signalRegistry` map of
+ * path key → signal getter. `MountScope.serialize()` iterates the map and
+ * returns current signal values keyed by path. Replaces the v0 stub that
+ * threw `ArborNotImplementedError`.
  */
 
 // ---------------------------------------------------------------------------
@@ -149,8 +153,8 @@ export function _mountEffect(
  *   removal. Idempotent.
  * - `agent` — frozen `AgentContext` stub (sub-project #7 lands the live
  *   binding later).
- * - `serialize()` — always throws `ArborNotImplementedError` (sub-project
- *   #6 lands SSR/serialize later).
+ * - `serialize()` — returns a flat `Record<string, unknown>` with path-keyed
+ *   signal values (Plan 3.2 — sub-project #6 implemented).
  */
 export interface MountScope {
   dispose(): void
@@ -170,6 +174,9 @@ const _frozenAgent: AgentContext = Object.freeze({
  * - `options.onError` — called when `_materialize` throws synchronously
  *   during mount, or when a reactive effect throws during any run. If not
  *   provided, errors propagate as before (no swallowing).
+ *
+ * Plan 3.2: a `signalRegistry` map is maintained during materialization.
+ * `serialize()` iterates this map to return current signal values by path key.
  */
 export function mount(node: Node, host: Element | ShadowRoot, options?: MountOptions): MountScope {
   const rootId = String(_rootIdCounter++)
@@ -179,6 +186,8 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
 
   const disposers: Dispose[] = []
+  // Plan 3.2 — signal registry: maps path key → signal getter for serialize().
+  const signalRegistry = new Map<string, () => unknown>()
   let appendedRoots: globalThis.Node[] = []
   let materializeError: unknown = undefined
   let didCatch = false
@@ -186,7 +195,7 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   // Push-pop stack (spec §2.3): supports re-entrant mount() calls.
   _mountDisposersStack.push(disposers)
   try {
-    appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler)
+    appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   } catch (err: unknown) {
     if (errorHandler !== undefined) {
       didCatch = true
@@ -233,7 +242,12 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
     },
     agent: _frozenAgent,
     serialize(): Snapshot {
-      throw new ArborNotImplementedError('serialize()')
+      // Plan 3.2 — walk path → getter map and return current signal values.
+      const out: Snapshot = {}
+      for (const [path, get] of signalRegistry) {
+        out[path] = get()
+      }
+      return out
     },
   }
 }
