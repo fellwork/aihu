@@ -39,7 +39,7 @@ export function each<T>(
 /** @internal LIFO-dispose + remove DOM nodes + remove anchor. */
 export function _teardownChildScope(s: ChildScope): void {
   const d = s.disposers, a = s.appendedNodes, anc = s.anchor
-  for (let i = d.length - 1; i >= 0; i--) d[i]?.()
+  for (let i = d.length; i--;) d[i]?.()
   const p = anc.parentNode
   if (p !== null) {
     for (const n of a) if (n.parentNode === p) p.removeChild(n)
@@ -65,7 +65,7 @@ function _mc(
   _mountDisposersStack.push(cd)
   try { _materialize(tree, tmp, cd, path, mfn, eh) } finally { _mountDisposersStack.pop() }
   const ns: globalThis.Node[] = []
-  while (tmp.firstChild !== null) { const n = tmp.firstChild; ns.push(n); par.insertBefore(n, bef) }
+  while (tmp.firstChild !== null) ns.push(par.insertBefore(tmp.firstChild, bef))
   return ns
 }
 
@@ -80,7 +80,7 @@ function _reconcileWhen(
 ): void {
   const par = anc.parentNode as Element | ShadowRoot
   if (!cond[0]()) {
-    if (st.c !== null) { _teardownChildScope(st.c); st.c = null }
+    st.c && (_teardownChildScope(st.c), st.c = null)
     return
   }
   if (st.c !== null) return
@@ -102,9 +102,8 @@ function _reconcileEach(
   sc: Map<string | number, ChildScope>,
 ): void {
   const items = list[0]()
-  const keys: Array<string | number> = []
-  const ks = new Set<string | number>()
-  for (let i = 0; i < items.length; i++) { const k = kfn(items[i]); keys.push(k); ks.add(k) }
+  const keys: Array<string | number> = items.map(kfn)
+  const ks = new Set(keys)
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc) if (!ks.has(k)) { _teardownChildScope(s); sc.delete(k) }
   for (let i = 0; i < items.length; i++) {
@@ -118,15 +117,14 @@ function _reconcileEach(
         `${pb}.list.${String(k).replace(/\./g, '_')}`, mfn, eh, null) })
   }
   let ref: globalThis.Node | null = anc.nextSibling
-  for (let i = 0; i < keys.length; i++) {
-    const s = sc.get(keys[i] as string | number)
+  for (const k of keys) {
+    const s = sc.get(k)
     if (s === undefined) continue
     const nl = s.appendedNodes
     if (s.anchor !== ref) par.insertBefore(s.anchor, ref)
     else ref = s.anchor.nextSibling
     for (const n of nl) n === ref ? (ref = n.nextSibling) : par.insertBefore(n, ref)
-    const last = nl[nl.length - 1]
-    ref = last !== undefined ? last.nextSibling : s.anchor.nextSibling
+    ref = (nl[nl.length - 1] ?? s.anchor).nextSibling
   }
 }
 
@@ -147,14 +145,14 @@ export function _materializeStructural(
     const grow = node.grow as () => Node
     const st: { c: ChildScope | null } = { c: null }
     mfn(disp, () => _reconcileWhen(cond, grow, anc, pb, mfn, eh, st), `${pb}.conditional`, eh)
-    disp.push(() => { if (st.c !== null) { _teardownChildScope(st.c); st.c = null } })
+    disp.push(() => { st.c && (_teardownChildScope(st.c), st.c = null) })
   } else {
     const ls = node.list as Signal<unknown[]>
     const kf = node.keyFn as (i: unknown) => string | number
     const lg = node.listGrow as (i: unknown, idx: number) => Node
     const sc = new Map<string | number, ChildScope>()
     mfn(disp, () => _reconcileEach(ls, kf, lg, anc, pb, mfn, eh, sc), `${pb}.list`, eh)
-    disp.push(() => { for (const s of sc.values()) _teardownChildScope(s); sc.clear() })
+    disp.push(() => { sc.forEach(_teardownChildScope); sc.clear() })
   }
   return [anc]
 }

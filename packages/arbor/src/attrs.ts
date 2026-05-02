@@ -84,7 +84,7 @@ export function _applyAttrs(
     // ahead of the static-primitive path (which would `String()` the
     // function) and ahead of the array check (functions aren't
     // arrays anyway, so order vs path 2 doesn't matter).
-    if (key.startsWith('on') && typeof value === 'function' && !Array.isArray(value)) {
+    if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.slice(2).toLowerCase(), value as EventHandler)
       continue
     }
@@ -93,7 +93,7 @@ export function _applyAttrs(
     if (Array.isArray(value)) {
       const get = value[0] as () => unknown
       const path = `${pathBase}.attr:${key}`
-      if (registry !== undefined) registry.set(path, get)
+      registry?.set(path, get)
       mountEffect(
         disposers,
         () => _setAttrOrProp(el, key, get()),
@@ -120,9 +120,6 @@ export function _applyAttrs(
  * @internal
  */
 export function _setAttrOrProp(el: Element, key: string, value: unknown): void {
-  if (key in el) {
-    ;(el as unknown as Record<string, unknown>)[key] = value
-    return
-  }
-  el.setAttribute(key, String(value))
+  if (key in el) (el as unknown as Record<string, unknown>)[key] = value
+  else el.setAttribute(key, String(value))
 }

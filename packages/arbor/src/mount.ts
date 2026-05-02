@@ -162,9 +162,39 @@ export interface MountScope {
   serialize(): Snapshot
 }
 
-const _frozenAgent: AgentContext = Object.freeze({
+/** @internal — shared frozen AgentContext sentinel (also used by hydrate). */
+export const _frozenAgent: AgentContext = Object.freeze({
   _brand: 'AgentContext' as const,
 })
+
+/**
+ * Build a `MountScope` over `disposers` and `registry`. `cleanup` runs
+ * after the LIFO dispose loop; mount() uses it for DOM root removal,
+ * hydrate() omits it (DOM is left intact).
+ *
+ * @internal
+ */
+export function _makeScope(
+  disposers: Dispose[],
+  registry: Map<string, () => unknown>,
+  cleanup?: () => void,
+): MountScope {
+  let disposed = false
+  return {
+    dispose(): void {
+      if (disposed) return
+      disposed = true
+      for (let i = disposers.length; i--;) disposers[i]?.()
+      cleanup?.()
+    },
+    agent: _frozenAgent,
+    serialize(): Snapshot {
+      const out: Snapshot = {}
+      for (const [p, g] of registry) out[p] = g()
+      return out
+    },
+  }
+}
 
 /**
  * Materialize `node` into `host` synchronously and return a `MountScope`
@@ -179,8 +209,8 @@ const _frozenAgent: AgentContext = Object.freeze({
  * `serialize()` iterates this map to return current signal values by path key.
  */
 export function mount(node: Node, host: Element | ShadowRoot, options?: MountOptions): MountScope {
-  const rootId = String(_rootIdCounter++)
-  const pathBase = `${rootId}.0`
+  // Path keys per spec §2.7: `<rootId>.0` for the root call.
+  const pathBase = `${_rootIdCounter++}.0`
   const errorHandler = options?.onError
 
   _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
@@ -189,65 +219,27 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   // Plan 3.2 — signal registry: maps path key → signal getter for serialize().
   const signalRegistry = new Map<string, () => unknown>()
   let appendedRoots: globalThis.Node[] = []
-  let materializeError: unknown = undefined
-  let didCatch = false
 
-  // Push-pop stack (spec §2.3): supports re-entrant mount() calls.
+  // Push-pop stack (spec §2.3): supports re-entrant mount() calls. The single
+  // finally pop covers both the success and catch paths; if errorHandler is
+  // absent, the rethrow propagates through finally so the pop still runs.
   _mountDisposersStack.push(disposers)
   try {
     appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   } catch (err: unknown) {
-    if (errorHandler !== undefined) {
-      didCatch = true
-      materializeError = err
-    } else {
-      _mountDisposersStack.pop()
-      throw err
-    }
+    if (errorHandler === undefined) throw err
+    // Plan 1.1: any returned fallback Node is currently discarded (stub).
+    errorHandler(err, pathBase)
   } finally {
-    // Pop only if we haven't already popped in the rethrow branch.
-    if (_mountDisposersStack[_mountDisposersStack.length - 1] === disposers) {
-      _mountDisposersStack.pop()
-    }
-  }
-
-  // Handle synchronous materialize error with errorHandler.
-  if (didCatch && errorHandler !== undefined) {
-    const result = errorHandler(materializeError, pathBase)
-    if (result !== undefined) {
-      // Plan 1.1: materialize fallback here.
-      // _pendingFallback = result  (stub)
-    }
+    _mountDisposersStack.pop()
   }
 
   _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
 
-  let disposed = false
-
-  return {
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      // LIFO per spec §1.5 + Deviation 9: deepest/latest effects first.
-      for (let i = disposers.length - 1; i >= 0; i--) {
-        const dispose = disposers[i]
-        if (dispose !== undefined) dispose()
-      }
-      // DOM removal last — effects must be silent before nodes detach.
-      for (const root of appendedRoots) {
-        if (root.parentNode === host) {
-          host.removeChild(root)
-        }
-      }
-    },
-    agent: _frozenAgent,
-    serialize(): Snapshot {
-      // Plan 3.2 — walk path → getter map and return current signal values.
-      const out: Snapshot = {}
-      for (const [path, get] of signalRegistry) {
-        out[path] = get()
-      }
-      return out
-    },
-  }
+  // DOM removal runs after LIFO dispose so effects are silent first.
+  return _makeScope(disposers, signalRegistry, () => {
+    for (const root of appendedRoots) {
+      if (root.parentNode === host) host.removeChild(root)
+    }
+  })
 }

@@ -24,9 +24,9 @@
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs } from './attrs.ts'
 import { _observeMount } from './telemetry.ts'
-import { mount, _mountEffect, _mountDisposersStack } from './mount.ts'
+import { mount, _mountEffect, _mountDisposersStack, _makeScope } from './mount.ts'
 import { _materialize } from './materialize.ts'
-import type { AgentContext, Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
+import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // ---------------------------------------------------------------------------
 // Internal: path-based DOM walker
@@ -40,27 +40,17 @@ import type { AgentContext, Branch, ErrorHandler, MountOptions, Node, Snapshot }
 function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
   const map = new Map<string, Element>()
   const root = host as Element
-  if (typeof root.querySelectorAll === 'function') {
-    const all = root.querySelectorAll('[data-scribe-path]')
-    for (let i = 0; i < all.length; i++) {
-      const el = all[i]!
-      const p = el.getAttribute('data-scribe-path')
-      if (p !== null) map.set(p, el)
-    }
+  // Optional-call lets us probe both methods without typeof guards: when
+  // a method is missing, `?.()` short-circuits to undefined.
+  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
+    const p = el.getAttribute('data-scribe-path')
+    if (p !== null) map.set(p, el)
   }
   // Include host itself if it is an Element carrying the attribute.
-  if (typeof root.getAttribute === 'function') {
-    const hp = root.getAttribute('data-scribe-path')
-    if (hp !== null) map.set(hp, root)
-  }
+  const hp = root.getAttribute?.('data-scribe-path')
+  if (hp != null) map.set(hp, root)
   return map
 }
-
-/**
- * Frozen sentinel for the `agent` field — identical shape to `mount()`.
- * @internal
- */
-const _frozenAgent: AgentContext = Object.freeze({ _brand: 'AgentContext' as const })
 
 // ---------------------------------------------------------------------------
 // Internal recursive hydration walker
@@ -102,8 +92,7 @@ function _hydrateNode(
       const get = value[0] as () => unknown
       // Find the first text node in host (SSR renders text inline).
       let textNode: Text | null = null
-      for (let i = 0; i < host.childNodes.length; i++) {
-        const cn = host.childNodes[i]!
+      for (const cn of host.childNodes) {
         if (cn.nodeType === 3 /* Node.TEXT_NODE */) {
           textNode = cn as Text
           break
@@ -132,8 +121,7 @@ function _hydrateNode(
   if (node.kind === 'leaf' && node.leafKind === 'element') {
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
-    for (let i = 0; i < host.childNodes.length; i++) {
-      const cn = host.childNodes[i]!
+    for (const cn of host.childNodes) {
       if (cn.nodeType === 1 && (cn as Element).tagName === tag) {
         found = cn as Element
         break
@@ -182,9 +170,7 @@ function _hydrateNode(
   // Recurse into children.
   const children = branchNode.children
   for (let i = 0; i < children.length; i++) {
-    const child = children[i] as Node
-    const childPath = `${pathBase}.${i}`
-    _hydrateNode(child, existingEl, childPath, disposers, signalRegistry, pathMap, errorHandler)
+    _hydrateNode(children[i] as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
   }
 }
 
@@ -234,13 +220,8 @@ export function hydrate(
   } catch (err) {
     if (errorHandler !== undefined) {
       errorHandler(err, 'hydrate')
-      let disposed = false
       _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
-      return {
-        dispose() { if (!disposed) { disposed = true } },
-        agent: _frozenAgent,
-        serialize(): Snapshot { return {} },
-      }
+      return _makeScope(disposers, signalRegistry)
     }
     throw err
   }
@@ -252,23 +233,5 @@ export function hydrate(
 
   _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
 
-  let disposed = false
-  return {
-    dispose(): void {
-      if (disposed) return
-      disposed = true
-      for (let i = disposers.length - 1; i >= 0; i--) {
-        const d = disposers[i]
-        if (d !== undefined) d()
-      }
-    },
-    agent: _frozenAgent,
-    serialize(): Snapshot {
-      const out: Snapshot = {}
-      for (const [path, get] of signalRegistry) {
-        out[path] = get()
-      }
-      return out
-    },
-  }
+  return _makeScope(disposers, signalRegistry)
 }

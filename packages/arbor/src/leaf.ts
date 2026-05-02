@@ -27,16 +27,14 @@ export interface LeafFactory {
   element(tag: string, attrs?: AttrMap): Leaf
 }
 
-const leafFn = (value: Signal<string> | string): Leaf =>
+export const leaf: LeafFactory = ((value: Signal<string> | string): Leaf =>
   // shape per spec §2.9 — text leaf carries `tag: null, attrs: null`
-  ({ kind: 'leaf', leafKind: 'text', value, tag: null, attrs: null })
+  ({ kind: 'leaf', leafKind: 'text', value, tag: null, attrs: null })) as LeafFactory
 
 /**
  * `leaf.element(tag, attrs?)` — omitted `attrs` is normalized to `null`
  * before reaching the literal so the runtime shape stays locked per spec §2.9.
  */
-;(leafFn as LeafFactory).element = (tag: string, attrs?: AttrMap): Leaf =>
+leaf.element = (tag: string, attrs?: AttrMap): Leaf =>
   // shape per spec §2.9 — element leaf carries `value: null`
   ({ kind: 'leaf', leafKind: 'element', value: null, tag, attrs: attrs ?? null })
-
-export const leaf: LeafFactory = leafFn as LeafFactory
