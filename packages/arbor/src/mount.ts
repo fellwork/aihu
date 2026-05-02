@@ -184,10 +184,7 @@ export function _makeScope(
     dispose(): void {
       if (disposed) return
       disposed = true
-      for (let i = disposers.length - 1; i >= 0; i--) {
-        const d = disposers[i]
-        if (d !== undefined) d()
-      }
+      for (let i = disposers.length; i--;) disposers[i]?.()
       cleanup?.()
     },
     agent: _frozenAgent,
