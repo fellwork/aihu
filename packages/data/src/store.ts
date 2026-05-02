@@ -46,17 +46,11 @@ export function createResourceStore(): ResourceStoreWithMeta {
   const dehydratableKeys = new Set<string>()
   return {
     get: (key) => _map.get(key),
-    set: (key, state) => {
-      _map.set(key, state)
-    },
-    delete: (key) => {
-      _map.delete(key)
-    },
+    set: (key, state) => _map.set(key, state),
+    delete: (key) => _map.delete(key),
     entries: () => _map.entries(),
     dehydratableKeys,
-    markDehydratable: (key) => {
-      dehydratableKeys.add(key)
-    },
+    markDehydratable: (key) => dehydratableKeys.add(key),
   }
 }
 
