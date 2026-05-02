@@ -35,5 +35,12 @@
     "limit": "750 B",
     "gzip": true,
     "ignore": ["@scribe/signals", "@scribe/context"]
+  },
+  {
+    "name": "@scribe/agent-service",
+    "path": "packages/agent-service/dist/index.js",
+    "limit": "600 B",
+    "gzip": true,
+    "ignore": ["@scribe/agent"]
   }
 ]

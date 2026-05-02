@@ -23,6 +23,7 @@ export default defineConfig({
       '@scribe/server': new URL('./packages/server/src/index.ts', import.meta.url).pathname,
       '@scribe/agent-readiness': new URL('./packages/agent-readiness/src/index.ts', import.meta.url).pathname,
       '@scribe/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
+      '@scribe/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url).pathname,
     },
   },
 })
