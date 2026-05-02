@@ -145,14 +145,14 @@ export function _materializeStructural(
     const grow = node.grow as () => Node
     const st: { c: ChildScope | null } = { c: null }
     mfn(disp, () => _reconcileWhen(cond, grow, anc, pb, mfn, eh, st), `${pb}.conditional`, eh)
-    disp.push(() => { if (st.c !== null) { _teardownChildScope(st.c); st.c = null } })
+    disp.push(() => { st.c && (_teardownChildScope(st.c), st.c = null) })
   } else {
     const ls = node.list as Signal<unknown[]>
     const kf = node.keyFn as (i: unknown) => string | number
     const lg = node.listGrow as (i: unknown, idx: number) => Node
     const sc = new Map<string | number, ChildScope>()
     mfn(disp, () => _reconcileEach(ls, kf, lg, anc, pb, mfn, eh, sc), `${pb}.list`, eh)
-    disp.push(() => { for (const s of sc.values()) _teardownChildScope(s); sc.clear() })
+    disp.push(() => { sc.forEach(_teardownChildScope); sc.clear() })
   }
   return [anc]
 }
