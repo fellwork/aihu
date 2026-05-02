@@ -1,0 +1,132 @@
+# Amendment 02 — Block Structure Spec: Split-Bundle Compilation
+
+**Target spec:** `spec-block-structure.md`
+**Section:** §11 (Compiler Contract)
+**Type:** New subsection (§11.5)
+**Spec version impact:** 0.1.0-draft → 0.1.1-draft
+**Author:** Architect
+**Status:** Ready to apply (with one decision point — see below)
+
+---
+
+## Summary
+
+Three macros (`$server`, `$action` on forms, `@agent` block) cause the compiler to emit multiple output artifacts from a single SFC source file. The Macro Vocabulary Spec describes the function-level behavior of each, but no spec documents the structural rule that some macros cause split-bundle compilation. This amendment adds that documentation to the Block Structure Spec.
+
+---
+
+## Rationale
+
+The audit identified that split-bundle compilation is implicit in the macro specs but never formally stated as a structural concern. Compiler implementers reading the Block Structure Spec wouldn't know which macros require split-bundle handling without reading every macro spec individually.
+
+Adding a unified table in §11 makes split-bundle compilation a structural concern of the Block Structure Spec, with the macro specs providing the per-macro details.
+
+---
+
+## Decision point
+
+The amendment includes an artifact path convention. Two options for the path prefix:
+
+### Option A (recommended): `_scribe-server/` prefix
+
+Single root prefix for all framework-generated server artifacts:
+
+- `_scribe-server/actions/{component-id}/{name}.ts`
+- `_scribe-server/form-actions/{component-id}/{name}.ts`
+- `_scribe-server/mcp/{component-id}.ts`
+
+**Pros:** Single ignore pattern, single route exclusion, framework ownership explicit, no collision with user `/server/` directories.
+
+### Option B: `/server/_actions/` prefix
+
+Matches Nuxt's `/server/api/` convention:
+
+- `/server/_actions/{component-id}/{name}.ts`
+- `/server/_form-actions/{component-id}/{name}.ts`
+- `/server/_mcp/{component-id}.ts`
+
+**Pros:** Familiar to Nuxt migrants, matches existing convention.
+
+**The amendment text below uses Option A.** If you prefer Option B, replace the path strings before applying.
+
+---
+
+## Apply this change
+
+### Location
+
+In `spec-block-structure.md`, after §11.4 (Compilation order), insert as new subsection §11.5.
+
+### Insertion text
+
+```markdown
+### 11.5 Split-Bundle Compilation
+
+Some macros cause the compiler to emit multiple output artifacts from a single SFC source file. The author writes unified source; the compiler produces split outputs.
+
+| Macro | Server artifact | Client artifact |
+|---|---|---|
+| `$server` (in `@state`) | `_scribe-server/actions/{component-id}/{name}.ts` | RPC stub in component bundle |
+| `$action="..."` (on `<form>` in `@template`) | `_scribe-server/form-actions/{component-id}/{name}.ts` | Form submission handler in component bundle |
+| `@agent` block | `_scribe-server/mcp/{component-id}.ts` | (no client code; agent surface is server-only) |
+
+**Coordination guarantees:**
+
+- Split outputs are coordinated by the compiler; the SFC author writes unified source
+- The runtime ensures client code never imports server-only modules at runtime
+- Server-only imports referenced from client artifacts cause compile errors with clear source locations
+- Each split artifact's path is deterministic from the SFC's path and the macro's name
+- Generated paths are stable across builds (no hash collisions absent source changes)
+
+**Implementation requirements:**
+
+- The compiler MUST emit server artifacts only when the build target includes server output (e.g. SSR or API routes enabled)
+- The compiler MUST emit client artifacts only when the build target includes client output (e.g. SPA or hydration enabled)
+- Builds targeting only one side (e.g. static client-only) MUST elide unused server-side macro features with a warning, not a silent skip
+- Source maps MUST link generated artifacts back to the original SFC line where the macro appears
+
+**Build target definition:**
+
+The compiler operates with one of three build targets at any time:
+
+| Target | Emits |
+|---|---|
+| `client` | Client bundle only (SPA mode, static export) |
+| `server` | Server bundle only (API-only deployments) |
+| `universal` | Both bundles (SSR mode — default for pages) |
+
+The build target is specified in `scribe.config.ts` (`build.target` field) or via CLI flag (`--target`). Default for page components is `universal`.
+```
+
+---
+
+## Verification
+
+After applying, verify:
+
+- The new subsection §11.5 follows §11.4 directly
+- The table reflects the chosen path convention (Option A or B)
+- The "build target" subsection at the end of §11.5 is consistent with `scribe.config.ts` schema (which is documented in the Project Config Spec — currently not yet drafted, but the field name `build.target` is reserved here)
+- The Plugin Contract Spec §6.5.7 (Amendment 03) references this build target definition consistently
+
+---
+
+## Cross-spec implications
+
+After this amendment is applied:
+
+- **Macro Vocabulary Spec §2.12 (`$server`):** The lowering description should reference §11.5 of the Block Structure Spec for the artifact path convention. Optionally update on next spec revision.
+- **Macro Vocabulary Spec §3.11 (`$action` on forms):** Same — the lowering should reference §11.5.
+- **Macro Vocabulary Spec §5 (`@agent` block):** Same — the lowering should reference §11.5.
+- **Plugin Contract Spec §6.5 (Server-Side Contributions, Amendment 03):** This amendment depends on §11.5 being applied. Apply Amendment 02 before Amendment 03.
+
+---
+
+## Sign-off
+
+This amendment is ready to apply once the path convention decision is made.
+
+**Reviewed by:** TBD
+**Approved by:** TBD
+**Path convention chosen:** Option A / Option B (circle one)
+**Applied on:** TBD

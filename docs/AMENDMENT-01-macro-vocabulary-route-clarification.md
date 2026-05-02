@@ -1,0 +1,58 @@
+# Amendment 01 — Macro Vocabulary Spec: `@route` Block Clarification
+
+**Target spec:** `spec-macro-vocabulary.md`
+**Section:** §1 (Vocabulary Summary)
+**Type:** Addition (new note)
+**Spec version impact:** 0.1.0-draft → 0.1.1-draft
+**Author:** Architect
+**Status:** Ready to apply
+
+---
+
+## Summary
+
+The Macro Vocabulary Spec references "4 blocks" throughout, but the Block Structure Spec §7.3 introduces a fifth block, `@route`, valid only in page components. This creates an apparent inconsistency. Resolution: explicitly note that `@route` is a structural data block with no macros, and clarify that "4 blocks" refers to macro-bearing blocks.
+
+---
+
+## Rationale
+
+The audit identified that the Macro Vocabulary Spec's "4 blocks" framing doesn't acknowledge `@route`'s existence. Readers of the Macro Vocabulary Spec who later encounter `@route` in the Block Structure Spec may be confused about whether it has macros they missed.
+
+Adding a single note resolves the inconsistency without expanding the vocabulary spec's scope. The note cross-references the Block Structure Spec for full coverage of `@route`.
+
+---
+
+## Apply this change
+
+### Location
+
+In `spec-macro-vocabulary.md`, after the existing footnote about counting (the paragraph beginning "Note on counting: This spec defines 39 macro forms across 36 unique names...").
+
+### Insertion text
+
+Add the following as a new paragraph immediately after the counting footnote:
+
+```markdown
+**Note on `@route`:** A fifth structural block, `@route`, exists in scribe but contains no macros. It is valid only in page components (files under `src/pages/`) and contains route metadata as a TypeScript object literal. The `@route` block is documented in the Block Structure Spec §7.3; it is omitted from this spec's vocabulary because it is a structural data block, not a macro-bearing block. The "4 blocks" referenced throughout this spec refers to macro-bearing blocks (`@state`, `@template`, `@style`, `@agent`).
+```
+
+---
+
+## Verification
+
+After applying, verify:
+
+- The new note immediately follows the counting footnote in §1
+- No other section in the spec needs adjustment (the "4 blocks" framing is preserved)
+- The cross-reference to "Block Structure Spec §7.3" is correct (verify section number in the target spec)
+
+---
+
+## Sign-off
+
+This amendment is ready to apply.
+
+**Reviewed by:** TBD
+**Approved by:** TBD
+**Applied on:** TBD
