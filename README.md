@@ -2,11 +2,11 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.scribe` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives.
 
-> **Status:** v0 core packages complete (signals · arbor · runtime · agent). Agent-readiness packages shipped (server · agent-readiness). 255 tests passing. Rust SFC compiler is the remaining v0 → v1 gate. The reactive, DOM, and server/agent-readiness layers are stable and usable as standalone libraries today.
+> **Status:** v1 in flight — 13 of 17 v1 plans shipped. v0 core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data). Compiler v0 (`<agent>` block + scoped styles + slots) shipped. Hydration, HMR, file routing, and agent-service all live. 407 tests passing. Remaining v1 work: islands (3.3), TypeScript template type-checking (4.3), A2A/ACP adapters (5.3), v1 cutover (7.1).
 
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
-[![tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)](#)
-[![bundle](https://img.shields.io/badge/browser%20bundle-3.46%20kB%20gz-brightgreen)](#bundle-size)
+[![tests](https://img.shields.io/badge/tests-407%20passing-brightgreen)](#)
+[![packages](https://img.shields.io/badge/packages-10-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
@@ -40,9 +40,9 @@ Compare to: Solid (single-package), Lit (templating + base class only), Vue (pro
 This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
 
 Key non-goals (today):
-- **No full hydration** — `renderToString` is live in `@scribe/server`. Full serialize → client-deserialize (`MountScope.serialize()`) still throws `ArborNotImplementedError`. Planned for sub-project #6.
-- **No agent live-binding** — `MountScope.agent` returns a frozen branded stub. Planned as sub-project #7.
-- **No `when` / `each` reconciler** — both throw `ArborNotImplementedError`. v1 reconciler.
+- **No partial hydration / islands yet** — full hydration is shipped (`MountScope.serialize()` + `hydrate()`). Per-component island bundling is Plan 3.3 (in flight).
+- **No agent live-binding wiring** — `@scribe/agent-service` aggregates manifests and routes calls to bindings; the binding execution layer (5.3 — A2A/ACP adapters) is in flight.
+- **No TypeScript template type-checking yet** — Plan 4.3.
 
 ---
 
