@@ -15,7 +15,8 @@
     "name": "@scribe/arbor",
     "path": "packages/arbor/dist/index.js",
     "limit": "2200 B",
-    "gzip": true
+    "gzip": true,
+    "ignore": ["@scribe/signals"]
   },
   {
     "name": "@scribe/runtime",
