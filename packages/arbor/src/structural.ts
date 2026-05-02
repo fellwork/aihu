@@ -65,7 +65,7 @@ function _mc(
   _mountDisposersStack.push(cd)
   try { _materialize(tree, tmp, cd, path, mfn, eh) } finally { _mountDisposersStack.pop() }
   const ns: globalThis.Node[] = []
-  while (tmp.firstChild !== null) { const n = tmp.firstChild; ns.push(n); par.insertBefore(n, bef) }
+  while (tmp.firstChild !== null) ns.push(par.insertBefore(tmp.firstChild, bef))
   return ns
 }
 
