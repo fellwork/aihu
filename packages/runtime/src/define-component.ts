@@ -102,6 +102,19 @@ export function _setContext(
 }
 
 /**
+ * Module-level WeakMap that maps each element instance produced by
+ * `defineComponent` to its active `MountScope`. Used by `_hmrReplace`
+ * to dispose the old scope before re-running setup with new code.
+ *
+ * WeakMap avoids retaining elements beyond their DOM lifecycle and
+ * sidesteps esbuild's limitation with computed-symbol class field
+ * type annotations (TS `unique symbol` as class key).
+ *
+ * @internal
+ */
+const _scopes = new WeakMap<HTMLElement, _ScopeRef>()
+
+/**
  * Symbol slot for per-attribute signal map on element instances.
  * Module-level; never exported.
  * @internal
@@ -153,11 +166,14 @@ export function defineComponent(
         } finally {
           _clearSsrContextMap?.()
         }
-        this[SCOPE] = _mount(tree!, host)
+        const scope = _mount(tree!, host)
+        this[SCOPE] = scope
+        _scopes.set(this, scope)
       }
       disconnectedCallback(): void {
         this[SCOPE]?.dispose()
         this[SCOPE] = null
+        _scopes.delete(this)
       }
     }
     return Component
@@ -202,7 +218,9 @@ export function defineComponent(
       } finally {
         _clearSsrContextMap?.()
       }
-      this[SCOPE] = _mount!(tree!, host)
+      const scope = _mount!(tree!, host)
+      this[SCOPE] = scope
+      _scopes.set(this, scope)
     }
 
     attributeChangedCallback(name: string, _old: string | null, newValue: string | null): void {
@@ -214,7 +232,41 @@ export function defineComponent(
     disconnectedCallback(): void {
       this[SCOPE]?.dispose()
       this[SCOPE] = null
+      _scopes.delete(this)
     }
   }
   return Component
+}
+
+/**
+ * HMR helper — replace the setup function for a connected custom element
+ * instance without removing/re-adding it from the DOM.
+ *
+ * Steps:
+ *  1. Dispose the current `MountScope` stored in the `_scopes` WeakMap
+ *     (tears down effects and removes DOM nodes from the shadow root).
+ *  2. Re-run `newSetup(ctx)` against the same host and element refs.
+ *  3. Mount the returned tree back into the same host.
+ *
+ * Tree-shakeable by design: never called in production builds. The Vite
+ * plugin guards injection with `if (__DEV__ && import.meta.hot)`.
+ *
+ * @internal — exported for the Vite plugin injected HMR acceptance code.
+ */
+export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
+  if (_mount === null) return
+  // Dispose existing scope (tears down reactive effects and clears DOM).
+  _scopes.get(element)?.dispose()
+  _scopes.delete(element)
+
+  const host: ShadowRoot | Element = element.shadowRoot ?? element
+  const ctx: SetupContext = { host, element }
+  _setSsrContextMap?.(new Map())
+  let tree: ReturnType<Setup>
+  try {
+    tree = newSetup(ctx)
+  } finally {
+    _clearSsrContextMap?.()
+  }
+  _scopes.set(element, _mount(tree!, host))
 }
