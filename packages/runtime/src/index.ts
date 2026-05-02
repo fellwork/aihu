@@ -23,6 +23,7 @@ export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode }
  * See decision D5 (Phase 1 engineering review).
  */
 export { _setMount, _setSignal } from './define-component.ts'
+export { _setHydrate } from './define-element.ts'
 
 /**
  * HMR helper — re-runs a component's setup function in-place without

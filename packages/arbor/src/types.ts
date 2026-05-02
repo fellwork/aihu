@@ -129,7 +129,9 @@ export interface AgentContext {
 }
 
 /**
- * Sub-project #6 stub — SSR/serialize lands later. `MountScope.serialize()`
- * always throws `ArborNotImplementedError` in v0.
+ * Sub-project #6 — SSR/serialize and hydration (Plan 3.2).
+ * `MountScope.serialize()` returns a flat map of path-key → current signal
+ * value. `hydrate()` consumes a `Snapshot` (pre-parsed from JSON) to
+ * reattach reactive effects to server-rendered DOM nodes.
  */
-export type Snapshot = Record<string, never>
+export type Snapshot = Record<string, unknown>

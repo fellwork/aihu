@@ -1,6 +1,5 @@
 import { signal } from '@scribe/signals'
 import { describe, expect, it, vi } from 'vitest'
-import { ArborNotImplementedError } from '../src/errors.ts'
 import { branch, leaf } from '../src/index.ts'
 import { mount } from '../src/mount.ts'
 import { _setMountObserver, type MountTelemetry } from '../src/telemetry.ts'
@@ -73,10 +72,10 @@ describe('mount() — Task 16 spec tests', () => {
     scope.dispose()
   })
 
-  it('scope.serialize() throws ArborNotImplementedError (spec §4 Task 16 #5)', () => {
+  it('scope.serialize() returns empty record for non-reactive tree (spec §4 Task 16 #5 / Plan 3.2)', () => {
     const host = document.createElement('div')
     const scope = mount(branch('div'), host)
-    expect(() => scope.serialize()).toThrow(ArborNotImplementedError)
+    expect(scope.serialize()).toEqual({})
     scope.dispose()
   })
 })
