@@ -40,17 +40,15 @@ import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types
 function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
   const map = new Map<string, Element>()
   const root = host as Element
-  if (typeof root.querySelectorAll === 'function') {
-    for (const el of root.querySelectorAll('[data-scribe-path]')) {
-      const p = el.getAttribute('data-scribe-path')
-      if (p !== null) map.set(p, el)
-    }
+  // Optional-call lets us probe both methods without typeof guards: when
+  // a method is missing, `?.()` short-circuits to undefined.
+  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
+    const p = el.getAttribute('data-scribe-path')
+    if (p !== null) map.set(p, el)
   }
   // Include host itself if it is an Element carrying the attribute.
-  if (typeof root.getAttribute === 'function') {
-    const hp = root.getAttribute('data-scribe-path')
-    if (hp !== null) map.set(hp, root)
-  }
+  const hp = root.getAttribute?.('data-scribe-path')
+  if (hp != null) map.set(hp, root)
   return map
 }
 
