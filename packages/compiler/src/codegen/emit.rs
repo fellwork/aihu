@@ -1,5 +1,5 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{AgentBlock, Attr, CompileUnit, InputKind, TemplateNode};
+use crate::types::{AgentBlock, Attr, CompileUnit, InputKind, StyleBlock, StyleScope, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -7,11 +7,23 @@ pub struct EmitResult {
     pub manifest_json: String,
 }
 
-pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
-    if unit.source.style.is_some() {
-        eprintln!("warning: <style> block ignored in v0 output");
-    }
+fn emit_style_block(style: &StyleBlock) -> (String, String) {
+    let module_decl = format!(
+        "const __style__ = new CSSStyleSheet();\n__style__.replaceSync(`{}`);\n",
+        style.content
+    );
+    let setup_injection = match style.scope {
+        StyleScope::Scoped => {
+            "(ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];".to_string()
+        }
+        StyleScope::Global => {
+            "document.adoptedStyleSheets = [...document.adoptedStyleSheets, __style__];".to_string()
+        }
+    };
+    (module_decl, setup_injection)
+}
 
+pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     if !tag_name.contains('-') {
         eprintln!(
             "warning: tag '{}' does not contain a hyphen; custom element names must include '-'",
@@ -44,16 +56,23 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
-    let body = if script_body.is_empty() {
-        format!("  return {}\n", return_expr)
+    let (module_decl, ctx_param, style_injection) = if let Some(style) = &unit.source.style {
+        let (decl, injection) = emit_style_block(style);
+        (decl, "ctx", format!("  {}\n", injection))
     } else {
-        format!("{}\n\n  return {}\n", script_body, return_expr)
+        (String::new(), "_ctx", String::new())
+    };
+
+    let body = if script_body.is_empty() {
+        format!("{}  return {}\n", style_injection, return_expr)
+    } else {
+        format!("{}{}\n\n  return {}\n", style_injection, script_body, return_expr)
     };
 
     format!(
-        "{}\n\ndefineElement('{}', defineComponent((_ctx) => {{\n{}}}))
+        "{}\n\n{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
 ",
-        imports, tag_name, body
+        imports, module_decl, tag_name, ctx_param, body
     )
 }
 
@@ -118,7 +137,17 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "      ");
 
+    let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
+        let (decl, injection) = emit_style_block(style);
+        (decl, format!("    {}\n", injection))
+    } else {
+        (String::new(), String::new())
+    };
+
     let mut setup_body = String::new();
+    if !style_injection.is_empty() {
+        setup_body.push_str(&style_injection);
+    }
     if !agent_bindings.is_empty() {
         setup_body.push_str(&agent_bindings);
     }
@@ -144,8 +173,8 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     setup_body.push_str(&format!("    return {}\n", return_expr));
 
     format!(
-        "{}\n\ndefineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n",
-        imports, tag_name, attrs_str, setup_body
+        "{}\n\n{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n",
+        imports, module_decl, tag_name, attrs_str, setup_body
     )
 }
 

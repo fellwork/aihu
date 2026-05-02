@@ -11,7 +11,10 @@ ScribeSource {
         "<div>{{ count }}</div>",
     ),
     style: Some(
-        "div { color: red; }",
+        StyleBlock {
+            content: "div { color: red; }",
+            scope: Scoped,
+        },
     ),
     meta: ScriptMeta {
         name: None,
