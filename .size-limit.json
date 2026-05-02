@@ -42,5 +42,12 @@
     "limit": "1536 B",
     "gzip": true,
     "ignore": ["@scribe/server", "vite", "node:fs", "node:path", "node:url"]
+  },
+  {
+    "name": "@scribe/agent-service",
+    "path": "packages/agent-service/dist/index.js",
+    "limit": "600 B",
+    "gzip": true,
+    "ignore": ["@scribe/agent"]
   }
 ]
