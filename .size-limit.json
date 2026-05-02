@@ -35,5 +35,12 @@
     "limit": "750 B",
     "gzip": true,
     "ignore": ["@scribe/signals", "@scribe/context"]
+  },
+  {
+    "name": "@scribe/router",
+    "path": "packages/router/dist/index.js",
+    "limit": "1536 B",
+    "gzip": true,
+    "ignore": ["@scribe/server", "vite", "node:fs", "node:path", "node:url"]
   }
 ]

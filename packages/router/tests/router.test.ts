@@ -1,0 +1,210 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createRouter, viteRouterPlugin } from '../src/index.ts'
+import type { RouteDefinition } from '../src/index.ts'
+
+// ---------------------------------------------------------------------------
+// Helpers to build RouteDefinition fixtures
+// ---------------------------------------------------------------------------
+
+function staticRoute(pattern: string, html = '<div>page</div>'): RouteDefinition {
+  return {
+    pattern,
+    segments: pattern === '/'
+      ? []
+      : pattern.split('/').filter(Boolean).map((p) => ({ kind: 'static' as const, path: p })),
+    module: () =>
+      Promise.resolve({
+        default: { toHtml: () => html },
+      }),
+  }
+}
+
+function paramRoute(pattern: string): RouteDefinition {
+  const segments = pattern
+    .split('/')
+    .filter(Boolean)
+    .map((p) => {
+      if (p.startsWith(':')) return { kind: 'param' as const, name: p.slice(1) }
+      return { kind: 'static' as const, path: p }
+    })
+  return {
+    pattern,
+    segments,
+    module: () =>
+      Promise.resolve({
+        default: { toHtml: () => '<div>param page</div>' },
+      }),
+  }
+}
+
+function catchallRoute(prefix = ''): RouteDefinition {
+  const prefixSegs = prefix
+    ? prefix.split('/').filter(Boolean).map((p) => ({ kind: 'static' as const, path: p }))
+    : []
+  const pattern = prefix ? `${prefix}/*` : '/*'
+  return {
+    pattern,
+    segments: [...prefixSegs, { kind: 'catchall' as const }],
+    module: () =>
+      Promise.resolve({
+        default: { toHtml: () => '<div>catchall</div>' },
+      }),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('@scribe/router — createRouter', () => {
+  it('matches a static root route', () => {
+    const router = createRouter([staticRoute('/')])
+    const result = router.match('/')
+    expect(result).not.toBeNull()
+    expect(result!.params).toEqual({})
+    expect(result!.route.pattern).toBe('/')
+  })
+
+  it('matches a static nested route', () => {
+    const router = createRouter([staticRoute('/'), staticRoute('/about')])
+    const result = router.match('/about')
+    expect(result).not.toBeNull()
+    expect(result!.route.pattern).toBe('/about')
+    expect(result!.params).toEqual({})
+  })
+
+  it('extracts params from a dynamic route', () => {
+    const router = createRouter([paramRoute('/users/:id')])
+    const result = router.match('/users/42')
+    expect(result).not.toBeNull()
+    expect(result!.params).toEqual({ id: '42' })
+  })
+
+  it('extracts multiple params from a nested dynamic route', () => {
+    const router = createRouter([paramRoute('/blog/:year/:slug')])
+    const result = router.match('/blog/2024/hello-world')
+    expect(result).not.toBeNull()
+    expect(result!.params).toEqual({ year: '2024', slug: 'hello-world' })
+  })
+
+  it('returns null for unmatched pathname', () => {
+    const router = createRouter([staticRoute('/'), staticRoute('/about')])
+    const result = router.match('/unknown')
+    expect(result).toBeNull()
+  })
+
+  it('returns null when no routes are defined', () => {
+    const router = createRouter([])
+    expect(router.match('/')).toBeNull()
+    expect(router.match('/anything')).toBeNull()
+  })
+
+  it('matches catchall route and captures rest as *', () => {
+    const router = createRouter([catchallRoute('/blog')])
+    const result = router.match('/blog/2024/hello')
+    expect(result).not.toBeNull()
+    expect(result!.params['*']).toBe('2024/hello')
+  })
+
+  it('static routes take priority over dynamic', () => {
+    const router = createRouter([paramRoute('/users/:id'), staticRoute('/users/me')])
+    const result = router.match('/users/me')
+    expect(result).not.toBeNull()
+    expect(result!.route.pattern).toBe('/users/me')
+    expect(result!.params).toEqual({})
+  })
+
+  it('dynamic routes take priority over catchall', () => {
+    const router = createRouter([catchallRoute('/blog'), paramRoute('/blog/:slug')])
+    const result = router.match('/blog/hello')
+    expect(result).not.toBeNull()
+    expect(result!.route.pattern).toBe('/blog/:slug')
+    expect(result!.params).toEqual({ slug: 'hello' })
+  })
+
+  it('URL-decodes param values', () => {
+    const router = createRouter([paramRoute('/items/:name')])
+    const result = router.match('/items/hello%20world')
+    expect(result).not.toBeNull()
+    expect(result!.params['name']).toBe('hello world')
+  })
+})
+
+describe('@scribe/router — handle()', () => {
+  it('returns 200 HTML response for matched route', async () => {
+    const router = createRouter([staticRoute('/', '<p>home</p>')])
+    const req = new Request('http://localhost/')
+    const res = await router.handle(req)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toMatch(/text\/html/)
+    const body = await res.text()
+    expect(body).toContain('<p>home</p>')
+  })
+
+  it('returns 404 for unmatched route', async () => {
+    const router = createRouter([staticRoute('/')])
+    const req = new Request('http://localhost/not-found')
+    const res = await router.handle(req)
+    expect(res.status).toBe(404)
+  })
+
+  it('calls loader and injects data into response', async () => {
+    const route: RouteDefinition = {
+      pattern: '/api/:id',
+      segments: [
+        { kind: 'static', path: 'api' },
+        { kind: 'param', name: 'id' },
+      ],
+      module: () =>
+        Promise.resolve({
+          default: { toHtml: () => '<div>content</div>' },
+          loader: async (params: Record<string, string>) =>
+            ({ found: true, id: params['id'] }),
+        }),
+    }
+    const router = createRouter([route])
+    const req = new Request('http://localhost/api/99')
+    const res = await router.handle(req)
+    expect(res.status).toBe(200)
+    const body = await res.text()
+    expect(body).toContain('<div>content</div>')
+    expect(body).toContain('"found":true')
+    expect(body).toContain('"id":"99"')
+  })
+})
+
+describe('@scribe/router — viteRouterPlugin', () => {
+  it('is a valid Vite plugin with required hooks', () => {
+    const plugin = viteRouterPlugin()
+    expect(typeof plugin.name).toBe('string')
+    expect(plugin.name).toBe('scribe-router')
+    expect(typeof plugin.resolveId).toBe('function')
+    expect(typeof plugin.load).toBe('function')
+  })
+
+  it('resolves virtual:scribe-routes to internal ID', () => {
+    const plugin = viteRouterPlugin()
+    const resolved = plugin.resolveId!('virtual:scribe-routes')
+    expect(resolved).toBe('\0virtual:scribe-routes')
+  })
+
+  it('returns null for non-virtual module IDs', () => {
+    const plugin = viteRouterPlugin()
+    const resolved = plugin.resolveId!('./some-file.ts')
+    expect(resolved == null).toBe(true)
+  })
+
+  it('load returns null for non-virtual IDs', () => {
+    const plugin = viteRouterPlugin()
+    const result = plugin.load!('./not-virtual.ts')
+    expect(result == null).toBe(true)
+  })
+
+  it('accepts custom pagesDir option', () => {
+    const plugin = viteRouterPlugin({ pagesDir: 'src/pages' })
+    expect(plugin.name).toBe('scribe-router')
+    // Plugin should be constructable without errors
+    expect(plugin.resolveId).toBeDefined()
+    expect(plugin.load).toBeDefined()
+  })
+})
