@@ -1,93 +1,43 @@
-# Scribe Spec Amendments — 2026-05-02
+# scribe docs
 
-Three amendments to the scribe spec quartet, addressing inconsistencies and gaps identified in the cross-spec consistency audit.
+**Updated 2026-05-02 (v1 reconciliation session, Builder R4 migration).**
+
+The four scribe spec quartet documents and three amendments have been **ratified and migrated** to `docs/superpowers/specs/` as of 2026-05-02. This file used to serve as the spec-amendments index; that index is now superseded by the per-spec ratification headers and the applied-amendments tracking directory.
 
 ---
 
-## Files in this set
+## Authority pointers
 
-| File | Target spec | Type |
+### Spec quartet (ratified 2026-05-02)
+
+| Spec | Authority location |
+|---|---|
+| Block Structure | [`superpowers/specs/2026-05-02-spec-block-structure.md`](superpowers/specs/2026-05-02-spec-block-structure.md) |
+| Template Attribute Syntax | [`superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](superpowers/specs/2026-05-02-spec-template-attribute-syntax.md) |
+| Macro Vocabulary | [`superpowers/specs/2026-05-02-spec-macro-vocabulary.md`](superpowers/specs/2026-05-02-spec-macro-vocabulary.md) |
+| Plugin Contract | [`superpowers/specs/2026-05-02-spec-plugin-contract.md`](superpowers/specs/2026-05-02-spec-plugin-contract.md) |
+
+### Applied amendments (audit trail)
+
+| Amendment | Applied to | Audit copy |
 |---|---|---|
-| `AMENDMENT-01-macro-vocabulary-route-clarification.md` | Macro Vocabulary Spec §1 | Addition (note) |
-| `AMENDMENT-02-block-structure-split-bundle.md` | Block Structure Spec §11 | New subsection (§11.5) |
-| `AMENDMENT-03-plugin-contract-server-contributions.md` | Plugin Contract Spec | New section (§6.5) |
+| AMD-01 — `@route` clarification in Macro Vocabulary §1 | `2026-05-02-spec-macro-vocabulary.md` | [`superpowers/specs/applied-amendments/2026-05-02-AMD-01-applied.md`](superpowers/specs/applied-amendments/2026-05-02-AMD-01-applied.md) |
+| AMD-02 — Block Structure §11.5 split-bundle (Option B paths locked) | `2026-05-02-spec-block-structure.md` | [`superpowers/specs/applied-amendments/2026-05-02-AMD-02-applied.md`](superpowers/specs/applied-amendments/2026-05-02-AMD-02-applied.md) |
+| AMD-03 — Plugin Contract §6.5 server contributions (Option A provisional locked) | `2026-05-02-spec-plugin-contract.md` | [`superpowers/specs/applied-amendments/2026-05-02-AMD-03-applied.md`](superpowers/specs/applied-amendments/2026-05-02-AMD-03-applied.md) |
+
+### v1 framework plan (ratified 2026-05-02)
+
+[`superpowers/plans/2026-05-02-scribe-v1-framework.md`](superpowers/plans/2026-05-02-scribe-v1-framework.md) — covers v0.2 → v1.0 milestones with all 12 ratified decisions baked in (Q3:A layouts, Q5:B path, Q6:A middleware provisional, Q8 collapse, Q10:D Shield, Q6 router middleware Option 1, Interpretation A full syntax migration, etc.) and Director's 6 polish notes applied inline.
+
+### v0 plan (archival)
+
+[`superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md`](superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md) — TypeScript runtime family (signals → arbor → runtime → agent). All five v0 phases shipped + Rounds N+1 / N+2 / N+3 perf work. Retained for archival reference; current state lives in `state-plan-a.md` at the repo root.
 
 ---
 
-## Apply order
+## Other docs in this directory
 
-Amendments must be applied in this order due to cross-references:
-
-1. **Amendment 01** (Macro Vocabulary) — independent, can be applied first
-2. **Amendment 02** (Block Structure) — independent, must be applied before Amendment 03
-3. **Amendment 03** (Plugin Contract) — depends on Amendment 02
-
----
-
-## Decision points (require user input before applying)
-
-### Amendment 02
-- **Path convention:** Choose Option A (`_scribe-server/` prefix, recommended) or Option B (`/server/_actions/` prefix). See §"Decision point" in the amendment file.
-
-### Amendment 03
-- **Provisional status:** Choose Option A (mark §6.5.3 middleware as provisional, recommended) or Option B (commit as stable v1 surface). See §"Decision point" in the amendment file.
-
----
-
-## What the amendments fix
-
-### Amendment 01 — `@route` block clarification
-
-The Macro Vocabulary Spec references "4 blocks" throughout, but the Block Structure Spec §7.3 introduces a fifth block (`@route`) valid only in pages. Amendment 01 adds a single explanatory note resolving the apparent inconsistency. The note clarifies that `@route` is a structural data block with no macros, so it's outside the macro vocabulary's scope.
-
-### Amendment 02 — Split-bundle compilation
-
-Three macros (`$server`, `$action` on forms, `@agent` block) cause the compiler to emit multiple output artifacts from a single SFC. The Macro Vocabulary Spec describes the function-level behavior of each, but no spec previously documented this as a structural rule. Amendment 02 adds §11.5 to the Block Structure Spec with:
-
-- A unified table of which macros cause split compilation
-- Coordination guarantees (path determinism, runtime invariants)
-- Implementation requirements for build-target awareness
-- A formal definition of the three build targets (client / server / universal)
-
-### Amendment 03 — Server-side plugin contributions
-
-The Plugin Contract Spec didn't previously address server-side contributions, even though real plugins (auth, data, forms) need them. Amendment 03 adds §6.5 covering:
-
-- Server-only runtime helpers (§6.5.1)
-- Server-emitting plugin macros via `serverOnly: true` (§6.5.2)
-- Server middleware contributions (§6.5.3, marked provisional)
-- Build coordination rules (§6.5.4)
-- Configuration access (§6.5.5)
-- Error cases (§6.5.6)
-- Build target awareness for plugins (§6.5.7)
-
----
-
-## Spec version impact
-
-All three amendments bump the affected spec from `0.1.0-draft` to `0.1.1-draft`. None of them are breaking changes against the v0.1.0 drafts because the drafts haven't been finalized yet.
-
-If applying after the specs are finalized to v1.0, these would be minor version bumps (1.0 → 1.1) since they only add to existing surfaces.
-
----
-
-## After applying
-
-Once all three amendments are applied:
-
-- The spec quartet (Block Structure, Template Attribute Syntax, Macro Vocabulary, Plugin Contract) will be internally consistent
-- Compiler implementers will have a unified picture of split-bundle compilation
-- Plugin authors will have formal guidance for server-side contributions
-- The `@route` reference in the Macro Vocabulary Spec will no longer appear inconsistent
-
----
-
-## What's NOT in these amendments
-
-A few items from the audit are intentionally deferred:
-
-- **`componentAliases` config option** referenced in Plugin Contract §6.2 but not formally defined. Will be addressed in the Project Config Spec (not yet drafted).
-- **Cross-spec terminology alignment** ("route handler" vs "page" vs "route component"). Worth a glossary pass on a future spec revision.
-- **Visual review of the Macro Vocabulary §1 footnote cluster.** Amendment 01's new note may visually conflict with the existing counting footnote; needs a quick visual check after applying.
-
-These are minor and don't block the amendment set.
+- [`grammar.md`](grammar.md) — historical grammar reference
+- [`tthw-log.md`](tthw-log.md) — tthw session log
+- [`superpowers/`](superpowers/) — ratified plans + specs
+- [`topic-director-notes/`](topic-director-notes/) — topic-director session notes

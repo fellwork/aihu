@@ -132,3 +132,64 @@ Round N+2 (deferred): (1) browser-native arbor bench for solid-js and @vue/runti
 - Bench-spike playbook: `.team/phase-2-5-bench-spike.md`
 - Cross-review: `.team/plan-a-cross-review-2026-04-29.md`
 - Director-notes: `docs/topic-director-notes/plan-a-2026-04-30.md` (Round N route), `docs/topic-director-notes/plan-a-2026-04-30-round-N-post-phase-4.md` (Round N+1 setup)
+
+---
+
+## v1-reconciliation session — CLOSED
+
+**Closed 2026-05-02.** Multi-round Mode-2 planning session producing the
+ratified v1 framework plan and spec quartet authority migration.
+
+| Round | Output | Branch / commit |
+|---|---|---|
+| Director session-start | `.team/v1-reconciliation/director-note-session-start.md` | initial direction |
+| Scout R1 (state map + Nuxt/Next gap) | `.team/v1-reconciliation/scout-report.md` | initial state at HEAD 7fa0957 |
+| Architect R2 (initial roadmap draft) | `.team/v1-reconciliation/roadmap-draft.md` | superseded by R2.1 |
+| Director Q6 research | `.team/v1-reconciliation/director-q6-research.md` | router middleware Option 1 |
+| Investigator (`@route` + build-target) | `.team/v1-reconciliation/investigation-route-and-target.md` | both GAP, ~3-6 days |
+| Scout R3 (spec quartet alignment) | `.team/v1-reconciliation/scout-spec-quartet-alignment.md` | ~62/95 GAP |
+| Architect R2.1 (v0.2→1.0 roadmap) | `.team/v1-reconciliation/roadmap-v1.md` → `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md` | moved at Builder R4 |
+| Director validation | `.team/v1-reconciliation/director-r3-validation.md` | VALIDATE-WITH-NOTES (6 polish notes) |
+| Builder R4 (migration) | this commit | spec quartet to `docs/superpowers/specs/`; 6 polish notes applied inline |
+
+**User decisions ratified:**
+- Q3:A file-based layouts; Q5:B path convention `/server/_actions/`;
+  Q6:A middleware provisional; Q8 collapse (ratify Plugin Contract Spec);
+  Q10:D compiler-lowered Shield (`createShieldBoundary` helper);
+  Q6 router middleware Option 1 (isomorphic, +256 B router limit raise
+  sequenced for v0.7); Interpretation A full syntax migration; milestone
+  shape 0.2→0.9→1.0; `docs/site/` Markdown; Naming Scheme A on Plugin
+  Contract internals only.
+
+**Key findings:**
+- Spec quartet ~62/95 GAP from current scribe code; full syntax migration is a redesign, not extension
+- v3 dep-free thesis (Learning #49) audit: scribe is essentially compliant at runtime today; only HMR client and select build-time tooling remain on Vite
+- Router middleware Option 1 (isomorphic) keeps client-side nav guards inside `@scribe/*` (Option 2 would have pushed consumers to npm router-middleware libs)
+- `<$shield>` is the spec quartet's name for ErrorBoundary; Approach D compiler-lowering keeps cost ~5-15 B framework-wide
+
+**Learnings added (during this session):** none yet — Historian close adds them.
+
+**Open follow-ups (assigned to v1 milestones in roadmap):**
+- arbor 15 B regression cleanup → v0.2.3
+- router +256 B limit raise → v0.7.1
+- runtime Compressor pass → conditional on v0.4 macro attribute landings (pre-authorized per Polish Note 5)
+- build-path consistency canonical naming → v0.2.5
+- CI re-enable → v1.0.1
+
+Plan at `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`. Spec
+quartet ratified at `docs/superpowers/specs/2026-05-02-spec-{block-structure,
+template-attribute-syntax,macro-vocabulary,plugin-contract}.md`. Amendments
+applied inline (Builder R4 path A choice — AMD-01 and AMD-03 were already
+applied in spec text before migration; AMD-02 applied during migration with
+**Option B path convention locked**). Audit copies of all three amendments at
+`docs/superpowers/specs/applied-amendments/`.
+
+### Durable references (v1)
+
+- v1 framework plan: `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`
+- Spec quartet authority: `docs/superpowers/specs/2026-05-02-spec-{block-structure,template-attribute-syntax,macro-vocabulary,plugin-contract}.md`
+- Applied amendments audit: `docs/superpowers/specs/applied-amendments/2026-05-02-AMD-{01,02,03}-applied.md`
+- Spec-amendments redirect: `docs/README.md`
+- Director validation: `.team/v1-reconciliation/director-r3-validation.md`
+- Architect R2.1 source draft: migrated (was `.team/v1-reconciliation/roadmap-v1.md`; now `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`)
+
