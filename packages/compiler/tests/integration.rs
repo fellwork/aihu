@@ -113,3 +113,38 @@ fn no_agent_block_manifest_empty_integration() {
     let result = emit(&unit, "scribe-counter");
     assert!(result.manifest_json.is_empty());
 }
+
+#[test]
+fn style_scoped_emits_css_stylesheet() {
+    let source = r#"<script setup lang="ts" name="styled-counter">
+export default function() { return []; }
+</script>
+<template><div></div></template>
+<style>
+.card { color: red; }
+</style>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "styled-counter");
+    assert!(result.js.contains("new CSSStyleSheet()"), "should emit CSSStyleSheet");
+    assert!(result.js.contains("replaceSync("), "should call replaceSync");
+    assert!(result.js.contains("adoptedStyleSheets = [__style__]"), "should wire shadow adoptedStyleSheets");
+    assert!(!result.js.contains("document.adoptedStyleSheets"), "scoped should not touch document");
+}
+
+#[test]
+fn style_global_emits_document_adopted() {
+    let source = r#"<script setup lang="ts" name="global-styled">
+export default function() { return []; }
+</script>
+<template><div></div></template>
+<style global>
+body { margin: 0; }
+</style>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "global-styled");
+    assert!(result.js.contains("new CSSStyleSheet()"), "should emit CSSStyleSheet");
+    assert!(result.js.contains("document.adoptedStyleSheets"), "global should use document");
+    assert!(!result.js.contains("ShadowRoot"), "global should not reference ShadowRoot");
+}

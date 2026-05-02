@@ -1,8 +1,20 @@
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StyleScope {
+    Scoped,
+    Global,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StyleBlock<'a> {
+    pub content: &'a str,
+    pub scope: StyleScope,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScribeSource<'a> {
     pub script: Option<&'a str>,
     pub template: Option<&'a str>,
-    pub style: Option<&'a str>,
+    pub style: Option<StyleBlock<'a>>,
     pub meta: ScriptMeta,
     pub agent: Option<AgentBlock>,
 }

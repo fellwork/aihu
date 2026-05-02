@@ -1,4 +1,4 @@
-use crate::types::{CompileError, ScribeSource, ScriptMeta};
+use crate::types::{CompileError, ScribeSource, ScriptMeta, StyleBlock, StyleScope};
 
 /// Extract the `name="..."` attribute from a `<script setup ...>` tag.
 fn extract_script_meta(tag_text: &str) -> ScriptMeta {
@@ -110,7 +110,7 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, usize)> {
 pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
-    let mut style: Option<&str> = None;
+    let mut style: Option<StyleBlock> = None;
     let mut meta = ScriptMeta { name: None };
     let mut agent_raw: Option<&str> = None;
 
@@ -189,6 +189,12 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     ..Default::default()
                 })?;
                 let open_tag_end = open_start + tag_close_rel + 1;
+                let tag_text = &source[open_start..open_tag_end];
+                let scope = if tag_text.contains(" global") {
+                    StyleScope::Global
+                } else {
+                    StyleScope::Scoped
+                };
                 let content_start = open_tag_end;
 
                 let close_pos =
@@ -208,7 +214,10 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                         ..Default::default()
                     });
                 }
-                style = Some(source[content_start..close_pos].trim());
+                style = Some(StyleBlock {
+                    content: source[content_start..close_pos].trim(),
+                    scope,
+                });
                 pos = close_pos + "</style>".len();
             }
 
