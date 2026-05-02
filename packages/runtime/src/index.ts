@@ -33,3 +33,12 @@ export { _setHydrate } from './define-element.ts'
  * @internal
  */
 export { _hmrReplace } from './define-component.ts'
+
+/**
+ * Defer-hydration helper — Plan 3.3 (Islands). Imported only when the
+ * compiler emits `defer`-aware hydration glue, so static islands and eager
+ * interactive islands tree-shake it out of their bundles.
+ *
+ * @internal
+ */
+export { _hydrateOnVisible } from './hydrate-on-visible.ts'
