@@ -84,7 +84,7 @@ export function _applyAttrs(
     // ahead of the static-primitive path (which would `String()` the
     // function) and ahead of the array check (functions aren't
     // arrays anyway, so order vs path 2 doesn't matter).
-    if (key.startsWith('on') && typeof value === 'function' && !Array.isArray(value)) {
+    if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.slice(2).toLowerCase(), value as EventHandler)
       continue
     }
