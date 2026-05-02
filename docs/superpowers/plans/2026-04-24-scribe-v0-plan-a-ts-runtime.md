@@ -1,5 +1,7 @@
 # scribe v0 — Plan A: TypeScript Runtime Family Implementation Plan
 
+> **Status (updated 2026-05-02):** All five v0 phases shipped. Phase 4 (`@scribe/runtime`) and Phase 5 (`@scribe/agent`) landed cleanly; subsequent rounds (N+1 bench infrastructure, N+2 perf primitives, N+3 fusion α) layered substantial improvements on top. This plan is retained for archival reference. **For current state — what shipped, open items, learnings, bench leadership — see [state-plan-a.md](../../../state-plan-a.md).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship four TypeScript packages (`@scribe/signals`, `@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`) that together let a developer hand-write reactive custom elements with signals, mount them in a browser, and retrieve static agent metadata — all within a ~4 KB gzipped bundle, with a full test pyramid running in CI.
