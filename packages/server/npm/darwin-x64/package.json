@@ -1,0 +1,9 @@
+{
+  "name": "@scribe/server-darwin-x64",
+  "version": "0.1.0",
+  "license": "MIT",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "main": "server-native.darwin-x64.node",
+  "files": ["server-native.darwin-x64.node"]
+}
