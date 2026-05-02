@@ -222,35 +222,19 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   // Plan 3.2 — signal registry: maps path key → signal getter for serialize().
   const signalRegistry = new Map<string, () => unknown>()
   let appendedRoots: globalThis.Node[] = []
-  let materializeError: unknown = undefined
-  let didCatch = false
 
-  // Push-pop stack (spec §2.3): supports re-entrant mount() calls.
+  // Push-pop stack (spec §2.3): supports re-entrant mount() calls. The single
+  // finally pop covers both the success and catch paths; if errorHandler is
+  // absent, the rethrow propagates through finally so the pop still runs.
   _mountDisposersStack.push(disposers)
   try {
     appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   } catch (err: unknown) {
-    if (errorHandler !== undefined) {
-      didCatch = true
-      materializeError = err
-    } else {
-      _mountDisposersStack.pop()
-      throw err
-    }
+    if (errorHandler === undefined) throw err
+    // Plan 1.1: any returned fallback Node is currently discarded (stub).
+    errorHandler(err, pathBase)
   } finally {
-    // Pop only if we haven't already popped in the rethrow branch.
-    if (_mountDisposersStack[_mountDisposersStack.length - 1] === disposers) {
-      _mountDisposersStack.pop()
-    }
-  }
-
-  // Handle synchronous materialize error with errorHandler.
-  if (didCatch && errorHandler !== undefined) {
-    const result = errorHandler(materializeError, pathBase)
-    if (result !== undefined) {
-      // Plan 1.1: materialize fallback here.
-      // _pendingFallback = result  (stub)
-    }
+    _mountDisposersStack.pop()
   }
 
   _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
