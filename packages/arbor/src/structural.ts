@@ -80,7 +80,7 @@ function _reconcileWhen(
 ): void {
   const par = anc.parentNode as Element | ShadowRoot
   if (!cond[0]()) {
-    if (st.c !== null) { _teardownChildScope(st.c); st.c = null }
+    st.c && (_teardownChildScope(st.c), st.c = null)
     return
   }
   if (st.c !== null) return
