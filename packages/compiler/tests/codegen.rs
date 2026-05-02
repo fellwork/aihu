@@ -201,6 +201,40 @@ fn static_attr_passthrough() {
     insta::assert_snapshot!(output.js);
 }
 
+// ─── Plan 1.4: slot codegen ───────────────────────────────────────────────
+
+#[test]
+fn slot_default_codegen() {
+    // <slot></slot> → slot() call in emitted JS
+    let src = "<template><div><slot></slot></div></template>";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-slot");
+    assert!(
+        output.js.contains("slot()"),
+        "default slot must emit slot()"
+    );
+    assert!(
+        !output.js.contains("branch('slot'"),
+        "slot must not be emitted as branch"
+    );
+    insta::assert_snapshot!(output.js);
+}
+
+#[test]
+fn slot_named_codegen() {
+    // <slot name="header"></slot> → slot('header') call in emitted JS
+    let src = "<template><div><slot name=\"header\"></slot></div></template>";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-named-slot");
+    assert!(
+        output.js.contains("slot('header')"),
+        "named slot must emit slot('header')"
+    );
+    insta::assert_snapshot!(output.js);
+}
+
 // ─── A-4b: multiline import state machine ─────────────────────────────────
 
 #[test]

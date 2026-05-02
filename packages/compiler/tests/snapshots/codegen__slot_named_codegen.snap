@@ -1,13 +1,13 @@
 ---
 source: tests/codegen.rs
-assertion_line: 106
+assertion_line: 235
 expression: output.js
 ---
 import { branch, leaf, slot } from '@scribe/arbor'
 import { defineComponent, defineElement } from '@scribe/runtime'
 
-defineElement('x-head', defineComponent((_ctx) => {
-  const title = 'hello'
-
-  return branch('h1', undefined, [leaf(title)])
+defineElement('x-named-slot', defineComponent((_ctx) => {
+  return branch('div', undefined, [
+    slot('header')
+  ])
 }))

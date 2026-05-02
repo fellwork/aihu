@@ -79,13 +79,13 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
 fn build_function_imports(signal_map: &SignalMap) -> String {
     if signal_map.0.is_empty() {
         [
-            "import { branch, leaf } from '@scribe/arbor'",
+            "import { branch, leaf, slot } from '@scribe/arbor'",
             "import { defineComponent, defineElement } from '@scribe/runtime'",
         ]
         .join("\n")
     } else {
         [
-            "import { branch, leaf } from '@scribe/arbor'",
+            "import { branch, leaf, slot } from '@scribe/arbor'",
             "import type { Signal } from '@scribe/signals'",
             "import { signal } from '@scribe/signals'",
             "import { defineComponent, defineElement } from '@scribe/runtime'",
@@ -105,7 +105,7 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         )
     });
 
-    let mut import_lines: Vec<&str> = vec!["import { branch, leaf } from '@scribe/arbor'"];
+    let mut import_lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
 
     // computed import if needed for number/boolean/enum coercions
     if needs_computed {
@@ -433,6 +433,20 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             attrs,
             children,
         } => {
+            // <slot> / <slot name="x"> — content projection via Shadow DOM.
+            // Emits slot() or slot('name') rather than branch()/leaf.element().
+            if tag == "slot" {
+                let name_attr = attrs.iter().find_map(|a| match a {
+                    crate::types::Attr::Static { name, value } if name == "name" => {
+                        Some(value.as_str())
+                    }
+                    _ => None,
+                });
+                return match name_attr {
+                    Some(n) => format!("slot('{}')", n),
+                    None => "slot()".to_string(),
+                };
+            }
             let attrs_str = emit_attrs(attrs);
             let has_element_child = children
                 .iter()
