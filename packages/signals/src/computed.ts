@@ -1,12 +1,12 @@
 import { SignalCircularError } from './errors.ts'
 import {
   __HOST,
+  currentObserver,
   DISPOSED,
   EFFECT,
   type Link,
   linkAdd,
   MARKED,
-  peekCurrentObserver,
   PENDING,
   type Read,
   RUNNING,
@@ -119,7 +119,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
 
   const read: Read<T> & { [__HOST]?: Subscriber } = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
-    const observer = peekCurrentObserver()
+    const observer = currentObserver
     if (observer !== null) {
       const added = linkAdd(node, observer)
       if (added && (observer.flags & EFFECT) !== 0) node.hasEffectSub = true

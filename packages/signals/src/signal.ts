@@ -78,19 +78,15 @@ export interface Subscriber {
 /** @internal — combined mark flags for inner chase path. */
 export const MARKED_PENDING = MARKED | PENDING
 
-/** @internal */
-let currentObserver: Subscriber | null = null
+/** @internal — current reactive observer (live binding). Read directly
+ * via the ESM live-binding semantics; write via setCurrentObserver. */
+export let currentObserver: Subscriber | null = null
 
 /** @internal */
 export function setCurrentObserver(next: Subscriber | null): Subscriber | null {
   const prev = currentObserver
   currentObserver = next
   return prev
-}
-
-/** @internal */
-export function peekCurrentObserver(): Subscriber | null {
-  return currentObserver
 }
 
 /**
