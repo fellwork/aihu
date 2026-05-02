@@ -1,4 +1,4 @@
-import { batch, boolLatticeSignal, effect, signal } from '@scribe/signals'
+import { batch, boolLatticeSignal, effect, maxLatticeSignal, signal, untrack } from '@scribe/signals'
 import type { Signal } from '@scribe/signals'
 import { inject } from '@scribe/context'
 import { ResourceStoreToken, createResourceStore } from './store.ts'
@@ -68,18 +68,29 @@ export function createResource<T>(
   let _staleSignal = boolLatticeSignal(false)
 
   // 5. Active fetch guard — prevents a stale Promise from overwriting newer
-  //    state. Incremented on every new fetch start (including refetch).
-  let _fetchId = 0
+  //    state. maxLatticeSignal gives explicit monotonic semantics; the bump
+  //    runs through untrack() because the signal is mutated inside the
+  //    effect below — subscribing the effect to its own version would be a
+  //    bug (and would throw SignalCircularError on the self-write). Async
+  //    .then callbacks run outside any tracking scope, so direct read() is
+  //    safe there.
+  const _v = maxLatticeSignal(0)
+  const _bump = (): number => untrack(() => {
+    const n = _v.read() + 1
+    _v.merge(n)
+    _v.commit()
+    return n
+  })
 
   // 6. Internal helper: start a fetch for a given key, writing loading/ready/error.
   function _startFetch(fetchKey: string): void {
     _staleSignal = boolLatticeSignal(false)
-    const fetchId = ++_fetchId
+    const fetchId = _bump()
     setState({ status: 'loading' })
 
     fetcher(fetchKey).then(
       (data) => {
-        if (fetchId !== _fetchId) return // superseded by a newer fetch
+        if (fetchId !== _v.read()) return // superseded by a newer fetch
         const next: DataState<T> = { status: 'ready', data }
         store.set(fetchKey, next as DataState<unknown>)
         // If dehydrate: true, mark this key as dehydration-eligible.
@@ -90,7 +101,7 @@ export function createResource<T>(
         setState(next)
       },
       (error: unknown) => {
-        if (fetchId !== _fetchId) return
+        if (fetchId !== _v.read()) return
         const next: DataState<T> = { status: 'error', error }
         store.set(fetchKey, next as DataState<unknown>)
         setState(next)
@@ -108,7 +119,7 @@ export function createResource<T>(
     if (currentKey == null) {
       // Null/undefined key → idle. Any in-flight fetch is effectively
       // abandoned (its fetchId will be stale when it resolves).
-      _fetchId++ // invalidate any in-flight fetch
+      _bump() // invalidate any in-flight fetch
       setState({ status: 'idle' })
       return
     }

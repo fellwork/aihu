@@ -32,3 +32,7 @@ export function latticeSignal<T>(mergeFn: (a: T, b: T) => T, initial: T): Lattic
 export function boolLatticeSignal(initial: boolean): LatticeSignal<boolean> {
   return latticeSignal((a, b) => a || b, initial)
 }
+
+export function maxLatticeSignal(initial: number): LatticeSignal<number> {
+  return latticeSignal((a, b) => (a > b ? a : b), initial)
+}
