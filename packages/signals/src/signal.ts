@@ -434,13 +434,6 @@ export function drainBatch(): void {
   throwEffectErrors(errors)
 }
 
-/** @internal */
-function enqueueIfNeeded(sub: Subscriber): void {
-  if (sub.flags & QUEUED) return
-  sub.flags |= QUEUED
-  batchQueue.push(sub)
-}
-
 export type Read<T> = () => T
 /**
  * Write a new value or apply an updater function. The runtime
@@ -510,15 +503,16 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     const head = host.subsHead
     if (head === null) return
     if (batchDepth > 0) {
-      // Single-sub fast path (batched-writes-100 hot case): one sub, no
-      // loop, no second pointer chase.
-      if (head.nextSub === null) {
-        enqueueIfNeeded(head.sub)
-        return
+      // Walk the live list. Single-sub case is a 1-iter walk; the prior
+      // dedicated fast path saved no observable bytes after minify.
+      // (Effects can dispose themselves mid-flush; wave counter handles
+      // re-enqueue.)
+      for (let l: Link | null = head; l !== null; l = l.nextSub) {
+        const s = l.sub
+        if (s.flags & QUEUED) continue
+        s.flags |= QUEUED
+        batchQueue.push(s)
       }
-      // Multi-sub fan-out: walk the live list. (Effects can dispose
-      // themselves mid-flush; the wave counter handles re-enqueue.)
-      for (let l: Link | null = head; l !== null; l = l.nextSub) enqueueIfNeeded(l.sub)
       return
     }
     wave++
