@@ -7,9 +7,6 @@
  */
 export class ArborError extends Error {
   override name = 'ArborError'
-  constructor(message: string) {
-    super(message)
-  }
 }
 
 /**
