@@ -124,8 +124,7 @@ function _reconcileEach(
     if (s.anchor !== ref) par.insertBefore(s.anchor, ref)
     else ref = s.anchor.nextSibling
     for (const n of nl) n === ref ? (ref = n.nextSibling) : par.insertBefore(n, ref)
-    const last = nl[nl.length - 1]
-    ref = last !== undefined ? last.nextSibling : s.anchor.nextSibling
+    ref = (nl[nl.length - 1] ?? s.anchor).nextSibling
   }
 }
 
