@@ -41,9 +41,7 @@ function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
   const map = new Map<string, Element>()
   const root = host as Element
   if (typeof root.querySelectorAll === 'function') {
-    const all = root.querySelectorAll('[data-scribe-path]')
-    for (let i = 0; i < all.length; i++) {
-      const el = all[i]!
+    for (const el of root.querySelectorAll('[data-scribe-path]')) {
       const p = el.getAttribute('data-scribe-path')
       if (p !== null) map.set(p, el)
     }
@@ -96,8 +94,7 @@ function _hydrateNode(
       const get = value[0] as () => unknown
       // Find the first text node in host (SSR renders text inline).
       let textNode: Text | null = null
-      for (let i = 0; i < host.childNodes.length; i++) {
-        const cn = host.childNodes[i]!
+      for (const cn of host.childNodes) {
         if (cn.nodeType === 3 /* Node.TEXT_NODE */) {
           textNode = cn as Text
           break
@@ -126,8 +123,7 @@ function _hydrateNode(
   if (node.kind === 'leaf' && node.leafKind === 'element') {
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
-    for (let i = 0; i < host.childNodes.length; i++) {
-      const cn = host.childNodes[i]!
+    for (const cn of host.childNodes) {
       if (cn.nodeType === 1 && (cn as Element).tagName === tag) {
         found = cn as Element
         break
