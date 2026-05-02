@@ -5,22 +5,9 @@ import { ResourceStoreToken, createResourceStore } from './store.ts'
 import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 import type { DataState, Resource, ResourceHandle, ResourceOptions } from './types.ts'
 
-// ---------------------------------------------------------------------------
-// Module-level default singleton store
-// ---------------------------------------------------------------------------
-//
-// Priority for store resolution in createResource:
-//   1. options.store             (explicit, highest priority)
-//   2. inject(ResourceStoreToken) from @scribe/context  (context-provided)
-//   3. module-level singleton    (fallback, lowest priority)
-//
-// The singleton is lazy-initialized on first use.
-let _defaultStore: ResourceStore | null = null
-
-function getDefaultStore(): ResourceStore {
-  if (_defaultStore === null) _defaultStore = createResourceStore()
-  return _defaultStore
-}
+// Module-level default singleton store, lazy-initialized on first use.
+// Priority in createResource: options.store → inject(ResourceStoreToken) → this.
+let _defaultStore: ResourceStore | undefined
 
 /**
  * Create a reactive data resource.
@@ -51,7 +38,7 @@ export function createResource<T>(
   const store: ResourceStore =
     options?.store ??
     inject(ResourceStoreToken) ??
-    getDefaultStore()
+    (_defaultStore ??= createResourceStore())
 
   // 2. Determine initial state.
   const initialState: DataState<T> =
