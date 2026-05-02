@@ -100,7 +100,6 @@ export const MAX_BATCH_ITERATIONS = 100
 
 /** @internal */ let batchDepth = 0
 /** @internal */ const batchQueue: Subscriber[] = []
-const visited: Subscriber[] = []
 const effectQueue: Subscriber[] = []
 /**
  * @internal — monotonic wave counter. Incremented at the start of every
@@ -222,10 +221,14 @@ function markOne(root: Subscriber): void {
       let head = sub.subsHead
       if (head === null) { sub.flags |= STALE; continue }
       if (head.nextSub !== null) {
-        visited.push(sub)
         sub.flags |= STALE
         for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-          markStack.push(l.sub)
+          // α: pre-flag effect children with PENDING so drainEffectQueue
+          // gates the dep-settle walk on PENDING (skips for direct-signal
+          // effects whose deps never need settling).
+          const child = l.sub
+          if (child.flags & EFFECT) child.flags |= PENDING
+          markStack.push(child)
         }
         continue
       }
@@ -244,10 +247,13 @@ function markOne(root: Subscriber): void {
         head = sub.subsHead
         if (head === null) { sub.flags |= STALE; break }
         if (head.nextSub !== null) {
-          visited.push(sub)
           sub.flags |= STALE
           for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
-            markStack.push(l.sub)
+            // α: pre-flag effect children with PENDING (mirror outer-loop
+            // fan-out push site). drainEffectQueue gates dep-settle on PENDING.
+            const child = l.sub
+            if (child.flags & EFFECT) child.flags |= PENDING
+            markStack.push(child)
           }
           break
         }
@@ -279,40 +285,6 @@ export function shallowClear(head: Link | null): void {
   }
 }
 
-/** @internal — Option D pull-based dirtiness check for PENDING nodes.
- * Iteratively walks the dep chain of `root` backward through PENDING
- * computeds until a definitively dirty source (STALE dep, or signal
- * written in current wave) is found, or all paths are clean.
- * Clears PENDING eagerly on the false path.
- * Returns true if the effect should run; false if the chain is clean. */
-function checkDirty(root: Subscriber): boolean {
-  const stack: Subscriber[] = [root]
-  while (stack.length > 0) {
-    const node = stack.pop() as Subscriber
-    for (let l = node.depsHead; l !== null; l = l.nextDep) {
-      const dep = l.dep
-      if (dep.flags & STALE) return true
-      if (dep.flags & PENDING) {
-        // Do NOT clear PENDING here — the settle step in drainEffectQueue
-        // needs PENDING to be set so recomputeIfNeeded runs and cascade
-        // suppression (shallowClear) can fire. PENDING is cleared by
-        // recompute() when the node is actually recomputed.
-        stack.push(dep)
-        continue
-      }
-      // Signal source: dirty if written in the current wave.
-      // Site D (K1c+ K-1): HOST flag explicitly classifies signal sources
-      // (per spec-6.2-phase3.md §3.3 / §4.7). Replaces the H5
-      // `recomputeIfNeeded === undefined` idiom — under prototype methods
-      // Effect instances also lack the method, so the H5 idiom would
-      // misclassify them; the HOST bit decouples role detection from
-      // prototype-chain coincidence.
-      if ((dep.flags & HOST) && dep.lastWave === wave) return true
-    }
-  }
-  return false
-}
-
 /**
  * @internal — drain effectQueue, isolating user-thrown errors. Each
  * effect's `notify()` is wrapped in try/catch so a single thrown effect
@@ -323,15 +295,13 @@ function drainEffectQueue(errors: unknown[]): void {
   for (const sub of effectQueue) {
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
-    // Option D: if effect arrived via lazy linear path, verify dirtiness.
+    // α (Round N+3 fusion): pull-on-demand settle is the SOLE settle path.
+    // Eager fan-out visited-walk deleted. PENDING is set at mark time on
+    // every effect that arrived through a fan-out STALE parent OR a linear
+    // PENDING chase — i.e., any path where a direct dep may need recompute.
+    // Direct-signal effects (no PENDING) skip the dep-walk entirely.
     if (sub.flags & PENDING) {
       sub.flags &= ~PENDING
-      if (!checkDirty(sub)) {
-        sub.flags &= ~MARKED
-        continue   // chain is clean — skip effect body
-      }
-      // Settle PENDING direct deps so equality-suppression (shallowClear) can
-      // clear MARKED on this effect before we check it below.
       for (let l = sub.depsHead; l !== null; l = l.nextDep) {
         if (l.dep.flags & (STALE | PENDING)) l.dep.recomputeIfNeeded?.()
       }
@@ -362,23 +332,12 @@ function throwEffectErrors(errors: unknown[]): void {
   throw new AggregateError(errors, 'multiple effects threw during drain')
 }
 
-/**
- * @internal — phase 2 settle + phase 3 effect drain. Computeds with
- * effect subs eagerly recompute (running their equality check); effects
- * whose MARKED bit survived run in mark order.
- */
-function settleAndDrain(): void {
-  for (const sub of visited) sub.recomputeIfNeeded?.()
-  const errors: unknown[] = []
-  drainEffectQueue(errors)
-  throwEffectErrors(errors)
-}
-
-/** @internal — clear MARKED (and PENDING for effects) across visited;
- * reset to recoverable state after a wave completes or aborts. */
-function clearVisited(): void {
-  for (const sub of visited) sub.flags &= ~(MARKED | PENDING)
-  visited.length = 0
+/** @internal — clear MARKED+PENDING residue on the effectQueue after a wave
+ * completes or aborts. Fan-out computeds may carry lingering MARKED across
+ * waves under α (no eager visited-walk); this is benign because MARKED is
+ * only consulted by drainEffectQueue, which iterates effects, never
+ * computeds — re-mark via `|=` is idempotent. */
+function clearEffectQueue(): void {
   for (const sub of effectQueue) sub.flags &= ~(MARKED | PENDING)
   effectQueue.length = 0
 }
@@ -403,27 +362,12 @@ export function drainBatch(): void {
       const drainList = batchQueue.splice(0)
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
-        // Patch signal lastWave for checkDirty: walk the sub's deps and
-        // set lastWave = wave on any signal source that was written this
-        // batch but hasn't been stamped yet.
-        for (let l = sub.depsHead; l !== null; l = l.nextDep) {
-          // Site C (K1c+ K-1): HOST flag explicitly classifies signal
-          // sources (per spec-6.2-phase3.md §3.3 / §4.7). Hosts always
-          // carry HOST AND MERGE; HOST subsumes the H5 MERGE check at
-          // this site and removes the `recomputeIfNeeded === undefined`
-          // idiom that would misclassify Effect prototype-method
-          // instances under K1c+.
-          const dep = l.dep
-          if ((dep.flags & HOST) && dep.lastWave !== wave) dep.lastWave = wave
-        }
         markOne(sub)
       }
-      for (const sub of visited) sub.recomputeIfNeeded?.()
       drainEffectQueue(errors)
-      visited.length = 0
     }
   } finally {
-    clearVisited()
+    clearEffectQueue()
     for (const sub of batchQueue) sub.flags &= ~QUEUED
     batchQueue.length = 0
   }
@@ -512,12 +456,14 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     }
     wave++
     host.lastWave = wave   // record write wave for checkDirty signal-source detection
+    const errors: unknown[] = []
     try {
       propagateMark(head)
-      settleAndDrain()
+      drainEffectQueue(errors)
     } finally {
-      clearVisited()
+      clearEffectQueue()
     }
+    throwEffectErrors(errors)
   }
 
   return [read, write] as const

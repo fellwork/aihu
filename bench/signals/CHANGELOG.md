@@ -9,6 +9,57 @@ the run environment, and a link to the commit if non-obvious.
 
 ---
 
+## 2026-05-01 — Round N+3: α (alien-style lazy) signals fusion
+
+**Branch:** `feat/signals-n3-fusion`
+**Spec:** `.team/round-n3/arch-signals-fusion.md` (Architect, post-Compressor base `f2c5ff9`)
+**Baseline:** `bench/baselines/round-n3-pre-9f06acb.md` (post-Compressor pre-fusion floor)
+
+Replaces eager fan-out settle pass in `signal.ts` with per-effect lazy
+dep-settle. The `for (const sub of visited) sub.recomputeIfNeeded?.()`
+loops in `settleAndDrain` and `drainBatch` are deleted; the `visited[]`
+array is removed entirely. The `drainEffectQueue` per-effect direct-dep
+settle loop becomes the SOLE settle path; lazy upstream pull happens
+transitively via `Computed.read()` inside `recompute()`. Effect mark sites
+now pre-flag PENDING on effect children of fan-out STALE parents so the
+dep-walk gates cleanly (direct-signal effects skip the walk).
+
+### Bench delta (same machine, same hour-window — Q7 lockdown)
+
+| Workload | pre p50 | post p50 | Δ% | Status |
+|---|---:|---:|---:|:---:|
+| `cellx` | 489.53 ns | ~404 ns | **-17.5%** | better |
+| `wide-fanout-100` | 4.43 µs | ~3.00 µs | **-32.3%** | better |
+| `batched-writes-100` | 2.64 µs | ~2.74 µs | +3.8% | within ±5% |
+| **`deep-propagation-100`** | **3.45 µs** | **~2.90 µs** | **-15.9%** | **PASS gate** |
+| `dynamic-deps` | 679.74 ns | ~590 ns | **-13.2%** | better |
+| `creation-1to1000` | 84.64 µs | ~88.5 µs | +4.6% | within ±5% |
+
+The 10% deep-prop gate hit comfortably. cellx, wide-fanout-100, and
+dynamic-deps see significant additional wins — the visited-walk deletion
+removed redundant per-fan-out-node `recomputeIfNeeded` cost.
+
+### Size
+
+`@scribe/signals`: 1956 B → 1833 B (**-123 B**, **+137 B headroom** vs 1970 B limit).
+The byte recovery comes from removing `visited[]`, `clearVisited`,
+`settleAndDrain`, and the now-dead `checkDirty` function.
+
+### Tests
+
+338/338 (334 baseline + 4 new in `tests/fusion.test.ts`):
+- α equality-stable upstream cascade-suppression
+- α transitive lazy-pull through `Computed.read()`
+- α fan-out STALE settles via per-effect dep-walk
+- α SF-1 single-fire on diamond paths
+
+### K1c+ invariants
+
+- **DI-1** RE-DERIVED: single mechanism (per-effect dep-walk + lazy upstream pull).
+- **CS-1, SF-1, RC-1, EI-1** PRESERVED-TRIVIALLY (mechanism unchanged).
+
+---
+
 ## 2026-04-30 — Round N+1 Track B: memory dimension + 3 parity workloads
 
 **Branch:** `feat/round-n1-track-b-signals-memory`
