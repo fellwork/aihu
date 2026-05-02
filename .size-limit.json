@@ -8,7 +8,7 @@
   {
     "name": "@scribe/signals",
     "path": "packages/signals/dist/index.js",
-    "limit": "2050 B",
+    "limit": "1970 B",
     "gzip": true
   },
   {
