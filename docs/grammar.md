@@ -216,7 +216,60 @@ the signal call form — to read the latest value reactively.
 
 ---
 
-## 8. Reserved for v2
+## 8. `<style>` block
+
+A `.scribe` SFC may contain an optional `<style>` block. The block is CSS text
+that the compiler converts to a constructable `CSSStyleSheet` and wires into the
+component's shadow root (scoped) or the document (global).
+
+### Syntax
+
+```html
+<!-- scoped (default): injected into shadow root adoptedStyleSheets -->
+<style>
+  span { color: red; }
+</style>
+
+<!-- explicit scoped -->
+<style scoped>
+  span { color: red; }
+</style>
+
+<!-- global: injected into document.adoptedStyleSheets -->
+<style global>
+  :root { --brand: #0f172a; }
+</style>
+```
+
+### Codegen contract
+
+| Block form | Emitted JS (module level) | Emitted JS (inside setup) |
+|---|---|---|
+| `<style>` or `<style scoped>` | `const __style__ = new CSSStyleSheet();` / `__style__.replaceSync(\`…\`);` | `(ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];` |
+| `<style global>` | same `const __style__` declaration | `document.adoptedStyleSheets = [...document.adoptedStyleSheets, __style__];` |
+| (no style block) | (omitted) | (omitted) |
+
+Rules:
+
+- Exactly one `<style>` block is allowed per SFC. A second block is a parse error.
+- The CSS text is inserted verbatim (as a template literal); no pre-processing
+  (minification, nesting flattening, vendor prefixes) is applied by the compiler.
+- The module-level `const __style__` declaration is hoisted **before** the
+  `defineElement(…)` call, so the stylesheet is constructed once at module evaluation
+  time, not once per component instance.
+- When a scoped style block is present, the setup function parameter is renamed
+  from `_ctx` to `ctx` so that `ctx.host` is accessible inside the setup body.
+
+### Supported environments
+
+`CSSStyleSheet.replaceSync` and `adoptedStyleSheets` are part of the Constructable
+Stylesheets spec (Baseline 2023). Both are supported in all evergreen browsers.
+Server-side rendering (via `@scribe/server`) renders a `<style>` element instead,
+matching the CSS text exactly.
+
+---
+
+## 9. Reserved for v2
 
 The following are intentionally **not** part of the Phase 1 grammar and are
 captured in `TODOS.md` (TODO-003) for the v2 cycle:

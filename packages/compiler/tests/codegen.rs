@@ -107,7 +107,7 @@ fn plain_var_no_cast() {
 }
 
 #[test]
-fn style_block_warning() {
+fn style_scoped_emits_css_in_function_form() {
     let src = concat!(
         "<script setup>
 ",
