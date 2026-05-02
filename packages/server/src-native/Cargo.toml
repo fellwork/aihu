@@ -1,0 +1,22 @@
+[package]
+name    = "scribe-server-native"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi        = { version = "2", default-features = false, features = ["napi4"] }
+napi-derive = { version = "2" }
+serde       = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json  = { version = "1", default-features = false, features = ["alloc", "preserve_order"] }
+
+[build-dependencies]
+napi-build = { version = "2" }
+
+[profile.release]
+lto           = "thin"
+codegen-units = 1
+strip         = "symbols"
+opt-level     = 3

@@ -110,3 +110,115 @@ jobs:
           files: release-assets/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  # ---------------------------------------------------------------------------
+  # @scribe/server native renderer (napi-rs Rust addon).
+  #
+  # Parity-gate paths (AC-15, spec-server-native.md §4.4): any PR that modifies
+  #   - packages/server/src/ssr.ts
+  #   - packages/server/src-native/**
+  # MUST run packages/server/tests/native-parity.test.ts with SCRIBE_FORCE_NATIVE=1
+  # against a freshly built native addon. The PR-time enforcement of this gate
+  # lives in the per-PR CI workflow (see .github/workflows/ci.yml or moon's
+  # local CI gate); this release workflow builds and publishes the per-platform
+  # .node binaries that ship as @scribe/server-<platform> packages.
+  # ---------------------------------------------------------------------------
+  build-native:
+    name: Build native ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            platform: darwin-arm64
+            node-file: server-native.darwin-arm64.node
+            cdylib: libscribe_server_native.dylib
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            platform: darwin-x64
+            node-file: server-native.darwin-x64.node
+            cdylib: libscribe_server_native.dylib
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x64-gnu
+            node-file: server-native.linux-x64-gnu.node
+            cdylib: libscribe_server_native.so
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            platform: win32-x64-msvc
+            node-file: server-native.win32-x64-msvc.node
+            cdylib: scribe_server_native.dll
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build release cdylib
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path packages/server/src-native/Cargo.toml
+
+      - name: Stage .node file (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp packages/server/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }} ${{ matrix.node-file }}
+
+      - name: Stage .node file (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item -Path "packages/server/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }}" -Destination "${{ matrix.node-file }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.platform }}
+          path: ${{ matrix.node-file }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-native:
+    name: Publish @scribe/server-* platform packages
+    needs: build-native
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: native-artifacts
+
+      - name: Stage and publish each platform package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for dir in packages/server/npm/*/; do
+            platform=$(basename "$dir")
+            node_file=$(ls native-artifacts/native-$platform/*.node 2>/dev/null || true)
+            if [ -n "$node_file" ]; then
+              cp "$node_file" "$dir/"
+              ( cd "$dir" && npm publish --access public )
+            else
+              echo "no .node artifact for $platform — skipping"
+            fi
+          done
