@@ -1,9 +1,9 @@
 ---
 source: tests/codegen.rs
-assertion_line: 261
+assertion_line: 310
 expression: result.js
 ---
-import { branch, leaf } from '@scribe/arbor'
+import { branch, leaf, slot } from '@scribe/arbor'
 import { computed } from '@scribe/signals'
 import { defineComponent, defineElement } from '@scribe/runtime'
 
