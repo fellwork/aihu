@@ -486,8 +486,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     depsTail: null,
     lastWave: 0,
   }
-  const eq = options?.equals
-  const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
+  const equals: ((a: T, b: T) => boolean) | false = options?.equals ?? Object.is
 
   const read: Read<T> & { [__HOST]?: Subscriber } = () => {
     const obs = currentObserver

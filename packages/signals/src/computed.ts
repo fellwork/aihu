@@ -114,8 +114,7 @@ class Computed<T> implements Subscriber {
 }
 
 export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> {
-  const eq = options?.equals
-  const equals: ((a: T, b: T) => boolean) | false = eq === undefined ? Object.is : eq
+  const equals: ((a: T, b: T) => boolean) | false = options?.equals ?? Object.is
   const node = new Computed<T>(fn, equals)
 
   const read: Read<T> & { [__HOST]?: Subscriber } = () => {
