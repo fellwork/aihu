@@ -223,6 +223,8 @@ Open follow-on items:
 | 5.3 A2A/ACP adapters | PENDING (depends on 5.2 — now unblocked) |
 | 7.1 v1 cutover | PENDING (depends on all phases 1-5 — now mostly clear) |
 
+**Update (2026-05-02 evening):** Plan 3.3 Islands shipped via PR #26. 14 of 17 v1 plans done. Remaining: 4.3 (TS template type-checking), 5.3 (A2A/ACP), 7.1 (cutover). Test count: 431 (was 407 at PR #25). Runtime cap raised 1140 → 1170 B for `_hydrateOnVisible`.
+
 **Worktree collisions:** Three of the five parallel builders ended up working in the main repo's working directory (worktree creation may have silently fallen back). Plan 5.2 commit was on `feat/v1-hydration` branch by mistake; rescued via cherry-pick + force-push. Plan 3.2 conflict-resolved by merge-from-main during PR. No work lost.
 
 **Remote branch hygiene:** `feat/v1-slots`, `feat/v1-router`, `feat/v1-agent-service`, `feat/v1-hmr`, `feat/v1-hydration` all deleted post-merge.

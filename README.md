@@ -2,10 +2,10 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.scribe` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives.
 
-> **Status:** v1 in flight — 13 of 17 v1 plans shipped. v0 core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data). Compiler v0 (`<agent>` block + scoped styles + slots) shipped. Hydration, HMR, file routing, and agent-service all live. 407 tests passing. Remaining v1 work: islands (3.3), TypeScript template type-checking (4.3), A2A/ACP adapters (5.3), v1 cutover (7.1).
+> **Status:** v1 in flight — 14 of 17 v1 plans shipped. v0 core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data). Compiler v0 (`<agent>` block + scoped styles + slots) shipped. Hydration, HMR, islands, file routing, and agent-service all live. 431 tests passing. Remaining v1 work: TypeScript template type-checking (4.3), A2A/ACP adapters (5.3), v1 cutover (7.1).
 
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
-[![tests](https://img.shields.io/badge/tests-407%20passing-brightgreen)](#)
+[![tests](https://img.shields.io/badge/tests-431%20passing-brightgreen)](#)
 [![packages](https://img.shields.io/badge/packages-10-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
@@ -40,9 +40,9 @@ Compare to: Solid (single-package), Lit (templating + base class only), Vue (pro
 This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
 
 Key non-goals (today):
-- **No partial hydration / islands yet** — full hydration is shipped (`MountScope.serialize()` + `hydrate()`). Per-component island bundling is Plan 3.3 (in flight).
-- **No agent live-binding wiring** — `@scribe/agent-service` aggregates manifests and routes calls to bindings; the binding execution layer (5.3 — A2A/ACP adapters) is in flight.
-- **No TypeScript template type-checking yet** — Plan 4.3.
+- **No agent live-binding wiring** — `@scribe/agent-service` aggregates manifests and routes calls to bindings; the binding execution layer (Plan 5.3 — A2A/ACP adapters) is queued.
+- **No TypeScript template type-checking yet** — Plan 4.3 (queued).
+- **No npm publish yet** — packages are at `0.0.0`. v1 cutover (Plan 7.1) bumps to `1.0.0` and publishes.
 
 ---
 
