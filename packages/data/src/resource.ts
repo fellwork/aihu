@@ -81,9 +81,8 @@ export function createResource<T>(
         const next: DataState<T> = { status: 'ready', data }
         store.set(fetchKey, next as DataState<unknown>)
         // If dehydrate: true, mark this key as dehydration-eligible.
-        if (options?.dehydrate === true) {
-          const meta = store as Partial<ResourceStoreWithMeta>
-          meta.markDehydratable?.(fetchKey)
+        if (options?.dehydrate) {
+          (store as Partial<ResourceStoreWithMeta>).markDehydratable?.(fetchKey)
         }
         setState(next)
       },
@@ -113,7 +112,7 @@ export function createResource<T>(
 
     // Check if a ready cache entry exists and is not stale.
     const cached = store.get(currentKey)
-    if (cached !== undefined && cached.status === 'ready' && !_staleSignal.read()) {
+    if (cached?.status === 'ready' && !_staleSignal.read()) {
       setState(cached as DataState<T>)
       return
     }
@@ -123,7 +122,7 @@ export function createResource<T>(
   })
 
   // 8. Build and return the ResourceHandle<T>.
-  const handle: ResourceHandle<T> = {
+  return {
     state: [getState, setState] as unknown as Signal<DataState<T>>,
 
     refetch(): void {
@@ -139,14 +138,11 @@ export function createResource<T>(
     invalidate(): void {
       const currentKey = key[0]()
       if (currentKey == null) return
-      const current = store.get(currentKey)
-      if (current?.status !== 'ready') return
+      if (store.get(currentKey)?.status !== 'ready') return
       // Mark stale but do NOT change the signal state — the UI continues
-      // showing the last known 'ready' data. The next refetch() or
-      // key-signal change will bypass the cache check.
-      // batch() ensures multiple invalidate() calls in the same tick coalesce
-      // into a single effect re-run. commit() is idempotent — a second call
-      // inside the same batch wave is a no-op (already written true).
+      // showing the last known 'ready' data. batch() coalesces multiple
+      // invalidate() calls in the same tick into a single effect re-run.
+      // commit() is idempotent within a batch wave.
       batch(() => {
         _staleSignal.merge(true)
         _staleSignal.commit()
@@ -154,10 +150,6 @@ export function createResource<T>(
       // No store mutation, no setState call: spec §3.3 invalidate invariant.
     },
 
-    dispose(): void {
-      disposeEffect()
-    },
-  }
-
-  return handle
+    dispose: disposeEffect,
+  } satisfies ResourceHandle<T>
 }
