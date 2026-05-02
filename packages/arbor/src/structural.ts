@@ -102,9 +102,8 @@ function _reconcileEach(
   sc: Map<string | number, ChildScope>,
 ): void {
   const items = list[0]()
-  const keys: Array<string | number> = []
-  const ks = new Set<string | number>()
-  for (let i = 0; i < items.length; i++) { const k = kfn(items[i]); keys.push(k); ks.add(k) }
+  const keys: Array<string | number> = items.map(kfn)
+  const ks = new Set(keys)
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc) if (!ks.has(k)) { _teardownChildScope(s); sc.delete(k) }
   for (let i = 0; i < items.length; i++) {
