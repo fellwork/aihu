@@ -212,8 +212,8 @@ export function _makeScope(
  * `serialize()` iterates this map to return current signal values by path key.
  */
 export function mount(node: Node, host: Element | ShadowRoot, options?: MountOptions): MountScope {
-  const rootId = String(_rootIdCounter++)
-  const pathBase = `${rootId}.0`
+  // Path keys per spec §2.7: `<rootId>.0` for the root call.
+  const pathBase = `${_rootIdCounter++}.0`
   const errorHandler = options?.onError
 
   _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
