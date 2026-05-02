@@ -2,10 +2,21 @@
 
 **Date:** 2026-05-02
 **Author:** Architect (Round 2.1)
-**Status:** PROPOSED (pending user ratification, then Builder R4 migration to `docs/superpowers/plans/`)
+**Status:** RATIFIED 2026-05-02 (Director VALIDATE-WITH-NOTES; Builder R4 migration with 6 polish notes applied inline)
 **Constraints:** Selective lean (Vite is dev/build-only); v3 dep-free thesis (Learning #49 hard); Tier-3 hooks paid for in v0 (Learning #16); 3.46 kB browser-bundle ceiling
 **Companion:** `.team/v1-reconciliation/assets-package-design-stub.md` (carry-forward; sequenced into v0.5/v0.6 below)
 **Supersedes:** `.team/v1-reconciliation/roadmap-draft.md` (R2 prior — preserved for history; this file is the authoritative R2.1 redraft after the user locked Interpretation A and the 0.2 → 0.9 → 1.0 milestone shape)
+**Authority:** This file is the v1 framework roadmap (migrated from `.team/v1-reconciliation/roadmap-v1.md`; source removed at migration). Director's R3 validation receipt preserved at `.team/v1-reconciliation/director-r3-validation.md`. Spec quartet authority lives at `docs/superpowers/specs/2026-05-02-spec-{block-structure,template-attribute-syntax,macro-vocabulary,plugin-contract}.md`; applied amendments at `docs/superpowers/specs/applied-amendments/`.
+
+> **Deprecation policy (load-bearing for v0.2 → v1.0 migration; Polish Note 3):**
+>
+> - **v0.2:** dual-grammar parser stub accepts both `@blockname { }` and `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag forms; no warnings yet.
+> - **v0.3+:** deprecation banner emitted (warning only) when an SFC uses HTML-tag form (v0.3.4) or, from v0.4, Vue-shape `:attr` / `@event` aliases.
+> - **v0.8:** `npx scribe migrate` auto-converter ships in `@scribe/cli` to convert v0.1.x SFCs in-place.
+> - **v1.0.7:** hard-removal of `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag parser path. Only `@blockname { }` accepted.
+> - **v1.0.8:** hard-removal of Vue-shape `:attr` / `@event` aliases. Only `$attr` / `$on:*` accepted.
+>
+> Runway: 6+ months v0.2 → v1.0 cutover. The dual-grammar stub is the load-bearing mechanism — without it every v0.1.x consumer breaks at v0.2.
 
 ---
 
@@ -173,7 +184,7 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 - **v0.4.6 — `@state` macros (Macro Vocabulary §2):** `$prop` (→ `defineProps<{...}>() + computed`), `$computed` (→ `computed()`), `$resource` (→ `data` plugin's `createResource`), `$effect` / `$effect.on` / `$watch` (→ `effect`), `$action` declaration form (→ `function name(...) { return batch(...) }`), `$lifecycle.{mount,dispose}` (→ `onMount` / `onCleanup` — **new exports from `@scribe/runtime`**).
 - **v0.4.7 — `@style` macros:** `$reactive` (→ `--reactive-N` CSS-variable + effect), `$global` (already aligned), `$media` (→ `@media` rule with build-time media query), `$when` (→ conditional `data-when-N` toggle).
 - **v0.4.8 — `@agent` macros:** `$expose`, `$expose.write`, `$action` (reference form), `$scope`, `$rate-limit`, `$describe`. All extend the existing `manifest_json` emission shape.
-- **v0.4.9 — Helper exports from `@scribe/runtime`:** `onMount`, `onCleanup`. ~30-50 B in runtime — runtime budget headroom 7 B is too tight; **the C-6 typecheck pass deferred to v0.4 may push runtime past limit; if so, raise runtime limit per Learning #42 split, with feature-bytes-vs-debt rationale documented in `.size-limit.json` row comment.** Director Q6 has not authorized a runtime limit raise; if the Compressor recovery on runtime can absorb the 30-50 B, no raise is needed. **Surface trigger if recovery falls short — see §"Risks and surface conditions".**
+- **v0.4.9 — Helper exports from `@scribe/runtime`:** `onMount`, `onCleanup`. ~30-50 B in runtime — runtime budget headroom is tight (currently +7 B at 1.14 kB / 1170 B). The C-6 typecheck pass deferred to v0.4 may push runtime past limit. **Pre-authorization (Polish Note 5):** the Architect's milestone plan **pre-authorizes a Compressor pass on `@scribe/runtime` during v0.4 macro-attribute lowering implementation, without re-surfacing to user**, as long as the pass stays within the Learning #42 split rationale (feature-bytes-vs-debt; recovered bytes are debt-side, new bytes for `onMount` / `onCleanup` are feature-side). The Compressor pass is a soft-gate that auto-resolves if recovery ≥ new feature cost. **Surface trigger fires only if recovery falls short of the new cost AND a runtime size-limit raise becomes necessary** (Learning #42 split formal raise) — see §"Risks and surface conditions" item 1. This pre-authorization narrows the surface scope to "raise needed" rather than "Compressor pass needed".
 - **v0.4.10 — Conformance fixtures at `bench/compiler-conformance/template-attrs/` and `bench/compiler-conformance/macros/`.**
 
 **Packages:** `@scribe/compiler`, `@scribe/runtime` (new lifecycle helper exports).
@@ -193,7 +204,7 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 - **v0.5.2 — `<$suspense>` element + slot/fallback hybrid (§4).** `createSuspenseBoundary(promiseSource, fallback)`. Subscribes to the resource graph; renders fallback until resolution. Slot context: `suspense.loading` (boolean signal).
 - **v0.5.3 — `<$shield>` element (Q10:D — compiler-lowered).** `createShieldBoundary(child, fallback)`. Reuses arbor's mount-level `ErrorHandler` (`packages/arbor/src/types.ts`); compiler emits a wrapper that catches errors thrown in `setup()` / template effects / event handlers and renders the fallback subtree. Slot context: `shield.error` (the thrown value), `shield.retry` (function to remount). **~5-15 B framework cost** per Q10:D; no new arbor primitive.
 - **v0.5.4 — `<$guard>` element.** `createGuardBoundary(check, fallback)`. Slot context: `guard.user`, `guard.reason`, `guard.path`. Compiler emits a wrapper around the protected subtree; the `check` signal/expression gates render. **No scope/permission/rate-limit infrastructure in v0.5** (those are `@agent` macro semantics in v0.4); the boundary just exposes the slot context shape.
-- **v0.5.5 — `<$warp>` element.** Teleport/portal-style primitive (render subtree elsewhere in the DOM). Compiler emits `createWarpBoundary(target, child)`; uses `arbor.mount` against the target node. ~10-20 B framework cost.
+- **v0.5.5 — `<$warp>` element.** Teleport/portal-style primitive (render subtree elsewhere in the DOM). Compiler emits `createWarpBoundary(target, child)`. **Arbor-reuse cite (Polish Note 2):** mirrors the `<$shield>` Q10:D pattern — compiler-lowered using existing arbor primitives (`arbor.mount` against the resolved target node, gated by `when()` + a signal-based latch tracking target availability/teardown). No new arbor surface; if implementation discovers `arbor.mount` cannot accept an arbitrary host node, that limitation is a v0.5 risk and is folded into v0.2.3's headroom budget (the recovery margin reserved by Compressor pass on `@scribe/arbor`). ~10-20 B framework cost paid in user-emitted SFC JS, not arbor runtime.
 - **v0.5.6 — `<$slot>` slot/fallback hybrid mutual-exclusion check.** Compile-error if both `fallback="..."` attribute and `<$slot name="fallback">` child appear (§4 hard rule).
 - **v0.5.7 — Inline-JSX-in-attributes rejection (§6).** Compile-error on `fallback={<Skeleton />}`. Migration message: "extract to component, or use `<$slot>` child".
 - **v0.5.8 — Conformance fixtures.**
@@ -208,6 +219,8 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 ### v0.6 — `@route` + build-target framework + file-based layouts
 
 **Theme:** Page-aware compilation. The `@route` block lands; the build-target enum (`Client | Server | Universal`) plumbs through compiler and config; file-based layouts ship per Q3:A. **These three items are coupled** (per Investigator §"Cross-item interactions"): `@route { ssr: true, middleware: [...] }` cannot ship without build-target awareness, because client-only builds must elide server-side handler glue per Amendment 02 §11.5.
+
+> **Slip-tolerance note (Polish Note 1):** v0.6 is the densest milestone in the roadmap — `@route` + build-target + file-based layouts are tightly coupled and must ship together (no partial landing). If scope realism demands, **v0.6 may slip into v0.6.1 or v0.6.2**: the three coupled items still ship together as a unit, but additional point-release headroom is acceptable. The acceptance gate (admin-users page with `@route { name, layout, middleware }` resolving correctly with `--target client` elision) determines readiness, not calendar.
 
 **Items:**
 
@@ -318,7 +331,14 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 - **v1.0.3 — Release pipeline gate.** npm publish gate via `bun run release` orchestrator; version-bump policy (independent SemVer per package); changeset format. Dry-run publish completes without manual override.
 - **v1.0.4 — Final dep-free audit.** v3 thesis hard gate: every `npm ls --production` shows `@scribe/*` only. Any drift fails CI.
 - **v1.0.5 — Full thesis-compliance check.** Tier-3 hooks paid for in v0 honored (Learning #16); browser-bundle ceiling 3.46 kB respected; `untrack` re-entrancy contract honored (Learning #46); rolldown external discipline honored (Learning #48); selective lean (no `@vitejs/client` at runtime) honored.
-- **v1.0.6 — Spec quartet migration to `docs/superpowers/specs/`.** Builder R4 moves the four specs + three amendments. Inline reconcile Amendment 02 Option B path-prefix in spec text. Update `state-plan-a.md` "Durable references" to point at the new home. (Q8 collapse formally lands here.)
+- **v1.0.6 — Spec quartet migration to `docs/superpowers/specs/` + spec-text reconciliation pass (Polish Note 4).** Builder R4 moves the four specs + three amendments (already done at v1 reconciliation Builder R4 — this milestone tracks the *post-cutover* reconciliation of any spec text that still cites deprecated grammar). Enumerated sub-tasks:
+  1. **Spec-text reference reconciliation** — search the migrated specs for any inline examples or surface descriptions that still reference `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag form, or Vue-shape `:attr` / `@event`. Replace with `@blockname { }` / `$attr` / `$on:*` equivalents.
+  2. **Inline example update** — every code block in spec quartet that demonstrates SFC source must use the v1 grammar exclusively. Conformance fixture references (block-level error cases, etc.) should align.
+  3. **Amendment 02 Option B path-prefix verification** — confirm `/server/_actions/`, `/server/_form-actions/`, `/server/_mcp/` paths are consistent across spec-block-structure §11.5 and any cross-references in spec-macro-vocabulary §2.12, §3.11, §5.
+  4. **Plugin Contract Spec ratification finalization** — Q8 collapse formally lands here; mark the Plugin Contract Spec as "v1.0 ratified" (drop `0.1.1-draft` marker).
+  5. **Update `state-plan-a.md` "Durable references"** to point at the migrated home.
+
+  This step is post-Builder-R4-migration spec hygiene; the migration itself happened at v1-reconciliation session close.
 - **v1.0.7 — Dual-grammar deprecation removal.** Compiler removes the `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag parser path. Only `@blockname { }` grammar accepted from v1.0 onward. Migration tool (`npx scribe migrate`) ships in `@scribe/cli` to auto-convert v0.1.x SFCs.
 - **v1.0.8 — Vue-shape `:attr` / `@event` deprecation removal.** Compiler removes the alias paths. Only `$attr` / `$on:*` accepted. Migration tool covers this too.
 - **v1.0.9 — Naming Scheme A rename publication.** `@scribe/data` → `@scribe-plugin/data`; `@scribe/agent-service` → `@scribe-plugin/agent-service` (or kept core; decided in §"Naming Scheme A application"). `@scribe/agent-readiness` → `@scribe-plugin/agent-readiness`. Old package names publish a single `1.0.0` "moved" stub that re-exports from the new home.
@@ -378,6 +398,8 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 ---
 
 ## Naming Scheme A application (Plugin Contract internals only)
+
+> **Scope preamble (Polish Note 6):** Per user adjudication during this session, the naming pass is **narrowed to Plugin Contract internals**. Cross-package renames that appear in the subsections below — `createRouter` → `createRequestRouter`, `viteRouterPlugin` → `viteRouterIntegration`, `agentReadiness` → `viteAgentReadinessIntegration`, `defineMiddleware` disambiguation — appear here only as **consequences of Plugin Contract Spec ratification (Q8 collapse)**, not as a broader package-renaming pass. If the Plugin Contract ratification at v1.0.x doesn't reach a particular surface, that surface stays renamed-or-not per current state. The package-scope moves at v1.0.9 (`@scribe/data` → `@scribe-plugin/data`, `@scribe/agent-readiness` → `@scribe-plugin/agent-readiness`) ARE explicit Naming Scheme A package-level renames and were ratified in the same locked decision; they are not "broadening" but the locked surface itself.
 
 The user narrowed the rename surface to Plugin Contract internals. Scheme A applies as follows:
 
@@ -492,16 +514,18 @@ Per Director Decision 7 (session-start) and the session brief's anti-patterns:
 
 ## Iteration tracking
 
-- R1 (Scout): DONE — `scout-report.md`
-- R2 (Architect prior): DONE — `roadmap-draft.md` + `assets-package-design-stub.md`
-- R2.5 (Scout supplemental): DONE — `scout-spec-quartet-alignment.md`
-- Director Q6 research: DONE — `director-q6-research.md`
-- Investigator (`@route` + build-target): DONE — `investigation-route-and-target.md`
-- **R2.1 (Architect re-draft, this doc):** **DONE**
-- R3 (Director re-engage): pending
-- R4 (Builder doc migrate): conditional on user ratification
-- R5 (Historian): pending
+- R1 (Scout): DONE — `.team/v1-reconciliation/scout-report.md`
+- R2 (Architect prior): DONE — `.team/v1-reconciliation/roadmap-draft.md` + `assets-package-design-stub.md`
+- R2.5 (Scout supplemental): DONE — `.team/v1-reconciliation/scout-spec-quartet-alignment.md`
+- Director Q6 research: DONE — `.team/v1-reconciliation/director-q6-research.md`
+- Investigator (`@route` + build-target): DONE — `.team/v1-reconciliation/investigation-route-and-target.md`
+- R2.1 (Architect re-draft): DONE — `.team/v1-reconciliation/roadmap-v1.md`
+- R3 (Director validation): DONE — `.team/v1-reconciliation/director-r3-validation.md` (VALIDATE-WITH-NOTES; 6 polish notes for inline application)
+- **R4 (Builder migration, this doc):** **DONE 2026-05-02** — spec quartet to `docs/superpowers/specs/`; this plan to `docs/superpowers/plans/`; 6 polish notes applied inline; v0 staleness banner updated; `state-plan-a.md` closure section appended
+- R5 (Verifier audit): pending
+- R6 (Historian close): pending
 
 **Surface triggers fired during R2.1:** none.
+**Surface triggers fired during R4 migration:** none.
 **Spec quartet contradictions found:** none beyond reconciliation (sigil mismatches, path-convention reconciliation, sigil for `<$slot>`/`slot()` — all adaptation-feasible).
-**Token spend (Architect, this doc):** ~12 K (well under the session budget).
+**Token spend (Architect, R2.1):** ~12 K.
