@@ -74,6 +74,20 @@ export function getAgentMetadata(tag: string): AgentMetadata | undefined {
 }
 
 /**
+ * Return all registered `AgentMetadata` entries as an array.
+ *
+ * Order is insertion order (Map guarantee). Returns an array snapshot — the
+ * array itself is a new allocation each call, but the elements are the same
+ * references stored in the registry (no deep-clone).
+ *
+ * Used by adapters (e.g. `@scribe/agent-a2a`) that need the full registry
+ * without knowing individual tags in advance (Plan 5.3 prerequisite).
+ */
+export function getAllAgentMetadata(): AgentMetadata[] {
+  return Array.from(registry.values())
+}
+
+/**
  * Test-only helper: clear all registered entries.
  *
  * Exported from this module so unit tests can reset shared module state in

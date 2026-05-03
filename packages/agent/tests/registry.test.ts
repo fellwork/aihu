@@ -4,6 +4,7 @@ import {
   type ActionSchema,
   type AgentMetadata,
   type InputSchema,
+  getAllAgentMetadata,
   getAgentMetadata,
   registerAgentMetadata,
 } from '../src/registry.ts'
@@ -84,6 +85,51 @@ describe('@scribe/agent registry', () => {
     registerAgentMetadata(b)
     expect(getAgentMetadata('x-test-7-a')).toBe(a)
     expect(getAgentMetadata('x-test-7-b')).toBe(b)
+  })
+})
+
+describe('@scribe/agent registry — getAllAgentMetadata (Plan 5.3 prereq)', () => {
+  beforeEach(() => {
+    __resetRegistryForTesting()
+  })
+
+  // 11. Empty registry returns empty array
+  it('returns an empty array when no entries are registered', () => {
+    expect(getAllAgentMetadata()).toEqual([])
+  })
+
+  // 12. Single entry is returned
+  it('returns an array with one entry after a single registration', () => {
+    const meta: AgentMetadata = { tag: 'x-test-11', describes: 'single' }
+    registerAgentMetadata(meta)
+    const result = getAllAgentMetadata()
+    expect(result).toHaveLength(1)
+    expect(result[0]).toBe(meta)
+  })
+
+  // 13. Multiple entries are all returned
+  it('returns all registered entries across distinct tags', () => {
+    const a: AgentMetadata = { tag: 'x-test-12-a', describes: 'A' }
+    const b: AgentMetadata = { tag: 'x-test-12-b', describes: 'B' }
+    const c: AgentMetadata = { tag: 'x-test-12-c', describes: 'C' }
+    registerAgentMetadata(a)
+    registerAgentMetadata(b)
+    registerAgentMetadata(c)
+    const result = getAllAgentMetadata()
+    expect(result).toHaveLength(3)
+    expect(result).toContain(a)
+    expect(result).toContain(b)
+    expect(result).toContain(c)
+  })
+
+  // 14. Returns array snapshot — not the same reference on repeated calls
+  it('returns a new array each call (snapshot, not live reference)', () => {
+    const meta: AgentMetadata = { tag: 'x-test-13' }
+    registerAgentMetadata(meta)
+    const first = getAllAgentMetadata()
+    const second = getAllAgentMetadata()
+    expect(first).not.toBe(second)
+    expect(first).toEqual(second)
   })
 })
 
