@@ -17,7 +17,7 @@
   <main>
     <h1>The scribe blog</h1>
     <ul>
-      <li $each="posts" $key="postKey">
+      <li $each="posts as item" $key={item.slug}>
         <a href={`/posts/${item.slug}`}>{item.title}</a>
       </li>
     </ul>
