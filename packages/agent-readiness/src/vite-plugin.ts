@@ -39,7 +39,7 @@ interface VitePlugin {
  *
  * @example
  * const ar = createAgentReadinessRoutes({ name: 'My App', endpoint: '...' })
- * const router = createRouter({
+ * const router = createRequestRouter({
  *   routes: [
  *     defineRoute('/llms.txt', ar.llmsTxt),
  *     defineRoute('/llms-full.txt', ar.llmsFullTxt),
@@ -109,7 +109,7 @@ export function createAgentReadinessRoutes(
  * configureServer (dev): serves /llms.txt, /llms-full.txt, /.well-known/mcp/server-card.json, /robots.txt
  * generateBundle (build): writes all four files as static assets to output dir
  *
- * Route injection: does NOT inject into createRouter automatically.
+ * Route injection: does NOT inject into createRequestRouter automatically.
  * Use createAgentReadinessRoutes() for fetch-API integration.
  *
  * Previously named `agentReadiness`. That name is kept as a deprecated alias

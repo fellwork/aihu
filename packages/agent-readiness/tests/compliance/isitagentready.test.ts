@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRouter, defineRoute } from '@scribe/server'
+import { createRequestRouter, defineRoute } from '@scribe/server'
 import { createAgentReadinessRoutes, createContentNegotiationHandler } from '../../src/index.ts'
 
 const config = {
@@ -19,7 +19,7 @@ function buildRouter() {
     },
   }
   const cnMw = createContentNegotiationHandler({ resolver: mdResolver })
-  return createRouter(
+  return createRequestRouter(
     {
       routes: [
         defineRoute('/llms.txt', ar.llmsTxt),
@@ -91,7 +91,7 @@ describe('isitagentready.com endpoint checklist', () => {
 
   it('GET /.well-known/mcp/server-card.json returns 404 when endpoint absent', async () => {
     const ar = createAgentReadinessRoutes({ name: 'No Endpoint' })
-    const router = createRouter({ routes: [defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard)] })
+    const router = createRequestRouter({ routes: [defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard)] })
     const res = await router(new Request('https://app.example.com/.well-known/mcp/server-card.json'))
     expect(res.status).toBe(404)
   })
