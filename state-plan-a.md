@@ -347,14 +347,52 @@ v0.2.2's parse-phase infrastructure (body extraction, block kind routing) was co
 
 **Dep envelope:** no new runtime deps added in v0.4.
 
-### v0.5 is next
-
-v0.5 = macro elements — compiler-lowered `<$slot>`, `<$suspense>`, `<$shield>`, `<$guard>`, `<$warp>` using existing arbor primitives. All five are emit-phase helpers; ~5-15 B per boundary per Learning #36.
-
 ### Durable references (v0.4)
 
 - Retro: `.team/v0.4/retro.md`
 - Director note: `.team/v0.4/director-note-session-start.md`
 - Conformance fixtures: `bench/compiler-conformance/template-attrs/` + `bench/compiler-conformance/macros/`
 - Rust tests: `packages/compiler/tests/macro_attrs.rs`
+
+---
+
+## v0.5 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.5 closeout: 8 sub-items; 186 Rust tests; `<$warp>` stub noted)
+**Main HEAD at close:** `b29ce55`
+
+### Sub-items shipped
+
+| Sub-item | PR | Notes |
+|----------|-----|-------|
+| v0.5.1 | #38 | `<$slot>` + `<slot>` alias → `createSlotBoundary` |
+| v0.5.2 | #38 | `<$suspense>` → `createSuspenseBoundary` |
+| v0.5.3 | #38 | `<$shield>` → `createShieldBoundary` |
+| v0.5.4 | #38 | `<$guard>` → `createGuardBoundary` |
+| v0.5.5 | #38 | `<$warp>` → `createWarpBoundary` **stub** (NOTE(v0.5-stub); arbor.mount arbitrary-host API unconfirmed) |
+| v0.5.6 | #38 | C400 slot/fallback mutual-exclusion error |
+| v0.5.7 | #38 | C401 inline-JSX-in-attributes error |
+| v0.5.8 | #38 | Conformance fixtures: 5 pairs in `bench/compiler-conformance/macro-elements/` |
+
+### Final gate walk
+
+**Rust tests:** 163 → 186 (+23, 1 ignored)
+**TS tests:** 483 → 483 (Rust-only)
+**Size:** unchanged
+
+### Open item from v0.5
+
+`<$warp>` arbor stub: `arbor.mount` arbitrary-host-node API unconfirmed. `createWarpBoundary` emits correct shell with `NOTE(v0.5-stub)`. Resolve when arbor.mount API is extended (v0.6 or v0.8 context). No new arbor exports added — compliant with Q10:D.
+
+### v0.6 is next
+
+v0.6 = `@route` block + build-target framework + file-based layouts. Most complex milestone. Needs Architect pass before Builder dispatch.
+
+### Durable references (v0.5)
+
+- Retro: `.team/v0.5/retro.md`
+- Director note: `.team/v0.5/director-note-session-start.md`
+- Conformance fixtures: `bench/compiler-conformance/macro-elements/`
+- Rust tests: `packages/compiler/tests/macro_elements.rs`
 
