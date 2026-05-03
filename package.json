@@ -6,7 +6,8 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "bench/*"
+    "bench/*",
+    "examples/*"
   ],
   "engines": {
     "bun": ">=1.3.0",
