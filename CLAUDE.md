@@ -8,7 +8,7 @@ custom elements, mounted with sub-2 kB reactive primitives.
 
 ```bash
 bun install                 # Install workspace deps
-bun run test                # vitest, 607 TS + 222 Rust tests
+bun run test                # vitest, 612 TS + 222 Rust tests
 bun run build               # Build all packages
 bun run bench               # Run benchmark suite (cellx, dynamic-deps, etc.)
 bun run typecheck           # tsc --noEmit across packages

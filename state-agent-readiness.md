@@ -1,7 +1,10 @@
 # State — Agent-Readiness Track
 
-**Last updated:** 2026-04-30
-**Current HEAD:** `8e4f885` on `feat/agent-readiness-phase3`
+**Last updated:** 2026-05-03 (6-track follow-up Historian close — HEAD pointer refresh only)
+**Current main HEAD:** `b704cd9` (Merge PR #51 — t4e/examples-integrated)
+**Test floor:** 612 TS + 222 Rust
+**Previously updated:** 2026-04-30
+**Track HEAD (agent-readiness milestone):** `8e4f885` on `feat/agent-readiness-phase3`
 
 ---
 

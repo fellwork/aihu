@@ -467,3 +467,67 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 - **Check-size-rows as package creation checklist item.** Any Builder adding a new package to the workspace must simultaneously add it to `check-size-rows` — tagged `BROWSER_BUNDLE` if it has or will have a size-limit row, tagged `BUILD_DEV_ONLY` if it is a build-time-only tool (CLI, scaffolder, codegen, etc.). This is parallel to the existing ".size-limit.json: add or exempt" step — both happen in the same commit as the new `package.json`. A missing classification is a `check:size-rows` CI failure that blocks the merge gate.
 
 - **Commit message test counts from gate walk, not planning estimates.** When a PR adds tests, the commit message test delta (e.g., "+36 tests") should be taken from `bun run test` output after the final commit, not from the planning target. Planning estimates are floor targets; the gate walk count is the record. Per-item test coverage is only auditable when the commit message reflects actual counts — "CLI scaffold commands: +36 tests" beats "+17 tests (est.)" for post-release audit.
+
+---
+
+## 40. Architect agents without Write/Bash deliver content for Team Lead to materialize
+
+**Why.** Pattern observed during T1 of the 6-track follow-up session (2026-05-03). The `code-architect` subagent type lacks file-write and bash tools; it produced a 326-line spec inline as its message body, and the Team Lead had to materialize the content to disk on a fresh branch (`52b352e`). This is not a bug — it is the agent type's intentional surface — but it is a repeatable pattern that needs explicit accommodation.
+
+**How to apply.** When dispatching a Mode-2 spec-only round to `code-architect` (or any agent type without Write tool access), the dispatching role (Team Lead or Director) must (1) plan to receive the spec content as message text and (2) commit one round of materialization work — write the content to the agreed `.team/<session>/<filename>.md` path, create the spec branch, and commit. Treat this as part of the round rather than overhead. The dispatch brief should still specify the absolute target path so that downstream readers (Verifier, Builder, Historian) can find the artifact; the path becomes documentation regardless of who writes the bytes.
+
+---
+
+## 41. Strict-cutover deprecation removal at major-version honors JSDoc commitment
+
+**Why.** T1 of the 6-track follow-up (2026-05-03). The deprecated `@scribe/server.createRouter` alias carried JSDoc text "Will be removed in v1.0"; v1.0 had shipped four days earlier. The Architect surfaced two migration strategies: (a) one-minor deprecation grace period, or (b) strict cutover removing the alias immediately. The user picked (b). Rationale: the JSDoc was a public commitment to a removal version, that version had shipped, and maintaining the alias past the committed removal point would erode the credibility of every future deprecation signal.
+
+**How to apply.** When a deprecated symbol's JSDoc names a removal version and that version ships, executing the removal at that version is the correct default. A grace period past the committed removal version is a policy reversal — defensible only if a concrete consumer cohort is documented as not-yet-migrated. The grace period costs more than its bytes: it teaches downstream consumers and contributors that "Will be removed in vX" actually means "may be removed sometime after vX." Strict cutover preserves the deprecation-signal contract.
+
+---
+
+## 42. moon's shared `build` task bypasses package-script mangle stage
+
+**Why.** Root cause of the arbor build-path variance (T2 of 6-track follow-up, 2026-05-03; reconciled in `T2-arbor-variance-report.md`). `.moon/tasks/tasks.yml` defines the shared `build` task as literally `bunx rolldown -c`. Packages whose `package.json scripts.build` runs `rolldown -c && node scripts/mangle-dist.mjs` (arbor and signals are the two known cases) get mangle on the package-script path but skip mangle on the moon path. Net delta: ~26 B gz per mangler-using package. `bun run size` then reports different numbers depending on which path produced the on-disk dist most recently.
+
+**How to apply.** Two rules. (1) When adding a multi-stage build to a package's `package.json scripts.build`, audit `.moon/tasks/tasks.yml` to confirm the shared moon task either invokes the same multi-stage script or replicates every stage. If the shared task only runs the first stage, the package's emitted bytes differ across build paths — a measurement and gate hazard. (2) Latent risk for any future release-pipeline migration: if the release ever switches to moon-driven build, every consumer of a mangler-using package silently gains the mangle delta. Either lift mangle into a shared moon task (preferred) or drop the per-package mangle stage if the package-script path is no longer primary post-v1.
+
+---
+
+## 43. postinstall scripts that fetch release artifacts must be non-fatal
+
+**Why.** T7 of the 6-track follow-up (2026-05-03). `@scribe/compiler`'s postinstall fetched a GitHub release binary that 404'd at v1.0 because no release artifact had been cut. This caused `bun install` to abort, which prevented `node_modules/@scribe/*` symlinks from being created, which then cascaded into T6's misdiagnosed "missing symlinks" finding. The fix at `03d6eb3` made the postinstall graceful: try/catch the network call, fall through to local cargo build if cargo is present, soft-exit 0 always. Idempotency (pre-existing binary short-circuits) and an `SCRIBE_SKIP_POSTINSTALL` env var were added.
+
+**How to apply.** Any postinstall script that fetches a release artifact must (1) wrap the network call in try/catch and never throw on transient or release-pipeline-not-yet-cut errors, (2) provide a local-build fallback gated on tool availability (e.g., cargo present), (3) soft-exit 0 unless an explicit user override (e.g., `SCRIBE_COMPILE_BIN` pointing at a missing file) names a hard-fail condition, (4) provide a skip env var (`SCRIBE_SKIP_POSTINSTALL`), and (5) be idempotent — pre-existing binary at the canonical path short-circuits the script. The contract is: `bun install` and `npm install` always succeed; a missing native binary is a runtime concern, not an install-time blocker.
+
+---
+
+## 44. arbor build-path variance — mangle-skip + sourceMap-trailer compounding deltas
+
+**Why.** T2 of the 6-track follow-up (2026-05-03) reconciles the previously-MEMORY-cited "Learning #47." The arbor +15/+47/+62/+89 B variance band is the sum of two compounding deltas: (a) mangle stage skipped on the moon path = ~26 B gz (Learning #42), and (b) `scripts/size.ts` re-bundles the on-disk dist through an in-memory rolldown `generate()` that omits the `//# sourceMappingURL=index.js.map` trailer = ~9 B gz. The 0→~35 B variance band is therefore explained, but a single-line fix is not available: unifying measurement requires either teaching the moon task to mangle (touches every package with a mangler) or teaching `scripts/size.ts` to read the on-disk dist directly (forbidden by T2's no-source-edit scope). Defer fix to v1.1.
+
+**How to apply.** When measurement variance is reported and reproduced, decompose the variance into named contributing causes before proposing a fix. A single 5-minute config knob is the wrong default expectation for a multi-stage build; variance more often stems from compounding stage divergences. Document each cause separately in the size-limit policy file (`.size-limit.README.md`) so future Builders understand why two paths can disagree on the same artifact's gz size. If a fix cannot be applied within session scope, defer with a sharper-than-current writeup rather than papering over.
+
+---
+
+## 45. User-driven mid-session expansion: 6-track became 9-track without scope re-confirmation
+
+**Why.** The 6-track follow-up session (2026-05-03) expanded to 9 tracks under user direction across three moments: (1) T7 was folded in mid-session after T6 surfaced a postinstall 404 blocker; (2) T4-D's examples-curriculum proposal expanded from 10 to 12 examples by user steer adding Hacker News and CSS pluggability; (3) T4-E became three parallel Builders (E1/E2/E3) when the 12-example scope outgrew single-Builder capacity. None of the expansions was a problem — each was the right call — but the original 4-round iteration budget was tied to a 6-track scope. The session ended consuming roughly 6 logical rounds.
+
+**How to apply.** Director-note iteration budgets should not be enforced as hard caps when track count grows under user direction. Two recommendations: (1) When a user-surface answer expands scope, the Director should explicitly re-budget rounds before the new tracks dispatch — adding rounds is fine, but doing it implicitly hides the trade-off. (2) When parallel-Builder dispatches multiply (single track → three sub-tracks like T4-E1/E2/E3), the round budget should account for the extra Verifier load: more parallel branches need more lineage-hygiene checks, which the Verifier batch consumes.
+
+---
+
+## 46. Cross-track lineage hygiene matters at merge time
+
+**Why.** Verifier batch finding from the 6-track follow-up (2026-05-03). T2/T3/T6 were branched off `2c47efd` (the previous session's historian-close commit), not off `main`. This created a 3-way conflict risk on `README.md` and `docs/site/api-reference.md` if T3/T2/T6 had merged before T1 (which also modifies those files). Resolution: cherry-pick T3/T2/T6 onto main rather than full-branch merge, which dropped `2c47efd` from those branches' history; T1 landed first, T3/T2/T6 followed cleanly. The Verifier-recommended merge order (T7 → T5 → T1 → T3-rebased → T2-rebased → T6-rebased) was followed.
+
+**How to apply.** When parallel Builders dispatch off an in-flight worktree branch, always confirm the parent commit is on main, not on a sibling session's WIP commit. Verifier's first lineage check should be `git merge-base <branch> origin/main` for every branch under review — if the merge-base is not on main, flag rebase-required immediately. Recommended merge order should always front-load the branch that touches the most contended doc files (here: T1's README + api-reference.md edits) so that subsequent rebases drop the conflicting ancestor cleanly.
+
+---
+
+## 47. `bun install` failure cascades misdiagnose downstream issues
+
+**Why.** T6 vs T7 interaction in the 6-track follow-up (2026-05-03). T6 originally reported a TS6231 typecheck failure mentioning `@scribe/*` workspace packages as missing — symptom looked like a tsconfig misconfig. The actual root cause was T7's territory: `bun install` was aborting on the postinstall 404 before workspace symlinks got created in `node_modules/`, so every `@scribe/*` import resolved to nothing. T6's diagnosis of "tsconfig needs alignment" became correct only after T7's fix unblocked install; the fix path T6 originally pursued (tsconfig audit) was different from what T7 actually fixed (postinstall non-fatal).
+
+**How to apply.** When a typecheck error mentions a workspace package as missing or unresolved, the first diagnostic step is `bun install` (or `npm install`) on a clean checkout — verify install exits 0 and `node_modules/@<workspace>/` symlinks exist. That's a faster check than tsconfig audit, and it eliminates the "install-time blocker masquerading as compile-time misconfig" failure mode. Companion principle for postinstall authors: any postinstall script that can fail must do so non-fatally (Learning #43), because a fatal postinstall makes every downstream failure look like a different problem.

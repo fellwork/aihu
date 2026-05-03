@@ -1,6 +1,9 @@
 # State — Track: plan-a
 
-**Last updated:** 2026-05-03 (v0.8 Historian close)
+**Last updated:** 2026-05-03 (6-track follow-up Historian close)
+**Current main HEAD:** `b704cd9` (Merge PR #51 — t4e/examples-integrated)
+**Test floor:** 612 TS + 222 Rust
+**Previously updated:** 2026-05-03 (v0.8 Historian close)
 **Written by:** Historian (v0.8 closeout: @scribe/cli scaffolder + Hello World template; 570 TS tests; Learning #39 added)
 **Track:** plan-a (TypeScript runtime family — signals → arbor → runtime → agent)
 **Active branch:** `claude/scribe-phase-3-team-Za4UQ`
