@@ -50,5 +50,19 @@
     "limit": "600 B",
     "gzip": true,
     "ignore": ["@scribe/agent"]
+  },
+  {
+    "name": "@scribe/agent-acp",
+    "path": "packages/agent-acp/dist/index.js",
+    "limit": "600 B",
+    "gzip": true,
+    "ignore": ["@scribe/agent-service"]
+  },
+  {
+    "name": "@scribe/agent-a2a",
+    "path": "packages/agent-a2a/dist/index.js",
+    "limit": "700 B",
+    "gzip": true,
+    "ignore": ["@scribe/agent-service"]
   }
 ]
