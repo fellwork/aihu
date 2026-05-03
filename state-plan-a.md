@@ -385,14 +385,63 @@ v0.2.2's parse-phase infrastructure (body extraction, block kind routing) was co
 
 `<$warp>` arbor stub: `arbor.mount` arbitrary-host-node API unconfirmed. `createWarpBoundary` emits correct shell with `NOTE(v0.5-stub)`. Resolve when arbor.mount API is extended (v0.6 or v0.8 context). No new arbor exports added — compliant with Q10:D.
 
-### v0.6 is next
-
-v0.6 = `@route` block + build-target framework + file-based layouts. Most complex milestone. Needs Architect pass before Builder dispatch.
-
 ### Durable references (v0.5)
 
 - Retro: `.team/v0.5/retro.md`
 - Director note: `.team/v0.5/director-note-session-start.md`
 - Conformance fixtures: `bench/compiler-conformance/macro-elements/`
 - Rust tests: `packages/compiler/tests/macro_elements.rs`
+
+---
+
+## v0.6 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.6 closeout: 2 streams; 209 Rust + 516 TS; router 1451→740 B)
+**Main HEAD at close:** `8186488`
+
+### Sub-items shipped
+
+| Sub-item | PR | Stream | Notes |
+|----------|-----|--------|-------|
+| v0.6.1 | #40 | Rust | `@route` block parser + RouteBlock struct + C500 error + `@layout` shorthand |
+| v0.6.2 | #40 | Rust | `.route.json` sidecar in `EmitResult.route_json` |
+| v0.6.4 | #40 | Rust | `BuildTarget` enum + `--target` CLI flag |
+| v0.6.6 | #40 | Rust | Client-build gates: @agent + $server elision |
+| v0.6.9 | #40 | Rust | Conformance fixtures: route/ (2) + build-target/ (1) |
+| v0.6.3 | #41 | TS | Router vite-plugin reads .route.json; `@scribe/router/plugin` subpath |
+| v0.6.5 | #41 | TS | `BuildTarget` + `ScribeConfig.build?` in @scribe/server |
+| v0.6.7 | #41 | TS | `createServerCall<Args,Return>` in @scribe/server/client.ts |
+| v0.6.8 | #41 | TS | `virtual:scribe-layouts` + `scanLayouts()` in @scribe/router/plugin |
+
+### Final gate walk
+
+**Rust tests:** 186 → 209 (+23, 1 ignored)
+**TS tests:** 483 → 516 (+33, 61 test files)
+
+**Package sizes (`bun run size`):**
+
+| Package | Size | Budget | Headroom |
+|---------|------|--------|----------|
+| `@scribe/context` | 249 B | 300 B | +51 B |
+| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
+| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@scribe/runtime` | 1.14 kB | 1170 B | +7 B |
+| `@scribe/agent` | 117 B | 200 B | +83 B |
+| `@scribe/data` | 778 B | 800 B | +22 B |
+| `@scribe/router` | **740 B** | 1536 B | **+796 B** (dropped 711 B via browser/plugin split) |
+| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+
+**Notable:** `@scribe/router` browser bundle dropped from 1451 B to 740 B after v0.6b separated build-time vite-plugin code into `@scribe/router/plugin` subpath. The +256 B router limit raise pre-authorized for v0.7.1 is now likely unnecessary.
+
+### v0.7 is next
+
+v0.7 = router middleware — `defineRouterMiddleware`, `composeMiddleware` isomorphic API per Q6:A Option 1. Router now has +796 B headroom; the pre-authorized +256 B limit raise (v0.7.1) may not be needed.
+
+### Durable references (v0.6)
+
+- Retro: `.team/v0.6/retro.md`
+- Director note: `.team/v0.6/director-note-session-start.md`
+- Conformance fixtures: `bench/compiler-conformance/route/` + `bench/compiler-conformance/build-target/`
+- Rust tests: `packages/compiler/tests/route_and_build_target.rs`
 
