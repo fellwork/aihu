@@ -1,0 +1,8 @@
+@state {
+import { signal } from '@scribe/signals'
+const [count, setCount] = signal(0)
+}
+
+@template {
+  <div>{{ count }}</div>
+}

@@ -1,0 +1,13 @@
+@state {
+import { signal } from '@scribe/signals'
+const [greeting, setGreeting] = signal('')
+}
+
+@template {
+  <div>{{ greeting }}</div>
+}
+
+@agent {
+input name: string
+action greet()
+}

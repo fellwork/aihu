@@ -1,0 +1,7 @@
+@template {
+  <div class="card">hello</div>
+}
+
+@style {
+  .card { padding: 1rem; border: 1px solid #ccc; }
+}
