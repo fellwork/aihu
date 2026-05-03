@@ -23,8 +23,7 @@ A `.scribe` SFC may begin with an optional `<agent>` block. The block declares:
 
 The block is line-based, whitespace-tolerant, and uses `#` for comments.
 
-A complete worked example: `examples/airtime-quote/airtime-quote.scribe`.
-A second, slightly larger example: `examples/scripture-reference/scripture-reference.scribe`.
+Complete worked examples are inlined in §3 below.
 
 ---
 
