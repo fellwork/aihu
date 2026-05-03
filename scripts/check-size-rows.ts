@@ -35,7 +35,7 @@ const SERVER_SIDE = new Set<string>(['@scribe/server', '@scribe/agent-readiness'
  * Build/dev-time-only packages — run in the build toolchain or dev tooling,
  * never reach a browser bundle.
  */
-const BUILD_DEV_ONLY = new Set<string>(['@scribe/plugin', '@scribe/compiler'])
+const BUILD_DEV_ONLY = new Set<string>(['@scribe/plugin', '@scribe/compiler', '@scribe/cli'])
 
 type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only'
 
