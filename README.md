@@ -2,16 +2,16 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.scribe` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives.
 
-> **Status:** v1 in flight — 14 of 17 v1 plans shipped. v0 core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data). Compiler v0 (`<agent>` block + scoped styles + slots) shipped. Hydration, HMR, islands, file routing, and agent-service all live. 431 tests passing. Remaining v1 work: TypeScript template type-checking (4.3), A2A/ACP adapters (5.3), v1 cutover (7.1).
+> **Status:** v1 shipped — all 17 plans complete (2026-05-03). Core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data · agent-service · agent-a2a · agent-acp · router · cli · compiler · plugin). 607 TS tests + 222 Rust tests passing.
 
 [![CI](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/scribe/actions/workflows/plan-a.yml)
-[![tests](https://img.shields.io/badge/tests-431%20passing-brightgreen)](#)
-[![packages](https://img.shields.io/badge/packages-10-blue)](#packages)
+[![tests](https://img.shields.io/badge/tests-607%20TS%20%7C%20222%20Rust%20passing-brightgreen)](#)
+[![packages](https://img.shields.io/badge/packages-15-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
 
-> **CI note:** The workflow runs on `workflow_dispatch` during v0 development. Auto-triggers (push / PR) are re-enabled at v1 cutover. Local gates (typecheck · test · build · size · bench) run on every Builder dispatch and are validated by the Verifier.
+> **CI note:** Auto-triggers (push / PR) are now enabled on main following v1 cutover. Local gates (typecheck · test · build · size · bench) continue to run on every Builder dispatch and are validated by the Verifier.
 
 ---
 
@@ -21,7 +21,7 @@ Scribe sits at the intersection of three things:
 
 1. **A reactive core** ([`@scribe/signals`](./packages/signals)) — push-based signals, computeds, effects, batched writes. Beats alien-signals on cellx, batched-writes, dynamic-deps, and creation-1to1000. Ships in ≤ 1.7 kB gzipped.
 2. **A DOM layer** ([`@scribe/arbor`](./packages/arbor)) — `branch`/`leaf`/`mount` primitives that materialize a tree synchronously into an `Element` or `ShadowRoot` and tear it down LIFO. The compiler emits direct calls into these primitives — no JSX runtime tax, no virtual DOM. **122× faster than vanilla DOM** on targeted reactive updates (`nodeValue` vs `textContent`).
-3. **A planned compiler** — a Rust toolchain that reads `.scribe` SFC files (template + setup script) and emits a `class extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)`. The `defineComponent` helper produces the same shape for hand-authored components.
+3. **A Rust compiler** — a Rust toolchain that reads `.scribe` SFC files (template + setup script) and emits a `class extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)`. The `defineComponent` helper produces the same shape for hand-authored components. Shipped at v1.
 
 The output is **vanilla custom elements**: no framework lock-in at the consumer boundary, no global context, no hydration step.
 
@@ -35,14 +35,37 @@ It's a framework you author *with*, not a framework you embed *into*. The pieces
 
 Compare to: Solid (single-package), Lit (templating + base class only), Vue (proxy-based, ships its own scheduler). Scribe is *meta* in the sense of separable layers stacked into a meta-framework, not in the Next.js / Nuxt sense.
 
+## v1 Feature Status
+
+All 17 v1 plans shipped on 2026-05-03:
+
+| Phase | Plan | Package | Status |
+|-------|------|---------|--------|
+| 1 | 1.1 Reconciler (when/each) | @scribe/arbor | ✓ |
+| 1 | 1.2 Component props | @scribe/runtime | ✓ |
+| 1 | 1.3 Scoped styles | Compiler C-5 | ✓ |
+| 1 | 1.4 Slots | @scribe/arbor | ✓ |
+| 2 | 2.1 Context API | @scribe/context | ✓ |
+| 2 | 2.2 Data protocol | @scribe/data | ✓ |
+| 3 | 3.1 Streaming SSR | @scribe/server | ✓ |
+| 3 | 3.2 Full hydration | @scribe/arbor + server | ✓ |
+| 3 | 3.3 Islands | @scribe/runtime + Vite | ✓ |
+| 4 | 4.1 HMR | @scribe/runtime + Vite | ✓ |
+| 4 | 4.2 Error boundaries | @scribe/arbor + runtime | ✓ |
+| 4 | 4.3 TS template types (v1) | Compiler | ✓ |
+| 5 | 5.1 AgentManifest + `<agent>` | @scribe/agent + Compiler | ✓ |
+| 5 | 5.2 AgentService | @scribe/agent-service | ✓ |
+| 5 | 5.3 A2A/ACP adapters | @scribe/agent-a2a, @scribe/agent-acp | ✓ |
+| 6 | 6.1 File-based routing | @scribe/router | ✓ |
+| 6 | 6.2 Signals optimization | @scribe/signals | ✓ |
+
+---
+
 ## Project posture
 
 This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
 
-Key non-goals (today):
-- **No agent live-binding wiring** — `@scribe/agent-service` aggregates manifests and routes calls to bindings; the binding execution layer (Plan 5.3 — A2A/ACP adapters) is queued.
-- **No TypeScript template type-checking yet** — Plan 4.3 (queued).
-- **No npm publish yet** — packages are at `0.0.0`. v1 cutover (Plan 7.1) bumps to `1.0.0` and publishes.
+All 17 v1 plans shipped 2026-05-03. Packages are at `1.0.0` as of the v1 cutover (Plan 7.1).
 
 ---
 
@@ -130,8 +153,8 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ```bash
 bun install
-bun run build      # build all 6 packages
-bun run test       # 255 tests (unit + integration + compliance)
+bun run build      # build all 15 packages
+bun run test       # 607 TS tests + 222 Rust tests (unit + integration + compliance)
 bun run size       # gzipped bundle gates (browser layer)
 bun run check      # biome lint + format
 bash scripts/check-boundary.sh   # AC-7: hard boundary (no client imports in server layer)
@@ -215,4 +238,4 @@ Run all compliance checks: `bun run test && bun run test:quality`
 
 ## License
 
-Not yet specified. Treat as proprietary until a `LICENSE` file lands.
+MIT

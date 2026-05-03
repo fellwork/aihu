@@ -1,31 +1,26 @@
 name: Plan A — TS runtime family
-# CI is intentionally manual-only during v0 development.
-# - Gates (typecheck/test/build/size/bench) all still pass locally and
-#   are validated by the Verifier subagent on every Builder dispatch.
-# - Re-enable the auto triggers BEFORE v1 ships. Restore by uncommenting
-#   the push/pull_request blocks below. The job definitions are intact.
-# Tracking: state-plan-a.md "Open items".
+# Auto-triggers re-enabled at v1 cutover (Plan 7.1, 2026-05-03).
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main, 'plan-a-phase-*', 'plan-*', 'phase-*/**', 'bench/**', 'spec/**']
-  #   paths-ignore:
-  #     - '.team/**'
-  #     - 'docs/**'
-  #     - '.claude/**'
-  #     - 'state-*.md'
-  #     - 'README.md'
-  #     - '**/*.md'
-  # pull_request:
-  #   branches: [main]
-  #   types: [opened, reopened, synchronize, ready_for_review]
-  #   paths-ignore:
-  #     - '.team/**'
-  #     - 'docs/**'
-  #     - '.claude/**'
-  #     - 'state-*.md'
-  #     - 'README.md'
-  #     - '**/*.md'
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.team/**'
+      - 'docs/**'
+      - '.claude/**'
+      - 'state-*.md'
+      - 'README.md'
+      - '**/*.md'
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths-ignore:
+      - '.team/**'
+      - 'docs/**'
+      - '.claude/**'
+      - 'state-*.md'
+      - 'README.md'
+      - '**/*.md'
 
 jobs:
   check:
