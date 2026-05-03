@@ -82,8 +82,7 @@ export function _materialize(
     const appended: globalThis.Node[] = []
     const children = node.children
     for (let i = 0; i < children.length; i++) {
-      const result = _materialize(children[i] as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
-      for (const n of result) appended.push(n)
+      appended.push(...(_materialize(children[i] as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)))
     }
     return appended
   }
