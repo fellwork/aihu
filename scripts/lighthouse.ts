@@ -31,7 +31,7 @@ const CWV = {
 
 // ── 1. Start demo server ────────────────────────────────────────────────────
 
-const server = Bun.spawn(['bun', 'demo/server.ts'], {
+const server = Bun.spawn(['bun', 'tests/manual-demo/server.ts'], {
   cwd: process.cwd(),
   stdout: 'pipe',
   stderr: 'pipe',

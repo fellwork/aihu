@@ -1,5 +1,5 @@
-import { createRouter, defineRoute, renderToString, json, notFound } from '../packages/server/src/index.ts'
-import { createAgentReadinessRoutes } from '../packages/agent-readiness/src/index.ts'
+import { createRequestRouter, defineRoute, renderToString, notFound } from '../../packages/server/src/index.ts'
+import { createAgentReadinessRoutes } from '../../packages/agent-readiness/src/index.ts'
 import { HomePage } from './pages/home.ts'
 import { AboutPage } from './pages/about.ts'
 
@@ -19,7 +19,7 @@ const headConfig = {
 
 const CSS = 'body { font-family: sans-serif; margin: 2rem; }'
 
-const router = createRouter(
+const router = createRequestRouter(
   {
     routes: [
       defineRoute('/', async (_req) => {
