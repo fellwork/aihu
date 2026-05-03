@@ -535,3 +535,46 @@ fn v038_fixture_agent_basic() {
         golden
     );
 }
+
+// ─── Apostrophe in @template body ────────────────────────────────────────────
+
+/// A bare apostrophe in @template prose (e.g. "Don't panic.") must not trigger
+/// string-literal mode and swallow the closing `}`.
+#[test]
+fn apostrophe_in_template_body_does_not_trigger_string_literal_mode() {
+    let src = "\
+@state {
+const [x, setX] = signal(0)
+}
+@template {
+  <p>Don't panic.</p>
+}
+";
+    let parsed = sfc::parse(src)
+        .expect("@template with apostrophe in prose must parse without error");
+    assert_eq!(
+        parsed.template.unwrap().trim(),
+        "<p>Don't panic.</p>",
+        "template body must be captured correctly despite apostrophe"
+    );
+}
+
+/// @state blocks must still skip JS string literals so braces inside strings
+/// do not affect brace-depth tracking.
+#[test]
+fn state_block_string_literal_with_single_quotes_still_skipped() {
+    let src = "\
+@state {
+const s = 'hello { world }'
+}
+@template {
+  <span>hi</span>
+}
+";
+    let parsed = sfc::parse(src)
+        .expect("@state with single-quoted string containing braces must parse without error");
+    assert!(
+        parsed.script.unwrap().contains("'hello { world }'"),
+        "@state body must include the full string literal with braces"
+    );
+}
