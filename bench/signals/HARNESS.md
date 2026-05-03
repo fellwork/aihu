@@ -2,6 +2,12 @@
 
 This document tells a fresh reader how to add a workload, add a competitor, and how the CI regression gate works. **Do not modify a workload after a baseline lands** — that invalidates the regression gate. Add a new workload alongside.
 
+## Size budgets
+
+Browser-eligible packages MUST have a `.size-limit.json` row. Server-side packages (`@scribe/server`, `@scribe/agent-readiness`) MUST NOT have a row — they are budgeted by SSR-bytes-served and dep-tree audit, not browser-bundle bytes. Build/dev-time-only packages (`@scribe/plugin`, `@scribe/compiler`) likewise carry no row — they never reach a browser bundle.
+
+The CI lint at `scripts/check-size-rows.ts` enforces this policy. Run it locally with `bun run check:size-rows`. See `.size-limit.README.md` for the per-package classification.
+
 ## Layout
 
 ```

@@ -22,6 +22,7 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "size": "bun scripts/size.ts",
+    "check:size-rows": "bun scripts/check-size-rows.ts",
     "test:quality": "bun scripts/lighthouse.ts"
   },
   "devDependencies": {

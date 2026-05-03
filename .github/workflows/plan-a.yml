@@ -46,6 +46,12 @@ jobs:
       - run: bun run test --coverage
       - run: bun run build
       - run: bun run size
+      # v0.2.4 — .size-limit.json row-policy lint. Flags any browser-eligible
+      # package missing a row, or any server-side / build-dev-time-only package
+      # with a forbidden row. See .size-limit.README.md for the policy. The
+      # parent workflow runs on workflow_dispatch only; push triggers re-enable
+      # at v1.0.1 per state-plan-a.md "Open follow-ups".
+      - run: bun run check:size-rows
 
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
