@@ -1,4 +1,5 @@
 use crate::types::{ActionDecl, AgentBlock, CompileError, InputDecl, InputKind, StateDecl};
+use crate::parser::agent_macros::parse_agent_macros;
 
 /// Strip an inline comment (everything from `#` onwards) and trim the result.
 fn strip_comment(line: &str) -> &str {
@@ -219,6 +220,11 @@ pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError> {
             continue;
         }
 
+        // v0.4.8: Lines starting with `$` are manifest macros — parsed separately.
+        if line.starts_with('$') {
+            continue;
+        }
+
         if let Some(rest) = line.strip_prefix("input ") {
             let decl = parse_input_line(rest.trim(), line_no)?;
             if seen_input_names.contains(&decl.name) {
@@ -253,6 +259,9 @@ pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError> {
             });
         }
     }
+
+    // v0.4.8: Parse manifest macros from the same source.
+    ast.agent_macros = parse_agent_macros(src)?;
 
     Ok(ast)
 }

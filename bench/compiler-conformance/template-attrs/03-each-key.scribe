@@ -1,0 +1,5 @@
+@template {
+  <ul $each="items" $key="getKey">
+    <li>item</li>
+  </ul>
+}

@@ -1,5 +1,5 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{AgentBlock, Attr, CompileUnit, InputKind, StyleBlock, StyleScope, TemplateNode};
+use crate::types::{AgentBlock, AgentMacroDecl, Attr, CompileUnit, InputKind, MacroValue, StyleBlock, StyleScope, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -226,7 +226,7 @@ fn emit_agent_bindings(agent: &AgentBlock) -> String {
 // ─── Manifest JSON emission ───────────────────────────────────────────────────
 
 fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
-    if agent.inputs.is_empty() && agent.actions.is_empty() {
+    if agent.inputs.is_empty() && agent.actions.is_empty() && agent.agent_macros.is_empty() {
         return String::new();
     }
 
@@ -304,9 +304,31 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
         format!("{{\n{}\n    }}", action_entries.join(",\n"))
     };
 
+    // Build agent macros extras (v0.4.8)
+    let mut extra_fields = String::new();
+    for mac in &agent.agent_macros {
+        match mac {
+            AgentMacroDecl::Scope(val) => {
+                extra_fields.push_str(&format!(",\n    \"scope\": \"{}\"", val));
+            }
+            AgentMacroDecl::RateLimit(n) => {
+                extra_fields.push_str(&format!(",\n    \"rateLimit\": {}", n));
+            }
+            AgentMacroDecl::Describe(text) => {
+                extra_fields.push_str(&format!(",\n    \"description\": \"{}\"", text));
+            }
+            AgentMacroDecl::Expose { name, type_name, writable } => {
+                extra_fields.push_str(&format!(
+                    ",\n    \"exposes\": {{\"name\": \"{}\", \"type\": \"{}\", \"writable\": {}}}",
+                    name, type_name, writable
+                ));
+            }
+        }
+    }
+
     format!(
-        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {}\n  }}]\n}}",
-        tool_name, tag_name, inputs_json, actions_json
+        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {}{}\n  }}]\n}}",
+        tool_name, tag_name, inputs_json, actions_json, extra_fields
     )
 }
 
@@ -447,18 +469,27 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
                     None => "slot()".to_string(),
                 };
             }
+
+            // Check for $raw — if present, emit the element verbatim with no macro wrapping.
+            let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
+
             let attrs_str = emit_attrs(attrs);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
             let next_indent = format!("{}  ", child_indent);
-            let non_empty_children: Vec<String> = children
-                .iter()
-                .map(|c| emit_node(c, signal_map, &next_indent))
-                .filter(|s| !s.is_empty())
-                .collect();
+            let non_empty_children: Vec<String> = if is_raw {
+                // $raw: no child processing
+                Vec::new()
+            } else {
+                children
+                    .iter()
+                    .map(|c| emit_node(c, signal_map, &next_indent))
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
 
-            if non_empty_children.is_empty() {
+            let base = if non_empty_children.is_empty() {
                 format!("branch('{}', {}, [])", tag, attrs_str)
             } else if has_element_child {
                 let parent_indent = &child_indent[..child_indent.len().saturating_sub(2)];
@@ -481,22 +512,151 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             } else {
                 let inline = non_empty_children.join(", ");
                 format!("branch('{}', {}, [{}])", tag, attrs_str, inline)
+            };
+
+            // Emit macro effects (wrapping/side-effect macros).
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent);
+            if effects.is_empty() {
+                base
+            } else {
+                // Return the first effect (boundary wraps supersede the base node).
+                effects.into_iter().next().unwrap_or(base)
             }
         }
     }
 }
 
 fn emit_attrs(attrs: &[Attr]) -> String {
-    if attrs.is_empty() {
-        return "undefined".to_string();
-    }
-    let pairs: Vec<String> = attrs
+    // Filter out macro attrs that aren't pure attribute expressions
+    // (those are handled via emit_macro_effects instead).
+    let passthrough: Vec<String> = attrs
         .iter()
-        .map(|a| match a {
-            Attr::Static { name, value } => format!("{}: '{}'", name, value),
-            Attr::Binding { name, expr } => format!("{}: {}", name, expr),
-            Attr::Event { name, handler } => format!("on{}: {}", name, handler),
+        .filter_map(|a| match a {
+            Attr::Static { name, value } => Some(format!("{}: '{}'", name, value)),
+            Attr::Binding { name, expr } => {
+                // deprecated :prop alias — emit as direct attr
+                Some(format!("{}: {}", name, expr))
+            }
+            Attr::Event { name, handler } => {
+                // deprecated @event alias — emit as onX attr
+                Some(format!("on{}: {}", name, handler))
+            }
+            Attr::Macro { name, value } => {
+                // $bind:prop and $on:event emit as direct attrs in the attrs object;
+                // other macros ($if, $show, $each, etc.) are emitted as effects outside.
+                if let Some(prop) = name.strip_prefix("bind:") {
+                    let expr = macro_value_expr(value);
+                    Some(format!("{}: {}", prop, expr))
+                } else if let Some(event) = name.strip_prefix("on:") {
+                    let handler = macro_value_expr(value);
+                    Some(format!("on{}: {}", capitalize_first(event), handler))
+                } else {
+                    None
+                }
+            }
         })
         .collect();
-    format!("{{ {} }}", pairs.join(", "))
+
+    if passthrough.is_empty() {
+        "undefined".to_string()
+    } else {
+        format!("{{ {} }}", passthrough.join(", "))
+    }
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+fn macro_value_expr(value: &MacroValue) -> String {
+    match value {
+        MacroValue::Quoted(s) => s.clone(),
+        MacroValue::Curly(s) => s.clone(),
+        MacroValue::Boolean => "true".to_string(),
+    }
+}
+
+/// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)
+/// attached to an element identified by `el_var`.
+fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str) -> Vec<String> {
+    let mut effects: Vec<String> = Vec::new();
+
+    let mut has_each = false;
+    let mut each_items = String::new();
+    let mut key_fn = String::new();
+
+    for attr in attrs {
+        let Attr::Macro { name, value } = attr else {
+            continue;
+        };
+        match name.as_str() {
+            "if" => {
+                let cond = macro_value_expr(value);
+                effects.push(format!(
+                    "{}createIfBoundary({}, () => {{ return {} }})",
+                    indent, cond, subtree
+                ));
+            }
+            "show" => {
+                let expr = macro_value_expr(value);
+                effects.push(format!(
+                    "{}effect(() => {{ {}.style.setProperty('--show', ({}) ? '1' : '0') }})",
+                    indent, el_var, expr
+                ));
+            }
+            "each" => {
+                has_each = true;
+                each_items = macro_value_expr(value);
+            }
+            "key" => {
+                key_fn = macro_value_expr(value);
+            }
+            "html" => {
+                let expr = macro_value_expr(value);
+                // $html is unsafe — consumer must sanitize; see spec
+                effects.push(format!(
+                    "{}// WARNING: $html is unsafe; sanitize consumer-side\n{}effect(() => {{ {}.innerHTML = {} }})",
+                    indent, indent, el_var, expr
+                ));
+            }
+            "once" => {
+                effects.push(format!(
+                    "{}createOnceBoundary(() => {{ return {} }})",
+                    indent, subtree
+                ));
+            }
+            "memo" => {
+                let deps = macro_value_expr(value);
+                effects.push(format!(
+                    "{}createMemoBoundary({}, () => {{ return {} }})",
+                    indent, deps, subtree
+                ));
+            }
+            n if n.starts_with("bind:") || n.starts_with("on:") => {
+                // These are already handled in emit_attrs — skip here.
+            }
+            "raw" => {
+                // $raw: node is pass-through, no child processing — handled at node level
+            }
+            _ => {}
+        }
+    }
+
+    if has_each {
+        let key_part = if key_fn.is_empty() {
+            "undefined".to_string()
+        } else {
+            key_fn.clone()
+        };
+        effects.push(format!(
+            "{}createEachBoundary({}, {}, (item, i) => {{ return {} }})",
+            indent, each_items, key_part, subtree
+        ));
+    }
+
+    effects
 }
