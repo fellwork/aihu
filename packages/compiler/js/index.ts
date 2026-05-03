@@ -41,6 +41,42 @@ export interface ScribeCompilerPluginOptions {
    * runtime path (Plan 3.2 baseline behaviour).
    */
   islands?: boolean
+
+  /**
+   * Project-wide shadow-DOM mode applied to every `.scribe` SFC compiled
+   * by this plugin instance. When set, the plugin post-processes the
+   * compiled JS to inject `, { shadowMode: '<mode>' }` as the third arg
+   * to the emitted `defineElement(tag, defineComponent(...))` call.
+   *
+   * - `'open'`   — default browser behaviour (shadow root, externally readable).
+   * - `'closed'` — shadow root, externally hidden.
+   * - `'none'`   — **no shadow root.** The component mounts into its own
+   *               element. Required for global utility-class CSS frameworks
+   *               like Tailwind, UnoCSS, Pico that rely on the cascade.
+   *
+   * Per-component override is not yet supported via SFC syntax (post-v1).
+   * For per-component control today, hand-author the component with
+   * `defineElement(tag, Ctor, { shadowMode: '...' })`.
+   */
+  shadowMode?: 'open' | 'closed' | 'none'
+}
+
+/**
+ * Inject `{ shadowMode: '...' }` as the third argument to the emitted
+ * `defineElement('tag', defineComponent(...))` call. The compiler emits
+ * exactly two arguments today; this rewrites the closing of the
+ * defineElement call to include the options object. Idempotent — leaves
+ * code untouched when the closer is not in the expected shape.
+ *
+ * @internal
+ */
+export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'): string {
+  // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
+  // The compiler always emits this exact two-paren close as the final tokens of
+  // the defineElement call — we anchor on it and append the options object.
+  const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
+  const replaced = code.replace(re, (_m, inner: string) => `${inner}, { shadowMode: '${mode}' })`)
+  return replaced
 }
 
 /**
@@ -386,19 +422,21 @@ export function transform(source: string, id: string): { code: string; map: null
  */
 export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
+  const shadowMode = options?.shadowMode
   return {
     name: 'scribe-compiler',
     enforce: 'pre',
     transform(code, id) {
       if (!id.endsWith('.scribe')) return undefined
       const result = transform(code, id)
-      const elementTag = _extractElementTag(result.code)
+      const compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+      const elementTag = _extractElementTag(compiled)
 
       // Plan 3.3 — static-island fast path. Bypasses HMR injection because
       // a component with no signals has no setup state to hot-replace.
-      if (islandsEnabled && elementTag !== null && _classifyIsland(result.code) === 'static') {
+      if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
         return {
-          code: _buildStaticIsland(result.code, elementTag),
+          code: _buildStaticIsland(compiled, elementTag),
           map: null,
         }
       }
@@ -407,7 +445,7 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
         // Inject HMR instrumentation. The injected block is gated on
         // `typeof __DEV__ !== 'undefined' && __DEV__` so production
         // bundlers dead-code-eliminate it when they set __DEV__ = false.
-        let out = _buildHmrCode(result.code, elementTag)
+        let out = _buildHmrCode(compiled, elementTag)
         // Plan 3.3 — interactive islands also gain `defer` attribute
         // support so individual instances can opt into lazy hydration.
         out = _buildDeferredHydration(out, elementTag)
@@ -416,7 +454,7 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
           map: null,
         }
       }
-      return result
+      return { code: compiled, map: null }
     },
   }
 }
