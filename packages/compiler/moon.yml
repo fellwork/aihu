@@ -15,6 +15,8 @@ tasks:
       - "rolldown.config.ts"
     outputs:
       - "dist"
+    options:
+      mergeArgs: "replace"
 
   typecheck:
     command: "tsc --noEmit"
