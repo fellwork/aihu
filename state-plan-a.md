@@ -298,14 +298,63 @@ The plugin registration shim added 28 B gz to the `@scribe/data` bundle even whe
 
 v0.2.2's parse-phase infrastructure (body extraction, block kind routing) was complete. v0.3's 8 sub-items were analysis-phase work layered on top: `$global` scope detection, deprecation warnings, undeclared ref warnings, reserved-token rejection. Builder completed all 8 in 2 commits, well under planned budget. See Learning #38.
 
-### v0.4 is next
-
-v0.4 = macro attributes — compiler lowering for `$if`, `$show`, `$each`, `$bind:*`, `$on:*`, `$key`, `$html`, `$raw`, `$once`, `$memo` in templates; `$prop`, `$computed`, `$resource`, `$effect`, `$action`, `$lifecycle` in `@state`; plus `onMount`/`onCleanup` runtime exports. Note: runtime has only +7 B headroom — Compressor pass pre-authorized per framework plan.
-
 ### Durable references (v0.3)
 
 - Retro: `.team/v0.3/retro.md`
 - Learning #38: `.team/learnings.md`
 - Conformance fixtures: `bench/compiler-conformance/blocks/`
 - Rust tests: `packages/compiler/tests/sfc_conformance.rs`
+
+---
+
+## v0.4 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.4 closeout: 2 parallel streams; 163 Rust + 483 TS tests; 8/8 size rows)
+**Main HEAD at close:** `d1bd820`
+
+### Sub-items shipped
+
+| Sub-item | PR | Stream | Notes |
+|----------|-----|--------|-------|
+| v0.4.9 | #36 | A (TS) | `onMount` + `onCleanup` in `@scribe/runtime`; Compressor pass (213 B raw recovered) |
+| v0.4.1–4.4 | #37 | B (Rust) | `MacroValue` enum, `Attr::Macro` variant; quoted/curly/boolean parsing; C300 bare-value error; DEPRECATED on `@event`/`:attr` |
+| v0.4.5 | #37 | B (Rust) | Template macro lowerings: `$if`, `$show`, `$each+$key`, `$bind:*`, `$on:*`, `$html`, `$raw`, `$once`, `$memo` |
+| v0.4.6 | #37 | B (Rust) | `state_macros.rs`: `$prop`, `$computed`, `$resource`, `$effect`, `$effect.on`, `$watch`, `$action`, `$lifecycle.mount/dispose` |
+| v0.4.7 | #37 | B (Rust) | `style_macros.rs`: `$reactive`, `$media`, `$when` |
+| v0.4.8 | #37 | B (Rust) | `agent_macros.rs`: `$expose`, `$expose.write`, `$scope`, `$rate-limit`, `$describe`; manifest JSON extended |
+| v0.4.10 | #37 | B (Rust) | Conformance fixtures: 5 template-attr pairs + 3 macro pairs |
+
+**Deferred:** `$action` form-attr build-target split → v0.5 (explicit per framework plan)
+
+### Final gate walk (verified by Team Lead)
+
+**Rust tests:** 100 → 163 (+63, 1 pre-existing ignored)
+**TS tests:** 476 → 483 (+7, 59 test files)
+
+**Package sizes (`bun run size`):**
+
+| Package | Size | Budget | Headroom |
+|---------|------|--------|----------|
+| `@scribe/context` | 249 B | 300 B | +51 B |
+| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
+| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@scribe/runtime` | 1.14 kB | 1170 B | +7 B |
+| `@scribe/agent` | 117 B | 200 B | +83 B |
+| `@scribe/data` | 778 B | 800 B | +22 B |
+| `@scribe/router` | 1.45 kB | 1536 B | +50 B |
+| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+
+**Dep envelope:** no new runtime deps added in v0.4.
+
+### v0.5 is next
+
+v0.5 = macro elements — compiler-lowered `<$slot>`, `<$suspense>`, `<$shield>`, `<$guard>`, `<$warp>` using existing arbor primitives. All five are emit-phase helpers; ~5-15 B per boundary per Learning #36.
+
+### Durable references (v0.4)
+
+- Retro: `.team/v0.4/retro.md`
+- Director note: `.team/v0.4/director-note-session-start.md`
+- Conformance fixtures: `bench/compiler-conformance/template-attrs/` + `bench/compiler-conformance/macros/`
+- Rust tests: `packages/compiler/tests/macro_attrs.rs`
 
