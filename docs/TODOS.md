@@ -36,7 +36,7 @@ Deferred items captured during plan reviews. Each has enough context to act on c
 
 **Why:** With the RC-3 reversal, `input label: string` without a default silently coerces to `''`. This is correct for optional inputs but ambiguous for truly required ones. A developer writing a label component genuinely wants `label` to always be provided — the current grammar gives no way to express this intent, and the empty string fallback will produce unexpected UI.
 
-**Context:** RC-3 was reversed after outside voice challenge (D10). The `string!` syntax is the right long-term solution but was out-of-scope for Phase 1. The `''` fallback is the Phase 1 behavior and is documented in `docs/grammar.md` null/missing attribute section.
+**Context:** RC-3 was reversed after outside voice challenge (D10). The `string!` syntax is the right long-term solution but was out-of-scope for Phase 1. The `''` fallback is the Phase 1 behavior; the canonical attribute-value contract now lives in `docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md` (the `docs/grammar.md` file describing the v0 form has been removed).
 
 **How to start:** Add `string!` as a new type in the agent-block grammar BNF. Emit: no fallback, no coercion — if attribute absent, SCR-C009 runtime warning (not error). The `!` communicates "caller must provide this."
 

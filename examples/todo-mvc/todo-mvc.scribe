@@ -1,0 +1,105 @@
+// TodoMVC — universal parity anchor.
+// Drafted in T4-D §4.2; preserved as the contract.
+// localStorage persistence is intentionally OUT OF SCOPE for v1 (T4-D Flag #2).
+
+@state {
+  // Domain
+  $action newId(): string { return crypto.randomUUID() }
+
+  todos: Array<{ id: string; text: string; done: boolean }> = []
+  filter: 'all' | 'active' | 'completed' = 'all'
+  draft: string = ''
+
+  $computed visible = filter === 'all'
+    ? todos
+    : filter === 'active'
+      ? todos.filter(t => !t.done)
+      : todos.filter(t => t.done)
+
+  $computed remaining = todos.filter(t => !t.done).length
+  $computed allDone = todos.length > 0 && remaining === 0
+
+  $action addTodo() {
+    const text = draft.trim()
+    if (!text) return
+    todos = [...todos, { id: newId(), text, done: false }]
+    draft = ''
+  }
+
+  $action toggle(id: string) {
+    todos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t)
+  }
+
+  $action remove(id: string) {
+    todos = todos.filter(t => t.id !== id)
+  }
+
+  $action clearCompleted() {
+    todos = todos.filter(t => !t.done)
+  }
+
+  $action setFilter(f: 'all' | 'active' | 'completed') {
+    filter = f
+  }
+}
+
+@template {
+  <section class="todoapp">
+    <header>
+      <h1>todos</h1>
+      <input
+        class="new-todo"
+        placeholder="What needs to be done?"
+        $bind:value="draft"
+        $on:keydown={(e) => e.key === 'Enter' && addTodo()}
+        autofocus
+      />
+    </header>
+
+    <ul class="todo-list">
+      <li
+        $each="visible as todo"
+        $key="todo.id"
+        class={todo.done ? 'completed' : ''}
+      >
+        <input
+          type="checkbox"
+          checked={todo.done}
+          $on:change={() => toggle(todo.id)}
+        />
+        <label>{todo.text}</label>
+        <button class="destroy" $on:click={() => remove(todo.id)}>x</button>
+      </li>
+    </ul>
+
+    <footer $if={todos.length > 0}>
+      <span class="todo-count">
+        <strong>{remaining}</strong> item{remaining === 1 ? '' : 's'} left
+      </span>
+      <ul class="filters">
+        <li><button $on:click={() => setFilter('all')}       class={filter === 'all' ? 'selected' : ''}>All</button></li>
+        <li><button $on:click={() => setFilter('active')}    class={filter === 'active' ? 'selected' : ''}>Active</button></li>
+        <li><button $on:click={() => setFilter('completed')} class={filter === 'completed' ? 'selected' : ''}>Completed</button></li>
+      </ul>
+      <button
+        class="clear-completed"
+        $if={todos.length - remaining > 0}
+        $on:click="clearCompleted"
+      >
+        Clear completed
+      </button>
+    </footer>
+  </section>
+}
+
+@style {
+  .todoapp { max-width: 32rem; margin: 2rem auto; font-family: system-ui, sans-serif; }
+  .new-todo { width: 100%; padding: 0.75rem; font-size: 1rem; }
+  .todo-list { list-style: none; padding: 0; }
+  .todo-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+  .completed label { text-decoration: line-through; color: #999; }
+  footer { display: flex; gap: 1rem; align-items: center; padding-top: 0.75rem; }
+  .filters { display: flex; gap: 0.5rem; list-style: none; padding: 0; margin: 0; }
+  .filters .selected { font-weight: 600; }
+  .destroy { background: transparent; border: 0; cursor: pointer; }
+}

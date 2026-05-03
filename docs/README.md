@@ -37,7 +37,10 @@ The four scribe spec quartet documents and three amendments have been **ratified
 
 ## Other docs in this directory
 
-- [`grammar.md`](grammar.md) — historical grammar reference
 - [`tthw-log.md`](tthw-log.md) — tthw session log
-- [`superpowers/`](superpowers/) — ratified plans + specs
+- [`superpowers/`](superpowers/) — ratified plans + specs (v1 authority)
 - [`topic-director-notes/`](topic-director-notes/) — topic-director session notes
+
+> Looking for the deprecated `grammar.md`? It described the v0 HTML-tag
+> SFC form and was removed when the v1 `@blockname { }` form shipped. The
+> spec quartet above is now the binding contract.
