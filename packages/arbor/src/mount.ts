@@ -120,7 +120,7 @@ export function _mountEffect(
         fn()
       } catch (err: unknown) {
         errorHandler(err, path)
-        if (savedDispose !== null) {
+        if (savedDispose) {
           savedDispose()
         } else {
           // First synchronous run: effect() hasn't returned yet.

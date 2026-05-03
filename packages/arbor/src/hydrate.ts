@@ -74,7 +74,7 @@ function _hydrateNode(
           break
         }
       }
-      if (textNode !== null) {
+      if (textNode) {
         const path = `${pathBase}.text`
         signalRegistry.set(path, get)
         const tn = textNode
@@ -103,12 +103,12 @@ function _hydrateNode(
         break
       }
     }
-    if (found !== null && node.attrs !== null) {
+    if (found && node.attrs) {
       // Wire only reactive attrs; static attrs are already set by SSR.
       _applyAttrs(found, node.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
       return
     }
-    if (found === null) {
+    if (!found) {
       // Mismatch fallback: create + append.
       _mountDisposersStack.push(disposers)
       try {
@@ -123,7 +123,7 @@ function _hydrateNode(
   // Branch node — all leaf/structural kinds returned above.
   const existingEl = pathMap.get(pathBase) ?? null
 
-  if (existingEl === null) {
+  if (!existingEl) {
     // Mismatch: expected element not found at this path — fall back to materialize.
     _mountDisposersStack.push(disposers)
     try {
@@ -139,7 +139,7 @@ function _hydrateNode(
   const branchNode = node as Branch
 
   // Wire reactive attrs to the existing element.
-  if (branchNode.attrs !== null) {
+  if (branchNode.attrs) {
     _applyAttrs(existingEl, branchNode.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   }
 

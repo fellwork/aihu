@@ -83,7 +83,7 @@ function _reconcileWhen(
     st.c && (_teardownChildScope(st.c), st.c = null)
     return
   }
-  if (st.c !== null) return
+  if (st.c) return
   const cd: Dispose[] = []
   const ca = document.createComment('w')
   par.insertBefore(ca, anc.nextSibling)
@@ -119,7 +119,7 @@ function _reconcileEach(
   let ref: globalThis.Node | null = anc.nextSibling
   for (const k of keys) {
     const s = sc.get(k)
-    if (s === undefined) continue
+    if (!s) continue
     const nl = s.appendedNodes
     if (s.anchor !== ref) par.insertBefore(s.anchor, ref)
     else ref = s.anchor.nextSibling
