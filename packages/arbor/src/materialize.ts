@@ -81,10 +81,9 @@ export function _materialize(
   // Case 4: fragment branch (null tag) — recurse children directly into host.
   if (node.kind === 'branch' && node.tag === null) {
     const appended: globalThis.Node[] = []
-    const children = node.children
-    for (let i = 0; i < children.length; i++) {
-      appended.push(...(_materialize(children[i] as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)))
-    }
+    node.children.forEach((c, i) => {
+      appended.push(...(_materialize(c as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)))
+    })
     return appended
   }
 
@@ -93,10 +92,9 @@ export function _materialize(
   const el = document.createElement(node.tag as string)
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   if (node.kind === 'branch') {
-    const children = node.children
-    for (let i = 0; i < children.length; i++) {
-      _materialize(children[i] as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
-    }
+    node.children.forEach((c, i) => {
+      _materialize(c as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
+    })
   }
   host.appendChild(el)
   return [el]

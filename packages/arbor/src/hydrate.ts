@@ -144,10 +144,9 @@ function _hydrateNode(
   }
 
   // Recurse into children.
-  const children = branchNode.children
-  for (let i = 0; i < children.length; i++) {
-    _hydrateNode(children[i] as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
-  }
+  branchNode.children.forEach((c, i) => {
+    _hydrateNode(c as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
+  })
 }
 
 // ---------------------------------------------------------------------------
