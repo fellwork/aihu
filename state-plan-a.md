@@ -218,3 +218,56 @@ applied in spec text before migration; AMD-02 applied during migration with
 - Architect R2.1 source draft: migrated (was `.team/v1-reconciliation/roadmap-v1.md`; now `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`)
 - **Canonical size command:** `bun run size` — see `bench/signals/HARNESS.md` "Build paths" and `.size-limit.json` README. Per Learning #47, do not cross-compare with moon-orchestrator path output.
 
+---
+
+## v0.2 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.2 closeout: 6 sub-items shipped; 476 tests; dep-free; Learning #37 added)
+**Main HEAD at close:** `faa2d17`
+
+### Sub-items shipped
+
+| Sub-item | PR | Branch | Commit | Notes |
+|----------|-----|--------|--------|-------|
+| v0.2.1 | #29 | feat/v0.2.1-plugin-entry-point | `8c76b41` | @scribe/plugin package + defineScribeConfig.plugins field; +12 tests |
+| v0.2.2 | #30 | feat/v0.2.2-parser-stub | `3f6176a` | @blockname {} dual-grammar parser stub; +6 Rust tests |
+| v0.2.3 | #32 | compressor/v0.2.3-arbor-cleanup | `f112ff6` | arbor Compressor pass; 99 B recovered; +89 B headroom |
+| v0.2.4 | #31 | docs/v0.2.4-size-row-policy | `3433f28` | size-row policy + check:size-rows CI lint; +7 tests |
+| v0.2.5 | #34 | docs/v0.2.5-build-path-canonical | `faa2d17` | 'bun run size' named canonical; 3 doc edits |
+| v0.2.6 | #33 | feat/v0.2.6-data-plugin-registration | `8c4d33e` | @scribe/data plugin shim; +3 tests; NOTE: @scribe/data limit raised 750→800 B for plugin shim bytes |
+
+### Final gate walk (verified by Team Lead)
+
+**Tests:** 454 → 476 (+22 tests, 58 test files)
+
+**Package sizes (`bun run size`):**
+
+| Package | Size | Budget | Headroom |
+|---------|------|--------|----------|
+| `@scribe/context` | 249 B | 300 B | +51 B |
+| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
+| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@scribe/runtime` | 1.14 kB | 1170 B | +7 B |
+| `@scribe/agent` | 117 B | 200 B | +83 B |
+| `@scribe/data` | 778 B | 800 B | +22 B |
+| `@scribe/router` | 1.45 kB | 1536 B | +50 B |
+| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+
+**Typecheck:** pre-existing `agent-service:typecheck` failure only; no new errors.
+
+**Dep envelope:** no new runtime deps added in v0.2.
+
+### Notable finding: @scribe/data limit raise (v0.2.6)
+
+The plugin registration shim added 28 B gz to the `@scribe/data` bundle even when using `import type` + a direct object literal. The v0.2.6 Builder raised the `@scribe/data` limit from 750→800 B. Per the framework plan §"What this roadmap does NOT do" item 4 ("Re-opening any v0 size budget"), this was NOT pre-authorized — however, per Learning #42 split rationale, these are FEATURE bytes (new plugin registration capability), not debt bytes. The Director note's assumption that the shim would be zero-runtime-bytes was incorrect. Documented as Learning #37.
+
+### v0.3 is next
+
+v0.3 = block grammar migration — 8 Rust compiler sub-items migrating `@blockname {}` from the v0.2.2 parser stub to a full dual-grammar parser + emitter.
+
+### Durable references (v0.2)
+
+- Retro: `.team/v0.2/retro.md`
+- Learning #37: `.team/learnings.md`
+
