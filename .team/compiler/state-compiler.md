@@ -1,7 +1,13 @@
 # State — Compiler Track
 
 **Track:** `compiler`
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-03
+
+> **Session 7 (post-v0.9 cleanup) — COMPLETE** at commit `daac021` (2026-05-03).
+> Committed untracked `route.rs` parser + 7 integration tests; deleted 6 orphaned
+> bench-conformance files; restored `docs/site/`. Rust tests: **221 passing** (was 214).
+> TS tests: **570 passing** (unchanged). Compiler track remains CLOSED.
+
 **HEAD at session start:** `8b5ba32` (docs(plans): Round N+2 test-quality track + compiler track plans)
 **HEAD after session 1:** `3919bdb` on `feat/compiler-c0` — "feat(compiler): Phase C-0 — scaffold + SFC block splitter"
 **HEAD after session 2:** `2a4ad9d` on `feat/compiler-c1` — "feat(compiler): Phase C-1 — TemplateNode + recursive descent template parser"
@@ -9,6 +15,7 @@
 **HEAD after session 4:** `d7bd475` on `feat/compiler-c3` — "fix(compiler): re-accept multiple_signals snapshot (HashMap ordering)"
 **HEAD after session 5:** `a0af4d4` on `feat/compiler-c4` — "fix(compiler): C4-6 integration — .exe path, enforce:pre, bun integrate.ts"
 **HEAD after session 6:** `808f1c0` on `main` — PR #14 merged: "chore(compiler): session-6 cleanup — BTreeMap + Vite limitation + topic summary"
+**HEAD after session 7:** `daac021` on `main` — "fix(compiler): commit untracked route parser + tests; delete orphaned bench files"
 **Active branch:** `main`
 **Mode:** CLOSED
 
