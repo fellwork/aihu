@@ -23,5 +23,9 @@
   "dependencies": {
     "@scribe/signals": "workspace:*",
     "@scribe/context": "workspace:*"
+  },
+  "devDependencies": {
+    "@scribe/plugin": "workspace:*",
+    "@scribe/server": "workspace:*"
   }
 }
