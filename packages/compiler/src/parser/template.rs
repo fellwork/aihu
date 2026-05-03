@@ -170,6 +170,7 @@ impl<'a> Parser<'a> {
         let start = self.pos;
         let mut in_quote = false;
         let mut quote_char = '\0';
+        let mut brace_depth: usize = 0;
 
         while let Some(ch) = self.peek_char() {
             if in_quote {
@@ -180,10 +181,31 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            if brace_depth > 0 {
+                match ch {
+                    '{' => {
+                        brace_depth += 1;
+                        self.pos += ch.len_utf8();
+                    }
+                    '}' => {
+                        brace_depth -= 1;
+                        self.pos += ch.len_utf8();
+                    }
+                    _ => {
+                        self.pos += ch.len_utf8();
+                    }
+                }
+                continue;
+            }
+
             match ch {
                 '"' | '\'' => {
                     in_quote = true;
                     quote_char = ch;
+                    self.pos += ch.len_utf8();
+                }
+                '{' => {
+                    brace_depth += 1;
                     self.pos += ch.len_utf8();
                 }
                 '>' => break,

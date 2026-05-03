@@ -5,8 +5,9 @@ pub mod types;
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use parser::sfc;
 pub use types::{
-    ActionDecl, AgentBlock, Attr, CompileError, CompileUnit, InputDecl, InputKind, ScribeSource,
-    ScriptMeta, StateDecl, StyleBlock, StyleScope, TemplateNode,
+    ActionDecl, AgentBlock, AgentMacroDecl, Attr, CompileError, CompileUnit, InputDecl, InputKind,
+    MacroValue, ScribeSource, ScriptMeta, StateDecl, StateMacro, StyleBlock, StyleMacro,
+    StyleScope, TemplateNode,
 };
 
 pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError> {
