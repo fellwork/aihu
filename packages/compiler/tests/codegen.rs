@@ -386,3 +386,40 @@ fn no_agent_block_manifest_empty() {
         "no agent block = no manifest"
     );
 }
+
+// ─── Plan 4.3-B: lock signal interpolation cast as stable v1 emit form ────────
+
+#[test]
+fn leaf_signal_interpolation_cast() {
+    // A minimal component with a signal interpolated in the template.
+    // This test locks the `as unknown as Signal<string>` double-cast as the
+    // stable v1 emit form, preventing accidental regression.
+    // Signal<T> = readonly [Read<T>, Write<T>]; Read<number> does not overlap
+    // with Read<string>, so `unknown` is the required bridge — a single `as`
+    // would produce a TypeScript compile error.
+    let src = concat!(
+        "<script setup>\n",
+        "const [score, setScore] = signal(0)\n",
+        "</script>\n",
+        "<template><span>{{ score }}</span></template>"
+    );
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-score");
+
+    // Lock: the stable double-cast must be present.
+    assert!(
+        output.js.contains("as unknown as Signal<string>"),
+        "signal interpolation must emit `as unknown as Signal<string>` cast; got:\n{}",
+        output.js
+    );
+
+    // Regression guard: a naive single cast must never appear.
+    assert!(
+        !output.js.contains("as Signal<number>"),
+        "output must not contain invalid single cast `as Signal<number>`; got:\n{}",
+        output.js
+    );
+
+    insta::assert_snapshot!(output.js);
+}
