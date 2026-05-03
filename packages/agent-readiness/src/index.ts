@@ -7,4 +7,5 @@ export type { RobotsConfig, RobotsRule } from './robots.ts'
 export { generateRobotsTxt, AI_BOT_LIST } from './robots.ts'
 export type { MarkdownResolver, ContentNegotiationOptions } from './content-negotiation.ts'
 export { createContentNegotiationHandler } from './content-negotiation.ts'
-export { agentReadiness, createAgentReadinessRoutes } from './vite-plugin.ts'
+// v0.7.4: viteAgentReadinessIntegration is the canonical name; agentReadiness is deprecated
+export { viteAgentReadinessIntegration, agentReadiness, createAgentReadinessRoutes } from './vite-plugin.ts'

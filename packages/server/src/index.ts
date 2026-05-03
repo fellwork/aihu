@@ -1,6 +1,7 @@
 export type { RouteContext, RouteHandler, Middleware, Next, HttpMethod } from './types.ts'
 export type { Route, RouteManifest, RouterOptions, RouteOptions } from './router.ts'
-export { defineRoute, createRouter } from './router.ts'
+// v0.7.4: createRequestRouter is the canonical name; createRouter is a deprecated alias
+export { defineRoute, createRequestRouter, createRouter } from './router.ts'
 export { defineMiddleware, composeMiddleware } from './middleware.ts'
 export type { ApiHandler } from './api.ts'
 export { defineApiRoute, json, notFound, methodNotAllowed, badRequest, serverError } from './api.ts'

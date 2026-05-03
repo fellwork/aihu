@@ -83,11 +83,14 @@ function matchRoute(pattern: string, pathname: string): Record<string, string> |
 }
 
 /**
- * Create a fetch-API compatible request handler.
+ * Create a fetch-API compatible request handler (v0.7.4 canonical name).
  * Matching order: static → dynamic → catch-all.
  * No match → calls `RouterOptions.notFound` or returns 404.
+ *
+ * Previously named `createRouter`. That name is kept as a deprecated alias
+ * until v1.0 to avoid a breaking change.
  */
-export function createRouter(
+export function createRequestRouter(
   manifest: RouteManifest,
   options?: RouterOptions,
 ): (req: Request) => Promise<Response> {
@@ -113,3 +116,6 @@ export function createRouter(
     return new Response('Not Found', { status: 404 })
   }
 }
+
+/** @deprecated Use `createRequestRouter` instead. Will be removed in v1.0. */
+export const createRouter = createRequestRouter
