@@ -98,7 +98,7 @@ function _hydrateNode(
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
     for (const cn of host.childNodes) {
-      if (cn.nodeType === 1 && (cn as Element).tagName === tag) {
+      if ((cn as Element).tagName === tag) {
         found = cn as Element
         break
       }
