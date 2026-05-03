@@ -1,0 +1,73 @@
+// @agent flagship #2 — enum inputs (the most under-demoed grammar feature).
+// Static rate table; pure-computed conversion; same value exposed to humans and agents.
+
+@state {
+  $prop from: 'USD' | 'EUR' | 'GBP' | 'JPY' = 'USD'
+  $prop to:   'USD' | 'EUR' | 'GBP' | 'JPY' = 'EUR'
+  $prop amount: number = 100
+
+  // USD-relative static rates. converted = amount * (rateOf(to) / rateOf(from)).
+  rates: Record<'USD' | 'EUR' | 'GBP' | 'JPY', number> = {
+    USD: 1.0,
+    EUR: 0.92,
+    GBP: 0.79,
+    JPY: 156.0,
+  }
+
+  $computed converted = amount * (rates[to] / rates[from])
+  $computed display   = converted.toFixed(2)
+}
+
+@template {
+  <section class="converter">
+    <h1>Currency converter</h1>
+
+    <div class="row">
+      <label>
+        <span>Amount</span>
+        <input type="number" $bind:value="amount" min="0" step="0.01" />
+      </label>
+      <label>
+        <span>From</span>
+        <select $bind:value="from">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="JPY">JPY</option>
+        </select>
+      </label>
+      <label>
+        <span>To</span>
+        <select $bind:value="to">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="JPY">JPY</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="result">
+      <strong>{amount}</strong> {from} = <strong>{display}</strong> {to}
+    </p>
+  </section>
+}
+
+@style {
+  .converter { display: grid; gap: 0.75rem; padding: 1rem; max-width: 28rem; font-family: system-ui, sans-serif; }
+  h1         { margin: 0; }
+  .row       { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+  label      { display: grid; gap: 0.25rem; }
+  input,
+  select     { padding: 0.4rem; }
+  .result    { font-size: 1.1rem; padding: 0.5rem; background: #f7f7f7; border-radius: 4px; margin: 0; font-variant-numeric: tabular-nums; }
+}
+
+@agent {
+  $expose from, to, amount, converted
+
+  $describe from      "Source currency code (USD | EUR | GBP | JPY)"
+  $describe to        "Target currency code (USD | EUR | GBP | JPY)"
+  $describe amount    "Amount in the source currency"
+  $describe converted "Equivalent amount in the target currency, computed from the static rate table"
+}
