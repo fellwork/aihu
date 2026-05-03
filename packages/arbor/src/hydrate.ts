@@ -29,30 +29,6 @@ import { _materialize } from './materialize.ts'
 import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // ---------------------------------------------------------------------------
-// Internal: path-based DOM walker
-// ---------------------------------------------------------------------------
-
-/**
- * Build a map from `data-scribe-path` value → Element for all elements
- * under `host` that carry the attribute.
- * @internal
- */
-function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
-  const map = new Map<string, Element>()
-  const root = host as Element
-  // Optional-call lets us probe both methods without typeof guards: when
-  // a method is missing, `?.()` short-circuits to undefined.
-  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
-    const p = el.getAttribute('data-scribe-path')
-    if (p !== null) map.set(p, el)
-  }
-  // Include host itself if it is an Element carrying the attribute.
-  const hp = root.getAttribute?.('data-scribe-path')
-  if (hp != null) map.set(hp, root)
-  return map
-}
-
-// ---------------------------------------------------------------------------
 // Internal recursive hydration walker
 // ---------------------------------------------------------------------------
 
@@ -207,7 +183,15 @@ export function hydrate(
 ): ReturnType<typeof mount> {
   void snapshot // currently used for type safety; future: signal pre-seeding
   const errorHandler = options?.onError
-  const pathMap = _buildPathMap(host)
+  // Build path→element map inline (per spec §5: `data-scribe-path` anchors).
+  const pathMap = new Map<string, Element>()
+  const root = host as Element
+  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
+    const p = el.getAttribute('data-scribe-path')
+    if (p !== null) pathMap.set(p, el)
+  }
+  const hp = root.getAttribute?.('data-scribe-path')
+  if (hp != null) pathMap.set(hp, root)
 
   _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
 
