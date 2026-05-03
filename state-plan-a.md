@@ -445,3 +445,36 @@ v0.7 = router middleware — `defineRouterMiddleware`, `composeMiddleware` isomo
 - Conformance fixtures: `bench/compiler-conformance/route/` + `bench/compiler-conformance/build-target/`
 - Rust tests: `packages/compiler/tests/route_and_build_target.rs`
 
+---
+
+## v0.7 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.7 closeout: 5 sub-items; 534 TS tests; router 818 B, no limit raise needed)
+**Main HEAD at close:** `570a2c7`
+
+### Sub-items shipped
+
+| Sub-item | PR | Notes |
+|----------|-----|-------|
+| v0.7.1 | #42 | `defineRouterMiddleware` + `composeRouterMiddleware` + types |
+| v0.7.2 | #42 | `scanPages()` detects `_middleware.ts/js`; emits `middlewareFile` in virtual routes |
+| v0.7.3 | #42 | `Plugin.serverOnly?: boolean` added to @scribe/plugin |
+| v0.7.4 | #42 | Renames: `createRequestRouter`, `viteRouterIntegration`, `viteAgentReadinessIntegration`; old names kept as deprecated aliases |
+| v0.7.5 | #42 | Stage-order comment at top of `composeRouterMiddleware` |
+
+### Final gate walk
+
+**Rust tests:** 209 (unchanged — TS-only)
+**TS tests:** 516 → 534 (+18, 64 test files)
+**Router size:** 740 B → 818 B / 1536 B (+718 B headroom — **+256 B raise NOT needed**)
+
+### v0.8 is next
+
+v0.8 = CLI scaffolder + Hello World template + first-run UX (`@scribe/cli`).
+
+### Durable references (v0.7)
+
+- Retro: `.team/v0.7/retro.md`
+- Director note: `.team/v0.7/director-note-session-start.md`
+
