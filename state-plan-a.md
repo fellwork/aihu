@@ -216,4 +216,5 @@ applied in spec text before migration; AMD-02 applied during migration with
 - Session retro: `.team/v1-reconciliation/retro.md`
 - Assets package design stub (deferred): `.team/v1-reconciliation/assets-package-design-stub.md`
 - Architect R2.1 source draft: migrated (was `.team/v1-reconciliation/roadmap-v1.md`; now `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`)
+- **Canonical size command:** `bun run size` — see `bench/signals/HARNESS.md` "Build paths" and `.size-limit.json` README. Per Learning #47, do not cross-compare with moon-orchestrator path output.
 

@@ -8,6 +8,15 @@ Browser-eligible packages MUST have a `.size-limit.json` row. Server-side packag
 
 The CI lint at `scripts/check-size-rows.ts` enforces this policy. Run it locally with `bun run check:size-rows`. See `.size-limit.README.md` for the per-package classification.
 
+## Build paths
+
+The canonical command for size-gate enforcement is `bun run size` (package-script + mangle, per Learning #47). The moon-orchestrator path may still exist for benches but is non-canonical for size — its output omits mangle and reads tighter or looser than the canonical depending on the package (the +15 to +83 B variance band observed in Learning #47).
+
+- **Canonical:** `bun run size` — used by CI gates, PR checks, and Verifier audits
+- **Non-canonical (benches only):** moon-orchestrator path — kept for parity with bench harness invocations
+
+Do not cross-compare numbers between the two paths; treat each as authoritative only within its own consumer.
+
 ## Layout
 
 ```
