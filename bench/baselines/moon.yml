@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+id: baselines
+language: unknown
+layer: configuration
+
+tasks:
+  build:
+    command: noop
+    outputs: []
+    options:
+      runFromWorkspaceRoot: false
+      mergeOutputs: replace
+
+  typecheck:
+    command: noop
+    outputs: []
+    options:
+      runFromWorkspaceRoot: false
+      mergeOutputs: replace
