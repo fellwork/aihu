@@ -18,6 +18,11 @@ export type RouteDefinition = {
   pattern: string
   segments: RouteSegment[]
   module: () => Promise<RouteModule>
+  // v0.6.3: fields from .route.json compiler sidecars
+  name?: string
+  middleware?: string[]
+  ssr?: boolean
+  layout?: string
 }
 
 export type MatchResult = {
