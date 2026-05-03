@@ -1,0 +1,36 @@
+// 7GUIs #2 — bidirectional binding flagship.
+// Drafted in T4-D §4.1; preserved as the contract.
+
+@state {
+  celsius: number = 20
+
+  $computed fahrenheit = celsius * 9 / 5 + 32
+
+  $action setFromF(f: number) {
+    celsius = (f - 32) * 5 / 9
+  }
+}
+
+@template {
+  <fieldset>
+    <legend>Temperature converter</legend>
+    <label>
+      <span>Celsius</span>
+      <input type="number" $bind:value="celsius" />
+    </label>
+    <label>
+      <span>Fahrenheit</span>
+      <input
+        type="number"
+        value={fahrenheit}
+        $on:input={(e) => setFromF(Number(e.target.value))}
+      />
+    </label>
+  </fieldset>
+}
+
+@style {
+  fieldset { display: grid; gap: 0.5rem; padding: 1rem; max-width: 22rem; }
+  label    { display: grid; grid-template-columns: 8ch 1fr; align-items: baseline; gap: 0.5rem; }
+  input    { font-variant-numeric: tabular-nums; }
+}

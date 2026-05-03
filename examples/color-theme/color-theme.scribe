@@ -1,0 +1,73 @@
+// $reactive(...) in @style + $global { ... } macro propagating tokens to document scope.
+// Demonstrates the @style block capability that no peer framework offers.
+
+@state {
+  hue: number = 215
+  saturation: number = 70
+  lightness: number = 55
+
+  $computed primary    = `hsl(${hue} ${saturation}% ${lightness}%)`
+  $computed onPrimary  = lightness < 60 ? '#ffffff' : '#111111'
+  $computed surface    = `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`
+
+  $action setPreset(h: number) {
+    hue = h
+    saturation = 70
+    lightness = 55
+  }
+}
+
+@template {
+  <section class="theme-picker">
+    <h1>Theme picker</h1>
+
+    <fieldset>
+      <legend>HSL controls</legend>
+      <label>
+        <span>Hue {hue}°</span>
+        <input type="range" min="0" max="360" $bind:value="hue" />
+      </label>
+      <label>
+        <span>Saturation {saturation}%</span>
+        <input type="range" min="0" max="100" $bind:value="saturation" />
+      </label>
+      <label>
+        <span>Lightness {lightness}%</span>
+        <input type="range" min="0" max="100" $bind:value="lightness" />
+      </label>
+    </fieldset>
+
+    <div class="presets">
+      <button $on:click={() => setPreset(215)}>Blue</button>
+      <button $on:click={() => setPreset(140)}>Green</button>
+      <button $on:click={() => setPreset(0)}>Red</button>
+      <button $on:click={() => setPreset(40)}>Amber</button>
+    </div>
+
+    <article class="card">
+      <h2>Primary swatch</h2>
+      <p>Active color: <code>{primary}</code>.</p>
+      <button class="cta">Call to action</button>
+    </article>
+  </section>
+}
+
+@style {
+  $global {
+    :root {
+      --color-primary:    $reactive(primary);
+      --color-on-primary: $reactive(onPrimary);
+      --color-surface:    $reactive(surface);
+    }
+  }
+
+  .theme-picker { display: grid; gap: 1rem; padding: 1rem; max-width: 30rem; font-family: system-ui, sans-serif; background: var(--color-surface); border-radius: 6px; }
+  fieldset      { display: grid; gap: 0.5rem; }
+  label         { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; align-items: center; }
+  .presets      { display: flex; gap: 0.5rem; }
+  .presets button { flex: 1; padding: 0.4rem; cursor: pointer; }
+  .card         { padding: 1rem; border-radius: 4px; background: white; }
+  .card h2      { margin-top: 0; color: var(--color-primary); }
+  .cta          { background: var(--color-primary); color: var(--color-on-primary); border: 0; padding: 0.5rem 1rem; cursor: pointer; border-radius: 3px; }
+  code          { font: 0.9em ui-monospace, monospace; }
+}

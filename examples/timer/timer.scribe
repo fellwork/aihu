@@ -1,0 +1,69 @@
+// 7GUIs #4 — effects + cleanup + a slider-controlled duration.
+// Demonstrates $lifecycle.mount / $lifecycle.dispose and $effect cleanup.
+
+@state {
+  // Configurable duration in milliseconds (slider range 1s..30s).
+  duration: number = 10000
+
+  // Elapsed time in ms; tops out at duration.
+  elapsed: number = 0
+
+  // Internal interval handle.
+  intervalId: number | null = null
+
+  $computed progress = duration === 0 ? 0 : Math.min(elapsed / duration, 1)
+  $computed seconds  = (elapsed / 1000).toFixed(1)
+  $computed maxSecs  = (duration / 1000).toFixed(1)
+  $computed done     = elapsed >= duration
+
+  $action tick() {
+    if (elapsed < duration) {
+      elapsed = Math.min(elapsed + 100, duration)
+    }
+  }
+
+  $action reset() {
+    elapsed = 0
+  }
+
+  $lifecycle.mount(() => {
+    intervalId = setInterval(() => tick(), 100) as unknown as number
+  })
+
+  $lifecycle.dispose(() => {
+    if (intervalId !== null) clearInterval(intervalId)
+  })
+}
+
+@template {
+  <section class="timer">
+    <h1>Timer</h1>
+    <label>
+      <span>Elapsed</span>
+      <progress value={progress} max="1"></progress>
+    </label>
+    <p class="readout">{seconds}s / {maxSecs}s</p>
+    <label>
+      <span>Duration</span>
+      <input
+        type="range"
+        min="1000"
+        max="30000"
+        step="500"
+        $bind:value="duration"
+      />
+    </label>
+    <button $on:click="reset">Reset</button>
+    <p class="status" $if={done}>Done.</p>
+  </section>
+}
+
+@style {
+  .timer    { display: grid; gap: 0.75rem; padding: 1rem; max-width: 24rem; font-family: system-ui, sans-serif; }
+  h1        { margin: 0; }
+  label     { display: grid; grid-template-columns: 6rem 1fr; align-items: center; gap: 0.5rem; }
+  progress  { width: 100%; height: 1rem; }
+  .readout  { font-variant-numeric: tabular-nums; margin: 0; }
+  button    { padding: 0.4rem 0.75rem; cursor: pointer; }
+  .status   { color: #2a7a2a; font-weight: 600; margin: 0; }
+}
