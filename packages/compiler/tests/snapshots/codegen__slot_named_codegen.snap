@@ -1,13 +1,11 @@
 ---
 source: tests/codegen.rs
-assertion_line: 235
+assertion_line: 244
 expression: output.js
 ---
 import { branch, leaf, slot } from '@scribe/arbor'
 import { defineComponent, defineElement } from '@scribe/runtime'
 
 defineElement('x-named-slot', defineComponent((_ctx) => {
-  return branch('div', undefined, [
-    slot('header')
-  ])
+  return branch('div', undefined, [createSlotBoundary({ name: 'header', expose: [] }, () => { return branch(null, undefined, []) })])
 }))

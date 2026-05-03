@@ -1,0 +1,8 @@
+@template {
+  <$shield>
+    <p>Protected content</p>
+    <$slot name="fallback">
+      <span>Error occurred</span>
+    </$slot>
+  </$shield>
+}

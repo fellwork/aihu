@@ -201,18 +201,21 @@ fn static_attr_passthrough() {
     insta::assert_snapshot!(output.js);
 }
 
-// ─── Plan 1.4: slot codegen ───────────────────────────────────────────────
+// ─── Plan 1.4 / v0.5.1: slot codegen ────────────────────────────────────────
+// Note: <slot> HTML form is DEPRECATED in v0.5. It emits `createSlotBoundary`
+// just like <$slot> but also prints a DEPRECATED warning to stderr.
 
 #[test]
 fn slot_default_codegen() {
-    // <slot></slot> → slot() call in emitted JS
+    // <slot></slot> → createSlotBoundary({ expose: [] }, ...) [DEPRECATED HTML form]
     let src = "<template><div><slot></slot></div></template>";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-slot");
     assert!(
-        output.js.contains("slot()"),
-        "default slot must emit slot()"
+        output.js.contains("createSlotBoundary"),
+        "deprecated <slot> must emit createSlotBoundary: {}",
+        output.js
     );
     assert!(
         !output.js.contains("branch('slot'"),
@@ -223,14 +226,20 @@ fn slot_default_codegen() {
 
 #[test]
 fn slot_named_codegen() {
-    // <slot name="header"></slot> → slot('header') call in emitted JS
+    // <slot name="header"></slot> → createSlotBoundary({ name: 'header', ... }) [DEPRECATED]
     let src = "<template><div><slot name=\"header\"></slot></div></template>";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-named-slot");
     assert!(
-        output.js.contains("slot('header')"),
-        "named slot must emit slot('header')"
+        output.js.contains("createSlotBoundary"),
+        "deprecated named <slot> must emit createSlotBoundary: {}",
+        output.js
+    );
+    assert!(
+        output.js.contains("'header'"),
+        "named slot must include slot name in output: {}",
+        output.js
     );
     insta::assert_snapshot!(output.js);
 }

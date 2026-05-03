@@ -24,10 +24,17 @@ pub struct ScriptMeta {
     pub name: Option<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TemplateNode {
     Element {
         tag: String,
+        attrs: Vec<Attr>,
+        children: Vec<TemplateNode>,
+    },
+    /// A `<$macro-element>` compiler-lowered boundary element (v0.5).
+    /// Tag name is the element name WITHOUT the `$` prefix (e.g. `"slot"`, `"suspense"`).
+    MacroElement {
+        name: String,
         attrs: Vec<Attr>,
         children: Vec<TemplateNode>,
     },
