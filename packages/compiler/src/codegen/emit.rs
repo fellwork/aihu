@@ -46,14 +46,107 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     EmitResult { js, manifest_json }
 }
 
+// ─── Inline boundary helpers ─────────────────────────────────────────────────
+
+/// Which SFC-internal helper consts are needed for the compiled template.
+#[derive(Default)]
+struct NeededHelpers {
+    if_boundary: bool,
+    once_boundary: bool,
+    memo_boundary: bool,
+    each_boundary: bool,
+    slot_boundary: bool,
+    suspense_boundary: bool,
+    shield_boundary: bool,
+    guard_boundary: bool,
+    warp_boundary: bool,
+}
+
+fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
+    let mut h = NeededHelpers::default();
+    collect_helpers_recursive(nodes, &mut h);
+    h
+}
+
+fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
+    for node in nodes {
+        match node {
+            TemplateNode::MacroElement { name, children, .. } => {
+                match name.as_str() {
+                    "slot" => h.slot_boundary = true,
+                    "suspense" => h.suspense_boundary = true,
+                    "shield" => h.shield_boundary = true,
+                    "guard" => h.guard_boundary = true,
+                    "warp" => h.warp_boundary = true,
+                    _ => {}
+                }
+                collect_helpers_recursive(children, h);
+            }
+            TemplateNode::Element { attrs, children, .. } => {
+                for attr in attrs {
+                    if let Attr::Macro { name, .. } = attr {
+                        match name.as_str() {
+                            "if" => h.if_boundary = true,
+                            "once" => h.once_boundary = true,
+                            "memo" => h.memo_boundary = true,
+                            "each" => h.each_boundary = true,
+                            _ => {}
+                        }
+                    }
+                }
+                collect_helpers_recursive(children, h);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Emit inline const definitions for boundary helpers used in this SFC.
+/// These are SFC-internal — not imported from any package.
+fn emit_boundary_helpers(h: &NeededHelpers) -> String {
+    let mut lines: Vec<&str> = Vec::new();
+    if h.if_boundary {
+        lines.push("const createIfBoundary = (cond, b) => cond ? b() : branch(null, undefined, []);");
+    }
+    if h.once_boundary {
+        lines.push("const createOnceBoundary = (b) => b();");
+    }
+    if h.memo_boundary {
+        lines.push("const createMemoBoundary = (deps, b) => b();");
+    }
+    if h.each_boundary {
+        lines.push("const createEachBoundary = (items, key, itemFn) => branch(null, undefined, (items ?? []).map((item, i) => itemFn(item, i)));");
+    }
+    if h.slot_boundary {
+        lines.push("const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);");
+    }
+    if h.suspense_boundary {
+        lines.push("const createSuspenseBoundary = (src, b, fb) => b();");
+    }
+    if h.shield_boundary {
+        lines.push("const createShieldBoundary = (b, fb) => { try { return b() } catch(e) { return fb({error: e, retry: () => {}}) } };");
+    }
+    if h.guard_boundary {
+        lines.push("const createGuardBoundary = (chk, b, fb) => b();");
+    }
+    if h.warp_boundary {
+        lines.push("const createWarpBoundary = (tgt, b) => b();");
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n\n"
+    }
+}
+
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
+    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
 
     let imports = build_function_imports(&signal_map);
     let script_body = extract_script_body(unit.source.script.unwrap_or(""));
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
     let (module_decl, ctx_param, style_injection) = if let Some(style) = &unit.source.style {
@@ -63,6 +156,8 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         (String::new(), "_ctx", String::new())
     };
 
+    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+
     let body = if script_body.is_empty() {
         format!("{}  return {}\n", style_injection, return_expr)
     } else {
@@ -70,9 +165,9 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     };
 
     format!(
-        "{}\n\n{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
+        "{}\n\n{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
 ",
-        imports, module_decl, tag_name, ctx_param, body
+        imports, module_decl, helpers_decl, tag_name, ctx_param, body
     )
 }
 
@@ -144,6 +239,8 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         (String::new(), String::new())
     };
 
+    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+
     let mut setup_body = String::new();
     if !style_injection.is_empty() {
         setup_body.push_str(&style_injection);
@@ -173,8 +270,8 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     setup_body.push_str(&format!("    return {}\n", return_expr));
 
     format!(
-        "{}\n\n{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n",
-        imports, module_decl, tag_name, attrs_str, setup_body
+        "{}\n\n{}{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n",
+        imports, module_decl, helpers_decl, tag_name, attrs_str, setup_body
     )
 }
 

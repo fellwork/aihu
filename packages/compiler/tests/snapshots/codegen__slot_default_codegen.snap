@@ -6,6 +6,8 @@ expression: output.js
 import { branch, leaf, slot } from '@scribe/arbor'
 import { defineComponent, defineElement } from '@scribe/runtime'
 
+const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);
+
 defineElement('x-slot', defineComponent((_ctx) => {
   return branch('div', undefined, [createSlotBoundary({ expose: [] }, () => { return branch(null, undefined, []) })])
 }))
