@@ -152,6 +152,7 @@ fn compile_empty_source() {
             style: None,
             meta: scribe_compiler::ScriptMeta { name: None },
             agent: None,
+            route: None,
         }
     );
 }

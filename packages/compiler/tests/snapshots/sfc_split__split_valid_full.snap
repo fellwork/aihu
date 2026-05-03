@@ -1,6 +1,5 @@
 ---
 source: tests/sfc_split.rs
-assertion_line: 7
 expression: result
 ---
 ScribeSource {
@@ -20,4 +19,5 @@ ScribeSource {
         name: None,
     },
     agent: None,
+    route: None,
 }

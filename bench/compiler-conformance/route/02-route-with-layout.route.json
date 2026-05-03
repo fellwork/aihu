@@ -1,0 +1,7 @@
+{
+  "pattern": "/admin/users",
+  "name": "admin-users",
+  "middleware": ["auth", "admin"],
+  "ssr": true,
+  "layout": "admin"
+}

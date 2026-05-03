@@ -1,4 +1,4 @@
-use crate::types::{CompileError, ScribeSource, ScriptMeta, StyleBlock, StyleScope};
+use crate::types::{CompileError, RouteBlock, ScribeSource, ScriptMeta, StyleBlock, StyleScope};
 use crate::codegen::signals::resolve_signals;
 
 /// Extract the `name="..."` attribute from a `<script setup ...>` tag.
@@ -86,6 +86,10 @@ enum BlockKind {
     Template,
     Style,
     Agent,
+    /// v0.6.1: `@route { … }` block — page routing metadata.
+    Route,
+    /// v0.6.1: `@layout 'name'` shorthand — deprecated alias for @route { layout: '...' }.
+    Layout,
 }
 
 /// The grammar used for a given block opener.
@@ -144,6 +148,7 @@ fn match_at_opener(source: &str, pos: usize) -> Option<(BlockKind, usize, usize)
         ("template", BlockKind::Template),
         ("style", BlockKind::Style),
         ("agent", BlockKind::Agent),
+        ("route", BlockKind::Route),
     ] {
         let after_at = pos + 1;
         let end_name = after_at + name.len();
@@ -172,6 +177,42 @@ fn match_at_opener(source: &str, pos: usize) -> Option<(BlockKind, usize, usize)
         return None;
     }
     None
+}
+
+/// Match an `@layout 'name'` shorthand at byte position `pos`.
+/// Returns `(BlockKind::Layout, opener_start, end_of_line)` if matched.
+fn match_layout_shorthand(source: &str, pos: usize) -> Option<(BlockKind, usize, usize)> {
+    let bytes = source.as_bytes();
+    if pos >= bytes.len() || bytes[pos] != b'@' {
+        return None;
+    }
+    // Verify start-of-line.
+    let mut i = pos;
+    while i > 0 {
+        i -= 1;
+        let c = bytes[i];
+        if c == b'\n' {
+            break;
+        }
+        if c != b' ' && c != b'\t' && c != b'\r' {
+            return None;
+        }
+    }
+    let prefix = "@layout";
+    if pos + prefix.len() > source.len() {
+        return None;
+    }
+    if &source[pos..pos + prefix.len()] != prefix {
+        return None;
+    }
+    // Check boundary: must be followed by whitespace or end-of-line.
+    let after = bytes.get(pos + prefix.len()).copied();
+    if !matches!(after, Some(b' ') | Some(b'\t') | Some(b'\r') | Some(b'\n') | None) {
+        return None;
+    }
+    // Find end of line.
+    let end = source[pos..].find('\n').map(|n| pos + n + 1).unwrap_or(source.len());
+    Some((BlockKind::Layout, pos, end))
 }
 
 /// Find the matching closing `}` for an `@blockname { ... }` body, with brace
@@ -282,8 +323,13 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, Grammar, usize, us
     let mut search = pos;
     while let Some(rel) = source[search..].find('@') {
         let abs = search + rel;
-        if let Some((kind, opener, body)) = match_at_opener(source, abs) {
-            at_min = Some((kind, opener, body));
+        if let Some(m) = match_at_opener(source, abs) {
+            at_min = Some(m);
+            break;
+        }
+        if let Some(m) = match_layout_shorthand(source, abs) {
+            // Use layout shorthand only if no @-form opener was found earlier.
+            at_min = Some(m);
             break;
         }
         search = abs + 1;
@@ -405,6 +451,153 @@ fn warn_undeclared_template_refs(template: &str, signal_map: &crate::codegen::si
     }
 }
 
+/// Parse the body of an `@route { … }` block into a `RouteBlock`.
+///
+/// Accepts a TypeScript-style object literal with keys:
+///   `path`, `name`, `layout` — quoted strings
+///   `ssr`                    — `true` or `false`
+///   `middleware`             — array literal `['auth', 'admin']`
+fn parse_route_body(body: &str) -> RouteBlock {
+    let mut route = RouteBlock::default();
+    // Parse each key: value pair. We do a simple line-by-line scan.
+    let text: &str = body;
+    let mut pos = 0usize;
+    let bytes = text.as_bytes();
+
+    while pos < bytes.len() {
+        // Skip whitespace and commas.
+        while pos < bytes.len() && matches!(bytes[pos], b' ' | b'\t' | b'\n' | b'\r' | b',') {
+            pos += 1;
+        }
+        if pos >= bytes.len() {
+            break;
+        }
+        // Read key identifier.
+        let key_start = pos;
+        while pos < bytes.len() && (bytes[pos].is_ascii_alphanumeric() || bytes[pos] == b'_') {
+            pos += 1;
+        }
+        if pos == key_start {
+            // Not an identifier — skip char.
+            pos += 1;
+            continue;
+        }
+        let key = &text[key_start..pos];
+        // Skip whitespace and colon.
+        while pos < bytes.len() && matches!(bytes[pos], b' ' | b'\t') {
+            pos += 1;
+        }
+        if pos < bytes.len() && bytes[pos] == b':' {
+            pos += 1;
+        } else {
+            continue;
+        }
+        // Skip whitespace.
+        while pos < bytes.len() && matches!(bytes[pos], b' ' | b'\t') {
+            pos += 1;
+        }
+        if pos >= bytes.len() {
+            break;
+        }
+
+        match key {
+            "path" | "name" | "layout" => {
+                if let Some((val, end)) = read_quoted_string(text, pos) {
+                    match key {
+                        "path" => route.path = Some(val),
+                        "name" => route.name = Some(val),
+                        "layout" => route.layout = Some(val),
+                        _ => {}
+                    }
+                    pos = end;
+                } else {
+                    pos += 1;
+                }
+            }
+            "ssr" => {
+                if text[pos..].starts_with("true") {
+                    route.ssr = Some(true);
+                    pos += 4;
+                } else if text[pos..].starts_with("false") {
+                    route.ssr = Some(false);
+                    pos += 5;
+                } else {
+                    pos += 1;
+                }
+            }
+            "middleware" => {
+                // Expect `[...]` array.
+                if bytes[pos] == b'[' {
+                    pos += 1;
+                    loop {
+                        while pos < bytes.len() && matches!(bytes[pos], b' ' | b'\t' | b'\n' | b'\r' | b',') {
+                            pos += 1;
+                        }
+                        if pos >= bytes.len() || bytes[pos] == b']' {
+                            if pos < bytes.len() {
+                                pos += 1;
+                            }
+                            break;
+                        }
+                        if let Some((val, end)) = read_quoted_string(text, pos) {
+                            route.middleware.push(val);
+                            pos = end;
+                        } else {
+                            pos += 1;
+                        }
+                    }
+                } else {
+                    pos += 1;
+                }
+            }
+            _ => {
+                // Unknown key — skip to end of value (next comma or `}`).
+                while pos < bytes.len() && !matches!(bytes[pos], b',' | b'}' | b'\n') {
+                    pos += 1;
+                }
+            }
+        }
+    }
+    route
+}
+
+/// Read a quoted string (single or double quotes) from `text` starting at `pos`.
+/// Returns `(value, end_pos)` where `end_pos` is the byte after the closing quote.
+fn read_quoted_string(text: &str, pos: usize) -> Option<(String, usize)> {
+    let bytes = text.as_bytes();
+    if pos >= bytes.len() {
+        return None;
+    }
+    let quote = bytes[pos];
+    if quote != b'\'' && quote != b'"' {
+        return None;
+    }
+    let mut i = pos + 1;
+    let mut val = String::new();
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c == b'\\' && i + 1 < bytes.len() {
+            val.push(bytes[i + 1] as char);
+            i += 2;
+            continue;
+        }
+        if c == quote {
+            return Some((val, i + 1));
+        }
+        val.push(c as char);
+        i += 1;
+    }
+    None
+}
+
+/// Check whether a file path represents a `pages/` file (per v0.6.1 C500 rule).
+fn is_pages_path(file_path: Option<&str>) -> bool {
+    match file_path {
+        Some(p) => p.contains("/pages/") || p.contains("\\pages\\") || p.contains("/pages\\") || p.contains("\\pages/"),
+        None => false,
+    }
+}
+
 /// Block ordering note (Block Structure Spec §3.3):
 ///
 /// Blocks may appear in any order within a `.scribe` file. The compiler does
@@ -412,11 +605,17 @@ fn warn_undeclared_template_refs(template: &str, signal_map: &crate::codegen::si
 /// output is: `@state`, `@template`, `@style`, `@agent`. The default formatter
 /// rewrites files to this order on save. No ordering enforcement occurs here.
 pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
+    parse_with_path(source, None)
+}
+
+/// Parse a `.scribe` source with an optional file path (used for C500 @route path check).
+pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<ScribeSource<'a>, CompileError> {
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
     let mut style: Option<StyleBlock> = None;
     let mut meta = ScriptMeta { name: None };
     let mut agent_raw: Option<&str> = None;
+    let mut route: Option<RouteBlock> = None;
 
     // Per Block Structure Spec §2 + plan §v0.2.2: dual-grammar acceptance.
     // First detected form wins; a subsequent opener using the other form is an
@@ -474,6 +673,52 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
         check_reserved_tokens(region_before, region_start_line)?;
 
         if grammar == Grammar::At {
+            // v0.6.1: @layout shorthand is a single-line block — handle separately.
+            if kind == BlockKind::Layout {
+                // body_start_at is end_of_line for layout shorthand.
+                let line_content = &source[open_start..body_start_at];
+                // Parse: @layout 'name'
+                // Extract the quoted value after `@layout`.
+                let after_layout = line_content.trim_start_matches(|c: char| c.is_whitespace());
+                let after_keyword = after_layout.strip_prefix("@layout").unwrap_or(after_layout).trim();
+                let layout_val = read_quoted_string(after_keyword, 0)
+                    .map(|(v, _)| v)
+                    .unwrap_or_else(|| after_keyword.trim_matches('\'').trim_matches('"').to_string());
+
+                // C500: @layout is also only valid in pages/ files.
+                if !is_pages_path(file_path) {
+                    return Err(CompileError {
+                        message: "C500: @route block is only valid in src/pages/ files".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        code: Some("C500".to_string()),
+                        ..Default::default()
+                    });
+                }
+
+                eprintln!(
+                    "warning: @layout shorthand is deprecated (use `@route {{ layout: '{}' }}` instead); will be removed in v1.1.",
+                    layout_val
+                );
+
+                if route.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate @route / @layout block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                route = Some(RouteBlock {
+                    layout: Some(layout_val),
+                    ..Default::default()
+                });
+                let block_end = body_start_at;
+                block_regions.push((open_start, block_end));
+                pos = block_end;
+                continue;
+            }
+
             // Unified `@blockname { … }` handler — body delimited by brace
             // depth per Block Structure Spec §2.4.
             let body_start = body_start_at;
@@ -483,6 +728,8 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     BlockKind::Template => ("@template", "C102"),
                     BlockKind::Style => ("@style", "C103"),
                     BlockKind::Agent => ("@agent", "C104"),
+                    BlockKind::Route => ("@route", "C105"),
+                    BlockKind::Layout => ("@layout", "C106"),
                 };
                 CompileError {
                     message: format!("unclosed {} block opened at line {}", label, line_at(source, open_start)),
@@ -549,6 +796,31 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                         });
                     }
                     agent_raw = Some(&source[body_start..close_pos]);
+                }
+                BlockKind::Route => {
+                    // v0.6.1: C500 — @route only valid in pages/ files.
+                    if !is_pages_path(file_path) {
+                        return Err(CompileError {
+                            message: "C500: @route block is only valid in src/pages/ files".to_string(),
+                            line: line_at(source, open_start),
+                            col: 0,
+                            code: Some("C500".to_string()),
+                            ..Default::default()
+                        });
+                    }
+                    if route.is_some() {
+                        return Err(CompileError {
+                            message: "duplicate @route block".to_string(),
+                            line: line_at(source, open_start),
+                            col: 0,
+                            ..Default::default()
+                        });
+                    }
+                    route = Some(parse_route_body(body));
+                }
+                BlockKind::Layout => {
+                    // Layout is handled above in the shorthand branch; this arm won't be reached.
+                    unreachable!("@layout shorthand handled before brace-body match");
                 }
             }
             let block_end = close_pos + 1; // past the `}`
@@ -693,6 +965,11 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                 block_regions.push((open_start, block_end));
                 pos = block_end;
             }
+
+            // Route/Layout never appear in HTML form — handled in At branch above.
+            BlockKind::Route | BlockKind::Layout => {
+                unreachable!("Route/Layout blocks are only valid in @-form grammar");
+            }
         }
     }
 
@@ -721,5 +998,6 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
         style,
         meta,
         agent,
+        route,
     })
 }

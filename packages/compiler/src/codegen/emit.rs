@@ -1,10 +1,12 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{AgentBlock, AgentMacroDecl, Attr, CompileUnit, InputKind, MacroValue, StyleBlock, StyleScope, TemplateNode};
+use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleScope, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
     pub js: String,
     pub manifest_json: String,
+    /// v0.6.2: Serialized `.route.json` sidecar. Some when @route block is present.
+    pub route_json: Option<String>,
 }
 
 fn emit_style_block(style: &StyleBlock) -> (String, String) {
@@ -31,19 +33,64 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         );
     }
 
-    let js = if let Some(agent) = &unit.source.agent {
-        emit_options_form(unit, tag_name, agent)
+    let target = unit.target;
+
+    // v0.6.6: Server-artifact emission gates.
+    // When target == Client, check for @agent block or $server macro references.
+    let elide_agent = target == BuildTarget::Client && unit.source.agent.is_some();
+    let elide_server_macro = target == BuildTarget::Client
+        && unit.source.script.map_or(false, |s| s.contains("$server"));
+
+    let js = if !elide_agent && unit.source.agent.is_some() {
+        emit_options_form(unit, tag_name, unit.source.agent.as_ref().unwrap())
     } else {
-        emit_function_form(unit, tag_name)
+        let base_js = emit_function_form(unit, tag_name);
+        if elide_agent {
+            eprintln!("WARNING: @agent block elided — client-only build");
+            // Prepend elision comment to the emitted JS.
+            format!("// [client build] @agent block elided\n{}", base_js)
+        } else if elide_server_macro {
+            eprintln!("WARNING: $server macro reference elided — client-only build");
+            format!("// [client build] $server macro reference elided\n{}", base_js)
+        } else {
+            base_js
+        }
     };
 
-    let manifest_json = if let Some(agent) = &unit.source.agent {
+    // v0.6.6: Do NOT emit manifest_json for client-only builds.
+    let manifest_json = if elide_agent {
+        String::new()
+    } else if let Some(agent) = &unit.source.agent {
         emit_manifest(tag_name, agent)
     } else {
         String::new()
     };
 
-    EmitResult { js, manifest_json }
+    // v0.6.2: Emit route_json sidecar when @route block is present.
+    let route_json = unit.source.route.as_ref().map(|r| emit_route_json(r));
+
+    EmitResult { js, manifest_json, route_json }
+}
+
+// ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
+
+fn emit_route_json(route: &RouteBlock) -> String {
+    let pattern = route.path.as_deref().unwrap_or("");
+    let name = route.name.as_deref().unwrap_or("");
+    let ssr = route.ssr.unwrap_or(false);
+    let layout = route.layout.as_deref().unwrap_or("");
+
+    let middleware_json = if route.middleware.is_empty() {
+        "[]".to_string()
+    } else {
+        let items: Vec<String> = route.middleware.iter().map(|m| format!("\"{}\"", m)).collect();
+        format!("[{}]", items.join(", "))
+    };
+
+    format!(
+        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"\n}}",
+        pattern, name, middleware_json, ssr, layout
+    )
 }
 
 // ─── Function form (no agent block) ──────────────────────────────────────────

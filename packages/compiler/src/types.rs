@@ -1,3 +1,24 @@
+// ─── v0.6.4 — BuildTarget ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum BuildTarget {
+    #[default]
+    Universal,
+    Client,
+    Server,
+}
+
+// ─── v0.6.1 — RouteBlock ─────────────────────────────────────────────────────
+
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct RouteBlock {
+    pub path: Option<String>,       // path override (defaults to file-based)
+    pub name: Option<String>,
+    pub middleware: Vec<String>,
+    pub ssr: Option<bool>,
+    pub layout: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StyleScope {
     Scoped,
@@ -17,6 +38,8 @@ pub struct ScribeSource<'a> {
     pub style: Option<StyleBlock<'a>>,
     pub meta: ScriptMeta,
     pub agent: Option<AgentBlock>,
+    /// v0.6.1: parsed @route block, if present.
+    pub route: Option<RouteBlock>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -66,6 +89,8 @@ pub enum Attr {
 pub struct CompileUnit<'a> {
     pub source: ScribeSource<'a>,
     pub template_ast: Option<Vec<TemplateNode>>,
+    /// v0.6.4: build target for artifact gating.
+    pub target: BuildTarget,
 }
 
 #[derive(Debug, Default)]

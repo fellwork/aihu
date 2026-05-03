@@ -21,7 +21,30 @@ fn main() {
         }
     };
 
-    let (source, file_stem, file_label) = if stdin_mode {
+    // v0.6.4: Parse --target <client|server|universal> (default: universal).
+    let target = {
+        let pos = args.iter().position(|a| a == "--target");
+        match pos {
+            Some(i) => {
+                if i + 1 >= args.len() {
+                    eprintln!("error: --target requires a value (client|server|universal)");
+                    process::exit(1);
+                }
+                match args[i + 1].as_str() {
+                    "client" => scribe_compiler::BuildTarget::Client,
+                    "server" => scribe_compiler::BuildTarget::Server,
+                    "universal" => scribe_compiler::BuildTarget::Universal,
+                    other => {
+                        eprintln!("error: unknown --target '{}' (expected: client|server|universal)", other);
+                        process::exit(1);
+                    }
+                }
+            }
+            None => scribe_compiler::BuildTarget::Universal,
+        }
+    };
+
+    let (source, file_stem, file_label, file_path_opt) = if stdin_mode {
         // Parse --tag <name>
         let tag_pos = args.iter().position(|a| a == "--tag");
         let tag = match tag_pos {
@@ -40,13 +63,13 @@ fn main() {
                 process::exit(1);
             });
 
-        (src, tag, "<stdin>".to_string())
+        (src, tag, "<stdin>".to_string(), None)
     } else {
         // File mode: argv[1] is the file path
         let file_path = match args.get(1) {
             Some(p) if !p.starts_with("--") => p.clone(),
             _ => {
-                eprintln!("usage: scribe-compile <file.scribe> [--out <dir>]");
+                eprintln!("usage: scribe-compile <file.scribe> [--out <dir>] [--target <client|server|universal>]");
                 process::exit(1);
             }
         };
@@ -66,15 +89,19 @@ fn main() {
             .to_string();
 
         let label = file_path.clone();
-        (src, stem, label)
+        let path_copy = file_path.clone();
+        (src, stem, label, Some(path_copy))
     };
 
-    let parsed = scribe_compiler::compile(&source).unwrap_or_else(|e| {
+    let parsed = scribe_compiler::sfc::parse_with_path(
+        &source,
+        file_path_opt.as_deref(),
+    ).unwrap_or_else(|e| {
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
 
-    let unit = scribe_compiler::compile_full(&parsed).unwrap_or_else(|e| {
+    let unit = scribe_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
@@ -102,6 +129,14 @@ fn main() {
                 let manifest_path = format!("{}/agent-manifest.json", dir);
                 std::fs::write(&manifest_path, &result.manifest_json).unwrap_or_else(|e| {
                     eprintln!("error writing '{}': {}", manifest_path, e);
+                    process::exit(1);
+                });
+            }
+            // v0.6.2: Write .route.json sidecar if present.
+            if let Some(ref route_json) = result.route_json {
+                let route_path = format!("{}/{}.route.json", dir, tag_name);
+                std::fs::write(&route_path, route_json).unwrap_or_else(|e| {
+                    eprintln!("error writing '{}': {}", route_path, e);
                     process::exit(1);
                 });
             }
