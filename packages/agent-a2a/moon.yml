@@ -1,0 +1,10 @@
+language: typescript
+type: library
+tasks:
+  build:
+    command: rolldown -c rolldown.config.ts
+    inputs: ["src/**/*", "rolldown.config.ts"]
+    outputs: ["dist"]
+  typecheck:
+    command: tsc --noEmit
+    inputs: ["src/**/*", "tsconfig.json"]
