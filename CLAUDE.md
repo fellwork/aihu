@@ -8,7 +8,7 @@ custom elements, mounted with sub-2 kB reactive primitives.
 
 ```bash
 bun install                 # Install workspace deps
-bun run test                # vitest, 255 tests
+bun run test                # vitest, 607 TS + 222 Rust tests
 bun run build               # Build all packages
 bun run bench               # Run benchmark suite (cellx, dynamic-deps, etc.)
 bun run typecheck           # tsc --noEmit across packages
@@ -27,7 +27,7 @@ bun run typecheck           # tsc --noEmit across packages
 
 ## Conventions
 
-- Browser bundle has a hard ceiling at 3.46 kB gz — every PR validates against `bun run build` size budgets.
+- **Per-package size gates are the contract.** Every browser-eligible package has a row in `.size-limit.json`; every PR validates each row via `bun run size`. The combined browser-bundle figure is reported (currently ~5.5 kB gz across browser-eligible packages post-v1 cutover, Plan 7.1) but is NOT itself a budget — the per-package rows are. New packages that enter the browser tier add a row; server-side and build-time-only packages MUST NOT add a row (per `.size-limit.README.md`).
 - Output is **vanilla custom elements**. No framework lock-in at the consumer boundary, no global context, no hydration step.
 - Reactive updates use `nodeValue` (not `textContent`) — 122× faster on targeted updates.
 - llms.txt + MCP support is part of the contract, not optional.
