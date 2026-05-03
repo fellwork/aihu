@@ -262,12 +262,50 @@ applied in spec text before migration; AMD-02 applied during migration with
 
 The plugin registration shim added 28 B gz to the `@scribe/data` bundle even when using `import type` + a direct object literal. The v0.2.6 Builder raised the `@scribe/data` limit from 750→800 B. Per the framework plan §"What this roadmap does NOT do" item 4 ("Re-opening any v0 size budget"), this was NOT pre-authorized — however, per Learning #42 split rationale, these are FEATURE bytes (new plugin registration capability), not debt bytes. The Director note's assumption that the shim would be zero-runtime-bytes was incorrect. Documented as Learning #37.
 
-### v0.3 is next
-
-v0.3 = block grammar migration — 8 Rust compiler sub-items migrating `@blockname {}` from the v0.2.2 parser stub to a full dual-grammar parser + emitter.
-
 ### Durable references (v0.2)
 
 - Retro: `.team/v0.2/retro.md`
 - Learning #37: `.team/learnings.md`
+
+---
+
+## v0.3 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.3 closeout: 8 sub-items shipped; 100 Rust + 476 TS tests; Learning #38 added)
+**Main HEAD at close:** `985674c`
+
+### Sub-items shipped
+
+| Sub-item | PR | Branch | Commit | Notes |
+|----------|-----|--------|--------|-------|
+| v0.3.1–3.2 | #35 | feat/v0.3-block-grammar-migration | `4768672` | @state/@template lowering confirmed + 22 Rust conformance tests |
+| v0.3.3–3.7 | #35 | feat/v0.3-block-grammar-migration | `29fb1df` | $global style scope, deprecation warnings, undeclared-ref warnings, reserved-token rejection, @agent routing |
+| v0.3 fixtures | #35 | feat/v0.3-block-grammar-migration | `4768672` | 5 `.scribe` + 5 `.golden.js` in `bench/compiler-conformance/blocks/` |
+
+### Final gate walk (verified by Team Lead)
+
+**Rust tests:** 78 → 100 (+22, 1 pre-existing ignored)
+**TS tests:** 476 → 476 (unchanged — Rust-only milestone)
+
+**Package sizes (`bun run size`):** unchanged from v0.2 (no new TS packages; Rust compiler is not browser-bundled)
+
+**Typecheck:** pre-existing `agent-service:typecheck` failure only; no new errors.
+
+**Dep envelope:** no new runtime deps added in v0.3.
+
+### Key finding
+
+v0.2.2's parse-phase infrastructure (body extraction, block kind routing) was complete. v0.3's 8 sub-items were analysis-phase work layered on top: `$global` scope detection, deprecation warnings, undeclared ref warnings, reserved-token rejection. Builder completed all 8 in 2 commits, well under planned budget. See Learning #38.
+
+### v0.4 is next
+
+v0.4 = macro attributes — compiler lowering for `$if`, `$show`, `$each`, `$bind:*`, `$on:*`, `$key`, `$html`, `$raw`, `$once`, `$memo` in templates; `$prop`, `$computed`, `$resource`, `$effect`, `$action`, `$lifecycle` in `@state`; plus `onMount`/`onCleanup` runtime exports. Note: runtime has only +7 B headroom — Compressor pass pre-authorized per framework plan.
+
+### Durable references (v0.3)
+
+- Retro: `.team/v0.3/retro.md`
+- Learning #38: `.team/learnings.md`
+- Conformance fixtures: `bench/compiler-conformance/blocks/`
+- Rust tests: `packages/compiler/tests/sfc_conformance.rs`
 
