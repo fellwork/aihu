@@ -1,0 +1,7 @@
+{
+  "pattern": "/users",
+  "name": "users-list",
+  "middleware": ["auth"],
+  "ssr": true,
+  "layout": ""
+}

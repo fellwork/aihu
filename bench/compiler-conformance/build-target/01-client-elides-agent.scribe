@@ -1,0 +1,8 @@
+@agent {
+  input name: string
+  action greet() -> { message: string }
+}
+
+@template {
+  <div>Hello {{ name }}</div>
+}

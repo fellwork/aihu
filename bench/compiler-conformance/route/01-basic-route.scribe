@@ -1,0 +1,10 @@
+@route {
+  path: '/users',
+  name: 'users-list',
+  middleware: ['auth'],
+  ssr: true
+}
+
+@template {
+  <div class="users">Users</div>
+}
