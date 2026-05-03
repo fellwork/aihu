@@ -23,7 +23,10 @@
     "check": "biome check --write .",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",
-    "test:quality": "bun scripts/lighthouse.ts"
+    "test:quality": "bun scripts/lighthouse.ts",
+    "build:docs": "bun scripts/build-docs.ts",
+    "check:deps": "bun scripts/dep-check.ts",
+    "check:hmr": "bun scripts/hmr-check.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
