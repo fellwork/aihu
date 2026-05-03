@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createRouter, defineRoute } from '@scribe/server'
+import { createRequestRouter, defineRoute } from '@scribe/server'
 import { createContentNegotiationHandler, createAgentReadinessRoutes } from '../src/index.ts'
 
-describe('integration: createRouter + createContentNegotiationHandler', () => {
+describe('integration: createRequestRouter + createContentNegotiationHandler', () => {
   it('content-negotiation middleware intercepts text/markdown requests before route handler', async () => {
     const mdResolver = {
       async resolve(path: string) {
@@ -11,7 +11,7 @@ describe('integration: createRouter + createContentNegotiationHandler', () => {
       },
     }
     const cnMw = createContentNegotiationHandler({ resolver: mdResolver })
-    const router = createRouter(
+    const router = createRequestRouter(
       {
         routes: [defineRoute('/docs', () => new Response('<html>Docs</html>'))],
       },
@@ -36,12 +36,12 @@ describe('integration: createRouter + createContentNegotiationHandler', () => {
     expect(await htmlRes.text()).toBe('<html>Docs</html>')
   })
 
-  it('agent-readiness routes integrate with createRouter', async () => {
+  it('agent-readiness routes integrate with createRequestRouter', async () => {
     const ar = createAgentReadinessRoutes({
       name: 'Integration Test App',
       endpoint: 'https://app.example.com/mcp',
     })
-    const router = createRouter({
+    const router = createRequestRouter({
       routes: [
         defineRoute('/llms.txt', ar.llmsTxt),
         defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),

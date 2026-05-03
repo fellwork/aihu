@@ -207,10 +207,10 @@ setCount(1) // DOM updates synchronously via nodeValue
 scope.dispose()
 ```
 
-Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-router shape from `@scribe/server`. For file-based routing with the v1 Vite plugin, use `@scribe/router` (`createRouter` + `viteRouterPlugin`); see [`docs/site/routing-layouts.md`](./docs/site/routing-layouts.md).
+Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-router shape from `@scribe/server`. Two distinct routing APIs ship in scribe: `@scribe/server.createRequestRouter` builds a fetch-API request handler from an explicit route manifest (shown below), while `@scribe/router.createRouter` powers file-based routing via the v1 Vite plugin (`viteRouterPlugin`); see [`docs/site/routing-layouts.md`](./docs/site/routing-layouts.md).
 
 ```ts
-import { createRouter, defineRoute, json } from '@scribe/server'
+import { createRequestRouter, defineRoute, json } from '@scribe/server'
 import { createAgentReadinessRoutes } from '@scribe/agent-readiness'
 
 const ar = createAgentReadinessRoutes({
@@ -219,7 +219,7 @@ const ar = createAgentReadinessRoutes({
   summary: 'A scribe-powered app.',
 })
 
-const router = createRouter({
+const router = createRequestRouter({
   routes: [
     defineRoute('/llms.txt', ar.llmsTxt),
     defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),

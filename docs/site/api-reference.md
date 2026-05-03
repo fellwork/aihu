@@ -36,9 +36,7 @@
 
 | Export | Description |
 |--------|-------------|
-| `createRequestRouter(opts?)` | Create an isomorphic request router |
-| `defineMiddleware(fn)` | Define a server middleware handler |
-| `composeMiddleware(...fns)` | Compose server middleware into a single handler |
+| `createRouter(routes)` | Create a file-based router from compiler-emitted route definitions |
 | `defineRouterMiddleware(fn)` | Define a client-side router middleware |
 | `composeRouterMiddleware(...fns)` | Compose router middleware with stage ordering |
 | `RouteDefinition` | Type: a route definition object |
@@ -57,7 +55,7 @@
 | Export | Description |
 |--------|-------------|
 | `defineRoute(opts)` | Define a server route handler |
-| `createRequestRouter(opts?)` | Alias for server-side router |
+| `createRequestRouter(manifest, opts?)` | Create a fetch-API request handler from a route manifest |
 | `defineMiddleware(fn)` | Server middleware |
 | `composeMiddleware(...fns)` | Compose server middleware |
 | `defineApiRoute(opts)` | Define a REST API route |
