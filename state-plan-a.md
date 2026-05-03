@@ -539,3 +539,44 @@ v0.9 = docs and testing pass. No new features. Sub-items: `docs/site/` Markdown 
 - Director note: `.team/v0.8/director-note-session-start.md`
 - v0.9 director note: `.team/v0.9/director-note-session-start.md`
 
+---
+
+## v0.9 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.9 closeout: docs site + audit scripts; 570 TS tests unchanged)
+**Main HEAD at close:** `cf72e7d`
+
+### Sub-items shipped
+
+| Sub-item | PR | Notes |
+|----------|----|-------|
+| v0.9.1 | #44 | `docs/site/` — 12 Markdown pages; `scripts/build-docs.ts` static site generator (13 HTML output) |
+| v0.9.3 | #44 | `scripts/dep-check.ts` — dep-free audit; PASS |
+| v0.9.4 | #44 | `scripts/hmr-check.ts` — HMR scribe-native confirmation; PASS |
+
+**Deferred:** v0.9.2 (e2e integration test suite), v0.9.5 (cross-runtime adapter tests), v0.9.6 (build-tool independence smoke test) → v1.0 open issues.
+
+### Final gate walk
+
+**Rust tests:** 209 (unchanged — docs+scripts only milestone)
+**TS tests:** 570 → 570 (unchanged — all test gaps already filled by prior milestones)
+**`bun scripts/dep-check.ts`:** PASS
+**`bun scripts/hmr-check.ts`:** PASS
+**`bun scripts/build-docs.ts`:** PASS (13 HTML files)
+**Size:** 8/8 PASS (no source changes)
+
+### Notable findings
+
+**Test gap audit was empty.** All three v0.9.2 gaps (router middleware, createServerCall, BuildTarget client elision) were already covered by prior milestones' Builders. The v0.9 milestone was primarily a docs + audit tooling pass.
+
+**Handrolled static site generator.** `scripts/build-docs.ts` is a zero-dependency Markdown→HTML pipeline. Correct per v1 framework plan: the SSG is part of the v1.0 surface and must not depend on under-test code.
+
+**Dep-free thesis confirmed.** All 12 packages pass `dep-check.ts` — zero non-`@scribe/*` runtime dependencies across the workspace.
+
+### Durable references (v0.9)
+
+- Retro: `.team/v0.9/retro.md`
+- Director note: `.team/v0.9/director-note-session-start.md`
+- Next: v1.0 cutover — see `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md` §v1.0
+
