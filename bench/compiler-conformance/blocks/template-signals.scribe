@@ -1,0 +1,12 @@
+@state {
+import { signal } from '@scribe/signals'
+const [msg, setMsg] = signal('hello')
+const [count, setCount] = signal(0)
+}
+
+@template {
+  <div>
+    <span>{{ msg }}</span>
+    <button onclick="handleClick">Count: {{ count }}</button>
+  </div>
+}
