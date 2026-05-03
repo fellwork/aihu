@@ -1,7 +1,7 @@
 # State — Track: plan-a
 
-**Last updated:** 2026-05-02 (post-v1-reconciliation Historian close)
-**Written by:** Historian (v1-reconciliation closeout: spec quartet + v1 framework plan ratified to `docs/superpowers/`; 12 user decisions captured; learnings #34-36 added)
+**Last updated:** 2026-05-03 (v0.8 Historian close)
+**Written by:** Historian (v0.8 closeout: @scribe/cli scaffolder + Hello World template; 570 TS tests; Learning #39 added)
 **Track:** plan-a (TypeScript runtime family — signals → arbor → runtime → agent)
 **Active branch:** `claude/scribe-phase-3-team-Za4UQ`
 **Develop-on branch (all sessions):** `claude/scribe-phase-3-team-Za4UQ`
@@ -477,4 +477,65 @@ v0.8 = CLI scaffolder + Hello World template + first-run UX (`@scribe/cli`).
 
 - Retro: `.team/v0.7/retro.md`
 - Director note: `.team/v0.7/director-note-session-start.md`
+
+---
+
+## v0.8 — CLOSED
+
+**Date:** 2026-05-03
+**Written by:** Historian (v0.8 closeout: @scribe/cli scaffolder shipped; 570 TS tests; Learning #39 added)
+**Main HEAD at close:** `90c95dc`
+
+### Sub-items shipped
+
+| Sub-item | PR | Notes |
+|----------|----|-------|
+| v0.8.1 | #43 | `@scribe/cli` package — `scribe app`, `scribe page`, `scribe component`, `scribe plugin`, `scribe migrate` commands; stdlib-only, zero deps |
+| v0.8.2 | #43 | Hello World template — `package.json`, `scribe.config.ts`, `vite.config.ts`, `src/pages/index.scribe`, `src/layouts/default.scribe` |
+| v0.8.5 | #43 | Plugin scaffold template — `scribe-plugin-<name>/package.json` + `src/index.ts` |
+| docs | #43 | `docs/cli.md` light-off procedure |
+| fix | `90c95dc` | `@scribe/cli` classified `BUILD_DEV_ONLY` in `check-size-rows` (post-merge fix) |
+
+**Deferred:** v0.8.3 (full first-run interactive UX) and v0.8.4 (`docs/site/` light-off page) → deferred to v0.9 docs pass.
+
+### Final gate walk
+
+**Rust tests:** 209 (unchanged — TS-only milestone)
+**TS tests:** 534 → 570 (+36, 65 test files)
+**Size:** 8/8 PASS — CLI is `BUILD_DEV_ONLY`; no browser bundle row added
+**check:size-rows:** PASS after `90c95dc` fix
+**Typecheck:** pre-existing `agent-service:typecheck` failure only; no new errors
+
+**Package sizes (`bun run size`) — unchanged from v0.7:**
+
+| Package | Size | Budget | Headroom |
+|---------|------|--------|----------|
+| `@scribe/context` | 249 B | 300 B | +51 B |
+| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
+| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@scribe/runtime` | 1.14 kB | 1170 B | +7 B |
+| `@scribe/agent` | 117 B | 200 B | +83 B |
+| `@scribe/data` | 778 B | 800 B | +22 B |
+| `@scribe/router` | 818 B | 1536 B | +718 B |
+| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+
+### Notable findings
+
+**Test count discrepancy in commit message:** PR #43 commit message said "+17 tests" (the planning-estimate floor); actual gate walk was +36 (534 → 570). Gate walk count is authoritative. See Learning #39.
+
+**check-size-rows omission:** `@scribe/cli` was not classified in `check-size-rows` in the initial PR. Fixed post-merge at `90c95dc`. Learning #39 adds "check-size-rows classification" as a mandatory step on the package-creation checklist.
+
+### Learnings added
+
+- Learning #39 — New workspace packages require simultaneous check-size-rows classification; commit messages should reflect per-item test counts from gate walk, not planning estimates
+
+### v0.9 is next
+
+v0.9 = docs and testing pass. No new features. Sub-items: `docs/site/` Markdown site, end-to-end test coverage, dep-free re-audit, v1.0 release-pipeline rehearsal, `llms.txt` + MCP support validation. Director note at `.team/v0.9/director-note-session-start.md`.
+
+### Durable references (v0.8)
+
+- Retro: `.team/v0.8/retro.md`
+- Director note: `.team/v0.8/director-note-session-start.md`
+- v0.9 director note: `.team/v0.9/director-note-session-start.md`
 
