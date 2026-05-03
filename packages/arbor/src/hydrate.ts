@@ -188,7 +188,7 @@ export function hydrate(
   const root = host as Element
   for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
     const p = el.getAttribute('data-scribe-path')
-    if (p !== null) pathMap.set(p, el)
+    if (p != null) pathMap.set(p, el)
   }
   const hp = root.getAttribute?.('data-scribe-path')
   if (hp != null) pathMap.set(hp, root)

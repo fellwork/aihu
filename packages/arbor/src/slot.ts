@@ -18,4 +18,4 @@ import type { Leaf } from './types.ts'
  * Size budget: ≤ 50 B gz added to @scribe/arbor (Plan 1.4 acceptance §6).
  */
 export const slot = (name?: string): Leaf =>
-  leaf.element('slot', name !== undefined ? { name } : undefined)
+  leaf.element('slot', name == null ? undefined : { name })
