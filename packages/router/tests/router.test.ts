@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRouter, viteRouterPlugin } from '../src/index.ts'
+import { createRouter } from '../src/index.ts'
+import { viteRouterPlugin } from '../src/plugin.ts'
 import type { RouteDefinition } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------

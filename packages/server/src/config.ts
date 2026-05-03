@@ -6,6 +6,23 @@ export type { AgentReadinessConfig } from './agent-readiness-config.ts'
 // the compiler wires registration in v0.3+.
 import type { Plugin } from '@scribe/plugin'
 
+// ---------------------------------------------------------------------------
+// v0.6.5: Build target configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Build target for the scribe application.
+ * - 'client'    — browser-only bundle (no SSR)
+ * - 'server'    — server-only bundle (SSR, no client hydration)
+ * - 'universal' — both client and server bundles (default)
+ */
+export type BuildTarget = 'client' | 'server' | 'universal'
+
+export interface BuildConfig {
+  /** Build target. Default: 'universal' */
+  target?: BuildTarget
+}
+
 export interface CorsConfig {
   readonly origin: string | ReadonlyArray<string> | '*'
   readonly methods?: ReadonlyArray<import('./types.ts').HttpMethod>
@@ -42,6 +59,12 @@ export interface ScribeConfig {
    * shaping `definePlugin({...})` calls against a stable type surface.
    */
   readonly plugins?: ReadonlyArray<Plugin>
+  /**
+   * v0.6.5: Build target configuration.
+   * Controls whether scribe emits a client bundle, server bundle, or both.
+   * This field is read by the compiler/build tooling; it has no runtime effect.
+   */
+  readonly build?: BuildConfig
 }
 
 /**
