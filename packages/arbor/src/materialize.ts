@@ -70,8 +70,9 @@ export function _materialize(
       mountEffect(disposers, () => { textNode.nodeValue = String(get()) }, path, errorHandler)
     } else {
       // Static string (or null — null is a leafKind:'element' invariant
-      // never reached here, but the type union allows it; coerce).
-      textNode.nodeValue = value === null ? '' : (value as string)
+      // never reached here, but the type union allows it). Setting
+      // nodeValue = null is spec-equivalent to "" so the cast is safe.
+      textNode.nodeValue = value as string | null
     }
     host.appendChild(textNode)
     return [textNode]
