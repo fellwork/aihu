@@ -1,0 +1,8 @@
+@template {
+  <$guard check="isAuthed">
+    <p>Secure content</p>
+    <$slot name="fallback">
+      <span>Access denied</span>
+    </$slot>
+  </$guard>
+}

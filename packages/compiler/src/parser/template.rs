@@ -1,5 +1,71 @@
 use crate::parser::directives::{parse_attr, validate_identifier};
-use crate::types::{CompileError, TemplateNode};
+use crate::types::{Attr, CompileError, MacroValue, TemplateNode};
+
+// ─── C400 / C401 compile-error codes ─────────────────────────────────────────
+
+/// Check for C400: `<$suspense>` or `<$shield>` with BOTH a `fallback="..."` attr
+/// AND a `<$slot name="fallback">` child.
+fn check_c400(
+    macro_name: &str,
+    attrs: &[Attr],
+    children: &[TemplateNode],
+) -> Option<CompileError> {
+    if macro_name != "suspense" && macro_name != "shield" {
+        return None;
+    }
+    let has_fallback_attr = attrs.iter().any(|a| match a {
+        Attr::Static { name, .. } => name == "fallback",
+        _ => false,
+    });
+    let has_fallback_slot_child = children.iter().any(|c| match c {
+        TemplateNode::MacroElement { name, attrs, .. } if name == "slot" => {
+            attrs.iter().any(|a| match a {
+                Attr::Static { name, value } => name == "name" && value == "fallback",
+                _ => false,
+            })
+        }
+        _ => false,
+    });
+    if has_fallback_attr && has_fallback_slot_child {
+        return Some(CompileError {
+            message:
+                "C400: conflicting fallback definitions — use either fallback=\"...\" attribute or <$slot name=\"fallback\"> child, not both"
+                    .to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C400".to_string()),
+            ..Default::default()
+        });
+    }
+    None
+}
+
+/// Check for C401: any attribute value (curly form) that appears to contain JSX
+/// (`{<` prefix inside the braces).
+fn check_c401(attrs: &[Attr]) -> Option<CompileError> {
+    for attr in attrs {
+        let inner = match attr {
+            Attr::Macro {
+                value: MacroValue::Curly(inner),
+                ..
+            } => inner.as_str(),
+            _ => continue,
+        };
+        let trimmed = inner.trim_start();
+        if trimmed.starts_with('<') {
+            return Some(CompileError {
+                message:
+                    "C401: inline JSX in attributes is not supported; extract to a component or use <$slot> child instead"
+                        .to_string(),
+                line: 0,
+                col: 0,
+                code: Some("C401".to_string()),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
 
 pub fn parse_template(input: &str) -> Result<Vec<TemplateNode>, CompileError> {
     let mut parser = Parser { input, pos: 0 };
@@ -52,12 +118,24 @@ impl<'a> Parser<'a> {
 
     fn parse_element(&mut self) -> Result<TemplateNode, CompileError> {
         self.expect("<")?;
+
+        // Detect <$macro-element> form: `$` immediately follows `<`
+        let is_macro = self.starts_with("$");
+        if is_macro {
+            self.pos += 1; // skip `$`
+        }
+
         let tag = self.read_tag_name();
         if tag.is_empty() {
             return Err(self.error("expected tag name".to_string()));
         }
 
         let attrs = self.parse_attrs()?;
+
+        // C401: reject inline JSX in attribute curly values
+        if let Some(err) = check_c401(&attrs) {
+            return Err(err);
+        }
 
         self.skip_whitespace();
         if self.starts_with("/>") {
@@ -68,7 +146,39 @@ impl<'a> Parser<'a> {
 
         self.expect(">")?;
 
-        let children = self.parse_nodes(Some(&tag))?;
+        // The closing tag for a `<$foo>` is `</$foo>` — build the full name to match.
+        let closing_name = if is_macro {
+            format!("${}", tag)
+        } else {
+            tag.clone()
+        };
+
+        let children = self.parse_nodes(Some(&closing_name))?;
+
+        if is_macro {
+            // C400: mutual-exclusion check for <$suspense> and <$shield>
+            if let Some(err) = check_c400(&tag, &attrs, &children) {
+                return Err(err);
+            }
+
+            return Ok(TemplateNode::MacroElement {
+                name: tag,
+                attrs,
+                children,
+            });
+        }
+
+        // <slot> HTML form — DEPRECATED, emits same lowering as <$slot>
+        if tag == "slot" {
+            eprintln!(
+                "DEPRECATED: <slot> HTML form is deprecated; use <$slot> instead"
+            );
+            return Ok(TemplateNode::MacroElement {
+                name: "slot".to_string(),
+                attrs,
+                children,
+            });
+        }
 
         Ok(TemplateNode::Element {
             tag,
@@ -148,10 +258,18 @@ impl<'a> Parser<'a> {
 
     fn parse_closing_tag_name(&mut self) -> Result<String, CompileError> {
         self.expect("</")?;
+        // Preserve `$` in closing tag name so it matches the opening-tag key
+        // (e.g. `"$slot"` for `</$slot>`).
+        let dollar = if self.starts_with("$") {
+            self.pos += 1;
+            "$"
+        } else {
+            ""
+        };
         let tag = self.read_tag_name();
         self.skip_whitespace();
         self.expect(">")?;
-        Ok(tag)
+        Ok(format!("{}{}", dollar, tag))
     }
 
     fn read_tag_name(&mut self) -> String {

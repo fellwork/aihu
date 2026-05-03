@@ -523,7 +523,209 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
                 effects.into_iter().next().unwrap_or(base)
             }
         }
+        TemplateNode::MacroElement { name, attrs, children } => {
+            emit_macro_element(name, attrs, children, signal_map, child_indent)
+        }
     }
+}
+
+// ─── v0.5 Macro element boundary emitters ────────────────────────────────────
+
+/// Emit JS for a `<$element>` macro boundary node.
+fn emit_macro_element(
+    name: &str,
+    attrs: &[crate::types::Attr],
+    children: &[TemplateNode],
+    signal_map: &SignalMap,
+    child_indent: &str,
+) -> String {
+    let next_indent = format!("{}  ", child_indent);
+
+    match name {
+        // ── <$slot> ──────────────────────────────────────────────────────────
+        "slot" => {
+            let expose_list = find_static_attr(attrs, "expose");
+            let name_attr = find_static_attr(attrs, "name");
+
+            let expose_arr = if let Some(expose_str) = expose_list {
+                let items: Vec<String> = expose_str
+                    .split(',')
+                    .map(|s| format!("'{}'", s.trim()))
+                    .collect();
+                format!("[{}]", items.join(", "))
+            } else {
+                "[]".to_string()
+            };
+
+            let children_subtree = if children.is_empty() {
+                String::new()
+            } else {
+                emit_nodes(children, signal_map, &next_indent)
+            };
+
+            let child_fn = if children_subtree.is_empty() {
+                "() => { return branch(null, undefined, []) }".to_string()
+            } else {
+                format!("() => {{ return {} }}", children_subtree)
+            };
+
+            if let Some(slot_name) = name_attr {
+                format!(
+                    "createSlotBoundary({{ name: '{}', expose: {} }}, {})",
+                    slot_name, expose_arr, child_fn
+                )
+            } else {
+                format!(
+                    "createSlotBoundary({{ expose: {} }}, {})",
+                    expose_arr, child_fn
+                )
+            }
+        }
+
+        // ── <$suspense> ──────────────────────────────────────────────────────
+        "suspense" => {
+            let source = find_static_or_binding_attr(attrs, "source")
+                .unwrap_or_else(|| "undefined".to_string());
+
+            let (fallback_children, loaded_children) = split_slot_fallback(children);
+
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
+            let loaded_subtree = emit_nodes(&loaded_children, signal_map, &next_indent);
+
+            format!(
+                "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
+                source, fallback_subtree, loaded_subtree
+            )
+        }
+
+        // ── <$shield> ────────────────────────────────────────────────────────
+        "shield" => {
+            let (fallback_children, main_children) = split_slot_fallback(children);
+
+            let main_subtree = emit_nodes(&main_children, signal_map, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
+
+            format!(
+                "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
+                main_subtree, fallback_subtree
+            )
+        }
+
+        // ── <$guard> ─────────────────────────────────────────────────────────
+        "guard" => {
+            let check_expr = find_static_or_binding_attr(attrs, "check")
+                .unwrap_or_else(|| "undefined".to_string());
+
+            let (fallback_children, main_children) = split_slot_fallback(children);
+
+            let main_subtree = emit_nodes(&main_children, signal_map, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
+
+            format!(
+                "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
+                check_expr, main_subtree, fallback_subtree
+            )
+        }
+
+        // ── <$warp> ──────────────────────────────────────────────────────────
+        // NOTE(v0.5-stub): createWarpBoundary requires arbor.mount to accept an arbitrary
+        // host node. If arbor.mount only accepts a custom-element host, this boundary
+        // is a stub pending an arbor mount API extension.
+        "warp" => {
+            let target_expr = find_static_or_binding_attr(attrs, "target")
+                .unwrap_or_else(|| "undefined".to_string());
+
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let child_fn = format!("() => {{ return {} }}", children_subtree);
+
+            format!(
+                "createWarpBoundary({}, {})\n{}// NOTE(v0.5-stub): createWarpBoundary requires arbor.mount to accept an arbitrary\n{}// host node. If arbor.mount only accepts a custom-element host, this boundary\n{}// is a stub pending an arbor mount API extension.",
+                target_expr,
+                child_fn,
+                child_indent,
+                child_indent,
+                child_indent
+            )
+        }
+
+        // ── Unknown macro element ─────────────────────────────────────────────
+        _ => {
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            format!(
+                "/* <${}> unknown macro element — passthrough */ {}",
+                name, children_subtree
+            )
+        }
+    }
+}
+
+/// Find a static attribute value by name.
+fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Option<&'a str> {
+    attrs.iter().find_map(|a| match a {
+        crate::types::Attr::Static { name, value } if name == attr_name => Some(value.as_str()),
+        _ => None,
+    })
+}
+
+/// Find a static OR curly-binding attribute value by name.
+fn find_static_or_binding_attr(attrs: &[crate::types::Attr], attr_name: &str) -> Option<String> {
+    attrs.iter().find_map(|a| match a {
+        crate::types::Attr::Static { name, value } if name == attr_name => {
+            Some(format!("'{}'", value))
+        }
+        crate::types::Attr::Macro {
+            name,
+            value: MacroValue::Curly(expr),
+        } if name == attr_name => Some(expr.clone()),
+        crate::types::Attr::Macro {
+            name,
+            value: MacroValue::Quoted(s),
+        } if name == attr_name => Some(s.clone()),
+        _ => None,
+    })
+}
+
+/// Partition children into (fallback_children, non_fallback_children).
+fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<TemplateNode>) {
+    let mut fallback: Vec<TemplateNode> = Vec::new();
+    let mut main: Vec<TemplateNode> = Vec::new();
+
+    for child in children {
+        let is_fallback = match child {
+            TemplateNode::MacroElement { name, attrs, .. } if name == "slot" => {
+                attrs.iter().any(|a| match a {
+                    crate::types::Attr::Static { name, value } => {
+                        name == "name" && value == "fallback"
+                    }
+                    _ => false,
+                })
+            }
+            TemplateNode::Element { attrs, .. } => {
+                attrs.iter().any(|a| match a {
+                    crate::types::Attr::Static { name, value } => {
+                        name == "slot" && value == "fallback"
+                    }
+                    _ => false,
+                })
+            }
+            _ => false,
+        };
+
+        if is_fallback {
+            match child {
+                TemplateNode::MacroElement { children, .. } => {
+                    fallback.extend(children.iter().cloned());
+                }
+                other => {
+                    fallback.push(other.clone());
+                }
+            }
+        } else {
+            main.push(child.clone());
+        }
+    }
+
+    (fallback, main)
 }
 
 fn emit_attrs(attrs: &[Attr]) -> String {

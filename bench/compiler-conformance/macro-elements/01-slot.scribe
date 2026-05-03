@@ -1,0 +1,7 @@
+@template {
+  <div>
+    <$slot expose="user, index">
+      <span>default</span>
+    </$slot>
+  </div>
+}
