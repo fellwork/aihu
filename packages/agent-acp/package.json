@@ -15,9 +15,5 @@
   },
   "dependencies": {
     "@scribe/agent-service": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "catalog:",
-    "@scribe/tsconfig": "workspace:*"
   }
 }
