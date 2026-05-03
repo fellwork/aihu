@@ -1,0 +1,3 @@
+@template {
+  <div $bind:title="pageTitle" $on:click="handleClick">click me</div>
+}

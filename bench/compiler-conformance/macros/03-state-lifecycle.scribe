@@ -1,0 +1,9 @@
+@state {
+  $lifecycle.mount { initializeWidget() }
+  $lifecycle.dispose { cleanup() }
+  $action submit(data) { sendForm(data) }
+}
+
+@template {
+  <div>widget</div>
+}

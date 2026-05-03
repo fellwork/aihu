@@ -1,0 +1,8 @@
+@state {
+  $prop label: String
+  $computed upper = label.toUpperCase()
+}
+
+@template {
+  <div>label</div>
+}

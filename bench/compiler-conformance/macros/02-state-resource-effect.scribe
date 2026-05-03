@@ -1,0 +1,9 @@
+@state {
+  $resource data = fetchUsers()
+  $effect { console.log(data()) }
+  $effect.on(data) { updateList(data()) }
+}
+
+@template {
+  <div>content</div>
+}
