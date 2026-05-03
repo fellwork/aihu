@@ -14,6 +14,10 @@ pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError> {
     parser::sfc::parse(source)
 }
 
+pub fn compile_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<ScribeSource<'a>, CompileError> {
+    parser::sfc::parse_with_path(source, file_path)
+}
+
 pub fn compile_full<'a>(source: &'a ScribeSource<'a>) -> Result<CompileUnit<'a>, CompileError> {
     compile_full_with_target(source, BuildTarget::Universal)
 }
