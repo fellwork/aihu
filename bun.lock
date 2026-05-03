@@ -107,6 +107,10 @@
         "@scribe/context": "workspace:*",
         "@scribe/signals": "workspace:*",
       },
+      "devDependencies": {
+        "@scribe/plugin": "workspace:*",
+        "@scribe/server": "workspace:*",
+      },
     },
     "packages/plugin": {
       "name": "@scribe/plugin",
