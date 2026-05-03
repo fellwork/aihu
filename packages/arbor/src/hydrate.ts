@@ -202,7 +202,7 @@ export function hydrate(
   try {
     node = component()
   } catch (err) {
-    if (errorHandler !== undefined) {
+    if (errorHandler) {
       errorHandler(err, 'hydrate')
       _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
       return _makeScope(disposers, signalRegistry)

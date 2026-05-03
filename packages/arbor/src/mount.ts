@@ -115,7 +115,7 @@ export function _mountEffect(
   let savedDispose: Dispose | null = null
   const dispose = effect(() => {
     _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
-    if (errorHandler !== undefined) {
+    if (errorHandler) {
       try {
         fn()
       } catch (err: unknown) {
@@ -227,7 +227,7 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   try {
     appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   } catch (err: unknown) {
-    if (errorHandler === undefined) throw err
+    if (!errorHandler) throw err
     // Plan 1.1: any returned fallback Node is currently discarded (stub).
     errorHandler(err, pathBase)
   } finally {
