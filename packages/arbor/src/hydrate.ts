@@ -121,7 +121,7 @@ function _hydrateNode(
   }
 
   // Branch node — all leaf/structural kinds returned above.
-  const existingEl = pathMap.get(pathBase) ?? null
+  const existingEl = pathMap.get(pathBase)
 
   if (!existingEl) {
     // Mismatch: expected element not found at this path — fall back to materialize.

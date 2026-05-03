@@ -41,7 +41,7 @@ export function _teardownChildScope(s: ChildScope): void {
   const d = s.disposers, a = s.appendedNodes, anc = s.anchor
   for (let i = d.length; i--;) d[i]?.()
   const p = anc.parentNode
-  if (p !== null) {
+  if (p) {
     for (const n of a) if (n.parentNode === p) p.removeChild(n)
     p.removeChild(anc)
   }
@@ -65,7 +65,7 @@ function _mc(
   _mountDisposersStack.push(cd)
   try { _materialize(tree, tmp, cd, path, mfn, eh) } finally { _mountDisposersStack.pop() }
   const ns: globalThis.Node[] = []
-  while (tmp.firstChild !== null) ns.push(par.insertBefore(tmp.firstChild, bef))
+  while (tmp.firstChild) ns.push(par.insertBefore(tmp.firstChild, bef))
   return ns
 }
 
