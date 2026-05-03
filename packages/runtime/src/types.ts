@@ -99,7 +99,6 @@ export interface ComponentOptions<A extends ReadonlyArray<string> = ReadonlyArra
 }
 
 export class RuntimeError extends Error {
-  override name = 'RuntimeError'
   readonly code: string
   constructor(code: string, message: string) {
     super(message)

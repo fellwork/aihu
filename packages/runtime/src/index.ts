@@ -1,44 +1,13 @@
-/**
- * `@scribe/runtime` — public exports.
- *
- * Per `.team/phase-4/spec-runtime.md` §1 + §5 + §1.5 (defineComponent
- * ratified for v0).
- *
- * `RuntimeError` is intentionally NOT re-exported (spec §1.3 /
- * Decision 2B): the only throw site is a startup invariant violation,
- * not a production-time catchable condition.
- *
- * `_setMount` and `_setSignal` are re-exported here as internal bootstrap
- * exports (decision D5). They are not public API but are accessible via the
- * package barrel for compiler-emitted options-form components at app boot.
- */
-
 export { defineComponent } from './define-component.ts'
 export { defineElement } from './define-element.ts'
 export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'
+export { _onMount as onMount, _onCleanup as onCleanup } from './define-component.ts'
 
-/**
- * Internal bootstrap exports — not part of the public API contract.
- * Required by compiler-emitted options-form components at app boot.
- * See decision D5 (Phase 1 engineering review).
- */
+/** @internal */
 export { _setMount, _setSignal } from './define-component.ts'
+/** @internal */
 export { _setHydrate } from './define-element.ts'
-
-/**
- * HMR helper — re-runs a component's setup function in-place without
- * a full page reload. Tree-shakeable; never referenced in production
- * builds (Vite plugin gates injection with `if (__DEV__ && import.meta.hot)`).
- *
- * @internal
- */
+/** @internal */
 export { _hmrReplace } from './define-component.ts'
-
-/**
- * Defer-hydration helper — Plan 3.3 (Islands). Imported only when the
- * compiler emits `defer`-aware hydration glue, so static islands and eager
- * interactive islands tree-shake it out of their bundles.
- *
- * @internal
- */
+/** @internal */
 export { _hydrateOnVisible } from './hydrate-on-visible.ts'
