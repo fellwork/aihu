@@ -110,6 +110,8 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 | 0 | 2026-05-01 | Track created. Eng review complete. 0 unresolved decisions. |
 | 1 | 2026-05-01 | Lanes A+B COMPLETE on `feat/phase1-contract` at `469f12d`. Rust 32→68 tests (+36), TS 320→323 tests (+3). Lane A: 3 Builder commits + 1 inline-fix commit (export-strip + side-effect import). Lane B: 3 Builder commits + 1 inline-fix commit (null-chain + JSDoc). counter.scribe regression intact. |
 | 2 | 2026-05-01 | Lanes C+D COMPLETE at `4b37f0d`. Lane C: 4 commits — examples/airtime-quote, examples/scripture-reference, docs/grammar.md (236 lines, full BNF), docs/tthw-log.md, editors/vscode/, MIT LICENSE + 10 package.json license fields. Both example manifests verified valid via shipped binary. Lane D: 1 builder commit + 1 inline-fix — .github/workflows/release.yml (4-target cross-compile, all SHAs pinned), packages/compiler/js/postinstall.ts (SCRIBE_COMPILE_BIN override, idempotent, fail-loud), packages/compiler/RELEASE.md. Test counts unchanged: 68 Rust + 1 ignored, 323 TS. Pre-existing typecheck failures noted (unrelated to Phase 1). |
+| 3 | 2026-05-02 | Sessions 3–7. Plans 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2 complete (14 of 17). main HEAD: `2340424` entering Session 8. TS: 570, Rust: 221. |
+| 4 | 2026-05-03 | Session 8 (automated). Plans 4.3-B, 5.3, 7.1 complete. ALL 17 v1 plans shipped. TS: 607, Rust: 222. main HEAD: 1917d7f |
 
 ---
 
@@ -150,9 +152,9 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 ## Current Phase
 
-**Round 2 COMPLETE — Phase 1 ENDED.**
+**All 17 v1 plans COMPLETE — v1 shipped.**
 
-Phase 1 (`<agent>` block + DX surface + release CI) is fully shipped on `feat/phase1-contract` at `4b37f0d`. Ready for PR to `main` and v0.1.0 tag for first cross-compile release run.
+Phase 1 (`<agent>` block + DX surface + release CI) shipped on `feat/phase1-contract` at `4b37f0d`. All subsequent phases (2–7) completed across Sessions 2–8. Final main HEAD: `1917d7f`. All packages at version 1.0.0. GHA auto-triggers re-enabled.
 
 Open follow-on items:
 - TODO-004: Re-enable `c4_transform_produces_typescript` integration test (out of Phase 1 scope, see TODOS.md)
@@ -218,12 +220,14 @@ Open follow-on items:
 | 4.1, 4.2 | DONE |
 | 5.1 (`<agent>` block), 5.2 | DONE |
 | 6.1, 6.2 (Phase 0 + P1) | DONE |
-| 3.3 Islands | PENDING (depends on 3.2 — now unblocked) |
-| 4.3 TypeScript template types | PENDING (depends on 1.2 + 1.4 — both done) |
-| 5.3 A2A/ACP adapters | PENDING (depends on 5.2 — now unblocked) |
-| 7.1 v1 cutover | PENDING (depends on all phases 1-5 — now mostly clear) |
+| 3.3 Islands | DONE |
+| 4.3 TypeScript template types | DONE (Option B — stable cast locked; 4.3-v2 OXC deferred post-v1) |
+| 5.3 A2A/ACP adapters | DONE |
+| 7.1 v1 cutover | DONE |
 
 **Update (2026-05-02 evening):** Plan 3.3 Islands shipped via PR #26. 14 of 17 v1 plans done. Remaining: 4.3 (TS template type-checking), 5.3 (A2A/ACP), 7.1 (cutover). Test count: 431 (was 407 at PR #25). Runtime cap raised 1140 → 1170 B for `_hydrateOnVisible`.
+
+**Update (2026-05-03 Session 8):** Plans 4.3-B, 5.3 (prereq + A2A + ACP), and 7.1 shipped. ALL 17 v1 plans COMPLETE. TS: 607, Rust: 222. main HEAD: 1917d7f. All packages at version 1.0.0.
 
 **Worktree collisions:** Three of the five parallel builders ended up working in the main repo's working directory (worktree creation may have silently fallen back). Plan 5.2 commit was on `feat/v1-hydration` branch by mistake; rescued via cherry-pick + force-push. Plan 3.2 conflict-resolved by merge-from-main during PR. No work lost.
 
