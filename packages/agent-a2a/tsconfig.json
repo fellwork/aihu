@@ -1,12 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "paths": {
-      "@scribe/agent": ["../agent/src/index.ts"],
-      "@scribe/agent-service": ["../agent-service/src/index.ts"]
-    }
+    "rootDir": ".",
+    "outDir": "dist",
+    "noEmit": true
   },
-  "include": ["src", "tests"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

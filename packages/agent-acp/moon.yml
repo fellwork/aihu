@@ -1,11 +1,3 @@
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
 language: typescript
 layer: library
-tasks:
-  build:
-    command: rolldown -c rolldown.config.ts
-    inputs: ["src/**/*", "rolldown.config.ts"]
-    outputs: ["dist"]
-  typecheck:
-    command: tsc --noEmit
-    inputs: ["src/**/*", "tsconfig.json"]
