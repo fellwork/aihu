@@ -67,6 +67,8 @@ This is a **research codebase**. The phases are sequenced so each layer's design
 
 All 17 v1 plans shipped 2026-05-03. Packages are at `1.0.0` as of the v1 cutover (Plan 7.1).
 
+> **Dep-free thesis (v1 contract).** Scribe is dep-free at runtime — every package's `dependencies` list is empty (Learning #49). This is a v1 contract.
+
 ---
 
 ## Performance
@@ -105,39 +107,45 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ### Bundle size (gz)
 
-**Browser layer** (ships to client — hard 4 kB budget):
+**Browser layer** (ships to client — per-package gates enforced by `bun run size`):
 
-| Package | Size | Budget | Headroom |
+| Package | Size | Limit | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | 1.55 kB | 1.7 kB | 150 B |
-| `@scribe/arbor` | 1.29 kB | 2.05 kB | 760 B |
-| `@scribe/runtime` | 0.48 kB | 1.02 kB | 540 B |
-| `@scribe/agent` | 0.14 kB | 100 B | — |
-| **Combined** | **3.46 kB** | **4.0 kB** | **~540 B** |
+| `@scribe/signals` | 1.81 kB | 1970 B | +120 B |
+| `@scribe/arbor` | 2.09 kB | 2200 B | +56 B |
+| `@scribe/runtime` | 1.14 kB | 1170 B | +3 B |
+| `@scribe/context` | 249 B | 300 B | +51 B |
+| `@scribe/agent` | 142 B | 200 B | +58 B |
+| *(combined, reported diagnostic)* | *~5.43 kB* | *—* | *—* |
 
-**Server / agent-readiness layer** (edge runtime — no size constraint):
+> **Per-package rows are the contract; combined is reported, not budgeted.** The pre-v1 "≤ 3.46 kB combined" target was retired at v1 cutover (Plan 7.1) — packages grew to support hydration, islands, error boundaries, and reconciliation. Each row in `.size-limit.json` is the binding gate. See [`.size-limit.README.md`](./.size-limit.README.md).
 
-| Package | Size | Notes |
-|---|---:|---|
-| `@scribe/server` | 1.63 kB | router · middleware · api · ssr · data · config |
-| `@scribe/agent-readiness` | 1.78 kB | llms-txt · mcp-server-card · robots · content-negotiation · vite-plugin |
+**Server / agent / build-time layer** (edge runtime or build-only — sized independently):
+
+| Package | Size | Limit | Notes |
+|---|---:|---:|---|
+| `@scribe/data` | 778 B | 800 B | data protocol — loaders, server calls |
+| `@scribe/router` | 818 B | 1536 B | fetch-API router, middleware, route plugins (canonical v1) |
+| `@scribe/agent-service` | 580 B | 600 B | agent execution surface |
+| `@scribe/agent-acp` | 649 B | 600 B | ACP adapter (currently 49 B over — tracked) |
+| `@scribe/agent-a2a` | 805 B | 700 B | A2A adapter (currently 105 B over — tracked) |
+| `@scribe/server` | — | — | SSR + edge router (re-exports from `@scribe/router`); v0.7.x alias kept for back-compat |
+| `@scribe/agent-readiness` | — | — | `llms.txt`, MCP Server Card, robots, content negotiation, Vite plugin |
+| `@scribe/cli` | — | build-only | `npx scribe app`, `npx scribe migrate` |
+| `@scribe/compiler` | — | build-only | Rust SFC compiler (`@blockname { }` syntax, macros, route discovery) |
+| `@scribe/plugin` | — | build-only | plugin contract types (consumed by `defineScribeConfig.plugins`) |
 
 ---
 
 ## Layout
 
-| Path | What |
-|---|---|
-| [`packages/signals`](./packages/signals) | `@scribe/signals` — `signal`, `computed`, `effect`, `batch`, `untrack`, `$state`. Phase 2. |
-| [`packages/arbor`](./packages/arbor) | `@scribe/arbor` — `branch`, `leaf`, `mount`, `MountScope`. Phase 3. |
-| [`packages/runtime`](./packages/runtime) | `@scribe/runtime` — `defineElement`, `defineComponent`, `DefineOptions`, `ShadowMode`. Phase 4. |
-| [`packages/agent`](./packages/agent) | `@scribe/agent` — `AgentMetadata` registry, `getAgentMetadata`, `registerAgentMetadata`. Phase 5. |
-| [`packages/server`](./packages/server) | `@scribe/server` — fetch-API router, middleware, api helpers, SSR, data loaders, config. Edge-safe. |
-| [`packages/agent-readiness`](./packages/agent-readiness) | `@scribe/agent-readiness` — `llms.txt`, MCP Server Card, `robots.txt`, content negotiation, Vite plugin. |
-| [`bench/signals`](./bench/signals) | Signals bench harness — 6 workloads × 6 competitors × time + memory. |
-| [`bench/arbor`](./bench/arbor) | Arbor bench harness — 6 workloads × 6 competitors × time + memory (JSDOM). |
-| `tests/` | Cross-package integration tests. |
-| `.team/` | Specs (binding), phase plans, retros, learnings. |
+See [`packages/`](./packages) for all 15 packages on disk. By tier:
+
+- **Browser runtime (sized, ships to client):** `@scribe/signals`, `@scribe/arbor`, `@scribe/runtime`, `@scribe/context`, `@scribe/agent`.
+- **Server / edge / data (sized):** `@scribe/router`, `@scribe/data`, `@scribe/agent-service`, `@scribe/agent-acp`, `@scribe/agent-a2a`. Plus `@scribe/server` (SSR + back-compat router alias) and `@scribe/agent-readiness` (`llms.txt`, MCP Server Card, robots, Vite plugin).
+- **Build-time only (not shipped):** `@scribe/compiler` (Rust SFC compiler), `@scribe/cli` (`npx scribe app`, `npx scribe migrate`), `@scribe/plugin` (plugin-contract types).
+
+Other top-level paths: [`bench/signals`](./bench/signals) and [`bench/arbor`](./bench/arbor) (mitata harnesses), `tests/` (cross-package integration), `docs/site/` (12-page guide), `docs/superpowers/` (specs + plans), `.team/` (specs, phase plans, retros, learnings).
 
 ## Toolchain
 
@@ -151,11 +159,26 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ## Quickstart
 
+**New project (canonical v1 path)** — scaffold with the CLI:
+
+```bash
+npx scribe app my-app   # scaffolds a Hello-World project
+cd my-app
+bun install
+bun run dev
+```
+
+The scaffold ships the v1 SFC authoring shape (`@blockname { }` blocks: `@state`, `@template`, `@route`, `@agent`, `@style`) and wires the Vite plugin, agent-readiness routes, and router defaults. See [`docs/site/getting-started.md`](./docs/site/getting-started.md).
+
+To migrate an existing scribe project, run `npx scribe migrate`.
+
+**This repo (workspace dev loop)** — clone and exercise the gates:
+
 ```bash
 bun install
 bun run build      # build all 15 packages
 bun run test       # 607 TS tests + 222 Rust tests (unit + integration + compliance)
-bun run size       # gzipped bundle gates (browser layer)
+bun run size       # per-package gzipped bundle gates
 bun run check      # biome lint + format
 bash scripts/check-boundary.sh   # AC-7: hard boundary (no client imports in server layer)
 bash scripts/check-edge-safe.sh  # AC-6: no Node-only globals in dist bundles
@@ -169,7 +192,7 @@ cd bench/signals && bun src/runner.ts   # signals vs SOTA
 cd bench/arbor   && bun src/runner.ts   # arbor vs SOTA (JSDOM)
 ```
 
-Use the packages today (workspace-internal; not on a registry yet):
+Use the packages directly (all packages are at `1.0.0`):
 
 ```ts
 import { signal, computed, effect } from '@scribe/signals'
@@ -184,7 +207,7 @@ setCount(1) // DOM updates synchronously via nodeValue
 scope.dispose()
 ```
 
-Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun):
+Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-router shape from `@scribe/server`. For file-based routing with the v1 Vite plugin, use `@scribe/router` (`createRouter` + `viteRouterPlugin`); see [`docs/site/routing-layouts.md`](./docs/site/routing-layouts.md).
 
 ```ts
 import { createRouter, defineRoute, json } from '@scribe/server'
@@ -230,10 +253,13 @@ Run all compliance checks: `bun run test && bun run test:quality`
 
 ## Where to read next
 
-- **Specs (binding):** [`.team/phase-2/spec-signals.md`](./.team/phase-2/spec-signals.md), [`.team/phase-3/spec-arbor.md`](./.team/phase-3/spec-arbor.md), [`.team/phase-4/spec-runtime.md`](./.team/phase-4/spec-runtime.md), [`.team/phase-5/spec-agent.md`](./.team/phase-5/spec-agent.md).
-- **Agent-readiness spec:** [`.team/agent-readiness/spec-agent-readiness.md`](./.team/agent-readiness/spec-agent-readiness.md) — complete: `@scribe/server` + `@scribe/agent-readiness` (AC-1 through AC-8).
+- **v1 specs (authoritative):** the four ratified spec quartet docs — [`docs/superpowers/specs/2026-05-02-spec-block-structure.md`](./docs/superpowers/specs/2026-05-02-spec-block-structure.md), [`docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](./docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md), [`docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md`](./docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md), [`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`](./docs/superpowers/specs/2026-05-02-spec-plugin-contract.md).
+- **v1 framework plan:** [`docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`](./docs/superpowers/plans/2026-05-02-scribe-v1-framework.md).
+- **Documentation site:** [`docs/site/`](./docs/site) — 12-page guide: introduction, installation, getting-started, authoring-components, authoring-agents, reactivity, ssr-hydration, routing-layouts, data-fetching, deployment, api-reference, authoring-plugins.
+- **CLI:** [`@scribe/cli`](./packages/cli) — `npx scribe app`, `npx scribe migrate`.
+- **Pre-v1 phase specs (historical, still binding):** [`.team/phase-2/spec-signals.md`](./.team/phase-2/spec-signals.md), [`.team/phase-3/spec-arbor.md`](./.team/phase-3/spec-arbor.md), [`.team/phase-4/spec-runtime.md`](./.team/phase-4/spec-runtime.md), [`.team/phase-5/spec-agent.md`](./.team/phase-5/spec-agent.md), [`.team/agent-readiness/spec-agent-readiness.md`](./.team/agent-readiness/spec-agent-readiness.md).
 - **Phase retros:** `.team/phase-*/retro.md`, `.team/round-n1/retro.md`, [`.team/agent-readiness/retro-phase1-3.md`](./.team/agent-readiness/retro-phase1-3.md).
-- **Learnings:** [`.team/learnings.md`](./.team/learnings.md) — 27 entries, all durable.
+- **Learnings:** [`.team/learnings.md`](./.team/learnings.md) — 39 entries, all durable.
 - **Bench harness:** `bench/signals/HARNESS.md`, `bench/arbor/HARNESS.md`.
 
 ## License
