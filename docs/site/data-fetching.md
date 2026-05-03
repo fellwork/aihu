@@ -50,6 +50,82 @@ export const loader = defineLoader(async (ctx) => {
 
 The loader receives a `LoaderContext` with the request, params, and URL. Return value is serialized and sent to the client as part of the SSR payload.
 
+## Server loaders → SFC handoff
+
+A loader runs server-side per matched route, but the SFC author still has to consume its result. There are two documented handoff patterns; pick whichever matches your component's data flow.
+
+### Pattern A — `route.data` prop (default)
+
+The loader payload is delivered as the `data` field on the SFC's `route` prop. This is the most common pattern and what every page route gets for free.
+
+`src/pages/posts/[slug].loader.ts`:
+
+```typescript
+import { defineLoader } from '@scribe/server'
+
+export const loader = defineLoader(async (ctx) => {
+  return await db.posts.findOne({ slug: ctx.params.slug })
+})
+```
+
+`src/pages/posts/[slug].scribe`:
+
+```
+@route { path: "/posts/[slug]", ssr: true }
+
+@state {
+  $prop route: {
+    params: { slug: string }
+    data: { title: string; body: string }
+  }
+}
+
+@template {
+  <article>
+    <h1>{route.data.title}</h1>
+    <p>{route.data.body}</p>
+  </article>
+}
+```
+
+The runtime injects the resolved loader payload as `route.data` before mount. During streaming SSR or client-side re-validation, wrap the consumer in `<$suspense>` to declaratively handle the pending state — see [the 3-state loader pattern](#the-3-state-loader-pattern) below.
+
+A worked end-to-end example lives at [`examples/blog-loader/`](https://github.com/fellwork/scribe/tree/main/examples/blog-loader).
+
+### Pattern B — `$resource` + `createServerCall`
+
+If the data needs to be fetched _on demand_ (e.g. on a button click or when a search box changes), skip the loader and use a typed client stub instead. `createServerCall` returns a function that posts to a server-registered action.
+
+```typescript
+// shared/api.ts
+import { createServerCall } from '@scribe/server'
+import type { Post } from './types'
+
+export const getPost = createServerCall<[slug: string], Post>('posts/getPost')
+```
+
+```
+@state {
+  searchTerm: string = ''
+
+  // refetches when searchTerm changes
+  $resource matches = getPost(searchTerm)
+}
+
+@template {
+  <input $bind:value="searchTerm" />
+
+  <$suspense source="matches">
+    <$slot name="fallback"><span>Searching...</span></$slot>
+    <ul>
+      <li $each="matches.value as p" $key="p.slug">{p.title}</li>
+    </ul>
+  </$suspense>
+}
+```
+
+Use Pattern A when the data is route-bound and known at request time. Use Pattern B when the data depends on UI state that the user changes after the page loads.
+
 ## `$server` macro
 
 In `@state` blocks, `$server` gates code to server-only execution:

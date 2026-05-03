@@ -1,0 +1,42 @@
+@route {
+  path: "/posts/[slug]",
+  name: "blog-loader-post",
+  ssr: true
+}
+
+@state {
+  // The loader runs server-side (see [slug].loader.ts) and the resolved
+  // payload is injected as the `route.data` prop. See:
+  //   docs/site/data-fetching.md → "Server loaders → SFC handoff"
+  $prop route: {
+    params: { slug: string }
+    data: { title: string; body: string; readingTimeMs: number }
+  }
+}
+
+@template {
+  <article>
+    <a href="/">&larr; Back</a>
+
+    <$suspense source="route.data">
+      <$slot name="fallback">
+        <p class="loading">Loading post...</p>
+      </$slot>
+
+      <h1>{route.data.title}</h1>
+      <p class="meta">
+        About {Math.round(route.data.readingTimeMs / 1000)}s to read
+      </p>
+      <p>{route.data.body}</p>
+    </$suspense>
+  </article>
+}
+
+@style {
+  article { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; line-height: 1.55; }
+  h1      { margin-top: 1rem; }
+  .meta   { color: #666; font-size: 0.9em; }
+  .loading { color: #999; font-style: italic; }
+  a       { color: #0070f3; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+}

@@ -1,0 +1,51 @@
+@route {
+  path: "/user/[id]",
+  name: "hn-user",
+  ssr: true
+}
+
+@state {
+  import type { HnUser } from './[id].loader.ts'
+
+  $prop route: { data: { user: HnUser } }
+
+  $action joined(t: number): string {
+    return new Date(t * 1000).toISOString().slice(0, 10)
+  }
+}
+
+@template {
+  <main>
+    <header>
+      <a href="/">&larr; back to top</a>
+    </header>
+
+    <article>
+      <h1>{route.data.user.id}</h1>
+      <dl>
+        <dt>created</dt>
+        <dd>{joined(route.data.user.created)}</dd>
+        <dt>karma</dt>
+        <dd>{route.data.user.karma}</dd>
+        <dt>submissions</dt>
+        <dd>{(route.data.user.submitted ?? []).length}</dd>
+      </dl>
+      <section class="about" $if={!!route.data.user.about}>
+        <h2>about</h2>
+        <div $html="route.data.user.about"></div>
+      </section>
+    </article>
+  </main>
+}
+
+@style {
+  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; }
+  header { padding: 0.5rem; background: #ff6600; }
+  header a { color: white; text-decoration: none; }
+  article { padding: 1rem 0; }
+  h1 { font-size: 1.3rem; margin: 0 0 0.5rem 0; }
+  dl { display: grid; grid-template-columns: 8rem 1fr; gap: 0.25rem 1rem; }
+  dt { color: #828282; }
+  dd { margin: 0; }
+  .about h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; }
+}

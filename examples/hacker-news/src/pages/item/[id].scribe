@@ -1,0 +1,67 @@
+@route {
+  path: "/item/[id]",
+  name: "hn-item",
+  ssr: true
+}
+
+@state {
+  import type { HnItem, CommentNode } from './[id].loader.ts'
+
+  $prop route: { data: { story: HnItem; comments: Array<CommentNode> } }
+
+  $action hostname(u: string | undefined): string {
+    if (!u) return ''
+    try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' }
+  }
+
+  $action ago(t: number | undefined): string {
+    if (!t) return ''
+    const s = Math.floor(Date.now() / 1000 - t)
+    if (s < 3600)  return `${Math.floor(s / 60)}m ago`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+    return `${Math.floor(s / 86400)}d ago`
+  }
+
+  $action commentKey(c: { id: number }): number { return c.id }
+}
+
+@template {
+  <main>
+    <header>
+      <a href="/">&larr; back to top</a>
+    </header>
+
+    <article class="story">
+      <h1>
+        <a href={route.data.story.url ?? `/item/${route.data.story.id}`}>{route.data.story.title}</a>
+        <span class="host" $if={!!route.data.story.url}> ({hostname(route.data.story.url)})</span>
+      </h1>
+      <div class="meta">
+        {route.data.story.score ?? 0} points by
+        <a href={`/user/${route.data.story.by}`}>{route.data.story.by}</a>
+        {ago(route.data.story.time)} | {route.data.story.descendants ?? 0} comments
+      </div>
+      <div class="text" $if={!!route.data.story.text} $html="route.data.story.text"></div>
+    </article>
+
+    <section class="comments">
+      <h2 $if={route.data.comments.length > 0}>Comments</h2>
+      <Comment $each="route.data.comments" $key="commentKey" comment={item} />
+    </section>
+  </main>
+}
+
+@style {
+  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; }
+  header { padding: 0.5rem; background: #ff6600; }
+  header a { color: white; text-decoration: none; }
+  .story { padding: 1rem 0; }
+  .story h1 { font-size: 1.1rem; margin: 0 0 0.25rem 0; }
+  .story h1 a { color: black; text-decoration: none; }
+  .story h1 a:hover { text-decoration: underline; }
+  .host { color: #828282; font-size: 0.85em; font-weight: normal; }
+  .meta { color: #828282; font-size: 0.85em; }
+  .meta a { color: #828282; }
+  .text { padding: 0.5rem 0; line-height: 1.5; }
+  .comments h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; padding-bottom: 0.25rem; border-bottom: 1px solid #eee; }
+}
