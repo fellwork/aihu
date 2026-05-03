@@ -1,4 +1,5 @@
 use crate::types::{CompileError, ScribeSource, ScriptMeta, StyleBlock, StyleScope};
+use crate::codegen::signals::resolve_signals;
 
 /// Extract the `name="..."` attribute from a `<script setup ...>` tag.
 fn extract_script_meta(tag_text: &str) -> ScriptMeta {
@@ -310,6 +311,106 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, Grammar, usize, us
     }
 }
 
+/// Check the inter-block region (content between/before/after blocks) for
+/// reserved top-level tokens per Block Structure Spec §8.1.
+///
+/// Returns a `CompileError` if a reserved token is found at the start of a line.
+fn check_reserved_tokens(region: &str, region_start_line: usize) -> Result<(), CompileError> {
+    for (i, line) in region.lines().enumerate() {
+        let trimmed = line.trim();
+        // Skip blank lines and comments.
+        if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+            continue;
+        }
+        let line_no = region_start_line + i;
+        if trimmed.starts_with("---") {
+            return Err(CompileError {
+                message: "frontmatter (`---`) is reserved for v2".to_string(),
+                line: line_no,
+                col: 0,
+                code: Some("C200".to_string()),
+                ..Default::default()
+            });
+        }
+        if trimmed.starts_with("import ") || trimmed.starts_with("import\t") {
+            return Err(CompileError {
+                message: "top-level `import` is reserved; use `@state {}` for module imports".to_string(),
+                line: line_no,
+                col: 0,
+                code: Some("C201".to_string()),
+                ..Default::default()
+            });
+        }
+        if trimmed.starts_with("export ") || trimmed.starts_with("export\t") {
+            return Err(CompileError {
+                message: "top-level `export` is reserved; the default export is implicit".to_string(),
+                line: line_no,
+                col: 0,
+                code: Some("C202".to_string()),
+                ..Default::default()
+            });
+        }
+        if trimmed == ";" {
+            return Err(CompileError {
+                message: "bare `;` at top level is reserved".to_string(),
+                line: line_no,
+                col: 0,
+                code: Some("C203".to_string()),
+                ..Default::default()
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Known JS globals that are always in scope — used by the v0.3.5 symbol-table
+/// warning pass to avoid false positives for common identifiers.
+const JS_GLOBALS: &[&str] = &[
+    "true", "false", "null", "undefined", "NaN", "Infinity",
+    "console", "window", "document", "Math", "JSON", "Date",
+    "Array", "Object", "String", "Number", "Boolean", "Promise",
+    "setTimeout", "clearTimeout", "setInterval", "clearInterval",
+    "fetch", "URL", "URLSearchParams", "Error", "TypeError",
+    "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent",
+    "decodeURIComponent", "encodeURI", "decodeURI",
+];
+
+/// Emit a warning (to stderr) for template interpolations that reference names
+/// not found in the state signal map and not in the JS globals list.
+///
+/// Per v0.3.5: this is a WARNING only (not a compile error). Full errors are v0.4+.
+fn warn_undeclared_template_refs(template: &str, signal_map: &crate::codegen::signals::SignalMap) {
+    // Find all `{{ name }}` interpolations in the template body.
+    let mut pos = 0;
+    while let Some(start) = template[pos..].find("{{") {
+        let abs_start = pos + start;
+        if let Some(end_rel) = template[abs_start + 2..].find("}}") {
+            let inner = template[abs_start + 2..abs_start + 2 + end_rel].trim();
+            // Only flag simple identifiers, not expressions.
+            if inner.chars().all(|c| c.is_alphanumeric() || c == '_') && !inner.is_empty() {
+                let in_signals = signal_map.0.contains_key(inner);
+                let in_globals = JS_GLOBALS.contains(&inner);
+                if !in_signals && !in_globals {
+                    eprintln!(
+                        "warning: '@template' references '{}' which is not declared in '@state'. \
+                         Undeclared cross-block references will become errors in v0.4.",
+                        inner
+                    );
+                }
+            }
+            pos = abs_start + 2 + end_rel + 2;
+        } else {
+            break;
+        }
+    }
+}
+
+/// Block ordering note (Block Structure Spec §3.3):
+///
+/// Blocks may appear in any order within a `.scribe` file. The compiler does
+/// NOT enforce a canonical order. The recommended order for tooling and formatter
+/// output is: `@state`, `@template`, `@style`, `@agent`. The default formatter
+/// rewrites files to this order on save. No ordering enforcement occurs here.
 pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
@@ -321,6 +422,13 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
     // First detected form wins; a subsequent opener using the other form is an
     // error citing both spans.
     let mut detected_grammar: Option<(Grammar, usize)> = None;
+
+    // v0.3.4: emit the HTML-form deprecation warning at most once per file.
+    let mut warned_deprecation = false;
+
+    // Track block end positions for inter-block reserved-token checks (v0.3.6).
+    // Each entry is (block_end_byte, block_end_line) — we'll scan the gaps after parsing.
+    let mut block_regions: Vec<(usize, usize)> = Vec::new(); // (start_byte, end_byte)
 
     let mut pos = 0usize;
 
@@ -349,6 +457,21 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
             }
             _ => {}
         }
+
+        // v0.3.4: emit deprecation warning when HTML-tag form is detected.
+        if grammar == Grammar::Html && !warned_deprecation {
+            eprintln!(
+                "warning: HTML-tag form (`<script setup>`, `<template>`, etc.) is deprecated in v0.3. \
+                 Use `@state {{ }}`, `@template {{ }}`, `@style {{ }}`, `@agent {{ }}` instead. \
+                 Run `npx scribe migrate` to convert (ships in v0.8)."
+            );
+            warned_deprecation = true;
+        }
+
+        // Record the inter-block region before this block for reserved-token checking.
+        let region_before = &source[pos..open_start];
+        let region_start_line = line_at(source, pos);
+        check_reserved_tokens(region_before, region_start_line)?;
 
         if grammar == Grammar::At {
             // Unified `@blockname { … }` handler — body delimited by brace
@@ -402,11 +525,18 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                             ..Default::default()
                         });
                     }
-                    // v0.2.2 stub: lowering is unchanged. The `@style { $global }`
-                    // attribute migration is v0.3.3; default to Scoped here.
+                    // v0.3.3: `@style { $global }` scope recognition.
+                    // If the body begins with `$global` (after stripping leading whitespace),
+                    // set StyleScope::Global and remove the `$global` token from the body.
+                    let (style_scope, style_content) = if body.starts_with("$global") {
+                        let rest = body["$global".len()..].trim();
+                        (StyleScope::Global, rest)
+                    } else {
+                        (StyleScope::Scoped, body)
+                    };
                     style = Some(StyleBlock {
-                        content: body,
-                        scope: StyleScope::Scoped,
+                        content: style_content,
+                        scope: style_scope,
                     });
                 }
                 BlockKind::Agent => {
@@ -421,7 +551,9 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     agent_raw = Some(&source[body_start..close_pos]);
                 }
             }
-            pos = close_pos + 1; // past the `}`
+            let block_end = close_pos + 1; // past the `}`
+            block_regions.push((open_start, block_end));
+            pos = block_end;
             continue;
         }
 
@@ -462,7 +594,9 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     });
                 }
                 script = Some(source[content_start..content_end].trim());
-                pos = content_end + "</script>".len();
+                let block_end = content_end + "</script>".len();
+                block_regions.push((open_start, block_end));
+                pos = block_end;
             }
 
             BlockKind::Template => {
@@ -486,7 +620,9 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     });
                 }
                 template = Some(source[open_tag_end..close_pos].trim());
-                pos = close_pos + "</template>".len();
+                let block_end = close_pos + "</template>".len();
+                block_regions.push((open_start, block_end));
+                pos = block_end;
             }
 
             BlockKind::Style => {
@@ -526,7 +662,9 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     content: source[content_start..close_pos].trim(),
                     scope,
                 });
-                pos = close_pos + "</style>".len();
+                let block_end = close_pos + "</style>".len();
+                block_regions.push((open_start, block_end));
+                pos = block_end;
             }
 
             BlockKind::Agent => {
@@ -551,9 +689,24 @@ pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
                     });
                 }
                 agent_raw = Some(&source[open_tag_end..close_pos]);
-                pos = close_pos + "</agent>".len();
+                let block_end = close_pos + "</agent>".len();
+                block_regions.push((open_start, block_end));
+                pos = block_end;
             }
         }
+    }
+
+    // v0.3.6: Check the trailing inter-block region (after last block) for reserved tokens.
+    let trailing = &source[pos..];
+    let trailing_start_line = line_at(source, pos);
+    check_reserved_tokens(trailing, trailing_start_line)?;
+
+    // v0.3.5: Cross-block symbol table warning pass.
+    // After all blocks are parsed, warn about template references not in @state.
+    // This is a simplified implementation — warnings only (full errors are v0.4+).
+    if let Some(tmpl) = template {
+        let sig_map = resolve_signals(script.unwrap_or(""));
+        warn_undeclared_template_refs(tmpl, &sig_map);
     }
 
     let agent = if let Some(raw) = agent_raw {
