@@ -9,6 +9,8 @@
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`
     return `${Math.floor(s / 86400)}d ago`
   }
+
+  $action childKey(c: { id: number }): number { return c.id }
 }
 
 @template {
@@ -19,7 +21,7 @@
     </div>
     <div class="text" $html="comment.text"></div>
     <div class="replies" $if={comment.children.length > 0}>
-      <Comment $each="comment.children as child" $key="child.id" comment={child} />
+      <Comment $each="comment.children" $key="childKey" comment={item} />
     </div>
   </div>
 }

@@ -21,6 +21,8 @@
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`
     return `${Math.floor(s / 86400)}d ago`
   }
+
+  $action commentKey(c: { id: number }): number { return c.id }
 }
 
 @template {
@@ -44,7 +46,7 @@
 
     <section class="comments">
       <h2 $if={route.data.comments.length > 0}>Comments</h2>
-      <Comment $each="route.data.comments as c" $key="c.id" comment={c} />
+      <Comment $each="route.data.comments" $key="commentKey" comment={item} />
     </section>
   </main>
 }

@@ -6,7 +6,7 @@
 @template {
   <main>
     <h1>About this blog</h1>
-    <p>This example demonstrates scribe's file-based routing.
+    <p>This example demonstrates file-based routing in scribe.
        Each <code>.scribe</code> file under <code>src/pages/</code>
        becomes a route automatically.</p>
     <p><a href="/">Home</a></p>
