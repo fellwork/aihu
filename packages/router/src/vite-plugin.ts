@@ -58,12 +58,16 @@ export function scanLayouts(d: string): LayoutMap {
 
 const SK = ['name', 'middleware', 'ssr', 'layout'] as const
 
-function genR(files: string[], pd: string): string {
+function genR(files: string[], pd: string, middlewareByDir: Record<string, string> = {}): string {
   return `// AUTO-GENERATED\nexport default [\n${files.map((f) => {
     const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
     const sc = readRouteSidecar(f)
     const x = sc ? SK.filter((k) => sc[k] !== undefined).map((k) => `    ${k}: ${JSON.stringify(sc[k])},`).join('\n') : ''
-    return `  {\n    pattern: ${JSON.stringify(pat(s))},\n    segments: ${JSON.stringify(s)},\n    module: () => import(${JSON.stringify(f.replace(/\\/g, '/'))}),${x ? '\n' + x : ''}\n  }`
+    // v0.7.2: embed _middleware file path for file-convention auto-wire
+    const fileDir = dirname(f).replace(/\\/g, '/')
+    const mwFile = middlewareByDir[fileDir]
+    const mwLine = mwFile ? `\n    middlewareFile: ${JSON.stringify(mwFile)},` : ''
+    return `  {\n    pattern: ${JSON.stringify(pat(s))},\n    segments: ${JSON.stringify(s)},\n    module: () => import(${JSON.stringify(f.replace(/\\/g, '/'))}),${x ? '\n' + x : ''}${mwLine}\n  }`
   }).join(',\n')}\n];\n`
 }
 
@@ -71,19 +75,44 @@ function genL(d: string): string {
   return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanLayouts(d)).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join('\n')}\n};\n`
 }
 
-function pages(root: string, pd: string): string[] {
+/** v0.7.2: File-convention middleware discovered alongside routes. */
+export interface MiddlewareScan {
+  /** Route files (non-underscore page files). */
+  routes: string[]
+  /**
+   * Map from directory (absolute path) to its `_middleware.(ts|js)` file.
+   * When the runtime composes a route, all middleware files from the route
+   * file's ancestor directories (innermost first) should be applied.
+   */
+  middlewareByDir: Record<string, string>
+}
+
+function scanPages(root: string, pd: string): MiddlewareScan {
   const d = resolve(root, pd)
-  if (!existsSync(d)) return []
-  const o: string[] = []
+  if (!existsSync(d)) return { routes: [], middlewareByDir: {} }
+  const routes: string[] = []
+  const middlewareByDir: Record<string, string> = {}
   const w = (dir: string): void => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const fp = join(dir, e.name)
-      if (e.isDirectory()) w(fp)
-      else if (e.isFile() && /\.(ts|js|tsx|jsx|scribe)$/.test(e.name) && !e.name.startsWith('_')) o.push(fp)
+      if (e.isDirectory()) {
+        w(fp)
+      } else if (e.isFile()) {
+        // v0.7.2: capture _middleware.ts / _middleware.js / _middleware.tsx / _middleware.jsx
+        if (/^_middleware\.(ts|js|tsx|jsx)$/.test(e.name)) {
+          middlewareByDir[dir.replace(/\\/g, '/')] = fp.replace(/\\/g, '/')
+        } else if (/\.(ts|js|tsx|jsx|scribe)$/.test(e.name) && !e.name.startsWith('_')) {
+          routes.push(fp)
+        }
+      }
     }
   }
   w(d)
-  return o.sort()
+  return { routes: routes.sort(), middlewareByDir }
+}
+
+function pages(root: string, pd: string): string[] {
+  return scanPages(root, pd).routes
 }
 
 export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
@@ -93,7 +122,14 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
     name: 'scribe-router',
     resolveId: (id) => id === 'virtual:scribe-routes' ? RR : id === 'virtual:scribe-layouts' ? LR : null,
     load(id) {
-      if (id === RR) return (cr ??= genR(pages(root, pd), pd))
+      if (id === RR) {
+        if (!cr) {
+          // v0.7.2: use scanPages to also pick up _middleware files
+          const scan = scanPages(root, pd)
+          cr = genR(scan.routes, pd, scan.middlewareByDir)
+        }
+        return cr
+      }
       if (id === LR) return (cl ??= genL(resolve(root, ld)))
       return null
     },
@@ -114,3 +150,14 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// v0.7.4 naming: viteRouterIntegration (preferred) + deprecated alias
+// ---------------------------------------------------------------------------
+
+/**
+ * @scribe/router Vite integration (v0.7.4 rename of `viteRouterPlugin`).
+ * Prefer this name going forward; `viteRouterPlugin` is kept as the original
+ * function name (deprecated) until v1.0.
+ */
+export const viteRouterIntegration = viteRouterPlugin

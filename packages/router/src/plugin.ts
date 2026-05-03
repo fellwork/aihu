@@ -6,7 +6,10 @@
  * the browser bundle measured by `.size-limit.json`.
  *
  * Usage in vite.config.ts:
- *   import { viteRouterPlugin } from '@scribe/router/plugin'
+ *   import { viteRouterIntegration } from '@scribe/router/plugin'
+ *
+ * v0.7.4: `viteRouterPlugin` renamed to `viteRouterIntegration`.
+ * The old name remains as a deprecated re-export until v1.0.
  */
-export type { RouterPluginOptions, RouteSidecar, LayoutMap } from './vite-plugin.ts'
-export { viteRouterPlugin, readRouteSidecar, scanLayouts } from './vite-plugin.ts'
+export type { RouterPluginOptions, RouteSidecar, LayoutMap, MiddlewareScan } from './vite-plugin.ts'
+export { viteRouterIntegration, viteRouterPlugin, readRouteSidecar, scanLayouts } from './vite-plugin.ts'

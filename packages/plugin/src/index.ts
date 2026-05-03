@@ -263,6 +263,13 @@ export interface PluginConfig {
   readonly parsers?: Readonly<Record<string, BlockParser>>
   /** Other plugin namespaces this plugin depends on (spec §10.1). */
   readonly dependencies?: ReadonlyArray<string>
+  /**
+   * If `true`, this plugin's contributions are lowered to the server bundle
+   * only (Amendment 03 §6.5). Client code that references server-only
+   * contributions receives RPC stubs instead of the real implementation.
+   * PROVISIONAL in v1.0 — behaviour may evolve through the v1.x series.
+   */
+  readonly serverOnly?: boolean
 }
 
 /**

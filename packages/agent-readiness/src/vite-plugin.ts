@@ -104,15 +104,18 @@ export function createAgentReadinessRoutes(
 }
 
 /**
- * The agentReadiness() Vite plugin.
+ * The `viteAgentReadinessIntegration()` Vite plugin (v0.7.4 canonical name).
  *
  * configureServer (dev): serves /llms.txt, /llms-full.txt, /.well-known/mcp/server-card.json, /robots.txt
  * generateBundle (build): writes all four files as static assets to output dir
  *
  * Route injection: does NOT inject into createRouter automatically.
  * Use createAgentReadinessRoutes() for fetch-API integration.
+ *
+ * Previously named `agentReadiness`. That name is kept as a deprecated alias
+ * until v1.0 to avoid a breaking change.
  */
-export function agentReadiness(config: AgentReadinessConfig): VitePlugin {
+export function viteAgentReadinessIntegration(config: AgentReadinessConfig): VitePlugin {
   const routes = createAgentReadinessRoutes(config)
 
   const serveResponse = async (
@@ -170,3 +173,6 @@ export function agentReadiness(config: AgentReadinessConfig): VitePlugin {
     },
   }
 }
+
+/** @deprecated Use `viteAgentReadinessIntegration` instead. Will be removed in v1.0. */
+export const agentReadiness = viteAgentReadinessIntegration
