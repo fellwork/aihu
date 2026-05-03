@@ -2,9 +2,12 @@
 // Static rate table; pure-computed conversion; same value exposed to humans and agents.
 
 @state {
-  $prop from: 'USD' | 'EUR' | 'GBP' | 'JPY' = 'USD'
-  $prop to:   'USD' | 'EUR' | 'GBP' | 'JPY' = 'EUR'
-  $prop amount: number = 100
+  // Standalone signals so the example is interactive without a parent.
+  // For a parent-driven variant, swap to $prop declarations and remove
+  // the $bind:value attributes from <select> / <input>.
+  from:   'USD' | 'EUR' | 'GBP' | 'JPY' = 'USD'
+  to:     'USD' | 'EUR' | 'GBP' | 'JPY' = 'EUR'
+  amount: number = 100
 
   // USD-relative static rates. converted = amount * (rateOf(to) / rateOf(from)).
   rates: Record<'USD' | 'EUR' | 'GBP' | 'JPY', number> = {

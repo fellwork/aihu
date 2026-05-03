@@ -3,7 +3,10 @@
 // No network: keeps the example self-contained and offline-runnable.
 
 @state {
-  $prop location: string = 'San Francisco'
+  // Standalone signal so the example is interactive in isolation.
+  // Swap to `$prop location: string = 'San Francisco'` for a parent-driven variant
+  // (and remove $bind:value="location" from the input below).
+  location: string = 'San Francisco'
 
   forecast: { high: number; low: number; conditions: string } | null = null
   status: 'idle' | 'loading' | 'ready' | 'error' = 'idle'

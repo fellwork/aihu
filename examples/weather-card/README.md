@@ -19,7 +19,7 @@ Or open `index.html` through the dev server.
 - `$expose location, forecast, status` — three reactive signals registered as MCP resources
 - `$action fetchForecast` — a single action exposed as a callable MCP tool
 - `$describe name "..."` — human-readable descriptions consumed by `tools/list` and `resources/list`
-- `$prop location: string = '...'` — a typed input that's also part of the agent surface
+- A standalone `location: string` signal (the inline comment in `@state` shows the parent-driven `$prop` variant; both shapes expose the same agent surface)
 
 ## Async actions (Flag #1, deferred)
 
