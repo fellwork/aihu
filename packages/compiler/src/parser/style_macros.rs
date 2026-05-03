@@ -2,6 +2,7 @@
 ///
 /// Parses `$reactive`, `$media`, `$when` inside an `@style { }` block.
 /// (`$global` is already handled in v0.3.3 — not duplicated here.)
+/// Amendment 02: `$reactive(expr)` inside `$global { }` targets `document.documentElement`.
 
 use crate::parser::state_macros::find_brace_close;
 use crate::types::{CompileError, StyleMacro};
@@ -93,6 +94,68 @@ pub fn parse_style_macros(body: &str) -> Result<Vec<StyleMacro>, CompileError> {
     Ok(result)
 }
 
+/// Scan CSS body text for `$reactive(expr)` call patterns (Amendment 02 — global context).
+///
+/// Returns `(cleaned_css, reactives)` where:
+/// - `cleaned_css` replaces each `$reactive(expr)` with `var(--reactive-global-N)`
+/// - `reactives` is a list of `(index, expr)` pairs, one per found call
+///
+/// This is used when the body comes from a `$global { }` block so that the
+/// emitter can generate `document.documentElement.style.setProperty(...)` effects.
+pub fn extract_global_reactives(body: &str) -> (String, Vec<(usize, String)>) {
+    let needle = "$reactive(";
+    let mut result = String::new();
+    let mut reactives: Vec<(usize, String)> = Vec::new();
+    let mut pos = 0;
+
+    while pos < body.len() {
+        if let Some(rel) = body[pos..].find(needle) {
+            let abs = pos + rel;
+            // Append everything before this match verbatim
+            result.push_str(&body[pos..abs]);
+            // Find the matching closing paren (depth 1 since `(` opens)
+            let after_open = abs + needle.len();
+            let expr_end = find_matching_paren(body, after_open);
+            let expr = body[after_open..expr_end].trim().to_string();
+            let idx = reactives.len();
+            reactives.push((idx, expr));
+            // Replace with CSS custom property reference
+            result.push_str(&format!("var(--reactive-global-{})", idx));
+            pos = expr_end + 1; // skip the closing ')'
+        } else {
+            // No more matches — append the rest
+            result.push_str(&body[pos..]);
+            break;
+        }
+    }
+
+    (result, reactives)
+}
+
+/// Find the position of the closing `)` that matches the `(` at `open_pos - 1`.
+/// `start` is the index of the first character *inside* the parentheses.
+/// Returns the index of the `)`.
+fn find_matching_paren(s: &str, start: usize) -> usize {
+    let mut depth: usize = 1;
+    let bytes = s.as_bytes();
+    let mut i = start;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return i;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    // Unclosed paren — return end of string
+    s.len()
+}
+
 /// Emit CSS and JS side-effects for style macros.
 ///
 /// Returns `(css_additions, js_effects)` where:
@@ -111,6 +174,16 @@ pub fn emit_style_macros(macros: &[StyleMacro]) -> (String, String) {
                 js_lines.push(format!(
                     "effect(() => {{ el.style.setProperty('--reactive-{}', String({})) }});",
                     name, expr
+                ));
+            }
+            StyleMacro::GlobalReactive { index, expr } => {
+                // Amendment 02: target document.documentElement, not component root.
+                // CSS: unscoped :root custom property declaration
+                css_lines.push(format!(":root {{ --reactive-global-{}: ; }}", index));
+                // JS effect targeting the document root element
+                js_lines.push(format!(
+                    "effect(() => {{ document.documentElement.style.setProperty('--reactive-global-{}', String({})) }});",
+                    index, expr
                 ));
             }
             StyleMacro::Media { breakpoint, css } => {

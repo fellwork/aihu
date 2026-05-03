@@ -179,6 +179,9 @@ pub enum StateMacro {
 pub enum StyleMacro {
     /// `$reactive name: expr`
     Reactive { name: String, expr: String },
+    /// `$reactive(expr)` inside a `$global { }` block — Amendment 02.
+    /// Effect targets `document.documentElement` instead of the component root.
+    GlobalReactive { index: usize, expr: String },
     /// `$media breakpoint { css }`
     Media { breakpoint: String, css: String },
     /// `$when expr { css }`

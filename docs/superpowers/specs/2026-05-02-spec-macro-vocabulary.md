@@ -1,7 +1,7 @@
 # Macro Vocabulary — `@scribe/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
-**Spec version:** 0.1.1-draft (Amendment 01 applied inline)
+**Spec version:** 0.1.2-draft (Amendment 01 + Amendment 02 applied inline)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
 **Depends on:** `@scribe/signals` (stable), `@scribe/arbor` (stable), `@scribe/runtime` (stable), `@scribe/data` (proposed)
@@ -1499,6 +1499,8 @@ Rules inside `$global` are emitted to the global stylesheet without component sc
 **Error cases:**
 - `$global` outside `@style` — error
 - Nested `$global` blocks — error
+
+> **Amendment 02:** `$reactive` calls inside a `$global { }` block target `document.documentElement` rather than the component root. The component owns the effect lifecycle.
 
 **Examples:**
 ```

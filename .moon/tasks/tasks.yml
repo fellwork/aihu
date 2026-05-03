@@ -12,8 +12,12 @@ fileGroups:
     - "rolldown.config.ts"
 
 tasks:
+  # IMPORTANT: Use "bun run build" (not "bunx rolldown -c" directly) so that
+  # per-package scripts.build runs — this includes the identifier-mangle step
+  # for browser-eligible packages (@scribe/signals, @scribe/arbor). Bypassing
+  # the package script skips mangle and silently violates size budgets.
   build:
-    command: "bunx rolldown -c"
+    command: "bun run build"
     inputs:
       - "@group(sources)"
       - "@group(configs)"
