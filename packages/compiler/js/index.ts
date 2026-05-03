@@ -9,11 +9,12 @@ import { execFileSync } from 'node:child_process'
 import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Binary resolution: env var override, fallback to relative path from dist/
+// Binary resolution: env var override, fallback to the bin/ directory written
+// by the postinstall hook (packages/compiler/bin/scribe-compile[.exe]).
 const ext = process.platform === 'win32' ? '.exe' : ''
 const binPath: string =
   process.env['SCRIBE_COMPILE_BIN'] ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../target/release/scribe-compile${ext}`)
+  resolve(dirname(fileURLToPath(import.meta.url)), `../bin/scribe-compile${ext}`)
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
@@ -402,9 +403,9 @@ export function transform(source: string, id: string): { code: string; map: null
  *    to Rollup4. When `@scribe/compiler` is resolved from the workspace
  *    symlink (`dist/index.js`), Bun's ESM loader evaluates the module at
  *    config-load time. The subprocess call inside `transform()` depends on
- *    the Rust binary being at `../target/release/scribe-compile` relative
- *    to `dist/`. In a dev workspace where `cargo build --release` has not
- *    run, this path does not exist and `execFileSync` throws. Bun surfaces
+ *    the Rust binary being at `../bin/scribe-compile` relative to `dist/`
+ *    (written by the postinstall hook). In a dev workspace where postinstall
+ *    has not run, this path does not exist and `execFileSync` throws. Bun surfaces
  *    the error as a config-load failure, not a per-file transform error,
  *    causing the entire build to abort before any `.scribe` file is
  *    processed.
