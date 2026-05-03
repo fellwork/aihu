@@ -106,16 +106,15 @@ function _reconcileEach(
   const ks = new Set(keys)
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc) if (!ks.has(k)) { _teardownChildScope(s); sc.delete(k) }
-  for (let i = 0; i < items.length; i++) {
-    const k = keys[i] as string | number
-    if (sc.has(k)) continue
+  keys.forEach((k, i) => {
+    if (sc.has(k)) return
     const cd: Dispose[] = []
     const ca = document.createComment('e')
     par.appendChild(ca)
     sc.set(k, { anchor: ca, key: k, disposers: cd,
       appendedNodes: _mc(lgrow(items[i], i), par, cd,
         `${pb}.list.${String(k).replace(/\./g, '_')}`, mfn, eh, null) })
-  }
+  })
   let ref: globalThis.Node | null = anc.nextSibling
   for (const k of keys) {
     const s = sc.get(k)
