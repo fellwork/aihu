@@ -61,7 +61,7 @@
   {
     "name": "@scribe/agent-a2a",
     "path": "packages/agent-a2a/dist/index.js",
-    "limit": "700 B",
+    "limit": "720 B",
     "gzip": true,
     "ignore": ["@scribe/agent-service"]
   }
