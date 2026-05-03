@@ -29,30 +29,6 @@ import { _materialize } from './materialize.ts'
 import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // ---------------------------------------------------------------------------
-// Internal: path-based DOM walker
-// ---------------------------------------------------------------------------
-
-/**
- * Build a map from `data-scribe-path` value → Element for all elements
- * under `host` that carry the attribute.
- * @internal
- */
-function _buildPathMap(host: Element | ShadowRoot): Map<string, Element> {
-  const map = new Map<string, Element>()
-  const root = host as Element
-  // Optional-call lets us probe both methods without typeof guards: when
-  // a method is missing, `?.()` short-circuits to undefined.
-  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
-    const p = el.getAttribute('data-scribe-path')
-    if (p !== null) map.set(p, el)
-  }
-  // Include host itself if it is an Element carrying the attribute.
-  const hp = root.getAttribute?.('data-scribe-path')
-  if (hp != null) map.set(hp, root)
-  return map
-}
-
-// ---------------------------------------------------------------------------
 // Internal recursive hydration walker
 // ---------------------------------------------------------------------------
 
@@ -98,7 +74,7 @@ function _hydrateNode(
           break
         }
       }
-      if (textNode !== null) {
+      if (textNode) {
         const path = `${pathBase}.text`
         signalRegistry.set(path, get)
         const tn = textNode
@@ -122,17 +98,17 @@ function _hydrateNode(
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
     for (const cn of host.childNodes) {
-      if (cn.nodeType === 1 && (cn as Element).tagName === tag) {
+      if ((cn as Element).tagName === tag) {
         found = cn as Element
         break
       }
     }
-    if (found !== null && node.attrs !== null) {
+    if (found && node.attrs) {
       // Wire only reactive attrs; static attrs are already set by SSR.
       _applyAttrs(found, node.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
       return
     }
-    if (found === null) {
+    if (!found) {
       // Mismatch fallback: create + append.
       _mountDisposersStack.push(disposers)
       try {
@@ -145,9 +121,9 @@ function _hydrateNode(
   }
 
   // Branch node — all leaf/structural kinds returned above.
-  const existingEl = pathMap.get(pathBase) ?? null
+  const existingEl = pathMap.get(pathBase)
 
-  if (existingEl === null) {
+  if (!existingEl) {
     // Mismatch: expected element not found at this path — fall back to materialize.
     _mountDisposersStack.push(disposers)
     try {
@@ -163,15 +139,14 @@ function _hydrateNode(
   const branchNode = node as Branch
 
   // Wire reactive attrs to the existing element.
-  if (branchNode.attrs !== null) {
+  if (branchNode.attrs) {
     _applyAttrs(existingEl, branchNode.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
   }
 
   // Recurse into children.
-  const children = branchNode.children
-  for (let i = 0; i < children.length; i++) {
-    _hydrateNode(children[i] as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
-  }
+  branchNode.children.forEach((c, i) => {
+    _hydrateNode(c as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +182,15 @@ export function hydrate(
 ): ReturnType<typeof mount> {
   void snapshot // currently used for type safety; future: signal pre-seeding
   const errorHandler = options?.onError
-  const pathMap = _buildPathMap(host)
+  // Build path→element map inline (per spec §5: `data-scribe-path` anchors).
+  const pathMap = new Map<string, Element>()
+  const root = host as Element
+  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
+    const p = el.getAttribute('data-scribe-path')
+    if (p != null) pathMap.set(p, el)
+  }
+  const hp = root.getAttribute?.('data-scribe-path')
+  if (hp != null) pathMap.set(hp, root)
 
   _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
 
@@ -218,7 +201,7 @@ export function hydrate(
   try {
     node = component()
   } catch (err) {
-    if (errorHandler !== undefined) {
+    if (errorHandler) {
       errorHandler(err, 'hydrate')
       _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
       return _makeScope(disposers, signalRegistry)

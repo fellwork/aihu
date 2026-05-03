@@ -41,7 +41,7 @@ export function _teardownChildScope(s: ChildScope): void {
   const d = s.disposers, a = s.appendedNodes, anc = s.anchor
   for (let i = d.length; i--;) d[i]?.()
   const p = anc.parentNode
-  if (p !== null) {
+  if (p) {
     for (const n of a) if (n.parentNode === p) p.removeChild(n)
     p.removeChild(anc)
   }
@@ -65,7 +65,7 @@ function _mc(
   _mountDisposersStack.push(cd)
   try { _materialize(tree, tmp, cd, path, mfn, eh) } finally { _mountDisposersStack.pop() }
   const ns: globalThis.Node[] = []
-  while (tmp.firstChild !== null) ns.push(par.insertBefore(tmp.firstChild, bef))
+  while (tmp.firstChild) ns.push(par.insertBefore(tmp.firstChild, bef))
   return ns
 }
 
@@ -83,7 +83,7 @@ function _reconcileWhen(
     st.c && (_teardownChildScope(st.c), st.c = null)
     return
   }
-  if (st.c !== null) return
+  if (st.c) return
   const cd: Dispose[] = []
   const ca = document.createComment('w')
   par.insertBefore(ca, anc.nextSibling)
@@ -106,20 +106,19 @@ function _reconcileEach(
   const ks = new Set(keys)
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc) if (!ks.has(k)) { _teardownChildScope(s); sc.delete(k) }
-  for (let i = 0; i < items.length; i++) {
-    const k = keys[i] as string | number
-    if (sc.has(k)) continue
+  keys.forEach((k, i) => {
+    if (sc.has(k)) return
     const cd: Dispose[] = []
     const ca = document.createComment('e')
     par.appendChild(ca)
     sc.set(k, { anchor: ca, key: k, disposers: cd,
       appendedNodes: _mc(lgrow(items[i], i), par, cd,
         `${pb}.list.${String(k).replace(/\./g, '_')}`, mfn, eh, null) })
-  }
+  })
   let ref: globalThis.Node | null = anc.nextSibling
   for (const k of keys) {
     const s = sc.get(k)
-    if (s === undefined) continue
+    if (!s) continue
     const nl = s.appendedNodes
     if (s.anchor !== ref) par.insertBefore(s.anchor, ref)
     else ref = s.anchor.nextSibling

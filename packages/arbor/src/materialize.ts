@@ -70,8 +70,9 @@ export function _materialize(
       mountEffect(disposers, () => { textNode.nodeValue = String(get()) }, path, errorHandler)
     } else {
       // Static string (or null — null is a leafKind:'element' invariant
-      // never reached here, but the type union allows it; coerce).
-      textNode.nodeValue = value === null ? '' : (value as string)
+      // never reached here, but the type union allows it). Setting
+      // nodeValue = null is spec-equivalent to "" so the cast is safe.
+      textNode.nodeValue = value as string | null
     }
     host.appendChild(textNode)
     return [textNode]
@@ -80,11 +81,9 @@ export function _materialize(
   // Case 4: fragment branch (null tag) — recurse children directly into host.
   if (node.kind === 'branch' && node.tag === null) {
     const appended: globalThis.Node[] = []
-    const children = node.children
-    for (let i = 0; i < children.length; i++) {
-      const result = _materialize(children[i] as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
-      for (const n of result) appended.push(n)
-    }
+    node.children.forEach((c, i) => {
+      appended.push(...(_materialize(c as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)))
+    })
     return appended
   }
 
@@ -93,10 +92,9 @@ export function _materialize(
   const el = document.createElement(node.tag as string)
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   if (node.kind === 'branch') {
-    const children = node.children
-    for (let i = 0; i < children.length; i++) {
-      _materialize(children[i] as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
-    }
+    node.children.forEach((c, i) => {
+      _materialize(c as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
+    })
   }
   host.appendChild(el)
   return [el]

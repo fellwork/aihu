@@ -77,7 +77,7 @@ export function _applyAttrs(
   errorHandler?: ErrorHandler,
   registry?: Map<string, () => unknown>,
 ): void {
-  if (attrs === null) return
+  if (!attrs) return
   for (const key in attrs) {
     const value = attrs[key]
     // Path 1: event handler. Function values under `onX` keys win
