@@ -1,9 +1,12 @@
 # State — Server-Native Track
 
-**Last updated:** 2026-05-02 (post-PR #27 merge + Historian closeout)
+**Last updated:** 2026-05-03 (6-track follow-up Historian close — HEAD pointer refresh only)
+**Current main HEAD:** `b704cd9` (Merge PR #51 — t4e/examples-integrated)
+**Test floor:** 612 TS + 222 Rust
+**Previously updated:** 2026-05-02 (post-PR #27 merge + Historian closeout)
 **Written by:** Historian (server-native session-001/002 closeout)
 **Track:** server-native (Rust napi-rs core for `@scribe/server` SSR)
-**Current HEAD on main:** `b459d6e` (Merge PR #27)
+**Track HEAD on main (server-native milestone):** `b459d6e` (Merge PR #27)
 
 ---
 
