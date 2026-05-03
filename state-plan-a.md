@@ -1,7 +1,7 @@
 # State — Track: plan-a
 
-**Last updated:** 2026-04-30 (post-Round-N+1 close)
-**Written by:** Historian (post-Round-N+1 closeout: bench/arbor SOTA + signals memory + parity workloads)
+**Last updated:** 2026-05-02 (post-v1-reconciliation Historian close)
+**Written by:** Historian (v1-reconciliation closeout: spec quartet + v1 framework plan ratified to `docs/superpowers/`; 12 user decisions captured; learnings #34-36 added)
 **Track:** plan-a (TypeScript runtime family — signals → arbor → runtime → agent)
 **Active branch:** `claude/scribe-phase-3-team-Za4UQ`
 **Develop-on branch (all sessions):** `claude/scribe-phase-3-team-Za4UQ`
@@ -150,16 +150,23 @@ ratified v1 framework plan and spec quartet authority migration.
 | Scout R3 (spec quartet alignment) | `.team/v1-reconciliation/scout-spec-quartet-alignment.md` | ~62/95 GAP |
 | Architect R2.1 (v0.2→1.0 roadmap) | `.team/v1-reconciliation/roadmap-v1.md` → `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md` | moved at Builder R4 |
 | Director validation | `.team/v1-reconciliation/director-r3-validation.md` | VALIDATE-WITH-NOTES (6 polish notes) |
-| Builder R4 (migration) | this commit | spec quartet to `docs/superpowers/specs/`; 6 polish notes applied inline |
+| Builder R4 (migration) | merged at `6f2171b` | spec quartet to `docs/superpowers/specs/`; 6 polish notes applied inline |
+| Verifier audit | `.team/v1-reconciliation/verification-builder-r4.md` | PASS-WITH-NOTES — READY-FOR-MERGE |
 
-**User decisions ratified:**
-- Q3:A file-based layouts; Q5:B path convention `/server/_actions/`;
-  Q6:A middleware provisional; Q8 collapse (ratify Plugin Contract Spec);
-  Q10:D compiler-lowered Shield (`createShieldBoundary` helper);
-  Q6 router middleware Option 1 (isomorphic, +256 B router limit raise
-  sequenced for v0.7); Interpretation A full syntax migration; milestone
-  shape 0.2→0.9→1.0; `docs/site/` Markdown; Naming Scheme A on Plugin
-  Contract internals only.
+**User decisions ratified (12 total — listed individually to avoid the compound-bullet ambiguity Verifier flagged):**
+
+1. Q3:A — file-based layouts (no `@layout {}` block syntax)
+2. Q5:B — path convention `/server/_actions/` for server actions
+3. Q6:A — middleware as provisional v0.6 surface
+4. Q8 collapse — ratify Plugin Contract Spec as authority alongside the rest of the quartet
+5. Q10:D — compiler-lowered Shield via `createShieldBoundary` helper reusing arbor's `ErrorHandler`
+6. Q6 router middleware Option 1 — isomorphic API; +256 B router limit raise sequenced for v0.7
+7. Interpretation A — full syntax migration to `@blockname { }` + `$attr` + `<$element>`
+8. Milestone shape — 0.2 (basic features) → 0.9 (docs+testing) → 1.0 (cutover)
+9. `docs/site/` Markdown for v1.0 docs (no separate documentation framework)
+10. Naming Scheme A on Plugin Contract internals only (narrow rename pass)
+11. Authority migration — MIGRATE v1 plan + spec quartet to `docs/superpowers/`
+12. Path A amendments — apply inline + keep audit copies at `applied-amendments/`
 
 **Key findings:**
 - Spec quartet ~62/95 GAP from current scribe code; full syntax migration is a redesign, not extension
@@ -167,7 +174,16 @@ ratified v1 framework plan and spec quartet authority migration.
 - Router middleware Option 1 (isomorphic) keeps client-side nav guards inside `@scribe/*` (Option 2 would have pushed consumers to npm router-middleware libs)
 - `<$shield>` is the spec quartet's name for ErrorBoundary; Approach D compiler-lowering keeps cost ~5-15 B framework-wide
 
-**Learnings added (during this session):** none yet — Historian close adds them.
+**Learnings added (Historian close):**
+- Learning #34 — Spec ratification surfaces cross-package naming collisions invisible to single-package audits
+- Learning #35 — Spec-driven framework redesigns reveal scope as percentage-implemented, not features-missing
+- Learning #36 — Compiler-lowered macro elements via existing primitives stays under runtime byte budgets
+
+**Final-state gate walk on `main = 6f2171b` (Historian close, 2026-05-02):**
+- Build (per-package `bun run --filter '@scribe/*' build`): all 8 packages PASS; `bun run build` aggregate fails on pre-existing `baselines:build` (no `rolldown.config` — known, non-blocking).
+- Size: 8 / 8 PASS within budgets — context (+51 B), signals (+261 B), arbor (+15 B), runtime (+7 B), agent (+83 B), data (+39 B), router (+50 B), agent-service (+20 B). Arbor +15 B is on the conservative end of the Learning #47 build-path-variance band (+15 to +83 B observed across sessions); within tolerance.
+- Tests: 454 / 454 passing (54 test files).
+- Typecheck: pre-existing `agent-service:typecheck` failure only; no new errors introduced by this session.
 
 **Open follow-ups (assigned to v1 milestones in roadmap):**
 - arbor 15 B regression cleanup → v0.2.3
@@ -190,6 +206,14 @@ applied in spec text before migration; AMD-02 applied during migration with
 - Spec quartet authority: `docs/superpowers/specs/2026-05-02-spec-{block-structure,template-attribute-syntax,macro-vocabulary,plugin-contract}.md`
 - Applied amendments audit: `docs/superpowers/specs/applied-amendments/2026-05-02-AMD-{01,02,03}-applied.md`
 - Spec-amendments redirect: `docs/README.md`
+- Director session-start: `.team/v1-reconciliation/director-note-session-start.md`
+- Director Q6 research: `.team/v1-reconciliation/director-q6-research.md`
 - Director validation: `.team/v1-reconciliation/director-r3-validation.md`
+- Scout R1 (state map + Nuxt/Next gap): `.team/v1-reconciliation/scout-report.md`
+- Scout R3 (spec quartet alignment): `.team/v1-reconciliation/scout-spec-quartet-alignment.md`
+- Investigator (`@route` + build-target): `.team/v1-reconciliation/investigation-route-and-target.md`
+- Verifier audit: `.team/v1-reconciliation/verification-builder-r4.md`
+- Session retro: `.team/v1-reconciliation/retro.md`
+- Assets package design stub (deferred): `.team/v1-reconciliation/assets-package-design-stub.md`
 - Architect R2.1 source draft: migrated (was `.team/v1-reconciliation/roadmap-v1.md`; now `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`)
 
