@@ -531,3 +531,27 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 **Why.** T6 vs T7 interaction in the 6-track follow-up (2026-05-03). T6 originally reported a TS6231 typecheck failure mentioning `@scribe/*` workspace packages as missing — symptom looked like a tsconfig misconfig. The actual root cause was T7's territory: `bun install` was aborting on the postinstall 404 before workspace symlinks got created in `node_modules/`, so every `@scribe/*` import resolved to nothing. T6's diagnosis of "tsconfig needs alignment" became correct only after T7's fix unblocked install; the fix path T6 originally pursued (tsconfig audit) was different from what T7 actually fixed (postinstall non-fatal).
 
 **How to apply.** When a typecheck error mentions a workspace package as missing or unresolved, the first diagnostic step is `bun install` (or `npm install`) on a clean checkout — verify install exits 0 and `node_modules/@<workspace>/` symlinks exist. That's a faster check than tsconfig audit, and it eliminates the "install-time blocker masquerading as compile-time misconfig" failure mode. Companion principle for postinstall authors: any postinstall script that can fail must do so non-fatally (Learning #43), because a fatal postinstall makes every downstream failure look like a different problem.
+
+---
+
+## 48. Builder worktrees inherit their parent branch, not main — always verify `worktreePath`
+
+**Why.** In the v1.0.1 maintenance session (2026-05-03), two builders dispatched with `isolation: "worktree"` from a session CWD that was the `reverent-mestorf-749530` worktree (checked out to `claude/reverent-mestorf-749530`). Those builders created their isolation worktrees off that branch rather than off `main`. Their commits landed on `claude/reverent-mestorf-749530` (which was behind main by ~15 commits), requiring cherry-picks onto a fresh `fix/` branch. Additionally, one builder (`ea7cad6` TS6059 fix) duplicated work already present in main via `71cedf3` from the prior session, causing a cherry-pick conflict that had to be skipped.
+
+**How to apply.** (1) When dispatching builders with `isolation: "worktree"`, check that the agent output includes a `worktreePath` field pointing to a new path — if absent, the agent may have committed directly to the current worktree's branch. (2) Before cherry-picking any builder commit, run `git log --oneline <builder-commit> | grep -E "^<hash>"` on main to confirm the fix isn't already there. (3) For multi-round sessions, create a dedicated `fix/<session>` branch off main at session start, so builders can either be dispatched off that branch or have their commits cherry-picked cleanly without worrying about branch ancestry.
+
+---
+
+## 49. Chained git commands with `-C <path>` must use `-C` on every command, not just the first
+
+**Why.** In the v1.0.1 maintenance session (2026-05-03), Team Lead ran `git -C /c/git/fellwork/scribe cherry-pick --skip 2>&1 && git cherry-pick 7507cd8 99f24e9 0a050e0 2>&1`. The first command used `-C` (correct path), but after the `&&`, the second `git cherry-pick` ran WITHOUT `-C` and executed in the shell's CWD — which was `C:\git\fellwork\scribe\.claude\worktrees\reverent-mestorf-749530`. This accidentally applied those three commits to the `claude/reverent-mestorf-749530` branch as well as to the intended `fix/v1.0.1-7items` branch (the latter was recovered from the first command's cherry-pick continuation). Outcome was benign but confusing.
+
+**How to apply.** In multi-command bash chains involving git with a `-C <path>` qualifier, either (a) `cd` into the target directory first and drop all `-C` flags, or (b) prefix EVERY git command in the chain with `-C <path>`. Mixing `-C` on the first command with bare `git` on subsequent commands is a hazard whenever the shell CWD differs from the target repo.
+
+---
+
+## 50. `$key` macro semantics: expression form vs function-reference form
+
+**Why.** In the v1.0.1 maintenance session (2026-05-03), the `$key` codegen fix (Brief B, Item 2) correctly wrapped `$key` values as `(alias) => value` — which is right for the spec's primary use case of `$key={item.id}` (dotted-path expression). However, the existing examples used `$key="postKey"` / `$key="storyKey"` etc., where `postKey` / `storyKey` are `$action`-defined functions that take an item and return a key. The new codegen emits `(item) => postKey` (lambda that ignores its argument and returns the function object) rather than `postKey` (the key function itself) or `(item) => postKey(item)` (correct wrapping). The examples had to be migrated to the expression form (`$key={item.slug}`, `$key={item.id}`) instead.
+
+**How to apply.** The `$key` macro has two valid use patterns; choose the expression form in new code. (1) **Expression form** (preferred): `$key={item.id}` — the value is a property access over the iteration alias; codegen wraps as `(alias) => item.id`. (2) **Function-reference form** (legacy, avoid): `$key="someKeyFn"` where `someKeyFn` is a function defined elsewhere; codegen wraps as `(alias) => someKeyFn` which is semantically wrong. The `$action` key-function pattern used in pre-fix examples (`$action postKey(p) { return p.slug }` + `$key="postKey"`) should be replaced with inline `$key={item.slug}`. The `$action` helper can then be removed as dead code. A future compiler improvement could detect the function-reference case and emit `someKeyFn` passthrough directly, but until then, use expression form.
