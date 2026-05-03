@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/agent": "workspace:*"
+    "@scribe/agent": "workspace:*",
+    "@scribe/plugin": "workspace:*"
   },
   "optionalDependencies": {
     "@scribe/server-darwin-arm64": "0.1.0",

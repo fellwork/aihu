@@ -69,6 +69,13 @@
         "@scribe/server": "workspace:*",
       },
     },
+    "packages/agent-service": {
+      "name": "@scribe/agent-service",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scribe/agent": "workspace:*",
+      },
+    },
     "packages/arbor": {
       "name": "@scribe/arbor",
       "version": "0.0.0",
@@ -79,6 +86,9 @@
     "packages/compiler": {
       "name": "@scribe/compiler",
       "version": "0.0.0",
+      "bin": {
+        "scribe-compile": "./bin/scribe-compile",
+      },
       "peerDependencies": {
         "vite": ">=5.0.0",
       },
@@ -98,6 +108,17 @@
         "@scribe/signals": "workspace:*",
       },
     },
+    "packages/plugin": {
+      "name": "@scribe/plugin",
+      "version": "0.2.0",
+    },
+    "packages/router": {
+      "name": "@scribe/router",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scribe/server": "workspace:*",
+      },
+    },
     "packages/runtime": {
       "name": "@scribe/runtime",
       "version": "0.0.0",
@@ -111,6 +132,13 @@
       "version": "0.0.0",
       "dependencies": {
         "@scribe/agent": "workspace:*",
+        "@scribe/plugin": "workspace:*",
+      },
+      "optionalDependencies": {
+        "@scribe/server-darwin-arm64": "0.1.0",
+        "@scribe/server-darwin-x64": "0.1.0",
+        "@scribe/server-linux-x64-gnu": "0.1.0",
+        "@scribe/server-win32-x64-msvc": "0.1.0",
       },
     },
     "packages/signals": {
@@ -405,6 +433,8 @@
 
     "@scribe/agent-readiness": ["@scribe/agent-readiness@workspace:packages/agent-readiness"],
 
+    "@scribe/agent-service": ["@scribe/agent-service@workspace:packages/agent-service"],
+
     "@scribe/arbor": ["@scribe/arbor@workspace:packages/arbor"],
 
     "@scribe/bench-arbor": ["@scribe/bench-arbor@workspace:bench/arbor"],
@@ -416,6 +446,10 @@
     "@scribe/context": ["@scribe/context@workspace:packages/context"],
 
     "@scribe/data": ["@scribe/data@workspace:packages/data"],
+
+    "@scribe/plugin": ["@scribe/plugin@workspace:packages/plugin"],
+
+    "@scribe/router": ["@scribe/router@workspace:packages/router"],
 
     "@scribe/runtime": ["@scribe/runtime@workspace:packages/runtime"],
 

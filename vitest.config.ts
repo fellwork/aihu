@@ -35,6 +35,7 @@ export default defineConfig({
       '@scribe/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
       '@scribe/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
       '@scribe/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url).pathname,
+      '@scribe/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
     },
   },
 })
