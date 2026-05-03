@@ -1,5 +1,6 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleScope, TemplateNode};
+use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
+use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleMacro, StyleScope, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -10,11 +11,37 @@ pub struct EmitResult {
 }
 
 fn emit_style_block(style: &StyleBlock) -> (String, String) {
+    // Amendment 02: when the style block is global and the content contains
+    // `$reactive(expr)` call patterns, extract them and emit JS effects targeting
+    // `document.documentElement`. The CSS content has the calls replaced with
+    // `var(--reactive-global-N)` references, and the corresponding `:root` declarations
+    // are prepended.
+    let (css_content, global_reactive_effects) = if style.scope == StyleScope::Global
+        && style.content.contains("$reactive(")
+    {
+        let (cleaned_css, reactives) = extract_global_reactives(style.content);
+        // Build GlobalReactive StyleMacro list for emission
+        let macros: Vec<StyleMacro> = reactives
+            .into_iter()
+            .map(|(index, expr)| StyleMacro::GlobalReactive { index, expr })
+            .collect();
+        let (macro_css, macro_js) = emit_style_macros(&macros);
+        // Prepend the :root declarations to the cleaned CSS
+        let full_css = if macro_css.is_empty() {
+            cleaned_css
+        } else {
+            format!("{}\n{}", macro_css, cleaned_css)
+        };
+        (full_css, macro_js)
+    } else {
+        (style.content.to_string(), String::new())
+    };
+
     let module_decl = format!(
         "const __style__ = new CSSStyleSheet();\n__style__.replaceSync(`{}`);\n",
-        style.content
+        css_content
     );
-    let setup_injection = match style.scope {
+    let mut setup_injection = match style.scope {
         StyleScope::Scoped => {
             "(ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];".to_string()
         }
@@ -22,6 +49,12 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
             "document.adoptedStyleSheets = [...document.adoptedStyleSheets, __style__];".to_string()
         }
     };
+    // Append any document.documentElement effects after the style injection
+    if !global_reactive_effects.is_empty() {
+        setup_injection.push('\n');
+        setup_injection.push_str("  ");
+        setup_injection.push_str(&global_reactive_effects);
+    }
     (module_decl, setup_injection)
 }
 

@@ -781,9 +781,19 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<S
                     // v0.3.3: `@style { $global }` scope recognition.
                     // If the body begins with `$global` (after stripping leading whitespace),
                     // set StyleScope::Global and remove the `$global` token from the body.
+                    // v0.x Amendment 02: if `$global { ... }` uses a braced block form,
+                    // strip the outer braces so the inner content is stored as the style body.
                     let (style_scope, style_content) = if body.starts_with("$global") {
                         let rest = body["$global".len()..].trim();
-                        (StyleScope::Global, rest)
+                        // If the rest starts with `{`, strip the outer braces (block form).
+                        let inner = if rest.starts_with('{') {
+                            let close = crate::parser::state_macros::find_brace_close(rest, 1)
+                                .unwrap_or(rest.len());
+                            rest[1..close].trim()
+                        } else {
+                            rest
+                        };
+                        (StyleScope::Global, inner)
                     } else {
                         (StyleScope::Scoped, body)
                     };

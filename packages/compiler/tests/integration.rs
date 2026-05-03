@@ -148,3 +148,75 @@ body { margin: 0; }
     assert!(result.js.contains("document.adoptedStyleSheets"), "global should use document");
     assert!(!result.js.contains("ShadowRoot"), "global should not reference ShadowRoot");
 }
+
+// ─── Amendment 02: $reactive inside $global ───────────────────────────────────
+
+/// Test 1: `$reactive(expr)` inside a `$global { }` block emits a JS effect targeting
+/// `document.documentElement`, not the component root element.
+#[test]
+fn global_reactive_targets_document_element() {
+    let source = r#"@script {
+const theme = { primary: '#ff0000' }
+}
+@style {
+  $global {
+    color: $reactive(theme.primary)
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "theme-root");
+    assert!(
+        result.js.contains("document.documentElement.style.setProperty"),
+        "global $reactive must target document.documentElement, got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("el.style.setProperty"),
+        "global $reactive must NOT target component el, got:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("theme.primary"),
+        "expression must appear in JS output"
+    );
+}
+
+/// Test 2: The CSS emitted for `$reactive` inside `$global { }` is unscoped
+/// (no component prefix) and contains a `:root` custom property declaration.
+#[test]
+fn global_reactive_css_is_unscoped() {
+    let source = r#"@script {
+const theme = { primary: '#ff0000' }
+}
+@style {
+  $global {
+    color: $reactive(theme.primary)
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "theme-root");
+    // The stylesheet content must contain a :root unscoped custom property
+    assert!(
+        result.js.contains(":root"),
+        "global $reactive CSS must have :root rule (unscoped), got:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("--reactive-global-0"),
+        "global $reactive CSS must declare --reactive-global-0, got:\n{}",
+        result.js
+    );
+    // Sanity: the style goes to the global document stylesheet
+    assert!(
+        result.js.contains("document.adoptedStyleSheets"),
+        "global $reactive must use document.adoptedStyleSheets"
+    );
+}
