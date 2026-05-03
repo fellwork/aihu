@@ -64,7 +64,8 @@ fn macro_raw_boolean_parses() {
 
 #[test]
 fn macro_each_and_key_parse() {
-    let nodes = parse_template("<ul $each=\"items\" $key=\"getKey\"></ul>").unwrap();
+    // Updated to spec-idiomatic "list as item" form
+    let nodes = parse_template("<ul $each=\"items as item\" $key=\"getKey\"></ul>").unwrap();
     match &nodes[0] {
         scribe_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(a, Attr::Macro { name, .. } if name == "each")));
@@ -148,9 +149,10 @@ fn macro_show_emits_effect_with_css_var() {
 
 #[test]
 fn macro_each_emits_create_each_boundary() {
+    // Updated to spec-idiomatic "list as item" form
     let src = r#"
 @template {
-  <ul $each="items" $key="getKey"></ul>
+  <ul $each="items as item" $key="getKey"></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -159,6 +161,76 @@ fn macro_each_emits_create_each_boundary() {
     assert!(result.js.contains("createEachBoundary"), "Expected createEachBoundary in: {}", result.js);
     assert!(result.js.contains("items"), "Expected items in: {}", result.js);
     assert!(result.js.contains("getKey"), "Expected getKey in: {}", result.js);
+}
+
+// ─── New spec §3.3/§3.6 tests ─────────────────────────────────────────────────
+
+#[test]
+fn each_spec_form_posts_as_post_emits_correct_boundary() {
+    let src = r#"
+@template {
+  <ul $each="posts as post"><li>item</li></ul>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("createEachBoundary(posts, undefined, (post, i) =>"),
+        "Expected createEachBoundary(posts, undefined, (post, i) => in: {}",
+        result.js
+    );
+}
+
+#[test]
+fn each_spec_form_users_as_user_idx_emits_correct_aliases() {
+    let src = r#"
+@template {
+  <ul $each="users as user, idx"><li>item</li></ul>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("createEachBoundary(users, undefined, (user, idx) =>"),
+        "Expected createEachBoundary(users, undefined, (user, idx) => in: {}",
+        result.js
+    );
+}
+
+#[test]
+fn each_with_key_emits_key_as_function() {
+    let src = r#"
+@template {
+  <ul $each="items as item" $key="item.id"><li>item</li></ul>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("createEachBoundary(items, (item) => item.id, (item, i) =>"),
+        "Expected createEachBoundary(items, (item) => item.id, (item, i) => in: {}",
+        result.js
+    );
+}
+
+#[test]
+fn each_old_form_no_as_is_parse_error_c302() {
+    let src = r#"
+@template {
+  <ul $each="items"><li>item</li></ul>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let err = compile_full(&parsed).unwrap_err();
+    assert_eq!(
+        err.code.as_deref(),
+        Some("C302"),
+        "Expected C302 for old $each form, got: {:?}",
+        err
+    );
 }
 
 #[test]

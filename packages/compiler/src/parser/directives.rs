@@ -142,6 +142,14 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
     // Quoted form: $attr="identifier_or_dotted.path"
     if value_trimmed.starts_with('"') || value_trimmed.starts_with('\'') {
         let inner = strip_quotes(value_trimmed);
+        // $each uses a specialized parser that accepts "list as item[, idx]" form.
+        if name == "each" {
+            parse_each_value(inner)?;
+            return Ok(Attr::Macro {
+                name,
+                value: MacroValue::Quoted(inner.to_string()),
+            });
+        }
         validate_macro_quoted_value(inner, &name)?;
         return Ok(Attr::Macro {
             name,
@@ -198,6 +206,37 @@ fn extract_balanced_braces(s: &str) -> Option<&str> {
         i += 1;
     }
     None
+}
+
+/// Parse a `$each` quoted value in `"list as item"` or `"list as item, idx"` form.
+/// Returns `(list_expr, item_alias, idx_alias)`.
+/// Old-style `$each="items"` (no ` as `) is error C302.
+fn parse_each_value(value: &str) -> Result<(String, String, Option<String>), CompileError> {
+    let Some((list_part, rest)) = value.split_once(" as ") else {
+        return Err(CompileError {
+            message: "$each: expected 'list as item' or 'list as item, index'".to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C302".to_string()),
+            ..Default::default()
+        });
+    };
+    let list_expr = list_part.trim().to_string();
+    let (item_alias, idx_alias) = if let Some((item, idx)) = rest.split_once(',') {
+        (item.trim().to_string(), Some(idx.trim().to_string()))
+    } else {
+        (rest.trim().to_string(), None)
+    };
+    if list_expr.is_empty() || item_alias.is_empty() {
+        return Err(CompileError {
+            message: "$each: list expression and item alias must not be empty".to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C302".to_string()),
+            ..Default::default()
+        });
+    }
+    Ok((list_expr, item_alias, idx_alias))
 }
 
 /// Validate that a quoted macro value is a bare identifier or dotted path.
@@ -443,13 +482,14 @@ mod tests {
 
     #[test]
     fn macro_each_and_key() {
-        let each = parse_attr("$each=\"items\"").unwrap();
+        // Updated to spec-idiomatic "list as item" form (old form is C302)
+        let each = parse_attr("$each=\"items as item\"").unwrap();
         let key = parse_attr("$key=\"getKey\"").unwrap();
         assert_eq!(
             each,
             Attr::Macro {
                 name: "each".to_string(),
-                value: MacroValue::Quoted("items".to_string())
+                value: MacroValue::Quoted("items as item".to_string())
             }
         );
         assert_eq!(
@@ -459,6 +499,24 @@ mod tests {
                 value: MacroValue::Quoted("getKey".to_string())
             }
         );
+    }
+
+    #[test]
+    fn macro_each_spec_form_with_index() {
+        let each = parse_attr("$each=\"users as user, idx\"").unwrap();
+        assert_eq!(
+            each,
+            Attr::Macro {
+                name: "each".to_string(),
+                value: MacroValue::Quoted("users as user, idx".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn macro_each_old_form_is_c302() {
+        let err = parse_attr("$each=\"items\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
     }
 
     #[test]
