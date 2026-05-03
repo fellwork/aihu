@@ -1,0 +1,20 @@
+{
+  "name": "scribe-example-css-pluggability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "start": "bun server.ts",
+    "dev": "bun run build && bun server.ts"
+  },
+  "dependencies": {
+    "@scribe/arbor": "workspace:*",
+    "@scribe/compiler": "workspace:*",
+    "@scribe/runtime": "workspace:*",
+    "@scribe/signals": "workspace:*"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
