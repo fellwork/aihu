@@ -65,9 +65,7 @@ for (const curCell of cur.cells) {
     (c) => c.workload === curCell.workload && c.competitor === '@scribe/arbor',
   )
   if (!prevCell || prevCell.p50 === null || prevCell.p50 === undefined) {
-    lines.push(
-      `  ${curCell.workload}: NEW (no previous baseline) — ${curCell.p50.toFixed(0)} ns`,
-    )
+    lines.push(`  ${curCell.workload}: NEW (no previous baseline) — ${curCell.p50.toFixed(0)} ns`)
     continue
   }
 

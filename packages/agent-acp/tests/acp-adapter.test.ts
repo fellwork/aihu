@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { createAgentService } from '@scribe/agent-service'
+import { describe, expect, it } from 'vitest'
 import { mountAcpAdapter } from '../src/index.ts'
 
 /**
@@ -76,7 +76,7 @@ describe('agent card — GET /.well-known/acp-agent', () => {
     const mw = adapter.asMiddleware()
     const res = await mw(makeGet('http://localhost/.well-known/acp-agent'))
     const body = (await res?.json()) as { skills: Array<{ skill_id: string; name: string }> }
-    const skillIds = body.skills.map(s => s.skill_id)
+    const skillIds = body.skills.map((s) => s.skill_id)
     expect(skillIds).toContain('my-widget/doThing')
     expect(skillIds).toContain('my-widget/doOther')
     expect(body.skills).toHaveLength(2)

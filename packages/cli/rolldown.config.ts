@@ -1,7 +1,14 @@
 import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
 
-const external = ['node:fs', 'node:path', 'node:process', 'node:os', 'node:readline', 'node:child_process']
+const external = [
+  'node:fs',
+  'node:path',
+  'node:process',
+  'node:os',
+  'node:readline',
+  'node:child_process',
+]
 
 export default defineConfig([
   {

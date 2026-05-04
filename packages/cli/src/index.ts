@@ -45,7 +45,7 @@ export type AppTemplate = 'minimal' | 'full' | 'docs'
 
 /** package.json for a new scribe application. */
 export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
-  const installCmd: Record<PkgManager, string> = {
+  const _installCmd: Record<PkgManager, string> = {
     bun: 'bun install',
     pnpm: 'pnpm install',
     npm: 'npm install',
@@ -102,7 +102,7 @@ export default defineConfig({
 
 /** tsconfig.json for a new scribe application. */
 export function appTsConfig(): string {
-  return JSON.stringify(
+  return `${JSON.stringify(
     {
       compilerOptions: {
         target: 'ES2022',
@@ -116,7 +116,7 @@ export function appTsConfig(): string {
     },
     null,
     2,
-  ) + '\n'
+  )}\n`
 }
 
 /** src/main.ts entry point for a new scribe app. */
@@ -166,7 +166,7 @@ export function appViteConfig(): string {
 
 /** src/pages/index.scribe for Hello World (v1 syntax). */
 export function appIndexScribe(appName: string = 'app'): string {
-  const tag = toSafe(appName) + '-root'
+  const _tag = `${toSafe(appName)}-root`
   return `@state {
 import { signal } from '@scribe/signals'
 
@@ -352,10 +352,12 @@ export function toKebab(name: string): string {
  * non-alphanumeric with hyphens.
  */
 export function toSafe(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/^[^a-z]+/, '')
-    .replace(/-+/g, '-')
-    .replace(/-$/, '') || 'app'
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/^[^a-z]+/, '')
+      .replace(/-+/g, '-')
+      .replace(/-$/, '') || 'app'
+  )
 }

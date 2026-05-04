@@ -38,7 +38,6 @@ import { fileURLToPath } from 'node:url'
 
 import './jsdom-host.ts'
 import { competitors } from './competitors/index.ts'
-import type { WorkloadCell } from './types.ts'
 import { workloads } from './workloads/index.ts'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
@@ -132,9 +131,7 @@ function renderMemoryMarkdown(cells: MemoryCell[]): string {
   lines.push('')
   lines.push('---')
   lines.push('')
-  lines.push(
-    '> Memory numbers are indicative only under Bun/V8. GC timing variance can affect',
-  )
+  lines.push('> Memory numbers are indicative only under Bun/V8. GC timing variance can affect')
   lines.push(
     '> residuals significantly. Focus on buildHeapDelta orders of magnitude, not exact bytes.',
   )
@@ -150,9 +147,7 @@ function renderMemoryMarkdown(cells: MemoryCell[]): string {
     lines.push('| --- | ---: | ---: | ---: |')
 
     for (const adapter of competitors) {
-      const cell = cells.find(
-        (c) => c.workload === wl.name && c.competitor === adapter.name,
-      )
+      const cell = cells.find((c) => c.workload === wl.name && c.competitor === adapter.name)
       if (!cell) {
         lines.push(`| ${adapter.name} | — | — | — |`)
         continue

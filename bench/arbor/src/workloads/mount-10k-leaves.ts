@@ -29,14 +29,13 @@
  *   the span creation IS part of what we measure for vanilla).
  */
 
-import { html as litHtml } from 'lit-html'
-import type { TemplateResult } from 'lit-html'
-import { h as preactH } from 'preact'
-import type { VNode } from 'preact'
-import solidH from 'solid-js/h'
-import { h as vueH } from '@vue/runtime-dom'
-
 import { branch, leaf } from '@scribe/arbor'
+import { h as vueH } from '@vue/runtime-dom'
+import type { TemplateResult } from 'lit-html'
+import { html as litHtml } from 'lit-html'
+import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
+import solidH from 'solid-js/h'
 
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'

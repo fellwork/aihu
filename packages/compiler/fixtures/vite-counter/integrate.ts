@@ -13,10 +13,11 @@
  *   1. `cd packages/compiler && cargo build --release`
  *   2. `bun install` at repo root
  */
-import { transform } from '../../js/index.ts'
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { transform } from '../../js/index.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const scribeFile = resolve(__dirname, 'counter.scribe')

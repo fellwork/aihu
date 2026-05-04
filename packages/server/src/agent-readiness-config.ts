@@ -36,12 +36,15 @@ export interface AgentReadinessConfig {
 
   // ── robots.txt ───────────────────────────────────────────────────────
   /** Default: 'allow-all'. */
-  readonly aiAgents?: 'allow-all' | 'deny-all' | ReadonlyArray<{
-    readonly userAgent: string | ReadonlyArray<string>
-    readonly allow?: ReadonlyArray<string>
-    readonly disallow?: ReadonlyArray<string>
-    readonly crawlDelay?: number
-  }>
+  readonly aiAgents?:
+    | 'allow-all'
+    | 'deny-all'
+    | ReadonlyArray<{
+        readonly userAgent: string | ReadonlyArray<string>
+        readonly allow?: ReadonlyArray<string>
+        readonly disallow?: ReadonlyArray<string>
+        readonly crawlDelay?: number
+      }>
   readonly standardBots?: ReadonlyArray<{
     readonly userAgent: string | ReadonlyArray<string>
     readonly allow?: ReadonlyArray<string>

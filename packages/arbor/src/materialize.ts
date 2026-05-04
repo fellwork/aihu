@@ -67,7 +67,14 @@ export function _materialize(
       const get = value[0] as () => unknown
       const path = `${pathBase}.text`
       registry?.set(path, get)
-      mountEffect(disposers, () => { textNode.nodeValue = String(get()) }, path, errorHandler)
+      mountEffect(
+        disposers,
+        () => {
+          textNode.nodeValue = String(get())
+        },
+        path,
+        errorHandler,
+      )
     } else {
       // Static string (or null — null is a leafKind:'element' invariant
       // never reached here, but the type union allows it). Setting
@@ -82,7 +89,17 @@ export function _materialize(
   if (node.kind === 'branch' && node.tag === null) {
     const appended: globalThis.Node[] = []
     node.children.forEach((c, i) => {
-      appended.push(...(_materialize(c as Node, host, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)))
+      appended.push(
+        ..._materialize(
+          c as Node,
+          host,
+          disposers,
+          `${pathBase}.${i}`,
+          mountEffect,
+          errorHandler,
+          registry,
+        ),
+      )
     })
     return appended
   }
@@ -93,7 +110,15 @@ export function _materialize(
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   if (node.kind === 'branch') {
     node.children.forEach((c, i) => {
-      _materialize(c as Node, el, disposers, `${pathBase}.${i}`, mountEffect, errorHandler, registry)
+      _materialize(
+        c as Node,
+        el,
+        disposers,
+        `${pathBase}.${i}`,
+        mountEffect,
+        errorHandler,
+        registry,
+      )
     })
   }
   host.appendChild(el)

@@ -1,21 +1,20 @@
-import type { HttpMethod } from './types.ts'
 import type { Route } from './router.ts'
 import { defineRoute } from './router.ts'
+import type { HttpMethod } from './types.ts'
 
 declare const __DEV__: boolean
 
-export type ApiHandler = (req: Request, ctx: import('./types.ts').RouteContext) => Response | Promise<Response>
+export type ApiHandler = (
+  req: Request,
+  ctx: import('./types.ts').RouteContext,
+) => Response | Promise<Response>
 
 /**
  * The router enforces the method: a request to the matching pattern
  * with a non-matching method receives `405 Method Not Allowed` with
  * an `Allow` header listing all registered methods for that pattern.
  */
-export function defineApiRoute(
-  method: HttpMethod,
-  pattern: string,
-  handler: ApiHandler,
-): Route {
+export function defineApiRoute(method: HttpMethod, pattern: string, handler: ApiHandler): Route {
   return defineRoute(pattern, (req, ctx) => {
     if (req.method !== method) {
       return methodNotAllowed([method])

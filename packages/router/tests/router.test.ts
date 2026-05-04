@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { RouteDefinition } from '../src/index.ts'
 import { createRouter } from '../src/index.ts'
 import { viteRouterPlugin } from '../src/plugin.ts'
-import type { RouteDefinition } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers to build RouteDefinition fixtures
@@ -10,9 +10,13 @@ import type { RouteDefinition } from '../src/index.ts'
 function staticRoute(pattern: string, html = '<div>page</div>'): RouteDefinition {
   return {
     pattern,
-    segments: pattern === '/'
-      ? []
-      : pattern.split('/').filter(Boolean).map((p) => ({ kind: 'static' as const, path: p })),
+    segments:
+      pattern === '/'
+        ? []
+        : pattern
+            .split('/')
+            .filter(Boolean)
+            .map((p) => ({ kind: 'static' as const, path: p })),
     module: () =>
       Promise.resolve({
         default: { toHtml: () => html },
@@ -40,7 +44,10 @@ function paramRoute(pattern: string): RouteDefinition {
 
 function catchallRoute(prefix = ''): RouteDefinition {
   const prefixSegs = prefix
-    ? prefix.split('/').filter(Boolean).map((p) => ({ kind: 'static' as const, path: p }))
+    ? prefix
+        .split('/')
+        .filter(Boolean)
+        .map((p) => ({ kind: 'static' as const, path: p }))
     : []
   const pattern = prefix ? `${prefix}/*` : '/*'
   return {
@@ -62,30 +69,30 @@ describe('@scribe/router — createRouter', () => {
     const router = createRouter([staticRoute('/')])
     const result = router.match('/')
     expect(result).not.toBeNull()
-    expect(result!.params).toEqual({})
-    expect(result!.route.pattern).toBe('/')
+    expect(result?.params).toEqual({})
+    expect(result?.route.pattern).toBe('/')
   })
 
   it('matches a static nested route', () => {
     const router = createRouter([staticRoute('/'), staticRoute('/about')])
     const result = router.match('/about')
     expect(result).not.toBeNull()
-    expect(result!.route.pattern).toBe('/about')
-    expect(result!.params).toEqual({})
+    expect(result?.route.pattern).toBe('/about')
+    expect(result?.params).toEqual({})
   })
 
   it('extracts params from a dynamic route', () => {
     const router = createRouter([paramRoute('/users/:id')])
     const result = router.match('/users/42')
     expect(result).not.toBeNull()
-    expect(result!.params).toEqual({ id: '42' })
+    expect(result?.params).toEqual({ id: '42' })
   })
 
   it('extracts multiple params from a nested dynamic route', () => {
     const router = createRouter([paramRoute('/blog/:year/:slug')])
     const result = router.match('/blog/2024/hello-world')
     expect(result).not.toBeNull()
-    expect(result!.params).toEqual({ year: '2024', slug: 'hello-world' })
+    expect(result?.params).toEqual({ year: '2024', slug: 'hello-world' })
   })
 
   it('returns null for unmatched pathname', () => {
@@ -104,30 +111,30 @@ describe('@scribe/router — createRouter', () => {
     const router = createRouter([catchallRoute('/blog')])
     const result = router.match('/blog/2024/hello')
     expect(result).not.toBeNull()
-    expect(result!.params['*']).toBe('2024/hello')
+    expect(result?.params['*']).toBe('2024/hello')
   })
 
   it('static routes take priority over dynamic', () => {
     const router = createRouter([paramRoute('/users/:id'), staticRoute('/users/me')])
     const result = router.match('/users/me')
     expect(result).not.toBeNull()
-    expect(result!.route.pattern).toBe('/users/me')
-    expect(result!.params).toEqual({})
+    expect(result?.route.pattern).toBe('/users/me')
+    expect(result?.params).toEqual({})
   })
 
   it('dynamic routes take priority over catchall', () => {
     const router = createRouter([catchallRoute('/blog'), paramRoute('/blog/:slug')])
     const result = router.match('/blog/hello')
     expect(result).not.toBeNull()
-    expect(result!.route.pattern).toBe('/blog/:slug')
-    expect(result!.params).toEqual({ slug: 'hello' })
+    expect(result?.route.pattern).toBe('/blog/:slug')
+    expect(result?.params).toEqual({ slug: 'hello' })
   })
 
   it('URL-decodes param values', () => {
     const router = createRouter([paramRoute('/items/:name')])
     const result = router.match('/items/hello%20world')
     expect(result).not.toBeNull()
-    expect(result!.params['name']).toBe('hello world')
+    expect(result?.params.name).toBe('hello world')
   })
 })
 
@@ -159,8 +166,7 @@ describe('@scribe/router — handle()', () => {
       module: () =>
         Promise.resolve({
           default: { toHtml: () => '<div>content</div>' },
-          loader: async (params: Record<string, string>) =>
-            ({ found: true, id: params['id'] }),
+          loader: async (params: Record<string, string>) => ({ found: true, id: params.id }),
         }),
     }
     const router = createRouter([route])
@@ -185,19 +191,19 @@ describe('@scribe/router — viteRouterPlugin', () => {
 
   it('resolves virtual:scribe-routes to internal ID', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId!('virtual:scribe-routes')
+    const resolved = plugin.resolveId?.('virtual:scribe-routes')
     expect(resolved).toBe('\0virtual:scribe-routes')
   })
 
   it('returns null for non-virtual module IDs', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId!('./some-file.ts')
+    const resolved = plugin.resolveId?.('./some-file.ts')
     expect(resolved == null).toBe(true)
   })
 
   it('load returns null for non-virtual IDs', () => {
     const plugin = viteRouterPlugin()
-    const result = plugin.load!('./not-virtual.ts')
+    const result = plugin.load?.('./not-virtual.ts')
     expect(result == null).toBe(true)
   })
 

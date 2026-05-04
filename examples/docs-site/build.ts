@@ -11,11 +11,11 @@
  *   bun run build.ts
  */
 
-import { marked } from 'marked'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
-import { join, basename, extname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, extname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { marked } from 'marked'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, '../../docs/site')
@@ -23,9 +23,7 @@ const contentOut = join(__dir, 'src/content.ts')
 
 // ── 1. Collect all .md files from docs/site/ ─────────────────────
 
-const files = (await readdir(docsDir))
-  .filter(f => extname(f) === '.md')
-  .sort()
+const files = (await readdir(docsDir)).filter((f) => extname(f) === '.md').sort()
 
 console.log(`Found ${files.length} Markdown files in docs/site/`)
 
@@ -57,7 +55,10 @@ for (const file of files) {
 // ── 3. Write src/content.ts ──────────────────────────────────────
 
 const entries = pages
-  .map(p => `  '${p.id}': {\n    title: '${p.title.replace(/'/g, "\\'")}',\n    html: \`${p.html}\`,\n  }`)
+  .map(
+    (p) =>
+      `  '${p.id}': {\n    title: '${p.title.replace(/'/g, "\\'")}',\n    html: \`${p.html}\`,\n  }`,
+  )
   .join(',\n')
 
 const contentTs = `/**

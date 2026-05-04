@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { dirname, join } from 'node:path'
+import { gzipSync } from 'node:zlib'
 /**
  * Bundle size checker — uses rolldown instead of size-limit + esbuild.
  *
@@ -12,8 +14,6 @@
  * (e.g. workspace deps that are dependencies rather than peerDependencies).
  */
 import { rolldown } from 'rolldown'
-import { gzipSync } from 'node:zlib'
-import { join, dirname } from 'node:path'
 
 interface Entry {
   name: string
@@ -45,7 +45,7 @@ async function peerDepsOf(entryPath: string): Promise<string[]> {
 
 const entries: Entry[] = JSON.parse(await Bun.file('.size-limit.json').text())
 let allPass = true
-const PAD = Math.max(...entries.map(e => e.name.length))
+const PAD = Math.max(...entries.map((e) => e.name.length))
 
 console.log('\n  Package size report\n')
 
@@ -62,7 +62,7 @@ for (const entry of entries) {
   const { output } = await bundle.generate({ format: 'esm', minify: true })
   await bundle.close()
 
-  const chunk = output.find(c => c.type === 'chunk')
+  const chunk = output.find((c) => c.type === 'chunk')
   const code = chunk && 'code' in chunk ? chunk.code : ''
   const raw = Buffer.from(code)
   const bytes = entry.gzip !== false ? gzipSync(raw).length : raw.length

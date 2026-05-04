@@ -14,13 +14,11 @@ export function defineMiddleware(handler: Middleware): Middleware {
  *
  * Auth middleware is a plain Middleware — apply globally or per-route.
  */
-export function composeMiddleware(
-  middlewares: ReadonlyArray<Middleware>,
-): Middleware {
+export function composeMiddleware(middlewares: ReadonlyArray<Middleware>): Middleware {
   return function composed(req, next) {
     const dispatch = (i: number): Promise<Response> => {
       if (i >= middlewares.length) return next()
-      return Promise.resolve(middlewares[i]!(req, () => dispatch(i + 1)))
+      return Promise.resolve(middlewares[i]?.(req, () => dispatch(i + 1)))
     }
     return dispatch(0)
   }

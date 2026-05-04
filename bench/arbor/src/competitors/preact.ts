@@ -15,8 +15,8 @@
  */
 
 import htm from 'htm'
-import { Fragment, h, render as preactRender } from 'preact'
 import type { VNode } from 'preact'
+import { Fragment, h, render as preactRender } from 'preact'
 import type { AdapterContext, DomAdapter } from '../types.ts'
 
 /** htm bound to preact's h — exported so workloads can use template literals. */

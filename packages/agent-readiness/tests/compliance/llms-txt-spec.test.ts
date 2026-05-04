@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { generateLlmsTxt, generateLlmsFullTxt } from '../../src/llms-txt.ts'
+import { generateLlmsFullTxt, generateLlmsTxt } from '../../src/llms-txt.ts'
 
 describe('llms.txt spec compliance', () => {
   it('first non-blank line is # {name}', () => {
     const out = generateLlmsTxt({ name: 'My App', sections: [] })
-    const firstNonBlank = out.split('\n').find(l => l.trim().length > 0)
+    const firstNonBlank = out.split('\n').find((l) => l.trim().length > 0)
     expect(firstNonBlank).toBe('# My App')
   })
 
@@ -30,7 +30,7 @@ describe('llms.txt spec compliance', () => {
       ],
       optional: [{ title: 'Blog', url: '/blog' }],
     })
-    const h2s = out.split('\n').filter(l => l.startsWith('## '))
+    const h2s = out.split('\n').filter((l) => l.startsWith('## '))
     expect(h2s[h2s.length - 1]).toBe('## Optional')
   })
 

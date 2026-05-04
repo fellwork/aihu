@@ -14,7 +14,6 @@
     { "include": "#comment-block" }
   ],
   "repository": {
-
     "comment-line": {
       "match": "//.*$",
       "name": "comment.line.double-slash.scribe"
@@ -45,9 +44,7 @@
       },
       "name": "meta.block.state.scribe",
       "contentName": "source.ts",
-      "patterns": [
-        { "include": "source.ts" }
-      ]
+      "patterns": [{ "include": "source.ts" }]
     },
 
     "block-template": {
@@ -82,9 +79,7 @@
       },
       "name": "meta.block.style.scribe",
       "contentName": "source.css",
-      "patterns": [
-        { "include": "source.css" }
-      ]
+      "patterns": [{ "include": "source.css" }]
     },
 
     "block-agent": {
@@ -99,9 +94,7 @@
       },
       "name": "meta.block.agent.scribe",
       "contentName": "source.ts",
-      "patterns": [
-        { "include": "source.ts" }
-      ]
+      "patterns": [{ "include": "source.ts" }]
     },
 
     "block-route": {
@@ -115,9 +108,7 @@
         "0": { "name": "punctuation.definition.block.end.scribe" }
       },
       "name": "meta.block.route.scribe",
-      "patterns": [
-        { "include": "#route-key-value" }
-      ]
+      "patterns": [{ "include": "#route-key-value" }]
     },
 
     "block-unknown": {
@@ -144,9 +135,7 @@
       },
       "name": "meta.template.expression.scribe",
       "contentName": "source.ts",
-      "patterns": [
-        { "include": "source.ts" }
-      ]
+      "patterns": [{ "include": "source.ts" }]
     },
 
     "template-macro-attr": {
@@ -171,7 +160,7 @@
         },
         {
           "comment": "$each, $if, $html, $show, etc.",
-          "match": "(\\$[a-zA-Z][a-zA-Z0-9]*)(?:(=)(?:(\\{[^}]*\\})|(\"[^\"]*\")|(\'[^\']*\')))?",
+          "match": "(\\$[a-zA-Z][a-zA-Z0-9]*)(?:(=)(?:(\\{[^}]*\\})|(\"[^\"]*\")|('[^']*')))?",
           "captures": {
             "1": { "name": "keyword.operator.scribe support.type.directive.scribe" },
             "2": { "name": "punctuation.separator.key-value.scribe" },
@@ -282,6 +271,5 @@
         { "include": "#comment-line" }
       ]
     }
-
   }
 }

@@ -1,8 +1,9 @@
 // @vitest-environment node
-import { test, expect, beforeEach } from 'vitest'
+
+import { data } from '@scribe/data'
 import { resetValidationState } from '@scribe/plugin'
 import { defineScribeConfig } from '@scribe/server'
-import { data } from '@scribe/data'
+import { beforeEach, expect, test } from 'vitest'
 
 beforeEach(() => {
   // Reset duplicate-namespace tracker between tests (plugin validation is stateful).
@@ -12,7 +13,7 @@ beforeEach(() => {
 test('data plugin registers without error', () => {
   const config = defineScribeConfig({ plugins: [data()] })
   expect(config.plugins).toHaveLength(1)
-  expect(config.plugins![0]).toBeDefined()
+  expect(config.plugins?.[0]).toBeDefined()
 })
 
 test('data plugin has correct name and namespace', () => {

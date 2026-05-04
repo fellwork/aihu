@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * `create-scribe` — interactive project scaffolder for `npx create-scribe@latest`.
  *
@@ -14,32 +15,44 @@
  *   - Prints exact next steps with detected PM
  */
 
-import { createInterface } from 'node:readline'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { PkgManager, AppTemplate } from './index.js'
+import { createInterface } from 'node:readline'
+import type { AppTemplate, PkgManager } from './index.js'
 import { scaffoldApp } from './index.js'
 
 // ─── Colour helpers (no deps) ────────────────────────────────────────────────
 
 const c = {
-  reset:  '\x1b[0m',
-  bold:   '\x1b[1m',
-  dim:    '\x1b[2m',
-  green:  '\x1b[32m',
-  cyan:   '\x1b[36m',
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  cyan: '\x1b[36m',
   yellow: '\x1b[33m',
-  red:    '\x1b[31m',
+  red: '\x1b[31m',
   purple: '\x1b[35m',
 }
 
-function bold(s: string): string   { return `${c.bold}${s}${c.reset}` }
-function dim(s: string): string    { return `${c.dim}${s}${c.reset}` }
-function green(s: string): string  { return `${c.green}${s}${c.reset}` }
-function cyan(s: string): string   { return `${c.cyan}${s}${c.reset}` }
-function yellow(s: string): string { return `${c.yellow}${s}${c.reset}` }
-function purple(s: string): string { return `${c.purple}${s}${c.reset}` }
+function bold(s: string): string {
+  return `${c.bold}${s}${c.reset}`
+}
+function dim(s: string): string {
+  return `${c.dim}${s}${c.reset}`
+}
+function green(s: string): string {
+  return `${c.green}${s}${c.reset}`
+}
+function cyan(s: string): string {
+  return `${c.cyan}${s}${c.reset}`
+}
+function yellow(s: string): string {
+  return `${c.yellow}${s}${c.reset}`
+}
+function purple(s: string): string {
+  return `${c.purple}${s}${c.reset}`
+}
 
 // ─── Package manager detection ───────────────────────────────────────────────
 
@@ -59,7 +72,7 @@ function detectPm(): PkgManager {
 // ─── Readline prompt helper ───────────────────────────────────────────────────
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
-  return new Promise(res => rl.question(question, res))
+  return new Promise((res) => rl.question(question, res))
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -85,8 +98,10 @@ async function main(): Promise<void> {
   const targetDir = resolve(process.cwd(), projectName)
 
   if (existsSync(targetDir)) {
-    const overwrite = await prompt(rl,
-      `${yellow('  !')} Directory ${bold(projectName)} already exists. Overwrite? ${dim('[y/N]')} `)
+    const overwrite = await prompt(
+      rl,
+      `${yellow('  !')} Directory ${bold(projectName)} already exists. Overwrite? ${dim('[y/N]')} `,
+    )
     if (!overwrite.trim().toLowerCase().startsWith('y')) {
       rl.close()
       process.stdout.write(dim('  Aborted.\n\n'))
@@ -102,9 +117,13 @@ async function main(): Promise<void> {
   process.stdout.write(`    ${cyan('3)')} docs     — interactive docs site\n`)
   const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
   const templateMap: Record<string, AppTemplate> = {
-    '': 'minimal', '1': 'minimal', 'minimal': 'minimal',
-    '2': 'full', 'full': 'full',
-    '3': 'docs', 'docs': 'docs',
+    '': 'minimal',
+    '1': 'minimal',
+    minimal: 'minimal',
+    '2': 'full',
+    full: 'full',
+    '3': 'docs',
+    docs: 'docs',
   }
   const template: AppTemplate = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
 
@@ -112,16 +131,21 @@ async function main(): Promise<void> {
   const detected = detectPm()
   process.stdout.write('\n')
   process.stdout.write(`${dim('  Package manager:')}\n`)
-  process.stdout.write(`    ${cyan('1)')} bun   ${detected === 'bun'  ? dim('(detected)') : ''}\n`)
+  process.stdout.write(`    ${cyan('1)')} bun   ${detected === 'bun' ? dim('(detected)') : ''}\n`)
   process.stdout.write(`    ${cyan('2)')} pnpm  ${detected === 'pnpm' ? dim('(detected)') : ''}\n`)
   process.stdout.write(`    ${cyan('3)')} yarn  ${detected === 'yarn' ? dim('(detected)') : ''}\n`)
-  process.stdout.write(`    ${cyan('4)')} npm   ${detected === 'npm'  ? dim('(detected)') : ''}\n`)
+  process.stdout.write(`    ${cyan('4)')} npm   ${detected === 'npm' ? dim('(detected)') : ''}\n`)
   const pmAnswer = await prompt(rl, `  ${dim(`Package manager [${detected}]:`)} `)
   const pmMap: Record<string, PkgManager> = {
-    '': detected, '1': 'bun', 'bun': 'bun',
-    '2': 'pnpm', 'pnpm': 'pnpm',
-    '3': 'yarn', 'yarn': 'yarn',
-    '4': 'npm', 'npm': 'npm',
+    '': detected,
+    '1': 'bun',
+    bun: 'bun',
+    '2': 'pnpm',
+    pnpm: 'pnpm',
+    '3': 'yarn',
+    yarn: 'yarn',
+    '4': 'npm',
+    npm: 'npm',
   }
   const pm: PkgManager = pmMap[pmAnswer.trim().toLowerCase()] ?? detected
 
@@ -133,28 +157,39 @@ async function main(): Promise<void> {
 
   // ── Scaffold ──────────────────────────────────────────────────────────────
   process.stdout.write('\n')
-  process.stdout.write(`${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm})…`)}\n\n`)
+  process.stdout.write(
+    `${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm})…`)}\n\n`,
+  )
 
   const result = scaffoldApp(projectName, process.cwd(), { pm, template })
 
-  for (const f of result.created)  process.stdout.write(`  ${green('+')} ${f}\n`)
-  for (const f of result.skipped) process.stdout.write(`  ${yellow('·')} ${f} ${dim('(skipped)')}\n`)
+  for (const f of result.created) process.stdout.write(`  ${green('+')} ${f}\n`)
+  for (const f of result.skipped)
+    process.stdout.write(`  ${yellow('·')} ${f} ${dim('(skipped)')}\n`)
 
   // ── Git ───────────────────────────────────────────────────────────────────
   if (initGit) {
     spawnSync('git', ['init', targetDir], { stdio: 'ignore', shell: false })
     spawnSync('git', ['-C', targetDir, 'add', '-A'], { stdio: 'ignore', shell: false })
-    spawnSync('git', ['-C', targetDir, 'commit', '-m', 'chore: initial scribe scaffold'],
-      { stdio: 'ignore', shell: false })
+    spawnSync('git', ['-C', targetDir, 'commit', '-m', 'chore: initial scribe scaffold'], {
+      stdio: 'ignore',
+      shell: false,
+    })
     process.stdout.write(`\n  ${green('✓')} git init\n`)
   }
 
   // ── Next steps ────────────────────────────────────────────────────────────
   const installCmd: Record<PkgManager, string> = {
-    bun: 'bun install', pnpm: 'pnpm install', npm: 'npm install', yarn: 'yarn',
+    bun: 'bun install',
+    pnpm: 'pnpm install',
+    npm: 'npm install',
+    yarn: 'yarn',
   }
   const devCmd: Record<PkgManager, string> = {
-    bun: 'bun run dev', pnpm: 'pnpm dev', npm: 'npm run dev', yarn: 'yarn dev',
+    bun: 'bun run dev',
+    pnpm: 'pnpm dev',
+    npm: 'npm run dev',
+    yarn: 'yarn dev',
   }
 
   process.stdout.write(`\n  ${green(bold('✓'))} Done!\n\n`)

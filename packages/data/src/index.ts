@@ -18,11 +18,11 @@
  * @scribe/plugin is build/dev-time only and not bundled into the runtime output.
  */
 
-export type { DataState, Resource, ResourceOptions } from './types.ts'
 export { createResource } from './resource.ts'
+export { createResourceSerializer } from './serializer.ts'
 export type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 export { createResourceStore, ResourceStoreToken } from './store.ts'
-export { createResourceSerializer } from './serializer.ts'
+export type { DataState, Resource, ResourceOptions } from './types.ts'
 
 // ---------------------------------------------------------------------------
 // Plugin factory (Plugin Contract Spec §3)
@@ -30,7 +30,6 @@ export { createResourceSerializer } from './serializer.ts'
 
 import type { Plugin } from '@scribe/plugin'
 import { dataPlugin } from './plugin.ts'
-
 
 /**
  * Plugin factory for `@scribe/data`. Accepts optional configuration (reserved

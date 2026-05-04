@@ -108,7 +108,7 @@ export type Node = Branch | Leaf | StructuralNode
  * Return a Node to replace the failed subtree (active in Plan 1.1).
  * Return void for notify-only behavior (Plan 4.2 implementation).
  */
-export type ErrorHandler = (error: unknown, path: string) => Node | void
+export type ErrorHandler = (error: unknown, path: string) => Node | undefined
 
 /**
  * Options for mount(). All fields are optional; omitting options is

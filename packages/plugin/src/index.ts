@@ -212,15 +212,15 @@ export type BeforeCompileHook = (ctx: BuildContext) => Promise<void> | void
 export type AfterParseHook = (
   ctx: SfcContext,
   ast: unknown,
-) => Promise<unknown | void> | unknown | void
+) => Promise<unknown | undefined> | unknown | undefined
 export type TransformBlockHook = (
   ctx: BlockContext,
   block: unknown,
-) => Promise<unknown | void> | unknown | void
+) => Promise<unknown | undefined> | unknown | undefined
 export type AfterCompileHook = (
   ctx: SfcContext,
   output: unknown,
-) => Promise<unknown | void> | unknown | void
+) => Promise<unknown | undefined> | unknown | undefined
 
 export interface Hooks {
   readonly beforeCompile?: BeforeCompileHook

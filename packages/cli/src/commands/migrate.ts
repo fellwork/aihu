@@ -47,8 +47,7 @@ export function migrateFile(content: string): string {
       const body = result.slice(openIdx + openTag.length, closeIdx)
       const replacement = `${blockName} {${body}}`
 
-      result =
-        result.slice(0, openIdx) + replacement + result.slice(closeIdx + close.length)
+      result = result.slice(0, openIdx) + replacement + result.slice(closeIdx + close.length)
     }
   }
 

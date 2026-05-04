@@ -296,7 +296,7 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     const host = document.createElement('div')
     const throwingSig = signal('x')
     const throwGet = throwingSig[0]
-    const setThrowing = throwingSig[1]
+    const _setThrowing = throwingSig[1]
     let effectCallCount = 0
 
     // We create a reactive leaf whose effect throws on first run.
@@ -348,7 +348,7 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     const setSig = sig[1]
 
     // Create a reactive text leaf. The getter will throw when we set throwOnNext.
-    const reactiveGet: typeof sig[0] = () => {
+    const reactiveGet: (typeof sig)[0] = () => {
       const val = sig[0]()
       if (throwOnNext) {
         throw new Error('reactive-effect-error')
@@ -446,7 +446,7 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     const setBad = badSig[1]
 
     // Bad getter: throws when throwOnNext is true.
-    const badGet: typeof badSig[0] = () => {
+    const badGet: (typeof badSig)[0] = () => {
       const val = badSig[0]()
       if (throwOnNext) throw new Error('bad-effect-error')
       return val

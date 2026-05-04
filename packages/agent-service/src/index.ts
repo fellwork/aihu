@@ -7,10 +7,10 @@
  */
 export { createAgentService } from './agent-service.ts'
 export type {
+  ActionSchema,
   AgentManifest,
-  AgentToolEntry,
   AgentService,
   AgentServiceOptions,
+  AgentToolEntry,
   InputSchema,
-  ActionSchema,
 } from './types.ts'

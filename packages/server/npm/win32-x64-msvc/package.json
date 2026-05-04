@@ -2,8 +2,14 @@
   "name": "@scribe/server-win32-x64-msvc",
   "version": "0.1.0",
   "license": "MIT",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "server-native.win32-x64-msvc.node",
-  "files": ["server-native.win32-x64-msvc.node"]
+  "files": [
+    "server-native.win32-x64-msvc.node"
+  ]
 }

@@ -22,11 +22,7 @@ export default defineConfig({
   moduleTypes: {
     '.scribe': 'ts',
   },
-  external: [
-    '@scribe/arbor',
-    '@scribe/signals',
-    '@scribe/runtime',
-  ],
+  external: ['@scribe/arbor', '@scribe/signals', '@scribe/runtime'],
   output: {
     dir: 'dist',
     format: 'esm',

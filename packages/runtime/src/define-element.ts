@@ -1,5 +1,5 @@
-import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
 import type { MountScope } from '@scribe/arbor'
+import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
 
 export const SHADOW_ROOT_SYM: unique symbol = Symbol()
 const _HS = Symbol()
@@ -29,8 +29,8 @@ function wrapClass(
   const attachShadow = mode !== 'none'
 
   class Wrapped extends Ctor {
-    [SHADOW_ROOT_SYM]: ShadowRoot | null = null
-    ;[_HS]: MountScope | null = null
+    [SHADOW_ROOT_SYM]: ShadowRoot | null = null;
+    [_HS]: MountScope | null = null
 
     constructor() {
       super()
@@ -42,13 +42,15 @@ function wrapClass(
 
     connectedCallback(): void {
       if (enableHydration && _hydrateFn !== null) {
-        const state = (globalThis as Record<string, unknown>).__scribe_state__ as Record<string, unknown> | undefined
+        const state = (globalThis as Record<string, unknown>).__scribe_state__ as
+          | Record<string, unknown>
+          | undefined
         const snapshot = state?.[name] as Record<string, unknown> | undefined
         if (snapshot) {
           const host: Element | ShadowRoot = this.shadowRoot ?? this
           const ctor = this as unknown as { _build?(): unknown }
           if (typeof ctor._build === 'function') {
-            this[_HS] = _hydrateFn(() => ctor._build!(), host, snapshot)
+            this[_HS] = _hydrateFn(() => ctor._build?.(), host, snapshot)
             return
           }
         }
@@ -58,7 +60,11 @@ function wrapClass(
 
     disconnectedCallback(): void {
       const hs = this[_HS]
-      if (hs !== null) { hs.dispose(); this[_HS] = null; return }
+      if (hs !== null) {
+        hs.dispose()
+        this[_HS] = null
+        return
+      }
       ;(_proto.disconnectedCallback as (() => void) | undefined)?.call(this)
     }
   }

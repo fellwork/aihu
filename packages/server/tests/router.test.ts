@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRequestRouter, defineRoute } from '../src/router.ts'
 import { defineLoader } from '../src/data.ts'
+import { createRequestRouter, defineRoute } from '../src/router.ts'
 import type { Middleware } from '../src/types.ts'
 
 describe('@scribe/server router', () => {
@@ -13,24 +13,24 @@ describe('@scribe/server router', () => {
   })
 
   it('dynamic route extracts single param', async () => {
-    const route = defineRoute('/posts/:slug', async (_req, ctx) =>
-      new Response(ctx.params.slug))
+    const route = defineRoute('/posts/:slug', async (_req, ctx) => new Response(ctx.params.slug))
     const fetch = createRequestRouter({ routes: [route] })
     const res = await fetch(new Request('https://example.com/posts/hello-world'))
     expect(await res.text()).toBe('hello-world')
   })
 
   it('nested dynamic route extracts multiple params', async () => {
-    const route = defineRoute('/blog/:year/:month', async (_req, ctx) =>
-      new Response(`${ctx.params.year}/${ctx.params.month}`))
+    const route = defineRoute(
+      '/blog/:year/:month',
+      async (_req, ctx) => new Response(`${ctx.params.year}/${ctx.params.month}`),
+    )
     const fetch = createRequestRouter({ routes: [route] })
     const res = await fetch(new Request('https://example.com/blog/2026/04'))
     expect(await res.text()).toBe('2026/04')
   })
 
   it('catch-all route captures remainder in params["*"]', async () => {
-    const route = defineRoute('/static/*', async (_req, ctx) =>
-      new Response(ctx.params['*']))
+    const route = defineRoute('/static/*', async (_req, ctx) => new Response(ctx.params['*']))
     const fetch = createRequestRouter({ routes: [route] })
     const res = await fetch(new Request('https://example.com/static/images/logo.png'))
     expect(await res.text()).toBe('images/logo.png')
@@ -58,7 +58,10 @@ describe('@scribe/server router', () => {
     }
     const route = defineRoute(
       '/test',
-      async () => { order.push('handler'); return new Response('ok') },
+      async () => {
+        order.push('handler')
+        return new Response('ok')
+      },
       { middleware: [mw] },
     )
     const fetch = createRequestRouter({ routes: [route] })
@@ -78,7 +81,10 @@ describe('@scribe/server router', () => {
     }
     const route = defineRoute(
       '/test',
-      async () => { order.push('handler'); return new Response('ok') },
+      async () => {
+        order.push('handler')
+        return new Response('ok')
+      },
       { middleware: [routeMw] },
     )
     const fetch = createRequestRouter({ routes: [route] }, { middleware: [globalMw] })
@@ -88,8 +94,10 @@ describe('@scribe/server router', () => {
 
   it('env is threaded into ctx.env', async () => {
     const env = { DB: 'my-db' }
-    const route = defineRoute('/env-test', async (_req, ctx) =>
-      new Response(JSON.stringify(ctx.env)))
+    const route = defineRoute(
+      '/env-test',
+      async (_req, ctx) => new Response(JSON.stringify(ctx.env)),
+    )
     const fetch = createRequestRouter({ routes: [route] }, { env })
     const res = await fetch(new Request('https://example.com/env-test'))
     const body = await res.json()

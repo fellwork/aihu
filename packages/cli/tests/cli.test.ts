@@ -1,22 +1,21 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  appDefaultLayout,
+  appIndexScribe,
   appPackageJson,
   appRolldownConfig,
   appScribeConfig,
   appViteConfig,
-  appIndexScribe,
-  appDefaultLayout,
-  pageScribe,
   componentScribe,
-  pluginPackageJson,
+  pageScribe,
   pluginIndex,
+  pluginPackageJson,
   scaffoldApp,
-  scaffoldPage,
   scaffoldComponent,
+  scaffoldPage,
   scaffoldPlugin,
   toKebab,
   toSafe,
@@ -29,7 +28,7 @@ import {
 describe('appPackageJson', () => {
   it('includes the app name', () => {
     const pkg = JSON.parse(appPackageJson('my-app')) as Record<string, unknown>
-    expect(pkg['name']).toBe('my-app')
+    expect(pkg.name).toBe('my-app')
   })
 
   it('lists core scribe runtime dependencies', () => {
@@ -50,7 +49,7 @@ describe('appPackageJson', () => {
 
   it('sets type to module', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as { type: string }
-    expect(pkg['type']).toBe('module')
+    expect(pkg.type).toBe('module')
   })
 })
 
@@ -60,7 +59,7 @@ describe('appRolldownConfig', () => {
   })
 
   it('sets moduleTypes for .scribe files', () => {
-    expect(appRolldownConfig('my-app')).toContain(".scribe")
+    expect(appRolldownConfig('my-app')).toContain('.scribe')
   })
 
   it('outputs to dist/', () => {
@@ -132,7 +131,7 @@ describe('componentScribe', () => {
 describe('pluginPackageJson', () => {
   it('names the package scribe-plugin-<kebab>', () => {
     const pkg = JSON.parse(pluginPackageJson('MyForms')) as { name: string }
-    expect(pkg['name']).toBe('scribe-plugin-my-forms')
+    expect(pkg.name).toBe('scribe-plugin-my-forms')
   })
 
   it('has @scribe/plugin as peerDependency', () => {
@@ -214,7 +213,7 @@ describe('scaffoldApp', () => {
     scaffoldApp('my-app', tmpDir)
     const raw = readFileSync(join(tmpDir, 'my-app', 'package.json'), 'utf8')
     const pkg = JSON.parse(raw) as { name: string }
-    expect(pkg['name']).toBe('my-app')
+    expect(pkg.name).toBe('my-app')
   })
 
   it('writes rolldown.config.ts', () => {

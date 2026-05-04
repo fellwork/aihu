@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+
 import { createResourceSerializer, createResourceStore } from '@scribe/data'
+import { describe, expect, it } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // createResourceStore

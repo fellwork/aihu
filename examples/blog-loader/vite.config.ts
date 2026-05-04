@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
 import { viteRouterIntegration } from '@scribe/router/plugin'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [

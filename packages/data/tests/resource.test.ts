@@ -1,6 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest'
-import { batch, signal } from '@scribe/signals'
+
 import { runWithContext } from '@scribe/context'
 import {
   createResource,
@@ -8,6 +7,8 @@ import {
   createResourceStore,
   ResourceStoreToken,
 } from '@scribe/data'
+import { batch, signal } from '@scribe/signals'
+import { describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -304,9 +305,9 @@ it('T12: dispose() stops the key-watching effect', async () => {
   const store = createResourceStore()
   const fetcher = vi.fn().mockResolvedValue('data')
   const keySignal = signal<string | null>(null)
-  const resource = createResource(keySignal, fetcher, { store }) as { dispose?: () => void } & ReturnType<
-    typeof createResource<string>
-  >
+  const resource = createResource(keySignal, fetcher, { store }) as {
+    dispose?: () => void
+  } & ReturnType<typeof createResource<string>>
 
   expect(stateOf(resource)).toEqual({ status: 'idle' })
 

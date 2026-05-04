@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { DataSource } from '../src/stream-types.ts'
 import { renderToStream } from '../src/ssr.ts'
+import type { DataSource } from '../src/stream-types.ts'
 
 // ---------------------------------------------------------------------------
 // Helper: drain a ReadableStream<string> to a single concatenated string
@@ -26,10 +26,7 @@ async function drain(stream: ReadableStream<string>): Promise<string> {
 
 describe('@scribe/server renderToStream', () => {
   it('synchronous { toHtml() } component yields full output', async () => {
-    const stream = renderToStream(
-      { toHtml: () => '<p>Hello</p>' },
-      { head: { title: 'Test' } },
-    )
+    const stream = renderToStream({ toHtml: () => '<p>Hello</p>' }, { head: { title: 'Test' } })
     const result = await drain(stream)
     expect(result).toMatch(/^<!DOCTYPE html>/)
     expect(result).toContain('<title>Test</title>')

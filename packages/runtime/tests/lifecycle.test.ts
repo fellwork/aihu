@@ -8,10 +8,14 @@
  *   (d) calling outside setup throws RuntimeError
  */
 
-import { branch, leaf, mount } from '@scribe/arbor'
+import { leaf, mount } from '@scribe/arbor'
 import { describe, expect, it, vi } from 'vitest'
-import { _setMount, defineComponent } from '../src/define-component.ts'
-import { _onCleanup as onCleanup, _onMount as onMount } from '../src/define-component.ts'
+import {
+  _setMount,
+  defineComponent,
+  _onCleanup as onCleanup,
+  _onMount as onMount,
+} from '../src/define-component.ts'
 import { defineElement } from '../src/define-element.ts'
 import { RuntimeError } from '../src/types.ts'
 
@@ -26,9 +30,11 @@ describe('onMount + onCleanup — v0.4.9', () => {
   // (a) onMount callback runs after connectedCallback
   it('onMount fires after connectedCallback', () => {
     const order: string[] = []
-    const Cmp = defineComponent((ctx) => {
+    const Cmp = defineComponent((_ctx) => {
       order.push('setup')
-      onMount(() => { order.push('mount') })
+      onMount(() => {
+        order.push('mount')
+      })
       return leaf('a')
     })
     const t = tag()
@@ -84,10 +90,18 @@ describe('onMount + onCleanup — v0.4.9', () => {
   it('multiple lifecycle callbacks run in order', () => {
     const order: string[] = []
     const Cmp = defineComponent(() => {
-      onMount(() => { order.push('m1') })
-      onCleanup(() => { order.push('c1') })
-      onMount(() => { order.push('m2') })
-      onCleanup(() => { order.push('c2') })
+      onMount(() => {
+        order.push('m1')
+      })
+      onCleanup(() => {
+        order.push('c1')
+      })
+      onMount(() => {
+        order.push('m2')
+      })
+      onCleanup(() => {
+        order.push('c2')
+      })
       return leaf('d')
     })
     const t = tag()

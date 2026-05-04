@@ -1,5 +1,4 @@
-import type { ResourceStore } from './store.ts'
-import type { ResourceStoreWithMeta } from './store.ts'
+import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 
 /**
  * Returns a serializer function compatible with SsrOptions.serializer.
@@ -23,9 +22,7 @@ import type { ResourceStoreWithMeta } from './store.ts'
  * pre-populates a ResourceStore before providing it via ResourceStoreToken. See
  * spec §6.5 for the client rehydration pattern.
  */
-export function createResourceSerializer(
-  store: ResourceStore,
-): () => Record<string, unknown> {
+export function createResourceSerializer(store: ResourceStore): () => Record<string, unknown> {
   return (): Record<string, unknown> => {
     const resources: Record<string, unknown> = {}
     const meta = store as Partial<ResourceStoreWithMeta>

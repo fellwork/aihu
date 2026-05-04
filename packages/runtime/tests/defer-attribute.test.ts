@@ -49,14 +49,15 @@ describe('defer attribute wrapping — Plan 3.3 integration', () => {
     FakeIntersectionObserver.instances = []
     originalIO = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
       .IntersectionObserver
-    ;(globalThis as unknown as { IntersectionObserver: typeof FakeIntersectionObserver })
-      .IntersectionObserver = FakeIntersectionObserver
+    ;(
+      globalThis as unknown as { IntersectionObserver: typeof FakeIntersectionObserver }
+    ).IntersectionObserver = FakeIntersectionObserver
   })
 
   afterEach(() => {
     if (originalIO !== undefined) {
-      ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver })
-        .IntersectionObserver = originalIO
+      ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
+        originalIO
     } else {
       delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
         .IntersectionObserver
@@ -79,17 +80,17 @@ describe('defer attribute wrapping — Plan 3.3 integration', () => {
     // _buildDeferredHydration after defineElement runs — the runtime's
     // own defineElement subclasses the constructor, which preserves
     // prototype lookup at fire-time).
-    const orig = (C.prototype as unknown as { connectedCallback?: () => void })
-      .connectedCallback
+    const orig = (C.prototype as unknown as { connectedCallback?: () => void }).connectedCallback
     if (typeof orig === 'function') {
-      ;(C.prototype as unknown as { connectedCallback: () => void }).connectedCallback =
-        function (this: HTMLElement) {
-          if (this.hasAttribute('defer')) {
-            _hydrateOnVisible(this, () => orig.call(this))
-          } else {
-            orig.call(this)
-          }
+      ;(C.prototype as unknown as { connectedCallback: () => void }).connectedCallback = function (
+        this: HTMLElement,
+      ) {
+        if (this.hasAttribute('defer')) {
+          _hydrateOnVisible(this, () => orig.call(this))
+        } else {
+          orig.call(this)
         }
+      }
     }
     customElements.define(tag, C)
     return customElements.get(tag) as typeof HTMLElement

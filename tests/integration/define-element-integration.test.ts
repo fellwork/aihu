@@ -34,7 +34,7 @@ describe('runtime + arbor + signals integration', () => {
 
     const el = document.createElement('x-int-1')
     document.body.appendChild(el)
-    const p = el.shadowRoot!.querySelector('p') as HTMLElement
+    const p = el.shadowRoot?.querySelector('p') as HTMLElement
     expect(p.textContent).toBe('hello')
 
     setText('world')
@@ -62,7 +62,7 @@ describe('runtime + arbor + signals integration', () => {
 
     const el = document.createElement('x-int-2')
     document.body.appendChild(el)
-    const span = el.shadowRoot!.querySelector('span') as HTMLElement
+    const span = el.shadowRoot?.querySelector('span') as HTMLElement
     expect(span.textContent).toBe('first')
 
     // Capture the live text node reference; assert post-remove writes

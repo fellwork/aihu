@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  definePlugin,
   type LoweringResult,
   type Plugin,
   RESERVED_NAMESPACES,
-  SCRIBE_VERSION,
-  definePlugin,
   resetValidationState,
+  SCRIBE_VERSION,
   validatePlugin,
 } from '../src/index.ts'
 

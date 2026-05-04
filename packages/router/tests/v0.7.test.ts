@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  defineRouterMiddleware,
   composeRouterMiddleware,
-  type RouterMiddleware,
+  defineRouterMiddleware,
   type RouteMatchContext,
+  type RouterMiddleware,
   type RouterResult,
 } from '../src/index.ts'
-import { viteRouterIntegration, viteRouterPlugin, scanLayouts } from '../src/plugin.ts'
+import { viteRouterIntegration, viteRouterPlugin } from '../src/plugin.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,8 +107,15 @@ describe('@scribe/router v0.7 — composeRouterMiddleware', () => {
   it('cancel result stops propagation', async () => {
     const later = { called: false }
     const composed = composeRouterMiddleware(
-      defineRouterMiddleware(async () => ({ kind: 'cancel' as const, status: 403, body: 'Forbidden' })),
-      defineRouterMiddleware(async (_ctx, next) => { later.called = true; return next() }),
+      defineRouterMiddleware(async () => ({
+        kind: 'cancel' as const,
+        status: 403,
+        body: 'Forbidden',
+      })),
+      defineRouterMiddleware(async (_ctx, next) => {
+        later.called = true
+        return next()
+      }),
     )
     const res = await composed(makeCtx(), async () => continueResult)
     expect(res).toEqual({ kind: 'cancel', status: 403, body: 'Forbidden' })

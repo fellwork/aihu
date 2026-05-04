@@ -11,5 +11,10 @@
  * v0.7.4: `viteRouterPlugin` renamed to `viteRouterIntegration`.
  * The old name remains as a deprecated re-export until v1.0.
  */
-export type { RouterPluginOptions, RouteSidecar, LayoutMap, MiddlewareScan } from './vite-plugin.ts'
-export { viteRouterIntegration, viteRouterPlugin, readRouteSidecar, scanLayouts } from './vite-plugin.ts'
+export type { LayoutMap, MiddlewareScan, RouterPluginOptions, RouteSidecar } from './vite-plugin.ts'
+export {
+  readRouteSidecar,
+  scanLayouts,
+  viteRouterIntegration,
+  viteRouterPlugin,
+} from './vite-plugin.ts'

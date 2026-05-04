@@ -760,7 +760,7 @@ const user = await getUser(42)
 </code></pre>
 `,
   },
-  'deployment': {
+  deployment: {
     title: 'Deployment',
     html: `<h1>Deployment</h1>
 <h2>Bun (recommended)</h2>
@@ -877,7 +877,7 @@ export default {
 </ul>
 `,
   },
-  'installation': {
+  installation: {
     title: 'Installation',
     html: `<h1>Installation</h1>
 <h2>Prerequisites</h2>
@@ -920,7 +920,7 @@ bun run preview
 <p><code>bun run build</code> compiles all <code>.scribe</code> files through the Rust SFC compiler, bundles with Vite/Rolldown, and validates against the size budgets defined in <code>.size-limit.ts</code>.</p>
 `,
   },
-  'introduction': {
+  introduction: {
     title: 'Introduction',
     html: `<h1>Introduction</h1>
 <p>scribe is a JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Applications are authored as <code>.scribe</code> Single File Components (SFCs), compiled to vanilla custom elements, and mounted with sub-2 kB reactive primitives.</p>
@@ -1004,7 +1004,7 @@ bun run preview
 </tbody></table>
 `,
   },
-  'reactivity': {
+  reactivity: {
     title: 'Reactivity',
     html: `<h1>Reactivity</h1>
 <p><code>@scribe/signals</code> provides the reactive foundation for the entire scribe framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.</p>
@@ -1300,5 +1300,5 @@ export const loader = defineLoader(async (ctx) =&gt; {
 </code></pre>
 <p>The loader result is serialized into the SSR payload and dehydrated on the client — no second fetch needed.</p>
 `,
-  }
+  },
 }

@@ -54,27 +54,27 @@ export interface Subscriber {
   notify?(): void
 }
 
-/** @internal */ export const RUNNING          = 0x001
-/** @internal */ export const DISPOSED         = 0x002
-/** @internal */ export const QUEUED           = 0x004
-/** @internal */ export const STALE            = 0x008
-/** @internal */ export const EFFECT           = 0x010
-/** @internal */ export const MARKED           = 0x020
+/** @internal */ export const RUNNING = 0x001
+/** @internal */ export const DISPOSED = 0x002
+/** @internal */ export const QUEUED = 0x004
+/** @internal */ export const STALE = 0x008
+/** @internal */ export const EFFECT = 0x010
+/** @internal */ export const MARKED = 0x020
 /** @internal — H5: set on signals/effects at construction; lazy upgrade
  * for computeds inside linkAdd on the second inbound dep edge. Once set,
  * never cleared (one-way classifier). Gates the dedup path. */
-/** @internal */ export const MERGE             = 0x040
+/** @internal */ export const MERGE = 0x040
 /** @internal — K1c+ K-1 (spec-6.2-phase3.md §3.3, §4.7): set on signal-host
  * literals at construction; never set on Computed or Effect instances. Used
  * at Sites C/D in place of the H5 `recomputeIfNeeded === undefined` idiom
  * (which would misclassify Effect instances under prototype methods). One-way
  * classifier — RC-1's flags-clear mask, `clearVisited`, and `shallowClear`
  * leave it untouched. Slots into the bit-space gap between MERGE and PENDING. */
-/** @internal */ export const HOST              = 0x080
+/** @internal */ export const HOST = 0x080
 /** @internal — Option D: set on a linear-path computed during mark. Means
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
-/** @internal */ export const PENDING          = 0x100
+/** @internal */ export const PENDING = 0x100
 /** @internal — combined mark flags for inner chase path. */
 export const MARKED_PENDING = MARKED | PENDING
 
@@ -217,9 +217,15 @@ function markOne(root: Subscriber): void {
       if (sub.flags & RUNNING) throw new SignalCircularError()
       if (sub.flags & MERGE) sub.lastWave = wave
       sub.flags |= MARKED
-      if (sub.flags & EFFECT) { effectQueue.push(sub); continue }
+      if (sub.flags & EFFECT) {
+        effectQueue.push(sub)
+        continue
+      }
       let head = sub.subsHead
-      if (head === null) { sub.flags |= STALE; continue }
+      if (head === null) {
+        sub.flags |= STALE
+        continue
+      }
       if (head.nextSub !== null) {
         sub.flags |= STALE
         for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
@@ -235,17 +241,23 @@ function markOne(root: Subscriber): void {
       // Linear entry: promote outer node to PENDING, then chase
       sub.flags |= PENDING
       // ── Inner chase loop: MARKED | PENDING on every hop (T1 + T2 + T6) ──
-      // biome-ignore lint/suspicious/noConstantCondition: loop exits via break.
+      // biome-ignore lint/correctness/noConstantCondition: loop exits via break.
       while (true) {
-        sub = head.sub                // T6: one .sub read per iteration
+        sub = head.sub // T6: one .sub read per iteration
         if (sub.flags & DISPOSED) break
         if (sub.flags & MERGE && sub.lastWave === wave) break
         if (sub.flags & RUNNING) throw new SignalCircularError()
         if (sub.flags & MERGE) sub.lastWave = wave
-        sub.flags |= MARKED_PENDING   // T2: no ternary
-        if (sub.flags & EFFECT) { effectQueue.push(sub); break }
+        sub.flags |= MARKED_PENDING // T2: no ternary
+        if (sub.flags & EFFECT) {
+          effectQueue.push(sub)
+          break
+        }
         head = sub.subsHead
-        if (head === null) { sub.flags |= STALE; break }
+        if (head === null) {
+          sub.flags |= STALE
+          break
+        }
         if (head.nextSub !== null) {
           sub.flags |= STALE
           for (let l: Link | null = sub.subsTail; l !== null; l = l.prevSub) {
@@ -305,7 +317,7 @@ function drainEffectQueue(errors: unknown[]): void {
       for (let l = sub.depsHead; l !== null; l = l.nextDep) {
         if (l.dep.flags & (STALE | PENDING)) l.dep.recomputeIfNeeded?.()
       }
-      if (!(sub.flags & MARKED)) continue   // shallowClear suppressed cascade
+      if (!(sub.flags & MARKED)) continue // shallowClear suppressed cascade
     }
     sub.flags &= ~MARKED
     try {
@@ -455,7 +467,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
       return
     }
     wave++
-    host.lastWave = wave   // record write wave for checkDirty signal-source detection
+    host.lastWave = wave // record write wave for checkDirty signal-source detection
     const errors: unknown[] = []
     try {
       propagateMark(head)

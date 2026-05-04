@@ -38,8 +38,9 @@
  * `<asset>.sha256` next to each binary, and this postinstall should fetch
  * and verify the digest before placing the binary on disk.
  */
-import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+
 import { spawnSync } from 'node:child_process'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -155,7 +156,7 @@ function tryLocalBuild(pkgDir: string): boolean {
 }
 
 async function main(): Promise<void> {
-  if (process.env['SCRIBE_SKIP_POSTINSTALL']) {
+  if (process.env.SCRIBE_SKIP_POSTINSTALL) {
     info('SCRIBE_SKIP_POSTINSTALL set; skipping all binary-acquisition steps.')
     return
   }
@@ -174,12 +175,7 @@ async function main(): Promise<void> {
   const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const binDir = resolve(pkgDir, 'bin')
   const binPath = resolve(binDir, `scribe-compile${mapping.ext}`)
-  const targetReleaseBin = resolve(
-    pkgDir,
-    'target',
-    'release',
-    `scribe-compile${mapping.ext}`,
-  )
+  const targetReleaseBin = resolve(pkgDir, 'target', 'release', `scribe-compile${mapping.ext}`)
 
   // Ensure target directory exists before any write operations.
   if (!existsSync(binDir)) {
@@ -198,13 +194,11 @@ async function main(): Promise<void> {
   }
 
   // Local dev override — copy a locally built binary instead of downloading.
-  const override = process.env['SCRIBE_COMPILE_BIN']
+  const override = process.env.SCRIBE_COMPILE_BIN
   if (override) {
     if (!existsSync(override)) {
       // User explicitly pointed at a path that doesn't exist — fail loudly.
-      hardFail(
-        `SCRIBE_COMPILE_BIN points to ${override} but that file does not exist.`,
-      )
+      hardFail(`SCRIBE_COMPILE_BIN points to ${override} but that file does not exist.`)
     }
     copyFileSync(override, binPath)
     if (platform !== 'win32') {
@@ -240,9 +234,7 @@ async function main(): Promise<void> {
       info(`compiler binary built locally at ${targetReleaseBin}.`)
       return
     }
-    warn(
-      `cargo build reported success but ${targetReleaseBin} is missing; falling through.`,
-    )
+    warn(`cargo build reported success but ${targetReleaseBin} is missing; falling through.`)
   }
 
   // Strategy C — give up, but DO NOT fail the install. The compiler may be
@@ -256,6 +248,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  const detail = err instanceof Error ? err.stack ?? err.message : String(err)
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err)
   hardFail(`Unexpected failure: ${detail}`)
 })

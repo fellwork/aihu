@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { batch, signal, computed, effect } from '../src/index.ts'
-import { HOST, MERGE, __hostOf, type Subscriber } from '../src/signal.ts'
+import { describe, expect, it } from 'vitest'
+import { batch, computed, effect, signal } from '../src/index.ts'
+import { __hostOf, HOST, MERGE, type Subscriber } from '../src/signal.ts'
 
 describe('deep-chain', () => {
   it('signal change propagates to terminal effect through 100-node chain', () => {
@@ -13,7 +13,10 @@ describe('deep-chain', () => {
     const tail = prev
     let runCount = 0
     let lastSeen = -1
-    const dispose = effect(() => { runCount++; lastSeen = tail() })
+    const dispose = effect(() => {
+      runCount++
+      lastSeen = tail()
+    })
     // Initial run
     expect(runCount).toBe(1)
     expect(lastSeen).toBe(100)
@@ -37,7 +40,10 @@ describe('deep-chain', () => {
     const L3 = computed(() => L2a() + L2b())
     let runCount = 0
     let lastSeen = 0
-    const dispose = effect(() => { runCount++; lastSeen = L3() })
+    const dispose = effect(() => {
+      runCount++
+      lastSeen = L3()
+    })
     // Initial: src=0, L1a=0, L1b=1, L2a=1, L2b=-1, L3=0
     expect(runCount).toBe(1)
     expect(lastSeen).toBe(0)
@@ -54,19 +60,22 @@ describe('deep-chain', () => {
 
   it('effect does NOT run when upstream value unchanged (equal write)', () => {
     const [src, setSrc] = signal(5)
-    const c = computed(() => src() > 0 ? 1 : 0)   // stable output for all positive src values
+    const c = computed(() => (src() > 0 ? 1 : 0)) // stable output for all positive src values
     let runCount = 0
-    const dispose = effect(() => { runCount++; c() })
+    const dispose = effect(() => {
+      runCount++
+      c()
+    })
     expect(runCount).toBe(1)
     // Write a different value but the computed's output doesn't change (1 in both cases)
     // NOTE: this tests the existing equals short-circuit in computed, not PENDING specifically.
     // For a direct PENDING test, write the source signal with the same value — no propagation.
-    setSrc(5)   // same value — equals check short-circuits before propagation
-    expect(runCount).toBe(1)  // effect did NOT run
-    setSrc(10)  // different value, computed output still 1
-    expect(runCount).toBe(1)  // effect did NOT run (shallowClear suppressed cascade)
-    setSrc(-1)  // computed output changes to 0
-    expect(runCount).toBe(2)  // effect ran
+    setSrc(5) // same value — equals check short-circuits before propagation
+    expect(runCount).toBe(1) // effect did NOT run
+    setSrc(10) // different value, computed output still 1
+    expect(runCount).toBe(1) // effect did NOT run (shallowClear suppressed cascade)
+    setSrc(-1) // computed output changes to 0
+    expect(runCount).toBe(2) // effect ran
     dispose()
   })
 
@@ -75,15 +84,18 @@ describe('deep-chain', () => {
     const computeds = Array.from({ length: 100 }, () => computed(() => src() + 1))
     const runCounts = new Array(100).fill(0)
     const disposes = computeds.map((c, i) =>
-      effect(() => { runCounts[i]++; c() })
+      effect(() => {
+        runCounts[i]++
+        c()
+      }),
     )
     // Initial
-    expect(runCounts.every(n => n === 1)).toBe(true)
+    expect(runCounts.every((n) => n === 1)).toBe(true)
     setSrc(1)
-    expect(runCounts.every(n => n === 2)).toBe(true)
+    expect(runCounts.every((n) => n === 2)).toBe(true)
     setSrc(2)
-    expect(runCounts.every(n => n === 3)).toBe(true)
-    disposes.forEach(d => d())
+    expect(runCounts.every((n) => n === 3)).toBe(true)
+    disposes.forEach((d) => d())
   })
 
   // ───────── Phase 2 / spec-6.2-phase2.md §9.2 — H4 property tests ─────────
@@ -188,31 +200,43 @@ describe('deep-chain', () => {
     const [src, setSrc] = signal(0)
     const c1 = computed(() => src() + 1)
     let observed = -1
-    const dispose = effect(() => { observed = c1() })
+    const dispose = effect(() => {
+      observed = c1()
+    })
     expect(observed).toBe(1)
     // c1 has 1 inbound dep (src). Should still be Linear.
     const c1node = __hostOf(c1)!
-    expect(c1node.flags & MERGE).toBe(0)   // (a) Linear
+    expect(c1node.flags & MERGE).toBe(0) // (a) Linear
 
     // (b) Build a 2-dep computed; verify it upgrades to Merge.
     const [s2, setS2] = signal(10)
     const c2 = computed(() => c1() + s2())
     let merged = -1
-    const dispose2 = effect(() => { merged = c2() })
+    const dispose2 = effect(() => {
+      merged = c2()
+    })
     expect(merged).toBe(11)
     const c2node = __hostOf(c2)!
-    expect((c2node.flags & MERGE) !== 0).toBe(true)   // (b) Merge after 2nd dep
+    expect((c2node.flags & MERGE) !== 0).toBe(true) // (b) Merge after 2nd dep
 
     // (c) Mark through both deps in the same wave (via batch).
     let runCount = 0
-    const dispose3 = effect(() => { runCount++; void c2() })
+    const dispose3 = effect(() => {
+      runCount++
+      void c2()
+    })
     runCount = 0
-    batch(() => { setSrc(5); setS2(20) })
+    batch(() => {
+      setSrc(5)
+      setS2(20)
+    })
     // c2 should re-emit ONCE for the combined wave (DI-1 dedup).
     expect(runCount).toBe(1)
-    expect(merged).toBe(26)   // (5+1) + 20
+    expect(merged).toBe(26) // (5+1) + 20
 
-    dispose(); dispose2(); dispose3()
+    dispose()
+    dispose2()
+    dispose3()
   })
 
   // Phase 3 spec §9.2 — K-1: HOST flag detection test.
@@ -225,25 +249,23 @@ describe('deep-chain', () => {
     const srcNode = __hostOf(src)!
     expect(srcNode).not.toBe(null)
     expect((srcNode.flags & HOST) !== 0).toBe(true)
-    expect((srcNode.flags & MERGE) !== 0).toBe(true)   // hosts always carry HOST AND MERGE
+    expect((srcNode.flags & MERGE) !== 0).toBe(true) // hosts always carry HOST AND MERGE
 
     // (b) computed does NOT carry HOST
     const c1 = computed(() => src() + 1)
     let observed = -1
-    const dispose1 = effect(() => { observed = c1() })
+    const dispose1 = effect(() => {
+      observed = c1()
+    })
     expect(observed).toBe(1)
     const c1Node = __hostOf(c1)!
     expect((c1Node.flags & HOST) === 0).toBe(true)
 
     // (b) effect does NOT carry HOST. We reach the Effect instance by walking
     // the subs list of c1 — the effect we just created subscribed to c1.
-    let effectNode: Subscriber | null = null
-    for (let l = c1Node.subsHead; l !== null; l = l.nextSub) {
-      effectNode = l.sub
-      break
-    }
+    const effectNode: Subscriber | null = c1Node.subsHead ? c1Node.subsHead.sub : null
     expect(effectNode).not.toBe(null)
-    expect((effectNode!.flags & HOST) === 0).toBe(true)
+    expect((effectNode?.flags & HOST) === 0).toBe(true)
 
     // (c) HOST preserved across waves
     setSrc(5)
@@ -255,7 +277,7 @@ describe('deep-chain', () => {
     // (c) HOST also preserved on Computed/Effect (the bit was never set, so
     // confirming `=== 0` after waves verifies RC-1's mask does not flip it).
     expect((c1Node.flags & HOST) === 0).toBe(true)
-    expect((effectNode!.flags & HOST) === 0).toBe(true)
+    expect((effectNode?.flags & HOST) === 0).toBe(true)
 
     dispose1()
   })
@@ -272,14 +294,18 @@ describe('deep-chain', () => {
     const c1 = computed(() => s1())
     const c2 = computed(() => s2())
     // Force construction by reading through effects.
-    const dispose1 = effect(() => { void c1() })
-    const dispose2 = effect(() => { void c2() })
+    const dispose1 = effect(() => {
+      void c1()
+    })
+    const dispose2 = effect(() => {
+      void c2()
+    })
     const c1Node = __hostOf(c1)!
     const c2Node = __hostOf(c2)!
     expect(c1Node.notify).toBeDefined()
-    expect(c1Node.notify).toBe(c2Node.notify)                            // (a) shared
+    expect(c1Node.notify).toBe(c2Node.notify) // (a) shared
     expect(c1Node.recomputeIfNeeded).toBeDefined()
-    expect(c1Node.recomputeIfNeeded).toBe(c2Node.recomputeIfNeeded)      // (c) shared
+    expect(c1Node.recomputeIfNeeded).toBe(c2Node.recomputeIfNeeded) // (c) shared
     // Same prototype chain.
     expect(Object.getPrototypeOf(c1Node)).toBe(Object.getPrototypeOf(c2Node))
 
@@ -288,16 +314,17 @@ describe('deep-chain', () => {
     const e2: Subscriber | null = c2Node.subsHead?.sub ?? null
     expect(e1).not.toBe(null)
     expect(e2).not.toBe(null)
-    expect(e1!.notify).toBeDefined()
-    expect(e1!.notify).toBe(e2!.notify)                                  // (b) shared
+    expect(e1?.notify).toBeDefined()
+    expect(e1?.notify).toBe(e2?.notify) // (b) shared
     expect(Object.getPrototypeOf(e1!)).toBe(Object.getPrototypeOf(e2!))
 
     // (d) notify and recomputeIfNeeded are NOT own-properties on Computeds
-    expect(Object.prototype.hasOwnProperty.call(c1Node, 'notify')).toBe(false)
-    expect(Object.prototype.hasOwnProperty.call(c1Node, 'recomputeIfNeeded')).toBe(false)
+    expect(Object.hasOwn(c1Node, 'notify')).toBe(false)
+    expect(Object.hasOwn(c1Node, 'recomputeIfNeeded')).toBe(false)
     // notify is also NOT an own-property on Effects.
-    expect(Object.prototype.hasOwnProperty.call(e1, 'notify')).toBe(false)
+    expect(Object.hasOwn(e1, 'notify')).toBe(false)
 
-    dispose1(); dispose2()
+    dispose1()
+    dispose2()
   })
 })

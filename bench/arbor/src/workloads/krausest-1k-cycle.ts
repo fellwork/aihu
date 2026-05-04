@@ -33,18 +33,17 @@
  * row objects between phases).
  */
 
-import { html as litHtml } from 'lit-html'
+import { branch, leaf } from '@scribe/arbor'
+import type { Signal } from '@scribe/signals'
+import { signal } from '@scribe/signals'
+import type { Ref } from '@vue/runtime-dom'
+import { ref, h as vueH } from '@vue/runtime-dom'
 import type { TemplateResult } from 'lit-html'
-import { h as preactH } from 'preact'
+import { html as litHtml } from 'lit-html'
 import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
 import { createSignal } from 'solid-js'
 import solidH from 'solid-js/h'
-import { h as vueH, ref } from '@vue/runtime-dom'
-import type { Ref } from '@vue/runtime-dom'
-
-import { branch, leaf } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
-import type { Signal } from '@scribe/signals'
 
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
@@ -100,7 +99,7 @@ export const krausest1k: WorkloadDefinition = {
           // Phase 2: partial update — update every 10th row's label signal
           for (let i = 0; i < ROW_COUNT; i += 10) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            labelSignals[i]![1](`updated-${i + 1}`)
+            labelSignals[i]?.[1](`updated-${i + 1}`)
           }
           // Phase 3: clear — dispose tears down all effects and removes DOM
           ctx.dispose()
@@ -164,10 +163,7 @@ export const krausest1k: WorkloadDefinition = {
           const [label, setLabel] = createSignal(`item-${i + 1}`)
           labelSetters.push(setLabel)
           const id = i + 1
-          return solidH('tr', null,
-            solidH('td', null, String(id)),
-            solidH('td', null, label),
-          )
+          return solidH('tr', null, solidH('td', null, String(id)), solidH('td', null, label))
         })
         return solidH('table', null, solidH('tbody', null, ...rows))
       })
@@ -182,7 +178,7 @@ export const krausest1k: WorkloadDefinition = {
           // Phase 2: partial update
           for (let i = 0; i < ROW_COUNT; i += 10) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            labelSetters[i]!(`updated-${i + 1}`)
+            labelSetters[i]?.(`updated-${i + 1}`)
           }
           // Phase 3: clear
           ctx.dispose()
@@ -209,7 +205,7 @@ export const krausest1k: WorkloadDefinition = {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           return vueH('tr', null, [
             vueH('td', null, String(id)),
-            vueH('td', null, labelRefs[i]!.value),
+            vueH('td', null, labelRefs[i]?.value),
           ])
         })
         return vueH('table', null, [vueH('tbody', null, rows)])
@@ -247,13 +243,14 @@ export const krausest1k: WorkloadDefinition = {
       const host = getHost()
 
       const makeVNode = (rows: Array<{ id: number; label: string }>): VNode =>
-        preactH('table', null,
-          preactH('tbody', null,
+        preactH(
+          'table',
+          null,
+          preactH(
+            'tbody',
+            null,
             ...rows.map((r) =>
-              preactH('tr', null,
-                preactH('td', null, String(r.id)),
-                preactH('td', null, r.label),
-              ),
+              preactH('tr', null, preactH('td', null, String(r.id)), preactH('td', null, r.label)),
             ),
           ),
         ) as VNode
@@ -309,7 +306,7 @@ export const krausest1k: WorkloadDefinition = {
         table.appendChild(tbody)
         host.appendChild(table)
         return {
-          update: (v: unknown) => {
+          update: (_v: unknown) => {
             // v is ignored; partial update writes every 10th label
             for (let i = 0; i < ROW_COUNT; i += 10) {
               // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defineLoader } from '../src/data.ts'
-import { runLoader } from '../src/data.ts'
+import { defineLoader, runLoader } from '../src/data.ts'
 
 describe('@scribe/server data', () => {
   it('defineLoader returns a DefinedLoader with correct _brand', () => {

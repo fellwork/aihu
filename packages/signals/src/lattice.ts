@@ -20,7 +20,9 @@ export function latticeSignal<T>(mergeFn: (a: T, b: T) => T, initial: T): Lattic
   let pending = initial
   return {
     read,
-    merge(v) { pending = mergeFn(pending, v) },
+    merge(v) {
+      pending = mergeFn(pending, v)
+    },
     commit() {
       if (pending === read()) return false
       write(() => pending)

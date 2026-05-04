@@ -14,9 +14,7 @@
   "Contract input declaration": {
     "prefix": "agent-input",
     "scope": "scribe",
-    "body": [
-      "input ${1:name}: ${2|string,number,boolean|} = ${3:default}$0"
-    ],
+    "body": ["input ${1:name}: ${2|string,number,boolean|} = ${3:default}$0"],
     "description": "Insert a single input declaration with a default value."
   },
   "Contract input (enum)": {
@@ -30,17 +28,13 @@
   "Contract action with returns": {
     "prefix": "agent-action",
     "scope": "scribe",
-    "body": [
-      "action ${1:run}() -> { ${2:field}: ${3|string,number,boolean|} }$0"
-    ],
+    "body": ["action ${1:run}() -> { ${2:field}: ${3|string,number,boolean|} }$0"],
     "description": "Insert an action declaration with a single-field returns block."
   },
   "Contract state declaration": {
     "prefix": "agent-state",
     "scope": "scribe",
-    "body": [
-      "state ${1:name}: ${2|string,number,boolean|}$0"
-    ],
+    "body": ["state ${1:name}: ${2|string,number,boolean|}$0"],
     "description": "Insert a state declaration (internal-only; not in MCP manifest)."
   },
   "Script setup block": {

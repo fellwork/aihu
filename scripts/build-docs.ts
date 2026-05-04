@@ -5,8 +5,8 @@
  * Zero external deps — Bun builtins only.
  */
 
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 
 // On Windows, new URL().pathname has a leading slash before the drive letter.
 // Use import.meta.dirname for a reliable path.
@@ -45,20 +45,26 @@ function convertMarkdown(md: string): string {
   let tableLines: string[] = []
   let inUl = false
   let inOl = false
-  let inParagraph = false
+  let _inParagraph = false
   let paraLines: string[] = []
 
   function flushParagraph(): void {
     if (paraLines.length > 0) {
       htmlLines.push(`<p>${inlineMarkdown(paraLines.join(' '))}</p>`)
       paraLines = []
-      inParagraph = false
+      _inParagraph = false
     }
   }
 
   function flushList(): void {
-    if (inUl) { htmlLines.push('</ul>'); inUl = false }
-    if (inOl) { htmlLines.push('</ol>'); inOl = false }
+    if (inUl) {
+      htmlLines.push('</ul>')
+      inUl = false
+    }
+    if (inOl) {
+      htmlLines.push('</ol>')
+      inOl = false
+    }
   }
 
   function flushTable(): void {
@@ -68,7 +74,10 @@ function convertMarkdown(md: string): string {
     htmlLines.push('<table>')
     for (let i = 0; i < tableLines.length; i++) {
       const row = tableLines[i]
-      const cells = row.split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
+      const cells = row
+        .split('|')
+        .map((c) => c.trim())
+        .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
       if (i === 0) {
         // header row
         htmlLines.push('<thead><tr>')
@@ -92,7 +101,7 @@ function convertMarkdown(md: string): string {
     // Code block fence
     if (rawLine.trimStart().startsWith('```')) {
       if (inCodeBlock) {
-        htmlLines.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>')
+        htmlLines.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`)
         codeLines = []
         inCodeBlock = false
       } else {
@@ -138,8 +147,14 @@ function convertMarkdown(md: string): string {
     if (/^- /.test(line)) {
       flushParagraph()
       flushTable()
-      if (!inUl) { htmlLines.push('<ul>'); inUl = true }
-      if (inOl) { htmlLines.push('</ol>'); inOl = false }
+      if (!inUl) {
+        htmlLines.push('<ul>')
+        inUl = true
+      }
+      if (inOl) {
+        htmlLines.push('</ol>')
+        inOl = false
+      }
       htmlLines.push(`<li>${inlineMarkdown(line.slice(2))}</li>`)
       continue
     }
@@ -148,8 +163,14 @@ function convertMarkdown(md: string): string {
     if (/^\d+\. /.test(line)) {
       flushParagraph()
       flushTable()
-      if (!inOl) { htmlLines.push('<ol>'); inOl = true }
-      if (inUl) { htmlLines.push('</ul>'); inUl = false }
+      if (!inOl) {
+        htmlLines.push('<ol>')
+        inOl = true
+      }
+      if (inUl) {
+        htmlLines.push('</ul>')
+        inUl = false
+      }
       htmlLines.push(`<li>${inlineMarkdown(line.replace(/^\d+\. /, ''))}</li>`)
       continue
     }
@@ -165,7 +186,7 @@ function convertMarkdown(md: string): string {
     // Otherwise: paragraph text
     flushList()
     flushTable()
-    inParagraph = true
+    _inParagraph = true
     paraLines.push(line.trim())
   }
 
@@ -173,7 +194,7 @@ function convertMarkdown(md: string): string {
   flushList()
   flushTable()
   if (inCodeBlock) {
-    htmlLines.push('<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>')
+    htmlLines.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`)
   }
 
   return htmlLines.join('\n')
@@ -238,8 +259,8 @@ const PAGE_ORDER = [
 ]
 
 const mdFiles = readdirSync(srcDir)
-  .filter(f => f.endsWith('.md') && !f.startsWith('.'))
-  .map(f => ({ file: f, slug: basename(f, '.md') }))
+  .filter((f) => f.endsWith('.md') && !f.startsWith('.'))
+  .map((f) => ({ file: f, slug: basename(f, '.md') }))
 
 // Sort by PAGE_ORDER, then alphabetically for anything not in the list
 mdFiles.sort((a, b) => {
@@ -264,9 +285,7 @@ for (const { file, slug } of mdFiles) {
 
 // ── Build nav ────────────────────────────────────────────────────────────────
 
-const nav = pages
-  .map(p => `<a href="${p.slug}.html">${p.title}</a>`)
-  .join('\n')
+const nav = pages.map((p) => `<a href="${p.slug}.html">${p.title}</a>`).join('\n')
 
 // ── Write HTML files ──────────────────────────────────────────────────────────
 

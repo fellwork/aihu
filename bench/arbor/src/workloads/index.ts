@@ -8,8 +8,8 @@
 import type { WorkloadDefinition } from '../types.ts'
 import { attrThrash } from './attr-thrash-100x100.ts'
 import { krausest1k } from './krausest-1k-cycle.ts'
-import { mountDeep } from './mount-deep-100x10.ts'
 import { mountTenK } from './mount-10k-leaves.ts'
+import { mountDeep } from './mount-deep-100x10.ts'
 import { mountWide } from './mount-wide-1000.ts'
 import { updateOneOfTenK } from './update-1-of-10k-leaves.ts'
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { createRequestRouter, defineRoute } from '@scribe/server'
+import { describe, expect, it } from 'vitest'
 import { createAgentReadinessRoutes, createContentNegotiationHandler } from '../../src/index.ts'
 
 const config = {
@@ -7,7 +7,9 @@ const config = {
   version: '1.0.0',
   endpoint: 'https://app.example.com/mcp',
   summary: 'Test app for isitagentready compliance.',
-  llmsSections: [{ title: 'Docs', links: [{ title: 'API', url: '/api', description: 'API docs' }] }],
+  llmsSections: [
+    { title: 'Docs', links: [{ title: 'API', url: '/api', description: 'API docs' }] },
+  ],
 }
 
 function buildRouter() {
@@ -54,7 +56,9 @@ describe('isitagentready.com endpoint checklist', () => {
 
   it('GET /.well-known/mcp/server-card.json returns 200 JSON with valid McpServerCard', async () => {
     const router = buildRouter()
-    const res = await router(new Request('https://app.example.com/.well-known/mcp/server-card.json'))
+    const res = await router(
+      new Request('https://app.example.com/.well-known/mcp/server-card.json'),
+    )
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toMatch(/application\/json/)
     const card = await res.json()
@@ -72,9 +76,11 @@ describe('isitagentready.com endpoint checklist', () => {
 
   it('GET /about with Accept: text/markdown returns text/markdown via content negotiation', async () => {
     const router = buildRouter()
-    const res = await router(new Request('https://app.example.com/about', {
-      headers: { Accept: 'text/markdown' },
-    }))
+    const res = await router(
+      new Request('https://app.example.com/about', {
+        headers: { Accept: 'text/markdown' },
+      }),
+    )
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toMatch(/text\/markdown/)
     expect(await res.text()).toContain('# About')
@@ -82,17 +88,23 @@ describe('isitagentready.com endpoint checklist', () => {
 
   it('GET /about with Accept: text/html falls through to HTML route handler', async () => {
     const router = buildRouter()
-    const res = await router(new Request('https://app.example.com/about', {
-      headers: { Accept: 'text/html' },
-    }))
+    const res = await router(
+      new Request('https://app.example.com/about', {
+        headers: { Accept: 'text/html' },
+      }),
+    )
     expect(res.status).toBe(200)
     expect(await res.text()).toBe('<html>About</html>')
   })
 
   it('GET /.well-known/mcp/server-card.json returns 404 when endpoint absent', async () => {
     const ar = createAgentReadinessRoutes({ name: 'No Endpoint' })
-    const router = createRequestRouter({ routes: [defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard)] })
-    const res = await router(new Request('https://app.example.com/.well-known/mcp/server-card.json'))
+    const router = createRequestRouter({
+      routes: [defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard)],
+    })
+    const res = await router(
+      new Request('https://app.example.com/.well-known/mcp/server-card.json'),
+    )
     expect(res.status).toBe(404)
   })
 })

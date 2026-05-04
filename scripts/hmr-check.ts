@@ -11,8 +11,8 @@ const root = join(import.meta.dirname, '..')
 const packagesDir = join(root, 'packages')
 
 const packages = readdirSync(packagesDir, { withFileTypes: true })
-  .filter(d => d.isDirectory())
-  .map(d => d.name)
+  .filter((d) => d.isDirectory())
+  .map((d) => d.name)
 
 const TARGET = '@vitejs/client'
 

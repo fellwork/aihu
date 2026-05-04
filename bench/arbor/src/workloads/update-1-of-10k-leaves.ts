@@ -29,23 +29,22 @@
  * **N override.** N=1. The memory phase measures one live 10k-leaf tree.
  */
 
-import { html as litHtml } from 'lit-html'
-import type { TemplateResult } from 'lit-html'
-import { h as preactH } from 'preact'
-import type { VNode } from 'preact'
-import { createSignal } from 'solid-js'
-import solidH from 'solid-js/h'
-import { h as vueH, ref } from '@vue/runtime-dom'
-
 import { branch, leaf } from '@scribe/arbor'
 import { signal } from '@scribe/signals'
+import { ref, h as vueH } from '@vue/runtime-dom'
+import type { TemplateResult } from 'lit-html'
+import { html as litHtml } from 'lit-html'
+import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
+import { createSignal } from 'solid-js'
+import solidH from 'solid-js/h'
 
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
 import { setScribeHook } from '../competitors/scribe.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
-import { setVueRenderFn, setVueRefSetter } from '../competitors/vue.ts'
+import { setVueRefSetter, setVueRenderFn } from '../competitors/vue.ts'
 import { getHost, releaseHost } from '../jsdom-host.ts'
 import type { DomAdapter, WorkloadDefinition } from '../types.ts'
 
@@ -92,9 +91,7 @@ export const updateOneOfTenK: WorkloadDefinition = {
     // Reported honestly — this is lit's real update cost for this workload shape.
     if (adapter.name === 'lit-html') {
       const staticItems = Array.from({ length: LEAF_COUNT - 1 }, (_, i) => i + 1)
-      const staticTemplates: TemplateResult[] = staticItems.map(
-        (i) => litHtml`<span>${i}</span>`,
-      )
+      const staticTemplates: TemplateResult[] = staticItems.map((i) => litHtml`<span>${i}</span>`)
 
       setLitTemplate(() => litHtml`<div>${litHtml`<span>0</span>`}${staticTemplates}</div>`)
       setLitUpdater(
@@ -185,11 +182,14 @@ export const updateOneOfTenK: WorkloadDefinition = {
     // preact has no fine-grained signals. Each update re-renders the entire
     // 10k-leaf template with a new value for leaf[0]. Reported as-is.
     if (adapter.name === 'preact') {
-      const staticChildren: VNode[] = Array.from({ length: LEAF_COUNT - 1 }, (_, i) =>
-        preactH('span', null, String(i + 1)) as VNode,
+      const staticChildren: VNode[] = Array.from(
+        { length: LEAF_COUNT - 1 },
+        (_, i) => preactH('span', null, String(i + 1)) as VNode,
       )
 
-      setPreactVNode(() => preactH('div', null, preactH('span', null, '0'), ...staticChildren) as VNode)
+      setPreactVNode(
+        () => preactH('div', null, preactH('span', null, '0'), ...staticChildren) as VNode,
+      )
       setPreactUpdater(
         (v) => preactH('div', null, preactH('span', null, String(v)), ...staticChildren) as VNode,
       )

@@ -113,9 +113,7 @@ export function generateMcpServerCard(config: McpServerCardConfig): McpServerCar
  * id = "{meta.tag}.{actionName}", name = actionName, description = desc string.
  * @internal
  */
-export function agentMetadataToSkills(
-  meta: AgentMetadataLike,
-): ReadonlyArray<AgentSkill> {
+export function agentMetadataToSkills(meta: AgentMetadataLike): ReadonlyArray<AgentSkill> {
   if (!meta.actions) return []
   return Object.entries(meta.actions).map(([actionName, action]) => ({
     id: `${meta.tag}.${actionName}`,

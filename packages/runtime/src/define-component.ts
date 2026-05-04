@@ -9,7 +9,7 @@ let _signal: typeof SignalFactory | null = null
 
 // Lifecycle: current-instance pointer set during setup() calls
 interface _LC {
-  m: Array<() => void | (() => void)>
+  m: Array<() => undefined | (() => void)>
   c: Array<() => void>
 }
 let _cur: _LC | null = null
@@ -44,9 +44,7 @@ export function defineComponent(setup: Setup): typeof HTMLElement
 export function defineComponent<A extends ReadonlyArray<string>>(
   options: ComponentOptions<A>,
 ): typeof HTMLElement
-export function defineComponent(
-  setupOrOptions: Setup | ComponentOptions,
-): typeof HTMLElement {
+export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeof HTMLElement {
   if (typeof setupOrOptions === 'function') {
     const setup = setupOrOptions
     const S = Symbol()
@@ -60,8 +58,11 @@ export function defineComponent(
         const host = this.shadowRoot ?? this
         _cur = lc
         let tree: ReturnType<Setup>
-        try { tree = setup({ host, element: this } as SetupContext) }
-        finally { _cur = null }
+        try {
+          tree = setup({ host, element: this } as SetupContext)
+        } finally {
+          _cur = null
+        }
         const scope = _mount(tree!, host)
         this[S] = scope
         _scopes.set(this, scope)
@@ -89,8 +90,7 @@ export function defineComponent(
 
     connectedCallback(): void {
       if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-      if (_signal === null && attrs.length > 0)
-        throw new RuntimeError('SCR-R0003', 'no signal')
+      if (_signal === null && attrs.length > 0) throw new RuntimeError('SCR-R0003', 'no signal')
       const attrSignals: Record<string, ReturnType<typeof SignalFactory>> = {}
       for (const name of attrs) attrSignals[name] = _signal(this.getAttribute(name) ?? '')
       this[ATTR_SYM] = attrSignals
@@ -99,9 +99,12 @@ export function defineComponent(
       const host = this.shadowRoot ?? this
       _cur = lc
       let tree: ReturnType<typeof setup>
-      try { tree = setup({ host, element: this, attrs: attrSignals } as Parameters<typeof setup>[0]) }
-      finally { _cur = null }
-      const scope = _mount!(tree!, host)
+      try {
+        tree = setup({ host, element: this, attrs: attrSignals } as Parameters<typeof setup>[0])
+      } finally {
+        _cur = null
+      }
+      const scope = _mount?.(tree!, host)
       this[S] = scope
       _scopes.set(this, scope)
       _runMounts(lc)
@@ -132,7 +135,7 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
 }
 
 // Lifecycle exports — exported only from index.ts
-export function _onMount(fn: () => void | (() => void)): void {
+export function _onMount(fn: () => undefined | (() => void)): void {
   if (!_cur) throw new RuntimeError('SCR-R0010', 'no owner')
   _cur.m.push(fn)
 }

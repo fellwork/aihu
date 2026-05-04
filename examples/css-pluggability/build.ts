@@ -79,7 +79,7 @@ const tw = spawnSync(
   { stdio: 'inherit', shell: true },
 )
 if (tw.status !== 0) {
-  console.error('[build] tailwindcss failed (exit ' + tw.status + ')')
+  console.error(`[build] tailwindcss failed (exit ${tw.status})`)
   process.exit(tw.status ?? 1)
 }
 

@@ -129,7 +129,7 @@ console.log('---')
 // One single op
 const before = JSON.parse(JSON.stringify(ctx.counters))
 ctx.run()
-const after = JSON.parse(JSON.stringify(ctx.counters))
+const _after = JSON.parse(JSON.stringify(ctx.counters))
 
 const delta = {
   l1: ctx.counters.l1.map((v, i) => v - before.l1[i]),
@@ -149,7 +149,7 @@ console.log(`Total computed body executions per op: ${totalCmp}`)
 console.log(`Effect runs per op: ${delta.effect}`)
 
 // 100 ops
-const start = ctx.counters
+const _start = ctx.counters
 for (let i = 0; i < 100; i++) ctx.run()
 console.log('---')
 console.log('After 100 more ops (totals):')

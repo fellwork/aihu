@@ -12,8 +12,8 @@
  * reports this honestly — it is a real cost, not a bug.
  */
 
-import { html, nothing, render } from 'lit-html'
 import type { TemplateResult } from 'lit-html'
+import { nothing, render } from 'lit-html'
 import type { AdapterContext, DomAdapter } from '../types.ts'
 
 /**

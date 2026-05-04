@@ -11,7 +11,7 @@ const hash = window.location.hash.slice(1)
 if (hash) {
   // Let docs-shell know the initial page after it upgrades
   customElements.whenDefined('docs-shell').then(() => {
-    const shell = document.querySelector('docs-shell') as HTMLElement & {
+    const _shell = document.querySelector('docs-shell') as HTMLElement & {
       setActivePage?: (id: string) => void
     }
     // Signal update happens inside the component — dispatch a hashchange

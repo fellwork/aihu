@@ -26,11 +26,11 @@ export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptio
             capabilities: { streaming: true },
             defaultInputModes: [APP_JSON],
             defaultOutputModes: [APP_JSON],
-            skills: service.getManifest().tools.flatMap(t =>
-              Object.keys(t.actions ?? {}).map(a => ({
+            skills: service.getManifest().tools.flatMap((t) =>
+              Object.keys(t.actions ?? {}).map((a) => ({
                 id: `${t.tag}/${a}`,
                 name: a,
-              }))
+              })),
             ),
           })
         }
@@ -60,10 +60,10 @@ export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptio
           : { taskId, status: 'completed', result }
 
         if (!isSub) return json(task)
-        return new Response(
-          `data: ${JSON.stringify(task)}\n\ndata: [DONE]\n\n`,
-          { status: 200, headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' } }
-        )
+        return new Response(`data: ${JSON.stringify(task)}\n\ndata: [DONE]\n\n`, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
+        })
       }
     },
   }

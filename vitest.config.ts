@@ -31,10 +31,12 @@ export default defineConfig({
       '@scribe/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@scribe/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
       '@scribe/server': new URL('./packages/server/src/index.ts', import.meta.url).pathname,
-      '@scribe/agent-readiness': new URL('./packages/agent-readiness/src/index.ts', import.meta.url).pathname,
+      '@scribe/agent-readiness': new URL('./packages/agent-readiness/src/index.ts', import.meta.url)
+        .pathname,
       '@scribe/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
       '@scribe/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
-      '@scribe/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url).pathname,
+      '@scribe/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url)
+        .pathname,
       '@scribe/agent-a2a': new URL('./packages/agent-a2a/src/index.ts', import.meta.url).pathname,
       '@scribe/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@scribe/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
