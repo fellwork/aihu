@@ -1,0 +1,38 @@
+{
+  "name": "@scribe/app",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@scribe/arbor": "workspace:*",
+    "@scribe/router": "workspace:*",
+    "@scribe/runtime": "workspace:*",
+    "@scribe/signals": "workspace:*",
+    "vite": ">=5.0.0"
+  },
+  "devDependencies": {
+    "@scribe/agent-readiness": "workspace:*",
+    "@scribe/compiler": "workspace:*"
+  }
+}

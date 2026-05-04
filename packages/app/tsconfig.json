@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "paths": {
+      "@scribe/router": ["../router/src/index.ts"],
+      "@scribe/router/plugin": ["../router/src/plugin.ts"],
+      "@scribe/arbor": ["../arbor/src/index.ts"],
+      "@scribe/signals": ["../signals/src/index.ts"],
+      "@scribe/runtime": ["../runtime/src/index.ts"],
+      "@scribe/agent-readiness": ["../agent-readiness/src/index.ts"],
+      "@scribe/compiler": ["../compiler/js/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+}

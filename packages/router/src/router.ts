@@ -28,6 +28,8 @@ export type RouteDefinition = {
 export type MatchResult = {
   route: RouteDefinition
   params: Record<string, string>
+  /** The matched pathname, e.g. '/posts/hello' */
+  pathname: string
 }
 
 export type Router = {
@@ -104,7 +106,7 @@ export function createRouter(routes: RouteDefinition[]): Router {
   function match(pathname: string): MatchResult | null {
     for (const route of ordered) {
       const params = matchRoute(route, pathname)
-      if (params !== null) return { route, params }
+      if (params !== null) return { route, params, pathname }
     }
     return null
   }

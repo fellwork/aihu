@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@scribe/app": "workspace:*",
     "@scribe/arbor": "workspace:*",
     "@scribe/router": "workspace:*",
     "@scribe/runtime": "workspace:*",

@@ -1,12 +1,10 @@
-import { scribeCompilerPlugin } from '@scribe/compiler'
-import { viteRouterIntegration } from '@scribe/router/plugin'
 import { defineConfig } from 'vite'
+import { viteScribePlugin } from '@scribe/app'
 
 export default defineConfig({
   plugins: [
-    scribeCompilerPlugin(),
-    // Scan src/pages/ for `.scribe` files with `@route` blocks and emit a
-    // virtual:scribe-routes manifest module consumed by the runtime router.
-    viteRouterIntegration({ pagesDir: 'src/pages' }),
+    viteScribePlugin({
+      dir: { pages: 'src/pages' },
+    }),
   ],
 })

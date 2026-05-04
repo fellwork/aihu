@@ -64,5 +64,12 @@
     "limit": "720 B",
     "gzip": true,
     "ignore": ["@scribe/agent-service"]
+  },
+  {
+    "name": "@scribe/app",
+    "path": "packages/app/dist/client.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@scribe/router", "@scribe/arbor", "@scribe/signals", "@scribe/runtime", "virtual:scribe-routes"]
   }
 ]

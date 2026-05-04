@@ -31,6 +31,8 @@ export interface RouteSidecar {
   middleware?: string[]
   ssr?: boolean
   layout?: string
+  /** Declared route param names, e.g. ["slug"]. Emitted by the Rust compiler from $prop declarations. */
+  params?: string[]
 }
 
 /** Layout name → absolute file path (v0.6.8). */
@@ -104,7 +106,7 @@ export function scanLayouts(d: string): LayoutMap {
   return m
 }
 
-const SK = ['name', 'middleware', 'ssr', 'layout'] as const
+const SK = ['name', 'middleware', 'ssr', 'layout', 'params'] as const
 
 function genR(files: string[], pd: string, middlewareByDir: Record<string, string> = {}): string {
   return `// AUTO-GENERATED\nexport default [\n${files

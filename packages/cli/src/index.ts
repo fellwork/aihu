@@ -120,21 +120,8 @@ export function appTsConfig(): string {
 }
 
 /** src/main.ts entry point for a new scribe app. */
-export function appMainTs(name: string): string {
-  return `// Mount scribe runtime
-import { mount } from '@scribe/arbor'
-import { signal, effect } from '@scribe/signals'
-import { _setMount, _setSignal } from '@scribe/runtime'
-
-// Wire runtime to signals
-_setMount(mount)
-_setSignal(signal as Parameters<typeof _setSignal>[0])
-
-// Import your components (scribe SFCs are auto-compiled)
-import './pages/index.scribe'
-
-console.log('[scribe] ${name} mounted')
-`
+export function appMainTs(_name: string): string {
+  return `import { createApp } from '@scribe/app/client'\n\ncreateApp()\n`
 }
 
 /** index.html for a new scribe application. */
