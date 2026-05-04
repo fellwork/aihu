@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import { scribeCompilerPlugin } from '@scribe/compiler'
+import { scribeCompilerPlugin } from '../../js/index.ts'
 
 export default defineConfig({
   plugins: [scribeCompilerPlugin()],

@@ -1,0 +1,10 @@
+{
+  "name": "vite-counter-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts",
+    "dev": "vite",
+    "preview": "vite preview"
+  }
+}
