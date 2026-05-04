@@ -1,4 +1,5 @@
 import type { Plugin, UserConfig } from 'vite'
+import type { ScribeAdapter } from './adapter.ts'
 
 /** V0: SPA output only. More modes (ssr, static, hybrid) in V1+. */
 export type OutputMode = 'spa'
@@ -66,8 +67,12 @@ export interface ScribeConfig {
    * When absent or false, a no-op plugin is substituted.
    */
   readonly agentReadiness?: AgentReadinessConfig | false
-  /** Reserved for V1 adapters — not yet used. */
-  readonly adapter?: null
+  /**
+   * Deployment adapter. Transforms the Vite build output into the target
+   * platform's required format. Called after vite build completes.
+   * When absent, no post-build transformation is applied (manual deployment).
+   */
+  readonly adapter?: ScribeAdapter
 }
 
 /** Thrown by defineConfig when configuration validation fails. */

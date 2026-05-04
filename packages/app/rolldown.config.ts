@@ -11,6 +11,7 @@ const external = [
   '@scribe/compiler',
   'vite',
   'node:fs',
+  'node:fs/promises',
   'node:path',
   'virtual:scribe-routes',
 ]

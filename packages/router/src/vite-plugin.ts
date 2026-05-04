@@ -149,7 +149,7 @@ export interface MiddlewareScan {
   middlewareByDir: Record<string, string>
 }
 
-function scanPages(root: string, pd: string): MiddlewareScan {
+export function scanPages(root: string, pd: string): MiddlewareScan {
   const d = resolve(root, pd)
   if (!existsSync(d)) return { routes: [], middlewareByDir: {} }
   const routes: string[] = []

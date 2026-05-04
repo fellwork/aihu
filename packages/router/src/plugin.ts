@@ -15,6 +15,7 @@ export type { LayoutMap, MiddlewareScan, RouterPluginOptions, RouteSidecar } fro
 export {
   readRouteSidecar,
   scanLayouts,
+  scanPages,
   viteRouterIntegration,
   viteRouterPlugin,
 } from './vite-plugin.ts'
