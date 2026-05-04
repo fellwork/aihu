@@ -113,11 +113,13 @@ fn main() {
         process::exit(1);
     });
 
-    // meta.name override (OQ-C6)
-    let tag_name = match &unit.source.meta.name {
-        Some(name) => name.clone(),
-        None => file_stem,
-    };
+    // Tag name resolution (OQ-C6):
+    // 1. @meta { name: "..." } — explicit override (highest priority)
+    // 2. @route { name: "..." } — derived from route block (e.g. "blog-index")
+    // 3. file_stem — basename of the source file (fallback)
+    let tag_name = unit.source.meta.name.clone()
+        .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+        .unwrap_or(file_stem);
 
     let result = scribe_compiler::emit(&unit, &tag_name);
 

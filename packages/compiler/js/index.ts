@@ -513,8 +513,10 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
     name: 'scribe-compiler',
     enforce: 'pre',
     async transform(code, id) {
-      if (!id.endsWith('.scribe')) return undefined
-      const result = transform(code, id)
+      // Strip Vite query strings (e.g. `?import`, `?t=...`) before checking the extension.
+      const rawId = id.split('?')[0]!
+      if (!rawId.endsWith('.scribe')) return undefined
+      const result = transform(code, rawId)
       const compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
       const elementTag = _extractElementTag(compiled)
 
@@ -522,6 +524,8 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
 
       // Plan 3.3 — static-island fast path. Bypasses HMR injection because
       // a component with no signals has no setup state to hot-replace.
+      // Static islands strip @scribe/runtime entirely — do NOT inject auto-wiring
+      // (it would reference _setMount/_setSignal as undefined identifiers).
       if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
         out = _buildStaticIsland(compiled, elementTag)
       } else if (elementTag !== null) {
@@ -532,12 +536,13 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
         // Plan 3.3 — interactive islands also gain `defer` attribute
         // support so individual instances can opt into lazy hydration.
         out = _buildDeferredHydration(out, elementTag)
+        // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
+        out = _injectAutoWiring(out)
       } else {
         out = compiled
+        // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
+        out = _injectAutoWiring(out)
       }
-
-      // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
-      out = _injectAutoWiring(out)
 
       // The Rust compiler emits TypeScript (type casts, import type, etc.) and
       // the injected HMR / defer helpers also contain TS generics and casts.

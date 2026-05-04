@@ -1,6 +1,6 @@
 ---
 source: tests/codegen.rs
-assertion_line: 353
+assertion_line: 359
 expression: result.js
 ---
 import { branch, leaf, slot } from '@scribe/arbor'
@@ -22,7 +22,7 @@ defineElement('airtime-quote', defineComponent({
       return { plan: plan(), amount: amount(), fee: fee(), total: total() }
     }
     return branch('div', { class: 'airtime-quote' }, [
-      branch('span', undefined, [leaf([() => total[0]() as unknown as string, () => {}] as unknown as Signal<string>)])
+      branch('span', undefined, [leaf([() => total() as unknown as string, () => {}] as unknown as Signal<string>)])
     ])
   }
 }))

@@ -39,7 +39,7 @@ export interface LayoutMap {
 }
 
 function segs(rel: string): RouteSegment[] {
-  return rel
+  const parts = rel
     .replace(/\.[^/]+$/, '')
     .replace(/\\/g, '/')
     .split('/')
@@ -52,6 +52,27 @@ function segs(rel: string): RouteSegment[] {
             ? { kind: 'param', name: p.slice(1, -1) }
             : { kind: 'static', path: p },
     )
+  // File-router convention: trailing `index` segment is the parent directory's root.
+  // e.g. src/pages/index.scribe → /,  src/pages/posts/index.scribe → /posts
+  if (parts.length > 0) {
+    const last = parts[parts.length - 1]!
+    if (last.kind === 'static' && last.path === 'index') parts.pop()
+  }
+  return parts
+}
+
+/** Extract the component tag name from an `@route { name: "..." }` block in a .scribe file. */
+function readScribeRouteName(f: string): string | null {
+  if (!f.endsWith('.scribe')) return null
+  try {
+    const content = readFileSync(f, 'utf8')
+    const block = content.match(/@route\s*\{([^}]*)\}/)
+    if (!block) return null
+    const nm = block[1]!.match(/name\s*:\s*["']([^"']+)["']/)
+    return nm ? nm[1]! : null
+  } catch {
+    return null
+  }
 }
 
 function pat(ss: RouteSegment[]): string {
@@ -90,11 +111,15 @@ function genR(files: string[], pd: string, middlewareByDir: Record<string, strin
     .map((f) => {
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
       const sc = readRouteSidecar(f)
+      // For .scribe files without a sidecar, fall back to reading `name` from the @route block.
+      const scribeName = (!sc?.name && f.endsWith('.scribe')) ? readScribeRouteName(f) : null
       const x = sc
         ? SK.filter((k) => sc[k] !== undefined)
             .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)
             .join('\n')
-        : ''
+        : scribeName
+          ? `    name: ${JSON.stringify(scribeName)},`
+          : ''
       // v0.7.2: embed _middleware file path for file-convention auto-wire
       const fileDir = dirname(f).replace(/\\/g, '/')
       const mwFile = middlewareByDir[fileDir]

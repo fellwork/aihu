@@ -997,7 +997,15 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             if t.is_empty() {
                 String::new()
             } else {
-                let escaped = t.replace('\\', "\\\\").replace('\'', "\\'");
+                // Normalize HTML whitespace: collapse newlines + surrounding spaces into
+                // a single space, then escape for a JS single-quoted string literal.
+                let normalized: String = t
+                    .split('\n')
+                    .map(|ln| ln.trim())
+                    .filter(|ln| !ln.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let escaped = normalized.replace('\\', "\\\\").replace('\'', "\\'");
                 format!("leaf('{}')", escaped)
             }
         }
@@ -1008,13 +1016,13 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
                 let prop_path = &id[dot_pos + 1..];
                 if signal_map.is_computed(base) {
                     return format!(
-                        "leaf([() => ({}[0]() as any).{}, () => {{}}] as unknown as Signal<string>)",
+                        "leaf([() => ({}() as any).{}, () => {{}}] as unknown as Signal<string>)",
                         base, prop_path
                     );
                 } else if let Some(setter) = signal_map.0.get(base) {
                     if !setter.is_empty() {
                         return format!(
-                            "leaf([() => ({}[0]() as any).{}, {}] as unknown as Signal<string>)",
+                            "leaf([() => ({}() as any).{}, {}] as unknown as Signal<string>)",
                             base, prop_path, setter
                         );
                     }
@@ -1026,7 +1034,7 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             if let Some(setter) = signal_map.0.get(id) {
                 if setter.is_empty() {
                     // Computed signal (read-only) — emit reactive getter
-                    format!("leaf([() => {}[0]() as unknown as string, () => {{}}] as unknown as Signal<string>)", id)
+                    format!("leaf([() => {}() as unknown as string, () => {{}}] as unknown as Signal<string>)", id)
                 } else {
                     format!("leaf([{}, {}] as unknown as Signal<string>)", id, setter)
                 }
