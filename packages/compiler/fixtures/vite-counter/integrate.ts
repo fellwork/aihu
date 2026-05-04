@@ -13,7 +13,7 @@
  *   1. `cd packages/compiler && cargo build --release`
  *   2. `bun install` at repo root
  */
-import { transform } from '@scribe/compiler'
+import { transform } from '../../js/index.ts'
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
