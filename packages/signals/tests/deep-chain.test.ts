@@ -265,7 +265,7 @@ describe('deep-chain', () => {
     // the subs list of c1 — the effect we just created subscribed to c1.
     const effectNode: Subscriber | null = c1Node.subsHead ? c1Node.subsHead.sub : null
     expect(effectNode).not.toBe(null)
-    expect((effectNode?.flags & HOST) === 0).toBe(true)
+    expect((effectNode!.flags & HOST) === 0).toBe(true)
 
     // (c) HOST preserved across waves
     setSrc(5)
@@ -277,7 +277,7 @@ describe('deep-chain', () => {
     // (c) HOST also preserved on Computed/Effect (the bit was never set, so
     // confirming `=== 0` after waves verifies RC-1's mask does not flip it).
     expect((c1Node.flags & HOST) === 0).toBe(true)
-    expect((effectNode?.flags & HOST) === 0).toBe(true)
+    expect((effectNode!.flags & HOST) === 0).toBe(true)
 
     dispose1()
   })
@@ -322,7 +322,7 @@ describe('deep-chain', () => {
     expect(Object.hasOwn(c1Node, 'notify')).toBe(false)
     expect(Object.hasOwn(c1Node, 'recomputeIfNeeded')).toBe(false)
     // notify is also NOT an own-property on Effects.
-    expect(Object.hasOwn(e1, 'notify')).toBe(false)
+    expect(Object.hasOwn(e1!, 'notify')).toBe(false)
 
     dispose1()
     dispose2()

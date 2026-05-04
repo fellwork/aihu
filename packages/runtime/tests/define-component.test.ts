@@ -126,7 +126,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
         const typedCtx = ctx as unknown as { attrs: { count: Signal<string> } }
         capturedAttrSignal = typedCtx.attrs.count
         // Pass the full Signal tuple to leaf (Signal<string> | string)
-        return leaf(capturedAttrSignal)
+        return leaf(capturedAttrSignal!)
       },
     })
     defineElement('x-p3', Cmp)
@@ -135,7 +135,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     document.body.appendChild(el)
     // The signal should be readable and return the initial attribute value
     expect(capturedAttrSignal).not.toBeNull()
-    expect(capturedAttrSignal?.[0]()).toBe('42')
+    expect(capturedAttrSignal![0]()).toBe('42')
     // The rendered text content should also be '42'
     expect(el.shadowRoot?.textContent).toBe('42')
     el.remove()
@@ -150,7 +150,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
       setup: (ctx) => {
         const typedCtx = ctx as unknown as { attrs: { count: Signal<string> } }
         capturedSignal = typedCtx.attrs.count
-        return leaf(capturedSignal[0])
+        return leaf(capturedSignal!)
       },
     })
     defineElement('x-p4', Cmp)
@@ -158,9 +158,9 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     el.setAttribute('count', '0')
     document.body.appendChild(el)
     expect(capturedSignal).not.toBeNull()
-    expect(capturedSignal?.[0]()).toBe('0')
+    expect(capturedSignal![0]()).toBe('0')
     el.setAttribute('count', '5')
-    expect(capturedSignal?.[0]()).toBe('5')
+    expect(capturedSignal![0]()).toBe('5')
     el.remove()
   })
 
@@ -207,12 +207,12 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     document.body.appendChild(el)
     expect(sigA).not.toBeNull()
     expect(sigB).not.toBeNull()
-    expect(sigA?.[0]()).toBe('alpha')
-    expect(sigB?.[0]()).toBe('beta')
+    expect(sigA![0]()).toBe('alpha')
+    expect(sigB![0]()).toBe('beta')
     // Change 'a' — 'b' must be unaffected
     el.setAttribute('a', 'changed')
-    expect(sigA?.[0]()).toBe('changed')
-    expect(sigB?.[0]()).toBe('beta')
+    expect(sigA![0]()).toBe('changed')
+    expect(sigB![0]()).toBe('beta')
     el.remove()
   })
 

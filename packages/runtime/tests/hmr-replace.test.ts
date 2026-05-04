@@ -129,7 +129,7 @@ describe('_hmrReplace — Plan 4.1', () => {
     // New setup introduces a reactive signal.
     const [count, setCount] = signal(0)
     const setup2 = (_ctx: SetupContext) =>
-      branch('span', undefined, [leaf([count, setCount] as Parameters<typeof leaf>[0])])
+      branch('span', undefined, [leaf([count, setCount] as unknown as Parameters<typeof leaf>[0])])
 
     _hmrReplace(el, setup2)
 

@@ -58,7 +58,7 @@ export function defineRouterMiddleware(fn: RouterMiddleware): RouterMiddleware {
 export function composeRouterMiddleware(...middlewares: RouterMiddleware[]): RouterMiddleware {
   return async (ctx, next) => {
     const run = async (i: number): Promise<RouterResult> =>
-      i < middlewares.length ? middlewares[i]?.(ctx, () => run(i + 1)) : next()
+      i < middlewares.length ? middlewares[i]!(ctx, () => run(i + 1)) : next()
     return run(0)
   }
 }

@@ -9,7 +9,7 @@ let _signal: typeof SignalFactory | null = null
 
 // Lifecycle: current-instance pointer set during setup() calls
 interface _LC {
-  m: Array<() => undefined | (() => void)>
+  m: Array<() => void | (() => void)>
   c: Array<() => void>
 }
 let _cur: _LC | null = null
@@ -92,7 +92,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
       if (_signal === null && attrs.length > 0) throw new RuntimeError('SCR-R0003', 'no signal')
       const attrSignals: Record<string, ReturnType<typeof SignalFactory>> = {}
-      for (const name of attrs) attrSignals[name] = _signal(this.getAttribute(name) ?? '')
+      for (const name of attrs) attrSignals[name] = _signal!(this.getAttribute(name) ?? '')
       this[ATTR_SYM] = attrSignals
       const lc: _LC = { m: [], c: [] }
       this[LC_SYM] = lc
@@ -135,7 +135,7 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
 }
 
 // Lifecycle exports — exported only from index.ts
-export function _onMount(fn: () => undefined | (() => void)): void {
+export function _onMount(fn: () => void | (() => void)): void {
   if (!_cur) throw new RuntimeError('SCR-R0010', 'no owner')
   _cur.m.push(fn)
 }

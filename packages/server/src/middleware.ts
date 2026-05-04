@@ -18,7 +18,7 @@ export function composeMiddleware(middlewares: ReadonlyArray<Middleware>): Middl
   return function composed(req, next) {
     const dispatch = (i: number): Promise<Response> => {
       if (i >= middlewares.length) return next()
-      return Promise.resolve(middlewares[i]?.(req, () => dispatch(i + 1)))
+      return Promise.resolve(middlewares[i]!(req, () => dispatch(i + 1)))
     }
     return dispatch(0)
   }

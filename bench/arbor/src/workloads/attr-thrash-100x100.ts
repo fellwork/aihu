@@ -214,7 +214,7 @@ export const attrThrash: WorkloadDefinition = {
           const props: Record<string, string> = {}
           for (let ai = 0; ai < ATTR_COUNT; ai++) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            props[attrKey(ai)] = allRefs[ei * ATTR_COUNT + ai]?.value
+            props[attrKey(ai)] = allRefs[ei * ATTR_COUNT + ai]!.value
           }
           return vueH('div', props)
         })

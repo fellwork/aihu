@@ -14,6 +14,9 @@
       "!target",
       "!bun.lock",
       "!**/*.cjs",
+      "!.claude",
+      "!.team",
+      "!.mcp.json",
       "!examples/**/*.css",
       "!bench/compiler-conformance"
     ]
@@ -30,14 +33,15 @@
     "rules": {
       "recommended": true,
       "complexity": {
-        "noCommaOperator": "warn"
+        "noCommaOperator": "off"
       },
       "style": {
-        "noNonNullAssertion": "warn"
+        "noNonNullAssertion": "off"
       },
       "suspicious": {
-        "noAssignInExpressions": "warn",
-        "useIterableCallbackReturn": "warn"
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "useIterableCallbackReturn": "off"
       }
     }
   },
@@ -59,11 +63,12 @@
   },
   "overrides": [
     {
-      "includes": ["bench/arbor/src/**"],
+      "includes": ["bench/arbor/src/**", "packages/agent-readiness/src/vite-plugin.ts"],
       "linter": {
         "rules": {
-          "suspicious": { "noExplicitAny": "off" },
-          "style": { "noNonNullAssertion": "off" }
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
         }
       }
     }

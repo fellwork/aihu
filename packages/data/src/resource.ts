@@ -119,7 +119,7 @@ export function createResource<T>(
     // Check if a ready cache entry exists and is not stale.
     const cached = store.get(currentKey)
     if (cached?.status === 'ready' && !_staleSignal.read()) {
-      setState(cached as DataState<T>)
+      setState({ status: 'ready', data: cached.data as T })
       return
     }
 

@@ -1,7 +1,7 @@
 import { signal } from '@scribe/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { branch, leaf } from '../src/index.ts'
-import { mount } from '../src/mount.ts'
+import { type MountScope, mount } from '../src/mount.ts'
 import { _setMountObserver, type MountTelemetry } from '../src/telemetry.ts'
 
 /**
@@ -320,7 +320,7 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
       throwingSig[1],
     ] as unknown as typeof throwingSig
 
-    let scope: ReturnType<typeof mount> | null = null
+    let scope: MountScope | null = null
     expect(() => {
       scope = mount(branch('p', undefined, [leaf(sigWithInitialThrow)]), host, {
         onError: errorSpy,
@@ -336,7 +336,8 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     effectCallCount = 0 // just to use the variable
     void effectCallCount
 
-    scope?.dispose()
+    // TS 5.9 narrows `scope` to `never` after closure assignment — explicit cast
+    if (scope !== null) (scope as MountScope).dispose()
   })
 
   it('T2: reactive effect throw → onError called; subsequent signal writes do not re-call onError', () => {
