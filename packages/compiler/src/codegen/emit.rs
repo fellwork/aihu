@@ -140,6 +140,8 @@ struct NeededHelpers {
     shield_boundary: bool,
     guard_boundary: bool,
     warp_boundary: bool,
+    /// True when $html or $show directives are used (they emit `effect()` calls).
+    needs_effect: bool,
 }
 
 fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
@@ -170,6 +172,8 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                             "once" => h.once_boundary = true,
                             "memo" => h.memo_boundary = true,
                             "each" => h.each_boundary = true,
+                            // $html and $show emit `effect()` calls — ensure effect is imported.
+                            "html" | "show" => h.needs_effect = true,
                             _ => {}
                         }
                     }
@@ -225,8 +229,10 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
     let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
 
-    let imports = build_function_imports(&signal_map);
-    let script_body = extract_script_body(unit.source.script.unwrap_or(""));
+    let raw_script = unit.source.script.unwrap_or("");
+    let helpers_needed = collect_needed_helpers(template_nodes);
+    let imports = build_function_imports(&signal_map, helpers_needed.needs_effect, raw_script);
+    let script_body = extract_script_body(raw_script);
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
     let (module_decl, ctx_param, style_injection) = if let Some(style) = &unit.source.style {
@@ -236,7 +242,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         (String::new(), "_ctx", String::new())
     };
 
-    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+    let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
     let body = if script_body.is_empty() {
         format!("{}  return {}\n", style_injection, return_expr)
@@ -251,22 +257,24 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     )
 }
 
-fn build_function_imports(signal_map: &SignalMap) -> String {
-    if signal_map.0.is_empty() {
-        [
-            "import { branch, leaf, slot } from '@scribe/arbor'",
-            "import { defineComponent, defineElement } from '@scribe/runtime'",
-        ]
-        .join("\n")
-    } else {
-        [
-            "import { branch, leaf, slot } from '@scribe/arbor'",
-            "import type { Signal } from '@scribe/signals'",
-            "import { signal } from '@scribe/signals'",
-            "import { defineComponent, defineElement } from '@scribe/runtime'",
-        ]
-        .join("\n")
+fn build_function_imports(signal_map: &SignalMap, needs_effect: bool, script: &str) -> String {
+    // Also check script body for direct `effect(` calls (not just $html/$show macros).
+    let script_uses_effect = script.contains("effect(");
+    let emit_effect = needs_effect || script_uses_effect;
+
+    let mut lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
+    if !signal_map.0.is_empty() {
+        lines.push("import type { Signal } from '@scribe/signals'");
+        if emit_effect {
+            lines.push("import { signal, effect } from '@scribe/signals'");
+        } else {
+            lines.push("import { signal } from '@scribe/signals'");
+        }
+    } else if emit_effect {
+        lines.push("import { effect } from '@scribe/signals'");
     }
+    lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
+    lines.join("\n")
 }
 
 // ─── Options form (with agent block) ─────────────────────────────────────────
@@ -280,6 +288,13 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         )
     });
 
+    let raw_script = unit.source.script.unwrap_or("");
+    let script_body = extract_script_body(raw_script);
+    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
+    let helpers_needed = collect_needed_helpers(template_nodes);
+    let script_uses_effect = raw_script.contains("effect(");
+    let emit_effect = helpers_needed.needs_effect || script_uses_effect;
+
     let mut import_lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
 
     // computed import if needed for number/boolean/enum coercions
@@ -287,10 +302,16 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         import_lines.push("import { computed } from '@scribe/signals'");
     }
 
-    // signal import if script uses signals
+    // signal import if script uses signals; effect if $html/$show macros or direct effect() calls
     if !signal_map.0.is_empty() {
         import_lines.push("import type { Signal } from '@scribe/signals'");
-        import_lines.push("import { signal } from '@scribe/signals'");
+        if emit_effect {
+            import_lines.push("import { signal, effect } from '@scribe/signals'");
+        } else {
+            import_lines.push("import { signal } from '@scribe/signals'");
+        }
+    } else if emit_effect {
+        import_lines.push("import { effect } from '@scribe/signals'");
     }
 
     import_lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
@@ -308,8 +329,6 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // agent-block bindings inside setup(ctx)
     let agent_bindings = emit_agent_bindings(agent);
 
-    let script_body = extract_script_body(unit.source.script.unwrap_or(""));
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "      ");
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
@@ -319,7 +338,7 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         (String::new(), String::new())
     };
 
-    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+    let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
     let mut setup_body = String::new();
     if !style_injection.is_empty() {
@@ -911,7 +930,15 @@ fn emit_attrs(attrs: &[Attr]) -> String {
     let passthrough: Vec<String> = attrs
         .iter()
         .filter_map(|a| match a {
-            Attr::Static { name, value } => Some(format!("{}: '{}'", name, value)),
+            Attr::Static { name, value } => {
+                // Hyphenated attribute names (e.g. aria-label, data-foo) must be
+                // quoted as JS object keys, otherwise the hyphen is parsed as minus.
+                if name.contains('-') {
+                    Some(format!("'{}': '{}'", name, value))
+                } else {
+                    Some(format!("{}: '{}'", name, value))
+                }
+            }
             Attr::Binding { name, expr } => {
                 // deprecated :prop alias — emit as direct attr
                 Some(format!("{}: {}", name, expr))

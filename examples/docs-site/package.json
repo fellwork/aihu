@@ -1,0 +1,12 @@
+{
+  "name": "docs-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "bundle": "rolldown -c rolldown.config.ts"
+  },
+  "dependencies": {
+    "marked": "^15.0.0"
+  }
+}

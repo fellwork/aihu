@@ -1,0 +1,72 @@
+@state {
+import { signal } from '@scribe/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
+const decrement = () => setCount(c => c - 1)
+const reset = () => setCount(0)
+}
+
+@template {
+  <div class="live-demo">
+    <p class="demo-label">Interactive counter — powered by @scribe/signals</p>
+    <div class="demo-controls">
+      <button class="btn-dec" $on:click={decrement}>−</button>
+      <span class="demo-value">{{ count }}</span>
+      <button class="btn-inc" $on:click={increment}>+</button>
+    </div>
+    <button class="btn-reset" $on:click={reset}>reset</button>
+    <p class="demo-hint">Each click updates a signal — no virtual DOM diff.</p>
+  </div>
+}
+
+@style {
+.live-demo {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin: 24px 0;
+  text-align: center;
+}
+.demo-label {
+  margin: 0 0 16px;
+  font-size: .875rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+.demo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.demo-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  min-width: 3ch;
+  display: inline-block;
+  color: var(--accent);
+}
+button {
+  background: var(--btn-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 6px 16px;
+}
+button:hover { background: var(--hover-bg); }
+.btn-reset {
+  font-size: .875rem;
+  padding: 4px 12px;
+  color: var(--muted);
+}
+.demo-hint {
+  margin: 12px 0 0;
+  font-size: .75rem;
+  color: var(--muted);
+}
+}
