@@ -9,3 +9,10 @@ bun.lock binary
 *.jpg binary
 *.gif binary
 *.webp binary
+
+# GitHub Linguist — detect .scribe files as the Scribe language.
+# The linguist-language value must match a language registered in
+# https://github.com/github-linguist/linguist/blob/master/lib/linguist/languages.yml
+# Submit a PR to Linguist to register "Scribe" with this grammar.
+*.scribe linguist-language=TypeScript
+*.scribe linguist-detectable=true

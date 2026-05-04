@@ -32,8 +32,27 @@ export interface ScaffoldResult {
 // Template generators — pure functions (no I/O; fully testable)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Template variants
+// ---------------------------------------------------------------------------
+
+export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
+export type AppTemplate = 'minimal' | 'full' | 'docs'
+
+// ---------------------------------------------------------------------------
+// App template generators (rolldown-first, v1 syntax)
+// ---------------------------------------------------------------------------
+
 /** package.json for a new scribe application. */
-export function appPackageJson(name: string): string {
+export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
+  const installCmd: Record<PkgManager, string> = {
+    bun: 'bun install',
+    pnpm: 'pnpm install',
+    npm: 'npm install',
+    yarn: 'yarn',
+  }
+  const devCmd = pm === 'bun' ? 'bun run dev' : `${pm} run dev`
+  void devCmd // used in README generation
   return JSON.stringify(
     {
       name,
@@ -41,46 +60,146 @@ export function appPackageJson(name: string): string {
       private: true,
       type: 'module',
       scripts: {
-        dev: 'vite',
-        build: 'vite build',
-        preview: 'vite preview',
+        dev: 'rolldown -c --watch',
+        build: 'rolldown -c',
+        typecheck: 'tsc --noEmit',
       },
       dependencies: {
-        '@scribe/agent': '^0.8.0',
-        '@scribe/arbor': '^0.8.0',
-        '@scribe/router': '^0.8.0',
-        '@scribe/runtime': '^0.8.0',
-        '@scribe/server': '^0.8.0',
-        '@scribe/signals': '^0.8.0',
+        '@scribe/arbor': '^1.0.0',
+        '@scribe/runtime': '^1.0.0',
+        '@scribe/signals': '^1.0.0',
       },
       devDependencies: {
-        '@scribe/cli': '^0.8.0',
-        vite: '^5.0.0',
+        '@scribe/cli': '^1.0.0',
+        rolldown: '^1.0.0',
+        typescript: '^5.0.0',
       },
+      packageManager: pm === 'bun' ? `bun@${process.versions.bun ?? '1'}` : undefined,
     },
     null,
     2,
   )
 }
 
-/** scribe.config.ts for a new application. */
+/** rolldown.config.ts for a new application (replaces vite.config.ts). */
+export function appRolldownConfig(name: string): string {
+  return `import { defineConfig } from 'rolldown'
+import { scribeCompilerPlugin } from '@scribe/compiler/plugin'
+
+export default defineConfig({
+  input: { ${toSafe(name)}: 'src/main.ts' },
+  plugins: [scribeCompilerPlugin()],
+  moduleTypes: {
+    '.scribe': 'ts',
+  },
+  output: {
+    dir: 'dist',
+    format: 'esm',
+  },
+})
+`
+}
+
+/** tsconfig.json for a new scribe application. */
+export function appTsConfig(): string {
+  return JSON.stringify(
+    {
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        strict: true,
+        lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+        noEmit: true,
+      },
+      include: ['src'],
+    },
+    null,
+    2,
+  ) + '\n'
+}
+
+/** src/main.ts entry point for a new scribe app. */
+export function appMainTs(name: string): string {
+  return `// Mount scribe runtime
+import { mount } from '@scribe/arbor'
+import { signal, effect } from '@scribe/signals'
+import { _setMount, _setSignal } from '@scribe/runtime'
+
+// Wire runtime to signals
+_setMount(mount)
+_setSignal(signal as Parameters<typeof _setSignal>[0])
+
+// Import your components (scribe SFCs are auto-compiled)
+import './pages/index.scribe'
+
+console.log('[scribe] ${name} mounted')
+`
+}
+
+/** index.html for a new scribe application. */
+export function appIndexHtml(name: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${name}</title>
+  <script type="module" src="./dist/${toSafe(name)}.js"></script>
+</head>
+<body>
+  <${toSafe(name)}-root></${toSafe(name)}-root>
+</body>
+</html>
+`
+}
+
+/** scribe.config.ts — kept for server/SSR config; optional for client-only apps. */
 export function appScribeConfig(): string {
   return "import { defineScribeConfig } from '@scribe/server'\nimport { definePlugin as data } from '@scribe/data'\nimport { definePlugin as agent } from '@scribe/agent'\n\nexport default defineScribeConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
 }
 
-/** vite.config.ts for a new application. */
+/** @deprecated Use appRolldownConfig instead. Kept for backward compat. */
 export function appViteConfig(): string {
-  return "import { defineConfig } from 'vite'\nimport { viteRouterIntegration } from '@scribe/router/plugin'\nimport { viteAgentReadinessIntegration } from '@scribe/agent-readiness'\n\nexport default defineConfig({\n  plugins: [\n    viteRouterIntegration({ pagesDir: 'src/pages' }),\n    viteAgentReadinessIntegration(),\n  ],\n})\n"
+  return appRolldownConfig('app')
 }
 
-/** src/pages/index.scribe for Hello World. */
-export function appIndexScribe(): string {
-  return "@route {\n  name: 'home',\n  layout: 'default'\n}\n\n@state {\n  $prop name: string = 'world'\n}\n\n@template {\n  <div class=\"home\">\n    <h1>Hello {{ name }}</h1>\n  </div>\n}\n\n@style {\n  .home {\n    padding: 2rem;\n    font-family: sans-serif;\n  }\n}\n"
+/** src/pages/index.scribe for Hello World (v1 syntax). */
+export function appIndexScribe(appName: string = 'app'): string {
+  const tag = toSafe(appName) + '-root'
+  return `@state {
+import { signal } from '@scribe/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
 }
 
-/** src/layouts/default.scribe for Hello World. */
+@template {
+  <div class="home">
+    <h1>Hello from scribe</h1>
+    <p>Count: {{ count }}</p>
+    <button $on:click={increment}>+1</button>
+  </div>
+}
+
+@style {
+.home {
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 600px;
+  margin: 0 auto;
+}
+button {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+}
+`
+}
+
+/** src/layouts/default.scribe for Hello World (v1 syntax). */
 export function appDefaultLayout(): string {
-  return "@template {\n  <div class=\"layout\">\n    <$slot />\n  </div>\n}\n\n@style {\n  .layout {\n    max-width: 1200px;\n    margin: 0 auto;\n  }\n}\n"
+  return '@template {\n  <div class="layout">\n    <slot />\n  </div>\n}\n\n@style {\n.layout {\n  max-width: 1200px;\n  margin: 0 auto;\n}\n}\n'
 }
 
 /** A page file for a given route path. */
@@ -134,17 +253,24 @@ export function pluginIndex(name: string): string {
 /**
  * Scaffold a new scribe application at `<outDir>/<name>/`.
  *
- * v0.8.2: Produces package.json, scribe.config.ts, vite.config.ts,
- * src/pages/index.scribe, src/layouts/default.scribe.
+ * v1.0: Uses rolldown (not Vite), v1 @state/{@template}/{@style} syntax.
+ * Produces: package.json, rolldown.config.ts, tsconfig.json,
+ *   index.html, src/main.ts, src/pages/index.scribe
  */
-export function scaffoldApp(name: string, outDir?: string): ScaffoldResult {
+export function scaffoldApp(
+  name: string,
+  outDir?: string,
+  opts?: { pm?: PkgManager; template?: AppTemplate },
+): ScaffoldResult {
+  const pm = opts?.pm ?? 'bun'
   const root = resolve(outDir ?? '.', name)
   return writeFiles(root, [
-    ['package.json', appPackageJson(name)],
-    ['scribe.config.ts', appScribeConfig()],
-    ['vite.config.ts', appViteConfig()],
-    ['src/pages/index.scribe', appIndexScribe()],
-    ['src/layouts/default.scribe', appDefaultLayout()],
+    ['package.json', appPackageJson(name, pm)],
+    ['rolldown.config.ts', appRolldownConfig(name)],
+    ['tsconfig.json', appTsConfig()],
+    ['index.html', appIndexHtml(name)],
+    ['src/main.ts', appMainTs(name)],
+    ['src/pages/index.scribe', appIndexScribe(name)],
   ])
 }
 
@@ -218,4 +344,18 @@ export function toKebab(name: string): string {
     .replace(/[^a-z0-9-]/g, '-')
     .replace(/-+/g, '-')
     .toLowerCase()
+}
+
+/**
+ * Convert a project name to a safe JS identifier (for use as rolldown input key
+ * or custom-element tag name component). Strips leading digits, replaces
+ * non-alphanumeric with hyphens.
+ */
+export function toSafe(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/^[^a-z]+/, '')
+    .replace(/-+/g, '-')
+    .replace(/-$/, '') || 'app'
 }

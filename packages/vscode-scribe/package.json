@@ -1,0 +1,73 @@
+{
+  "name": "vscode-scribe",
+  "displayName": "Scribe",
+  "description": "Syntax highlighting, snippets, and language support for .scribe Single File Components",
+  "version": "1.0.0",
+  "publisher": "fellwork",
+  "license": "MIT",
+  "icon": "icons/scribe.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "scribe",
+    "web components",
+    "sfc",
+    "signals",
+    "custom elements"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fellwork/scribe"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "scribe",
+        "aliases": [
+          "Scribe",
+          "scribe"
+        ],
+        "extensions": [
+          ".scribe"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/scribe.svg",
+          "dark": "./icons/scribe.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "scribe",
+        "scopeName": "source.scribe",
+        "path": "./syntaxes/scribe.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.block.state.scribe source.ts": "typescript",
+          "meta.block.template.scribe text.html": "html",
+          "meta.block.style.scribe source.css": "css",
+          "meta.block.agent.scribe source.ts": "typescript",
+          "meta.block.route.scribe source.yaml": "yaml"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "scribe",
+        "path": "./snippets/scribe.code-snippets"
+      }
+    ]
+  },
+  "scripts": {
+    "vsce:package": "vsce package",
+    "vsce:publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  }
+}
