@@ -38,7 +38,7 @@ describe('_hmrReplace — Plan 4.1', () => {
     document.body.appendChild(el)
 
     // Confirm initial render.
-    expect(el.shadowRoot!.querySelector('span')?.textContent).toBe('v1')
+    expect(el.shadowRoot?.querySelector('span')?.textContent).toBe('v1')
 
     // Setup v2: renders a <p>v2</p>
     const setup2 = (_ctx: SetupContext) => branch('p', undefined, [leaf('v2')])
@@ -47,8 +47,8 @@ describe('_hmrReplace — Plan 4.1', () => {
     _hmrReplace(el, setup2)
 
     // Old tree gone; new tree present.
-    expect(el.shadowRoot!.querySelector('span')).toBeNull()
-    expect(el.shadowRoot!.querySelector('p')?.textContent).toBe('v2')
+    expect(el.shadowRoot?.querySelector('span')).toBeNull()
+    expect(el.shadowRoot?.querySelector('p')?.textContent).toBe('v2')
 
     el.remove()
   })
@@ -129,11 +129,11 @@ describe('_hmrReplace — Plan 4.1', () => {
     // New setup introduces a reactive signal.
     const [count, setCount] = signal(0)
     const setup2 = (_ctx: SetupContext) =>
-      branch('span', undefined, [leaf([count, setCount] as Parameters<typeof leaf>[0])])
+      branch('span', undefined, [leaf([count, setCount] as unknown as Parameters<typeof leaf>[0])])
 
     _hmrReplace(el, setup2)
 
-    const span = el.shadowRoot!.querySelector('span')
+    const span = el.shadowRoot?.querySelector('span')
     expect(span?.textContent).toBe('0')
 
     setCount(42)

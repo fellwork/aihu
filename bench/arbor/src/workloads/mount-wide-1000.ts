@@ -25,15 +25,14 @@
  * 100k live signals — manageable but large enough to be meaningful.
  */
 
-import { html as litHtml } from 'lit-html'
-import { h as preactH } from 'preact'
-import type { VNode } from 'preact'
-import { createSignal } from 'solid-js'
-import solidH from 'solid-js/h'
-import { h as vueH, ref } from '@vue/runtime-dom'
-
 import { branch, leaf } from '@scribe/arbor'
 import { signal } from '@scribe/signals'
+import { ref, h as vueH } from '@vue/runtime-dom'
+import { html as litHtml } from 'lit-html'
+import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
+import { createSignal } from 'solid-js'
+import solidH from 'solid-js/h'
 
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'
@@ -88,7 +87,9 @@ export const mountWide: WorkloadDefinition = {
     // the mount cost is the honest measurement for lit at this workload shape.
     if (adapter.name === 'lit-html') {
       const items = Array.from({ length: BRANCH_COUNT }, (_, i) => i)
-      setLitTemplate(() => litHtml`<div>${items.map((i) => litHtml`<div><span>${i}</span></div>`)}</div>`)
+      setLitTemplate(
+        () => litHtml`<div>${items.map((i) => litHtml`<div><span>${i}</span></div>`)}</div>`,
+      )
 
       const host = getHost()
       const session = adapter.setup(host)
@@ -165,8 +166,9 @@ export const mountWide: WorkloadDefinition = {
     // ---------- preact ----------
     // preact has no fine-grained signals in this bench. 1000 static branches.
     if (adapter.name === 'preact') {
-      const children: VNode[] = Array.from({ length: BRANCH_COUNT }, (_, i) =>
-        preactH('div', null, preactH('span', null, String(i))) as VNode,
+      const children: VNode[] = Array.from(
+        { length: BRANCH_COUNT },
+        (_, i) => preactH('div', null, preactH('span', null, String(i))) as VNode,
       )
       setPreactVNode(() => preactH('div', null, ...children) as VNode)
 

@@ -51,12 +51,12 @@ describe('slot(name) — named slot', () => {
   it('named slot stores the name in attrs.name', () => {
     const node = slot('header')
     expect(node.attrs).not.toBeNull()
-    expect((node.attrs as Record<string, unknown>)['name']).toBe('header')
+    expect((node.attrs as Record<string, unknown>).name).toBe('header')
   })
 
   it('named slot with "footer" stores correct name', () => {
     const node = slot('footer')
-    expect((node.attrs as Record<string, unknown>)['name']).toBe('footer')
+    expect((node.attrs as Record<string, unknown>).name).toBe('footer')
   })
 
   it('named slot has value === null per shape-lock §2.9', () => {

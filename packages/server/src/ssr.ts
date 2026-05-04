@@ -28,10 +28,7 @@ let _clearContextMap: (() => void) | undefined
  *   import { _setContextFns } from '@scribe/server'
  *   _setContextFns(setSsrContextMap, clearSsrContextMap)
  */
-export function _setContextFns(
-  set: (map: Map<symbol, unknown>) => void,
-  clear: () => void,
-): void {
+export function _setContextFns(set: (map: Map<symbol, unknown>) => void, clear: () => void): void {
   _setContextMap = set
   _clearContextMap = clear
 }
@@ -103,15 +100,13 @@ export interface SsrOptions {
  * 1. `() => unknown` — factory returning an arbor Branch | Leaf.
  * 2. `{ toHtml(): string }` — direct HTML provider (escape hatch).
  */
-export type ComponentDescription =
-  | (() => unknown)
-  | { toHtml(): string }
+export type ComponentDescription = (() => unknown) | { toHtml(): string }
 
 function escapeAttr(val: string): string {
   return val.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
-function renderNode(node: unknown, path: string, hydratable: boolean): string {
+function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   if (typeof node !== 'object' || node === null) return ''
   const obj = node as Record<string, unknown>
   if (!('kind' in obj)) return ''
@@ -134,7 +129,7 @@ function renderNode(node: unknown, path: string, hydratable: boolean): string {
     }
     if (hydratable) attrStr += ` data-scribe-path="${escapeAttr(path)}"`
     const children = Array.isArray(obj.children) ? obj.children : []
-    const inner = children.map((c, i) => renderNode(c, `${path}.${i}`, hydratable)).join('')
+    const inner = children.map((c, i) => _renderNode(c, `${path}.${i}`, hydratable)).join('')
     return `<${tag}${attrStr}>${inner}</${tag}>`
   }
 
@@ -190,9 +185,10 @@ async function renderNodeAsync(
 
   if (obj.kind === 'branch') {
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    const attrs = typeof obj.attrs === 'object' && obj.attrs !== null
-      ? obj.attrs as Record<string, string | boolean>
-      : {}
+    const attrs =
+      typeof obj.attrs === 'object' && obj.attrs !== null
+        ? (obj.attrs as Record<string, string | boolean>)
+        : {}
     let attrStr = ''
     for (const [k, v] of Object.entries(attrs)) {
       if (v === true) attrStr += ` ${k}`
@@ -204,7 +200,12 @@ async function renderNodeAsync(
 
     // Check for DataSource boundary (duck-type check — no arbor type changes needed)
     const dataSource = obj.dataSource as
-      | { status: 'pending' | 'ready' | 'error'; value?: unknown; error?: unknown; onReady(cb: () => void): () => void }
+      | {
+          status: 'pending' | 'ready' | 'error'
+          value?: unknown
+          error?: unknown
+          onReady(cb: () => void): () => void
+        }
       | undefined
 
     if (!dataSource || typeof dataSource !== 'object') {
@@ -351,7 +352,7 @@ export async function renderToString(
   const hasContext = Boolean(opts?.contextSetup && _setContextMap && _clearContextMap)
   if (hasContext && opts?.contextSetup) {
     opts.contextSetup(_setContextMap!, _clearContextMap!)
-    _setContextMap!(new Map<symbol, unknown>())
+    _setContextMap?.(new Map<symbol, unknown>())
   }
 
   try {

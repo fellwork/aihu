@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { renderToString } from '@scribe/server'
+import { describe, expect, it } from 'vitest'
 
 describe('@scribe/server SSR structural compliance', () => {
   // Test 1: DOCTYPE present when opts.head provided
@@ -13,19 +13,13 @@ describe('@scribe/server SSR structural compliance', () => {
 
   // Test 2: <html> tag present when opts.head provided
   it('<html> tag present when opts.head provided', async () => {
-    const result = await renderToString(
-      { toHtml: () => '<p>content</p>' },
-      { head: {} },
-    )
+    const result = await renderToString({ toHtml: () => '<p>content</p>' }, { head: {} })
     expect(result).toContain('<html>')
   })
 
   // Test 3: <head> contains <title> when opts.head.title set
   it('<head> contains <title> when opts.head.title set', async () => {
-    const result = await renderToString(
-      { toHtml: () => '' },
-      { head: { title: 'My Title' } },
-    )
+    const result = await renderToString({ toHtml: () => '' }, { head: { title: 'My Title' } })
     expect(result).toContain('<title>My Title</title>')
     // Must be inside <head> before <body>
     const headEnd = result.indexOf('</head>')
@@ -80,7 +74,12 @@ describe('@scribe/server SSR structural compliance', () => {
         tag: 'div',
         attrs: { class: 'container' },
         children: [
-          { kind: 'branch' as const, tag: 'p', attrs: {}, children: [{ kind: 'leaf' as const, text: 'Hello' }] },
+          {
+            kind: 'branch' as const,
+            tag: 'p',
+            attrs: {},
+            children: [{ kind: 'leaf' as const, text: 'Hello' }],
+          },
         ],
       }),
       { head: { title: 'Check' } },
@@ -91,14 +90,12 @@ describe('@scribe/server SSR structural compliance', () => {
 
   // Test 7: boolean attr disabled: true → attribute present without value
   it('branch with boolean attr disabled: true → disabled attribute emitted without value', async () => {
-    const result = await renderToString(
-      () => ({
-        kind: 'branch' as const,
-        tag: 'button',
-        attrs: { disabled: true },
-        children: [{ kind: 'leaf' as const, text: 'Click' }],
-      }),
-    )
+    const result = await renderToString(() => ({
+      kind: 'branch' as const,
+      tag: 'button',
+      attrs: { disabled: true },
+      children: [{ kind: 'leaf' as const, text: 'Click' }],
+    }))
     // Should contain " disabled" (the attribute name only, no ="...")
     expect(result).toContain('<button disabled>')
     expect(result).not.toContain('disabled="')
@@ -106,41 +103,37 @@ describe('@scribe/server SSR structural compliance', () => {
 
   // Test 8: boolean attr disabled: false → attribute omitted
   it('branch with boolean attr disabled: false → attr omitted from output', async () => {
-    const result = await renderToString(
-      () => ({
-        kind: 'branch' as const,
-        tag: 'button',
-        attrs: { disabled: false },
-        children: [{ kind: 'leaf' as const, text: 'Click' }],
-      }),
-    )
+    const result = await renderToString(() => ({
+      kind: 'branch' as const,
+      tag: 'button',
+      attrs: { disabled: false },
+      children: [{ kind: 'leaf' as const, text: 'Click' }],
+    }))
     expect(result).not.toContain('disabled')
   })
 
   // Test 9: Nested branches render at correct depth
   it('nested branches render at correct depth', async () => {
-    const result = await renderToString(
-      () => ({
-        kind: 'branch' as const,
-        tag: 'nav',
-        attrs: {},
-        children: [
-          {
-            kind: 'branch' as const,
-            tag: 'ul',
-            attrs: {},
-            children: [
-              {
-                kind: 'branch' as const,
-                tag: 'li',
-                attrs: {},
-                children: [{ kind: 'leaf' as const, text: 'Item' }],
-              },
-            ],
-          },
-        ],
-      }),
-    )
+    const result = await renderToString(() => ({
+      kind: 'branch' as const,
+      tag: 'nav',
+      attrs: {},
+      children: [
+        {
+          kind: 'branch' as const,
+          tag: 'ul',
+          attrs: {},
+          children: [
+            {
+              kind: 'branch' as const,
+              tag: 'li',
+              attrs: {},
+              children: [{ kind: 'leaf' as const, text: 'Item' }],
+            },
+          ],
+        },
+      ],
+    }))
     expect(result).toBe('<nav><ul><li>Item</li></ul></nav>')
   })
 
@@ -152,7 +145,12 @@ describe('@scribe/server SSR structural compliance', () => {
         tag: 'div',
         attrs: {},
         children: [
-          { kind: 'branch' as const, tag: 'span', attrs: {}, children: [{ kind: 'leaf' as const, text: 'hi' }] },
+          {
+            kind: 'branch' as const,
+            tag: 'span',
+            attrs: {},
+            children: [{ kind: 'leaf' as const, text: 'hi' }],
+          },
         ],
       }),
       { hydratable: true },

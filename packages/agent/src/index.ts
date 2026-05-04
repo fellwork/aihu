@@ -6,4 +6,4 @@
  * accessed only by tests via the registry module path.
  */
 export type { ActionSchema, AgentMetadata, InputSchema } from './registry.ts'
-export { getAllAgentMetadata, getAgentMetadata, registerAgentMetadata } from './registry.ts'
+export { getAgentMetadata, getAllAgentMetadata, registerAgentMetadata } from './registry.ts'

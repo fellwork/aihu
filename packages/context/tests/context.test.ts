@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+
 import {
   clearSsrContextMap,
   createContext,
@@ -8,6 +8,7 @@ import {
   runWithContext,
   setSsrContextMap,
 } from '@scribe/context'
+import { describe, expect, it } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // 1. createContext returns an opaque token with correct default

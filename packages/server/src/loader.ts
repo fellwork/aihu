@@ -30,8 +30,8 @@
  *   (NATIVE_FAILED_LOUD never reaches renderToString — module load throws.)
  */
 
-import { renderToString as tsRenderToString } from './ssr.ts'
 import type { ComponentDescription, SsrOptions } from './ssr.ts'
+import { renderToString as tsRenderToString } from './ssr.ts'
 
 // ---------------------------------------------------------------------------
 // Platform support matrix
@@ -135,11 +135,7 @@ function resolveState(): LoaderState {
   // This is the only env-var lever in the loader contract. detectEdge() also
   // honours SCRIBE_NATIVE_SKIP, but checking it explicitly here makes the
   // intent obvious and keeps the early return cheap.
-  if (
-    typeof process !== 'undefined' &&
-    process.env &&
-    process.env.SCRIBE_NATIVE_SKIP === '1'
-  ) {
+  if (typeof process !== 'undefined' && process.env && process.env.SCRIBE_NATIVE_SKIP === '1') {
     _state = { kind: 'edge-skipped' }
     return _state
   }
@@ -246,10 +242,7 @@ function buildMissingBinaryError(descriptor: PlatformDescriptor): ScribeNativeEr
   return new ScribeNativeError(msg, 'SCRIBE_NATIVE_MISSING')
 }
 
-function buildCorruptBinaryError(
-  descriptor: PlatformDescriptor,
-  cause: Error,
-): ScribeNativeError {
+function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): ScribeNativeError {
   const msg =
     `[@scribe/server] Native renderer binary failed to load.\n\n` +
     `  Platform:         ${descriptor.platformId}\n` +
@@ -304,11 +297,7 @@ export async function renderToString(
 ): Promise<string> {
   // Hard fall-throughs to TS — these features cannot cross the FFI boundary.
   // (Spec §1 non-goals: serializer, contextSetup. Spec §2.3: { toHtml } stays JS.)
-  if (
-    opts?.serializer ||
-    opts?.contextSetup ||
-    typeof component !== 'function'
-  ) {
+  if (opts?.serializer || opts?.contextSetup || typeof component !== 'function') {
     return tsRenderToString(component, opts)
   }
 

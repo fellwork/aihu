@@ -23,9 +23,9 @@
 
 import type { Dispose } from '@scribe/signals'
 import { _applyAttrs } from './attrs.ts'
-import { _observeMount } from './telemetry.ts'
-import { mount, _mountEffect, _mountDisposersStack, _makeScope } from './mount.ts'
 import { _materialize } from './materialize.ts'
+import { _makeScope, _mountDisposersStack, _mountEffect, type mount } from './mount.ts'
+import { _observeMount } from './telemetry.ts'
 import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,14 @@ function _hydrateNode(
         const path = `${pathBase}.text`
         signalRegistry.set(path, get)
         const tn = textNode
-        _mountEffect(disposers, () => { tn.nodeValue = String(get()) }, path, errorHandler)
+        _mountEffect(
+          disposers,
+          () => {
+            tn.nodeValue = String(get())
+          },
+          path,
+          errorHandler,
+        )
         return
       }
       // Mismatch: no text node found — fall back to materialize for this leaf.
@@ -105,7 +112,15 @@ function _hydrateNode(
     }
     if (found && node.attrs) {
       // Wire only reactive attrs; static attrs are already set by SSR.
-      _applyAttrs(found, node.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
+      _applyAttrs(
+        found,
+        node.attrs,
+        disposers,
+        pathBase,
+        _mountEffect,
+        errorHandler,
+        signalRegistry,
+      )
       return
     }
     if (!found) {
@@ -140,12 +155,28 @@ function _hydrateNode(
 
   // Wire reactive attrs to the existing element.
   if (branchNode.attrs) {
-    _applyAttrs(existingEl, branchNode.attrs, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
+    _applyAttrs(
+      existingEl,
+      branchNode.attrs,
+      disposers,
+      pathBase,
+      _mountEffect,
+      errorHandler,
+      signalRegistry,
+    )
   }
 
   // Recurse into children.
   branchNode.children.forEach((c, i) => {
-    _hydrateNode(c as Node, existingEl, `${pathBase}.${i}`, disposers, signalRegistry, pathMap, errorHandler)
+    _hydrateNode(
+      c as Node,
+      existingEl,
+      `${pathBase}.${i}`,
+      disposers,
+      signalRegistry,
+      pathMap,
+      errorHandler,
+    )
   })
 }
 

@@ -1,7 +1,7 @@
-import type { RouteContext, RouteHandler, Middleware } from './types.ts'
 import type { DefinedLoader, LoadedRouteContext } from './data.ts'
 import { runLoader } from './data.ts'
 import { composeMiddleware } from './middleware.ts'
+import type { Middleware, RouteContext, RouteHandler } from './types.ts'
 
 export interface Route {
   readonly pattern: string
@@ -15,7 +15,11 @@ export interface RouteOptions<T = never> {
 }
 
 /** Register a route without a loader. */
-export function defineRoute(pattern: string, handler: RouteHandler, options?: RouteOptions<never>): Route
+export function defineRoute(
+  pattern: string,
+  handler: RouteHandler,
+  options?: RouteOptions<never>,
+): Route
 /** Register a route with a loader — handler receives `LoadedRouteContext<T>`. */
 export function defineRoute<T>(
   pattern: string,
@@ -24,14 +28,18 @@ export function defineRoute<T>(
 ): Route
 export function defineRoute<T = never>(
   pattern: string,
-  handler: RouteHandler | ((req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>),
+  handler:
+    | RouteHandler
+    | ((req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>),
   options?: RouteOptions<T>,
 ): Route {
   const loader = options?.loader
   const finalHandler: RouteHandler = loader
     ? async (req, ctx) => {
         const loaderData = await runLoader(loader.fn, ctx)
-        return (handler as (req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>)(req, { ...ctx, loaderData })
+        return (
+          handler as (req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>
+        )(req, { ...ctx, loaderData })
       }
     : (handler as RouteHandler)
   const result: Route = { pattern, handler: finalHandler }
@@ -64,7 +72,7 @@ function matchRoute(pattern: string, pathname: string): Record<string, string> |
   if (kind === 'static') return pattern === pathname ? {} : null
   if (kind === 'catchall') {
     const base = pattern.endsWith('/*') ? pattern.slice(0, -2) : ''
-    if (base === '' || pathname === base || pathname.startsWith(base + '/')) {
+    if (base === '' || pathname === base || pathname.startsWith(`${base}/`)) {
       return { '*': base === '' ? pathname : pathname.slice(base.length + 1) }
     }
     return null

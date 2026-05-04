@@ -4,7 +4,8 @@ import { agentMetadataToSkills, generateMcpServerCard } from '../src/mcp-server-
 describe('@scribe/agent-readiness mcp-server-card', () => {
   it('AC-2: generateMcpServerCard produces valid MCP Server Card', () => {
     const card = generateMcpServerCard({
-      name: 'Test MCP', version: '1.0.0',
+      name: 'Test MCP',
+      version: '1.0.0',
       endpoint: 'https://test.example.com/mcp',
       skills: [{ id: 'greet', name: 'Greet', description: 'Says hello.' }],
     })
@@ -17,9 +18,15 @@ describe('@scribe/agent-readiness mcp-server-card', () => {
     expect(card.auth).toBeUndefined()
     expect(() => JSON.stringify(card)).not.toThrow()
     const cardWithAuth = generateMcpServerCard({
-      name: 'Protected', version: '1.0.0', endpoint: 'https://secure.example.com/mcp',
-      auth: { type: 'oauth2', authorizationUrl: 'https://auth.example.com/authorize',
-              tokenUrl: 'https://auth.example.com/token', scopes: ['mcp:read'] },
+      name: 'Protected',
+      version: '1.0.0',
+      endpoint: 'https://secure.example.com/mcp',
+      auth: {
+        type: 'oauth2',
+        authorizationUrl: 'https://auth.example.com/authorize',
+        tokenUrl: 'https://auth.example.com/token',
+        scopes: ['mcp:read'],
+      },
     })
     expect(cardWithAuth.auth?.type).toBe('oauth2')
     const authStr = JSON.stringify(cardWithAuth.auth)

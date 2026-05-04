@@ -12,8 +12,8 @@
 
 import { signal } from '@scribe/signals'
 import { describe, expect, it } from 'vitest'
-import { branch, leaf } from '../src/index.ts'
 import { hydrate } from '../src/hydrate.ts'
+import { branch, leaf } from '../src/index.ts'
 import { mount } from '../src/mount.ts'
 
 // ---------------------------------------------------------------------------
@@ -110,11 +110,7 @@ describe('hydrate() — happy path', () => {
     const setText = sig[1]
 
     // hydrate — should attach signal to the existing text node
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     // innerHTML must be unchanged (no new elements created)
     expect(host.innerHTML).toBe(innerBefore)
@@ -138,11 +134,7 @@ describe('hydrate() — happy path', () => {
     const sig = signal('red')
     const setColor = sig[1]
 
-    const scope = hydrate(
-      () => branch('span', { 'data-color': sig as never }),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('span', { 'data-color': sig as never }), host, {})
 
     expect(host.innerHTML).toBe(innerBefore)
 
@@ -161,11 +153,7 @@ describe('hydrate() — happy path', () => {
     host.appendChild(p)
 
     const sig = signal('test')
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     expect(typeof scope.dispose).toBe('function')
     expect(typeof scope.serialize).toBe('function')
@@ -184,11 +172,7 @@ describe('hydrate() — mismatch fallback', () => {
     const host = document.createElement('div')
 
     const sig = signal('hello')
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     // Fallback mount created the element
     const p = host.querySelector('p')
@@ -203,11 +187,7 @@ describe('hydrate() — mismatch fallback', () => {
     const sig = signal('initial')
     const setText = sig[1]
 
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     const p = host.querySelector('p')
     expect(p?.textContent).toBe('initial')
@@ -290,11 +270,7 @@ describe('hydrate().dispose()', () => {
 
     const sig = signal('before')
     const setText = sig[1]
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     // Pre-dispose: reactive
     setText('during')
@@ -315,11 +291,7 @@ describe('hydrate().dispose()', () => {
     host.appendChild(p)
 
     const sig = signal('x')
-    const scope = hydrate(
-      () => branch('p', undefined, [leaf(sig)]),
-      host,
-      {},
-    )
+    const scope = hydrate(() => branch('p', undefined, [leaf(sig)]), host, {})
 
     scope.dispose()
     expect(() => scope.dispose()).not.toThrow()

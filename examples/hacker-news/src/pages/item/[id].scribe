@@ -46,7 +46,7 @@
 
     <section class="comments">
       <h2 $if={route.data.comments.length > 0}>Comments</h2>
-      <Comment $each="route.data.comments" $key="commentKey" comment={item} />
+      <Comment $each="route.data.comments as item" $key={item.id} comment={item} />
     </section>
   </main>
 }

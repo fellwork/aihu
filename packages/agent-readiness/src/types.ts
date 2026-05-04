@@ -1,5 +1,5 @@
 // Mirror of @scribe/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
-import type { LlmsTxtSection, LlmsTxtLink } from './llms-txt.ts'
+import type { LlmsTxtLink, LlmsTxtSection } from './llms-txt.ts'
 import type { AgentSkill } from './mcp-server-card.ts'
 import type { RobotsConfig, RobotsRule } from './robots.ts'
 

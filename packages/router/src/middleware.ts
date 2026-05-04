@@ -55,9 +55,7 @@ export function defineRouterMiddleware(fn: RouterMiddleware): RouterMiddleware {
 //   → route handler
 //   → after-handler (server, plugin-contributed)
 //   → on-error
-export function composeRouterMiddleware(
-  ...middlewares: RouterMiddleware[]
-): RouterMiddleware {
+export function composeRouterMiddleware(...middlewares: RouterMiddleware[]): RouterMiddleware {
   return async (ctx, next) => {
     const run = async (i: number): Promise<RouterResult> =>
       i < middlewares.length ? middlewares[i]!(ctx, () => run(i + 1)) : next()

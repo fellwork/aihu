@@ -184,7 +184,7 @@ export function _makeScope(
     dispose(): void {
       if (disposed) return
       disposed = true
-      for (let i = disposers.length; i--;) disposers[i]?.()
+      for (let i = disposers.length; i--; ) disposers[i]?.()
       cleanup?.()
     },
     agent: _frozenAgent,
@@ -225,7 +225,15 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   // absent, the rethrow propagates through finally so the pop still runs.
   _mountDisposersStack.push(disposers)
   try {
-    appendedRoots = _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
+    appendedRoots = _materialize(
+      node,
+      host,
+      disposers,
+      pathBase,
+      _mountEffect,
+      errorHandler,
+      signalRegistry,
+    )
   } catch (err: unknown) {
     if (!errorHandler) throw err
     // Plan 1.1: any returned fallback Node is currently discarded (stub).

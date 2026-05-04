@@ -13,8 +13,8 @@
  */
 
 import { branch, leaf, mount } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
 import type { Signal } from '@scribe/signals'
+import { signal } from '@scribe/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { _setMount, _setSignal, defineComponent } from '../src/define-component.ts'
 import { defineElement } from '../src/define-element.ts'
@@ -56,7 +56,7 @@ describe('defineComponent — Task 21b spec tests', () => {
     defineElement('x-c3', Cmp)
     const el = document.createElement('x-c3')
     document.body.appendChild(el)
-    const p = el.shadowRoot!.querySelector('p') as HTMLElement
+    const p = el.shadowRoot?.querySelector('p') as HTMLElement
     expect(p.textContent).toBe('a')
     setText('b')
     expect(p.textContent).toBe('b')
@@ -126,7 +126,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
         const typedCtx = ctx as unknown as { attrs: { count: Signal<string> } }
         capturedAttrSignal = typedCtx.attrs.count
         // Pass the full Signal tuple to leaf (Signal<string> | string)
-        return leaf(capturedAttrSignal)
+        return leaf(capturedAttrSignal!)
       },
     })
     defineElement('x-p3', Cmp)
@@ -137,7 +137,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     expect(capturedAttrSignal).not.toBeNull()
     expect(capturedAttrSignal![0]()).toBe('42')
     // The rendered text content should also be '42'
-    expect(el.shadowRoot!.textContent).toBe('42')
+    expect(el.shadowRoot?.textContent).toBe('42')
     el.remove()
   })
 
@@ -150,7 +150,7 @@ describe('defineComponent — Plan 1.2 props tests', () => {
       setup: (ctx) => {
         const typedCtx = ctx as unknown as { attrs: { count: Signal<string> } }
         capturedSignal = typedCtx.attrs.count
-        return leaf(capturedSignal[0])
+        return leaf(capturedSignal!)
       },
     })
     defineElement('x-p4', Cmp)
@@ -177,7 +177,9 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     // jsdom's error-swallowing in appendChild (jsdom turns synchronous
     // connectedCallback throws into unhandled exceptions rather than
     // propagating them through appendChild).
-    const el = Object.create(Cmp.prototype) as InstanceType<typeof Cmp> & { connectedCallback(): void }
+    const el = Object.create(Cmp.prototype) as InstanceType<typeof Cmp> & {
+      connectedCallback(): void
+    }
     expect(() => el.connectedCallback()).toThrow(RuntimeError)
 
     // Restore signal injection for subsequent tests.

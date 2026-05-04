@@ -22,14 +22,13 @@
 
 import fc from 'fast-check'
 import { beforeAll, describe, expect, it } from 'vitest'
-
-import { renderToString as tsImpl } from '../src/ssr.ts'
 import {
   _getLoaderStateKind,
   _resetLoaderState,
   renderToString as nativeImpl,
 } from '../src/loader.ts'
 import type { ComponentDescription } from '../src/ssr.ts'
+import { renderToString as tsImpl } from '../src/ssr.ts'
 
 // ---------------------------------------------------------------------------
 // Skip-detection. Resolved once in beforeAll; if native is not loaded we
@@ -194,17 +193,11 @@ const leafArb = fc.record({
   text: fc.string({ maxLength: 200 }),
 })
 
-const attrValueArb = fc.oneof(
-  fc.string({ maxLength: 100 }),
-  fc.constant(true),
-  fc.constant(false),
-)
+const attrValueArb = fc.oneof(fc.string({ maxLength: 100 }), fc.constant(true), fc.constant(false))
 
-const attrMapArb = fc.dictionary(
-  fc.stringMatching(/^[a-z][a-z0-9-]{0,19}$/),
-  attrValueArb,
-  { maxKeys: 8 },
-)
+const attrMapArb = fc.dictionary(fc.stringMatching(/^[a-z][a-z0-9-]{0,19}$/), attrValueArb, {
+  maxKeys: 8,
+})
 
 // Recursive branch arb. fast-check `letrec` handles the depth limit cleanly.
 const { tree: treeArb } = fc.letrec((tie) => ({

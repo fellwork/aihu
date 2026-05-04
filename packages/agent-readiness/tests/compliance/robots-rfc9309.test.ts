@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { generateRobotsTxt, AI_BOT_LIST } from '../../src/robots.ts'
+import { AI_BOT_LIST, generateRobotsTxt } from '../../src/robots.ts'
 
 describe('robots.txt RFC 9309 compliance', () => {
   it('User-agent lines appear before Allow/Disallow in each block', () => {
     const out = generateRobotsTxt({ aiAgents: 'allow-all' })
-    const blocks = out.split('\n\n').filter(b => b.trim().length > 0)
+    const blocks = out.split('\n\n').filter((b) => b.trim().length > 0)
     for (const block of blocks) {
       const lines = block.split('\n')
-      const firstAllowDisallow = lines.findIndex(l => l.startsWith('Allow:') || l.startsWith('Disallow:'))
-      const firstUserAgent = lines.findIndex(l => l.startsWith('User-agent:'))
+      const firstAllowDisallow = lines.findIndex(
+        (l) => l.startsWith('Allow:') || l.startsWith('Disallow:'),
+      )
+      const firstUserAgent = lines.findIndex((l) => l.startsWith('User-agent:'))
       if (firstAllowDisallow !== -1 && firstUserAgent !== -1) {
         expect(firstUserAgent).toBeLessThan(firstAllowDisallow)
       }
@@ -49,9 +51,9 @@ describe('robots.txt RFC 9309 compliance', () => {
     const out = generateRobotsTxt({
       standard: [{ userAgent: 'Googlebot', allow: ['/'], crawlDelay: 10 }],
     })
-    const cdLine = out.split('\n').find(l => l.startsWith('Crawl-delay:'))
+    const cdLine = out.split('\n').find((l) => l.startsWith('Crawl-delay:'))
     expect(cdLine).toBeDefined()
-    const val = Number(cdLine!.replace('Crawl-delay:', '').trim())
+    const val = Number(cdLine?.replace('Crawl-delay:', '').trim())
     expect(val).toBeGreaterThan(0)
   })
 

@@ -23,7 +23,7 @@
  * forms (e.g. condition:e from the when() factory).
  */
 import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -59,7 +59,7 @@ const replacements = [
 
   // recomputeIfNeeded first — longest name, highest per-occurrence savings
   [/\.recomputeIfNeeded\b/g, '.ri'],
-  [/\brecomputeIfNeeded\b/g, 'ri'],   // shorthand method: ,recomputeIfNeeded(
+  [/\brecomputeIfNeeded\b/g, 'ri'], // shorthand method: ,recomputeIfNeeded(
 
   // K1c+ Computed instance fields and prototype method
   [/\.hasEffectSub\b/g, '.he'],
@@ -97,7 +97,7 @@ const replacements = [
 
   // notify — shorthand method (dot form covered above as .no after .notify)
   [/\.notify\b/g, '.no'],
-  [/\bnotify\b/g, 'no'],              // shorthand method: ,notify(
+  [/\bnotify\b/g, 'no'], // shorthand method: ,notify(
 
   // R7: 3-char Link/EffectNode field names. Only `.X` access patterns
   // and `X:` definition patterns (NOT bareword `X` — those are local

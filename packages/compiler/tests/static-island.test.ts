@@ -7,10 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import {
-  _buildDeferredHydration,
-  _buildStaticIsland,
-} from '../js/index.ts'
+import { _buildDeferredHydration, _buildStaticIsland } from '../js/index.ts'
 
 const STATIC_OUTPUT = `import { branch, leaf, slot } from '@scribe/arbor'
 import { defineComponent, defineElement } from '@scribe/runtime'
@@ -63,9 +60,7 @@ describe('_buildStaticIsland — Plan 3.3', () => {
 describe('_buildDeferredHydration — Plan 3.3', () => {
   it('imports _hydrateOnVisible from @scribe/runtime (#1)', () => {
     const out = _buildDeferredHydration(INTERACTIVE_OUTPUT, 'x-counter')
-    expect(out).toMatch(
-      /import\s*\{[^}]*\b_hydrateOnVisible\b[^}]*\}\s*from\s*'@scribe\/runtime'/,
-    )
+    expect(out).toMatch(/import\s*\{[^}]*\b_hydrateOnVisible\b[^}]*\}\s*from\s*'@scribe\/runtime'/)
   })
 
   it('wraps defineComponent so defer instances hydrate lazily (#2)', () => {

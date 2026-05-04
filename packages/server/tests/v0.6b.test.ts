@@ -3,10 +3,9 @@
  *   - v0.6.5: BuildTarget type + build.target in defineScribeConfig
  *   - v0.6.7: createServerCall stub
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { defineScribeConfig } from '../src/index.ts'
-import { createServerCall } from '../src/index.ts'
-import type { BuildTarget, BuildConfig } from '../src/index.ts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BuildConfig, BuildTarget } from '../src/index.ts'
+import { createServerCall, defineScribeConfig } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
 // v0.6.5 — BuildTarget type + ScribeConfig.build

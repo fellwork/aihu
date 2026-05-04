@@ -1,8 +1,15 @@
-import { batch, boolLatticeSignal, effect, maxLatticeSignal, signal, untrack } from '@scribe/signals'
-import type { Signal } from '@scribe/signals'
 import { inject } from '@scribe/context'
-import { ResourceStoreToken, createResourceStore } from './store.ts'
+import type { Signal } from '@scribe/signals'
+import {
+  batch,
+  boolLatticeSignal,
+  effect,
+  maxLatticeSignal,
+  signal,
+  untrack,
+} from '@scribe/signals'
 import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
+import { createResourceStore, ResourceStoreToken } from './store.ts'
 import type { DataState, Resource, ResourceHandle, ResourceOptions } from './types.ts'
 
 // Module-level default singleton store, lazy-initialized on first use.
@@ -36,9 +43,7 @@ export function createResource<T>(
   // 1. Resolve the cache store (injection happens at createResource call time,
   //    i.e. during component setup — matching @scribe/context's sync model).
   const store: ResourceStore =
-    options?.store ??
-    inject(ResourceStoreToken) ??
-    (_defaultStore ??= createResourceStore())
+    options?.store ?? inject(ResourceStoreToken) ?? (_defaultStore ??= createResourceStore())
 
   // 2. Determine initial state.
   const initialState: DataState<T> =
@@ -62,12 +67,13 @@ export function createResource<T>(
   //    .then callbacks run outside any tracking scope, so direct read() is
   //    safe there.
   const _v = maxLatticeSignal(0)
-  const _bump = (): number => untrack(() => {
-    const n = _v.read() + 1
-    _v.merge(n)
-    _v.commit()
-    return n
-  })
+  const _bump = (): number =>
+    untrack(() => {
+      const n = _v.read() + 1
+      _v.merge(n)
+      _v.commit()
+      return n
+    })
 
   // 6. Internal helper: start a fetch for a given key, writing loading/ready/error.
   function _startFetch(fetchKey: string): void {
@@ -82,7 +88,7 @@ export function createResource<T>(
         store.set(fetchKey, next as DataState<unknown>)
         // If dehydrate: true, mark this key as dehydration-eligible.
         if (options?.dehydrate) {
-          (store as Partial<ResourceStoreWithMeta>).markDehydratable?.(fetchKey)
+          ;(store as Partial<ResourceStoreWithMeta>).markDehydratable?.(fetchKey)
         }
         setState(next)
       },
@@ -113,7 +119,7 @@ export function createResource<T>(
     // Check if a ready cache entry exists and is not stale.
     const cached = store.get(currentKey)
     if (cached?.status === 'ready' && !_staleSignal.read()) {
-      setState(cached as DataState<T>)
+      setState({ status: 'ready', data: cached.data as T })
       return
     }
 

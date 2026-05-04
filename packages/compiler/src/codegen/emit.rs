@@ -1,5 +1,6 @@
 use crate::codegen::signals::SignalMap;
-use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleScope, TemplateNode};
+use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
+use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleMacro, StyleScope, TemplateNode};
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -10,11 +11,37 @@ pub struct EmitResult {
 }
 
 fn emit_style_block(style: &StyleBlock) -> (String, String) {
+    // Amendment 02: when the style block is global and the content contains
+    // `$reactive(expr)` call patterns, extract them and emit JS effects targeting
+    // `document.documentElement`. The CSS content has the calls replaced with
+    // `var(--reactive-global-N)` references, and the corresponding `:root` declarations
+    // are prepended.
+    let (css_content, global_reactive_effects) = if style.scope == StyleScope::Global
+        && style.content.contains("$reactive(")
+    {
+        let (cleaned_css, reactives) = extract_global_reactives(style.content);
+        // Build GlobalReactive StyleMacro list for emission
+        let macros: Vec<StyleMacro> = reactives
+            .into_iter()
+            .map(|(index, expr)| StyleMacro::GlobalReactive { index, expr })
+            .collect();
+        let (macro_css, macro_js) = emit_style_macros(&macros);
+        // Prepend the :root declarations to the cleaned CSS
+        let full_css = if macro_css.is_empty() {
+            cleaned_css
+        } else {
+            format!("{}\n{}", macro_css, cleaned_css)
+        };
+        (full_css, macro_js)
+    } else {
+        (style.content.to_string(), String::new())
+    };
+
     let module_decl = format!(
         "const __style__ = new CSSStyleSheet();\n__style__.replaceSync(`{}`);\n",
-        style.content
+        css_content
     );
-    let setup_injection = match style.scope {
+    let mut setup_injection = match style.scope {
         StyleScope::Scoped => {
             "(ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];".to_string()
         }
@@ -22,6 +49,12 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
             "document.adoptedStyleSheets = [...document.adoptedStyleSheets, __style__];".to_string()
         }
     };
+    // Append any document.documentElement effects after the style injection
+    if !global_reactive_effects.is_empty() {
+        setup_injection.push('\n');
+        setup_injection.push_str("  ");
+        setup_injection.push_str(&global_reactive_effects);
+    }
     (module_decl, setup_injection)
 }
 
@@ -107,6 +140,8 @@ struct NeededHelpers {
     shield_boundary: bool,
     guard_boundary: bool,
     warp_boundary: bool,
+    /// True when $html or $show directives are used (they emit `effect()` calls).
+    needs_effect: bool,
 }
 
 fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
@@ -137,6 +172,8 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                             "once" => h.once_boundary = true,
                             "memo" => h.memo_boundary = true,
                             "each" => h.each_boundary = true,
+                            // $html and $show emit `effect()` calls — ensure effect is imported.
+                            "html" | "show" => h.needs_effect = true,
                             _ => {}
                         }
                     }
@@ -192,8 +229,10 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
     let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
 
-    let imports = build_function_imports(&signal_map);
-    let script_body = extract_script_body(unit.source.script.unwrap_or(""));
+    let raw_script = unit.source.script.unwrap_or("");
+    let helpers_needed = collect_needed_helpers(template_nodes);
+    let imports = build_function_imports(&signal_map, helpers_needed.needs_effect, raw_script);
+    let script_body = extract_script_body(raw_script);
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
     let (module_decl, ctx_param, style_injection) = if let Some(style) = &unit.source.style {
@@ -203,7 +242,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         (String::new(), "_ctx", String::new())
     };
 
-    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+    let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
     let body = if script_body.is_empty() {
         format!("{}  return {}\n", style_injection, return_expr)
@@ -218,22 +257,24 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     )
 }
 
-fn build_function_imports(signal_map: &SignalMap) -> String {
-    if signal_map.0.is_empty() {
-        [
-            "import { branch, leaf, slot } from '@scribe/arbor'",
-            "import { defineComponent, defineElement } from '@scribe/runtime'",
-        ]
-        .join("\n")
-    } else {
-        [
-            "import { branch, leaf, slot } from '@scribe/arbor'",
-            "import type { Signal } from '@scribe/signals'",
-            "import { signal } from '@scribe/signals'",
-            "import { defineComponent, defineElement } from '@scribe/runtime'",
-        ]
-        .join("\n")
+fn build_function_imports(signal_map: &SignalMap, needs_effect: bool, script: &str) -> String {
+    // Also check script body for direct `effect(` calls (not just $html/$show macros).
+    let script_uses_effect = script.contains("effect(");
+    let emit_effect = needs_effect || script_uses_effect;
+
+    let mut lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
+    if !signal_map.0.is_empty() {
+        lines.push("import type { Signal } from '@scribe/signals'");
+        if emit_effect {
+            lines.push("import { signal, effect } from '@scribe/signals'");
+        } else {
+            lines.push("import { signal } from '@scribe/signals'");
+        }
+    } else if emit_effect {
+        lines.push("import { effect } from '@scribe/signals'");
     }
+    lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
+    lines.join("\n")
 }
 
 // ─── Options form (with agent block) ─────────────────────────────────────────
@@ -247,6 +288,13 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         )
     });
 
+    let raw_script = unit.source.script.unwrap_or("");
+    let script_body = extract_script_body(raw_script);
+    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
+    let helpers_needed = collect_needed_helpers(template_nodes);
+    let script_uses_effect = raw_script.contains("effect(");
+    let emit_effect = helpers_needed.needs_effect || script_uses_effect;
+
     let mut import_lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
 
     // computed import if needed for number/boolean/enum coercions
@@ -254,10 +302,16 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         import_lines.push("import { computed } from '@scribe/signals'");
     }
 
-    // signal import if script uses signals
+    // signal import if script uses signals; effect if $html/$show macros or direct effect() calls
     if !signal_map.0.is_empty() {
         import_lines.push("import type { Signal } from '@scribe/signals'");
-        import_lines.push("import { signal } from '@scribe/signals'");
+        if emit_effect {
+            import_lines.push("import { signal, effect } from '@scribe/signals'");
+        } else {
+            import_lines.push("import { signal } from '@scribe/signals'");
+        }
+    } else if emit_effect {
+        import_lines.push("import { effect } from '@scribe/signals'");
     }
 
     import_lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
@@ -275,8 +329,6 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // agent-block bindings inside setup(ctx)
     let agent_bindings = emit_agent_bindings(agent);
 
-    let script_body = extract_script_body(unit.source.script.unwrap_or(""));
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let return_expr = emit_nodes(template_nodes, &signal_map, "      ");
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
@@ -286,7 +338,7 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         (String::new(), String::new())
     };
 
-    let helpers_decl = emit_boundary_helpers(&collect_needed_helpers(template_nodes));
+    let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
     let mut setup_body = String::new();
     if !style_injection.is_empty() {
@@ -878,7 +930,15 @@ fn emit_attrs(attrs: &[Attr]) -> String {
     let passthrough: Vec<String> = attrs
         .iter()
         .filter_map(|a| match a {
-            Attr::Static { name, value } => Some(format!("{}: '{}'", name, value)),
+            Attr::Static { name, value } => {
+                // Hyphenated attribute names (e.g. aria-label, data-foo) must be
+                // quoted as JS object keys, otherwise the hyphen is parsed as minus.
+                if name.contains('-') {
+                    Some(format!("'{}': '{}'", name, value))
+                } else {
+                    Some(format!("{}: '{}'", name, value))
+                }
+            }
             Attr::Binding { name, expr } => {
                 // deprecated :prop alias — emit as direct attr
                 Some(format!("{}: {}", name, expr))
@@ -934,6 +994,8 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str)
     let mut has_each = false;
     let mut each_items = String::new();
     let mut key_fn = String::new();
+    let mut item_alias = "item".to_string();
+    let mut idx_alias = "i".to_string();
 
     for attr in attrs {
         let Attr::Macro { name, value } = attr else {
@@ -956,7 +1018,23 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str)
             }
             "each" => {
                 has_each = true;
-                each_items = macro_value_expr(value);
+                let raw = macro_value_expr(value);
+                // Parse "list as item" or "list as item, idx"
+                if let Some((list_part, rest)) = raw.split_once(" as ") {
+                    each_items = list_part.trim().to_string();
+                    if let Some((item, idx)) = rest.split_once(',') {
+                        item_alias = item.trim().to_string();
+                        idx_alias = idx.trim().to_string();
+                    } else {
+                        item_alias = rest.trim().to_string();
+                        idx_alias = "i".to_string();
+                    }
+                } else {
+                    // fallback for old form (should have been caught by parser, but be safe)
+                    each_items = raw;
+                    item_alias = "item".to_string();
+                    idx_alias = "i".to_string();
+                }
             }
             "key" => {
                 key_fn = macro_value_expr(value);
@@ -996,11 +1074,11 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str)
         let key_part = if key_fn.is_empty() {
             "undefined".to_string()
         } else {
-            key_fn.clone()
+            format!("({}) => {}", item_alias, key_fn)
         };
         effects.push(format!(
-            "{}createEachBoundary({}, {}, (item, i) => {{ return {} }})",
-            indent, each_items, key_part, subtree
+            "{}createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
+            indent, each_items, key_part, item_alias, idx_alias, subtree
         ));
     }
 

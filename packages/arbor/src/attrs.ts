@@ -94,12 +94,7 @@ export function _applyAttrs(
       const get = value[0] as () => unknown
       const path = `${pathBase}.attr:${key}`
       registry?.set(path, get)
-      mountEffect(
-        disposers,
-        () => _setAttrOrProp(el, key, get()),
-        path,
-        errorHandler,
-      )
+      mountEffect(disposers, () => _setAttrOrProp(el, key, get()), path, errorHandler)
       continue
     }
     // Path 3: static primitive (string | number | boolean).

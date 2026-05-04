@@ -63,10 +63,7 @@
         "3": { "name": "punctuation.separator.colon.scribe" }
       },
       "end": "$",
-      "patterns": [
-        { "include": "#agent-comment" },
-        { "include": "#agent-types" }
-      ]
+      "patterns": [{ "include": "#agent-comment" }, { "include": "#agent-types" }]
     },
     "agent-action": {
       "begin": "^\\s*(action)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()(\\))",
@@ -154,9 +151,7 @@
       },
       "name": "meta.block.script.scribe",
       "contentName": "source.ts",
-      "patterns": [
-        { "include": "source.ts" }
-      ]
+      "patterns": [{ "include": "source.ts" }]
     },
     "server-setup-block": {
       "begin": "(<)(server)(\\s+setup\\b[^>]*)?(>)",
@@ -174,9 +169,7 @@
       },
       "name": "meta.block.server.scribe",
       "contentName": "source.ts",
-      "patterns": [
-        { "include": "source.ts" }
-      ]
+      "patterns": [{ "include": "source.ts" }]
     },
     "template-block": {
       "begin": "(<)(template)(>)",
@@ -193,9 +186,7 @@
       },
       "name": "meta.block.template.scribe",
       "contentName": "text.html.basic",
-      "patterns": [
-        { "include": "text.html.basic" }
-      ]
+      "patterns": [{ "include": "text.html.basic" }]
     },
     "style-block": {
       "begin": "(<)(style)([^>]*)(>)",
@@ -213,9 +204,7 @@
       },
       "name": "meta.block.style.scribe",
       "contentName": "source.css",
-      "patterns": [
-        { "include": "source.css" }
-      ]
+      "patterns": [{ "include": "source.css" }]
     }
   }
 }

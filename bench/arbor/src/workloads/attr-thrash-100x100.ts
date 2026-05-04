@@ -32,24 +32,23 @@
  * live signals — large but within reason for the memory phase.
  */
 
+import type { AttrMap, Node } from '@scribe/arbor'
+import { branch } from '@scribe/arbor'
+import type { Signal as GenericSignal } from '@scribe/signals'
+import { signal } from '@scribe/signals'
+import { ref, h as vueH } from '@vue/runtime-dom'
 import { html as litHtml } from 'lit-html'
-import { h as preactH } from 'preact'
 import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
 import { createSignal } from 'solid-js'
 import solidH from 'solid-js/h'
-import { h as vueH, ref } from '@vue/runtime-dom'
-
-import { branch } from '@scribe/arbor'
-import type { AttrMap, Node } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
-import type { Signal as GenericSignal } from '@scribe/signals'
 
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
 import { setScribeHook } from '../competitors/scribe.ts'
 import { setSolidComponent, setSolidSignalSetter } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
-import { setVueRenderFn, setVueRefSetter } from '../competitors/vue.ts'
+import { setVueRefSetter, setVueRenderFn } from '../competitors/vue.ts'
 import { getHost, releaseHost } from '../jsdom-host.ts'
 import type { DomAdapter, WorkloadDefinition } from '../types.ts'
 
@@ -63,8 +62,7 @@ function attrKey(i: number): string {
 
 export const attrThrash: WorkloadDefinition = {
   name: 'attr-thrash-100x100',
-  description:
-    '100 elements × 100 reactive attrs each. Write all 10k signals once per op.',
+  description: '100 elements × 100 reactive attrs each. Write all 10k signals once per op.',
   n: 10,
   build(adapter: DomAdapter) {
     // ---------- scribe ----------
@@ -104,7 +102,7 @@ export const attrThrash: WorkloadDefinition = {
           const v = String(++counter)
           for (let i = 0; i < allSignals.length; i++) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            allSignals[i]![1](v)
+            allSignals[i]?.[1](v)
           }
         },
         cleanup: () => {
@@ -118,28 +116,30 @@ export const attrThrash: WorkloadDefinition = {
     // ---------- lit-html ----------
     // No fine-grained signals. Full re-render on each op with all new attr values.
     if (adapter.name === 'lit-html') {
-      let currentAttrs = Array.from({ length: ELEMENT_COUNT * ATTR_COUNT }, (_, i) => String(i))
+      const currentAttrs = Array.from({ length: ELEMENT_COUNT * ATTR_COUNT }, (_, i) => String(i))
 
-      setLitTemplate(() =>
-        litHtml`<div>${Array.from({ length: ELEMENT_COUNT }, (_, ei) => {
-          const attrs: Record<string, string> = {}
-          for (let ai = 0; ai < ATTR_COUNT; ai++) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            attrs[attrKey(ai)] = currentAttrs[ei * ATTR_COUNT + ai]!
-          }
-          // Build an element with data attrs via a static template
-          return litHtml`<div .dataset=${attrs}></div>`
-        })}</div>`,
+      setLitTemplate(
+        () =>
+          litHtml`<div>${Array.from({ length: ELEMENT_COUNT }, (_, ei) => {
+            const attrs: Record<string, string> = {}
+            for (let ai = 0; ai < ATTR_COUNT; ai++) {
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              attrs[attrKey(ai)] = currentAttrs[ei * ATTR_COUNT + ai]!
+            }
+            // Build an element with data attrs via a static template
+            return litHtml`<div .dataset=${attrs}></div>`
+          })}</div>`,
       )
 
-      setLitUpdater((v) =>
-        litHtml`<div>${Array.from({ length: ELEMENT_COUNT }, (_, ei) => {
-          const attrs: Record<string, string> = {}
-          for (let ai = 0; ai < ATTR_COUNT; ai++) {
-            attrs[attrKey(ai)] = String(v)
-          }
-          return litHtml`<div .dataset=${attrs}></div>`
-        })}</div>`,
+      setLitUpdater(
+        (v) =>
+          litHtml`<div>${Array.from({ length: ELEMENT_COUNT }, (_, _ei) => {
+            const attrs: Record<string, string> = {}
+            for (let ai = 0; ai < ATTR_COUNT; ai++) {
+              attrs[attrKey(ai)] = String(v)
+            }
+            return litHtml`<div .dataset=${attrs}></div>`
+          })}</div>`,
       )
 
       const host = getHost()

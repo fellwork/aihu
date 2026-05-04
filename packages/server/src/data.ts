@@ -34,10 +34,7 @@ export function defineLoader<T>(fn: LoaderFn<T>): DefinedLoader<T> {
   return { _brand: 'DefinedLoader', fn }
 }
 
-export async function runLoader<T>(
-  fn: LoaderFn<T>,
-  ctx: RouteContext,
-): Promise<LoaderResult<T>> {
+export async function runLoader<T>(fn: LoaderFn<T>, ctx: RouteContext): Promise<LoaderResult<T>> {
   try {
     const data = await fn(ctx)
     return { data, status: 200 }

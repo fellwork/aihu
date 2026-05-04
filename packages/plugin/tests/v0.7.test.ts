@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { definePlugin, validatePlugin, resetValidationState } from '../src/index.ts'
+import { definePlugin, resetValidationState, validatePlugin } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
 // v0.7.3 — Plugin Contract §6.5 serverOnly + contributes.middleware

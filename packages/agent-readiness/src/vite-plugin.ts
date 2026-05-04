@@ -1,9 +1,9 @@
-import type { AgentReadinessConfig } from './types.ts'
-import { generateLlmsTxt, generateLlmsFullTxt } from './llms-txt.ts'
+import type { RouteHandler } from '@scribe/server'
+import { json, notFound } from '@scribe/server'
+import { generateLlmsFullTxt, generateLlmsTxt } from './llms-txt.ts'
 import { generateMcpServerCard } from './mcp-server-card.ts'
 import { generateRobotsTxt } from './robots.ts'
-import { json, notFound } from '@scribe/server'
-import type { RouteHandler } from '@scribe/server'
+import type { AgentReadinessConfig } from './types.ts'
 
 /**
  * Minimal Vite Plugin interface — avoids importing from 'vite' at compile time
@@ -16,9 +16,9 @@ interface VitePlugin {
     middlewares: {
       use: (
         fn: (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // biome-ignore lint/suspicious/noExplicitAny: vite/connect middleware types
           req: any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // biome-ignore lint/suspicious/noExplicitAny: vite/connect middleware types
           res: any,
           next: () => void,
         ) => void,
@@ -26,9 +26,9 @@ interface VitePlugin {
     }
   }) => void
   generateBundle?: (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: rollup bundle output types
     options: any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: rollup bundle output types
     bundle: any,
   ) => Promise<void>
 }
@@ -49,9 +49,7 @@ interface VitePlugin {
  *   ],
  * })
  */
-export function createAgentReadinessRoutes(
-  config: AgentReadinessConfig,
-): {
+export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   readonly llmsTxt: RouteHandler
   readonly llmsFullTxt: RouteHandler
   readonly mcpServerCard: RouteHandler
@@ -65,7 +63,10 @@ export function createAgentReadinessRoutes(
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
     // TODO: add Components section once @scribe/agent exports getAllAgentMetadata()
-    return new Response(txt, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(txt, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
   }
 
   const llmsFullTxt: RouteHandler = (_req) => {
@@ -75,7 +76,10 @@ export function createAgentReadinessRoutes(
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
-    return new Response(txt, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(txt, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
   }
 
   const mcpServerCard: RouteHandler = (_req) => {
@@ -97,7 +101,10 @@ export function createAgentReadinessRoutes(
       ...(config.standardBots !== undefined ? { standard: config.standardBots } : {}),
       ...(config.sitemap !== undefined ? { sitemap: config.sitemap } : {}),
     })
-    return new Response(txt, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(txt, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
   }
 
   return { llmsTxt, llmsFullTxt, mcpServerCard, robotsTxt }
@@ -121,7 +128,7 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
   const serveResponse = async (
     path: string,
     handler: RouteHandler,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: connect response object
     res: any,
   ): Promise<boolean> => {
     const req = new Request(`http://localhost${path}`)
@@ -146,7 +153,7 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
           ['/robots.txt', routes.robotsTxt],
         ]
         for (const [path, handler] of pathMap) {
-          if (url === path || url.startsWith(path + '?')) {
+          if (url === path || url.startsWith(`${path}?`)) {
             const handled = await serveResponse(url, handler, res)
             if (handled) return
           }
@@ -163,10 +170,13 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
       ]
       for (const [name, handler] of files) {
         const req = new Request(`http://localhost/${name}`)
-        const response = await handler(req, { params: {}, url: new URL(`http://localhost/${name}`) })
+        const response = await handler(req, {
+          params: {},
+          url: new URL(`http://localhost/${name}`),
+        })
         if (response.status === 200) {
           const body = await response.text()
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // biome-ignore lint/suspicious/noExplicitAny: rollup plugin context
           ;(this as any).emitFile({ type: 'asset', fileName: name, source: body })
         }
       }

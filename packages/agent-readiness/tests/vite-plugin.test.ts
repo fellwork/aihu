@@ -38,7 +38,10 @@ describe('@scribe/agent-readiness createAgentReadinessRoutes', () => {
   it('mcpServerCard handler returns 200 JSON matching McpServerCard shape', async () => {
     const routes = createAgentReadinessRoutes(config)
     const req = new Request('https://test.example.com/.well-known/mcp/server-card.json')
-    const ctx = { params: {}, url: new URL('https://test.example.com/.well-known/mcp/server-card.json') }
+    const ctx = {
+      params: {},
+      url: new URL('https://test.example.com/.well-known/mcp/server-card.json'),
+    }
     const res = await routes.mcpServerCard(req, ctx)
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toMatch(/application\/json/)
@@ -51,7 +54,10 @@ describe('@scribe/agent-readiness createAgentReadinessRoutes', () => {
   it('mcpServerCard handler returns 404 when endpoint is absent', async () => {
     const routes = createAgentReadinessRoutes({ name: 'No Endpoint App' })
     const req = new Request('https://test.example.com/.well-known/mcp/server-card.json')
-    const ctx = { params: {}, url: new URL('https://test.example.com/.well-known/mcp/server-card.json') }
+    const ctx = {
+      params: {},
+      url: new URL('https://test.example.com/.well-known/mcp/server-card.json'),
+    }
     const res = await routes.mcpServerCard(req, ctx)
     expect(res.status).toBe(404)
   })

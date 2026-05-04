@@ -9,7 +9,9 @@ describe('@scribe/server config', () => {
 
   it('ScribeConfig accepts all valid origin shapes', () => {
     const a = defineScribeConfig({ server: { cors: { origin: 'https://example.com' } } })
-    const b = defineScribeConfig({ server: { cors: { origin: ['https://a.com', 'https://b.com'] } } })
+    const b = defineScribeConfig({
+      server: { cors: { origin: ['https://a.com', 'https://b.com'] } },
+    })
     const c = defineScribeConfig({ server: { cors: { origin: '*' } } })
     expect(a.server?.cors?.origin).toBe('https://example.com')
     expect(Array.isArray(b.server?.cors?.origin)).toBe(true)

@@ -15,8 +15,7 @@ export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptio
   const msgPath = `${prefix}/acp/messages`
   const headers = { 'content-type': 'application/json' }
 
-  const reply = (body: unknown) =>
-    new Response(JSON.stringify(body), { status: 200, headers })
+  const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers })
   const acpMsg = (content: string, parts: unknown[] = []) =>
     reply({ role: 'agent', content, parts })
 
@@ -29,11 +28,11 @@ export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptio
           return reply({
             agent_id: agentId,
             description: 'Scribe ACP agent',
-            skills: service.getManifest().tools.flatMap(t =>
-              Object.keys(t.actions ?? {}).map(a => ({
+            skills: service.getManifest().tools.flatMap((t) =>
+              Object.keys(t.actions ?? {}).map((a) => ({
                 skill_id: `${t.tag}/${a}`,
                 name: a,
-              }))
+              })),
             ),
           })
         }
@@ -47,7 +46,7 @@ export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptio
           }
 
           const c = msg.parts?.[0]?.content as Record<string, unknown> | undefined
-          const fromPart = typeof c?.tool === 'string' ? c.tool as string : ''
+          const fromPart = typeof c?.tool === 'string' ? (c.tool as string) : ''
           const toolName = fromPart || (typeof msg.content === 'string' ? msg.content.trim() : '')
           if (!toolName) return acpMsg('error: no tool name')
 

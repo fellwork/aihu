@@ -3,6 +3,17 @@
 import { branch, leaf, slot } from '@scribe/arbor'
 import { defineComponent, defineElement } from '@scribe/runtime'
 
-defineElement('02-suspense', defineComponent((_ctx) => {
-  return createSuspenseBoundary('dataPromise', () => { return branch('span', undefined, [leaf('Loading...')]) }, () => { return branch('p', undefined, [leaf('Loaded content')]) })
-}))
+defineElement(
+  '02-suspense',
+  defineComponent((_ctx) => {
+    return createSuspenseBoundary(
+      'dataPromise',
+      () => {
+        return branch('span', undefined, [leaf('Loading...')])
+      },
+      () => {
+        return branch('p', undefined, [leaf('Loaded content')])
+      },
+    )
+  }),
+)

@@ -71,10 +71,7 @@ describe('_classifyIsland — Plan 3.3', () => {
   })
 
   it('matches identifiers with whitespace before the paren (#7)', () => {
-    const code = STATIC_OUTPUT.replace(
-      "const message = 'hello'",
-      'const [v] = signal (0)',
-    )
+    const code = STATIC_OUTPUT.replace("const message = 'hello'", 'const [v] = signal (0)')
     expect(_classifyIsland(code)).toBe('interactive')
   })
 })

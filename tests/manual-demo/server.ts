@@ -1,7 +1,12 @@
-import { createRequestRouter, defineRoute, renderToString, notFound } from '../../packages/server/src/index.ts'
 import { createAgentReadinessRoutes } from '../../packages/agent-readiness/src/index.ts'
-import { HomePage } from './pages/home.ts'
+import {
+  createRequestRouter,
+  defineRoute,
+  notFound,
+  renderToString,
+} from '../../packages/server/src/index.ts'
 import { AboutPage } from './pages/about.ts'
+import { HomePage } from './pages/home.ts'
 
 const ar = createAgentReadinessRoutes({
   name: 'Scribe Demo',
@@ -24,14 +29,23 @@ const router = createRequestRouter(
     routes: [
       defineRoute('/', async (_req) => {
         const html = await renderToString(HomePage, { head: headConfig })
-        return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        return new Response(html, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
       }),
       defineRoute('/about', async (_req) => {
         const html = await renderToString(AboutPage, { head: headConfig })
-        return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        return new Response(html, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        })
       }),
       defineRoute('/style.css', (_req) => {
-        return new Response(CSS, { status: 200, headers: { 'Content-Type': 'text/css; charset=utf-8' } })
+        return new Response(CSS, {
+          status: 200,
+          headers: { 'Content-Type': 'text/css; charset=utf-8' },
+        })
       }),
       defineRoute('/llms.txt', ar.llmsTxt),
       defineRoute('/llms-full.txt', ar.llmsFullTxt),

@@ -35,9 +35,7 @@ class FakeIntersectionObserver {
   }
 
   trigger(isIntersecting: boolean): void {
-    this.callback(
-      this.observed.map((target) => ({ isIntersecting, target })),
-    )
+    this.callback(this.observed.map((target) => ({ isIntersecting, target })))
   }
 }
 
@@ -48,14 +46,15 @@ describe('_hydrateOnVisible — Plan 3.3', () => {
     FakeIntersectionObserver.instances = []
     originalIO = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
       .IntersectionObserver
-    ;(globalThis as unknown as { IntersectionObserver: typeof FakeIntersectionObserver })
-      .IntersectionObserver = FakeIntersectionObserver
+    ;(
+      globalThis as unknown as { IntersectionObserver: typeof FakeIntersectionObserver }
+    ).IntersectionObserver = FakeIntersectionObserver
   })
 
   afterEach(() => {
     if (originalIO !== undefined) {
-      ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver })
-        .IntersectionObserver = originalIO
+      ;(globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
+        originalIO
     } else {
       delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
         .IntersectionObserver

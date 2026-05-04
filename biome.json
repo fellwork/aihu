@@ -7,7 +7,19 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!dist", "!coverage", "!target", "!bun.lock", "!**/*.cjs", "!examples/**/*.css"]
+    "includes": [
+      "**",
+      "!dist",
+      "!coverage",
+      "!target",
+      "!bun.lock",
+      "!**/*.cjs",
+      "!.claude",
+      "!.team",
+      "!.mcp.json",
+      "!examples/**/*.css",
+      "!bench/compiler-conformance"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -19,7 +31,18 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "complexity": {
+        "noCommaOperator": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "useIterableCallbackReturn": "off"
+      }
     }
   },
   "javascript": {
@@ -37,5 +60,17 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["bench/arbor/src/**", "packages/agent-readiness/src/vite-plugin.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
 }

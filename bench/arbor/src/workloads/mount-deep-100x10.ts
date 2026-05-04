@@ -37,15 +37,14 @@
  * (we measure construction + mount + dispose as a unit for this workload).
  */
 
-import { html as litHtml } from 'lit-html'
-import type { TemplateResult } from 'lit-html'
-import { h as preactH } from 'preact'
-import type { VNode } from 'preact'
-import solidH from 'solid-js/h'
-import { h as vueH } from '@vue/runtime-dom'
-
-import { branch, leaf } from '@scribe/arbor'
 import type { Node } from '@scribe/arbor'
+import { branch, leaf } from '@scribe/arbor'
+import { h as vueH } from '@vue/runtime-dom'
+import type { TemplateResult } from 'lit-html'
+import { html as litHtml } from 'lit-html'
+import type { VNode } from 'preact'
+import { h as preactH } from 'preact'
+import solidH from 'solid-js/h'
 
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'
@@ -102,9 +101,7 @@ function buildVueDeep(depth: number): any {
 
 /** Build a preact deep tree vnode. */
 function buildPreactDeep(depth: number): VNode {
-  const leaves: VNode[] = Array.from({ length: FANOUT }, (_, i) =>
-    preactH('span', null, String(i)),
-  )
+  const leaves: VNode[] = Array.from({ length: FANOUT }, (_, i) => preactH('span', null, String(i)))
   if (depth <= 0) {
     return preactH('div', null, ...leaves) as VNode
   }

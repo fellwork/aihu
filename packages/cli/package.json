@@ -4,7 +4,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "scribe": "./dist/bin.js"
+    "scribe": "./dist/bin.js",
+    "create-scribe": "./dist/create.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -21,7 +21,7 @@
     </div>
     <div class="text" $html="comment.text"></div>
     <div class="replies" $if={comment.children.length > 0}>
-      <Comment $each="comment.children" $key="childKey" comment={item} />
+      <Comment $each="comment.children as item" $key={item.id} comment={item} />
     </div>
   </div>
 }

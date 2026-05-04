@@ -82,8 +82,10 @@ describe('each() — list rendering', () => {
 
     const scope = mount(
       branch('ul', undefined, [
-        each(items, (item) => item as string, (item) =>
-          branch('li', undefined, [leaf(item as string)]),
+        each(
+          items,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string)]),
         ),
       ]),
       host,
@@ -105,8 +107,10 @@ describe('each() — list rendering', () => {
 
     const scope = mount(
       branch('ul', undefined, [
-        each(itemsSig, (item) => item as string, (item) =>
-          branch('li', undefined, [leaf(item as string)]),
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string)]),
         ),
       ]),
       host,
@@ -131,8 +135,10 @@ describe('each() — list rendering', () => {
 
     const scope = mount(
       branch('ul', undefined, [
-        each(itemsSig, (item) => item as string, (item) =>
-          branch('li', undefined, [leaf(item as string)]),
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string)]),
         ),
       ]),
       host,
@@ -161,10 +167,14 @@ describe('each() — list rendering', () => {
 
     const scope = mount(
       branch('ul', undefined, [
-        each(itemsSig, (item) => item as string, (item) => {
-          created.push(item as string)
-          return branch('li', undefined, [leaf(item as string)])
-        }),
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => {
+            created.push(item as string)
+            return branch('li', undefined, [leaf(item as string)])
+          },
+        ),
       ]),
       host,
     )
@@ -199,8 +209,10 @@ describe('each() — list rendering', () => {
 
     const scope = mount(
       branch('ul', undefined, [
-        each(items, (item) => item as string, (item) =>
-          branch('li', undefined, [leaf(item as string), leaf(reactiveText)]),
+        each(
+          items,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string), leaf(reactiveText)]),
         ),
       ]),
       host,

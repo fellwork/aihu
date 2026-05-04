@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  generateLlmsFullTxt,
-  generateLlmsTxt,
-} from '../src/index.ts'
+import { generateLlmsFullTxt, generateLlmsTxt } from '../src/index.ts'
 import { agentMetadataToLlmsTxtLink } from '../src/llms-txt.ts'
 
 describe('@scribe/agent-readiness llms txt', () => {
@@ -28,7 +25,9 @@ describe('@scribe/agent-readiness llms txt', () => {
     const out = generateLlmsFullTxt({
       name: 'Scribe',
       summary: 'Full agent-facing docs.',
-      sections: [{ title: 'Guides', links: [{ title: 'Intro', url: '/intro', description: 'Start here' }] }],
+      sections: [
+        { title: 'Guides', links: [{ title: 'Intro', url: '/intro', description: 'Start here' }] },
+      ],
       optional: [{ title: 'Appendix', url: '/appendix' }],
     })
     expect(out).not.toContain('## Optional')
@@ -37,10 +36,7 @@ describe('@scribe/agent-readiness llms txt', () => {
 
   it('maps AgentMetadata to a components link only when describes is present', () => {
     expect(
-      agentMetadataToLlmsTxtLink(
-        { tag: 'x-pane', describes: 'Pane docs' },
-        'https://scribe.dev',
-      ),
+      agentMetadataToLlmsTxtLink({ tag: 'x-pane', describes: 'Pane docs' }, 'https://scribe.dev'),
     ).toEqual({
       title: 'x-pane',
       url: 'https://scribe.dev/components#x-pane',

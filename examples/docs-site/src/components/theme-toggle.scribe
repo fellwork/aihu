@@ -1,0 +1,39 @@
+@state {
+import { signal, effect } from '@scribe/signals'
+
+const [dark, setDark] = signal(
+  typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
+)
+
+effect(() => {
+  document.documentElement.classList.toggle('dark', dark())
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('theme', dark() ? 'dark' : 'light')
+  }
+})
+
+const toggle = () => setDark(d => !d)
+}
+
+@template {
+  <button class="theme-toggle" $on:click={toggle} title="Toggle dark mode">
+    <span class="icon-sun">☀</span>
+    <span class="icon-moon">☾</span>
+  </button>
+}
+
+@style {
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 1rem;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.theme-toggle:hover { background: var(--hover-bg); }
+}

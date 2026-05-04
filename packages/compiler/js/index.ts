@@ -6,24 +6,22 @@
  *   scribeCompilerPlugin()   — Vite plugin that wires transform() into the build
  */
 import { execFileSync } from 'node:child_process'
-import { resolve, dirname, basename } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Binary resolution: env var override, fallback to relative path from dist/
+// Binary resolution: env var override, fallback to the bin/ directory written
+// by the postinstall hook (packages/compiler/bin/scribe-compile[.exe]).
 const ext = process.platform === 'win32' ? '.exe' : ''
 const binPath: string =
-  process.env['SCRIBE_COMPILE_BIN'] ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../target/release/scribe-compile${ext}`)
+  process.env.SCRIBE_COMPILE_BIN ??
+  resolve(dirname(fileURLToPath(import.meta.url)), `../bin/scribe-compile${ext}`)
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
 interface VitePlugin {
   readonly name: string
   enforce?: 'pre' | 'post'
-  transform?: (
-    code: string,
-    id: string,
-  ) => { code: string; map: null } | null | undefined
+  transform?: (code: string, id: string) => { code: string; map: null } | null | undefined
 }
 
 /**
@@ -74,6 +72,7 @@ export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'
   // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
   // The compiler always emits this exact two-paren close as the final tokens of
   // the defineElement call — we anchor on it and append the options object.
+  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
   const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
   const replaced = code.replace(re, (_m, inner: string) => `${inner}, { shadowMode: '${mode}' })`)
   return replaced
@@ -100,9 +99,7 @@ export function _classifyIsland(compiledCode: string): 'static' | 'interactive' 
   // anchors so identifiers like `mySignal(` or `__effect(` do not trip the
   // heuristic. The `(` is required so that bare imports of the names in an
   // unused `import { signal }` line do not flip an otherwise-static module.
-  return /\b(?:signal|computed|effect|setSignal)\s*\(/.test(compiledCode)
-    ? 'interactive'
-    : 'static'
+  return /\b(?:signal|computed|effect|setSignal)\s*\(/.test(compiledCode) ? 'interactive' : 'static'
 }
 
 /**
@@ -239,8 +236,7 @@ export function _buildDeferredHydration(compiledCode: string, elementTag: string
   // …with __scribe_wrap_defer__ defined in the appended preamble.
   const patched = withImport.replace(
     /defineElement\(\s*('[^']+'|"[^"]+")\s*,\s*defineComponent\(/,
-    (_m, tagLit: string) =>
-      `defineElement(${tagLit}, __scribe_wrap_defer__(defineComponent(`,
+    (_m, tagLit: string) => `defineElement(${tagLit}, __scribe_wrap_defer__(defineComponent(`,
   )
   // Match the closing `))` of the defineElement call. The HMR pass may
   // have inserted `__scribe_setup__ = ` before the inner function, but
@@ -355,7 +351,10 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
       /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/,
       `customElements.define(${tagJson}, class extends HTMLElement {\n  connectedCallback() {\n    const root = this.attachShadow({ mode: 'open' })\n    const __scribe_setup__ = (`,
     )
-    .replace(/\)\s*\)\s*$/, `)\n    mount(__scribe_setup__({ host: root, element: this }), root)\n  }\n})\n`)
+    .replace(
+      /\)\s*\)\s*$/,
+      `)\n    mount(__scribe_setup__({ host: root, element: this }), root)\n  }\n})\n`,
+    )
 
   return `// SCRIBE_STATIC_ISLAND — zero @scribe/runtime references\n${rewritten}`
 }
@@ -402,9 +401,9 @@ export function transform(source: string, id: string): { code: string; map: null
  *    to Rollup4. When `@scribe/compiler` is resolved from the workspace
  *    symlink (`dist/index.js`), Bun's ESM loader evaluates the module at
  *    config-load time. The subprocess call inside `transform()` depends on
- *    the Rust binary being at `../target/release/scribe-compile` relative
- *    to `dist/`. In a dev workspace where `cargo build --release` has not
- *    run, this path does not exist and `execFileSync` throws. Bun surfaces
+ *    the Rust binary being at `../bin/scribe-compile` relative to `dist/`
+ *    (written by the postinstall hook). In a dev workspace where postinstall
+ *    has not run, this path does not exist and `execFileSync` throws. Bun surfaces
  *    the error as a config-load failure, not a per-file transform error,
  *    causing the entire build to abort before any `.scribe` file is
  *    processed.

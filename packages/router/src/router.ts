@@ -42,7 +42,7 @@ export type Router = {
 function matchRoute(def: RouteDefinition, pathname: string): Record<string, string> | null {
   const segs = def.segments
   // Catchall at root level
-  if (segs.length === 1 && segs[0]!.kind === 'catchall') {
+  if (segs.length === 1 && segs[0]?.kind === 'catchall') {
     return { '*': pathname.slice(1) }
   }
 
@@ -121,9 +121,10 @@ export function createRouter(routes: RouteDefinition[]): Router {
     const component = mod.default as (() => unknown) | { toHtml(): string }
     const html = await renderToString(component)
 
-    const body = loaderData !== undefined
-      ? `${html}<script type="application/json" id="__scribe_loader__">${JSON.stringify(loaderData)}</script>`
-      : html
+    const body =
+      loaderData !== undefined
+        ? `${html}<script type="application/json" id="__scribe_loader__">${JSON.stringify(loaderData)}</script>`
+        : html
 
     return new Response(body, {
       status: 200,

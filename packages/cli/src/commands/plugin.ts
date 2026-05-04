@@ -28,7 +28,7 @@ export function scaffoldPlugin(name: string, targetDir: string): void {
       '@scribe/plugin': 'latest',
     },
   }
-  writeFileSync(join(root, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n', 'utf8')
+  writeFileSync(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`, 'utf8')
 
   // src/index.ts
   const indexTs = `import { definePlugin } from '@scribe/plugin'

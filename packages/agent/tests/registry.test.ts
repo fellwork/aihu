@@ -3,9 +3,9 @@ import {
   __resetRegistryForTesting,
   type ActionSchema,
   type AgentMetadata,
-  type InputSchema,
-  getAllAgentMetadata,
   getAgentMetadata,
+  getAllAgentMetadata,
+  type InputSchema,
   registerAgentMetadata,
 } from '../src/registry.ts'
 

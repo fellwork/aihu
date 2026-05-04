@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import { createRequestRouter, defineRoute } from '@scribe/server'
-import { createContentNegotiationHandler, createAgentReadinessRoutes } from '../src/index.ts'
+import { describe, expect, it } from 'vitest'
+import { createAgentReadinessRoutes, createContentNegotiationHandler } from '../src/index.ts'
 
 describe('integration: createRequestRouter + createContentNegotiationHandler', () => {
   it('content-negotiation middleware intercepts text/markdown requests before route handler', async () => {
@@ -53,7 +53,9 @@ describe('integration: createRequestRouter + createContentNegotiationHandler', (
     expect(llmsRes.status).toBe(200)
     expect(await llmsRes.text()).toContain('# Integration Test App')
 
-    const cardRes = await router(new Request('https://app.example.com/.well-known/mcp/server-card.json'))
+    const cardRes = await router(
+      new Request('https://app.example.com/.well-known/mcp/server-card.json'),
+    )
     expect(cardRes.status).toBe(200)
     const card = await cardRes.json()
     expect(card.serverInfo.name).toBe('Integration Test App')

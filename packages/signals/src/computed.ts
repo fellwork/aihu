@@ -11,9 +11,9 @@ import {
   type Read,
   RUNNING,
   STALE,
+  type Subscriber,
   setCurrentObserver,
   shallowClear,
-  type Subscriber,
 } from './signal.ts'
 
 export interface ComputedOptions<T> {

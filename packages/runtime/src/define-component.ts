@@ -44,9 +44,7 @@ export function defineComponent(setup: Setup): typeof HTMLElement
 export function defineComponent<A extends ReadonlyArray<string>>(
   options: ComponentOptions<A>,
 ): typeof HTMLElement
-export function defineComponent(
-  setupOrOptions: Setup | ComponentOptions,
-): typeof HTMLElement {
+export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeof HTMLElement {
   if (typeof setupOrOptions === 'function') {
     const setup = setupOrOptions
     const S = Symbol()
@@ -60,8 +58,11 @@ export function defineComponent(
         const host = this.shadowRoot ?? this
         _cur = lc
         let tree: ReturnType<Setup>
-        try { tree = setup({ host, element: this } as SetupContext) }
-        finally { _cur = null }
+        try {
+          tree = setup({ host, element: this } as SetupContext)
+        } finally {
+          _cur = null
+        }
         const scope = _mount(tree!, host)
         this[S] = scope
         _scopes.set(this, scope)
@@ -89,19 +90,21 @@ export function defineComponent(
 
     connectedCallback(): void {
       if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-      if (_signal === null && attrs.length > 0)
-        throw new RuntimeError('SCR-R0003', 'no signal')
+      if (_signal === null && attrs.length > 0) throw new RuntimeError('SCR-R0003', 'no signal')
       const attrSignals: Record<string, ReturnType<typeof SignalFactory>> = {}
-      for (const name of attrs) attrSignals[name] = _signal(this.getAttribute(name) ?? '')
+      for (const name of attrs) attrSignals[name] = _signal!(this.getAttribute(name) ?? '')
       this[ATTR_SYM] = attrSignals
       const lc: _LC = { m: [], c: [] }
       this[LC_SYM] = lc
       const host = this.shadowRoot ?? this
       _cur = lc
       let tree: ReturnType<typeof setup>
-      try { tree = setup({ host, element: this, attrs: attrSignals } as Parameters<typeof setup>[0]) }
-      finally { _cur = null }
-      const scope = _mount!(tree!, host)
+      try {
+        tree = setup({ host, element: this, attrs: attrSignals } as Parameters<typeof setup>[0])
+      } finally {
+        _cur = null
+      }
+      const scope = _mount?.(tree!, host)
       this[S] = scope
       _scopes.set(this, scope)
       _runMounts(lc)

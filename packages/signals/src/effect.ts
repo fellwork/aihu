@@ -1,5 +1,13 @@
 import { SignalCircularError } from './errors.ts'
-import { DISPOSED, EFFECT, type Link, MERGE, RUNNING, setCurrentObserver, type Subscriber } from './signal.ts'
+import {
+  DISPOSED,
+  EFFECT,
+  type Link,
+  MERGE,
+  RUNNING,
+  type Subscriber,
+  setCurrentObserver,
+} from './signal.ts'
 
 export type EffectFn = () => void
 export type Dispose = () => void

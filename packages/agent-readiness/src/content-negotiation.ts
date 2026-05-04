@@ -42,9 +42,7 @@ export interface ContentNegotiationOptions {
  *
  * Does NOT modify responses from next().
  */
-export function createContentNegotiationHandler(
-  opts: ContentNegotiationOptions,
-): Middleware {
+export function createContentNegotiationHandler(opts: ContentNegotiationOptions): Middleware {
   const estimateTokens = opts.estimateTokens ?? ((content: string) => Math.ceil(content.length / 4))
 
   return async (req, next) => {

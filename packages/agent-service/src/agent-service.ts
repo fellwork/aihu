@@ -6,12 +6,7 @@
  * and `asMiddleware`.
  */
 import type { AgentMetadata } from '@scribe/agent'
-import type {
-  AgentManifest,
-  AgentService,
-  AgentServiceOptions,
-  AgentToolEntry,
-} from './types.ts'
+import type { AgentManifest, AgentService, AgentServiceOptions, AgentToolEntry } from './types.ts'
 
 /** Route prefix for the tool-call middleware. */
 const TOOL_CALL_PATH = '/__scribe/tools/call'

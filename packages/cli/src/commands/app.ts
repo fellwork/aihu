@@ -46,7 +46,7 @@ export function scaffoldApp(name: string, targetDir: string): void {
       vite: '^5.0.0',
     },
   }
-  writeFile(join(root, 'package.json'), JSON.stringify(pkgJson, null, 2) + '\n')
+  writeFile(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`)
 
   // scribe.config.ts
   const scribeConfig = `import { defineScribeConfig } from '@scribe/server'
@@ -94,7 +94,5 @@ export default defineConfig({
 `
   writeFile(join(root, 'src/layouts/default.scribe'), defaultScribe)
 
-  process.stdout.write(
-    `✓ Created ${name}/\n  cd ${name}\n  bun install\n  bun run dev\n`,
-  )
+  process.stdout.write(`✓ Created ${name}/\n  cd ${name}\n  bun install\n  bun run dev\n`)
 }

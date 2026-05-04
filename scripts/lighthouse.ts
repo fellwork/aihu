@@ -7,10 +7,10 @@
  * scripts/lighthouse-results.json, then exits non-zero on failure.
  */
 
-import lighthouse from 'lighthouse'
-import * as chromeLauncher from 'chrome-launcher'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import * as chromeLauncher from 'chrome-launcher'
+import lighthouse from 'lighthouse'
 
 const DEMO_PORT = 3456
 const BASE_URL = `http://localhost:${DEMO_PORT}`
@@ -26,7 +26,7 @@ const THRESHOLDS = {
 
 const CWV = {
   lcp: 2500, // ms
-  cls: 0,    // unitless
+  cls: 0, // unitless
 } as const
 
 // ── 1. Start demo server ────────────────────────────────────────────────────
@@ -95,16 +95,18 @@ for (const url of URLS) {
   // ── 4. Extract scores ──────────────────────────────────────────────────
 
   const scores = {
-    performance: (lhr.categories['performance']?.score ?? 0) * 100,
-    accessibility: (lhr.categories['accessibility']?.score ?? 0) * 100,
+    performance: (lhr.categories.performance?.score ?? 0) * 100,
+    accessibility: (lhr.categories.accessibility?.score ?? 0) * 100,
     'best-practices': (lhr.categories['best-practices']?.score ?? 0) * 100,
-    seo: (lhr.categories['seo']?.score ?? 0) * 100,
+    seo: (lhr.categories.seo?.score ?? 0) * 100,
   } as Record<string, number>
 
   const lcp = lhr.audits['largest-contentful-paint']?.numericValue ?? Infinity
   const cls = lhr.audits['cumulative-layout-shift']?.numericValue ?? Infinity
 
-  console.log(`  Scores: performance=${scores['performance']?.toFixed(0)}, accessibility=${scores['accessibility']?.toFixed(0)}, best-practices=${scores['best-practices']?.toFixed(0)}, seo=${scores['seo']?.toFixed(0)}`)
+  console.log(
+    `  Scores: performance=${scores.performance?.toFixed(0)}, accessibility=${scores.accessibility?.toFixed(0)}, best-practices=${scores['best-practices']?.toFixed(0)}, seo=${scores.seo?.toFixed(0)}`,
+  )
   console.log(`  CWV:    LCP=${lcp.toFixed(0)}ms, CLS=${cls.toFixed(3)}`)
 
   allResults.push({ url, scores, cwv: { lcp, cls }, lhr: lhr.finalUrl })

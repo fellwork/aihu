@@ -3,17 +3,14 @@
  *   - v0.6.3: RouteDefinition sidecar fields + readRouteSidecar()
  *   - v0.6.8: scanLayouts(), virtual:scribe-layouts plugin hooks
  */
-import { describe, expect, it } from 'vitest'
-import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import {
-  viteRouterPlugin,
-  readRouteSidecar,
-  scanLayouts,
-} from '../src/vite-plugin.ts'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import type { BuildConfig, BuildTarget } from '../../server/src/index.ts'
 import type { RouteDefinition } from '../src/index.ts'
-import type { BuildTarget, BuildConfig } from '../../server/src/index.ts'
+import { readRouteSidecar, scanLayouts, viteRouterPlugin } from '../src/vite-plugin.ts'
 
 // ---------------------------------------------------------------------------
 // v0.6.3 — RouteDefinition sidecar fields (type-level tests)
@@ -165,8 +162,8 @@ describe('scanLayouts()', () => {
       writeFileSync(join(tmp, 'blog.scribe'), '<layout></layout>')
       const result = scanLayouts(tmp)
       expect(Object.keys(result).sort()).toEqual(['admin', 'blog', 'default'])
-      expect(result['default']).toContain('default.scribe')
-      expect(result['admin']).toContain('admin.scribe')
+      expect(result.default).toContain('default.scribe')
+      expect(result.admin).toContain('admin.scribe')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
@@ -193,26 +190,26 @@ describe('scanLayouts()', () => {
 describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
   it('resolves virtual:scribe-layouts to internal ID', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId!('virtual:scribe-layouts')
+    const resolved = plugin.resolveId?.('virtual:scribe-layouts')
     expect(resolved).toBe('\0virtual:scribe-layouts')
   })
 
   it('does not resolve unknown virtual IDs', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId!('virtual:something-else')
+    const resolved = plugin.resolveId?.('virtual:something-else')
     expect(resolved == null).toBe(true)
   })
 
   it('load returns string content for virtual:scribe-layouts', () => {
     const plugin = viteRouterPlugin()
-    const content = plugin.load!('\0virtual:scribe-layouts')
+    const content = plugin.load?.('\0virtual:scribe-layouts')
     expect(typeof content).toBe('string')
     expect(content).toContain('export default')
   })
 
   it('load returns null for non-virtual IDs', () => {
     const plugin = viteRouterPlugin()
-    const result = plugin.load!('./some-file.ts')
+    const result = plugin.load?.('./some-file.ts')
     expect(result == null).toBe(true)
   })
 
@@ -232,8 +229,8 @@ describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
         watcher: { add: () => {}, on: () => {} },
         moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
       }
-      plugin.configureServer!(mockServer as Parameters<typeof plugin.configureServer>[0])
-      const content = plugin.load!('\0virtual:scribe-layouts')
+      plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
+      const content = plugin.load?.('\0virtual:scribe-layouts')
       expect(typeof content).toBe('string')
       expect(content).toContain('"default"')
       expect(content).toContain('"admin"')

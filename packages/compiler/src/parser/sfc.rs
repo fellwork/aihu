@@ -223,7 +223,11 @@ fn match_layout_shorthand(source: &str, pos: usize) -> Option<(BlockKind, usize,
 ///
 /// Strings (`"…"`, `'…'`, `` `…` ``) and JS-style comments (`// …`, `/* … */`)
 /// are skipped so that braces appearing inside them do not affect depth.
-fn find_at_block_close(source: &str, body_start: usize) -> Option<usize> {
+///
+/// For `BlockKind::Template` the string-literal skip is disabled: template
+/// bodies contain HTML prose where a bare apostrophe (e.g. "don't") must not
+/// trigger string-literal mode and accidentally swallow the closing `}`.
+fn find_at_block_close(source: &str, body_start: usize, kind: BlockKind) -> Option<usize> {
     let bytes = source.as_bytes();
     let mut depth: usize = 1;
     let mut i = body_start;
@@ -261,8 +265,10 @@ fn find_at_block_close(source: &str, body_start: usize) -> Option<usize> {
                     i = bytes.len();
                 }
             }
-            b'"' | b'\'' | b'`' => {
+            b'"' | b'\'' | b'`' if kind != BlockKind::Template => {
                 // String literal — skip to matching quote, honoring backslash escapes.
+                // Disabled for @template blocks: HTML prose may contain bare apostrophes
+                // (e.g. "don't") that must not trigger string-literal mode.
                 let quote = c;
                 i += 1;
                 while i < bytes.len() {
@@ -722,7 +728,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<S
             // Unified `@blockname { … }` handler — body delimited by brace
             // depth per Block Structure Spec §2.4.
             let body_start = body_start_at;
-            let close_pos = find_at_block_close(source, body_start).ok_or_else(|| {
+            let close_pos = find_at_block_close(source, body_start, kind).ok_or_else(|| {
                 let (label, code) = match kind {
                     BlockKind::Script => ("@state", "C101"),
                     BlockKind::Template => ("@template", "C102"),
@@ -775,9 +781,19 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<S
                     // v0.3.3: `@style { $global }` scope recognition.
                     // If the body begins with `$global` (after stripping leading whitespace),
                     // set StyleScope::Global and remove the `$global` token from the body.
+                    // v0.x Amendment 02: if `$global { ... }` uses a braced block form,
+                    // strip the outer braces so the inner content is stored as the style body.
                     let (style_scope, style_content) = if body.starts_with("$global") {
                         let rest = body["$global".len()..].trim();
-                        (StyleScope::Global, rest)
+                        // If the rest starts with `{`, strip the outer braces (block form).
+                        let inner = if rest.starts_with('{') {
+                            let close = crate::parser::state_macros::find_brace_close(rest, 1)
+                                .unwrap_or(rest.len());
+                            rest[1..close].trim()
+                        } else {
+                            rest
+                        };
+                        (StyleScope::Global, inner)
                     } else {
                         (StyleScope::Scoped, body)
                     };

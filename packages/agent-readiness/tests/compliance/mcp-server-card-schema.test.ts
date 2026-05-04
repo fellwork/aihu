@@ -53,7 +53,7 @@ describe('MCP Server Card SEP-1649 schema compliance', () => {
       ...base,
       skills: [{ id: 'a', name: 'Greet', description: 'Says hi.' }],
     })
-    expect(card.tools![0].name.length).toBeGreaterThan(0)
+    expect(card.tools?.[0].name.length).toBeGreaterThan(0)
   })
 
   it('tools[].description is a non-empty string when tools present', () => {
@@ -61,29 +61,41 @@ describe('MCP Server Card SEP-1649 schema compliance', () => {
       ...base,
       skills: [{ id: 'a', name: 'Greet', description: 'Says hi.' }],
     })
-    expect(card.tools![0].description.length).toBeGreaterThan(0)
+    expect(card.tools?.[0].description.length).toBeGreaterThan(0)
   })
 
   it('auth.authorizationServer is a valid URL when auth present', () => {
     const card = generateMcpServerCard({
       ...base,
-      auth: { type: 'oauth2', authorizationUrl: 'https://auth.example.com/authorize', tokenUrl: 'https://auth.example.com/token' },
+      auth: {
+        type: 'oauth2',
+        authorizationUrl: 'https://auth.example.com/authorize',
+        tokenUrl: 'https://auth.example.com/token',
+      },
     })
-    expect(() => new URL(card.auth!.authorizationServer)).not.toThrow()
+    expect(() => new URL(card.auth?.authorizationServer)).not.toThrow()
   })
 
   it('auth.resourceMetadata is a valid URL when present', () => {
     const card = generateMcpServerCard({
       ...base,
-      auth: { type: 'oauth2', authorizationUrl: 'https://auth.example.com/authorize', tokenUrl: 'https://auth.example.com/token' },
+      auth: {
+        type: 'oauth2',
+        authorizationUrl: 'https://auth.example.com/authorize',
+        tokenUrl: 'https://auth.example.com/token',
+      },
     })
-    expect(() => new URL(card.auth!.resourceMetadata!)).not.toThrow()
+    expect(() => new URL(card.auth?.resourceMetadata ?? '')).not.toThrow()
   })
 
   it('no credential keys anywhere in JSON output', () => {
     const card = generateMcpServerCard({
       ...base,
-      auth: { type: 'oauth2', authorizationUrl: 'https://auth.example.com/authorize', tokenUrl: 'https://auth.example.com/token' },
+      auth: {
+        type: 'oauth2',
+        authorizationUrl: 'https://auth.example.com/authorize',
+        tokenUrl: 'https://auth.example.com/token',
+      },
     })
     const json = JSON.stringify(card)
     for (const forbidden of ['clientSecret', 'password', 'token', 'secret']) {

@@ -2,9 +2,17 @@
   "name": "@scribe/server-linux-x64-gnu",
   "version": "0.1.0",
   "license": "MIT",
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["glibc"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
   "main": "server-native.linux-x64-gnu.node",
-  "files": ["server-native.linux-x64-gnu.node"]
+  "files": [
+    "server-native.linux-x64-gnu.node"
+  ]
 }

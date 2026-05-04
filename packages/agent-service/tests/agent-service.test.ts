@@ -1,6 +1,6 @@
+import type { AgentMetadata } from '@scribe/agent'
 import { describe, expect, it } from 'vitest'
 import { createAgentService } from '../src/index.ts'
-import type { AgentMetadata } from '@scribe/agent'
 
 /**
  * Plan 5.2 — unit tests for `@scribe/agent-service`.

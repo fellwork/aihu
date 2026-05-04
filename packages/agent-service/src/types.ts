@@ -6,7 +6,8 @@
  * `AgentServiceOptions` configures `createAgentService`.
  * Re-uses `InputSchema` and `ActionSchema` from `@scribe/agent`.
  */
-export type { InputSchema, ActionSchema } from '@scribe/agent'
+export type { ActionSchema, InputSchema } from '@scribe/agent'
+
 import type { AgentMetadata } from '@scribe/agent'
 
 /**

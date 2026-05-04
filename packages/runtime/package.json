@@ -16,6 +16,10 @@
     "dist"
   ],
   "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit"
+  },
   "peerDependencies": {
     "@scribe/arbor": "workspace:*",
     "@scribe/signals": "workspace:*"

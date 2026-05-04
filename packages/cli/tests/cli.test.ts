@@ -1,23 +1,24 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  appDefaultLayout,
+  appIndexScribe,
   appPackageJson,
+  appRolldownConfig,
   appScribeConfig,
   appViteConfig,
-  appIndexScribe,
-  appDefaultLayout,
-  pageScribe,
   componentScribe,
-  pluginPackageJson,
+  pageScribe,
   pluginIndex,
+  pluginPackageJson,
   scaffoldApp,
-  scaffoldPage,
   scaffoldComponent,
+  scaffoldPage,
   scaffoldPlugin,
   toKebab,
+  toSafe,
 } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -27,31 +28,48 @@ import {
 describe('appPackageJson', () => {
   it('includes the app name', () => {
     const pkg = JSON.parse(appPackageJson('my-app')) as Record<string, unknown>
-    expect(pkg['name']).toBe('my-app')
+    expect(pkg.name).toBe('my-app')
   })
 
-  it('lists all required scribe runtime dependencies', () => {
+  it('lists core scribe runtime dependencies', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as { dependencies: Record<string, string> }
     const deps = pkg.dependencies
-    expect(deps).toHaveProperty('@scribe/agent')
     expect(deps).toHaveProperty('@scribe/arbor')
-    expect(deps).toHaveProperty('@scribe/router')
     expect(deps).toHaveProperty('@scribe/runtime')
-    expect(deps).toHaveProperty('@scribe/server')
     expect(deps).toHaveProperty('@scribe/signals')
   })
 
-  it('lists @scribe/cli and vite as devDependencies', () => {
+  it('lists @scribe/cli and rolldown as devDependencies', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as {
       devDependencies: Record<string, string>
     }
     expect(pkg.devDependencies).toHaveProperty('@scribe/cli')
-    expect(pkg.devDependencies).toHaveProperty('vite')
+    expect(pkg.devDependencies).toHaveProperty('rolldown')
   })
 
   it('sets type to module', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as { type: string }
-    expect(pkg['type']).toBe('module')
+    expect(pkg.type).toBe('module')
+  })
+})
+
+describe('appRolldownConfig', () => {
+  it('references scribeCompilerPlugin', () => {
+    expect(appRolldownConfig('my-app')).toContain('scribeCompilerPlugin')
+  })
+
+  it('sets moduleTypes for .scribe files', () => {
+    expect(appRolldownConfig('my-app')).toContain('.scribe')
+  })
+
+  it('outputs to dist/', () => {
+    expect(appRolldownConfig('my-app')).toContain("dir: 'dist'")
+  })
+})
+
+describe('appViteConfig (deprecated alias)', () => {
+  it('still returns a rolldown config (backward compat)', () => {
+    expect(appViteConfig()).toContain('rolldown')
   })
 })
 
@@ -65,33 +83,24 @@ describe('appScribeConfig', () => {
   })
 })
 
-describe('appViteConfig', () => {
-  it('references viteRouterIntegration', () => {
-    expect(appViteConfig()).toContain('viteRouterIntegration')
-  })
-
-  it('references viteAgentReadinessIntegration', () => {
-    expect(appViteConfig()).toContain('viteAgentReadinessIntegration')
-  })
-})
-
 describe('appIndexScribe', () => {
-  it('has a @route block with name home', () => {
-    expect(appIndexScribe()).toContain("name: 'home'")
+  it('has a @state block with signal import', () => {
+    expect(appIndexScribe()).toContain('@state')
+    expect(appIndexScribe()).toContain("from '@scribe/signals'")
   })
 
-  it('uses $prop for the name state declaration', () => {
-    expect(appIndexScribe()).toContain('$prop name: string')
+  it('has a @template block', () => {
+    expect(appIndexScribe()).toContain('@template')
   })
 
-  it('has a @template block with Hello', () => {
-    expect(appIndexScribe()).toContain('Hello {{ name }}')
+  it('uses v1 signal pattern', () => {
+    expect(appIndexScribe()).toContain('signal(')
   })
 })
 
 describe('appDefaultLayout', () => {
-  it('has a @template block with <$slot />', () => {
-    expect(appDefaultLayout()).toContain('<$slot />')
+  it('has a @template block with <slot />', () => {
+    expect(appDefaultLayout()).toContain('<slot />')
   })
 })
 
@@ -122,7 +131,7 @@ describe('componentScribe', () => {
 describe('pluginPackageJson', () => {
   it('names the package scribe-plugin-<kebab>', () => {
     const pkg = JSON.parse(pluginPackageJson('MyForms')) as { name: string }
-    expect(pkg['name']).toBe('scribe-plugin-my-forms')
+    expect(pkg.name).toBe('scribe-plugin-my-forms')
   })
 
   it('has @scribe/plugin as peerDependency', () => {
@@ -161,6 +170,24 @@ describe('toKebab', () => {
   })
 })
 
+describe('toSafe', () => {
+  it('lowercases the name', () => {
+    expect(toSafe('MyApp')).toBe('myapp')
+  })
+
+  it('replaces non-alphanumeric with hyphens', () => {
+    expect(toSafe('my app!')).toBe('my-app')
+  })
+
+  it('removes leading non-alpha', () => {
+    expect(toSafe('123app')).toBe('app')
+  })
+
+  it('falls back to "app" for empty input', () => {
+    expect(toSafe('')).toBe('app')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Scaffold functions (with temp directory)
 // ---------------------------------------------------------------------------
@@ -176,9 +203,9 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates all 5 expected files', () => {
+  it('creates all 6 expected files', () => {
     const result = scaffoldApp('demo', tmpDir)
-    expect(result.created).toHaveLength(5)
+    expect(result.created).toHaveLength(6)
     expect(result.skipped).toHaveLength(0)
   })
 
@@ -186,7 +213,12 @@ describe('scaffoldApp', () => {
     scaffoldApp('my-app', tmpDir)
     const raw = readFileSync(join(tmpDir, 'my-app', 'package.json'), 'utf8')
     const pkg = JSON.parse(raw) as { name: string }
-    expect(pkg['name']).toBe('my-app')
+    expect(pkg.name).toBe('my-app')
+  })
+
+  it('writes rolldown.config.ts', () => {
+    scaffoldApp('demo', tmpDir)
+    expect(existsSync(join(tmpDir, 'demo', 'rolldown.config.ts'))).toBe(true)
   })
 
   it('writes src/pages/index.scribe', () => {
@@ -194,16 +226,21 @@ describe('scaffoldApp', () => {
     expect(existsSync(join(tmpDir, 'demo', 'src', 'pages', 'index.scribe'))).toBe(true)
   })
 
-  it('writes src/layouts/default.scribe', () => {
+  it('writes index.html', () => {
     scaffoldApp('demo', tmpDir)
-    expect(existsSync(join(tmpDir, 'demo', 'src', 'layouts', 'default.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'demo', 'index.html'))).toBe(true)
+  })
+
+  it('writes src/main.ts', () => {
+    scaffoldApp('demo', tmpDir)
+    expect(existsSync(join(tmpDir, 'demo', 'src', 'main.ts'))).toBe(true)
   })
 
   it('skips existing files on re-run', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(5)
+    expect(second.skipped).toHaveLength(6)
   })
 })
 

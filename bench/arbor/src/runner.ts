@@ -104,12 +104,8 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   lines.push(
     `**Runner:** mitata 1.0.34 · Bun ${process.versions.bun ?? 'n/a'} · JSDOM ${jsdomVersion}`,
   )
-  lines.push(
-    '**Track:** A — @scribe/arbor vs. SOTA DOM-binding libs (Round N+1)',
-  )
-  lines.push(
-    '**Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.',
-  )
+  lines.push('**Track:** A — @scribe/arbor vs. SOTA DOM-binding libs (Round N+1)')
+  lines.push('**Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.')
   lines.push('')
   lines.push('---')
   lines.push('')
@@ -146,8 +142,8 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   lines.push('')
   lines.push(
     'The competitors in this matrix each have a primary bench axis.\n' +
-    'This section answers: "how does @scribe/arbor perform on the axis\n' +
-    'each competitor holds itself to?"',
+      'This section answers: "how does @scribe/arbor perform on the axis\n' +
+      'each competitor holds itself to?"',
   )
   lines.push('')
 
