@@ -265,9 +265,15 @@ const fee = computed(() => 5)
         result.js.contains("const fee = computed"),
         "body should contain fee"
     );
+    // The multiline import continuation `} from '@scribe/signals'` must NOT appear
+    // inside the component setup function body. The auto-generated imports at the top
+    // of the file may contain `} from '@scribe/signals'` as part of single-line import
+    // statements (which is correct), but the raw multiline import lines must not leak
+    // into the setup body. Check that the setup body doesn't have `  computed` (the
+    // indented identifier that was a continuation of the import block).
     assert!(
-        !result.js.contains("} from '@scribe/signals'"),
-        "multiline import should be stripped from script body"
+        !result.js.contains("  computed\n"),
+        "multiline import continuation line should be stripped from script body"
     );
 }
 

@@ -1,6 +1,19 @@
 use crate::codegen::signals::SignalMap;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleMacro, StyleScope, TemplateNode};
+// Note: $html macro emits innerHTML assignments — these are intentionally unsafe
+// and documented as requiring consumer-side sanitization (see spec).
+
+/// Imports needed due to `@state` macro declarations.
+#[derive(Default)]
+struct StateImports {
+    needs_computed: bool,
+    needs_batch: bool,
+    needs_on_mount: bool,
+    needs_on_cleanup: bool,
+    needs_effect_for_macros: bool,
+    needs_create_resource: bool,
+}
 
 #[derive(Debug, Default)]
 pub struct EmitResult {
@@ -223,31 +236,320 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     }
 }
 
+// ─── State macro processing ───────────────────────────────────────────────────
+
+fn process_state_body(
+    raw_script: &str,
+    signal_map: &mut SignalMap,
+) -> (StateImports, Vec<crate::types::StateMacro>, String) {
+    use crate::parser::state_macros::parse_state_macros;
+    use crate::types::StateMacro;
+
+    let macros = parse_state_macros(raw_script).unwrap_or_default();
+    let mut si = StateImports::default();
+
+    for mac in &macros {
+        match mac {
+            StateMacro::Computed { name, .. } => {
+                si.needs_computed = true;
+                signal_map.insert_computed(name);
+            }
+            StateMacro::Prop { name, .. } => {
+                let _ = name; // not reactive at this stage
+            }
+            StateMacro::Action { .. } => {
+                si.needs_batch = true;
+            }
+            StateMacro::LifecycleMount { .. } => {
+                si.needs_on_mount = true;
+            }
+            StateMacro::LifecycleDispose { .. } => {
+                si.needs_on_cleanup = true;
+            }
+            StateMacro::Effect { .. } | StateMacro::EffectOn { .. } | StateMacro::Watch { .. } => {
+                si.needs_effect_for_macros = true;
+            }
+            StateMacro::Resource { .. } => {
+                si.needs_create_resource = true;
+            }
+        }
+    }
+
+    let mut plain_lines: Vec<String> = Vec::new();
+    let mut i = 0usize;
+    let mut in_import = false;
+    let bytes = raw_script.as_bytes();
+    while i < bytes.len() {
+        let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
+        let line_raw = &raw_script[i..nl];
+        let line = line_raw.trim();
+
+        // Skip import lines (handled by extract_script_body)
+        // Use the same multiline state machine as extract_script_body.
+        if line.starts_with("import ") || line.starts_with("import\t") {
+            let opens_block = line.contains('{') && !line.contains('}');
+            if opens_block {
+                in_import = true;
+            }
+            i = nl + 1;
+            continue;
+        }
+        if in_import {
+            if line.contains(" from ") || line.ends_with(';') {
+                in_import = false;
+            }
+            i = nl + 1;
+            continue;
+        }
+
+        // Skip $macro lines (and their multi-line bodies)
+        if line.starts_with('$') {
+            let has_brace = raw_script[i..].find('{').map(|r| i + r);
+            let has_nl_first = raw_script[i..].find('\n').map(|r| i + r);
+            let macro_keyword = line.trim_start_matches('$').split_ascii_whitespace().next();
+            let is_block_macro = matches!(
+                macro_keyword,
+                Some("effect") | Some("effect.on") | Some("action") | Some("watch") |
+                Some("lifecycle.mount") | Some("lifecycle.dispose")
+            );
+            // Also check for $effect.on( prefix
+            let is_block_macro = is_block_macro || line.trim_start_matches('$').starts_with("effect.on(");
+            if is_block_macro {
+                // For `$action`, the argument list may contain `{ Type }` annotations —
+                // the first `{` in the line is NOT the body brace.  Use paren-depth
+                // tracking to skip past the arg list and find the true body brace.
+                let brace_start_opt = if macro_keyword == Some("action") {
+                    let mut depth_paren = 0usize;
+                    let mut found: Option<usize> = None;
+                    for (j, ch) in raw_script[i..].char_indices() {
+                        if ch == '\n' { break; }
+                        match ch {
+                            '(' => depth_paren += 1,
+                            ')' => { depth_paren = depth_paren.saturating_sub(1); }
+                            '{' if depth_paren == 0 => { found = Some(i + j); break; }
+                            _ => {}
+                        }
+                    }
+                    found
+                } else {
+                    has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2))
+                };
+                if let Some(brace_start) = brace_start_opt {
+                    if let Some(close) = crate::parser::state_macros::find_brace_close(raw_script, brace_start + 1) {
+                        i = close + 1;
+                        if i < bytes.len() && bytes[i] == b'\n' {
+                            i += 1;
+                        }
+                        continue;
+                    }
+                }
+            }
+            i = nl + 1;
+            continue;
+        }
+
+        let transformed = transform_bare_declaration(line_raw);
+        plain_lines.push(transformed);
+        i = nl + 1;
+    }
+
+    // Trim leading/trailing blank lines and add 2-space indent
+    let trimmed: Vec<_> = plain_lines
+        .iter()
+        .skip_while(|l| l.trim().is_empty())
+        .cloned()
+        .collect();
+    let mut trimmed: Vec<_> = trimmed
+        .iter()
+        .rev()
+        .skip_while(|l| l.trim().is_empty())
+        .cloned()
+        .collect();
+    trimmed.reverse();
+
+    let plain_body = if trimmed.is_empty() {
+        String::new()
+    } else {
+        trimmed
+            .iter()
+            .map(|l| {
+                if l.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("  {}", l)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    (si, macros, plain_body)
+}
+
+/// Transform a bare TypeScript class-property declaration to a `const` declaration.
+fn transform_bare_declaration(line: &str) -> String {
+    let trimmed = line.trim();
+
+    if trimmed.is_empty()
+        || trimmed.starts_with("const ")
+        || trimmed.starts_with("let ")
+        || trimmed.starts_with("var ")
+        || trimmed.starts_with("function ")
+        || trimmed.starts_with("class ")
+        || trimmed.starts_with("return ")
+        || trimmed.starts_with("if ")
+        || trimmed.starts_with("else")
+        || trimmed.starts_with("for ")
+        || trimmed.starts_with("while ")
+        || trimmed.starts_with("//")
+        || trimmed.starts_with("/*")
+        || trimmed.starts_with('*')
+        || trimmed.starts_with('}')
+        || trimmed.starts_with('{')
+        || trimmed.starts_with('$')
+        || trimmed.starts_with('@')
+    {
+        return line.to_string();
+    }
+
+    let first_char = trimmed.chars().next().unwrap_or(' ');
+    if !(first_char.is_ascii_alphabetic() || first_char == '_') {
+        return line.to_string();
+    }
+
+    let colon_pos = find_top_level_colon(trimmed);
+    let has_eq = trimmed.contains('=');
+
+    if colon_pos.is_none() || !has_eq {
+        return line.to_string();
+    }
+
+    let colon_pos = colon_pos.unwrap();
+    let name_part = trimmed[..colon_pos].trim();
+    if name_part.is_empty() || name_part.chars().any(|c| c.is_whitespace() || c == '.' || c == '[') {
+        return line.to_string();
+    }
+
+    let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
+    format!("{}const {}", leading_ws, trimmed)
+}
+
+/// Find the position of the first `:` at depth 0 (not inside `<>`, `{}`, `[]`, `()`).
+fn find_top_level_colon(s: &str) -> Option<usize> {
+    let mut depth_angle = 0i32;
+    let mut depth_brace = 0i32;
+    let mut depth_paren = 0i32;
+    let mut depth_bracket = 0i32;
+    for (i, c) in s.char_indices() {
+        match c {
+            '<' => depth_angle += 1,
+            '>' if depth_angle > 0 => depth_angle -= 1,
+            '{' => depth_brace += 1,
+            '}' => depth_brace = (depth_brace - 1).max(0),
+            '(' => depth_paren += 1,
+            ')' => depth_paren = (depth_paren - 1).max(0),
+            '[' => depth_bracket += 1,
+            ']' => depth_bracket = (depth_bracket - 1).max(0),
+            ':' if depth_angle == 0 && depth_brace == 0 && depth_paren == 0 && depth_bracket == 0 => {
+                return Some(i);
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
+    use crate::types::StateMacro;
+    let mut lines: Vec<String> = Vec::new();
+    for mac in macros {
+        match mac {
+            StateMacro::Prop { name, type_name } => {
+                lines.push(format!(
+                    "  const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
+                ));
+            }
+            StateMacro::Computed { name, expr } => {
+                lines.push(format!("  const {name} = computed(() => {expr});"));
+            }
+            StateMacro::Resource { name, fetcher } => {
+                lines.push(format!("  const {name} = createResource(() => {fetcher});"));
+            }
+            StateMacro::Effect { body } => {
+                lines.push(format!("  effect(() => {{ {body} }});"));
+            }
+            StateMacro::EffectOn { dep, body } => {
+                lines.push(format!("  effect(() => {{ {dep}; {body} }});"));
+            }
+            StateMacro::Watch { name, body } => {
+                lines.push(format!("  effect(() => {{ {name}; {body} }});"));
+            }
+            StateMacro::Action { name, args, body } => {
+                lines.push(format!(
+                    "  function {name}({args}) {{ return batch(() => {{ {body} }}) }}"
+                ));
+            }
+            StateMacro::LifecycleMount { body } => {
+                lines.push(format!("  onMount(() => {{ {body} }});"));
+            }
+            StateMacro::LifecycleDispose { body } => {
+                lines.push(format!("  onCleanup(() => {{ {body} }});"));
+            }
+        }
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    }
+}
+
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
-    let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
-
     let raw_script = unit.source.script.unwrap_or("");
+    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
     let helpers_needed = collect_needed_helpers(template_nodes);
-    let imports = build_function_imports(&signal_map, helpers_needed.needs_effect, raw_script);
-    let script_body = extract_script_body(raw_script);
+
+    // Process state macros first (updates signal_map with computed names)
+    let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
+    let (si, macros, plain_body) = process_state_body(raw_script, &mut signal_map);
+
+    let imports = build_function_imports(
+        &signal_map,
+        helpers_needed.needs_effect,
+        raw_script,
+        &si,
+        helpers_needed.each_boundary,
+    );
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
-    let (module_decl, ctx_param, style_injection) = if let Some(style) = &unit.source.style {
+    let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
-        (decl, "ctx", format!("  {}\n", injection))
+        (decl, format!("  {}\n", injection))
     } else {
-        (String::new(), "_ctx", String::new())
+        (String::new(), String::new())
     };
 
+    // Need ctx access for $prop (JSON attribute parsing) — use "ctx" if macros use it
+    let uses_ctx = macros.iter().any(|m| matches!(m, crate::types::StateMacro::Prop { .. }));
+    let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
+
+    let macro_code = emit_state_macro_code(&macros);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
-    let body = if script_body.is_empty() {
-        format!("{}  return {}\n", style_injection, return_expr)
-    } else {
-        format!("{}{}\n\n  return {}\n", style_injection, script_body, return_expr)
+    let body = {
+        let mut b = String::new();
+        b.push_str(&style_injection);
+        if !macro_code.is_empty() {
+            b.push_str(&macro_code);
+        }
+        if !plain_body.is_empty() {
+            b.push_str(&plain_body);
+            b.push_str("\n\n");
+        }
+        b.push_str(&format!("  return {}\n", return_expr));
+        b
     };
 
     format!(
@@ -257,24 +559,74 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     )
 }
 
-fn build_function_imports(signal_map: &SignalMap, needs_effect: bool, script: &str) -> String {
-    // Also check script body for direct `effect(` calls (not just $html/$show macros).
+fn build_function_imports(
+    signal_map: &SignalMap,
+    needs_effect: bool,
+    script: &str,
+    si: &StateImports,
+    needs_each: bool,
+) -> String {
     let script_uses_effect = script.contains("effect(");
-    let emit_effect = needs_effect || script_uses_effect;
+    let emit_effect = needs_effect || script_uses_effect || si.needs_effect_for_macros;
 
-    let mut lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
+    // Arbor imports
+    let arbor_items = if needs_each {
+        "import { branch, leaf, slot, each } from '@scribe/arbor'"
+    } else {
+        "import { branch, leaf, slot } from '@scribe/arbor'"
+    };
+
+    let mut lines: Vec<String> = vec![arbor_items.to_string()];
+
+    // Signals imports
     if !signal_map.0.is_empty() {
-        lines.push("import type { Signal } from '@scribe/signals'");
-        if emit_effect {
-            lines.push("import { signal, effect } from '@scribe/signals'");
-        } else {
-            lines.push("import { signal } from '@scribe/signals'");
+        lines.push("import type { Signal } from '@scribe/signals'".to_string());
+        let mut sig_items: Vec<&str> = vec!["signal"];
+        if si.needs_computed { sig_items.push("computed"); }
+        if emit_effect { sig_items.push("effect"); }
+        if si.needs_batch { sig_items.push("batch"); }
+        lines.push(format!("import {{ {} }} from '@scribe/signals'", sig_items.join(", ")));
+    } else {
+        // No signals in map, but may still need computed/effect/batch
+        let mut sig_items: Vec<&str> = Vec::new();
+        if si.needs_computed { sig_items.push("computed"); }
+        if emit_effect { sig_items.push("effect"); }
+        if si.needs_batch { sig_items.push("batch"); }
+        if !sig_items.is_empty() {
+            lines.push("import type { Signal } from '@scribe/signals'".to_string());
+            lines.push(format!("import {{ {} }} from '@scribe/signals'", sig_items.join(", ")));
         }
-    } else if emit_effect {
-        lines.push("import { effect } from '@scribe/signals'");
     }
-    lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
+
+    // Runtime imports
+    let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
+    if si.needs_on_mount { rt_items.push("onMount"); }
+    if si.needs_on_cleanup { rt_items.push("onCleanup"); }
+    lines.push(format!("import {{ {} }} from '@scribe/runtime'", rt_items.join(", ")));
+
     lines.join("\n")
+}
+
+// ─── HTML entity decoding ─────────────────────────────────────────────────────
+
+fn decode_html_entities(s: &str) -> String {
+    s.replace("&larr;", "←")
+     .replace("&rarr;", "→")
+     .replace("&uarr;", "↑")
+     .replace("&darr;", "↓")
+     .replace("&lArr;", "⇐")
+     .replace("&rArr;", "⇒")
+     .replace("&nbsp;", "\u{00A0}")
+     .replace("&amp;", "&")
+     .replace("&lt;", "<")
+     .replace("&gt;", ">")
+     .replace("&quot;", "\"")
+     .replace("&apos;", "'")
+     .replace("&mdash;", "—")
+     .replace("&ndash;", "–")
+     .replace("&hellip;", "…")
+     .replace("&copy;", "©")
+     .replace("&reg;", "®")
 }
 
 // ─── Options form (with agent block) ─────────────────────────────────────────
@@ -295,26 +647,35 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     let script_uses_effect = raw_script.contains("effect(");
     let emit_effect = helpers_needed.needs_effect || script_uses_effect;
 
-    let mut import_lines: Vec<&str> = vec!["import { branch, leaf, slot } from '@scribe/arbor'"];
+    let si = StateImports::default();
+
+    let mut import_lines: Vec<String> = if helpers_needed.each_boundary {
+        vec!["import { branch, leaf, slot, each } from '@scribe/arbor'".to_string()]
+    } else {
+        vec!["import { branch, leaf, slot } from '@scribe/arbor'".to_string()]
+    };
 
     // computed import if needed for number/boolean/enum coercions
     if needs_computed {
-        import_lines.push("import { computed } from '@scribe/signals'");
+        import_lines.push("import { computed } from '@scribe/signals'".to_string());
     }
 
     // signal import if script uses signals; effect if $html/$show macros or direct effect() calls
     if !signal_map.0.is_empty() {
-        import_lines.push("import type { Signal } from '@scribe/signals'");
+        import_lines.push("import type { Signal } from '@scribe/signals'".to_string());
         if emit_effect {
-            import_lines.push("import { signal, effect } from '@scribe/signals'");
+            import_lines.push("import { signal, effect } from '@scribe/signals'".to_string());
         } else {
-            import_lines.push("import { signal } from '@scribe/signals'");
+            import_lines.push("import { signal } from '@scribe/signals'".to_string());
         }
     } else if emit_effect {
-        import_lines.push("import { effect } from '@scribe/signals'");
+        import_lines.push("import { effect } from '@scribe/signals'".to_string());
     }
 
-    import_lines.push("import { defineComponent, defineElement } from '@scribe/runtime'");
+    let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
+    if si.needs_on_mount { rt_items.push("onMount"); }
+    if si.needs_on_cleanup { rt_items.push("onCleanup"); }
+    import_lines.push(format!("import {{ {} }} from '@scribe/runtime'", rt_items.join(", ")));
 
     let imports = import_lines.join("\n");
 
@@ -632,16 +993,43 @@ fn emit_nodes(nodes: &[TemplateNode], signal_map: &SignalMap, child_indent: &str
 fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) -> String {
     match node {
         TemplateNode::Text(s) => {
-            let t = s.trim();
+            let t = decode_html_entities(s.trim());
             if t.is_empty() {
                 String::new()
             } else {
-                format!("leaf('{}')", t)
+                let escaped = t.replace('\\', "\\\\").replace('\'', "\\'");
+                format!("leaf('{}')", escaped)
             }
         }
         TemplateNode::Interpolation(id) => {
+            // Support dotted property access: "item.title", "post.title", "route.params.slug"
+            if let Some(dot_pos) = id.find('.') {
+                let base = &id[..dot_pos];
+                let prop_path = &id[dot_pos + 1..];
+                if signal_map.is_computed(base) {
+                    return format!(
+                        "leaf([() => ({}[0]() as any).{}, () => {{}}] as unknown as Signal<string>)",
+                        base, prop_path
+                    );
+                } else if let Some(setter) = signal_map.0.get(base) {
+                    if !setter.is_empty() {
+                        return format!(
+                            "leaf([() => ({}[0]() as any).{}, {}] as unknown as Signal<string>)",
+                            base, prop_path, setter
+                        );
+                    }
+                }
+                // Plain variable (e.g., loop variable `item.title`)
+                return format!("leaf({}.{})", base, prop_path);
+            }
+            // Simple identifier
             if let Some(setter) = signal_map.0.get(id) {
-                format!("leaf([{}, {}] as unknown as Signal<string>)", id, setter)
+                if setter.is_empty() {
+                    // Computed signal (read-only) — emit reactive getter
+                    format!("leaf([() => {}[0]() as unknown as string, () => {{}}] as unknown as Signal<string>)", id)
+                } else {
+                    format!("leaf([{}, {}] as unknown as Signal<string>)", id, setter)
+                }
             } else {
                 format!("leaf({})", id)
             }
@@ -711,7 +1099,7 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             };
 
             // Emit macro effects (wrapping/side-effect macros).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent);
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
             if effects.is_empty() {
                 base
             } else {
@@ -988,7 +1376,7 @@ fn macro_value_expr(value: &MacroValue) -> String {
 
 /// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)
 /// attached to an element identified by `el_var`.
-fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str) -> Vec<String> {
+fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
     let mut effects: Vec<String> = Vec::new();
 
     let mut has_each = false;
@@ -1076,10 +1464,20 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str)
         } else {
             format!("({}) => {}", item_alias, key_fn)
         };
-        effects.push(format!(
-            "{}createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
-            indent, each_items, key_part, item_alias, idx_alias, subtree
-        ));
+
+        // Use arbor's reactive `each()` when the list is a signal;
+        // fall back to the static createEachBoundary for plain arrays.
+        if signal_map.is_reactive(&each_items) {
+            effects.push(format!(
+                "{}each({}, {}, ({}, {}) => {{ return {} }})",
+                indent, each_items, key_part, item_alias, idx_alias, subtree
+            ));
+        } else {
+            effects.push(format!(
+                "{}createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
+                indent, each_items, key_part, item_alias, idx_alias, subtree
+            ));
+        }
     }
 
     effects

@@ -21,7 +21,10 @@ const binPath: string =
 interface VitePlugin {
   readonly name: string
   enforce?: 'pre' | 'post'
-  transform?: (code: string, id: string) => { code: string; map: null } | null | undefined
+  transform?: (
+    code: string,
+    id: string,
+  ) => Promise<{ code: string; map: null }> | { code: string; map: null } | null | undefined
 }
 
 /**
@@ -365,7 +368,7 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
  */
 export function transform(source: string, id: string): { code: string; map: null } {
   const stem = basename(id, '.scribe')
-  const code = execFileSync(binPath, ['--stdin', '--tag', stem], {
+  const code = execFileSync(binPath, ['--stdin', '--tag', stem, '--path', id], {
     input: source,
     encoding: 'utf8',
   })
@@ -373,6 +376,90 @@ export function transform(source: string, id: string): { code: string; map: null
     code,
     map: null, // source maps deferred to v1 (OQ-C8)
   }
+}
+
+/**
+ * Inject `_setMount(mount)` + `_setSignal(signal)` auto-wiring into a compiled
+ * `.scribe` module. Adds the necessary symbols to existing imports and inserts
+ * the boot calls right after the last `import` statement.
+ *
+ * @internal
+ */
+export function _injectAutoWiring(code: string): string {
+  // 1. Add `mount` to the @scribe/arbor import (or create it).
+  let result: string
+  if (code.includes("from '@scribe/arbor'")) {
+    result = code.replace(
+      /import\s*\{([^}]*)\}\s*from\s*'@scribe\/arbor'/,
+      (_m: string, imports: string) => {
+        const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+        if (!parts.includes('mount')) parts.push('mount')
+        return `import { ${parts.join(', ')} } from '@scribe/arbor'`
+      },
+    )
+  } else {
+    result = `import { mount } from '@scribe/arbor'\n` + code
+  }
+
+  // 2. Add `signal` to the non-type @scribe/signals import (or create it).
+  // Note: `import\s+\{` does NOT match `import type {` (the regex needs `{` immediately
+  // after whitespace, whereas `import type {` has `type` in between).  No negation guard
+  // is needed — the replace callback below already skips `import type` lines.
+  if (/import\s+\{[^}]*\}\s+from\s+'@scribe\/signals'/.test(result)) {
+    // There IS a value import from signals — add `signal` if missing.
+    result = result.replace(
+      /import\s*\{([^}]*)\}\s*from\s*'@scribe\/signals'/,
+      (_m: string, imports: string) => {
+        // Skip type-only imports
+        if (_m.startsWith('import type')) return _m
+        const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+        if (!parts.includes('signal')) parts.push('signal')
+        return `import { ${parts.join(', ')} } from '@scribe/signals'`
+      },
+    )
+  } else if (!/import.*from\s*'@scribe\/signals'/.test(result)) {
+    // No signals import at all — insert after arbor import
+    result = result.replace(
+      /import\s*\{[^}]*\}\s*from\s*'@scribe\/arbor'/,
+      (m: string) => `${m}\nimport { signal } from '@scribe/signals'`,
+    )
+  }
+  // If only `import type { Signal }` exists, insert value import after it
+  else if (/import\s+type\s+\{[^}]*\}\s+from\s+'@scribe\/signals'/.test(result) &&
+           !result.match(/import\s+\{[^}]*\}\s+from\s+'@scribe\/signals'/)) {
+    result = result.replace(
+      /(import\s+type\s+\{[^}]*\}\s+from\s+'@scribe\/signals')/,
+      (_m: string, typeImport: string) => `${typeImport}\nimport { signal } from '@scribe/signals'`,
+    )
+  }
+
+  // 3. Add `_setMount`, `_setSignal` to the @scribe/runtime import.
+  result = result.replace(
+    /import\s*\{([^}]*)\}\s*from\s*'@scribe\/runtime'/,
+    (_m: string, imports: string) => {
+      const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+      if (!parts.includes('_setMount')) parts.push('_setMount')
+      if (!parts.includes('_setSignal')) parts.push('_setSignal')
+      return `import { ${parts.join(', ')} } from '@scribe/runtime'`
+    },
+  )
+
+  // 4. Insert boot calls after the last `import` statement.
+  const lines = result.split('\n')
+  let lastImportIdx = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const t = (lines[i] ?? '').trim()
+    if (t.startsWith('import ') || t.startsWith('import{')) {
+      lastImportIdx = i
+      break
+    }
+  }
+  if (lastImportIdx !== -1) {
+    lines.splice(lastImportIdx + 1, 0, '_setMount(mount)', '_setSignal(signal)', '')
+    result = lines.join('\n')
+  }
+
+  return result
 }
 
 /**
@@ -425,35 +512,49 @@ export function scribeCompilerPlugin(options?: ScribeCompilerPluginOptions): Vit
   return {
     name: 'scribe-compiler',
     enforce: 'pre',
-    transform(code, id) {
+    async transform(code, id) {
       if (!id.endsWith('.scribe')) return undefined
       const result = transform(code, id)
       const compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
       const elementTag = _extractElementTag(compiled)
 
+      let out: string
+
       // Plan 3.3 — static-island fast path. Bypasses HMR injection because
       // a component with no signals has no setup state to hot-replace.
       if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
-        return {
-          code: _buildStaticIsland(compiled, elementTag),
-          map: null,
-        }
-      }
-
-      if (elementTag !== null) {
+        out = _buildStaticIsland(compiled, elementTag)
+      } else if (elementTag !== null) {
         // Inject HMR instrumentation. The injected block is gated on
         // `typeof __DEV__ !== 'undefined' && __DEV__` so production
         // bundlers dead-code-eliminate it when they set __DEV__ = false.
-        let out = _buildHmrCode(compiled, elementTag)
+        out = _buildHmrCode(compiled, elementTag)
         // Plan 3.3 — interactive islands also gain `defer` attribute
         // support so individual instances can opt into lazy hydration.
         out = _buildDeferredHydration(out, elementTag)
-        return {
-          code: out,
-          map: null,
-        }
+      } else {
+        out = compiled
       }
-      return { code: compiled, map: null }
+
+      // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
+      out = _injectAutoWiring(out)
+
+      // The Rust compiler emits TypeScript (type casts, import type, etc.) and
+      // the injected HMR / defer helpers also contain TS generics and casts.
+      // Vite does NOT re-run its esbuild TypeScript-strip step when a plugin
+      // returns code for a non-.ts ID — so we strip types here ourselves using
+      // Vite's own transformWithEsbuild API (always available in a Vite context).
+      try {
+        const { transformWithEsbuild } = await import('vite')
+        const stripped = await transformWithEsbuild(out, 'component.ts', {
+          target: 'esnext',
+          sourcemap: false,
+        })
+        return { code: stripped.code, map: null }
+      } catch {
+        // If running outside Vite (e.g. tests, standalone transform), return as-is.
+        return { code: out, map: null }
+      }
     },
   }
 }

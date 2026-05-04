@@ -63,6 +63,22 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
         });
     }
 
+    // Expression binding: attr={expr} — treat `{...}` as a JS expression binding.
+    // This supports e.g. `href={`/posts/${item.slug}`}`, `value={count()}`, etc.
+    if raw_value.starts_with('{') {
+        let inner = extract_balanced_braces(raw_value).ok_or_else(|| CompileError {
+            message: format!("unclosed '{{' in attribute value for '{}'", name),
+            line: 0,
+            col: 0,
+            code: Some("C303".to_string()),
+            ..Default::default()
+        })?;
+        return Ok(Attr::Binding {
+            name: name.to_string(),
+            expr: inner.to_string(),
+        });
+    }
+
     // Boolean HTML attribute (no `=` sign)
     if raw_value.is_empty() && (VOID_ATTRS.contains(&name) || name.starts_with("data-")) {
         return Ok(Attr::Static {
@@ -71,11 +87,11 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
         });
     }
 
-    // If there's a value, it must be quoted or curly — bare values are C300
+    // If there's a value, it must be quoted — bare values are C300
+    // (curly `{expr}` form is already handled above)
     if !raw_value.is_empty() {
         if !raw_value.starts_with('"')
             && !raw_value.starts_with('\'')
-            && !raw_value.starts_with('{')
         {
             return Err(CompileError {
                 message: "bare attribute values are not supported; use quoted form or {expression}"

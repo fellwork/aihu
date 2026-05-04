@@ -63,7 +63,14 @@ fn main() {
                 process::exit(1);
             });
 
-        (src, tag, "<stdin>".to_string(), None)
+        // v1.x: Parse optional --path <filepath> for @route C500 check in stdin mode.
+        let path_pos = args.iter().position(|a| a == "--path");
+        let stdin_path: Option<String> = match path_pos {
+            Some(i) if i + 1 < args.len() => Some(args[i + 1].clone()),
+            _ => None,
+        };
+
+        (src, tag, "<stdin>".to_string(), stdin_path)
     } else {
         // File mode: argv[1] is the file path
         let file_path = match args.get(1) {

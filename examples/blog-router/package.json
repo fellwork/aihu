@@ -9,11 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@scribe/arbor": "workspace:*",
     "@scribe/router": "workspace:*",
     "@scribe/runtime": "workspace:*",
     "@scribe/signals": "workspace:*"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "@scribe/compiler": "workspace:*",
+    "vite": "^6.0.0"
   }
 }

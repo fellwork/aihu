@@ -168,6 +168,8 @@ fn try_parse_macro_line(
     }
 
     // $action name(args) { body }
+    // NOTE: args may contain `{...}` type annotations (e.g. `p: { slug: string }`).
+    // We must skip past the argument list's closing `)` before searching for the body `{`.
     if let Some(decl) = rest.strip_prefix("action ") {
         let decl = decl.trim();
         let open_paren = decl.find('(').ok_or_else(|| CompileError {
@@ -178,15 +180,49 @@ fn try_parse_macro_line(
             ..Default::default()
         })?;
         let name = decl[..open_paren].trim().to_string();
-        let close_paren = decl.find(')').ok_or_else(|| CompileError {
-            message: "$action declaration missing ')'".to_string(),
-            line: 0,
-            col: 0,
-            code: Some("C404".to_string()),
-            ..Default::default()
-        })?;
+
+        // Find the matching `)` for the argument list, respecting nested braces.
+        // This handles args like `p: { slug: string }` where `}` appears before `)`.
+        let close_paren = {
+            let args_start = open_paren + 1;
+            let mut depth = 0usize;
+            let mut found = None;
+            for (i, ch) in decl[args_start..].char_indices() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => depth = depth.saturating_sub(1),
+                    ')' if depth == 0 => {
+                        found = Some(args_start + i);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            found.ok_or_else(|| CompileError {
+                message: "$action declaration missing ')'".to_string(),
+                line: 0,
+                col: 0,
+                code: Some("C404".to_string()),
+                ..Default::default()
+            })?
+        };
+
         let args = decl[open_paren + 1..close_paren].trim().to_string();
-        let body = extract_brace_body(full_body, line_offset)?;
+
+        // Strip an optional return type annotation (`: Type`) between `)` and `{`.
+        // Compute the offset in `full_body` just past the argument list `)`.
+        // full_body layout: ... "$action " decl_start ...
+        // We need to advance past `$action ` (8 bytes) + open position in decl
+        // to be just after close_paren in decl.
+        let after_sig_in_decl = close_paren + 1; // byte just after `)` in decl
+        // The action macro starts with "$action " — that's 8 bytes in full_body
+        // (line_offset points to `$action...`).
+        // decl is rest after stripping "$" and "action " from the original rest,
+        // which is rest after "$" was stripped by the outer `strip_prefix('$')`.
+        // So in full_body: line_offset is the `$`, then "action " (7 bytes), then decl.
+        let action_keyword_len = "action ".len(); // 7
+        let search_from = line_offset + 1 /* '$' */ + action_keyword_len + after_sig_in_decl;
+        let body = extract_brace_body(full_body, search_from)?;
         return Ok(Some(StateMacro::Action { name, args, body }));
     }
 
