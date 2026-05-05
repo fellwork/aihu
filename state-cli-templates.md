@@ -107,7 +107,8 @@ out of v0.2.0 if RFC #56 hasn't ratified by the Architect's read.
 |---|---|---|
 | **Single-package** (default) | shipped | One `package.json` at root; simplest path. |
 | Bun workspaces monorepo | M2 | `apps/web` + `packages/*` shape; mirrors Aihu's own repo layout. |
-| Turborepo | deferred v0.3 | Adds turbo.json + remote caching config. |
+| **Bun workspaces + moonrepo** | M2 | `moon` task graph atop bun workspaces. **Aihu's own monorepo runs on moon today** (`moon run :build` in root `package.json`) — eating-our-own-dogfood plus first-class CI parallelism + per-target caching. SOTA-comparable to Turborepo's caching story, and Aihu already has direct toolchain experience to draw on for the template. |
+| Turborepo | deferred v0.3 | Adds turbo.json + remote caching config. Common in Vercel-host workflows; useful as alternative when team isn't already on moon. |
 | nx | deferred v0.4+ | Heavier; not on adoption signal yet. |
 
 ### D8 · Deployment platform
@@ -195,7 +196,7 @@ Add (gated on packages shipping in arch-3 M2):
 - D1: Tailwind 4
 - D2: `@aihu/auth` (post RFC #56 RATIFY)
 - D3: `@aihu/magna`
-- D7: Bun workspaces monorepo
+- D7: Bun workspaces monorepo (plain + `+ moon` variant)
 - D8: Vercel
 - D10: Playwright E2E add-on
 
