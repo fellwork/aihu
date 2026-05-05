@@ -16,10 +16,13 @@
   <h1>aihu-compiler WASM smoke benchmark</h1>
   <p>Compiles a 50-line <code>.aihu</code> fixture in the browser. Target: <strong>p50 &lt; 200ms</strong> (Directive 1 acceptance criterion #2).</p>
   <p class="note">Run from a real HTTP server (not <code>file://</code>): <code>python3 -m http.server 8080</code></p>
+  <p class="note">Override the WASM source via <code>?wasm=&lt;url&gt;</code> — e.g. <code>?wasm=/apps/docs/dist/wasm/aihu_compiler.js</code> to bench the same bundle the homepage <code>&lt;playground-embed&gt;</code> consumes (Directive 1).</p>
   <pre id="output">Loading WASM module...</pre>
 
   <script type="module">
-    import init, { wasm_compile, wasm_version } from '../pkg-wasm/aihu_compiler.js'
+    const params = new URLSearchParams(location.search)
+    const wasmUrl = params.get('wasm') ?? '../pkg-wasm/aihu_compiler.js'
+    const { default: init, wasm_compile, wasm_version } = await import(wasmUrl)
 
     const FIXTURE = `@state {
   name: 'smoke-bench'

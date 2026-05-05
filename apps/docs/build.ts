@@ -2,6 +2,9 @@
  * Full docs-site build script.
  *
  * Steps:
+ *   0. Fetch the latest aihu-compile-wasm.tar.gz from GitHub Releases
+ *      and extract it to `dist/wasm/` (Directive 1 — homepage
+ *      playground). Skipped silently if no release is available.
  *   1. Read every `docs/site/*.md` from the repo root
  *   2. Render Markdown → HTML with `marked`
  *   3. Write `src/content.ts` with a `window.__DOCS__` map
@@ -20,6 +23,22 @@ import { marked } from 'marked'
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, '../../docs/site')
 const contentOut = join(__dir, 'src/content.ts')
+const wasmFetcher = join(__dir, '../../scripts/fetch-wasm-bundle.ts')
+const wasmOutDir = join(__dir, 'dist/wasm')
+
+// ── 0. Fetch the WASM playground bundle ──────────────────────────
+
+console.log('Fetching WASM playground bundle…')
+try {
+  execFileSync(process.execPath, [wasmFetcher, wasmOutDir], {
+    cwd: __dir,
+    stdio: 'inherit',
+  })
+} catch (err) {
+  // Soft-fail: prebuild prints its own diagnostics. Build continues
+  // and the playground renders the runtime fallback.
+  console.warn(`WASM bundle fetch failed: ${(err as Error).message}`)
+}
 
 // ── 1. Collect all .md files from docs/site/ ─────────────────────
 
