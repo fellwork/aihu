@@ -29,6 +29,15 @@ name: Release aihu-compile binaries
 permissions:
   contents: write
 
+# Force every `cargo` invocation to resolve toolchain to 1.88 by default.
+# The dtolnay/rust-toolchain action installs the version but doesn't always
+# rewrite rustup's default; without this env, plain `cargo build` falls back
+# to the system default (1.87) which fails napi-build@2.3.1's rust-version
+# check. See PR #68 for the original toolchain bump and run 25394476208 for
+# the failure that exposed the env-vs-default-toolchain gap.
+env:
+  RUSTUP_TOOLCHAIN: "1.88"
+
 jobs:
   build:
     name: Build ${{ matrix.asset }}
@@ -52,11 +61,16 @@ jobs:
             asset: aihu-compile-linux-x64
             ext: ''
             use_cross: false
-          - runner: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            asset: aihu-compile-linux-arm64
-            ext: ''
-            use_cross: true
+          # NOTE: aarch64-unknown-linux-gnu deferred to v0.1.x. The pinned
+          # `cross` rev fails to compile (thiserror v1 vs v2 in cross's own
+          # deps); needs a fresher pin or migration to cross-rs/cross-action.
+          # Tracked as a v0.1.x follow-up. Linux ARM users get a soft 404
+          # at install time per js/postinstall.ts handling (arch-4 §4.3).
+          # - runner: ubuntu-22.04
+          #   target: aarch64-unknown-linux-gnu
+          #   asset: aihu-compile-linux-arm64
+          #   ext: ''
+          #   use_cross: true
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
             asset: aihu-compile-windows-x64.exe
