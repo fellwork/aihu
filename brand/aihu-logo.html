@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>aihu — N5 dot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1a1d24;
+    --bg: #faf8f4;
+    --accent: #c8543a;
+    --canvas: #ece9e2;
+    --rule: #ece8e0;
+    --muted: #5a5a55;
+  }
+  html, body { margin: 0; padding: 0; background: var(--canvas); color: var(--ink); font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 32px 96px; }
+  h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 40px; font-size: 14px; }
+  section { margin-bottom: 48px; }
+  .label {
+    font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .artboard {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    flex: 1 1 360px;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .artboard.dark { background: var(--ink); }
+  .artboard.full { flex-basis: 100%; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; width: 100%; box-sizing: border-box; }
+  .card {
+    background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+    padding: 22px; display: flex; flex-direction: column; gap: 12px;
+    font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+  }
+  .card .name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); }
+  .card .desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .card .stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 220px; }
+  .ladder {
+    display: flex; align-items: flex-end; justify-content: space-around;
+    gap: 16px; padding: 24px 26px; width: 100%; box-sizing: border-box;
+    font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+  }
+  .ladder .step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ladder .px { font-size: 9px; color: var(--muted); }
+  .lockup { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 32px; }
+  .lockup .word { font-size: 84px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <h1>aihu — N5, dot focus</h1>
+  <p class="sub">Rounded-bowl u + a single dot. The dot is the brand.</p>
+
+  <section>
+    <div class="label">Hero</div>
+    <div class="row">
+      <div class="artboard">
+        <svg width="380" height="380" viewBox="0 0 100 100" fill="none" aria-label="aihu">
+          <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/>
+          <circle cx="50" cy="16" r="9" fill="#c8543a"/>
+        </svg>
+      </div>
+      <div class="artboard dark">
+        <svg width="380" height="380" viewBox="0 0 100 100" fill="none" aria-label="aihu">
+          <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#faf8f4" stroke-width="14" fill="none"/>
+          <circle cx="50" cy="16" r="9" fill="#c8543a"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Dot proportion studies</div>
+    <div class="artboard full">
+      <div class="grid-3">
+        <div class="card">
+          <div>
+            <div class="name">Dot · medium</div>
+            <div class="desc">r=9. Confident dot, slightly larger than stroke. The default.</div>
+          </div>
+          <div class="stage">
+            <svg width="200" height="200" viewBox="0 0 100 100" fill="none">
+              <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/>
+              <circle cx="50" cy="16" r="9" fill="#c8543a"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card">
+          <div>
+            <div class="name">Dot · small</div>
+            <div class="desc">r=7. Matches stroke weight — reads as a true tittle.</div>
+          </div>
+          <div class="stage">
+            <svg width="200" height="200" viewBox="0 0 100 100" fill="none">
+              <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/>
+              <circle cx="50" cy="16" r="7" fill="#c8543a"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card">
+          <div>
+            <div class="name">Dot · bold</div>
+            <div class="desc">r=11. Hero scale — dot dominates the composition.</div>
+          </div>
+          <div class="stage">
+            <svg width="200" height="200" viewBox="0 0 100 100" fill="none">
+              <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/>
+              <circle cx="50" cy="14" r="11" fill="#c8543a"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Size ladder · medium · 16 / 24 / 48 / 96 / 160 px</div>
+    <div class="artboard full" style="min-height: 240px;">
+      <div class="ladder">
+        <div class="step">
+          <svg width="16" height="16" viewBox="0 0 100 100" fill="none"><path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/><circle cx="50" cy="16" r="9" fill="#c8543a"/></svg>
+          <div class="px">16px</div>
+        </div>
+        <div class="step">
+          <svg width="24" height="24" viewBox="0 0 100 100" fill="none"><path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/><circle cx="50" cy="16" r="9" fill="#c8543a"/></svg>
+          <div class="px">24px</div>
+        </div>
+        <div class="step">
+          <svg width="48" height="48" viewBox="0 0 100 100" fill="none"><path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/><circle cx="50" cy="16" r="9" fill="#c8543a"/></svg>
+          <div class="px">48px</div>
+        </div>
+        <div class="step">
+          <svg width="96" height="96" viewBox="0 0 100 100" fill="none"><path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/><circle cx="50" cy="16" r="9" fill="#c8543a"/></svg>
+          <div class="px">96px</div>
+        </div>
+        <div class="step">
+          <svg width="160" height="160" viewBox="0 0 100 100" fill="none"><path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/><circle cx="50" cy="16" r="9" fill="#c8543a"/></svg>
+          <div class="px">160px</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">With wordmark</div>
+    <div class="artboard full" style="min-height: 240px;">
+      <div class="lockup">
+        <svg width="140" height="140" viewBox="0 0 100 100" fill="none">
+          <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="#1a1d24" stroke-width="14" fill="none"/>
+          <circle cx="50" cy="16" r="9" fill="#c8543a"/>
+        </svg>
+        <div class="word">aihu</div>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
