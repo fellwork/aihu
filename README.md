@@ -1,8 +1,10 @@
 # Aihu
 
-> **Aihu** — say *EYE-hoo* · 爱护 (*àihù*) · *"to cherish and protect"* · the framework for humans **and** AI.
+> **Aihu — agentic discovery and interaction, for human purpose.**
+>
+> Say *EYE-hoo* · 爱护 (*àihù*) · *"to cherish and protect."*
 
-A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.aihu` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives. Designed so both human developers and AI agents can read, write, and reason about the code that lands in production.
+A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.aihu` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives. Every component is discoverable by AI agents and callable as a tool — in service of whatever a human is building.
 
 > **Status:** v1 shipped — all 17 plans complete (2026-05-03). Core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data · agent-service · agent-a2a · agent-acp · router · cli · compiler · plugin). 607 TS tests + 222 Rust tests passing.
 

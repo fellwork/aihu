@@ -6,6 +6,10 @@ These are explicit user instructions that supersede architect autonomy where the
 
 **"Aihu is about agentic discovery and interaction for human purpose."**
 
+**Official tagline (LOCKED for marketing/hero/README/all public copy):**
+
+> **"Aihu — agentic discovery and interaction, for human purpose."**
+
 **Issued:** 2026-05-05, post-roadmap synthesis.
 
 **Statement:** This is the project's North Star. It is hierarchical, not symmetric:

@@ -75,10 +75,11 @@ Tokens carried forward from `examples/docs-site/style.css` unchanged. New tokens
 
 ### 2.3 Hero
 
-- **Headline:** "The framework humans write and AI agents call."
-- **Subhead:** "Aihu (爱护, EYE-hoo) is a zero-dependency Web Components framework. Author in `.aihu` SFCs. Ship MCP tools from every component."
-- **CTAs:** "Get started →" (primary) · "View on GitHub" (outline)
-- **Snippet:** 12-line `@state` + `@template` + `@agent` SFC with copy button (M1: static; the embedded playground below is what makes it live)
+- **Tagline (LOCKED — Directive 0):** **"Aihu — agentic discovery and interaction, for human purpose."**
+- **Subhead:** "Aihu (爱护, EYE-hoo) is a zero-dependency Web Components framework. Every component you write is discoverable by AI agents and callable as a tool — in service of whatever you're building."
+- **CTAs:** "Try it now →" (primary, scrolls to embedded playground) · "Get started" (secondary, links to docs) · "GitHub" (outline)
+- **Snippet:** 12-line `@state` + `@template` + `@agent` SFC with copy button (M1: static fallback; the embedded playground below is what makes it live)
+- **Hierarchy in copy:** human-purpose framing leads. The mantra positions agents as the means; the human's intent is the end. Avoid pure parallelism ("both humans and AI") — use "in service of" / "discoverable by" / "callable on the human's terms" patterns.
 
 ### 2.4 Live Code Blocks (in guide pages)
 
