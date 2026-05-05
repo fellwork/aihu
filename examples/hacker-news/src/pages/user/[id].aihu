@@ -17,7 +17,7 @@
 @template {
   <main>
     <header>
-      <a href="/">&larr; back to top</a>
+      <$link href="/">&larr; back to top</$link>
     </header>
 
     <article>
