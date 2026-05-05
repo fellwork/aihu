@@ -1045,18 +1045,27 @@ async function main() {
     `  Packages:    ${pkgCreated} new, ${pkgUpdated} updated, ${pkgResults.length - pkgCreated - pkgUpdated} unchanged`,
   )
 
+  // For drift detection, ignore the SHA stamp itself — the SHA changes on
+  // every commit, which would otherwise create infinite "drift" on CI. We
+  // compare the SHA-erased rendered file against the SHA-erased existing file.
+  const stripSha = (s: string): string =>
+    s.replace(/Auto-generated (?:against [^\n]+? )?on commit `[a-f0-9]+`/g, 'Auto-generated on commit `STAMP`')
+
   if (CHECK_MODE) {
-    if (rootChanged || pkgChanged || inventoryChanged) {
+    const realRootChanged = stripSha(beforeRoot) !== stripSha(readme)
+    const realPkgChanged = pkgResults.some((r) => stripSha(r.before) !== stripSha(r.after))
+    if (realRootChanged || realPkgChanged || inventoryChanged) {
       console.error('')
       console.error('  README drift detected. Run: bun scripts/sync-readme.ts')
-      if (rootChanged) console.error('    - README.md has stale autogen content')
+      if (realRootChanged) console.error('    - README.md has stale autogen content')
       if (inventoryChanged) console.error('    - scripts/__package-inventory.json is stale')
       for (const r of pkgResults) {
-        if (r.changed) console.error(`    - ${relative(REPO_ROOT, r.path)} has stale autogen content`)
+        if (stripSha(r.before) !== stripSha(r.after))
+          console.error(`    - ${relative(REPO_ROOT, r.path)} has stale autogen content`)
       }
       process.exit(1)
     }
-    console.log('  All in sync.')
+    console.log('  All in sync (SHA stamps not checked — they refresh on each commit via the pre-commit hook).')
     return
   }
 
