@@ -51,7 +51,13 @@ jobs:
             asset: aihu-compile-darwin-arm64
             ext: ''
             use_cross: false
-          - runner: macos-13
+          # x86_64 darwin built on macos-14 (Apple Silicon) via cross-target.
+          # macos-13 reached end-of-life 2025-12-04 and was removed from GitHub's
+          # hosted-runner pool — jobs requesting `runs-on: macos-13` queue forever.
+          # rustup adds the x86_64-apple-darwin stdlib on demand and cargo builds
+          # for the requested target; no QEMU/cross needed (LLVM cross-compiles
+          # natively for darwin on darwin hosts).
+          - runner: macos-14
             target: x86_64-apple-darwin
             asset: aihu-compile-darwin-x64
             ext: ''
@@ -234,7 +240,10 @@ jobs:
             platform: darwin-arm64
             node-file: server-native.darwin-arm64.node
             cdylib: libaihu_server_native.dylib
-          - runner: macos-13
+          # x86_64 darwin native addon: cross-target on macos-14 (see build matrix
+          # above — macos-13 EOL'd 2025-12-04). napi-rs cross-targets cleanly when
+          # rustup has the x86_64-apple-darwin stdlib installed.
+          - runner: macos-14
             target: x86_64-apple-darwin
             platform: darwin-x64
             node-file: server-native.darwin-x64.node
