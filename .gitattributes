@@ -10,9 +10,10 @@ bun.lock binary
 *.gif binary
 *.webp binary
 
-# GitHub Linguist — detect .aihu files as the Aihu language.
-# The linguist-language value must match a language registered in
-# https://github.com/github-linguist/linguist/blob/master/lib/linguist/languages.yml
-# Submit a PR to Linguist to register "Aihu" with this grammar.
-*.aihu linguist-language=TypeScript
+# GitHub Linguist — render .aihu files as Vue SFCs (closest match for the
+# template/style/script block structure). Aihu is not yet a registered
+# language in linguist; submit a PR to github-linguist/linguist when the
+# project hits the 200+ adopter bar. Until then this gives PR diffs and
+# code views proper syntax highlighting on github.com.
+*.aihu linguist-language=Vue
 *.aihu linguist-detectable=true
