@@ -19,6 +19,14 @@
         "vitest": "^2.1.1",
       },
     },
+    "apps/docs": {
+      "name": "aihu-docs",
+      "dependencies": {
+        "@aihu/adapter-cloudflare": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "marked": "^15.0.0",
+      },
+    },
     "bench/arbor": {
       "name": "@aihu/bench-arbor",
       "version": "0.0.0",
@@ -97,12 +105,6 @@
       },
       "devDependencies": {
         "tailwindcss": "^3.4.0",
-      },
-    },
-    "examples/docs-site": {
-      "name": "docs-site",
-      "dependencies": {
-        "marked": "^15.0.0",
       },
     },
     "examples/hacker-news": {
@@ -783,6 +785,8 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
+    "aihu-docs": ["aihu-docs@workspace:apps/docs"],
+
     "aihu-example-css-pluggability": ["aihu-example-css-pluggability@workspace:examples/css-pluggability"],
 
     "ajv": ["ajv@8.20.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="],
@@ -954,8 +958,6 @@
     "didyoumean": ["didyoumean@1.2.2", "", {}, "sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw=="],
 
     "dlv": ["dlv@1.1.3", "", {}, "sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA=="],
-
-    "docs-site": ["docs-site@workspace:examples/docs-site"],
 
     "dom-serializer": ["dom-serializer@2.0.0", "", { "dependencies": { "domelementtype": "^2.3.0", "domhandler": "^5.0.2", "entities": "^4.2.0" } }, "sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg=="],
 

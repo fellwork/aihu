@@ -1,5 +1,5 @@
 {
-  "name": "docs-site",
+  "name": "aihu-docs",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,6 +7,8 @@
     "bundle": "rolldown -c rolldown.config.ts"
   },
   "dependencies": {
+    "@aihu/adapter-cloudflare": "workspace:*",
+    "@aihu/server": "workspace:*",
     "marked": "^15.0.0"
   }
 }
