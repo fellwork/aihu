@@ -1,12 +1,19 @@
 # @aihu/compiler
 
-> Single File Component (.aihu) compiler — Rust binary + JS glue.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-⚠ **Native binary required.** This package downloads a pre-built `aihu-compile` binary at install time via `js/postinstall.ts` (see [WASM.md](https://github.com/fellwork/aihu/blob/main/packages/compiler/WASM.md)). Binaries are published per-platform from the `release.yml` workflow on every `v*` tag. SHA256-verified per arch-4 §4.3.
+Single File Component (.aihu) compiler — Rust binary + JS glue.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Part of the **compiler + toolchain** layer of Aihu. Build-time only — does not ship to the client. The compiler reads `.aihu` SFC source (per the [Block Structure spec](../../docs/superpowers/specs/2026-05-02-spec-block-structure.md)) and emits standards-compliant Web Components.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/compiler
@@ -14,20 +21,73 @@ npm install @aihu/compiler
 bun add @aihu/compiler
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
 
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { aihuCompiler } from '@aihu/compiler';
+<!-- END_AUTOGEN: install -->
 
-export default defineConfig({ plugins: [aihuCompiler()] });
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | D — Compiler — Single-File Component (.aihu) → Web Component |
+| **Published files** | 5 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Peer dependencies:**
+
+- `vite` — `>=5.0.0`
+
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [Block Structure spec](../../docs/superpowers/specs/2026-05-02-spec-block-structure.md)
+- [Template Attribute Syntax spec](../../docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md)
+- [Macro Vocabulary spec](../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/compiler@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

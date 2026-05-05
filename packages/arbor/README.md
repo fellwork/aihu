@@ -1,5 +1,12 @@
 # @aihu/arbor
 
+> **Aihu** — agentic discovery and interaction, for human purpose.
+
+Reactive component tree (the rendering layer that consumes @aihu/signals).
+
+Part of the **runtime core** layer of the Aihu meta-framework. Shipped to the client; sized via `bun run size`. The runtime core is dep-free and stacks under `@aihu/runtime` → `@aihu/router` → `@aihu/server` → `@aihu/app`.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
 DOM materialization primitives for the [aihu](../../README.md) project. Build a tree of `branch` / `leaf` nodes, hand it to `mount`, and the renderer wires every reactive binding once and tears it down LIFO when the scope disposes. No JSX runtime, no virtual DOM, no scheduler queue — just direct DOM operations against the live nodes.
 
 **Status:** v0 surface frozen (Phase 3). Spec: [`.team/phase-3/spec-arbor.md`](../../.team/phase-3/spec-arbor.md). Bundle ≤ 2 kB gzipped.
@@ -107,3 +114,87 @@ bunx vitest run packages/arbor
 ```
 
 Includes an arbor microbench (`tests/bench.test.ts`) that mounts 10K static-leaf nodes in JSDOM.
+<!-- END_HANDWRITTEN: prose -->
+
+## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+```bash
+npm install @aihu/arbor
+# or
+bun add @aihu/arbor
+```
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: install -->
+
+## Package facts
+
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | A — Reactive runtime core — DOM materialization layer |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Dependencies:**
+
+- `@aihu/signals` — `workspace:*`
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [Phase 3 spec (arbor)](../../.team/phase-3/spec-arbor.md)
+- [bench/arbor](../../bench/arbor/RESULTS.md)
+- [@aihu/signals](../signals)
+- [@aihu/runtime](../runtime)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
+
+## License
+
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

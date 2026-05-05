@@ -1,5 +1,12 @@
 # @aihu/signals
 
+> **Aihu** — agentic discovery and interaction, for human purpose.
+
+Tiny reactive signals — the reactive primitive at the core of aihu.
+
+Part of the **runtime core** layer of the Aihu meta-framework. Shipped to the client; sized via `bun run size`. The runtime core is dep-free and stacks under `@aihu/runtime` → `@aihu/router` → `@aihu/server` → `@aihu/app`.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
 Small (≤ 1.6 kB gz) reactive primitives — the foundation layer for Aihu's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
 
 ## Hello counter
@@ -119,3 +126,84 @@ The runtime disambiguates `value` vs `updater` by `typeof === 'function'`, so a 
 - **Cycle errors carry no chain context.** `SignalCircularError` is thrown synchronously from the writer; richer chain info lands with devtools.
 - **No `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@aihu/arbor`.
 - **Batch cascade cap.** `batch()` re-iterates up to 100 times before throwing `SignalCircularError`. The cap is internal; if tooling needs to sanity-check legitimate cascade depth in the future, we'll re-export it.
+<!-- END_HANDWRITTEN: prose -->
+
+## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+```bash
+npm install @aihu/signals
+# or
+bun add @aihu/signals
+```
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: install -->
+
+## Package facts
+
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | A — Reactive runtime core — signals/computeds/effects |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [Phase 2 spec (signals)](../../.team/phase-2/spec-signals.md)
+- [bench/signals](../../bench/signals/RESULTS.md)
+- [@aihu/arbor](../arbor)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
+
+## License
+
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
+
+<!-- END_AUTOGEN: license -->
