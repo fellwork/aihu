@@ -413,3 +413,50 @@ follow.
   (D11 starter source), existing `packages/cli/src/{index,bin,create}.ts`
   (the surface to extend), `examples/_shared/` (token CSS that templates
   may want to inherit).
+
+---
+
+## Round 003 update (post B1.1 PASS) — 2026-05-05
+
+Builder B1.1 shipped the pipeline machinery for the `@aihu/cli` ↔ template
+contract — five new source files (`packages/cli/src/template-manifest.ts`,
+`conditional-eval.ts`, `templates-registry.ts`, `prompts.ts`,
+`scaffold-pipeline.ts`) plus a minimal `bin.ts` extension. Verifier audit
+returned PASS with zero out-of-scope creep across all six audit dimensions
+(138 tests green: 94 new + 44 legacy). PR #79 merged to main; arch-6
+unchanged. Closed in one Builder pass — under-run vs. the 5-iteration
+projection.
+
+**Three findings promoted from B1.1 PASS:**
+
+1. **CLI ↔ template contract is concrete in code.** The `TemplateManifest`
+   type + `validateManifest()` (`packages/cli/src/template-manifest.ts`),
+   the 6-stage pipeline (`packages/cli/src/scaffold-pipeline.ts`), the
+   strict-subset `evalWhen` evaluator (`packages/cli/src/conditional-eval.ts`),
+   hand-rolled `node:readline` prompts (`packages/cli/src/prompts.ts`),
+   and the baked `KNOWN_TEMPLATES` registry
+   (`packages/cli/src/templates-registry.ts`) collectively codify the
+   surface that arch-6 §2.3 / §3.4 / §3.5 / §4 had only described in
+   prose. Future arch decisions on the template surface should cite
+   these source files, not arch-6 §2.3 alone.
+2. **`evalWhen` security boundary is empirically tested.** 28 tests in
+   `conditional-eval.test.ts` include explicit rejection-path coverage
+   for function calls, member access, arithmetic, single `=`, escape
+   sequences, unterminated strings, and unmatched parens. R-CT-05
+   (supply-chain risk on template `when` expressions) is empirically
+   closed for the implemented operator set (`===`, `!==`, `&&`, `||`,
+   `!`, parens, bare identifiers, string/boolean literals).
+3. **`Spawner` / `FileSystem` injection seam is established.**
+   `scaffold-pipeline.ts` exports `realFileSystem` and `realSpawner`
+   defaults plus `Map<path,content>`-backed test fakes. B1.2 (template
+   content) and B1.3 (smoke harness + auth-provider matrix) have a
+   typed seam to consume rather than reaching for raw `node:fs` or
+   `child_process`.
+
+**Iteration counter:** 2 of 5 ping-pong rounds. Banked budget after
+B1.1's one-pass close.
+
+**Next round:** Builder B1.2 — `@aihu/templates-cf-team` package
+content (no scaffold-and-compile harness, no changesets, no further
+edits to the pipeline contract). Refined brief in
+`.team/director-notes/cli-templates-003.md`.

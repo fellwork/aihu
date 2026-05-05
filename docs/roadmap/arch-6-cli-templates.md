@@ -78,6 +78,8 @@ Three reductions get us from 12 → 5:
 
 **Total = 5 templates in M1.** All five are distinct enough that scaffolding one tells the user nothing about the others; combining any two into a flag-driven base would re-introduce the option-explosion the curation just removed.
 
+> **B1.1 status (PR #79, merged 2026-05-05):** the `@aihu/cli`-side contract that every template package in this curated 5 conforms to (`TemplateManifest` type, scaffold pipeline, conditional-eval evaluator, prompts library, baked registry) is now in main. `cf-team` template content lands in B1.2.
+
 ### §1.4 What I considered and cut
 
 - **Sixth template `@aihu/templates-cf-team-tailwind`** — cut because Tailwind 4 lands in v0.2.1 per state §3. Adding a Tailwind sibling now means publishing a package whose value prop arrives in a later milestone.
@@ -767,7 +769,7 @@ State §6 enumerates 8 risks (R-CT-01..08). Architecture-level additions:
 
 ## §10 Implementation map (Builder rounds) *(coordinator-released — locked to curated 5)*
 
-### Round B1 — pipeline foundation + cf-team end-to-end
+### Round B1 — pipeline foundation + cf-team end-to-end (✅ B1.1 done · 2026-05-05)
 
 **Scope:** prove the pipeline against ONE template before fanning out.
 
