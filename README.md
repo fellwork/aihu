@@ -6,16 +6,31 @@
 
 A JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authored as `.aihu` single-file components, compiled to vanilla custom elements, mounted with sub-2 kB reactive primitives. Every component is discoverable by AI agents and callable as a tool — in service of whatever a human is building.
 
-> **Status:** v1 shipped — all 17 plans complete (2026-05-03). Core packages stable (signals · arbor · runtime · agent · server · agent-readiness · context · data · agent-service · agent-a2a · agent-acp · router · cli · compiler · plugin). 607 TS tests + 222 Rust tests passing.
+> **Status:** v1 shipped 2026-05-03 (17 plans complete). v1.1 in progress — release pipeline, examples portfolio, SFC primitive roadmap landed; npm publish at `0.1.x` rolling out. See [`docs/roadmap/`](./docs/roadmap) for the full plan.
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
+[![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
+[![@aihu/signals on npm](https://img.shields.io/npm/v/@aihu/signals.svg?label=@aihu/signals)](https://www.npmjs.com/package/@aihu/signals)
 [![tests](https://img.shields.io/badge/tests-607%20TS%20%7C%20222%20Rust%20passing-brightgreen)](#)
 [![packages](https://img.shields.io/badge/packages-15-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
 
-> **CI note:** Auto-triggers (push / PR) are now enabled on main following v1 cutover. Local gates (typecheck · test · build · size · bench) continue to run on every Builder dispatch and are validated by the Verifier.
+## Get started
+
+```bash
+# Install the runtime core (after the publish-pipeline PR ships)
+bun add @aihu/signals @aihu/runtime @aihu/agent
+
+# Or scaffold a new app
+bunx @aihu/cli app my-app
+cd my-app
+bun install
+bun run dev
+```
+
+> Pre-publish: see [`docs/RELEASING.md`](./docs/RELEASING.md) for the release workflow once the in-flight tooling PRs land.
 
 ---
 
@@ -28,6 +43,23 @@ Aihu sits at the intersection of three things:
 3. **A Rust compiler** — a Rust toolchain that reads `.aihu` SFC files (template + setup script) and emits a `class extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)`. The `defineComponent` helper produces the same shape for hand-authored components. Shipped at v1.
 
 The output is **vanilla custom elements**: no framework lock-in at the consumer boundary, no global context, no hydration step.
+
+## v1.1 progress
+
+After v1 cutover (2026-05-03), v1.1 development is in flight. Three PRs already landed; two more are in-flight builders.
+
+| Track | PR | What | Status |
+|---|---|---|---|
+| Release pipeline | [#61](https://github.com/fellwork/aihu/pull/61) | aarch64-linux build target + WASM bundle for browser playground + SHA256 sidecars + verified install | merged |
+| Examples polish | [#62](https://github.com/fellwork/aihu/pull/62) | 6 examples polished (EX-01..05 + EX-08) with `@agent` blocks, dark-mode tokens, mobile-responsive CSS, smoke tests, parallel dev launcher | merged |
+| SFC primitives roadmap | [#63](https://github.com/fellwork/aihu/pull/63) | [arch-5](./docs/roadmap/arch-5-sfc-primitives.md) — 27 new primitives across design, styles, data, auth, i18n, a11y, routing; 25 RFC stubs; new `@aihu/i18n` plugin proposed | merged |
+| npm publish pipeline | (in flight) | Changesets-based versioning + `publish-packages` job + tier A/B/C/D at `0.1.0` early-access | building |
+| Release-workflow hardening | (in flight) | commitlint via Husky + branch protection + `RELEASING.md` runbook | building |
+
+### Held pending RFC
+
+- **Live-binding** (RFC #56) — reactive component-instance registry connecting `@agent` actions to live signals. APPROVED in design; security review of §9 in progress per Directive 3.
+- **`<playground-embed>` custom element** — interactive `.aihu` playground on the homepage. Gates on the WASM bundle published in `releases/latest` (i.e. on the first `v1.1.0` tag push).
 
 ## Why "meta-framework"?
 
@@ -143,11 +175,35 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 ## Layout
 
+> **Publish status:** Tier A/B/C/D packages publishing at `0.1.x` early-access via the [v1.1 publish pipeline](#v11-progress). Tier E (held) stays private until live-binding RATIFIES.
+
 See [`packages/`](./packages) for all 15 packages on disk. By tier:
 
 - **Browser runtime (sized, ships to client):** `@aihu/signals`, `@aihu/arbor`, `@aihu/runtime`, `@aihu/context`, `@aihu/agent`.
 - **Server / edge / data (sized):** `@aihu/router`, `@aihu/data`, `@aihu/agent-service`, `@aihu/agent-acp`, `@aihu/agent-a2a`. Plus `@aihu/server` (SSR + back-compat router alias) and `@aihu/agent-readiness` (`llms.txt`, MCP Server Card, robots, Vite plugin).
 - **Build-time only (not shipped):** `@aihu/compiler` (Rust SFC compiler), `@aihu/cli` (`npx aihu app`, `npx aihu migrate`), `@aihu/plugin` (plugin-contract types).
+- **Held (private until live-binding RATIFIES):** `@aihu/plugin`, `@aihu/vscode-aihu`.
+
+## Examples
+
+13-example portfolio under [`examples/`](./examples). Six are M1-polished with full `@agent` surfaces, dark-mode tokens, and smoke tests:
+
+| # | Folder | What it teaches | Port |
+|---|---|---|---|
+| 01 | [`live-counter/`](./examples/live-counter) | Minimal SFC: state + event + reactive text | 5101 |
+| 02 | [`temperature-converter/`](./examples/temperature-converter) | `$bind:value`, `$computed`, two-way binding | 5102 |
+| 03 | [`timer/`](./examples/timer) | `$lifecycle.mount/dispose`, `$effect` cleanup | 5103 |
+| 04 | [`todo-mvc/`](./examples/todo-mvc) | `$each/$key`, localStorage persistence | 5104 |
+| 05 | [`color-theme/`](./examples/color-theme) | `$reactive()` in `@style`, `$global`, `$media` | 5105 |
+| 08 | [`hacker-news/`](./examples/hacker-news) | Multi-page SSR, file-based routing, recursive components | 5108 |
+
+Run all six in parallel:
+
+```bash
+bun run dev:examples
+```
+
+The remaining 7 examples ship in M2.
 
 Other top-level paths: [`bench/signals`](./bench/signals) and [`bench/arbor`](./bench/arbor) (mitata harnesses), `tests/` (cross-package integration), `docs/site/` (12-page guide), `docs/superpowers/` (specs + plans), `.team/` (specs, phase plans, retros, learnings).
 
