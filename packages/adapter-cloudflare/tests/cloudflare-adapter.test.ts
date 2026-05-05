@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { cloudflare } from '../src/index.ts'
-import type { AdapterContext } from '@scribe/app'
+import type { AdapterContext } from '@aihu/app'
 
 function makeContext(root: string, outDir: string): AdapterContext {
   return {
@@ -37,12 +37,12 @@ function makeContext(root: string, outDir: string): AdapterContext {
   }
 }
 
-describe('@scribe/adapter-cloudflare', () => {
+describe('@aihu/adapter-cloudflare', () => {
   let tmpRoot: string
   let tmpOut: string
 
   beforeEach(async () => {
-    tmpRoot = await mkdtemp(join(tmpdir(), 'scribe-cf-test-'))
+    tmpRoot = await mkdtemp(join(tmpdir(), 'aihu-cf-test-'))
     tmpOut = join(tmpRoot, 'dist')
     const { mkdir } = await import('node:fs/promises')
     await mkdir(tmpOut, { recursive: true })
@@ -107,7 +107,7 @@ describe('@scribe/adapter-cloudflare', () => {
   it('uses package.json name as fallback worker name', async () => {
     await writeFile(
       join(tmpRoot, 'package.json'),
-      JSON.stringify({ name: 'my-scribe-app' }),
+      JSON.stringify({ name: 'my-aihu-app' }),
       'utf8',
     )
     const adapter = cloudflare()
@@ -115,6 +115,6 @@ describe('@scribe/adapter-cloudflare', () => {
     await adapter.adapt(ctx)
     const wranglerPath = join(tmpRoot, 'wrangler.toml')
     const toml = await readFile(wranglerPath, 'utf8')
-    expect(toml).toContain('name = "my-scribe-app"')
+    expect(toml).toContain('name = "my-aihu-app"')
   })
 })

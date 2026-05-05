@@ -2,7 +2,7 @@
 **Date:** 2026-04-30
 **Branch:** feat/v1-streaming-ssr (commit 6cf0af3)
 **Audited by:** Verifier (claude-sonnet-4-6)
-**Audit method:** git show + dedicated worktree (C:/git/fellwork-worktrees/scribe-verify-streaming-ssr)
+**Audit method:** git show + dedicated worktree (C:/git/fellwork-worktrees/aihu-verify-streaming-ssr)
 
 > Note on checkout methodology: The main repo working tree is locked to `feat/v1-error-boundaries`
 > via a linked worktree. All file reads and test runs were performed against a fresh worktree
@@ -90,7 +90,7 @@ The Director brief's §2 implementation note (walkDone flag pattern) is correctl
 Additional changes are in `.team/v1/` (documentation artifacts). No files outside the authorized list were modified. `packages/arbor/`, `packages/signals/`, `packages/runtime/`, `packages/agent/`, `packages/agent-readiness/` are untouched.
 
 **New arbor coupling in ssr.ts:**
-`ssr.ts` imports only `import type { StreamOptions } from './stream-types.ts'`. No new `@scribe/arbor` import was added. The DataSource detection remains a runtime duck-type check (`obj.dataSource` read as `Record<string, unknown>`), consistent with the spec's Option A requirement.
+`ssr.ts` imports only `import type { StreamOptions } from './stream-types.ts'`. No new `@aihu/arbor` import was added. The DataSource detection remains a runtime duck-type check (`obj.dataSource` read as `Record<string, unknown>`), consistent with the spec's Option A requirement.
 
 **`/// <reference lib="dom" />`:**
 `ssr.ts` adds `/// <reference lib="dom" />` at line 1. This is a TypeScript triple-slash type directive (compile-time only) that pulls in DOM type definitions for `ReadableStream` and `ReadableStreamDefaultController`. The spec explicitly authorized this ("If TypeScript reports a type error, add `/// <reference lib="dom" />`"). No runtime DOM globals (`window`, `document`, `Element`) are used anywhere in the file. This is not over-implementation — it is the spec-sanctioned mechanism for `ReadableStream` typing without an import from `'stream/web'`.

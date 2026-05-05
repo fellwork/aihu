@@ -1,5 +1,5 @@
 {
-  "name": "scribe-example-css-pluggability",
+  "name": "aihu-example-css-pluggability",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,10 +9,10 @@
     "dev": "bun run build && bun server.ts"
   },
   "dependencies": {
-    "@scribe/arbor": "workspace:*",
-    "@scribe/compiler": "workspace:*",
-    "@scribe/runtime": "workspace:*",
-    "@scribe/signals": "workspace:*"
+    "@aihu/arbor": "workspace:*",
+    "@aihu/compiler": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/signals": "workspace:*"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.0"

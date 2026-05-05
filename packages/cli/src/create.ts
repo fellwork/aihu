@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * `create-scribe` — interactive project scaffolder for `npx create-scribe@latest`.
+ * `create-aihu` — interactive project scaffolder for `npx create-aihu@latest`.
  *
  * Usage:
- *   npx create-scribe@latest [project-name]
- *   bun create scribe [project-name]
+ *   npx create-aihu@latest [project-name]
+ *   bun create aihu [project-name]
  *
  * Features (SOTA npx create pattern):
  *   - Auto-detects available package managers (bun > pnpm > yarn > npm)
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
 
   process.stdout.write('\n')
-  process.stdout.write(`${purple(bold('◆'))} ${bold('Create Scribe App')}\n`)
+  process.stdout.write(`${purple(bold('◆'))} ${bold('Create Aihu App')}\n`)
   process.stdout.write(`${dim('  Web Components, reactive.')}\n\n`)
 
   // ── Project name ──────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${dim('  Project name:')} ${cyan(projectName)}\n`)
   } else {
     const answer = await prompt(rl, `${dim('  Project name:')} `)
-    projectName = answer.trim() || 'my-scribe-app'
+    projectName = answer.trim() || 'my-aihu-app'
   }
 
   const targetDir = resolve(process.cwd(), projectName)
@@ -171,7 +171,7 @@ async function main(): Promise<void> {
   if (initGit) {
     spawnSync('git', ['init', targetDir], { stdio: 'ignore', shell: false })
     spawnSync('git', ['-C', targetDir, 'add', '-A'], { stdio: 'ignore', shell: false })
-    spawnSync('git', ['-C', targetDir, 'commit', '-m', 'chore: initial scribe scaffold'], {
+    spawnSync('git', ['-C', targetDir, 'commit', '-m', 'chore: initial aihu scaffold'], {
       stdio: 'ignore',
       shell: false,
     })
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
   process.stdout.write(`    ${cyan(installCmd[pm])}\n`)
   process.stdout.write(`    ${cyan(devCmd[pm])}\n`)
   process.stdout.write('\n')
-  process.stdout.write(`  ${dim('Docs:')} https://github.com/fellwork/scribe\n\n`)
+  process.stdout.write(`  ${dim('Docs:')} https://github.com/fellwork/aihu\n\n`)
 }
 
 main().catch((err: unknown) => {

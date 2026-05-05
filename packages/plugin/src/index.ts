@@ -1,5 +1,5 @@
 /**
- * @scribe/plugin — build/dev-time only plugin contract.
+ * @aihu/plugin — build/dev-time only plugin contract.
  *
  * Implements the type contract and registration plumbing defined in the
  * Plugin Contract Spec (`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`)
@@ -10,12 +10,12 @@
  * `validatePlugin` build-time validator. The compiler dispatcher is a no-op
  * until v0.3+ wires block parsers, macro lowerings, and hook execution.
  *
- * Per Plugin Contract Spec §7.2: scribe does NOT auto-discover plugins.
+ * Per Plugin Contract Spec §7.2: aihu does NOT auto-discover plugins.
  * Every plugin MUST be explicitly imported and registered in
- * `defineScribeConfig({ plugins: [...] })`.
+ * `defineAihuConfig({ plugins: [...] })`.
  *
  * Runtime imports: NONE. This package is build/dev-time only and carries no
- * runtime size budget. Per Learning #49 (v3 dep-free thesis): zero non-`@scribe/*`
+ * runtime size budget. Per Learning #49 (v3 dep-free thesis): zero non-`@aihu/*`
  * dependencies; in this package's case, zero dependencies of any kind.
  */
 
@@ -255,7 +255,7 @@ export interface PluginConfig {
   readonly name: string
   readonly version: string
   readonly namespace: string
-  /** Compatible scribe versions (semver range). Checked at registration (spec §7.3). */
+  /** Compatible aihu versions (semver range). Checked at registration (spec §7.3). */
   readonly scribeVersion?: string
   readonly configSchema?: ConfigSchema
   readonly contributes?: Contributes
@@ -278,7 +278,7 @@ export interface PluginConfig {
  */
 export interface Plugin extends PluginConfig {
   /** Brand to distinguish constructed plugins from raw config objects. */
-  readonly __scribe_plugin: true
+  readonly __aihu_plugin: true
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +290,7 @@ export interface Plugin extends PluginConfig {
  * as their `namespace` field.
  */
 export const RESERVED_NAMESPACES: ReadonlyArray<string> = Object.freeze([
-  'scribe',
+  'aihu',
   'core',
   'state',
   'template',
@@ -316,7 +316,7 @@ export interface ValidationError {
     | 'reserved-namespace'
     | 'duplicate-namespace'
     | 'missing-required-field'
-    | 'scribe-version-mismatch'
+    | 'aihu-version-mismatch'
   readonly message: string
 }
 
@@ -325,17 +325,17 @@ export type ValidationResult =
   | { readonly ok: false; readonly errors: ReadonlyArray<ValidationError> }
 
 /**
- * Current scribe framework version against which `scribeVersion` ranges are
+ * Current aihu framework version against which `scribeVersion` ranges are
  * checked. Imported by `validatePlugin` for the §7.3 compatibility check.
  *
- * v0.2.1: `0.2.0` per the v1 framework plan (`@scribe/plugin` package version).
+ * v0.2.1: `0.2.0` per the v1 framework plan (`@aihu/plugin` package version).
  */
 export const SCRIBE_VERSION = '0.2.0'
 
 /**
  * Track of namespaces seen by `validatePlugin` calls in the current process.
  * Reset by `resetValidationState()` (used by tests). The compiler invokes
- * `validatePlugin` per plugin in `defineScribeConfig.plugins` at registration
+ * `validatePlugin` per plugin in `defineAihuConfig.plugins` at registration
  * time; duplicates surface as the §8.1 "Duplicate namespace" error.
  */
 const seenNamespaces = new Set<string>()
@@ -354,10 +354,10 @@ export function resetValidationState(): void {
  *
  * Error cases covered (per spec §8.1):
  *   - invalid-namespace        (e.g., `@scope/foo`, contains `/`, starts with digit)
- *   - reserved-namespace       (`scribe`, `core`, `state`, `template`, `style`, `agent`, `route`)
+ *   - reserved-namespace       (`aihu`, `core`, `state`, `template`, `style`, `agent`, `route`)
  *   - duplicate-namespace      (two plugins with the same `namespace` in one pass)
  *   - missing-required-field   (no `name` / `version` / `namespace`)
- *   - scribe-version-mismatch  (declared `scribeVersion` range incompatible with framework)
+ *   - aihu-version-mismatch  (declared `scribeVersion` range incompatible with framework)
  */
 export function validatePlugin(plugin: Plugin): ValidationResult {
   const errors: ValidationError[] = []
@@ -384,7 +384,7 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
     } else if (RESERVED_NAMESPACES.includes(plugin.namespace)) {
       errors.push({
         code: 'reserved-namespace',
-        message: `plugin namespace '${plugin.namespace}' is reserved by scribe`,
+        message: `plugin namespace '${plugin.namespace}' is reserved by aihu`,
       })
     } else if (seenNamespaces.has(plugin.namespace)) {
       errors.push({
@@ -400,8 +400,8 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
   if (plugin.scribeVersion && !satisfies(SCRIBE_VERSION, plugin.scribeVersion)) {
     const id = plugin.name && plugin.version ? `'${plugin.name}@${plugin.version}'` : 'plugin'
     errors.push({
-      code: 'scribe-version-mismatch',
-      message: `plugin ${id} requires scribe ${plugin.scribeVersion}; running ${SCRIBE_VERSION}`,
+      code: 'aihu-version-mismatch',
+      message: `plugin ${id} requires aihu ${plugin.scribeVersion}; running ${SCRIBE_VERSION}`,
     })
   }
 
@@ -412,10 +412,10 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
  * Minimal semver range check. Supports the subset used by the spec for
  * `scribeVersion`: exact (`0.2.0`), caret (`^0.2.0`), tilde (`~0.2.0`), and
  * `*` / `x` wildcards. We deliberately do NOT pull in a `semver` dependency
- * (Learning #49: zero non-`@scribe/*` runtime deps).
+ * (Learning #49: zero non-`@aihu/*` runtime deps).
  *
  * For ranges this helper does not understand, it returns `false`, which
- * surfaces as a `scribe-version-mismatch` error and forces plugin authors
+ * surfaces as a `aihu-version-mismatch` error and forces plugin authors
  * onto the supported subset. That's the conservative bias the spec wants
  * (compatibility errors caught at registration, not at runtime).
  */
@@ -467,12 +467,12 @@ function parseSemver(s: string): { major: number; minor: number; patch: number }
 // ---------------------------------------------------------------------------
 
 /**
- * Define a scribe plugin. Brands the input config with `__scribe_plugin: true`
+ * Define a aihu plugin. Brands the input config with `__aihu_plugin: true`
  * and returns it as a `Plugin`. Does NOT validate — call `validatePlugin`
  * separately (the compiler does this at registration per spec §7.1).
  *
  * @example
- * import { definePlugin } from '@scribe/plugin'
+ * import { definePlugin } from '@aihu/plugin'
  *
  * export default definePlugin({
  *   name: 'forms',
@@ -487,6 +487,6 @@ function parseSemver(s: string): { major: number; minor: number; patch: number }
 export function definePlugin(config: PluginConfig): Plugin {
   return {
     ...config,
-    __scribe_plugin: true,
+    __aihu_plugin: true,
   }
 }

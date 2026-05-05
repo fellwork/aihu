@@ -80,7 +80,7 @@ Yes. Every package uses `packages/{name}/src/index.ts` as its barrel:
 
 ### B2. DOM-specific imports in `packages/arbor/src/`
 
-`@scribe/arbor` **is NOT suitable** as a dependency for a server-safe `@scribe/context`. The following DOM globals are referenced directly:
+`@aihu/arbor` **is NOT suitable** as a dependency for a server-safe `@aihu/context`. The following DOM globals are referenced directly:
 
 - `packages/arbor/src/materialize.ts:52` — `document.createTextNode('')`
 - `packages/arbor/src/materialize.ts:73` — `document.createElement(node.tag as string)`
@@ -90,25 +90,25 @@ Yes. Every package uses `packages/{name}/src/index.ts` as its barrel:
 
 The `Element` and `ShadowRoot` types appear in function signatures throughout `arbor/src`. These are DOM-only types with no Node.js / Worker equivalent.
 
-### B3. `@scribe/context` should depend on `@scribe/signals` only
+### B3. `@aihu/context` should depend on `@aihu/signals` only
 
-Confirmed. A context system (`createContext`, `provide`, `inject`) needs only reactive primitives (`signal`, `effect`, `computed`, `untrack`) from `@scribe/signals`. It has no need to import `mount`, `branch`, `leaf`, `Element`, or `MountScope` from `@scribe/arbor`. The dependency graph for `@scribe/context` should be:
+Confirmed. A context system (`createContext`, `provide`, `inject`) needs only reactive primitives (`signal`, `effect`, `computed`, `untrack`) from `@aihu/signals`. It has no need to import `mount`, `branch`, `leaf`, `Element`, or `MountScope` from `@aihu/arbor`. The dependency graph for `@aihu/context` should be:
 
 ```
-@scribe/context → @scribe/signals   (only)
+@aihu/context → @aihu/signals   (only)
 ```
 
-No `@scribe/arbor` dependency is needed or safe.
+No `@aihu/arbor` dependency is needed or safe.
 
 ### B4. Alias pattern in `vitest.config.ts`
 
 Full example entry (line 17):
 
 ```ts
-'@scribe/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
+'@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
 ```
 
-The pattern is: `'@scribe/NAME': new URL('./packages/NAME/src/index.ts', import.meta.url).pathname`
+The pattern is: `'@aihu/NAME': new URL('./packages/NAME/src/index.ts', import.meta.url).pathname`
 
 All six current entries follow this exact pattern (`signals`, `arbor`, `runtime`, `agent`, `server`, `agent-readiness`).
 
@@ -125,7 +125,7 @@ readonly serializer?: () => Record<string, unknown>
 
 `serializer` is optional. It takes no arguments and returns `Record<string, unknown>`. When called, its return value is passed to `JSON.stringify` and embedded in the state script tag.
 
-### C2. `__scribe_state__` script tag emission
+### C2. `__aihu_state__` script tag emission
 
 The tag **is emitted today** when `opts.serializer` is provided. Exact code at `packages/server/src/ssr.ts:127–134`:
 
@@ -133,7 +133,7 @@ The tag **is emitted today** when `opts.serializer` is provided. Exact code at `
 if (opts?.serializer) {
   try {
     const state = opts.serializer()
-    stateScript = `<script type="application/json" id="__scribe_state__">${JSON.stringify(state)}</script>`
+    stateScript = `<script type="application/json" id="__aihu_state__">${JSON.stringify(state)}</script>`
   } catch {
     // swallow — no state script emitted
   }
@@ -164,14 +164,14 @@ export interface DefinedLoader<T> {
 export function defineLoader<T>(fn: LoaderFn<T>): DefinedLoader<T>
 ```
 
-`defineLoader<T>` takes an async function `(ctx: RouteContext) => Promise<T>` and returns a branded `DefinedLoader<T>`. The server uses `runLoader` to execute it and always returns a `LoaderResult<T>` — never throwing. `@scribe/data`'s `createResource` is the client-side counterpart and should name-align: `LoaderResult<T>` → `ResourceResult<T>` or reuse `LoaderResult<T>` wholesale, and the state shape `{ data, error?, status }` should be consistent.
+`defineLoader<T>` takes an async function `(ctx: RouteContext) => Promise<T>` and returns a branded `DefinedLoader<T>`. The server uses `runLoader` to execute it and always returns a `LoaderResult<T>` — never throwing. `@aihu/data`'s `createResource` is the client-side counterpart and should name-align: `LoaderResult<T>` → `ResourceResult<T>` or reuse `LoaderResult<T>` wholesale, and the state shape `{ data, error?, status }` should be consistent.
 
 ### C4. Existing tests for `defineLoader` / serializer path
 
 Yes, tests exist:
 
 - `packages/server/tests/data.test.ts` — covers `defineLoader` and `runLoader` (5 test cases: branding, fn storage, success, Error wrapping, non-Error wrapping).
-- No dedicated test file was found for the `serializer` / `__scribe_state__` path. The SSR tests live in `packages/server/tests/` but a separate grep would be needed to confirm the ssr test file name.
+- No dedicated test file was found for the `serializer` / `__aihu_state__` path. The SSR tests live in `packages/server/tests/` but a separate grep would be needed to confirm the ssr test file name.
 
 ---
 
@@ -231,7 +231,7 @@ With a module-level stack approach, `provide()` and `inject()` push/pop independ
 
 ```json
 {
-  "name": "@scribe/signals",
+  "name": "@aihu/signals",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -252,7 +252,7 @@ With a module-level stack approach, `provide()` and `inject()` push/pop independ
 }
 ```
 
-No `dependencies` or `devDependencies` field. (`@scribe/arbor`'s `package.json` has `"dependencies": { "@scribe/signals": "workspace:*" }` as the workspace dep pattern.)
+No `dependencies` or `devDependencies` field. (`@aihu/arbor`'s `package.json` has `"dependencies": { "@aihu/signals": "workspace:*" }` as the workspace dep pattern.)
 
 ### E2. Rolldown config pattern
 
@@ -297,7 +297,7 @@ dependsOn:
   - 'signals'
 ```
 
-New packages should follow the same pattern. `@scribe/context` (depends on signals) would add `dependsOn: ['signals']`. `@scribe/data` (depends on both) would add `dependsOn: ['signals', 'context']` or equivalent.
+New packages should follow the same pattern. `@aihu/context` (depends on signals) would add `dependsOn: ['signals']`. `@aihu/data` (depends on both) would add `dependsOn: ['signals', 'context']` or equivalent.
 
 ### E4. `bun run size` confirmation
 
@@ -307,28 +307,28 @@ Yes. Root `package.json` (line 16): `"size": "size-limit"`. The `size-limit` too
 
 ```json
 [
-  { "name": "@scribe/signals", "path": "packages/signals/dist/index.js", "limit": "1700 B", "gzip": true },
-  { "name": "@scribe/arbor",   "path": "packages/arbor/dist/index.js",   "limit": "2048 B", "gzip": true },
-  { "name": "@scribe/runtime", "path": "packages/runtime/dist/index.js", "limit": "1024 B", "gzip": true },
-  { "name": "@scribe/agent",   "path": "packages/agent/dist/index.js",   "limit": "100 B",  "gzip": true }
+  { "name": "@aihu/signals", "path": "packages/signals/dist/index.js", "limit": "1700 B", "gzip": true },
+  { "name": "@aihu/arbor",   "path": "packages/arbor/dist/index.js",   "limit": "2048 B", "gzip": true },
+  { "name": "@aihu/runtime", "path": "packages/runtime/dist/index.js", "limit": "1024 B", "gzip": true },
+  { "name": "@aihu/agent",   "path": "packages/agent/dist/index.js",   "limit": "100 B",  "gzip": true }
 ]
 ```
 
-`@scribe/server` and `@scribe/agent-readiness` are **not** in `.size-limit.json`. New packages `@scribe/context` and `@scribe/data` will need entries added by the Architect.
+`@aihu/server` and `@aihu/agent-readiness` are **not** in `.size-limit.json`. New packages `@aihu/context` and `@aihu/data` will need entries added by the Architect.
 
 ---
 
 ## Summary: Key findings for Architect
 
-- **`effect()` returns `Dispose = () => void`** — synchronous, idempotent. `@scribe/context` can use `effect()` directly for context cleanup without any adapters.
+- **`effect()` returns `Dispose = () => void`** — synchronous, idempotent. `@aihu/context` can use `effect()` directly for context cleanup without any adapters.
 
 - **`Signal<T>` is `readonly [Read<T>, Write<T>]`** — the `[read, write]` tuple shape. `inject()` returning a `Signal<T>` is fully compatible with the existing pattern.
 
-- **`$state` / `State<T>` are exported but unused outside `@scribe/signals`** — they are available for `@scribe/data`'s `DataState<T>` if the Architect wants a `.value` setter shape, though `Signal<T>` (tuple) is the dominant pattern in arbor.
+- **`$state` / `State<T>` are exported but unused outside `@aihu/signals`** — they are available for `@aihu/data`'s `DataState<T>` if the Architect wants a `.value` setter shape, though `Signal<T>` (tuple) is the dominant pattern in arbor.
 
-- **`untrack` is exported but unused in arbor** — available for `@scribe/context` to read context values without creating reactive subscriptions.
+- **`untrack` is exported but unused in arbor** — available for `@aihu/context` to read context values without creating reactive subscriptions.
 
-- **`@scribe/arbor` is DOM-coupled** — `document.createElement`, `document.createTextNode`, `Element`, `ShadowRoot` are used directly. `@scribe/context` MUST NOT depend on `@scribe/arbor`.
+- **`@aihu/arbor` is DOM-coupled** — `document.createElement`, `document.createTextNode`, `Element`, `ShadowRoot` are used directly. `@aihu/context` MUST NOT depend on `@aihu/arbor`.
 
 - **`mount()` takes no options** — signature is `mount(node, host)`. A module-level stack for `provide/inject` requires no changes to `mount()`.
 
@@ -336,21 +336,21 @@ Yes. Root `package.json` (line 16): `"size": "size-limit"`. The `size-limit` too
 
 - **`AgentContext` is a frozen empty branded stub** — `{ _brand: 'AgentContext' }`. Sub-project #7 owns its future content.
 
-- **`SsrOptions.serializer` is `() => Record<string, unknown>`** — no-arg, returns a plain object. `@scribe/data` dehydration should produce `Record<string, unknown>` for compatibility.
+- **`SsrOptions.serializer` is `() => Record<string, unknown>`** — no-arg, returns a plain object. `@aihu/data` dehydration should produce `Record<string, unknown>` for compatibility.
 
-- **`__scribe_state__` is emitted today** but only when `serializer` is provided and does not throw. The v0 arbor stub always throws, so the tag is never emitted in practice yet.
+- **`__aihu_state__` is emitted today** but only when `serializer` is provided and does not throw. The v0 arbor stub always throws, so the tag is never emitted in practice yet.
 
 - **`defineLoader` shape** — `(ctx: RouteContext) => Promise<T>` in; `DefinedLoader<T>` out. `runLoader` wraps to `LoaderResult<T> = { data, error?, status }`. Client-side `createResource` should align on this shape.
 
 - **Tests for `defineLoader` exist** at `packages/server/tests/data.test.ts`.
 
-- **`vitest.config.ts` alias format** — `'@scribe/NAME': new URL('./packages/NAME/src/index.ts', import.meta.url).pathname`. Two new aliases needed for `context` and `data`.
+- **`vitest.config.ts` alias format** — `'@aihu/NAME': new URL('./packages/NAME/src/index.ts', import.meta.url).pathname`. Two new aliases needed for `context` and `data`.
 
-- **`moon.yml` pattern** — minimal 3-line file; add `dependsOn` array for inter-package deps. `@scribe/context` needs `dependsOn: ['signals']`; `@scribe/data` needs `dependsOn: ['signals']` (and possibly `['signals', 'context']` if it imports context).
+- **`moon.yml` pattern** — minimal 3-line file; add `dependsOn` array for inter-package deps. `@aihu/context` needs `dependsOn: ['signals']`; `@aihu/data` needs `dependsOn: ['signals']` (and possibly `['signals', 'context']` if it imports context).
 
 - **`package.json` pattern** — no `dependencies` field for leaf packages; workspace deps use `"workspace:*"`. `sideEffects: false` is present on all existing packages.
 
-- **`.size-limit.json` needs two new entries** — `@scribe/context` and `@scribe/data` are absent. Architect should budget limits before shipping.
+- **`.size-limit.json` needs two new entries** — `@aihu/context` and `@aihu/data` are absent. Architect should budget limits before shipping.
 
 - **`packages/context/` and `packages/data/` do not exist** — confirmed. Clean slate for Track B.
 
@@ -358,10 +358,10 @@ Yes. Root `package.json` (line 16): `"size": "size-limit"`. The `size-limit` too
 
 ## Blockers or surprises
 
-1. **`runLoader` is exported from `@scribe/server/src/index.ts`... wait, it is NOT.** Checking `packages/server/src/index.ts` line 9: only `defineLoader` is exported (not `runLoader`). However `data.test.ts` line 2 imports `runLoader` from `'../src/data.ts'` directly (bypassing the barrel). This is a minor inconsistency — `runLoader` is a public-facing utility not re-exported through the barrel. The Architect should be aware that `@scribe/data`'s `createResource` cannot import `runLoader` from `@scribe/server` without a barrel update.
+1. **`runLoader` is exported from `@aihu/server/src/index.ts`... wait, it is NOT.** Checking `packages/server/src/index.ts` line 9: only `defineLoader` is exported (not `runLoader`). However `data.test.ts` line 2 imports `runLoader` from `'../src/data.ts'` directly (bypassing the barrel). This is a minor inconsistency — `runLoader` is a public-facing utility not re-exported through the barrel. The Architect should be aware that `@aihu/data`'s `createResource` cannot import `runLoader` from `@aihu/server` without a barrel update.
 
-2. **No existing `serializer` / `__scribe_state__` test** — the SSR injection point exists and is code-complete, but there appear to be no tests covering the `serializer()` path. Track B's `@scribe/data` dehydration work should add tests for this path.
+2. **No existing `serializer` / `__aihu_state__` test** — the SSR injection point exists and is code-complete, but there appear to be no tests covering the `serializer()` path. Track B's `@aihu/data` dehydration work should add tests for this path.
 
-3. **`vitest.config.ts` uses `jsdom` globally** (`test.environment: 'jsdom'`). This means even `@scribe/context` and `@scribe/data` tests run under jsdom. If Track B wants a true DOM-free test environment for context/data, a per-package `vitest.config.ts` override or `@vitest-environment` docblock comments would be needed.
+3. **`vitest.config.ts` uses `jsdom` globally** (`test.environment: 'jsdom'`). This means even `@aihu/context` and `@aihu/data` tests run under jsdom. If Track B wants a true DOM-free test environment for context/data, a per-package `vitest.config.ts` override or `@vitest-environment` docblock comments would be needed.
 
 4. **`moon.yml` has no `tasks` section** in any existing package — all tasks (`build`, `typecheck`) appear to be delegated to root scripts or implicitly picked up by Moon from `package.json`. New packages should follow the same no-tasks pattern unless Moon requires explicit task declarations for the dependency ordering to work.

@@ -44,7 +44,7 @@ PASS — `cargo fmt --check` exits 0.
 
 | # | Criterion | Result |
 |---|---|---|
-| C0-1 | `packages/compiler/Cargo.toml` with `name = "scribe-compiler"`, `edition = "2021"` | PASS |
+| C0-1 | `packages/compiler/Cargo.toml` with `name = "aihu-compiler"`, `edition = "2021"` | PASS |
 | C0-2 | `.prototools` contains `rust = "1.87.0"` | PASS |
 | C0-3 | `rust-toolchain.toml` at repo root with `channel = "1.87.0"` | PASS |
 | C0-4 | `cargo test` exits 0 | PASS — 6/6 tests pass |
@@ -54,7 +54,7 @@ PASS — `cargo fmt --check` exits 0.
 | C0-8 | `cargo fmt --check` exits 0 | PASS |
 | C0-9 | No files outside `packages/compiler/`, `.prototools`, `rust-toolchain.toml` modified | PASS |
 | C0-10 | `CompileError` implements `std::error::Error` | PASS — build passes |
-| C0-11 | `compile("")` returns `Ok(ScribeSource { script: None, template: None, style: None })` | PASS — `compile_empty_source` unit test |
+| C0-11 | `compile("")` returns `Ok(AihuSource { script: None, template: None, style: None })` | PASS — `compile_empty_source` unit test |
 
 ## STATUS
 DONE — 11/11 acceptance criteria passing.

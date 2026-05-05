@@ -24,7 +24,7 @@ The four fields the Round 1 Director brief required are all present. The interfa
 
 The spec confirms Option A explicitly: `dataSource?: DataSource<unknown>` is treated as an optional field on the existing `branch` node kind, read via duck-type check (`renderToStream` reads `dataSource` off the raw object as `Record<string, unknown>`).
 
-**No changes to `@scribe/arbor` are required.** The spec states this in §3:
+**No changes to `@aihu/arbor` are required.** The spec states this in §3:
 
 > "No changes to arbor's exported types are required for v1 — `renderToStream` reads `dataSource` off the raw object using a runtime duck-type check, consistent with how `renderNode` already reads `tag`, `attrs`, and `children`."
 
@@ -88,7 +88,7 @@ Six tests are specified in §7. Each has a name, "what it proves," setup instruc
 | 3 — Pending DataSource yields chunks in order | Clear | Complete — full stub with `let resolve!` pattern | Yes — 3 assertions; chunk-order proof included |
 | 4 — Factory throws → stream error | Clear | N/A (inline) | Yes — `rejects.toThrow` pattern given |
 | 5 — opts.head document structure | Clear | Complete | Yes — positional ordering assertions given |
-| 6 — opts.hydratable emits data-scribe-path | Clear | Complete | Yes — two path assertions given |
+| 6 — opts.hydratable emits data-aihu-path | Clear | Complete | Yes — two path assertions given |
 
 One note: Test 3 uses `(source as any).status = 'ready'` inside the `resolve` callback. The Builder should be aware this mutates a `readonly` property through a type cast — this is acceptable for test stubs. No spec change needed; it is a standard test pattern.
 
@@ -141,7 +141,7 @@ Everything outside `packages/server/`. Specifically: `packages/arbor/`, `package
 
 2. **No `ReadableStream` import:** Use `ReadableStream` as a global. If TypeScript reports a type error, add `/// <reference lib="dom" />` at the top of `ssr.ts`. Do NOT import from `'stream/web'`.
 
-3. **State script position:** Per the existing `renderToString` implementation, the state script (`__scribe_state__`) is emitted AFTER content and BEFORE `</body></html>`. `renderToStream` must maintain this order — emit the state script after all pending boundaries resolve, before `controller.close()`.
+3. **State script position:** Per the existing `renderToString` implementation, the state script (`__aihu_state__`) is emitted AFTER content and BEFORE `</body></html>`. `renderToStream` must maintain this order — emit the state script after all pending boundaries resolve, before `controller.close()`.
 
 4. **`renderToString` regression gate:** All tests in `packages/server/tests/ssr.test.ts` and `packages/server/tests/compliance/ssr-output.test.ts` must pass unchanged. The drain loop in the refactored `renderToString` must produce byte-for-byte identical output for every existing test case.
 
@@ -159,7 +159,7 @@ In addition to the six new streaming tests, the Verifier must confirm:
 
 ### Size constraint
 
-No explicit size constraint for `@scribe/server`. The spec does not claim a size budget. The additions (~120 lines across two new/modified files) are appropriate for a server package. No size-limit check is required for this plan.
+No explicit size constraint for `@aihu/server`. The spec does not claim a size budget. The additions (~120 lines across two new/modified files) are appropriate for a server package. No size-limit check is required for this plan.
 
 ---
 
@@ -181,9 +181,9 @@ One clarifying annotation is needed in the Builder brief (the `walkDone` flag pa
 
 The Investigator's primary root cause claim: per-node mark-phase overhead (~8 ops vs alien's ~3–4 ops) plus the `visited[]` push.
 
-This is credible and internally consistent. The Investigator traces through the exact code paths in `signal.ts:185–248` for scribe and `system.mjs:92–142` for alien-signals, counting operations per node explicitly. The structural difference is clear:
+This is credible and internally consistent. The Investigator traces through the exact code paths in `signal.ts:185–248` for aihu and `system.mjs:92–142` for alien-signals, counting operations per node explicitly. The structural difference is clear:
 
-- Scribe `markOne` per node: reads DISPOSED, reads lastWave (dedup), reads RUNNING, writes lastWave, R-M-W `MARKED`, pushes to `visited[]`, R-M-W `STALE`, reads `subsHead`, pushes to mark stack. That is 8–9 distinct memory operations.
+- Aihu `markOne` per node: reads DISPOSED, reads lastWave (dedup), reads RUNNING, writes lastWave, R-M-W `MARKED`, pushes to `visited[]`, R-M-W `STALE`, reads `subsHead`, pushes to mark stack. That is 8–9 distinct memory operations.
 - Alien `propagate` per node (linear path): reads flags, OR-assigns `|= 32` (Pending), reads `sub.subs`, assigns `link`. That is 3–4 operations. No per-node array push on the linear path (alien uses an inline `{ value, prev }` stack only at fan-out points).
 
 The gap calculation: 100 nodes × ~5 extra operations × ~4 ns/op = ~2 µs. The reported gap is 1.58 µs (4.00 – 2.42). The estimate is slightly generous but directionally correct. The secondary settle-phase overhead (100 `recomputeIfNeeded` calls, 99 short-circuiting) adds a further ~200–300 ns. Combined, the model accounts for the full gap.
@@ -192,7 +192,7 @@ The gap calculation: 100 nodes × ~5 extra operations × ~4 ns/op = ~2 µs. The 
 
 ### Check 2 — Option C viability vs ≥25% target
 
-Option C's estimated improvement: ~400–500 ns (13% of 4.00 µs total), bringing scribe from 4.00 µs to ~3.50 µs. The Round 1 Director brief stated the target as "≤ 3.00 µs p50 (≥ 25% improvement)" — actually phrased as "≥ 333K ops/s" and "≤ 30% gap reduction" in `state-track-c.md`.
+Option C's estimated improvement: ~400–500 ns (13% of 4.00 µs total), bringing aihu from 4.00 µs to ~3.50 µs. The Round 1 Director brief stated the target as "≤ 3.00 µs p50 (≥ 25% improvement)" — actually phrased as "≥ 333K ops/s" and "≤ 30% gap reduction" in `state-track-c.md`.
 
 **Option C alone does NOT meet the ≥25% target.** 13% improvement to ~3.50 µs is materially below ≤ 3.00 µs.
 

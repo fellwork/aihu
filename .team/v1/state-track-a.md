@@ -13,7 +13,7 @@
 Plan 1.2 (Component props) shipped to `main` at `acf501b` (PR #13 merged 2026-05-01).
 Pre-Round-5 blockers resolved 2026-05-01: size-limit CLI fixed (`20d66b7`), arbor headroom
 confirmed at 83 B (2117 B / 2200 B cap — safe for Plan 1.4), compiler session-6 cleanup
-merged (`808f1c0`, PR #14). `@scribe/runtime` is at 630 B gz / 1024 B cap (394 B headroom).
+merged (`808f1c0`, PR #14). `@aihu/runtime` is at 630 B gz / 1024 B cap (394 B headroom).
 Round 005 Director must open with a scope-selection note choosing Plan 1.3 (Scoped Styles)
 or Plan 1.4 (Slots) — both are now unblocked.
 
@@ -25,7 +25,7 @@ or Plan 1.4 (Slots) — both are now unblocked.
 |------|-------|--------|
 | 4.2 | Error boundaries (`onError` hook in arbor + runtime) | COMPLETE (main `8223dbb`) |
 | 1.1 | Reconciler (`when()` and `each()` in `structural.ts`) | COMPLETE (main `75ba4e1`) |
-| 1.2 | Component props (typed `observedAttributes` in `@scribe/runtime`) | COMPLETE (main `acf501b`) |
+| 1.2 | Component props (typed `observedAttributes` in `@aihu/runtime`) | COMPLETE (main `acf501b`) |
 
 **Execution order (per director note §1):** 4.2 → 1.1 → 1.2
 
@@ -77,10 +77,10 @@ criteria matrix.
 
 | Package | Gate | Why |
 |---------|------|-----|
-| `@scribe/signals` | `bun run test`, `bun run size` ≤ 1700 B gz | Track A does not touch signals source; any regression is a merge artifact |
-| `@scribe/arbor` | All existing tests in `packages/arbor/tests/` pass | Reconciler and error boundary work extends but does not rewrite core |
-| `@scribe/runtime` | All existing tests in `packages/runtime/tests/` pass | Props surface is additive; `define-element.test.ts` test #4 (observedAttributes propagation) must not regress |
-| `@scribe/agent` | `bun run size` ≤ 100 B gz | Not touched by Track A; size gate must stay green |
+| `@aihu/signals` | `bun run test`, `bun run size` ≤ 1700 B gz | Track A does not touch signals source; any regression is a merge artifact |
+| `@aihu/arbor` | All existing tests in `packages/arbor/tests/` pass | Reconciler and error boundary work extends but does not rewrite core |
+| `@aihu/runtime` | All existing tests in `packages/runtime/tests/` pass | Props surface is additive; `define-element.test.ts` test #4 (observedAttributes propagation) must not regress |
+| `@aihu/agent` | `bun run size` ≤ 100 B gz | Not touched by Track A; size gate must stay green |
 
 ### Specific tests that must not regress
 
@@ -101,7 +101,7 @@ criteria matrix.
 - **Scope-collector contract:** `_activeMountDisposers` is `@internal`. The
   push-pop stack fix must not change the behavior visible to `_mountEffect`
   callers.
-- **Zero source-level cross-package value imports in `@scribe/runtime`:** the
+- **Zero source-level cross-package value imports in `@aihu/runtime`:** the
   structural rule from phase-4 spec §2.4 holds. Props wiring and error
   boundary wiring in runtime must not import `mount`, `branch`, `leaf`, or
   any other arbor value at module level.

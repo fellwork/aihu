@@ -36,9 +36,9 @@ evidence.
 
 - **Prediction (if H4 true):** the Architect's count of "16 inner computeds + 1 effect = 17 body executions per op" understates the actual graph cascade. Each computed body should execute meaningfully more than once per signal write.
 
-- **Test:** instrumented the cellx workload graph with per-node body-execution counters. File: `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-counter.ts`. Ran one src write, measured the delta on each computed and the effect.
+- **Test:** instrumented the cellx workload graph with per-node body-execution counters. File: `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-counter.ts`. Ran one src write, measured the delta on each computed and the effect.
 
-- **Evidence:** per-op body-execution counts on **scribe @ `99ea2c8`**:
+- **Evidence:** per-op body-execution counts on **aihu @ `99ea2c8`**:
 
   | Layer | Per-node evals | Total per layer | Architect's model |
   |---|---:|---:|---:|
@@ -62,9 +62,9 @@ evidence.
   | Effect | — | 1 |
   | **TOTAL** | | **17** |
 
-  Alien hits the predicted-by-architect count exactly. Scribe runs 5.4× the work.
+  Alien hits the predicted-by-architect count exactly. Aihu runs 5.4× the work.
 
-  Ordered execution trace (file: `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-trace.ts`) — first 24 lines of the 92-event log for one op:
+  Ordered execution trace (file: `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-trace.ts`) — first 24 lines of the 92-event log for one op:
 
   ```
   l4[0]   l3[0]   l2[0]   l1[0]   EFFECT
@@ -86,11 +86,11 @@ evidence.
 
   | Engine | Body execs / op | p50 / op | ns / body exec |
   |---|---:|---:|---:|
-  | scribe | 92 | 5,710 ns | **62 ns** |
+  | aihu | 92 | 5,710 ns | **62 ns** |
   | alien-signals | 17 | 1,250 ns | **74 ns** |
 
-  Scribe is actually *faster per body-execution* than alien (~16% faster).
-  The entire perf gap is explained by scribe doing 5.4× more bodies. This
+  Aihu is actually *faster per body-execution* than alien (~16% faster).
+  The entire perf gap is explained by aihu doing 5.4× more bodies. This
   rejects the micro-overhead hypotheses (H1, H2, H3) as primary causes.
 
 - **Verdict:** **CONFIRMED** as the primary root cause.
@@ -125,7 +125,7 @@ STALE, every later visit re-fires the entire eager path.
 
 This mirrors the **classic "diamond glitch"** that algorithms like alien-
 signals' two-phase mark/sweep, Solid's batched scheduler, or @preact's
-generation counters explicitly prevent. Scribe's depth-first immediate-
+generation counters explicitly prevent. Aihu's depth-first immediate-
 cascade has no such protection.
 
 The Builder's wip-commit body partially anticipated this — quoting from
@@ -157,7 +157,7 @@ effect", which is a smaller (39% improvement) but not architectural fix.
   `hasEffectSub === true` (single-effect-per-computed), should pay the
   megamorphic cost despite only ever taking one branch.
 
-- **Test:** compare wide-fanout-100 p50 to scribe before the fix.
+- **Test:** compare wide-fanout-100 p50 to aihu before the fix.
   Phase 2 baseline (per `RESULTS.md` git history): `wide-fanout-100`
   p50 ~= 10.19 µs. Post-fix: 8.97 µs. Wide-fanout *improved* 12%.
 
@@ -165,8 +165,8 @@ effect", which is a smaller (39% improvement) but not architectural fix.
   would have regressed (it pays the lookup cost without gaining the
   lazy-path saving). Instead, it improved by 12% — the boolean check
   is being inlined cleanly. Additionally, the per-body-execution
-  cost calculation under H4 (`scribe = 62 ns/body, alien = 74 ns/body`)
-  shows scribe is faster per call than alien, ruling out a
+  cost calculation under H4 (`aihu = 62 ns/body, alien = 74 ns/body`)
+  shows aihu is faster per call than alien, ruling out a
   general per-call overhead from megamorphism.
 
 - **Verdict:** **REJECTED.** The hot-path notify() call is not
@@ -218,7 +218,7 @@ effect", which is a smaller (39% improvement) but not architectural fix.
   of `src` (signal, not computed) ~4 × 1 = 4. Total computed-`read()`
   calls ≈ **248 per op**.
 
-- **Evidence:** the H4 numbers already confirm scribe runs at ~62 ns
+- **Evidence:** the H4 numbers already confirm aihu runs at ~62 ns
   per body-execution (including all the read() overhead). Even if the
   branch tax adds 5 ns per read (a generous overestimate — it's a
   Set.has() lookup which is ~3-4 ns hot in V8 plus a single bit-AND),
@@ -265,9 +265,9 @@ does not prevent.** Specifically:
    - L4: 8 evals per node × 4 nodes = **32 total**
    - Effect: **32 runs** (one per L4 cascade arrival)
 
-   Confirmed in `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-counter.ts`
+   Confirmed in `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-counter.ts`
    and corroborated by the order-trace at
-   `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-trace.ts`.
+   `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-trace.ts`.
 
    The doubling-per-layer is the structural signature of the diamond
    glitch: each `notify()` arrival at an already-recomputed L4 finds
@@ -289,10 +289,10 @@ does not prevent.** Specifically:
 - Multiplier: **5.4×**
 - Predicted p50: 1.8–2.4 µs
 - Actual p50: 5.71 µs
-- Per-body-execution speed: 62 ns/eval (scribe), 74 ns/eval (alien)
-- Gap explained by H4 alone: (92 − 17) × 62 ns = **4.65 µs** ≈ scribe-vs-alien gap of 4.46 µs.
+- Per-body-execution speed: 62 ns/eval (aihu), 74 ns/eval (alien)
+- Gap explained by H4 alone: (92 − 17) × 62 ns = **4.65 µs** ≈ aihu-vs-alien gap of 4.46 µs.
 
-The gap is **fully explained by the work multiplier**. Scribe's per-call
+The gap is **fully explained by the work multiplier**. Aihu's per-call
 overhead is competitive; the design just does ~5.4× more work than
 necessary on diamond graphs.
 
@@ -371,13 +371,13 @@ required.
 
 **HIGH.** Evidence:
 
-1. Empirical body-execution counts on scribe (92/op) and alien (17/op)
+1. Empirical body-execution counts on aihu (92/op) and alien (17/op)
    measured with the same instrumented graph. Files preserved at
-   `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-counter.ts` and
+   `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-counter.ts` and
    `cellx-counter-alien.ts`.
 2. The work multiplier (5.4×) directly explains the perf gap to within
    5% (4.65 µs predicted from work, 4.46 µs measured gap to alien).
-3. Per-body-execution timing (62 ns scribe vs. 74 ns alien) rules out
+3. Per-body-execution timing (62 ns aihu vs. 74 ns alien) rules out
    per-call micro-overhead as a cause.
 4. Order-trace evidence (`cellx-trace.ts`) shows the exact glitch
    mechanism: effect re-firing per L4 cascade, with each effect run
@@ -401,14 +401,14 @@ required.
 
 ## Files referenced (all absolute paths)
 
-- `c:/git/fellwork/scribe/.team/phase-2-5/cellx-fix-spec.md` — the spec being investigated (§2.7 is the model that's wrong)
-- `c:/git/fellwork/scribe/packages/signals/src/computed.ts` — implementation (line 51 clears STALE; line 61 short-circuits on STALE)
-- `c:/git/fellwork/scribe/packages/signals/src/effect.ts` — effect node (always EFFECT bit set; eager path in computed.notify always cascades to it)
-- `c:/git/fellwork/scribe/bench/signals/src/workloads/cellx.ts` — the diamond workload (4×4 grid, fanin-2 per node, terminal effect reads all 4 L4)
-- `c:/git/fellwork/scribe/bench/signals/RESULTS.md` — the 5.71 µs measurement
-- `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-counter.ts` — scribe instrumentation (preserved for reproducibility)
-- `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-counter-alien.ts` — alien-signals comparison instrumentation
-- `c:/git/fellwork/scribe/.team/phase-2-5/scratch/cellx-trace.ts` — execution-order trace
+- `c:/git/fellwork/aihu/.team/phase-2-5/cellx-fix-spec.md` — the spec being investigated (§2.7 is the model that's wrong)
+- `c:/git/fellwork/aihu/packages/signals/src/computed.ts` — implementation (line 51 clears STALE; line 61 short-circuits on STALE)
+- `c:/git/fellwork/aihu/packages/signals/src/effect.ts` — effect node (always EFFECT bit set; eager path in computed.notify always cascades to it)
+- `c:/git/fellwork/aihu/bench/signals/src/workloads/cellx.ts` — the diamond workload (4×4 grid, fanin-2 per node, terminal effect reads all 4 L4)
+- `c:/git/fellwork/aihu/bench/signals/RESULTS.md` — the 5.71 µs measurement
+- `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-counter.ts` — aihu instrumentation (preserved for reproducibility)
+- `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-counter-alien.ts` — alien-signals comparison instrumentation
+- `c:/git/fellwork/aihu/.team/phase-2-5/scratch/cellx-trace.ts` — execution-order trace
 
 ---
 

@@ -10,7 +10,7 @@ Append-only log of bench-result deltas. Newest entries first.
 **Branch:** `feat/round-n1-track-a-arbor-bench`
 **Runner:** mitata 1.0.34 · Bun 1.3.8 · JSDOM 25.0.1
 
-**Scope:** Round N+1 closes the Learning #11 receipt gap: @scribe/arbor had zero
+**Scope:** Round N+1 closes the Learning #11 receipt gap: @aihu/arbor had zero
 SOTA bench receipts. This harness adds 6 workloads × 6 competitors × 2 metrics
 (time + memory) covering the axes the named competitors hold themselves to.
 
@@ -33,7 +33,7 @@ SOTA bench receipts. This harness adds 6 workloads × 6 competitors × 2 metrics
 
 | Library | Version | Notes |
 |---|---|---|
-| @scribe/arbor | workspace | Baseline — all 6 workloads pass |
+| @aihu/arbor | workspace | Baseline — all 6 workloads pass |
 | lit-html | 3.2.1 | 5/6 workloads pass (attr-thrash: readonly property error) |
 | preact | 10.25.4 | All 6 workloads pass |
 | vanilla DOM | native | All 6 workloads pass — sets the cost floor |
@@ -45,7 +45,7 @@ performance verdicts. See HARNESS.md for details.
 
 ### Key numbers (2026-04-30, Bun 1.3.8, JSDOM 25.0.1)
 
-| Workload | @scribe/arbor | preact | vanilla | lit-html |
+| Workload | @aihu/arbor | preact | vanilla | lit-html |
 |---|---:|---:|---:|---:|
 | mount-10k-leaves | 36.64 ms | 66.44 ms | 90.71 ms | 5.55 s |
 | mount-deep-100x10 | 3.20 ms | 8.93 ms | 24.00 ms | 62.07 ms |
@@ -54,8 +54,8 @@ performance verdicts. See HARNESS.md for details.
 | attr-thrash-100x100 | 42.48 µs | 10.24 ms | 6.64 ms | ERROR |
 | krausest-1k-cycle | 20.90 ms | 19.68 ms | 16.07 ms | 77.01 ms |
 
-@scribe/arbor is fastest on all mount workloads and dramatically fastest on
-`update-1-of-10k-leaves` (25 ns vs. 3 µs vanilla — scribe's fine-grained
+@aihu/arbor is fastest on all mount workloads and dramatically fastest on
+`update-1-of-10k-leaves` (25 ns vs. 3 µs vanilla — aihu's fine-grained
 signals avoid DOM traversal entirely; vanilla writes textContent directly).
 On `krausest-1k-cycle` and `attr-thrash-100x100`, vanilla and preact are
 faster — expected, as those workloads favor lower per-op overhead.
@@ -73,7 +73,7 @@ faster — expected, as those workloads favor lower per-op overhead.
 - `bench/arbor/src/memory.ts` — memory bench (--expose-gc GC protocol)
 - `bench/arbor/src/gate.ts` — regression gate (10% p50 threshold)
 - `bench/arbor/src/size.ts` — bundle size reporter
-- `bench/arbor/src/competitors/{index,scribe,lit,solid,vue,preact,vanilla}.ts`
+- `bench/arbor/src/competitors/{index,aihu,lit,solid,vue,preact,vanilla}.ts`
 - `bench/arbor/src/workloads/{index,mount-10k-leaves,mount-deep-100x10,`
   `mount-wide-1000,update-1-of-10k-leaves,attr-thrash-100x100,krausest-1k-cycle}.ts`
 - `.github/workflows/plan-a.yml` — `bench-arbor` job + arbor paths in filter

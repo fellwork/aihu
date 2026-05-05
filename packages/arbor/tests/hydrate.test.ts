@@ -10,7 +10,7 @@
  *  - T6: serialize() returns updated value after signal write
  */
 
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
 import { hydrate } from '../src/hydrate.ts'
 import { branch, leaf } from '../src/index.ts'
@@ -101,7 +101,7 @@ describe('hydrate() — happy path', () => {
     // The <p> is the root branch, so it gets the root path 'hydrate.0'.
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-scribe-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
     p.appendChild(document.createTextNode('hello'))
     host.appendChild(p)
     const innerBefore = host.innerHTML
@@ -126,7 +126,7 @@ describe('hydrate() — happy path', () => {
     const host = document.createElement('div')
     const span = document.createElement('span')
     // The <span> is the root branch, so it gets the root path 'hydrate.0'.
-    span.setAttribute('data-scribe-path', 'hydrate.0')
+    span.setAttribute('data-aihu-path', 'hydrate.0')
     span.setAttribute('data-color', 'red')
     host.appendChild(span)
     const innerBefore = host.innerHTML
@@ -148,7 +148,7 @@ describe('hydrate() — happy path', () => {
   it('T2c: hydrate returns a MountScope with dispose and serialize', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-scribe-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
     p.appendChild(document.createTextNode('test'))
     host.appendChild(p)
 
@@ -235,7 +235,7 @@ describe('serialize → hydrate round-trip', () => {
     // The <p> is the root branch so it gets path 'hydrate.0'.
     const clientHost = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-scribe-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
     p.appendChild(document.createTextNode(restoredValue))
     clientHost.appendChild(p)
 
@@ -264,7 +264,7 @@ describe('hydrate().dispose()', () => {
   it('T5: after dispose, signal writes do not update the DOM', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-scribe-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
     p.appendChild(document.createTextNode('before'))
     host.appendChild(p)
 
@@ -286,7 +286,7 @@ describe('hydrate().dispose()', () => {
   it('T5b: dispose is idempotent', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-scribe-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
     p.appendChild(document.createTextNode('x'))
     host.appendChild(p)
 

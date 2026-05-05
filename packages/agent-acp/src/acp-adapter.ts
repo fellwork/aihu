@@ -1,16 +1,16 @@
 /**
- * `@scribe/agent-acp` — ACP adapter implementation (Plan 5.3).
+ * `@aihu/agent-acp` — ACP adapter implementation (Plan 5.3).
  *
  * Exposes two routes:
  *  GET  {prefix}/.well-known/acp-agent  — agent discovery card
  *  POST {prefix}/acp/messages           — ACP message routing
  */
-import type { AgentService } from '@scribe/agent-service'
+import type { AgentService } from '@aihu/agent-service'
 import type { AcpAdapter, AcpAdapterOptions, AcpMessage } from './types.ts'
 
 export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptions): AcpAdapter {
   const prefix = options?.prefix ?? ''
-  const agentId = options?.agentId ?? 'scribe-agent-service'
+  const agentId = options?.agentId ?? 'aihu-agent-service'
   const cardPath = `${prefix}/.well-known/acp-agent`
   const msgPath = `${prefix}/acp/messages`
   const headers = { 'content-type': 'application/json' }
@@ -27,7 +27,7 @@ export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptio
         if (req.method === 'GET' && path === cardPath) {
           return reply({
             agent_id: agentId,
-            description: 'Scribe ACP agent',
+            description: 'Aihu ACP agent',
             skills: service.getManifest().tools.flatMap((t) =>
               Object.keys(t.actions ?? {}).map((a) => ({
                 skill_id: `${t.tag}/${a}`,

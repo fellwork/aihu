@@ -36,7 +36,7 @@ The acceptance target (§10.3) is set FROM the realistic capacity, not from the 
 
 Per `verification-report-6.2-phase2-h5.md` §3 and Investigator (Phase 3) §Summary:
 
-| State | scribe deep-prop buildHeapDelta | Per-Sub (÷102) | Verdict |
+| State | aihu deep-prop buildHeapDelta | Per-Sub (÷102) | Verdict |
 |---|---:|---:|---|
 | H4 baseline (architect-cited) | 10.24 KB | ~100 B/Sub | (baseline) |
 | **H5 closing (62f737f)** | **8.68 KB** | **~85 B/Sub** | H5 freed 1.56 KB (the lastWave Slot piece) |
@@ -665,8 +665,8 @@ The Builder does NOT interpret bench numbers (Verifier's job). The memory bench 
 
 | Package | gz size | Cap | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | **1679 B** | 1850 B | **+171 B** |
-| `@scribe/arbor` | **2133 B** | 2200 B | **+67 B** |
+| `@aihu/signals` | **1679 B** | 1850 B | **+171 B** |
+| `@aihu/arbor` | **2133 B** | 2200 B | **+67 B** |
 
 #### 10.1.1 K1c+ byte addition estimate — table
 
@@ -758,7 +758,7 @@ Per Investigator §Q5 §"Arbor headroom check":
 
 **Critical instruction (Director §5.2 + §0):** the targets above were set FROM the Investigator's mechanism-grounded numbers (post-settle 33–76 B/Sub from Q1 slot-walk × R-A 0.7), NOT from upstream destination numbers (alien parity). **This is the playbook fix for the Round 5 projection-failure.** Numbers must be defended by mechanism, not copied from destination.
 
-**Confirm-the-cause check (Verifier — per Investigator §Q2 §"Direct comparison to alien"):** compute `(scribe.buildHeapDelta − alien.buildHeapDelta) / 102` per Subscriber on `deep-propagation-100` post-K1c+. Pre-K1c+ ~85 B/Sub. **Target post-K1c+: ≤ 35 B/Sub.** If post-K1c+ the per-Sub delta is still ~60 B, the closure removal didn't take fully and Builder should re-inspect (likely K-2 violation: per-instance method leak). The Verifier reports this number explicitly in `RESULTS.md`.
+**Confirm-the-cause check (Verifier — per Investigator §Q2 §"Direct comparison to alien"):** compute `(aihu.buildHeapDelta − alien.buildHeapDelta) / 102` per Subscriber on `deep-propagation-100` post-K1c+. Pre-K1c+ ~85 B/Sub. **Target post-K1c+: ≤ 35 B/Sub.** If post-K1c+ the per-Sub delta is still ~60 B, the closure removal didn't take fully and Builder should re-inspect (likely K-2 violation: per-instance method leak). The Verifier reports this number explicitly in `RESULTS.md`.
 
 ### §10.4 Shallow-rank gates (UNCHANGED FROM H5)
 
@@ -776,7 +776,7 @@ If any of these break, surface to user immediately (Surface-to-User #4 trigger f
 
 **Risk:** arbor 67 B headroom is the binding constraint per Investigator §R-B. Worst-case K1c+ propagation lands arbor at +30 B gz delta = ~2163 B (+37 B headroom), within cap but with no slack.
 
-**Mitigation:** per §10.1.3 — Builder runs `bun run build && size-limit` after every commit on both `@scribe/signals` AND `@scribe/arbor`. Pre-trigger surface at +50 B gz arbor delta; hard escalation at +67 B gz.
+**Mitigation:** per §10.1.3 — Builder runs `bun run build && size-limit` after every commit on both `@aihu/signals` AND `@aihu/arbor`. Pre-trigger surface at +50 B gz arbor delta; hard escalation at +67 B gz.
 
 **Residual risk:** arbor exceeds cap → §15.2 conditional escalation.
 
@@ -922,9 +922,9 @@ The Builder ships a single PR on `feat/v1-signals-6.2-phase3-closures` (off H5 h
 ### §14.3 Self-test gates before push
 
 - [ ] `bun test` in `packages/signals/` — all H5 existing tests + §9.2 + §9.3 new tests pass (expected: H5-baseline count + 2 new tests).
-- [ ] `bun typecheck` from repo root — no type errors. The class-instance Subscriber types MUST type-check cleanly across all packages (`@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`).
+- [ ] `bun typecheck` from repo root — no type errors. The class-instance Subscriber types MUST type-check cleanly across all packages (`@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`).
 - [ ] `bun run build` from repo root — completes without error.
-- [ ] `bun scripts/size.ts` from repo root — both `@scribe/signals` ≤ 1850 B AND `@scribe/arbor` ≤ 2200 B. **Run on every commit, not just the final commit.** If arbor exceeds +50 B gz delta in any single commit → §15.2 conditional surface; if cap exceeded → §15.3 hard escalation; do NOT push.
+- [ ] `bun scripts/size.ts` from repo root — both `@aihu/signals` ≤ 1850 B AND `@aihu/arbor` ≤ 2200 B. **Run on every commit, not just the final commit.** If arbor exceeds +50 B gz delta in any single commit → §15.2 conditional surface; if cap exceeded → §15.3 hard escalation; do NOT push.
 - [ ] `cd bench/signals && bun src/runner.ts` — completes without error. Builder does NOT interpret bench numbers.
 - [ ] `bun --expose-gc bench/signals/src/memory.ts` — completes without error; `RESULTS.memory.json` regenerated.
 - [ ] `bun .team/phase-2-5/scratch/cellx-counter.ts` — prints **TOTAL = 17** (HARD GATE — §12).
@@ -971,7 +971,7 @@ Per §10.1.2, K1c+ is estimated at +10 B gz against 171 B headroom on signals (p
 
 ### §15.2 Arbor cascade — CONDITIONAL ESCALATION
 
-🟡 **CONDITIONAL ESCALATION:** if `bun scripts/size.ts` reports `@scribe/arbor` > +30 B gz delta after K1c+ lands, the Builder STOPS and surfaces to Architect with the following options:
+🟡 **CONDITIONAL ESCALATION:** if `bun scripts/size.ts` reports `@aihu/arbor` > +30 B gz delta after K1c+ lands, the Builder STOPS and surfaces to Architect with the following options:
 
 > **Option A.** Investigate arbor's tree-shaking. The K1c+ class declarations may be inlined into arbor's bundle; verify via rolldown's `--inspect` or equivalent.
 >

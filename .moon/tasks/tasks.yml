@@ -14,7 +14,7 @@ fileGroups:
 tasks:
   # IMPORTANT: Use "bun run build" (not "bunx rolldown -c" directly) so that
   # per-package scripts.build runs — this includes the identifier-mangle step
-  # for browser-eligible packages (@scribe/signals, @scribe/arbor). Bypassing
+  # for browser-eligible packages (@aihu/signals, @aihu/arbor). Bypassing
   # the package script skips mangle and silently violates size budgets.
   build:
     command: "bun run build"

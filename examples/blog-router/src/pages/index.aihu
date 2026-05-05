@@ -1,0 +1,35 @@
+@route {
+  path: "/",
+  name: "blog-index"
+}
+
+@state {
+  posts: Array<{ slug: string; title: string }> = [
+    { slug: 'hello',  title: 'Hello, world' },
+    { slug: 'meta',   title: 'Why aihu is meta' },
+    { slug: 'agents', title: 'Agents are first-class' },
+  ]
+
+  $action postKey(p: { slug: string }): string { return p.slug }
+}
+
+@template {
+  <main>
+    <h1>The aihu blog</h1>
+    <ul>
+      <li $each="posts as item" $key={item.slug}>
+        <a href={`/posts/${item.slug}`}>{item.title}</a>
+      </li>
+    </ul>
+    <p><a href="/about">About this blog</a></p>
+  </main>
+}
+
+@style {
+  main { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; }
+  h1   { margin-bottom: 1rem; }
+  ul   { list-style: none; padding: 0; }
+  li   { padding: 0.25rem 0; }
+  a    { color: #0070f3; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+}

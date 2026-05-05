@@ -8,13 +8,13 @@
 
 ## What Was Built
 
-Opt-in islands architecture for scribe components:
+Opt-in islands architecture for aihu components:
 
 1. **Static islands** — components classified as `'static'` (no `signal()`,
    `computed()`, `effect()`, or `setSignal()` calls) ship a minimal
-   `customElements.define` shim that imports zero `@scribe/runtime` JS.
+   `customElements.define` shim that imports zero `@aihu/runtime` JS.
    The setup function still produces an arbor tree, mounted directly via
-   `mount()` from `@scribe/arbor`.
+   `mount()` from `@aihu/arbor`.
 2. **Interactive islands with `defer`** — components opt individual instances
    into lazy hydration by adding the `defer` attribute. The compiler-emitted
    postamble installs an `IntersectionObserver`-driven wrapper around
@@ -41,12 +41,12 @@ independently hydratable boundary.
 ### Modified Files
 - `packages/runtime/src/index.ts` — re-exports `_hydrateOnVisible`
 - `packages/compiler/js/index.ts`:
-  - new `ScribeCompilerPluginOptions` interface (`islands?: boolean`)
+  - new `AihuCompilerPluginOptions` interface (`islands?: boolean`)
   - new `_classifyIsland`, `_buildStaticIsland`, `_buildDeferredHydration` helpers
   - `scribeCompilerPlugin(options)` accepts `{ islands }`; default `true`
   - Vite plugin transform branches: static islands → `_buildStaticIsland`;
     interactive → existing HMR pass + `_buildDeferredHydration`
-- `.size-limit.json` — `@scribe/runtime` cap raised from 1140 B → 1170 B to
+- `.size-limit.json` — `@aihu/runtime` cap raised from 1140 B → 1170 B to
   accommodate the +63 B gz cost of the `_hydrateOnVisible` helper. The
   helper is genuinely tree-shakeable (only imported by defer-aware emit
   paths), so consumers without `defer` pay zero bytes.
@@ -67,9 +67,9 @@ independently hydratable boundary.
 
 | Package | Before | After | Limit | Headroom |
 |---------|--------|-------|-------|----------|
-| @scribe/runtime | 1.07 kB (1097 B) | 1.14 kB (1162 B) | 1170 B | +8 B |
-| @scribe/arbor | 2.31 kB (2361 B) | 2.31 kB (2361 B) | 2200 B | -161 B (pre-existing) |
-| @scribe/compiler | n/a (Node-only) | n/a | n/a | n/a |
+| @aihu/runtime | 1.07 kB (1097 B) | 1.14 kB (1162 B) | 1170 B | +8 B |
+| @aihu/arbor | 2.31 kB (2361 B) | 2.31 kB (2361 B) | 2200 B | -161 B (pre-existing) |
+| @aihu/compiler | n/a (Node-only) | n/a | n/a | n/a |
 
 `_hydrateOnVisible` adds ~63 B gz incremental. Spec target was ≤ 50 B; the
 overage is absorbed by raising the runtime cap by 30 B (from 1140 → 1170 B).
@@ -86,13 +86,13 @@ already over on `main` HEAD `86cb25a` and is out of scope for Plan 3.3.
    negative + whitespace tolerance)
 2. ✅ `islands: true` (default) enables the static-island optimisation in
    the Vite plugin transform hook
-3. ✅ Static island output: zero `@scribe/runtime` references — the import
+3. ✅ Static island output: zero `@aihu/runtime` references — the import
    line is stripped and `defineElement(...)` is replaced with an inline
    `customElements.define(tag, class extends HTMLElement { ... })`
 4. ✅ `defer` attribute on a custom element triggers IntersectionObserver-
    gated hydration (3 integration tests using a fake observer)
 5. ✅ `_hydrateOnVisible(el, fn)` exists, is exported from
-   `@scribe/runtime`, and lives in its own module so consumers without
+   `@aihu/runtime`, and lives in its own module so consumers without
    `defer` tree-shake it out
 6. ✅ All existing tests pass (407 → 431, no regressions)
 7. ✅ `bun run build` per-package builds pass (`bun run build` aggregate is
@@ -111,7 +111,7 @@ already over on `main` HEAD `86cb25a` and is out of scope for Plan 3.3.
 - **HTML cache spec subtlety**: the HTML spec caches lifecycle callbacks
   on `customElements.define()`. The defer wrapper therefore mutates
   `Ctor.prototype.connectedCallback` BEFORE `defineElement` runs (via a
-  tiny `__scribe_wrap_defer__` helper inserted between `defineComponent(...)`
+  tiny `__aihu_wrap_defer__` helper inserted between `defineComponent(...)`
   and `defineElement('tag', ...)`), not after. A naive
   `customElements.get(tag).prototype.connectedCallback = ...` rewrite
   AFTER `defineElement` would have no effect.

@@ -54,7 +54,7 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
     if let Some(directive_name) = name.strip_prefix("v-") {
         return Err(CompileError {
             message: format!(
-                "unknown directive 'v-{}'; scribe v0 supports @event, :attr, and {{ identifier }} only",
+                "unknown directive 'v-{}'; aihu v0 supports @event, :attr, and {{ identifier }} only",
                 directive_name
             ),
             line: 0,

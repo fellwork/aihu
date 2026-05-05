@@ -202,7 +202,7 @@ function convertMarkdown(md: string): string {
 
 function extractTitle(md: string): string {
   const m = md.match(/^# (.+)$/m)
-  return m ? m[1] : 'scribe docs'
+  return m ? m[1] : 'aihu docs'
 }
 
 // ── HTML shell ────────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ function buildHtml(title: string, nav: string, content: string): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} — scribe</title>
+<title>${escapeHtml(title)} — aihu</title>
 <style>
 ${CSS}
 </style>
@@ -305,7 +305,7 @@ const indexHtml = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="refresh" content="0; url=introduction.html">
-<title>scribe docs</title>
+<title>aihu docs</title>
 </head>
 <body>
 <p>Redirecting to <a href="introduction.html">introduction</a>...</p>

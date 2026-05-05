@@ -1,10 +1,10 @@
-# Scribe SFC — VS Code extension
+# Aihu SFC — VS Code extension
 
-Syntax highlighting and snippets for `.scribe` Single-File Components.
+Syntax highlighting and snippets for `.aihu` Single-File Components.
 
 ## Features
 
-- TextMate grammar for `.scribe` files
+- TextMate grammar for `.aihu` files
 - Region highlighting for `<agent>`, `<script setup>`, `<server setup>`, `<template>`, and `<style>` blocks
 - Embedded language support — TypeScript inside `<script setup>`, HTML inside `<template>`, CSS inside `<style>`
 - Contract-aware highlighting for `input`, `state`, `action`, the four primitive types, and `enum(…)` variants
@@ -22,7 +22,7 @@ directly from this folder:
 4. Select the `editors/vscode/` folder in this repository.
 5. Reload VS Code when prompted.
 
-You should now see Scribe-aware highlighting on any file ending in `.scribe`.
+You should now see Aihu-aware highlighting on any file ending in `.aihu`.
 
 ## Develop
 
@@ -30,13 +30,13 @@ To iterate on the grammar:
 
 1. Open `editors/vscode/` in a VS Code window.
 2. Press `F5` to launch an Extension Development Host.
-3. Open a `.scribe` file in the host window to test changes.
+3. Open a `.aihu` file in the host window to test changes.
 
-The grammar lives at `syntaxes/scribe.tmLanguage.json`. Snippets at
-`snippets/scribe.json`. Language config at `language-configuration.json`.
+The grammar lives at `syntaxes/aihu.tmLanguage.json`. Snippets at
+`snippets/aihu.json`. Language config at `language-configuration.json`.
 
 ## Status
 
 `0.0.1` — first release. No diagnostics, no language server, no formatter. Just
-highlighting + snippets. Future versions may integrate with `scribe-compile` for
+highlighting + snippets. Future versions may integrate with `aihu-compile` for
 inline error reporting.

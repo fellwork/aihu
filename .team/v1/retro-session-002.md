@@ -1,7 +1,7 @@
 # Session 002 Retro
 
 **Date:** 2026-04-30
-**Plans shipped:** 4.2 (Error Boundaries), 3.1 (Streaming SSR), 6.2-P0 (Signals Deep-Chain), 2.1 (@scribe/context)
+**Plans shipped:** 4.2 (Error Boundaries), 3.1 (Streaming SSR), 6.2-P0 (Signals Deep-Chain), 2.1 (@aihu/context)
 **Final test count:** 278 passing (38 test files)
 **All 5 JS packages within size budget.**
 
@@ -9,7 +9,7 @@
 
 ## What was built
 
-### Plan 4.2 — Error boundaries (`@scribe/arbor`)
+### Plan 4.2 — Error boundaries (`@aihu/arbor`)
 
 `MountOptions.onError?: ErrorHandler` added to the `mount()` API. The implementation introduced a `_mountDisposersStack` push-pop pattern so that error recovery can safely unwind the disposer stack without corrupting parent scopes. `_mountEffect` now wraps side-effect execution in a try/catch that forwards thrown values to the nearest `onError` handler. Four new tests added to `mount.test.ts`. Committed in squash `8223dbb`.
 
@@ -17,15 +17,15 @@ Verifier findings (both non-blocking):
 - **T1 assertion path format:** test checked `'0.children[0]'` but the correct path notation was `'0.0'`. Behavior is correct; only the test assertion string format was unexpected. Non-blocking.
 - **`disposeRef` first-run race:** see dedicated section below.
 
-### Plan 3.1 — Streaming SSR (`@scribe/server`)
+### Plan 3.1 — Streaming SSR (`@aihu/server`)
 
 `renderToStream(component, opts?): ReadableStream<string>` added to `packages/server/src/ssr.ts`. Supporting types (`DataSource<T>`, `StreamOptions`) landed in `stream-types.ts`. `renderToString` was refactored to drain the stream internally rather than duplicating tree-walk logic. New test file `ssr-stream.test.ts` (167 lines, ≥6 tests). Committed in squash `ec24d41`.
 
-### Plan 6.2-Phase 0 — Signals deep-chain opt (`@scribe/signals`)
+### Plan 6.2-Phase 0 — Signals deep-chain opt (`@aihu/signals`)
 
-`HAS_EFFECT_SUB = 0x40` flag added to the node flag set. `markOne` now guards the `visited.push(sub)` call with a conditional check so that effect-only leaves are not redundantly pushed onto the mark stack during deep-chain propagation. Result: ~18% improvement on `deep-propagation-100` (4.00 µs → 3.27 µs p50). `@scribe/signals` stays at ≤ 1.54 kB gz. Committed with Plan 4.2 in squash `8223dbb`.
+`HAS_EFFECT_SUB = 0x40` flag added to the node flag set. `markOne` now guards the `visited.push(sub)` call with a conditional check so that effect-only leaves are not redundantly pushed onto the mark stack during deep-chain propagation. Result: ~18% improvement on `deep-propagation-100` (4.00 µs → 3.27 µs p50). `@aihu/signals` stays at ≤ 1.54 kB gz. Committed with Plan 4.2 in squash `8223dbb`.
 
-### Plan 2.1 — `@scribe/context` (new package)
+### Plan 2.1 — `@aihu/context` (new package)
 
 New package `packages/context/` shipping `createContext`, `provide`, `inject`, `runWithContext`, and an `./ssr` subpath. SSR integration wired through two new fields on `SsrOptions`: `contextSetup` (user-facing) and `_setContextFns` (internal hook for `renderToString`/`renderToStream` to install the context map before the tree walk). Bundle: 165 B gz against a 300 B limit. 13 tests. Committed in squash `8223dbb`.
 
@@ -75,7 +75,7 @@ The Verifier assessed this as LOW priority. It was spawned as a background task 
 
 1. **Plan 1.1 — Reconciler (`when`/`each`) in `structural.ts`** — HIGH. This is the next immediate action on Track A. The Architect spec already exists at `.team/v1/spec-track-a-architect-round-001.md`. Property mangling is MANDATORY. `StructuralNode` + `ChildScope` design from the spec. Builder can start now.
 
-2. **Plan 2.2 — `@scribe/data`** — HIGH. Unblocked now that 2.1 merged. Full spec design in `director-notes/track-b-round-002.md` §4. Architect spec for 2.2 to be written, then Builder dispatch.
+2. **Plan 2.2 — `@aihu/data`** — HIGH. Unblocked now that 2.1 merged. Full spec design in `director-notes/track-b-round-002.md` §4. Architect spec for 2.2 to be written, then Builder dispatch.
 
 3. **Plan 6.2-Phase 1 (Option D)** — MEDIUM. Phase 0 bench confirmed ≥18% improvement, exceeding the ≥10% threshold required to proceed. Architect spec for Option D hybrid fanout/lazy approach needed before Builder starts.
 

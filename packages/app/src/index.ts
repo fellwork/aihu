@@ -1,7 +1,7 @@
-export { defineConfig, ScribeConfigError } from './config.ts'
+export { defineConfig, AihuConfigError } from './config.ts'
 export type {
-  ScribeConfig,
-  ScribePlugin,
+  AihuConfig,
+  AihuPlugin,
   DirConfig,
   RuntimeConfig,
   AppHeadConfig,
@@ -10,5 +10,5 @@ export type {
   AgentReadinessConfig,
   OutputMode,
 } from './config.ts'
-export type { ScribeAdapter, AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
-export { viteScribePlugin } from './vite-plugin.ts'
+export type { AihuAdapter, AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
+export { viteAihuPlugin } from './vite-plugin.ts'

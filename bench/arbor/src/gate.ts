@@ -1,7 +1,7 @@
 /**
  * CI regression gate for `bench/arbor`. Reads `previous` and `current`
  * RESULTS.md files, parses the embedded JSON block, compares p50 for
- * `@scribe/arbor` rows, and exits non-zero if any workload regressed by more
+ * `@aihu/arbor` rows, and exits non-zero if any workload regressed by more
  * than the threshold.
  *
  * Usage:
@@ -55,14 +55,14 @@ let regressionCount = 0
 const lines: string[] = []
 
 for (const curCell of cur.cells) {
-  if (curCell.competitor !== '@scribe/arbor') continue
+  if (curCell.competitor !== '@aihu/arbor') continue
   if (curCell.error || curCell.p50 === null || curCell.p50 === undefined) {
     lines.push(`  SKIP ${curCell.workload}: error cell — no p50 to compare`)
     continue
   }
 
   const prevCell = prev.cells.find(
-    (c) => c.workload === curCell.workload && c.competitor === '@scribe/arbor',
+    (c) => c.workload === curCell.workload && c.competitor === '@aihu/arbor',
   )
   if (!prevCell || prevCell.p50 === null || prevCell.p50 === undefined) {
     lines.push(`  ${curCell.workload}: NEW (no previous baseline) — ${curCell.p50.toFixed(0)} ns`)
@@ -78,7 +78,7 @@ for (const curCell of cur.cells) {
   if (delta > THRESHOLD) regressionCount++
 }
 
-console.log(`Bench gate · @scribe/arbor · prev=${prev.date} cur=${cur.date}`)
+console.log(`Bench gate · @aihu/arbor · prev=${prev.date} cur=${cur.date}`)
 for (const line of lines) console.log(line)
 
 if (regressionCount > 0) {

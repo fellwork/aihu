@@ -1,8 +1,8 @@
-# Verification Report — Phase 3 (`@scribe/arbor`)
+# Verification Report — Phase 3 (`@aihu/arbor`)
 
 **Verifier:** Verifier (code)
 **Date:** 2026-04-27
-**Worktree:** `C:/git/fellwork-worktrees/scribe-arbor-task-12` (branch `phase-3/arbor-implementation`)
+**Worktree:** `C:/git/fellwork-worktrees/aihu-arbor-task-12` (branch `phase-3/arbor-implementation`)
 **HEAD:** `2702cd8`
 **Time spent:** ~70 min
 
@@ -14,8 +14,8 @@
 integration test are green; typecheck/build/biome/size are clean; the dist
 surface contains exactly the 16 symbols the spec mandates (7 values + 9 types)
 with no internals leaked through `index.ts` or `index.d.ts`. Phase 2's 36 unit
-tests survive intact alongside the 3 new `untrack` tests (`@scribe/signals`
-716 B / 1024 B, +18 B for the new export). `@scribe/arbor` finished at 1.16 kB
+tests survive intact alongside the 3 new `untrack` tests (`@aihu/signals`
+716 B / 1024 B, +18 B for the new export). `@aihu/arbor` finished at 1.16 kB
 gz / 2.05 kB budget (43 % headroom). All four Builder-flagged deviations
 adjudicate to ACCEPT-AS-IS for v0; the telemetry tree-shake gap is the only
 substantive carry-over (~100-200 B; Builder's `__DEV__`-constant fallback path
@@ -73,8 +73,8 @@ all cached green (Moon hashes: `40684cc5`, `5a4aa420`, `1acafe4d`).
 **Result:** PASS.
 
 ```
-@scribe/signals  716 B  / 1024 B   (308 B / 30 % headroom)
-@scribe/arbor    1.16 kB / 2.05 kB (889 B / 43 % headroom)
+@aihu/signals  716 B  / 1024 B   (308 B / 30 % headroom)
+@aihu/arbor    1.16 kB / 2.05 kB (889 B / 43 % headroom)
 ```
 
 Both budgets honored. Manifest claim verified independently
@@ -93,9 +93,9 @@ spec §1.8). No new diagnostics introduced.
 |---|---|---|
 | `tsconfig.base.json` | unchanged | ok |
 | `tsconfig.json` | unchanged | ok |
-| `vitest.config.ts` | unchanged | ok (root vitest config aliases `@scribe/arbor` to its src — already there from Phase 1) |
+| `vitest.config.ts` | unchanged | ok (root vitest config aliases `@aihu/arbor` to its src — already there from Phase 1) |
 | `package.json` (root) | unchanged | ok |
-| `bun.lock` | binary diff (workspace-pointer only — `@scribe/arbor`) | ok |
+| `bun.lock` | binary diff (workspace-pointer only — `@aihu/arbor`) | ok |
 | `.size-limit.json` | +arbor row at 2048 B | per spec §3.2 |
 | `.github/workflows/plan-a.yml` | +`'phase-*/**'` to push branches | per spec §3.3 + Learning #5 — confirmed CI fires on this branch |
 | `.prototools` | unchanged (already `node = "22.12.0"`) | spec §3.4 was a pre-existing bump or done in Phase 2 — not blocking |
@@ -231,7 +231,7 @@ sound. See §4.2 below.
 | 50 | §2.9 | Leaf always 5 fields | `node.ts:50-52, 59-61` (both factories return all 5) | PASS |  |
 | 51 | §2.9 | `_makeBranch`/`_makeTextLeaf`/`_makeElementLeaf` enforce shapes | `node.ts:34-61` | PASS |  |
 | 52 | §2.9 | `EMPTY_CHILDREN` frozen module-level | `node.ts:25` (`Object.freeze([])`) | PASS — `branch.test.ts:30-39` (verifies identity-shared + frozen) |  |
-| 53 | §3.1 package.json | `name`, `type:module`, `sideEffects:false`, dep on `@scribe/signals: workspace:*` | `packages/arbor/package.json:1-25` | PASS |  |
+| 53 | §3.1 package.json | `name`, `type:module`, `sideEffects:false`, dep on `@aihu/signals: workspace:*` | `packages/arbor/package.json:1-25` | PASS |  |
 | 54 | §3.1 tsconfig | extends base, `rootDir`, `outDir`, `noEmit:true`, `lib: ["ES2022","DOM","DOM.Iterable"]` | `packages/arbor/tsconfig.json:1-10` | PASS — `rootDir: "."` (spec said `"src"` but tests need to typecheck too; harmless) |
 | 55 | §3.1 moon.yml | `language: typescript`, `layer: library` | `packages/arbor/moon.yml:1-3` | PASS — Moon 2.x form correctly |
 | 56 | §3.1 rolldown.config | `input: 'src/index.ts'`, `format: 'esm'`, `sourcemap: true`, `plugins: [dts()]` | `packages/arbor/rolldown.config.ts:1-12` | PASS |  |
@@ -375,7 +375,7 @@ exercised, just relocated. One MINOR coverage gap (Finding 2 below).
 | # | Item | Result | Evidence |
 |---|---|---|---|
 | 1 | 36 Phase 2 signals tests still pass | PASS | All 36 tests still green: signal 5 + effect 7 + computed 9 + state 4 + batch 6 + properties 5 = 36. The +3 untrack tests are additive; no regressions. |
-| 2 | `@scribe/signals` ≤ 1024 B gz | PASS | 716 B / 1024 B (was 698 B at end of Phase 2; +18 B for `untrack` export, within Builder's spec'd ~30 B estimate) |
+| 2 | `@aihu/signals` ≤ 1024 B gz | PASS | 716 B / 1024 B (was 698 B at end of Phase 2; +18 B for `untrack` export, within Builder's spec'd ~30 B estimate) |
 | 3 | Public surface unchanged + ComputedOptions + untrack | PASS | dist/index.d.ts:`$state, ComputedOptions, Dispose, EffectFn, Read, Signal, SignalCircularError, SignalError, SignalOptions, State, Write, batch, computed, effect, signal, untrack` = 16 (8 values + 8 types). Phase 2 had 15; +1 for untrack. |
 | 4 | No internals leaked from signals | PASS | `Subscriber, setCurrentObserver, peekCurrentObserver, getBatchDepth, enterBatch, exitBatch, drainBatch, RUNNING, DISPOSED, QUEUED, STALE, MAX_BATCH_ITERATIONS` — none re-exported from `dist/index.js` or `dist/index.d.ts` |
 | 5 | tsconfig.base.json unchanged | PASS | `git diff main` empty for that file |

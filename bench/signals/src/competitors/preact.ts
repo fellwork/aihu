@@ -3,7 +3,7 @@ import type { SignalAdapter } from '../types.ts'
 
 // Preact signals expose a `.value` accessor and a `batch(fn)` helper.
 // Effects re-run synchronously on dep change. computed(fn) is lazy
-// like scribe — value is computed on first `.value` read.
+// like aihu — value is computed on first `.value` read.
 export const preact: SignalAdapter = {
   name: '@preact/signals-core',
   version: '1.14.1',

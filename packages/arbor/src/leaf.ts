@@ -1,4 +1,4 @@
-import type { Signal } from '@scribe/signals'
+import type { Signal } from '@aihu/signals'
 import type { AttrMap, Leaf } from './types.ts'
 
 /**

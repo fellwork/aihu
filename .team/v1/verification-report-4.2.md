@@ -23,7 +23,7 @@
 | AC-11 | `defineComponent` wires `onError` to `mount()` | N/A — NOT IN SCOPE | Same as AC-10. Deferred to Plan 1.2 per spec. |
 | AC-12 | 4+ new tests in arbor | PASS | 4 new tests added (T1–T4) in `packages/arbor/tests/mount.test.ts`. See T1 coverage note in bidirectional audit. |
 | AC-13 | `bun run test` passes with ≥ 259 tests | PASS | Run recorded **270 tests passing** across 37 test files (0 failures). The builder manifest reported 259; the actual run shows 270 due to additional tests on the branch from other tracks already merged into the base. All tests green. |
-| AC-14 | Size gates pass | PASS | `@scribe/arbor` = **1.38 kB gz** (669 B under 2048 B limit). `@scribe/runtime` = **438 B gz** (586 B under 1024 B limit). |
+| AC-14 | Size gates pass | PASS | `@aihu/arbor` = **1.38 kB gz** (669 B under 2048 B limit). `@aihu/runtime` = **438 B gz** (586 B under 1024 B limit). |
 
 ---
 
@@ -44,8 +44,8 @@ All 9 `attrs.test.ts` tests pass without modification (optional 4th param is bac
 
 | Package | Size | Limit | Status |
 |---|---|---|---|
-| `@scribe/arbor` | 1.38 kB gz | 2.05 kB | PASS (669 B under) |
-| `@scribe/runtime` | 438 B gz | 1.02 kB | PASS (586 B under) |
+| `@aihu/arbor` | 1.38 kB gz | 2.05 kB | PASS (669 B under) |
+| `@aihu/runtime` | 438 B gz | 1.02 kB | PASS (586 B under) |
 
 Headroom for Plan 1.1: ~670 B (slightly better than the Director's ~559 B estimate and the builder manifest's ~666 B — within expected measurement variance).
 
@@ -65,15 +65,15 @@ The sequence when an effect throws on its first run (inside `effect()`'s synchro
 
 1. `const disposeRef = { fn: null }` — ref is null
 2. `const dispose = effect(() => { ... throw ... })` — effect body runs synchronously; throw is caught by the try/catch in `_mountEffect`; `errorHandler(err, path)` is called; `disposeRef.fn?.()` is called — since `disposeRef.fn` is `null`, this is a no-op
-3. The `effect()` call itself: the underlying `@scribe/signals` `effect()` function runs the body immediately. When the body throws, `effect()` must either: (a) re-throw the error out of `effect()`, or (b) swallow it and return a dispose function
+3. The `effect()` call itself: the underlying `@aihu/signals` `effect()` function runs the body immediately. When the body throws, `effect()` must either: (a) re-throw the error out of `effect()`, or (b) swallow it and return a dispose function
 
-**If `@scribe/signals` re-throws from `effect()` when the body throws:** the `try { fn() } catch` inside the effect body catches the error and calls `errorHandler` — the throw does NOT propagate out of `effect()` because it is caught inside the effect callback. So `effect()` returns normally, `dispose` is assigned, and `disposeRef.fn = dispose` runs. The effect subscribed to the signal during the read `get()` — but wait: the signal read happens BEFORE the throw (the getter runs first, then the check/throw happens outside the signal read in T1's test setup). So the subscription IS registered during the effect's first run, even though the throw occurs. `disposeRef.fn` becomes non-null. When `dispose()` is later called (via `scope.dispose()`), the disposer runs `dispose()` which removes the subscription. **No dangling subscription.**
+**If `@aihu/signals` re-throws from `effect()` when the body throws:** the `try { fn() } catch` inside the effect body catches the error and calls `errorHandler` — the throw does NOT propagate out of `effect()` because it is caught inside the effect callback. So `effect()` returns normally, `dispose` is assigned, and `disposeRef.fn = dispose` runs. The effect subscribed to the signal during the read `get()` — but wait: the signal read happens BEFORE the throw (the getter runs first, then the check/throw happens outside the signal read in T1's test setup). So the subscription IS registered during the effect's first run, even though the throw occurs. `disposeRef.fn` becomes non-null. When `dispose()` is later called (via `scope.dispose()`), the disposer runs `dispose()` which removes the subscription. **No dangling subscription.**
 
-**However, there is a subtle issue with T1 specifically:** The T1 test throws INSIDE the reactive getter (before the value is returned). This means `@scribe/signals`' tracking mechanism may or may not have registered the subscription before the throw. If the signal system registers subscriptions at the START of `get()` (i.e., before returning the value), the subscription is registered and will be cleaned up. If it registers at the END (after returning), there is no subscription to clean up, and the effect self-dispose via `disposeRef.fn?.()` is also a no-op (still null). In this case there is no dangling subscription because the signal never subscribed.
+**However, there is a subtle issue with T1 specifically:** The T1 test throws INSIDE the reactive getter (before the value is returned). This means `@aihu/signals`' tracking mechanism may or may not have registered the subscription before the throw. If the signal system registers subscriptions at the START of `get()` (i.e., before returning the value), the subscription is registered and will be cleaned up. If it registers at the END (after returning), there is no subscription to clean up, and the effect self-dispose via `disposeRef.fn?.()` is also a no-op (still null). In this case there is no dangling subscription because the signal never subscribed.
 
 **Conclusion:** In T1's scenario the effect cannot leave a dangling subscription because either: (a) no subscription was registered (throw happens before the getter returns) and `disposeRef.fn` is null but also no cleanup needed; or (b) subscription is registered, `disposeRef.fn` is set after `effect()` returns, and `scope.dispose()` cleans it up. The builder's note in the build manifest is accurate.
 
-**The one real gap:** If an effect throws on its first run AND `@scribe/signals` properly returns a `dispose` function from `effect()` even when the body throws (i.e., the throw is caught inside the body, so `effect()` itself doesn't throw), then `disposeRef.fn` IS set. However, on that first run, `disposeRef.fn` is still null WHEN `disposeRef.fn?.()` is called. So `dispose()` is NOT called during the first run. The effect remains "live" (subscribed) even after the first-run error. On the next signal write, the effect body runs again, throws again, and this time `disposeRef.fn` is set — so the effect is self-disposed. This means: **a first-run error causes TWO calls to `onError` (once on first run, once on second signal write), not one.** T2's test avoids this by not throwing on the initial mount.
+**The one real gap:** If an effect throws on its first run AND `@aihu/signals` properly returns a `dispose` function from `effect()` even when the body throws (i.e., the throw is caught inside the body, so `effect()` itself doesn't throw), then `disposeRef.fn` IS set. However, on that first run, `disposeRef.fn` is still null WHEN `disposeRef.fn?.()` is called. So `dispose()` is NOT called during the first run. The effect remains "live" (subscribed) even after the first-run error. On the next signal write, the effect body runs again, throws again, and this time `disposeRef.fn` is set — so the effect is self-disposed. This means: **a first-run error causes TWO calls to `onError` (once on first run, once on second signal write), not one.** T2's test avoids this by not throwing on the initial mount.
 
 **Verdict:** The `disposeRef` pattern works correctly for the T2 scenario (reactive throw on subsequent signal write → effect disposed, no re-fire). For the T1 scenario (throw on first run), the effect may fire a second time on the next signal write before self-disposing — the T1 test does not write a second signal value, so this edge case is not caught by the tests. This is a **minor under-test** of the first-run case: AC-3 ("The throwing effect is disposed after it throws") is not fully verified for the first-synchronous-run case.
 

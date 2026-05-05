@@ -1,4 +1,4 @@
-use scribe_compiler::{compile_full, emit, sfc};
+use aihu_compiler::{compile_full, emit, sfc};
 
 fn airtime_quote_source() -> &'static str {
     r#"<agent>
@@ -8,7 +8,7 @@ state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
 </agent>
 <script setup lang="ts" name="airtime-quote">
-import { computed } from '@scribe/signals'
+import { computed } from '@aihu/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
 const total = computed(() => amount() + fee())
 export function quote() {
@@ -24,17 +24,17 @@ export function quote() {
 
 #[test]
 fn counter_no_agent_block_regression() {
-    let source = include_str!("../fixtures/vite-counter/counter.scribe");
+    let source = include_str!("../fixtures/vite-counter/counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
-    let result = emit(&unit, "scribe-counter");
+    let result = emit(&unit, "aihu-counter");
     // CRITICAL: must be function form
     assert!(
         result.js.contains("defineComponent((_ctx)"),
         "must use function form"
     );
     assert!(
-        result.js.contains("defineElement('scribe-counter'"),
+        result.js.contains("defineElement('aihu-counter'"),
         "tag name correct"
     );
     assert!(!result.js.contains("attrs:"), "no attrs in function form");
@@ -107,10 +107,10 @@ input x: uuid = 5
 
 #[test]
 fn no_agent_block_manifest_empty_integration() {
-    let source = include_str!("../fixtures/vite-counter/counter.scribe");
+    let source = include_str!("../fixtures/vite-counter/counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
-    let result = emit(&unit, "scribe-counter");
+    let result = emit(&unit, "aihu-counter");
     assert!(result.manifest_json.is_empty());
 }
 

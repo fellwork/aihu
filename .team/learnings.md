@@ -1,6 +1,6 @@
-# Scribe team learnings — project-portable
+# Aihu team learnings — project-portable
 
-> **Scope:** This file loads at the start of every future scribe session, not just Phase 3. Each entry is a rule grounded in a specific Phase 2 moment that motivated it. Updated by Historian after each phase retro.
+> **Scope:** This file loads at the start of every future aihu session, not just Phase 3. Each entry is a rule grounded in a specific Phase 2 moment that motivated it. Updated by Historian after each phase retro.
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 3. Briefs to teammates give intent and constraint, not implementation specifics
 
-**Why.** The Team Lead's brief to the Builder for the equals follow-up suggested "Option X: set self STALE on notify; cascade on next read" — an implementation that doesn't work in scribe's forward-subscription model (`computed.notify()` propagates only by calling `sub.notify()` on each forward subscriber; there's no separate stale-then-pull channel). The Builder caught it only by writing the code. Near-miss.
+**Why.** The Team Lead's brief to the Builder for the equals follow-up suggested "Option X: set self STALE on notify; cascade on next read" — an implementation that doesn't work in aihu's forward-subscription model (`computed.notify()` propagates only by calling `sub.notify()` on each forward subscriber; there's no separate stale-then-pull channel). The Builder caught it only by writing the code. Near-miss.
 
 **How to apply.** When briefing a teammate on a design pivot, specify (a) the intent — what the code should *do* — and (b) the constraint — what it must not break. Do not specify the mechanism unless you have just-in-time codebase knowledge equal to the teammate's. Trust the teammate's hands-on judgment to choose Option X vs. Option Y vs. Option Z.
 
@@ -38,14 +38,14 @@
 
 ## 5. CI gates that are commented out aren't gates
 
-**Why.** Phase 1 scaffolded `typecheck`/`build`/`size` as commented lines in CI ("re-enabled in Phase 2 alongside @scribe/signals"). That hid the Moon 1→2 directory-layout mismatch and the `bunx` PATH gap until Phase 2's Task 11.5 un-commented them — at which point both surfaced as build-time emergencies (`builder-blockers.md` §1). The same workflow today only triggers on `main` push/PR, so phase-branch pushes get no CI signal — Phase 1 hit this once, Phase 2 hit it again, Phase 3 will hit it next.
+**Why.** Phase 1 scaffolded `typecheck`/`build`/`size` as commented lines in CI ("re-enabled in Phase 2 alongside @aihu/signals"). That hid the Moon 1→2 directory-layout mismatch and the `bunx` PATH gap until Phase 2's Task 11.5 un-commented them — at which point both surfaced as build-time emergencies (`builder-blockers.md` §1). The same workflow today only triggers on `main` push/PR, so phase-branch pushes get no CI signal — Phase 1 hit this once, Phase 2 hit it again, Phase 3 will hit it next.
 
 **How to apply.** Two rules, both enforceable: (a) when scaffolding tooling, prove the gate works *now* on a representative file even if there's nothing real to check yet — a `placeholder.ts` is enough. (b) When configuring CI triggers, include the phase branches, not just `main`. If you need to defer a gate, either don't add it, or add it green-but-meaningful — not green-because-skipped.
 
 **Amendment (Phase 3 retro, 2026-04-28).** "Commented out" is just one shape of this bug class. Two more shapes surfaced:
 
 - **Triggers that don't reach the right branches.** Phase 2.5's PR #6 merged with red CI on `main` because the workflow only ran on `main` push/PR — the phase branch never fired CI, the bug landed on `main`, and `main`'s next push (Phase 3 PR #7) was the first time anyone saw red. Fix: include `phase-*/**` and any other working-branch glob in the workflow `on:` clause. Audit branch protection on `main` so a red required check is *un-mergeable*, not "merge anyway."
-- **Local PASS that depends on stale `dist` artifacts.** `bench-signals:typecheck` passed locally because `packages/signals/dist` was already built from a prior dev run; in CI's clean checkout it failed (TS2307 — `@scribe/signals` resolves through `package.json` exports to `./dist/index.d.ts`). The Verifier ran every gate locally and reported PASS without a clean-state run. Fix: every Verifier brief includes `bun run clean && bun run <gate>` (or equivalent dist-purge) for any gate whose inputs include build outputs.
+- **Local PASS that depends on stale `dist` artifacts.** `bench-signals:typecheck` passed locally because `packages/signals/dist` was already built from a prior dev run; in CI's clean checkout it failed (TS2307 — `@aihu/signals` resolves through `package.json` exports to `./dist/index.d.ts`). The Verifier ran every gate locally and reported PASS without a clean-state run. Fix: every Verifier brief includes `bun run clean && bun run <gate>` (or equivalent dist-purge) for any gate whose inputs include build outputs.
 
 The unifying rule: **a gate is only as strong as the environment it runs in, and the environment must match CI.** Commented gates, mis-triggered gates, and stale-artifact gates are all the same failure mode.
 
@@ -87,7 +87,7 @@ The pattern: any document making claims about the repo's *current* state has a h
 
 ## 9. Trust hands-on-keyboard discoveries over advance-of-time predictions
 
-**Why.** The Builder's "eager recompute when subs > 0" pivot during the equals wiring (`build-manifest.md` Task 12) is a structural fact about scribe's forward-subscription model that no prior artifact captured. The spec couldn't have predicted it; only writing the code surfaced it. Verifier traced four scenarios (`verification-report.md` §6: lazy preservation, linear chain, cycle, diamond) and confirmed correctness.
+**Why.** The Builder's "eager recompute when subs > 0" pivot during the equals wiring (`build-manifest.md` Task 12) is a structural fact about aihu's forward-subscription model that no prior artifact captured. The spec couldn't have predicted it; only writing the code surfaced it. Verifier traced four scenarios (`verification-report.md` §6: lazy preservation, linear chain, cycle, diamond) and confirmed correctness.
 
 **How to apply.** When a teammate at the keyboard discovers that the briefed approach doesn't fit the codebase, document the discovery in the manifest (or blocker note) with the structural reason, and let the implementation deviate. Don't force the brief through. Verifier will trace correctness; that's their job. Predictions made before keyboard time should always defer to facts discovered at keyboard time.
 
@@ -95,7 +95,7 @@ The pattern: any document making claims about the repo's *current* state has a h
 
 ## 10. Runtime packages are in-house; the 4 KB budget is the enforcement mechanism
 
-**Why.** The Phase 3 spec session surfaced "should we vendor alien-signals?" as a real question. Answer: no, and the reason isn't NIH — it's that scribe's thesis (signals → resumability → MCP-observable state → AI profile-guided optimization) requires *evolving* the primitive, not consuming it. Vendoring alien means forking alien for every thesis feature. Building it ourselves means every feature is just a feature. The 4 KB total bundle budget (v0 spec §6.6) makes the constraint structural, not preferential.
+**Why.** The Phase 3 spec session surfaced "should we vendor alien-signals?" as a real question. Answer: no, and the reason isn't NIH — it's that aihu's thesis (signals → resumability → MCP-observable state → AI profile-guided optimization) requires *evolving* the primitive, not consuming it. Vendoring alien means forking alien for every thesis feature. Building it ourselves means every feature is just a feature. The 4 KB total bundle budget (v0 spec §6.6) makes the constraint structural, not preferential.
 
 **How to apply.** Three rules:
 - Code that **must evolve to deliver the thesis** (signals, arbor, hydration, MCP-shaped agent surface) is in-house. No exceptions; vendoring is forking.
@@ -108,7 +108,7 @@ When in doubt, ask: "would vendoring this prevent us from shipping a thesis feat
 
 ## 11. Every runtime PR drops bench receipts; we beat SOTA on a named axis or we don't ship
 
-**Why.** "We're fast" is a vibe. The Phase 2 spec promised a bench gate (v0 spec §11.2 lists one) but it was loose. The Phase 3 spec session locked an aggressive R&D performance posture (Learning #10's companion): scribe is positioned as runtime-reactivity research, not just an app framework. That commitment requires CI-enforced numbers, not aspirational ones.
+**Why.** "We're fast" is a vibe. The Phase 2 spec promised a bench gate (v0 spec §11.2 lists one) but it was loose. The Phase 3 spec session locked an aggressive R&D performance posture (Learning #10's companion): aihu is positioned as runtime-reactivity research, not just an app framework. That commitment requires CI-enforced numbers, not aspirational ones.
 
 **How to apply.** The Phase 2.5 bench-spike brief (`.team/phase-2-5-bench-spike.md`) operationalizes this. After the bench harness lands:
 - Every runtime PR runs `bench/<package>/RESULTS.md` regression checks. Regression ≥10% on `p50` of any workload fails CI.
@@ -122,33 +122,33 @@ Override path: PR commit message containing `[bench-bump]` lets a regressing cha
 
 ## 12. Functional components are the user-facing model; the compiler emits classes
 
-**Why.** Phase 3 spec session pivot (User decision, 2026-04-26): user-facing component model is functional (`defineComponent(setup)`), separated by concerns, type-safe end-to-end. But v0 spec §7.2 locks the compiler to emit `class extends HTMLElement` (Custom Elements API requires a constructor). This means scribe has a **two-layer authoring model** (spec-arbor.md §0):
+**Why.** Phase 3 spec session pivot (User decision, 2026-04-26): user-facing component model is functional (`defineComponent(setup)`), separated by concerns, type-safe end-to-end. But v0 spec §7.2 locks the compiler to emit `class extends HTMLElement` (Custom Elements API requires a constructor). This means aihu has a **two-layer authoring model** (spec-arbor.md §0):
 
-1. **Compiler-emission layer** — Rust compiler reads `.scribe` SFCs, emits classes calling arbor primitives directly. Minimal-byte. Never calls `defineComponent`.
+1. **Compiler-emission layer** — Rust compiler reads `.aihu` SFCs, emits classes calling arbor primitives directly. Minimal-byte. Never calls `defineComponent`.
 2. **Hand-author layer** — humans write `defineComponent(setup)` for tests, examples, hand-authored components. Functional. Internally produces a class consumable by `defineElement`.
 
 The two layers interoperate: both produce `class extends HTMLElement` registered via `defineElement`.
 
-**How to apply.** When designing any user-facing API in scribe, ask: "is this what users *write*, or what the compiler *emits*?" If it's user-written, it must be functional, type-safe, and ergonomic. If it's compiler-emitted, it must be byte-minimal and direct. Don't conflate the two layers — `defineElement(name, Ctor)` is for the compiler; `defineComponent(setup)` is for humans.
+**How to apply.** When designing any user-facing API in aihu, ask: "is this what users *write*, or what the compiler *emits*?" If it's user-written, it must be functional, type-safe, and ergonomic. If it's compiler-emitted, it must be byte-minimal and direct. Don't conflate the two layers — `defineElement(name, Ctor)` is for the compiler; `defineComponent(setup)` is for humans.
 
 **Concrete v0 mapping:**
-- `@scribe/arbor` exports primitives (`branch`, `leaf`, `mount`, `MountScope`) that the compiler emits direct calls to. No functional wrapper.
-- `@scribe/runtime` exports `defineElement(name, Ctor)` for compiler use AND `defineComponent(setup)` for hand-authoring.
-- `.scribe` SFC files are the dominant user-facing surface; hand-authored components are a secondary surface for tests/examples/escape-hatch usage.
+- `@aihu/arbor` exports primitives (`branch`, `leaf`, `mount`, `MountScope`) that the compiler emits direct calls to. No functional wrapper.
+- `@aihu/runtime` exports `defineElement(name, Ctor)` for compiler use AND `defineComponent(setup)` for hand-authoring.
+- `.aihu` SFC files are the dominant user-facing surface; hand-authored components are a secondary surface for tests/examples/escape-hatch usage.
 
 ---
 
 ## 13. Module sizing rule: 150-line cap, one concern per file, named by concern
 
-**Why.** Phase 3 spec session decision (2026-04-26): scribe's source code must be deterministically navigable by both human readers and AI agents. "Where does X live?" must have exactly one answer findable from filename alone — no grep. Empirical grounding (alien-signals, @preact/signals-core, @vue/reactivity, lit-html, solid-js): the median module size in well-architected small TS frameworks is 80–150 lines; outliers above 200 are reliably the hardest files for first-time readers to navigate.
+**Why.** Phase 3 spec session decision (2026-04-26): aihu's source code must be deterministically navigable by both human readers and AI agents. "Where does X live?" must have exactly one answer findable from filename alone — no grep. Empirical grounding (alien-signals, @preact/signals-core, @vue/reactivity, lit-html, solid-js): the median module size in well-architected small TS frameworks is 80–150 lines; outliers above 200 are reliably the hardest files for first-time readers to navigate.
 
-**How to apply.** Every TypeScript module in scribe runtime packages:
+**How to apply.** Every TypeScript module in aihu runtime packages:
 - **≤ 150 source lines** (excluding blank lines and standalone JSDoc blocks). Aim for 80–120; allow up to 150 before splitting becomes mandatory.
 - **One concern per file.** A module that defines both `signal()` and `computed()` is two concerns; split.
 - **Named by the concern, not the type.** `effect.ts`, not `functions.ts`. `cycle.ts`, not `helpers.ts`. `branch.ts`, not `nodes.ts`.
 - **Public re-exports live in `index.ts` only.** No module re-exports its siblings. Internal symbols are `/** @internal */` and never appear in `index.ts`.
 
-Phase 2's `@scribe/signals` shipped before this rule landed; it should be refactored to comply when a small refactor PR makes sense (probably alongside the Phase 2.5 bench-spike, since the bench harness already touches signals' internals).
+Phase 2's `@aihu/signals` shipped before this rule landed; it should be refactored to comply when a small refactor PR makes sense (probably alongside the Phase 2.5 bench-spike, since the bench harness already touches signals' internals).
 
 ---
 
@@ -159,7 +159,7 @@ Phase 2's `@scribe/signals` shipped before this rule landed; it should be refact
 **How to apply.** When parallel sub-agents produce specs that consume each other's APIs (one spec's runtime imports another spec's primitives):
 - Each spec authors a §7 "Open Questions" list of every assumption they made about siblings' APIs.
 - The Team Lead post-spawn walks every "Open Question" against the actual produced sibling spec. Each question gets one of: (a) "A answered B's way → no action," (b) "A answered differently → user picks one and the other rewrites," (c) "A didn't answer → escalate to user."
-- The Team Lead's cross-walk takes ~10 min per pair of specs in scribe-sized packages. Budget it.
+- The Team Lead's cross-walk takes ~10 min per pair of specs in aihu-sized packages. Budget it.
 
 Don't try to prevent the friction by pre-coordinating Architects. Pre-coordination via shared brief is brittle (drift); cross-walk reconciliation via Open Questions is robust (drift surfaces explicitly).
 
@@ -167,12 +167,12 @@ Don't try to prevent the friction by pre-coordinating Architects. Pre-coordinati
 
 ## 15. AI-first means in-tree binding, not MCP-only
 
-**Why.** Phase 3 spec session decision (2026-04-26): the user named the load-bearing AI principle and contrasted it with MCP-server-only architectures. The truth source for agent capabilities is `<agent>` blocks in `.scribe` SFCs (already in v0 spec §9), not external MCP server registries. MCP is one *adapter* of the in-process binding layer, not the foundation. This solves three concrete MCP criticisms: (1) agents forget tools they haven't used; (2) responses are opaque snapshots, not subscribable handles; (3) JSON-RPC tax for in-process work.
+**Why.** Phase 3 spec session decision (2026-04-26): the user named the load-bearing AI principle and contrasted it with MCP-server-only architectures. The truth source for agent capabilities is `<agent>` blocks in `.aihu` SFCs (already in v0 spec §9), not external MCP server registries. MCP is one *adapter* of the in-process binding layer, not the foundation. This solves three concrete MCP criticisms: (1) agents forget tools they haven't used; (2) responses are opaque snapshots, not subscribable handles; (3) JSON-RPC tax for in-process work.
 
 **How to apply.** Three rules:
 - **The in-tree primitive ships first; the MCP adapter ships second.** Sub-project #7's brief is reframed: build the binding layer that addresses signals by path identity (arbor §2.7), then expose it over MCP for cross-process agents.
 - **Agents need a live data feed, not a JSON snapshot.** Where a tool returns a value, prefer returning a subscribable handle (the signal itself, addressed by path key from arbor §2.7). Static-snapshot tools are for stateless lookups only.
-- **The build-time capability manifest is a single artifact.** The compiler emits one `dist/agent-manifest.json` describing the whole app's agent surface — the registry that `@scribe/agent` aggregates per-component is the runtime-side complement, not the only source.
+- **The build-time capability manifest is a single artifact.** The compiler emits one `dist/agent-manifest.json` describing the whole app's agent surface — the registry that `@aihu/agent` aggregates per-component is the runtime-side complement, not the only source.
 
 This direction reshapes sub-project #7 from "MCP server" to "binding layer + MCP adapter + manifest aggregation."
 
@@ -195,20 +195,20 @@ Total v0 cost: ~25 B gz + minor Builder discipline.
 
 ---
 
-## 17. Magna is the canonical scribe backend; integration is research-led, not bolted on
+## 17. Magna is the canonical aihu backend; integration is research-led, not bolted on
 
-**Why.** Phase 3 spec session reveal (2026-04-26): scribe is being designed alongside fellwork/magna (a fast Rust GraphQL-from-Postgres engine, dual-licensed MIT/Apache, technical-preview status). Magna runs server-side; scribe's runtime is browser-side. They are designed to be used *together* as a high-performance stack — not "scribe with optional magna integration."
+**Why.** Phase 3 spec session reveal (2026-04-26): aihu is being designed alongside fellwork/magna (a fast Rust GraphQL-from-Postgres engine, dual-licensed MIT/Apache, technical-preview status). Magna runs server-side; aihu's runtime is browser-side. They are designed to be used *together* as a high-performance stack — not "aihu with optional magna integration."
 
 **How to apply.** Five integration angles to research and ship over time (none gating Phase 3):
 - **High-performance data:** zero-copy from magna's GraphQL response buffer into signal-bound state.
 - **Hydration coupling:** magna's deterministic responses + arbor's subscription identity (§2.7) = signal-graph resumability. Path keys on the JS side map to magna query identities.
-- **Schema introspection:** magna auto-generates GraphQL schemas from Postgres; scribe can derive TypeScript types from that schema at build time.
+- **Schema introspection:** magna auto-generates GraphQL schemas from Postgres; aihu can derive TypeScript types from that schema at build time.
 - **Agent work:** unified capability manifest (Learning #15) = `<agent>` blocks per-component + magna introspection schema-wide. Agents loading the manifest get the complete picture.
-- **Build-time tooling:** Rust scribe-compiler can validate `.scribe` queries against magna's schema at compile time, surfacing diagnostics in the Vite overlay.
+- **Build-time tooling:** Rust aihu-compiler can validate `.aihu` queries against magna's schema at compile time, surfacing diagnostics in the Vite overlay.
 
-**Sub-project #4 (data layer) is "magna integration with a clean escape hatch for non-magna backends" — not "generic data adapters."** Tight integration is the canonical path; users who want REST or tRPC can use scribe but won't get the resumability/manifest/build-time wins.
+**Sub-project #4 (data layer) is "magna integration with a clean escape hatch for non-magna backends" — not "generic data adapters."** Tight integration is the canonical path; users who want REST or tRPC can use aihu but won't get the resumability/manifest/build-time wins.
 
-**The bench-spike (`.team/phase-2-5-bench-spike.md`) ships two tracks: vanilla scribe vs SOTA JS, and scribe+magna end-to-end.** The two-track posture operationalizes "magna is canonical" without making magna a hard dep for non-data-app uses of scribe.
+**The bench-spike (`.team/phase-2-5-bench-spike.md`) ships two tracks: vanilla aihu vs SOTA JS, and aihu+magna end-to-end.** The two-track posture operationalizes "magna is canonical" without making magna a hard dep for non-data-app uses of aihu.
 
 ---
 
@@ -233,11 +233,11 @@ When the work is small enough to fit in one conversation (a Builder shipping a s
 
 ---
 
-## 19. Pattern B with batched Builder spawns is the M-scope default for scribe
+## 19. Pattern B with batched Builder spawns is the M-scope default for aihu
 
-**Why.** Phase 3 (`@scribe/arbor` orchestration, 2026-04-28) ran nomos v3.0 Pattern B with 5 sequential Builder spawns of 1–3 tasks each, deliberately calibrated to the prior session's 600s no-progress watchdog. Result: no Builder stalled, the longest spawn (batch 4: mount + dispose) clocked ~1072s of agent runtime distributed across many sub-actions, and atomic per-task commits meant any single batch failure would have cost minutes rather than hours. The alternative — one mega-spawn of "implement all of arbor" — would have been watchdog bait, with the entire context of a half-finished package lost on a single timeout.
+**Why.** Phase 3 (`@aihu/arbor` orchestration, 2026-04-28) ran nomos v3.0 Pattern B with 5 sequential Builder spawns of 1–3 tasks each, deliberately calibrated to the prior session's 600s no-progress watchdog. Result: no Builder stalled, the longest spawn (batch 4: mount + dispose) clocked ~1072s of agent runtime distributed across many sub-actions, and atomic per-task commits meant any single batch failure would have cost minutes rather than hours. The alternative — one mega-spawn of "implement all of arbor" — would have been watchdog bait, with the entire context of a half-finished package lost on a single timeout.
 
-**How to apply.** For any nomos M-scope or larger session in scribe:
+**How to apply.** For any nomos M-scope or larger session in aihu:
 
 - **Batch Builder spawns at 1–3 tasks per spawn.** A "task" is a unit defined in the spec's task list (e.g. spec §4 Task 13). 1 task per spawn for any task involving a non-trivial design decision; 2–3 tasks per spawn when the tasks are tightly coupled and share context.
 - **Atomic per-task commits, never batched.** Each spec-task gets exactly one commit (plus follow-up SHA-backfill commits per Learning #20). The Builder lands the commit before moving to the next task within the batch.
@@ -303,7 +303,7 @@ The pattern: every byte claim is empirical. Specs that hand-wave bundle behavior
 
 ## 24. `textContent` vs `nodeValue` performance gap in JSDOM
 
-**Why.** Round N+1 `update-1-of-10k-leaves` result: scribe 25 ns p50 vs vanilla 3.1 µs (122× faster). Root cause: `element.textContent = v` is a multi-step DOM operation — JSDOM walks the child list, removes existing text nodes, and creates new ones. `textNode.nodeValue = v` is a direct property set on the already-existing text node. Arbor's `leaf(signal)` uses `nodeValue` internally via `materialize.ts`. The vanilla comparator used `textContent` on the element parent, not `nodeValue` on a pre-created text node.
+**Why.** Round N+1 `update-1-of-10k-leaves` result: aihu 25 ns p50 vs vanilla 3.1 µs (122× faster). Root cause: `element.textContent = v` is a multi-step DOM operation — JSDOM walks the child list, removes existing text nodes, and creates new ones. `textNode.nodeValue = v` is a direct property set on the already-existing text node. Arbor's `leaf(signal)` uses `nodeValue` internally via `materialize.ts`. The vanilla comparator used `textContent` on the element parent, not `nodeValue` on a pre-created text node.
 
 **How to apply.** When designing DOM-binding benchmarks, distinguish between the bind target (`element.textContent` vs `textNode.nodeValue`) and the signal system. A "text update" benchmark that measures `textContent` is benchmarking DOM surgery, not signal dispatch. Always pre-create text nodes and use `nodeValue` for reactive-text benchmarks. The 122× gap is real but environment-specific — the ratio will be smaller in a real browser where `textContent` has a faster implementation. Document the bind target in HARNESS.md so readers know what axis is being measured.
 
@@ -317,19 +317,19 @@ The pattern: every byte claim is empirical. Specs that hand-wave bundle behavior
 
 ---
 
-## 26. scribe is tuned for shallow diamond propagation; deep-chain is the gap
+## 26. aihu is tuned for shallow diamond propagation; deep-chain is the gap
 
-**Why.** Round N+1 `deep-propagation-100` (100-deep linear chain `src → c0 → c1 → … → c99 → effect`): scribe 4.0 µs vs alien-signals 2.4 µs (1.65× slower). But `dynamic-deps` (1 computed reads 5 of 50 signals, rotating fan-in/fan-out): scribe 742 ns vs alien 1.21 µs (scribe wins 1.6×). The structural reason: scribe's forward-subscription model re-wires the subscription set on every dependency rotation — which is exactly what `dynamic-deps` exercises. Alien-signals' push-pull with version counters handles long chains more efficiently by short-circuiting at version equality; scribe must propagate through each node in the chain.
+**Why.** Round N+1 `deep-propagation-100` (100-deep linear chain `src → c0 → c1 → … → c99 → effect`): aihu 4.0 µs vs alien-signals 2.4 µs (1.65× slower). But `dynamic-deps` (1 computed reads 5 of 50 signals, rotating fan-in/fan-out): aihu 742 ns vs alien 1.21 µs (aihu wins 1.6×). The structural reason: aihu's forward-subscription model re-wires the subscription set on every dependency rotation — which is exactly what `dynamic-deps` exercises. Alien-signals' push-pull with version counters handles long chains more efficiently by short-circuiting at version equality; aihu must propagate through each node in the chain.
 
-**How to apply.** Scribe's performance posture: wins on dynamic-dependency graphs (fast re-subscription), shallow diamonds (low per-hop overhead), and batched writes (batch coalescing). Loses on deep linear chains (propagation path is long, no version-equality short-circuit). The cellx win is a shallow-diamond shape (5-deep); the deep-chain gap is the natural counterpart. Document this as a design-point trade-off in RESULTS.md and the v0+1 signals work brief. When optimizing signals in v0+1, deep-chain propagation is the named axis to close — investigate alien-signals' version-counter approach as a candidate.
+**How to apply.** Aihu's performance posture: wins on dynamic-dependency graphs (fast re-subscription), shallow diamonds (low per-hop overhead), and batched writes (batch coalescing). Loses on deep linear chains (propagation path is long, no version-equality short-circuit). The cellx win is a shallow-diamond shape (5-deep); the deep-chain gap is the natural counterpart. Document this as a design-point trade-off in RESULTS.md and the v0+1 signals work brief. When optimizing signals in v0+1, deep-chain propagation is the named axis to close — investigate alien-signals' version-counter approach as a candidate.
 
 ---
 
 ## 27. krausest-in-JSDOM: vanilla wins on 1k-cycle because it skips signals entirely
 
-**Why.** Round N+1 `krausest-1k-cycle` (1k-row table, full mount+update cycle): vanilla 16.1 ms, scribe 20.9 ms (~30% overhead), preact 19.7 ms (near-tie). Vanilla builds the table with direct `createElement` + `textContent`, no reactive layer — zero subscription bookkeeping. Scribe mounts 2k signals (1 per text cell, 2 cells × 1k rows) plus 2k `_mountEffect` subscriptions. The overhead is the cost of wiring a reactive graph over the entire mounted tree.
+**Why.** Round N+1 `krausest-1k-cycle` (1k-row table, full mount+update cycle): vanilla 16.1 ms, aihu 20.9 ms (~30% overhead), preact 19.7 ms (near-tie). Vanilla builds the table with direct `createElement` + `textContent`, no reactive layer — zero subscription bookkeeping. Aihu mounts 2k signals (1 per text cell, 2 cells × 1k rows) plus 2k `_mountEffect` subscriptions. The overhead is the cost of wiring a reactive graph over the entire mounted tree.
 
-**How to apply.** The 30% overhead vs. vanilla is the "you're paying for reactivity you're not using on mount" cost. The payoff is visible in `update-1-of-10k-leaves`: when you update 1 of those 2k signals, scribe pays 25 ns while vanilla pays 3.1 µs (vanilla must re-walk the DOM). The two numbers together define scribe's design point: moderate mount overhead, wins hugely on targeted updates. Any PR that worsens the krausest overhead beyond 40% vs vanilla should be scrutinized — that's the acceptable-overhead ceiling. The current 30% is within budget.
+**How to apply.** The 30% overhead vs. vanilla is the "you're paying for reactivity you're not using on mount" cost. The payoff is visible in `update-1-of-10k-leaves`: when you update 1 of those 2k signals, aihu pays 25 ns while vanilla pays 3.1 µs (vanilla must re-walk the DOM). The two numbers together define aihu's design point: moderate mount overhead, wins hugely on targeted updates. Any PR that worsens the krausest overhead beyond 40% vs vanilla should be scrutinized — that's the acceptable-overhead ceiling. The current 30% is within budget.
 
 ---
 
@@ -367,7 +367,7 @@ Companion test rule: when a spec documents an equivalence boundary ("A without c
 
 ## 30. `npx size-limit` / esbuild bundling fails on unresolvable peer deps — fix with `"ignore"` per entry
 
-**Why.** Pre-Round-5 blocker session: `npx size-limit` exited 1 with `Could not resolve '@scribe/signals'` and `Could not resolve '@scribe/context'` when bundling `@scribe/data`. Root cause: size-limit reads `peerDependencies` from the *workspace root* `package.json` to auto-populate its `ignore` list. In a monorepo the workspace root has no `peerDependencies`, so none are excluded. The `@scribe/data` entry needed an explicit `"ignore"` field listing its unresolvable peer deps.
+**Why.** Pre-Round-5 blocker session: `npx size-limit` exited 1 with `Could not resolve '@aihu/signals'` and `Could not resolve '@aihu/context'` when bundling `@aihu/data`. Root cause: size-limit reads `peerDependencies` from the *workspace root* `package.json` to auto-populate its `ignore` list. In a monorepo the workspace root has no `peerDependencies`, so none are excluded. The `@aihu/data` entry needed an explicit `"ignore"` field listing its unresolvable peer deps.
 
 **How to apply.** When `npx size-limit` fails with `Could not resolve '<peer-dep>'`:
 
@@ -389,7 +389,7 @@ The canonical fix pattern for size-limit + monorepo peer deps. Do not add peer d
 
 ## 32. Three-state loader + opt-out env var is the canonical napi-rs distribution pattern
 
-**Why.** Server-native session-001/002: the loader for `@scribe/server`'s Rust addon resolves to one of three terminal states at module-load time — `NATIVE_LOADED` (use the addon), `EDGE_SKIPPED` (silent TS fallback for edge/Workers/Deno/`SCRIBE_NATIVE_SKIP=1`), or `NATIVE_FAILED_LOUD` (throw `ScribeNativeError` synchronously at import). The default-failure direction is the load-bearing decision: silent fall-through means a missed optionalDependency in production silently halves SSR throughput; loud-by-default means a misinstall fails fast with reinstall instructions. The escape hatch (`SCRIBE_NATIVE_SKIP=1`) covers the legitimate dev/CI/source-build cases without inverting the production contract. Builder R1 inverted this default; Director session-002 ruled the inversion an unacceptable contract change and Builder R2 reverted.
+**Why.** Server-native session-001/002: the loader for `@aihu/server`'s Rust addon resolves to one of three terminal states at module-load time — `NATIVE_LOADED` (use the addon), `EDGE_SKIPPED` (silent TS fallback for edge/Workers/Deno/`SCRIBE_NATIVE_SKIP=1`), or `NATIVE_FAILED_LOUD` (throw `AihuNativeError` synchronously at import). The default-failure direction is the load-bearing decision: silent fall-through means a missed optionalDependency in production silently halves SSR throughput; loud-by-default means a misinstall fails fast with reinstall instructions. The escape hatch (`SCRIBE_NATIVE_SKIP=1`) covers the legitimate dev/CI/source-build cases without inverting the production contract. Builder R1 inverted this default; Director session-002 ruled the inversion an unacceptable contract change and Builder R2 reverted.
 
 **How to apply.** When shipping a napi-rs addon (or any optional native accelerator with a TS/JS fallback):
 
@@ -400,7 +400,7 @@ The canonical fix pattern for size-limit + monorepo peer deps. Do not add peer d
 - **Throw at module load, not first call.** The eager throw block at the top of the loader file means consumers see the error during `import`, with the full reinstall instructions, rather than seeing it inside a request handler under load. AC-9-style invariant: "import throws synchronously when the binary is missing on a supported platform."
 - **Don't add a `*_FORCE_NATIVE` flag.** Once the default is loud, a force flag adds zero value and creates a third lever that obscures the contract. The opt-out should be the only env var.
 
-The pattern in code: `loader.ts` resolves state once at top-level → exports `renderToString` that dispatches based on resolved state → the failed-loud branch throws at module init via a top-level `if` block. Distribution: `optionalDependencies` for the four platform packages (`@scribe/server-<platform-arch>`), each with `os`/`cpu`/`libc` fields so npm/pnpm/bun install only the matching one. No postinstall script.
+The pattern in code: `loader.ts` resolves state once at top-level → exports `renderToString` that dispatches based on resolved state → the failed-loud branch throws at module init via a top-level `if` block. Distribution: `optionalDependencies` for the four platform packages (`@aihu/server-<platform-arch>`), each with `os`/`cpu`/`libc` fields so npm/pnpm/bun install only the matching one. No postinstall script.
 
 ---
 
@@ -410,7 +410,7 @@ The pattern in code: `loader.ts` resolves state once at top-level → exports `r
 
 **How to apply.** Three rules for any multi-agent dispatch where an agent writes to a shared docs tree:
 
-- **Dispatch briefs always specify absolute paths.** "Write to `C:\git\fellwork\scribe\.team\v1\<file>.md`" — never "write to `.team/v1/<file>.md`". The dispatch text is the contract; relative paths in dispatch text get resolved relative to the agent's cwd, which on Windows worktrees is the worktree subdirectory, not the repo root.
+- **Dispatch briefs always specify absolute paths.** "Write to `C:\git\fellwork\aihu\.team\v1\<file>.md`" — never "write to `.team/v1/<file>.md`". The dispatch text is the contract; relative paths in dispatch text get resolved relative to the agent's cwd, which on Windows worktrees is the worktree subdirectory, not the repo root.
 - **Agents verify with `Read` after every `Write`.** If the file is not at the expected absolute path, fix immediately before continuing — don't let the doubly-nested copy compound across more writes in the same session.
 - **Repo-root state files are absolute too.** Files like `state-<track>.md` that live at the repo root must be written via absolute path. A relative `state-<track>.md` write from within a worktree creates a sibling file in the worktree, not the repo root.
 
@@ -420,7 +420,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 34. Spec ratification surfaces cross-package naming collisions invisible to single-package audits
 
-**Why.** During v1-reconciliation Round 3 Scout (2026-05-02), ratifying the Plugin Contract Spec for the multi-package framework surfaced two collisions that no single-package audit had caught: (1) `createRouter` exists as both client router factory in `@scribe/router` AND server route handler in `@scribe/server`; (2) `defineMiddleware` is hand-authored server middleware in `@scribe/server` while `contributes.middleware` is the plugin extension in the Plugin Contract. The user had narrowed the naming-pass scope to "Plugin Contract internals only" — but the collisions were invisible without the cross-package spec audit. The roadmap documents them as consequences-of-ratification (Q8 collapse), not broadening; resolution lands in v0.7.4.
+**Why.** During v1-reconciliation Round 3 Scout (2026-05-02), ratifying the Plugin Contract Spec for the multi-package framework surfaced two collisions that no single-package audit had caught: (1) `createRouter` exists as both client router factory in `@aihu/router` AND server route handler in `@aihu/server`; (2) `defineMiddleware` is hand-authored server middleware in `@aihu/server` while `contributes.middleware` is the plugin extension in the Plugin Contract. The user had narrowed the naming-pass scope to "Plugin Contract internals only" — but the collisions were invisible without the cross-package spec audit. The roadmap documents them as consequences-of-ratification (Q8 collapse), not broadening; resolution lands in v0.7.4.
 
 **How to apply.** When ratifying a cross-cutting spec like a Plugin Contract for a multi-package framework where the spec defines extension points (e.g., `contributes.middleware`) that cohabit with existing per-package APIs (e.g., `defineMiddleware` in a server package), the Architect's draft MUST audit name collisions across all packages that the spec authority touches — not just the spec's primary target. Surface collisions as facts even if the user has narrowed the naming-pass scope; document them as consequences of ratification rather than broadening the rename pass. The cost of the audit is one cross-package grep; the cost of missing the collision is a churn cycle in a future milestone.
 
@@ -428,7 +428,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 35. Spec-driven framework redesigns reveal scope as percentage-implemented, not features-missing
 
-**Why.** In v1-reconciliation Round 3 (2026-05-02), Scout reported 6-8% of the spec quartet (~62/95 requirements GAP) was implemented in current scribe code. That percentage immediately framed v1.0 as "redesign, not extension" and forced the Architect's R2.1 to sequence a 9-milestone (v0.2 → v1.0) trajectory rather than pretending v1.0 was a near-term cutover. Without the percentage, the Architect might have under-scoped — a feature list ("missing: layouts, middleware, auto-imports, asset pipeline...") under-conveys the redesign scale because each item looks bounded in isolation; the percentage frames the whole.
+**Why.** In v1-reconciliation Round 3 (2026-05-02), Scout reported 6-8% of the spec quartet (~62/95 requirements GAP) was implemented in current aihu code. That percentage immediately framed v1.0 as "redesign, not extension" and forced the Architect's R2.1 to sequence a 9-milestone (v0.2 → v1.0) trajectory rather than pretending v1.0 was a near-term cutover. Without the percentage, the Architect might have under-scoped — a feature list ("missing: layouts, middleware, auto-imports, asset pipeline...") under-conveys the redesign scale because each item looks bounded in isolation; the percentage frames the whole.
 
 **How to apply.** When a Scout audits spec-quartet alignment against existing code, frame the gap as a percentage of total requirements (e.g., "62/95 requirements GAP = ~6-8% implemented") rather than a feature list. The percentage drives milestone scoping correctness; a feature list under-conveys when the spec describes a redesign. Companion principle: when percentage-implemented < 30%, propose milestone sub-versioning by default (the Architect should sequence at least a 0.X → 0.Y → 1.0 trajectory); when > 70%, single-release v1.0 is plausible.
 
@@ -444,7 +444,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 37. Plugin shims have runtime byte cost even with `import type` — always run `bun run size` before claiming zero-runtime-footprint
 
-**Why.** v0.2.6 (2026-05-03): the `@scribe/data` plugin registration shim was designed using `import type` for all type-only imports and a direct object literal for the plugin definition — a pattern the Director note framed as "zero-runtime-bytes." In practice, the built bundle grew by 28 B gz. The `import type` elision removes type annotations at emit time, but the object literal itself (`{ name: 'data', ... }`) is a concrete JavaScript value that the bundler cannot eliminate unless it can prove no code path reads it. Because the plugin shim is an exported value consumed at config-assembly time, the bundler correctly retains it. The `@scribe/data` size limit was raised from 750 B to 800 B to accommodate the feature bytes.
+**Why.** v0.2.6 (2026-05-03): the `@aihu/data` plugin registration shim was designed using `import type` for all type-only imports and a direct object literal for the plugin definition — a pattern the Director note framed as "zero-runtime-bytes." In practice, the built bundle grew by 28 B gz. The `import type` elision removes type annotations at emit time, but the object literal itself (`{ name: 'data', ... }`) is a concrete JavaScript value that the bundler cannot eliminate unless it can prove no code path reads it. Because the plugin shim is an exported value consumed at config-assembly time, the bundler correctly retains it. The `@aihu/data` size limit was raised from 750 B to 800 B to accommodate the feature bytes.
 
 **How to apply.** Before claiming any shim, adapter, or registration object is "zero-runtime-bytes," run `bun run size` against the built output. `import type` elision is not the same as zero emitted bytes — it removes type annotations, but any concrete value (object literal, function, array) that is exported or reachable from an export will appear in the bundle. The predictive rule: "Does the shim export or produce any concrete JavaScript value?" If yes, estimate ≥10–30 B gz overhead and pre-authorize the budget impact before dispatch. A post-implementation limit raise is a policy exception (framework plan §"What this roadmap does NOT do" item 4); forecasting the bytes before dispatch avoids the exception. When in doubt, build a one-file stub with just the shim and `bun run size` it before writing the spec.
 
@@ -460,7 +460,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 39. New workspace packages require simultaneous check-size-rows classification; commit messages should reflect per-item test counts, not aggregate estimates
 
-**Why.** v0.8 (2026-05-03): two process gaps surfaced together. (1) `@scribe/cli` was added to the workspace monorepo but the `check-size-rows` classification step was omitted from the initial PR #43. The `check:size-rows` lint script requires every package to be tagged as either `BROWSER_BUNDLE` (has a size-limit row) or `BUILD_DEV_ONLY` (build-time tool, exempt). The omission was caught post-merge and required a fix commit (`90c95dc`). (2) The PR #43 commit message described "+17 tests" — an early estimate from the director note's "15 minimum" target. The actual test delta was +36, because `cli.test.ts` landed with more coverage than the minimum. The gate walk count is authoritative; the commit message was stale.
+**Why.** v0.8 (2026-05-03): two process gaps surfaced together. (1) `@aihu/cli` was added to the workspace monorepo but the `check-size-rows` classification step was omitted from the initial PR #43. The `check:size-rows` lint script requires every package to be tagged as either `BROWSER_BUNDLE` (has a size-limit row) or `BUILD_DEV_ONLY` (build-time tool, exempt). The omission was caught post-merge and required a fix commit (`90c95dc`). (2) The PR #43 commit message described "+17 tests" — an early estimate from the director note's "15 minimum" target. The actual test delta was +36, because `cli.test.ts` landed with more coverage than the minimum. The gate walk count is authoritative; the commit message was stale.
 
 **How to apply.** Two rules:
 
@@ -480,7 +480,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 41. Strict-cutover deprecation removal at major-version honors JSDoc commitment
 
-**Why.** T1 of the 6-track follow-up (2026-05-03). The deprecated `@scribe/server.createRouter` alias carried JSDoc text "Will be removed in v1.0"; v1.0 had shipped four days earlier. The Architect surfaced two migration strategies: (a) one-minor deprecation grace period, or (b) strict cutover removing the alias immediately. The user picked (b). Rationale: the JSDoc was a public commitment to a removal version, that version had shipped, and maintaining the alias past the committed removal point would erode the credibility of every future deprecation signal.
+**Why.** T1 of the 6-track follow-up (2026-05-03). The deprecated `@aihu/server.createRouter` alias carried JSDoc text "Will be removed in v1.0"; v1.0 had shipped four days earlier. The Architect surfaced two migration strategies: (a) one-minor deprecation grace period, or (b) strict cutover removing the alias immediately. The user picked (b). Rationale: the JSDoc was a public commitment to a removal version, that version had shipped, and maintaining the alias past the committed removal point would erode the credibility of every future deprecation signal.
 
 **How to apply.** When a deprecated symbol's JSDoc names a removal version and that version ships, executing the removal at that version is the correct default. A grace period past the committed removal version is a policy reversal — defensible only if a concrete consumer cohort is documented as not-yet-migrated. The grace period costs more than its bytes: it teaches downstream consumers and contributors that "Will be removed in vX" actually means "may be removed sometime after vX." Strict cutover preserves the deprecation-signal contract.
 
@@ -496,7 +496,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 43. postinstall scripts that fetch release artifacts must be non-fatal
 
-**Why.** T7 of the 6-track follow-up (2026-05-03). `@scribe/compiler`'s postinstall fetched a GitHub release binary that 404'd at v1.0 because no release artifact had been cut. This caused `bun install` to abort, which prevented `node_modules/@scribe/*` symlinks from being created, which then cascaded into T6's misdiagnosed "missing symlinks" finding. The fix at `03d6eb3` made the postinstall graceful: try/catch the network call, fall through to local cargo build if cargo is present, soft-exit 0 always. Idempotency (pre-existing binary short-circuits) and an `SCRIBE_SKIP_POSTINSTALL` env var were added.
+**Why.** T7 of the 6-track follow-up (2026-05-03). `@aihu/compiler`'s postinstall fetched a GitHub release binary that 404'd at v1.0 because no release artifact had been cut. This caused `bun install` to abort, which prevented `node_modules/@aihu/*` symlinks from being created, which then cascaded into T6's misdiagnosed "missing symlinks" finding. The fix at `03d6eb3` made the postinstall graceful: try/catch the network call, fall through to local cargo build if cargo is present, soft-exit 0 always. Idempotency (pre-existing binary short-circuits) and an `SCRIBE_SKIP_POSTINSTALL` env var were added.
 
 **How to apply.** Any postinstall script that fetches a release artifact must (1) wrap the network call in try/catch and never throw on transient or release-pipeline-not-yet-cut errors, (2) provide a local-build fallback gated on tool availability (e.g., cargo present), (3) soft-exit 0 unless an explicit user override (e.g., `SCRIBE_COMPILE_BIN` pointing at a missing file) names a hard-fail condition, (4) provide a skip env var (`SCRIBE_SKIP_POSTINSTALL`), and (5) be idempotent — pre-existing binary at the canonical path short-circuits the script. The contract is: `bun install` and `npm install` always succeed; a missing native binary is a runtime concern, not an install-time blocker.
 
@@ -528,7 +528,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 47. `bun install` failure cascades misdiagnose downstream issues
 
-**Why.** T6 vs T7 interaction in the 6-track follow-up (2026-05-03). T6 originally reported a TS6231 typecheck failure mentioning `@scribe/*` workspace packages as missing — symptom looked like a tsconfig misconfig. The actual root cause was T7's territory: `bun install` was aborting on the postinstall 404 before workspace symlinks got created in `node_modules/`, so every `@scribe/*` import resolved to nothing. T6's diagnosis of "tsconfig needs alignment" became correct only after T7's fix unblocked install; the fix path T6 originally pursued (tsconfig audit) was different from what T7 actually fixed (postinstall non-fatal).
+**Why.** T6 vs T7 interaction in the 6-track follow-up (2026-05-03). T6 originally reported a TS6231 typecheck failure mentioning `@aihu/*` workspace packages as missing — symptom looked like a tsconfig misconfig. The actual root cause was T7's territory: `bun install` was aborting on the postinstall 404 before workspace symlinks got created in `node_modules/`, so every `@aihu/*` import resolved to nothing. T6's diagnosis of "tsconfig needs alignment" became correct only after T7's fix unblocked install; the fix path T6 originally pursued (tsconfig audit) was different from what T7 actually fixed (postinstall non-fatal).
 
 **How to apply.** When a typecheck error mentions a workspace package as missing or unresolved, the first diagnostic step is `bun install` (or `npm install`) on a clean checkout — verify install exits 0 and `node_modules/@<workspace>/` symlinks exist. That's a faster check than tsconfig audit, and it eliminates the "install-time blocker masquerading as compile-time misconfig" failure mode. Companion principle for postinstall authors: any postinstall script that can fail must do so non-fatally (Learning #43), because a fatal postinstall makes every downstream failure look like a different problem.
 
@@ -544,7 +544,7 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ## 49. Chained git commands with `-C <path>` must use `-C` on every command, not just the first
 
-**Why.** In the v1.0.1 maintenance session (2026-05-03), Team Lead ran `git -C /c/git/fellwork/scribe cherry-pick --skip 2>&1 && git cherry-pick 7507cd8 99f24e9 0a050e0 2>&1`. The first command used `-C` (correct path), but after the `&&`, the second `git cherry-pick` ran WITHOUT `-C` and executed in the shell's CWD — which was `C:\git\fellwork\scribe\.claude\worktrees\reverent-mestorf-749530`. This accidentally applied those three commits to the `claude/reverent-mestorf-749530` branch as well as to the intended `fix/v1.0.1-7items` branch (the latter was recovered from the first command's cherry-pick continuation). Outcome was benign but confusing.
+**Why.** In the v1.0.1 maintenance session (2026-05-03), Team Lead ran `git -C /c/git/fellwork/aihu cherry-pick --skip 2>&1 && git cherry-pick 7507cd8 99f24e9 0a050e0 2>&1`. The first command used `-C` (correct path), but after the `&&`, the second `git cherry-pick` ran WITHOUT `-C` and executed in the shell's CWD — which was `C:\git\fellwork\aihu\.claude\worktrees\reverent-mestorf-749530`. This accidentally applied those three commits to the `claude/reverent-mestorf-749530` branch as well as to the intended `fix/v1.0.1-7items` branch (the latter was recovered from the first command's cherry-pick continuation). Outcome was benign but confusing.
 
 **How to apply.** In multi-command bash chains involving git with a `-C <path>` qualifier, either (a) `cd` into the target directory first and drop all `-C` flags, or (b) prefix EVERY git command in the chain with `-C <path>`. Mixing `-C` on the first command with bare `git` on subsequent commands is a hazard whenever the shell CWD differs from the target repo.
 
@@ -558,8 +558,8 @@ This is a Windows-specific paper cut — `cd` between Bash invocations resets, b
 
 ---
 
-## 51. The `bin/scribe-compile.exe` binary is NOT rebuilt automatically — stale binary ≠ broken codegen
+## 51. The `bin/aihu-compile.exe` binary is NOT rebuilt automatically — stale binary ≠ broken codegen
 
-**Why.** In the v1 smoke-test session (2026-05-03), v1 `@template { }` syntax was producing `return branch(null, undefined, [])` despite conformance tests (run via `cargo test`) proving the library code correctly emitted full arbor trees. The root cause: `packages/compiler/bin/scribe-compile.exe` was a stale artifact compiled before some source changes were committed. The library (in-process Rust) and the binary (out-of-process) diverged. All 232 Rust tests pass against the in-process library; none of them run the binary. So tests are green while the binary is broken.
+**Why.** In the v1 smoke-test session (2026-05-03), v1 `@template { }` syntax was producing `return branch(null, undefined, [])` despite conformance tests (run via `cargo test`) proving the library code correctly emitted full arbor trees. The root cause: `packages/compiler/bin/aihu-compile.exe` was a stale artifact compiled before some source changes were committed. The library (in-process Rust) and the binary (out-of-process) diverged. All 232 Rust tests pass against the in-process library; none of them run the binary. So tests are green while the binary is broken.
 
-**How to apply.** (1) When v1 template codegen produces `branch(null, undefined, [])`, the FIRST diagnostic is `cargo build --release` in `packages/compiler/` followed by `cp target/release/scribe-compile.exe bin/scribe-compile.exe`, NOT a source-code investigation. (2) The binary is gitignored (`bin/` is not tracked); any time source changes land that touch `src/`, the binary must be rebuilt and recopied manually. (3) A quick sanity check: `./bin/scribe-compile.exe --stdin --tag t < <(printf '@template {\n  <div>hello</div>\n}')` should produce `branch('div', ...)` not `branch(null, ...)`. If it produces the empty form, rebuild the binary.
+**How to apply.** (1) When v1 template codegen produces `branch(null, undefined, [])`, the FIRST diagnostic is `cargo build --release` in `packages/compiler/` followed by `cp target/release/aihu-compile.exe bin/aihu-compile.exe`, NOT a source-code investigation. (2) The binary is gitignored (`bin/` is not tracked); any time source changes land that touch `src/`, the binary must be rebuilt and recopied manually. (3) A quick sanity check: `./bin/aihu-compile.exe --stdin --tag t < <(printf '@template {\n  <div>hello</div>\n}')` should produce `branch('div', ...)` not `branch(null, ...)`. If it produces the empty form, rebuild the binary.

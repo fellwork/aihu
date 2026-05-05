@@ -1,10 +1,10 @@
-# Macro Vocabulary — `@scribe/compiler`
+# Macro Vocabulary — `@aihu/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
 **Spec version:** 0.1.2-draft (Amendment 01 + Amendment 02 applied inline)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
-**Depends on:** `@scribe/signals` (stable), `@scribe/arbor` (stable), `@scribe/runtime` (stable), `@scribe/data` (proposed)
+**Depends on:** `@aihu/signals` (stable), `@aihu/arbor` (stable), `@aihu/runtime` (stable), `@aihu/data` (proposed)
 **Consumes:** Block Structure Spec, Template Attribute Syntax Spec, Plugin Contract Spec
 **Related specs:** Compiler Error Reference, Runtime Primitive Spec
 
@@ -14,7 +14,7 @@
 
 ## 0. Posture
 
-This spec defines the complete macro vocabulary for `.scribe` SFC files in v1. The vocabulary is closed: 39 macros across 4 blocks, fixed by language version. New macros require an RFC and version bump. Plugins MAY contribute namespaced macros (`@plugin.macro`) but those are documented in plugin specs, not here.
+This spec defines the complete macro vocabulary for `.aihu` SFC files in v1. The vocabulary is closed: 39 macros across 4 blocks, fixed by language version. New macros require an RFC and version bump. Plugins MAY contribute namespaced macros (`@plugin.macro`) but those are documented in plugin specs, not here.
 
 Each macro entry specifies:
 - Block where it is valid
@@ -25,7 +25,7 @@ Each macro entry specifies:
 - Error cases
 - Examples
 
-Macros are visually marked with the `$` prefix. The prefix is the discriminator between scribe macros and regular HTML, CSS, or TypeScript constructs.
+Macros are visually marked with the `$` prefix. The prefix is the discriminator between aihu macros and regular HTML, CSS, or TypeScript constructs.
 
 ---
 
@@ -41,7 +41,7 @@ Macros are visually marked with the `$` prefix. The prefix is the discriminator 
 
 **Note on counting:** This spec defines **39 macro forms** across **36 unique names**. Three names (`$expose`, `$action`, `$lifecycle`) appear in multiple blocks with block-determined semantics (see §1.1 below). Counting unique names: 36. Counting all forms (each block instance counted separately): 39. The "39 macros" figure used elsewhere in this spec refers to forms, not unique names.
 
-**Note on `@route`:** A fifth structural block, `@route`, exists in scribe but contains no macros. It is valid only in page components (files under `src/pages/`) and contains route metadata as a TypeScript object literal. The `@route` block is documented in the Block Structure Spec §7.3; it is omitted from this spec's vocabulary because it is a structural data block, not a macro-bearing block. The "4 blocks" referenced throughout this spec refers to macro-bearing blocks (`@state`, `@template`, `@style`, `@agent`).
+**Note on `@route`:** A fifth structural block, `@route`, exists in aihu but contains no macros. It is valid only in page components (files under `src/pages/`) and contains route metadata as a TypeScript object literal. The `@route` block is documented in the Block Structure Spec §7.3; it is omitted from this spec's vocabulary because it is a structural data block, not a macro-bearing block. The "4 blocks" referenced throughout this spec refers to macro-bearing blocks (`@state`, `@template`, `@style`, `@agent`).
 
 ---
 
@@ -151,7 +151,7 @@ The choice to disambiguate by block rather than by renaming follows three princi
 
 **3. Macro count stays bounded.** Disambiguation by block keeps the unique-name count at 36. Renaming would push it to 39. The vocabulary discipline (Rule 5 in the Block Structure Spec) is best served by keeping unique names low.
 
-**The tradeoff:** Block-disambiguation requires the compiler to track block context during macro resolution. This is a small implementation cost: the parser already knows which block it's in. The cost is paid once in the compiler; the benefit (cleaner vocabulary) is paid every time a developer reads or writes a `.scribe` file.
+**The tradeoff:** Block-disambiguation requires the compiler to track block context during macro resolution. This is a small implementation cost: the parser already knows which block it's in. The cost is paid once in the compiler; the benefit (cleaner vocabulary) is paid every time a developer reads or writes a `.aihu` file.
 
 **When to add a new name instead of disambiguating:**
 
@@ -223,7 +223,7 @@ $computed name: type = expression
 const name = computed(() => expression)
 ```
 
-The expression is wrapped in a `computed()` from `@scribe/signals`. Dependencies are auto-tracked at runtime via signal access.
+The expression is wrapped in a `computed()` from `@aihu/signals`. Dependencies are auto-tracked at runtime via signal access.
 
 **Runtime behavior:**
 - Recomputes only when accessed AND dependencies have changed
@@ -310,7 +310,7 @@ $effect(() => body)         // single-expression form
 effect(() => { body })
 ```
 
-Direct passthrough to `@scribe/signals` `effect()`.
+Direct passthrough to `@aihu/signals` `effect()`.
 
 **Runtime behavior:**
 - Runs immediately at component mount
@@ -454,7 +454,7 @@ function name(...args) {
 }
 ```
 
-The body is wrapped in `batch()` from `@scribe/signals` to coalesce multiple signal writes into a single update tick.
+The body is wrapped in `batch()` from `@aihu/signals` to coalesce multiple signal writes into a single update tick.
 
 **Runtime behavior:**
 - Multiple signal writes inside the action update synchronously without intermediate effect runs
@@ -507,7 +507,7 @@ onMount(() => { body })   // for .mount
 onCleanup(() => { body }) // for .dispose
 ```
 
-These map to `@scribe/runtime` lifecycle hooks.
+These map to `@aihu/runtime` lifecycle hooks.
 
 **Runtime behavior:**
 - `mount` runs once after the component is added to the DOM
@@ -668,7 +668,7 @@ $server async function name(args): Promise<ReturnType> { body }
 ```typescript
 // Compiler emits two artifacts (per Block Structure Spec §11.5):
 
-// Server-side: actual implementation in _scribe-server/actions/{component-id}/{name}.ts
+// Server-side: actual implementation in _aihu-server/actions/{component-id}/{name}.ts
 export async function name(args) { body }
 
 // Client-side: RPC stub in component
@@ -771,7 +771,7 @@ createIfBoundary({
 })
 ```
 
-`createIfBoundary` lives in `@scribe/arbor`. It manages mount/dispose of the subtree based on condition.
+`createIfBoundary` lives in `@aihu/arbor`. It manages mount/dispose of the subtree based on condition.
 
 **Runtime behavior:**
 - When condition is true, subtree is mounted
@@ -797,7 +797,7 @@ createIfBoundary({
 **Lowering:**
 ```typescript
 // Compiler emits a CSS variable + effect:
-// CSS in scoped block: .scribe-component[data-show-N="false"] { display: none }
+// CSS in scoped block: .aihu-component[data-show-N="false"] { display: none }
 effect(() => {
   parentEl.dataset.showN = String($show-value)
 })
@@ -1111,7 +1111,7 @@ createMemoBoundary({
 **Lowering:**
 ```typescript
 // Compiler emits two artifacts (per Block Structure Spec §11.5):
-// Server-side endpoint at _scribe-server/form-actions/{component-id}/{name}.ts
+// Server-side endpoint at _aihu-server/form-actions/{component-id}/{name}.ts
 // Client-side handler:
 el.addEventListener('submit', async (e) => {
   e.preventDefault()
@@ -1172,7 +1172,7 @@ slotN.render({ exposed: { user, index } })
 
 **Examples:**
 ```
-<!-- Card.scribe template -->
+<!-- Card.aihu template -->
 <article>
   <header>
     <$slot name="header">
@@ -1417,7 +1417,7 @@ selector { property: $reactive(signalName) }
 **Lowering:**
 ```css
 /* Compiler emits in scoped CSS: */
-.scribe-component { property: var(--reactive-N) }
+.aihu-component { property: var(--reactive-N) }
 ```
 ```typescript
 // Compiler emits effect:
@@ -1454,7 +1454,7 @@ $tokens(category1, category2, ...)
 ```
 
 **Lowering:**
-The compiler resolves tokens from `scribe.config.ts` `style.tokens` configuration and emits them as CSS custom properties or as inline values (depending on the lowering mode).
+The compiler resolves tokens from `aihu.config.ts` `style.tokens` configuration and emits them as CSS custom properties or as inline values (depending on the lowering mode).
 
 **Runtime behavior:**
 - In `tokens` mode: tokens become CSS custom properties (--color-primary, etc.)
@@ -1570,7 +1570,7 @@ $when(expression) { rules }
 **Lowering:**
 ```css
 /* Compiler emits: */
-.scribe-component[data-when-N="true"] { rules }
+.aihu-component[data-when-N="true"] { rules }
 ```
 ```typescript
 // Plus an effect to toggle the data attribute:
@@ -1750,7 +1750,7 @@ mcpServer.registerResource({
 **Runtime behavior:**
 - Every agent request to this component's resources/tools is checked against scope
 - Failed checks return an MCP error
-- Scope definitions come from `scribe.config.ts` `agent.scopes`
+- Scope definitions come from `aihu.config.ts` `agent.scopes`
 
 **Error cases:**
 - Scope name not defined in config — compile error

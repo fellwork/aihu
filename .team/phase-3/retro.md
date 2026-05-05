@@ -1,4 +1,4 @@
-# Phase 3 retro — `@scribe/arbor` orchestration
+# Phase 3 retro — `@aihu/arbor` orchestration
 
 **Date:** 2026-04-28
 **Author:** Team Lead (post-ship)
@@ -10,8 +10,8 @@
 
 ## What shipped
 
-- `@scribe/arbor` v0 — 9 modules, 16 public exports, 51 unit tests
-- `untrack()` added to `@scribe/signals` (Phase 3 prep, Task 12.5)
+- `@aihu/arbor` v0 — 9 modules, 16 public exports, 51 unit tests
+- `untrack()` added to `@aihu/signals` (Phase 3 prep, Task 12.5)
 - 1 cross-package integration test (`tests/integration/mount-arbor-with-signals.test.ts`)
 - CI trigger fix: `phase-*/**` added to `.github/workflows/plan-a.yml` per spec §3.3 + Learning #5
 - Moon task dep fix: `bench-signals:typecheck` depends on `signals:build` (pre-existing main bug, surfaced by the trigger fix above)
@@ -20,8 +20,8 @@
 **Sizes (final):**
 | Package | Bytes gz | Budget | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | 716 B | 1024 B | 30% |
-| `@scribe/arbor` | 1.16 kB | 2.05 kB | 43% |
+| `@aihu/signals` | 716 B | 1024 B | 30% |
+| `@aihu/arbor` | 1.16 kB | 2.05 kB | 43% |
 
 **Verifier verdict:** PASS WITH NOTES. 0 HIGH, 0 MEDIUM, 3 LOW (1 closed in-branch).
 
@@ -33,7 +33,7 @@
 
 The handoff prompt prescribed 5 sequential Builder spawns of 1–3 tasks each, calibrated to the prior session's 600s no-progress watchdog. **This held.** No Builder stalled; longest spawn (batch 4: mount + dispose) was ~1072s of agent runtime, distributed across many sub-actions. Atomic per-task commits meant any single batch failure would have lost minutes, not hours.
 
-**Carry forward:** for any nomos M/L session in scribe, batch Builder spawns at 1–3 tasks. Single mega-spawns are watchdog bait.
+**Carry forward:** for any nomos M/L session in aihu, batch Builder spawns at 1–3 tasks. Single mega-spawns are watchdog bait.
 
 ### 2. The spec was load-bearing — adjudicating §7 Open Questions ahead of Builder spawn paid off
 
@@ -51,7 +51,7 @@ Tasks 13/14/15 each had spec tests that required `mount()` (Task 16). Option A �
 
 Each Builder instance was forbidden from amending prior commits. When a manifest entry needed the SHA of a just-created commit, the Builder created a follow-up `docs(phase-3): backfill ... SHA in build manifest` commit. 5 such backfill commits in the final history. **Total cost:** 5 extra commits. **Total benefit:** every `HEAD~N` checkout has a manifest that matches the actual code at that revision; rollback is well-defined; per-task atomicity preserved.
 
-**Carry forward:** memorialize the SHA-backfill pattern in the nomos plan or scribe learnings — when subagents can't amend, this is the right answer.
+**Carry forward:** memorialize the SHA-backfill pattern in the nomos plan or aihu learnings — when subagents can't amend, this is the right answer.
 
 ### 5. The Verifier's spec compliance matrix did its job (Learning #7 confirmed again)
 
@@ -77,7 +77,7 @@ When both PRs land, git auto-merges cleanly. **Verified at push-time: zero confl
 
 **Symptom:** PR #7's first push CI failed on `bench-signals:typecheck`. Failure was real and reproducible locally (`rm -rf packages/signals/dist && bunx tsc --noEmit -p bench/signals/tsconfig.json` → TS2307).
 
-**Root cause:** `bench-signals` imports `@scribe/signals` via workspace, which resolves through `package.json` exports to `./dist/index.d.ts`. Typecheck doesn't depend on build. On a clean checkout (CI Ubuntu) the dist doesn't exist, resolution fails.
+**Root cause:** `bench-signals` imports `@aihu/signals` via workspace, which resolves through `package.json` exports to `./dist/index.d.ts`. Typecheck doesn't depend on build. On a clean checkout (CI Ubuntu) the dist doesn't exist, resolution fails.
 
 **Pre-existing on main:** the Phase 2.5 bench-spike PR #6 merge commit (`bee3dbc`) shows CI status `failure`. PR #6 was merged red. The bug was undetected because the workflow only triggered on `main` push/PR — and PR #6 was merged through a path that bypassed CI re-run.
 
@@ -142,7 +142,7 @@ Each pause adds latency tied to user response time. Cumulative: ~30 min on top o
 
 Recommend adding these as new entries (Historian's call on numbering):
 
-- **Learning #19 — Pattern B + batched Builder spawns is the M-scope default for scribe.** Single mega-spawns risk the 600s watchdog. Batch at 1–3 tasks per spawn; per-task atomic commits.
+- **Learning #19 — Pattern B + batched Builder spawns is the M-scope default for aihu.** Single mega-spawns risk the 600s watchdog. Batch at 1–3 tasks per spawn; per-task atomic commits.
 
 - **Learning #20 — SHA-backfill commits are the right answer when subagents can't amend.** Per-instance amend ban preserves history integrity at the cost of N extra commits.
 

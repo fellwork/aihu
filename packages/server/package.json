@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/server",
+  "name": "@aihu/server",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -24,13 +24,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/agent": "workspace:*",
-    "@scribe/plugin": "workspace:*"
+    "@aihu/agent": "workspace:*",
+    "@aihu/plugin": "workspace:*"
   },
   "optionalDependencies": {
-    "@scribe/server-darwin-arm64": "0.1.0",
-    "@scribe/server-darwin-x64": "0.1.0",
-    "@scribe/server-linux-x64-gnu": "0.1.0",
-    "@scribe/server-win32-x64-msvc": "0.1.0"
+    "@aihu/server-darwin-arm64": "0.1.0",
+    "@aihu/server-darwin-x64": "0.1.0",
+    "@aihu/server-linux-x64-gnu": "0.1.0",
+    "@aihu/server-win32-x64-msvc": "0.1.0"
   }
 }

@@ -1,15 +1,15 @@
 /**
- * Postinstall hook for @scribe/compiler.
+ * Postinstall hook for @aihu/compiler.
  *
  * Resolution order (first match wins):
  *
  *   1. SCRIBE_SKIP_POSTINSTALL=1     → no-op, exit 0.
  *   2. Binary already present at     → no-op, exit 0.
- *      bin/scribe-compile<ext> OR
- *      target/release/scribe-compile<ext>
+ *      bin/aihu-compile<ext> OR
+ *      target/release/aihu-compile<ext>
  *   3. SCRIBE_COMPILE_BIN=<path>     → copy that path → bin/, exit 0.
- *   4. GitHub Releases download      → bin/scribe-compile<ext>, exit 0.
- *   5. Local `cargo build --release` → target/release/scribe-compile<ext>,
+ *   4. GitHub Releases download      → bin/aihu-compile<ext>, exit 0.
+ *   5. Local `cargo build --release` → target/release/aihu-compile<ext>,
  *                                       exit 0.
  *   6. Everything failed             → log warning, exit 0 anyway. The user
  *                                       will need to either provide
@@ -20,7 +20,7 @@
  * The hard rule: this script MUST exit 0 in every "no binary acquired"
  * branch. A non-zero exit aborts `bun install`, which prevents workspace
  * symlinks from being created and breaks every downstream package that
- * imports a `@scribe/*` sibling. Compile-time failure (when the user
+ * imports a `@aihu/*` sibling. Compile-time failure (when the user
  * actually invokes the compiler without a binary) is acceptable and
  * recoverable; install-time failure is not.
  *
@@ -51,21 +51,21 @@ interface AssetMapping {
 
 function resolveAsset(platform: NodeJS.Platform, arch: string): AssetMapping | null {
   if (platform === 'darwin' && arch === 'arm64') {
-    return { asset: 'scribe-compile-darwin-arm64', ext: '' }
+    return { asset: 'aihu-compile-darwin-arm64', ext: '' }
   }
   if (platform === 'darwin' && arch === 'x64') {
-    return { asset: 'scribe-compile-darwin-x64', ext: '' }
+    return { asset: 'aihu-compile-darwin-x64', ext: '' }
   }
   if (platform === 'linux' && arch === 'x64') {
-    return { asset: 'scribe-compile-linux-x64', ext: '' }
+    return { asset: 'aihu-compile-linux-x64', ext: '' }
   }
   if (platform === 'win32' && arch === 'x64') {
-    return { asset: 'scribe-compile-windows-x64.exe', ext: '.exe' }
+    return { asset: 'aihu-compile-windows-x64.exe', ext: '.exe' }
   }
   return null
 }
 
-const TAG = '[@scribe/compiler postinstall]'
+const TAG = '[@aihu/compiler postinstall]'
 
 function info(msg: string): void {
   process.stdout.write(`${TAG} ${msg}\n`)
@@ -174,8 +174,8 @@ async function main(): Promise<void> {
 
   const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const binDir = resolve(pkgDir, 'bin')
-  const binPath = resolve(binDir, `scribe-compile${mapping.ext}`)
-  const targetReleaseBin = resolve(pkgDir, 'target', 'release', `scribe-compile${mapping.ext}`)
+  const binPath = resolve(binDir, `aihu-compile${mapping.ext}`)
+  const targetReleaseBin = resolve(pkgDir, 'target', 'release', `aihu-compile${mapping.ext}`)
 
   // Ensure target directory exists before any write operations.
   if (!existsSync(binDir)) {
@@ -212,7 +212,7 @@ async function main(): Promise<void> {
   // On any failure (404 because no release exists yet, network unavailable,
   // empty response, write failure), fall through to Strategy B without
   // aborting the install.
-  const url = `https://github.com/fellwork/scribe/releases/latest/download/${mapping.asset}`
+  const url = `https://github.com/fellwork/aihu/releases/latest/download/${mapping.asset}`
   info(`fetching ${url}`)
   const downloaded = await tryDownload(url, binPath)
   if (downloaded.ok) {
@@ -227,7 +227,7 @@ async function main(): Promise<void> {
 
   // Strategy B — attempt a local Rust build. The Rust crate lives at
   // packages/compiler/Cargo.toml; `cargo build --release` produces the
-  // binary at packages/compiler/target/release/scribe-compile<ext>, which
+  // binary at packages/compiler/target/release/aihu-compile<ext>, which
   // is where js/index.ts looks via SCRIBE_COMPILE_BIN ?? '../target/release/...'.
   if (tryLocalBuild(pkgDir)) {
     if (existsSync(targetReleaseBin)) {
@@ -238,12 +238,12 @@ async function main(): Promise<void> {
   }
 
   // Strategy C — give up, but DO NOT fail the install. The compiler may be
-  // unused in this workspace (e.g. consumers only depend on @scribe/runtime
-  // and @scribe/signals). Compile-time invocation will surface a clear
-  // error if/when the user actually tries to compile a .scribe file.
+  // unused in this workspace (e.g. consumers only depend on @aihu/runtime
+  // and @aihu/signals). Compile-time invocation will surface a clear
+  // error if/when the user actually tries to compile a .aihu file.
   softExit(
     'no compiler binary available after release-download and local-build fallbacks. ' +
-      'This is fine if you do not need to compile .scribe files in this workspace.',
+      'This is fine if you do not need to compile .aihu files in this workspace.',
   )
 }
 

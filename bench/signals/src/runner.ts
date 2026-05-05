@@ -28,7 +28,7 @@ interface SizeRow {
 }
 
 const sizeTargets: Array<{ name: string; path: string }> = [
-  { name: '@scribe/signals', path: resolve(ROOT, 'packages/signals/dist/index.js') },
+  { name: '@aihu/signals', path: resolve(ROOT, 'packages/signals/dist/index.js') },
   { name: 'alien-signals', path: resolve(BENCH_NM, 'alien-signals/esm/index.mjs') },
   {
     name: '@preact/signals-core',
@@ -157,13 +157,13 @@ function findMemoryCell(
 function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | null): string {
   const date = new Date().toISOString().slice(0, 10)
   const lines: string[] = []
-  lines.push('# `@scribe/signals` Bench Results')
+  lines.push('# `@aihu/signals` Bench Results')
   lines.push('')
   lines.push(`**Generated:** ${date}`)
   lines.push(
     `**Runner:** mitata 1.0.34 + memory.ts (--expose-gc) · Bun ${process.versions.bun ?? 'n/a'} · Node ${process.versions.node}`,
   )
-  lines.push('**Track:** A — vanilla scribe vs. SOTA JS reactivity libs')
+  lines.push('**Track:** A — vanilla aihu vs. SOTA JS reactivity libs')
   lines.push('')
   lines.push(
     'See `HARNESS.md` for how this is measured and how to add new workloads. ' +
@@ -234,15 +234,15 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
     "*alien-signals' canonical bench is `transitive-bullshit/js-reactivity-benchmark` (cellx, mol, kairo, s-bench).*",
   )
   lines.push('')
-  lines.push('- `cellx` (diamond): see Time table above — scribe is the head-to-head measurement.')
+  lines.push('- `cellx` (diamond): see Time table above — aihu is the head-to-head measurement.')
   lines.push(
-    "- `mol-bench` (deep-propagation-100, NEW): scribe is measured on alien-signals' deep-chain headline axis.",
+    "- `mol-bench` (deep-propagation-100, NEW): aihu is measured on alien-signals' deep-chain headline axis.",
   )
   lines.push(
-    '- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, scribe) historically lead this; we now have receipts.',
+    '- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, aihu) historically lead this; we now have receipts.',
   )
   lines.push(
-    "- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; scribe's per-graph cost is the load-bearing memory number.",
+    "- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; aihu's per-graph cost is the load-bearing memory number.",
   )
   lines.push('')
 
@@ -255,8 +255,8 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push('- `effect.bench` ≈ our `wide-fanout-100`: see Time table.')
   lines.push('- `computed.bench` ≈ our `cellx`: see Time table.')
   lines.push(
-    "- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from scribe's tuple signals. " +
-      'Intentional gap; scribe does not aim to compete on object-property thrash. Documented per design §1.3.',
+    "- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from aihu's tuple signals. " +
+      'Intentional gap; aihu does not aim to compete on object-property thrash. Documented per design §1.3.',
   )
   lines.push('')
 
@@ -298,7 +298,7 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
   lines.push(
     "Each competitor's main entry as shipped, gzipped at level 9. " +
       'Note: not minified — Vue and Solid ship dev/prod variants; we use ' +
-      'the production ESM build where one exists. `@scribe/signals` is ' +
+      'the production ESM build where one exists. `@aihu/signals` is ' +
       'measured against `dist/index.js` (the same file size-limit gates).',
   )
   lines.push('')
@@ -310,7 +310,7 @@ function renderResultsMarkdown(cells: WorkloadCell[], memory: MemoryPayload | nu
       lines.push(`| ${s.name} | ${fmtBytes(s.raw)} | ${fmtBytes(s.gz)} |`)
     }
   } else {
-    lines.push('_size data unavailable — run `bun run --filter @scribe/signals build` first._')
+    lines.push('_size data unavailable — run `bun run --filter @aihu/signals build` first._')
   }
   lines.push('')
 

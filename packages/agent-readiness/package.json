@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/agent-readiness",
+  "name": "@aihu/agent-readiness",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -21,7 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/server": "workspace:*",
-    "@scribe/agent": "workspace:*"
+    "@aihu/server": "workspace:*",
+    "@aihu/agent": "workspace:*"
   }
 }

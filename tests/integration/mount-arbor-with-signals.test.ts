@@ -1,19 +1,19 @@
-import { branch, leaf, mount } from '@scribe/arbor'
-import { batch, signal } from '@scribe/signals'
+import { branch, leaf, mount } from '@aihu/arbor'
+import { batch, signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
 
 /**
  * Cross-package integration test per spec §4 (Task 19).
  *
- * Verifies that `batch()` from `@scribe/signals` correctly coalesces
- * multiple writes through `@scribe/arbor`'s reactive bindings: by the time
+ * Verifies that `batch()` from `@aihu/signals` correctly coalesces
+ * multiple writes through `@aihu/arbor`'s reactive bindings: by the time
  * the batch closes, both the text leaf and the reactive `class` attr land
  * on their final values without an intermediate flicker visible at the
  * end-of-batch DOM read.
  *
  * Resolves Architect B's concern that signals' batch and arbor's
  * mountEffect could disagree on flush ordering. They don't — both sit on
- * the same effect kernel from `@scribe/signals`, and arbor's
+ * the same effect kernel from `@aihu/signals`, and arbor's
  * `_mountEffect` registers exactly one effect per reactive binding.
  */
 

@@ -1,3 +1,3 @@
-import { createApp } from '@scribe/app/client'
+import { createApp } from '@aihu/app/client'
 
 createApp()

@@ -23,11 +23,11 @@
 
 ---
 
-## Export Count — `@scribe/server`
+## Export Count — `@aihu/server`
 
 | | Exported names |
 |---|---|
-| Before | `RouteContext`, `RouteHandler`, `Middleware`, `Next`, `HttpMethod`, `Route`, `RouteManifest`, `RouterOptions`, `RouteOptions`, `defineRoute`, `createRouter`, `defineMiddleware`, `composeMiddleware`, `ApiHandler`, `defineApiRoute`, `json`, `notFound`, `methodNotAllowed`, `badRequest`, `serverError`, `MetaTag`, `LinkTag`, `HeadConfig`, `SsrOptions`, `ComponentDescription`, `renderToString`, `LoaderResult`, `LoaderFn`, `DefinedLoader`, `LoadedRouteContext`, `defineLoader`, `ServerConfig`, `CorsConfig`, `RouteConfig`, `ScribeConfig`, `defineScribeConfig`, `AgentReadinessConfig` — **36 exports** |
+| Before | `RouteContext`, `RouteHandler`, `Middleware`, `Next`, `HttpMethod`, `Route`, `RouteManifest`, `RouterOptions`, `RouteOptions`, `defineRoute`, `createRouter`, `defineMiddleware`, `composeMiddleware`, `ApiHandler`, `defineApiRoute`, `json`, `notFound`, `methodNotAllowed`, `badRequest`, `serverError`, `MetaTag`, `LinkTag`, `HeadConfig`, `SsrOptions`, `ComponentDescription`, `renderToString`, `LoaderResult`, `LoaderFn`, `DefinedLoader`, `LoadedRouteContext`, `defineLoader`, `ServerConfig`, `CorsConfig`, `RouteConfig`, `AihuConfig`, `defineAihuConfig`, `AgentReadinessConfig` — **36 exports** |
 | After | All above + `renderToStream`, `DataSource`, `StreamOptions` — **39 exports** |
 
 Pre: 36 | Post: 39 | **Delta: +3**
@@ -50,7 +50,7 @@ All 261 tests pass on `feat/v1-streaming-ssr`.
 | ID | Title | Status |
 |---|---|---|
 | OQ-V5 | Streaming return type | **RESOLVED** — `ReadableStream<string>`, bare WHATWG type, no wrapper |
-| OQ-V6 | SSR dehydration in streaming mode | **RESOLVED** — inherits existing `hydratable`/`data-scribe-path` behavior unchanged; streaming-boundary dehydration deferred to v2 |
+| OQ-V6 | SSR dehydration in streaming mode | **RESOLVED** — inherits existing `hydratable`/`data-aihu-path` behavior unchanged; streaming-boundary dehydration deferred to v2 |
 
 ---
 

@@ -1,7 +1,7 @@
-import { renderToString } from '@scribe/server'
+import { renderToString } from '@aihu/server'
 import { describe, expect, it } from 'vitest'
 
-describe('@scribe/server SSR structural compliance', () => {
+describe('@aihu/server SSR structural compliance', () => {
   // Test 1: DOCTYPE present when opts.head provided
   it('output includes <!DOCTYPE html> when opts.head provided', async () => {
     const result = await renderToString(
@@ -137,8 +137,8 @@ describe('@scribe/server SSR structural compliance', () => {
     expect(result).toBe('<nav><ul><li>Item</li></ul></nav>')
   })
 
-  // Test 10: data-scribe-path present when hydratable: true
-  it('data-scribe-path attributes present when opts.hydratable: true', async () => {
+  // Test 10: data-aihu-path present when hydratable: true
+  it('data-aihu-path attributes present when opts.hydratable: true', async () => {
     const result = await renderToString(
       () => ({
         kind: 'branch' as const,
@@ -155,12 +155,12 @@ describe('@scribe/server SSR structural compliance', () => {
       }),
       { hydratable: true },
     )
-    expect(result).toContain('data-scribe-path="0"')
-    expect(result).toContain('data-scribe-path="0.0"')
+    expect(result).toContain('data-aihu-path="0"')
+    expect(result).toContain('data-aihu-path="0.0"')
   })
 
-  // Test 11: Serializer result injected as <script type="application/json" id="__scribe_state__">
-  it('serializer result injected as <script type="application/json" id="__scribe_state__"> when serializer returns data', async () => {
+  // Test 11: Serializer result injected as <script type="application/json" id="__aihu_state__">
+  it('serializer result injected as <script type="application/json" id="__aihu_state__"> when serializer returns data', async () => {
     const result = await renderToString(
       { toHtml: () => '<p>App</p>' },
       {
@@ -168,7 +168,7 @@ describe('@scribe/server SSR structural compliance', () => {
         serializer: () => ({ counter: 7, user: 'bob' }),
       },
     )
-    expect(result).toContain('<script type="application/json" id="__scribe_state__">')
+    expect(result).toContain('<script type="application/json" id="__aihu_state__">')
     expect(result).toContain('"counter":7')
     expect(result).toContain('"user":"bob"')
   })
@@ -191,7 +191,7 @@ describe('@scribe/server SSR structural compliance', () => {
       threw = true
     }
     expect(threw).toBe(false)
-    expect(result).not.toContain('__scribe_state__')
+    expect(result).not.toContain('__aihu_state__')
     expect(result).toContain('<p>App</p>')
   })
 })

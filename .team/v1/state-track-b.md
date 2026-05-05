@@ -20,8 +20,8 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 
 | Plan | Package | Status |
 |------|---------|--------|
-| 2.1  | `@scribe/context` | COMPLETE (main `8223dbb`) |
-| 2.2  | `@scribe/data`    | COMPLETE (main `8e74a95`) |
+| 2.1  | `@aihu/context` | COMPLETE (main `8223dbb`) |
+| 2.2  | `@aihu/data`    | COMPLETE (main `8e74a95`) |
 
 ---
 
@@ -53,14 +53,14 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 
 ## Spec gaps status
 
-### For 2.1 (@scribe/context) — ALL RESOLVED (see director-notes/track-b-round-002.md §3)
+### For 2.1 (@aihu/context) — ALL RESOLVED (see director-notes/track-b-round-002.md §3)
 - `ContextToken<T>`: opaque object with `_id: symbol` + `_default: T | undefined` ✓
 - `provide()` call site: synchronous during component setup ✓
 - `inject()`: synchronous, returns `T | undefined`; returns default if given ✓
 - Error behavior: returns `undefined` (no throw by default) ✓
 - Multiple providers: shadow / innermost wins ✓
 
-### For 2.2 (@scribe/data) — ALL RESOLVED (see director-notes/track-b-round-002.md §4)
+### For 2.2 (@aihu/data) — ALL RESOLVED (see director-notes/track-b-round-002.md §4)
 - `createResource` return type: `DataSource<T>` with `.state`, `.refetch()`, `.invalidate()` ✓
 - `DataState<T>`: five-state discriminated union (idle | loading | ready | error | streaming) ✓
 - Cache key: reactive `Signal<string | null | undefined>` as first arg ✓
@@ -73,7 +73,7 @@ Sequence (completed): OQ-V3 adjudication ✓ → Scout ✓ → Director Round 2 
 
 For each of `packages/context/` and `packages/data/`, a Builder must create:
 
-- [ ] `package.json` (follows `@scribe/signals` / `@scribe/arbor` pattern)
+- [ ] `package.json` (follows `@aihu/signals` / `@aihu/arbor` pattern)
 - [ ] `tsconfig.json` (extends `../../tsconfig.base.json`)
 - [ ] `rolldown.config.ts` (ESM + `dts()` + `minify: true`)
 - [ ] `moon.yml` (`language: typescript`, `layer: library`)
@@ -126,9 +126,9 @@ The following are read-only from Track B's perspective:
 
 ## Next actions
 
-1. **Integration test — `@scribe/data` + `@scribe/context` SSR path** — OPTIONAL but recommended before v1 ship. Verify that `createResource` dehydration and `ResourceStore` serialize correctly through `renderToString`/`renderToStream` with a live context map. No spec exists for this yet; Director to scope if needed.
+1. **Integration test — `@aihu/data` + `@aihu/context` SSR path** — OPTIONAL but recommended before v1 ship. Verify that `createResource` dehydration and `ResourceStore` serialize correctly through `renderToString`/`renderToStream` with a live context map. No spec exists for this yet; Director to scope if needed.
 2. **Plan 2.3** — not yet defined. If scope expands (e.g., derived resources, cache invalidation policies, server-side streaming of resource state), Director will open a Round 4 note.
-3. **Monitor arbor bundle size** — `@scribe/data` does not bundle signals, but if Track B ever adds a signals dependency, the same bundling-spillover pattern that hit arbor in Session 003 applies. Keep it external.
+3. **Monitor arbor bundle size** — `@aihu/data` does not bundle signals, but if Track B ever adds a signals dependency, the same bundling-spillover pattern that hit arbor in Session 003 applies. Keep it external.
 
 ### Do-not-break list update
 `packages/server/src/ssr.ts` now receives **additive** changes (two new optional fields in `SsrOptions`) as part of Plan 2.1 scope. It is no longer strictly read-only for Track B.

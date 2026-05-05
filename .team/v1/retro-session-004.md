@@ -4,13 +4,13 @@
 **Plans completed:** Plan 1.2 (Component props)
 **Final HEAD:** `acf501b` (PR #13 merged)
 **Test count:** 320/320 passing (41 test files)
-**Size:** `@scribe/runtime` 630 B gz / 1024 B cap
+**Size:** `@aihu/runtime` 630 B gz / 1024 B cap
 
 ---
 
 ## What was built
 
-### Plan 1.2 — Component Props (`@scribe/runtime`)
+### Plan 1.2 — Component Props (`@aihu/runtime`)
 
 `defineComponent` extended with an options-form overload accepting `{ attrs, setup }`. Per-attribute `Signal<string>` instances created at `connectedCallback` time via the `_setSignal` injection pattern (mirroring the existing `_setMount` pattern). Attribute changes wired through `attributeChangedCallback` → signal setter. `static observedAttributes` set on the returned class body so the browser reports exactly the declared attrs. `AttrContext<A>` intersection type exposes `ctx.attrs.<name>` as typed `Signal<string>` in the user's setup function. `ATTR_SIGNALS_SYM` symbol slot stores per-instance signal maps without leaking to the public API.
 
@@ -24,11 +24,11 @@
 
 ## What went well
 
-**Clean isolated scope.** Plan 1.2 touched exactly four files (`types.ts`, `define-component.ts`, `index.ts`, `define-component.test.ts`) in exactly one package (`@scribe/runtime`). Zero arbor changes, zero signals changes, zero cross-package value imports introduced. The Do-Not-Break invariant held on first build.
+**Clean isolated scope.** Plan 1.2 touched exactly four files (`types.ts`, `define-component.ts`, `index.ts`, `define-component.test.ts`) in exactly one package (`@aihu/runtime`). Zero arbor changes, zero signals changes, zero cross-package value imports introduced. The Do-Not-Break invariant held on first build.
 
 **Injection pattern reuse.** The `_setSignal` / `ATTR_SIGNALS_SYM` design mirrors the existing `_setMount` pattern precisely. This made the Builder's implementation path well-defined and the Verifier's audit straightforward — every O-finding was PASS because the pattern had a precedent.
 
-**Size headroom maintained.** `@scribe/runtime` went from 504 B to 630 B gz — 126 B delta against a 520 B available envelope. The Architect's 195 B estimate was conservative; actual delta is 34% under estimate. Runtime retains 394 B of headroom against the 1024 B cap.
+**Size headroom maintained.** `@aihu/runtime` went from 504 B to 630 B gz — 126 B delta against a 520 B available envelope. The Architect's 195 B estimate was conservative; actual delta is 34% under estimate. Runtime retains 394 B of headroom against the 1024 B cap.
 
 **Verifier found the real bug.** BLOCK-1 (the unconditional `_signal === null` guard) was a genuine correctness defect — options-form components without `attrs` would throw at connect time even though no signal factory is needed. The Verifier's under-implementation audit (U-2) caught it before merge. The fix was one line and one test.
 
@@ -82,13 +82,13 @@ All three Track A plans have required at most one Verifier pass plus zero or one
 
 ### Track A — Plan 1.3 (Scoped Styles) or Plan 1.4 (Slots)
 
-Plan 1.3 (Scoped Styles) is compiler-adjacent work; the compiler track has open cleanup items (BTreeMap, Vite investigation, session 6 topic summary). Plan 1.4 (Slots) is now unblocked post-1.2 but touches `@scribe/arbor` where **only 49 B of headroom remains** against the 2200 B cap. A cap-raise decision or slot-budget analysis must precede Builder dispatch for 1.4.
+Plan 1.3 (Scoped Styles) is compiler-adjacent work; the compiler track has open cleanup items (BTreeMap, Vite investigation, session 6 topic summary). Plan 1.4 (Slots) is now unblocked post-1.2 but touches `@aihu/arbor` where **only 49 B of headroom remains** against the 2200 B cap. A cap-raise decision or slot-budget analysis must precede Builder dispatch for 1.4.
 
 Round 005 Director should open with an explicit scope-and-budget review before dispatching either Plan 1.3 or 1.4.
 
 ### Carry items (unchanged from Round 003)
 
 - Track C 6.2-P1 CONDITIONAL PASS — needs Linux/macOS bench validation.
-- `size-limit` CLI failure on `@scribe/data` — pre-existing, not blocking.
+- `size-limit` CLI failure on `@aihu/data` — pre-existing, not blocking.
 - Background task: `disposeRef` first-run race (Session 002) — LOW priority.
 - Background task: shape-locking / `ChildScope.key` (Session 003) — LOW priority.

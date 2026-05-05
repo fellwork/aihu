@@ -1,13 +1,13 @@
 # Authoring Plugins
 
-scribe plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.
+aihu plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.
 
 ## Defining a plugin
 
-Use `definePlugin` from `@scribe/plugin`:
+Use `definePlugin` from `@aihu/plugin`:
 
 ```typescript
-import { definePlugin } from '@scribe/plugin'
+import { definePlugin } from '@aihu/plugin'
 
 export const myPlugin = definePlugin({
   name: 'my-plugin',
@@ -48,7 +48,7 @@ export const loaderPlugin = definePlugin({
 Call `validatePlugin(plugin)` at build time to verify the plugin definition is structurally correct:
 
 ```typescript
-import { validatePlugin } from '@scribe/plugin'
+import { validatePlugin } from '@aihu/plugin'
 
 validatePlugin(myPlugin) // throws if invalid
 ```
@@ -62,13 +62,13 @@ validatePlugin(myPlugin) // throws if invalid
 
 ## Registering a plugin
 
-Plugins are registered in `defineScribeConfig` in your app's config file:
+Plugins are registered in `defineAihuConfig` in your app's config file:
 
 ```typescript
-import { defineScribeConfig } from '@scribe/server'
+import { defineAihuConfig } from '@aihu/server'
 import { myPlugin } from './plugins/my-plugin.ts'
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   plugins: [myPlugin],
   build: {
     target: 'universal',
@@ -80,7 +80,7 @@ Per Plugin Contract Spec §7.2, plugins **must** be listed in the explicit `plug
 
 ## Plugin lifecycle
 
-1. `defineScribeConfig` collects all plugins.
+1. `defineAihuConfig` collects all plugins.
 2. At build start, `validatePlugin` is called for each registered plugin.
 3. The Rust compiler receives the plugin manifest and routes block/macro names to the appropriate handlers.
 4. `contributes.transforms` are applied as post-parse AST passes.

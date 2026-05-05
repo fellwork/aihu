@@ -1,7 +1,7 @@
 /// v0.4b — macro attribute parsing + emit integration tests.
 
-use scribe_compiler::{compile, compile_full, emit, sfc, Attr, MacroValue};
-use scribe_compiler::parser::template::parse_template;
+use aihu_compiler::{compile, compile_full, emit, sfc, Attr, MacroValue};
+use aihu_compiler::parser::template::parse_template;
 
 // ─── Parsing tests ────────────────────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ fn macro_if_quoted_parses() {
     let nodes = parse_template("<div $if=\"isVisible\"></div>").unwrap();
     assert_eq!(nodes.len(), 1);
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "if" && *value == MacroValue::Quoted("isVisible".to_string())
@@ -24,7 +24,7 @@ fn macro_if_quoted_parses() {
 fn macro_show_curly_parses() {
     let nodes = parse_template("<span $show={count > 0}></span>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "show" && *value == MacroValue::Curly("count > 0".to_string())
@@ -38,7 +38,7 @@ fn macro_show_curly_parses() {
 fn macro_once_boolean_parses() {
     let nodes = parse_template("<div $once></div>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "once" && *value == MacroValue::Boolean
@@ -52,7 +52,7 @@ fn macro_once_boolean_parses() {
 fn macro_raw_boolean_parses() {
     let nodes = parse_template("<div $raw></div>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean
@@ -67,7 +67,7 @@ fn macro_each_and_key_parse() {
     // Updated to spec-idiomatic "list as item" form
     let nodes = parse_template("<ul $each=\"items as item\" $key=\"getKey\"></ul>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(a, Attr::Macro { name, .. } if name == "each")));
             assert!(attrs.iter().any(|a| matches!(a, Attr::Macro { name, .. } if name == "key")));
         }
@@ -79,7 +79,7 @@ fn macro_each_and_key_parse() {
 fn macro_bind_prop_parses() {
     let nodes = parse_template("<div $bind:value=\"count\"></div>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "bind:value" && *value == MacroValue::Quoted("count".to_string())
@@ -93,7 +93,7 @@ fn macro_bind_prop_parses() {
 fn macro_on_event_parses() {
     let nodes = parse_template("<button $on:click=\"handleClick\"></button>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "on:click" && *value == MacroValue::Quoted("handleClick".to_string())
@@ -107,7 +107,7 @@ fn macro_on_event_parses() {
 fn macro_memo_curly_parses() {
     let nodes = parse_template("<div $memo={[count]}></div>").unwrap();
     match &nodes[0] {
-        scribe_compiler::TemplateNode::Element { attrs, .. } => {
+        aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
                 Attr::Macro { name, value } if name == "memo" && *value == MacroValue::Curly("[count]".to_string())

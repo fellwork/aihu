@@ -35,10 +35,10 @@ were resolved in a single cleanup commit.
 3. **6 orphaned bench-conformance files** in `bench/compiler-conformance/`:
    - `build-target/01-client-target-client.golden.js`
    - `build-target/01-client-target-universal.golden.js`
-   - `build-target/01-client-target.scribe`
+   - `build-target/01-client-target.aihu`
    - `route/01-basic-route.golden.json`
    - `route/02-full-route.golden.json`
-   - `route/02-full-route.scribe`
+   - `route/02-full-route.aihu`
    These were wrong-named drafts superseded by the tracked equivalents committed in PR #40.
    No test references pointed to them.
 

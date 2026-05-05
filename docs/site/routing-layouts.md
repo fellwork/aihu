@@ -1,16 +1,16 @@
 # Routing and Layouts
 
-scribe uses file-based routing. Pages live under `src/pages/` and automatically become routes when compiled.
+aihu uses file-based routing. Pages live under `src/pages/` and automatically become routes when compiled.
 
 ## File-based routing
 
-Any `.scribe` file under `src/pages/` that contains an `@route` block (or `@layout` shorthand) is treated as a page route. The file path determines the default URL pattern:
+Any `.aihu` file under `src/pages/` that contains an `@route` block (or `@layout` shorthand) is treated as a page route. The file path determines the default URL pattern:
 
 | File | Default pattern |
 |------|----------------|
-| `src/pages/index.scribe` | `/` |
-| `src/pages/about.scribe` | `/about` |
-| `src/pages/users/[id].scribe` | `/users/:id` |
+| `src/pages/index.aihu` | `/` |
+| `src/pages/about.aihu` | `/about` |
+| `src/pages/users/[id].aihu` | `/users/:id` |
 
 ## The `@route` block
 
@@ -46,7 +46,7 @@ The Rust compiler emits a `.route.json` file alongside each compiled SFC that ha
 }
 ```
 
-Read a sidecar programmatically with `readRouteSidecar(path)` from `@scribe/router/plugin`.
+Read a sidecar programmatically with `readRouteSidecar(path)` from `@aihu/router/plugin`.
 
 ## `viteRouterIntegration()`
 
@@ -55,18 +55,18 @@ Read a sidecar programmatically with `readRouteSidecar(path)` from `@scribe/rout
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { viteRouterIntegration } from '@scribe/router/plugin'
+import { viteRouterIntegration } from '@aihu/router/plugin'
 
 export default defineConfig({
   plugins: [viteRouterIntegration()],
 })
 ```
 
-The virtual module `virtual:scribe-routes` exports the assembled `RouteDefinition[]` array. The runtime `createRequestRouter` consumes it to handle navigation.
+The virtual module `virtual:aihu-routes` exports the assembled `RouteDefinition[]` array. The runtime `createRequestRouter` consumes it to handle navigation.
 
 ## Layouts
 
-Layouts live under `src/layouts/`. The default layout is `src/layouts/default.scribe`. A layout wraps the page's rendered output via `<$slot>`:
+Layouts live under `src/layouts/`. The default layout is `src/layouts/default.aihu`. A layout wraps the page's rendered output via `<$slot>`:
 
 ```
 @template {
@@ -78,14 +78,14 @@ Layouts live under `src/layouts/`. The default layout is `src/layouts/default.sc
 }
 ```
 
-`scanLayouts(dir)` from `@scribe/router/plugin` returns all discovered layout names.
+`scanLayouts(dir)` from `@aihu/router/plugin` returns all discovered layout names.
 
 ## Router middleware
 
 Middleware is defined with `defineRouterMiddleware` and composed with `composeRouterMiddleware`:
 
 ```typescript
-import { defineRouterMiddleware, composeRouterMiddleware } from '@scribe/router'
+import { defineRouterMiddleware, composeRouterMiddleware } from '@aihu/router'
 
 const authMiddleware = defineRouterMiddleware(async (ctx, next) => {
   if (!ctx.params.token) {

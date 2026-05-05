@@ -1,4 +1,4 @@
-# Build manifest — `@scribe/signals` Deep Perf Wins (size-relaxed)
+# Build manifest — `@aihu/signals` Deep Perf Wins (size-relaxed)
 
 **Spec:** `.team/phase-2-5/deep-perf-wins-spec.md`
 **Branch:** `perf/signals-cellx-fix`
@@ -146,7 +146,7 @@ Team Lead adjudications applied per §6.
 - `.team/phase-2-5/deep-perf-wins-builder-blockers.md` — appended §8 reconciliation noting that Phase 1's overruns are now retired by Phase 2's structural rewrite.
 - `bench/signals/CHANGELOG.md` — appended Phase 2 entry.
 
-**Why:** parent §9.4 / spec §2 Phase 2. Forward-edge walks with no iterator allocation are the fundamental difference between scribe-via-Set and alien-signals' ~8 µs wide-fanout floor. Effect dispose cleanup (§6.3 ACCEPTED) eliminates the long-running-app leak that the Set-based design couldn't cheaply fix.
+**Why:** parent §9.4 / spec §2 Phase 2. Forward-edge walks with no iterator allocation are the fundamental difference between aihu-via-Set and alien-signals' ~8 µs wide-fanout floor. Effect dispose cleanup (§6.3 ACCEPTED) eliminates the long-running-app leak that the Set-based design couldn't cheaply fix.
 
 **Verification:**
 - 52/52 tests pass (46 + 4 properties + 2 unit). Property tests pass 50/50 fast-check runs.
@@ -210,30 +210,30 @@ Team Lead adjudications applied per §6.
 **Commit:** (this commit) — `docs(phase-2-5): build manifest + RESULTS for deep perf wins`
 
 **Files:**
-- `bench/signals/RESULTS.md` — regenerated with the full 18-cell competitor matrix (3 workloads × 6 competitors). Captures the final scribe-vs-alien-signals position at end of Phase 3.
+- `bench/signals/RESULTS.md` — regenerated with the full 18-cell competitor matrix (3 workloads × 6 competitors). Captures the final aihu-vs-alien-signals position at end of Phase 3.
 - `.team/phase-2-5/deep-perf-wins-build-manifest.md` — created — this file.
 
 ---
 
 ## Cumulative bench position (final, Builder machine)
 
-| Workload | HEAD | Phase 3 | Δ vs HEAD | alien (this run) | scribe vs alien |
+| Workload | HEAD | Phase 3 | Δ vs HEAD | alien (this run) | aihu vs alien |
 |---|---:|---:|---:|---:|---|
-| cellx | 1.77 µs | 1.18 µs | **-33.3 %** | 1.45 µs | scribe ahead by 19 % |
-| wide-fanout-100 | 14.67 µs | 8.71 µs | **-40.6 %** | 9.36 µs | scribe ahead by 7 % |
-| batched-writes-100 | 9.70 µs | 4.98 µs | **-48.7 %** | 9.21 µs | scribe ahead by 46 % |
+| cellx | 1.77 µs | 1.18 µs | **-33.3 %** | 1.45 µs | aihu ahead by 19 % |
+| wide-fanout-100 | 14.67 µs | 8.71 µs | **-40.6 %** | 9.36 µs | aihu ahead by 7 % |
+| batched-writes-100 | 9.70 µs | 4.98 µs | **-48.7 %** | 9.21 µs | aihu ahead by 46 % |
 
 (Numbers from the final RESULTS.md regeneration run; medians of one
 mitata measurement window per cell. Phase 3 commit medians from 5-run
 captures: 1.21 / 8.84 / 5.69 µs — the regen's single-run is within
 that band.)
 
-**Scribe is now ahead of alien-signals on all three workloads on the
-Builder machine.** Cellx is structurally ahead (1.18 vs 1.45 = scribe
+**Aihu is now ahead of alien-signals on all three workloads on the
+Builder machine.** Cellx is structurally ahead (1.18 vs 1.45 = aihu
 19 % faster) — first time in this branch's history. Wide-fanout is
 narrowly ahead (8.71 vs 9.36, both inside their 5-run noise bands —
 this is "at parity, possibly slightly ahead" rather than dominant).
-Batched-writes-100 is strongly ahead (4.98 vs 9.21 — scribe 46 % faster
+Batched-writes-100 is strongly ahead (4.98 vs 9.21 — aihu 46 % faster
 because its drainBatch single-sub fast path eliminates allocation
 that alien still performs).
 
@@ -255,7 +255,7 @@ that alien still performs).
 | §7.2.10 | No public API surface change (`index.ts` unmodified) | ✓ verified |
 
 §7.3 stretch acceptance:
-- wide-fanout-100 ≤ 7.5 µs (parity with alien) — **NOT ACHIEVED** on Builder machine (8.71 µs); alien on this machine is 9.36 µs, so scribe is at-or-ahead of alien but the absolute 7.5 µs target remained out of reach due to the documented Builder-machine offset.
+- wide-fanout-100 ≤ 7.5 µs (parity with alien) — **NOT ACHIEVED** on Builder machine (8.71 µs); alien on this machine is 9.36 µs, so aihu is at-or-ahead of alien but the absolute 7.5 µs target remained out of reach due to the documented Builder-machine offset.
 - cellx ≤ 1.20 µs — ✓ 1.18 µs (achieved).
 - Bundle ≤ 1400 B — ✓ 1383 B (achieved).
 
@@ -267,7 +267,7 @@ that alien still performs).
 
 2. **Phase 1 halt-and-surface (filed §1 builder-blockers).** Two §7.1 Phase 1 gates missed (cellx -3 % vs ≥10 % gate; bundle 1225 B vs 1175 B cap). Per spec §6.1 ACCEPTED, Phase 2's structural rewrite subsumes both. Builder shipped Phase 1 with explicit deviation rather than degrading to "Phase 1 = Phase 0 no-op" because the per-phase-commit cadence is the design intent of nomos §5 measurement-driven cycles. Phase 2 retired both deviations.
 
-3. **Phase 2 wide-fanout 1.8pp short of ≥20 % gate.** Got 18.2 % from Phase 1; spec §6.1 contingency triggers only on a *regression* >5 %, which did not occur. Builder continued; Phase 3's unexpected 13 % wide-fanout improvement closed the gap and brought scribe within parity of alien-signals on this machine.
+3. **Phase 2 wide-fanout 1.8pp short of ≥20 % gate.** Got 18.2 % from Phase 1; spec §6.1 contingency triggers only on a *regression* >5 %, which did not occur. Builder continued; Phase 3's unexpected 13 % wide-fanout improvement closed the gap and brought aihu within parity of alien-signals on this machine.
 
 4. **Phase 3 over-delivery on bench is a refactor side-effect.** The pool itself isn't exercised by the bench. Moving `run` from a per-effect closure to a top-level `runEffect(node)` function appears to compile to a more inline-cache-friendly form on Bun 1.3.13 / V8 13.x. Treated as a positive surprise per §3.3 (logged in CHANGELOG and commit body).
 
@@ -334,7 +334,7 @@ that alien still performs).
 
 **Tests:** 42 → 53 (+11 new; +4 property tests at 50/50 runs each).
 
-**Position vs alien-signals on Builder machine:** scribe ahead on all
+**Position vs alien-signals on Builder machine:** aihu ahead on all
 three workloads. cellx by 19 %, wide-fanout by 7 % (parity-or-slightly-
 ahead), batched-writes by 46 %.
 

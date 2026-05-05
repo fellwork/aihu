@@ -1,7 +1,7 @@
 export interface AcpAdapterOptions {
   /** URL prefix for all routes. Default: '' */
   prefix?: string
-  /** Agent identifier for the agent card. Default: 'scribe-agent-service' */
+  /** Agent identifier for the agent card. Default: 'aihu-agent-service' */
   agentId?: string
 }
 

@@ -571,21 +571,21 @@ fn build_function_imports(
 
     // Arbor imports
     let arbor_items = if needs_each {
-        "import { branch, leaf, slot, each } from '@scribe/arbor'"
+        "import { branch, leaf, slot, each } from '@aihu/arbor'"
     } else {
-        "import { branch, leaf, slot } from '@scribe/arbor'"
+        "import { branch, leaf, slot } from '@aihu/arbor'"
     };
 
     let mut lines: Vec<String> = vec![arbor_items.to_string()];
 
     // Signals imports
     if !signal_map.0.is_empty() {
-        lines.push("import type { Signal } from '@scribe/signals'".to_string());
+        lines.push("import type { Signal } from '@aihu/signals'".to_string());
         let mut sig_items: Vec<&str> = vec!["signal"];
         if si.needs_computed { sig_items.push("computed"); }
         if emit_effect { sig_items.push("effect"); }
         if si.needs_batch { sig_items.push("batch"); }
-        lines.push(format!("import {{ {} }} from '@scribe/signals'", sig_items.join(", ")));
+        lines.push(format!("import {{ {} }} from '@aihu/signals'", sig_items.join(", ")));
     } else {
         // No signals in map, but may still need computed/effect/batch
         let mut sig_items: Vec<&str> = Vec::new();
@@ -593,8 +593,8 @@ fn build_function_imports(
         if emit_effect { sig_items.push("effect"); }
         if si.needs_batch { sig_items.push("batch"); }
         if !sig_items.is_empty() {
-            lines.push("import type { Signal } from '@scribe/signals'".to_string());
-            lines.push(format!("import {{ {} }} from '@scribe/signals'", sig_items.join(", ")));
+            lines.push("import type { Signal } from '@aihu/signals'".to_string());
+            lines.push(format!("import {{ {} }} from '@aihu/signals'", sig_items.join(", ")));
         }
     }
 
@@ -602,7 +602,7 @@ fn build_function_imports(
     let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
     if si.needs_on_mount { rt_items.push("onMount"); }
     if si.needs_on_cleanup { rt_items.push("onCleanup"); }
-    lines.push(format!("import {{ {} }} from '@scribe/runtime'", rt_items.join(", ")));
+    lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
     lines.join("\n")
 }
@@ -650,32 +650,32 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     let si = StateImports::default();
 
     let mut import_lines: Vec<String> = if helpers_needed.each_boundary {
-        vec!["import { branch, leaf, slot, each } from '@scribe/arbor'".to_string()]
+        vec!["import { branch, leaf, slot, each } from '@aihu/arbor'".to_string()]
     } else {
-        vec!["import { branch, leaf, slot } from '@scribe/arbor'".to_string()]
+        vec!["import { branch, leaf, slot } from '@aihu/arbor'".to_string()]
     };
 
     // computed import if needed for number/boolean/enum coercions
     if needs_computed {
-        import_lines.push("import { computed } from '@scribe/signals'".to_string());
+        import_lines.push("import { computed } from '@aihu/signals'".to_string());
     }
 
     // signal import if script uses signals; effect if $html/$show macros or direct effect() calls
     if !signal_map.0.is_empty() {
-        import_lines.push("import type { Signal } from '@scribe/signals'".to_string());
+        import_lines.push("import type { Signal } from '@aihu/signals'".to_string());
         if emit_effect {
-            import_lines.push("import { signal, effect } from '@scribe/signals'".to_string());
+            import_lines.push("import { signal, effect } from '@aihu/signals'".to_string());
         } else {
-            import_lines.push("import { signal } from '@scribe/signals'".to_string());
+            import_lines.push("import { signal } from '@aihu/signals'".to_string());
         }
     } else if emit_effect {
-        import_lines.push("import { effect } from '@scribe/signals'".to_string());
+        import_lines.push("import { effect } from '@aihu/signals'".to_string());
     }
 
     let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
     if si.needs_on_mount { rt_items.push("onMount"); }
     if si.needs_on_cleanup { rt_items.push("onCleanup"); }
-    import_lines.push(format!("import {{ {} }} from '@scribe/runtime'", rt_items.join(", ")));
+    import_lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
     let imports = import_lines.join("\n");
 

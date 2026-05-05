@@ -1,5 +1,5 @@
 /**
- * Post-build property mangler for @scribe/signals.
+ * Post-build property mangler for @aihu/signals.
  *
  * rolldown v1.0.0-rc.17's mangle.properties API is not wired through in the
  * output config. This script applies safe post-minification property renames

@@ -16,8 +16,8 @@ interface VitePlugin {
   }) => void
 }
 
-const RR = '\0virtual:scribe-routes'
-const LR = '\0virtual:scribe-layouts'
+const RR = '\0virtual:aihu-routes'
+const LR = '\0virtual:aihu-layouts'
 
 export interface RouterPluginOptions {
   pagesDir?: string
@@ -55,7 +55,7 @@ function segs(rel: string): RouteSegment[] {
             : { kind: 'static', path: p },
     )
   // File-router convention: trailing `index` segment is the parent directory's root.
-  // e.g. src/pages/index.scribe → /,  src/pages/posts/index.scribe → /posts
+  // e.g. src/pages/index.aihu → /,  src/pages/posts/index.aihu → /posts
   if (parts.length > 0) {
     const last = parts[parts.length - 1]!
     if (last.kind === 'static' && last.path === 'index') parts.pop()
@@ -63,9 +63,9 @@ function segs(rel: string): RouteSegment[] {
   return parts
 }
 
-/** Extract the component tag name from an `@route { name: "..." }` block in a .scribe file. */
-function readScribeRouteName(f: string): string | null {
-  if (!f.endsWith('.scribe')) return null
+/** Extract the component tag name from an `@route { name: "..." }` block in a .aihu file. */
+function readAihuRouteName(f: string): string | null {
+  if (!f.endsWith('.aihu')) return null
   try {
     const content = readFileSync(f, 'utf8')
     const block = content.match(/@route\s*\{([^}]*)\}/)
@@ -96,12 +96,12 @@ export function readRouteSidecar(f: string): RouteSidecar | null {
   }
 }
 
-/** v0.6.8: Scan layouts dir for .scribe files. Build-time only. */
+/** v0.6.8: Scan layouts dir for .aihu files. Build-time only. */
 export function scanLayouts(d: string): LayoutMap {
   if (!existsSync(d)) return {}
   const m: LayoutMap = {}
   for (const e of readdirSync(d, { withFileTypes: true }))
-    if (e.isFile() && e.name.endsWith('.scribe'))
+    if (e.isFile() && e.name.endsWith('.aihu'))
       m[e.name.slice(0, -7)] = join(d, e.name).replace(/\\/g, '/')
   return m
 }
@@ -113,8 +113,8 @@ function genR(files: string[], pd: string, middlewareByDir: Record<string, strin
     .map((f) => {
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
       const sc = readRouteSidecar(f)
-      // For .scribe files without a sidecar, fall back to reading `name` from the @route block.
-      const scribeName = (!sc?.name && f.endsWith('.scribe')) ? readScribeRouteName(f) : null
+      // For .aihu files without a sidecar, fall back to reading `name` from the @route block.
+      const scribeName = (!sc?.name && f.endsWith('.aihu')) ? readAihuRouteName(f) : null
       const x = sc
         ? SK.filter((k) => sc[k] !== undefined)
             .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)
@@ -163,7 +163,7 @@ export function scanPages(root: string, pd: string): MiddlewareScan {
         // v0.7.2: capture _middleware.ts / _middleware.js / _middleware.tsx / _middleware.jsx
         if (/^_middleware\.(ts|js|tsx|jsx)$/.test(e.name)) {
           middlewareByDir[dir.replace(/\\/g, '/')] = fp.replace(/\\/g, '/')
-        } else if (/\.(ts|js|tsx|jsx|scribe)$/.test(e.name) && !e.name.startsWith('_')) {
+        } else if (/\.(ts|js|tsx|jsx|aihu)$/.test(e.name) && !e.name.startsWith('_')) {
           routes.push(fp)
         }
       }
@@ -184,9 +184,9 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
     cr: string | null = null,
     cl: string | null = null
   return {
-    name: 'scribe-router',
+    name: 'aihu-router',
     resolveId: (id) =>
-      id === 'virtual:scribe-routes' ? RR : id === 'virtual:scribe-layouts' ? LR : null,
+      id === 'virtual:aihu-routes' ? RR : id === 'virtual:aihu-layouts' ? LR : null,
     load(id) {
       if (id === RR) {
         if (!cr) {
@@ -243,7 +243,7 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
 // ---------------------------------------------------------------------------
 
 /**
- * @scribe/router Vite integration (v0.7.4 rename of `viteRouterPlugin`).
+ * @aihu/router Vite integration (v0.7.4 rename of `viteRouterPlugin`).
  * Prefer this name going forward; `viteRouterPlugin` is kept as the original
  * function name (deprecated) until v1.0.
  */

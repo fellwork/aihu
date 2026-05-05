@@ -4,12 +4,12 @@
 **Author:** Round N+1 design session (single agent, no Builders).
 **Date:** 2026-04-30
 **Branch:** `research/round-n1-bench-design` (off team-branch `bb96f1b`).
-**Predecessor work:** Phase 2.5 bench-spike (PR #6, #8 — signals time benches), Phase 3 (`@scribe/arbor` shipped, no bench), Round N close (state-plan-a.md `135c53c`).
+**Predecessor work:** Phase 2.5 bench-spike (PR #6, #8 — signals time benches), Phase 3 (`@aihu/arbor` shipped, no bench), Round N close (state-plan-a.md `135c53c`).
 
-> **Status when this doc lands:** scribe v0 is feature-complete on size, tests, and API surface (`signals 1.53 kB / arbor 1.28 kB / runtime 438 B / agent 72 B`, 131 tests green). Round N+1 closes the **two Learning #11 receipt gaps** that block first-eyes:
+> **Status when this doc lands:** aihu v0 is feature-complete on size, tests, and API surface (`signals 1.53 kB / arbor 1.28 kB / runtime 438 B / agent 72 B`, 131 tests green). Round N+1 closes the **two Learning #11 receipt gaps** that block first-eyes:
 >
-> 1. `@scribe/arbor` has zero SOTA receipts. The only existing arbor bench is `tests/bench.test.ts` — a 400 ms JSDOM smoke gate. No comparator. No competitor parity.
-> 2. `@scribe/signals` has only **time** receipts (cellx, wide-fanout, batched-writes vs. 5 competitors). No memory. No competitor-parity workloads.
+> 1. `@aihu/arbor` has zero SOTA receipts. The only existing arbor bench is `tests/bench.test.ts` — a 400 ms JSDOM smoke gate. No comparator. No competitor parity.
+> 2. `@aihu/signals` has only **time** receipts (cellx, wide-fanout, batched-writes vs. 5 competitors). No memory. No competitor-parity workloads.
 >
 > This doc designs the bench-spike work that Builders (one or two parallel tracks) will implement next session. **No code is shipped here** — only specifications, sketches, file lists, acceptance criteria, and risks.
 
@@ -17,7 +17,7 @@
 
 ## TL;DR
 
-Round N+1 lifts scribe from "looks fast on three workloads" to "has SOTA receipts on the same axes the competitors themselves emphasize, on both time and memory, for both signals and arbor."
+Round N+1 lifts aihu from "looks fast on three workloads" to "has SOTA receipts on the same axes the competitors themselves emphasize, on both time and memory, for both signals and arbor."
 
 **Recommended scope:**
 - **Track A (new) — `bench/arbor/` SOTA bench.** Mirror Phase 2.5's `bench/signals/` layout. **6 workloads × 5 comparators × 2 metrics (time + memory).** Comparators: lit-html (3.x), solid-js DOM (`solid-js/web` via `solid-js/h`), @vue/runtime-dom, Preact + `htm`, vanilla DOM baseline. Workloads: 10k-leaf mount, deep-tree mount (depth 100, fanout 10), wide-tree mount (1k siblings), reactive attr thrash, update-1-of-10k, krausest-style 1k-row create+partial-update+clear cycle. Run in **JSDOM under Bun** with `--expose-gc`. Ship a separate `bench-arbor:run` Moon task with the same 10% p50 regression gate as signals.
@@ -33,7 +33,7 @@ Round N+1 lifts scribe from "looks fast on three workloads" to "has SOTA receipt
 
 ## 1. Competitor-parity workload survey
 
-The user's instruction — *"add more comparison to what the competitors test each other on comparably"* — means: scribe should be measurable on the workloads the named competitors hold themselves to. This section maps each competitor's published bench shape and recommends which to lift.
+The user's instruction — *"add more comparison to what the competitors test each other on comparably"* — means: aihu should be measurable on the workloads the named competitors hold themselves to. This section maps each competitor's published bench shape and recommends which to lift.
 
 ### 1.1 Signals competitors
 
@@ -69,11 +69,11 @@ The user's instruction — *"add more comparison to what the competitors test ea
 
 **For signals (Track B — 3 NEW workloads beyond our current 3):**
 
-1. **`deep-propagation-100`** — port of `molBench`. Linear chain of 100 computeds, source->c1->c2->...->c100->effect. Write source; measure time-to-effect. *Why:* alien-signals' `bench/` brags about deep-chain wins; we beat alien on cellx but never tested deep. (Phase 3 retro hinted scribe was tuned for shallow diamond; deep is the dual.)
-2. **`dynamic-deps`** — port of `kairoBench`. 50 sources, 1 computed that reads a randomly-selected 5 sources per evaluation (deps change every read). Write all sources every iteration; measure flush. *Why:* this is the workload where forward-subscription models (alien, scribe) historically beat owner-tree models (Solid) — but we've never measured it.
+1. **`deep-propagation-100`** — port of `molBench`. Linear chain of 100 computeds, source->c1->c2->...->c100->effect. Write source; measure time-to-effect. *Why:* alien-signals' `bench/` brags about deep-chain wins; we beat alien on cellx but never tested deep. (Phase 3 retro hinted aihu was tuned for shallow diamond; deep is the dual.)
+2. **`dynamic-deps`** — port of `kairoBench`. 50 sources, 1 computed that reads a randomly-selected 5 sources per evaluation (deps change every read). Write all sources every iteration; measure flush. *Why:* this is the workload where forward-subscription models (alien, aihu) historically beat owner-tree models (Solid) — but we've never measured it.
 3. **`creation-1to1000`** — port of solid's `createComputations1to1000` shape. 1 signal, 1000 computeds each reading the signal. Measure **creation time only** (no writes). *Why:* setup-cost matters for large lists; Solid optimizes creation aggressively; we have no creation benchmark today.
 
-We **do not** lift Vue's `reactiveObject.bench` — proxy-based reactivity is a different model than scribe's tuple signals; the comparison would be apples-to-oranges and reward Vue for things scribe can't do.
+We **do not** lift Vue's `reactiveObject.bench` — proxy-based reactivity is a different model than aihu's tuple signals; the comparison would be apples-to-oranges and reward Vue for things aihu can't do.
 
 We **do not** lift the full krausest suite into `bench/signals/` — that's arbor's domain.
 
@@ -147,14 +147,14 @@ Plus the existing time metrics (`mean / p50 / p99 / ops/s`).
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | ... | ... | ... | ... |
+| @aihu/signals | ... | ... | ... | ... |
 ...
 
 ### Memory
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | 1.2 KB | 4.8 KB | 0 B |
+| @aihu/signals | 1.2 KB | 4.8 KB | 0 B |
 ...
 ```
 
@@ -236,7 +236,7 @@ bench/arbor/
     |-- types.ts             # DomAdapter + WorkloadDefinition interfaces (see §3.3)
     |-- competitors/
     |   |-- index.ts         # ordered list
-    |   |-- scribe.ts        # @scribe/arbor + @scribe/signals
+    |   |-- aihu.ts        # @aihu/arbor + @aihu/signals
     |   |-- lit.ts           # lit-html
     |   |-- solid.ts         # solid-js/web + solid-js/h (NOT solid-js main)
     |   |-- vue.ts           # @vue/runtime-dom + @vue/reactivity
@@ -346,8 +346,8 @@ export interface UpdateEvent {
 
 | Library | Pin | Source / entry |
 |---|---|---|
-| `@scribe/arbor` | workspace | `packages/arbor/dist/index.js` |
-| `@scribe/signals` | workspace | (transitive via arbor) |
+| `@aihu/arbor` | workspace | `packages/arbor/dist/index.js` |
+| `@aihu/signals` | workspace | (transitive via arbor) |
 | `lit-html` | `3.2.x` | `lit-html/lit-html.js` (ESM, prod) |
 | `solid-js` | `1.9.12` (already pinned) | `solid-js/dist/solid.js` + `solid-js/web/dist/web.js` + `solid-js/h/dist/h.js` |
 | `@vue/runtime-dom` | `3.5.33` (matches @vue/reactivity already pinned) | `@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js` |
@@ -383,8 +383,8 @@ If a future Round wants browser-fidelity numbers, those go in a separate `bench/
 - **Solid's `render()` returns a `dispose: () => void`.** Map directly to `dispose(mount)`.
 - **lit-html has no per-mount dispose.** Use `render(nothing, host)` to clear; for memory phase drop the host reference and settle GC.
 - **Preact + `htm` re-renders the whole tree on update by default.** This is the apples-to-oranges hazard. Document that Preact's "update" is an unavoidable full re-render under htm — that's the comparison the user gets when they pick Preact + htm. Don't try to "make it fair"; report the truth.
-- **Vanilla DOM has no signal binding.** The `update` adapter for vanilla manually finds the target node and sets `textContent`. This is the floor — by definition the cheapest possible update; if scribe is slower than vanilla on `update-1-of-10k-leaves`, we have a problem. (Expected: scribe is within 2-3x of vanilla; lit/solid similar; preact/vue 5-10x slower due to diff.)
-- **`_setMount(mount)` injection.** Round N's `defineComponent` hooks `_setMount` so components see their `MountScope`. The bench bypasses `defineComponent` entirely (it builds `Branch`/`Leaf` trees directly). No interference expected. Document the bypass in the scribe adapter's JSDoc so a future reader doesn't assume the bench exercises the runtime layer.
+- **Vanilla DOM has no signal binding.** The `update` adapter for vanilla manually finds the target node and sets `textContent`. This is the floor — by definition the cheapest possible update; if aihu is slower than vanilla on `update-1-of-10k-leaves`, we have a problem. (Expected: aihu is within 2-3x of vanilla; lit/solid similar; preact/vue 5-10x slower due to diff.)
+- **`_setMount(mount)` injection.** Round N's `defineComponent` hooks `_setMount` so components see their `MountScope`. The bench bypasses `defineComponent` entirely (it builds `Branch`/`Leaf` trees directly). No interference expected. Document the bypass in the aihu adapter's JSDoc so a future reader doesn't assume the bench exercises the runtime layer.
 
 ---
 
@@ -392,7 +392,7 @@ If a future Round wants browser-fidelity numbers, those go in a separate `bench/
 
 ### 4.1 Existing gate (signals)
 
-`bench/signals/src/gate.ts`: parses the `<!-- bench-data:start -->` JSON block from current vs previous `RESULTS.md`, computes `(current.p50 / previous.p50) - 1` for the `@scribe/signals` row of every workload, fails if any > 0.10. `BENCH_BUMP=1` (set by CI when commit message contains `[bench-bump]`) bypasses.
+`bench/signals/src/gate.ts`: parses the `<!-- bench-data:start -->` JSON block from current vs previous `RESULTS.md`, computes `(current.p50 / previous.p50) - 1` for the `@aihu/signals` row of every workload, fails if any > 0.10. `BENCH_BUMP=1` (set by CI when commit message contains `[bench-bump]`) bypasses.
 
 ### 4.2 What Round N+1 adds
 
@@ -454,20 +454,20 @@ Single time table per workload. One stretch table at bottom for gz size. JSON fo
 ### 5.2 Proposed shape (signals, post-Round N+1)
 
 ```markdown
-# `@scribe/signals` Bench Results
+# `@aihu/signals` Bench Results
 
 **Generated:** 2026-...
 **Runner:** mitata 1.0.34 + memory.ts (--expose-gc) · Bun X · Node X
-**Track:** A — vanilla scribe vs. SOTA JS reactivity libs
+**Track:** A — vanilla aihu vs. SOTA JS reactivity libs
 
 ## Workloads
 
 ### `cellx` — 5-deep diamond graph propagation
 
 #### Time
-| Competitor | mean | p50 | p99 | ops/s | scribe vs. |
+| Competitor | mean | p50 | p99 | ops/s | aihu vs. |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| @scribe/signals | ... | ... | ... | ... | --- |
+| @aihu/signals | ... | ... | ... | ... | --- |
 | alien-signals | ... | ... | ... | ... | +X% |
 ...
 
@@ -491,31 +491,31 @@ themselves to?"
 
 ### vs. alien-signals
 *alien-signals' canonical bench is `transitive-bullshit/js-reactivity-benchmark`.*
-- `cellx`: scribe **wins** by Xx (PASS)
-- `mol-bench` (deep-propagation-100): scribe ...
-- `kairo-bench` (dynamic-deps): scribe ...
-- `s-bench` (creation-1to1000): scribe ...
+- `cellx`: aihu **wins** by Xx (PASS)
+- `mol-bench` (deep-propagation-100): aihu ...
+- `kairo-bench` (dynamic-deps): aihu ...
+- `s-bench` (creation-1to1000): aihu ...
 
 ### vs. @vue/reactivity
 *Vue's __benchmarks__ emphasize `effect.bench`, `computed.bench`, `reactiveObject.bench`.*
-- `effect.bench` ~= our `wide-fanout-100`: scribe **wins** by Xx
-- `computed.bench` ~= our `cellx`: scribe **wins** by Xx
+- `effect.bench` ~= our `wide-fanout-100`: aihu **wins** by Xx
+- `computed.bench` ~= our `cellx`: aihu **wins** by Xx
 - `reactiveObject.bench`: NOT MEASURED — proxy-reactivity is a different model
-  (intentional gap; scribe does not aim to compete on object-property thrash)
+  (intentional gap; aihu does not aim to compete on object-property thrash)
 
 ### vs. @preact/signals-core
 *No published canonical bench; throughput is the implicit axis.*
-- All five overlapping workloads: scribe wins
+- All five overlapping workloads: aihu wins
 
 ### vs. solid-js
 *Solid's `bench.cjs` measures creation/update across `1to1`, `1to4`, `1to1000`, `2to1`, `4to1`, `1000to1` shapes.*
-- `1to1` ~= our `cellx` chain: scribe ...
-- `1to1000` ~= our `creation-1to1000`: scribe ...
+- `1to1` ~= our `cellx` chain: aihu ...
+- `1to1000` ~= our `creation-1to1000`: aihu ...
 - `4to1` / `1000to1` (fan-in): NOT MEASURED — lift in v1+ if relevant
 
 ### vs. s-js
 *s-js' canonical bench is `cellx`.*
-- `cellx`: scribe **wins** by Xx
+- `cellx`: aihu **wins** by Xx
 
 ## Bundle size (gz)
 
@@ -527,7 +527,7 @@ themselves to?"
 <!-- bench-data:end -->
 ```
 
-The "per-competitor-axis section" is the **honesty piece** — it answers the user's exact instruction. It is hand-authored prose with auto-filled numbers; the runner generates the numbers, the maintainer writes the prose. New entries go in via a follow-up commit when scribe takes a new axis.
+The "per-competitor-axis section" is the **honesty piece** — it answers the user's exact instruction. It is hand-authored prose with auto-filled numbers; the runner generates the numbers, the maintainer writes the prose. New entries go in via a follow-up commit when aihu takes a new axis.
 
 ### 5.3 Same shape applies to `bench/arbor/RESULTS.md`
 
@@ -536,7 +536,7 @@ Per-axis section maps:
 - vs solid: `update-1-of-10k-leaves` is their headline (granular updates)
 - vs vue: `attr-thrash-100x100` is their patch-flag axis
 - vs preact: `mount-10k-leaves` (smallest-runtime claim) — preact will likely **win** here because htm pre-compiles templates; document honestly
-- vs vanilla: floor reference, scribe should be within 2-3x
+- vs vanilla: floor reference, aihu should be within 2-3x
 
 ---
 
@@ -559,7 +559,7 @@ Per-axis section maps:
 | `bench/arbor/src/gate.ts` | CREATE | ~100 | Time + memory regression gate |
 | `bench/arbor/src/size.ts` | CREATE | ~50 | gz size table for competitor entries |
 | `bench/arbor/src/competitors/index.ts` | CREATE | ~10 | Ordered list |
-| `bench/arbor/src/competitors/scribe.ts` | CREATE | ~80 | arbor + signals adapter |
+| `bench/arbor/src/competitors/aihu.ts` | CREATE | ~80 | arbor + signals adapter |
 | `bench/arbor/src/competitors/lit.ts` | CREATE | ~80 | lit-html adapter |
 | `bench/arbor/src/competitors/solid.ts` | CREATE | ~100 | solid-js/web + h adapter |
 | `bench/arbor/src/competitors/vue.ts` | CREATE | ~100 | @vue/runtime-dom adapter |
@@ -607,7 +607,7 @@ Per-axis section maps:
 
 Track A has 25 files but they're tightly coupled: spec + adapter + workload + runner. **Recommend three Builder spawns within Track A**, atomic per spawn:
 
-1. **Spawn A1: scaffold + types + jsdom-host + scribe adapter + first workload (`mount-10k-leaves`)** — proves the pipeline end-to-end. ~6 files. One commit.
+1. **Spawn A1: scaffold + types + jsdom-host + aihu adapter + first workload (`mount-10k-leaves`)** — proves the pipeline end-to-end. ~6 files. One commit.
 2. **Spawn A2: remaining 5 competitors + remaining 5 workloads** — bulk fill. ~14 files. One commit per competitor or per workload pair. ~8 commits.
 3. **Spawn A3: memory.ts + gate.ts + RESULTS.md + HARNESS.md + CI** — wraps it up. ~5 files. One commit per file or per concern. ~5 commits.
 
@@ -622,7 +622,7 @@ A Round N+1 PR meets the gate when **all** the below are true:
 ### 7.1 Track A (arbor SOTA bench)
 
 - [ ] `bench/arbor/RESULTS.md` exists, is generated, and contains:
-  - [ ] **6 workloads** x **5 comparators (excluding scribe)** x **2 metrics (time, memory)** = 60 cells minimum
+  - [ ] **6 workloads** x **5 comparators (excluding aihu)** x **2 metrics (time, memory)** = 60 cells minimum
   - [ ] Per-axis honesty section with at least 4 sub-sections (vs. lit, solid, vue, vanilla)
   - [ ] Bundle-size stretch table
   - [ ] Machine-readable JSON footer for the gate
@@ -647,7 +647,7 @@ A Round N+1 PR meets the gate when **all** the below are true:
 
 ### 7.3 Cross-track
 
-- [ ] No regression in any time bench >10% on any workload, any competitor scribe loses to that we already beat
+- [ ] No regression in any time bench >10% on any workload, any competitor aihu loses to that we already beat
 - [ ] All packages still tree-shakeable to their existing budget (signals 1.7 kB, arbor 2.05 kB) — bench code lives in `bench/`, never in `packages/`
 - [ ] Both `bench-signals:run` and `bench-arbor:run` are runnable without network access (all competitors are bundled via `bun install` + Moon caches)
 - [ ] `state-plan-a.md` "Open items" updated: Round N+1 row moved to CLOSED, with PR link
@@ -657,8 +657,8 @@ A Round N+1 PR meets the gate when **all** the below are true:
 The Builder is also the verifier (per Phase 2.5 brief — bench produces numbers, numbers are checkable). The PR must include in its description:
 
 1. The full RESULTS.md tables, inline.
-2. A note for each competitor: "scribe wins on N of M workloads."
-3. **A specific honesty statement.** Where scribe loses, the PR description names the workload, the competitor, and the gap; if the gap is >2x, opens a follow-up issue.
+2. A note for each competitor: "aihu wins on N of M workloads."
+3. **A specific honesty statement.** Where aihu loses, the PR description names the workload, the competitor, and the gap; if the gap is >2x, opens a follow-up issue.
 4. Local run output (the bench runner's stdout, copy-pasted into a `<details>` block).
 
 ---
@@ -692,7 +692,7 @@ Per HARNESS.md rule, competitor version bumps require `[bench-bump]` and a basel
 
 ### 8.6 `_setMount(mount)` injection in arbor (LOW — clarified)
 
-The bench builds `Branch`/`Leaf` trees directly; `defineComponent` (which calls `_setMount`) is a runtime-package concern, bypassed entirely. The arbor adapter `mount()` calls `arbor.mount(tree, host)` directly. Document in the scribe adapter JSDoc.
+The bench builds `Branch`/`Leaf` trees directly; `defineComponent` (which calls `_setMount`) is a runtime-package concern, bypassed entirely. The arbor adapter `mount()` calls `arbor.mount(tree, host)` directly. Document in the aihu adapter JSDoc.
 
 ### 8.7 First-time variance on new workloads (MEDIUM)
 
@@ -704,7 +704,7 @@ The 3 new signals workloads have no prior baseline. First merge will set the bas
 
 ### 8.9 Fairness vs. preact + htm (DOCUMENTED)
 
-Preact under htm always re-renders the whole tree on update. We will lose `update-1-of-10k-leaves` against scribe/solid/lit. **Don't try to be fair.** Report the truth; let the reader conclude.
+Preact under htm always re-renders the whole tree on update. We will lose `update-1-of-10k-leaves` against aihu/solid/lit. **Don't try to be fair.** Report the truth; let the reader conclude.
 
 ### 8.10 Open questions
 
@@ -762,7 +762,7 @@ Decision authority: 2B. Apply Learnings #1, #5, #11, #18.
 
 Hard stops: any competitor breaks under --expose-gc -> escalate. Memory
 deltas that don't stabilize across runs (>30% variance N=1000) -> harness
-bug, fix before reporting. Any new workload that scribe loses by >5x ->
+bug, fix before reporting. Any new workload that aihu loses by >5x ->
 halt and investigate.
 ```
 
@@ -810,7 +810,7 @@ The following are tempting to add but should NOT land in Round N+1:
 
 ## Appendix B — Mapping between competitor axes and our workloads
 
-| Competitor axis | Their workload name | Scribe workload (our naming) | Match quality |
+| Competitor axis | Their workload name | Aihu workload (our naming) | Match quality |
 |---|---|---|---|
 | alien-signals: cellx | `cellx` | `cellx` | exact |
 | alien-signals: kairo (dynamic deps) | `kairoBench` | `dynamic-deps` (NEW) | close |
@@ -836,4 +836,4 @@ The following are tempting to add but should NOT land in Round N+1:
 
 ## End
 
-When Round N+1 lands, scribe has SOTA receipts on time + memory for both signals and arbor, on the workloads each competitor itself emphasizes, with CI-enforced regression thresholds on both axes. v0 is then defensible against Learning #11 — every claim is backed by a number, every number is gated, every gate cites a competitor.
+When Round N+1 lands, aihu has SOTA receipts on time + memory for both signals and arbor, on the workloads each competitor itself emphasizes, with CI-enforced regression thresholds on both axes. v0 is then defensible against Learning #11 — every claim is backed by a number, every number is gated, every gate cites a competitor.

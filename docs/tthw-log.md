@@ -1,7 +1,7 @@
 # TTHW Log
 
 Time-to-Hello-World measurements: how long it takes a developer to go from
-`git clone` to a working `.scribe` component.
+`git clone` to a working `.aihu` component.
 
 ## Methodology
 

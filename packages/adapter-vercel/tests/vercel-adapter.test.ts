@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { vercel } from '../src/index.ts'
-import type { AdapterContext } from '@scribe/app'
+import type { AdapterContext } from '@aihu/app'
 
 function makeContext(root: string, outDir: string): AdapterContext {
   return {
@@ -37,12 +37,12 @@ function makeContext(root: string, outDir: string): AdapterContext {
   }
 }
 
-describe('@scribe/adapter-vercel', () => {
+describe('@aihu/adapter-vercel', () => {
   let tmpRoot: string
   let tmpOut: string
 
   beforeEach(async () => {
-    tmpRoot = await mkdtemp(join(tmpdir(), 'scribe-vercel-test-'))
+    tmpRoot = await mkdtemp(join(tmpdir(), 'aihu-vercel-test-'))
     tmpOut = join(tmpRoot, 'dist')
     await mkdir(tmpOut, { recursive: true })
     // put a sentinel file in outDir to verify it gets copied

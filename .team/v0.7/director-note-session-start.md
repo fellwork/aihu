@@ -12,13 +12,13 @@ Key context: v0.6b separated the router browser bundle from build-time code, dro
 
 ## Sub-items
 
-- v0.7.1: `defineRouterMiddleware` + `composeRouterMiddleware` in `@scribe/router` (~150-220 B new code)
-- v0.7.2: `pages/**/_middleware.ts` auto-wire in vite-plugin (build-time, goes in `@scribe/router/plugin` subpath)
-- v0.7.3: Plugin Contract §6.5 wiring in `@scribe/plugin` (`serverRuntime`, `serverOnly`, `middleware` provisional fields)
-- v0.7.4: Rename: `@scribe/server.createRouter` → `createRequestRouter`; `viteRouterPlugin` → `viteRouterIntegration`; `agentReadiness` → `viteAgentReadinessIntegration`
+- v0.7.1: `defineRouterMiddleware` + `composeRouterMiddleware` in `@aihu/router` (~150-220 B new code)
+- v0.7.2: `pages/**/_middleware.ts` auto-wire in vite-plugin (build-time, goes in `@aihu/router/plugin` subpath)
+- v0.7.3: Plugin Contract §6.5 wiring in `@aihu/plugin` (`serverRuntime`, `serverOnly`, `middleware` provisional fields)
+- v0.7.4: Rename: `@aihu/server.createRouter` → `createRequestRouter`; `viteRouterPlugin` → `viteRouterIntegration`; `agentReadiness` → `viteAgentReadinessIntegration`
 - v0.7.5: Compose composition spec (code comment in composeRouterMiddleware documenting the stage order)
 
 ## Surface conditions
 
 1. Router browser bundle exceeds 1536 B after adding middleware → pre-authorized +256 B raise (1536→1792 B), surface as FYI
-2. Any new non-@scribe/* dep → surface + reject
+2. Any new non-@aihu/* dep → surface + reject

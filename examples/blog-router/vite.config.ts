@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import { viteScribePlugin } from '@scribe/app'
+import { viteAihuPlugin } from '@aihu/app'
 
 export default defineConfig({
   plugins: [
-    viteScribePlugin({
+    viteAihuPlugin({
       dir: { pages: 'src/pages' },
     }),
   ],

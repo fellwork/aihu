@@ -1,10 +1,10 @@
-# Block Structure — `@scribe/compiler`
+# Block Structure — `@aihu/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
 **Spec version:** 0.1.1-draft (Amendment 02 applied inline; Option B path convention locked)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
-**Depends on:** `@scribe/compiler` (parser infrastructure)
+**Depends on:** `@aihu/compiler` (parser infrastructure)
 **Consumes:** Template Attribute Syntax Spec, Macro Vocabulary Spec, Plugin Contract Spec
 **Related specs:** Compiler Error Reference, File Format Reference
 
@@ -14,7 +14,7 @@
 
 ## 0. Posture
 
-This spec defines the file format for `.scribe` SFC files at the structural level: which blocks exist, how they're delimited, how they parse, and how they compose. It is the binding contract between SFC source code and the compiler's top-level parser, before the block-internal parsers (template, macros, etc.) take over.
+This spec defines the file format for `.aihu` SFC files at the structural level: which blocks exist, how they're delimited, how they parse, and how they compose. It is the binding contract between SFC source code and the compiler's top-level parser, before the block-internal parsers (template, macros, etc.) take over.
 
 The four-block model is closed in v1: `@template`, `@state`, `@style`, `@agent`. Adding new core blocks requires an RFC and language version bump. Plugins MAY contribute namespaced blocks per §6.
 
@@ -24,12 +24,12 @@ The four-block model is closed in v1: `@template`, `@state`, `@style`, `@agent`.
 
 ### 1.1 File extension
 
-`.scribe` files are the canonical SFC format. The compiler treats files with this extension as scribe SFCs. Other extensions are not recognized.
+`.aihu` files are the canonical SFC format. The compiler treats files with this extension as aihu SFCs. Other extensions are not recognized.
 
 ```
-src/pages/users/[id].scribe              ← page component
-src/components/UserCard.scribe           ← reusable component
-src/layouts/AppLayout.scribe             ← layout component
+src/pages/users/[id].aihu              ← page component
+src/components/UserCard.aihu           ← reusable component
+src/layouts/AppLayout.aihu             ← layout component
 ```
 
 ### 1.2 Encoding
@@ -42,7 +42,7 @@ LF and CRLF are both accepted. The compiler normalizes to LF internally. Source 
 
 ### 1.4 Top-level structure
 
-A `.scribe` file consists of:
+A `.aihu` file consists of:
 
 1. **Optional leading comment** (single-line `//` or block `/* */`)
 2. **Optional file-level frontmatter** (reserved for v2; rejected in v1)
@@ -148,7 +148,7 @@ Blocks may appear in any order. The compiler does not require a canonical order.
 @agent          ← agent surface last
 ```
 
-The default formatter rewrites files to this order on save. Project config MAY override the canonical order (`scribe.config.ts` `formatter.blockOrder`).
+The default formatter rewrites files to this order on save. Project config MAY override the canonical order (`aihu.config.ts` `formatter.blockOrder`).
 
 ### 3.4 Empty blocks
 
@@ -281,7 +281,7 @@ Plugin blocks MUST use the dot-separated form. The dot is the discriminator: bar
 
 Plugin blocks are valid only if:
 
-1. The plugin is registered in `scribe.config.ts`
+1. The plugin is registered in `aihu.config.ts`
 2. The plugin's manifest declares the block name
 3. The block content matches the plugin's declared parser/schema
 
@@ -316,22 +316,22 @@ The block structure interacts with file-system conventions for routing, componen
 
 | Path pattern | Component role | Required blocks |
 |---|---|---|
-| `src/pages/**/*.scribe` | Page (route handler) | `@template` |
-| `src/components/**/*.scribe` | Reusable component | `@template` |
-| `src/layouts/**/*.scribe` | Layout component | `@template` |
-| `src/composables/**/*.scribe` | Logic-only module | None required |
+| `src/pages/**/*.aihu` | Page (route handler) | `@template` |
+| `src/components/**/*.aihu` | Reusable component | `@template` |
+| `src/layouts/**/*.aihu` | Layout component | `@template` |
+| `src/composables/**/*.aihu` | Logic-only module | None required |
 
-The compiler infers the role from the path. Configurable via `scribe.config.ts` (`paths` section).
+The compiler infers the role from the path. Configurable via `aihu.config.ts` (`paths` section).
 
 ### 7.2 Routing inference for pages
 
 Pages under `src/pages/` are auto-routed based on file path. The route is derived from the file path with conventions:
 
-- `src/pages/index.scribe` → `/`
-- `src/pages/about.scribe` → `/about`
-- `src/pages/users/[id].scribe` → `/users/:id`
-- `src/pages/users/[id]/posts.scribe` → `/users/:id/posts`
-- `src/pages/[...catchAll].scribe` → `/:catchAll*`
+- `src/pages/index.aihu` → `/`
+- `src/pages/about.aihu` → `/about`
+- `src/pages/users/[id].aihu` → `/users/:id`
+- `src/pages/users/[id]/posts.aihu` → `/users/:id/posts`
+- `src/pages/[...catchAll].aihu` → `/:catchAll*`
 
 Pages MAY override their auto-derived route with a `@route` block declaration (see §7.3).
 
@@ -360,11 +360,11 @@ The block contains structured data (path, name, middleware, etc.) parsed as a Ty
 
 Component names are derived from file paths:
 
-- `src/components/UserCard.scribe` → `UserCard`
-- `src/components/forms/Input.scribe` → `Input` (within `forms` namespace)
-- `src/components/ui/buttons/PrimaryButton.scribe` → `PrimaryButton`
+- `src/components/UserCard.aihu` → `UserCard`
+- `src/components/forms/Input.aihu` → `Input` (within `forms` namespace)
+- `src/components/ui/buttons/PrimaryButton.aihu` → `PrimaryButton`
 
-Components are auto-registered in the project's component glob (per `scribe.config.ts`). Other components reference them by bare name in `@template`:
+Components are auto-registered in the project's component glob (per `aihu.config.ts`). Other components reference them by bare name in `@template`:
 
 ```
 @template {
@@ -374,20 +374,20 @@ Components are auto-registered in the project's component glob (per `scribe.conf
 
 Path-based namespacing prevents name collisions:
 
-- `src/components/forms/Input.scribe` → `<Input>` is `forms.Input`
-- `src/components/admin/Input.scribe` → `<Input>` is `admin.Input`
+- `src/components/forms/Input.aihu` → `<Input>` is `forms.Input`
+- `src/components/admin/Input.aihu` → `<Input>` is `admin.Input`
 - The compiler resolves based on import context; explicit imports override
 
 ### 7.5 Layout association
 
-Layouts in `src/layouts/` are applied to pages based on `scribe.config.ts` configuration:
+Layouts in `src/layouts/` are applied to pages based on `aihu.config.ts` configuration:
 
 ```typescript
-// scribe.config.ts
+// aihu.config.ts
 export default defineConfig({
   layouts: {
-    default: './layouts/AppLayout.scribe',
-    auth: './layouts/AuthLayout.scribe',
+    default: './layouts/AppLayout.aihu',
+    auth: './layouts/AuthLayout.aihu',
     routes: {
       '/auth/*': 'auth',
       '/admin/*': 'admin',
@@ -440,7 +440,7 @@ Files migrated from other frameworks (Vue, Svelte, etc.) MAY include a header co
 
 ```
 // migrated from: src/pages/users.vue
-// migration tool: @scribe/migrate-vue v0.4.2
+// migration tool: @aihu/migrate-vue v0.4.2
 // migration date: 2026-04-15
 
 @state { ... }
@@ -486,7 +486,7 @@ This is purely informational. The compiler ignores migration headers.
 | Error | Trigger | Message template |
 |---|---|---|
 | Bare plugin name | `@field { }` | "bare block name '@field' is not a core block. Plugin blocks require namespaced form: '@plugin.field'" |
-| Unregistered plugin | `@unknown-plugin.block { }` | "unknown plugin 'unknown-plugin'. Register in scribe.config.ts plugins array" |
+| Unregistered plugin | `@unknown-plugin.block { }` | "unknown plugin 'unknown-plugin'. Register in aihu.config.ts plugins array" |
 | Plugin block exceeds multiplicity | Multiple `@plugin.field` when plugin allows 1 | "plugin '@plugin.field' may appear at most once per file (per plugin manifest)" |
 
 ---
@@ -579,7 +579,7 @@ A page with no logic, no styles, no agent surface. Compiles to a static componen
 ### 10.4 Logic-only composable
 
 ```
-// src/composables/useCounter.scribe
+// src/composables/useCounter.aihu
 
 @state {
   count: number = 0
@@ -706,7 +706,7 @@ The compiler operates with one of three build targets at any time:
 | `server` | Server bundle only (API-only deployments) |
 | `universal` | Both bundles (SSR mode — default for pages) |
 
-The build target is specified in `scribe.config.ts` (`build.target` field) or via CLI flag (`--target`). Default for page components is `universal`.
+The build target is specified in `aihu.config.ts` (`build.target` field) or via CLI flag (`--target`). Default for page components is `universal`.
 
 ---
 
@@ -734,7 +734,7 @@ Currently `@route` is a fifth top-level block. Alternative: a `route:` field ins
 
 The shorthand `@layout 'admin'` (no block body) is convenient but introduces a non-block top-level form. This is the only such case in v1.
 
-**Proposed resolution:** Drop the shorthand. Either use the full `@route { layout: 'admin' }` block or rely on `scribe.config.ts` route-pattern matching. One less special case.
+**Proposed resolution:** Drop the shorthand. Either use the full `@route { layout: 'admin' }` block or rely on `aihu.config.ts` route-pattern matching. One less special case.
 
 ### 12.3 Should plugin blocks support a "must come last" constraint?
 
@@ -744,7 +744,7 @@ Some plugin blocks might need to run after all core blocks have been parsed. Cur
 
 ### 12.4 Should empty files be valid?
 
-A `.scribe` file with no blocks is currently a no-op. Should it error?
+A `.aihu` file with no blocks is currently a no-op. Should it error?
 
 **Proposed resolution:** Warn but don't error. Empty files are sometimes useful as placeholders during development. The warning encourages adding content but doesn't block builds.
 

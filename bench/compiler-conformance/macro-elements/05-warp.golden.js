@@ -2,8 +2,8 @@
 // NOTE(v0.5-stub): createWarpBoundary requires arbor.mount to accept an arbitrary
 // host node. If arbor.mount only accepts a custom-element host, this boundary
 // is a stub pending an arbor mount API extension.
-import { branch, leaf, slot } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf, slot } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement(
   '05-warp',

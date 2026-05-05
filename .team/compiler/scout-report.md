@@ -70,8 +70,8 @@ defineElement('x-counter', defineComponent(ctx => { ... return branch(...) }))
 
 Or the compiler emits a full class extending HTMLElement and calls `defineElement` directly,
 per `define-element.ts`'s own comment:
-> "The compiler emits, at module level: `defineElement('hello-scribe', HelloScribe)`
-> where `HelloScribe extends HTMLElement` is fully authored by the compiler."
+> "The compiler emits, at module level: `defineElement('hello-aihu', HelloAihu)`
+> where `HelloAihu extends HTMLElement` is fully authored by the compiler."
 
 **The Architect must decide which form the compiler uses.** Both work; they differ in what the compiler generates.
 
@@ -122,7 +122,7 @@ Runtime discrimination is `Array.isArray(value)`, so it works at runtime.
 export function mount(node: Branch | Leaf, host: Element | ShadowRoot): MountScope
 ```
 
-The compiler-emitted class calls `mount()` directly from `@scribe/arbor`.
+The compiler-emitted class calls `mount()` directly from `@aihu/arbor`.
 **Unlike hand-authored `defineComponent`, compiler-emitted classes do NOT need `_setMount` wiring** — they import `mount` directly.
 
 ---
@@ -143,16 +143,16 @@ export function signal<T>(initialValue: T, options?: SignalOptions<T>): Signal<T
 
 ## Exports summary (what the compiler must import)
 
-**From `@scribe/arbor`:**
+**From `@aihu/arbor`:**
 - `branch` (function)
 - `leaf` (function + `.element` method)
 - `mount` (function)
 
-**From `@scribe/runtime`:**
+**From `@aihu/runtime`:**
 - `defineElement` (for compiler-emitted output, registers the component)
 - `defineComponent` (for `defineComponent` + `defineElement` two-call pattern)
 
-**From `@scribe/signals`:**
+**From `@aihu/signals`:**
 - `signal` (function)
 
 ---
@@ -170,7 +170,7 @@ export function signal<T>(initialValue: T, options?: SignalOptions<T>): Signal<T
 
 ## Do-not-break list
 
-1. **Compiler-emitted code must import `mount` directly from `@scribe/arbor`** — NOT via `_setMount`. The `_setMount` injection pattern is only for `defineComponent` (hand-authored). Compiler-emitted classes are standalone HTMLElement subclasses.
+1. **Compiler-emitted code must import `mount` directly from `@aihu/arbor`** — NOT via `_setMount`. The `_setMount` injection pattern is only for `defineComponent` (hand-authored). Compiler-emitted classes are standalone HTMLElement subclasses.
 2. **`leaf()` typed as `Signal<string>`** — passing `Signal<number>` will require a type cast or API adjustment.
 3. **`AttrMap` event handlers: `on` prefix + function value + not Array** — compiler must emit `{ onclick: fn }` not `{ click: fn }` for `@click` directives.
 4. **Shadow root:** `defineElement` attaches it in the constructor wrapper. Compiler-emitted `connectedCallback` reads `this.shadowRoot` (open mode default). Closed mode is a v0 limitation.

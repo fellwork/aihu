@@ -10,10 +10,10 @@
 
 | Sub-item | Description |
 |----------|-------------|
-| v0.7.1 | `defineRouterMiddleware` + `composeRouterMiddleware` + types in `packages/router/src/middleware.ts`; exported from `@scribe/router` |
+| v0.7.1 | `defineRouterMiddleware` + `composeRouterMiddleware` + types in `packages/router/src/middleware.ts`; exported from `@aihu/router` |
 | v0.7.2 | `viteRouterPlugin` (`vite-plugin.ts`) extended: `scanPages()` detects `_middleware.ts/js` and emits `middlewareFile` field |
 | v0.7.3 | `Plugin.serverOnly?: boolean` added to `packages/plugin/src/index.ts` |
-| v0.7.4 | Renames: `createRouter → createRequestRouter` (@scribe/server); `viteRouterPlugin → viteRouterIntegration` (@scribe/router); `agentReadiness → viteAgentReadinessIntegration` (@scribe/agent-readiness). All old names kept as deprecated aliases. |
+| v0.7.4 | Renames: `createRouter → createRequestRouter` (@aihu/server); `viteRouterPlugin → viteRouterIntegration` (@aihu/router); `agentReadiness → viteAgentReadinessIntegration` (@aihu/agent-readiness). All old names kept as deprecated aliases. |
 | v0.7.5 | Stage-order comment at top of `composeRouterMiddleware` |
 
 **TS tests:** 516 → 534 (+18)
@@ -32,4 +32,4 @@
 
 ## v0.8 is next
 
-v0.8 = CLI scaffolder + Hello World template + first-run UX (`@scribe/cli`). Smaller scope than v0.6/v0.7.
+v0.8 = CLI scaffolder + Hello World template + first-run UX (`@aihu/cli`). Smaller scope than v0.6/v0.7.

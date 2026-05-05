@@ -3,7 +3,7 @@ import { defineLoader } from '../src/data.ts'
 import { createRequestRouter, defineRoute } from '../src/router.ts'
 import type { Middleware } from '../src/types.ts'
 
-describe('@scribe/server router', () => {
+describe('@aihu/server router', () => {
   it('static route matches exact path', async () => {
     const route = defineRoute('/about', async () => new Response('about page'))
     const fetch = createRequestRouter({ routes: [route] })

@@ -15,7 +15,7 @@ against the 1024 B cap. Plan 1.2 is the only unblocked, spec-ready Builder targe
 
 One anti-pattern to flag: the arbor bundle absorbed a signals-bundling spillover from the
 6.2-P1 implementation that pushed it close to the adjusted 2200 B cap. **Arbor headroom is
-49 B — critically tight.** However, Plan 1.2 targets `@scribe/runtime` exclusively and does
+49 B — critically tight.** However, Plan 1.2 targets `@aihu/runtime` exclusively and does
 not touch arbor. The 49 B constraint does not block this session. It is a firm constraint for
 any future Plan 1.3 (Scoped Styles), Plan 1.4 (Slots), or any arbor-touching work.
 
@@ -26,7 +26,7 @@ cannot happen on Windows. This is a known, acknowledged carry; it does not block
 
 ## § Priority order for this session
 
-**1. Builder — Plan 1.2 (Component props, `@scribe/runtime`).** This is the only unblocked,
+**1. Builder — Plan 1.2 (Component props, `@aihu/runtime`).** This is the only unblocked,
 spec-complete target. The Architect spec at `.team/v1/spec-track-a-architect-round-001.md` §3
 covers it fully: `defineComponent` options-form overload, `attrs` array field, per-attribute
 `Signal<string>` via `_setSignal` injection, `attributeChangedCallback` wiring, `AttrContext<A>`
@@ -70,7 +70,7 @@ Base off `main` at HEAD `6a8f54b`.
 
 | File | Change |
 |---|---|
-| `packages/runtime/src/types.ts` | Add `ComponentOptions<A>`, `AttrContext<A>`; add `import type { Signal } from '@scribe/signals'` (type-only) |
+| `packages/runtime/src/types.ts` | Add `ComponentOptions<A>`, `AttrContext<A>`; add `import type { Signal } from '@aihu/signals'` (type-only) |
 | `packages/runtime/src/define-component.ts` | Add `_setSignal` injection + guard; add `defineComponent` overload; implement options-form branch: signal creation loop, `ATTR_SIGNALS_SYM` symbol slot, `static observedAttributes`, `attributeChangedCallback` |
 | `packages/runtime/src/index.ts` | Export `ComponentOptions`; do NOT export `AttrContext` (internal intersection type); do NOT export `ATTR_SIGNALS_SYM` |
 | `packages/runtime/tests/define-component.test.ts` | Add minimum 6 new tests (see below) |
@@ -83,9 +83,9 @@ No changes to `packages/arbor/`, `packages/signals/`, or any other package.
 - `defineComponent({ attrs: ['count'] as const, setup })` — returns a class with `static observedAttributes = ['count']`
 - `wrapClass` wraps the returned class → `observedAttributes` inherited (existing test 4 in `define-element.test.ts` still passes)
 - `attributeChangedCallback('count', null, '5')` called after connect → `ctx.attrs.count` signal reads `'5'`
-- Signal returned via `ctx.attrs.count` is a valid `@scribe/signals` `Signal<string>` (can be passed to `leaf(signal)`)
+- Signal returned via `ctx.attrs.count` is a valid `@aihu/signals` `Signal<string>` (can be passed to `leaf(signal)`)
 - `_setSignal(signal)` must be called before any element with `attrs` connects; throws `RuntimeError` if not
-- `bun run size` — `@scribe/runtime` ≤ 1024 B gz passes
+- `bun run size` — `@aihu/runtime` ≤ 1024 B gz passes
 - `bun run test` — all pre-existing tests pass; minimum 6 new tests in `packages/runtime/tests/define-component.test.ts`
 
 ### Minimum 6 new tests (in `define-component.test.ts`)
@@ -101,8 +101,8 @@ No changes to `packages/arbor/`, `packages/signals/`, or any other package.
 
 ### Implementation constraints (Do-not-break)
 
-1. **Zero cross-package value imports in `@scribe/runtime`.** Use `import type { Signal }` from
-   `@scribe/signals` for types only. Inject the `signal()` factory via `_setSignal(signal)` at
+1. **Zero cross-package value imports in `@aihu/runtime`.** Use `import type { Signal }` from
+   `@aihu/signals` for types only. Inject the `signal()` factory via `_setSignal(signal)` at
    app boot — the same pattern as `_setMount`. Add a module-level `let _signal: typeof signal | null = null`
    and throw `RuntimeError('_setSignal must be called before connecting a component with attrs')` if
    it is null when `attributeChangedCallback` fires.
@@ -143,7 +143,7 @@ No changes to `packages/arbor/`, `packages/signals/`, or any other package.
 4. Implement signal creation loop + `ATTR_SIGNALS_SYM` slot in `connectedCallback`. Run T3 → expect pass.
 5. Implement `attributeChangedCallback`. Run T4, T6 → expect pass.
 6. Run full `bun run test` (all 313 tests must pass).
-7. Run `bun run size` — `@scribe/runtime` ≤ 1024 B gz required. Record actual gz in PR description.
+7. Run `bun run size` — `@aihu/runtime` ≤ 1024 B gz required. Record actual gz in PR description.
 
 ### Deliverable
 
@@ -199,7 +199,7 @@ opened before Builder dispatch. That is a Round 005 concern, not Round 004.
 **Carry items (not blocking Plan 1.2):**
 
 - Track C 6.2-P1 CONDITIONAL PASS — needs Linux/macOS bench. Windows only. Cannot close here.
-- `size-limit` CLI failure on `@scribe/data` — pre-existing tooling issue, not a regression.
+- `size-limit` CLI failure on `@aihu/data` — pre-existing tooling issue, not a regression.
 - Compiler session 6 cleanup (BTreeMap, Vite investigation, topic summary) — open but not on
   the Track A critical path.
 - Background tasks for `disposeRef` first-run race (Session 002) and shape-locking/ChildScope.key

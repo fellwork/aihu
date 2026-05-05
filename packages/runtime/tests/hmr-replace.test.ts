@@ -10,8 +10,8 @@
  * Tests use jsdom's DOM APIs (same environment as define-component tests).
  */
 
-import { branch, leaf, mount } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
+import { branch, leaf, mount } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { _hmrReplace, _setMount, defineComponent } from '../src/define-component.ts'
 import { defineElement } from '../src/define-element.ts'

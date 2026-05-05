@@ -1,4 +1,4 @@
-# Verification Report — Plan 1.1: when/each Reconciler in @scribe/arbor
+# Verification Report — Plan 1.1: when/each Reconciler in @aihu/arbor
 
 **Date:** 2026-04-30
 **Verifier:** Claude Sonnet 4.6
@@ -27,7 +27,7 @@
 
 1. **`StructuralNode` and `ChildScope` exports removed** (`75ba4e1`): Spec §5 constraint 12 explicitly forbids `StructuralNode` in the public API. `ChildScope` is `@internal`. Both removed from `packages/arbor/src/index.ts`.
 
-2. **`@scribe/arbor` size cap raised 2048 B → 2200 B** (`.size-limit.json`): Plan 6.2-P1 increased `signal.ts` size; since `@scribe/arbor` bundles `effect()` from `@scribe/signals` at build time, the reconciler's bundled gz grew by ~82 B (2044 B → 2126 B). Cap updated to 2126 + 74 B headroom = 2200 B.
+2. **`@aihu/arbor` size cap raised 2048 B → 2200 B** (`.size-limit.json`): Plan 6.2-P1 increased `signal.ts` size; since `@aihu/arbor` bundles `effect()` from `@aihu/signals` at build time, the reconciler's bundled gz grew by ~82 B (2044 B → 2126 B). Cap updated to 2126 + 74 B headroom = 2200 B.
 
 ---
 
@@ -43,7 +43,7 @@
 
 | Metric | Value |
 |---|---|
-| `@scribe/arbor` gz (Plan 1.1 only, at b4bf47f) | 2044 B (Builder's measurement) |
-| `@scribe/arbor` gz (with Plan 6.2-P1 signals bundled) | 2126 B |
+| `@aihu/arbor` gz (Plan 1.1 only, at b4bf47f) | 2044 B (Builder's measurement) |
+| `@aihu/arbor` gz (with Plan 6.2-P1 signals bundled) | 2126 B |
 | Cap (raised) | 2200 B |
 | Headroom | 74 B |

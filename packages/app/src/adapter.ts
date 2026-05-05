@@ -1,4 +1,4 @@
-import type { RouteDefinition } from '@scribe/router'
+import type { RouteDefinition } from '@aihu/router'
 
 /** Options for AdapterContext.createHandlerSource(). */
 export interface CreateHandlerSourceOptions {
@@ -8,8 +8,8 @@ export interface CreateHandlerSourceOptions {
    */
   routesSpecifier?: string
   /**
-   * Import specifier for @scribe/server.
-   * Default: '@scribe/server'
+   * Import specifier for @aihu/server.
+   * Default: '@aihu/server'
    * Adapters that bundle server deps may override this to a relative path.
    */
   serverSpecifier?: string
@@ -29,8 +29,8 @@ export interface AdapterContext {
    * Contains pattern, segments, and name — module() is irrelevant at adapt() time.
    */
   readonly routes: ReadonlyArray<RouteDefinition>
-  /** The resolved ScribeConfig passed to viteScribePlugin(). */
-  readonly config: import('./config.ts').ScribeConfig
+  /** The resolved AihuConfig passed to viteAihuPlugin(). */
+  readonly config: import('./config.ts').AihuConfig
 
   /**
    * Emit a file relative to outDir. Creates parent directories as needed.
@@ -59,19 +59,19 @@ export interface AdapterContext {
 }
 
 /**
- * The ScribeAdapter interface. Implemented by @scribe/adapter-cloudflare,
- * @scribe/adapter-vercel, and community adapters.
+ * The AihuAdapter interface. Implemented by @aihu/adapter-cloudflare,
+ * @aihu/adapter-vercel, and community adapters.
  *
  * @example
- * // scribe.config.ts
- * import { defineConfig } from '@scribe/app'
- * import { cloudflare } from '@scribe/adapter-cloudflare'
+ * // aihu.config.ts
+ * import { defineConfig } from '@aihu/app'
+ * import { cloudflare } from '@aihu/adapter-cloudflare'
  *
  * export default defineConfig({
  *   adapter: cloudflare({ name: 'my-worker' }),
  * })
  */
-export interface ScribeAdapter {
+export interface AihuAdapter {
   /**
    * Unique adapter name. Used in log output and error messages.
    * Convention: '<platform>' e.g. 'cloudflare', 'vercel', 'node'.
@@ -79,7 +79,7 @@ export interface ScribeAdapter {
   readonly name: string
 
   /**
-   * Called by viteScribePlugin's closeBundle hook after Vite finishes
+   * Called by viteAihuPlugin's closeBundle hook after Vite finishes
    * writing all output files. The adapter reads from context.outDir,
    * transforms the build output into the platform's required format,
    * and writes the final deployment artifact.

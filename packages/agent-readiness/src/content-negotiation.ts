@@ -1,4 +1,4 @@
-import type { Middleware } from '@scribe/server'
+import type { Middleware } from '@aihu/server'
 
 /**
  * Abstract interface for resolving markdown content from a URL path.

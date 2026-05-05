@@ -2,7 +2,7 @@
 
 ## Hello World walkthrough
 
-After scaffolding (see [Installation](installation.md)), open `src/pages/index.scribe`. The v0.8 template looks like this:
+After scaffolding (see [Installation](installation.md)), open `src/pages/index.aihu`. The v0.8 template looks like this:
 
 ```
 @state {
@@ -37,7 +37,7 @@ You can add computed values and effects in the same block:
 
 ### The `@template` block
 
-`@template` defines the component's DOM structure using scribe's template DSL:
+`@template` defines the component's DOM structure using aihu's template DSL:
 
 - `{{ expr }}` — interpolates a reactive expression. Updates use `nodeValue` for 122× faster targeted writes.
 - `$attr:foo="val"` — binds an attribute reactively.
@@ -60,7 +60,7 @@ During build, the Rust compiler emits a `.route.json` sidecar alongside each com
 
 ### HMR in development
 
-In dev mode, Vite watches `.scribe` files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the `name` default value or the template expression and the browser updates immediately.
+In dev mode, Vite watches `.aihu` files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the `name` default value or the template expression and the browser updates immediately.
 
 ## Next steps
 

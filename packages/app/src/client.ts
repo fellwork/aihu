@@ -1,9 +1,9 @@
-import { mount } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
-import { _setMount, _setSignal } from '@scribe/runtime'
-import { createRouter } from '@scribe/router'
-import type { MatchResult, RouteDefinition } from '@scribe/router'
-import routes from 'virtual:scribe-routes'
+import { mount } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
+import { _setMount, _setSignal } from '@aihu/runtime'
+import { createRouter } from '@aihu/router'
+import type { MatchResult, RouteDefinition } from '@aihu/router'
+import routes from 'virtual:aihu-routes'
 
 /** Inline runtime configuration accepted by createApp(). All fields optional. */
 export interface AppConfig {
@@ -12,20 +12,20 @@ export interface AppConfig {
 }
 
 /**
- * Bootstrap the scribe SPA.
+ * Bootstrap the aihu SPA.
  *
- * - Wires the scribe runtime (mount + signal) — idempotent if called multiple times
- * - Creates the router from virtual:scribe-routes
+ * - Wires the aihu runtime (mount + signal) — idempotent if called multiple times
+ * - Creates the router from virtual:aihu-routes
  * - Renders the current route
  * - Installs SPA click interception and popstate listeners
  *
  * @example
  * // src/main.ts
- * import { createApp } from '@scribe/app/client'
+ * import { createApp } from '@aihu/app/client'
  * createApp()
  */
 export function createApp(config?: AppConfig): void {
-  // Wire runtime — null-guarded in @scribe/runtime, safe to call multiple times
+  // Wire runtime — null-guarded in @aihu/runtime, safe to call multiple times
   _setMount(mount)
   _setSignal(signal as Parameters<typeof _setSignal>[0])
 
@@ -33,7 +33,7 @@ export function createApp(config?: AppConfig): void {
   const outletEl = document.getElementById(outletId)
   if (!outletEl) {
     throw new Error(
-      `@scribe/app: no element with id="${outletId}" found. Add <div id="${outletId}"></div> to your index.html`,
+      `@aihu/app: no element with id="${outletId}" found. Add <div id="${outletId}"></div> to your index.html`,
     )
   }
   const outlet: HTMLElement = outletEl

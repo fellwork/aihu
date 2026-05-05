@@ -1,4 +1,4 @@
-import { viteRouterIntegration } from '@scribe/router/plugin'
+import { viteRouterIntegration } from '@aihu/router/plugin'
 import { defineConfig } from 'vite'
 
 export default defineConfig({

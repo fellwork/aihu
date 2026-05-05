@@ -1,7 +1,7 @@
-import { branch, leaf, slot } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf, slot } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('state-basic', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)

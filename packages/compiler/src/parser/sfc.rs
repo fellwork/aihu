@@ -1,4 +1,4 @@
-use crate::types::{CompileError, RouteBlock, ScribeSource, ScriptMeta, StyleBlock, StyleScope};
+use crate::types::{CompileError, RouteBlock, AihuSource, ScriptMeta, StyleBlock, StyleScope};
 use crate::codegen::signals::resolve_signals;
 
 /// Extract the `name="..."` attribute from a `<script setup ...>` tag.
@@ -606,16 +606,16 @@ fn is_pages_path(file_path: Option<&str>) -> bool {
 
 /// Block ordering note (Block Structure Spec §3.3):
 ///
-/// Blocks may appear in any order within a `.scribe` file. The compiler does
+/// Blocks may appear in any order within a `.aihu` file. The compiler does
 /// NOT enforce a canonical order. The recommended order for tooling and formatter
 /// output is: `@state`, `@template`, `@style`, `@agent`. The default formatter
 /// rewrites files to this order on save. No ordering enforcement occurs here.
-pub fn parse(source: &str) -> Result<ScribeSource<'_>, CompileError> {
+pub fn parse(source: &str) -> Result<AihuSource<'_>, CompileError> {
     parse_with_path(source, None)
 }
 
-/// Parse a `.scribe` source with an optional file path (used for C500 @route path check).
-pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<ScribeSource<'a>, CompileError> {
+/// Parse a `.aihu` source with an optional file path (used for C500 @route path check).
+pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<AihuSource<'a>, CompileError> {
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
     let mut style: Option<StyleBlock> = None;
@@ -668,7 +668,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<S
             eprintln!(
                 "warning: HTML-tag form (`<script setup>`, `<template>`, etc.) is deprecated in v0.3. \
                  Use `@state {{ }}`, `@template {{ }}`, `@style {{ }}`, `@agent {{ }}` instead. \
-                 Run `npx scribe migrate` to convert (ships in v0.8)."
+                 Run `npx aihu migrate` to convert (ships in v0.8)."
             );
             warned_deprecation = true;
         }
@@ -1008,7 +1008,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<S
         None
     };
 
-    Ok(ScribeSource {
+    Ok(AihuSource {
         script,
         template,
         style,

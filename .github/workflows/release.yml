@@ -1,6 +1,6 @@
-name: Release scribe-compile binaries
+name: Release aihu-compile binaries
 
-# Cross-compile the scribe-compile Rust binary for all supported platforms,
+# Cross-compile the aihu-compile Rust binary for all supported platforms,
 # then publish a GitHub Release with all four binaries attached as assets.
 #
 # Triggers:
@@ -35,19 +35,19 @@ jobs:
         include:
           - runner: macos-14
             target: aarch64-apple-darwin
-            asset: scribe-compile-darwin-arm64
+            asset: aihu-compile-darwin-arm64
             ext: ''
           - runner: macos-13
             target: x86_64-apple-darwin
-            asset: scribe-compile-darwin-x64
+            asset: aihu-compile-darwin-x64
             ext: ''
           - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            asset: scribe-compile-linux-x64
+            asset: aihu-compile-linux-x64
             ext: ''
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
-            asset: scribe-compile-windows-x64.exe
+            asset: aihu-compile-windows-x64.exe
             ext: '.exe'
     steps:
       - name: Checkout
@@ -66,7 +66,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifact
-          cp packages/compiler/target/${{ matrix.target }}/release/scribe-compile artifact/${{ matrix.asset }}
+          cp packages/compiler/target/${{ matrix.target }}/release/aihu-compile artifact/${{ matrix.asset }}
           chmod 0755 artifact/${{ matrix.asset }}
 
       - name: Stage asset (Windows)
@@ -74,7 +74,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
-          Copy-Item -Path "packages/compiler/target/${{ matrix.target }}/release/scribe-compile.exe" -Destination "artifact/${{ matrix.asset }}"
+          Copy-Item -Path "packages/compiler/target/${{ matrix.target }}/release/aihu-compile.exe" -Destination "artifact/${{ matrix.asset }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -112,7 +112,7 @@ jobs:
           fail_on_unmatched_files: true
 
   # ---------------------------------------------------------------------------
-  # @scribe/server native renderer (napi-rs Rust addon).
+  # @aihu/server native renderer (napi-rs Rust addon).
   #
   # Parity-gate paths (AC-15, spec-server-native.md §4.4): the parity gate
   # triggers on PRs touching
@@ -125,7 +125,7 @@ jobs:
   # without the addon is automatically a hard fail. The PR-time enforcement
   # lives in the per-PR CI workflow (see .github/workflows/ci.yml or moon's
   # local CI gate); this release workflow builds and publishes the per-platform
-  # .node binaries that ship as @scribe/server-<platform> packages.
+  # .node binaries that ship as @aihu/server-<platform> packages.
   # ---------------------------------------------------------------------------
   build-native:
     name: Build native ${{ matrix.platform }}
@@ -138,22 +138,22 @@ jobs:
             target: aarch64-apple-darwin
             platform: darwin-arm64
             node-file: server-native.darwin-arm64.node
-            cdylib: libscribe_server_native.dylib
+            cdylib: libaihu_server_native.dylib
           - runner: macos-13
             target: x86_64-apple-darwin
             platform: darwin-x64
             node-file: server-native.darwin-x64.node
-            cdylib: libscribe_server_native.dylib
+            cdylib: libaihu_server_native.dylib
           - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x64-gnu
             node-file: server-native.linux-x64-gnu.node
-            cdylib: libscribe_server_native.so
+            cdylib: libaihu_server_native.so
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
             platform: win32-x64-msvc
             node-file: server-native.win32-x64-msvc.node
-            cdylib: scribe_server_native.dll
+            cdylib: aihu_server_native.dll
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -192,7 +192,7 @@ jobs:
           retention-days: 7
 
   publish-native:
-    name: Publish @scribe/server-* platform packages
+    name: Publish @aihu/server-* platform packages
     needs: build-native
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')

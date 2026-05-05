@@ -14,7 +14,7 @@ Session 1 dispatched five roles in sequence against Phase C-0:
 
 **Topic Director** — Assessed Scout findings, resolved three new open questions (OQ-C9 emit pattern, OQ-C10 `leaf()` type cast, OQ-C11 Rust toolchain version), routed actionable findings to the Architect as verbatim interface constraints, and cleared the track to proceed without a user interrupt.
 
-**Architect** — Produced the full `architecture.md` spec covering: Rust toolchain bootstrap, exact file layout and contents for Phase C-0, `ScribeSource`/`ScriptMeta`/`CompileError` types with trait requirements, the public `compile()` API contract, the SFC block splitter algorithm, and 5 named snapshot test cases. Also locked the Phase C-3 TypeScript emit target (`counter.scribe` → `counter.ts`) as the acceptance snapshot.
+**Architect** — Produced the full `architecture.md` spec covering: Rust toolchain bootstrap, exact file layout and contents for Phase C-0, `AihuSource`/`ScriptMeta`/`CompileError` types with trait requirements, the public `compile()` API contract, the SFC block splitter algorithm, and 5 named snapshot test cases. Also locked the Phase C-3 TypeScript emit target (`counter.aihu` → `counter.ts`) as the acceptance snapshot.
 
 **Builder** — Implemented Phase C-0 on branch `feat/compiler-c0`, commit `3919bdb`. Created 14 new files; modified `.prototools`. All 11 acceptance criteria satisfied (6/6 tests passing, clippy clean, fmt clean).
 
@@ -30,7 +30,7 @@ Session 1 dispatched five roles in sequence against Phase C-0:
 
 **The Director routing layer kept noise out of the spec.** `leaf.element()`, `_setMount`, and source map crate were explicitly not routed to the Architect because they are irrelevant until C-3/C-4. The Architect spec was scoped exactly to what was needed.
 
-**Architecture spec locked the Phase C-3 emit target early.** The `counter.scribe` → `counter.ts` snapshot in Section 7 is now the acceptance oracle for Phase C-3 before C-1 or C-2 have started — this prevents spec drift between sessions.
+**Architecture spec locked the Phase C-3 emit target early.** The `counter.aihu` → `counter.ts` snapshot in Section 7 is now the acceptance oracle for Phase C-3 before C-1 or C-2 have started — this prevents spec drift between sessions.
 
 **Insta snapshot discipline.** Builder committed all 5 `.snap` files. Verifier confirmed content correctness on three named samples. Phase C-1 inherits a clean snapshot baseline.
 
@@ -40,7 +40,7 @@ Session 1 dispatched five roles in sequence against Phase C-0:
 
 1. **`_setMount` consumer constraint not yet in spec.** The Option A emit pattern reuses `defineComponent`, which uses `_setMount` injection — meaning consumer apps must call `_setMount(mount)` at app boot. This constraint should be added to the architecture spec's Phase C-3 section. Flag in the C-1 Director pass.
 
-2. **`ScriptMeta.name` not yet threaded into `ScribeSource`.** The helper exists in `sfc.rs` but the `name` field is not exposed. It needs to be wired before Phase C-3 codegen needs it. Decide in the C-1 Director pass (C-1 or C-2 wire-up).
+2. **`ScriptMeta.name` not yet threaded into `AihuSource`.** The helper exists in `sfc.rs` but the `name` field is not exposed. It needs to be wired before Phase C-3 codegen needs it. Decide in the C-1 Director pass (C-1 or C-2 wire-up).
 
 3. **Template parser (C-1) needs algorithm detail.** The architecture spec defines types but not the recursive descent algorithm. C-1 Architect brief should include parser algorithm comparable to SFC splitter Section 5.
 

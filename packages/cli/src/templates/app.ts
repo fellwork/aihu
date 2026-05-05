@@ -1,6 +1,6 @@
 /**
  * Hello World app template file contents.
- * Used by `scribe app` to generate the initial index.scribe page.
+ * Used by `aihu app` to generate the initial index.aihu page.
  */
 
 export const APP_INDEX_SCRIBE = `@state {

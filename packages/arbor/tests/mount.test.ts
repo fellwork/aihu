@@ -1,4 +1,4 @@
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { branch, leaf } from '../src/index.ts'
 import { type MountScope, mount } from '../src/mount.ts'

@@ -29,11 +29,11 @@ The cast `as unknown as Signal<string>` was locked rather than changed to `as [S
 
 **Rust tests:** 221 → 222. All 221 existing tests green.
 
-### Plan 5.3-prereq — `getAllAgentMetadata()` in `@scribe/agent`
+### Plan 5.3-prereq — `getAllAgentMetadata()` in `@aihu/agent`
 
 Commit `b715923`. `getAllAgentMetadata(): AgentMetadata[]` added to `packages/agent/src/registry.ts` and re-exported from index. 4 new tests added to `registry.test.ts`. Bundle impact within the 200 B gz cap.
 
-### Plan 5.3-A2A — `@scribe/agent-a2a` Package
+### Plan 5.3-A2A — `@aihu/agent-a2a` Package
 
 Commit `ba0d633`. New package `packages/agent-a2a/`. `mountA2aAdapter(service, options)` exposes three routes:
 - `GET /.well-known/agent.json` — A2A agent card with skills derived from `service.getManifest()`
@@ -42,7 +42,7 @@ Commit `ba0d633`. New package `packages/agent-a2a/`. `mountA2aAdapter(service, o
 
 14 tests. Bundle ≤ 700 B gz cap. Uses `TextEncoder` for SSE chunk encoding — a jsdom compatibility decision documented at build time.
 
-### Plan 5.3-ACP — `@scribe/agent-acp` Package
+### Plan 5.3-ACP — `@aihu/agent-acp` Package
 
 Commit `c4cabb4`. New package `packages/agent-acp/`. `mountAcpAdapter(service, options)` exposes two routes:
 - `GET /.well-known/acp-agent` — ACP agent card
@@ -71,7 +71,7 @@ Commit `1917d7f`. Session-8 director note committed to `.team/v1/director-notes/
 
 **Automated sequencing held.** The director note §7 execution order (4.3 → 5.3-prereq + A2A + ACP parallel → 7.1) was followed correctly. No plan had to wait on an unresolved surface trigger.
 
-**Parallel A2A + ACP builders.** The two adapter packages are fully independent — separate `packages/` directories, no shared source files, no cross-package references beyond `@scribe/agent-service`. Running them as parallel builders was safe and correct.
+**Parallel A2A + ACP builders.** The two adapter packages are fully independent — separate `packages/` directories, no shared source files, no cross-package references beyond `@aihu/agent-service`. Running them as parallel builders was safe and correct.
 
 **Option B rationale was precise.** The §2 scope decision in the director note gave an unambiguous answer: Cargo.toml has no `[dependencies]` section, OXC is v2 scope, the locked cast test is the minimal deliverable. No surface trigger ST-3 fired.
 
@@ -153,5 +153,5 @@ The test name `leaf_signal_interpolation_cast` (vs. the director note's `leaf_in
 
 **Known carry-forward:**
 - Plan 4.3-v2 (full OXC TypeScript expression type inference) — post-v1 scope
-- `publish-server` job for `@scribe/server` (OQ-SN-4 from server-native session) — needed before first v0.1.0 publish tag
+- `publish-server` job for `@aihu/server` (OQ-SN-4 from server-native session) — needed before first v0.1.0 publish tag
 - `disposeRef` first-run race — LOW priority background item

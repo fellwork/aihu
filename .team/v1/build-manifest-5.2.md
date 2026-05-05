@@ -1,4 +1,4 @@
-# Build Manifest — Plan 5.2 (@scribe/agent-service)
+# Build Manifest — Plan 5.2 (@aihu/agent-service)
 
 **Branch:** `feat/v1-agent-service`
 **Date:** 2026-05-02
@@ -12,9 +12,9 @@
 
 | File | Description |
 |---|---|
-| `packages/agent-service/package.json` | Package manifest; depends on `@scribe/agent` workspace:* |
+| `packages/agent-service/package.json` | Package manifest; depends on `@aihu/agent` workspace:* |
 | `packages/agent-service/moon.yml` | Moon task config (typescript, library) |
-| `packages/agent-service/rolldown.config.ts` | Rolldown ESM build config; externalizes `@scribe/agent` |
+| `packages/agent-service/rolldown.config.ts` | Rolldown ESM build config; externalizes `@aihu/agent` |
 | `packages/agent-service/tsconfig.json` | TypeScript config extending `tsconfig.base.json` |
 | `packages/agent-service/src/types.ts` | Type definitions: `AgentManifest`, `AgentToolEntry`, `AgentService`, `AgentServiceOptions`; re-exports `InputSchema`, `ActionSchema` |
 | `packages/agent-service/src/agent-service.ts` | Core implementation: `createAgentService`, `buildService`, `metadataToToolEntry` |
@@ -25,8 +25,8 @@
 
 | File | Change |
 |---|---|
-| `.size-limit.json` | Added `@scribe/agent-service` entry at 600 B gz cap (externalized `@scribe/agent`) |
-| `vitest.config.ts` | Added `@scribe/agent-service` alias pointing to `src/index.ts` |
+| `.size-limit.json` | Added `@aihu/agent-service` entry at 600 B gz cap (externalized `@aihu/agent`) |
+| `vitest.config.ts` | Added `@aihu/agent-service` alias pointing to `src/index.ts` |
 
 ---
 
@@ -43,7 +43,7 @@ await svc.handleToolCall('x-counter/increment', { amount: 1 })
 // → { tag: 'x-counter', action: 'increment', params: {...}, result: null, stub: true }
 
 const mw = svc.asMiddleware()
-// POST /__scribe/tools/call { tool, params } → { result }
+// POST /__aihu/tools/call { tool, params } → { result }
 // Other requests → null (pass-through)
 ```
 
@@ -53,11 +53,11 @@ const mw = svc.asMiddleware()
 
 | Package | Size (gz) | Cap | Headroom |
 |---|---|---|---|
-| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+| `@aihu/agent-service` | 580 B | 600 B | +20 B |
 
 **Note:** Plan target was "≤ 0.5 kB gz". Actual minimum achievable size is 580 B gz due to the
-`/__scribe/tools/call` route string, JSON response scaffolding, and error handling logic. Cap
-set at 600 B (initial cap for a new package, per plan instructions). The `@scribe/agent`
+`/__aihu/tools/call` route string, JSON response scaffolding, and error handling logic. Cap
+set at 600 B (initial cap for a new package, per plan instructions). The `@aihu/agent`
 dependency is externalized so it does not count toward the size.
 
 ---
@@ -90,7 +90,7 @@ Pre-existing test count on base (main at `a943b94`): 361. Delta: +5 (new test fi
 ## Implementation Notes
 
 ### Registry snapshot vs. lazy
-`createAgentService()` without `options.manifests` defaults to an empty list because `@scribe/agent`
+`createAgentService()` without `options.manifests` defaults to an empty list because `@aihu/agent`
 exports `getAgentMetadata(tag)` (single lookup by tag) but no `getAllAgentMetadata()`. Plan 5.3
 will add a registry iterator; until then, callers pass the snapshot via `options.manifests`.
 
@@ -100,5 +100,5 @@ will add a registry iterator; until then, callers pass the snapshot via `options
 
 ### Size cap reasoning
 The plan spec says "≤ 0.5 kB gz — new package, no existing cap — set this as the initial cap".
-Actual minified+gzipped output is 580 B with `@scribe/agent` externalized. The cap is set at
+Actual minified+gzipped output is 580 B with `@aihu/agent` externalized. The cap is set at
 600 B (rounded up from actual with 20 B headroom) as the initial cap for this package.

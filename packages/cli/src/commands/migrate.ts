@@ -1,5 +1,5 @@
 /**
- * `scribe migrate [files...]` — convert HTML-tag SFCs to @blockname {} syntax.
+ * `aihu migrate [files...]` — convert HTML-tag SFCs to @blockname {} syntax.
  *
  * Conversion rules (applied in order):
  *   <script setup>...</script>  =>  @state { ... }

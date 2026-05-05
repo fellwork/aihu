@@ -24,8 +24,8 @@ The user wanted to store `() => 6` as the new callback; the runtime instead trea
 
 | Library | Approach | Trade-off |
 |---|---|---|
-| **SolidJS** `createSignal` | `Setter<T>` overloads using `Exclude<U, Function>`; runtime same as Scribe. Forces closure-of-closure idiom for function-typed signals. | Zero runtime cost. The closure-of-closure ergonomic friction is the established Solid pattern; cross-pollinated users already know it. |
-| **Preact Signals** `signal()` | `.value` get/set, no updater overload. To compute relative to prev, write `s.value = s.value + 1`. | One extra wrapper allocation per signal; `.value` access goes through a property accessor. Sidesteps the issue entirely but is incompatible with Scribe's tuple shape. |
+| **SolidJS** `createSignal` | `Setter<T>` overloads using `Exclude<U, Function>`; runtime same as Aihu. Forces closure-of-closure idiom for function-typed signals. | Zero runtime cost. The closure-of-closure ergonomic friction is the established Solid pattern; cross-pollinated users already know it. |
+| **Preact Signals** `signal()` | `.value` get/set, no updater overload. To compute relative to prev, write `s.value = s.value + 1`. | One extra wrapper allocation per signal; `.value` access goes through a property accessor. Sidesteps the issue entirely but is incompatible with Aihu's tuple shape. |
 | **Vue `ref` / `shallowRef`** | Same `.value` pattern. | Same trade-off as Preact. |
 | **Angular signals** | Splits into `WritableSignal<T>.set(value)` and `.update(fn)`. | Cleanest disambiguation in the survey. Requires a method-bag shape, not a tuple. |
 | **alien-signals** | `signal<T>(...): { (): T; (value: T): void }` — single callable, no updater path. | No ambiguity, no convenience for `prev + 1`. Tiny API surface. |
@@ -61,7 +61,7 @@ Option B wins on every axis the spec budget cares about:
 | Type safety for the bug | adds a path; doesn't prevent the wrong call | **compile-time error** | requires runtime branding |
 | Breaking-change scope | none | type-only, narrow | none |
 
-Scribe's signals package sits at ~698 B gz of a 1024 B budget (per `.team/phase-2/spec-signals.md`). Option C consumes ~3–5% of remaining headroom; A consumes ~0.5–0.8%; B consumes 0%. Option B is the unique choice that imposes no cost on consumers who never write function-valued signals.
+Aihu's signals package sits at ~698 B gz of a 1024 B budget (per `.team/phase-2/spec-signals.md`). Option C consumes ~3–5% of remaining headroom; A consumes ~0.5–0.8%; B consumes 0%. Option B is the unique choice that imposes no cost on consumers who never write function-valued signals.
 
 ## Known limitation: `$state<T>` for function-typed `T`
 
@@ -87,7 +87,7 @@ A v1 fix is to expose a `_writeRaw` from `signal.ts` that bypasses the typeof br
 ## Verification
 
 1. Existing 51 arbor + 59 signals tests pass (`bunx vitest run`).
-2. `tsc --noEmit` clean for `@scribe/signals`.
+2. `tsc --noEmit` clean for `@aihu/signals`.
 3. Type-only regression: a `signal<() => number>(...)` call passing `setX(() => 6)` produces `error TS2769` (no overload matches). Negative test left out of the suite intentionally — type-error tests would require `expect-type` or `tsd`, neither currently a dependency. Adding such a harness is tracked as a separate item.
 
 ## Future work

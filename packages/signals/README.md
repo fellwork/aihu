@@ -1,11 +1,11 @@
-# @scribe/signals
+# @aihu/signals
 
-Small (≤ 1.6 kB gz) reactive primitives — the foundation layer for Scribe's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
+Small (≤ 1.6 kB gz) reactive primitives — the foundation layer for Aihu's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
 
 ## Hello counter
 
 ```ts
-import { signal, effect } from '@scribe/signals'
+import { signal, effect } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 effect(() => console.log('count =', count()))
@@ -16,7 +16,7 @@ setCount((n) => n + 10) // logs "count = 11"
 ## Derived values with `computed`
 
 ```ts
-import { signal, computed, effect } from '@scribe/signals'
+import { signal, computed, effect } from '@aihu/signals'
 
 const [n, setN] = signal(2)
 const doubled = computed(() => n() * 2)
@@ -30,7 +30,7 @@ setN(3)                                            // logs "doubled = 6"
 ## Atomic updates with `batch`
 
 ```ts
-import { signal, effect, batch } from '@scribe/signals'
+import { signal, effect, batch } from '@aihu/signals'
 
 const [name, setName] = signal('')
 const [email, setEmail] = signal('')
@@ -55,7 +55,7 @@ batch(() => { id = insertRow(); setName('Ada') })
 If `.value` muscle memory matters, use `$state` instead of `signal`:
 
 ```ts
-import { $state, effect } from '@scribe/signals'
+import { $state, effect } from '@aihu/signals'
 
 const count = $state(0)
 effect(() => console.log(count.value))
@@ -66,7 +66,7 @@ Same underlying cell as `signal` — pick the shape that fits your code.
 
 ## Cross-library cheat sheet
 
-| Vue 3 | Solid | Preact Signals | scribe |
+| Vue 3 | Solid | Preact Signals | aihu |
 |---|---|---|---|
 | `ref(0)` + `.value` | `createSignal(0)` → `[get, set]` | `signal(0)` + `.value` | `signal(0)` → `[get, set]` *or* `$state(0).value` |
 | `computed(fn)` + `.value` | `createMemo(fn)` (eager) | `computed(fn)` + `.value` (lazy) | `computed(fn)` (lazy, call-shape) |
@@ -76,7 +76,7 @@ Same underlying cell as `signal` — pick the shape that fits your code.
 ## Untrack a read
 
 ```ts
-import { signal, computed, untrack } from '@scribe/signals'
+import { signal, computed, untrack } from '@aihu/signals'
 
 const [a, setA] = signal(1)
 const [b, setB] = signal(10)
@@ -117,5 +117,5 @@ The runtime disambiguates `value` vs `updater` by `typeof === 'function'`, so a 
 ## v0 limitations
 
 - **Cycle errors carry no chain context.** `SignalCircularError` is thrown synchronously from the writer; richer chain info lands with devtools.
-- **No `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@scribe/arbor`.
+- **No `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@aihu/arbor`.
 - **Batch cascade cap.** `batch()` re-iterates up to 100 times before throwing `SignalCircularError`. The cap is internal; if tooling needs to sanity-check legitimate cascade depth in the future, we'll re-export it.

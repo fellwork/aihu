@@ -1,7 +1,7 @@
 /**
- * `scribe component <name>` — scaffold a .scribe component.
+ * `aihu component <name>` — scaffold a .aihu component.
  *
- * Writes `src/components/<name>.scribe` relative to `targetDir`.
+ * Writes `src/components/<name>.aihu` relative to `targetDir`.
  * Zero external dependencies — uses only Node/Bun builtins (fs, path).
  */
 
@@ -15,7 +15,7 @@ export function scaffoldComponent(name: string, targetDir: string): void {
   const componentsDir = join(targetDir, 'src', 'components')
   mkdirSync(componentsDir, { recursive: true })
 
-  const filePath = join(componentsDir, `${name}.scribe`)
+  const filePath = join(componentsDir, `${name}.aihu`)
   const content = `@state {
 }
 
@@ -24,5 +24,5 @@ export function scaffoldComponent(name: string, targetDir: string): void {
 }
 `
   writeFileSync(filePath, content, 'utf8')
-  process.stdout.write(`✓ Created src/components/${name}.scribe\n`)
+  process.stdout.write(`✓ Created src/components/${name}.aihu\n`)
 }

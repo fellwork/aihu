@@ -1,4 +1,4 @@
-import { defineLoader } from '@scribe/server'
+import { defineLoader } from '@aihu/server'
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0'
 const MAX_DEPTH = 6

@@ -1,6 +1,6 @@
 # Track D Architect — Director Brief, Round 001
 **Date:** 2026-04-30
-**Audience:** Track B builder (`@scribe/context`, `@scribe/data`) and Track C builder (`renderToStream`, SSR dehydration)
+**Audience:** Track B builder (`@aihu/context`, `@aihu/data`) and Track C builder (`renderToStream`, SSR dehydration)
 **Source spec:** `.team/v1/spec-v1-architecture-ratified.md` §12
 
 Read this brief before starting implementation. Each section gives the ratified decision plus the exact API implication you must implement. If anything below conflicts with a future track spec, the track spec takes precedence — surface the conflict before building.
@@ -14,33 +14,33 @@ Read this brief before starting implementation. Each section gives the ratified 
 **Exact changes required to `.size-limit.json` before any v1 package builds:**
 
 ```json
-// Change existing @scribe/agent row:
-{ "name": "@scribe/agent", "path": "packages/agent/dist/index.js", "limit": "200 B", "gzip": true }
+// Change existing @aihu/agent row:
+{ "name": "@aihu/agent", "path": "packages/agent/dist/index.js", "limit": "200 B", "gzip": true }
 
 // Add new rows:
-{ "name": "@scribe/context", "path": "packages/context/dist/index.js", "limit": "300 B", "gzip": true }
-{ "name": "@scribe/data",    "path": "packages/data/dist/index.js",    "limit": "600 B", "gzip": true }
+{ "name": "@aihu/context", "path": "packages/context/dist/index.js", "limit": "300 B", "gzip": true }
+{ "name": "@aihu/data",    "path": "packages/data/dist/index.js",    "limit": "600 B", "gzip": true }
 ```
 
-The existing `@scribe/arbor` (2048 B), `@scribe/signals` (1700 B), and `@scribe/runtime` (1024 B) limits are unchanged. The v1 arbor reconciler (~500 B added) still fits within the existing 2048 B limit with 219 B to spare.
+The existing `@aihu/arbor` (2048 B), `@aihu/signals` (1700 B), and `@aihu/runtime` (1024 B) limits are unchanged. The v1 arbor reconciler (~500 B added) still fits within the existing 2048 B limit with 219 B to spare.
 
-**BLOCKER (do before any build):** `@scribe/agent` is currently 156 B gz but its limit is 100 B — the size gate is broken today. Raise to 200 B and investigate the 156 B actual (the phase-5 spec projected ~72 B; the gap suggests either an unexpected dependency or missing minification).
+**BLOCKER (do before any build):** `@aihu/agent` is currently 156 B gz but its limit is 100 B — the size gate is broken today. Raise to 200 B and investigate the 156 B actual (the phase-5 spec projected ~72 B; the gap suggests either an unexpected dependency or missing minification).
 
 **Measured actual sizes at ratification (2026-04-30):**
-- `@scribe/signals`: 1600 B gz
-- `@scribe/arbor`: 1329 B gz
-- `@scribe/runtime`: 504 B gz
-- `@scribe/agent`: 156 B gz
+- `@aihu/signals`: 1600 B gz
+- `@aihu/arbor`: 1329 B gz
+- `@aihu/runtime`: 504 B gz
+- `@aihu/agent`: 156 B gz
 
 ---
 
-## 2. OQ-V3 — Context Propagation (Track B: `@scribe/context`)
+## 2. OQ-V3 — Context Propagation (Track B: `@aihu/context`)
 
 **Decision:** Render-scoped context map passed via `SsrOptions`. DOM attribute traversal rejected. Module-level singleton rejected.
 
 ### Browser client API
 
-`@scribe/context` is a browser package. It must not import from `@scribe/server`.
+`@aihu/context` is a browser package. It must not import from `@aihu/server`.
 
 ```typescript
 // packages/context/src/index.ts
@@ -60,15 +60,15 @@ export function inject<T>(key: ContextKey<T>): T | undefined
 // Must be callable both during mount() (browser) and during renderToString (SSR).
 ```
 
-### Required hook in `@scribe/arbor`
+### Required hook in `@aihu/arbor`
 
-`provide`/`inject` need a context map per mount scope. Track B must coordinate with Track A to add a minimal hook to `mount.ts`. The least-invasive approach: `MountScope` gets an optional internal `_contextMap` field (not public, `/** @internal */`). `@scribe/context` accesses it via a module-level slot (`_activeContextMap`) parallel to `_activeMountDisposers`.
+`provide`/`inject` need a context map per mount scope. Track B must coordinate with Track A to add a minimal hook to `mount.ts`. The least-invasive approach: `MountScope` gets an optional internal `_contextMap` field (not public, `/** @internal */`). `@aihu/context` accesses it via a module-level slot (`_activeContextMap`) parallel to `_activeMountDisposers`.
 
-Track B must not modify `@scribe/arbor/src/mount.ts` unilaterally. Raise this coordination need in the Track A builder brief.
+Track B must not modify `@aihu/arbor/src/mount.ts` unilaterally. Raise this coordination need in the Track A builder brief.
 
 ### SSR API (critical for Track C)
 
-`@scribe/server/src/ssr.ts` `SsrOptions` gains one new optional field:
+`@aihu/server/src/ssr.ts` `SsrOptions` gains one new optional field:
 
 ```typescript
 export interface SsrOptions {
@@ -92,25 +92,25 @@ export interface SsrOptions {
 }
 ```
 
-`@scribe/context` exports a package-internal function called by `renderToString`/`renderToStream`:
+`@aihu/context` exports a package-internal function called by `renderToString`/`renderToStream`:
 
 ```typescript
 /**
- * @internal — called by @scribe/server renderToString/renderToStream only.
+ * @internal — called by @aihu/server renderToString/renderToStream only.
  * Sets the request-scoped context map for SSR inject() lookups.
  * MUST be cleared (called with null) after rendering completes, even on error.
  */
 export function _setSsrContextMap(map: ReadonlyMap<unknown, unknown> | null): void
 ```
 
-`renderToString` in `ssr.ts` calls `_setSsrContextMap(opts.contextMap ?? null)` before rendering and `_setSsrContextMap(null)` in a `finally` block after. This is the ONLY way the server layer may interact with `@scribe/context` — via this exported function. The server does NOT import `@scribe/context` directly (that would violate the hard boundary). Instead, `renderToString` accepts this function as an optional injection:
+`renderToString` in `ssr.ts` calls `_setSsrContextMap(opts.contextMap ?? null)` before rendering and `_setSsrContextMap(null)` in a `finally` block after. This is the ONLY way the server layer may interact with `@aihu/context` — via this exported function. The server does NOT import `@aihu/context` directly (that would violate the hard boundary). Instead, `renderToString` accepts this function as an optional injection:
 
 ```typescript
 export interface SsrOptions {
   // ...
   readonly contextMap?: ReadonlyMap<unknown, unknown>
   /**
-   * Injected context setup from @scribe/context.
+   * Injected context setup from @aihu/context.
    * When provided, called with contextMap before render and with null after.
    * @internal — injected by framework bootstrap, not user-facing.
    */
@@ -118,9 +118,9 @@ export interface SsrOptions {
 }
 ```
 
-Users who use `@scribe/context` bootstrap once at app startup:
+Users who use `@aihu/context` bootstrap once at app startup:
 ```typescript
-import { _setSsrContextMap } from '@scribe/context'
+import { _setSsrContextMap } from '@aihu/context'
 // In renderToString calls:
 renderToString(Page, { contextMap: myMap, _contextSetter: _setSsrContextMap })
 ```
@@ -131,17 +131,17 @@ The framework wrapper (vite plugin or app bootstrap helper) should hide this fro
 
 - Do NOT traverse DOM parent nodes / `closest()` / `parentElement` chains. This breaks SSR.
 - Do NOT use a module-level `Map` that persists across requests. This causes data leaks under concurrent load.
-- Do NOT import `@scribe/server` from `@scribe/context`. Hard boundary violation.
+- Do NOT import `@aihu/server` from `@aihu/context`. Hard boundary violation.
 
 ---
 
-## 3. OQ-V4 — `createResource` Cache (Track B: `@scribe/data`)
+## 3. OQ-V4 — `createResource` Cache (Track B: `@aihu/data`)
 
 **Decision:** Context-provided store. Module-level singleton rejected.
 
 ### Exact API implication
 
-`createResource` uses `inject()` from `@scribe/context` to find the cache store. The public surface:
+`createResource` uses `inject()` from `@aihu/context` to find the cache store. The public surface:
 
 ```typescript
 // packages/data/src/index.ts
@@ -193,15 +193,15 @@ export function createResource<T>(
 **Browser (app root):**
 ```typescript
 // App root component or app.ts bootstrap:
-import { provide } from '@scribe/context'
-import { createCache, CacheContext } from '@scribe/data'
+import { provide } from '@aihu/context'
+import { createCache, CacheContext } from '@aihu/data'
 
 provide(CacheContext, createCache({ ttl: 60_000 }))
 ```
 
 **SSR (route handler):**
 ```typescript
-import { createCache, CacheContext } from '@scribe/data'
+import { createCache, CacheContext } from '@aihu/data'
 
 // Fresh cache per request:
 const cache = createCache()
@@ -220,12 +220,12 @@ When `inject(CacheContext)` returns `undefined` (no `provide` above), `createRes
 ### What NOT to do
 
 - Do NOT store a `Map` at module top level in `data.ts`. This is shared across SSR requests.
-- Do NOT import `@scribe/server`. Hard boundary.
+- Do NOT import `@aihu/server`. Hard boundary.
 - Do NOT make `CacheContext` a module-level singleton `Map`. The context injection IS the cache.
 
 ---
 
-## 4. OQ-V6 — SSR Dehydration (Track C: `renderToStream`, Track B: `@scribe/data`)
+## 4. OQ-V6 — SSR Dehydration (Track C: `renderToStream`, Track B: `@aihu/data`)
 
 **Decision:** Opt-in per resource (`{ dehydrate: true }`). Automatic serialization rejected on security grounds.
 
@@ -234,7 +234,7 @@ When `inject(CacheContext)` returns `undefined` (no `provide` above), `createRes
 The existing `serializer?: () => Record<string, unknown>` field in `SsrOptions` is the correct hook. v1 fills in the real serializer. Track C must:
 
 1. Collect dehydration state from the cache store (accessible via the `contextMap` passed in `SsrOptions`).
-2. Emit the state as `<script type="application/json" id="__scribe_state__">` before `</body>`.
+2. Emit the state as `<script type="application/json" id="__aihu_state__">` before `</body>`.
 
 The `serializer` field should be deprecated in favor of extracting state directly from the cache store, but for backward compatibility it stays. The `v1 serializer` implementation:
 
@@ -249,11 +249,11 @@ const dehydrated = cacheStore?.getDehydratedState() ?? {}
 
 ### Client-side rehydration
 
-The client reads `document.getElementById('__scribe_state__')?.textContent`, parses it, and calls `cache.hydrateFrom(parsedState)` before mounting. The framework bootstrap helper wraps this. Out of scope for this brief — Track B defines the rehydration API.
+The client reads `document.getElementById('__aihu_state__')?.textContent`, parses it, and calls `cache.hydrateFrom(parsedState)` before mounting. The framework bootstrap helper wraps this. Out of scope for this brief — Track B defines the rehydration API.
 
 ### Security constraint (CRITICAL)
 
-The state script emitted by `renderToString`/`renderToStream` must ONLY contain data from resources with `{ dehydrate: true }`. There must be no mechanism for accidental serialization of resources without that flag. Track C builder must confirm this invariant in the verifier brief: "only resources with dehydrate:true appear in __scribe_state__."
+The state script emitted by `renderToString`/`renderToStream` must ONLY contain data from resources with `{ dehydrate: true }`. There must be no mechanism for accidental serialization of resources without that flag. Track C builder must confirm this invariant in the verifier brief: "only resources with dehydrate:true appear in __aihu_state__."
 
 ---
 
@@ -267,17 +267,17 @@ This decision is advisory for C-5 (not building in current sprint). Tracks A, B,
 
 ## 6. Items that must be SURFACED to the user before Tracks B or C can proceed
 
-**SURFACE-1 (HIGH): `@scribe/arbor` hook coordination.**
-`@scribe/context`'s `provide`/`inject` need a context-map slot inside `MountScope` (or alongside the scope-collector). Track B cannot implement the browser client context model without this arbor change, and Track A owns `@scribe/arbor`. This is a cross-track dependency that requires explicit coordination. Either:
+**SURFACE-1 (HIGH): `@aihu/arbor` hook coordination.**
+`@aihu/context`'s `provide`/`inject` need a context-map slot inside `MountScope` (or alongside the scope-collector). Track B cannot implement the browser client context model without this arbor change, and Track A owns `@aihu/arbor`. This is a cross-track dependency that requires explicit coordination. Either:
 - (a) Track A adds the context hook as part of its reconciler work, or
-- (b) The user decides that `@scribe/context` accesses a separate module-level variable in `@scribe/context` itself (not in arbor), with the limitation that nested `mount()` calls share a single flat context chain.
+- (b) The user decides that `@aihu/context` accesses a separate module-level variable in `@aihu/context` itself (not in arbor), with the limitation that nested `mount()` calls share a single flat context chain.
 
 Option (b) is simpler and avoids touching arbor. Option (a) is correct for deeply nested trees. **User input needed: which option?**
 
-**SURFACE-2 (MEDIUM): `getAllAgentMetadata()` must be added to `@scribe/agent`.**
-The agent-readiness `GET /llms.txt` auto-generation path is currently disabled because this function does not exist. It should be added in a minor version bump alongside or before v1 builds. This is not a Track A/B/C concern — it is a standalone `@scribe/agent` addition. The user should decide whether this lands before or alongside v1 track work.
+**SURFACE-2 (MEDIUM): `getAllAgentMetadata()` must be added to `@aihu/agent`.**
+The agent-readiness `GET /llms.txt` auto-generation path is currently disabled because this function does not exist. It should be added in a minor version bump alongside or before v1 builds. This is not a Track A/B/C concern — it is a standalone `@aihu/agent` addition. The user should decide whether this lands before or alongside v1 track work.
 
-**SURFACE-3 (LOW, but investigate now): `@scribe/agent` size gate is broken.**
+**SURFACE-3 (LOW, but investigate now): `@aihu/agent` size gate is broken.**
 The limit is 100 B but the actual built size is 156 B. `bun run size` would currently fail. Before any v1 build runs CI, the agent limit must be raised to 200 B and the overrun investigated. This is a 3-line `.size-limit.json` change but should be confirmed by whoever owns the agent package.
 
 ---

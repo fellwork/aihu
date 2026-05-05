@@ -64,7 +64,7 @@ function catchallRoute(prefix = ''): RouteDefinition {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('@scribe/router — createRouter', () => {
+describe('@aihu/router — createRouter', () => {
   it('matches a static root route', () => {
     const router = createRouter([staticRoute('/')])
     const result = router.match('/')
@@ -138,7 +138,7 @@ describe('@scribe/router — createRouter', () => {
   })
 })
 
-describe('@scribe/router — handle()', () => {
+describe('@aihu/router — handle()', () => {
   it('returns 200 HTML response for matched route', async () => {
     const router = createRouter([staticRoute('/', '<p>home</p>')])
     const req = new Request('http://localhost/')
@@ -180,19 +180,19 @@ describe('@scribe/router — handle()', () => {
   })
 })
 
-describe('@scribe/router — viteRouterPlugin', () => {
+describe('@aihu/router — viteRouterPlugin', () => {
   it('is a valid Vite plugin with required hooks', () => {
     const plugin = viteRouterPlugin()
     expect(typeof plugin.name).toBe('string')
-    expect(plugin.name).toBe('scribe-router')
+    expect(plugin.name).toBe('aihu-router')
     expect(typeof plugin.resolveId).toBe('function')
     expect(typeof plugin.load).toBe('function')
   })
 
-  it('resolves virtual:scribe-routes to internal ID', () => {
+  it('resolves virtual:aihu-routes to internal ID', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId?.('virtual:scribe-routes')
-    expect(resolved).toBe('\0virtual:scribe-routes')
+    const resolved = plugin.resolveId?.('virtual:aihu-routes')
+    expect(resolved).toBe('\0virtual:aihu-routes')
   })
 
   it('returns null for non-virtual module IDs', () => {
@@ -209,7 +209,7 @@ describe('@scribe/router — viteRouterPlugin', () => {
 
   it('accepts custom pagesDir option', () => {
     const plugin = viteRouterPlugin({ pagesDir: 'src/pages' })
-    expect(plugin.name).toBe('scribe-router')
+    expect(plugin.name).toBe('aihu-router')
     // Plugin should be constructable without errors
     expect(plugin.resolveId).toBeDefined()
     expect(plugin.load).toBeDefined()

@@ -1,4 +1,4 @@
-import type { AgentService } from '@scribe/agent-service'
+import type { AgentService } from '@aihu/agent-service'
 import type { A2aAdapter, A2aAdapterOptions } from './types.ts'
 
 export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptions): A2aAdapter {
@@ -20,8 +20,8 @@ export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptio
 
         if (req.method === 'GET' && path === `${prefix}/.well-known/agent.json`) {
           return json({
-            name: options?.name ?? 'scribe-agent-service',
-            description: 'Scribe agent service',
+            name: options?.name ?? 'aihu-agent-service',
+            description: 'Aihu agent service',
             version: '1.0.0',
             capabilities: { streaming: true },
             defaultInputModes: [APP_JSON],

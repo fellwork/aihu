@@ -1,5 +1,5 @@
 /**
- * `@scribe/agent-service` public surface (Plan 5.2).
+ * `@aihu/agent-service` public surface (Plan 5.2).
  *
  * Value exports: `createAgentService`
  * Type exports: `AgentManifest`, `AgentToolEntry`, `AgentService`,

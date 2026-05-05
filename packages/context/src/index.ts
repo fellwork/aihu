@@ -1,5 +1,5 @@
 /**
- * @scribe/context — zero-dependency, DOM-free context system.
+ * @aihu/context — zero-dependency, DOM-free context system.
  *
  * Provides a React-style context API suitable for both SSR (via
  * setSsrContextMap / clearSsrContextMap / runWithContext) and client-side
@@ -26,7 +26,7 @@ let _activeContextMap: Map<symbol, unknown> | null = null
  */
 export function createContext<T>(defaultValue?: T): ContextToken<T> {
   return {
-    _id: Symbol('scribe.context'),
+    _id: Symbol('aihu.context'),
     _default: defaultValue,
   }
 }

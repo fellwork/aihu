@@ -10,13 +10,13 @@
  * op writes all 10k signals, which should each trigger one `el.setAttribute`
  * call via the reactive binding.
  *
- * **Scribe implementation.** Uses `branch('div', attrMap)` where `attrMap`
+ * **Aihu implementation.** Uses `branch('div', attrMap)` where `attrMap`
  * contains 100 reactive attrs (`Signal<unknown>` values in AttrMap). The
- * Signal tuple shape `[Read, Write]` is what `@scribe/arbor`'s `_applyAttrs`
+ * Signal tuple shape `[Read, Write]` is what `@aihu/arbor`'s `_applyAttrs`
  * detects as reactive (per spec §1.2 + §2.4: `Array.isArray(value)`).
  *
  * **Adapter-specific notes:**
- * - scribe: 100 branches each with 100 signal-keyed attrs. 10k signal writes
+ * - aihu: 100 branches each with 100 signal-keyed attrs. 10k signal writes
  *   per op, each triggering one effect re-run and one setAttribute call.
  * - lit-html: no fine-grained signals. Full re-render per op with new attr
  *   values. Reported as-is per design §5.3.
@@ -32,10 +32,10 @@
  * live signals — large but within reason for the memory phase.
  */
 
-import type { AttrMap, Node } from '@scribe/arbor'
-import { branch } from '@scribe/arbor'
-import type { Signal as GenericSignal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
+import type { AttrMap, Node } from '@aihu/arbor'
+import { branch } from '@aihu/arbor'
+import type { Signal as GenericSignal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
 import { ref, h as vueH } from '@vue/runtime-dom'
 import { html as litHtml } from 'lit-html'
 import type { VNode } from 'preact'
@@ -45,7 +45,7 @@ import solidH from 'solid-js/h'
 
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setSolidComponent, setSolidSignalSetter } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRefSetter, setVueRenderFn } from '../competitors/vue.ts'
@@ -65,17 +65,17 @@ export const attrThrash: WorkloadDefinition = {
   description: '100 elements × 100 reactive attrs each. Write all 10k signals once per op.',
   n: 10,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
       // Build 100 branches each with 100 signal-keyed attrs.
       // Signals are created once (outside timed path); the tree is rebuilt per
-      // op (setScribeHook.buildTree) but signals are shared across ops.
+      // op (setAihuHook.buildTree) but signals are shared across ops.
       const allSignals: GenericSignal<string>[] = Array.from(
         { length: ELEMENT_COUNT * ATTR_COUNT },
         (_, i) => signal(String(i)),
       )
 
-      setScribeHook({
+      setAihuHook({
         buildTree(): Node {
           const elements = Array.from({ length: ELEMENT_COUNT }, (_, ei) => {
             const attrs: AttrMap = {}

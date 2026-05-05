@@ -21,7 +21,7 @@
 
 **Second: 1.1 Reconciler** (`when()` and `each()` in `structural.ts`)
 
-**Third: 1.2 Component props** (typed `observedAttributes` surface in `@scribe/runtime`)
+**Third: 1.2 Component props** (typed `observedAttributes` surface in `@aihu/runtime`)
 
 ### Rationale
 
@@ -141,7 +141,7 @@ The v0 specs have no `onError` or error-boundary concept anywhere. Questions:
 - Does error recovery (replacing a crashed subtree with fallback UI) require
   the reconciler sub-scope mechanism (plan 1.1)? If yes, 4.2 and 1.1 are
   tightly coupled and may need to be designed together.
-- `@scribe/runtime` portion: does `defineComponent`'s `connectedCallback`
+- `@aihu/runtime` portion: does `defineComponent`'s `connectedCallback`
   need to catch and forward errors to `onError`, or is that arbor's
   responsibility?
 - Does `onError` affect the size budget? Adding error boundaries to
@@ -154,10 +154,10 @@ The v0 specs have no `onError` or error-boundary concept anywhere. Questions:
 
 The referenced §10 of `spec-v1-architecture.md` (browser bundle budget,
 4.0 → 5.0 kB gz) does not exist. The current `.size-limit.json` shows:
-- `@scribe/signals` ≤ 1700 B gz
-- `@scribe/arbor` ≤ 2048 B gz
-- `@scribe/runtime` ≤ 1024 B gz
-- `@scribe/agent` ≤ 100 B gz
+- `@aihu/signals` ≤ 1700 B gz
+- `@aihu/arbor` ≤ 2048 B gz
+- `@aihu/runtime` ≤ 1024 B gz
+- `@aihu/agent` ≤ 100 B gz
 
 Combined: 4872 B gz ceiling under current limits. The implied v1 question
 is whether the v1 budget lifts the per-package caps or adds a new combined
@@ -169,7 +169,7 @@ row. See section 3 below.
 
 **Assessment: PARTIALLY BLOCKING for 1.1 and 4.2; not blocking for 1.2.**
 
-The three plans add non-trivial code to `@scribe/arbor`:
+The three plans add non-trivial code to `@aihu/arbor`:
 
 - **1.1 Reconciler** — `when()` and `each()` implementations will require a
   DOM anchor mechanism, a keyed child-scope map, and reactive subscription
@@ -183,7 +183,7 @@ The three plans add non-trivial code to `@scribe/arbor`:
   Estimate: 80–150 B gz. Likely fits within current headroom but is uncertain
   without a current size measurement.
 
-- **1.2 Component props** — adds typed surface to `@scribe/runtime` (currently
+- **1.2 Component props** — adds typed surface to `@aihu/runtime` (currently
   ≤ 1024 B). A zero-runtime-cost typed surface (types erased at build) costs
   nothing. A reactive props signal or schema-validated attrs object could add
   50–150 B gz. Likely within runtime's headroom.
@@ -205,8 +205,8 @@ should include file:line citations and reproduction commands (per Learning #4).
 ### 4.1 Current size baseline
 
 Run `bun run size` on the current `main`-merged codebase and report:
-- Actual gz size of `@scribe/arbor/dist/index.js`
-- Actual gz size of `@scribe/runtime/dist/index.js`
+- Actual gz size of `@aihu/arbor/dist/index.js`
+- Actual gz size of `@aihu/runtime/dist/index.js`
 - Headroom remaining in each package against current `.size-limit.json` caps
 
 ### 4.2 `_activeMountDisposers` scope-collector behavior under re-entry
@@ -255,9 +255,9 @@ In `packages/runtime/src/define-component.ts`:
 In `packages/arbor/src/mount.ts` and `attrs.ts`:
 - Report the exact mechanism by which effects are registered (the
   `_mountEffect(disposers, fn, path)` call signature)
-- Confirm whether `effect()` from `@scribe/signals` returns a synchronous
+- Confirm whether `effect()` from `@aihu/signals` returns a synchronous
   `Dispose` (it does — confirm with the type)
-- Confirm whether `untrack` is available in `@scribe/signals` (it is — report
+- Confirm whether `untrack` is available in `@aihu/signals` (it is — report
   whether it is used anywhere in arbor today)
 
 ### 4.7 Hidden coupling check — `branch.ts` / `node.ts`
@@ -305,7 +305,7 @@ described in section 6 has been completed and a v1 spec exists.
 - [ ] Calling `dispose()` on a scope that has an active `onError` does not
   re-invoke `onError`.
 - [ ] `bun run test` — all existing arbor tests pass with no regressions.
-- [ ] `bun run size` — `@scribe/arbor` remains within its size limit (current
+- [ ] `bun run size` — `@aihu/arbor` remains within its size limit (current
   2048 B gz or the v1 cap if lifted by Architect).
 
 **runtime (`packages/runtime/`)**
@@ -317,7 +317,7 @@ described in section 6 has been completed and a v1 spec exists.
   by the Architect (may be an option to `defineComponent`, a method on the
   element, or a `MountScope`-level concern).
 - [ ] `bun run test` — all existing runtime tests pass.
-- [ ] `bun run size` — `@scribe/runtime` remains within its size limit.
+- [ ] `bun run size` — `@aihu/runtime` remains within its size limit.
 
 ### 5.2 Plan 1.1 — Reconciler (`when()` and `each()`)
 
@@ -377,7 +377,7 @@ described in section 6 has been completed and a v1 spec exists.
 - [ ] `bun run test` — all runtime tests pass; new attribute-change tests
   are added (minimum 3: initial value, change propagation, unobserved
   attribute ignored).
-- [ ] `bun run size` — `@scribe/runtime` remains within its size limit.
+- [ ] `bun run size` — `@aihu/runtime` remains within its size limit.
 
 ---
 

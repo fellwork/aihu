@@ -6,13 +6,13 @@
     "declaration": true,
     "declarationDir": "./dist",
     "paths": {
-      "@scribe/router": ["../router/src/index.ts"],
-      "@scribe/router/plugin": ["../router/src/plugin.ts"],
-      "@scribe/arbor": ["../arbor/src/index.ts"],
-      "@scribe/signals": ["../signals/src/index.ts"],
-      "@scribe/runtime": ["../runtime/src/index.ts"],
-      "@scribe/agent-readiness": ["../agent-readiness/src/index.ts"],
-      "@scribe/compiler": ["../compiler/js/index.ts"]
+      "@aihu/router": ["../router/src/index.ts"],
+      "@aihu/router/plugin": ["../router/src/plugin.ts"],
+      "@aihu/arbor": ["../arbor/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu/runtime": ["../runtime/src/index.ts"],
+      "@aihu/agent-readiness": ["../agent-readiness/src/index.ts"],
+      "@aihu/compiler": ["../compiler/js/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"]

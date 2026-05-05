@@ -1,13 +1,13 @@
 /**
- * @scribe/cli — build-time CLI scaffolder for scribe applications.
+ * @aihu/cli — build-time CLI scaffolder for aihu applications.
  *
- * v0.8.1: `@scribe/cli` package exposing scaffold functions for `scribe app`,
- * `scribe page`, `scribe component`, and `scribe plugin` commands.
+ * v0.8.1: `@aihu/cli` package exposing scaffold functions for `aihu app`,
+ * `aihu page`, `aihu component`, and `aihu plugin` commands.
  *
- * v0.8.2: Hello World template — `npx scribe app <name>` produces a runnable
- * scribe application with Vite, router, runtime, and agent integrations wired.
+ * v0.8.2: Hello World template — `npx aihu app <name>` produces a runnable
+ * aihu application with Vite, router, runtime, and agent integrations wired.
  *
- * v0.8.5: Plugin scaffold template — `npx scribe plugin <name>` produces a
+ * v0.8.5: Plugin scaffold template — `npx aihu plugin <name>` produces a
  * skeleton plugin package with `definePlugin` wired.
  *
  * Per Learning #49 (v3 dep-free thesis): zero non-Node built-in dependencies.
@@ -43,7 +43,7 @@ export type AppTemplate = 'minimal' | 'full' | 'docs'
 // App template generators (rolldown-first, v1 syntax)
 // ---------------------------------------------------------------------------
 
-/** package.json for a new scribe application. */
+/** package.json for a new aihu application. */
 export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
   const _installCmd: Record<PkgManager, string> = {
     bun: 'bun install',
@@ -65,12 +65,12 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
         typecheck: 'tsc --noEmit',
       },
       dependencies: {
-        '@scribe/arbor': '^1.0.0',
-        '@scribe/runtime': '^1.0.0',
-        '@scribe/signals': '^1.0.0',
+        '@aihu/arbor': '^1.0.0',
+        '@aihu/runtime': '^1.0.0',
+        '@aihu/signals': '^1.0.0',
       },
       devDependencies: {
-        '@scribe/cli': '^1.0.0',
+        '@aihu/cli': '^1.0.0',
         rolldown: '^1.0.0',
         typescript: '^5.0.0',
       },
@@ -84,13 +84,13 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
 /** rolldown.config.ts for a new application (replaces vite.config.ts). */
 export function appRolldownConfig(name: string): string {
   return `import { defineConfig } from 'rolldown'
-import { scribeCompilerPlugin } from '@scribe/compiler/plugin'
+import { scribeCompilerPlugin } from '@aihu/compiler/plugin'
 
 export default defineConfig({
   input: { ${toSafe(name)}: 'src/main.ts' },
   plugins: [scribeCompilerPlugin()],
   moduleTypes: {
-    '.scribe': 'ts',
+    '.aihu': 'ts',
   },
   output: {
     dir: 'dist',
@@ -100,7 +100,7 @@ export default defineConfig({
 `
 }
 
-/** tsconfig.json for a new scribe application. */
+/** tsconfig.json for a new aihu application. */
 export function appTsConfig(): string {
   return `${JSON.stringify(
     {
@@ -119,12 +119,12 @@ export function appTsConfig(): string {
   )}\n`
 }
 
-/** src/main.ts entry point for a new scribe app. */
+/** src/main.ts entry point for a new aihu app. */
 export function appMainTs(_name: string): string {
-  return `import { createApp } from '@scribe/app/client'\n\ncreateApp()\n`
+  return `import { createApp } from '@aihu/app/client'\n\ncreateApp()\n`
 }
 
-/** index.html for a new scribe application. */
+/** index.html for a new aihu application. */
 export function appIndexHtml(name: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -141,9 +141,9 @@ export function appIndexHtml(name: string): string {
 `
 }
 
-/** scribe.config.ts — kept for server/SSR config; optional for client-only apps. */
-export function appScribeConfig(): string {
-  return "import { defineScribeConfig } from '@scribe/server'\nimport { definePlugin as data } from '@scribe/data'\nimport { definePlugin as agent } from '@scribe/agent'\n\nexport default defineScribeConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
+/** aihu.config.ts — kept for server/SSR config; optional for client-only apps. */
+export function appAihuConfig(): string {
+  return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
 }
 
 /** @deprecated Use appRolldownConfig instead. Kept for backward compat. */
@@ -151,11 +151,11 @@ export function appViteConfig(): string {
   return appRolldownConfig('app')
 }
 
-/** src/pages/index.scribe for Hello World (v1 syntax). */
-export function appIndexScribe(appName: string = 'app'): string {
+/** src/pages/index.aihu for Hello World (v1 syntax). */
+export function appIndexAihu(appName: string = 'app'): string {
   const _tag = `${toSafe(appName)}-root`
   return `@state {
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 const increment = () => setCount(c => c + 1)
@@ -163,7 +163,7 @@ const increment = () => setCount(c => c + 1)
 
 @template {
   <div class="home">
-    <h1>Hello from scribe</h1>
+    <h1>Hello from aihu</h1>
     <p>Count: {{ count }}</p>
     <button $on:click={increment}>+1</button>
   </div>
@@ -184,29 +184,29 @@ button {
 `
 }
 
-/** src/layouts/default.scribe for Hello World (v1 syntax). */
+/** src/layouts/default.aihu for Hello World (v1 syntax). */
 export function appDefaultLayout(): string {
   return '@template {\n  <div class="layout">\n    <slot />\n  </div>\n}\n\n@style {\n.layout {\n  max-width: 1200px;\n  margin: 0 auto;\n}\n}\n'
 }
 
 /** A page file for a given route path. */
-export function pageScribe(routePath: string): string {
+export function pageAihu(routePath: string): string {
   const name = routePath.replace(/^\//, '').replace(/\//g, '-') || 'page'
   return `@route {\n  name: '${name}'\n}\n\n@template {\n  <div class="${name}">\n    <h1>${name}</h1>\n  </div>\n}\n`
 }
 
 /** A component file for a given component name. */
-export function componentScribe(name: string): string {
+export function componentAihu(name: string): string {
   const kebab = toKebab(name)
   return `@template {\n  <div class="${kebab}">\n    <!-- ${name} component -->\n  </div>\n}\n`
 }
 
-/** package.json for a new scribe plugin. */
+/** package.json for a new aihu plugin. */
 export function pluginPackageJson(name: string): string {
   const kebab = toKebab(name)
   return JSON.stringify(
     {
-      name: `scribe-plugin-${kebab}`,
+      name: `aihu-plugin-${kebab}`,
       version: '0.1.0',
       type: 'module',
       main: './dist/index.js',
@@ -219,7 +219,7 @@ export function pluginPackageJson(name: string): string {
         },
       },
       peerDependencies: {
-        '@scribe/plugin': '^0.8.0',
+        '@aihu/plugin': '^0.8.0',
       },
     },
     null,
@@ -227,10 +227,10 @@ export function pluginPackageJson(name: string): string {
   )
 }
 
-/** src/index.ts for a new scribe plugin. */
+/** src/index.ts for a new aihu plugin. */
 export function pluginIndex(name: string): string {
   const kebab = toKebab(name)
-  return `import { definePlugin, type Plugin } from '@scribe/plugin'\n\nconst plugin: Plugin = definePlugin({\n  name: '${name}',\n  version: '0.1.0',\n  namespace: '${kebab}',\n  contributes: {\n    blocks: [],\n    macros: [],\n  },\n})\n\nexport default plugin\n`
+  return `import { definePlugin, type Plugin } from '@aihu/plugin'\n\nconst plugin: Plugin = definePlugin({\n  name: '${name}',\n  version: '0.1.0',\n  namespace: '${kebab}',\n  contributes: {\n    blocks: [],\n    macros: [],\n  },\n})\n\nexport default plugin\n`
 }
 
 // ---------------------------------------------------------------------------
@@ -238,11 +238,11 @@ export function pluginIndex(name: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Scaffold a new scribe application at `<outDir>/<name>/`.
+ * Scaffold a new aihu application at `<outDir>/<name>/`.
  *
  * v1.0: Uses rolldown (not Vite), v1 @state/{@template}/{@style} syntax.
  * Produces: package.json, rolldown.config.ts, tsconfig.json,
- *   index.html, src/main.ts, src/pages/index.scribe
+ *   index.html, src/main.ts, src/pages/index.aihu
  */
 export function scaffoldApp(
   name: string,
@@ -257,42 +257,42 @@ export function scaffoldApp(
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],
-    ['src/pages/index.scribe', appIndexScribe(name)],
+    ['src/pages/index.aihu', appIndexAihu(name)],
   ])
 }
 
 /**
  * Scaffold a page file under `src/pages/`.
  *
- * Usage: `scribe page /about` -> `src/pages/about.scribe`
+ * Usage: `aihu page /about` -> `src/pages/about.aihu`
  */
 export function scaffoldPage(routePath: string, outDir?: string): ScaffoldResult {
   const root = resolve(outDir ?? '.')
   const segments = routePath.replace(/^\//, '').split('/').filter(Boolean)
   const rel =
-    segments.length > 0 ? `src/pages/${segments.join('/')}.scribe` : 'src/pages/index.scribe'
-  return writeFiles(root, [[rel, pageScribe(routePath)]])
+    segments.length > 0 ? `src/pages/${segments.join('/')}.aihu` : 'src/pages/index.aihu'
+  return writeFiles(root, [[rel, pageAihu(routePath)]])
 }
 
 /**
  * Scaffold a component file under `src/components/`.
  *
- * Usage: `scribe component Card` -> `src/components/card.scribe`
+ * Usage: `aihu component Card` -> `src/components/card.aihu`
  */
 export function scaffoldComponent(name: string, outDir?: string): ScaffoldResult {
   const root = resolve(outDir ?? '.')
   const kebab = toKebab(name)
-  return writeFiles(root, [[`src/components/${kebab}.scribe`, componentScribe(name)]])
+  return writeFiles(root, [[`src/components/${kebab}.aihu`, componentAihu(name)]])
 }
 
 /**
  * Scaffold a plugin package directory.
  *
- * Usage: `scribe plugin my-forms` -> `scribe-plugin-my-forms/`
+ * Usage: `aihu plugin my-forms` -> `aihu-plugin-my-forms/`
  */
 export function scaffoldPlugin(name: string, outDir?: string): ScaffoldResult {
   const kebab = toKebab(name)
-  const root = resolve(outDir ?? '.', `scribe-plugin-${kebab}`)
+  const root = resolve(outDir ?? '.', `aihu-plugin-${kebab}`)
   return writeFiles(root, [
     ['package.json', pluginPackageJson(name)],
     ['src/index.ts', pluginIndex(name)],

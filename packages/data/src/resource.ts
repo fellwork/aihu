@@ -1,5 +1,5 @@
-import { inject } from '@scribe/context'
-import type { Signal } from '@scribe/signals'
+import { inject } from '@aihu/context'
+import type { Signal } from '@aihu/signals'
 import {
   batch,
   boolLatticeSignal,
@@ -7,7 +7,7 @@ import {
   maxLatticeSignal,
   signal,
   untrack,
-} from '@scribe/signals'
+} from '@aihu/signals'
 import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 import { createResourceStore, ResourceStoreToken } from './store.ts'
 import type { DataState, Resource, ResourceHandle, ResourceOptions } from './types.ts'
@@ -41,7 +41,7 @@ export function createResource<T>(
   options?: ResourceOptions<T>,
 ): Resource<T> {
   // 1. Resolve the cache store (injection happens at createResource call time,
-  //    i.e. during component setup — matching @scribe/context's sync model).
+  //    i.e. during component setup — matching @aihu/context's sync model).
   const store: ResourceStore =
     options?.store ?? inject(ResourceStoreToken) ?? (_defaultStore ??= createResourceStore())
 

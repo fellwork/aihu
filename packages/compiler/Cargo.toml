@@ -1,5 +1,5 @@
 [package]
-name    = "scribe-compiler"
+name    = "aihu-compiler"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,5 +7,5 @@ edition = "2021"
 insta = "1"
 
 [[bin]]
-name = "scribe-compile"
+name = "aihu-compile"
 path = "src/bin/main.rs"

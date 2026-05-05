@@ -1,7 +1,7 @@
-# Releasing @scribe/compiler
+# Releasing @aihu/compiler
 
-The Rust `scribe-compile` binary ships pre-built via GitHub Releases. Consumers
-do not need a Rust toolchain — `bun add @scribe/compiler` triggers the
+The Rust `aihu-compile` binary ships pre-built via GitHub Releases. Consumers
+do not need a Rust toolchain — `bun add @aihu/compiler` triggers the
 postinstall hook in `js/postinstall.ts`, which downloads the binary that
 matches their platform and arch.
 
@@ -12,7 +12,7 @@ matches their platform and arch.
 3. The `release.yml` workflow triggers automatically. It cross-compiles for
    mac-arm64, mac-x64, linux-x64, windows-x64 and creates a GitHub Release
    with all four binaries attached.
-4. Once the release is live, `bun add @scribe/compiler` will trigger
+4. Once the release is live, `bun add @aihu/compiler` will trigger
    the postinstall hook, which downloads the matching binary.
 
 ## Dry run (no tag)
@@ -30,15 +30,15 @@ only runs when the workflow is triggered by an actual `refs/tags/v*` push.
 If you build from source, set `SCRIBE_COMPILE_BIN`:
 
 ```bash
-export SCRIBE_COMPILE_BIN=$(pwd)/packages/compiler/target/release/scribe-compile
+export SCRIBE_COMPILE_BIN=$(pwd)/packages/compiler/target/release/aihu-compile
 bun install
 ```
 
-The postinstall hook copies that path to `packages/compiler/bin/scribe-compile`
+The postinstall hook copies that path to `packages/compiler/bin/aihu-compile`
 instead of downloading. On Windows, point at the `.exe`:
 
 ```powershell
-$env:SCRIBE_COMPILE_BIN = "$pwd\packages\compiler\target\release\scribe-compile.exe"
+$env:SCRIBE_COMPILE_BIN = "$pwd\packages\compiler\target\release\aihu-compile.exe"
 bun install
 ```
 
@@ -47,19 +47,19 @@ bun install
 After a release lands:
 
 ```bash
-curl -L -O https://github.com/fellwork/scribe/releases/latest/download/scribe-compile-linux-x64
-chmod +x scribe-compile-linux-x64
-./scribe-compile-linux-x64 --help
+curl -L -O https://github.com/fellwork/aihu/releases/latest/download/aihu-compile-linux-x64
+chmod +x aihu-compile-linux-x64
+./aihu-compile-linux-x64 --help
 ```
 
 ## Asset naming
 
 | Target           | Runner       | Rust target                  | Asset name                          |
 | ---------------- | ------------ | ---------------------------- | ----------------------------------- |
-| mac-arm64        | macos-14     | aarch64-apple-darwin         | scribe-compile-darwin-arm64         |
-| mac-x64          | macos-13     | x86_64-apple-darwin          | scribe-compile-darwin-x64           |
-| linux-x64        | ubuntu-22.04 | x86_64-unknown-linux-gnu     | scribe-compile-linux-x64            |
-| windows-x64      | windows-2022 | x86_64-pc-windows-msvc       | scribe-compile-windows-x64.exe      |
+| mac-arm64        | macos-14     | aarch64-apple-darwin         | aihu-compile-darwin-arm64         |
+| mac-x64          | macos-13     | x86_64-apple-darwin          | aihu-compile-darwin-x64           |
+| linux-x64        | ubuntu-22.04 | x86_64-unknown-linux-gnu     | aihu-compile-linux-x64            |
+| windows-x64      | windows-2022 | x86_64-pc-windows-msvc       | aihu-compile-windows-x64.exe      |
 
 ## Failure modes
 

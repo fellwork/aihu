@@ -1,48 +1,48 @@
 /**
- * v0.6b tests for @scribe/server:
- *   - v0.6.5: BuildTarget type + build.target in defineScribeConfig
+ * v0.6b tests for @aihu/server:
+ *   - v0.6.5: BuildTarget type + build.target in defineAihuConfig
  *   - v0.6.7: createServerCall stub
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BuildConfig, BuildTarget } from '../src/index.ts'
-import { createServerCall, defineScribeConfig } from '../src/index.ts'
+import { createServerCall, defineAihuConfig } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
-// v0.6.5 — BuildTarget type + ScribeConfig.build
+// v0.6.5 — BuildTarget type + AihuConfig.build
 // ---------------------------------------------------------------------------
 
-describe('ScribeConfig — v0.6.5 build.target', () => {
+describe('AihuConfig — v0.6.5 build.target', () => {
   it('build.target accepts "client"', () => {
     const target: BuildTarget = 'client'
-    const cfg = defineScribeConfig({ build: { target } })
+    const cfg = defineAihuConfig({ build: { target } })
     expect(cfg.build?.target).toBe('client')
   })
 
   it('build.target accepts "server"', () => {
     const target: BuildTarget = 'server'
-    const cfg = defineScribeConfig({ build: { target } })
+    const cfg = defineAihuConfig({ build: { target } })
     expect(cfg.build?.target).toBe('server')
   })
 
   it('build.target accepts "universal"', () => {
     const target: BuildTarget = 'universal'
-    const cfg = defineScribeConfig({ build: { target } })
+    const cfg = defineAihuConfig({ build: { target } })
     expect(cfg.build?.target).toBe('universal')
   })
 
   it('build field is optional — existing configs remain valid', () => {
-    const cfg = defineScribeConfig({ server: { cors: { origin: '*' } } })
+    const cfg = defineAihuConfig({ server: { cors: { origin: '*' } } })
     expect(cfg.build).toBeUndefined()
   })
 
   it('BuildConfig target is optional — empty build config is valid', () => {
     const buildCfg: BuildConfig = {}
-    const cfg = defineScribeConfig({ build: buildCfg })
+    const cfg = defineAihuConfig({ build: buildCfg })
     expect(cfg.build?.target).toBeUndefined()
   })
 
-  it('build.target round-trips through defineScribeConfig', () => {
-    const cfg = defineScribeConfig({
+  it('build.target round-trips through defineAihuConfig', () => {
+    const cfg = defineAihuConfig({
       server: { basePath: '/api' },
       build: { target: 'universal' },
     })

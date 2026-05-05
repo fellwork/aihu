@@ -26,7 +26,7 @@ interface SizeRow {
 
 const targets: Array<{ name: string; path: string }> = [
   {
-    name: '@scribe/arbor',
+    name: '@aihu/arbor',
     path: resolve(ROOT, 'packages/arbor/dist/index.js'),
   },
   {
@@ -88,7 +88,7 @@ for (const t of targets) {
   rows.push({ name: t.name, raw: s.raw, minified: s.minified, gz: s.gz })
 }
 
-console.log('# @scribe/arbor — competitor bundle sizes (minified + gzipped)')
+console.log('# @aihu/arbor — competitor bundle sizes (minified + gzipped)')
 console.log('')
 console.log('| Competitor | Raw | Minified | Gzipped |')
 console.log('| --- | ---: | ---: | ---: |')

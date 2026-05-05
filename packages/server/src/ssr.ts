@@ -3,7 +3,7 @@
  * CRITICAL CONSTRAINTS:
  * 1. Zero client runtime imports. Zero DOM globals (no window, document, HTMLElement).
  * 2. Runs in: Workers, Deno, Bun, Node ESM.
- * 3. NEVER import @scribe/context at module level — use injection slots (_setContextFns).
+ * 3. NEVER import @aihu/context at module level — use injection slots (_setContextFns).
  *
  * The `SsrOptions.serializer` field accepts an injected serialize function.
  * In v0 the arbor stub always throws; the spec path is wired for sub-project #6.
@@ -12,20 +12,20 @@
 import type { StreamOptions } from './stream-types.ts'
 
 // ---------------------------------------------------------------------------
-// Context injection slots (hard-boundary: @scribe/context is never imported here).
+// Context injection slots (hard-boundary: @aihu/context is never imported here).
 // The caller populates these once at app startup via _setContextFns().
 // ---------------------------------------------------------------------------
 let _setContextMap: ((map: Map<symbol, unknown>) => void) | undefined
 let _clearContextMap: (() => void) | undefined
 
 /**
- * Inject context activation/deactivation functions from @scribe/context/ssr.
+ * Inject context activation/deactivation functions from @aihu/context/ssr.
  * Must be called once at app startup before any renderToString calls that use
  * SsrOptions.contextSetup.
  *
  * Example:
- *   import { setSsrContextMap, clearSsrContextMap } from '@scribe/context/ssr'
- *   import { _setContextFns } from '@scribe/server'
+ *   import { setSsrContextMap, clearSsrContextMap } from '@aihu/context/ssr'
+ *   import { _setContextFns } from '@aihu/server'
  *   _setContextFns(setSsrContextMap, clearSsrContextMap)
  */
 export function _setContextFns(set: (map: Map<symbol, unknown>) => void, clear: () => void): void {
@@ -80,12 +80,12 @@ export interface SsrOptions {
    *   2. Activate a fresh context Map before the tree walk.
    *   3. Clear it in a finally block after the walk.
    *
-   * ssr.ts never imports @scribe/context — the hard boundary is preserved.
+   * ssr.ts never imports @aihu/context — the hard boundary is preserved.
    * The activate/deactivate functions are wired via _setContextFns at startup.
    *
    * Minimal usage:
-   *   import { setSsrContextMap, clearSsrContextMap } from '@scribe/context/ssr'
-   *   import { _setContextFns, renderToString } from '@scribe/server'
+   *   import { setSsrContextMap, clearSsrContextMap } from '@aihu/context/ssr'
+   *   import { _setContextFns, renderToString } from '@aihu/server'
    *   _setContextFns(setSsrContextMap, clearSsrContextMap)
    *   await renderToString(component, { contextSetup: () => {} })
    */
@@ -127,7 +127,7 @@ function _renderNode(node: unknown, path: string, hydratable: boolean): string {
       if (v === true) attrStr += ` ${k}`
       else if (v !== false && v !== undefined) attrStr += ` ${k}="${escapeAttr(String(v))}"`
     }
-    if (hydratable) attrStr += ` data-scribe-path="${escapeAttr(path)}"`
+    if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     const children = Array.isArray(obj.children) ? obj.children : []
     const inner = children.map((c, i) => _renderNode(c, `${path}.${i}`, hydratable)).join('')
     return `<${tag}${attrStr}>${inner}</${tag}>`
@@ -194,7 +194,7 @@ async function renderNodeAsync(
       if (v === true) attrStr += ` ${k}`
       else if (v !== false && v !== undefined) attrStr += ` ${k}="${escapeAttr(String(v))}"`
     }
-    if (hydratable) attrStr += ` data-scribe-path="${escapeAttr(path)}"`
+    if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
 
     const children = Array.isArray(obj.children) ? obj.children : []
 
@@ -273,7 +273,7 @@ function emitStateScriptAndClose(
     try {
       const state = opts.serializer()
       controller.enqueue(
-        `<script type="application/json" id="__scribe_state__">${JSON.stringify(state)}</script>`,
+        `<script type="application/json" id="__aihu_state__">${JSON.stringify(state)}</script>`,
       )
     } catch {
       // swallow — no state script emitted

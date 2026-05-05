@@ -1,0 +1,275 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Aihu",
+  "scopeName": "source.aihu",
+  "fileTypes": ["aihu"],
+  "patterns": [
+    { "include": "#block-state" },
+    { "include": "#block-template" },
+    { "include": "#block-style" },
+    { "include": "#block-agent" },
+    { "include": "#block-route" },
+    { "include": "#block-unknown" },
+    { "include": "#comment-line" },
+    { "include": "#comment-block" }
+  ],
+  "repository": {
+    "comment-line": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.aihu"
+    },
+    "comment-block": {
+      "begin": "/\\*",
+      "end": "\\*/",
+      "name": "comment.block.aihu"
+    },
+
+    "block-keyword": {
+      "match": "@(state|template|style|agent|route|plugin|data)\\b",
+      "captures": {
+        "0": { "name": "keyword.other.block.aihu" },
+        "1": { "name": "storage.type.block.aihu" }
+      }
+    },
+
+    "block-state": {
+      "begin": "(@state)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu storage.type.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.state.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "source.ts" }]
+    },
+
+    "block-template": {
+      "begin": "(@template)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu storage.type.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.template.aihu",
+      "patterns": [
+        { "include": "#template-interpolation" },
+        { "include": "#template-macro-attr" },
+        { "include": "#template-tag" },
+        { "include": "#comment-line" },
+        { "include": "#comment-block" }
+      ]
+    },
+
+    "block-style": {
+      "begin": "(@style)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu storage.type.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.style.aihu",
+      "contentName": "source.css",
+      "patterns": [{ "include": "source.css" }]
+    },
+
+    "block-agent": {
+      "begin": "(@agent)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu storage.type.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.agent.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "source.ts" }]
+    },
+
+    "block-route": {
+      "begin": "(@route)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu storage.type.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.route.aihu",
+      "patterns": [{ "include": "#route-key-value" }]
+    },
+
+    "block-unknown": {
+      "begin": "(@\\w+)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.aihu" },
+        "2": { "name": "punctuation.definition.block.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.aihu" }
+      },
+      "name": "meta.block.unknown.aihu"
+    },
+
+    "template-interpolation": {
+      "begin": "\\{\\{",
+      "end": "\\}\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.aihu" }
+      },
+      "name": "meta.template.expression.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "source.ts" }]
+    },
+
+    "template-macro-attr": {
+      "patterns": [
+        {
+          "comment": "$on:event={handler} — event binding",
+          "match": "(\\$on:[a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))?",
+          "captures": {
+            "1": { "name": "keyword.operator.aihu entity.other.attribute-name.aihu" },
+            "2": { "name": "punctuation.separator.key-value.aihu" },
+            "3": { "name": "meta.expression.aihu" }
+          }
+        },
+        {
+          "comment": "$bind:prop={expr} — property binding",
+          "match": "(\\$bind:[a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))?",
+          "captures": {
+            "1": { "name": "keyword.operator.aihu entity.other.attribute-name.aihu" },
+            "2": { "name": "punctuation.separator.key-value.aihu" },
+            "3": { "name": "meta.expression.aihu" }
+          }
+        },
+        {
+          "comment": "$each, $if, $html, $show, etc.",
+          "match": "(\\$[a-zA-Z][a-zA-Z0-9]*)(?:(=)(?:(\\{[^}]*\\})|(\"[^\"]*\")|('[^']*')))?",
+          "captures": {
+            "1": { "name": "keyword.operator.aihu support.type.directive.aihu" },
+            "2": { "name": "punctuation.separator.key-value.aihu" },
+            "3": { "name": "meta.expression.aihu" },
+            "4": { "name": "string.quoted.double.aihu" },
+            "5": { "name": "string.quoted.single.aihu" }
+          }
+        }
+      ]
+    },
+
+    "template-tag": {
+      "patterns": [
+        { "include": "#template-tag-open" },
+        { "include": "#template-tag-close" },
+        { "include": "#template-tag-self-close" }
+      ]
+    },
+
+    "template-tag-open": {
+      "begin": "(<)([a-zA-Z][a-zA-Z0-9-]*)",
+      "end": "(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.aihu" },
+        "2": { "name": "entity.name.tag.aihu" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.aihu" }
+      },
+      "name": "meta.tag.open.aihu",
+      "patterns": [
+        { "include": "#template-macro-attr" },
+        { "include": "#template-attr-expr" },
+        { "include": "#template-attr-static" }
+      ]
+    },
+
+    "template-tag-close": {
+      "match": "(</)([a-zA-Z][a-zA-Z0-9-]*)(>)",
+      "captures": {
+        "1": { "name": "punctuation.definition.tag.begin.aihu" },
+        "2": { "name": "entity.name.tag.aihu" },
+        "3": { "name": "punctuation.definition.tag.end.aihu" }
+      },
+      "name": "meta.tag.close.aihu"
+    },
+
+    "template-tag-self-close": {
+      "begin": "(<)([a-zA-Z][a-zA-Z0-9-]*)",
+      "end": "(/>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.aihu" },
+        "2": { "name": "entity.name.tag.aihu" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.aihu" }
+      },
+      "name": "meta.tag.self-close.aihu",
+      "patterns": [
+        { "include": "#template-macro-attr" },
+        { "include": "#template-attr-expr" },
+        { "include": "#template-attr-static" }
+      ]
+    },
+
+    "template-attr-expr": {
+      "match": "([a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))",
+      "captures": {
+        "1": { "name": "entity.other.attribute-name.aihu" },
+        "2": { "name": "punctuation.separator.key-value.aihu" },
+        "3": { "name": "meta.expression.aihu" }
+      }
+    },
+
+    "template-attr-static": {
+      "patterns": [
+        {
+          "match": "([a-zA-Z][a-zA-Z0-9-]*)=(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.aihu" },
+            "2": { "name": "string.quoted.double.aihu" }
+          }
+        },
+        {
+          "match": "([a-zA-Z][a-zA-Z0-9-]*)=('[^']*')",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.aihu" },
+            "2": { "name": "string.quoted.single.aihu" }
+          }
+        },
+        {
+          "match": "([a-zA-Z][a-zA-Z0-9-]+)",
+          "name": "entity.other.attribute-name.aihu"
+        }
+      ]
+    },
+
+    "route-key-value": {
+      "patterns": [
+        {
+          "match": "^\\s*(path|name|layout|ssr|middleware|params)\\s*(:)\\s*(.+)$",
+          "captures": {
+            "1": { "name": "support.type.property-name.aihu" },
+            "2": { "name": "punctuation.separator.key-value.aihu" },
+            "3": { "name": "string.unquoted.aihu" }
+          }
+        },
+        { "include": "#comment-line" }
+      ]
+    }
+  }
+}

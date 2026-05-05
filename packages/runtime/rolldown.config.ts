@@ -14,5 +14,5 @@ export default defineConfig({
     minify: true,
   },
   plugins: [dts()],
-  external: ['@scribe/arbor', '@scribe/signals'],
+  external: ['@aihu/arbor', '@aihu/signals'],
 })

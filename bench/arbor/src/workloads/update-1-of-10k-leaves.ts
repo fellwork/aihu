@@ -13,7 +13,7 @@
  * patch one DOM text node in a 10k-node tree?
  *
  * **Adapter-specific notes:**
- * - scribe: writes a `signal()` whose value is bound to leaf[0]. One signal
+ * - aihu: writes a `signal()` whose value is bound to leaf[0]. One signal
  *   write → one effect re-run → one DOM text patch.
  * - lit-html: no fine-grained reactivity. Each update re-renders the full
  *   10k-leaf template with the new value for leaf[0]. Reported as-is.
@@ -29,8 +29,8 @@
  * **N override.** N=1. The memory phase measures one live 10k-leaf tree.
  */
 
-import { branch, leaf } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
+import { branch, leaf } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
 import { ref, h as vueH } from '@vue/runtime-dom'
 import type { TemplateResult } from 'lit-html'
 import { html as litHtml } from 'lit-html'
@@ -41,7 +41,7 @@ import solidH from 'solid-js/h'
 
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRefSetter, setVueRenderFn } from '../competitors/vue.ts'
@@ -56,12 +56,12 @@ export const updateOneOfTenK: WorkloadDefinition = {
     'Mount 10k-leaf tree once, then write the signal for leaf[0] on each op. One signal write = 1 op.',
   n: 1,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
       const targetSig = signal('0')
       const staticLeaves = Array.from({ length: LEAF_COUNT - 1 }, (_, i) => leaf(String(i + 1)))
 
-      setScribeHook({
+      setAihuHook({
         buildTree() {
           return branch(null, undefined, [leaf(targetSig), ...staticLeaves])
         },

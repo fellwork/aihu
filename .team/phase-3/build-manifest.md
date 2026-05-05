@@ -1,10 +1,10 @@
-# Build manifest — Phase 3 (`@scribe/arbor`)
+# Build manifest — Phase 3 (`@aihu/arbor`)
 
 Append-only log of files created/modified per task, with verification results. Mirrors Phase 2's `.team/phase-2/build-manifest.md` format.
 
 **Spec:** `.team/phase-3/spec-arbor.md` (binding)
 **Branch:** `phase-3/arbor-implementation`
-**Worktree:** `C:/git/fellwork-worktrees/scribe-arbor-task-12`
+**Worktree:** `C:/git/fellwork-worktrees/aihu-arbor-task-12`
 
 ---
 
@@ -27,7 +27,7 @@ Append-only log of files created/modified per task, with verification results. M
 
 ## Task 12.5 — `untrack` prep (signals)
 
-Per spec §1.1 (Team Lead Call 1). Authorized addition to `@scribe/signals` ahead of arbor source work. Also includes the CI trigger fix per spec §3.3 + Learning #5 — without `phase-*/**` in the push trigger, this branch produces no CI signal until a PR is opened.
+Per spec §1.1 (Team Lead Call 1). Authorized addition to `@aihu/signals` ahead of arbor source work. Also includes the CI trigger fix per spec §3.3 + Learning #5 — without `phase-*/**` in the push trigger, this branch produces no CI signal until a PR is opened.
 
 **Commit:** `e3ac1ce`
 **Files:**
@@ -46,13 +46,13 @@ Per spec §1.1 (Team Lead Call 1). Authorized addition to `@scribe/signals` ahea
 
 ---
 
-## Task 12 — Scaffold `@scribe/arbor`
+## Task 12 — Scaffold `@aihu/arbor`
 
-Per spec §3.1 + §5 (Task 12 file-level change list). Establishes `@scribe/arbor` as a workspace package with build/typecheck/size gates wired through Moon + size-limit. Source surface lands now: `errors.ts` (ArborError class hierarchy), `types.ts` (public type aliases), `node.ts` (internal Branch/Leaf runtime constructors with shape-locked fields per §2.9 + frozen `EMPTY_CHILDREN`). Index re-exports only the errors and types — primitives (`branch`, `leaf`, `mount`, `when`, `each`) follow in Tasks 13–18.
+Per spec §3.1 + §5 (Task 12 file-level change list). Establishes `@aihu/arbor` as a workspace package with build/typecheck/size gates wired through Moon + size-limit. Source surface lands now: `errors.ts` (ArborError class hierarchy), `types.ts` (public type aliases), `node.ts` (internal Branch/Leaf runtime constructors with shape-locked fields per §2.9 + frozen `EMPTY_CHILDREN`). Index re-exports only the errors and types — primitives (`branch`, `leaf`, `mount`, `when`, `each`) follow in Tasks 13–18.
 
 **Commit:** `99dfffb`
 **Files:**
-- `packages/arbor/package.json` — created — manifest mirroring signals' shape; dep on `@scribe/signals: workspace:*`; `scripts: { build, typecheck }`.
+- `packages/arbor/package.json` — created — manifest mirroring signals' shape; dep on `@aihu/signals: workspace:*`; `scripts: { build, typecheck }`.
 - `packages/arbor/tsconfig.json` — created — extends `../../tsconfig.base.json`; `rootDir: "."`, `outDir: "dist"`, `noEmit: true`, explicit `lib: ["ES2022", "DOM", "DOM.Iterable"]` per spec §3.1 because arbor touches the DOM.
 - `packages/arbor/moon.yml` — created — `language: typescript` + `layer: library` (Moon 2.x).
 - `packages/arbor/rolldown.config.ts` — created — copy of signals' rolldown config: ESM + sourcemap + dts.
@@ -60,7 +60,7 @@ Per spec §3.1 + §5 (Task 12 file-level change list). Establishes `@scribe/arbo
 - `packages/arbor/src/errors.ts` — created — `ArborError` + `ArborNotImplementedError` per spec §1.8; comment notes that `code` and dev-mode `origin` fields land with devtools (matches signals' errors.ts pattern).
 - `packages/arbor/src/types.ts` — created — public type definitions per spec §1: `Branch`, `Leaf`, `Node`, `AttrMap`, `ChildList`, `EventHandler`, `AgentContext`, `Snapshot`. `MountScope` deliberately not here — lives in `mount.ts` later (spec §5 final index).
 - `packages/arbor/src/node.ts` — created — internal `_makeBranch`, `_makeTextLeaf`, `_makeElementLeaf` runtime constructors with shape-locked fields per §2.9 (always-present `null` for absent values); exports frozen module-level `EMPTY_CHILDREN`.
-- `.size-limit.json` — modified — added `@scribe/arbor` row at 2048 B gz limit per spec §3.2; signals row preserved.
+- `.size-limit.json` — modified — added `@aihu/arbor` row at 2048 B gz limit per spec §3.2; signals row preserved.
 - `bun.lock` — modified — `bun install` registered the new workspace member (lockfile updated automatically).
 
 **Verification:**
@@ -227,7 +227,7 @@ Per spec §4 + §5 (Task 19). Final batch of Phase 3: a 10k-leaf JSDOM smoke mic
 
 **Integration test signature deviation from spec §4 example.** Spec §4's example destructures `const [text, setText] = signal('hello')` and then passes `leaf(text)` / `class: [cls]`. But destructuring makes `text` the GETTER (a function), not the Signal tuple — and arbor's `Array.isArray` discriminant per spec §1.2 + Deviation #11 requires the WHOLE tuple. Pass-the-whole-tuple form: `const text = signal('hello'); const [, setText] = text` — the spec brief explicitly authorized this adaptation in the IMPORTANT block ("you may need to cast or pass `text` as the whole tuple"). Test verifies that batch coalescing through arbor's mountEffect produces the correct final DOM state (no intermediate flicker visible at end-of-batch DOM read).
 
-**Cross-package integration scaffolding.** `tests/integration/` did not exist prior to this task; created it along with `tests/vitest.config.ts` (the integration vitest config referenced by the existing root-package script `test:integration`). The config aliases `@scribe/signals` and `@scribe/arbor` to their src `index.ts` directly (same pattern as the root `vitest.config.ts`).
+**Cross-package integration scaffolding.** `tests/integration/` did not exist prior to this task; created it along with `tests/vitest.config.ts` (the integration vitest config referenced by the existing root-package script `test:integration`). The config aliases `@aihu/signals` and `@aihu/arbor` to their src `index.ts` directly (same pattern as the root `vitest.config.ts`).
 
 **Commit:** `ebf40bf`
 **Files:**
@@ -248,7 +248,7 @@ Per spec §4 + §5 (Task 19). Final batch of Phase 3: a 10k-leaf JSDOM smoke mic
 
 ## Phase 3 summary
 
-`@scribe/arbor` v0 ships per spec. 10 source modules, 89 unit tests, 1 cross-package integration test, two size budgets green with double-digit-percent headroom on both.
+`@aihu/arbor` v0 ships per spec. 10 source modules, 89 unit tests, 1 cross-package integration test, two size budgets green with double-digit-percent headroom on both.
 
 **Commit chain on `phase-3/arbor-implementation`** (12 commits):
 
@@ -271,8 +271,8 @@ Per spec §4 + §5 (Task 19). Final batch of Phase 3: a 10k-leaf JSDOM smoke mic
 (13 commits total — the table headers count primary feat/docs only.)
 
 **Final test counts:**
-- `@scribe/signals` unit: **39** (signal 5, computed 9, effect 7, batch 6, state 4, untrack 3, properties 5)
-- `@scribe/arbor` unit: **50** (leaf 9, branch 9, attrs 9, mount 20, structural 2, bench 1)
+- `@aihu/signals` unit: **39** (signal 5, computed 9, effect 7, batch 6, state 4, untrack 3, properties 5)
+- `@aihu/arbor` unit: **50** (leaf 9, branch 9, attrs 9, mount 20, structural 2, bench 1)
 - Cross-package integration: **1** (batch + arbor)
 - **Total: 90 tests** (89 unit + 1 integration)
 
@@ -280,8 +280,8 @@ Per spec §4 + §5 (Task 19). Final batch of Phase 3: a 10k-leaf JSDOM smoke mic
 
 | Package | Size | Budget | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | **716 B** | 1024 B | 308 B (30%) |
-| `@scribe/arbor` | **1.16 kB** | 2.05 kB | 889 B (43%) |
+| `@aihu/signals` | **716 B** | 1024 B | 308 B (30%) |
+| `@aihu/arbor` | **1.16 kB** | 2.05 kB | 889 B (43%) |
 
 **Bench result:** 10k-leaf JSDOM smoke mount: **81.40 ms isolated**, **167.75 ms in parallel suite**, threshold **250 ms**. PASS.
 

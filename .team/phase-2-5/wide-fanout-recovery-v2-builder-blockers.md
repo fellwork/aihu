@@ -44,7 +44,7 @@ Actual (this machine, post-Phase B), median of 5 runs:
 
 Three orthogonal signals point to machine variance dominating the absolute numbers:
 
-1. **All competitors regressed in the same RESULTS.md run, not just scribe.** alien-signals went 8.63 µs → 8.26 µs (improved), but `@preact/signals-core` went 11.03 µs → 11.71 µs (worse), `@vue/reactivity` 14.38 → 19.23 µs (much worse), `solid-js` 24.77 → 23.20 µs (improved). These are unrelated codebases pinned to identical versions; their per-workload numbers can only move if the *measurement environment* changed (CPU clock, scheduler noise, GC tail, V8 inlining decisions). The Architect's spec §12 finding 2 explicitly warned about ±0.3 µs V8 variance; observed run-to-run variance on this machine is 11.79–14.73 µs (Phase A) and 12.05–13.70 µs (Phase B), spanning ±1.5 µs. The signal Phase B brings (~−0.3 to −0.5 µs) is within that noise band and therefore not statistically detectable in 5 runs.
+1. **All competitors regressed in the same RESULTS.md run, not just aihu.** alien-signals went 8.63 µs → 8.26 µs (improved), but `@preact/signals-core` went 11.03 µs → 11.71 µs (worse), `@vue/reactivity` 14.38 → 19.23 µs (much worse), `solid-js` 24.77 → 23.20 µs (improved). These are unrelated codebases pinned to identical versions; their per-workload numbers can only move if the *measurement environment* changed (CPU clock, scheduler noise, GC tail, V8 inlining decisions). The Architect's spec §12 finding 2 explicitly warned about ±0.3 µs V8 variance; observed run-to-run variance on this machine is 11.79–14.73 µs (Phase A) and 12.05–13.70 µs (Phase B), spanning ±1.5 µs. The signal Phase B brings (~−0.3 to −0.5 µs) is within that noise band and therefore not statistically detectable in 5 runs.
 
 2. **Phase B vs Phase A on the *same* machine shows a small improvement, in the predicted direction.** wide-fanout went from 12.91 → 12.59 µs (−0.32 µs, ~−2.5%). batched-writes went 9.74 → 9.21 µs (−0.53 µs, ~−5%). cellx went 1.67 → 1.64 µs (−0.03 µs, flat). Direction matches spec §7 predictions; magnitude is smaller-than-predicted, plausibly because the leaf path's recompute-inline savings on a slower machine are dwarfed by the underlying body-execution cost (the irreducible ~2.5 µs Phase 2 body cost the spec §7 calls out remains, and on this machine it's larger).
 
@@ -88,7 +88,7 @@ Ran 42 tests across 6 files. [243.00ms]
 
 $ bunx size-limit --json
 [
-  { "name": "@scribe/signals", "passed": true, "size": 1015, "sizeLimit": 1024 }
+  { "name": "@aihu/signals", "passed": true, "size": 1015, "sizeLimit": 1024 }
 ]
 
 $ bun .team/phase-2-5/scratch/cellx-counter.ts

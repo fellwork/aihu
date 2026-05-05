@@ -1,9 +1,9 @@
 /**
- * `scribe app <name>` — scaffold a new scribe application.
+ * `aihu app <name>` — scaffold a new aihu application.
  *
  * Creates the full project skeleton under `targetDir/<name>/`:
- *   package.json, scribe.config.ts, vite.config.ts,
- *   src/pages/index.scribe, src/layouts/default.scribe
+ *   package.json, aihu.config.ts, vite.config.ts,
+ *   src/pages/index.aihu, src/layouts/default.aihu
  *
  * Zero external dependencies — uses only Node/Bun builtins (fs, path).
  */
@@ -18,7 +18,7 @@ function writeFile(filePath: string, content: string): void {
 }
 
 /**
- * Scaffold a new scribe app named `name` under `targetDir/<name>/`.
+ * Scaffold a new aihu app named `name` under `targetDir/<name>/`.
  */
 export function scaffoldApp(name: string, targetDir: string): void {
   const root = join(targetDir, name)
@@ -34,33 +34,33 @@ export function scaffoldApp(name: string, targetDir: string): void {
       preview: 'vite preview',
     },
     dependencies: {
-      '@scribe/server': 'latest',
-      '@scribe/router': 'latest',
-      '@scribe/runtime': 'latest',
-      '@scribe/arbor': 'latest',
-      '@scribe/signals': 'latest',
-      '@scribe/agent': 'latest',
+      '@aihu/server': 'latest',
+      '@aihu/router': 'latest',
+      '@aihu/runtime': 'latest',
+      '@aihu/arbor': 'latest',
+      '@aihu/signals': 'latest',
+      '@aihu/agent': 'latest',
     },
     devDependencies: {
-      '@scribe/cli': 'latest',
+      '@aihu/cli': 'latest',
       vite: '^5.0.0',
     },
   }
   writeFile(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`)
 
-  // scribe.config.ts
-  const scribeConfig = `import { defineScribeConfig } from '@scribe/server'
+  // aihu.config.ts
+  const scribeConfig = `import { defineAihuConfig } from '@aihu/server'
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   build: { target: 'universal' },
 })
 `
-  writeFile(join(root, 'scribe.config.ts'), scribeConfig)
+  writeFile(join(root, 'aihu.config.ts'), scribeConfig)
 
   // vite.config.ts
   const viteConfig = `import { defineConfig } from 'vite'
-import { viteRouterIntegration } from '@scribe/router'
-import { viteAgentReadinessIntegration } from '@scribe/agent-readiness'
+import { viteRouterIntegration } from '@aihu/router'
+import { viteAgentReadinessIntegration } from '@aihu/agent-readiness'
 
 export default defineConfig({
   plugins: [
@@ -71,8 +71,8 @@ export default defineConfig({
 `
   writeFile(join(root, 'vite.config.ts'), viteConfig)
 
-  // src/pages/index.scribe
-  const indexScribe = `@state {
+  // src/pages/index.aihu
+  const indexAihu = `@state {
   $prop name: string = 'world'
 }
 
@@ -85,14 +85,14 @@ export default defineConfig({
   name: home
 }
 `
-  writeFile(join(root, 'src/pages/index.scribe'), indexScribe)
+  writeFile(join(root, 'src/pages/index.aihu'), indexAihu)
 
-  // src/layouts/default.scribe
-  const defaultScribe = `@template {
+  // src/layouts/default.aihu
+  const defaultAihu = `@template {
   <slot />
 }
 `
-  writeFile(join(root, 'src/layouts/default.scribe'), defaultScribe)
+  writeFile(join(root, 'src/layouts/default.aihu'), defaultAihu)
 
   process.stdout.write(`✓ Created ${name}/\n  cd ${name}\n  bun install\n  bun run dev\n`)
 }

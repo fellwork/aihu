@@ -54,16 +54,16 @@ Builder 1B and 1C ran in the `claude/reverent-mestorf-749530` worktree (behind m
 
 | Package | Size | Budget | Headroom |
 |---------|------|--------|----------|
-| `@scribe/context` | 249 B | 300 B | +51 B |
-| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
-| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
-| `@scribe/runtime` | 1.14 kB | 1170 B | +3 B |
-| `@scribe/agent` | 142 B | 200 B | +58 B |
-| `@scribe/data` | 778 B | 800 B | +22 B |
-| `@scribe/router` | 818 B | 1536 B | +718 B |
-| `@scribe/agent-service` | 580 B | 600 B | +20 B |
-| `@scribe/agent-acp` | 590 B | 600 B | +10 B |
-| `@scribe/agent-a2a` | 718 B | 720 B | +2 B |
+| `@aihu/context` | 249 B | 300 B | +51 B |
+| `@aihu/signals` | 1.67 kB | 1970 B | +261 B |
+| `@aihu/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@aihu/runtime` | 1.14 kB | 1170 B | +3 B |
+| `@aihu/agent` | 142 B | 200 B | +58 B |
+| `@aihu/data` | 778 B | 800 B | +22 B |
+| `@aihu/router` | 818 B | 1536 B | +718 B |
+| `@aihu/agent-service` | 580 B | 600 B | +20 B |
+| `@aihu/agent-acp` | 590 B | 600 B | +10 B |
+| `@aihu/agent-a2a` | 718 B | 720 B | +2 B |
 
 All 10/10 PASS.
 

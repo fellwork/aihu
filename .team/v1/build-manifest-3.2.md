@@ -8,7 +8,7 @@
 
 ## What Was Built
 
-Client-side hydration for the scribe meta-framework: attaches signal effects
+Client-side hydration for the aihu meta-framework: attaches signal effects
 to server-rendered HTML without re-creating DOM elements.
 
 ---
@@ -47,8 +47,8 @@ Hydration adds 13 new tests + serialize test update.
 
 | Package | Before | After | Limit | Headroom |
 |---------|--------|-------|-------|----------|
-| @scribe/arbor | ~2117 B | 2147 B | 2200 B | +47 B |
-| @scribe/runtime | 630 B | 792 B | 1024 B | +232 B |
+| @aihu/arbor | ~2117 B | 2147 B | 2200 B | +47 B |
+| @aihu/runtime | 630 B | 792 B | 1024 B | +232 B |
 
 Arbor: +30 B gz for `hydrate()` + `serialize()` implementation.
 Runtime: +162 B gz for `defineElement` hydration support + `_setHydrate` injection.
@@ -59,7 +59,7 @@ Runtime: +162 B gz for `defineElement` hydration support + `_setHydrate` injecti
 
 1. ✅ `MountScope.serialize()` returns flat `Record<string, unknown>` with path-keyed signal values
 2. ✅ `hydrate(component, host, snapshot)` attaches to existing DOM without re-creating elements (verified in T2a/T2b)
-3. ✅ `defineElement` with `hydrate: true` calls `hydrate()` on `connectedCallback` when `__scribe_state__` is present
+3. ✅ `defineElement` with `hydrate: true` calls `hydrate()` on `connectedCallback` when `__aihu_state__` is present
 4. ✅ Mismatch fallback: if a path key has no matching DOM node, `_materialize()` is called for that subtree (T3a/T3b)
 5. ✅ All existing tests pass (402/402)
 6. ✅ `bun run build` + `bun run size` pass all size-limit gates

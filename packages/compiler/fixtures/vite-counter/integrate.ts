@@ -3,9 +3,9 @@
  *
  * Run with: bun run integrate.ts
  *
- * Tests the @scribe/compiler transform() function end-to-end:
- *   1. Reads counter.scribe
- *   2. Calls transform() from @scribe/compiler
+ * Tests the @aihu/compiler transform() function end-to-end:
+ *   1. Reads counter.aihu
+ *   2. Calls transform() from @aihu/compiler
  *   3. Asserts the output is TypeScript containing defineElement
  *   4. Writes to dist/counter.ts
  *
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { transform } from '../../js/index.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const scribeFile = resolve(__dirname, 'counter.scribe')
+const scribeFile = resolve(__dirname, 'counter.aihu')
 const distDir = resolve(__dirname, 'dist')
 const outFile = resolve(distDir, 'counter.ts')
 

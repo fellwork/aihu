@@ -9,7 +9,7 @@
 
 ## 1. Session arc
 
-The goal was a Rust napi-rs core for `@scribe/server`'s `renderToString` that emits byte-identical HTML to the existing TS path, with a three-state loader (native loaded / edge skipped / failed loud) and a property-test parity gate. Scope was deliberately bounded to the static, synchronous path — `renderToStream`, `DataSource`, and `contextSetup` were deferred to v0+M+1. What shipped: the Rust crate at `packages/server/src-native/`, JS loader at `packages/server/src/loader.ts`, eight named-sample + 200-iter fast-check parity tests, four platform package skeletons under `packages/server/npm/`, and the `build-native` + `publish-native` jobs in `.github/workflows/release.yml`. PR #27 merged. What didn't ship: `publish-server` job for the main `@scribe/server` package (OQ-SN-4 explicitly deferred), and `renderToStream` Rust port (v0+M+1).
+The goal was a Rust napi-rs core for `@aihu/server`'s `renderToString` that emits byte-identical HTML to the existing TS path, with a three-state loader (native loaded / edge skipped / failed loud) and a property-test parity gate. Scope was deliberately bounded to the static, synchronous path — `renderToStream`, `DataSource`, and `contextSetup` were deferred to v0+M+1. What shipped: the Rust crate at `packages/server/src-native/`, JS loader at `packages/server/src/loader.ts`, eight named-sample + 200-iter fast-check parity tests, four platform package skeletons under `packages/server/npm/`, and the `build-native` + `publish-native` jobs in `.github/workflows/release.yml`. PR #27 merged. What didn't ship: `publish-server` job for the main `@aihu/server` package (OQ-SN-4 explicitly deferred), and `renderToStream` Rust port (v0+M+1).
 
 ## 2. Iteration count
 
@@ -34,7 +34,7 @@ The notable deviation was Builder R1's loader default-inversion. The spec's §3.
 
 ## 6. Hand-off open items
 
-- **HIGH — `publish-server` job before first v0.1.0 tag.** OQ-SN-4 explicitly deferred. Without it, `npm install @scribe/server` cannot resolve the version-pinned platform optionalDependencies. User must wire this before tagging.
+- **HIGH — `publish-server` job before first v0.1.0 tag.** OQ-SN-4 explicitly deferred. Without it, `npm install @aihu/server` cannot resolve the version-pinned platform optionalDependencies. User must wire this before tagging.
 - **CLOSED — OQ-SN-7 (license).** All four platform `package.json` files declare `"license": "MIT"`. No further action.
 - **MEDIUM — Verifier §5 HIGH/INFO findings, all non-blocking:**
   - `null` attr value coverage in property gate (functional correctness verified by analysis; coverage gap only).

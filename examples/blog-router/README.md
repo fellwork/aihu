@@ -1,14 +1,14 @@
 # `examples/blog-router`
 
-A 3-page blog demonstrating scribe's file-based routing.
+A 3-page blog demonstrating aihu's file-based routing.
 
 ## What this teaches
 
-- File-based routing: each `.scribe` file under `src/pages/` becomes a route.
+- File-based routing: each `.aihu` file under `src/pages/` becomes a route.
 - The `@route { path, name }` block declares a route override.
-- Dynamic params: `src/pages/posts/[slug].scribe` matches `/posts/<anything>`.
+- Dynamic params: `src/pages/posts/[slug].aihu` matches `/posts/<anything>`.
 - `viteRouterIntegration({ pagesDir: 'src/pages' })` aggregates `@route` blocks
-  into the `virtual:scribe-routes` manifest at build time.
+  into the `virtual:aihu-routes` manifest at build time.
 
 No backend, no loaders — see [`examples/blog-loader/`](../blog-loader/) for the
 server loader pattern.
@@ -22,17 +22,17 @@ bun run dev
 
 Then navigate to:
 
-- `/` — post list (`src/pages/index.scribe`)
-- `/posts/hello`, `/posts/meta`, `/posts/agents` — `src/pages/posts/[slug].scribe`
-- `/about` — `src/pages/about.scribe`
+- `/` — post list (`src/pages/index.aihu`)
+- `/posts/hello`, `/posts/meta`, `/posts/agents` — `src/pages/posts/[slug].aihu`
+- `/about` — `src/pages/about.aihu`
 
 ## Files
 
 | File | Role |
 |---|---|
-| `src/pages/index.scribe` | Static `/` route — post list |
-| `src/pages/posts/[slug].scribe` | Dynamic `/posts/:slug` route |
-| `src/pages/about.scribe` | Static `/about` route |
+| `src/pages/index.aihu` | Static `/` route — post list |
+| `src/pages/posts/[slug].aihu` | Dynamic `/posts/:slug` route |
+| `src/pages/about.aihu` | Static `/about` route |
 | `vite.config.ts` | Wires `viteRouterIntegration()` |
 
 ## Compare with

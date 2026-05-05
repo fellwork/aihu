@@ -1,6 +1,6 @@
 # weather-card
 
-**What this teaches:** the scribe-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The same component is rendered for humans and readable for agents — no separate API layer.
+**What this teaches:** the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The same component is rendered for humans and readable for agents — no separate API layer.
 
 This is one of two flagship `@agent` demos (the other is `currency-converter`). It uses a static mock forecast table so the example runs offline; the agent surface is the load-bearing teaching point, not the data fetch.
 
@@ -27,4 +27,4 @@ The action here is intentionally synchronous against an inline lookup table. Rea
 
 ## Compare with
 
-No peer parity — Lit, Stencil, Svelte, Vue, Solid, Nuxt, Next, SvelteKit, and Remix do not ship MCP-readable components. This example is the answer to "what does scribe do that nothing else does."
+No peer parity — Lit, Stencil, Svelte, Vue, Solid, Nuxt, Next, SvelteKit, and Remix do not ship MCP-readable components. This example is the answer to "what does aihu do that nothing else does."

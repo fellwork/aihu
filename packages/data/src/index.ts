@@ -1,5 +1,5 @@
 /**
- * @scribe/data — signal-native, backend-agnostic data fetching primitive.
+ * @aihu/data — signal-native, backend-agnostic data fetching primitive.
  *
  * Primary API:
  *   createResource(key, fetcher, options?) → Resource<T>
@@ -12,10 +12,10 @@
  *   createResourceSerializer(store) → () => Record<string, unknown>
  *
  * Plugin registration (Plugin Contract Spec §3, §7.1):
- *   data() → Plugin — register @scribe/data in defineScribeConfig({ plugins: [data()] })
+ *   data() → Plugin — register @aihu/data in defineAihuConfig({ plugins: [data()] })
  *
- * Dependencies: @scribe/signals, @scribe/context only (runtime).
- * @scribe/plugin is build/dev-time only and not bundled into the runtime output.
+ * Dependencies: @aihu/signals, @aihu/context only (runtime).
+ * @aihu/plugin is build/dev-time only and not bundled into the runtime output.
  */
 
 export { createResource } from './resource.ts'
@@ -28,20 +28,20 @@ export type { DataState, Resource, ResourceOptions } from './types.ts'
 // Plugin factory (Plugin Contract Spec §3)
 // ---------------------------------------------------------------------------
 
-import type { Plugin } from '@scribe/plugin'
+import type { Plugin } from '@aihu/plugin'
 import { dataPlugin } from './plugin.ts'
 
 /**
- * Plugin factory for `@scribe/data`. Accepts optional configuration (reserved
+ * Plugin factory for `@aihu/data`. Accepts optional configuration (reserved
  * for v0.4+ when `$resource` macro lowering is wired) and returns a configured
- * plugin instance for use in `defineScribeConfig({ plugins: [data()] })`.
+ * plugin instance for use in `defineAihuConfig({ plugins: [data()] })`.
  *
  * @example
- * // scribe.config.ts
- * import { data } from '@scribe/data'
- * import { defineScribeConfig } from '@scribe/server'
+ * // aihu.config.ts
+ * import { data } from '@aihu/data'
+ * import { defineAihuConfig } from '@aihu/server'
  *
- * export default defineScribeConfig({
+ * export default defineAihuConfig({
  *   plugins: [data()],
  * })
  */

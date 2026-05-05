@@ -51,6 +51,6 @@ The `cellx` and `batched-writes-100` Verifier measurements also exceeded their f
 
 | Metric | Value |
 |---|---|
-| `@scribe/signals` gz | 1.67 kB (1815 B raw gzip) |
+| `@aihu/signals` gz | 1.67 kB (1815 B raw gzip) |
 | Cap (raised per spec §10.3) | 1850 B |
 | Headroom | 35 B |

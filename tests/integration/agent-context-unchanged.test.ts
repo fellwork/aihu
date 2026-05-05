@@ -1,4 +1,4 @@
-import { leaf, mount } from '@scribe/arbor'
+import { leaf, mount } from '@aihu/arbor'
 import { describe, expect, it } from 'vitest'
 
 describe('agent-readiness integration', () => {

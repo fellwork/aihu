@@ -1,0 +1,52 @@
+{
+  "Contract block scaffold": {
+    "prefix": "agent-block",
+    "scope": "aihu",
+    "body": [
+      "<agent>",
+      "input ${1:name}: ${2|string,number,boolean|} = ${3:default}",
+      "state ${4:internal}: ${5|string,number,boolean|}",
+      "action ${6:run}() -> { ${7:result}: ${8|string,number,boolean|} }",
+      "</agent>$0"
+    ],
+    "description": "Insert a full <agent> block with one input, one state, and one action."
+  },
+  "Contract input declaration": {
+    "prefix": "agent-input",
+    "scope": "aihu",
+    "body": ["input ${1:name}: ${2|string,number,boolean|} = ${3:default}$0"],
+    "description": "Insert a single input declaration with a default value."
+  },
+  "Contract input (enum)": {
+    "prefix": "agent-input-enum",
+    "scope": "aihu",
+    "body": [
+      "input ${1:name}: enum(${2:variant_a}, ${3:variant_b}, ${4:variant_c}) = ${2:variant_a}$0"
+    ],
+    "description": "Insert an enum input with a default variant."
+  },
+  "Contract action with returns": {
+    "prefix": "agent-action",
+    "scope": "aihu",
+    "body": ["action ${1:run}() -> { ${2:field}: ${3|string,number,boolean|} }$0"],
+    "description": "Insert an action declaration with a single-field returns block."
+  },
+  "Contract state declaration": {
+    "prefix": "agent-state",
+    "scope": "aihu",
+    "body": ["state ${1:name}: ${2|string,number,boolean|}$0"],
+    "description": "Insert a state declaration (internal-only; not in MCP manifest)."
+  },
+  "Script setup block": {
+    "prefix": "script-setup",
+    "scope": "aihu",
+    "body": [
+      "<script setup lang=\"ts\" name=\"${1:my-component}\">",
+      "import { signal, computed } from '@aihu/signals'",
+      "",
+      "$0",
+      "</script>"
+    ],
+    "description": "Insert a <script setup lang=\"ts\"> block with the standard signals import."
+  }
+}

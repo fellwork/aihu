@@ -8,7 +8,7 @@
  *   (d) calling outside setup throws RuntimeError
  */
 
-import { leaf, mount } from '@scribe/arbor'
+import { leaf, mount } from '@aihu/arbor'
 import { describe, expect, it, vi } from 'vitest'
 import {
   _setMount,

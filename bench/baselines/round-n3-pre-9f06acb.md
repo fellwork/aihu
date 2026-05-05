@@ -16,7 +16,7 @@ This file records the load-bearing baseline numbers immediately before the α (a
 
 | Package | Size | Limit | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | **1956 B** | 1970 B | +14 B |
+| `@aihu/signals` | **1956 B** | 1970 B | +14 B |
 
 (Computed from `1.91 kB` reported with `+14 B headroom` against the 1970 B limit.)
 
@@ -24,7 +24,7 @@ This file records the load-bearing baseline numbers immediately before the α (a
 
 Same machine, same session, captured immediately before any source modification.
 
-| Workload | `@scribe/signals` p50 |
+| Workload | `@aihu/signals` p50 |
 |---|---:|
 | `cellx` | **489.53 ns** |
 | `wide-fanout-100` | **4.43 µs** |
@@ -45,9 +45,9 @@ Same machine, same session, captured immediately before any source modification.
 
 ## Competitor field (informational)
 
-For situational context — fusion targets the scribe-vs-self delta, not closing the alien gap.
+For situational context — fusion targets the aihu-vs-self delta, not closing the alien gap.
 
-| Workload | scribe | alien | preact | vue | solid | s-js |
+| Workload | aihu | alien | preact | vue | solid | s-js |
 |---|---:|---:|---:|---:|---:|---:|
 | cellx | 489.53 ns | 728.34 ns | 601.34 ns | 970.07 ns | 1.56 µs | 650.83 ns |
 | wide-fanout-100 | 4.43 µs | 3.21 µs | 4.64 µs | 5.72 µs | 10.83 µs | 3.96 µs |

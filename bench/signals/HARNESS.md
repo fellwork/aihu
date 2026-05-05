@@ -4,7 +4,7 @@ This document tells a fresh reader how to add a workload, add a competitor, and 
 
 ## Size budgets
 
-Browser-eligible packages MUST have a `.size-limit.json` row. Server-side packages (`@scribe/server`, `@scribe/agent-readiness`) MUST NOT have a row — they are budgeted by SSR-bytes-served and dep-tree audit, not browser-bundle bytes. Build/dev-time-only packages (`@scribe/plugin`, `@scribe/compiler`) likewise carry no row — they never reach a browser bundle.
+Browser-eligible packages MUST have a `.size-limit.json` row. Server-side packages (`@aihu/server`, `@aihu/agent-readiness`) MUST NOT have a row — they are budgeted by SSR-bytes-served and dep-tree audit, not browser-bundle bytes. Build/dev-time-only packages (`@aihu/plugin`, `@aihu/compiler`) likewise carry no row — they never reach a browser bundle.
 
 The CI lint at `scripts/check-size-rows.ts` enforces this policy. Run it locally with `bun run check:size-rows`. See `.size-limit.README.md` for the per-package classification.
 
@@ -35,7 +35,7 @@ bench/signals/
     ├── types.ts             # SignalAdapter + WorkloadDefinition + MemorySample interfaces
     ├── competitors/
     │   ├── index.ts         # ordered list of adapters
-    │   ├── scribe.ts        # @scribe/signals
+    │   ├── aihu.ts        # @aihu/signals
     │   ├── alien.ts         # alien-signals
     │   ├── preact.ts        # @preact/signals-core
     │   ├── vue.ts           # @vue/reactivity
@@ -103,9 +103,9 @@ This workload creates **and disposes** the entire signal graph inside each `run(
 
 ### Dispose-residual ~97-100% pattern
 
-If ALL competitors show `disposeResidual` ≈ `buildHeapDelta × N` (i.e. ~97–100% of built memory remains after disposal), this is a **V8 young-gen GC timing artifact**, not a scribe-specific leak. V8's GC did not collect the objects within the 3× `gc()` settle window because they are still in the young generation and the GC quiesce schedule did not align with the measurement point.
+If ALL competitors show `disposeResidual` ≈ `buildHeapDelta × N` (i.e. ~97–100% of built memory remains after disposal), this is a **V8 young-gen GC timing artifact**, not a aihu-specific leak. V8's GC did not collect the objects within the 3× `gc()` settle window because they are still in the young generation and the GC quiesce schedule did not align with the measurement point.
 
-A scribe-specific leak would appear as scribe's residual notably higher than other competitors' residuals at the same workload scale. When all competitors show ~97–100% residual simultaneously, the cause is the measurement protocol, not any individual library.
+A aihu-specific leak would appear as aihu's residual notably higher than other competitors' residuals at the same workload scale. When all competitors show ~97–100% residual simultaneously, the cause is the measurement protocol, not any individual library.
 
 ### Design §4.4 deviation — disposeResidual hard-fail
 
@@ -119,9 +119,9 @@ Revisit in v0+1 with an improved GC quiesce protocol (e.g. `--expose-gc` + expli
 
 The CI gate (`src/gate.ts`) compares the JSON footer in current vs previous `RESULTS.md`:
 
-- **Time / p50** — fails if any scribe row regresses ≥ 10 %.
-- **Memory / buildHeapDelta** — fails if any scribe row regresses ≥ 10 %.
-- **Memory / peakMalloc** — fails if any scribe row regresses ≥ 15 %.
+- **Time / p50** — fails if any aihu row regresses ≥ 10 %.
+- **Memory / buildHeapDelta** — fails if any aihu row regresses ≥ 10 %.
+- **Memory / peakMalloc** — fails if any aihu row regresses ≥ 15 %.
 - **Memory / disposeResidual** — informational; printed but not gated.
 
 Failures print **separate per-axis messages** so the diagnoser knows which axis to investigate. Time + memory regressions can fire simultaneously; both messages print and the process exits 1.
@@ -134,7 +134,7 @@ BENCH_TEST_INJECT_MEMORY_REGRESSION=11 bun src/gate.ts <prev> <cur>   # exit 1
 BENCH_BUMP=1 BENCH_TEST_INJECT_MEMORY_REGRESSION=50 bun src/gate.ts <prev> <cur>  # exit 0
 ```
 
-These multiply scribe's current p50 / buildHeapDelta in-memory after parse, before comparison. They do NOT touch any file or the real runner pipeline.
+These multiply aihu's current p50 / buildHeapDelta in-memory after parse, before comparison. They do NOT touch any file or the real runner pipeline.
 
 ## Adding a workload
 
@@ -198,7 +198,7 @@ These multiply scribe's current p50 / buildHeapDelta in-memory after parse, befo
    }
    ```
 
-3. Register it in `src/competitors/index.ts`. **scribe stays first** in the list; otherwise order by descending market share.
+3. Register it in `src/competitors/index.ts`. **aihu stays first** in the list; otherwise order by descending market share.
 
 4. Common gotchas:
    - **Solid resolves to a no-op server build under the `node` condition.** Import directly from `solid-js/dist/solid.js`. See `competitors/solid.ts`.
@@ -209,7 +209,7 @@ These multiply scribe's current p50 / buildHeapDelta in-memory after parse, befo
 ## Performance gotchas
 
 - **First samples are noisy.** mitata's `warmup_samples: 50` handles this; do not lower it.
-- **GC pauses skew p99.** mitata reports them in `stats.gc` if `gc: true` is passed. We don't enable that in v0; if scribe's GC behavior becomes a topic, turn it on.
+- **GC pauses skew p99.** mitata reports them in `stats.gc` if `gc: true` is passed. We don't enable that in v0; if aihu's GC behavior becomes a topic, turn it on.
 - **Bun and Node may disagree by 5–10%.** All numbers in `RESULTS.md` are Bun. CI uses Bun. If you run locally on Node and see different numbers, that's expected.
 - **CPU thermal throttling on long runs.** The runner caps each cell at 1 s CPU. Total runtime ~30 s, well under throttle threshold on a modern laptop.
 
@@ -220,7 +220,7 @@ The bench runs in `.github/workflows/plan-a.yml` (job: `bench`) under these cond
 - Triggered by changes to `packages/signals/**` or `bench/signals/**`.
 - Runs `bun src/runner.ts` and writes a fresh `RESULTS.md`.
 - Reads the previous `RESULTS.md` from the merge base on `main`.
-- For each workload, computes `(current.p50 / previous.p50) - 1` for the `@scribe/signals` row.
+- For each workload, computes `(current.p50 / previous.p50) - 1` for the `@aihu/signals` row.
 - **Fails if any value exceeds `0.10` (10 % regression).**
 
 The previous `RESULTS.md` carries a machine-readable JSON block at the bottom (between `<!-- bench-data:start -->` and `<!-- bench-data:end -->` markers). The CI script parses that block; humans read the markdown table above it.
@@ -243,7 +243,7 @@ If three independent regressions in 24 hours all cluster around 8–9 %, the thr
 
 ### Competitor versions are not regression triggers
 
-When a competitor publishes a faster release, scribe's relative numbers drop without scribe changing. **Bumping a competitor pin is its own commit** with `[bench-bump]` in the message. The PR description must include the before/after numbers.
+When a competitor publishes a faster release, aihu's relative numbers drop without aihu changing. **Bumping a competitor pin is its own commit** with `[bench-bump]` in the message. The PR description must include the before/after numbers.
 
 ## What lives where (decision tree)
 

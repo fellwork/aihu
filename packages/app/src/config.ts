@@ -1,5 +1,5 @@
 import type { Plugin, UserConfig } from 'vite'
-import type { ScribeAdapter } from './adapter.ts'
+import type { AihuAdapter } from './adapter.ts'
 
 /** V0: SPA output only. More modes (ssr, static, hybrid) in V1+. */
 export type OutputMode = 'spa'
@@ -33,28 +33,28 @@ export interface AppHeadConfig {
   readonly head?: HeadConfig
 }
 
-/** Vite config fields that can be safely merged (excludes plugins — use ScribeConfig.plugins). */
+/** Vite config fields that can be safely merged (excludes plugins — use AihuConfig.plugins). */
 export type VitePassthrough = Omit<UserConfig, 'plugins'>
 
-/** A Scribe plugin is structurally identical to a Vite plugin (V0). */
-export type ScribePlugin = Plugin
+/** A Aihu plugin is structurally identical to a Vite plugin (V0). */
+export type AihuPlugin = Plugin
 
 /** Type-only import — not bundled when agentReadiness is absent. */
-export type AgentReadinessConfig = import('@scribe/agent-readiness').AgentReadinessConfig
+export type AgentReadinessConfig = import('@aihu/agent-readiness').AgentReadinessConfig
 
-export interface ScribeConfig {
+export interface AihuConfig {
   /** Directory layout overrides. */
   readonly dir?: DirConfig
   /**
    * Output mode. V0 supports 'spa' only.
-   * defineConfig throws ScribeConfigError for any other value.
+   * defineConfig throws AihuConfigError for any other value.
    */
   readonly output?: OutputMode
   /**
-   * Scribe plugins. Order is preserved.
+   * Aihu plugins. Order is preserved.
    * Appended after the three framework plugins (compiler, router, agent-readiness).
    */
-  readonly plugins?: ReadonlyArray<ScribePlugin>
+  readonly plugins?: ReadonlyArray<AihuPlugin>
   /** Runtime configuration split — public values are inlined in the client bundle. */
   readonly runtimeConfig?: RuntimeConfig
   /** HTML <head> metadata. */
@@ -72,47 +72,47 @@ export interface ScribeConfig {
    * platform's required format. Called after vite build completes.
    * When absent, no post-build transformation is applied (manual deployment).
    */
-  readonly adapter?: ScribeAdapter
+  readonly adapter?: AihuAdapter
 }
 
 /** Thrown by defineConfig when configuration validation fails. */
-export class ScribeConfigError extends Error {
+export class AihuConfigError extends Error {
   constructor(
     message: string,
     readonly code: 'INVALID_OUTPUT_MODE' | 'INVALID_DIR' | 'UNKNOWN_FIELD',
     readonly field?: string,
   ) {
     super(message)
-    this.name = 'ScribeConfigError'
+    this.name = 'AihuConfigError'
   }
 }
 
 /**
- * Define the scribe application configuration.
+ * Define the aihu application configuration.
  *
- * Validates the config at call time and throws ScribeConfigError for invalid values.
+ * Validates the config at call time and throws AihuConfigError for invalid values.
  * Returns the config unchanged (typed identity function).
  *
  * @example
- * // scribe.config.ts
- * import { defineConfig } from '@scribe/app'
+ * // aihu.config.ts
+ * import { defineConfig } from '@aihu/app'
  * export default defineConfig({
  *   app: { head: { title: 'My App' } },
  * })
  */
-export function defineConfig(config: ScribeConfig): ScribeConfig {
+export function defineConfig(config: AihuConfig): AihuConfig {
   if (config.output && config.output !== 'spa') {
-    throw new ScribeConfigError(
+    throw new AihuConfigError(
       `output mode '${config.output}' is not supported in V0 (only 'spa')`,
       'INVALID_OUTPUT_MODE',
       'output',
     )
   }
   if (config.dir?.pages !== undefined && typeof config.dir.pages !== 'string') {
-    throw new ScribeConfigError('dir.pages must be a string', 'INVALID_DIR', 'dir.pages')
+    throw new AihuConfigError('dir.pages must be a string', 'INVALID_DIR', 'dir.pages')
   }
   if (config.dir?.layouts !== undefined && typeof config.dir.layouts !== 'string') {
-    throw new ScribeConfigError('dir.layouts must be a string', 'INVALID_DIR', 'dir.layouts')
+    throw new AihuConfigError('dir.layouts must be a string', 'INVALID_DIR', 'dir.layouts')
   }
   return config
 }

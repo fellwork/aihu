@@ -12,7 +12,7 @@
  * different from mount-10k-leaves (static text, wide) — here every leaf is
  * reactive even though we don't drive updates.
  *
- * For non-scribe adapters, reactive bindings are not always available at this
+ * For non-aihu adapters, reactive bindings are not always available at this
  * granularity. Adapters report the closest equivalent:
  * - lit-html: no signals; each branch renders a static text span.
  * - solid-js: each branch is a component with a `createSignal`; the signal
@@ -25,8 +25,8 @@
  * 100k live signals — manageable but large enough to be meaningful.
  */
 
-import { branch, leaf } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
+import { branch, leaf } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
 import { ref, h as vueH } from '@vue/runtime-dom'
 import { html as litHtml } from 'lit-html'
 import type { VNode } from 'preact'
@@ -36,7 +36,7 @@ import solidH from 'solid-js/h'
 
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRenderFn } from '../competitors/vue.ts'
@@ -51,9 +51,9 @@ export const mountWide: WorkloadDefinition = {
     'Mount 1000 sibling branches each with 1 reactive text leaf and dispose. One mount+dispose = 1 op.',
   n: 100,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
-      setScribeHook({
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
+      setAihuHook({
         buildTree() {
           // Each branch holds a signal-bound leaf. The signals are created
           // fresh each op (inside buildTree) so each mount has a live reactive

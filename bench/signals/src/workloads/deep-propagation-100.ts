@@ -18,7 +18,7 @@ import type { SignalAdapter, WorkloadDefinition } from '../types.ts'
  * length. The mol shape exposes per-link constant-factor overhead —
  * the dual of cellx's structural-minimum work. Propagation systems
  * with O(depth) per-link bookkeeping (allocation per link) will show
- * super-linear scaling here; systems that walk a flat dep graph (scribe
+ * super-linear scaling here; systems that walk a flat dep graph (aihu
  * post-Phase 2) stay linear.
  *
  * Sized at depth 100 so the per-op time is ~tens of µs — meaningful for

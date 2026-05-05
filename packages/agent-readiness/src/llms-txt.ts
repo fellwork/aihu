@@ -16,7 +16,7 @@ export interface LlmsTxtConfig {
   readonly optional?: ReadonlyArray<LlmsTxtLink>
 }
 
-/** Minimal shape used for llms.txt link generation. Structurally compatible with @scribe/agent AgentMetadata. */
+/** Minimal shape used for llms.txt link generation. Structurally compatible with @aihu/agent AgentMetadata. */
 interface AgentMetadataLike {
   readonly tag: string
   readonly describes?: string

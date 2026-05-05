@@ -1,4 +1,4 @@
-# Verification Report — Plan 2.1 @scribe/context
+# Verification Report — Plan 2.1 @aihu/context
 **Date:** 2026-04-30
 **Branch:** feat/v1-context-data
 **Verifier:** Claude Sonnet 4.6
@@ -16,7 +16,7 @@
 | **AC-1d** `moon.yml` has `language: typescript` | PASS | `language: typescript`, `layer: library` present. |
 | **AC-2a** `index.ts` exports all six required names | PASS | Exports `createContext`, `provide`, `inject`, `setSsrContextMap`, `clearSsrContextMap`, `runWithContext`. All present. |
 | **AC-2b** No DOM references in context source | PASS | No `window`, `document`, or `Element` references anywhere in `packages/context/src/`. |
-| **AC-2c** No imports from `@scribe/arbor`, `@scribe/signals`, `@scribe/server` | PASS | Zero external imports; implementation is self-contained. |
+| **AC-2c** No imports from `@aihu/arbor`, `@aihu/signals`, `@aihu/server` | PASS | Zero external imports; implementation is self-contained. |
 | **AC-2d** `ContextToken<T>` has `_id: symbol` and `_default: T \| undefined` | PASS | Correctly defined inline in `src/index.ts` (not in a separate `types.ts` as spec prescribes, but fields are correct). |
 | **AC-3a** `provide` + `inject` round-trip | PASS | Implementation and test 2 confirm correct. |
 | **AC-3b** `inject` with no active map returns default | PASS | Implemented and covered by tests 3 and 4. |
@@ -24,12 +24,12 @@
 | **AC-3d** `runWithContext` clears map in `finally` | PASS | Lines 77–84 in `src/index.ts` implement try/finally with `clearSsrContextMap()`. |
 | **AC-4** `runWithContext` restores null even when `fn` throws | PASS | `finally { clearSsrContextMap() }` is unconditional. Test 5 mechanically verifies this. |
 | **AC-5a** `define-component.ts` exports `_setContext` | PASS | `_setContext(set, clear)` exported at line 76–82. |
-| **AC-5b** `@scribe/runtime` does NOT import `@scribe/context` at module level | PASS | No import statement referencing `@scribe/context` in `define-component.ts`. Comments mention it but no value import exists. |
+| **AC-5b** `@aihu/runtime` does NOT import `@aihu/context` at module level | PASS | No import statement referencing `@aihu/context` in `define-component.ts`. Comments mention it but no value import exists. |
 | **AC-5c** `connectedCallback` activates map before `setup()` and clears in `finally` | PASS | `_setSsrContextMap?.(new Map())` runs before setup; `finally { _clearSsrContextMap?.() }` clears it. |
-| **AC-6a** `.size-limit.json` has `@scribe/context` entry with `"limit": "300 B"` and `"gzip": true` | PASS | Entry present as specified. |
-| **AC-6b** `vitest.config.ts` has `@scribe/context` alias | PASS | Alias at line 17 correctly points to `packages/context/src/index.ts`. |
+| **AC-6a** `.size-limit.json` has `@aihu/context` entry with `"limit": "300 B"` and `"gzip": true` | PASS | Entry present as specified. |
+| **AC-6b** `vitest.config.ts` has `@aihu/context` alias | PASS | Alias at line 17 correctly points to `packages/context/src/index.ts`. |
 | **AC-7a** Test count ≥ 269 | PARTIAL | 270 tests pass (exceeds 269). However see "Test run" section for spec T1/T5 coverage concerns. |
-| **AC-7b** Build + size ≤ 300 B gz | PASS | `@scribe/context` = 165 B gz (135 B under limit). Build succeeds for context. |
+| **AC-7b** Build + size ≤ 300 B gz | PASS | `@aihu/context` = 165 B gz (135 B under limit). Build succeeds for context. |
 | **AC-7c** `context.test.ts` exists with ≥ 10 test cases | PASS | 11 test cases present. |
 
 ### Summary: 16 PASS, 3 PARTIAL, 0 FAIL
@@ -68,7 +68,7 @@ Test Files  37 passed (37)
 ## Size gate
 
 ```
-@scribe/context
+@aihu/context
   Size limit: 300 B
   Size:       165 B  (with all dependencies, minified and gzipped)
   Status:     PASS — 135 B under limit
@@ -109,7 +109,7 @@ The implementation uses a single `_activeContextMap` for both browser and SSR pa
 
 **3. `setSsrContextMap` is in the main barrel, not a `./ssr` subpath:**
 
-The spec (§9) requires `setSsrContextMap` to live in `src/ssr.ts` and be exported ONLY as `@scribe/context/ssr`, NOT from the main barrel. The implementation exports it from `src/index.ts` directly (the main barrel). This means `@scribe/server` could import it at module level (violating the hard boundary). The `clearSsrContextMap` function is also exported from the main barrel (not mentioned in spec at all as a public export — the spec uses `setSsrContextMap(null)` for clearing). **This is a spec deviation that weakens the hard-boundary architecture.**
+The spec (§9) requires `setSsrContextMap` to live in `src/ssr.ts` and be exported ONLY as `@aihu/context/ssr`, NOT from the main barrel. The implementation exports it from `src/index.ts` directly (the main barrel). This means `@aihu/server` could import it at module level (violating the hard boundary). The `clearSsrContextMap` function is also exported from the main barrel (not mentioned in spec at all as a public export — the spec uses `setSsrContextMap(null)` for clearing). **This is a spec deviation that weakens the hard-boundary architecture.**
 
 ### Over-implementation
 
@@ -160,7 +160,7 @@ No unauthorized file modifications within Plan 2.1 scope.
 
 ### Fix list
 
-**F-1 (SPEC DEVIATION — architecture):** `setSsrContextMap` is exported from the main barrel (`src/index.ts`) instead of a separate `src/ssr.ts` subpath. The `./ssr` subpath export is missing from `package.json`. The spec §9 requires `"./ssr"` subpath so that `@scribe/server` integration can import from `@scribe/context/ssr` without pulling in the main barrel. Fix: split `setSsrContextMap` into `src/ssr.ts`, add `"./ssr"` export to `package.json`, add `ssr: 'src/ssr.ts'` to `rolldown.config.ts` inputs. The `clearSsrContextMap` name may remain in the barrel or be merged into `setSsrContextMap(null)` — the API needs reconciliation with the spec's null-param pattern.
+**F-1 (SPEC DEVIATION — architecture):** `setSsrContextMap` is exported from the main barrel (`src/index.ts`) instead of a separate `src/ssr.ts` subpath. The `./ssr` subpath export is missing from `package.json`. The spec §9 requires `"./ssr"` subpath so that `@aihu/server` integration can import from `@aihu/context/ssr` without pulling in the main barrel. Fix: split `setSsrContextMap` into `src/ssr.ts`, add `"./ssr"` export to `package.json`, add `ssr: 'src/ssr.ts'` to `rolldown.config.ts` inputs. The `clearSsrContextMap` name may remain in the barrel or be merged into `setSsrContextMap(null)` — the API needs reconciliation with the spec's null-param pattern.
 
 **F-2 (SPEC DEVIATION — SSR integration):** `packages/server/src/ssr.ts` was not modified. The spec §6 required `SsrOptions.contextMap` and `contextSetup` fields. Without these, the server-side integration described in the spec (and in the Director note §5.3) is incomplete. Application code cannot pass a context map to `renderToString` via `SsrOptions`. Fix: add the two optional fields to `SsrOptions` in `packages/server/src/ssr.ts` per spec §6.
 

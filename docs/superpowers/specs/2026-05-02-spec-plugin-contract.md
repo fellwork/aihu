@@ -1,10 +1,10 @@
-# Plugin Contract — `@scribe/compiler`
+# Plugin Contract — `@aihu/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
 **Spec version:** 0.1.1-draft (Amendment 03 applied inline; Option A provisional middleware locked)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
-**Depends on:** `@scribe/compiler` (parser infrastructure), `@scribe/runtime` (lifecycle hooks)
+**Depends on:** `@aihu/compiler` (parser infrastructure), `@aihu/runtime` (lifecycle hooks)
 **Consumes:** Block Structure Spec, Macro Vocabulary Spec, Template Attribute Syntax Spec
 **Related specs:** Project Config Spec, Compiler Error Reference
 
@@ -14,9 +14,9 @@
 
 ## 0. Posture
 
-This spec defines how plugins extend the scribe compiler and runtime. Plugins are first-class citizens of the framework; the data layer, agent surface, forms helpers, and other features are themselves plugins. Core scribe ships a minimal compiler and runtime; everything beyond markup, state, style, and agent is a plugin contribution.
+This spec defines how plugins extend the aihu compiler and runtime. Plugins are first-class citizens of the framework; the data layer, agent surface, forms helpers, and other features are themselves plugins. Core aihu ships a minimal compiler and runtime; everything beyond markup, state, style, and agent is a plugin contribution.
 
-The plugin contract is the single point at which scribe's closed core meets an open extension surface. Plugins MUST conform to this contract; the compiler MUST enforce it. Plugins that violate the contract are rejected at registration time, not at runtime.
+The plugin contract is the single point at which aihu's closed core meets an open extension surface. Plugins MUST conform to this contract; the compiler MUST enforce it. Plugins that violate the contract are rejected at registration time, not at runtime.
 
 This spec is binding for both:
 - **Plugin authors** — defines what plugins can contribute and how
@@ -26,11 +26,11 @@ This spec is binding for both:
 
 ## 1. Plugin Anatomy
 
-A scribe plugin is an npm package that exports a default plugin definition. The plugin definition declares:
+A aihu plugin is an npm package that exports a default plugin definition. The plugin definition declares:
 
 1. **Identity** — name, version, namespace
 2. **Capabilities** — what the plugin contributes (blocks, macros, components, transforms)
-3. **Configuration schema** — what the plugin accepts in `scribe.config.ts`
+3. **Configuration schema** — what the plugin accepts in `aihu.config.ts`
 4. **Lifecycle hooks** — when the plugin runs during compilation
 
 ### 1.1 Plugin definition format
@@ -38,7 +38,7 @@ A scribe plugin is an npm package that exports a default plugin definition. The 
 A plugin's entry point exports a default object created by `definePlugin`:
 
 ```typescript
-import { definePlugin } from '@scribe/plugin'
+import { definePlugin } from '@aihu/plugin'
 
 export default definePlugin({
   name: 'forms',
@@ -83,7 +83,7 @@ A plugin with no `contributes` and no `hooks` is valid but does nothing. Useful 
 The plugin's `namespace` MUST:
 
 - Be a valid identifier (alphanumeric, underscores, hyphens)
-- Not collide with reserved names (`scribe`, `core`, `state`, `template`, `style`, `agent`, `route`)
+- Not collide with reserved names (`aihu`, `core`, `state`, `template`, `style`, `agent`, `route`)
 - Be unique across the project's installed plugins
 
 ```
@@ -105,7 +105,7 @@ Plugins contribute through four declared mechanisms:
 
 ### 2.1 Blocks
 
-A plugin MAY contribute additional `@`-blocks valid in `.scribe` files. Plugin blocks are namespaced (per Block Structure Spec §6).
+A plugin MAY contribute additional `@`-blocks valid in `.aihu` files. Plugin blocks are namespaced (per Block Structure Spec §6).
 
 ```typescript
 contributes: {
@@ -153,7 +153,7 @@ Macros MUST follow the value-form rules from the Template Attribute Syntax Spec.
 
 ### 2.3 Components
 
-A plugin MAY contribute pre-built components (in `.scribe` format or compiled equivalent).
+A plugin MAY contribute pre-built components (in `.aihu` format or compiled equivalent).
 
 ```typescript
 contributes: {
@@ -198,12 +198,12 @@ Transforms receive the AST (or output) and return a modified version. The compil
 
 ## 3. Configuration
 
-Plugins MAY accept configuration from `scribe.config.ts`:
+Plugins MAY accept configuration from `aihu.config.ts`:
 
 ```typescript
-// scribe.config.ts
-import forms from '@scribe-plugin/forms'
-import data from '@scribe-plugin/data'
+// aihu.config.ts
+import forms from '@aihu-plugin/forms'
+import data from '@aihu-plugin/data'
 
 export default defineConfig({
   plugins: [
@@ -251,7 +251,7 @@ Plugin hooks and parsers receive a context object that includes resolved configu
 ```typescript
 hooks: {
   afterParse: async (ctx, ast) => {
-    const validators = ctx.config.validators  // resolved from scribe.config.ts
+    const validators = ctx.config.validators  // resolved from aihu.config.ts
     // ... use validators in the transform
   },
 }
@@ -300,7 +300,7 @@ Hooks receive context objects that vary by hook:
 
 ### 4.3 Hook execution order
 
-Within a stage, hooks run in plugin registration order. A plugin registered earlier in `scribe.config.ts` runs first.
+Within a stage, hooks run in plugin registration order. A plugin registered earlier in `aihu.config.ts` runs first.
 
 ```typescript
 plugins: [
@@ -317,8 +317,8 @@ Hooks that throw cause the build to fail with a clear error citing the plugin an
 
 ```
 error: plugin 'forms' threw in afterParse hook
-   src/pages/users.scribe (compiling)
-   plugin: @scribe-plugin/forms@0.1.0
+   src/pages/users.aihu (compiling)
+   plugin: @aihu-plugin/forms@0.1.0
    stage: afterParse
    
    Error: missing required validator 'email'
@@ -368,7 +368,7 @@ Plugins use `imports` and `runtime` to request modules and runtime helpers witho
 
 ```typescript
 lowering: (ctx, args) => {
-  const createField = ctx.runtime('@scribe-plugin/forms:createFormField')
+  const createField = ctx.runtime('@aihu-plugin/forms:createFormField')
   return `${createField}('${args.name}', ${JSON.stringify(args.options)})`
 }
 ```
@@ -389,7 +389,7 @@ type LoweringResult = {
 ```typescript
 lowering: (ctx, args) => ({
   code: `field_${args.name} = createField(...)`,
-  imports: [{ from: '@scribe-plugin/forms', names: ['createField'] }],
+  imports: [{ from: '@aihu-plugin/forms', names: ['createField'] }],
   hoist: [`const fieldRegistry = new Map()`],
 })
 ```
@@ -422,21 +422,21 @@ Validation errors are reported at the SFC source location, not at the plugin sou
 
 ## 6. Component Contributions
 
-Plugin-contributed components MUST be valid `.scribe` SFC files (or compiled-equivalent modules). They are loaded into the project's component registry at plugin initialization.
+Plugin-contributed components MUST be valid `.aihu` SFC files (or compiled-equivalent modules). They are loaded into the project's component registry at plugin initialization.
 
 ### 6.1 Component file location
 
 Plugins ship components in their `components/` directory:
 
 ```
-@scribe-plugin/forms/
+@aihu-plugin/forms/
   ├── package.json
   ├── plugin.ts          ← plugin definition
   └── components/
-      ├── Input.scribe
-      ├── Select.scribe
-      ├── Textarea.scribe
-      └── FormError.scribe
+      ├── Input.aihu
+      ├── Select.aihu
+      ├── Textarea.aihu
+      └── FormError.aihu
 ```
 
 The plugin's `contributes.components` array lists the names. The compiler resolves them from the `components/` directory.
@@ -447,26 +447,26 @@ If two plugins contribute components with the same name, the compiler emits a re
 
 ```
 error: component name conflict
-   plugin '@scribe-plugin/forms' contributes <Input>
-   plugin '@scribe-plugin/ui' also contributes <Input>
+   plugin '@aihu-plugin/forms' contributes <Input>
+   plugin '@aihu-plugin/ui' also contributes <Input>
    
    help: One of these plugins must rename its component, or you can disambiguate 
-         in scribe.config.ts using the 'componentAliases' option:
+         in aihu.config.ts using the 'componentAliases' option:
          
          componentAliases: {
-           '@scribe-plugin/forms/Input': 'FormsInput',
+           '@aihu-plugin/forms/Input': 'FormsInput',
          }
 ```
 
-The `componentAliases` config option in `scribe.config.ts` provides explicit disambiguation when conflicts can't be resolved by plugin authors. The full schema for `componentAliases` is documented in the Project Config Spec (deferred — not yet drafted).
+The `componentAliases` config option in `aihu.config.ts` provides explicit disambiguation when conflicts can't be resolved by plugin authors. The full schema for `componentAliases` is documented in the Project Config Spec (deferred — not yet drafted).
 
 ### 6.3 Component override
 
 A project MAY override a plugin's component by placing a same-named file in `src/components/`:
 
 ```
-src/components/Input.scribe       ← project's version (wins)
-plugin Input.scribe                ← plugin's version (shadowed)
+src/components/Input.aihu       ← project's version (wins)
+plugin Input.aihu                ← plugin's version (shadowed)
 ```
 
 Project-local components take precedence over plugin contributions. This is the escape hatch for projects that need to customize a plugin's components without forking.
@@ -495,7 +495,7 @@ Server-only helpers are loaded into the server bundle but never the client bundl
 ```typescript
 // In a plugin's lowering function:
 lowering: (ctx, args) => {
-  const auth = ctx.runtime('@scribe-plugin/auth:authenticate')
+  const auth = ctx.runtime('@aihu-plugin/auth:authenticate')
   // ctx.runtime knows which side it's emitting for; raises an error if 
   // a server-only helper is requested in a client context
   return `${auth}(req)`
@@ -522,7 +522,7 @@ The compiler treats `serverOnly: true` macros like `$server`: their lowered outp
 
 ### 6.5.3 Middleware contributions
 
-> **Note (v1.0, provisional):** The middleware contribution interface in this section is provisional in v1.0. It may evolve based on plugin author feedback during the v1.x series. Plugins using middleware contributions SHOULD pin their scribe version requirement to a minor range (`^1.x.0`) to avoid breaking changes during plugin evolution.
+> **Note (v1.0, provisional):** The middleware contribution interface in this section is provisional in v1.0. It may evolve based on plugin author feedback during the v1.x series. Plugins using middleware contributions SHOULD pin their aihu version requirement to a minor range (`^1.x.0`) to avoid breaking changes during plugin evolution.
 
 A plugin MAY contribute server middleware that runs on requests:
 
@@ -592,14 +592,14 @@ Build target semantics (`client` / `server` / `universal`) are defined in the Bl
 
 ## 7. Plugin Discovery and Registration
 
-### 7.1 Registration in `scribe.config.ts`
+### 7.1 Registration in `aihu.config.ts`
 
 Plugins are registered by importing and calling them in the config's `plugins` array:
 
 ```typescript
-import forms from '@scribe-plugin/forms'
-import data from '@scribe-plugin/data'
-import agent from '@scribe-plugin/agent'
+import forms from '@aihu-plugin/forms'
+import data from '@aihu-plugin/data'
+import agent from '@aihu-plugin/agent'
 
 export default defineConfig({
   plugins: [
@@ -614,24 +614,24 @@ A plugin function returns a configured plugin instance. The compiler reads `plug
 
 ### 7.2 Auto-discovery is forbidden
 
-Scribe does NOT auto-discover plugins from `package.json` or `node_modules`. Every plugin MUST be explicitly imported and registered.
+Aihu does NOT auto-discover plugins from `package.json` or `node_modules`. Every plugin MUST be explicitly imported and registered.
 
-This is a deliberate strictness: implicit dependencies create unauditable behavior. A `.scribe` file's behavior depends only on plugins explicitly registered in the config; reading the config tells you what's active.
+This is a deliberate strictness: implicit dependencies create unauditable behavior. A `.aihu` file's behavior depends only on plugins explicitly registered in the config; reading the config tells you what's active.
 
 ### 7.3 Plugin compatibility checking
 
-The compiler checks plugin version compatibility against scribe's version at registration time:
+The compiler checks plugin version compatibility against aihu's version at registration time:
 
 ```typescript
 definePlugin({
   name: 'forms',
   version: '0.1.0',
-  scribeVersion: '^1.0.0',    // compatible scribe versions
+  scribeVersion: '^1.0.0',    // compatible aihu versions
   // ...
 })
 ```
 
-The compiler emits an error if the plugin's `scribeVersion` doesn't match the running scribe version. Prevents plugins from running against incompatible compiler interfaces.
+The compiler emits an error if the plugin's `scribeVersion` doesn't match the running aihu version. Prevents plugins from running against incompatible compiler interfaces.
 
 ---
 
@@ -642,10 +642,10 @@ The compiler emits an error if the plugin's `scribeVersion` doesn't match the ru
 | Error | Trigger | Message template |
 |---|---|---|
 | Invalid namespace | `namespace: '@scope/foo'` | "plugin namespace must be a valid identifier; got '@scope/foo'" |
-| Reserved namespace | `namespace: 'core'` | "plugin namespace 'core' is reserved by scribe" |
+| Reserved namespace | `namespace: 'core'` | "plugin namespace 'core' is reserved by aihu" |
 | Duplicate namespace | Two plugins with same namespace | "duplicate plugin namespace 'forms'. Plugins must have unique namespaces" |
 | Missing required field | `definePlugin({})` | "plugin definition missing required fields: name, version, namespace" |
-| Invalid scribeVersion | Mismatched semver | "plugin '@scribe-plugin/forms@0.1.0' requires scribe ^2.0.0; running ^1.0.0" |
+| Invalid scribeVersion | Mismatched semver | "plugin '@aihu-plugin/forms@0.1.0' requires aihu ^2.0.0; running ^1.0.0" |
 
 ### 8.2 Plugin contribution errors
 
@@ -653,7 +653,7 @@ The compiler emits an error if the plugin's `scribeVersion` doesn't match the ru
 |---|---|---|
 | Bare block name | `blocks: ['field']` (no namespace) | "plugin blocks must use namespaced form. Did you mean '@forms.field'?" |
 | Macro outside namespace | `macros: [{ name: '$field' }]` (no plugin namespace) | "plugin macros must use namespaced form. Use '@forms.$field' or rename" |
-| Component name collision | Two plugins, same component name | "component '<Input>' contributed by both 'forms' and 'ui'. See componentAliases in scribe.config.ts" |
+| Component name collision | Two plugins, same component name | "component '<Input>' contributed by both 'forms' and 'ui'. See componentAliases in aihu.config.ts" |
 | Macro validIn references unknown block | `validIn: ['@unknown']` | "macro '$field' valid in '@unknown' but no such block is registered" |
 
 ### 8.3 Plugin runtime errors
@@ -673,7 +673,7 @@ The compiler emits an error if the plugin's `scribeVersion` doesn't match the ru
 A plugin that contributes one macro:
 
 ```typescript
-import { definePlugin } from '@scribe/plugin'
+import { definePlugin } from '@aihu/plugin'
 
 export default definePlugin({
   name: 'analytics',
@@ -686,7 +686,7 @@ export default definePlugin({
         name: '$track',
         validIn: ['@template'],
         lowering: (ctx, args) => {
-          const track = ctx.runtime('@scribe-plugin/analytics:track')
+          const track = ctx.runtime('@aihu-plugin/analytics:track')
           return `${track}('${args.event}', ${JSON.stringify(args.props || {})})`
         },
       },
@@ -710,7 +710,7 @@ The plugin macro `$analytics.track` adds analytics tracking to the click handler
 A larger plugin with blocks, macros, and components:
 
 ```typescript
-import { definePlugin } from '@scribe/plugin'
+import { definePlugin } from '@aihu/plugin'
 import { parseFormFields } from './parsers'
 
 export default function formsPlugin(config = {}) {
@@ -775,7 +775,7 @@ Used in an SFC:
 A plugin that contributes the `Resource<T>` type and `data.*` global:
 
 ```typescript
-import { definePlugin } from '@scribe/plugin'
+import { definePlugin } from '@aihu/plugin'
 
 export default function dataPlugin(config) {
   return definePlugin({
@@ -841,8 +841,8 @@ definePlugin({
 If a plugin's dependency is not registered, the compiler emits a clear error:
 
 ```
-error: plugin '@scribe-plugin/auth' depends on '@scribe-plugin/data', but data is not registered
-   help: Add data() to the plugins array in scribe.config.ts
+error: plugin '@aihu-plugin/auth' depends on '@aihu-plugin/data', but data is not registered
+   help: Add data() to the plugins array in aihu.config.ts
 ```
 
 ### 10.2 Hook ordering with dependencies
@@ -856,7 +856,7 @@ A plugin MAY emit lowerings that call into another plugin's runtime helpers, pro
 ```typescript
 // In auth plugin (depends on data)
 lowering: (ctx, args) => {
-  const dataQuery = ctx.runtime('@scribe-plugin/data:query')   // OK: data is a dependency
+  const dataQuery = ctx.runtime('@aihu-plugin/data:query')   // OK: data is a dependency
   return `${dataQuery}('users', { token: getCurrentToken() })`
 }
 ```
@@ -898,7 +898,7 @@ In dev mode, modifying a plugin's source could trigger re-compilation of all SFC
 
 ### 12.3 Should plugins be able to register custom CLI commands?
 
-A plugin might want to add `scribe forms generate` or similar commands. Currently no facility for this.
+A plugin might want to add `aihu forms generate` or similar commands. Currently no facility for this.
 
 **Proposed resolution:** Defer to v2. The pattern can be modeled on Vite's CLI extension API.
 

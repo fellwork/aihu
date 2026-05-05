@@ -1,9 +1,9 @@
 /**
- * `@scribe/agent` — registry of static agent metadata per spec §1, §2.
+ * `@aihu/agent` — registry of static agent metadata per spec §1, §2.
  *
  * Module-level `Map<string, AgentMetadata>` keyed by custom-element tag name.
  * The compiler emits `registerAgentMetadata(metadata)` at the top level of each
- * `.scribe`-derived JS module; module evaluation populates the registry.
+ * `.aihu`-derived JS module; module evaluation populates the registry.
  * `getAgentMetadata(tag)` returns the registered object by reference, or
  * `undefined` if no entry exists. No reactive wrapping, no error class
  * (spec §2.2, §2.3).
@@ -80,7 +80,7 @@ export function getAgentMetadata(tag: string): AgentMetadata | undefined {
  * array itself is a new allocation each call, but the elements are the same
  * references stored in the registry (no deep-clone).
  *
- * Used by adapters (e.g. `@scribe/agent-a2a`) that need the full registry
+ * Used by adapters (e.g. `@aihu/agent-a2a`) that need the full registry
  * without knowing individual tags in advance (Plan 5.3 prerequisite).
  */
 export function getAllAgentMetadata(): AgentMetadata[] {

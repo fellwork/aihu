@@ -25,7 +25,7 @@ No BLOCKING findings. Three HIGH/INFO items documented below. All 15 ACs either 
 | AC-6 | PASS | `native-parity.test.ts` is 327 lines. Contains 8 named samples S1-S8 + 2 `fc.assert` calls (≥1 required). |
 | AC-7 | BLOCKED-no-binary | Requires native addon loaded. |
 | AC-8 | BLOCKED-no-binary | Requires native addon loaded. |
-| AC-9 | PASS | `loader.ts:284-295` — top-level synchronous throw block; no `SCRIBE_FORCE_NATIVE` precondition. Error message includes platform name, package name, file name, "npm install @scribe/server", and "SCRIBE_NATIVE_SKIP=1". |
+| AC-9 | PASS | `loader.ts:284-295` — top-level synchronous throw block; no `SCRIBE_FORCE_NATIVE` precondition. Error message includes platform name, package name, file name, "npm install @aihu/server", and "SCRIBE_NATIVE_SKIP=1". |
 | AC-10 | PASS | `loader.ts:138-145` — `SCRIBE_NATIVE_SKIP === '1'` short-circuits silently. Also early-checked in `detectEdge()`. |
 | AC-11 | PASS (partial) | `native-parity.test.ts:266-282` — `EdgeRuntime` global mock test exists. Full integration BLOCKED-no-binary. |
 | AC-12 | PASS | All 4 platform `package.json` exist. Linux has `libc:["glibc"]`. All have `license:"MIT"`. |
@@ -95,7 +95,7 @@ None. No BLOCKING findings.
 
 **A. `napi-build` version pin (LOCAL ONLY):** Build required `cargo update -p napi-build --precise 2.2.2` because rustc 1.87 cannot compile `napi-build@2.3.1`. CI runners use `dtolnay/rust-toolchain@stable` → rustc ≥ 1.88, will pick up latest automatically. Local-dev-only friction; not a CI risk.
 
-**B. `publish-server` job not yet wired (BEFORE FIRST v0.1.0 TAG):** OQ-SN-4 explicitly deferred. The main `@scribe/server` package is not published in this PR's release pipeline. Before cutting `v0.1.0`, either add a `publish-server` job to `release.yml` OR publish `@scribe/server` manually so `npm install @scribe/server` resolves the platform optionalDependencies. User must sequence before first tag.
+**B. `publish-server` job not yet wired (BEFORE FIRST v0.1.0 TAG):** OQ-SN-4 explicitly deferred. The main `@aihu/server` package is not published in this PR's release pipeline. Before cutting `v0.1.0`, either add a `publish-server` job to `release.yml` OR publish `@aihu/server` manually so `npm install @aihu/server` resolves the platform optionalDependencies. User must sequence before first tag.
 
 **C. `null` attr coverage gap:** Functionally correct, untested by property gate. Optional spec extension before declaring perf parity.
 

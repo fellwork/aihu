@@ -8,7 +8,7 @@ import {
   serverError,
 } from '../src/api.ts'
 
-describe('@scribe/server api', () => {
+describe('@aihu/server api', () => {
   it('json({ ok: true }) returns status 200 with application/json', async () => {
     const res = json({ ok: true })
     expect(res.status).toBe(200)

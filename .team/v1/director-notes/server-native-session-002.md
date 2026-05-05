@@ -10,7 +10,7 @@
 
 **Option A (spec as written — loud default).** Builder must revert.
 
-The session-001 acceptance bar item 3 is unambiguous: *"Loud failure on corruption — missing/corrupt binary on a platform that should have one fails loud at first call with install instructions. **Never silently fall through in that case.**"* Spec §5.1 codifies this with a `ScribeNativeError` and §5.3 designates `SCRIBE_NATIVE_SKIP=1` as the explicit, documented opt-out for the silent path. The Builder's inversion turns the documented opt-out (silent) into the default and makes the safety contract (loud) opt-in via `SCRIBE_FORCE_NATIVE=1`. That is exactly the "silent parity drift / silent perf degradation" failure mode the original frame called load-bearing.
+The session-001 acceptance bar item 3 is unambiguous: *"Loud failure on corruption — missing/corrupt binary on a platform that should have one fails loud at first call with install instructions. **Never silently fall through in that case.**"* Spec §5.1 codifies this with a `AihuNativeError` and §5.3 designates `SCRIBE_NATIVE_SKIP=1` as the explicit, documented opt-out for the silent path. The Builder's inversion turns the documented opt-out (silent) into the default and makes the safety contract (loud) opt-in via `SCRIBE_FORCE_NATIVE=1`. That is exactly the "silent parity drift / silent perf degradation" failure mode the original frame called load-bearing.
 
 The Builder's concern is real but mis-located: the friction is "developer machine without a built addon," not "developer machine running production." The right tool for that friction is the already-specified `SCRIBE_NATIVE_SKIP=1`, set once in the repo's local test env (see §3 below). Inverting the production default to fix a dev-onboarding paper cut is the wrong tradeoff.
 
@@ -18,7 +18,7 @@ Option C (env-detected) is rejected: three-state defaults are surprising (`NODE_
 
 ## 2. Acceptance criteria revision
 
-No spec change. AC-9 stands as written in §8: missing binary on supported platform throws `/\[@scribe\/server\] Native renderer binary not found/`. AC-10 (`SCRIBE_NATIVE_SKIP=1` → silent TS) also stands.
+No spec change. AC-9 stands as written in §8: missing binary on supported platform throws `/\[@aihu\/server\] Native renderer binary not found/`. AC-10 (`SCRIBE_NATIVE_SKIP=1` → silent TS) also stands.
 
 `SCRIBE_FORCE_NATIVE` is **removed from the contract.** It was not in the spec and adds a third env-var lever for no benefit once the default is correct. Builder must delete the flag and its branch.
 
@@ -31,7 +31,7 @@ No spec change. AC-9 stands as written in §8: missing binary on supported platf
 
 ## 4. Implication for production users
 
-Documented contract: *"On a supported platform, `@scribe/server` requires its native addon. If your package manager skipped the optionalDependency or the binary is corrupt, import will throw with reinstall instructions. To opt into the TS-only path (slower, always correct), set `SCRIBE_NATIVE_SKIP=1`."* This is what users want — a missed optionalDependency in production should never silently halve their SSR throughput.
+Documented contract: *"On a supported platform, `@aihu/server` requires its native addon. If your package manager skipped the optionalDependency or the binary is corrupt, import will throw with reinstall instructions. To opt into the TS-only path (slower, always correct), set `SCRIBE_NATIVE_SKIP=1`."* This is what users want — a missed optionalDependency in production should never silently halve their SSR throughput.
 
 ## 5. Open question for Team Lead
 

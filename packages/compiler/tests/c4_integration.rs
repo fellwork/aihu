@@ -1,14 +1,14 @@
-/// C4-6 Integration test: @scribe/compiler transform() produces TypeScript from .scribe source.
+/// C4-6 Integration test: @aihu/compiler transform() produces TypeScript from .aihu source.
 ///
 /// Uses `bun run integrate.ts` in the fixture directory, which calls transform() directly
-/// from the @scribe/compiler package, writes dist/counter.ts, and asserts defineElement output.
+/// from the @aihu/compiler package, writes dist/counter.ts, and asserts defineElement output.
 ///
 /// PRECONDITIONS (manual — not auto-built by Moon):
 ///   1. `cd packages/compiler && cargo build --release`
-///      Produces `target/release/scribe-compile.exe` used by the transform() function.
+///      Produces `target/release/aihu-compile.exe` used by the transform() function.
 ///   2. `bun install` at repo root (workspace-level install).
 ///   3. `cd packages/compiler && bun run build`
-///      Produces `dist/index.js` so `@scribe/compiler` resolves correctly.
+///      Produces `dist/index.js` so `@aihu/compiler` resolves correctly.
 ///
 /// Run with: `cargo test -- --ignored c4_transform_produces_typescript`
 #[test]

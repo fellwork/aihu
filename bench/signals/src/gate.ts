@@ -1,6 +1,6 @@
 /**
  * CI regression gate. Reads `current` and `previous` RESULTS.md, parses the
- * embedded JSON block (see runner.ts), compares scribe's metrics per workload,
+ * embedded JSON block (see runner.ts), compares aihu's metrics per workload,
  * and exits non-zero if any workload regressed by more than the threshold on
  * the time or memory axes.
  *
@@ -20,8 +20,8 @@
  * contains `[bench-bump]`), the gate skips ALL checks (time + memory).
  *
  * Test hooks (manual gate validation only — do NOT use in CI):
- *   BENCH_TEST_INJECT_TIME_REGRESSION=<pct>    — multiplies scribe's current p50 by 1+pct/100
- *   BENCH_TEST_INJECT_MEMORY_REGRESSION=<pct>  — multiplies scribe's current buildHeapDelta by 1+pct/100
+ *   BENCH_TEST_INJECT_TIME_REGRESSION=<pct>    — multiplies aihu's current p50 by 1+pct/100
+ *   BENCH_TEST_INJECT_MEMORY_REGRESSION=<pct>  — multiplies aihu's current buildHeapDelta by 1+pct/100
  *
  * The injection points only modify the in-memory `cur` payload AFTER parse;
  * the real runner pipeline is untouched. They exist so HARNESS.md's
@@ -77,15 +77,15 @@ const prev = parseResults(prevPath)
 const cur = parseResults(curPath)
 
 // Test-only injection. Applied AFTER parse, BEFORE comparison. Bumps every
-// scribe cell uniformly; the first regression the loop hits will fire.
+// aihu cell uniformly; the first regression the loop hits will fire.
 const injectTime = Number(process.env.BENCH_TEST_INJECT_TIME_REGRESSION ?? '0')
 const injectMem = Number(process.env.BENCH_TEST_INJECT_MEMORY_REGRESSION ?? '0')
 if (injectTime !== 0 || injectMem !== 0) {
   console.log(
-    `[test-injection] time +${injectTime}% / memory +${injectMem}% applied to scribe rows`,
+    `[test-injection] time +${injectTime}% / memory +${injectMem}% applied to aihu rows`,
   )
   for (const c of cur.cells) {
-    if (c.competitor !== '@scribe/signals') continue
+    if (c.competitor !== '@aihu/signals') continue
     if (injectTime !== 0 && typeof c.p50 === 'number') {
       c.p50 = c.p50 * (1 + injectTime / 100)
     }
@@ -102,9 +102,9 @@ const timeLines: string[] = []
 const memoryLines: string[] = []
 
 for (const cur_cell of cur.cells) {
-  if (cur_cell.competitor !== '@scribe/signals') continue
+  if (cur_cell.competitor !== '@aihu/signals') continue
   const prev_cell = prev.cells.find(
-    (c) => c.workload === cur_cell.workload && c.competitor === '@scribe/signals',
+    (c) => c.workload === cur_cell.workload && c.competitor === '@aihu/signals',
   )
 
   // ---- Time axis ----
@@ -184,7 +184,7 @@ for (const cur_cell of cur.cells) {
   }
 }
 
-console.log(`Bench gate · @scribe/signals · prev=${prev.date} cur=${cur.date}`)
+console.log(`Bench gate · @aihu/signals · prev=${prev.date} cur=${cur.date}`)
 console.log('\n[time / p50]')
 for (const line of timeLines) console.log(line)
 if (memoryLines.length > 0) {

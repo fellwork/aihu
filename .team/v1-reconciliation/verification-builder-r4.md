@@ -39,7 +39,7 @@ audit copies are listed as `create mode` additions.
 
 ## 2. AMD-02 inline (Option B path)
 
-`grep _scribe-server` in `2026-05-02-spec-block-structure.md`: **0 matches** (Option A absent).
+`grep _aihu-server` in `2026-05-02-spec-block-structure.md`: **0 matches** (Option A absent).
 `grep /server/_actions`: **3 matches** at lines 11 (ratification note), 674
 (applied AMD-02 marker), 680 (path table row).
 
@@ -51,10 +51,10 @@ PASS — Option B is locked correctly.
 
 ## 3. Roadmap migration
 
-`docs/superpowers/plans/2026-05-02-scribe-v1-framework.md` present.
+`docs/superpowers/plans/2026-05-02-aihu-v1-framework.md` present.
 `.team/v1-reconciliation/roadmap-v1.md` absent (gone).
 Rename detection: `rename .team/v1-reconciliation/roadmap-v1.md =>
-docs/superpowers/plans/2026-05-02-scribe-v1-framework.md (88%)` — true `git mv`,
+docs/superpowers/plans/2026-05-02-aihu-v1-framework.md (88%)` — true `git mv`,
 history preserved.
 
 ## 4. Polish notes applied
@@ -73,7 +73,7 @@ All 6 notes present with explicit "Polish Note N" markers and substantive conten
 4. **Polish Note 4 (v1.0.6 spec-text reconciliation enumerated)** — line 334
    with 5 enumerated sub-tasks (1–5).
 5. **Polish Note 5 (v0.4.9 runtime headroom pre-authorization)** — line 187:
-   pre-authorizes Compressor pass on `@scribe/runtime` during v0.4 macro lowering;
+   pre-authorizes Compressor pass on `@aihu/runtime` during v0.4 macro lowering;
    surface trigger fires only if recovery falls short.
 6. **Polish Note 6 (Naming Scheme A scope preamble)** — line 402: narrows the
    rename pass to Plugin Contract internals; package-scope moves at v1.0.9 are
@@ -83,9 +83,9 @@ PASS.
 
 ## 5. v0 plan-a banner
 
-`docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` line 3:
+`docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` line 3:
 "Status (updated 2026-05-02): ... v1 framework plan **ratified** at
-[`2026-05-02-scribe-v1-framework.md`] ... For current state ... see
+[`2026-05-02-aihu-v1-framework.md`] ... For current state ... see
 [state-plan-a.md]."
 
 PASS — banner cites both the v1 plan and state-plan-a.md.
@@ -138,8 +138,8 @@ the commit message; this docs-only commit introduces zero new failures.
 Modified/created files (vs main):
 
 - `docs/README.md` — created (redirect)
-- `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` — modified (banner)
-- `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md` — created (roadmap rename target)
+- `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` — modified (banner)
+- `docs/superpowers/plans/2026-05-02-aihu-v1-framework.md` — created (roadmap rename target)
 - `docs/superpowers/specs/2026-05-02-spec-{4 files}.md` — created
 - `docs/superpowers/specs/applied-amendments/2026-05-02-AMD-{01,02,03}-applied.md` — created
 - `state-plan-a.md` — modified (closure section)

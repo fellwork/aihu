@@ -1,4 +1,4 @@
-# scribe v1 Architecture Spec — Ratified
+# aihu v1 Architecture Spec — Ratified
 **Document:** `.team/v1/spec-v1-architecture-ratified.md`
 **Role:** Track D Architect (design only — no builder)
 **Date:** 2026-04-30
@@ -21,13 +21,13 @@
 
 v1 closes the five gaps left open after v0 + Round N+1 + Round N+2:
 
-1. **Reconciler** (`when`/`each` in `@scribe/arbor`) — structural reactivity; currently stubs throwing `ArborNotImplementedError`
-2. **Context propagation** (`@scribe/context`) — new package; `provide`/`inject` for component trees; SSR-safe
-3. **Data / cache layer** (`@scribe/data`) — new package; `createResource` with suspense-friendly cache; SSR dehydration
+1. **Reconciler** (`when`/`each` in `@aihu/arbor`) — structural reactivity; currently stubs throwing `ArborNotImplementedError`
+2. **Context propagation** (`@aihu/context`) — new package; `provide`/`inject` for component trees; SSR-safe
+3. **Data / cache layer** (`@aihu/data`) — new package; `createResource` with suspense-friendly cache; SSR dehydration
 4. **`<agent>` block grammar** — compiler Track (C-5); advisory only in v1 planning phase
-5. **Streaming actions** — server action return type; affects `@scribe/server` and edge adapter patterns
+5. **Streaming actions** — server action return type; affects `@aihu/server` and edge adapter patterns
 
-Track B owns `@scribe/context` and `@scribe/data`. Track C owns `renderToStream` and SSR dehydration in `@scribe/server`. Track A owns reconciler additions to `@scribe/arbor`. Track D (this document) owns design ratification only.
+Track B owns `@aihu/context` and `@aihu/data`. Track C owns `renderToStream` and SSR dehydration in `@aihu/server`. Track A owns reconciler additions to `@aihu/arbor`. Track D (this document) owns design ratification only.
 
 ---
 
@@ -35,26 +35,26 @@ Track B owns `@scribe/context` and `@scribe/data`. Track C owns `renderToStream`
 
 | Package | v0 status | v1 delta |
 |---|---|---|
-| `@scribe/signals` | shipped | no change |
-| `@scribe/arbor` | shipped | +`when`/`each` reconciler |
-| `@scribe/runtime` | shipped | +HMR hook |
-| `@scribe/agent` | shipped | no change |
-| `@scribe/server` | shipped | +`renderToStream`, SSR dehydration |
-| `@scribe/agent-readiness` | shipped | no change |
-| `@scribe/context` | new | provide/inject |
-| `@scribe/data` | new | createResource, cache |
-| `@scribe/compiler` (Rust) | in progress | C-3 → C-4 |
+| `@aihu/signals` | shipped | no change |
+| `@aihu/arbor` | shipped | +`when`/`each` reconciler |
+| `@aihu/runtime` | shipped | +HMR hook |
+| `@aihu/agent` | shipped | no change |
+| `@aihu/server` | shipped | +`renderToStream`, SSR dehydration |
+| `@aihu/agent-readiness` | shipped | no change |
+| `@aihu/context` | new | provide/inject |
+| `@aihu/data` | new | createResource, cache |
+| `@aihu/compiler` (Rust) | in progress | C-3 → C-4 |
 
 ---
 
 ## §3. AgentManifest Shape (v1 addition)
 
-`@scribe/agent` v1 adds `getAllAgentMetadata()` and `getAgentManifest()` per the forward-compat note in `.team/phase-5/spec-agent.md` §1.4.
+`@aihu/agent` v1 adds `getAllAgentMetadata()` and `getAgentManifest()` per the forward-compat note in `.team/phase-5/spec-agent.md` §1.4.
 
 ```typescript
 export interface AgentManifest {
   readonly version: string
-  readonly schema: 'scribe-agent-manifest-v1'
+  readonly schema: 'aihu-agent-manifest-v1'
   readonly components: Record<string, AgentMetadata>
   readonly generatedAt: string
 }
@@ -69,7 +69,7 @@ This unblocks the agent-readiness `getAllAgentMetadata()` gap documented in `.te
 
 ## §4. Track A — Reconciler (`when`/`each`)
 
-Track A implements the v1 reconciler in `@scribe/arbor/src/structural.ts`. The stubs currently throw `ArborNotImplementedError` immediately. v1 replaces them with keyed diffing reconcilers that:
+Track A implements the v1 reconciler in `@aihu/arbor/src/structural.ts`. The stubs currently throw `ArborNotImplementedError` immediately. v1 replaces them with keyed diffing reconcilers that:
 
 - `when(cond, grow)`: mounts/unmounts the result of `grow()` when `cond` changes
 - `each(list, key, grow)`: keyed list diffing; moves DOM nodes on key-stable reorder; mounts/unmounts on add/remove
@@ -86,7 +86,7 @@ See §12 OQ-V3 and OQ-V4 for the ratified designs.
 
 ---
 
-## §6. Track B — `@scribe/data` (Data / Cache Layer)
+## §6. Track B — `@aihu/data` (Data / Cache Layer)
 
 `createResource` is a reactive data primitive. See §12 OQ-V4 for the cache model decision.
 
@@ -106,7 +106,7 @@ export interface Resource<T> {
 
 ---
 
-## §7. Track B — `@scribe/context` (Context Propagation)
+## §7. Track B — `@aihu/context` (Context Propagation)
 
 `provide`/`inject` for component trees. See §12 OQ-V3 for the ratified propagation model.
 
@@ -120,7 +120,7 @@ export function createContext<T>(defaultValue?: T): ContextKey<T>
 
 ## §8. Track C — SSR Streaming (`renderToStream`)
 
-`renderToStream` extends `@scribe/server/src/ssr.ts`. Returns `ReadableStream<string>` (or `AsyncIterable<string>` adapter). See §12 OQ-V5 and OQ-V6 for the ratified return type and dehydration model.
+`renderToStream` extends `@aihu/server/src/ssr.ts`. Returns `ReadableStream<string>` (or `AsyncIterable<string>` adapter). See §12 OQ-V5 and OQ-V6 for the ratified return type and dehydration model.
 
 ---
 
@@ -139,24 +139,24 @@ See §12 OQ-V1 for the full ratification including measured current sizes and ne
 ## §11. Dependency Graph (v1)
 
 ```
-@scribe/signals          ← no deps
+@aihu/signals          ← no deps
     ↑
-@scribe/arbor            ← depends on signals
+@aihu/arbor            ← depends on signals
     ↑
-@scribe/runtime          ← peer deps: arbor, signals
+@aihu/runtime          ← peer deps: arbor, signals
     ↑
-@scribe/agent            ← no deps
-@scribe/context          ← peer dep: arbor (for mount scope hook)
-@scribe/data             ← depends on: signals; peer dep: context (optional)
+@aihu/agent            ← no deps
+@aihu/context          ← peer dep: arbor (for mount scope hook)
+@aihu/data             ← depends on: signals; peer dep: context (optional)
 
 ════════════ HARD BOUNDARY — ZERO IMPORTS CROSS DOWN ════════════
 
-@scribe/server           ← depends on @scribe/agent (types only)
+@aihu/server           ← depends on @aihu/agent (types only)
     ↑
-@scribe/agent-readiness  ← depends on @scribe/server + @scribe/agent
+@aihu/agent-readiness  ← depends on @aihu/server + @aihu/agent
 ```
 
-`@scribe/context` and `@scribe/data` sit above the hard boundary — they are browser packages. They must never import from `@scribe/server`.
+`@aihu/context` and `@aihu/data` sit above the hard boundary — they are browser packages. They must never import from `@aihu/server`.
 
 ---
 
@@ -170,14 +170,14 @@ See §12 OQ-V1 for the full ratification including measured current sizes and ne
 
 ### OQ-V1 — Bundle Budget: Raise 4.0 → 5.0 kB gz aggregate?
 
-**Background.** The budget in scribe is enforced per-package, not as a single aggregate. The `.size-limit.json` at time of ratification has four rows with these measured actual sizes (gzip of dist/index.js):
+**Background.** The budget in aihu is enforced per-package, not as a single aggregate. The `.size-limit.json` at time of ratification has four rows with these measured actual sizes (gzip of dist/index.js):
 
 | Package | Limit | Actual gz | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | 1700 B | 1600 B | 100 B |
-| `@scribe/arbor` | 2048 B | 1329 B | 719 B |
-| `@scribe/runtime` | 1024 B | 504 B | 520 B |
-| `@scribe/agent` | 100 B | 156 B | **-56 B (OVER)** |
+| `@aihu/signals` | 1700 B | 1600 B | 100 B |
+| `@aihu/arbor` | 2048 B | 1329 B | 719 B |
+| `@aihu/runtime` | 1024 B | 504 B | 520 B |
+| `@aihu/agent` | 100 B | 156 B | **-56 B (OVER)** |
 | **Existing total** | **4872 B** | **3589 B** | **1283 B** |
 
 The agent package is already 56 B over its 100 B limit. This must be fixed regardless of v1 decisions.
@@ -186,31 +186,31 @@ The agent package is already 56 B over its 100 B limit. This must be fixed regar
 
 | Addition | Target package | Estimated gz delta |
 |---|---|---|
-| `when`/`each` reconciler | `@scribe/arbor` | +500 B |
-| Runtime HMR hook | `@scribe/runtime` | +100 B |
-| `@scribe/context` (new) | new row | ~200 B |
-| `@scribe/data` (new) | new row | ~400 B |
+| `when`/`each` reconciler | `@aihu/arbor` | +500 B |
+| Runtime HMR hook | `@aihu/runtime` | +100 B |
+| `@aihu/context` (new) | new row | ~200 B |
+| `@aihu/data` (new) | new row | ~400 B |
 
 **Post-v1 projected state:**
 
 | Package | Current limit | Current actual | v1 delta | v1 actual | v1 limit needed |
 |---|---|---|---|---|---|
-| `@scribe/signals` | 1700 B | 1600 B | 0 | 1600 B | 1700 B (unchanged) |
-| `@scribe/arbor` | 2048 B | 1329 B | +500 B | ~1829 B | 2048 B (unchanged — fits) |
-| `@scribe/runtime` | 1024 B | 504 B | +100 B | ~604 B | 1024 B (unchanged — fits) |
-| `@scribe/agent` | 100 B | 156 B | 0 | 156 B | **200 B (must raise)** |
-| `@scribe/context` | — | — | +200 B | ~200 B | **300 B (new row)** |
-| `@scribe/data` | — | — | +400 B | ~400 B | **600 B (new row)** |
+| `@aihu/signals` | 1700 B | 1600 B | 0 | 1600 B | 1700 B (unchanged) |
+| `@aihu/arbor` | 2048 B | 1329 B | +500 B | ~1829 B | 2048 B (unchanged — fits) |
+| `@aihu/runtime` | 1024 B | 504 B | +100 B | ~604 B | 1024 B (unchanged — fits) |
+| `@aihu/agent` | 100 B | 156 B | 0 | 156 B | **200 B (must raise)** |
+| `@aihu/context` | — | — | +200 B | ~200 B | **300 B (new row)** |
+| `@aihu/data` | — | — | +400 B | ~400 B | **600 B (new row)** |
 | **v1 total** | | | | **~4789 B** | |
 
 **RATIFIED: Do NOT raise an aggregate budget. Instead, make targeted per-package adjustments to `.size-limit.json`:**
 
-1. Raise `@scribe/agent` limit from `100 B` to `200 B` (current actual is 156 B; new limit gives 44 B headroom and fails fast on scope creep while accommodating the actual implementation)
-2. Add `@scribe/context` row: `"limit": "300 B"`, `"gzip": true`
-3. Add `@scribe/data` row: `"limit": "600 B"`, `"gzip": true`
-4. `@scribe/arbor`, `@scribe/signals`, `@scribe/runtime` limits unchanged
+1. Raise `@aihu/agent` limit from `100 B` to `200 B` (current actual is 156 B; new limit gives 44 B headroom and fails fast on scope creep while accommodating the actual implementation)
+2. Add `@aihu/context` row: `"limit": "300 B"`, `"gzip": true`
+3. Add `@aihu/data` row: `"limit": "600 B"`, `"gzip": true`
+4. `@aihu/arbor`, `@aihu/signals`, `@aihu/runtime` limits unchanged
 
-The "aggregate 5.0 kB" framing is rejected because scribe's enforcement is per-package. An aggregate ceiling is meaningless when `@scribe/agent` can blow past its row without any aggregate number catching it (as it already has). Per-package precision is the contract.
+The "aggregate 5.0 kB" framing is rejected because aihu's enforcement is per-package. An aggregate ceiling is meaningless when `@aihu/agent` can blow past its row without any aggregate number catching it (as it already has). Per-package precision is the contract.
 
 **RATIONALE:** The existing arbor and runtime limits absorb v1 additions without change — arbor has 719 B headroom for a 500 B reconciler addition, leaving 219 B buffer; runtime has 520 B headroom for a 100 B HMR hook. New packages get conservative limits that are ~50% above their projected sizes, consistent with the pattern in existing rows. The agent overrun is a pre-existing defect that must be fixed before any v1 build ships; the 200 B limit is grounded in the actual measured size (156 B) rather than invented from assumptions.
 
@@ -247,21 +247,21 @@ Specifically:
 
 ### OQ-V3 — Context Propagation: DOM Attribute Traversal vs. Custom Element Registry?
 
-**Context.** Track B is building `@scribe/context`. The fundamental question is how `inject()` finds its nearest `provide()` ancestor, and how this works during SSR where there is no DOM.
+**Context.** Track B is building `@aihu/context`. The fundamental question is how `inject()` finds its nearest `provide()` ancestor, and how this works during SSR where there is no DOM.
 
 **RATIFIED: Render-scoped context map passed via options, cleared after each `renderToString`/`renderToStream` call. DOM attribute traversal is rejected.**
 
 The API implications are:
 
 **Browser (client) model:**
-`provide(key, value)` registers into a `Map` stored on the active `MountScope`. The scope-collector slot (`_activeMountDisposers` in `mount.ts`) is extended or complemented by a context slot that `@scribe/context` reads during component setup. `inject(key)` walks up the mount scope tree (parent scope chain) to find the nearest `provide` for that key.
+`provide(key, value)` registers into a `Map` stored on the active `MountScope`. The scope-collector slot (`_activeMountDisposers` in `mount.ts`) is extended or complemented by a context slot that `@aihu/context` reads during component setup. `inject(key)` walks up the mount scope tree (parent scope chain) to find the nearest `provide` for that key.
 
-This requires arbor to expose a minimal hook: a module-level `_activeContextMap` slot (parallel to `_activeMountDisposers`) that `@scribe/context` can read and write during a `mount()` call. The hard boundary (no server imports in browser packages) is preserved — `@scribe/context` is a browser package.
+This requires arbor to expose a minimal hook: a module-level `_activeContextMap` slot (parallel to `_activeMountDisposers`) that `@aihu/context` can read and write during a `mount()` call. The hard boundary (no server imports in browser packages) is preserved — `@aihu/context` is a browser package.
 
 **SSR model (this is the critical case):**
 `renderToString` and `renderToStream` accept a new optional field `contextMap?: Map<ContextKey<unknown>, unknown>` in `SsrOptions`. During server-side rendering there is no DOM and no `mount()` call — the renderer walks a virtual tree as a string. Context values provided during SSR are passed explicitly via this map. The renderer passes the map to `inject()` lookups via a request-scoped variable cleared on each `renderToString` call.
 
-Concretely, `@scribe/server/src/ssr.ts` gains:
+Concretely, `@aihu/server/src/ssr.ts` gains:
 ```typescript
 export interface SsrOptions {
   // ... existing fields ...
@@ -269,13 +269,13 @@ export interface SsrOptions {
 }
 ```
 
-And `@scribe/context` exports:
+And `@aihu/context` exports:
 ```typescript
 export function setSsrContextMap(map: ReadonlyMap<unknown, unknown> | null): void
 // Called by renderToString/renderToStream before and after rendering
 ```
 
-This function is in `@scribe/context`, NOT in `@scribe/server`. The server calls it via an injected hook — preserving the hard boundary (server does not import browser packages). The mechanism: `renderToString` accepts an optional `contextSetup?: () => void` hook in `SsrOptions`, which Track C's implementation calls with `setSsrContextMap`.
+This function is in `@aihu/context`, NOT in `@aihu/server`. The server calls it via an injected hook — preserving the hard boundary (server does not import browser packages). The mechanism: `renderToString` accepts an optional `contextSetup?: () => void` hook in `SsrOptions`, which Track C's implementation calls with `setSsrContextMap`.
 
 **Why DOM attribute traversal was rejected:** `renderToString` has no DOM. Any approach that requires traversing `parentElement` or querying `data-` attributes breaks the moment code runs in Workers, Deno, or Bun without JSDOM. Attribute traversal also leaks implementation detail into the serialized HTML.
 
@@ -289,7 +289,7 @@ This function is in `@scribe/context`, NOT in `@scribe/server`. The server calls
 
 ### OQ-V4 — `createResource` Cache: Module-Level Singleton vs. Context-Provided Store?
 
-**Context.** Track B is building `@scribe/data`. `createResource` wraps async data fetching in a reactive Resource. The cache question is: where does the cache live, and how is it initialized?
+**Context.** Track B is building `@aihu/data`. `createResource` wraps async data fetching in a reactive Resource. The cache question is: where does the cache live, and how is it initialized?
 
 **RATIFIED: Context-provided store is the correct model. Module-level singleton is rejected.**
 
@@ -325,7 +325,7 @@ The context-provided store is request-scoped by construction — the `provide(Ca
 
 **RATIFIED: `AsyncIterable<T>` as the primary type. `ReadableStream<T>` as a conversion utility only.**
 
-`renderToStream` and streaming action functions return `AsyncIterable<string>`. A helper `toReadableStream(iter: AsyncIterable<string>): ReadableStream<string>` is exported from `@scribe/server` for callers that need the Web Streams API shape (e.g., Cloudflare Workers `Response` body).
+`renderToStream` and streaming action functions return `AsyncIterable<string>`. A helper `toReadableStream(iter: AsyncIterable<string>): ReadableStream<string>` is exported from `@aihu/server` for callers that need the Web Streams API shape (e.g., Cloudflare Workers `Response` body).
 
 Reason: `AsyncIterable<T>` is simpler for adapter authors to consume. The pattern `for await (const chunk of stream)` works in every edge runtime without any adapter. `ReadableStream` requires `.getReader()`, manual `reader.read()` loops, and `reader.releaseLock()` / `reader.cancel()` cleanup. For the agent service adapter use case (an agent SDK consuming the stream to pipe to a model), `AsyncIterable<T>` is unambiguously simpler.
 
@@ -341,7 +341,7 @@ Interoperability: `ReadableStream` can be trivially constructed from `AsyncItera
 
 ### OQ-V6 — SSR Dehydration: Opt-In Per-Resource vs. Automatic?
 
-**Context.** Track C (`renderToStream`) and Track B (`@scribe/data`) are both affected. SSR dehydration serializes resource data into the HTML so the client can rehydrate without re-fetching. The question is whether dehydration is opt-in per resource or automatic for all resources.
+**Context.** Track C (`renderToStream`) and Track B (`@aihu/data`) are both affected. SSR dehydration serializes resource data into the HTML so the client can rehydrate without re-fetching. The question is whether dehydration is opt-in per resource or automatic for all resources.
 
 **RATIFIED: Opt-in per resource. Automatic is rejected on security grounds.**
 
@@ -355,7 +355,7 @@ Without `{ dehydrate: true }`, the resource's resolved data is not serialized in
 
 The serialized state is emitted as:
 ```html
-<script type="application/json" id="__scribe_state__">{"resources":{"<key>":"<serialized-value>"}}</script>
+<script type="application/json" id="__aihu_state__">{"resources":{"<key>":"<serialized-value>"}}</script>
 ```
 
 This is the same mechanism already wired in `ssr.ts` (the `serializer` injection field) — v1 fills in the real serializer replacing the stub.
@@ -366,7 +366,7 @@ Automatic dehydration would serialize every resource's data into the HTML. The s
 
 Opt-in is explicit: the developer must consciously mark a resource as safe to serialize. This makes security an active choice, not an absence-of-attention-to-a-flag. The cost is one `{ dehydrate: true }` flag per resource that needs it. For most applications, only 2–5 resources at the top level need dehydration (e.g., initial page data); everything else benefits from fresh client-side fetches anyway.
 
-**RATIONALE:** Automatic dehydration optimizes for DX at the expense of security. Opt-in optimizes for security while keeping DX acceptable (one flag per resource). This is consistent with the pattern in `@scribe/server/src/api.ts`'s `serverError` — the spec explicitly requires that production error responses never leak stack traces; the same principle (server data stays on the server until explicitly released) applies to resource dehydration. The Track C builder must treat missing `{ dehydrate: true }` as "do not serialize" — the default must be safe.
+**RATIONALE:** Automatic dehydration optimizes for DX at the expense of security. Opt-in optimizes for security while keeping DX acceptable (one flag per resource). This is consistent with the pattern in `@aihu/server/src/api.ts`'s `serverError` — the spec explicitly requires that production error responses never leak stack traces; the same principle (server data stays on the server until explicitly released) applies to resource dehydration. The Track C builder must treat missing `{ dehydrate: true }` as "do not serialize" — the default must be safe.
 
 **STATUS: CLOSED**
 
@@ -376,11 +376,11 @@ Opt-in is explicit: the developer must consciously mark a resource as safe to se
 
 The following issues were discovered during OQ analysis and are not part of the 6 OQs, but are blockers or must-fix items:
 
-**F-1 (HIGH) — `@scribe/agent` is already over its size budget.**
+**F-1 (HIGH) — `@aihu/agent` is already over its size budget.**
 Current actual: 156 B gz. Current limit in `.size-limit.json`: 100 B. The size gate is currently broken — `bun run size` would fail if run against the current dist. The limit must be raised to 200 B before any v1 work begins, and the reasons for the overrun should be investigated (the expected size was ~72 B per the phase-5 spec; 156 B suggests either a dependency was pulled in or the bundle is not being minified). See `.team/phase-5/spec-agent.md` §3.2.
 
-**F-2 (MEDIUM) — `getAllAgentMetadata()` missing from `@scribe/agent`.**
-The agent-readiness `GET /llms.txt` handler skips auto-generation of component sections because `getAllAgentMetadata()` does not exist. This is documented as OQ-3 in `.team/agent-readiness/spec-agent-readiness.md`. A minor version bump to `@scribe/agent` adding this export unblocks full auto-generation. This must land before v1 ships.
+**F-2 (MEDIUM) — `getAllAgentMetadata()` missing from `@aihu/agent`.**
+The agent-readiness `GET /llms.txt` handler skips auto-generation of component sections because `getAllAgentMetadata()` does not exist. This is documented as OQ-3 in `.team/agent-readiness/spec-agent-readiness.md`. A minor version bump to `@aihu/agent` adding this export unblocks full auto-generation. This must land before v1 ships.
 
 **F-3 (LOW) — `MountScope.serialize()` and `MountScope.agent` are stubs.**
 Both throw `ArborNotImplementedError` or return a branded empty stub. Sub-projects #6 (SSR serialize) and #7 (agent live-binding) are v1 scope. The dehydration work in OQ-V6 provides the v1 implementation path for `serialize()`.

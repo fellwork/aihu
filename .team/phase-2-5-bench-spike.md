@@ -6,7 +6,7 @@
 **Branch this brief lives on:** `spec/phases-3-4-5` (rides along with the Phase 3/4/5 specs PR).
 **Predecessor PRs:**
 - #1 Phase 1 (scaffolding) — merged
-- #2 Phase 2 (`@scribe/signals`) — merged
+- #2 Phase 2 (`@aihu/signals`) — merged
 - #3 Phase 3 prep (`chore/phase-3-prep`) — merged
 - #4 Phase 3 launch brief — merged
 - (this PR) Phase 3/4/5 specs + Phase 2.5 bench-spike brief
@@ -15,12 +15,12 @@
 
 ## Why this session exists
 
-The Phase 3 spec session locked an **aggressive R&D performance posture** (Learning #10): scribe is positioned as runtime-reactivity research, not just an app framework. To honor that posture, **v0 must ship measurable wins on at least one performance axis** — not aspirationally, but as a CI-enforced gate.
+The Phase 3 spec session locked an **aggressive R&D performance posture** (Learning #10): aihu is positioned as runtime-reactivity research, not just an app framework. To honor that posture, **v0 must ship measurable wins on at least one performance axis** — not aspirationally, but as a CI-enforced gate.
 
 This requires a benchmark that:
 
-1. Establishes a baseline for `@scribe/signals` (already shipped — Phase 2's 698 B gz / 36 tests).
-2. Compares scribe head-to-head against state-of-the-art competitors on workloads that mirror real arbor usage (not just synthetic micro-bench).
+1. Establishes a baseline for `@aihu/signals` (already shipped — Phase 2's 698 B gz / 36 tests).
+2. Compares aihu head-to-head against state-of-the-art competitors on workloads that mirror real arbor usage (not just synthetic micro-bench).
 3. Becomes the **gate** for every runtime PR thereafter: if performance regresses ≥10% on any workload, CI fails. If a PR claims to make the runtime faster, it must drop bench receipts in the same PR.
 
 This session ships the bench harness and the baseline numbers. Future sessions consume the harness when they ship optimizations.
@@ -29,18 +29,18 @@ This session ships the bench harness and the baseline numbers. Future sessions c
 
 ## Two bench tracks (Team Lead Phase 3 session decision)
 
-**Track A — Vanilla scribe vs. SOTA JavaScript signal/runtime libraries.** Apples-to-apples comparison of `@scribe/signals` (and, when arbor lands, `@scribe/arbor`) against:
+**Track A — Vanilla aihu vs. SOTA JavaScript signal/runtime libraries.** Apples-to-apples comparison of `@aihu/signals` (and, when arbor lands, `@aihu/arbor`) against:
 - alien-signals (StackBlitz)
 - @preact/signals-core
 - @vue/reactivity (consumed via `import { ref, effect, computed } from '@vue/reactivity'`)
 - solid-js (`createSignal`, `createEffect`, `createMemo`)
 - S.js (the original signals library, included as historical baseline)
 
-This track tells us where scribe stands in the JS reactivity ecosystem. It's the track that becomes the regression gate.
+This track tells us where aihu stands in the JS reactivity ecosystem. It's the track that becomes the regression gate.
 
-**Track B — Scribe + magna end-to-end.** Round-trip latency and throughput for a workload that exercises the full stack: magna receives a GraphQL query → returns rows → scribe binds them to signals → arbor mounts them as DOM. Workloads include initial render, subscription updates, and (eventually) resumable hydration.
+**Track B — Aihu + magna end-to-end.** Round-trip latency and throughput for a workload that exercises the full stack: magna receives a GraphQL query → returns rows → aihu binds them to signals → arbor mounts them as DOM. Workloads include initial render, subscription updates, and (eventually) resumable hydration.
 
-This track tells us how the canonical scribe stack performs as a stack. It's the track that justifies the magna integration claim.
+This track tells us how the canonical aihu stack performs as a stack. It's the track that justifies the magna integration claim.
 
 **Two tracks, separate `bench/<package>/` directories, separate CI gates.** Track A regressions block any merge to runtime packages. Track B regressions block magna-integration merges (sub-project #4) but do NOT block runtime-only changes.
 
@@ -48,8 +48,8 @@ This track tells us how the canonical scribe stack performs as a stack. It's the
 
 ## Source-of-truth docs (every Builder reads these)
 
-1. **v0 spec** — `c:/git/fellwork/scribe/docs/superpowers/specs/2026-04-23-scribe-v0-vertical-slice-design.md`. §11 (Testing) defines the bench gate at a high level. This brief operationalizes it.
-2. **Phase 2 spec** — `.team/phase-2/spec-signals.md`. The `@scribe/signals` API is locked.
+1. **v0 spec** — `c:/git/fellwork/aihu/docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md`. §11 (Testing) defines the bench gate at a high level. This brief operationalizes it.
+2. **Phase 2 spec** — `.team/phase-2/spec-signals.md`. The `@aihu/signals` API is locked.
 3. **Phase 3 arbor spec** — `.team/phase-3/spec-arbor.md`. Track A's arbor benchmarks land after arbor ships; design Track A so it can incorporate arbor benchmarks without rework.
 4. **Phase 2 retro** — `.team/phase-2/retro.md`. The "wide-fanout concern" is the canonical workload Track A must include.
 5. **Project-portable learnings** — `.team/learnings.md`. **Mandatory.** Learning #11 (bench-vs-SOTA gate) is what this session operationalizes.
@@ -76,7 +76,7 @@ Three workloads, each with a fixed input size. Each runs in `mitata` (zero-dep, 
 
 **Workload 1 — `cellx`.** S.js's classic. One source signal feeds a 5-deep diamond graph of computeds. One write to the source; how long to propagate to the leaves. Industry standard; easy to reproduce; tests propagation efficiency.
 
-**Workload 2 — `wide-fanout-100`.** One signal feeds 100 cheap computeds; each is subscribed by an effect. One source write; how long until all 100 effects have run. **This is the Phase 2 retro's canonical concern.** It tells us if scribe is fast on the workload that worried us most.
+**Workload 2 — `wide-fanout-100`.** One signal feeds 100 cheap computeds; each is subscribed by an effect. One source write; how long until all 100 effects have run. **This is the Phase 2 retro's canonical concern.** It tells us if aihu is fast on the workload that worried us most.
 
 **Workload 3 — `batched-writes-100`.** Inside one `batch()`, write 100 distinct signals each feeding one effect. How long for the batch flush to fire all effects. Tests batch efficiency, which alien doesn't have built-in.
 
@@ -92,7 +92,7 @@ Five baselines, all bundled by mitata's per-bench runner:
 
 | Library | Version | Source |
 |---|---|---|
-| `@scribe/signals` | workspace:* | local |
+| `@aihu/signals` | workspace:* | local |
 | `alien-signals` | latest stable from npm | npm |
 | `@preact/signals-core` | latest stable | npm |
 | `@vue/reactivity` | latest stable | npm |
@@ -133,7 +133,7 @@ Track A reports `mean`, `p50`, `p99`, and `ops/s` in `RESULTS.md`. The regressio
 
 ### Stretch — add gz size to the report
 
-Mitata measures runtime. Add a section to `RESULTS.md` reporting each competitor's gzipped bundle size (we already have size-limit for `@scribe/signals`; extract competitor sizes from `node_modules` via a one-shot script). Tells the reader "we're competitive on bytes AND time" or "we lose on bytes by X" — both useful.
+Mitata measures runtime. Add a section to `RESULTS.md` reporting each competitor's gzipped bundle size (we already have size-limit for `@aihu/signals`; extract competitor sizes from `node_modules` via a one-shot script). Tells the reader "we're competitive on bytes AND time" or "we lose on bytes by X" — both useful.
 
 ---
 
@@ -141,11 +141,11 @@ Mitata measures runtime. Add a section to `RESULTS.md` reporting each competitor
 
 ### Workloads
 
-**Workload 1 — initial-render-100-rows.** magna serves a GraphQL query returning 100 rows. scribe binds them to a signal-driven list. Time from query dispatch to first paint of all 100 rows.
+**Workload 1 — initial-render-100-rows.** magna serves a GraphQL query returning 100 rows. aihu binds them to a signal-driven list. Time from query dispatch to first paint of all 100 rows.
 
 **Workload 2 — subscription-update-1-row.** With the 100-row list mounted, magna pushes a subscription update for row 50. Time from subscription event to DOM update.
 
-**Workload 3 — initial-render-cold-cache.** Same as Workload 1 but with no warm-up runs (cold magna cache, cold scribe runtime). Tells us the worst-case real-user experience.
+**Workload 3 — initial-render-cold-cache.** Same as Workload 1 but with no warm-up runs (cold magna cache, cold aihu runtime). Tells us the worst-case real-user experience.
 
 ### Setup
 
@@ -155,7 +155,7 @@ Mitata measures runtime. Add a section to `RESULTS.md` reporting each competitor
 
 ### Competitor for Track B
 
-magna+scribe vs. **a hand-rolled equivalent stack**: hasura (GraphQL) → fetch in browser → hand-written reactive list (or Vue/React/Solid). One competitor configuration, not five — Track B is about validating the integration claim, not winning a JS shootout.
+magna+aihu vs. **a hand-rolled equivalent stack**: hasura (GraphQL) → fetch in browser → hand-written reactive list (or Vue/React/Solid). One competitor configuration, not five — Track B is about validating the integration claim, not winning a JS shootout.
 
 ### Output artifacts
 
@@ -195,7 +195,7 @@ Brief: "Implement Track A per `.team/phase-2-5-bench-spike.md` §Track A. Five c
 
 Builder pastes RESULTS.md table in PR description. Team Lead inspects:
 - Are all 5 competitors and 3 workloads represented?
-- Are scribe's numbers competitive (within 2× of fastest)? If scribe is 5× slower on any workload, halt and investigate.
+- Are aihu's numbers competitive (within 2× of fastest)? If aihu is 5× slower on any workload, halt and investigate.
 - Does the CI gate actually run on the PR?
 
 ### Step 4 — Open PR
@@ -211,7 +211,7 @@ Once Track A merges, the next session is Phase 3 arbor implementation (the Build
 ## Hard stops
 
 - Builder spends >150% of time budget → halt, write a continuation note, ship Track A in whatever state it's in (with caveats clearly documented).
-- Scribe is >5× slower than fastest competitor on any workload → halt, investigate before claiming "we're competitive."
+- Aihu is >5× slower than fastest competitor on any workload → halt, investigate before claiming "we're competitive."
 - A workload's numbers are wildly inconsistent run-to-run (>30% variance) → harness bug, not a regression. Fix the harness before reporting numbers.
 - CI gate flakes (false-positive regression) more than once in 24h → adjust threshold or add warm-up runs.
 
@@ -219,7 +219,7 @@ Once Track A merges, the next session is Phase 3 arbor implementation (the Build
 
 ## What this session does NOT do
 
-- Implement any optimizations to `@scribe/signals` (only measures the current state)
+- Implement any optimizations to `@aihu/signals` (only measures the current state)
 - Add or modify any non-bench tests
 - Touch arbor / runtime / agent (those are spec-locked but not yet implemented)
 - Run Track B if Track A is unfinished

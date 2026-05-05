@@ -1,4 +1,4 @@
-import type { signal as SignalFactory } from '@scribe/signals'
+import type { signal as SignalFactory } from '@aihu/signals'
 import type { ComponentOptions, MountFn, Setup, SetupContext } from './types.ts'
 import { RuntimeError } from './types.ts'
 

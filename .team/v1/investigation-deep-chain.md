@@ -2,7 +2,7 @@
 **Date:** 2026-04-30
 **By:** Investigator (automated)
 **Workload:** `deep-propagation-100`
-**Gap:** scribe 4.00 µs vs alien-signals 2.42 µs (1.65× slower)
+**Gap:** aihu 4.00 µs vs alien-signals 2.42 µs (1.65× slower)
 **Target:** ≤ 3.00 µs p50 (≥ 25 % improvement)
 
 **Sources read:**
@@ -29,7 +29,7 @@ src → c0 → c1 → c2 → … → c99 → effect
 
 ---
 
-### Scribe: step-by-step on `setSrc(n++)`
+### Aihu: step-by-step on `setSrc(n++)`
 
 **Phase 1 — Mark** (`signal.ts:417–441`, specifically `wave++` at :435 and `propagateMark` at :437)
 
@@ -85,7 +85,7 @@ for (const sub of visited) sub.recomputeIfNeeded?.()
 - Reading `c99()` from within the effect: `c99` has STALE cleared already (recomputeIfNeeded ran and cleared it at `computed.ts:51`: `node.flags &= ~(RUNNING | STALE | MARKED)`). But wait — only c99 was recomputed. When the effect calls `tail()` = `c99.read()`, `c99` is not STALE (it was just recomputed in Phase 2). Returns cached value.
 - But this means **c0 through c98 were never recomputed**. The effect reads c99 which is fresh. Done.
 
-**Summary for scribe on a 100-deep chain:**
+**Summary for aihu on a 100-deep chain:**
 | Phase | Node visits | Work per visit |
 |---|---|---|
 | Mark | 101 | ~8 ops: flag checks, lastWave write, array push, Link pointer read |
@@ -129,18 +129,18 @@ Alien-signals uses a three-flag propagation model: `Dirty` (16), `Pending` (32),
 
 **The structural difference is NOT in node visit count — it is in the work per node in the mark/propagate phase:**
 
-- Scribe `markOne` per node: ~8 operations (two flag reads, one wave comparison, one `lastWave` write, one `flags |= MARKED` R-M-W, one `flags |= STALE` R-M-W, one `visited.push()`, one `markStackSubs.push()`, one Link pointer dereference).
+- Aihu `markOne` per node: ~8 operations (two flag reads, one wave comparison, one `lastWave` write, one `flags |= MARKED` R-M-W, one `flags |= STALE` R-M-W, one `visited.push()`, one `markStackSubs.push()`, one Link pointer dereference).
 - Alien `propagate` per node: ~3–4 operations (read flags, one OR assignment `|= 32`, read `sub.subs`, assign `link = subSubs`). No per-node array push in the common path — the stack is a linked list of inline stack frames (`{ value, prev }`) that only allocates when there are multiple subscribers (fan-out), not in the linear-chain case.
 
 Additionally:
-- Scribe has the **`visited[]` array** (one `push` per interior computed) that must be iterated in the settle phase.
+- Aihu has the **`visited[]` array** (one `push` per interior computed) that must be iterated in the settle phase.
 - Alien has **no `visited[]` array**. Instead, recomputation is pulled lazily from within `checkDirty` when the effect actually runs.
 
 **The settle-phase difference:**
-- Scribe settle: iterates `visited` (100 entries), calls `recomputeIfNeeded` on each. 99 calls short-circuit at `!hasEffectSub`. 1 call recomputes c99.
+- Aihu settle: iterates `visited` (100 entries), calls `recomputeIfNeeded` on each. 99 calls short-circuit at `!hasEffectSub`. 1 call recomputes c99.
 - Alien settle (inside `run` → `checkDirty`): walks backwards from the effect through all 100 Pending computeds, recomputing each in forward order. All 100 computeds are recomputed — but this is one combined pass without the per-node `hasEffectSub` guard overhead.
 
-The net effect: scribe does more bookkeeping in the mark phase (per-node `visited.push`, `STALE` flag, wave counter write) and more overhead in the settle phase (100 `recomputeIfNeeded` calls, 99 early-exits with two flag checks each) than alien's cleaner `|= 32` mark + single pull in `checkDirty`.
+The net effect: aihu does more bookkeeping in the mark phase (per-node `visited.push`, `STALE` flag, wave counter write) and more overhead in the settle phase (100 `recomputeIfNeeded` calls, 99 early-exits with two flag checks each) than alien's cleaner `|= 32` mark + single pull in `checkDirty`.
 
 ---
 
@@ -150,7 +150,7 @@ The gap has two components, both structural.
 
 **Primary cause — A: Per-node overhead in the mark phase.**
 
-Scribe's `markOne` performs ~8 operations per node. Alien-signals' `propagate` performs ~3–4 operations per node. On a 100-node linear chain, this difference is ~400–500 "wasted" operations. At ~4 ns per operation on V8, that is ~1.6–2.0 µs of mark-phase overhead beyond alien's. This accounts for most of the 1.58 µs gap (4.00 – 2.42 µs).
+Aihu's `markOne` performs ~8 operations per node. Alien-signals' `propagate` performs ~3–4 operations per node. On a 100-node linear chain, this difference is ~400–500 "wasted" operations. At ~4 ns per operation on V8, that is ~1.6–2.0 µs of mark-phase overhead beyond alien's. This accounts for most of the 1.58 µs gap (4.00 – 2.42 µs).
 
 The specific contributors, in order of cost:
 
@@ -179,15 +179,15 @@ The specific contributors, in order of cost:
 
 Eliminating the `visited[]` push and the STALE flag write from the mark phase removes ~2 array operations per interior computed. The settle phase would be restructured so `recomputeIfNeeded` is only called on nodes that are actually read. For the 100-deep linear chain, the effect reads c99, which reads c98, etc. — a chain of lazy pulls. This mirrors alien's `checkDirty` model.
 
-Estimated gain: eliminating `visited[]` push and the settle iteration loop reduces per-op cost by roughly 100 × ~6 ns (array push + STALE write + settle call) = ~600 ns, pushing scribe's p50 from 4.00 µs toward ~3.40 µs. The remaining gap to 2.42 µs would require further reducing mark overhead (items 3 and 4 from §2).
+Estimated gain: eliminating `visited[]` push and the settle iteration loop reduces per-op cost by roughly 100 × ~6 ns (array push + STALE write + settle call) = ~600 ns, pushing aihu's p50 from 4.00 µs toward ~3.40 µs. The remaining gap to 2.42 µs would require further reducing mark overhead (items 3 and 4 from §2).
 
 **(b) Risk to other workloads:**
 
-- **cellx** (5-deep diamond, 1 effect): The cellx diamond has multiple paths converging on the same computed nodes (L4 has 2 subscribers, L3 has 2 subscribers, etc.). The current `hasEffectSub` check is set when an effect directly subscribes. In the lazy-pull model, the "does this node need recomputing?" check must correctly handle diamonds. Scribe's existing wave-counter dedup (`lastWave === wave`) already handles the diamond dedup in the mark phase. The settle phase for cellx currently benefits from the eager recompute of L4 (which has `hasEffectSub = true`). A lazy model must replicate this without a regression.
+- **cellx** (5-deep diamond, 1 effect): The cellx diamond has multiple paths converging on the same computed nodes (L4 has 2 subscribers, L3 has 2 subscribers, etc.). The current `hasEffectSub` check is set when an effect directly subscribes. In the lazy-pull model, the "does this node need recomputing?" check must correctly handle diamonds. Aihu's existing wave-counter dedup (`lastWave === wave`) already handles the diamond dedup in the mark phase. The settle phase for cellx currently benefits from the eager recompute of L4 (which has `hasEffectSub = true`). A lazy model must replicate this without a regression.
   - **Risk: MEDIUM.** The cellx restricted-leaf fast path (`signal.ts:222`) currently fires when `head.nextSub === null && !(HAS_COMPUTED_DEPS) && head.sub.flags & EFFECT`. In the diamond, some interior nodes have HAS_COMPUTED_DEPS set (they read other computeds). The lazy model's correctness for diamonds requires careful handling of the multi-parent case.
 - **wide-fanout-100** (1 signal → 100 computeds → 100 effects): Each computed has `hasEffectSub = true` (its direct subscriber is an effect). In the current model, all 100 computeds are pushed to `visited` and all are recomputed in settle. A lazy model defers recomputation to effect run time — each of 100 effects would independently trigger its own recompute walk. This would be 100 separate single-step pull operations, which is no worse than today and may be faster by eliminating the `visited[]` array pass.
   - **Risk: LOW.** Each c[i] has only one dep (the signal) and one subscriber (effect[i]). The pull is one step.
-- **dynamic-deps**: The current scribe advantage (1.65×) on dynamic-deps relies on fast re-wiring of the dep graph during effect re-runs. Lazy pull does not change the re-wiring mechanism. **Risk: LOW.**
+- **dynamic-deps**: The current aihu advantage (1.65×) on dynamic-deps relies on fast re-wiring of the dep graph during effect re-runs. Lazy pull does not change the re-wiring mechanism. **Risk: LOW.**
 - **batched-writes-100**: Uses `batchDepth > 0` path which calls `enqueueIfNeeded` and then `drainBatch`. The lazy-pull change primarily affects the non-batched settle path. **Risk: LOW.**
 - **creation-1to1000**: Graph construction, not propagation. **Risk: NONE.**
 
@@ -233,7 +233,7 @@ One new field on Subscriber plus a handful of comparison sites.
 
 **Mechanism:** Keep the current eager-mark phase (all 100 nodes visited, pushed to `visited[]`) but optimize `settleAndDrain` to skip the 99 short-circuit `recomputeIfNeeded` calls by only calling `recomputeIfNeeded` on nodes with `hasEffectSub = true`.
 
-This is actually close to what scribe already does: the `!hasEffectSub` guard in `computed.ts:66` already skips recompute for nodes with no effect subscribers. The settle loop iterates `visited` (100 entries) but 99 short-circuit in 2–3 instructions.
+This is actually close to what aihu already does: the `!hasEffectSub` guard in `computed.ts:66` already skips recompute for nodes with no effect subscribers. The settle loop iterates `visited` (100 entries) but 99 short-circuit in 2–3 instructions.
 
 A refinement: instead of pushing ALL computeds to `visited[]` during mark and iterating all of them in settle, only push computeds where `hasEffectSub === true` during mark. This would reduce `visited[]` to 1 entry (just c99) and the settle loop to 1 actual call.
 
@@ -246,13 +246,13 @@ Eliminating 99 unnecessary `visited.push()` + 99 unnecessary `recomputeIfNeeded`
 - 99 × two-flag-check `recomputeIfNeeded`: ~99 × 2 ns = ~198 ns
 - Total: ~500 ns improvement
 
-This would bring scribe from 4.00 µs toward ~3.50 µs — meaningful but not enough to reach ≤ 3.00 µs alone.
+This would bring aihu from 4.00 µs toward ~3.50 µs — meaningful but not enough to reach ≤ 3.00 µs alone.
 
 **(b) Risk to other workloads: LOW.**
 
 The change is simply "don't push to `visited[]` if `hasEffectSub === false`." Nodes without effect subs are already no-ops in the settle loop. The STALE flag must still be set (for pull-on-read correctness) even if not pushed to `visited[]`. The wave counter dedup is unaffected. The restricted-leaf fast path is unaffected.
 
-- **cellx**: L4 has `hasEffectSub = true`; it is the only node that needs to be in `visited[]`. L1/L2/L3 have `hasEffectSub = false` (their subs are other computeds). Currently L1–L3 are pushed to `visited[]` and short-circuit in `recomputeIfNeeded`. Under this option, L1–L3 would not be pushed — the settle loop visits only L4 and recomputes it. The critical question is whether L4 can read L3 as STALE and get a fresh value. Answer: yes — because L4's `recomputeIfNeeded` will call `recompute()` which calls `fn()` which calls `L3()`. L3's `read()` function finds `node.flags & STALE` is set, calls `recompute()`, which calls L2, which calls L1 in turn. The STALE flag on each node triggers a lazy pull from within the recompute chain. This is already how scribe handles computeds that are STALE at read time (`computed.ts:101–105`): `if (!hasCached || node.flags & STALE) { cached = recompute(); hasCached = true }`.
+- **cellx**: L4 has `hasEffectSub = true`; it is the only node that needs to be in `visited[]`. L1/L2/L3 have `hasEffectSub = false` (their subs are other computeds). Currently L1–L3 are pushed to `visited[]` and short-circuit in `recomputeIfNeeded`. Under this option, L1–L3 would not be pushed — the settle loop visits only L4 and recomputes it. The critical question is whether L4 can read L3 as STALE and get a fresh value. Answer: yes — because L4's `recomputeIfNeeded` will call `recompute()` which calls `fn()` which calls `L3()`. L3's `read()` function finds `node.flags & STALE` is set, calls `recompute()`, which calls L2, which calls L1 in turn. The STALE flag on each node triggers a lazy pull from within the recompute chain. This is already how aihu handles computeds that are STALE at read time (`computed.ts:101–105`): `if (!hasCached || node.flags & STALE) { cached = recompute(); hasCached = true }`.
 - **dynamic-deps**: The computed reads 5 of 50 signals. `hasEffectSub = true` (it has an effect subscriber). It would always be in `visited[]`. No change.
 - **wide-fanout-100**: 100 computeds each with `hasEffectSub = true`. All 100 stay in `visited[]`. No change.
 - **batched-writes-100**: 1 computed with `hasEffectSub = true`. No change.
@@ -294,7 +294,7 @@ For the 100-deep linear chain, every node has `head.nextSub === null`. This mean
 - Settle: skip entirely (no `visited[]` to iterate).
 - Effect drain: effect fires, calls `c99()`. c99 is Pending → check if dirty (need a checkDirty-style walk up to source). Recompute c99 (which recomputes c98..c0 lazily).
 
-Estimated gain from removing `visited[]` push, STALE flag, and settle iteration: ~800 ns–1.2 µs improvement. This could bring scribe to ~2.8–3.2 µs, near or at the 3.00 µs target.
+Estimated gain from removing `visited[]` push, STALE flag, and settle iteration: ~800 ns–1.2 µs improvement. This could bring aihu to ~2.8–3.2 µs, near or at the 3.00 µs target.
 
 **(b) Risk to other workloads:**
 
@@ -303,7 +303,7 @@ Estimated gain from removing `visited[]` push, STALE flag, and settle iteration:
 - **wide-fanout-100** (1 signal → 100 computeds → 100 effects): The signal has 100 subscribers (all `head.nextSub !== null`). The signal's fan-out triggers the eager path, walking all 100 computeds. Each computed has one effect sub (`head.nextSub === null` for each c[i]→effect[i] edge) — so c[i]→effect[i] follows the lazy path. But the signal→c[i] edges are walked eagerly (fan-out from signal). Each c[i] gets STALE set and is pushed to `visited[]`. The settle loop still runs 100 recomputes. **No change for wide-fanout-100** — the signal's fan-out means the eager path applies everywhere.
   - **Risk: NONE** for wide-fanout regression.
 - **dynamic-deps**: The computed reads 5 of 50 signals. Each signal has exactly 1 subscriber (the computed). So signal→computed edges are linear (no fan-out from signals). The computed→effect edge is also linear. Under Option D, the propagation from all 5 signals through the computed to the effect would use the lazy path. The effect would pull lazily.
-  - **Risk: LOW.** scribe currently wins dynamic-deps 1.65× over alien. The lazy pull on the computed is equivalent to how alien handles it. Scribe's advantage on dynamic-deps is primarily from fast re-wiring on dep rotation, not from the propagation model. The lazy-pull addition should be neutral or slightly beneficial.
+  - **Risk: LOW.** aihu currently wins dynamic-deps 1.65× over alien. The lazy pull on the computed is equivalent to how alien handles it. Aihu's advantage on dynamic-deps is primarily from fast re-wiring on dep rotation, not from the propagation model. The lazy-pull addition should be neutral or slightly beneficial.
 - **batched-writes-100**: 100 signals, each with 1 subscriber (the effect). All signal→effect edges are linear. Under Option D, the propagation is lazy (Pending only). The effect fires 100 times (once per signal, batched). The checkDirty call per effect is trivial (1 dep, 1 step). No regression expected.
 - **creation-1to1000**: Not affected.
 
@@ -336,7 +336,7 @@ Option C (skip `visited[]` push for nodes with `hasEffectSub = false`) is:
 - **Measurable**: estimated 400–500 ns improvement (12–13 % of the 4.00 µs total, reaching ~3.50 µs). Not sufficient alone to hit the ≤ 3.00 µs target, but a clean first step that provides an independent measurement point.
 - **No regression gates threatened**: all five gate workloads are either unaffected (wide-fanout has all nodes with `hasEffectSub = true`) or improved (deep-chain).
 
-**After Option C is measured:** If scribe reaches ~3.50 µs, combine with a targeted Option A partial (lazy pull only for the STALE-but-no-effect-sub computeds at read time, replacing the current `if (!hasCached || node.flags & STALE)` pull path). This partial Option A addresses the mark-phase overhead without restructuring the full mark → settle pipeline.
+**After Option C is measured:** If aihu reaches ~3.50 µs, combine with a targeted Option A partial (lazy pull only for the STALE-but-no-effect-sub computeds at read time, replacing the current `if (!hasCached || node.flags & STALE)` pull path). This partial Option A addresses the mark-phase overhead without restructuring the full mark → settle pipeline.
 
 ### Why not Option A alone
 
@@ -361,7 +361,7 @@ A standalone test can be written in `packages/signals/tests/` or `bench/signals/
 
 ## 5. Size constraint
 
-**Current budget:** `@scribe/signals` is 1.53 kB gz (Scout report, 2026-04-30). Cap is 1.70 kB gz. Headroom: 172 B.
+**Current budget:** `@aihu/signals` is 1.53 kB gz (Scout report, 2026-04-30). Cap is 1.70 kB gz. Headroom: 172 B.
 
 | Option | Estimated size cost | Remaining headroom |
 |---|---|---|

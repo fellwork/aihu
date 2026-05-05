@@ -1,25 +1,25 @@
-# Architect Spec — @scribe/app V0
+# Architect Spec — @aihu/app V0
 **Date:** 2026-05-04
 **Specs:** A1 (defineConfig schema), A4 (route param protocol)
-**Pending:** A2 (Vite plugin composition), A3 (@scribe/app/client bootstrap module)
+**Pending:** A2 (Vite plugin composition), A3 (@aihu/app/client bootstrap module)
 
 ---
 
-## A1 — ScribeConfig / defineConfig schema
+## A1 — AihuConfig / defineConfig schema
 
 ### TypeScript types
 
 ```typescript
 // packages/app/src/config.ts
 
-/** Scribe application configuration (SPA-focused, V0). */
-export interface ScribeConfig {
+/** Aihu application configuration (SPA-focused, V0). */
+export interface AihuConfig {
   /** Directory layout overrides. */
   readonly dir?: DirConfig
   /** Output mode. V0 supports 'spa' only. */
   readonly output?: OutputMode
-  /** Scribe plugins. Order is preserved. */
-  readonly plugins?: ReadonlyArray<ScribePlugin>
+  /** Aihu plugins. Order is preserved. */
+  readonly plugins?: ReadonlyArray<AihuPlugin>
   /** Runtime configuration split — public values are inlined in client bundle. */
   readonly runtimeConfig?: RuntimeConfig
   /** HTML <head> metadata. */
@@ -53,25 +53,25 @@ export interface HeadConfig {
   readonly meta?: ReadonlyArray<Record<string, string>>
 }
 
-/** Vite config fields that can be safely merged (excludes plugins — those go in ScribeConfig.plugins). */
+/** Vite config fields that can be safely merged (excludes plugins — those go in AihuConfig.plugins). */
 export type VitePassthrough = Omit<import('vite').UserConfig, 'plugins'>
 
-/** A Scribe plugin is structurally identical to a Vite plugin (V0). */
-export type ScribePlugin = import('vite').Plugin
+/** A Aihu plugin is structurally identical to a Vite plugin (V0). */
+export type AihuPlugin = import('vite').Plugin
 
 /** Thrown when defineConfig validation fails. */
-export class ScribeConfigError extends Error {
+export class AihuConfigError extends Error {
   constructor(
     message: string,
-    readonly code: ScribeConfigErrorCode,
+    readonly code: AihuConfigErrorCode,
     readonly field?: string,
   ) {
     super(message)
-    this.name = 'ScribeConfigError'
+    this.name = 'AihuConfigError'
   }
 }
 
-export type ScribeConfigErrorCode =
+export type AihuConfigErrorCode =
   | 'INVALID_OUTPUT_MODE'
   | 'INVALID_DIR'
   | 'UNKNOWN_FIELD'
@@ -80,30 +80,30 @@ export type ScribeConfigErrorCode =
 ### defineConfig validation rules (V0)
 
 ```typescript
-export function defineConfig(config: ScribeConfig): ScribeConfig {
+export function defineConfig(config: AihuConfig): AihuConfig {
   // V0 validation — no Zod dependency
   if (config.output && config.output !== 'spa') {
-    throw new ScribeConfigError(
+    throw new AihuConfigError(
       `output mode '${config.output}' is not supported in V0 (only 'spa')`,
       'INVALID_OUTPUT_MODE',
       'output',
     )
   }
   if (config.dir?.pages !== undefined && typeof config.dir.pages !== 'string') {
-    throw new ScribeConfigError('dir.pages must be a string', 'INVALID_DIR', 'dir.pages')
+    throw new AihuConfigError('dir.pages must be a string', 'INVALID_DIR', 'dir.pages')
   }
   if (config.dir?.layouts !== undefined && typeof config.dir.layouts !== 'string') {
-    throw new ScribeConfigError('dir.layouts must be a string', 'INVALID_DIR', 'dir.layouts')
+    throw new AihuConfigError('dir.layouts must be a string', 'INVALID_DIR', 'dir.layouts')
   }
   return config
 }
 ```
 
-### scribe.config.ts example (user-facing)
+### aihu.config.ts example (user-facing)
 
 ```typescript
-// scribe.config.ts
-import { defineConfig } from '@scribe/app'
+// aihu.config.ts
+import { defineConfig } from '@aihu/app'
 
 export default defineConfig({
   app: {
@@ -150,7 +150,7 @@ export function mountRoute(match: MatchResult, outlet: HTMLElement): void {
 }
 ```
 
-**Component side (Scribe DSL):**
+**Component side (Aihu DSL):**
 ```
 @route { name: "blog-post", params: ["slug"] }
 @template {
@@ -207,21 +207,21 @@ The compiler reads `$prop` declarations that have a matching `@route { params: [
 ### Migration path
 
 - `blog-router/src/main.ts` drops the `route` JSON attribute line
-- New `mountRoute(match, outlet)` from `@scribe/app/client` handles the loop
-- `$prop slug: string` in `posts/[slug].scribe` replaces manual attribute parsing
+- New `mountRoute(match, outlet)` from `@aihu/app/client` handles the loop
+- `$prop slug: string` in `posts/[slug].aihu` replaces manual attribute parsing
 
 ---
 
 ## Open questions (surface to user before Builder)
 
-1. **`@scribe/app` vs `@scribe/client`** — package name: `@scribe/app` (Nuxt-model, broader) or `@scribe/client` (narrower, client-runtime only)? Director preference: `@scribe/app`.
+1. **`@aihu/app` vs `@aihu/client`** — package name: `@aihu/app` (Nuxt-model, broader) or `@aihu/client` (narrower, client-runtime only)? Director preference: `@aihu/app`.
 
-2. **`createApp()` signature** — Does it accept the config inline or always read `scribe.config.ts`?
+2. **`createApp()` signature** — Does it accept the config inline or always read `aihu.config.ts`?
    - Option A: `createApp()` — reads config file at build time, no runtime arg
    - Option B: `createApp(config)` — accepts inline config (simpler, no file-read at runtime)
    - Option C: both — `createApp()` for scaffold, `createApp(config)` for testing
    Director preference: Option B for V0 (simplest, no FS access at runtime).
 
-3. **`scribe()` Vite plugin naming** — Is `scribe()` the right name for the composed Vite plugin that absorbs `viteRouterIntegration` + `viteAgentReadinessIntegration`? Or should it be `viteScribePlugin()`?
+3. **`aihu()` Vite plugin naming** — Is `aihu()` the right name for the composed Vite plugin that absorbs `viteRouterIntegration` + `viteAgentReadinessIntegration`? Or should it be `viteAihuPlugin()`?
 
-4. **Adapter field timing** — Should the `ScribeConfig` type reserve an `adapter` field now (accepting `null` with a TODO comment) even if V0 ignores it? This prevents a breaking change when adapters ship.
+4. **Adapter field timing** — Should the `AihuConfig` type reserve an `adapter` field now (accepting `null` with a TODO comment) even if V0 ignores it? This prevents a breaking change when adapters ship.

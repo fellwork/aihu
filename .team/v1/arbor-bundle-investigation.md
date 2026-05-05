@@ -17,7 +17,7 @@
 
 ### Signals vs. arbor-native split
 
-Rolldown inlines `@scribe/signals` into the arbor bundle, but **only `effect` and its subscriber-tracking machinery** are inlined — arbor's source only imports `effect` as a runtime value (all other signals imports are type-only and erased). `signal`, `computed`, `batch`, `$state`, and `untrack` are fully tree-shaken.
+Rolldown inlines `@aihu/signals` into the arbor bundle, but **only `effect` and its subscriber-tracking machinery** are inlined — arbor's source only imports `effect` as a runtime value (all other signals imports are type-only and erased). `signal`, `computed`, `batch`, `$state`, and `untrack` are fully tree-shaken.
 
 | Section | Raw bytes | Est. gz (proportional) |
 |---|---|---|
@@ -40,7 +40,7 @@ The signals standalone bundle (`packages/signals/dist/index.js`) is 4,576 B raw 
 | `structural.ts` | 160 | ~372 B gz | `_reconcileWhen`, `_reconcileEach`, `_teardownChildScope` |
 | `mount.ts` | 235 | ~546 B gz | `_mountEffect` (with error-boundary disposeRef), `mount()` |
 | `telemetry.ts` | 49 | **0 B gz** | Fully tree-shaken (no `Date.now`, no event strings in bundle) |
-| `@scribe/signals` (inlined) | — | ~361 B gz | `effect` + subscriber tracking only |
+| `@aihu/signals` (inlined) | — | ~361 B gz | `effect` + subscriber tracking only |
 | **Total** | **756 src lines** | **~2,149 B gz** | Joint compression: 2,154 B |
 
 Methodology: raw-byte proportional scaling of individual gz measurements to the joint-compressed total. Source line counts for the DOM section (attrs / materialize / structural / mount). Validated: sum reconciles to within 5 B of measured joint gz.

@@ -1,4 +1,4 @@
-import type { Dispose, Signal } from '@scribe/signals'
+import type { Dispose, Signal } from '@aihu/signals'
 import type { MountEffectFn } from './attrs.ts'
 import { _materialize } from './materialize.ts'
 import { _mountDisposersStack } from './mount.ts'

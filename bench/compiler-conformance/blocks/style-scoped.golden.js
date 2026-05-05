@@ -1,5 +1,5 @@
-import { branch, leaf, slot } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf, slot } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 const __style__ = new CSSStyleSheet();
 __style__.replaceSync(`.card { padding: 1rem; border: 1px solid #ccc; }`);

@@ -14,8 +14,8 @@
 export interface AdapterContext {
   readonly outDir: string               // Vite build output directory (absolute)
   readonly root: string                 // project root (absolute)
-  readonly routes: ReadonlyArray<RouteDefinition>  // from @scribe/router scanPages
-  readonly config: ScribeConfig         // resolved ScribeConfig
+  readonly routes: ReadonlyArray<RouteDefinition>  // from @aihu/router scanPages
+  readonly config: AihuConfig         // resolved AihuConfig
   emitFile(path: string, content: string): Promise<void>  // write relative to outDir
   copy(src: string, dest: string): Promise<void>           // cp -r
   writeFile(absolutePath: string, content: string): Promise<void>  // arbitrary absolute path
@@ -23,16 +23,16 @@ export interface AdapterContext {
 }
 ```
 
-### `ScribeAdapter`
+### `AihuAdapter`
 
 ```typescript
-export interface ScribeAdapter {
+export interface AihuAdapter {
   readonly name: string
   adapt(context: AdapterContext): Promise<void>
 }
 ```
 
-### `viteScribePlugin` closeBundle hook (in `packages/app/src/vite-plugin.ts`)
+### `viteAihuPlugin` closeBundle hook (in `packages/app/src/vite-plugin.ts`)
 
 - `apply: 'build'` — adapter sentinel only runs during builds, never dev server
 - `closeBundle()` fires after Vite writes all output files
@@ -47,7 +47,7 @@ export interface ScribeAdapter {
 
 ```typescript
 export interface CloudflareAdapterOptions {
-  name?: string              // Worker name; falls back to package.json "name", then 'scribe-app'
+  name?: string              // Worker name; falls back to package.json "name", then 'aihu-app'
   mode?: 'workers' | 'pages' // deployment mode; default: 'workers'
   generateWrangler?: boolean  // write wrangler.toml if absent; default: true
 }

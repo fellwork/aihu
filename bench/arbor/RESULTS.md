@@ -1,8 +1,8 @@
-# `@scribe/arbor` Bench Results
+# `@aihu/arbor` Bench Results
 
 **Generated:** 2026-04-30
 **Runner:** mitata 1.0.34 · Bun 1.3.8 · JSDOM 25.0.1
-**Track:** A — @scribe/arbor vs. SOTA DOM-binding libs (Round N+1)
+**Track:** A — @aihu/arbor vs. SOTA DOM-binding libs (Round N+1)
 **Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.
 
 ---
@@ -15,7 +15,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 36.95 ms | 36.64 ms | 39.46 ms | 27.06 |
+| @aihu/arbor | 36.95 ms | 36.64 ms | 39.46 ms | 27.06 |
 | lit-html | 5.65 s | 5.55 s | 6.15 s | 0.18 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -26,7 +26,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 4.21 MB | 42.08 MB | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |
@@ -41,7 +41,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 3.44 ms | 3.20 ms | 6.18 ms | 291.05 |
+| @aihu/arbor | 3.44 ms | 3.20 ms | 6.18 ms | 291.05 |
 | lit-html | 61.88 ms | 62.07 ms | 63.83 ms | 16.16 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -52,7 +52,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 0 B | 0 B | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |
@@ -67,7 +67,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 8.57 ms | 8.24 ms | 11.31 ms | 116.62 |
+| @aihu/arbor | 8.57 ms | 8.24 ms | 11.31 ms | 116.62 |
 | lit-html | 55.85 ms | 56.00 ms | 58.60 ms | 17.90 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -78,7 +78,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 100 |
+| @aihu/arbor | 0 B | 0 B | 100 |
 | lit-html | 0 B | 0 B | 100 |
 | solid-js | 0 B | 0 B | 100 |
 | @vue/runtime-dom | 0 B | 0 B | 100 |
@@ -93,7 +93,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 25.99 ns | 25.37 ns | 38.21 ns | 38.48M |
+| @aihu/arbor | 25.99 ns | 25.37 ns | 38.21 ns | 38.48M |
 | lit-html | 624.28 µs | 598.80 µs | 967.30 µs | 1.60K |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -104,7 +104,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | -31.12 MB | -31.12 MB | 1 |
+| @aihu/arbor | -31.12 MB | -31.12 MB | 1 |
 | lit-html | 38.62 MB | 38.62 MB | 1 |
 | solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
 | @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
@@ -119,7 +119,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 42.91 µs | 42.48 µs | 43.61 µs | 23.31K |
+| @aihu/arbor | 42.91 µs | 42.48 µs | 43.61 µs | 23.31K |
 | lit-html | ERROR | ERROR | ERROR | `Attempted to assign to readonly property.` |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -130,7 +130,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 5.82 MB | 58.24 MB | 10 |
+| @aihu/arbor | 5.82 MB | 58.24 MB | 10 |
 | lit-html | ERROR | `Attempted to assign to readonly property.` | — |
 | solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
 | @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
@@ -145,7 +145,7 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/arbor | 20.99 ms | 20.90 ms | 25.10 ms | 47.64 |
+| @aihu/arbor | 20.99 ms | 20.90 ms | 25.10 ms | 47.64 |
 | lit-html | 76.98 ms | 77.01 ms | 77.84 ms | 12.99 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
@@ -156,7 +156,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 0 B | 0 B | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |
@@ -168,7 +168,7 @@
 ## Per-competitor-axis honesty
 
 The competitors in this matrix each have a primary bench axis.
-This section answers: "how does @scribe/arbor perform on the axis
+This section answers: "how does @aihu/arbor perform on the axis
 each competitor holds itself to?"
 
 ### vs. lit-html
@@ -200,7 +200,7 @@ each competitor holds itself to?"
   "cells": [
     {
       "workload": "mount-10k-leaves",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 36636300,
       "opsPerSec": 27.060248967820627
     },
@@ -236,7 +236,7 @@ each competitor holds itself to?"
     },
     {
       "workload": "mount-deep-100x10",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 3196700,
       "opsPerSec": 291.0464544741269
     },
@@ -272,7 +272,7 @@ each competitor holds itself to?"
     },
     {
       "workload": "mount-wide-1000",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 8235800,
       "opsPerSec": 116.62458720830567
     },
@@ -308,7 +308,7 @@ each competitor holds itself to?"
     },
     {
       "workload": "update-1-of-10k-leaves",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 25.3662109375,
       "opsPerSec": 38478814.861116976
     },
@@ -344,7 +344,7 @@ each competitor holds itself to?"
     },
     {
       "workload": "attr-thrash-100x100",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 42483.4716796875,
       "opsPerSec": 23306.179143681893
     },
@@ -380,7 +380,7 @@ each competitor holds itself to?"
     },
     {
       "workload": "krausest-1k-cycle",
-      "competitor": "@scribe/arbor",
+      "competitor": "@aihu/arbor",
       "p50": 20903700,
       "opsPerSec": 47.63815443726672
     },

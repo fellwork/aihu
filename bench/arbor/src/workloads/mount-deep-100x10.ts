@@ -32,13 +32,13 @@
  *
  * **N override.** N=10 (same as mount-10k-leaves — each tree has ~1100 nodes).
  *
- * **Tree rebuild.** Because scribe nodes hold mount state, each op rebuilds the
- * tree. For non-scribe adapters, tree construction is also per-op for fairness
+ * **Tree rebuild.** Because aihu nodes hold mount state, each op rebuilds the
+ * tree. For non-aihu adapters, tree construction is also per-op for fairness
  * (we measure construction + mount + dispose as a unit for this workload).
  */
 
-import type { Node } from '@scribe/arbor'
-import { branch, leaf } from '@scribe/arbor'
+import type { Node } from '@aihu/arbor'
+import { branch, leaf } from '@aihu/arbor'
 import { h as vueH } from '@vue/runtime-dom'
 import type { TemplateResult } from 'lit-html'
 import { html as litHtml } from 'lit-html'
@@ -48,7 +48,7 @@ import solidH from 'solid-js/h'
 
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRenderFn } from '../competitors/vue.ts'
@@ -62,13 +62,13 @@ const FANOUT = 10
 // Per-adapter tree builders (called inside run(), so rebuilding is per-op)
 // ---------------------------------------------------------------------------
 
-/** Build a scribe deep tree: spine of DEPTH branches, each with FANOUT leaves. */
-function buildScribeDeep(depth: number): Node {
+/** Build a aihu deep tree: spine of DEPTH branches, each with FANOUT leaves. */
+function buildAihuDeep(depth: number): Node {
   const leaves = Array.from({ length: FANOUT }, (_, i) => leaf(String(i)))
   if (depth <= 0) {
     return branch(null, undefined, leaves)
   }
-  return branch('div', undefined, [...leaves, buildScribeDeep(depth - 1)])
+  return branch('div', undefined, [...leaves, buildAihuDeep(depth - 1)])
 }
 
 /** Build a lit-html deep tree template. */
@@ -112,7 +112,7 @@ function buildPreactDeep(depth: number): VNode {
 function buildVanillaDeep(host: Element, depth: number): void {
   const frag = document.createDocumentFragment()
 
-  // Use `globalThis.Node` to avoid collision with `@scribe/arbor`'s `Node` type.
+  // Use `globalThis.Node` to avoid collision with `@aihu/arbor`'s `Node` type.
   function buildLevel(parent: globalThis.Node | DocumentFragment, d: number): void {
     // Add FANOUT leaf spans to this level.
     for (let i = 0; i < FANOUT; i++) {
@@ -137,11 +137,11 @@ export const mountDeep: WorkloadDefinition = {
     'Mount a depth-100 spine (10 leaf siblings per level) and dispose. One mount+dispose = 1 op.',
   n: 10,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
-      setScribeHook({
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
+      setAihuHook({
         buildTree() {
-          return buildScribeDeep(DEPTH)
+          return buildAihuDeep(DEPTH)
         },
       })
 

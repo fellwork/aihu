@@ -1,0 +1,49 @@
+@state {
+import { signal } from '@aihu/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(n => n + 1)
+const decrement = () => setCount(n => n - 1)
+const reset     = () => setCount(0)
+}
+
+@template {
+  <section class="counter">
+    <h1>Count: {{ count }}</h1>
+    <div class="controls">
+      <button $on:click={decrement}>−</button>
+      <button $on:click={reset}>Reset</button>
+      <button $on:click={increment}>+</button>
+    </div>
+  </section>
+}
+
+@style {
+  :host {
+    display: block;
+    font-family: system-ui, sans-serif;
+    padding: 2rem;
+    max-width: 20rem;
+  }
+  h1 {
+    margin: 0 0 1rem;
+    font-variant-numeric: tabular-nums;
+    font-size: 2rem;
+  }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+  button {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f5f5f5;
+  }
+  button:hover {
+    background: #e8e8e8;
+  }
+}

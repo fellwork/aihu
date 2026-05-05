@@ -66,7 +66,7 @@ beforeAll(() => {
     // eslint-disable-next-line no-console
     console.warn(
       `[native-parity] skipping all tests — loader state is "${kind}". ` +
-        `Build the platform .node addon and ensure @scribe/server-<platform> ` +
+        `Build the platform .node addon and ensure @aihu/server-<platform> ` +
         `is resolvable to enable.`,
     )
   }
@@ -307,7 +307,7 @@ describe('loader: JS fall-throughs always use TS implementation', () => {
       head: {},
       serializer: () => ({ count: 1 }),
     })
-    expect(out).toContain('__scribe_state__')
+    expect(out).toContain('__aihu_state__')
     expect(out).toContain('"count":1')
   })
 

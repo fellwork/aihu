@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 /**
- * Three-state loader for @scribe/server's native (Rust napi-rs) renderer.
+ * Three-state loader for @aihu/server's native (Rust napi-rs) renderer.
  *
  * States (per spec-server-native.md §3, as adjudicated in
  * .team/v1/director-notes/server-native-session-002.md):
@@ -11,7 +11,7 @@
  *                         throws at module load time (eager throw per spec
  *                         §3.1: "module never finishes loading; callers get
  *                         the thrown error"). The thrown error is a
- *                         `ScribeNativeError` with reinstall instructions.
+ *                         `AihuNativeError` with reinstall instructions.
  *
  * Default contract (spec §5.1, §5.2): on a supported platform, a missing or
  * corrupt binary is loud. The documented escape hatch is `SCRIBE_NATIVE_SKIP=1`
@@ -59,26 +59,26 @@ function detectPlatform(): PlatformDescriptor | null {
     case 'darwin-arm64':
       return {
         platformId: 'darwin-arm64',
-        packageName: '@scribe/server-darwin-arm64',
+        packageName: '@aihu/server-darwin-arm64',
         nodeFile: 'server-native.darwin-arm64.node',
       }
     case 'darwin-x64':
       return {
         platformId: 'darwin-x64',
-        packageName: '@scribe/server-darwin-x64',
+        packageName: '@aihu/server-darwin-x64',
         nodeFile: 'server-native.darwin-x64.node',
       }
     case 'linux-x64':
       // We only ship glibc; musl users fall through silently to TS.
       return {
         platformId: 'linux-x64-gnu',
-        packageName: '@scribe/server-linux-x64-gnu',
+        packageName: '@aihu/server-linux-x64-gnu',
         nodeFile: 'server-native.linux-x64-gnu.node',
       }
     case 'win32-x64':
       return {
         platformId: 'win32-x64-msvc',
-        packageName: '@scribe/server-win32-x64-msvc',
+        packageName: '@aihu/server-win32-x64-msvc',
         nodeFile: 'server-native.win32-x64-msvc.node',
       }
     default:
@@ -210,7 +210,7 @@ function resolveState(): LoaderState {
 // Error types — failure-loud contract (§5)
 // ---------------------------------------------------------------------------
 
-export class ScribeNativeError extends Error {
+export class AihuNativeError extends Error {
   readonly code: 'SCRIBE_NATIVE_MISSING' | 'SCRIBE_NATIVE_LOAD_FAILED'
   constructor(
     message: string,
@@ -218,7 +218,7 @@ export class ScribeNativeError extends Error {
     options?: { cause?: unknown },
   ) {
     super(message)
-    this.name = 'ScribeNativeError'
+    this.name = 'AihuNativeError'
     this.code = code
     if (options?.cause !== undefined) {
       ;(this as { cause?: unknown }).cause = options.cause
@@ -226,25 +226,25 @@ export class ScribeNativeError extends Error {
   }
 }
 
-function buildMissingBinaryError(descriptor: PlatformDescriptor): ScribeNativeError {
+function buildMissingBinaryError(descriptor: PlatformDescriptor): AihuNativeError {
   const msg =
-    `[@scribe/server] Native renderer binary not found for this platform.\n\n` +
+    `[@aihu/server] Native renderer binary not found for this platform.\n\n` +
     `  Platform:         ${descriptor.platformId}\n` +
     `  Expected package: ${descriptor.packageName}\n` +
     `  Expected file:    ${descriptor.packageName}/${descriptor.nodeFile}\n\n` +
-    `  This binary is distributed as an optionalDependency of @scribe/server.\n` +
+    `  This binary is distributed as an optionalDependency of @aihu/server.\n` +
     `  Your package manager may have skipped it.\n\n` +
     `  To reinstall:\n` +
-    `    npm install @scribe/server\n` +
+    `    npm install @aihu/server\n` +
     `    # or: pnpm install   or: bun install\n\n` +
     `  If you built from source or are running a CI environment without npm access,\n` +
     `  set SCRIBE_NATIVE_SKIP=1 to use the TypeScript fallback (slower, always correct).`
-  return new ScribeNativeError(msg, 'SCRIBE_NATIVE_MISSING')
+  return new AihuNativeError(msg, 'SCRIBE_NATIVE_MISSING')
 }
 
-function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): ScribeNativeError {
+function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): AihuNativeError {
   const msg =
-    `[@scribe/server] Native renderer binary failed to load.\n\n` +
+    `[@aihu/server] Native renderer binary failed to load.\n\n` +
     `  Platform:         ${descriptor.platformId}\n` +
     `  Expected package: ${descriptor.packageName}\n` +
     `  Load error:       ${cause.message}\n\n` +
@@ -252,9 +252,9 @@ function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): 
     `    - The binary was built for a different Node.js version (ABI mismatch)\n` +
     `    - The file is corrupted (incomplete download or disk error)\n\n` +
     `  To fix:\n` +
-    `    npm install @scribe/server   (re-downloads the platform package)\n\n` +
+    `    npm install @aihu/server   (re-downloads the platform package)\n\n` +
     `  Original error: ${cause.stack ?? cause.message}`
-  return new ScribeNativeError(msg, 'SCRIBE_NATIVE_LOAD_FAILED', { cause })
+  return new AihuNativeError(msg, 'SCRIBE_NATIVE_LOAD_FAILED', { cause })
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +273,7 @@ function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): 
 //   - platform not in support matrix (e.g., linux/musl, linux/arm64)
 //
 // On a supported platform with a load failure, the descriptor + error are
-// formatted into a `ScribeNativeError` and thrown synchronously below.
+// formatted into a `AihuNativeError` and thrown synchronously below.
 {
   const _initial = resolveState()
   if (_initial.kind === 'native-failed-loud') {
@@ -339,7 +339,7 @@ export async function renderToString(
 }
 
 // ---------------------------------------------------------------------------
-// Test/introspection helpers (NOT part of the public @scribe/server surface;
+// Test/introspection helpers (NOT part of the public @aihu/server surface;
 // imported only by packages/server/tests/native-parity.test.ts).
 // ---------------------------------------------------------------------------
 

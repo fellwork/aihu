@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/adapter-cloudflare",
+  "name": "@aihu/adapter-cloudflare",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@scribe/app": "workspace:*",
+    "@aihu/app": "workspace:*",
     "vite": ">=5.0.0"
   }
 }

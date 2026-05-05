@@ -1,9 +1,9 @@
-import type { AgentMetadata } from '@scribe/agent'
+import type { AgentMetadata } from '@aihu/agent'
 import { describe, expect, it } from 'vitest'
 import { createAgentService } from '../src/index.ts'
 
 /**
- * Plan 5.2 — unit tests for `@scribe/agent-service`.
+ * Plan 5.2 — unit tests for `@aihu/agent-service`.
  * AC-1: createAgentService() returns an AgentService with all required methods.
  * AC-2: getManifest() aggregates registered AgentMetadata entries.
  * AC-3: handleToolCall routes (stub response) for valid tool names.
@@ -150,15 +150,15 @@ describe('asMiddleware()', () => {
   it('returns null for non-POST methods on matching path', async () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
     const mw = svc.asMiddleware()
-    const req = new Request('http://localhost/__scribe/tools/call', { method: 'GET' })
+    const req = new Request('http://localhost/__aihu/tools/call', { method: 'GET' })
     const result = await mw(req)
     expect(result).toBeNull()
   })
 
-  it('handles valid POST to /__scribe/tools/call', async () => {
+  it('handles valid POST to /__aihu/tools/call', async () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
     const mw = svc.asMiddleware()
-    const req = new Request('http://localhost/__scribe/tools/call', {
+    const req = new Request('http://localhost/__aihu/tools/call', {
       method: 'POST',
       body: JSON.stringify({ tool: 'x-counter/increment', params: {} }),
       headers: { 'content-type': 'application/json' },
@@ -173,7 +173,7 @@ describe('asMiddleware()', () => {
   it('returns non-null response for invalid JSON body', async () => {
     const svc = createAgentService()
     const mw = svc.asMiddleware()
-    const req = new Request('http://localhost/__scribe/tools/call', {
+    const req = new Request('http://localhost/__aihu/tools/call', {
       method: 'POST',
       body: 'not-json',
       headers: { 'content-type': 'application/json' },
@@ -186,7 +186,7 @@ describe('asMiddleware()', () => {
   it('returns non-null response when tool field is missing', async () => {
     const svc = createAgentService()
     const mw = svc.asMiddleware()
-    const req = new Request('http://localhost/__scribe/tools/call', {
+    const req = new Request('http://localhost/__aihu/tools/call', {
       method: 'POST',
       body: JSON.stringify({ params: {} }),
       headers: { 'content-type': 'application/json' },
@@ -199,7 +199,7 @@ describe('asMiddleware()', () => {
   it('response content-type is application/json', async () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
     const mw = svc.asMiddleware()
-    const req = new Request('http://localhost/__scribe/tools/call', {
+    const req = new Request('http://localhost/__aihu/tools/call', {
       method: 'POST',
       body: JSON.stringify({ tool: 'x-counter/increment', params: null }),
       headers: { 'content-type': 'application/json' },

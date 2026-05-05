@@ -1,75 +1,75 @@
 [
   {
-    "name": "@scribe/context",
+    "name": "@aihu/context",
     "path": "packages/context/dist/index.js",
     "limit": "300 B",
     "gzip": true
   },
   {
-    "name": "@scribe/signals",
+    "name": "@aihu/signals",
     "path": "packages/signals/dist/index.js",
     "limit": "1970 B",
     "gzip": true
   },
   {
-    "name": "@scribe/arbor",
+    "name": "@aihu/arbor",
     "path": "packages/arbor/dist/index.js",
     "limit": "2200 B",
     "gzip": true,
-    "ignore": ["@scribe/signals"]
+    "ignore": ["@aihu/signals"]
   },
   {
-    "name": "@scribe/runtime",
+    "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
     "limit": "1170 B",
     "gzip": true
   },
   {
-    "name": "@scribe/agent",
+    "name": "@aihu/agent",
     "path": "packages/agent/dist/index.js",
     "limit": "200 B",
     "gzip": true
   },
   {
-    "name": "@scribe/data",
+    "name": "@aihu/data",
     "path": "packages/data/dist/index.js",
     "limit": "800 B",
     "gzip": true,
-    "ignore": ["@scribe/signals", "@scribe/context"]
+    "ignore": ["@aihu/signals", "@aihu/context"]
   },
   {
-    "name": "@scribe/router",
+    "name": "@aihu/router",
     "path": "packages/router/dist/index.js",
     "limit": "1536 B",
     "gzip": true,
-    "ignore": ["@scribe/server", "vite", "node:fs", "node:path", "node:url"]
+    "ignore": ["@aihu/server", "vite", "node:fs", "node:path", "node:url"]
   },
   {
-    "name": "@scribe/agent-service",
+    "name": "@aihu/agent-service",
     "path": "packages/agent-service/dist/index.js",
     "limit": "600 B",
     "gzip": true,
-    "ignore": ["@scribe/agent"]
+    "ignore": ["@aihu/agent"]
   },
   {
-    "name": "@scribe/agent-acp",
+    "name": "@aihu/agent-acp",
     "path": "packages/agent-acp/dist/index.js",
     "limit": "600 B",
     "gzip": true,
-    "ignore": ["@scribe/agent-service"]
+    "ignore": ["@aihu/agent-service"]
   },
   {
-    "name": "@scribe/agent-a2a",
+    "name": "@aihu/agent-a2a",
     "path": "packages/agent-a2a/dist/index.js",
     "limit": "720 B",
     "gzip": true,
-    "ignore": ["@scribe/agent-service"]
+    "ignore": ["@aihu/agent-service"]
   },
   {
-    "name": "@scribe/app",
+    "name": "@aihu/app",
     "path": "packages/app/dist/client.js",
     "limit": "400 B",
     "gzip": true,
-    "ignore": ["@scribe/router", "@scribe/arbor", "@scribe/signals", "@scribe/runtime", "virtual:scribe-routes"]
+    "ignore": ["@aihu/router", "@aihu/arbor", "@aihu/signals", "@aihu/runtime", "virtual:aihu-routes"]
   }
 ]

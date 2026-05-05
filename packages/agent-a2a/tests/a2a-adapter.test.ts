@@ -1,12 +1,12 @@
 /**
- * `@scribe/agent-a2a` — A2A adapter tests (Plan 5.3).
+ * `@aihu/agent-a2a` — A2A adapter tests (Plan 5.3).
  *
  * 14 tests covering agent card, task routing, SSE streaming, error paths,
  * prefix support, and pass-through (null) behaviour.
  */
 
-import type { AgentMetadata } from '@scribe/agent'
-import { createAgentService } from '@scribe/agent-service'
+import type { AgentMetadata } from '@aihu/agent'
+import { createAgentService } from '@aihu/agent-service'
 import { describe, expect, it } from 'vitest'
 import { mountA2aAdapter } from '../src/index.ts'
 
@@ -35,7 +35,7 @@ const BASE = 'http://localhost'
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('@scribe/agent-a2a — agent card', () => {
+describe('@aihu/agent-a2a — agent card', () => {
   it('1. GET /.well-known/agent.json returns 200', async () => {
     const adapter = mountA2aAdapter(makeService())
     const mw = adapter.asMiddleware()
@@ -82,7 +82,7 @@ describe('@scribe/agent-a2a — agent card', () => {
   })
 })
 
-describe('@scribe/agent-a2a — POST /a2a/tasks/send', () => {
+describe('@aihu/agent-a2a — POST /a2a/tasks/send', () => {
   const meta: AgentMetadata = {
     tag: 'x-greeter',
     actions: { greet: { returns: { message: { type: 'string' } } } },
@@ -144,7 +144,7 @@ describe('@scribe/agent-a2a — POST /a2a/tasks/send', () => {
   })
 })
 
-describe('@scribe/agent-a2a — POST /a2a/tasks/sendSubscribe (SSE)', () => {
+describe('@aihu/agent-a2a — POST /a2a/tasks/sendSubscribe (SSE)', () => {
   const meta: AgentMetadata = {
     tag: 'x-ticker',
     actions: { tick: { returns: { count: { type: 'number' } } } },
@@ -190,7 +190,7 @@ describe('@scribe/agent-a2a — POST /a2a/tasks/sendSubscribe (SSE)', () => {
   })
 })
 
-describe('@scribe/agent-a2a — pass-through and prefix', () => {
+describe('@aihu/agent-a2a — pass-through and prefix', () => {
   it('12. Non-matching path returns null', async () => {
     const adapter = mountA2aAdapter(makeService())
     const mw = adapter.asMiddleware()

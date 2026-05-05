@@ -7,7 +7,7 @@ import {
   provide,
   runWithContext,
   setSsrContextMap,
-} from '@scribe/context'
+} from '@aihu/context'
 import { describe, expect, it } from 'vitest'
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-# Spec — `@scribe/arbor` (Phase 3)
+# Spec — `@aihu/arbor` (Phase 3)
 
 **Author:** Team Lead (hand-written; supersedes archived class-shape draft from Architect A)
 **Date:** 2026-04-26
@@ -8,8 +8,8 @@
 This spec is binding once finalized. Where it deviates from the plan, the plan is overridden under Decision 2B authority. Where it deviates from the v0 spec, that is called out explicitly in §6.
 
 References:
-- v0 spec: `docs/superpowers/specs/2026-04-23-scribe-v0-vertical-slice-design.md`
-- Plan: `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md`
+- v0 spec: `docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md`
+- Plan: `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md`
 - Phase 2 spec: `.team/phase-2/spec-signals.md` (format reference + shipped API)
 - Phase 2 retro: `.team/phase-2/retro.md` (Phase 3 risks already visible)
 - Archived class-shape draft: `.team/phase-3/_archive/spec-arbor-classbased-DRAFT.md` (reference only — superseded)
@@ -20,15 +20,15 @@ References:
 
 ## 0. Two-layer authoring model (foundational)
 
-scribe components exist at two layers, and the distinction is load-bearing for everything in this spec:
+aihu components exist at two layers, and the distinction is load-bearing for everything in this spec:
 
-1. **Compiler-emission layer (machine-generated).** The Rust compiler reads `.scribe` SFC files and emits, per v0 spec §7.2: `class <ComponentName> extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)` in `connectedCallback`, then `defineElement('tag', ClassName)` at module level. The compiler emits direct calls into arbor's low-level primitives (`branch`, `leaf`, `mount`). It never calls the human-facing `defineComponent` helper. This keeps compiler output minimal-byte and direct.
+1. **Compiler-emission layer (machine-generated).** The Rust compiler reads `.aihu` SFC files and emits, per v0 spec §7.2: `class <ComponentName> extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)` in `connectedCallback`, then `defineElement('tag', ClassName)` at module level. The compiler emits direct calls into arbor's low-level primitives (`branch`, `leaf`, `mount`). It never calls the human-facing `defineComponent` helper. This keeps compiler output minimal-byte and direct.
 
-2. **Hand-author layer (human-written, functional).** Test code, examples, apps that don't use `.scribe` files, and any future scenario where a human writes a custom element directly. This layer uses `defineComponent(setup)` — a thin functional wrapper that hides `class extends HTMLElement` boilerplate and gives the user an ergonomic `setup()` function returning a tree.
+2. **Hand-author layer (human-written, functional).** Test code, examples, apps that don't use `.aihu` files, and any future scenario where a human writes a custom element directly. This layer uses `defineComponent(setup)` — a thin functional wrapper that hides `class extends HTMLElement` boilerplate and gives the user an ergonomic `setup()` function returning a tree.
 
-**Why both.** Compiler emission must stay class-based — v0 spec §7.2 is explicit, and the Web Components API requires a constructor. But the *user-facing* model (when someone writes a component without going through `.scribe`) should be functional. The functional layer is sugar for the class layer. They are interoperable — both produce a `class extends HTMLElement` that `defineElement` registers.
+**Why both.** Compiler emission must stay class-based — v0 spec §7.2 is explicit, and the Web Components API requires a constructor. But the *user-facing* model (when someone writes a component without going through `.aihu`) should be functional. The functional layer is sugar for the class layer. They are interoperable — both produce a `class extends HTMLElement` that `defineElement` registers.
 
-**What this means for arbor (this spec).** Arbor's *primitives* — `branch`, `leaf`, `mount`, `MountScope` — are the thing the compiler emits calls to. They are the foundation. The `defineComponent` helper that wraps them for hand-authoring lives in `@scribe/runtime` (Phase 4), not arbor. This spec defines only the primitives. See §1.7 for the integration boundary.
+**What this means for arbor (this spec).** Arbor's *primitives* — `branch`, `leaf`, `mount`, `MountScope` — are the thing the compiler emits calls to. They are the foundation. The `defineComponent` helper that wraps them for hand-authoring lives in `@aihu/runtime` (Phase 4), not arbor. This spec defines only the primitives. See §1.7 for the integration boundary.
 
 ---
 
@@ -40,12 +40,12 @@ This spec inherits four project-level commitments locked during the Phase 3 spec
 
 2. **AI-first means in-tree binding, not MCP-only.** The truth source for agent capabilities is `<agent>` blocks in SFCs. MCP is one adapter, not the foundation. The arbor subscription identity (§2.7) is load-bearing for the in-process binding layer that sub-project #7 will build on top of arbor. Without §2.7, the binding layer cannot address signal subscriptions by name.
 
-3. **Magna is the canonical backend.** Scribe + magna are designed to be used together. magna is not a runtime concern for arbor (it runs server-side, GraphQL-from-Postgres) — but magna's existence shapes design choices throughout the stack. **Areas to explore in future sessions** (none gating Phase 3 — flagged here so they don't get lost):
+3. **Magna is the canonical backend.** Aihu + magna are designed to be used together. magna is not a runtime concern for arbor (it runs server-side, GraphQL-from-Postgres) — but magna's existence shapes design choices throughout the stack. **Areas to explore in future sessions** (none gating Phase 3 — flagged here so they don't get lost):
    - High-performance data: zero-copy from magna's GraphQL response into signal-bound state
    - Hydration coupling: magna's deterministic responses enable signal-graph resumability (§2.7's path keys map to magna query identities)
-   - Schema introspection: magna's auto-generated GraphQL schema can derive scribe's TypeScript types automatically
+   - Schema introspection: magna's auto-generated GraphQL schema can derive aihu's TypeScript types automatically
    - Agent work: agent metadata + magna introspection together = a complete capability manifest at build time
-   - Build-time tooling: the Rust compiler can validate `.scribe` queries against magna's schema
+   - Build-time tooling: the Rust compiler can validate `.aihu` queries against magna's schema
 
    None of this changes Phase 3's deliverables, but Phase 3's design must not paint into a corner that prevents this integration. The Tier 3 hooks (§2.7, §2.8) are specifically the hooks magna integration will need.
 
@@ -55,7 +55,7 @@ This spec inherits four project-level commitments locked during the Phase 3 spec
 
 ## 1. Public API surface
 
-End-of-Phase-3 exports from `@scribe/arbor` (re-exported through `packages/arbor/src/index.ts`):
+End-of-Phase-3 exports from `@aihu/arbor` (re-exported through `packages/arbor/src/index.ts`):
 
 | Kind | Symbol |
 |---|---|
@@ -65,7 +65,7 @@ End-of-Phase-3 exports from `@scribe/arbor` (re-exported through `packages/arbor
 
 **7 value/class exports, 9 type exports = 16 total.** All other symbols (`_applyAttrs`, `_setAttrOrProp`, `_mountEffect`, `_materialize`, `_activeMountDisposers`, etc.) are `/** @internal */` and never re-exported from `index.ts`.
 
-**Phase 3 prep addition to `@scribe/signals`** (see §1.1):
+**Phase 3 prep addition to `@aihu/signals`** (see §1.1):
 
 | Kind | Symbol |
 |---|---|
@@ -73,12 +73,12 @@ End-of-Phase-3 exports from `@scribe/arbor` (re-exported through `packages/arbor
 
 ---
 
-### 1.1 `untrack` — Phase 3 prep addition to `@scribe/signals`
+### 1.1 `untrack` — Phase 3 prep addition to `@aihu/signals`
 
-> **IMPORTANT:** This is a change to `@scribe/signals`, not `@scribe/arbor`. Authorized by **Team Lead Call 1**. The Builder ships it as a prep commit (Task 12.5) touching only `packages/signals/` before any arbor source work begins.
+> **IMPORTANT:** This is a change to `@aihu/signals`, not `@aihu/arbor`. Authorized by **Team Lead Call 1**. The Builder ships it as a prep commit (Task 12.5) touching only `packages/signals/` before any arbor source work begins.
 
 ```ts
-// Added to @scribe/signals public API:
+// Added to @aihu/signals public API:
 export function untrack<T>(fn: () => T): T
 ```
 
@@ -281,9 +281,9 @@ Both throw `ArborNotImplementedError` **immediately on call**, before `mount()` 
 
 ---
 
-### 1.7 Integration with `@scribe/runtime`'s `defineComponent` (Phase 4 boundary)
+### 1.7 Integration with `@aihu/runtime`'s `defineComponent` (Phase 4 boundary)
 
-`@scribe/arbor` exports primitives. `@scribe/runtime` (Phase 4) wraps those primitives in two ways:
+`@aihu/arbor` exports primitives. `@aihu/runtime` (Phase 4) wraps those primitives in two ways:
 
 1. **`defineElement(name, Ctor, options?)`** — for compiler-emitted code. Takes the class the Rust compiler emits, registers it via `customElements.define`. (Covered by Architect B's existing spec.)
 
@@ -327,7 +327,7 @@ The Builder MUST add a comment in `packages/arbor/src/errors.ts` noting that `co
 
 **Module-sizing rule (Learning #13, project-portable):**
 
-> Every TypeScript module in scribe runtime packages is **≤ 150 source lines** (excluding blank lines and standalone JSDoc). Each module owns **one concern** and is **named by the concern** (single noun or short noun phrase). Public re-exports live in `index.ts` only — no module re-exports its siblings. Internal symbols are `/** @internal */` and never appear in `index.ts`.
+> Every TypeScript module in aihu runtime packages is **≤ 150 source lines** (excluding blank lines and standalone JSDoc). Each module owns **one concern** and is **named by the concern** (single noun or short noun phrase). Public re-exports live in `index.ts` only — no module re-exports its siblings. Internal symbols are `/** @internal */` and never appear in `index.ts`.
 
 **Empirical grounding** (the research agent crashed; I made the call from prior exposure to the libraries listed):
 - alien-signals ships in roughly two files at ~400 lines each. Their style is "one concept per file" but the concepts are coarse-grained — `signal.ts` includes the propagation kernel.
@@ -340,7 +340,7 @@ The Builder MUST add a comment in `packages/arbor/src/errors.ts` noting that `co
 
 **Why this serves AI agents:** "where does X live?" has exactly one answer. An agent reading the codebase doesn't have to grep — it reads filenames. This is the agentic-read-friendly principle made concrete.
 
-**Final layout for `@scribe/arbor`:**
+**Final layout for `@aihu/arbor`:**
 
 | Module | Concern |
 |---|---|
@@ -359,7 +359,7 @@ The Builder MUST add a comment in `packages/arbor/src/errors.ts` noting that `co
 
 All `_`-prefixed symbols are `/** @internal */` and never re-exported from `index.ts`. Only `index.ts` re-exports siblings — no module re-exports another (concern-locality principle).
 
-### 2.2 Scope-collector mechanism (Call 2A outcome — `@scribe/signals` is unchanged)
+### 2.2 Scope-collector mechanism (Call 2A outcome — `@aihu/signals` is unchanged)
 
 `mount.ts` maintains a module-level variable:
 
@@ -372,7 +372,7 @@ let _activeMountDisposers: Dispose[] | null = null
 
 1. `mount()` sets `_activeMountDisposers = []`.
 2. Calls `_materialize(node, host, _activeMountDisposers)`.
-3. `_materialize` calls `_mountEffect(disposers, fn)` wherever it needs a reactive subscription. `_mountEffect` calls `effect(fn)` from `@scribe/signals` and pushes the returned `Dispose` into `disposers`. Initial run of `fn` happens synchronously inside `effect(fn)`.
+3. `_materialize` calls `_mountEffect(disposers, fn)` wherever it needs a reactive subscription. `_mountEffect` calls `effect(fn)` from `@aihu/signals` and pushes the returned `Dispose` into `disposers`. Initial run of `fn` happens synchronously inside `effect(fn)`.
 4. After `_materialize` returns, `mount()` snapshots `disposers = _activeMountDisposers` and resets `_activeMountDisposers = null`.
 5. `mount()` also captures the root DOM nodes appended to `host`.
 6. Returns a `MountScope` closing over `disposers` and the tracked roots.
@@ -457,7 +457,7 @@ The Phase 2 concern applies only when *user code* chains many `computed()` calls
 
 Arbor's own `_materialize` and `_mountEffect` code does NOT need `untrack`. The scope-collector pattern is correct as designed: `_mountEffect(disposers, fn)` creates an effect whose body runs under the effect's observer context, correctly subscribing to signals read inside `fn`. There is no setup-read-without-subscribing problem in arbor's internal code.
 
-`untrack` is exported from `@scribe/signals` for *user code* — e.g., reading a signal during `connectedCallback` setup to derive a one-time initialization value without subscribing to future updates.
+`untrack` is exported from `@aihu/signals` for *user code* — e.g., reading a signal during `connectedCallback` setup to derive a one-time initialization value without subscribing to future updates.
 
 ### 2.7 Subscription identity for resumability (Tier 3 hook)
 
@@ -531,7 +531,7 @@ export interface MountTelemetry {
 **`packages/arbor/package.json`** (key fields):
 ```json
 {
-  "name": "@scribe/arbor",
+  "name": "@aihu/arbor",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -546,7 +546,7 @@ export interface MountTelemetry {
   "files": ["dist"],
   "sideEffects": false,
   "dependencies": {
-    "@scribe/signals": "workspace:*"
+    "@aihu/signals": "workspace:*"
   }
 }
 ```
@@ -567,7 +567,7 @@ layer: library
 
 ```json
 {
-  "name": "@scribe/arbor",
+  "name": "@aihu/arbor",
   "path": "packages/arbor/dist/index.js",
   "limit": "2048 B",
   "gzip": true
@@ -586,7 +586,7 @@ Task 12.5 (the `untrack` prep commit) is the first push of this work. The `.gith
 
 ### 3.5 `vitest.config.ts` alias
 
-Already configured (plan Task 4): `'@scribe/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname`. No change.
+Already configured (plan Task 4): `'@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname`. No change.
 
 ---
 
@@ -600,7 +600,7 @@ Files: create `packages/signals/src/untrack.ts`, `packages/signals/tests/untrack
 
 Commit: `feat(signals): add untrack() for context-free reads (Phase 3 prep)`
 
-### Task 12 — Scaffold `@scribe/arbor`
+### Task 12 — Scaffold `@aihu/arbor`
 
 No tests yet. Verify: `moon run arbor:typecheck` PASS, `moon run arbor:build` PASS, `bun run size` arbor row appears, `bun run test` no regressions.
 
@@ -727,11 +727,11 @@ Bold = file does not yet exist. Module file count assumes the provisional 10-mod
 | `packages/signals/src/index.ts` | modify | Add `export { untrack }` |
 | **`packages/signals/tests/untrack.test.ts`** | create | 3 unit tests |
 
-### Task 12 — Scaffold `@scribe/arbor`
+### Task 12 — Scaffold `@aihu/arbor`
 
 | File | Action | Purpose |
 |---|---|---|
-| **`packages/arbor/package.json`** | create | Manifest; dep on `@scribe/signals: workspace:*` |
+| **`packages/arbor/package.json`** | create | Manifest; dep on `@aihu/signals: workspace:*` |
 | **`packages/arbor/tsconfig.json`** | create | Extends `../../tsconfig.base.json` |
 | **`packages/arbor/moon.yml`** | create | `language: typescript`, `layer: library` |
 | **`packages/arbor/rolldown.config.ts`** | create | ESM + dts |
@@ -739,7 +739,7 @@ Bold = file does not yet exist. Module file count assumes the provisional 10-mod
 | **`packages/arbor/src/errors.ts`** | create | `ArborError`, `ArborNotImplementedError` |
 | **`packages/arbor/src/types.ts`** | create | All public types |
 | **`packages/arbor/src/node.ts`** | create | Internal Branch/Leaf node constructors |
-| `.size-limit.json` | modify | Add `@scribe/arbor` row (2048 B) |
+| `.size-limit.json` | modify | Add `@aihu/arbor` row (2048 B) |
 | `bun.lock` | rebuilt | New workspace member |
 
 ### Task 13 — `leaf()`
@@ -821,10 +821,10 @@ Internal symbols (`_applyAttrs`, `_setAttrOrProp`, `_mountEffect`, `_materialize
 | # | Deviation | Source | Rationale |
 |---|---|---|---|
 | 1 | Plan tasks 12–19 are entirely unwritten — this spec is the authoritative task definition | Architect (Decision 2B) + Learning #6 | Plan ends at "*Phases 3–6 follow in the next document edits*" — never authored. Plan-index stub added in same commit per Learning #6. |
-| 2 | `untrack(fn): T` added to `@scribe/signals` as Phase 3 prep commit (Task 12.5) | Team Lead Call 1 | Authorized. ~30 B gz delta; 728 B / 1024 B total. Lets arbor consume on day one. |
+| 2 | `untrack(fn): T` added to `@aihu/signals` as Phase 3 prep commit (Task 12.5) | Team Lead Call 1 | Authorized. ~30 B gz delta; 728 B / 1024 B total. Lets arbor consume on day one. |
 | 3 | `mount()` `host` parameter typed as `Element \| ShadowRoot` | Architect (Decision 2B) resolving v0 spec §6.3 vs §7.2 contradiction | §6.3 shows `host: Element`; §7.2 shows the compiler emits `mount(tree, shadowRoot)` where `shadowRoot: ShadowRoot`. Wider union is correct. Resolves Architect B's runtime spec Q1, Q2, Q9 simultaneously. |
 | 4 | `ChildList = ReadonlyArray<Branch \| Leaf>` — static at construction; no signal wrapping of the list itself | Architect (Decision 2B) | v0 spec §4 "No structural reactivity (`when`/`each` declared-but-stubbed)." Reactive child lists require the v1 reconciler. |
-| 5 | Scope-collector via arbor-internal `_activeMountDisposers` module-level variable + `_mountEffect()` helper | Team Lead Call 2A | `@scribe/signals` is unchanged. Arbor owns the mechanism. Module-level slot is the simplest correct implementation for v0's single-scope model. |
+| 5 | Scope-collector via arbor-internal `_activeMountDisposers` module-level variable + `_mountEffect()` helper | Team Lead Call 2A | `@aihu/signals` is unchanged. Arbor owns the mechanism. Module-level slot is the simplest correct implementation for v0's single-scope model. |
 | 6 | `when()` and `each()` throw `ArborNotImplementedError` (typed subclass), not bare `Error` | v0 spec §10.2 | §10.2 mandates typed `ArborError`. Subclass for narrower catch targets. |
 | 7 | `MountScope.agent` typed as `AgentContext` opaque-branded stub | v0 spec §6.3 | Sub-project #7 is out of scope. Stub type signals "don't use" through the type system. |
 | 8 | `MountScope.serialize()` always throws `ArborNotImplementedError`; `Snapshot = Record<string, never>` | v0 spec §6.3, §4 | SSR/serialize is sub-project #6. Correct v0 posture per spec §10.4. |
@@ -833,7 +833,7 @@ Internal symbols (`_applyAttrs`, `_setAttrOrProp`, `_mountEffect`, `_materialize
 | 11 | `Signal<unknown>` in AttrMap detected via `Array.isArray(value)` | Architect (Decision 2B) | Signal is a tuple, not a class — `Array.isArray` is the only reliable runtime discriminant. |
 | 12 | v0: one `MountScope` per `mount()` call; no nested propagation | Architect (Decision 2B) | Nested scope composition is v1. v0 model matches compiler output (one component = one mount = one scope). |
 | 13 | Wide-fanout concern deferred to Phase 2.5 bench-spike + v1 profiling | Architect (Decision 2B) | Arbor introduces no intermediate `computed` layer. Concern is user-code-shaped, not arbor-shaped. Bench-spike will measure baseline; v1 decides if a fix is needed. |
-| 14 | `defineComponent(setup)` lives in `@scribe/runtime` (Phase 4), not arbor | Two-layer model (§0) | Arbor is the primitive layer the compiler emits calls to. The functional wrapper for hand-authoring is a runtime concern. Keeps arbor's surface minimal and the compiler's output direct. |
+| 14 | `defineComponent(setup)` lives in `@aihu/runtime` (Phase 4), not arbor | Two-layer model (§0) | Arbor is the primitive layer the compiler emits calls to. The functional wrapper for hand-authoring is a runtime concern. Keeps arbor's surface minimal and the compiler's output direct. |
 
 ---
 
@@ -852,12 +852,12 @@ Spec doesn't add event listeners to `disposers` — they're GC'd when the DOM no
 This is a Phase 4 question, not Phase 3. When the Phase 4 team designs `defineComponent(setup)`, they'll decide whether effects created during `setup()` (before the returned tree reaches `mount()`) auto-register with the resulting `MountScope`. Phase 3 makes no commitment either way; the scope-collector is module-level so it's reachable from `defineComponent` if Phase 4 wants to wire it up. **Recommendation:** flag for Phase 4 team; no Phase 3 action needed.
 
 **Q5 — SFC `<style>` block compiler emission target?**
-The v0 spec mentions a `<style>` block but doesn't specify whether scoped CSS injection is `@scribe/arbor`'s job, `@scribe/runtime`'s job, or compiler-emitted directly. Architect B's spec excluded it from runtime. This spec excludes it from arbor. **Recommendation:** Phase 4 / Phase 6 team adjudicates. Likely the compiler emits a `<style>` element into the shadow root and arbor mounts it as a regular `leaf.element('style', ...)` — but confirm before Phase 6 starts.
+The v0 spec mentions a `<style>` block but doesn't specify whether scoped CSS injection is `@aihu/arbor`'s job, `@aihu/runtime`'s job, or compiler-emitted directly. Architect B's spec excluded it from runtime. This spec excludes it from arbor. **Recommendation:** Phase 4 / Phase 6 team adjudicates. Likely the compiler emits a `<style>` element into the shadow root and arbor mounts it as a regular `leaf.element('style', ...)` — but confirm before Phase 6 starts.
 
 ---
 
 <!-- Pre-publish checklist (Learning #2 self-consistency review)
-- [x] Re-read v0 spec §6 (arbor model) and §7.5 (`@scribe/arbor` summary)
+- [x] Re-read v0 spec §6 (arbor model) and §7.5 (`@aihu/arbor` summary)
 - [x] Re-read v0 spec §7.2 (compiler call shape — class-based, locked)
 - [x] Walked prose vs deviations table — no contradictions found
 - [x] Plan staleness flagged in §6 Deviation 1

@@ -11,7 +11,7 @@
  * the standard pattern lit and solid use in their own JSDOM-driven tests.
  *
  * `globalThis.document` is exposed because some libraries (preact, lit-html)
- * read `document` directly off the global. Spawn 1's scribe adapter doesn't,
+ * read `document` directly off the global. Spawn 1's aihu adapter doesn't,
  * but we set up the global once here so spawn 2 doesn't have to re-litigate it.
  */
 

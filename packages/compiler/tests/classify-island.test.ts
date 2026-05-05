@@ -10,8 +10,8 @@
 import { describe, expect, it } from 'vitest'
 import { _classifyIsland } from '../js/index.ts'
 
-const STATIC_OUTPUT = `import { branch, leaf, slot } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+const STATIC_OUTPUT = `import { branch, leaf, slot } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('x-msg', defineComponent((_ctx) => {
   const message = 'hello'
@@ -19,10 +19,10 @@ defineElement('x-msg', defineComponent((_ctx) => {
 }))
 `
 
-const INTERACTIVE_OUTPUT = `import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+const INTERACTIVE_OUTPUT = `import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('x-counter', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)
@@ -66,7 +66,7 @@ describe('_classifyIsland — Plan 3.3', () => {
   it('does NOT mistake a bare `signal` import for an interactive call (#6)', () => {
     // An unused import line containing the identifier `signal` but no
     // call expression should leave the file classified as static.
-    const codeWithBareImport = `import { signal } from '@scribe/signals'\n${STATIC_OUTPUT}`
+    const codeWithBareImport = `import { signal } from '@aihu/signals'\n${STATIC_OUTPUT}`
     expect(_classifyIsland(codeWithBareImport)).toBe('static')
   })
 

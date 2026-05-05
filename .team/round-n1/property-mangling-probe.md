@@ -66,20 +66,20 @@ by side to isolate where bytes come from:
 
 | package          | gz     | size-limit |
 | ---------------- | ------ | ---------- |
-| @scribe/signals  | 1.53 kB | 1.7 kB     |
-| @scribe/arbor    | 1.28 kB | 2.05 kB    |
-| @scribe/runtime  |  438 B  | 1.024 kB   |
-| @scribe/agent    |   72 B  |  100 B     |
+| @aihu/signals  | 1.53 kB | 1.7 kB     |
+| @aihu/arbor    | 1.28 kB | 2.05 kB    |
+| @aihu/runtime  |  438 B  | 1.024 kB   |
+| @aihu/agent    |   72 B  |  100 B     |
 | **total**        | 3.32 kB | 4.0 kB     |
 
 ### Strategy comparison (raw gz bytes, computed via `node:zlib.gzipSync`)
 
 | package          | oxc only | A (terser noop) | B (`/^_/`) | C (all props) | **B−A Δ** | C−A Δ |
 | ---------------- | -------: | --------------: | ---------: | ------------: | --------: | ----: |
-| @scribe/signals  |    1677  |           1651  |      1651  |         1556  |     **0** |    95 |
-| @scribe/arbor    |    1349  |           1319  |      1315  |         1259  |     **4** |    60 |
-| @scribe/runtime  |     498  |            474  |       474  |          471  |     **0** |     3 |
-| @scribe/agent    |     146  |            117  |       117  |          117  |     **0** |     0 |
+| @aihu/signals  |    1677  |           1651  |      1651  |         1556  |     **0** |    95 |
+| @aihu/arbor    |    1349  |           1319  |      1315  |         1259  |     **4** |    60 |
+| @aihu/runtime  |     498  |            474  |       474  |          471  |     **0** |     3 |
+| @aihu/agent    |     146  |            117  |       117  |          117  |     **0** |     0 |
 | **total**        |    3670  |           3561  |      3557  |         3403  |     **4** |   158 |
 
 **B vs A delta = bytes attributable to actual `^_` property
@@ -97,10 +97,10 @@ Inspection of `packages/*/dist/index.js` after oxc-minify:
 
 | package          | `_*` tokens surviving oxc | character |
 | ---------------- | ------------------------ | --------- |
-| @scribe/signals  | 0                        | —         |
-| @scribe/arbor    | 1                        | `_brand`  |
-| @scribe/runtime  | 1                        | `_setMount` (only inside an error-message string literal) |
-| @scribe/agent    | 0                        | —         |
+| @aihu/signals  | 0                        | —         |
+| @aihu/arbor    | 1                        | `_brand`  |
+| @aihu/runtime  | 1                        | `_setMount` (only inside an error-message string literal) |
+| @aihu/agent    | 0                        | —         |
 
 oxc-minify's top-level mangler (enabled by default for ESM) renames
 `_setMountObserver`, `_observeMount`, `_applyAttrs`, `_setMount`,

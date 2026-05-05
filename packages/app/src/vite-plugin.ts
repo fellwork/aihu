@@ -2,14 +2,14 @@ import { cp, mkdir, writeFile as fsWriteFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, resolve as resolvePath } from 'node:path'
 import type { Plugin, ResolvedConfig } from 'vite'
-import type { ScribeConfig } from './config.ts'
+import type { AihuConfig } from './config.ts'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
-import type { RouteDefinition } from '@scribe/router'
+import type { RouteDefinition } from '@aihu/router'
 
-// Build-time sub-plugin imports. These are devDependencies of @scribe/app and
+// Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
-import { scribeCompilerPlugin } from '@scribe/compiler'
-import { viteRouterIntegration, scanPages } from '@scribe/router/plugin'
+import { scribeCompilerPlugin } from '@aihu/compiler'
+import { viteRouterIntegration, scanPages } from '@aihu/router/plugin'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
 function fileToRouteDefinition(
@@ -51,7 +51,7 @@ function fileToRouteDefinition(
 function buildAdapterContext(
   resolvedViteConfig: ResolvedConfig,
   routeFiles: string[],
-  config: ScribeConfig | undefined,
+  config: AihuConfig | undefined,
 ): AdapterContext {
   const outDir = resolvePath(
     resolvedViteConfig.root,
@@ -88,7 +88,7 @@ function buildAdapterContext(
 
     createHandlerSource(opts?: CreateHandlerSourceOptions): string {
       const routesSpec = opts?.routesSpecifier ?? './routes-manifest.js'
-      const serverSpec = opts?.serverSpecifier ?? '@scribe/server'
+      const serverSpec = opts?.serverSpecifier ?? '@aihu/server'
       return [
         `// AUTO-GENERATED — do not edit`,
         `import { createRequestRouter } from '${serverSpec}'`,
@@ -102,33 +102,33 @@ function buildAdapterContext(
 }
 
 /**
- * viteScribePlugin() — composed Vite plugin for scribe SPA projects.
+ * viteAihuPlugin() — composed Vite plugin for aihu SPA projects.
  *
  * Returns Plugin[] composing:
- *   [0] scribeCompilerPlugin (enforce:'pre') — transforms .scribe SFCs
- *   [1] viteRouterIntegration — serves virtual:scribe-routes + virtual:scribe-layouts
- *   [2] scribe-agent-readiness (opt-in) or no-op
+ *   [0] scribeCompilerPlugin (enforce:'pre') — transforms .aihu SFCs
+ *   [1] viteRouterIntegration — serves virtual:aihu-routes + virtual:aihu-layouts
+ *   [2] aihu-agent-readiness (opt-in) or no-op
  *   [3..n] user plugins from config.plugins
- *   [n+1] scribe-vite-passthrough (merges config.vite into Vite's resolved config)
- *   [n+2] scribe-adapter (adapter.adapt() on closeBundle, build mode only)
+ *   [n+1] aihu-vite-passthrough (merges config.vite into Vite's resolved config)
+ *   [n+2] aihu-adapter (adapter.adapt() on closeBundle, build mode only)
  *
  * @example
  * // vite.config.ts
  * import { defineConfig } from 'vite'
- * import { viteScribePlugin } from '@scribe/app'
- * export default defineConfig({ plugins: [viteScribePlugin()] })
+ * import { viteAihuPlugin } from '@aihu/app'
+ * export default defineConfig({ plugins: [viteAihuPlugin()] })
  *
  * @example
  * // With adapter
- * import { cloudflare } from '@scribe/adapter-cloudflare'
+ * import { cloudflare } from '@aihu/adapter-cloudflare'
  * export default defineConfig({
- *   plugins: [viteScribePlugin({
+ *   plugins: [viteAihuPlugin({
  *     dir: { pages: 'src/pages' },
  *     adapter: cloudflare({ name: 'my-worker' }),
  *   })]
  * })
  */
-export function viteScribePlugin(config?: ScribeConfig): Plugin[] {
+export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   const routerOpts = {
     pagesDir: config?.dir?.pages ?? 'pages',
     layoutsDir: config?.dir?.layouts ?? 'src/layouts',
@@ -138,22 +138,22 @@ export function viteScribePlugin(config?: ScribeConfig): Plugin[] {
   let agentPlugin: Plugin
   const ar = config?.agentReadiness
   if (ar) {
-    // Dynamic import to avoid pulling @scribe/agent-readiness into the bundle
+    // Dynamic import to avoid pulling @aihu/agent-readiness into the bundle
     // when it is not configured. The `require` below is evaluated at runtime
     // in Node.js (vite.config.ts execution context), not in the browser.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { viteAgentReadinessIntegration } = require(
-      '@scribe/agent-readiness',
-    ) as typeof import('@scribe/agent-readiness')
+      '@aihu/agent-readiness',
+    ) as typeof import('@aihu/agent-readiness')
     agentPlugin = viteAgentReadinessIntegration(ar) as unknown as Plugin
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry
-    agentPlugin = { name: 'scribe-agent-readiness-disabled' }
+    agentPlugin = { name: 'aihu-agent-readiness-disabled' }
   }
 
   // Vite config passthrough — deep-merged by Vite via the config() hook return value.
   const passthroughPlugin: Plugin = {
-    name: 'scribe-vite-passthrough',
+    name: 'aihu-vite-passthrough',
     config() {
       return (config?.vite ?? {}) as import('vite').UserConfig
     },
@@ -164,7 +164,7 @@ export function viteScribePlugin(config?: ScribeConfig): Plugin[] {
   let resolvedViteConfig: ResolvedConfig | null = null
 
   const adapterPlugin: Plugin = {
-    name: 'scribe-adapter',
+    name: 'aihu-adapter',
     apply: 'build',
     configResolved(rc) {
       resolvedViteConfig = rc
@@ -181,7 +181,7 @@ export function viteScribePlugin(config?: ScribeConfig): Plugin[] {
         await adapter.adapt(context)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        this.error(`[@scribe/app] Adapter '${adapter.name}' failed: ${msg}`)
+        this.error(`[@aihu/app] Adapter '${adapter.name}' failed: ${msg}`)
       }
     },
   }

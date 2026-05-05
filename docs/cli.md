@@ -1,6 +1,6 @@
-# @scribe/cli
+# @aihu/cli
 
-Build-time CLI scaffolder for scribe applications. Zero runtime size impact — it is a
+Build-time CLI scaffolder for aihu applications. Zero runtime size impact — it is a
 dev/build-time tool only and is never included in browser bundles.
 
 ## Prerequisites
@@ -8,10 +8,10 @@ dev/build-time tool only and is never included in browser bundles.
 - Bun ≥ 1.3.0 (or Node.js ≥ 20.18.0)
 - A terminal in your project directory
 
-## Quick start — `scribe app`
+## Quick start — `aihu app`
 
 ```bash
-npx scribe app my-app
+npx aihu app my-app
 cd my-app
 bun install
 bun run dev
@@ -21,24 +21,24 @@ This creates:
 
 ```
 my-app/
-  package.json              # all @scribe/* deps pre-wired
-  scribe.config.ts          # defineScribeConfig with target: 'universal'
+  package.json              # all @aihu/* deps pre-wired
+  aihu.config.ts          # defineAihuConfig with target: 'universal'
   vite.config.ts            # viteRouterIntegration + viteAgentReadinessIntegration
   src/
     pages/
-      index.scribe          # Hello World page with @state, @template, @route
+      index.aihu          # Hello World page with @state, @template, @route
     layouts/
-      default.scribe        # default layout with <slot />
+      default.aihu        # default layout with <slot />
 ```
 
 ## Scaffold commands
 
-### `scribe app <name>`
+### `aihu app <name>`
 
-Scaffold a new application with all scribe integrations wired.
+Scaffold a new application with all aihu integrations wired.
 
 ```bash
-scribe app my-store
+aihu app my-store
 ```
 
 Output:
@@ -49,15 +49,15 @@ Output:
   bun run dev
 ```
 
-### `scribe page <route>`
+### `aihu page <route>`
 
 Add a page to an existing project. Run from the project root.
 
 ```bash
-scribe page about
+aihu page about
 ```
 
-Creates `src/pages/about.scribe`:
+Creates `src/pages/about.aihu`:
 ```
 @state {
 }
@@ -72,15 +72,15 @@ Creates `src/pages/about.scribe`:
 }
 ```
 
-### `scribe component <name>`
+### `aihu component <name>`
 
-Scaffold a `.scribe` component.
+Scaffold a `.aihu` component.
 
 ```bash
-scribe component Button
+aihu component Button
 ```
 
-Creates `src/components/Button.scribe`:
+Creates `src/components/Button.aihu`:
 ```
 @state {
 }
@@ -90,29 +90,29 @@ Creates `src/components/Button.scribe`:
 }
 ```
 
-### `scribe plugin <name>`
+### `aihu plugin <name>`
 
 Scaffold a plugin package skeleton. Creates `<name>/` with a wired `definePlugin` entry.
 
 ```bash
-scribe plugin my-forms
+aihu plugin my-forms
 ```
 
 Creates:
 ```
 my-forms/
-  package.json    # peerDependencies: { "@scribe/plugin": "latest" }
+  package.json    # peerDependencies: { "@aihu/plugin": "latest" }
   src/
     index.ts      # definePlugin({ name, namespace, contributes: {} })
 ```
 
-### `scribe migrate [files...]`
+### `aihu migrate [files...]`
 
 Convert HTML-tag SFCs (v0.1.x syntax) to `@blockname {}` syntax.
 
 ```bash
-scribe migrate src/components/Counter.scribe
-scribe migrate --dry-run src/**/*.scribe
+aihu migrate src/components/Counter.aihu
+aihu migrate --dry-run src/**/*.aihu
 ```
 
 Conversion table:
@@ -151,7 +151,7 @@ import {
   scaffoldPlugin,
   migrateFile,
   migrateFiles,
-} from '@scribe/cli'
+} from '@aihu/cli'
 
 // Scaffold a new app
 scaffoldApp('my-app', '/path/to/projects')
@@ -164,4 +164,4 @@ const converted = migrateFile(sfcFileContent)
 
 - Zero external npm dependencies (Node/Bun builtins only)
 - Build-time only — never added to size budgets or browser bundles
-- Per Learning #49 (v3 dep-free thesis): zero non-`@scribe/*` runtime deps
+- Per Learning #49 (v3 dep-free thesis): zero non-`@aihu/*` runtime deps

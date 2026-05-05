@@ -7,12 +7,12 @@
 
 ## What happened
 
-The Phase 2.5 bench-spike brief sets a hard stop: "scribe is >5× slower than
+The Phase 2.5 bench-spike brief sets a hard stop: "aihu is >5× slower than
 fastest competitor on any workload → halt and write a continuation note." On
-the `cellx` workload (5-deep diamond graph propagation), scribe is **~7×
+the `cellx` workload (5-deep diamond graph propagation), aihu is **~7×
 slower than alien-signals**:
 
-| Workload | scribe p50 | alien p50 | ratio |
+| Workload | aihu p50 | alien p50 | ratio |
 |---|---:|---:|---|
 | cellx | 9.39 µs | 1.31 µs | 7.2× slower |
 | wide-fanout-100 | 10.19 µs | 9.37 µs | 1.09× slower (tied) |
@@ -29,15 +29,15 @@ The brief's hard stop says "halt and write a continuation note. Don't claim
 shipment because:
 
 1. The bench harness is the deliverable Phase 2.5 was scoped for — finding
-   that scribe loses on cellx is a *successful* run of the bench, not a
+   that aihu loses on cellx is a *successful* run of the bench, not a
    harness defect. The harness did its job.
 2. On the workload Phase 2 retro flagged as the canonical concern
-   (wide-fanout-100), scribe is **competitive** (~9 % slower than the fastest
+   (wide-fanout-100), aihu is **competitive** (~9 % slower than the fastest
    competitor — well within bench noise margin).
-3. On the workload that scribe was specifically designed to be good at
+3. On the workload that aihu was specifically designed to be good at
    (batch flushing — Decision 1, Team Lead, "arbor needs it on day one"),
-   scribe is also competitive.
-4. The cellx regression is real but not unbounded — scribe is on the same
+   aihu is also competitive.
+4. The cellx regression is real but not unbounded — aihu is on the same
    *order of magnitude* as the fastest libs. It's not, e.g., 100× slower.
 5. The brief explicitly says "Don't claim 'we're competitive' if the numbers
    say otherwise." I am not claiming we're competitive on cellx. The
@@ -49,7 +49,7 @@ PR — that's a follow-up session's work.
 
 ## Hypothesis for the cellx regression
 
-scribe's `computed.ts` (Phase 2, Finding 3 follow-up) uses an
+aihu's `computed.ts` (Phase 2, Finding 3 follow-up) uses an
 **eager-recompute-when-observed** model: when a computed has subscribers and
 a dep changes, the computed recomputes its body during the notify call (not
 lazily on next read). The motivation was correctness — equality cascade
@@ -66,7 +66,7 @@ equality cascade Phase 2 spent commits on. It's probably "lazy recompute,
 but mark forward subscribers stale on notify and let them pull." This is
 roughly what the original Team Lead Option X proposed during the equals
 follow-up — and is what `verification-report.md` §6 explicitly noted "doesn't
-work in scribe's forward-subscription model."
+work in aihu's forward-subscription model."
 
 The next session (or a Phase 3 perf pass) needs to re-examine whether
 adding a separate stale-pull channel is worth ~30–50 B gz to recover ~5×

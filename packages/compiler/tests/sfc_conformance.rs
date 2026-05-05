@@ -8,7 +8,7 @@
 ///   v0.3.5 — Undeclared template references emit a warning (not an error)
 ///   v0.3.6 — Reserved tokens at top level → compile errors
 ///   v0.3.8 — Conformance fixture files compile + match golden output
-use scribe_compiler::{compile, compile_full, emit, sfc};
+use aihu_compiler::{compile, compile_full, emit, sfc};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ fn normalize_ws(s: &str) -> String {
 fn v031_state_at_form_emits_identical_js_to_script_setup() {
     let html_form = "\
 <script setup>
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 </script>
 
@@ -36,7 +36,7 @@ const [count, setCount] = signal(0)
 
     let at_form = "\
 @state {
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
 
@@ -102,7 +102,7 @@ fn v031_state_empty_block_emits_identical_to_empty_script_setup() {
 fn v032_template_at_form_emits_identical_js_with_signals_and_events() {
     let html_form = "\
 <script setup>
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 const [name, setName] = signal('world')
 </script>
 
@@ -116,7 +116,7 @@ const [name, setName] = signal('world')
 
     let at_form = "\
 @state {
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 const [name, setName] = signal('world')
 }
 
@@ -187,7 +187,7 @@ fn v033_style_at_form_no_global_emits_scoped() {
     let style = parsed.style.unwrap();
     assert_eq!(
         style.scope,
-        scribe_compiler::StyleScope::Scoped,
+        aihu_compiler::StyleScope::Scoped,
         "@style without $global must be Scoped"
     );
 
@@ -221,7 +221,7 @@ fn v033_style_at_form_global_keyword_emits_document_style() {
     let style = parsed.style.unwrap();
     assert_eq!(
         style.scope,
-        scribe_compiler::StyleScope::Global,
+        aihu_compiler::StyleScope::Global,
         "@style {{ $global }} must set StyleScope::Global"
     );
     // The $global token must be stripped from the CSS content.
@@ -256,7 +256,7 @@ fn v033_style_global_only_token_no_css() {
     let src = "@template {\n  <span>x</span>\n}\n@style {\n  $global\n}\n";
     let parsed = sfc::parse(src).unwrap();
     let style = parsed.style.unwrap();
-    assert_eq!(style.scope, scribe_compiler::StyleScope::Global);
+    assert_eq!(style.scope, aihu_compiler::StyleScope::Global);
     // Content should be empty or whitespace after stripping $global.
     assert!(
         style.content.trim().is_empty(),
@@ -340,7 +340,7 @@ const [count, setCount] = signal(0)
 fn v035_declared_template_ref_compiles_cleanly() {
     let src = "\
 @state {
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
 @template {
@@ -432,7 +432,7 @@ fn v036_frontmatter_between_blocks_errors() {
 
 // ─── v0.3.8 — Conformance fixture tests ──────────────────────────────────────
 //
-// These tests read the .scribe fixture files, compile them, and compare against
+// These tests read the .aihu fixture files, compile them, and compare against
 // golden .golden.js files. The fixtures live in bench/compiler-conformance/blocks/.
 
 fn read_fixture(name: &str) -> String {
@@ -453,18 +453,18 @@ fn read_fixture(name: &str) -> String {
         .unwrap_or_else(|e| panic!("Failed to read fixture {}: {}", name, e))
 }
 
-fn compile_fixture(scribe_src: &str, tag_name: &str) -> String {
-    let parsed = sfc::parse(scribe_src)
+fn compile_fixture(aihu_src: &str, tag_name: &str) -> String {
+    let parsed = sfc::parse(aihu_src)
         .unwrap_or_else(|e| panic!("Fixture parse error: {}", e.message));
     let unit = compile_full(&parsed)
         .unwrap_or_else(|e| panic!("Fixture compile_full error: {}", e.message));
     emit(&unit, tag_name).js
 }
 
-/// state-basic.scribe — minimal @state + @template
+/// state-basic.aihu — minimal @state + @template
 #[test]
 fn v038_fixture_state_basic() {
-    let src = read_fixture("state-basic.scribe");
+    let src = read_fixture("state-basic.aihu");
     let golden = read_fixture("state-basic.golden.js");
     let actual = compile_fixture(&src, "state-basic");
     assert_eq!(
@@ -476,10 +476,10 @@ fn v038_fixture_state_basic() {
     );
 }
 
-/// template-signals.scribe — @template with signal references
+/// template-signals.aihu — @template with signal references
 #[test]
 fn v038_fixture_template_signals() {
-    let src = read_fixture("template-signals.scribe");
+    let src = read_fixture("template-signals.aihu");
     let golden = read_fixture("template-signals.golden.js");
     let actual = compile_fixture(&src, "template-signals");
     assert_eq!(
@@ -491,10 +491,10 @@ fn v038_fixture_template_signals() {
     );
 }
 
-/// style-scoped.scribe — @style {} scoped CSS
+/// style-scoped.aihu — @style {} scoped CSS
 #[test]
 fn v038_fixture_style_scoped() {
-    let src = read_fixture("style-scoped.scribe");
+    let src = read_fixture("style-scoped.aihu");
     let golden = read_fixture("style-scoped.golden.js");
     let actual = compile_fixture(&src, "style-scoped");
     assert_eq!(
@@ -506,10 +506,10 @@ fn v038_fixture_style_scoped() {
     );
 }
 
-/// style-global.scribe — @style { $global } CSS
+/// style-global.aihu — @style { $global } CSS
 #[test]
 fn v038_fixture_style_global() {
-    let src = read_fixture("style-global.scribe");
+    let src = read_fixture("style-global.aihu");
     let golden = read_fixture("style-global.golden.js");
     let actual = compile_fixture(&src, "style-global");
     assert_eq!(
@@ -521,10 +521,10 @@ fn v038_fixture_style_global() {
     );
 }
 
-/// agent-basic.scribe — @agent {} with one action
+/// agent-basic.aihu — @agent {} with one action
 #[test]
 fn v038_fixture_agent_basic() {
-    let src = read_fixture("agent-basic.scribe");
+    let src = read_fixture("agent-basic.aihu");
     let golden = read_fixture("agent-basic.golden.js");
     let actual = compile_fixture(&src, "agent-basic");
     assert_eq!(

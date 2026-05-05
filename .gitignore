@@ -47,6 +47,8 @@ desktop.ini
 .claude/settings.local.json
 # Claude Code subagent worktrees (transient agent workspaces)
 .claude/worktrees/
+# Top-level worktrees (transient feature-branch worktrees)
+.worktrees/
 
 # Test artifacts
 coverage/

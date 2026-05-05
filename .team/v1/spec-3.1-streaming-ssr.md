@@ -12,7 +12,7 @@
 
 ## §1 Summary
 
-Plan 3.1 adds `renderToStream` — a `ReadableStream<string>`-returning function that walks the same arbor `Branch | Leaf` component tree as `renderToString` but can suspend at async data boundaries and flush resolved HTML chunks as they become available. It introduces two new types (`DataSource<T>` and `StreamOptions`) in a new file `packages/server/src/stream-types.ts`, and refactors `renderToString` into a thin drain wrapper over `renderToStream` so that the two functions share the same rendering path with no behavioral divergence. All existing `SsrOptions` semantics are preserved unchanged: `opts.head` produces full `<!DOCTYPE html>` document structure, `opts.hydratable` emits `data-scribe-path` attributes on every branch node, and `opts.serializer` injects the `__scribe_state__` script tag. The `DataSource<T>` interface is defined locally in `@scribe/server` with no dependency on Track B; Track B's `createResource` will implement this interface when it ships.
+Plan 3.1 adds `renderToStream` — a `ReadableStream<string>`-returning function that walks the same arbor `Branch | Leaf` component tree as `renderToString` but can suspend at async data boundaries and flush resolved HTML chunks as they become available. It introduces two new types (`DataSource<T>` and `StreamOptions`) in a new file `packages/server/src/stream-types.ts`, and refactors `renderToString` into a thin drain wrapper over `renderToStream` so that the two functions share the same rendering path with no behavioral divergence. All existing `SsrOptions` semantics are preserved unchanged: `opts.head` produces full `<!DOCTYPE html>` document structure, `opts.hydratable` emits `data-aihu-path` attributes on every branch node, and `opts.serializer` injects the `__aihu_state__` script tag. The `DataSource<T>` interface is defined locally in `@aihu/server` with no dependency on Track B; Track B's `createResource` will implement this interface when it ships.
 
 ---
 
@@ -90,7 +90,7 @@ interface AsyncBranch {
 
 When `renderToStream` encounters a `branch` node and `dataSource` is present, it treats that branch as an async boundary:
 
-1. The branch's own opening tag and pre-children HTML are enqueued immediately (with `data-scribe-path` if hydratable).
+1. The branch's own opening tag and pre-children HTML are enqueued immediately (with `data-aihu-path` if hydratable).
 2. If `dataSource.status === 'ready'`, the children are rendered synchronously using the resolved data via `dataSource.value` and enqueued immediately.
 3. If `dataSource.status === 'error'`, the stream is errored immediately.
 4. If `dataSource.status === 'pending'`, a flush is emitted, `onReady` is registered, and on callback the children are rendered and the closing tag is enqueued. The stream closes after all pending boundaries resolve.
@@ -174,7 +174,7 @@ When called on a node:
    - Enqueue node.text (or '' if not a string). Return.
 
 3. If kind === 'branch':
-   a. Build the opening tag string (tag + attrs + optional data-scribe-path),
+   a. Build the opening tag string (tag + attrs + optional data-aihu-path),
       identical to the synchronous renderNode logic.
    b. Check for dataSource field:
       - If absent or not an object: treat as synchronous branch.
@@ -261,9 +261,9 @@ This means `renderToStream` must emit the document preamble chunk before startin
 
 The `buildHead` function from `ssr.ts` is reused unchanged.
 
-#### Step 7 — `opts.hydratable` produces `data-scribe-path` attributes
+#### Step 7 — `opts.hydratable` produces `data-aihu-path` attributes
 
-The `hydratable` flag is threaded through `renderNodeAsync` identically to `renderNode`. When `hydratable` is `true`, each `branch` node's opening tag receives `data-scribe-path="${path}"` appended to its attribute string. The path encoding (`"0"`, `"0.0"`, `"0.1"`, etc.) is identical to the synchronous walker. No additional streaming-boundary markers are emitted in v1 (deferred to v2 per OQ-V6 resolution).
+The `hydratable` flag is threaded through `renderNodeAsync` identically to `renderNode`. When `hydratable` is `true`, each `branch` node's opening tag receives `data-aihu-path="${path}"` appended to its attribute string. The path encoding (`"0"`, `"0.0"`, `"0.1"`, etc.) is identical to the synchronous walker. No additional streaming-boundary markers are emitted in v1 (deferred to v2 per OQ-V6 resolution).
 
 ---
 
@@ -515,11 +515,11 @@ expect(result).toMatch(/<\/body><\/html>$/)
 
 ---
 
-### Test 6 — `opts.hydratable` produces `data-scribe-path` attributes in stream output
+### Test 6 — `opts.hydratable` produces `data-aihu-path` attributes in stream output
 
-**Name:** `renderToStream — opts.hydratable: true emits data-scribe-path on branch nodes`
+**Name:** `renderToStream — opts.hydratable: true emits data-aihu-path on branch nodes`
 
-**What it proves:** The `hydratable` flag is honored in streaming mode. Branch nodes receive `data-scribe-path` attributes identical to those emitted by `renderToString` with the same flag.
+**What it proves:** The `hydratable` flag is honored in streaming mode. Branch nodes receive `data-aihu-path` attributes identical to those emitted by `renderToString` with the same flag.
 
 **Expected output shape:**
 
@@ -540,8 +540,8 @@ const result = await drain(renderToStream(
   }),
   { hydratable: true },
 ))
-expect(result).toContain('data-scribe-path="0"')
-expect(result).toContain('data-scribe-path="0.0"')
+expect(result).toContain('data-aihu-path="0"')
+expect(result).toContain('data-aihu-path="0.0"')
 ```
 
 ---
@@ -550,7 +550,7 @@ expect(result).toContain('data-scribe-path="0.0"')
 
 ### Finding
 
-`packages/server/package.json` does not contain an `engines` field. The minimum Node version for the scribe mono-repo is therefore not declared at the package level.
+`packages/server/package.json` does not contain an `engines` field. The minimum Node version for the aihu mono-repo is therefore not declared at the package level.
 
 The comment at the top of `packages/server/src/ssr.ts` specifies the target runtimes as: **Workers, Deno, Bun, Node ESM.** `ReadableStream` is a WHATWG global available natively in:
 
@@ -595,11 +595,11 @@ If the Builder discovers a TypeScript `lib` configuration that does not include 
 
 ### OQ-V5 — Streaming return type
 
-**RESOLVED.** `renderToStream` returns `ReadableStream<string>` — bare WHATWG type, no wrapper. Rationale: maximum interop with standard `Response` / fetch APIs; wrapping adds bytes and reduces composability. A richer ergonomics wrapper (e.g., `ScribeStream`) is deferred to v2 if desired.
+**RESOLVED.** `renderToStream` returns `ReadableStream<string>` — bare WHATWG type, no wrapper. Rationale: maximum interop with standard `Response` / fetch APIs; wrapping adds bytes and reduces composability. A richer ergonomics wrapper (e.g., `AihuStream`) is deferred to v2 if desired.
 
 ### OQ-V6 — SSR dehydration in streaming mode
 
-**RESOLVED.** `renderToStream` inherits existing `hydratable` / `data-scribe-path` behavior unchanged. The same `renderNode`-equivalent logic that emits `data-scribe-path` attributes on branch nodes in `renderToString` is replicated in `renderNodeAsync`. No additional streaming-boundary dehydration markers (e.g., `data-scribe-stream-boundary`) are emitted in v1. Streaming-boundary dehydration is deferred to v2.
+**RESOLVED.** `renderToStream` inherits existing `hydratable` / `data-aihu-path` behavior unchanged. The same `renderNode`-equivalent logic that emits `data-aihu-path` attributes on branch nodes in `renderToString` is replicated in `renderNodeAsync`. No additional streaming-boundary dehydration markers (e.g., `data-aihu-stream-boundary`) are emitted in v1. Streaming-boundary dehydration is deferred to v2.
 
 ---
 

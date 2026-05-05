@@ -18,7 +18,7 @@
 | AC-4 | `attributeChangedCallback('count', null, '5')` → `ctx.attrs.count` reads `'5'` | PASS | Test T4 passes. Implementation at line 208–211: `pair[1](newValue ?? '')` calls the signal setter. `el.setAttribute('count', '5')` triggers `attributeChangedCallback` → signal updates → `capturedSignal![0]()` returns `'5'`. |
 | AC-5 | `ctx.attrs.count` is a valid `Signal<string>` (can be passed to `leaf(signal)`) | PASS | Test T3 passes. Signal created via `_signal(this.getAttribute(name) ?? '')` at line 192. `Signal<string>` is `readonly [Read<string>, Write<string>]` — tuple `pair[0]` is the getter, `pair[1]` is the setter. `leaf(capturedAttrSignal)` renders correctly in T3. |
 | AC-6 | `_setSignal` not called → throws `RuntimeError` | PASS | Test T5 passes. Guard at lines 182–187 throws `RuntimeError('SCR-R0003', ...)` when `_signal === null`. T5 resets to null via `_setSignal(null as unknown as typeof signal)`, calls `connectedCallback()` directly (correctly bypassing jsdom's exception swallowing), and `expect(() => el.connectedCallback()).toThrow(RuntimeError)` passes. |
-| AC-7 | `bun run size` — runtime ≤ 1024 B gz | PASS | `gzip -c packages/runtime/dist/index.js \| wc -c` → **630 B**. Well within 1024 B limit. (`bun run size` fails at the workspace level due to a pre-existing `@scribe/data` resolution issue unrelated to this plan; the raw gzip measurement is the authoritative check.) |
+| AC-7 | `bun run size` — runtime ≤ 1024 B gz | PASS | `gzip -c packages/runtime/dist/index.js \| wc -c` → **630 B**. Well within 1024 B limit. (`bun run size` fails at the workspace level due to a pre-existing `@aihu/data` resolution issue unrelated to this plan; the raw gzip measurement is the authoritative check.) |
 | AC-8 | 320 tests pass, 0 failures | PASS | `bun run test` → **320/320 passed, 41 test files** (all green, includes T7 added by inline fix). |
 
 ---
@@ -29,7 +29,7 @@
 
 **U-1 (NON-BLOCKING — matches established pattern): `_setSignal` not exported from `index.ts`**
 
-`packages/runtime/src/index.ts` exports only `defineComponent`, `defineElement`, and public types. `_setSignal` is not exported from `index.ts`. This matches the exact same pattern used for `_setMount`: the `index.ts` comment explicitly documents this — `_setMount` "is internal-but-exported from define-component.ts for the documented wiring pattern (`import { _setMount } from '@scribe/runtime/src/define-component'` at app boot). It is not part of the public surface." Spec §5 constraint #8 says "Add `_setSignal` following the identical pattern." The identical pattern is direct import from the source module — NOT from `index.ts`. Tests import via `import { _setMount, _setSignal, defineComponent } from '../src/define-component.ts'` which is the documented wiring. This is consistent design, not a gap.
+`packages/runtime/src/index.ts` exports only `defineComponent`, `defineElement`, and public types. `_setSignal` is not exported from `index.ts`. This matches the exact same pattern used for `_setMount`: the `index.ts` comment explicitly documents this — `_setMount` "is internal-but-exported from define-component.ts for the documented wiring pattern (`import { _setMount } from '@aihu/runtime/src/define-component'` at app boot). It is not part of the public surface." Spec §5 constraint #8 says "Add `_setSignal` following the identical pattern." The identical pattern is direct import from the source module — NOT from `index.ts`. Tests import via `import { _setMount, _setSignal, defineComponent } from '../src/define-component.ts'` which is the documented wiring. This is consistent design, not a gap.
 
 **U-2 (BLOCKING — guard fires for options-form without attrs): `_signal === null` guard is unconditional on all options-form components**
 
@@ -49,7 +49,7 @@ Lines 190–193 use a `for...of` loop over `attrs`. All declared attrs get indep
 
 **U-6 (PASS): Signals created using injected `_signal` factory, not a hardcoded import**
 
-`import type { signal as SignalFactory }` at line 29 — type-only, zero runtime footprint. Runtime signal creation at line 192 uses `_signal(...)` where `_signal` is the injected factory. No direct value import of `signal` from `@scribe/signals`.
+`import type { signal as SignalFactory }` at line 29 — type-only, zero runtime footprint. Runtime signal creation at line 192 uses `_signal(...)` where `_signal` is the injected factory. No direct value import of `signal` from `@aihu/signals`.
 
 **U-7 (PASS): `_setContext` integration unaffected**
 
@@ -67,9 +67,9 @@ Lines 190–193 use a `for...of` loop over `attrs`. All declared attrs get indep
 
 `ATTR_SIGNALS_SYM` is declared at module-level in `define-component.ts` (line 109) with no `export` keyword. Not in `index.ts`. Correct.
 
-**O-3 (PASS): Zero cross-package value imports from `@scribe/arbor`**
+**O-3 (PASS): Zero cross-package value imports from `@aihu/arbor`**
 
-`packages/runtime/src/define-component.ts` has no `import { ... } from '@scribe/arbor'` (only a doc comment mentions the package name). `types.ts` has `import type { Branch, Leaf, MountScope } from '@scribe/arbor'` — type-only, erased at build. Invariant holds.
+`packages/runtime/src/define-component.ts` has no `import { ... } from '@aihu/arbor'` (only a doc comment mentions the package name). `types.ts` has `import type { Branch, Leaf, MountScope } from '@aihu/arbor'` — type-only, erased at build. Invariant holds.
 
 **O-4 (PASS): No changes to `define-element.ts` or `wrapClass`**
 
@@ -95,9 +95,9 @@ The implementation note in the build manifest explains this is intentional (jsdo
 
 The manifest shows baseline 494 B, final 620 B. Actual `gzip -c packages/runtime/dist/index.js | wc -c` reads **630 B** post-build. The 10 B discrepancy is likely measurement method variance (manifest used a different gzip invocation). Both values are well within 1024 B — no concern.
 
-**NB-4: `bun run size` fails workspace-wide due to `@scribe/data` resolution**
+**NB-4: `bun run size` fails workspace-wide due to `@aihu/data` resolution**
 
-`size-limit` cannot bundle `@scribe/data` because it pulls in `@scribe/signals` and `@scribe/context` as unresolved externals. This is pre-existing and unrelated to Plan 1.2. The raw gzip measurement is an adequate substitute.
+`size-limit` cannot bundle `@aihu/data` because it pulls in `@aihu/signals` and `@aihu/context` as unresolved externals. This is pre-existing and unrelated to Plan 1.2. The raw gzip measurement is an adequate substitute.
 
 ---
 

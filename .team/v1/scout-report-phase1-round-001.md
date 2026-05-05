@@ -11,7 +11,7 @@
 Raw output: `Tests 326 passed (326)` (41 test files)
 Notes: 326 (not 320 from prior memory) — Track C Phase 2 H4 added 6 new signals tests since `d180ac8`. **Phase 1 baseline is 326 TS tests.**
 
-## SC-2: counter.scribe compiles to function form
+## SC-2: counter.aihu compiles to function form
 **Status: PASS**
 Output contains `defineElement(` and `defineComponent((_ctx)`. No errors.
 
@@ -49,7 +49,7 @@ Team Lead assessment: Phase 1 builder dispatch can proceed.
 | Check | Status | Notes |
 |-------|--------|-------|
 | SC-1 | PASS | 326 TS tests baseline |
-| SC-2 | PASS | counter.scribe → function form |
+| SC-2 | PASS | counter.aihu → function form |
 | SC-3 | PASS | All files at expected paths |
 | SC-4 | SOFT-FAIL | Track C H4 in-progress; does not block Phase 1 lanes |
 | SC-5 | PASS | `_setMount`/`_setSignal` not yet exported |

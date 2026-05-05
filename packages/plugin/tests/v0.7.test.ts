@@ -5,7 +5,7 @@ import { definePlugin, resetValidationState, validatePlugin } from '../src/index
 // v0.7.3 — Plugin Contract §6.5 serverOnly + contributes.middleware
 // ---------------------------------------------------------------------------
 
-describe('@scribe/plugin v0.7.3 — serverOnly + contributes.middleware', () => {
+describe('@aihu/plugin v0.7.3 — serverOnly + contributes.middleware', () => {
   beforeEach(() => {
     resetValidationState()
   })

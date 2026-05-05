@@ -14,9 +14,9 @@ import type { SignalAdapter, WorkloadDefinition } from '../types.ts'
  * One iteration: bump every source signal once, then bump the selector,
  * then read the computed (an effect ensures the read happens).
  *
- * Why this shape: forward-subscription models (alien, scribe) historically
+ * Why this shape: forward-subscription models (alien, aihu) historically
  * beat owner-tree models (Solid) on dynamic-dep workloads because they
- * track edges as pointers (or in scribe's case, links) rather than
+ * track edges as pointers (or in aihu's case, links) rather than
  * paying tree-rewrite cost on each subscribe/unsubscribe. We never
  * measured this directly. The kairo shape is the canonical "subscription
  * set churn" workload.

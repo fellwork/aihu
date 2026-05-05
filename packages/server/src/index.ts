@@ -7,10 +7,10 @@ export type {
   BuildTarget,
   CorsConfig,
   RouteConfig,
-  ScribeConfig,
+  AihuConfig,
   ServerConfig,
 } from './config.ts'
-export { defineScribeConfig } from './config.ts'
+export { defineAihuConfig } from './config.ts'
 export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from './data.ts'
 export { defineLoader } from './data.ts'
 export { renderToString } from './loader.ts'

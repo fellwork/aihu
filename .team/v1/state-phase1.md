@@ -9,13 +9,13 @@
 
 ## Purpose
 
-Phase 1 implements the `<agent>` block — making one `.scribe` file simultaneously
+Phase 1 implements the `<agent>` block — making one `.aihu` file simultaneously
 emit a reactive custom element AND an MCP tool schema.
 
 "So the poor of the poor can have access to agentic endpoints."
 
-Design doc (APPROVED): `~/.gstack/projects/fellwork-scribe/srmcg-feat-v1-props-design-20260501-034315.md`
-Test plan: `~/.gstack/projects/fellwork-scribe/srmcg-main-eng-review-test-plan-20260501-051258.md`
+Design doc (APPROVED): `~/.gstack/projects/aihu/srmcg-feat-v1-props-design-20260501-034315.md`
+Test plan: `~/.gstack/projects/aihu/srmcg-main-eng-review-test-plan-20260501-051258.md`
 Eng review verdict: CLEAR — 0 unresolved decisions.
 
 ---
@@ -55,7 +55,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 ### Lane A — Rust compiler
 - `<agent>` block parsed into `Vec<ContractItem>` via new `agent.rs` module
-- `ScribeSource.agent: Option<&str>` field populated by sfc.rs
+- `AihuSource.agent: Option<&str>` field populated by sfc.rs
 - `CompileError` has `code/hint/fix` fields + `#[derive(Default)]`
 - `emit()` returns `EmitResult { js: String, manifest_json: String }`
 - Options form emitted when agent block present: `defineComponent({ attrs: [...] as const, setup(ctx) })`
@@ -63,18 +63,18 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 - Type coercions: string→destructure, number→`computed(Number(...))`, boolean→`computed(==='true')`, enum→Set validation wrapper
 - `agent-manifest.json` shape: `{ tools: [{ name, inputs, actions }] }`
 - `main.rs` writes `manifest_json` to disk; `--json-errors` flag works
-- `packages/compiler/tests/integration.rs`: counter.scribe regression + airtime-quote E2E
-- 3 CRITICAL regressions must pass: counter.scribe still compiles, no-agent-block files use function form, defineComponent function-form path works
+- `packages/compiler/tests/integration.rs`: counter.aihu regression + airtime-quote E2E
+- 3 CRITICAL regressions must pass: counter.aihu still compiles, no-agent-block files use function form, defineComponent function-form path works
 
 ### Lane B — TypeScript
 - `packages/runtime/src/index.ts`: `export { _setMount, _setSignal }` added
 - `packages/agent/src/registry.ts`: `InputSchema`/`ActionSchema` interfaces added; `actions` type updated
 - 3 new tests in `registry.test.ts` (InputSchema, ActionSchema, state round-trips)
-- Smoke test: `import { _setMount, _setSignal } from '@scribe/runtime'` resolves from package path
+- Smoke test: `import { _setMount, _setSignal } from '@aihu/runtime'` resolves from package path
 
 ### Lane C — DX
-- `examples/airtime-quote/airtime-quote.scribe` (canonical public example)
-- `examples/scripture-reference/scripture-reference.scribe` (Fellwork dogfood)
+- `examples/airtime-quote/airtime-quote.aihu` (canonical public example)
+- `examples/scripture-reference/scripture-reference.aihu` (Fellwork dogfood)
 - `docs/grammar.md` with full BNF + null/missing behavior table
 - `docs/tthw-log.md`
 - `editors/vscode/` with TextMate grammar + snippets
@@ -92,11 +92,11 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 | Gate | Constraint |
 |------|-----------|
 | All existing 320 tests | `bun run test` must stay green |
-| `counter.scribe` | Must still compile to function form (no agent block = no options form) |
-| `@scribe/runtime` bundle | ≤ 1024 B gz (currently 630 B gz) |
-| `@scribe/arbor` bundle | ≤ 2200 B gz (currently 2117 B gz) |
-| `@scribe/signals` bundle | ≤ 1850 B gz |
-| `@scribe/agent` bundle | ≤ 100 B gz |
+| `counter.aihu` | Must still compile to function form (no agent block = no options form) |
+| `@aihu/runtime` bundle | ≤ 1024 B gz (currently 630 B gz) |
+| `@aihu/arbor` bundle | ≤ 2200 B gz (currently 2117 B gz) |
+| `@aihu/signals` bundle | ≤ 1850 B gz |
+| `@aihu/agent` bundle | ≤ 100 B gz |
 | `packages/signals/src/` | Read-only |
 | `packages/arbor/src/` | Read-only |
 | defineComponent function form | Must still work unchanged (RC-1 is options form ADDITION, not replacement) |
@@ -108,7 +108,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 | Round | Date | What happened |
 |-------|------|---------------|
 | 0 | 2026-05-01 | Track created. Eng review complete. 0 unresolved decisions. |
-| 1 | 2026-05-01 | Lanes A+B COMPLETE on `feat/phase1-contract` at `469f12d`. Rust 32→68 tests (+36), TS 320→323 tests (+3). Lane A: 3 Builder commits + 1 inline-fix commit (export-strip + side-effect import). Lane B: 3 Builder commits + 1 inline-fix commit (null-chain + JSDoc). counter.scribe regression intact. |
+| 1 | 2026-05-01 | Lanes A+B COMPLETE on `feat/phase1-contract` at `469f12d`. Rust 32→68 tests (+36), TS 320→323 tests (+3). Lane A: 3 Builder commits + 1 inline-fix commit (export-strip + side-effect import). Lane B: 3 Builder commits + 1 inline-fix commit (null-chain + JSDoc). counter.aihu regression intact. |
 | 2 | 2026-05-01 | Lanes C+D COMPLETE at `4b37f0d`. Lane C: 4 commits — examples/airtime-quote, examples/scripture-reference, docs/grammar.md (236 lines, full BNF), docs/tthw-log.md, editors/vscode/, MIT LICENSE + 10 package.json license fields. Both example manifests verified valid via shipped binary. Lane D: 1 builder commit + 1 inline-fix — .github/workflows/release.yml (4-target cross-compile, all SHAs pinned), packages/compiler/js/postinstall.ts (SCRIBE_COMPILE_BIN override, idempotent, fail-loud), packages/compiler/RELEASE.md. Test counts unchanged: 68 Rust + 1 ignored, 323 TS. Pre-existing typecheck failures noted (unrelated to Phase 1). |
 | 3 | 2026-05-02 | Sessions 3–7. Plans 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 3.1, 3.2, 3.3, 4.1, 4.2, 5.1, 5.2, 6.1, 6.2 complete (14 of 17). main HEAD: `2340424` entering Session 8. TS: 570, Rust: 221. |
 | 4 | 2026-05-03 | Session 8 (automated). Plans 4.3-B, 5.3, 7.1 complete. ALL 17 v1 plans shipped. TS: 607, Rust: 222. main HEAD: 1917d7f |
@@ -128,7 +128,7 @@ Lanes A and B are fully independent — dispatch in parallel. Lanes C and D bloc
 
 **Branch HEAD:** `469f12d` (`feat/phase1-contract`)
 **Test counts:** 68 Rust, 323 TS
-**CRITICAL regressions:** All protected (counter.scribe still function form)
+**CRITICAL regressions:** All protected (counter.aihu still function form)
 
 ---
 
@@ -172,7 +172,7 @@ Open follow-on items:
 | Plan 1.3 Scoped Styles | **COMPLETE** | Merged PR #18 at `2222a39` — CSSStyleSheet emission, scoped + global scope, 71+1 Rust tests |
 | Verifier F-2 (grammar.md) | **COMPLETE** | §8 `<style>` block added to `docs/grammar.md` at `53c0cff` |
 | Verifier F-3 (stale test name) | **COMPLETE** | `style_block_warning` → `style_scoped_emits_css_in_function_form` + snapshot rename at `53c0cff` |
-| Data externalization fix | **COMPLETE** | Cherry-picked `176dea3` → `e644d58` — @scribe/data rolldown now externalizes @scribe/signals + @scribe/context; restores 747 B gz (was 2012 B gz inlined) |
+| Data externalization fix | **COMPLETE** | Cherry-picked `176dea3` → `e644d58` — @aihu/data rolldown now externalizes @aihu/signals + @aihu/context; restores 747 B gz (was 2012 B gz inlined) |
 | Branch hygiene | **COMPLETE** | 20+ stale branches deleted; `feat/arbor-n2-dev-gate` preserved (in progress) |
 | TODO-004 (integration test re-enable) | **DEFERRED** — gated on `cargo build --release` + `bun run build` in compiler pkg |
 | TTHW measurement | **DEFERRED** — gated on v0.1.0 release binary (GHA cross-compile run) |
@@ -184,8 +184,8 @@ Open follow-on items:
 | 1.1 Reconciler (when/each) | `9195d20` — Session 003 |
 | 1.2 Component props | `acf501b` — Session 004 |
 | 1.3 Scoped styles | `2222a39` — PR #18 (Round 3) |
-| 2.1 @scribe/context | `8223dbb` — Session 002 |
-| 2.2 @scribe/data | `9195d20` — Session 003 |
+| 2.1 @aihu/context | `8223dbb` — Session 002 |
+| 2.2 @aihu/data | `9195d20` — Session 003 |
 | 3.1 Streaming SSR | `ec24d41` — Session 002 |
 | 4.2 Error boundaries | `8223dbb` — Session 002 |
 | 6.2 Signals (Phase 0 + P1) | `8223dbb` + `9195d20` |
@@ -202,11 +202,11 @@ Open follow-on items:
 |------|----|-------|
 | 1.4 Slots | #20 | `slot()` arbor primitive + compiler `<slot>` codegen; 350 tests, +30 B arbor |
 | 4.1 HMR | #24 | `_hmrReplace` runtime export + Vite plugin `import.meta.hot.accept` injection (DEV-gated); +109 B runtime |
-| 5.2 AgentService | #23 | New `@scribe/agent-service` package; 580 B gz; 21 tests; manifest aggregation + middleware |
-| 6.1 Router | #21 | New `@scribe/router` package; 1.45 kB gz; file-based routing + Vite plugin |
+| 5.2 AgentService | #23 | New `@aihu/agent-service` package; 580 B gz; 21 tests; manifest aggregation + middleware |
+| 6.1 Router | #21 | New `@aihu/router` package; 1.45 kB gz; file-based routing + Vite plugin |
 | 3.2 Hydration | #25 | `MountScope.serialize()` + `hydrate()` + `defineElement.hydrate?` option; 374 tests; +47B arbor / +30B runtime |
 
-**Size cap raise:** `@scribe/runtime` 1024 B → 1140 B to accommodate both `_setHydrate` (3.2) and `_hmrReplace` (4.1) being co-exported. New cap holds 43 B headroom.
+**Size cap raise:** `@aihu/runtime` 1024 B → 1140 B to accommodate both `_setHydrate` (3.2) and `_hmrReplace` (4.1) being co-exported. New cap holds 43 B headroom.
 
 **Cumulative test count post-Round-3:** 407/407 passing (was 320 at start of session — +87 tests this round).
 

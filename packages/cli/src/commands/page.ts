@@ -1,7 +1,7 @@
 /**
- * `scribe page <route>` — add a page to an existing scribe project.
+ * `aihu page <route>` — add a page to an existing aihu project.
  *
- * Writes `src/pages/<route>.scribe` relative to `targetDir`.
+ * Writes `src/pages/<route>.aihu` relative to `targetDir`.
  * Zero external dependencies — uses only Node/Bun builtins (fs, path).
  */
 
@@ -15,7 +15,7 @@ export function scaffoldPage(route: string, targetDir: string): void {
   const pagesDir = join(targetDir, 'src', 'pages')
   mkdirSync(pagesDir, { recursive: true })
 
-  const filePath = join(pagesDir, `${route}.scribe`)
+  const filePath = join(pagesDir, `${route}.aihu`)
   const content = `@state {
 }
 
@@ -29,5 +29,5 @@ export function scaffoldPage(route: string, targetDir: string): void {
 }
 `
   writeFileSync(filePath, content, 'utf8')
-  process.stdout.write(`✓ Created src/pages/${route}.scribe\n`)
+  process.stdout.write(`✓ Created src/pages/${route}.aihu\n`)
 }

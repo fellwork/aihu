@@ -9,17 +9,17 @@
 
 ## 1. What the compiler does
 
-The scribe compiler transforms `.scribe` Single-File Components (SFCs) into
-TypeScript that the `@scribe/runtime` + `@scribe/arbor` packages can execute
+The aihu compiler transforms `.aihu` Single-File Components (SFCs) into
+TypeScript that the `@aihu/runtime` + `@aihu/arbor` packages can execute
 as vanilla custom elements. No framework runtime is emitted — the output is
 pure TypeScript that calls `defineElement` (which wraps `customElements.define`)
 with a `defineComponent` setup function.
 
-**Input format (`.scribe` SFC):**
+**Input format (`.aihu` SFC):**
 
-```scribe
-<script setup name="scribe-counter">
-import { signal } from '@scribe/signals'
+```aihu
+<script setup name="aihu-counter">
+import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 const increment = () => setCount(c => c + 1)
 </script>
@@ -35,12 +35,12 @@ const increment = () => setCount(c => c + 1)
 **Emit form (locked — do not change without a spec amendment):**
 
 ```typescript
-import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
-defineElement('scribe-counter', defineComponent((_ctx) => {
+defineElement('aihu-counter', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)
   const increment = () => setCount(c => c + 1)
 
@@ -62,8 +62,8 @@ Key decisions baked into the emit form:
 
 ## 2. Architecture — phases and key types
 
-The compiler is a standalone Rust crate (`scribe-compiler` at
-`packages/compiler/`) plus a thin TypeScript npm package (`@scribe/compiler`
+The compiler is a standalone Rust crate (`aihu-compiler` at
+`packages/compiler/`) plus a thin TypeScript npm package (`@aihu/compiler`
 at `packages/compiler/js/index.ts`).
 
 ### Pipeline phases
@@ -78,12 +78,12 @@ at `packages/compiler/js/index.ts`).
 
 ### Key Rust types
 
-**`ScribeSource<'a>`** (`src/types.rs`) — result of the SFC block splitter.
+**`AihuSource<'a>`** (`src/types.rs`) — result of the SFC block splitter.
 Holds `script`, `template`, `style` as `Option<&'a str>` (zero-copy slices
 into the source string) plus `meta: ScriptMeta` (holds the `name` attribute
 from `<script setup name="...">`).
 
-**`CompileUnit<'a>`** (`src/types.rs`) — bundles `ScribeSource` with the
+**`CompileUnit<'a>`** (`src/types.rs`) — bundles `AihuSource` with the
 parsed template AST (`template_ast: Option<Vec<TemplateNode>>`). Produced by
 `compile_full()`. Used as the input to `emit()`.
 
@@ -114,7 +114,7 @@ the full TypeScript output string.
 ### Public API surface (`src/lib.rs`)
 
 ```rust
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError>     // C-0/C-1
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError>     // C-0/C-1
 pub fn compile_full(source: &str) -> Result<CompileUnit<'_>, CompileError> // C-2+
 pub fn emit(unit: &CompileUnit, tag_name: &str) -> String                  // C-3+
 pub fn resolve_signals(script: &str) -> SignalMap                          // C-2+
@@ -123,21 +123,21 @@ pub fn resolve_signals(script: &str) -> SignalMap                          // C-
 ### JS wrapper (`packages/compiler/js/index.ts`)
 
 Two exports:
-- `transform(source, id): { code, map }` — calls the `scribe-compile` binary
+- `transform(source, id): { code, map }` — calls the `aihu-compile` binary
   via `execFileSync` in `--stdin --tag <stem>` mode. Used directly by
   `integrate.ts` and internally by the Vite plugin.
 - `scribeCompilerPlugin(): VitePlugin` — Vite plugin with `enforce: 'pre'`
-  that filters on `id.endsWith('.scribe')` and delegates to `transform()`.
+  that filters on `id.endsWith('.aihu')` and delegates to `transform()`.
 
 Binary path resolution: `SCRIBE_COMPILE_BIN` env var → fallback to
-`../target/release/scribe-compile[.exe]` relative to `dist/`.
+`../target/release/aihu-compile[.exe]` relative to `dist/`.
 
 ---
 
 ## 3. Key design decisions (OQ resolutions)
 
 **OQ-C1 — HTML-first template syntax:**
-Option A selected. The template block is valid-ish HTML with scribe-specific
+Option A selected. The template block is valid-ish HTML with aihu-specific
 attribute prefixes (`@event`, `:bind`) as a thin transform layer. No
 JSX-like syntax, no custom parser bootstrap. `<template>` content is parsed
 by the recursive descent parser in `src/parser/template.rs`.
@@ -200,8 +200,8 @@ to v1 (OQ-C8).
    install it automatically.
 2. Even with Vite installed, Bun's Rollup4 bridge evaluates the vite config
    at load time via its internal bundler. If the Rust binary does not exist
-   at `../target/release/scribe-compile`, `execFileSync` throws at config-load
-   time, aborting the build before any `.scribe` file is transformed.
+   at `../target/release/aihu-compile`, `execFileSync` throws at config-load
+   time, aborting the build before any `.aihu` file is transformed.
 
 **Workaround:** Use `bun run integrate.ts` in the fixture directory
 (preconditions: `cargo build --release` in `packages/compiler/`,
@@ -228,7 +228,7 @@ To add a new codegen pass (e.g., CSS-in-JS extraction from `<style>`):
 3. Call it from `emit()` in `src/codegen/emit.rs` alongside the existing
    `resolve_signals()` call.
 4. Add snapshot tests in `tests/codegen.rs` covering the new behavior.
-5. Re-accept updated snapshots with `UPDATE_EXPECT=1 cargo test -p scribe-compiler`.
+5. Re-accept updated snapshots with `UPDATE_EXPECT=1 cargo test -p aihu-compiler`.
 
 Do not add new fields to `CompileUnit` for computed data that can be
 re-derived on demand (per Section 15.1 of architecture.md: `SignalMap` is
@@ -240,7 +240,7 @@ All 31 committed snapshot tests (excluding the `#[ignore]` integration test)
 must pass before merging. The canonical tool to re-accept changed snapshots is:
 
 ```bash
-UPDATE_EXPECT=1 cargo test -p scribe-compiler
+UPDATE_EXPECT=1 cargo test -p aihu-compiler
 ```
 
 or:
@@ -263,14 +263,14 @@ Key snapshot groups:
 
 `tests/snapshots/codegen__counter_full.snap` is the end-to-end acceptance
 oracle for the compiler. It contains the exact TypeScript output for
-`fixtures/vite-counter/counter.scribe`. If this snapshot changes, the entire
+`fixtures/vite-counter/counter.aihu`. If this snapshot changes, the entire
 compiler pipeline has changed. Treat any `counter_full` diff as a significant
 event requiring deliberate review and a spec amendment in `architecture.md`
 Section 7.
 
 ### Test count
 
-`cargo test -p scribe-compiler` must exit 0 with:
+`cargo test -p aihu-compiler` must exit 0 with:
 - **32 passed, 1 ignored** (the `c4_transform_produces_typescript` integration
   test is `#[ignore]` by design — it requires a pre-built binary)
 
@@ -279,7 +279,7 @@ test was added (update this document accordingly).
 
 ### Binary pre-build requirement
 
-The Rust binary (`target/release/scribe-compile`) must be built manually
+The Rust binary (`target/release/aihu-compile`) must be built manually
 before running integration tests or the Vite plugin:
 
 ```bash
@@ -295,9 +295,9 @@ and is not built automatically by any Moon task (see `moon.yml` comment).
 
 | Path | Role |
 |------|------|
-| `packages/compiler/Cargo.toml` | Rust crate manifest; defines `scribe-compiler` lib + `scribe-compile` bin |
+| `packages/compiler/Cargo.toml` | Rust crate manifest; defines `aihu-compiler` lib + `aihu-compile` bin |
 | `packages/compiler/src/lib.rs` | Public Rust API: `compile`, `compile_full`, `emit`, `resolve_signals` |
-| `packages/compiler/src/types.rs` | Core types: `ScribeSource`, `CompileUnit`, `TemplateNode`, `Attr`, `ScriptMeta`, `CompileError` |
+| `packages/compiler/src/types.rs` | Core types: `AihuSource`, `CompileUnit`, `TemplateNode`, `Attr`, `ScriptMeta`, `CompileError` |
 | `packages/compiler/src/parser/sfc.rs` | SFC block splitter (C-0) |
 | `packages/compiler/src/parser/template.rs` | Recursive descent template parser (C-1) |
 | `packages/compiler/src/parser/directives.rs` | Directive helpers, identifier validation (C-1) |
@@ -305,8 +305,8 @@ and is not built automatically by any Moon task (see `moon.yml` comment).
 | `packages/compiler/src/codegen/emit.rs` | TypeScript codegen: `emit()`, `build_imports()`, `extract_script_body()`, `emit_nodes()`, `emit_node()`, `emit_attrs()` (C-3) |
 | `packages/compiler/src/bin/main.rs` | CLI binary: file mode + `--stdin --tag` mode (C-4) |
 | `packages/compiler/js/index.ts` | npm/Vite wrapper: `transform()`, `scribeCompilerPlugin()` (C-4) |
-| `packages/compiler/package.json` | `@scribe/compiler` npm package manifest |
-| `packages/compiler/fixtures/vite-counter/` | Integration fixture: `counter.scribe`, `integrate.ts`, `vite.config.ts` |
+| `packages/compiler/package.json` | `@aihu/compiler` npm package manifest |
+| `packages/compiler/fixtures/vite-counter/` | Integration fixture: `counter.aihu`, `integrate.ts`, `vite.config.ts` |
 | `packages/compiler/tests/c4_integration.rs` | `#[ignore]` integration test using `bun run integrate.ts` |
 | `packages/compiler/tests/snapshots/codegen__counter_full.snap` | End-to-end oracle snapshot |
 | `.team/compiler/architecture.md` | Full spec: sections 1–17, all OQ resolutions, acceptance criteria |

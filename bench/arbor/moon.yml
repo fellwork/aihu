@@ -3,7 +3,7 @@ id: bench-arbor
 language: typescript
 layer: application
 
-# bench-arbor imports @scribe/arbor (transitively @scribe/signals) plus a set of
+# bench-arbor imports @aihu/arbor (transitively @aihu/signals) plus a set of
 # DOM-binding competitor libs for the JSDOM-driven harness. Declaring the
 # workspace deps so Moon resolves them before typecheck runs.
 dependsOn:

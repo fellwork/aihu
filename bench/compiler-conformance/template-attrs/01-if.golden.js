@@ -1,7 +1,7 @@
 // $if="isVisible" → createIfBoundary(isVisible, () => { return <subtree> })
 // The compiler wraps the element subtree in a conditional boundary.
-import { branch, leaf, slot } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf, slot } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement(
   'test-comp',

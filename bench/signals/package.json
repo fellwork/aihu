@@ -1,9 +1,9 @@
 {
-  "name": "@scribe/bench-signals",
+  "name": "@aihu/bench-signals",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Bench harness comparing @scribe/signals against SOTA reactivity libs (Phase 2.5).",
+  "description": "Bench harness comparing @aihu/signals against SOTA reactivity libs (Phase 2.5).",
   "scripts": {
     "run": "bun src/runner.ts",
     "memory": "bun --expose-gc src/memory.ts",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/signals": "workspace:*",
+    "@aihu/signals": "workspace:*",
     "@preact/signals-core": "1.14.1",
     "@vue/reactivity": "3.5.33",
     "alien-signals": "3.1.2",

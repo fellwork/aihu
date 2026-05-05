@@ -27,20 +27,20 @@ Notable test files:
 ## 2. Build / size (live)
 
 **`bun run build`:** SUCCEEDED (11 tasks, 1 cached, 4.4s)
-- One benign unresolved-import warning in `data:build` — `@scribe/context` is an external peer dep, not bundled; warning is expected.
+- One benign unresolved-import warning in `data:build` — `@aihu/context` is an external peer dep, not bundled; warning is expected.
 
-**`size-limit` CLI:** FAILS — `@scribe/data`'s peer deps (`@scribe/signals`, `@scribe/context`) can't be resolved by size-limit's internal esbuild pass. This is a pre-existing config issue, not a regression. Manual gz measurement:
+**`size-limit` CLI:** FAILS — `@aihu/data`'s peer deps (`@aihu/signals`, `@aihu/context`) can't be resolved by size-limit's internal esbuild pass. This is a pre-existing config issue, not a regression. Manual gz measurement:
 
 | Package | Size (gz) | Limit | Status | Headroom |
 |---------|----------:|------:|--------|----------|
-| `@scribe/context` | 282 B | 300 B | ✅ PASS | 18 B |
-| `@scribe/signals` | 1732 B | 1850 B | ✅ PASS | 118 B |
-| `@scribe/arbor` | 2151 B | 2200 B | ✅ PASS | **49 B ⚠️ TIGHT** |
-| `@scribe/runtime` | 504 B | 1024 B | ✅ PASS | 520 B |
-| `@scribe/agent` | 156 B | 200 B | ✅ PASS | 44 B |
-| `@scribe/data` | 677 B | 750 B | ✅ PASS | 73 B |
+| `@aihu/context` | 282 B | 300 B | ✅ PASS | 18 B |
+| `@aihu/signals` | 1732 B | 1850 B | ✅ PASS | 118 B |
+| `@aihu/arbor` | 2151 B | 2200 B | ✅ PASS | **49 B ⚠️ TIGHT** |
+| `@aihu/runtime` | 504 B | 1024 B | ✅ PASS | 520 B |
+| `@aihu/agent` | 156 B | 200 B | ✅ PASS | 44 B |
+| `@aihu/data` | 677 B | 750 B | ✅ PASS | 73 B |
 
-**Arbor headroom is critically tight at 49 B.** Plan 1.2 targets `@scribe/runtime` (520 B headroom) — not arbor — so this does not block 1.2. But any future arbor change must account for 49 B ceiling.
+**Arbor headroom is critically tight at 49 B.** Plan 1.2 targets `@aihu/runtime` (520 B headroom) — not arbor — so this does not block 1.2. But any future arbor change must account for 49 B ceiling.
 
 ---
 
@@ -48,15 +48,15 @@ Notable test files:
 
 | Plan | Package | Present? |
 |------|---------|----------|
-| 4.2 Error boundaries | `@scribe/arbor` | ✅ YES — `onError`, `_mountDisposersStack`, try/catch in `_mountEffect` |
-| 1.1 Reconciler | `@scribe/arbor` | ✅ YES — `when()`, `each()`, `_reconcileWhen`, `_reconcileEach` with real implementations |
-| 2.1 Context | `@scribe/context` | ✅ YES — package exists, 13 tests passing |
-| 2.2 Data | `@scribe/data` | ✅ YES — package exists, 24 tests passing |
-| 3.1 Streaming SSR | `@scribe/server` | ✅ YES — `renderToStream` exists |
-| 6.2-P0+P1 Deep-chain | `@scribe/signals` | ✅ YES — `HAS_EFFECT_SUB`, `PENDING` flag, `checkDirty` present |
-| **1.2 Component props** | `@scribe/runtime` | ❌ NOT YET — no `_setSignal`, no `attrs`, `SetupContext = { host, element }` only |
+| 4.2 Error boundaries | `@aihu/arbor` | ✅ YES — `onError`, `_mountDisposersStack`, try/catch in `_mountEffect` |
+| 1.1 Reconciler | `@aihu/arbor` | ✅ YES — `when()`, `each()`, `_reconcileWhen`, `_reconcileEach` with real implementations |
+| 2.1 Context | `@aihu/context` | ✅ YES — package exists, 13 tests passing |
+| 2.2 Data | `@aihu/data` | ✅ YES — package exists, 24 tests passing |
+| 3.1 Streaming SSR | `@aihu/server` | ✅ YES — `renderToStream` exists |
+| 6.2-P0+P1 Deep-chain | `@aihu/signals` | ✅ YES — `HAS_EFFECT_SUB`, `PENDING` flag, `checkDirty` present |
+| **1.2 Component props** | `@aihu/runtime` | ❌ NOT YET — no `_setSignal`, no `attrs`, `SetupContext = { host, element }` only |
 | 1.3 Scoped styles | compiler | ❌ NOT STARTED |
-| 1.4 Slots | `@scribe/arbor` | ❌ NOT STARTED |
+| 1.4 Slots | `@aihu/arbor` | ❌ NOT STARTED |
 
 ---
 
@@ -83,10 +83,10 @@ All of the following passed in the live `bun run test`:
 ## 6. Open items
 
 ### Unblocked / ready for Builder
-1. **Plan 1.2 — Component props** (`@scribe/runtime`) — UNBLOCKED, GO. Architect spec at `.team/v1/spec-track-a-architect-round-001.md` §3. Runtime has 520 B headroom. Minimum 6 new tests in `define-component.test.ts`.
+1. **Plan 1.2 — Component props** (`@aihu/runtime`) — UNBLOCKED, GO. Architect spec at `.team/v1/spec-track-a-architect-round-001.md` §3. Runtime has 520 B headroom. Minimum 6 new tests in `define-component.test.ts`.
 2. **Plan 1.3 — Scoped styles** (compiler Phase C-5) — parallel-safe with 1.2; not yet scoped.
-3. **Track B integration test** — optional integration test for `@scribe/data` + `@scribe/context` SSR dehydration.
-4. **`size-limit` config fix** — `@scribe/data` peer deps cause CLI failure; needs externals config or skip-file-pattern. Not blocking but creates noise.
+3. **Track B integration test** — optional integration test for `@aihu/data` + `@aihu/context` SSR dehydration.
+4. **`size-limit` config fix** — `@aihu/data` peer deps cause CLI failure; needs externals config or skip-file-pattern. Not blocking but creates noise.
 
 ### Blocked / non-code work required
 1. **Track C 6.2-P1 bench verification** — CONDITIONAL PASS. Needs Linux/macOS bench run. Windows bench is unreliable for this signal optimization (see Track C state). Cannot be completed in this session.

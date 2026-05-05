@@ -2,11 +2,11 @@
  * `hydrate()` — Plan 3.2 client-side hydration.
  *
  * Attaches signal effects to server-rendered HTML without re-creating DOM
- * elements. Uses `data-scribe-path` attributes on existing DOM nodes as
+ * elements. Uses `data-aihu-path` attributes on existing DOM nodes as
  * anchors to wire reactive bindings.
  *
  * Algorithm:
- *   1. Build a path→element map from `host.querySelectorAll('[data-scribe-path]')`.
+ *   1. Build a path→element map from `host.querySelectorAll('[data-aihu-path]')`.
  *   2. Walk the arbor `node` tree using `_hydrateNode`, which:
  *      a. For branch nodes: look up the existing element by path; wire attrs.
  *      b. For text leaves: find the first text child node of the matching
@@ -21,7 +21,7 @@
  * @module
  */
 
-import type { Dispose } from '@scribe/signals'
+import type { Dispose } from '@aihu/signals'
 import { _applyAttrs } from './attrs.ts'
 import { _materialize } from './materialize.ts'
 import { _makeScope, _mountDisposersStack, _mountEffect, type mount } from './mount.ts'
@@ -189,7 +189,7 @@ function _hydrateNode(
  * DOM nodes under `host` without re-creating elements.
  *
  * `snapshot` is the pre-parsed JSON state previously emitted by
- * `MountScope.serialize()` (e.g. from `window.__scribe_state__[tag]`).
+ * `MountScope.serialize()` (e.g. from `window.__aihu_state__[tag]`).
  * It is used for mismatch detection: if a path key present in `snapshot`
  * has no matching DOM node, that subtree falls back to full `_materialize()`.
  *
@@ -202,7 +202,7 @@ function _hydrateNode(
  * @param component — factory function that returns the arbor Node (same
  *   factory the element's `connectedCallback`/`_build()` would call).
  * @param host — the pre-rendered host element (e.g. `this.shadowRoot ?? this`).
- * @param snapshot — pre-parsed state record from SSR (`window.__scribe_state__[tag]`).
+ * @param snapshot — pre-parsed state record from SSR (`window.__aihu_state__[tag]`).
  * @param options — optional `MountOptions` (e.g. `onError` handler).
  */
 export function hydrate(
@@ -213,14 +213,14 @@ export function hydrate(
 ): ReturnType<typeof mount> {
   void snapshot // currently used for type safety; future: signal pre-seeding
   const errorHandler = options?.onError
-  // Build path→element map inline (per spec §5: `data-scribe-path` anchors).
+  // Build path→element map inline (per spec §5: `data-aihu-path` anchors).
   const pathMap = new Map<string, Element>()
   const root = host as Element
-  for (const el of root.querySelectorAll?.('[data-scribe-path]') ?? []) {
-    const p = el.getAttribute('data-scribe-path')
+  for (const el of root.querySelectorAll?.('[data-aihu-path]') ?? []) {
+    const p = el.getAttribute('data-aihu-path')
     if (p != null) pathMap.set(p, el)
   }
-  const hp = root.getAttribute?.('data-scribe-path')
+  const hp = root.getAttribute?.('data-aihu-path')
   if (hp != null) pathMap.set(hp, root)
 
   _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })

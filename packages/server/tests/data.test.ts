@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defineLoader, runLoader } from '../src/data.ts'
 
-describe('@scribe/server data', () => {
+describe('@aihu/server data', () => {
   it('defineLoader returns a DefinedLoader with correct _brand', () => {
     const loader = defineLoader(async () => 42)
     expect(loader._brand).toBe('DefinedLoader')

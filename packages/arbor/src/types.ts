@@ -1,7 +1,7 @@
-import type { Dispose, Signal } from '@scribe/signals'
+import type { Dispose, Signal } from '@aihu/signals'
 
 /**
- * Public type definitions for `@scribe/arbor`.
+ * Public type definitions for `@aihu/arbor`.
  *
  * Per `.team/phase-3/spec-arbor.md` §1. Runtime objects (Branch/Leaf records)
  * are constructed by the internal factories in `node.ts` (and the public

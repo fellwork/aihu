@@ -8,9 +8,9 @@ Verifier commit reviewed: 32ba955
 C2-1  [PASS] SignalMap newtype + derives — exact `#[derive(Debug, Default, PartialEq)]` on `pub struct SignalMap(pub HashMap<String, String>)` in signals.rs:3-4
 C2-2  [PASS] resolve_signals non-fallible — returns `SignalMap` directly, no `Result` wrapper
 C2-3  [PASS] Correct getter→setter extraction — `"const ["` + `"] = signal("` guard, comma-split, parts[0]→parts[1]; single_signal snapshot confirms `"count"→"setCount"`
-C2-4  [PASS] CompileUnit<'a> struct — types.rs:33-36 matches spec exactly; both fields `pub source: ScribeSource<'a>` and `pub template_ast: Option<Vec<TemplateNode>>` present
+C2-4  [PASS] CompileUnit<'a> struct — types.rs:33-36 matches spec exactly; both fields `pub source: AihuSource<'a>` and `pub template_ast: Option<Vec<TemplateNode>>` present
 C2-5  [PASS] compile_full() pipeline — calls `parser::sfc::parse(source)?` then `parser::template::parse_template(tmpl)?`; both results propagated via `?`
-C2-6  [PASS] compile() unchanged — same signature `Result<ScribeSource<'_>, CompileError>`, single-line body `parser::sfc::parse(source)`
+C2-6  [PASS] compile() unchanged — same signature `Result<AihuSource<'_>, CompileError>`, single-line body `parser::sfc::parse(source)`
 C2-7  [PASS] Over-extraction check (bidirectional) — `"const ["` prefix guard correctly excludes imports, plain assignments, arrow functions, and non-destructuring signal calls; `mixed_vars_and_signals` snapshot independently confirms only the one signal is extracted
 C2-8  [PASS] 6 named snapshot tests — all 6 required function names present in signal_resolve.rs, no extras, no misspellings
 C2-9  [PASS] 6 snapshot files exist + non-empty — all 6 `.snap` files found under `tests/snapshots/`; each contains valid insta header and `SignalMap` output

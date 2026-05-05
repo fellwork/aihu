@@ -3,7 +3,7 @@ import { dts } from 'rolldown-plugin-dts'
 
 export default defineConfig({
   input: 'src/index.ts',
-  external: ['@scribe/app', 'node:fs', 'node:fs/promises', 'node:path', 'vite'],
+  external: ['@aihu/app', 'node:fs', 'node:fs/promises', 'node:path', 'vite'],
   checks: { circularDependency: true },
   output: {
     dir: 'dist',

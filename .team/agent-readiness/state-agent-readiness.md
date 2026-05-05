@@ -17,8 +17,8 @@ test suites — spec violations in the source will break `bun run test`.
 ## What was built
 
 ### Agent-readiness packages (Phases 1–3, cf99d76)
-- `@scribe/server` — fetch-API router, middleware, api helpers, SSR, data loaders, config
-- `@scribe/agent-readiness` — `llms.txt`, MCP Server Card, `robots.txt`, content negotiation, Vite plugin
+- `@aihu/server` — fetch-API router, middleware, api helpers, SSR, data loaders, config
+- `@aihu/agent-readiness` — `llms.txt`, MCP Server Card, `robots.txt`, content negotiation, Vite plugin
 
 ### Round N+2 — Track A: compliance tests (3e756aa)
 

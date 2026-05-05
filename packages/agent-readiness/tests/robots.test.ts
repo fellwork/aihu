@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AI_BOT_LIST, generateRobotsTxt } from '../src/index.ts'
 
-describe('@scribe/agent-readiness robots', () => {
+describe('@aihu/agent-readiness robots', () => {
   it('AC-5: deny-all emits named bot Disallow entries and ends with wildcard Allow', () => {
     const output = generateRobotsTxt({ aiAgents: 'deny-all' })
     for (const bot of AI_BOT_LIST) {
@@ -22,8 +22,8 @@ describe('@scribe/agent-readiness robots', () => {
   it('appends Sitemap line when sitemap is provided', () => {
     const out = generateRobotsTxt({
       aiAgents: 'allow-all',
-      sitemap: 'https://scribe.dev/sitemap.xml',
+      sitemap: 'https://aihu.dev/sitemap.xml',
     })
-    expect(out).toMatch(/Sitemap: https:\/\/scribe\.dev\/sitemap\.xml$/)
+    expect(out).toMatch(/Sitemap: https:\/\/aihu\.dev\/sitemap\.xml$/)
   })
 })

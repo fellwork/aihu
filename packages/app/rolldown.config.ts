@@ -2,18 +2,18 @@ import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
 
 const external = [
-  '@scribe/router',
-  '@scribe/router/plugin',
-  '@scribe/arbor',
-  '@scribe/signals',
-  '@scribe/runtime',
-  '@scribe/agent-readiness',
-  '@scribe/compiler',
+  '@aihu/router',
+  '@aihu/router/plugin',
+  '@aihu/arbor',
+  '@aihu/signals',
+  '@aihu/runtime',
+  '@aihu/agent-readiness',
+  '@aihu/compiler',
   'vite',
   'node:fs',
   'node:fs/promises',
   'node:path',
-  'virtual:scribe-routes',
+  'virtual:aihu-routes',
 ]
 
 export default defineConfig([

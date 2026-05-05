@@ -71,7 +71,7 @@ jobs:
   bench:
     # Bench-vs-SOTA regression gate (Phase 2.5, Learning #11). Runs whenever
     # signals or the bench harness changes. Compares current p50 to the
-    # baseline RESULTS.md on `main`; fails if @scribe/signals regresses
+    # baseline RESULTS.md on `main`; fails if @aihu/signals regresses
     # > 10 % on any workload. Override via `[bench-bump]` in the commit
     # message — see bench/signals/HARNESS.md for the override path.
     runs-on: ubuntu-latest
@@ -85,8 +85,8 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
-      - name: Build @scribe/signals
-        run: bun run --filter @scribe/signals build
+      - name: Build @aihu/signals
+        run: bun run --filter @aihu/signals build
       - name: Capture previous RESULTS.md from main
         run: |
           mkdir -p /tmp/bench-prev
@@ -116,9 +116,9 @@ jobs:
           path: bench/signals/RESULTS.md
 
   bench-arbor:
-    # Bench-vs-SOTA regression gate for @scribe/arbor (Round N+1, Track A).
+    # Bench-vs-SOTA regression gate for @aihu/arbor (Round N+1, Track A).
     # Runs whenever arbor or the bench harness changes. Compares current p50 to
-    # the baseline RESULTS.md on `main`; fails if @scribe/arbor regresses
+    # the baseline RESULTS.md on `main`; fails if @aihu/arbor regresses
     # > 10% on any workload. Override via `[bench-bump]` in the commit message.
     # workflow_dispatch only — see header comment and state-plan-a.md open items.
     runs-on: ubuntu-latest
@@ -132,10 +132,10 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
-      - name: Build @scribe/signals and @scribe/arbor
+      - name: Build @aihu/signals and @aihu/arbor
         run: |
-          bun run --filter @scribe/signals build
-          bun run --filter @scribe/arbor build
+          bun run --filter @aihu/signals build
+          bun run --filter @aihu/arbor build
       - name: Capture previous RESULTS.md from main
         run: |
           mkdir -p /tmp/bench-arbor-prev

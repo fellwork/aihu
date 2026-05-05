@@ -12,17 +12,17 @@
 import { describe, expect, it } from 'vitest'
 import { _injectShadowMode } from '../js/index.ts'
 
-const COMPILED_STATIC = `import { branch, leaf } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+const COMPILED_STATIC = `import { branch, leaf } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('x-msg', defineComponent((_ctx) => {
   return branch('p', undefined, [leaf('hello')])
 }))
 `
 
-const COMPILED_INTERACTIVE = `import { branch, leaf } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+const COMPILED_INTERACTIVE = `import { branch, leaf } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('x-counter', defineComponent((ctx) => {
   const [count, setCount] = signal(0)
@@ -49,7 +49,7 @@ describe('_injectShadowMode', () => {
   })
 
   it('leaves code untouched when no defineElement(...) call is found', () => {
-    const noDefine = `import { branch } from '@scribe/arbor'\nexport const tree = branch('div', undefined, [])\n`
+    const noDefine = `import { branch } from '@aihu/arbor'\nexport const tree = branch('div', undefined, [])\n`
     expect(_injectShadowMode(noDefine, 'none')).toBe(noDefine)
   })
 

@@ -1,8 +1,8 @@
-# Scout Report — Phase 2 (`@scribe/signals`)
+# Scout Report — Phase 2 (`@aihu/signals`)
 
 **Author:** Scout
 **Date:** 2026-04-26
-**Worktree:** `c:/git/fellwork-worktrees/scribe-phase-2-builder` (branch `plan-a-phase-2`)
+**Worktree:** `c:/git/fellwork-worktrees/aihu-phase-2-builder` (branch `plan-a-phase-2`)
 **Time spent:** ~30 min
 
 ---
@@ -13,7 +13,7 @@
 
 | File | Bytes | Status | Notes |
 |---|---|---|---|
-| `package.json` | 418 | OK | name `@scribe/signals`, ESM-only, `sideEffects: false`, scripts: `build` (rolldown), `typecheck` (tsc --noEmit). No `test` script (intentional — root vitest discovers). No deps declared on rolldown/tsc — relies on root devDeps + bun workspace hoisting. |
+| `package.json` | 418 | OK | name `@aihu/signals`, ESM-only, `sideEffects: false`, scripts: `build` (rolldown), `typecheck` (tsc --noEmit). No `test` script (intentional — root vitest discovers). No deps declared on rolldown/tsc — relies on root devDeps + bun workspace hoisting. |
 | `tsconfig.json` | 191 | OK-ish | `"include": ["src/**/*.ts", "tests/**/*.ts"]`. `tests/` does not yet exist; tsc is fine with that, but it does mean any orphan `.ts` outside those globs is invisible. |
 | `moon.yml` | 112 | **BROKEN** | Uses `type: library` — Moon 2.x rejects this field (see §1.1). |
 | `rolldown.config.ts` | 247 | OK | rolldown 1.0.0-rc.17, `dts()` plugin, esm output to `dist/`. Single entry `src/index.ts`. |
@@ -47,12 +47,12 @@ The `.moon/tasks.yml` itself does NOT reference `type` and inherits cleanly. The
 
 ### 1.2 `.size-limit.json`
 
-Currently lists **five rows**: `@scribe/signals`, `@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`, and a "Combined runtime family". Only `signals/dist/index.js` will exist after Phase 2 — the other four paths fail the size-limit gate with "file not found" until Phases 3-5 ship. **Plan Task 6 step 8 (line 657-672) explicitly mandates trimming this to a single signals row** and reinstating others in Tasks 12 / 20 / 23 / 25. The current file is therefore stale-by-plan; trimming is the first half-step of Task 6 step 8.
+Currently lists **five rows**: `@aihu/signals`, `@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`, and a "Combined runtime family". Only `signals/dist/index.js` will exist after Phase 2 — the other four paths fail the size-limit gate with "file not found" until Phases 3-5 ship. **Plan Task 6 step 8 (line 657-672) explicitly mandates trimming this to a single signals row** and reinstating others in Tasks 12 / 20 / 23 / 25. The current file is therefore stale-by-plan; trimming is the first half-step of Task 6 step 8.
 
 ### 1.3 Root `vitest.config.ts` aliases
 
 ```ts
-'@scribe/signals': new URL('./packages/signals/src/index.ts', ...).pathname
+'@aihu/signals': new URL('./packages/signals/src/index.ts', ...).pathname
 ```
 
 `packages/signals/src/index.ts` exists, so the alias resolves. Pattern repeats for arbor/runtime/agent — those still point at non-existent files. Vitest is fine with a missing alias target until something tries to import that name (none do today). **No action required for signals.**
@@ -67,13 +67,13 @@ Three lines commented out (lines 23, 25, 26):
       # - run: bun run size
 ```
 
-Comment on line 21 explicitly says: *"typecheck/build/size … are re-enabled in Phase 2 alongside @scribe/signals."* That re-enablement is the implicit final deliverable of Phase 2 (Task 11) and is **not** spelled out as a discrete step in the plan. The Architect should add it as a step in Task 11 or as Task 11.5.
+Comment on line 21 explicitly says: *"typecheck/build/size … are re-enabled in Phase 2 alongside @aihu/signals."* That re-enablement is the implicit final deliverable of Phase 2 (Task 11) and is **not** spelled out as a discrete step in the plan. The Architect should add it as a step in Task 11 or as Task 11.5.
 
 ---
 
 ## 2. Spec & plan synthesis
 
-### 2.1 What the spec demands of `@scribe/signals`
+### 2.1 What the spec demands of `@aihu/signals`
 
 Spec §7.4 (lines 216-226):
 
@@ -90,7 +90,7 @@ Spec §6.6 (lines 165-177): size budget is **~1.0 KB gz for signals** alone, **�
 
 Spec §2 (lines 25-29): "Node, Vite 8+, Rolldown are external pinned deps; everything above that floor is in-tree. Nuxt/Vue/UnJS/Nitro are reference shapes, not dependencies." — **No runtime dep on Vue or Solid is acceptable**, even for "compat".
 
-Spec §13 anti-goal (line 427): *"Make `@scribe/signals` a generic Observable library → no, keep it scribe-focused."* — pushes back against feature creep (no `subscribe()`, no `.subscribe`, no Observable interop in v0).
+Spec §13 anti-goal (line 427): *"Make `@aihu/signals` a generic Observable library → no, keep it aihu-focused."* — pushes back against feature creep (no `subscribe()`, no `.subscribe`, no Observable interop in v0).
 
 ### 2.2 What the plan prescribes for Phase 2
 
@@ -208,14 +208,14 @@ The plan most closely resembles **Preact signals** in semantics, with the **Soli
 - **R-T2 [HIGH]** TS5097: every `.ts` import in the scaffold + plan code samples fails typecheck because `tsconfig.base.json` has `verbatimModuleSyntax: true` + `moduleResolution: Bundler` and lacks `allowImportingTsExtensions: true`. Reproduced today on the existing `src/index.ts`. Fix: either add the compiler option or strip `.ts` extensions from imports throughout. The former is simpler (one line, all files); the latter touches every file in the plan.
 - **R-T3 [MED]** Rolldown is on `^1.0.0-rc.17` — release-candidate churn between rc.17 and 1.0 final could change config surface. Plan locks the rc; if a fresh `bun install` upgrades to a newer rc with breaking config, the scaffold may need adjustment.
 - **R-T4 [MED]** `rolldown-plugin-dts` is at `^0.23.2` — 0.x version, frequent breaking changes around TS resolver. If `dts()` can't resolve `./errors.ts` imports, build will fail even when tsc passes.
-- **R-T5 [LOW]** Vitest 2.x with `environment: 'jsdom'` is overkill for `@scribe/signals` (no DOM use) and adds startup cost. Not blocking, but wastes a few hundred ms per run.
+- **R-T5 [LOW]** Vitest 2.x with `environment: 'jsdom'` is overkill for `@aihu/signals` (no DOM use) and adds startup cost. Not blocking, but wastes a few hundred ms per run.
 - **R-T6 [LOW]** Builder worktree has no `node_modules`. Builder must run `bun install` from the worktree (or symlink) before any task in Phase 2. Bun's workspace hoisting *should* DTRT but git worktrees + bun is not battle-tested.
 
 ### 4.2 API design
 
-- **R-A1 [MED]** Plan's cycle behavior (throw) diverges from Vue (swallow). When `@scribe/signals` is later wrapped for Vue compat (sub-project #11), throwing on cycles is a stricter contract than Vue users expect — they may write code that Vue tolerates and Scribe rejects. Spec §10.2 says "Signal circular deps throw with chain context", so we're following spec — but flag for sub-project #11.
+- **R-A1 [MED]** Plan's cycle behavior (throw) diverges from Vue (swallow). When `@aihu/signals` is later wrapped for Vue compat (sub-project #11), throwing on cycles is a stricter contract than Vue users expect — they may write code that Vue tolerates and Aihu rejects. Spec §10.2 says "Signal circular deps throw with chain context", so we're following spec — but flag for sub-project #11.
 - **R-A2 [MED]** `SignalCircularError.chain` is declared as a meaningful array but plan implementation populates it with single-element literals (`['effect']`, `['computed']`). Either drop the field or thread real labels. Half-built fields rot.
-- **R-A3 [LOW]** Plan exposes `setCurrentObserver` and `peekCurrentObserver` as module-level mutable state. They're not re-exported from `index.ts`, but they are exported from `signal.ts` — so any package that does `import { setCurrentObserver } from '@scribe/signals/src/signal.ts'` breaks the encapsulation. Add `/** @internal */` or restructure.
+- **R-A3 [LOW]** Plan exposes `setCurrentObserver` and `peekCurrentObserver` as module-level mutable state. They're not re-exported from `index.ts`, but they are exported from `signal.ts` — so any package that does `import { setCurrentObserver } from '@aihu/signals/src/signal.ts'` breaks the encapsulation. Add `/** @internal */` or restructure.
 - **R-A4 [LOW]** `$state` returns `{ value: T }` plain object. There's no way to share the same cell across two `$state` instances or convert between `signal()` and `$state()` later. If the SFC compiler ever needs to bridge the two styles in one component, the cell-sharing story is undefined.
 
 ### 4.3 Size budget
@@ -251,19 +251,19 @@ After Phase 2 ships, all of the following must still pass:
 1. **Phase 1 CI**: `bunx biome ci .` — currently green.
 2. **Phase 1 CI**: `bun run test --coverage` — currently green via `passWithNoTests: true`. After Phase 2, this becomes "must run signals tests, not skip".
 3. **Root `tsconfig.json` include glob**: `["packages/*/src/**/*.ts", "packages/*/tests/**/*.ts", "tests/**/*.ts"]` (lines 1-7). Any future package's `src/` and `tests/` are picked up automatically; **don't narrow this**.
-4. **Root `vitest.config.ts` aliases** for `@scribe/{signals,arbor,runtime,agent}`. Each must keep resolving, even when only signals exists. (Stale aliases targeting absent files don't hurt vitest until something imports them.)
+4. **Root `vitest.config.ts` aliases** for `@aihu/{signals,arbor,runtime,agent}`. Each must keep resolving, even when only signals exists. (Stale aliases targeting absent files don't hurt vitest until something imports them.)
 5. **`.size-limit.json`** ends Phase 2 with **only the signals row enabled** (per plan §657-672). Re-enabling the other rows is the responsibility of Phases 3-5 (Tasks 12, 20, 23, 25).
 6. **`.github/workflows/plan-a.yml`** — must re-enable the three commented lines (`typecheck`, `build`, `size`) by end of Phase 2. Currently only `biome ci` and `test --coverage` run.
 7. **Root `package.json` engines/devDeps** — Phase 2 should NOT add new root devDeps; rolldown, tsc, vitest, biome, fast-check, size-limit are all already pinned. If Phase 2 needs to add a runtime dep, that's a red flag (the package should be zero-dep).
 8. **`bun.lock`** must remain frozen-installable in CI (`bun install --frozen-lockfile`). Any new dep changes lockfile hash; commit the regenerated lockfile.
-9. **`@scribe/signals/package.json` exports map** — externals must match: `import` path, `types` path, `files: ["dist"]`. Don't accidentally publish src/.
+9. **`@aihu/signals/package.json` exports map** — externals must match: `import` path, `types` path, `files: ["dist"]`. Don't accidentally publish src/.
 10. **Spec `<= 4096 bytes gz` family budget** — even though family-row is disabled in `.size-limit.json` during Phase 2, the contract holds for Phase 6. Builder must keep signals ≤ 1024 B so the budget downstream isn't pre-spent.
 
 ---
 
 ## Appendix A — File:line citations
 
-- Spec foundation floor language: `docs/superpowers/specs/2026-04-23-scribe-v0-vertical-slice-design.md:25-29`.
+- Spec foundation floor language: `docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md:25-29`.
 - Spec signal API: `…/2026-04-23-…md:148-161` (§6.5), `…:216-226` (§7.4).
 - Spec size budget: `…:165-177` (§6.6), `…:393` (§11.2 gate).
 - Spec runtime errors: `…:359-367` (§10.2).

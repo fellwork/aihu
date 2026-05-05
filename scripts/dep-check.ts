@@ -11,8 +11,8 @@ const packages = readdirSync(packagesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .map((d) => d.name)
 
-const ALLOWED_PEER_PATTERNS = ['@scribe/', 'vite']
-const ALLOWED_DEP_PATTERNS = ['@scribe/']
+const ALLOWED_PEER_PATTERNS = ['@aihu/', 'vite']
+const ALLOWED_DEP_PATTERNS = ['@aihu/']
 
 let pass = true
 

@@ -31,16 +31,16 @@ fn main() {
                     process::exit(1);
                 }
                 match args[i + 1].as_str() {
-                    "client" => scribe_compiler::BuildTarget::Client,
-                    "server" => scribe_compiler::BuildTarget::Server,
-                    "universal" => scribe_compiler::BuildTarget::Universal,
+                    "client" => aihu_compiler::BuildTarget::Client,
+                    "server" => aihu_compiler::BuildTarget::Server,
+                    "universal" => aihu_compiler::BuildTarget::Universal,
                     other => {
                         eprintln!("error: unknown --target '{}' (expected: client|server|universal)", other);
                         process::exit(1);
                     }
                 }
             }
-            None => scribe_compiler::BuildTarget::Universal,
+            None => aihu_compiler::BuildTarget::Universal,
         }
     };
 
@@ -76,7 +76,7 @@ fn main() {
         let file_path = match args.get(1) {
             Some(p) if !p.starts_with("--") => p.clone(),
             _ => {
-                eprintln!("usage: scribe-compile <file.scribe> [--out <dir>] [--target <client|server|universal>]");
+                eprintln!("usage: aihu-compile <file.aihu> [--out <dir>] [--target <client|server|universal>]");
                 process::exit(1);
             }
         };
@@ -100,7 +100,7 @@ fn main() {
         (src, stem, label, Some(path_copy))
     };
 
-    let parsed = scribe_compiler::sfc::parse_with_path(
+    let parsed = aihu_compiler::sfc::parse_with_path(
         &source,
         file_path_opt.as_deref(),
     ).unwrap_or_else(|e| {
@@ -108,7 +108,7 @@ fn main() {
         process::exit(1);
     });
 
-    let unit = scribe_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
+    let unit = aihu_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
@@ -121,7 +121,7 @@ fn main() {
         .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
         .unwrap_or(file_stem);
 
-    let result = scribe_compiler::emit(&unit, &tag_name);
+    let result = aihu_compiler::emit(&unit, &tag_name);
 
     match out_dir {
         Some(ref dir) => {

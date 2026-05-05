@@ -1,4 +1,4 @@
-# Spec — `@scribe/signals` cellx perf fix (Phase 2.5)
+# Spec — `@aihu/signals` cellx perf fix (Phase 2.5)
 
 **Author:** Architect
 **Date:** 2026-04-27
@@ -6,7 +6,7 @@
 **Status:** Final — Builder may consume.
 
 This spec is binding. It targets the Phase 2.5 builder-blocker
-(`.team/phase-2-5-builder-blockers.md`): scribe is 7.2× slower than
+(`.team/phase-2-5-builder-blockers.md`): aihu is 7.2× slower than
 alien-signals on cellx (5-deep diamond propagation) because every observed
 computed re-runs synchronously during the notify wave. The fix is internal
 to `computed.ts` plus a one-bit flag addition in `signal.ts`. Phase 2's

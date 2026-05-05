@@ -1,5 +1,5 @@
-declare module 'virtual:scribe-routes' {
-  import type { RouteDefinition } from '@scribe/router'
+declare module 'virtual:aihu-routes' {
+  import type { RouteDefinition } from '@aihu/router'
   const routes: RouteDefinition[]
   export default routes
 }

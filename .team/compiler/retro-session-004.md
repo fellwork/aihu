@@ -20,7 +20,7 @@ Commit: d7bd475
 
 ## What to improve
 
-**Parallel v1 track agents repeatedly hijacked the main checkout.** During this session, the branch was switched away from `feat/compiler-c3` at least 5 times by v1 worktree agents. The fix is consistent: Codex used a dedicated worktree (`C:\git\fellwork-worktrees\scribe-compiler-c3`) which isolated the Builder from the main checkout drift. This pattern should be the default for all future Builders.
+**Parallel v1 track agents repeatedly hijacked the main checkout.** During this session, the branch was switched away from `feat/compiler-c3` at least 5 times by v1 worktree agents. The fix is consistent: Codex used a dedicated worktree (`C:\git\fellwork-worktrees\aihu-compiler-c3`) which isolated the Builder from the main checkout drift. This pattern should be the default for all future Builders.
 
 **HashMap ordering caused a snapshot regression on `multiple_signals`.** The `signal_resolve__multiple_signals.snap` flipped `count`/`name` entry order between runs — HashMap is unordered. Fix: re-accepted with `INSTA_UPDATE=always`. Mitigation for future phases: use `BTreeMap` instead of `HashMap` in `SignalMap` if ordering stability is required, OR accept that insta snapshots for HashMap-backed types may need re-acceptance on ordering changes.
 
@@ -50,11 +50,11 @@ Commit: d7bd475
 **C-3 complete.** `emit(unit, tag_name)` produces correct TypeScript from any `CompileUnit`. All 11 Phase C-3 criteria verified (C3-2 skipped — bun tsc not in test environment; open gate for pre-merge).
 
 **C-4 scope (CLI + Vite):**
-- `scribe-compile` binary: `cargo run -- counter.scribe` → TypeScript to stdout
+- `aihu-compile` binary: `cargo run -- counter.aihu` → TypeScript to stdout
 - `--out dist/` flag: write to `dist/counter.ts`
 - Exit code 1 + `file:line: message` to stderr on `CompileError`
-- `@scribe/compiler` npm package: `transform(source, id) -> { code, map }` for Vite
-- Vite plugin registered for `*.scribe` files
+- `@aihu/compiler` npm package: `transform(source, id) -> { code, map }` for Vite
+- Vite plugin registered for `*.aihu` files
 - `bun vite build` integration test
 
 **Tag name derivation** (needed for C-4): filename stem from the `id` parameter in the Vite transform. The `compile_full()` + `emit()` pipeline is already complete; C-4 adds the CLI binary and npm packaging layer.

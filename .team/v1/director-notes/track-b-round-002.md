@@ -2,7 +2,7 @@
 **Date:** 2026-04-30
 **Track:** `track-b`
 **Topic:** v1 Context + Data packages
-**Plans in scope:** 2.1 (`@scribe/context`) + 2.2 (`@scribe/data`)
+**Plans in scope:** 2.1 (`@aihu/context`) + 2.2 (`@aihu/data`)
 **Branch:** `feat/v1-context` (Plan 2.1); `feat/v1-data` (Plan 2.2, sequential)
 **Round:** 2 — Post-Scout, Post-OQ-V3 ratification
 
@@ -12,13 +12,13 @@
 
 The Scout report is complete and clean. Key findings assessed below.
 
-### 1a. Signal consumption pattern — is `Array.isArray` + `value[0]()` the right model for `@scribe/context`?
+### 1a. Signal consumption pattern — is `Array.isArray` + `value[0]()` the right model for `@aihu/context`?
 
-No — and this is an important distinction. The `Array.isArray(value)` + `value[0]()` pattern is **arbor's internal materialization guard**, used when a `Signal<T>` (which is a `readonly [Read<T>, Write<T>]` tuple) is passed as a reactive text node or attribute value to the DOM layer. It is not part of `@scribe/context`'s public contract.
+No — and this is an important distinction. The `Array.isArray(value)` + `value[0]()` pattern is **arbor's internal materialization guard**, used when a `Signal<T>` (which is a `readonly [Read<T>, Write<T>]` tuple) is passed as a reactive text node or attribute value to the DOM layer. It is not part of `@aihu/context`'s public contract.
 
-`@scribe/context` does not need to detect signals by `Array.isArray`. Context tokens hold arbitrary values. If a caller does `provide(ThemeToken, signal('dark'))` they are passing a `Signal<string>` tuple as the context value, and the injecting component receives that tuple back via `inject(ThemeToken)`. The consumer then handles it as a `Signal<T>` through normal patterns — `inject` returns whatever was `provide`d, typed as `T`.
+`@aihu/context` does not need to detect signals by `Array.isArray`. Context tokens hold arbitrary values. If a caller does `provide(ThemeToken, signal('dark'))` they are passing a `Signal<string>` tuple as the context value, and the injecting component receives that tuple back via `inject(ThemeToken)`. The consumer then handles it as a `Signal<T>` through normal patterns — `inject` returns whatever was `provide`d, typed as `T`.
 
-The context API shape therefore does NOT mirror arbor's materialization pattern. It mirrors the signal import/export pattern: typed tokens, typed return values, no `Array.isArray` guards inside `@scribe/context` source.
+The context API shape therefore does NOT mirror arbor's materialization pattern. It mirrors the signal import/export pattern: typed tokens, typed return values, no `Array.isArray` guards inside `@aihu/context` source.
 
 **Decision confirmed:** `inject<T>(token)` returns `T` (whatever was provided), not `Signal<T>` unconditionally. Callers who want reactivity provide a `Signal<T>`; callers who want a plain value provide a plain value. This matches `spec-v1-architecture.md §7` and the ratified §12 OQ-V3 intent. The Architect brief below encodes this precisely.
 
@@ -26,7 +26,7 @@ The context API shape therefore does NOT mirror arbor's materialization pattern.
 
 The Scout confirmed that `runLoader` is **not re-exported from `packages/server/src/index.ts`** — only `defineLoader` is public. This is a minor inconsistency (tests import from the internal path `../src/data.ts` directly) but it does NOT matter for Plan 2.2.
 
-`@scribe/data`'s `createResource` is the **client-side** primitive. It calls `fetcher()` directly — it does not import from `@scribe/server` at all. The hard boundary (browser packages never import from server packages) is enforced. `runLoader` is a server-only execution wrapper; `createResource` has no reason to call it.
+`@aihu/data`'s `createResource` is the **client-side** primitive. It calls `fetcher()` directly — it does not import from `@aihu/server` at all. The hard boundary (browser packages never import from server packages) is enforced. `runLoader` is a server-only execution wrapper; `createResource` has no reason to call it.
 
 The only naming alignment needed is that `LoaderResult<T>` (`{ data, error?, status }`) and the client's `DataState<T>` discriminated union be compatible in shape for SSR dehydration. The ratified spec §12 OQ-V6 defines the dehydration JSON as `{ "resources": { "<key>": <DataState entry> } }`. The Architect must explicitly align these shapes in `spec-2.2-data.md`.
 
@@ -36,11 +36,11 @@ The only naming alignment needed is that `LoaderResult<T>` (`{ data, error?, sta
 
 Three Scout findings have design implications:
 
-**C1 — `mount()` has no options parameter today.** The ratified OQ-V3 specifies that the browser context model uses a module-level `_activeContextMap` slot in arbor (parallel to `_activeMountDisposers`). This requires arbor to expose a minimal hook that `@scribe/context` reads and writes. The Scout confirmed `mount()` does not need to change for this — the push/pop is managed by `provide()`/`inject()` through the shared slot, orthogonal to `mount()`'s two-argument signature. **No arbor change needed for Plan 2.1.**
+**C1 — `mount()` has no options parameter today.** The ratified OQ-V3 specifies that the browser context model uses a module-level `_activeContextMap` slot in arbor (parallel to `_activeMountDisposers`). This requires arbor to expose a minimal hook that `@aihu/context` reads and writes. The Scout confirmed `mount()` does not need to change for this — the push/pop is managed by `provide()`/`inject()` through the shared slot, orthogonal to `mount()`'s two-argument signature. **No arbor change needed for Plan 2.1.**
 
-**C2 — `vitest.config.ts` uses `jsdom` globally.** All existing tests run under jsdom. `@scribe/context` is nominally DOM-free for SSR, but its tests will run under jsdom anyway. This is acceptable — the Architect should specify at least two test cases using the `@vitest-environment node` docblock to prove DOM-freedom, alongside the standard jsdom test suite. Not a blocker.
+**C2 — `vitest.config.ts` uses `jsdom` globally.** All existing tests run under jsdom. `@aihu/context` is nominally DOM-free for SSR, but its tests will run under jsdom anyway. This is acceptable — the Architect should specify at least two test cases using the `@vitest-environment node` docblock to prove DOM-freedom, alongside the standard jsdom test suite. Not a blocker.
 
-**C3 — `@scribe/agent` is 56 B over its size limit (100 B limit, 156 B actual).** This is pre-existing defect F-1 from the ratified spec §13. It blocks `bun run size` on any build touching `.size-limit.json`. The Plan 2.1 Architect brief must include raising the agent limit to 200 B as part of the `.size-limit.json` patch when adding the context row, or the Builder's CI will fail. **Include agent limit fix in Plan 2.1 scope.**
+**C3 — `@aihu/agent` is 56 B over its size limit (100 B limit, 156 B actual).** This is pre-existing defect F-1 from the ratified spec §13. It blocks `bun run size` on any build touching `.size-limit.json`. The Plan 2.1 Architect brief must include raising the agent limit to 200 B as part of the `.size-limit.json` patch when adding the context row, or the Builder's CI will fail. **Include agent limit fix in Plan 2.1 scope.**
 
 **C4 — `moon.yml` has no `tasks` section in any package.** New packages should follow the same no-tasks pattern. The `dependsOn` array is the only addition needed for inter-package dependency ordering. Confirmed.
 
@@ -53,10 +53,10 @@ Three Scout findings have design implications:
 The Track D Architect ratified OQ-V3 in `spec-v1-architecture-ratified.md` §12. The ratified decision is a render-scoped context map, with the following two-mode implementation:
 
 **Browser (client) model:**
-`provide()` and `inject()` operate via a module-level `_activeContextMap` slot maintained by arbor during `mount()` calls. This is effectively a module-level implicit stack — the same pattern as the "Option A" described in the Round 1 director note. The slot push/pop is synchronous and scoped to the component setup phase. `@scribe/context` reads and writes this slot; arbor exposes it as a minimal internal hook.
+`provide()` and `inject()` operate via a module-level `_activeContextMap` slot maintained by arbor during `mount()` calls. This is effectively a module-level implicit stack — the same pattern as the "Option A" described in the Round 1 director note. The slot push/pop is synchronous and scoped to the component setup phase. `@aihu/context` reads and writes this slot; arbor exposes it as a minimal internal hook.
 
 **SSR model:**
-`renderToString` / `renderToStream` accept `contextMap?: ReadonlyMap<unknown, unknown>` in `SsrOptions`. The SSR renderer calls `setSsrContextMap(map)` from `@scribe/context` via an optional `contextSetup?` hook in `SsrOptions`, before walking the virtual tree. `inject()` during SSR reads from the SSR-scoped map rather than the module-level slot. `setSsrContextMap(null)` is called after rendering to clear state.
+`renderToString` / `renderToStream` accept `contextMap?: ReadonlyMap<unknown, unknown>` in `SsrOptions`. The SSR renderer calls `setSsrContextMap(map)` from `@aihu/context` via an optional `contextSetup?` hook in `SsrOptions`, before walking the virtual tree. `inject()` during SSR reads from the SSR-scoped map rather than the module-level slot. `setSsrContextMap(null)` is called after rendering to clear state.
 
 **Reconciliation note (prompt framing vs. ratified spec):**
 The OQ-V3 pre-decision in this prompt described the browser path as "module-level implicit stack during synchronous execution" and SSR as `runWithContext(map, fn)`. The ratified spec uses slightly different terminology (`_activeContextMap` slot, `setSsrContextMap`, `contextSetup` hook) but these are the same semantic model. The Architect brief below uses the ratified spec's exact terminology, which is the authoritative document. `runWithContext` is not the exported name; `setSsrContextMap` is. The Architect must use the ratified spec's naming.
@@ -65,7 +65,7 @@ The OQ-V3 pre-decision in this prompt described the browser path as "module-leve
 Scout finding D4 explicitly confirmed that `mount()` does not need to change for the module-level stack approach. The context slot is orthogonal to the materialization/disposal lifecycle. `mount()` remains `mount(node: Node, host: Element | ShadowRoot): MountScope`.
 
 **Impact on arbor — one minimal addition:**
-Arbor must expose the `_activeContextMap` slot so `@scribe/context` can read/write it during component setup. This is a one-line internal export — a `let _activeContextMap: Map<unknown, unknown> | null = null` with a corresponding getter/setter. The Plan 2.1 Architect brief specifies the exact surface needed from arbor. This is a small, targeted arbor touch — not a reconiliation or structural change. It belongs in the Plan 2.1 PR (not a separate arbor PR) because it is zero-behavior-change from arbor's perspective.
+Arbor must expose the `_activeContextMap` slot so `@aihu/context` can read/write it during component setup. This is a one-line internal export — a `let _activeContextMap: Map<unknown, unknown> | null = null` with a corresponding getter/setter. The Plan 2.1 Architect brief specifies the exact surface needed from arbor. This is a small, targeted arbor touch — not a reconiliation or structural change. It belongs in the Plan 2.1 PR (not a separate arbor PR) because it is zero-behavior-change from arbor's perspective.
 
 ---
 
@@ -123,7 +123,7 @@ inject<T>(token: ContextToken<T>): T | undefined
 
 If `createContext<T>(defaultValue)` was called with a default value, `inject()` returns that default when no provider is in scope. If no default was given and no provider exists, `inject()` returns `undefined`. It does NOT throw by default.
 
-Rationale: `plan-v1-roadmap.md §2.1` states "Throws `ContextError` if no provider and no default value" — but this conflicts with general DX practice for context APIs (React, Vue, Svelte all return undefined/undefined-typed by default and leave the throw to application code). The throw model in the roadmap was written before OQ-V3 was resolved and before the scout confirmed the API shape. The safer, composable choice is `T | undefined` return. Components that must have a provider can do: `const val = inject(token); if (val === undefined) throw new ContextError(...)` in their own setup. This keeps `@scribe/context` itself non-throwing and easy to test.
+Rationale: `plan-v1-roadmap.md §2.1` states "Throws `ContextError` if no provider and no default value" — but this conflicts with general DX practice for context APIs (React, Vue, Svelte all return undefined/undefined-typed by default and leave the throw to application code). The throw model in the roadmap was written before OQ-V3 was resolved and before the scout confirmed the API shape. The safer, composable choice is `T | undefined` return. Components that must have a provider can do: `const val = inject(token); if (val === undefined) throw new ContextError(...)` in their own setup. This keeps `@aihu/context` itself non-throwing and easy to test.
 
 **Override:** If the team has strong preference for the throw model, the Architect may define an overload: `inject<T>(token, { required: true }): T` that throws `ContextError`. But the default must be `T | undefined`.
 
@@ -203,7 +203,7 @@ Note: `spec-v1-architecture-ratified.md §6` shows an alternative shape with `.d
 
 The top-level key is `"resources"`. Sub-keys are the resolved string values of each resource's key signal at SSR time. Only resources with `{ dehydrate: true }` in their `ResourceOptions` are included. The value for each key is a `DataState<T>` entry (only `ready` state is emitted — resources that are `loading` or `error` at SSR time are not serialized).
 
-This is emitted into `<script type="application/json" id="__scribe_state__">`, which already exists in `ssr.ts`. The `SsrOptions.serializer` hook is the injection point — `@scribe/data` provides a `createResourceSerializer(store)` function that returns a `() => Record<string, unknown>` compatible with the existing `serializer` field.
+This is emitted into `<script type="application/json" id="__aihu_state__">`, which already exists in `ssr.ts`. The `SsrOptions.serializer` hook is the injection point — `@aihu/data` provides a `createResourceSerializer(store)` function that returns a `() => Record<string, unknown>` compatible with the existing `serializer` field.
 
 ### Gap 5: Fetcher signature
 
@@ -217,7 +217,7 @@ The key is passed to the fetcher as its argument, not closed over. This enables 
 
 ---
 
-## 5. Architect brief for Plan 2.1 (`@scribe/context`)
+## 5. Architect brief for Plan 2.1 (`@aihu/context`)
 
 **Assignment:** Write `spec-2.1-context.md` in `.team/v1/`.
 
@@ -278,7 +278,7 @@ export function inject<T>(token: ContextToken<T>): T | undefined
 /**
  * Called by renderToString/renderToStream (via SsrOptions.contextSetup) before
  * and after SSR rendering. Pass null to clear.
- * @internal — not re-exported from the public barrel, but accessible to @scribe/server
+ * @internal — not re-exported from the public barrel, but accessible to @aihu/server
  */
 export function setSsrContextMap(map: ReadonlyMap<symbol, unknown> | null): void
 
@@ -294,13 +294,13 @@ export function runWithContext<R>(map: ContextMap, fn: () => R): R
 **The public barrel (`src/index.ts`) exports:**
 `createContext`, `provide`, `inject`, `runWithContext`, `ContextToken` (type), `ContextMap` (type).
 
-`setSsrContextMap` is exported from `src/ssr.ts` as a named export but NOT re-exported from the barrel. It is accessed by `@scribe/server` via a direct path import (`@scribe/context/ssr`) or via the `contextSetup` hook mechanism in `SsrOptions`. The Architect must decide and document which mechanism — the `contextSetup` hook (as specified in the ratified spec) is preferred because it preserves the hard package boundary without path-importing internals.
+`setSsrContextMap` is exported from `src/ssr.ts` as a named export but NOT re-exported from the barrel. It is accessed by `@aihu/server` via a direct path import (`@aihu/context/ssr`) or via the `contextSetup` hook mechanism in `SsrOptions`. The Architect must decide and document which mechanism — the `contextSetup` hook (as specified in the ratified spec) is preferred because it preserves the hard package boundary without path-importing internals.
 
 ---
 
 ### 5.2 Module-level stack implementation approach
 
-The browser context system uses **two cooperating module-level variables** in `@scribe/context`:
+The browser context system uses **two cooperating module-level variables** in `@aihu/context`:
 
 ```typescript
 // packages/context/src/state.ts (internal, not exported)
@@ -345,14 +345,14 @@ export function inject<T>(token: ContextToken<T>): T | undefined {
 
 **Arbor integration — the `_activeContextMap` hook:**
 
-Arbor must expose a minimal hook so `@scribe/context` can activate the context map during component setup. This requires one small addition to `packages/arbor/src/`:
+Arbor must expose a minimal hook so `@aihu/context` can activate the context map during component setup. This requires one small addition to `packages/arbor/src/`:
 
 ```typescript
 // packages/arbor/src/context-hook.ts (new internal file)
 
-// The active context map. Set by @scribe/context before calling setup().
-// Cleared by @scribe/context after setup() completes.
-// @scribe/context is the only writer. Arbor never reads this.
+// The active context map. Set by @aihu/context before calling setup().
+// Cleared by @aihu/context after setup() completes.
+// @aihu/context is the only writer. Arbor never reads this.
 export let _activeContextMap: Map<symbol, unknown> | null = null
 
 export function setActiveContextMap(map: Map<symbol, unknown> | null): void {
@@ -360,11 +360,11 @@ export function setActiveContextMap(map: Map<symbol, unknown> | null): void {
 }
 ```
 
-`@scribe/context` imports `setActiveContextMap` from `@scribe/arbor/src/context-hook.ts`. Before a component's setup function runs (triggered by arbor's `mount()`), `@scribe/context` sets the active map. After setup completes, it clears it.
+`@aihu/context` imports `setActiveContextMap` from `@aihu/arbor/src/context-hook.ts`. Before a component's setup function runs (triggered by arbor's `mount()`), `@aihu/context` sets the active map. After setup completes, it clears it.
 
-**Architect clarification required:** The exact trigger point for "before setup runs" needs to be specified. The Architect must answer: does arbor call a lifecycle hook (e.g., `onBeforeSetup`) that `@scribe/context` registers with, or does `@scribe/context` wrap `mount()` at the call site? The cleanest answer given the existing architecture is that **arbor itself does not call any hook** — instead, the runtime (`@scribe/runtime`'s `defineComponent`) is responsible for calling `setActiveContextMap(new Map())` before invoking `setup(ctx)` and `setActiveContextMap(null)` after. This keeps the coupling surface small: only the runtime needs to know about context map activation, not arbor itself.
+**Architect clarification required:** The exact trigger point for "before setup runs" needs to be specified. The Architect must answer: does arbor call a lifecycle hook (e.g., `onBeforeSetup`) that `@aihu/context` registers with, or does `@aihu/context` wrap `mount()` at the call site? The cleanest answer given the existing architecture is that **arbor itself does not call any hook** — instead, the runtime (`@aihu/runtime`'s `defineComponent`) is responsible for calling `setActiveContextMap(new Map())` before invoking `setup(ctx)` and `setActiveContextMap(null)` after. This keeps the coupling surface small: only the runtime needs to know about context map activation, not arbor itself.
 
-The Architect must specify this integration point precisely. If the runtime path is chosen, `@scribe/context`'s dependency graph is `@scribe/context → @scribe/signals` only (no arbor dep needed), and the runtime (`@scribe/runtime`) gains a peer dep on `@scribe/context`. This is cleaner than the ratified spec's implicit arbor-coupling and should be the Architect's recommendation unless a clear reason to prefer the arbor-hook model exists.
+The Architect must specify this integration point precisely. If the runtime path is chosen, `@aihu/context`'s dependency graph is `@aihu/context → @aihu/signals` only (no arbor dep needed), and the runtime (`@aihu/runtime`) gains a peer dep on `@aihu/context`. This is cleaner than the ratified spec's implicit arbor-coupling and should be the Architect's recommendation unless a clear reason to prefer the arbor-hook model exists.
 
 ---
 
@@ -388,7 +388,7 @@ export interface SsrOptions {
   /**
    * Optional hook called before the render walk begins, with the context map
    * (if any) already loaded. Use to call setSsrContextMap() or runWithContext().
-   * @scribe/context's integration uses this hook.
+   * @aihu/context's integration uses this hook.
    */
   readonly contextSetup?: () => void
 }
@@ -412,11 +412,11 @@ try {
 }
 ```
 
-`setSsrContextMap` in `@scribe/context` is not imported by `@scribe/server` directly (hard boundary: server must not import browser packages). Instead, the `contextSetup` hook carries the call. The application's entry point wires them:
+`setSsrContextMap` in `@aihu/context` is not imported by `@aihu/server` directly (hard boundary: server must not import browser packages). Instead, the `contextSetup` hook carries the call. The application's entry point wires them:
 
 ```typescript
-// In the application server entry (not in any scribe package):
-import { setSsrContextMap } from '@scribe/context/ssr'
+// In the application server entry (not in any aihu package):
+import { setSsrContextMap } from '@aihu/context/ssr'
 
 const map = new Map()
 map.set(ThemeToken._id, 'dark')
@@ -425,10 +425,10 @@ renderToString(component, {
 })
 ```
 
-**Alternatively** (simpler for callers), `runWithContext` from `@scribe/context` wraps this:
+**Alternatively** (simpler for callers), `runWithContext` from `@aihu/context` wraps this:
 
 ```typescript
-import { runWithContext } from '@scribe/context'
+import { runWithContext } from '@aihu/context'
 
 const html = await runWithContext(map, () => renderToString(component, opts))
 ```
@@ -443,7 +443,7 @@ The Architect must specify which pattern is the documented primary API and which
 
 Minimal. The Architect must document this as part of the Plan 2.1 PR scope (not a separate arbor PR):
 
-If the runtime-integration path is selected (recommended above in §5.2): **zero arbor changes needed.** The runtime calls `setActiveContextMap` from `@scribe/context` before/after setup.
+If the runtime-integration path is selected (recommended above in §5.2): **zero arbor changes needed.** The runtime calls `setActiveContextMap` from `@aihu/context` before/after setup.
 
 If the arbor-hook path is selected (as originally sketched in the ratified spec): one new internal file `packages/arbor/src/context-hook.ts` exporting `setActiveContextMap`. No changes to existing arbor files.
 
@@ -458,7 +458,7 @@ The Builder must create the following from scratch (no existing `packages/contex
 ```
 packages/context/
   package.json
-    name: "@scribe/context"
+    name: "@aihu/context"
     version: "0.0.0"
     type: "module"
     main: "./dist/index.js"
@@ -471,8 +471,8 @@ packages/context/
     sideEffects: false
     scripts: { build: "rolldown -c", typecheck: "tsc --noEmit" }
     dependencies:
-      "@scribe/signals": "workspace:*"
-      (+ "@scribe/arbor": "workspace:*" only if arbor-hook path selected)
+      "@aihu/signals": "workspace:*"
+      (+ "@aihu/arbor": "workspace:*" only if arbor-hook path selected)
 
   tsconfig.json
     extends: "../../tsconfig.base.json"
@@ -496,7 +496,7 @@ packages/context/
 
   src/
     index.ts     — public barrel (createContext, provide, inject, runWithContext, types)
-    ssr.ts       — setSsrContextMap (not in main barrel, but exported as @scribe/context/ssr)
+    ssr.ts       — setSsrContextMap (not in main barrel, but exported as @aihu/context/ssr)
     types.ts     — ContextToken<T>, ContextMap
     state.ts     — internal _activeMap, _ssrMap (not exported)
 
@@ -508,12 +508,12 @@ packages/context/
 
 1. `vitest.config.ts` — add alias:
    ```
-   '@scribe/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname
+   '@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname
    ```
 
 2. `.size-limit.json` — two changes in one PR:
-   - Raise `@scribe/agent` limit from `"100 B"` to `"200 B"` (fixes pre-existing F-1 defect)
-   - Add new row: `{ "name": "@scribe/context", "path": "packages/context/dist/index.js", "limit": "300 B", "gzip": true }`
+   - Raise `@aihu/agent` limit from `"100 B"` to `"200 B"` (fixes pre-existing F-1 defect)
+   - Add new row: `{ "name": "@aihu/context", "path": "packages/context/dist/index.js", "limit": "300 B", "gzip": true }`
 
 ---
 
@@ -542,7 +542,7 @@ At least tests 9 and 10 should use `/* @vitest-environment node */` docblock to 
 - `readonly contextMap?: ReadonlyMap<unknown, unknown>`
 - `readonly contextSetup?: () => void`
 
-These are additive, backward-compatible. Existing callers without context needs pass neither field and the behavior is unchanged. The `contextSetup` hook is the boundary-preserving path. The Plan 2.1 PR may include this change in `@scribe/server` if the Architect determines it is safe to do so without a separate server PR; since the change is purely additive to a `readonly` interface, it is safe to bundle.
+These are additive, backward-compatible. Existing callers without context needs pass neither field and the behavior is unchanged. The `contextSetup` hook is the boundary-preserving path. The Plan 2.1 PR may include this change in `@aihu/server` if the Architect determines it is safe to do so without a separate server PR; since the change is purely additive to a `readonly` interface, it is safe to bundle.
 
 ---
 
@@ -552,14 +552,14 @@ Output: `.team/v1/spec-2.1-context.md`
 
 The spec must cover:
 - Public API surface (TypeScript interfaces and function signatures, as specified above)
-- Dependency graph: which packages `@scribe/context` imports from
+- Dependency graph: which packages `@aihu/context` imports from
 - Internal module structure (`types.ts`, `state.ts`, `ssr.ts`, `index.ts`)
 - Browser integration path (module-level maps, interaction with runtime's setup invocation)
 - SSR integration path (`setSsrContextMap`, `runWithContext`, `SsrOptions.contextSetup`)
 - Package infra (package.json, rolldown.config.ts, moon.yml, vitest alias)
 - Size budget: target 200 B, limit 300 B gzip
 - Test list (minimum 10 cases from §5.6)
-- Do-not-break list: no changes to `@scribe/signals`, `@scribe/arbor` public surface, `@scribe/runtime` public surface; `@scribe/server/src/ssr.ts` receives only additive changes
+- Do-not-break list: no changes to `@aihu/signals`, `@aihu/arbor` public surface, `@aihu/runtime` public surface; `@aihu/server/src/ssr.ts` receives only additive changes
 
 The spec does NOT need to cover Plan 2.2 — that is a separate spec document.
 

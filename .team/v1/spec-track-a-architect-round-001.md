@@ -176,7 +176,7 @@ export function _mountEffect(
   })
   // Note: when errorHandler disposes from within the effect body,
   // the dispose reference is already captured. Calling dispose() inside
-  // the effect is safe in @scribe/signals' effect model (idempotent).
+  // the effect is safe in @aihu/signals' effect model (idempotent).
   disposers.push(() => {
     _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
     dispose()
@@ -198,7 +198,7 @@ export type { ..., MountOptions, ErrorHandler } from './types.ts'
 
 ### 1.7 Size estimate
 
-**`@scribe/arbor` additions:**
+**`@aihu/arbor` additions:**
 
 | Addition | Estimated gz delta |
 |---|---|
@@ -210,7 +210,7 @@ export type { ..., MountOptions, ErrorHandler } from './types.ts'
 
 Current arbor gz: 1329 B. After Plan 4.2: ~1469 B. Budget: 2048 B. **Headroom remaining: ~579 B.**
 
-**`@scribe/runtime` additions:**
+**`@aihu/runtime` additions:**
 
 None in Plan 4.2. `defineComponent` does not change (error handling is purely opt-in at `mount()` call time).
 
@@ -483,7 +483,7 @@ if (node.kind === 'structural') {
 
 ### 2.7 Size estimate
 
-**`@scribe/arbor` additions for Plan 1.1:**
+**`@aihu/arbor` additions for Plan 1.1:**
 
 | Addition | Estimated gz delta |
 |---|---|
@@ -572,9 +572,9 @@ const Counter = defineComponent({
 
 - **Option A (whole-record signal):** `ctx.attrs` as `Signal<Record<string, string>>` means every attribute change invalidates every consumer of the record signal, even if only one attribute changed. This is a reactivity anti-pattern — defeats fine-grained updates. Rejected.
 
-- **Option B (per-attribute signal, chosen):** One signal per declared attribute. An attr change only invalidates effects that read that specific attr's signal. Matches the fine-grained reactivity model of `@scribe/signals`. The setup function can destructure: `const { count, label } = ctx.attrs` and pass each signal independently to arbor nodes.
+- **Option B (per-attribute signal, chosen):** One signal per declared attribute. An attr change only invalidates effects that read that specific attr's signal. Matches the fine-grained reactivity model of `@aihu/signals`. The setup function can destructure: `const { count, label } = ctx.attrs` and pass each signal independently to arbor nodes.
 
-- **Option C (callback):** `onAttrChange(name, value)` is an imperative callback. It does not compose with `@scribe/signals`'s reactive model — you cannot pass a callback as an `AttrMap` value. Rejected.
+- **Option C (callback):** `onAttrChange(name, value)` is an imperative callback. It does not compose with `@aihu/signals`'s reactive model — you cannot pass a callback as an `AttrMap` value. Rejected.
 
 - **Option D (zero-runtime, types only):** Would require `attributeChangedCallback` to write to a plain reactive object, which still needs signals under the hood to propagate changes. Option D is Option B with the types hidden. Rejected for confusion.
 
@@ -622,7 +622,7 @@ export interface SetupContext {
 
 **The existing `Setup` type (`(ctx: SetupContext) => Branch | Leaf`) is unchanged.** The options-form setup function receives `SetupContext & AttrContext<A>`, which is a strict supertype of `SetupContext` — a function accepting the intersection is assignable to both.
 
-**Consuming `Signal<string>` type in `runtime/src/types.ts`:** `Signal<string>` is imported as `import type { Signal } from '@scribe/signals'`. This is a type-only import — zero runtime cost, zero bytes in the bundle per the existing pattern.
+**Consuming `Signal<string>` type in `runtime/src/types.ts`:** `Signal<string>` is imported as `import type { Signal } from '@aihu/signals'`. This is a type-only import — zero runtime cost, zero bytes in the bundle per the existing pattern.
 
 ---
 
@@ -644,7 +644,7 @@ This must be `static` on the class body. TypeScript class syntax supports `stati
 
 ### 3.5 Size estimate
 
-**`@scribe/runtime` additions for Plan 1.2:**
+**`@aihu/runtime` additions for Plan 1.2:**
 
 | Addition | Estimated gz delta |
 |---|---|
@@ -659,7 +659,7 @@ This must be `static` on the class body. TypeScript class syntax supports `stati
 
 Current runtime gz: 504 B. After Plan 1.2: ~684 B. Budget: 1024 B. **Headroom remaining: ~340 B.**
 
-Note: this estimate assumes Signal creation uses the existing `signal()` import from `@scribe/signals`. Per spec §2.4 runtime has zero source-level value imports from `@scribe/arbor`, but `@scribe/signals` is a declared peerDependency. `_setMount` is already injected; `signal` can be imported directly since `@scribe/signals` is listed in `peerDependencies`. Alternatively, `signal` can be injected via a `_setSignal` pattern parallel to `_setMount`. **Decision: inject via `_setSignal(signal)` at app boot**, consistent with the existing `_setMount` pattern. This preserves the structural independence of `@scribe/runtime` from any build-time resolution of `@scribe/signals`.
+Note: this estimate assumes Signal creation uses the existing `signal()` import from `@aihu/signals`. Per spec §2.4 runtime has zero source-level value imports from `@aihu/arbor`, but `@aihu/signals` is a declared peerDependency. `_setMount` is already injected; `signal` can be imported directly since `@aihu/signals` is listed in `peerDependencies`. Alternatively, `signal` can be injected via a `_setSignal` pattern parallel to `_setMount`. **Decision: inject via `_setSignal(signal)` at app boot**, consistent with the existing `_setMount` pattern. This preserves the structural independence of `@aihu/runtime` from any build-time resolution of `@aihu/signals`.
 
 The `_setSignal` injection adds ~15 B gz to the estimate above → revised total ~195 B. Headroom: ~325 B.
 
@@ -678,7 +678,7 @@ The `.team/v1/` directory has no existing `plan-v1-roadmap.md`. The following cr
 - [ ] When `onError` is not provided and `_materialize` throws, the error propagates normally (no swallowing)
 - [ ] After a reactive effect throws and calls `onError`, that effect is disposed (no further calls for that binding)
 - [ ] `mount(node, host)` call sites (no options) are unaffected — no regression
-- [ ] `bun run size` — `@scribe/arbor` ≤ 2048 B gz passes
+- [ ] `bun run size` — `@aihu/arbor` ≤ 2048 B gz passes
 - [ ] `bun run test` — all pre-existing tests pass; minimum 4 new tests in `packages/arbor/tests/mount.test.ts`
 
 **New test cases (minimum 4):**
@@ -703,7 +703,7 @@ The `.team/v1/` directory has no existing `plan-v1-roadmap.md`. The following cr
 - [ ] Signal update reordering items → DOM order matches new key order; no old scopes recreated
 - [ ] `when`/`each` nested inside `mount()` — `_activeMountDisposers` stack push-pop is correct (no overwrite)
 - [ ] `when` nested inside `each` child — path keys correctly extend (e.g. `0.3.list.foo.0.conditional`)
-- [ ] `bun run size` — `@scribe/arbor` ≤ 2048 B gz passes (watch carefully — ~4 B headroom after 4.2)
+- [ ] `bun run size` — `@aihu/arbor` ≤ 2048 B gz passes (watch carefully — ~4 B headroom after 4.2)
 - [ ] `bun run test` — all pre-existing tests pass; minimum 12 new tests in `packages/arbor/tests/structural.test.ts`
 
 ### Plan 1.2 — Component Props
@@ -713,9 +713,9 @@ The `.team/v1/` directory has no existing `plan-v1-roadmap.md`. The following cr
 - [ ] `defineComponent({ attrs: ['count'] as const, setup })` — returns a class with `static observedAttributes = ['count']`
 - [ ] `wrapClass` wraps the returned class → `observedAttributes` inherited (existing test 4 still passes)
 - [ ] `attributeChangedCallback('count', null, '5')` called after connect → `ctx.attrs.count` signal reads `'5'`
-- [ ] Signal returned via `ctx.attrs.count` is a valid `@scribe/signals` `Signal<string>` (can be passed to `leaf(signal)`)
+- [ ] Signal returned via `ctx.attrs.count` is a valid `@aihu/signals` `Signal<string>` (can be passed to `leaf(signal)`)
 - [ ] `_setSignal(signal)` must be called before any element with `attrs` connects; throws `RuntimeError` if not
-- [ ] `bun run size` — `@scribe/runtime` ≤ 1024 B gz passes
+- [ ] `bun run size` — `@aihu/runtime` ≤ 1024 B gz passes
 - [ ] `bun run test` — all pre-existing tests pass; minimum 6 new tests in `packages/runtime/tests/define-component.test.ts`
 
 ---
@@ -726,7 +726,7 @@ The Builder must observe these constraints derived from the existing implementat
 
 **From `packages/arbor/src/mount.ts`:**
 1. The `_rootIdCounter` module-level counter is not reset between tests — tests must account for non-zero root IDs in path assertions, or use path-prefix matching rather than exact equality.
-2. `_mountEffect`'s `disposers.push()` side effect happens synchronously during `effect()` creation (the effect runs immediately in `@scribe/signals`). Do not assume push happens after materialization.
+2. `_mountEffect`'s `disposers.push()` side effect happens synchronously during `effect()` creation (the effect runs immediately in `@aihu/signals`). Do not assume push happens after materialization.
 3. The `disposed` flag on `MountScope` prevents double-dispose — the error boundary implementation must not circumvent this by calling dispose from within an effect body without checking.
 
 **From `packages/arbor/src/materialize.ts`:**
@@ -740,7 +740,7 @@ The Builder must observe these constraints derived from the existing implementat
 7. Shape-locking (spec §2.9): `StructuralNode` must always have all fields present (use `null` for unused arms). Add `StructuralNode` to the shape-lock comment in `node.ts`.
 
 **From `packages/runtime/src/define-component.ts`:**
-8. The `_setMount` injection pattern must be preserved — do not add a static import of `mount` from `@scribe/arbor`. Add `_setSignal` following the identical pattern.
+8. The `_setMount` injection pattern must be preserved — do not add a static import of `mount` from `@aihu/arbor`. Add `_setSignal` following the identical pattern.
 9. `defineComponent(setup: Setup)` where `setup` is a function must not require any `_setSignal` call — plain function-form components do not use signals internally and should not break if `_setSignal` was never called.
 
 **From `packages/runtime/src/define-element.ts`:**

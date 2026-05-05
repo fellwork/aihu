@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderToString } from '../src/ssr.ts'
 
-describe('@scribe/server ssr', () => {
+describe('@aihu/server ssr', () => {
   it('{ toHtml() } component renders its HTML directly', async () => {
     const component = { toHtml: () => '<p>Hello World</p>' }
     const result = await renderToString(component)
@@ -34,11 +34,11 @@ describe('@scribe/server ssr', () => {
     expect(result).toContain('<p>Content</p>')
   })
 
-  it('with opts.serializer that returns data → injects __scribe_state__ script', async () => {
+  it('with opts.serializer that returns data → injects __aihu_state__ script', async () => {
     const component = { toHtml: () => '<p>App</p>' }
     const serializer = () => ({ count: 42, user: 'alice' })
     const result = await renderToString(component, { head: {}, serializer })
-    expect(result).toContain('<script type="application/json" id="__scribe_state__">')
+    expect(result).toContain('<script type="application/json" id="__aihu_state__">')
     expect(result).toContain('"count":42')
     expect(result).toContain('"user":"alice"')
   })
@@ -49,7 +49,7 @@ describe('@scribe/server ssr', () => {
       throw new Error('not implemented')
     }
     const result = await renderToString(component, { head: {}, serializer })
-    expect(result).not.toContain('__scribe_state__')
+    expect(result).not.toContain('__aihu_state__')
     expect(result).toContain('<p>App</p>')
   })
 
@@ -66,14 +66,14 @@ describe('@scribe/server ssr', () => {
     expect(result).toContain('>Home</a>')
   })
 
-  it('opts.hydratable adds data-scribe-path attribute', async () => {
+  it('opts.hydratable adds data-aihu-path attribute', async () => {
     const component = () => ({
       kind: 'branch',
       tag: 'div',
       children: [],
     })
     const result = await renderToString(component, { hydratable: true })
-    expect(result).toContain('data-scribe-path=')
+    expect(result).toContain('data-aihu-path=')
   })
 
   it('head with meta tags renders meta elements', async () => {

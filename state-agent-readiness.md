@@ -18,8 +18,8 @@
 
 | Package | Status |
 |---------|--------|
-| `@scribe/server` | Source complete. Barrel (§2.8) done. |
-| `@scribe/agent-readiness` | Source complete. Barrel (§3.7) done including vite-plugin. |
+| `@aihu/server` | Source complete. Barrel (§2.8) done. |
+| `@aihu/agent-readiness` | Source complete. Barrel (§3.7) done including vite-plugin. |
 
 ---
 
@@ -67,8 +67,8 @@
 
 | ID | Priority | Description |
 |----|----------|-------------|
-| OQ-3 | MEDIUM | `getAllAgentMetadata()` absent from `@scribe/agent` v0. TODO comment in `vite-plugin.ts`. Deferred until minor-version bump. |
-| Hot-reload | LOW | `configureServer` hook skeleton in place; `.scribe` invalidation listener not yet wired. Dev-mode follow-on. |
+| OQ-3 | MEDIUM | `getAllAgentMetadata()` absent from `@aihu/agent` v0. TODO comment in `vite-plugin.ts`. Deferred until minor-version bump. |
+| Hot-reload | LOW | `configureServer` hook skeleton in place; `.aihu` invalidation listener not yet wired. Dev-mode follow-on. |
 
 ---
 

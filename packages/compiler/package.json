@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/compiler",
+  "name": "@aihu/compiler",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -13,7 +13,7 @@
     }
   },
   "bin": {
-    "scribe-compile": "./bin/scribe-compile"
+    "aihu-compile": "./bin/aihu-compile"
   },
   "files": [
     "dist",

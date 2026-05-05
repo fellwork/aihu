@@ -63,7 +63,7 @@ packages/compiler/
 
 ```toml
 [package]
-name    = "scribe-compiler"
+name    = "aihu-compiler"
 version = "0.1.0"
 edition = "2021"
 
@@ -81,9 +81,9 @@ This file declares the public module tree and re-exports. Phase C-0 surface only
 pub mod parser;
 pub mod types;
 
-pub use types::{CompileError, ScribeSource, ScriptMeta};
+pub use types::{CompileError, AihuSource, ScriptMeta};
 
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError> {
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError> {
     parser::sfc::parse(source)
 }
 ```
@@ -103,7 +103,7 @@ No other modules in C-0. `template.rs` and `directives.rs` are Phase C-1 modules
 Module responsible for the SFC block splitter. Public surface:
 
 ```rust
-pub fn parse(source: &str) -> Result<crate::types::ScribeSource<'_>, crate::types::CompileError>
+pub fn parse(source: &str) -> Result<crate::types::AihuSource<'_>, crate::types::CompileError>
 ```
 
 ### `packages/compiler/tests/sfc_split.rs`
@@ -120,7 +120,7 @@ The Builder must produce exactly these types. No additional fields may be added 
 
 ```rust
 #[derive(Debug, PartialEq)]
-pub struct ScribeSource<'a> {
+pub struct AihuSource<'a> {
     pub script:   Option<&'a str>,
     pub template: Option<&'a str>,
     pub style:    Option<&'a str>,
@@ -140,7 +140,7 @@ pub struct CompileError {
 ```
 
 **Trait requirements:**
-- `ScribeSource<'a>`: derive `Debug` and `PartialEq` — required for `insta` snapshot assertions.
+- `AihuSource<'a>`: derive `Debug` and `PartialEq` — required for `insta` snapshot assertions.
 - `ScriptMeta`: derive `Debug` and `PartialEq`.
 - `CompileError`: derive `Debug`. Must implement `std::fmt::Display` and `std::error::Error`. Display format: `"line {line}, col {col}: {message}"`.
 
@@ -151,7 +151,7 @@ pub struct CompileError {
 ### Signature
 
 ```rust
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError>
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError>
 ```
 
 The lifetime `'_` ties returned string slices directly to the input `source`. No heap allocation for block content.
@@ -160,9 +160,9 @@ The lifetime `'_` ties returned string slices directly to the input `source`. No
 
 | Input | Expected result |
 |---|---|
-| Valid source with all three blocks | `Ok(ScribeSource { script: Some(s), template: Some(t), style: Some(u) })` — inner content, tags excluded, whitespace trimmed |
-| Empty string or no recognized blocks | `Ok(ScribeSource { script: None, template: None, style: None })` — not an error |
-| `<script setup>` only | `Ok(ScribeSource { script: Some(s), template: None, style: None })` |
+| Valid source with all three blocks | `Ok(AihuSource { script: Some(s), template: Some(t), style: Some(u) })` — inner content, tags excluded, whitespace trimmed |
+| Empty string or no recognized blocks | `Ok(AihuSource { script: None, template: None, style: None })` — not an error |
+| `<script setup>` only | `Ok(AihuSource { script: Some(s), template: None, style: None })` |
 | Duplicate block tags | `Err(CompileError { message: "duplicate <template> block", line: L, col: 0 })` |
 | Unclosed tag | `Err(CompileError { message: "unclosed <template> block", line: L, col: 0 })` — never panics |
 
@@ -198,7 +198,7 @@ fn extract_script_meta(tag_text: &str) -> ScriptMeta
 // "<script setup>" → ScriptMeta { name: None }
 ```
 
-`ScriptMeta` is computed internally in Phase C-0 but not yet exposed in `ScribeSource`. It will be wired into the public API in Phase C-3.
+`ScriptMeta` is computed internally in Phase C-0 but not yet exposed in `AihuSource`. It will be wired into the public API in Phase C-3.
 
 ### Duplicate Block Handling
 
@@ -223,7 +223,7 @@ All five in `packages/compiler/tests/sfc_split.rs`. Use `insta::assert_debug_sna
 **Input:**
 ```
 <script setup>
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 </script>
@@ -237,7 +237,7 @@ div { color: red; }
 </style>
 ```
 
-**Expected:** `script=Some("import { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)")`, `template=Some("<div>{{ count }}</div>")`, `style=Some("div { color: red; }")`
+**Expected:** `script=Some("import { signal } from '@aihu/signals'\n\nconst [count, setCount] = signal(0)")`, `template=Some("<div>{{ count }}</div>")`, `style=Some("div { color: red; }")`
 
 ### Test 2: `split_missing_template`
 
@@ -300,11 +300,11 @@ body { margin: 0; }
 
 ## 7. Phase C-3 TypeScript Emit Target — Acceptance Snapshot
 
-### Input: `counter.scribe`
+### Input: `counter.aihu`
 
-```scribe
+```aihu
 <script setup>
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 const increment = () => setCount(c => c + 1)
@@ -321,10 +321,10 @@ const increment = () => setCount(c => c + 1)
 ### Required Output: `counter.ts`
 
 ```typescript
-import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('counter', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)
@@ -349,7 +349,7 @@ defineElement('counter', defineComponent((_ctx) => {
 
 **`defineElement` at module level:** Calls `customElements.define()` as a side-effect. Returns void. Must be at the top level of the emitted file, not inside any function. No `export default`.
 
-**Tag name derivation:** Filename stem (`counter` from `counter.scribe`). Optional explicit override via `name` attribute on `<script setup>`. v0 warning if no hyphen in tag name: `"warning: tag name '{name}' has no hyphen — custom element names should contain a hyphen per the web spec"`. No error — proceed anyway.
+**Tag name derivation:** Filename stem (`counter` from `counter.aihu`). Optional explicit override via `name` attribute on `<script setup>`. v0 warning if no hyphen in tag name: `"warning: tag name '{name}' has no hyphen — custom element names should contain a hyphen per the web spec"`. No error — proceed anyway.
 
 **Root fragment handling:** Multiple root children → `branch(null, null, [...children])`. Not an error.
 
@@ -361,7 +361,7 @@ defineElement('counter', defineComponent((_ctx) => {
 
 | # | Criterion | Check |
 |---|---|---|
-| C0-1 | `packages/compiler/Cargo.toml` with `name = "scribe-compiler"`, `edition = "2021"` | `grep 'scribe-compiler' packages/compiler/Cargo.toml` |
+| C0-1 | `packages/compiler/Cargo.toml` with `name = "aihu-compiler"`, `edition = "2021"` | `grep 'aihu-compiler' packages/compiler/Cargo.toml` |
 | C0-2 | `.prototools` contains `rust = "1.87.0"` | `grep 'rust = "1.87.0"' .prototools` |
 | C0-3 | `rust-toolchain.toml` at repo root with `channel = "1.87.0"` | `grep 'channel = "1.87.0"' rust-toolchain.toml` |
 | C0-4 | `cargo test` exits 0 | `cd packages/compiler && cargo test` |
@@ -371,14 +371,14 @@ defineElement('counter', defineComponent((_ctx) => {
 | C0-8 | `cargo fmt --check` exits 0 | `cd packages/compiler && cargo fmt --check` |
 | C0-9 | No files outside `packages/compiler/`, `.prototools`, `rust-toolchain.toml` modified | `git diff --name-only HEAD` |
 | C0-10 | `CompileError` implements `std::error::Error` | Build passes |
-| C0-11 | `compile("")` returns `Ok(ScribeSource { script: None, template: None, style: None })` | Unit test |
+| C0-11 | `compile("")` returns `Ok(AihuSource { script: None, template: None, style: None })` | Unit test |
 
 ### Phase C-1: Template Parser
 
 | # | Criterion | Check |
 |---|---|---|
 | C1-1 | `TemplateNode` and `Attr` enums with all variants in `types.rs` | `cargo check` |
-| C1-2 | `pub meta: ScriptMeta` field in `ScribeSource<'a>`; all 5 existing sfc_split snapshots re-accepted with `meta` field present | `cargo insta review` |
+| C1-2 | `pub meta: ScriptMeta` field in `AihuSource<'a>`; all 5 existing sfc_split snapshots re-accepted with `meta` field present | `cargo insta review` |
 | C1-3 | `parse_template(input: &str) -> Result<Vec<TemplateNode>, CompileError>` in `parser/template.rs` | `cargo check` |
 | C1-4 | All 10 named snapshot tests in `tests/template_parse.rs` passing; `.snap` files committed | `cargo test` |
 | C1-5 | `v-show` (or any unknown `v-` directive) → `Err` with message containing `"unknown directive 'v-show'"` | Test case |
@@ -386,7 +386,7 @@ defineElement('counter', defineComponent((_ctx) => {
 | C1-7 | Self-closing tag → `Err` with message `"self-closing tags are not supported in v0 template parser"` | Test case |
 | C1-8 | Interpolation with non-identifier content → `Err` with message `"interpolation must be a single identifier in v0; expressions are not supported"` | Test case |
 | C1-9 | `parser/mod.rs` declares `pub mod directives; pub mod sfc; pub mod template;` in alphabetical order | File check |
-| C1-10 | `lib.rs` re-exports `Attr`, `CompileError`, `ScribeSource`, `ScriptMeta`, `TemplateNode` | `cargo check` |
+| C1-10 | `lib.rs` re-exports `Attr`, `CompileError`, `AihuSource`, `ScriptMeta`, `TemplateNode` | `cargo check` |
 | C1-11 | `cargo clippy -- -D warnings` and `cargo fmt --check` clean; no files outside `packages/compiler/` modified | CI |
 
 ### Phase C-2: Signal Identity Resolver
@@ -404,7 +404,7 @@ defineElement('counter', defineComponent((_ctx) => {
 
 | # | Criterion | Check |
 |---|---|---|
-| C3-1 | `tests/snapshots/counter.scribe.snap` matches exact TypeScript in Section 7 | `cargo test` |
+| C3-1 | `tests/snapshots/counter.aihu.snap` matches exact TypeScript in Section 7 | `cargo test` |
 | C3-2 | Emitted TypeScript compiles without error | `bun tsc --noEmit` on emitted output |
 | C3-3 | 10 snapshot tests in `tests/codegen.rs`, all passing | `cargo test` |
 | C3-4 | `@click` → `{ onclick: fn }` (not `{ click: fn }`) | Snapshot assertion |
@@ -416,19 +416,19 @@ defineElement('counter', defineComponent((_ctx) => {
 | C3-10 | No `export default` in emitted output | Snapshot assertion |
 | C3-11 | Clippy + fmt clean | — |
 
-> **Consumer constraint — `_setMount`:** `defineComponent` relies on `_setMount(mount)` injection from `@scribe/runtime`. Any application consuming compiler-emitted `.scribe` components must call `_setMount(mount)` once at app boot, before any custom element connects. The compiler does not emit this call. This is an application bootstrap requirement, not a compiler concern. Consider adding a comment to emitted code in Phase C-4.
+> **Consumer constraint — `_setMount`:** `defineComponent` relies on `_setMount(mount)` injection from `@aihu/runtime`. Any application consuming compiler-emitted `.aihu` components must call `_setMount(mount)` once at app boot, before any custom element connects. The compiler does not emit this call. This is an application bootstrap requirement, not a compiler concern. Consider adding a comment to emitted code in Phase C-4.
 
 ### Phase C-4: CLI + Vite Integration
 
 | # | Criterion | Check |
 |---|---|---|
-| C4-1 | `scribe-compile counter.scribe` → TypeScript to stdout | Manual |
-| C4-2 | `scribe-compile counter.scribe --out dist/` → `dist/counter.ts` | Manual |
+| C4-1 | `aihu-compile counter.aihu` → TypeScript to stdout | Manual |
+| C4-2 | `aihu-compile counter.aihu --out dist/` → `dist/counter.ts` | Manual |
 | C4-3 | Exit code 1 on error with `file:line: message` on stderr | Manual |
-| C4-4 | `@scribe/compiler` npm package exports `transform(source, id): { code, map }` | `bun run test` |
-| C4-5 | Vite transform hook registered for `*.scribe` | Integration test |
-| C4-6 | `bun vite build` with `.scribe` component → valid `dist/` | Integration test |
-| C4-7 | Source map maps back to `.scribe` source lines | Devtools check |
+| C4-4 | `@aihu/compiler` npm package exports `transform(source, id): { code, map }` | `bun run test` |
+| C4-5 | Vite transform hook registered for `*.aihu` | Integration test |
+| C4-6 | `bun vite build` with `.aihu` component → valid `dist/` | Integration test |
+| C4-7 | Source map maps back to `.aihu` source lines | Devtools check |
 
 ---
 
@@ -466,7 +466,7 @@ defineElement('counter', defineComponent((_ctx) => {
 
 | OQ | Resolution |
 |---|---|
-| OQ-C1: Template syntax | Option A — HTML-first, scribe directives as thin transform layer |
+| OQ-C1: Template syntax | Option A — HTML-first, aihu directives as thin transform layer |
 | OQ-C2: Interpolation | `{{ identifier }}` only in v0; expressions are a compile error |
 | OQ-C3: Signal identity | Naming convention: `[foo, setFoo] = signal(...)` |
 | OQ-C4: Event binding | `@click` → `{ onclick: fn }` |
@@ -482,15 +482,15 @@ defineElement('counter', defineComponent((_ctx) => {
 
 ---
 
-## 11. ScribeSource Amendment — Phase C-1
+## 11. AihuSource Amendment — Phase C-1
 
 ### 11.1 Amended `types.rs`
 
-Add `pub meta: ScriptMeta` field to `ScribeSource<'a>`:
+Add `pub meta: ScriptMeta` field to `AihuSource<'a>`:
 
 ```rust
 #[derive(Debug, PartialEq)]
-pub struct ScribeSource<'a> {
+pub struct AihuSource<'a> {
     pub script:   Option<&'a str>,
     pub template: Option<&'a str>,
     pub style:    Option<&'a str>,
@@ -520,11 +520,11 @@ pub enum Attr {
 
 ### 11.2 Amended `sfc.rs`
 
-At the line that currently reads `let _meta = extract_script_meta(tag_text)`, store the result and include it in the `ScribeSource` return value. When no `<script setup>` block is present, supply `meta: ScriptMeta { name: None }`.
+At the line that currently reads `let _meta = extract_script_meta(tag_text)`, store the result and include it in the `AihuSource` return value. When no `<script setup>` block is present, supply `meta: ScriptMeta { name: None }`.
 
 ### 11.3 Snapshot Re-acceptance
 
-After amending `ScribeSource`, run `cargo insta accept` to re-accept all 5 existing sfc_split snapshots. The Verifier must confirm `meta` appears in all 5 re-accepted `.snap` files — `meta: ScriptMeta { name: None }` in all five (no existing test uses the `name` attribute on `<script setup>`).
+After amending `AihuSource`, run `cargo insta accept` to re-accept all 5 existing sfc_split snapshots. The Verifier must confirm `meta` appears in all 5 re-accepted `.snap` files — `meta: ScriptMeta { name: None }` in all five (no existing test uses the `name` attribute on `<script setup>`).
 
 ---
 
@@ -573,7 +573,7 @@ Err(CompileError { message: "interpolation must be a single identifier in v0; ex
 | `@` | `Attr::Event { name, handler }` | Strip `@`, split on `=`; strip surrounding `"` from value |
 | `:` | `Attr::Binding { name, expr }` | Strip `:`, split on `=`; strip surrounding `"` from value |
 | `v-if` or `v-for` | `Err(CompileError)` | Message: `"v-if / v-for directives are not supported in v0; see v1 roadmap"` |
-| Any other `v-` | `Err(CompileError)` | Message: `"unknown directive '{name}'; scribe v0 supports @event, :attr, and {{ identifier }} only"` |
+| Any other `v-` | `Err(CompileError)` | Message: `"unknown directive '{name}'; aihu v0 supports @event, :attr, and {{ identifier }} only"` |
 | All others | `Attr::Static { name, value }` | Standard HTML attribute; strip surrounding `"` from value |
 
 ### 12.6 Self-Closing Tags
@@ -596,10 +596,10 @@ A template whose content begins with non-tag characters yields a `TemplateNode::
 packages/compiler/
   src/
     lib.rs                    (amended — re-exports Attr, TemplateNode)
-    types.rs                  (amended — TemplateNode, Attr enums; ScribeSource adds meta field)
+    types.rs                  (amended — TemplateNode, Attr enums; AihuSource adds meta field)
     parser/
       mod.rs                  (amended — alphabetical: directives, sfc, template)
-      sfc.rs                  (amended — wires ScriptMeta into ScribeSource return)
+      sfc.rs                  (amended — wires ScriptMeta into AihuSource return)
       template.rs             (new — parse_template() recursive descent)
       directives.rs           (new — directive helpers, identifier validation)
   tests/
@@ -624,9 +624,9 @@ Alphabetical order. No `use` re-exports — callers use fully-qualified paths.
 pub mod parser;
 pub mod types;
 
-pub use types::{Attr, CompileError, ScribeSource, ScriptMeta, TemplateNode};
+pub use types::{Attr, CompileError, AihuSource, ScriptMeta, TemplateNode};
 
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError> {
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError> {
     parser::sfc::parse(source)
 }
 ```
@@ -667,18 +667,18 @@ Add to `src/types.rs`:
 ```rust
 #[derive(Debug)]
 pub struct CompileUnit<'a> {
-    pub source: ScribeSource<'a>,
+    pub source: AihuSource<'a>,
     pub template_ast: Option<Vec<TemplateNode>>,
 }
 ```
 
-`CompileUnit` bundles `ScribeSource` with the parsed template AST. `SignalMap` is NOT stored — computed on demand by `resolve_signals()`.
+`CompileUnit` bundles `AihuSource` with the parsed template AST. `SignalMap` is NOT stored — computed on demand by `resolve_signals()`.
 
 ### 15.2 Two-Function Public API
 
 ```rust
 // Unchanged from C-0/C-1 — zero snapshot churn:
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError>
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError>
 
 // New in C-2:
 pub fn compile_full(source: &str) -> Result<CompileUnit<'_>, CompileError>
@@ -785,14 +785,14 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> String {
 ```rust
 fn build_imports(signal_map: &SignalMap) -> String {
     if signal_map.0.is_empty() {
-        ["import { branch, leaf } from '@scribe/arbor'",
-         "import { defineComponent, defineElement } from '@scribe/runtime'"]
+        ["import { branch, leaf } from '@aihu/arbor'",
+         "import { defineComponent, defineElement } from '@aihu/runtime'"]
         .join("\n")
     } else {
-        ["import { branch, leaf } from '@scribe/arbor'",
-         "import type { Signal } from '@scribe/signals'",
-         "import { signal } from '@scribe/signals'",
-         "import { defineComponent, defineElement } from '@scribe/runtime'"]
+        ["import { branch, leaf } from '@aihu/arbor'",
+         "import type { Signal } from '@aihu/signals'",
+         "import { signal } from '@aihu/signals'",
+         "import { defineComponent, defineElement } from '@aihu/runtime'"]
         .join("\n")
     }
 }
@@ -884,10 +884,10 @@ branch('div', { class: 'counter' }, [
 Final assembled output matches Section 7 oracle exactly:
 
 ```typescript
-import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('counter', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)
@@ -918,7 +918,7 @@ All in `tests/codegen.rs` using `insta::assert_snapshot!`.
 
 **Test 7: `ctx_param_present`** Any valid source. Expected: output contains `defineComponent((_ctx)`. Covers C3-8.
 
-**Test 8: `import_type_signal_present`** Source with signals. Expected: `import type { Signal } from '@scribe/signals'` present. Covers C3-9.
+**Test 8: `import_type_signal_present`** Source with signals. Expected: `import type { Signal } from '@aihu/signals'` present. Covers C3-9.
 
 **Test 9: `no_export_default`** Any valid source. Use `assert!(!output.contains("export default"))` + snapshot. Covers C3-10.
 
@@ -955,11 +955,11 @@ Files introduced or amended by Phase C-4. Every path is relative to the repo roo
 |---|---|
 | `packages/compiler/src/bin/main.rs` | CLI binary — file-path and `--stdin` modes |
 | `packages/compiler/js/index.ts` | TS wrapper — `transform()` + `scribeCompilerPlugin()` |
-| `packages/compiler/package.json` | npm package manifest for `@scribe/compiler` |
+| `packages/compiler/package.json` | npm package manifest for `@aihu/compiler` |
 | `packages/compiler/moon.yml` | Moon project config |
 | `packages/compiler/rolldown.config.ts` | Rolldown build config |
 | `packages/compiler/tsconfig.json` | Per-package TS config |
-| `packages/compiler/fixtures/vite-counter/counter.scribe` | Integration fixture — minimal counter component |
+| `packages/compiler/fixtures/vite-counter/counter.aihu` | Integration fixture — minimal counter component |
 | `packages/compiler/fixtures/vite-counter/vite.config.ts` | Vite config using the plugin pre-build |
 | `packages/compiler/fixtures/vite-counter/index.html` | Minimal HTML entry |
 | `packages/compiler/fixtures/vite-counter/main.ts` | Minimal entry script |
@@ -975,7 +975,7 @@ Append after the existing `[dev-dependencies]` block:
 
 ```toml
 [[bin]]
-name = "scribe-compile"
+name = "aihu-compile"
 path = "src/bin/main.rs"
 ```
 
@@ -983,7 +983,7 @@ No new `[dependencies]` entries: the CLI uses only `std::env::args()`, `std::fs`
 
 ```toml
 [package]
-name    = "scribe-compiler"
+name    = "aihu-compiler"
 version = "0.1.0"
 edition = "2021"
 
@@ -991,7 +991,7 @@ edition = "2021"
 insta = "1"
 
 [[bin]]
-name = "scribe-compile"
+name = "aihu-compile"
 path = "src/bin/main.rs"
 ```
 
@@ -1035,7 +1035,7 @@ The binary supports two mutually exclusive input modes:
    === FILE MODE ===
    4d. file_path = args.get(1):
        if None or value starts with "--" →
-           eprintln!("usage: scribe-compile <file.scribe> [--out <dir>]")
+           eprintln!("usage: aihu-compile <file.aihu> [--out <dir>]")
            exit(1)
 
    4e. Read file:
@@ -1050,7 +1050,7 @@ The binary supports two mutually exclusive input modes:
            .to_string()
 
 5. Compile:
-   unit = scribe_compiler::compile_full(&source)
+   unit = aihu_compiler::compile_full(&source)
        .unwrap_or_else(|e| {
            // In file mode:  eprintln!("{}:{}: {}", file_path, e.line, e.message)
            // In stdin mode: eprintln!("<stdin>:{}: {}", e.line, e.message)
@@ -1064,7 +1064,7 @@ The binary supports two mutually exclusive input modes:
    }
 
 7. Emit:
-   output = scribe_compiler::emit(&unit, &tag_name)
+   output = aihu_compiler::emit(&unit, &tag_name)
 
 8. Write output:
    if let Some(dir) = out_dir {
@@ -1100,7 +1100,7 @@ All other items (`std::env`, `std::fs`, `std::path::Path`) referenced by full pa
 |---|---|---|
 | CLI file mode | `Path::new(argv[1]).file_stem()` | `unit.source.meta.name` overwrites in step 6 |
 | CLI stdin mode | `--tag` argument | `unit.source.meta.name` overwrites in step 6 |
-| Vite transform | `basename(id, '.scribe')` | Passed as `--tag`; binary applies meta.name override internally |
+| Vite transform | `basename(id, '.aihu')` | Passed as `--tag`; binary applies meta.name override internally |
 
 The Vite TypeScript wrapper does not need to inspect the output to re-derive the name — the binary handles the override and emits `defineElement('<resolved-name>', ...)` directly.
 
@@ -1114,7 +1114,7 @@ The Vite TypeScript wrapper does not need to inspect the output to re-derive the
 
 ```typescript
 /**
- * @scribe/compiler — TypeScript wrapper around the scribe-compile Rust binary.
+ * @aihu/compiler — TypeScript wrapper around the aihu-compile Rust binary.
  */
 import { execFileSync } from 'node:child_process'
 import { resolve, dirname, basename } from 'node:path'
@@ -1123,7 +1123,7 @@ import { fileURLToPath } from 'node:url'
 // Binary resolution: env var override, fallback to relative path from dist/
 const binPath: string =
   process.env['SCRIBE_COMPILE_BIN'] ??
-  resolve(dirname(fileURLToPath(import.meta.url)), '../target/release/scribe-compile')
+  resolve(dirname(fileURLToPath(import.meta.url)), '../target/release/aihu-compile')
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
@@ -1136,11 +1136,11 @@ interface VitePlugin {
 }
 
 /**
- * Compile a .scribe source string to TypeScript.
+ * Compile a .aihu source string to TypeScript.
  * map is null — source maps are deferred to v1 (OQ-C8)
  */
 export function transform(source: string, id: string): { code: string; map: null } {
-  const stem = basename(id, '.scribe')
+  const stem = basename(id, '.aihu')
   const code = execFileSync(binPath, ['--stdin', '--tag', stem], {
     input: source,
     encoding: 'utf8',
@@ -1152,13 +1152,13 @@ export function transform(source: string, id: string): { code: string; map: null
 }
 
 /**
- * Vite plugin that compiles .scribe files to TypeScript during build and dev.
+ * Vite plugin that compiles .aihu files to TypeScript during build and dev.
  */
 export function scribeCompilerPlugin(): VitePlugin {
   return {
-    name: 'scribe-compiler',
+    name: 'aihu-compiler',
     transform(code, id) {
-      if (!id.endsWith('.scribe')) return undefined
+      if (!id.endsWith('.aihu')) return undefined
       return transform(code, id)
     },
   }
@@ -1169,11 +1169,11 @@ export function scribeCompilerPlugin(): VitePlugin {
 
 ---
 
-### 17.6 `package.json` for `@scribe/compiler`
+### 17.6 `package.json` for `@aihu/compiler`
 
 ```json
 {
-  "name": "@scribe/compiler",
+  "name": "@aihu/compiler",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -1200,11 +1200,11 @@ export function scribeCompilerPlugin(): VitePlugin {
 }
 ```
 
-No `dependencies` on other `@scribe/*` packages — the TS wrapper shell-execs the Rust binary only.
+No `dependencies` on other `@aihu/*` packages — the TS wrapper shell-execs the Rust binary only.
 
 ---
 
-### 17.7 `moon.yml` for `@scribe/compiler`
+### 17.7 `moon.yml` for `@aihu/compiler`
 
 ```yaml
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
@@ -1233,7 +1233,7 @@ tasks:
 
 ---
 
-### 17.8 `rolldown.config.ts` for `@scribe/compiler`
+### 17.8 `rolldown.config.ts` for `@aihu/compiler`
 
 ```typescript
 import { defineConfig } from 'rolldown'
@@ -1258,11 +1258,11 @@ export default defineConfig({
 
 ### 17.9 Integration Test Fixture and C4-6 Test
 
-#### `packages/compiler/fixtures/vite-counter/counter.scribe`
+#### `packages/compiler/fixtures/vite-counter/counter.aihu`
 
 ```
-<script setup name="scribe-counter">
-import { signal } from '@scribe/signals'
+<script setup name="aihu-counter">
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 const increment = () => setCount(c => c + 1)
@@ -1276,14 +1276,14 @@ const increment = () => setCount(c => c + 1)
 </template>
 ```
 
-`name="scribe-counter"` exercises the OQ-C6 meta.name override. The CLI emits `defineElement('scribe-counter', ...)`.
+`name="aihu-counter"` exercises the OQ-C6 meta.name override. The CLI emits `defineElement('aihu-counter', ...)`.
 
 #### `packages/compiler/fixtures/vite-counter/vite.config.ts`
 
 ```typescript
 import { defineConfig } from 'vite'
 // Imports directly from source tree (pre-build).
-// After `bun run build` in packages/compiler/, change to '@scribe/compiler'.
+// After `bun run build` in packages/compiler/, change to '@aihu/compiler'.
 import { scribeCompilerPlugin } from '../../../js/index.ts'
 
 export default defineConfig({
@@ -1303,10 +1303,10 @@ export default defineConfig({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>scribe counter fixture</title>
+    <title>aihu counter fixture</title>
   </head>
   <body>
-    <scribe-counter></scribe-counter>
+    <aihu-counter></aihu-counter>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
@@ -1315,13 +1315,13 @@ export default defineConfig({
 #### `packages/compiler/fixtures/vite-counter/main.ts`
 
 ```typescript
-import './counter.scribe'
+import './counter.aihu'
 ```
 
 #### `packages/compiler/tests/c4_integration.rs`
 
 ```rust
-/// C4-6 Integration test: `bun vite build` with a .scribe component → non-empty dist/.
+/// C4-6 Integration test: `bun vite build` with a .aihu component → non-empty dist/.
 ///
 /// PRECONDITIONS (manual):
 ///   1. `cd packages/compiler && cargo build --release`
@@ -1372,11 +1372,11 @@ fn c4_vite_build_produces_dist() {
 
 | Criterion | File / Function | How It Satisfies |
 |---|---|---|
-| **C4-1** `scribe-compile counter.scribe` → stdout | `src/bin/main.rs` file mode, `print!("{}", output)` | Reads file, compile_full + emit, prints to stdout |
+| **C4-1** `aihu-compile counter.aihu` → stdout | `src/bin/main.rs` file mode, `print!("{}", output)` | Reads file, compile_full + emit, prints to stdout |
 | **C4-2** `--out dist/` → `dist/counter.ts` | `src/bin/main.rs` `--out` branch, `fs::write` | Tag name resolves to `counter`; writes `dist/counter.ts` |
 | **C4-3** Exit 1, `file:line: message` on stderr | `src/bin/main.rs` step 5 error handler | `e.line` + `e.message` from `CompileError`; `process::exit(1)` |
-| **C4-4** `@scribe/compiler` exports `transform()` | `js/index.ts` `export function transform(...)` | Re-exported through `dist/index.js` after build |
-| **C4-5** Vite hook for `*.scribe` | `js/index.ts` `scribeCompilerPlugin().transform` | Filters `id.endsWith('.scribe')` |
+| **C4-4** `@aihu/compiler` exports `transform()` | `js/index.ts` `export function transform(...)` | Re-exported through `dist/index.js` after build |
+| **C4-5** Vite hook for `*.aihu` | `js/index.ts` `scribeCompilerPlugin().transform` | Filters `id.endsWith('.aihu')` |
 | **C4-6** `bun vite build` → valid `dist/` | `fixtures/vite-counter/` + `tests/c4_integration.rs` | `#[ignore]` test: asserts exit 0 + non-empty `dist/` |
 | **C4-7-stub** `map: null` with comment | `js/index.ts` return statement | `map: null, // source maps deferred to v1 (OQ-C8)` |
 
@@ -1385,22 +1385,22 @@ fn c4_vite_build_produces_dist() {
 ```bash
 # C4-1
 cd packages/compiler && cargo build --release
-./target/release/scribe-compile fixtures/vite-counter/counter.scribe
+./target/release/aihu-compile fixtures/vite-counter/counter.aihu
 
 # C4-2
-./target/release/scribe-compile fixtures/vite-counter/counter.scribe --out /tmp/out/
+./target/release/aihu-compile fixtures/vite-counter/counter.aihu --out /tmp/out/
 ls /tmp/out/
 
 # C4-3
-echo "bad source" > /tmp/bad.scribe
-./target/release/scribe-compile /tmp/bad.scribe; echo "exit: $?"
+echo "bad source" > /tmp/bad.aihu
+./target/release/aihu-compile /tmp/bad.aihu; echo "exit: $?"
 
 # C4-4
 cd packages/compiler && bun run build
-node -e "import('@scribe/compiler').then(m => console.log(typeof m.transform))"
+node -e "import('@aihu/compiler').then(m => console.log(typeof m.transform))"
 
 # C4-5
-grep 'endsWith.*\.scribe' packages/compiler/js/index.ts
+grep 'endsWith.*\.aihu' packages/compiler/js/index.ts
 
 # C4-6
 cargo test -- --ignored c4_vite_build_produces_dist
@@ -1411,7 +1411,7 @@ grep 'source maps deferred' packages/compiler/js/index.ts
 
 ---
 
-### 17.12 `tsconfig.json` for `@scribe/compiler`
+### 17.12 `tsconfig.json` for `@aihu/compiler`
 
 ```json
 {

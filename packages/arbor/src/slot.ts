@@ -15,7 +15,7 @@ import type { Leaf } from './types.ts'
  * element is a terminal leaf (no arbor children) and follows the same
  * lifecycle as `leaf.element()`.
  *
- * Size budget: ≤ 50 B gz added to @scribe/arbor (Plan 1.4 acceptance §6).
+ * Size budget: ≤ 50 B gz added to @aihu/arbor (Plan 1.4 acceptance §6).
  */
 export const slot = (name?: string): Leaf =>
   leaf.element('slot', name == null ? undefined : { name })

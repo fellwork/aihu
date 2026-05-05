@@ -53,7 +53,7 @@ The `renderToStream` implementation can be written to:
 2. When it encounters a component boundary that exposes a `DataSource`, enqueue a flush boundary.
 3. Drain the readable stream, yielding already-resolved HTML immediately and suspending at pending boundaries.
 
-Track B's `createResource` will later implement `DataSource<T>`. The interface definition belongs in `@scribe/server` or a shared types package; Track B imports it, not the other way around.
+Track B's `createResource` will later implement `DataSource<T>`. The interface definition belongs in `@aihu/server` or a shared types package; Track B imports it, not the other way around.
 
 **Verdict:** Track C's Builder for 3.1 should define `DataSource<T>` as part of the spec deliverable. The Architect brief below specifies this explicitly.
 
@@ -90,7 +90,7 @@ Track B's `createResource` will later implement `DataSource<T>`. The interface d
 - Walk component tree as `renderToString` does; if no `DataSource` boundaries are encountered, enqueue the full document string in one push and close.
 - For pending `DataSource` boundaries: enqueue the pre-boundary HTML, register `onReady`, enqueue the resolved HTML fragment when ready, close.
 - Add export to `packages/server/src/index.ts`
-- Tests: minimum 6 tests — (a) sync component streams full doc, (b) async component with already-ready DataSource streams correctly, (c) async component with pending DataSource yields in order, (d) error in component factory closes stream with error, (e) `opts.head` produces full document structure in stream output, (f) `opts.hydratable` produces `data-scribe-path` attributes in stream output
+- Tests: minimum 6 tests — (a) sync component streams full doc, (b) async component with already-ready DataSource streams correctly, (c) async component with pending DataSource yields in order, (d) error in component factory closes stream with error, (e) `opts.head` produces full document structure in stream output, (f) `opts.hydratable` produces `data-aihu-path` attributes in stream output
 
 **Task 3 — Refactor `renderToString` as wrapper**
 - `renderToString` drains `renderToStream` internally. No behavior change for callers.
@@ -112,13 +112,13 @@ There is no additional scouting needed. The Investigator has everything required
 
 **Hypothesis: version counter per signal node, not per wave.**
 
-The gap: scribe 4.00 µs p50 vs alien-signals 2.42 µs p50 on `deep-propagation-100` (1.65× slower). The deep-perf-wins spec (`spec.md §8 item 3`) explicitly notes that "generation/version counters per signal (parent §9 §2.5.2 hashed-XOR)" were deferred because they did not help cellx. But deep-chain is a different shape.
+The gap: aihu 4.00 µs p50 vs alien-signals 2.42 µs p50 on `deep-propagation-100` (1.65× slower). The deep-perf-wins spec (`spec.md §8 item 3`) explicitly notes that "generation/version counters per signal (parent §9 §2.5.2 hashed-XOR)" were deferred because they did not help cellx. But deep-chain is a different shape.
 
 Alien-signals' version-counter approach (per-source version counter, checked at each computed node before propagating) allows short-circuiting propagation when the computed's cached version matches the source's current version — O(1) check per node instead of always walking forward. In a 100-deep chain, this cuts 100 pointer chases to 1 if the source hasn't changed since the last settle.
 
 **But the write always changes the source value** in the `deep-propagation-100` bench (`setSrc(counter++)`). So the version-counter short-circuit only applies during the _mark phase_ if we can detect that a node's inputs haven't changed (equality-based pruning), not during propagation itself.
 
-**Revised hypothesis to test:** The structural reason scribe is slower is not the version counter per se, but **the depth-first mark walk**. In a 100-deep linear chain, `markOne` must visit all 100 nodes before any settle happens. Alien-signals' push-pull model does lazy recomputation: it does not walk the full chain on every write; instead, it marks only the direct subscribers and defers recomputation to read time. The effect at the end of the chain pulls lazily, triggering a bottom-up recompute.
+**Revised hypothesis to test:** The structural reason aihu is slower is not the version counter per se, but **the depth-first mark walk**. In a 100-deep linear chain, `markOne` must visit all 100 nodes before any settle happens. Alien-signals' push-pull model does lazy recomputation: it does not walk the full chain on every write; instead, it marks only the direct subscribers and defers recomputation to read time. The effect at the end of the chain pulls lazily, triggering a bottom-up recompute.
 
 **Correct hypothesis for the Investigator:** Does switching to a **lazy pull on the hot path for linear chains** (mark the direct child only, let downstream nodes pull on `notify`) close the gap, at acceptable cost to wide-fanout and dynamic-deps performance?
 
@@ -133,7 +133,7 @@ Alien-signals' version-counter approach (per-source version counter, checked at 
 - Prior art: `.team/phase-2-5/deep-perf-wins-spec.md` §2 Phase 2 and §6.3 — the linked-list rewrite already landed. §8 items 3–6 are the deferred wins still applicable.
 
 **Deliverable:** An investigation report (`packages/signals/.team-notes/deep-chain-investigation.md` or `.team/v1/deep-chain-investigation.md`) covering:
-1. Structural comparison of scribe's mark/settle path vs alien-signals' lazy pull on a 100-deep chain
+1. Structural comparison of aihu's mark/settle path vs alien-signals' lazy pull on a 100-deep chain
 2. Two or three concrete implementation options with predicted p50 impact (per workload), size cost (B gz), and risk
 3. A recommended option with rationale
 4. Whether the fix is compatible with the existing `wave` counter, `markOne` iterative stack, and the `restricted-leaf fast path`
@@ -149,7 +149,7 @@ Alien-signals' version-counter approach (per-source version counter, checked at 
 
 ### OQ-V5 — Streaming return types
 
-OQ-V5 (from `spec-v1-architecture.md §12`) concerns the return type of `renderToStream`. The spec notes that `ReadableStream<string>` is the WHATWG-standard type and asks whether it should be wrapped in a scribe-specific type for ergonomics.
+OQ-V5 (from `spec-v1-architecture.md §12`) concerns the return type of `renderToStream`. The spec notes that `ReadableStream<string>` is the WHATWG-standard type and asks whether it should be wrapped in a aihu-specific type for ergonomics.
 
 **Assessment:** OQ-V5 does **not** block Plan 3.1. The recommended resolution is `ReadableStream<string>` (bare WHATWG type) with no wrapper. Rationale: wrapping adds bytes, reduces interop with standard `Response` / fetch APIs, and complicates testing. If a richer ergonomics wrapper is desired in v2, it can wrap the plain stream. The Builder should proceed with `ReadableStream<string>` as the return type and document this as a decided OQ in the build manifest.
 
@@ -157,11 +157,11 @@ OQ-V5 (from `spec-v1-architecture.md §12`) concerns the return type of `renderT
 
 ### OQ-V6 — SSR dehydration
 
-OQ-V6 concerns whether `renderToStream` should emit SSR dehydration markers compatible with client-side hydration (arbor's subscription identity keys from Learning #16). This is the `opts.hydratable` → `data-scribe-path` story.
+OQ-V6 concerns whether `renderToStream` should emit SSR dehydration markers compatible with client-side hydration (arbor's subscription identity keys from Learning #16). This is the `opts.hydratable` → `data-aihu-path` story.
 
-**Assessment:** OQ-V6 does **not** block Plan 3.1 in any material way. The existing `renderToString` already handles `opts.hydratable` via `data-scribe-path` attributes in `renderNode`. `renderToStream` inherits the same `renderNode` function — dehydration markers are emitted as part of the synchronous node walk, not as a streaming concern.
+**Assessment:** OQ-V6 does **not** block Plan 3.1 in any material way. The existing `renderToString` already handles `opts.hydratable` via `data-aihu-path` attributes in `renderNode`. `renderToStream` inherits the same `renderNode` function — dehydration markers are emitted as part of the synchronous node walk, not as a streaming concern.
 
-The only streaming-specific dehydration question is: do we emit `data-scribe-stream-boundary` markers at async boundaries? This is a v2 concern. For v1, `renderToStream` should emit the same `data-scribe-path` markers that `renderToString` emits when `opts.hydratable` is true, and do nothing extra for async boundaries.
+The only streaming-specific dehydration question is: do we emit `data-aihu-stream-boundary` markers at async boundaries? This is a v2 concern. For v1, `renderToStream` should emit the same `data-aihu-path` markers that `renderToString` emits when `opts.hydratable` is true, and do nothing extra for async boundaries.
 
 **Resolution: OQ-V6 is not a blocker. `renderToStream` inherits existing hydratable behavior. Streaming-boundary dehydration deferred to v2. Document in spec.**
 

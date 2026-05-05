@@ -1,7 +1,7 @@
 {
-  "name": "scribe-vscode",
-  "displayName": "Scribe SFC",
-  "description": "Syntax highlighting and snippets for .scribe SFCs",
+  "name": "aihu-vscode",
+  "displayName": "Aihu SFC",
+  "description": "Syntax highlighting and snippets for .aihu SFCs",
   "version": "0.0.1",
   "publisher": "fellwork",
   "license": "MIT",
@@ -15,22 +15,22 @@
   "contributes": {
     "languages": [
       {
-        "id": "scribe",
+        "id": "aihu",
         "aliases": [
-          "Scribe SFC",
-          "scribe"
+          "Aihu SFC",
+          "aihu"
         ],
         "extensions": [
-          ".scribe"
+          ".aihu"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "scribe",
-        "scopeName": "source.scribe",
-        "path": "./syntaxes/scribe.tmLanguage.json",
+        "language": "aihu",
+        "scopeName": "source.aihu",
+        "path": "./syntaxes/aihu.tmLanguage.json",
         "embeddedLanguages": {
           "source.ts": "typescript",
           "text.html.basic": "html",
@@ -40,8 +40,8 @@
     ],
     "snippets": [
       {
-        "language": "scribe",
-        "path": "./snippets/scribe.json"
+        "language": "aihu",
+        "path": "./snippets/aihu.json"
       }
     ]
   }

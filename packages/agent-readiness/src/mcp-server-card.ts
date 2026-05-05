@@ -6,7 +6,7 @@
 
 import type { McpAuthConfig } from './types.ts'
 
-/** Minimal shape used for skill generation. Structurally compatible with @scribe/agent AgentMetadata. */
+/** Minimal shape used for skill generation. Structurally compatible with @aihu/agent AgentMetadata. */
 interface AgentMetadataLike {
   readonly tag: string
   readonly actions?: Record<string, { desc?: string }>

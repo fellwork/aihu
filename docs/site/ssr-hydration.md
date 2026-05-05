@@ -1,15 +1,15 @@
 # SSR and Hydration
 
-scribe supports server-side rendering via `@scribe/server`. The build system supports three targets: `client`, `server`, and `universal`.
+aihu supports server-side rendering via `@aihu/server`. The build system supports three targets: `client`, `server`, and `universal`.
 
 ## Build targets
 
-Set the build target in `defineScribeConfig`:
+Set the build target in `defineAihuConfig`:
 
 ```typescript
-import { defineScribeConfig } from '@scribe/server'
+import { defineAihuConfig } from '@aihu/server'
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   build: {
     target: 'universal',
   },
@@ -31,7 +31,7 @@ Or via the compiler CLI flag: `--target client|server|universal`.
 Stream-render a component to an HTML response:
 
 ```typescript
-import { renderToStream } from '@scribe/server'
+import { renderToStream } from '@aihu/server'
 
 const response = renderToStream(MyComponent, {
   props: { userId: 42 },
@@ -46,7 +46,7 @@ Returns a `ReadableStream<string>` that emits HTML chunks as the component tree 
 Render a server component to a complete HTML string:
 
 ```typescript
-import { renderToString } from '@scribe/server'
+import { renderToString } from '@aihu/server'
 
 const html = await renderToString(async () => {
   const data = await myLoader(ctx)
@@ -64,10 +64,10 @@ When target is `client`:
 
 This ensures zero server-only code reaches the browser bundle.
 
-## `defineScribeConfig` build options
+## `defineAihuConfig` build options
 
 ```typescript
-defineScribeConfig({
+defineAihuConfig({
   build: {
     target: 'universal',    // 'client' | 'server' | 'universal'
     outDir: 'dist',         // output directory

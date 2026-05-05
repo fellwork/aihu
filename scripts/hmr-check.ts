@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // scripts/hmr-check.ts
 // Checks that no package source files reference @vitejs/client directly.
-// HMR in scribe is handled natively — no @vitejs/client dependency is expected.
+// HMR in aihu is handled natively — no @vitejs/client dependency is expected.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -55,6 +55,6 @@ if (found) {
   for (const h of hits) console.error(`  ${h}`)
   process.exit(1)
 } else {
-  console.log('✓ No @vitejs/client in package sources (HMR is scribe-native)')
+  console.log('✓ No @vitejs/client in package sources (HMR is aihu-native)')
   process.exit(0)
 }

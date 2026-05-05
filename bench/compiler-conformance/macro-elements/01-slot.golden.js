@@ -1,7 +1,7 @@
 // <$slot expose="user, index"> → createSlotBoundary({ expose: ['user', 'index'] }, childFn)
 // Exposes named context identifiers to slot consumers.
-import { branch, leaf, slot } from '@scribe/arbor'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf, slot } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement(
   '01-slot',

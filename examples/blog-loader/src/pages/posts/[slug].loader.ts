@@ -1,4 +1,4 @@
-import { defineLoader } from '@scribe/server'
+import { defineLoader } from '@aihu/server'
 
 interface PostBody {
   readonly title: string
@@ -13,7 +13,7 @@ const POSTS: Record<string, { title: string; body: string }> = {
     body: 'First post — rendered by the server loader and handed to the SFC via route.data.',
   },
   meta: {
-    title: 'Why scribe is meta',
+    title: 'Why aihu is meta',
     body: 'Layered, separable, vanilla custom elements all the way down.',
   },
   agents: {

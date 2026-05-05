@@ -1,0 +1,73 @@
+{
+  "name": "vscode-aihu",
+  "displayName": "Aihu",
+  "description": "Syntax highlighting, snippets, and language support for .aihu Single File Components",
+  "version": "1.0.0",
+  "publisher": "fellwork",
+  "license": "MIT",
+  "icon": "icons/aihu.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "aihu",
+    "web components",
+    "sfc",
+    "signals",
+    "custom elements"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fellwork/aihu"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "aihu",
+        "aliases": [
+          "Aihu",
+          "aihu"
+        ],
+        "extensions": [
+          ".aihu"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/aihu.svg",
+          "dark": "./icons/aihu.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "aihu",
+        "scopeName": "source.aihu",
+        "path": "./syntaxes/aihu.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.block.state.aihu source.ts": "typescript",
+          "meta.block.template.aihu text.html": "html",
+          "meta.block.style.aihu source.css": "css",
+          "meta.block.agent.aihu source.ts": "typescript",
+          "meta.block.route.aihu source.yaml": "yaml"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "aihu",
+        "path": "./snippets/aihu.code-snippets"
+      }
+    ]
+  },
+  "scripts": {
+    "vsce:package": "vsce package",
+    "vsce:publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  }
+}
