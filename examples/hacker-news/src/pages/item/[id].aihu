@@ -21,8 +21,6 @@
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`
     return `${Math.floor(s / 86400)}d ago`
   }
-
-  $action commentKey(c: { id: number }): number { return c.id }
 }
 
 @template {
@@ -52,16 +50,20 @@
 }
 
 @style {
-  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; }
-  header { padding: 0.5rem; background: #ff6600; }
+  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
+  header { padding: 0.5rem; background: var(--hn-orange, #ff6600); }
   header a { color: white; text-decoration: none; }
   .story { padding: 1rem 0; }
   .story h1 { font-size: 1.1rem; margin: 0 0 0.25rem 0; }
-  .story h1 a { color: black; text-decoration: none; }
+  .story h1 a { color: var(--fg); text-decoration: none; }
   .story h1 a:hover { text-decoration: underline; }
-  .host { color: #828282; font-size: 0.85em; font-weight: normal; }
-  .meta { color: #828282; font-size: 0.85em; }
-  .meta a { color: #828282; }
+  .host { color: var(--muted); font-size: 0.85em; font-weight: normal; }
+  .meta { color: var(--muted); font-size: 0.85em; }
+  .meta a { color: var(--muted); }
   .text { padding: 0.5rem 0; line-height: 1.5; }
-  .comments h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; padding-bottom: 0.25rem; border-bottom: 1px solid #eee; }
+  .comments h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border); }
+
+  @media (max-width: 480px) {
+    main { padding: 0 0.5rem; }
+  }
 }

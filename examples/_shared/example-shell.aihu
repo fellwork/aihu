@@ -1,0 +1,136 @@
+// Shared page chrome for aihu examples.
+// Props:
+//   title     — example name shown in header (required)
+//   sourceUrl — GitHub source link (optional)
+//   liveUrl   — live deploy link (optional)
+//
+// Usage:
+//   <example-shell title="live-counter" sourceUrl="...">
+//     <live-counter />
+//   </example-shell>
+
+@state {
+  import { signal, effect } from '@aihu/signals'
+
+  $prop title: string
+  $prop sourceUrl: string = ''
+  $prop liveUrl: string = ''
+
+  const [dark, setDark] = signal(
+    typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
+  )
+
+  effect(() => {
+    document.documentElement.classList.toggle('dark', dark())
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('theme', dark() ? 'dark' : 'light')
+    }
+  })
+
+  const toggle = () => setDark(d => !d)
+}
+
+@template {
+  <div class="shell">
+    <header class="shell-header">
+      <div class="shell-header-inner">
+        <a class="shell-logo" href="https://aihu.dev">aihu</a>
+        <span class="shell-title">{title}</span>
+        <nav class="shell-nav">
+          <a class="shell-nav-link" $if={!!sourceUrl} href={sourceUrl} target="_blank" rel="noopener">Source</a>
+          <a class="shell-nav-link" $if={!!liveUrl} href={liveUrl} target="_blank" rel="noopener">Live</a>
+          <button class="theme-toggle" $on:click={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
+            <span class="icon-sun" aria-hidden="true">☀</span>
+            <span class="icon-moon" aria-hidden="true">☾</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+    <main class="shell-main">
+      <$slot />
+    </main>
+  </div>
+}
+
+@style {
+  .shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+  .shell-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    height: var(--header-h, 60px);
+    display: flex;
+    align-items: center;
+  }
+
+  .shell-header-inner {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .shell-logo {
+    text-decoration: none;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 1.125rem;
+    flex-shrink: 0;
+  }
+
+  .shell-title {
+    color: var(--muted);
+    font-size: 0.9rem;
+    flex: 1;
+  }
+
+  .shell-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .shell-nav-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+  .shell-nav-link:hover { color: var(--fg); text-decoration: none; }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 6px);
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 1rem;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 36px;
+    min-width: auto;
+  }
+  .theme-toggle:hover { background: var(--hover-bg); }
+
+  .shell-main {
+    flex: 1;
+    padding: 2rem 1.5rem;
+    max-width: var(--max-w, 640px);
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 480px) {
+    .shell-header-inner { padding: 0 16px; }
+    .shell-main { padding: 1.25rem 1rem; }
+    .shell-nav-link { display: none; }
+  }
+}

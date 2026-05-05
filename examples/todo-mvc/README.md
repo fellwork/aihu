@@ -1,33 +1,47 @@
 # todo-mvc
 
-**What this teaches:** the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration. Mandatory parity anchor.
+> Aihu — agentic discovery and interaction, for human purpose.
 
-Every framework ships a TodoMVC. This is aihu's: ~110 LOC of one-file SFC covering add / toggle / delete / filter / clear-completed against an in-memory list.
+**What this teaches:** the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface that lets AI add or clear todos in service of the human's task list.
 
 ## Run
 
 ```bash
 bun install
-bun run dev
+bun run dev    # http://localhost:5104
 ```
-
-Or open `index.html` through the dev server.
 
 ## Concepts shown
 
-- `$each="visible as todo"` plus `$key="todo.id"` — keyed list reconciliation (Macro Vocabulary §3.3, §3.6)
-- Multiple `$computed` derivations off one source-of-truth array (`visible`, `remaining`, `allDone`)
-- `$bind:value` for the draft input plus `$on:keydown={...}` arrow form for the Enter key
-- `$if={todos.length > 0}` — curly conditional on a real `<footer>` element
-- Mixed handler forms: quoted name (`$on:click="clearCompleted"`) and inline arrow (`$on:click={() => setFilter('all')}`)
+- `$each="visible as todo"` + `$key="todo.id"` — keyed list reconciliation
+- Multiple `$computed` derivations off one source-of-truth array
+- `$bind:value` for the draft input + `$on:keydown` for Enter key
+- **v1.1 fix:** `$lifecycle.mount` hydrates from localStorage; `$effect` persists on every change
+- `@agent` block: `$expose todos/remaining/filter` + `$action addTodo/clearCompleted`
+- Dark-mode tokens throughout `@style`
 
-## Out of scope (T4-D Flag #2)
+## localStorage persistence (v1.1 fix)
 
-`localStorage` persistence is omitted on purpose. Reloading the page resets the list. Adding persistence is a 5-line `$effect` block plus a one-time `$lifecycle.mount` read; the v1.1 docs pass will publish a "TodoMVC + localStorage" recipe.
+The previous v1 gap is resolved. Todos survive page reload via:
+1. `$lifecycle.mount` — reads `aihu-todos` from localStorage into the `todos` signal
+2. `$effect` — writes `JSON.stringify(todos)` to localStorage on every mutation
+
+Both paths are guarded against `SecurityError` (private mode, quota exceeded).
+
+## Agent surface
+
+| Name | Kind | Description |
+|---|---|---|
+| `todos` | state | Array of `{ id, text, done }` todo items |
+| `remaining` | state | Count of incomplete todos |
+| `filter` | state | Active filter: `all \| active \| completed` |
+| `addTodo()` | action | Add current draft as new todo |
+| `clearCompleted()` | action | Remove all completed todos |
+
+Agents can add tasks and clear completed items on the human's behalf — the list itself is the human's; the agent surface serves it.
 
 ## Compare with
 
 - [TodoMVC.com](https://todomvc.com)
 - [Svelte TodoMVC](https://svelte.dev/examples/todomvc)
-- [Vue TodoMVC](https://vuejs.org/examples/#todomvc)
 - [Solid TodoMVC](https://www.solidjs.com/examples/todomvc)

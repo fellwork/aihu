@@ -1,27 +1,44 @@
 # color-theme
 
-**What this teaches:** `$reactive(...)` inside `@style` plus `$global { ... }` to propagate tokens beyond component scope. The unique aihu `@style` capability with no Svelte/Vue/Lit equivalent.
+> Aihu — agentic discovery and interaction, for human purpose.
 
-Three HSL signals drive three CSS custom properties on `:root`. Every consumer of `var(--color-primary)` updates without a single template re-render.
+**What this teaches:** `$reactive(...)` in `@style` plus `$global { }` to propagate tokens beyond component scope — and `$media` macro for responsive breakpoints. The most differentiated aihu capability with no Svelte/Vue/Lit equivalent.
+
+## The `$reactive()` callout
+
+The `$reactive()` macro in `@style` is unique to aihu — it binds a signal directly to a CSS custom property with no JavaScript in the template. Three HSL signals drive three `:root` CSS variables. Every consumer of `var(--color-primary)` updates without a single template re-render.
 
 ## Run
 
 ```bash
 bun install
-bun run dev
+bun run dev    # http://localhost:5105
 ```
-
-Or open `index.html` through the dev server.
 
 ## Concepts shown
 
-- `$reactive(primary)` in CSS value position (Macro Vocabulary §4.1) — emits one `--reactive-N` custom property + one effect
-- `$global { ... }` block — escapes component scope to publish tokens at `:root` (Macro Vocabulary §4.3)
-- Three derived `$computed` values (`primary`, `onPrimary`, `surface`) feeding the global tokens
-- Range sliders bound via `$bind:value` for HSL controls
-- A handful of preset buttons using inline arrow `$on:click={() => setPreset(...)}`
+- `$reactive(primary)` in CSS value position — emits one `--reactive-N` custom property + one effect
+- `$global { ... }` block — escapes component scope to publish tokens at `:root`
+- `$media(max-width: 480px)` macro — responsive breakpoints inside `@style` (unique to aihu)
+- Three `$computed` values (`primary`, `onPrimary`, `surface`) feeding the global tokens
+- `@agent` block: `$expose hue/saturation/lightness/primary` + `$action setPreset/setHue/setSaturation/setLightness`
+
+## Agent surface
+
+| Name | Kind | Description |
+|---|---|---|
+| `hue` | state | Hue (0–360) |
+| `saturation` | state | Saturation (0–100) |
+| `lightness` | state | Lightness (0–100) |
+| `primary` | state | Computed HSL string |
+| `setPreset(h)` | action | Apply a named hue preset |
+| `setHue(h)` | action | Set hue directly |
+| `setSaturation(s)` | action | Set saturation directly |
+| `setLightness(l)` | action | Set lightness directly |
+
+An agent can adjust the theme on the human's behalf — e.g. "switch to a warmer palette" calls `setPreset(40)`.
 
 ## Compare with
 
-- [Lit color picker](https://lit.dev/playground/) — same "reactive CSS variable" effect, but Lit fires it from JS rather than a CSS-block macro
-- Svelte / Vue: typically achieved with inline `style={...}` props, not a scoped style block
+- [Lit color picker](https://lit.dev/playground/) — same "reactive CSS variable" effect via JS, not a CSS-block macro
+- Svelte/Vue: typically achieved with inline `style={...}` props, not a scoped style block

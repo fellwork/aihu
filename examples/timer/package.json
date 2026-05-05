@@ -1,19 +1,18 @@
 {
-  "name": "@aihu/example-hacker-news",
+  "name": "@aihu/example-timer",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5108",
+    "dev": "vite --port 5103",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aihu/router": "workspace:*",
-    "@aihu/runtime": "workspace:*",
-    "@aihu/server": "workspace:*",
+    "@aihu/compiler": "workspace:*",
     "@aihu/signals": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
     "@aihu/agent": "workspace:*"
   },
   "devDependencies": {

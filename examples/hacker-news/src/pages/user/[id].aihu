@@ -39,13 +39,18 @@
 }
 
 @style {
-  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; }
-  header { padding: 0.5rem; background: #ff6600; }
+  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
+  header { padding: 0.5rem; background: var(--hn-orange, #ff6600); }
   header a { color: white; text-decoration: none; }
   article { padding: 1rem 0; }
-  h1 { font-size: 1.3rem; margin: 0 0 0.5rem 0; }
+  h1 { font-size: 1.3rem; margin: 0 0 0.5rem 0; color: var(--fg); }
   dl { display: grid; grid-template-columns: 8rem 1fr; gap: 0.25rem 1rem; }
-  dt { color: #828282; }
-  dd { margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; color: var(--fg); }
   .about h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; }
+
+  @media (max-width: 480px) {
+    main { padding: 0 0.5rem; }
+    dl { grid-template-columns: 6rem 1fr; }
+  }
 }

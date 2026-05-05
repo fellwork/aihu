@@ -1,15 +1,12 @@
 import { resolve } from 'node:path'
-import { viteRouterIntegration } from '@aihu/router/plugin'
+import { aihuCompilerPlugin } from '@aihu/compiler'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [viteRouterIntegration({ pagesDir: 'src/pages' })],
+  plugins: [aihuCompilerPlugin()],
   resolve: {
     alias: {
       '@shared': resolve(__dirname, '../_shared'),
     },
-  },
-  ssr: {
-    target: 'node',
   },
 })

@@ -1,0 +1,133 @@
+// Minimal agent metadata inspector.
+// Calls getAllAgentMetadata() and renders exposed-fields per component.
+// Collapsed by default. Hidden on mobile.
+//
+// RFC #56 NOTE: handleToolCall is a stub — "Tool call stubbed — live binding
+// pending RFC #56 ratification" badge shown for any test-call buttons.
+// Do NOT simulate fake results.
+
+@state {
+  import { getAllAgentMetadata } from '@aihu/agent'
+  import { signal } from '@aihu/signals'
+
+  const [open, setOpen] = signal(false)
+  const toggle = () => setOpen(v => !v)
+
+  // Snapshot on mount — refreshes if panel is closed + reopened.
+  $computed entries = getAllAgentMetadata()
+  $computed count = entries.length
+  $computed hasEntries = count > 0
+}
+
+@template {
+  <aside class="agent-panel" role="complementary" aria-label="Agent metadata panel">
+    <button class="agent-panel-toggle" $on:click={toggle} aria-expanded={open}>
+      <span class="panel-icon" aria-hidden="true">&#x2713;</span>
+      Agent surface
+      <span class="panel-count" $if={hasEntries}>({count})</span>
+      <span class="panel-chevron" aria-hidden="true">{open ? '▲' : '▼'}</span>
+    </button>
+
+    <div class="agent-panel-body" $if={open}>
+      <p class="stub-badge" role="status">
+        Tool call stubbed — live binding pending RFC #56 ratification.
+      </p>
+
+      <p class="panel-empty" $if={!hasEntries}>
+        No @agent blocks registered. Ensure the .aihu component is loaded.
+      </p>
+
+      <ul class="component-list" $if={hasEntries}>
+        <li $each="entries as entry" $key="entry.tag" class="component-entry">
+          <h3 class="component-tag">&lt;{entry.tag}&gt;</h3>
+          <p class="component-desc" $if={!!entry.describes}>{entry.describes}</p>
+
+          <div $if={entry.state && Object.keys(entry.state).length > 0}>
+            <h4 class="section-label">Exposed state</h4>
+            <ul class="field-list">
+              <li $each="Object.entries(entry.state ?? {}) as [name, desc]" $key="name" class="field-row">
+                <code class="field-name">{name}</code>
+                <span class="field-desc">{desc}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div $if={entry.actions && Object.keys(entry.actions).length > 0}>
+            <h4 class="section-label">Actions</h4>
+            <ul class="field-list">
+              <li $each="Object.keys(entry.actions ?? {}) as name" $key="name" class="field-row action-row">
+                <code class="field-name">{name}()</code>
+                <span class="stub-note">Stubbed — RFC #56</span>
+              </li>
+            </ul>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </aside>
+}
+
+@style {
+  .agent-panel {
+    margin-top: 2rem;
+    border: 1px solid var(--agent-border, #c4b5fd);
+    border-radius: var(--radius, 6px);
+    background: var(--agent-bg, #faf5ff);
+    font-size: 0.875rem;
+  }
+
+  .agent-panel-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: left;
+    min-height: 44px;
+    min-width: auto;
+  }
+  .agent-panel-toggle:hover { background: var(--hover-bg); border-radius: var(--radius, 6px); }
+
+  .panel-icon { color: var(--success, #15803d); }
+  .panel-count { color: var(--muted); font-weight: 400; }
+  .panel-chevron { margin-left: auto; font-size: 0.7rem; color: var(--muted); }
+
+  .agent-panel-body { padding: 0 14px 14px; }
+
+  .stub-badge {
+    display: inline-block;
+    background: var(--stub-bg, #fffbeb);
+    border: 1px solid var(--stub-border, #fbbf24);
+    color: var(--stub-fg, #92400e);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    margin: 0 0 12px 0;
+  }
+
+  .panel-empty { color: var(--muted); font-style: italic; margin: 0; }
+
+  .component-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+  .component-entry { border-top: 1px solid var(--border); padding-top: 12px; }
+  .component-tag { margin: 0 0 4px 0; font-size: 0.9rem; font-family: ui-monospace, monospace; color: var(--accent); }
+  .component-desc { margin: 0 0 8px 0; color: var(--muted); }
+
+  .section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 8px 0 4px 0; }
+  .field-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+  .field-row { display: flex; align-items: baseline; gap: 8px; }
+  .field-name { font-family: ui-monospace, monospace; font-size: 0.85rem; color: var(--fg); }
+  .field-desc { color: var(--muted); font-size: 0.82rem; }
+  .action-row .field-name { color: var(--accent); }
+  .stub-note { font-size: 0.75rem; color: var(--stub-fg, #92400e); background: var(--stub-bg, #fffbeb); border: 1px solid var(--stub-border, #fbbf24); border-radius: 3px; padding: 1px 5px; }
+
+  /* Hidden on mobile — agent surface is for desktop/tool use */
+  @media (max-width: 480px) {
+    .agent-panel { display: none; }
+  }
+}

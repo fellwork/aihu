@@ -1,25 +1,33 @@
 # timer
 
-**What this teaches:** lifecycle hooks plus reactive derivations — the 7GUIs #4 pattern in aihu form.
+> Aihu — agentic discovery and interaction, for human purpose.
 
-A `setInterval` is registered in `$lifecycle.mount` and torn down in `$lifecycle.dispose`. The slider-controlled duration is two-way bound; `$computed` derivations turn raw elapsed-ms into a progress fraction, formatted seconds, and a "done" boolean used for `$if`.
+**What this teaches:** lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf (7GUIs #4).
 
 ## Run
 
 ```bash
 bun install
-bun run dev
+bun run dev    # http://localhost:5103
 ```
-
-Or open `index.html` through the dev server.
 
 ## Concepts shown
 
-- `$lifecycle.mount` / `$lifecycle.dispose` — paired setup/teardown (Macro Vocabulary §2.8)
+- `$lifecycle.mount` / `$lifecycle.dispose` — paired setup/teardown
 - Multiple `$computed` derivations sharing a single signal source
-- `$bind:value` on a `<input type="range">` — slider as a writable signal source
-- `$if={done}` curly form — conditional rendering of the "Done." status
-- `<progress>` element with a numeric `value` attribute fed by a computed
+- `$bind:value` on `<input type="range">` — slider as writable signal
+- `$if={done}` conditional rendering of "Done." status
+- `@agent` block: `$expose elapsed/duration/progress` + `$action reset`
+- Dark-mode tokens throughout `@style`
+
+## Agent surface
+
+| Name | Kind | Description |
+|---|---|---|
+| `elapsed` | state | Elapsed time in milliseconds |
+| `duration` | state | Timer duration (slider-controlled) |
+| `progress` | state | Fraction from 0 to 1 |
+| `reset()` | action | Reset elapsed to 0 |
 
 ## Compare with
 

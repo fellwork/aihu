@@ -1,42 +1,81 @@
 # aihu examples
 
-A 10-example curriculum, ordered top-to-bottom. Read the first three in order; pick the rest by which question you have.
+> Aihu — agentic discovery and interaction, for human purpose.
 
-Each folder ships a single `.aihu` SFC (or a small directory tree for the meta-framework demos), a 1-screen `README.md`, and — for the basics tier — a standalone `index.html` you can open through `bun run dev`.
+13-example portfolio across 4 tiers. Every example demonstrates both a human UX and an agent surface — even a minimal `$expose` block — because agentic discovery and interaction is core to aihu's identity, not an add-on.
 
-| #  | Folder                                                     | Tier      | Type       | Teaches                                                                             | Peer parity                       |
-|----|------------------------------------------------------------|-----------|------------|-------------------------------------------------------------------------------------|------------------------------------|
-| 1  | [`live-counter/`](./live-counter)                          | basics    | pure-SFC   | State + event handler + reactive text. The smallest aihu component possible.       | 7GUIs #1; every framework         |
-| 2  | [`temperature-converter/`](./temperature-converter)        | basics    | pure-SFC   | `$bind:value` two-way binding plus `$computed` derivation.                          | 7GUIs #2 (Svelte / Solid / Vue)   |
-| 3  | [`timer/`](./timer)                                        | basics    | pure-SFC   | `$lifecycle.mount` / `$lifecycle.dispose`; slider input; effect cleanup.            | 7GUIs #4 (Svelte / Solid)         |
-| 4  | [`markdown-preview/`](./markdown-preview)                  | basics    | pure-SFC   | `$bind:value` -> `$computed` -> `$html`; scoped `<style>`; security note.           | Svelte / Vue                      |
-| 5  | [`todo-mvc/`](./todo-mvc)                                  | basics    | pure-SFC   | `$each` + `$key`; multiple computeds; mixed handler forms. The universal anchor.    | TodoMVC.com                       |
-| 6  | [`color-theme/`](./color-theme)                            | basics    | pure-SFC   | `$reactive(...)` inside `@style` plus the `$global { ... }` macro.                  | Lit (loosely)                     |
-| 7  | [`weather-card/`](./weather-card)                          | flagship  | `@agent`   | First aihu-unique demo: `$expose` + `$action` + `$describe` for MCP.              | None — aihu-unique              |
-| 8  | [`currency-converter/`](./currency-converter)              | flagship  | `@agent`   | Enum `$prop` into a constrained MCP tool schema; pure-computed conversion.          | None — aihu-unique              |
-| 9  | `blog-router/` (TBD)                                       | meta      | meta-fwk   | File-based routing with three pages; `@route` + `viteRouterIntegration()`.          | Nuxt / Next / SvelteKit / Remix   |
-| 10 | `blog-loader/` (TBD)                                       | meta      | meta-fwk   | Server loader + `<$suspense>` + 3-state resource.                                   | Remix / SvelteKit                 |
+**M1 (this PR): 6 examples polished.** The remaining 7 are flagged M2 in the table below.
 
-Examples 9 and 10 land in the same PR via parallel Builder tracks T4-E2 / T4-E3.
+## Portfolio
+
+| # | Folder | Tier | Status | Port | Agent surface | Teaches |
+|---|---|---|---|---|---|---|
+| 01 | [`live-counter/`](./live-counter) | basics | M1 ready | 5101 | count, +/- actions | Minimal SFC: state + event + reactive text |
+| 02 | [`temperature-converter/`](./temperature-converter) | basics | M1 ready | 5102 | celsius/fahrenheit + write actions | `$bind:value`, `$computed` |
+| 03 | [`timer/`](./timer) | basics | M1 ready | 5103 | elapsed/progress + reset | `$lifecycle.mount/dispose`, `$effect` |
+| 04 | [`todo-mvc/`](./todo-mvc) | basics | M1 ready | 5104 | todos/remaining/filter + addTodo/clearCompleted | `$each/$key`, localStorage persistence (v1.1 fix) |
+| 05 | [`color-theme/`](./color-theme) | basics | M1 ready | 5105 | HSL signals + setPreset | `$reactive()` in `@style`, `$global`, `$media` macro |
+| 06 | `weather-card/` | flagship | M2 | 5106 | location/forecast + fetchForecast | `@agent` protocols (A2A/ACP) |
+| 07 | `agent-hub/` (new) | flagship | M2 | 5107 | Multi-component aggregation | `getAllAgentMetadata()`, A2A streaming |
+| 08 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
+| 09 | `blog-loader/` | meta | M2 | 5109 | posts + loader | `defineLoader`, `<$suspense>`, `@aihu/context` |
+| 10 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
+| 11 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
+| 12 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |
+| 13 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu/data`, `$shared`, dummy Stripe |
+
+### Archived
+
+| Folder | Reason |
+|---|---|
+| [`archived/markdown-preview/`](./archived/markdown-preview) | Security footgun without sanitization plugin |
+
+## Run all examples in parallel
+
+```bash
+bun run dev:examples
+```
+
+Spawns all 6+ polished examples simultaneously on their assigned ports.
+
+## Run a single example
+
+```bash
+cd examples/live-counter
+bun install
+bun run dev    # http://localhost:5101
+```
 
 ## Marketing skip-list
 
-If you only have time for four, read these:
+Four examples cover the full value proposition in under 250 LOC:
 
-- **`live-counter`** (~25 LOC) — what the framework looks like.
-- **`todo-mvc`** (~110 LOC) — the universal anchor.
-- **`weather-card`** (~70 LOC) — the agent flagship.
-- **`blog-router`** (when published) — the file-based-routing meta-framework story.
-
-Together they cover the entire framework value-prop in under 250 LOC.
+- **`live-counter`** (~40 LOC) — what the framework looks like
+- **`todo-mvc`** (~120 LOC) — the universal anchor (now with localStorage)
+- **`color-theme`** (~100 LOC) — the `$reactive()` differentiator
+- **`hacker-news`** (multi-file) — the meta-framework story
 
 ## Authoring contract
 
-All `.aihu` files in this directory are written against the v1 spec quartet at `../docs/superpowers/specs/`:
+All `.aihu` files are written against the v1 spec quartet at `../docs/superpowers/specs/`. If something drifts from the specs, the specs win.
 
-- [`2026-05-02-spec-block-structure.md`](../docs/superpowers/specs/2026-05-02-spec-block-structure.md)
-- [`2026-05-02-spec-template-attribute-syntax.md`](../docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md)
-- [`2026-05-02-spec-macro-vocabulary.md`](../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)
-- [`2026-05-02-spec-plugin-contract.md`](../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md)
+## Coverage matrix (M1 examples)
 
-If something here drifts from the specs, the specs win.
+| Feature | EX-01 | EX-02 | EX-03 | EX-04 | EX-05 | EX-08 |
+|---|---|---|---|---|---|---|
+| Signals | yes | yes | yes | yes | yes | yes |
+| `$computed` | — | yes | yes | yes | yes | — |
+| `$effect` | — | — | — | yes | — | — |
+| `$bind:value` | — | yes | yes | yes | yes | — |
+| `$each/$key` | — | — | — | yes | — | yes |
+| `$lifecycle` | — | — | yes | yes | — | — |
+| `$reactive` in `@style` | — | — | — | — | yes | — |
+| `$global` | — | — | — | — | yes | — |
+| `$media` macro | — | — | — | — | yes | — |
+| `@agent` block | yes | yes | yes | yes | yes | yes |
+| Dark-mode tokens | yes | yes | yes | yes | yes | yes |
+| Mobile responsive | yes | yes | yes | yes | yes | yes |
+| localStorage | — | — | — | yes | — | — |
+| File-based routing | — | — | — | — | — | yes |
+| SSR | — | — | — | — | — | yes |
+| Recursive components | — | — | — | — | — | yes |

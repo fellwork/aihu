@@ -1,0 +1,97 @@
+/* aihu examples — shared design tokens
+   Extends apps/docs/style.css; safe to import alongside it or standalone.
+   Dark mode activated by `.dark` class on <html>.
+   ──────────────────────────────────────────────────── */
+
+/* ── Base tokens (mirrors apps/docs/style.css) ──────── */
+:root {
+  --bg:           #ffffff;
+  --fg:           #1a1a1a;
+  --muted:        #666666;
+  --border:       #e2e8f0;
+  --accent:       #7c3aed;
+  --hover-bg:     #f8f5ff;
+  --code-bg:      #f6f8fa;
+  --btn-bg:       #f1f5f9;
+  --header-h:     60px;
+
+  /* ── Example-specific tokens ──────────────────────── */
+  --panel-bg:     #f8fafc;
+  --input-bg:     #ffffff;
+  --tag-bg:       #ede9fe;
+  --tag-fg:       #5b21b6;
+  --focus-ring:   #7c3aed;
+  --success:      #15803d;
+  --success-bg:   #f0fdf4;
+  --error:        #b91c1c;
+  --error-bg:     #fef2f2;
+  --card-shadow:  0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --radius:       6px;
+  --max-w:        640px;
+  --agent-bg:     #faf5ff;
+  --agent-border: #c4b5fd;
+  --stub-bg:      #fffbeb;
+  --stub-border:  #fbbf24;
+  --stub-fg:      #92400e;
+  --hn-orange:    #ff6600;
+}
+
+.dark {
+  --bg:           #0d1117;
+  --fg:           #e6edf3;
+  --muted:        #8b949e;
+  --border:       #30363d;
+  --accent:       #a78bfa;
+  --hover-bg:     #161b22;
+  --code-bg:      #161b22;
+  --btn-bg:       #21262d;
+
+  --panel-bg:     #161b22;
+  --input-bg:     #21262d;
+  --tag-bg:       #2d1f69;
+  --tag-fg:       #c4b5fd;
+  --focus-ring:   #a78bfa;
+  --success:      #4ade80;
+  --success-bg:   #052e16;
+  --error:        #f87171;
+  --error-bg:     #450a0a;
+  --card-shadow:  0 1px 3px 0 rgb(0 0 0 / 0.4);
+  --agent-bg:     #1e1333;
+  --agent-border: #6d28d9;
+  --stub-bg:      #292116;
+  --stub-border:  #d97706;
+  --stub-fg:      #fbbf24;
+}
+
+/* ── Global reset (safe to include once per page) ───── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  transition: background .15s, color .15s;
+}
+
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
+/* ── Focus styles ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Mobile baseline (touch targets ≥44×44px) ──────── */
+button, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 480px) {
+  body { font-size: 15px; }
+}
