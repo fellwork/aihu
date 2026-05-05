@@ -221,11 +221,11 @@ export default {
   // Auth deps are conditional (per §13 Q3) — only the chosen provider's
   // dep gets emitted into the user's package.json.
   appPeerDeps: {
-    '@aihu/runtime': '^1.0.0',
-    '@aihu/arbor': '^1.0.0',
-    '@aihu/signals': '^1.0.0',
-    '@aihu/router': '^1.0.0',
-    '@aihu/adapter-cloudflare': '^1.0.0',
+    '@aihu/runtime': '^0.2.0',
+    '@aihu/arbor': '^0.2.0',
+    '@aihu/signals': '^0.2.0',
+    '@aihu/router': '^0.2.0',
+    '@aihu/adapter-cloudflare': '^0.2.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },
@@ -275,10 +275,17 @@ Source: arch-4 §6.6. This is identical across all 5 templates — there is no p
 Every M1 template that has `agentSurface !== 'none'` ships at minimum **one** `.aihu` SFC with an `@expose` block. For templates with the `<live-counter>` starter, that's `src/components/live-counter.aihu`'s existing `@expose count` line (already shipped in `examples/live-counter/`). For templates with `starter === 'empty'`, the CLI emits a tiny `src/agent/expose.aihu` shim:
 
 ```aihu
-@template { <span class="aihu-expose-stub">{{ appName }}</span> }
+@state {
+  appName: string = '__APP_NAME__'
+}
+
+@template {
+  <span class="aihu-expose-stub">{{ appName }}</span>
+}
 
 @agent {
   $expose appName as readonly
+  $describe appName "The scaffolded application's display name"
 }
 ```
 
