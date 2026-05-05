@@ -8,7 +8,9 @@
  *      bin/aihu-compile<ext> OR
  *      target/release/aihu-compile<ext>
  *   3. SCRIBE_COMPILE_BIN=<path>     → copy that path → bin/, exit 0.
- *   4. GitHub Releases download      → bin/aihu-compile<ext>, exit 0.
+ *   4. GitHub Releases download      → bin/aihu-compile<ext>, verify SHA256,
+ *                                       exit 0. (arch-4 §4.3 — sidecar
+ *                                       verification implemented v1.1.)
  *   5. Local `cargo build --release` → target/release/aihu-compile<ext>,
  *                                       exit 0.
  *   6. Everything failed             → log warning, exit 0 anyway. The user
@@ -24,23 +26,29 @@
  * actually invokes the compiler without a binary) is acceptable and
  * recoverable; install-time failure is not.
  *
- * Hard-fail exit 1 is reserved for two cases only:
+ * Hard-fail exit 1 is reserved for these cases:
  *   - SCRIBE_COMPILE_BIN is set but points at a missing file (user error,
  *     surface immediately rather than silently swallow).
+ *   - SHA256 verification of a downloaded binary fails (integrity violation —
+ *     do NOT run a tampered binary).
  *   - Catastrophic unexpected exception (programming error in this script).
  *
  * Local dev override: if SCRIBE_COMPILE_BIN env var is set, that path is
  * used instead of downloading. This lets contributors who built from
  * source via `cargo build --release` point the compiler at their build.
- *
- * TODO(v1.x): add SHA256 sidecar verification once the release workflow
- * publishes binaries. The release pipeline will need to publish a
- * `<asset>.sha256` next to each binary, and this postinstall should fetch
- * and verify the digest before placing the binary on disk.
  */
 
 import { spawnSync } from 'node:child_process'
-import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -58,6 +66,10 @@ function resolveAsset(platform: NodeJS.Platform, arch: string): AssetMapping | n
   }
   if (platform === 'linux' && arch === 'x64') {
     return { asset: 'aihu-compile-linux-x64', ext: '' }
+  }
+  // arch-4 §4.2 — aarch64-linux added in v1.1 release matrix.
+  if (platform === 'linux' && arch === 'arm64') {
+    return { asset: 'aihu-compile-linux-arm64', ext: '' }
   }
   if (platform === 'win32' && arch === 'x64') {
     return { asset: 'aihu-compile-windows-x64.exe', ext: '.exe' }
@@ -94,6 +106,7 @@ function softExit(msg: string): never {
 interface DownloadResult {
   ok: boolean
   reason?: string
+  status?: number
 }
 
 async function tryDownload(url: string, dest: string): Promise<DownloadResult> {
@@ -108,6 +121,7 @@ async function tryDownload(url: string, dest: string): Promise<DownloadResult> {
     return {
       ok: false,
       reason: `HTTP ${response.status} ${response.statusText}`,
+      status: response.status,
     }
   }
   let buf: Buffer
@@ -125,6 +139,57 @@ async function tryDownload(url: string, dest: string): Promise<DownloadResult> {
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     return { ok: false, reason: `write failed: ${detail}` }
+  }
+  return { ok: true }
+}
+
+/**
+ * Verify a downloaded binary's SHA256 digest against the matching `.sha256`
+ * sidecar from GitHub Releases (arch-4 §4.3).
+ *
+ * Returns true on match, false on any failure (network, mismatch, parse).
+ * The caller decides whether to fail hard or fall through; for download path
+ * a mismatch is hardFail (integrity violation), other reasons soft-warn.
+ */
+async function verifySha256(
+  binaryPath: string,
+  sidecarUrl: string,
+): Promise<{ ok: boolean; reason?: string; expected?: string; actual?: string }> {
+  let response: Response
+  try {
+    response = await fetch(sidecarUrl, { redirect: 'follow' })
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return { ok: false, reason: `sidecar network error: ${detail}` }
+  }
+  if (!response.ok) {
+    return {
+      ok: false,
+      reason: `sidecar HTTP ${response.status} ${response.statusText}`,
+    }
+  }
+  const sidecarText = (await response.text()).trim()
+  // Sidecar format: hex digest (lowercase, 64 chars). Some tools prepend a filename;
+  // accept either `<hash>` or `<hash>  <name>` and extract the first whitespace-delimited token.
+  const expected = sidecarText.split(/\s+/)[0]?.toLowerCase()
+  if (!expected || !/^[0-9a-f]{64}$/i.test(expected)) {
+    return {
+      ok: false,
+      reason: `malformed sidecar (expected 64-char hex, got "${sidecarText.slice(0, 80)}")`,
+    }
+  }
+
+  let actual: string
+  try {
+    const fileBuf = readFileSync(binaryPath)
+    actual = createHash('sha256').update(fileBuf).digest('hex')
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return { ok: false, reason: `local hash failed: ${detail}` }
+  }
+
+  if (actual !== expected) {
+    return { ok: false, reason: 'digest mismatch', expected, actual }
   }
   return { ok: true }
 }
@@ -168,7 +233,7 @@ async function main(): Promise<void> {
   if (!mapping) {
     softExit(
       `unsupported platform: ${platform}/${arch} ` +
-        '(supported: darwin/arm64, darwin/x64, linux/x64, win32/x64).',
+        '(supported: darwin/arm64, darwin/x64, linux/x64, linux/arm64, win32/x64).',
     )
   }
 
@@ -212,18 +277,54 @@ async function main(): Promise<void> {
   // On any failure (404 because no release exists yet, network unavailable,
   // empty response, write failure), fall through to Strategy B without
   // aborting the install.
-  const url = `https://github.com/fellwork/aihu/releases/latest/download/${mapping.asset}`
-  info(`fetching ${url}`)
-  const downloaded = await tryDownload(url, binPath)
+  const baseUrl = `https://github.com/fellwork/aihu/releases/latest/download/${mapping.asset}`
+  const sidecarUrl = `${baseUrl}.sha256`
+  info(`fetching ${baseUrl}`)
+  const downloaded = await tryDownload(baseUrl, binPath)
   if (downloaded.ok) {
+    // Verify SHA256 against sidecar before trusting the binary (arch-4 §4.3).
+    info(`verifying SHA256 against ${sidecarUrl}`)
+    const verified = await verifySha256(binPath, sidecarUrl)
+    if (verified.ok) {
+      if (platform !== 'win32') {
+        chmodSync(binPath, 0o755)
+      }
+      info(`installed binary at ${binPath} (SHA256 verified).`)
+      return
+    }
+    if (verified.reason === 'digest mismatch') {
+      // Integrity violation — DO NOT leave the bad binary on disk.
+      try {
+        unlinkSync(binPath)
+      } catch {
+        /* swallow — the next strategy will overwrite */
+      }
+      hardFail(
+        `binary hash verification failed for ${mapping.asset}.\n` +
+          `  expected: ${verified.expected ?? '(unknown)'}\n` +
+          `  actual:   ${verified.actual ?? '(unknown)'}\n` +
+          'Refusing to install a tampered binary. Re-run after the release ' +
+          'workflow republishes the asset, or set SCRIBE_COMPILE_BIN to a trusted local build.',
+      )
+    }
+    // Sidecar fetch/parse failures: warn but don't hard-fail (the binary itself downloaded).
+    // This lets pre-v1.1 releases (no sidecars) continue to install.
+    warn(`SHA256 verification skipped: ${verified.reason}.`)
     if (platform !== 'win32') {
       chmodSync(binPath, 0o755)
     }
-    info(`installed binary at ${binPath}.`)
+    info(`installed binary at ${binPath} (UNVERIFIED — sidecar unavailable).`)
     return
   }
 
-  warn(`release-binary download from ${url} failed: ${downloaded.reason}.`)
+  // 404 on aarch64-linux pre-v1.1 release publish — graceful fallthrough.
+  if (downloaded.status === 404 && platform === 'linux' && arch === 'arm64') {
+    info(
+      'aarch64-linux binary not yet published for this release; falling through to source build.',
+    )
+  } else {
+    warn(`release-binary download from ${baseUrl} failed: ${downloaded.reason}.`)
+  }
 
   // Strategy B — attempt a local Rust build. The Rust crate lives at
   // packages/compiler/Cargo.toml; `cargo build --release` produces the

@@ -1,7 +1,8 @@
 name: Release aihu-compile binaries
 
 # Cross-compile the aihu-compile Rust binary for all supported platforms,
-# then publish a GitHub Release with all four binaries attached as assets.
+# build the WASM bundle for browser playground use, then publish a GitHub
+# Release with all binaries (+ WASM bundle + SHA256 sidecars) attached as assets.
 #
 # Triggers:
 #   - push of any tag matching `v*` (real release)
@@ -9,8 +10,11 @@ name: Release aihu-compile binaries
 #     are uploaded as workflow artifacts but no GitHub Release is created
 #     unless the input parses as an actual `v*` tag).
 #
-# Consumed by packages/compiler/js/postinstall.ts via the
-# `releases/latest/download/<asset>` redirect.
+# Consumed by:
+#   - packages/compiler/js/postinstall.ts via the
+#     `releases/latest/download/<asset>` redirect (verifies SHA256).
+#   - apps/docs/ playground (arch-1 §3.5 + arch-4 §4.6) fetches the WASM
+#     bundle from `releases/latest/download/aihu-compile-wasm.tar.gz`.
 "on":
   push:
     tags:
@@ -37,18 +41,27 @@ jobs:
             target: aarch64-apple-darwin
             asset: aihu-compile-darwin-arm64
             ext: ''
+            use_cross: false
           - runner: macos-13
             target: x86_64-apple-darwin
             asset: aihu-compile-darwin-x64
             ext: ''
+            use_cross: false
           - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             asset: aihu-compile-linux-x64
             ext: ''
+            use_cross: false
+          - runner: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            asset: aihu-compile-linux-arm64
+            ext: ''
+            use_cross: true
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
             asset: aihu-compile-windows-x64.exe
             ext: '.exe'
+            use_cross: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,8 +72,17 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Build release binary
+      - name: Install cross (aarch64-linux only)
+        if: matrix.use_cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross --rev 4090beca3cfffa44371a5bba524de3a578aa46c3
+
+      - name: Build release binary (cargo)
+        if: matrix.use_cross == false
         run: cargo build --release --target ${{ matrix.target }} --manifest-path packages/compiler/Cargo.toml
+
+      - name: Build release binary (cross)
+        if: matrix.use_cross == true
+        run: cross build --release --target ${{ matrix.target }} --manifest-path packages/compiler/Cargo.toml
 
       - name: Stage asset (Unix)
         if: runner.os != 'Windows'
@@ -68,6 +90,9 @@ jobs:
           mkdir -p artifact
           cp packages/compiler/target/${{ matrix.target }}/release/aihu-compile artifact/${{ matrix.asset }}
           chmod 0755 artifact/${{ matrix.asset }}
+          # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
+          sha256sum artifact/${{ matrix.asset }} | awk '{print $1}' > artifact/${{ matrix.asset }}.sha256
+          echo "Generated SHA256: $(cat artifact/${{ matrix.asset }}.sha256)"
 
       - name: Stage asset (Windows)
         if: runner.os == 'Windows'
@@ -75,22 +100,78 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item -Path "packages/compiler/target/${{ matrix.target }}/release/aihu-compile.exe" -Destination "artifact/${{ matrix.asset }}"
+          # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
+          $hash = (Get-FileHash -Algorithm SHA256 "artifact/${{ matrix.asset }}").Hash.ToLower()
+          $hash | Out-File -FilePath "artifact/${{ matrix.asset }}.sha256" -Encoding ascii -NoNewline
+          Write-Host "Generated SHA256: $hash"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: artifact/${{ matrix.asset }}
+          path: |
+            artifact/${{ matrix.asset }}
+            artifact/${{ matrix.asset }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  build-wasm:
+    name: Build aihu-compile-wasm bundle
+    runs-on: ubuntu-22.04
+    # WASM bundle for browser-side compilation in the homepage playground
+    # (Directive 1 + arch-4 §4.6). Output is a tar.gz of the wasm-pack `pkg-wasm/`
+    # directory so consumers receive the full glue (.wasm + .js + .d.ts + package.json).
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (wasm32)
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM bundle
+        run: |
+          cd packages/compiler
+          wasm-pack build --target web --out-dir pkg-wasm
+          ls -la pkg-wasm/
+
+      - name: Stage WASM bundle
+        run: |
+          mkdir -p artifact
+          tar -czf artifact/aihu-compile-wasm.tar.gz -C packages/compiler pkg-wasm
+          # SHA256 sidecar
+          sha256sum artifact/aihu-compile-wasm.tar.gz | awk '{print $1}' > artifact/aihu-compile-wasm.tar.gz.sha256
+          # Size diagnostics — non-fatal warnings, just observability.
+          raw=$(stat -c %s artifact/aihu-compile-wasm.tar.gz)
+          gz_wasm=$(gzip -9 -c packages/compiler/pkg-wasm/aihu_compiler_bg.wasm | wc -c)
+          echo "Tar.gz bundle size: $raw bytes"
+          echo "Raw .wasm gzipped:  $gz_wasm bytes (target <500KB = 512000)"
+          if [ "$gz_wasm" -gt 512000 ]; then
+            echo "::warning::WASM gzipped size $gz_wasm exceeds 500KB target (arch-4 §4.6)"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aihu-compile-wasm
+          path: |
+            artifact/aihu-compile-wasm.tar.gz
+            artifact/aihu-compile-wasm.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
 
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, build-wasm]
     runs-on: ubuntu-22.04
     # Only create a Release when triggered by an actual tag push. The
-    # workflow_dispatch dry-run path stops after `build`; binaries are
-    # available as workflow artifacts only.
+    # workflow_dispatch dry-run path stops after build/build-wasm; binaries
+    # are available as workflow artifacts only.
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download all artifacts
