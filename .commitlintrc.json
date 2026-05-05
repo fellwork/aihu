@@ -1,0 +1,53 @@
+{
+  "extends": ["@commitlint/config-conventional"],
+  "rules": {
+    "header-max-length": [2, "always", 100],
+    "body-max-line-length": [1, "always", 120],
+    "scope-enum": [
+      1,
+      "always",
+      [
+        "release",
+        "publish",
+        "examples",
+        "compiler",
+        "cli",
+        "router",
+        "server",
+        "agent",
+        "agent-readiness",
+        "agent-a2a",
+        "agent-acp",
+        "signals",
+        "arbor",
+        "runtime",
+        "context",
+        "data",
+        "app",
+        "adapter-cloudflare",
+        "adapter-vercel",
+        "plugin",
+        "vscode-aihu",
+        "language-server",
+        "docs",
+        "ci",
+        "deps",
+        "config",
+        "tooling",
+        "i18n",
+        "a11y",
+        "auth",
+        "spec",
+        "rfc",
+        "arch-1",
+        "arch-2",
+        "arch-3",
+        "arch-4",
+        "arch-5",
+        "test",
+        "fixtures",
+        "playground"
+      ]
+    ]
+  }
+}
