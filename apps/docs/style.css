@@ -71,7 +71,15 @@ a:hover { text-decoration: underline; }
   gap: 8px;
 }
 
-.logo strong { color: var(--accent); }
+.logo-mark {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+/* Wordmark glyphs use --fg-derived ink color via filter so the mark adapts to dark mode. */
+:root .logo-mark { filter: none; }
+.dark .logo-mark { filter: invert(1) hue-rotate(180deg); }
 
 .version {
   font-size: .75rem;
