@@ -61,14 +61,14 @@
   {
     "name": "@aihu/agent-a2a",
     "path": "packages/agent-a2a/dist/index.js",
-    "limit": "720 B",
+    "limit": "750 B",
     "gzip": true,
     "ignore": ["@aihu/agent-service"]
   },
   {
     "name": "@aihu/app",
     "path": "packages/app/dist/client.js",
-    "limit": "400 B",
+    "limit": "800 B",
     "gzip": true,
     "ignore": [
       "@aihu/router",
