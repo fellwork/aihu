@@ -34,7 +34,7 @@ npm install @aihu/server-win32-x64-msvc
 bun add @aihu/server-win32-x64-msvc
 ```
 
-<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `5c8d612`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `8a94500`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -50,7 +50,7 @@ bun add @aihu/server-win32-x64-msvc
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `5c8d612`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `8a94500`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/server-win32-x64-msvc
 - [@aihu/server](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `5c8d612`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `8a94500`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/server-win32-x64-msvc
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `5c8d612`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-win32-x64-msvc@0.1.0` on commit `8a94500`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
