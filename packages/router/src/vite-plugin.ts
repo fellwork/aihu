@@ -102,7 +102,7 @@ export function scanLayouts(d: string): LayoutMap {
   const m: LayoutMap = {}
   for (const e of readdirSync(d, { withFileTypes: true }))
     if (e.isFile() && e.name.endsWith('.aihu'))
-      m[e.name.slice(0, -7)] = join(d, e.name).replace(/\\/g, '/')
+      m[e.name.slice(0, -5)] = join(d, e.name).replace(/\\/g, '/')
   return m
 }
 
