@@ -1,0 +1,47 @@
+# moon root project — entry point used to discover the monorepo.
+# Per-app tasks live in apps/web/moon.yml and packages/shared/moon.yml.
+# https://moonrepo.dev/docs
+
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+type: 'application'
+language: 'typescript'
+
+project:
+  name: '__APP_NAME__'
+  description: 'Root tasks for __APP_NAME__'
+
+tasks:
+  build:
+    command: 'noop'
+    deps:
+      - 'apps/web:build'
+      - 'packages/shared:build'
+
+  test:
+    command: 'noop'
+    deps:
+      - 'apps/web:test'
+      - 'packages/shared:test'
+
+  dev:
+    command: 'noop'
+    deps:
+      - 'apps/web:dev'
+    local: true
+
+  lint:
+    command: 'biome lint .'
+    options:
+      cache: false
+
+  format:
+    command: 'biome format --write .'
+    options:
+      cache: false
+
+  typecheck:
+    command: 'noop'
+    deps:
+      - 'apps/web:typecheck'
+      - 'packages/shared:typecheck'
