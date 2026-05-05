@@ -12,3 +12,9 @@ tasks:
     options:
       runFromWorkspaceRoot: false
       mergeOutputs: replace
+  build:
+    command: noop
+    outputs: []
+    options:
+      runFromWorkspaceRoot: false
+      mergeOutputs: replace
