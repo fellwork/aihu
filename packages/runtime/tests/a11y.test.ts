@@ -8,6 +8,7 @@
  * helpers in `packages/runtime/src/a11y.ts`.
  */
 
+import type { Branch } from '@aihu/arbor'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   _ensureA11yStyles,
@@ -15,7 +16,6 @@ import {
   announce,
   createFocusTrap,
 } from '../src/a11y.ts'
-import type { Branch } from '@aihu/arbor'
 
 // Helper to drain a microtask plus any pending async tasks.
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
@@ -217,22 +217,16 @@ describe('createFocusTrap — RFC-A5-018', () => {
     expect(ev.defaultPrevented).toBe(false)
   })
 
-  it.skip(
-    'returns focus to trigger when active=false (requires browser focus model)',
-    () => {
-      // Focus return depends on real focus events crossing shadow boundaries
-      // and a reactive `active` toggle observable to the trap. Skipped in
-      // jsdom per arch-5 §6 (Playwright deferred to v1.2 — see arch-2 §6).
-    },
-  )
+  it.skip('returns focus to trigger when active=false (requires browser focus model)', () => {
+    // Focus return depends on real focus events crossing shadow boundaries
+    // and a reactive `active` toggle observable to the trap. Skipped in
+    // jsdom per arch-5 §6 (Playwright deferred to v1.2 — see arch-2 §6).
+  })
 
-  it.skip(
-    'focuses initialFocus selector when activated (requires reactive active flag)',
-    () => {
-      // The trap's active-state polling fires on `focusin`. Reliably observing
-      // the cross-element focus transition needs a real browser focus model;
-      // we cover the selector-resolution branch in static review and exercise
-      // it in EX-15 a11y-kit acceptance per arch-5 §8.
-    },
-  )
+  it.skip('focuses initialFocus selector when activated (requires reactive active flag)', () => {
+    // The trap's active-state polling fires on `focusin`. Reliably observing
+    // the cross-element focus transition needs a real browser focus model;
+    // we cover the selector-resolution branch in static review and exercise
+    // it in EX-15 a11y-kit acceptance per arch-5 §8.
+  })
 })

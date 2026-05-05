@@ -11,8 +11,8 @@
  * injector + announce singleton + focus-trap helper add JS.
  */
 
-import { branch } from '@aihu/arbor'
 import type { Branch } from '@aihu/arbor'
+import { branch } from '@aihu/arbor'
 
 // ─── sr-only + skip-link CSS ──────────────────────────────────────────────────
 
@@ -108,17 +108,14 @@ export function createFocusTrap(
       setTimeout(wire, 0)
       return
     }
-    const focusables = (): HTMLElement[] =>
-      Array.from(host.querySelectorAll<HTMLElement>(_Q))
+    const focusables = (): HTMLElement[] => Array.from(host.querySelectorAll<HTMLElement>(_Q))
     const sync = (): void => {
       const a = isActive()
       if (a === lastActive) return
       lastActive = a
       if (a) {
         prevFocus = (document.activeElement as HTMLElement) ?? null
-        const init = initialFocus
-          ? host.querySelector<HTMLElement>(initialFocus)
-          : focusables()[0]
+        const init = initialFocus ? host.querySelector<HTMLElement>(initialFocus) : focusables()[0]
         init?.focus()
       } else if (returnFocus && prevFocus) {
         prevFocus.focus()
