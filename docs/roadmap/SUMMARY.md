@@ -357,6 +357,8 @@
 
 ---
 
-## 11. The Single Most Important Sentence
+## 11. The Mantra (Directive 0)
 
-**v1.1 exists to prove — in under 30 seconds, in the browser, without installation — that Aihu is the first web framework where every component is simultaneously a human UI and an AI-callable tool.**
+**"Aihu is about agentic discovery and interaction for human purpose."**
+
+The hierarchy: agents are the *means*, discovery and interaction are the *mechanism*, **human purpose is the end**. Every v1.1 deliverable is evaluated against this. The homepage playground proves the framework's value to a human in 30 seconds. The LSP makes a human productive. The agent-host lets AI agents discover and serve the human's intent inside the project. The plugin suite gives the human an agent surface they authorize and scope. v1.1 is the release where Aihu becomes discoverable by agents, in service of whatever a human is trying to build.
