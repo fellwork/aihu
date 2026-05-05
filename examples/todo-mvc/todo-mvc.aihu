@@ -1,9 +1,8 @@
 // TodoMVC — universal parity anchor.
-// Drafted in T4-D §4.2; preserved as the contract.
-// localStorage persistence is intentionally OUT OF SCOPE for v1 (T4-D Flag #2).
+// M1 v1.1 fix: localStorage persistence via $lifecycle.mount hydrate + $effect persist.
+// @agent block: todos/remaining/filter + addTodo/clearCompleted.
 
 @state {
-  // Domain
   $action newId(): string { return crypto.randomUUID() }
 
   todos: Array<{ id: string; text: string; done: boolean }> = []
@@ -41,6 +40,28 @@
   $action setFilter(f: 'all' | 'active' | 'completed') {
     filter = f
   }
+
+  // v1.1 fix: hydrate from localStorage on mount
+  $lifecycle.mount(() => {
+    try {
+      const saved = localStorage.getItem('aihu-todos')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) todos = parsed
+      }
+    } catch {
+      // localStorage unavailable (SSR, private mode, corrupted) — start fresh
+    }
+  })
+
+  // v1.1 fix: persist to localStorage on every todos change
+  $effect(() => {
+    try {
+      localStorage.setItem('aihu-todos', JSON.stringify(todos))
+    } catch {
+      // ignore quota exceeded / SecurityError
+    }
+  })
 }
 
 @template {
@@ -68,7 +89,7 @@
           $on:change={() => toggle(todo.id)}
         />
         <label>{todo.text}</label>
-        <button class="destroy" $on:click={() => remove(todo.id)}>x</button>
+        <button class="destroy" $on:click={() => remove(todo.id)}>×</button>
       </li>
     </ul>
 
@@ -93,13 +114,39 @@
 }
 
 @style {
-  .todoapp { max-width: 32rem; margin: 2rem auto; font-family: system-ui, sans-serif; }
-  .new-todo { width: 100%; padding: 0.75rem; font-size: 1rem; }
-  .todo-list { list-style: none; padding: 0; }
-  .todo-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
-  .completed label { text-decoration: line-through; color: #999; }
-  footer { display: flex; gap: 1rem; align-items: center; padding-top: 0.75rem; }
+  .todoapp { max-width: 32rem; margin: 2rem auto; }
+  .todoapp h1 { font-size: 2rem; color: var(--accent); margin: 0 0 0.5rem 0; }
+  .new-todo { width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); }
+  .new-todo:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .todo-list { list-style: none; padding: 0; margin: 0.5rem 0; }
+  .todo-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); align-items: center; }
+  .completed label { text-decoration: line-through; color: var(--muted); }
+  footer { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; padding-top: 0.75rem; font-size: 0.9rem; color: var(--muted); }
   .filters { display: flex; gap: 0.5rem; list-style: none; padding: 0; margin: 0; }
-  .filters .selected { font-weight: 600; }
-  .destroy { background: transparent; border: 0; cursor: pointer; }
+  .filters button { background: none; border: 1px solid transparent; border-radius: var(--radius); padding: 2px 6px; cursor: pointer; color: var(--muted); }
+  .filters button:hover { border-color: var(--border); color: var(--fg); }
+  .filters .selected { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .destroy { background: transparent; border: 0; cursor: pointer; color: var(--muted); font-size: 1.1rem; }
+  .destroy:hover { color: var(--error); }
+  .clear-completed { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.9rem; text-decoration: underline; padding: 0; }
+  .clear-completed:hover { color: var(--fg); }
+  input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
+
+  @media (max-width: 480px) {
+    footer { font-size: 0.8rem; }
+    .filters { gap: 0.25rem; }
+  }
+}
+
+@agent {
+  $expose todos, remaining, filter
+
+  $action addTodo
+  $action clearCompleted
+
+  $describe todos          "Array of todo items with id, text, done fields"
+  $describe remaining      "Count of incomplete todos"
+  $describe filter         "Active filter: all | active | completed"
+  $describe addTodo        "Add the current draft text as a new todo"
+  $describe clearCompleted "Remove all completed todos from the list"
 }

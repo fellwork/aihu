@@ -1,5 +1,6 @@
-// $reactive(...) in @style + $global { ... } macro propagating tokens to document scope.
-// Demonstrates the @style block capability that no peer framework offers.
+// $reactive(...) in @style + $global + $media macro demo.
+// Demonstrates aihu's unique CSS-binding capability.
+// M1 polish: $media(max-width: 480px) macro + @agent block + dark-mode tokens.
 
 @state {
   hue: number = 215
@@ -15,11 +16,19 @@
     saturation = 70
     lightness = 55
   }
+
+  $action setHue(h: number) { hue = h }
+  $action setSaturation(s: number) { saturation = s }
+  $action setLightness(l: number) { lightness = l }
 }
 
 @template {
   <section class="theme-picker">
     <h1>Theme picker</h1>
+
+    <p class="callout">
+      The <code>$reactive()</code> macro in <code>@style</code> is unique to aihu — it binds a signal directly to a CSS custom property with no JavaScript in the template.
+    </p>
 
     <fieldset>
       <legend>HSL controls</legend>
@@ -61,13 +70,85 @@
     }
   }
 
-  .theme-picker { display: grid; gap: 1rem; padding: 1rem; max-width: 30rem; font-family: system-ui, sans-serif; background: var(--color-surface); border-radius: 6px; }
-  fieldset      { display: grid; gap: 0.5rem; }
-  label         { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; align-items: center; }
-  .presets      { display: flex; gap: 0.5rem; }
-  .presets button { flex: 1; padding: 0.4rem; cursor: pointer; }
-  .card         { padding: 1rem; border-radius: 4px; background: white; }
-  .card h2      { margin-top: 0; color: var(--color-primary); }
-  .cta          { background: var(--color-primary); color: var(--color-on-primary); border: 0; padding: 0.5rem 1rem; cursor: pointer; border-radius: 3px; }
-  code          { font: 0.9em ui-monospace, monospace; }
+  .theme-picker {
+    display: grid;
+    gap: 1rem;
+    padding: 1.5rem;
+    max-width: 30rem;
+    background: var(--color-surface, var(--panel-bg));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    color: var(--fg);
+  }
+
+  h1 { margin: 0; color: var(--fg); }
+
+  .callout {
+    background: var(--tag-bg);
+    border-left: 3px solid var(--accent);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.875rem;
+    color: var(--fg);
+    margin: 0;
+  }
+  .callout code { font-family: ui-monospace, monospace; color: var(--accent); }
+
+  fieldset { display: grid; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; }
+  legend { color: var(--muted); font-size: 0.875rem; padding: 0 4px; }
+  label { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem; align-items: center; }
+  label span { color: var(--muted); font-size: 0.875rem; }
+  input[type="range"] { accent-color: var(--color-primary, var(--accent)); }
+
+  .presets { display: flex; gap: 0.5rem; }
+  .presets button {
+    flex: 1;
+    padding: 0.4rem;
+    cursor: pointer;
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--fg);
+    transition: background 0.1s;
+  }
+  .presets button:hover { background: var(--hover-bg); }
+
+  .card { padding: 1rem; border-radius: var(--radius); background: var(--bg); border: 1px solid var(--border); }
+  .card h2 { margin-top: 0; color: var(--color-primary, var(--accent)); }
+  .cta {
+    background: var(--color-primary, var(--accent));
+    color: var(--color-on-primary, #fff);
+    border: 0;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+
+  code { font: 0.9em ui-monospace, monospace; }
+
+  /* $media macro demo: stack controls vertically on narrow viewports */
+  $media(max-width: 480px) {
+    label { grid-template-columns: 1fr; }
+    .presets { flex-wrap: wrap; }
+    .presets button { flex: 1 1 calc(50% - 0.25rem); }
+  }
+}
+
+@agent {
+  $expose hue, saturation, lightness, primary
+
+  $action setPreset
+  $action setHue
+  $action setSaturation
+  $action setLightness
+
+  $describe hue          "Hue channel (0-360)"
+  $describe saturation   "Saturation channel (0-100)"
+  $describe lightness    "Lightness channel (0-100)"
+  $describe primary      "Computed HSL primary color string"
+  $describe setPreset    "Set a named color preset by hue value"
+  $describe setHue       "Set hue directly (0-360)"
+  $describe setSaturation "Set saturation directly (0-100)"
+  $describe setLightness "Set lightness directly (0-100)"
 }

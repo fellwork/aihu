@@ -55,4 +55,4 @@ for pkg in "${PKGS[@]}"; do
 done
 
 echo ""
-echo "Done. Verify at: https://www.npmjs.com/search?q=%40scribe"
+echo "Done. Verify at: https://www.npmjs.com/search?q=%40aihu"

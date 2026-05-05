@@ -1,25 +1,32 @@
 # temperature-converter
 
-**What this teaches:** two-way binding plus a computed-derived counterpart, the canonical 7GUIs #2 pattern.
+> Aihu — agentic discovery and interaction, for human purpose.
 
-A Celsius input is bound directly via `$bind:value`. The Fahrenheit input reads a `$computed` derivation and writes back through a one-line `$action`. Edit either field; the other updates without ceremony.
+**What this teaches:** two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on a human's behalf.
 
 ## Run
 
 ```bash
 bun install
-bun run dev
+bun run dev    # http://localhost:5102
 ```
-
-Or open `index.html` directly through the dev server.
 
 ## Concepts shown
 
-- `$bind:value="celsius"` — quoted form is required for two-way binding (Template Attribute Syntax §3.4)
+- `$bind:value="celsius"` — two-way binding on the primary signal
 - `$computed fahrenheit = ...` — auto-tracked derivation
-- `$action setFromF(f: number) { ... }` — one-shot mutation that writes the source-of-truth signal
-- `value={fahrenheit}` curly form for a computed read on a standard HTML attribute
-- `$on:input={(e) => ...}` curly form for an inline arrow handler
+- `$action setFromF(f)` / `setCelsius(c)` — write-back actions
+- `@agent` block exposing both directions as readable state + writable actions
+- Dark-mode tokens via `var(--panel-bg)`, `var(--input-bg)`, etc.
+
+## Agent surface
+
+| Name | Kind | Description |
+|---|---|---|
+| `celsius` | state | Temperature in degrees Celsius |
+| `fahrenheit` | state | Computed Fahrenheit value |
+| `setCelsius(c)` | action | Set temperature in Celsius |
+| `setFromF(f)` | action | Set temperature in Fahrenheit |
 
 ## Compare with
 
