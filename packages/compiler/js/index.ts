@@ -166,10 +166,7 @@ function _buildHmrCode(compiledCode: string, elementTag: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const preamble = `let __aihu_setup__: ((ctx: any) => any) | undefined\n`
 
-  const patchedBody = withImport.replace(
-    /\bdefineComponent\(/,
-    'defineComponent(__aihu_setup__ = ',
-  )
+  const patchedBody = withImport.replace(/\bdefineComponent\(/, 'defineComponent(__aihu_setup__ = ')
 
   const tag = JSON.stringify(elementTag)
   // Step 4+5 — postamble with default export and HMR acceptance.
@@ -392,7 +389,10 @@ export function _injectAutoWiring(code: string): string {
     result = code.replace(
       /import\s*\{([^}]*)\}\s*from\s*'@aihu\/arbor'/,
       (_m: string, imports: string) => {
-        const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+        const parts = imports
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
         if (!parts.includes('mount')) parts.push('mount')
         return `import { ${parts.join(', ')} } from '@aihu/arbor'`
       },
@@ -412,7 +412,10 @@ export function _injectAutoWiring(code: string): string {
       (_m: string, imports: string) => {
         // Skip type-only imports
         if (_m.startsWith('import type')) return _m
-        const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+        const parts = imports
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
         if (!parts.includes('signal')) parts.push('signal')
         return `import { ${parts.join(', ')} } from '@aihu/signals'`
       },
@@ -425,8 +428,10 @@ export function _injectAutoWiring(code: string): string {
     )
   }
   // If only `import type { Signal }` exists, insert value import after it
-  else if (/import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
-           !result.match(/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/)) {
+  else if (
+    /import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
+    !result.match(/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/)
+  ) {
     result = result.replace(
       /(import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals')/,
       (_m: string, typeImport: string) => `${typeImport}\nimport { signal } from '@aihu/signals'`,
@@ -437,7 +442,10 @@ export function _injectAutoWiring(code: string): string {
   result = result.replace(
     /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m: string, imports: string) => {
-      const parts = imports.split(',').map((s) => s.trim()).filter(Boolean)
+      const parts = imports
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
       if (!parts.includes('_setMount')) parts.push('_setMount')
       if (!parts.includes('_setSignal')) parts.push('_setSignal')
       return `import { ${parts.join(', ')} } from '@aihu/runtime'`

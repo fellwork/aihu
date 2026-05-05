@@ -1,22 +1,17 @@
-import { cp, mkdir, writeFile as fsWriteFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve as resolvePath } from 'node:path'
-import type { Plugin, ResolvedConfig } from 'vite'
-import type { AihuConfig } from './config.ts'
-import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
-import type { RouteDefinition } from '@aihu/router'
-
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
 import { aihuCompilerPlugin } from '@aihu/compiler'
-import { viteRouterIntegration, scanPages } from '@aihu/router/plugin'
+import type { RouteDefinition } from '@aihu/router'
+import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
+import type { Plugin, ResolvedConfig } from 'vite'
+import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
+import type { AihuConfig } from './config.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
-function fileToRouteDefinition(
-  filePath: string,
-  root: string,
-  pagesDir: string,
-): RouteDefinition {
+function fileToRouteDefinition(filePath: string, root: string, pagesDir: string): RouteDefinition {
   // Derive a URL pattern from the file path relative to the pages directory.
   const rel = filePath
     .replace(/\\/g, '/')
@@ -34,11 +29,13 @@ function fileToRouteDefinition(
         : { kind: 'static' as const, path: p },
   )
 
-  const pattern = segments.length === 0
-    ? '/'
-    : '/' + segments
-        .map((s) => (s.kind === 'static' ? s.path : s.kind === 'param' ? `:${s.name}` : '*'))
-        .join('/')
+  const pattern =
+    segments.length === 0
+      ? '/'
+      : '/' +
+        segments
+          .map((s) => (s.kind === 'static' ? s.path : s.kind === 'param' ? `:${s.name}` : '*'))
+          .join('/')
 
   return {
     pattern,
@@ -53,16 +50,11 @@ function buildAdapterContext(
   routeFiles: string[],
   config: AihuConfig | undefined,
 ): AdapterContext {
-  const outDir = resolvePath(
-    resolvedViteConfig.root,
-    resolvedViteConfig.build.outDir,
-  )
+  const outDir = resolvePath(resolvedViteConfig.root, resolvedViteConfig.build.outDir)
   const root = resolvedViteConfig.root
   const pagesDir = config?.dir?.pages ?? 'pages'
 
-  const routes: RouteDefinition[] = routeFiles.map((f) =>
-    fileToRouteDefinition(f, root, pagesDir),
-  )
+  const routes: RouteDefinition[] = routeFiles.map((f) => fileToRouteDefinition(f, root, pagesDir))
 
   return {
     outDir,
@@ -142,9 +134,8 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     // when it is not configured. The `require` below is evaluated at runtime
     // in Node.js (vite.config.ts execution context), not in the browser.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { viteAgentReadinessIntegration } = require(
-      '@aihu/agent-readiness',
-    ) as typeof import('@aihu/agent-readiness')
+    const { viteAgentReadinessIntegration } =
+      require('@aihu/agent-readiness') as typeof import('@aihu/agent-readiness')
     agentPlugin = viteAgentReadinessIntegration(ar) as unknown as Plugin
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry

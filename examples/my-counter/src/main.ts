@@ -1,6 +1,6 @@
 import { mount } from '@aihu/arbor'
-import { signal } from '@aihu/signals'
 import { _setMount, _setSignal } from '@aihu/runtime'
+import { signal } from '@aihu/signals'
 
 // Wire the runtime to the arbor mount function and signals factory.
 // These must be called BEFORE the component module executes, because

@@ -1,7 +1,7 @@
 import type { SignalAdapter } from '../types.ts'
+import { aihu } from './aihu.ts'
 import { alien } from './alien.ts'
 import { preact } from './preact.ts'
-import { aihu } from './aihu.ts'
 import { sjs } from './sjs.ts'
 import { solid } from './solid.ts'
 import { vue } from './vue.ts'

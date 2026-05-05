@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { vercel } from '../src/index.ts'
 import type { AdapterContext } from '@aihu/app'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { vercel } from '../src/index.ts'
 
 function makeContext(root: string, outDir: string): AdapterContext {
   return {
@@ -83,16 +83,12 @@ describe('@aihu/adapter-vercel', () => {
     const adapter = vercel({ outputDir: join(tmpRoot, '.vercel/output') })
     const ctx = makeContext(tmpRoot, tmpOut)
     await adapter.adapt(ctx)
-    const config = JSON.parse(
-      await readFile(join(tmpRoot, '.vercel/output/config.json'), 'utf8'),
-    )
+    const config = JSON.parse(await readFile(join(tmpRoot, '.vercel/output/config.json'), 'utf8'))
     const routes: Array<Record<string, unknown>> = config.routes
 
     const assetsRoute = routes.find((r) => String(r.src).includes('assets'))
     expect(assetsRoute).toBeDefined()
-    expect((assetsRoute!.headers as Record<string, string>)['cache-control']).toContain(
-      'immutable',
-    )
+    expect((assetsRoute!.headers as Record<string, string>)['cache-control']).toContain('immutable')
 
     const apiRoute = routes.find((r) => String(r.src).includes('api'))
     expect(apiRoute).toBeDefined()
@@ -118,10 +114,7 @@ describe('@aihu/adapter-vercel', () => {
     const ctx = makeContext(tmpRoot, tmpOut)
     await adapter.adapt(ctx)
     const vcConfig = JSON.parse(
-      await readFile(
-        join(tmpRoot, '.vercel/output/functions/index.func/.vc-config.json'),
-        'utf8',
-      ),
+      await readFile(join(tmpRoot, '.vercel/output/functions/index.func/.vc-config.json'), 'utf8'),
     )
     expect(vcConfig.runtime).toBe('edge')
     expect(vcConfig.entrypoint).toBe('index.js')
@@ -149,10 +142,7 @@ describe('@aihu/adapter-vercel', () => {
     const ctx = makeContext(tmpRoot, tmpOut)
     await adapter.adapt(ctx)
     const vcConfig = JSON.parse(
-      await readFile(
-        join(tmpRoot, '.vercel/output/functions/index.func/.vc-config.json'),
-        'utf8',
-      ),
+      await readFile(join(tmpRoot, '.vercel/output/functions/index.func/.vc-config.json'), 'utf8'),
     )
     expect(vcConfig.runtime).toBe('nodejs20.x')
     expect(vcConfig.handler).toBe('index.js')

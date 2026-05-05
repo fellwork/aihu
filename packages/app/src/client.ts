@@ -1,9 +1,9 @@
-import { mount } from '@aihu/arbor'
-import { signal } from '@aihu/signals'
-import { _setMount, _setSignal } from '@aihu/runtime'
-import { createRouter } from '@aihu/router'
-import type { MatchResult, RouteDefinition } from '@aihu/router'
 import routes from 'virtual:aihu-routes'
+import { mount } from '@aihu/arbor'
+import type { MatchResult, RouteDefinition } from '@aihu/router'
+import { createRouter } from '@aihu/router'
+import { _setMount, _setSignal } from '@aihu/runtime'
+import { signal } from '@aihu/signals'
 
 /** Inline runtime configuration accepted by createApp(). All fields optional. */
 export interface AppConfig {

@@ -269,8 +269,7 @@ export function scaffoldApp(
 export function scaffoldPage(routePath: string, outDir?: string): ScaffoldResult {
   const root = resolve(outDir ?? '.')
   const segments = routePath.replace(/^\//, '').split('/').filter(Boolean)
-  const rel =
-    segments.length > 0 ? `src/pages/${segments.join('/')}.aihu` : 'src/pages/index.aihu'
+  const rel = segments.length > 0 ? `src/pages/${segments.join('/')}.aihu` : 'src/pages/index.aihu'
   return writeFiles(root, [[rel, pageAihu(routePath)]])
 }
 

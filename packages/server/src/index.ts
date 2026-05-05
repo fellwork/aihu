@@ -3,11 +3,11 @@ export type { ApiHandler } from './api.ts'
 export { badRequest, defineApiRoute, json, methodNotAllowed, notFound, serverError } from './api.ts'
 export { createServerCall } from './client.ts'
 export type {
+  AihuConfig,
   BuildConfig,
   BuildTarget,
   CorsConfig,
   RouteConfig,
-  AihuConfig,
   ServerConfig,
 } from './config.ts'
 export { defineAihuConfig } from './config.ts'

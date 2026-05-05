@@ -139,9 +139,7 @@ describe('check-size-rows policy lint', () => {
     const rows = [{ name: '@aihu/signals', path: 'x', limit: '1970 B' }]
     const result = checkPolicy(packages, rows)
     expect(result.ok).toBe(false)
-    expect(result.errors.some((e) => e.includes('@aihu/forms') && e.includes('no row'))).toBe(
-      true,
-    )
+    expect(result.errors.some((e) => e.includes('@aihu/forms') && e.includes('no row'))).toBe(true)
   })
 
   it('catches a server-side package with a forbidden row', () => {

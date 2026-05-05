@@ -114,7 +114,7 @@ function genR(files: string[], pd: string, middlewareByDir: Record<string, strin
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
       const sc = readRouteSidecar(f)
       // For .aihu files without a sidecar, fall back to reading `name` from the @route block.
-      const aihuName = (!sc?.name && f.endsWith('.aihu')) ? readAihuRouteName(f) : null
+      const aihuName = !sc?.name && f.endsWith('.aihu') ? readAihuRouteName(f) : null
       const x = sc
         ? SK.filter((k) => sc[k] !== undefined)
             .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)

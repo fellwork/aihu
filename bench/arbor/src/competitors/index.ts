@@ -6,9 +6,9 @@
  */
 
 import type { DomAdapter } from '../types.ts'
+import { aihu } from './aihu.ts'
 import { lit } from './lit.ts'
 import { preact } from './preact.ts'
-import { aihu } from './aihu.ts'
 import { solid } from './solid.ts'
 import { vanilla } from './vanilla.ts'
 import { vue } from './vue.ts'

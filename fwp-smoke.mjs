@@ -1,9 +1,13 @@
 // JSDOM smoke test for fellwork-passage v0.2.
-import { JSDOM } from 'jsdom'
+
 import fs from 'node:fs'
+import { JSDOM } from 'jsdom'
 
 const lines = []
-const log = (...a) => { lines.push(a.join(' ')); console.log(a.join(' ')) }
+const log = (...a) => {
+  lines.push(a.join(' '))
+  console.log(a.join(' '))
+}
 
 const dom = new JSDOM(
   `<!doctype html><html><body><fellwork-passage book="Gen" chapter="1" verse-start="1" verse-end="2"></fellwork-passage></body></html>`,
@@ -32,7 +36,10 @@ try {
   log('state.currentPointedText:', !!meta.state.currentPointedText)
   log('state.currentEnglishText:', !!meta.state.currentEnglishText)
   log('state.currentHebrewTokens:', !!meta.state.currentHebrewTokens)
-  log('action.inspectToken.returns.pairedEnglish:', !!meta.actions.inspectToken.returns.pairedEnglish)
+  log(
+    'action.inspectToken.returns.pairedEnglish:',
+    !!meta.actions.inspectToken.returns.pairedEnglish,
+  )
 
   await new Promise((r) => setTimeout(r, 6000))
 
@@ -46,8 +53,8 @@ try {
     const heb = li.querySelector('[data-region="hebrew"]')
     const fallback = li.querySelector('[data-region="hebrew-fallback"]')
     const en = li.querySelector('[data-region="english"]')
-    const buttons = (heb?.querySelectorAll('button[data-token]') ?? [])
-    const fbBtns = (fallback?.querySelectorAll('button[data-token]') ?? [])
+    const buttons = heb?.querySelectorAll('button[data-token]') ?? []
+    const fbBtns = fallback?.querySelectorAll('button[data-token]') ?? []
     log(`  ${ref}: hebrew-buttons=${buttons.length} fallback-buttons=${fbBtns.length}`)
     log(`    hebrew-text-sample="${(heb?.textContent ?? '').slice(0, 60)}"`)
     log(`    english-data-verse="${en?.getAttribute('data-verse-english')}"`)
@@ -70,7 +77,9 @@ try {
     log('inspectToken-result-keys:', Object.keys(result).join(','))
     log('inspectToken-pairedEnglish:', (result.pairedEnglish ?? '').slice(0, 80))
 
-    const v2Btn = Array.from(root.querySelectorAll('button[data-token]')).find(b => b.getAttribute('data-token').startsWith('Gen 1:2:'))
+    const v2Btn = Array.from(root.querySelectorAll('button[data-token]')).find((b) =>
+      b.getAttribute('data-token').startsWith('Gen 1:2:'),
+    )
     if (v2Btn) {
       v2Btn.click()
       await new Promise((r) => setTimeout(r, 50))

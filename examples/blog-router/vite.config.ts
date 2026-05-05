@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
 import { viteAihuPlugin } from '@aihu/app'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [

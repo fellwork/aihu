@@ -70,6 +70,12 @@
     "path": "packages/app/dist/client.js",
     "limit": "400 B",
     "gzip": true,
-    "ignore": ["@aihu/router", "@aihu/arbor", "@aihu/signals", "@aihu/runtime", "virtual:aihu-routes"]
+    "ignore": [
+      "@aihu/router",
+      "@aihu/arbor",
+      "@aihu/signals",
+      "@aihu/runtime",
+      "virtual:aihu-routes"
+    ]
   }
 ]

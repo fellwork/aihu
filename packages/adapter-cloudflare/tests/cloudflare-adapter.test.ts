@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { cloudflare } from '../src/index.ts'
 import type { AdapterContext } from '@aihu/app'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { cloudflare } from '../src/index.ts'
 
 function makeContext(root: string, outDir: string): AdapterContext {
   return {
@@ -105,11 +105,7 @@ describe('@aihu/adapter-cloudflare', () => {
   })
 
   it('uses package.json name as fallback worker name', async () => {
-    await writeFile(
-      join(tmpRoot, 'package.json'),
-      JSON.stringify({ name: 'my-aihu-app' }),
-      'utf8',
-    )
+    await writeFile(join(tmpRoot, 'package.json'), JSON.stringify({ name: 'my-aihu-app' }), 'utf8')
     const adapter = cloudflare()
     const ctx = makeContext(tmpRoot, tmpOut)
     await adapter.adapt(ctx)

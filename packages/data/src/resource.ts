@@ -1,13 +1,6 @@
 import { inject } from '@aihu/context'
 import type { Signal } from '@aihu/signals'
-import {
-  batch,
-  boolLatticeSignal,
-  effect,
-  maxLatticeSignal,
-  signal,
-  untrack,
-} from '@aihu/signals'
+import { batch, boolLatticeSignal, effect, maxLatticeSignal, signal, untrack } from '@aihu/signals'
 import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 import { createResourceStore, ResourceStoreToken } from './store.ts'
 import type { DataState, Resource, ResourceHandle, ResourceOptions } from './types.ts'

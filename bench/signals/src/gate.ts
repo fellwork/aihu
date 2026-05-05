@@ -81,9 +81,7 @@ const cur = parseResults(curPath)
 const injectTime = Number(process.env.BENCH_TEST_INJECT_TIME_REGRESSION ?? '0')
 const injectMem = Number(process.env.BENCH_TEST_INJECT_MEMORY_REGRESSION ?? '0')
 if (injectTime !== 0 || injectMem !== 0) {
-  console.log(
-    `[test-injection] time +${injectTime}% / memory +${injectMem}% applied to aihu rows`,
-  )
+  console.log(`[test-injection] time +${injectTime}% / memory +${injectMem}% applied to aihu rows`)
   for (const c of cur.cells) {
     if (c.competitor !== '@aihu/signals') continue
     if (injectTime !== 0 && typeof c.p50 === 'number') {
