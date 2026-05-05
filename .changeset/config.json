@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "fellwork/aihu" }],
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "aihu-docs",
+    "@aihu/bench-arbor",
+    "@aihu/bench-signals",
+    "@aihu/example-blog-loader",
+    "@aihu/example-blog-router",
+    "@aihu/example-color-theme",
+    "aihu-example-css-pluggability",
+    "@aihu/example-hacker-news",
+    "@aihu/example-live-counter",
+    "@aihu/example-temperature-converter",
+    "@aihu/example-timer",
+    "@aihu/example-todo-mvc",
+    "vscode-aihu"
+  ]
+}

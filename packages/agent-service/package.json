@@ -1,6 +1,6 @@
 {
   "name": "@aihu/agent-service",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,14 +13,28 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/agent": "workspace:*"
+  },
+  "description": "Service-side agent runtime (server-hosted agent endpoints).",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/agent-service"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/agent-service#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

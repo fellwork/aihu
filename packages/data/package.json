@@ -1,6 +1,6 @@
 {
   "name": "@aihu/data",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,12 +13,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/signals": "workspace:*",
@@ -27,5 +30,16 @@
   "devDependencies": {
     "@aihu/plugin": "workspace:*",
     "@aihu/server": "workspace:*"
+  },
+  "description": "Reactive data loaders and resource primitives for aihu.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/data"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/data#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

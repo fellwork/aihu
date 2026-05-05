@@ -1,6 +1,6 @@
 {
   "name": "@aihu/server",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "engines": {
@@ -21,7 +23,8 @@
   },
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/agent": "workspace:*",
@@ -32,5 +35,16 @@
     "@aihu/server-darwin-x64": "0.1.0",
     "@aihu/server-linux-x64-gnu": "0.1.0",
     "@aihu/server-win32-x64-msvc": "0.1.0"
+  },
+  "description": "Server runtime + native renderer (napi-rs) for aihu SSR.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/server#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

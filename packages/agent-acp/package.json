@@ -1,6 +1,6 @@
 {
   "name": "@aihu/agent-acp",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -12,13 +12,28 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/agent-service": "workspace:*"
-  }
+  },
+  "description": "ACP (Agent Control Protocol) bindings for @aihu/agent-service.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/agent-acp"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/agent-acp#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }
