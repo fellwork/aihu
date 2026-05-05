@@ -139,7 +139,7 @@ npm install @aihu/signals
 bun add @aihu/signals
 ```
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -155,7 +155,7 @@ bun add @aihu/signals
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -168,7 +168,7 @@ bun add @aihu/signals
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -179,7 +179,7 @@ bun add @aihu/signals
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -193,7 +193,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [@aihu/arbor](../arbor)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -204,6 +204,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `5ae26a0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/signals@0.1.0` on commit `c08bfa7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
