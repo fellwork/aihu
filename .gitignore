@@ -76,3 +76,6 @@ docs/site/dist/
 
 # VS Code extension build artifacts
 *.vsix
+
+# WASM build artifacts (Directive 1 + arch-4 §4.6)
+packages/compiler/pkg-wasm/

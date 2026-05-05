@@ -15,7 +15,7 @@ struct StateImports {
     needs_create_resource: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize)]
 pub struct EmitResult {
     pub js: String,
     pub manifest_json: String,
