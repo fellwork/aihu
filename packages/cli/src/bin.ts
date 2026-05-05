@@ -12,8 +12,24 @@
  */
 
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
+import { resolveTemplateName } from './templates-registry.js'
 
 const [, , cmd, ...rest] = process.argv
+
+/**
+ * Pull the value of `--template <T>` (or `--template=<T>`) out of an argv
+ * tail. Returns `undefined` when the flag is absent, the literal `'true'`
+ * when the flag was passed without a value (we still treat that as an
+ * "intent" signal and fall through to legacy), or the supplied value.
+ */
+function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!
+    if (a === '--template') return args[i + 1]
+    if (a.startsWith('--template=')) return a.slice('--template='.length)
+  }
+  return undefined
+}
 
 function usage(): never {
   process.stderr.write(
@@ -52,9 +68,19 @@ async function main(): Promise<void> {
 
   let result: { created: ReadonlyArray<string>; skipped: ReadonlyArray<string> }
   switch (cmd) {
-    case 'app':
+    case 'app': {
+      // B1.1: when --template <T> is passed AND T resolves in the registry,
+      // emit a stub message and exit 0. The new pipeline gets wired in B1.2.
+      // When --template is absent OR T is not a known template name, fall
+      // through to the legacy scaffoldApp() path (preserves R-CT-06).
+      const tplFlag = extractTemplateFlag(rest)
+      if (tplFlag !== undefined && resolveTemplateName(tplFlag) !== undefined) {
+        process.stderr.write('STUB: new pipeline not yet wired in B1.1\n')
+        process.exit(0)
+      }
       result = scaffoldApp(arg)
       break
+    }
     case 'page':
       result = scaffoldPage(arg)
       break
