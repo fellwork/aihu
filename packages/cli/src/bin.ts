@@ -19,12 +19,12 @@ import {
   enumerateFiles,
   mergeOptions,
   printNextSteps,
+  type ResolvedOptions,
   readSubstituteWrite,
   realFileSystem,
   realSpawner,
   resolveTemplate,
   runPostInstall,
-  type ResolvedOptions,
 } from './scaffold-pipeline.js'
 import { resolveTemplateName } from './templates-registry.js'
 
@@ -229,6 +229,8 @@ function parseOptionsJson(raw: string | undefined): Record<string, string | bool
  *   --use-defaults      (skip prompts; emit manifest defaults)
  *   --options-json <S>  (overrides for the manifest's `overridable` cells)
  *   --no-git            (skip git-init post-install step)
+ *   --no-install        (skip pm-install + lint-fix post-install steps;
+ *                        useful for harness tests + offline scaffolding)
  *   --pm <bun|pnpm|...> (package manager for pm-install + emitted scripts)
  */
 async function dispatchTemplate(args: {
@@ -240,11 +242,10 @@ async function dispatchTemplate(args: {
 
   // --- flag parsing ---
   const noGit = hasFlag(rest, 'no-git')
+  const noInstall = hasFlag(rest, 'no-install')
   const pmFlag = extractFlag(rest, 'pm')
   const pm: ResolvedOptions['pm'] =
-    pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun'
-      ? pmFlag
-      : 'bun'
+    pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun' ? pmFlag : 'bun'
   const userOverrides = parseOptionsJson(extractFlag(rest, 'options-json'))
   // --use-defaults / --no-interactive: in B1.3 we don't yet drive interactive
   // prompts from bin.ts. Both flags currently mean "use manifest defaults
@@ -285,8 +286,21 @@ async function dispatchTemplate(args: {
   })
 
   // --- 5. runPostInstall ---
+  // When --no-install is set, filter out pm-install + lint-fix (lint-fix
+  // requires the toolchain installed). git-init still honors --no-git via
+  // mergeOptions/runPostInstall's existing skip path. This keeps the
+  // pipeline contract intact while letting the harness drive scaffolding
+  // without depending on the npm registry state of unpublished peer deps.
+  const filteredManifest = noInstall
+    ? {
+        ...manifest,
+        postInstall: manifest.postInstall.filter(
+          (s) => s.kind !== 'pm-install' && s.kind !== 'lint-fix',
+        ),
+      }
+    : manifest
   const postResult = runPostInstall({
-    manifest,
+    manifest: filteredManifest,
     options,
     targetDir,
     spawner: realSpawner,
