@@ -32,9 +32,53 @@ export type MatchResult = {
   pathname: string
 }
 
+/**
+ * Navigation guard `next` callback (RFC-A5-015).
+ *
+ * - `next()` — proceed with navigation.
+ * - `next(false)` — cancel navigation.
+ * - `next('/some-path')` — redirect to a different path.
+ */
+export type NextFn = (decision?: void | false | string) => void
+
+/** Before-navigation guard. RFC-A5-015. */
+export type BeforeGuard = (
+  to: MatchResult,
+  from: MatchResult | null,
+  next: NextFn,
+) => void | Promise<void>
+
+/** After-navigation callback. RFC-A5-016. */
+export type AfterGuard = (to: MatchResult, from: MatchResult | null) => void
+
 export type Router = {
   match(pathname: string): MatchResult | null
   handle(req: Request): Promise<Response>
+  /**
+   * Register a guard that runs before each navigation. Multiple guards run
+   * in registration order. The first `next(false)` cancels navigation; the
+   * first `next('/x')` redirects. Returns a dispose fn.
+   */
+  registerBeforeGuard(fn: BeforeGuard): () => void
+  /**
+   * Register a callback that runs after each navigation completes (after the
+   * outlet has updated). Returns a dispose fn.
+   */
+  registerAfterGuard(fn: AfterGuard): () => void
+  /**
+   * Run the registered before-guard chain. Returns the final navigation
+   * decision: 'continue', 'cancel', or { redirect: string }.
+   * @internal — used by `<$link>` and `<$navigate>`.
+   */
+  runBeforeGuards(
+    to: MatchResult,
+    from: MatchResult | null,
+  ): Promise<'continue' | 'cancel' | { redirect: string }>
+  /**
+   * Run the registered after-guard chain.
+   * @internal — used by `<$router>`.
+   */
+  runAfterGuards(to: MatchResult, from: MatchResult | null): void
 }
 
 // ---------------------------------------------------------------------------
@@ -134,5 +178,69 @@ export function createRouter(routes: RouteDefinition[]): Router {
     })
   }
 
-  return { match, handle }
+  // ─── Guard chain (RFC-A5-015 / RFC-A5-016) ────────────────────────────────
+  const beforeGuards: BeforeGuard[] = []
+  const afterGuards: AfterGuard[] = []
+
+  function registerBeforeGuard(fn: BeforeGuard): () => void {
+    beforeGuards.push(fn)
+    return () => {
+      const i = beforeGuards.indexOf(fn)
+      if (i >= 0) beforeGuards.splice(i, 1)
+    }
+  }
+
+  function registerAfterGuard(fn: AfterGuard): () => void {
+    afterGuards.push(fn)
+    return () => {
+      const i = afterGuards.indexOf(fn)
+      if (i >= 0) afterGuards.splice(i, 1)
+    }
+  }
+
+  async function runBeforeGuards(
+    to: MatchResult,
+    from: MatchResult | null,
+  ): Promise<'continue' | 'cancel' | { redirect: string }> {
+    for (const guard of beforeGuards.slice()) {
+      let decided = false
+      let decision: 'continue' | 'cancel' | { redirect: string } = 'continue'
+      const next: NextFn = (d) => {
+        if (decided) return
+        decided = true
+        if (d === false) decision = 'cancel'
+        else if (typeof d === 'string') decision = { redirect: d }
+        else decision = 'continue'
+      }
+      // biome-ignore lint/suspicious/useAwait: guard may be sync
+      await guard(to, from, next)
+      if (!decided) {
+        // Guard never called next — treat as continue (defensive).
+        continue
+      }
+      if (decision !== 'continue') return decision
+    }
+    return 'continue'
+  }
+
+  function runAfterGuards(to: MatchResult, from: MatchResult | null): void {
+    for (const guard of afterGuards.slice()) {
+      try {
+        guard(to, from)
+      } catch (e) {
+        // Don't let one bad after-guard kill the rest
+        // biome-ignore lint/suspicious/noConsole: surfacing user error
+        console.error('[aihu/router] afterNavigate guard threw:', e)
+      }
+    }
+  }
+
+  return {
+    match,
+    handle,
+    registerBeforeGuard,
+    registerAfterGuard,
+    runBeforeGuards,
+    runAfterGuards,
+  }
 }

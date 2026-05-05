@@ -1,0 +1,33 @@
+@state {
+  import { computed } from '@aihu/signals'
+  import { useRoute } from '../src/index.ts'
+
+  /**
+   * `<$outlet>` — renders the matched route's component inside `<$router>`
+   * (RFC-A5-013). No props.
+   *
+   * The matched component is loaded via `route.module()` (see
+   * `packages/router/src/router.ts` `RouteModule.default`). When no route
+   * matches, the outlet renders `null` — let `<$shield>` upstream catch the
+   * 404 fall-through.
+   */
+
+  $resource matched = (async () => {
+    const m = useRoute()
+    if (!m) return null
+    const mod = await m.route.module()
+    const Component = mod.default as unknown
+    const loaderData =
+      typeof mod.loader === 'function' ? await mod.loader(m.params) : undefined
+    return { Component, loaderData, params: m.params, pathname: m.pathname }
+  })()
+}
+
+@template {
+  <$suspense source="matched">
+    <slot name="fallback">
+      <div data-aihu-outlet="loading" />
+    </slot>
+    <div data-aihu-outlet="ready" />
+  </$suspense>
+}

@@ -40,9 +40,17 @@
   {
     "name": "@aihu/router",
     "path": "packages/router/dist/index.js",
-    "limit": "1536 B",
+    "limit": "2400 B",
     "gzip": true,
-    "ignore": ["@aihu/server", "vite", "node:fs", "node:path", "node:url"]
+    "ignore": [
+      "@aihu/server",
+      "@aihu/signals",
+      "@aihu/context",
+      "vite",
+      "node:fs",
+      "node:path",
+      "node:url"
+    ]
   },
   {
     "name": "@aihu/agent-service",

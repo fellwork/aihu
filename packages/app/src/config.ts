@@ -42,6 +42,19 @@ export type AihuPlugin = Plugin
 /** Type-only import — not bundled when agentReadiness is absent. */
 export type AgentReadinessConfig = import('@aihu/agent-readiness').AgentReadinessConfig
 
+/** Router-related app config (arch-5 M1, RFC-A5-012). */
+export interface RouterConfig {
+  /**
+   * When `true`, `<$link>` navigation wraps in `document.startViewTransition()`
+   * if the browser supports the View Transitions API. No-op in unsupported
+   * browsers (graceful degradation). Default: `false`.
+   *
+   * SSR safety: the wrapping is browser-only — server-rendered HTML is
+   * unchanged, and hydration is unaffected.
+   */
+  readonly viewTransitions?: boolean
+}
+
 export interface AihuConfig {
   /** Directory layout overrides. */
   readonly dir?: DirConfig
@@ -73,6 +86,11 @@ export interface AihuConfig {
    * When absent, no post-build transformation is applied (manual deployment).
    */
   readonly adapter?: AihuAdapter
+  /**
+   * Router-related app config (arch-5 M1).
+   * Currently exposes the `viewTransitions` opt-in for `<$link>`.
+   */
+  readonly router?: RouterConfig
 }
 
 /** Thrown by defineConfig when configuration validation fails. */

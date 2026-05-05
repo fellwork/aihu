@@ -57,6 +57,32 @@ pub fn parse_state_macros(body: &str) -> Result<Vec<StateMacro>, CompileError> {
                             i = nl + 1;
                         }
                     }
+                    StateMacro::BeforeNavigate { .. } | StateMacro::AfterNavigate { .. } => {
+                        // `$beforeNavigate(...)` / `$afterNavigate(...)` — multi-line
+                        // possible when the argument is an arrow function. Skip past
+                        // the matching `)` and any trailing semicolon.
+                        if let Some(open_paren) = body[i..].find('(') {
+                            let abs = i + open_paren;
+                            if let Some(close) = find_paren_close(body, abs + 1) {
+                                i = close + 1;
+                                // Optionally consume trailing `;` and newline
+                                while i < body.len()
+                                    && (body.as_bytes()[i] == b';'
+                                        || body.as_bytes()[i] == b' '
+                                        || body.as_bytes()[i] == b'\t')
+                                {
+                                    i += 1;
+                                }
+                                if i < body.len() && body.as_bytes()[i] == b'\n' {
+                                    i += 1;
+                                }
+                            } else {
+                                i = nl + 1;
+                            }
+                        } else {
+                            i = nl + 1;
+                        }
+                    }
                     _ => {
                         i = nl + 1;
                     }
@@ -108,6 +134,94 @@ fn try_parse_macro_line(
         let name = decl[..eq].trim().to_string();
         let expr = decl[eq + 1..].trim().to_string();
         return Ok(Some(StateMacro::Computed { name, expr }));
+    }
+
+    // arch-5 M1: $route name — RFC-A5-010
+    // Reactive `MatchResult` signal injected from the active <$router>.
+    // Prefix-match BEFORE `$resource` (the `route` token must not be
+    // mistaken for a `resource` shorthand).
+    if let Some(decl) = rest.strip_prefix("route ") {
+        let name = decl.trim();
+        // Reject `$route name = expr` — the macro takes no rhs.
+        if name.contains('=') || name.is_empty() {
+            return Err(CompileError {
+                message: format!(
+                    "$route declaration takes no rhs — expected '$route name', got '$route {}'",
+                    decl
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C406".to_string()),
+                ..Default::default()
+            });
+        }
+        return Ok(Some(StateMacro::Route {
+            name: name.to_string(),
+        }));
+    }
+
+    // arch-5 M1: $beforeNavigate(fn) — RFC-A5-015
+    if let Some(after_kw) = rest.strip_prefix("beforeNavigate") {
+        // `line_offset` points to `$`; advance past `$beforeNavigate` and any
+        // whitespace before `(`. We use `full_body` indices so multi-line arrow
+        // bodies are captured (find_paren_close honours nesting).
+        let kw_len = "$beforeNavigate".len();
+        let mut p = line_offset + kw_len;
+        while p < full_body.len()
+            && matches!(full_body.as_bytes()[p], b' ' | b'\t' | b'\n' | b'\r')
+        {
+            p += 1;
+        }
+        if p >= full_body.len() || full_body.as_bytes()[p] != b'(' {
+            return Err(CompileError {
+                message: format!(
+                    "$beforeNavigate expects '(' — got '$beforeNavigate{}'",
+                    after_kw
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C407".to_string()),
+                ..Default::default()
+            });
+        }
+        let close = find_paren_close(full_body, p + 1).ok_or_else(|| CompileError {
+            message: "$beforeNavigate — unclosed '('".to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C407".to_string()),
+            ..Default::default()
+        })?;
+        let expr = full_body[p + 1..close].trim().to_string();
+        return Ok(Some(StateMacro::BeforeNavigate { expr }));
+    }
+
+    // arch-5 M1: $afterNavigate(fn) — RFC-A5-016
+    if let Some(after_kw) = rest.strip_prefix("afterNavigate") {
+        let kw_len = "$afterNavigate".len();
+        let mut p = line_offset + kw_len;
+        while p < full_body.len()
+            && matches!(full_body.as_bytes()[p], b' ' | b'\t' | b'\n' | b'\r')
+        {
+            p += 1;
+        }
+        if p >= full_body.len() || full_body.as_bytes()[p] != b'(' {
+            return Err(CompileError {
+                message: format!("$afterNavigate expects '(' — got '$afterNavigate{}'", after_kw),
+                line: 0,
+                col: 0,
+                code: Some("C408".to_string()),
+                ..Default::default()
+            });
+        }
+        let close = find_paren_close(full_body, p + 1).ok_or_else(|| CompileError {
+            message: "$afterNavigate — unclosed '('".to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C408".to_string()),
+            ..Default::default()
+        })?;
+        let expr = full_body[p + 1..close].trim().to_string();
+        return Ok(Some(StateMacro::AfterNavigate { expr }));
     }
 
     // $resource name = fetcher
@@ -249,6 +363,43 @@ fn extract_brace_body(full_body: &str, search_from: usize) -> Result<String, Com
     Ok(full_body[open_pos + 1..close_pos].trim().to_string())
 }
 
+/// Find the matching `)` for an already-opened parenthesis. `body_start`
+/// is the byte just past the opening `(`. Honors brace, bracket, and
+/// string nesting.
+pub fn find_paren_close(s: &str, body_start: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    let mut depth: usize = 1;
+    let mut i = body_start;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            b'"' | b'\'' | b'`' => {
+                let q = bytes[i];
+                i += 1;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == q {
+                        break;
+                    }
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
 /// Find the matching `}` for an already-opened block.
 /// `body_start` is the byte just past the opening `{`.
 pub fn find_brace_close(s: &str, body_start: usize) -> Option<usize> {
@@ -319,6 +470,26 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
             }
             StateMacro::LifecycleDispose { body } => {
                 lines.push(format!("onCleanup(() => {{ {} }});", body));
+            }
+            StateMacro::Route { name } => {
+                // arch-5 M1: reactive MatchResult signal from the active router.
+                // `__aihuRouter` is a namespace import bound at module scope.
+                lines.push(format!(
+                    "const {} = computed(() => __aihuRouter.useRoute());",
+                    name
+                ));
+            }
+            StateMacro::BeforeNavigate { expr } => {
+                lines.push(format!(
+                    "__aihuRouter.__router_registerBeforeGuard({});",
+                    expr
+                ));
+            }
+            StateMacro::AfterNavigate { expr } => {
+                lines.push(format!(
+                    "__aihuRouter.__router_registerAfterGuard({});",
+                    expr
+                ));
             }
         }
     }
@@ -499,5 +670,102 @@ mod tests {
         let body = "$prop name: String\n$computed upper = name.toUpperCase()";
         let macros = parse_state_macros(body).unwrap();
         assert_eq!(macros.len(), 2);
+    }
+
+    // ─── arch-5 M1 — routing macros (RFC-A5-010, 015, 016) ───────────────────
+
+    #[test]
+    fn parse_route_declaration() {
+        let macros = parse_state_macros("$route currentRoute").unwrap();
+        assert_eq!(macros.len(), 1);
+        assert_eq!(
+            macros[0],
+            StateMacro::Route {
+                name: "currentRoute".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn parse_route_rejects_rhs() {
+        let err = parse_state_macros("$route currentRoute = 5").unwrap_err();
+        assert!(err.message.contains("$route declaration takes no rhs"));
+    }
+
+    #[test]
+    fn parse_before_navigate_inline() {
+        let macros = parse_state_macros("$beforeNavigate((to, from, next) => next())").unwrap();
+        assert_eq!(macros.len(), 1);
+        match &macros[0] {
+            StateMacro::BeforeNavigate { expr } => {
+                assert_eq!(expr, "(to, from, next) => next()");
+            }
+            _ => panic!("expected BeforeNavigate"),
+        }
+    }
+
+    #[test]
+    fn parse_after_navigate_inline() {
+        let macros = parse_state_macros("$afterNavigate((to) => log(to))").unwrap();
+        assert_eq!(macros.len(), 1);
+        match &macros[0] {
+            StateMacro::AfterNavigate { expr } => {
+                assert_eq!(expr, "(to) => log(to)");
+            }
+            _ => panic!("expected AfterNavigate"),
+        }
+    }
+
+    #[test]
+    fn parse_before_navigate_multiline_arrow() {
+        let body = "$beforeNavigate((to, from, next) => {\n  if (dirty) return next(false)\n  next()\n})";
+        let macros = parse_state_macros(body).unwrap();
+        assert_eq!(macros.len(), 1);
+        match &macros[0] {
+            StateMacro::BeforeNavigate { expr } => {
+                assert!(expr.contains("if (dirty)"));
+                assert!(expr.contains("next(false)"));
+            }
+            _ => panic!("expected BeforeNavigate"),
+        }
+    }
+
+    #[test]
+    fn parse_route_then_before_navigate() {
+        let body = "$route currentRoute\n$beforeNavigate((t,f,n) => n())";
+        let macros = parse_state_macros(body).unwrap();
+        assert_eq!(macros.len(), 2);
+        assert!(matches!(macros[0], StateMacro::Route { .. }));
+        assert!(matches!(macros[1], StateMacro::BeforeNavigate { .. }));
+    }
+
+    #[test]
+    fn emit_route_macro() {
+        let macros = vec![StateMacro::Route {
+            name: "currentRoute".to_string(),
+        }];
+        let js = emit_state_macros(&macros);
+        assert_eq!(
+            js,
+            "const currentRoute = computed(() => __aihuRouter.useRoute());"
+        );
+    }
+
+    #[test]
+    fn emit_before_navigate_macro() {
+        let macros = vec![StateMacro::BeforeNavigate {
+            expr: "fn".to_string(),
+        }];
+        let js = emit_state_macros(&macros);
+        assert_eq!(js, "__aihuRouter.__router_registerBeforeGuard(fn);");
+    }
+
+    #[test]
+    fn emit_after_navigate_macro() {
+        let macros = vec![StateMacro::AfterNavigate {
+            expr: "fn".to_string(),
+        }];
+        let js = emit_state_macros(&macros);
+        assert_eq!(js, "__aihuRouter.__router_registerAfterGuard(fn);");
     }
 }

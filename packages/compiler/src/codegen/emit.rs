@@ -13,6 +13,9 @@ struct StateImports {
     needs_on_cleanup: bool,
     needs_effect_for_macros: bool,
     needs_create_resource: bool,
+    // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
+    // calls into `@aihu/router`. When set, the namespace import is emitted.
+    needs_aihu_router: bool,
 }
 
 #[derive(Debug, Default, serde::Serialize)]
@@ -162,6 +165,15 @@ struct NeededHelpers {
     a11y_styles: bool,
     /// True when `$announce(...)` is called from any `@state` action body.
     a11y_announce: bool,
+    // arch-5 M1 — routing macro elements (RFC-A5-011..014).
+    /// `<$router>` macro element used in the template.
+    router_element: bool,
+    /// `<$link>` macro element used in the template.
+    link_element: bool,
+    /// `<$outlet>` macro element used in the template.
+    outlet_element: bool,
+    /// `<$navigate>` macro element used in the template.
+    navigate_element: bool,
 }
 
 fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
@@ -188,6 +200,17 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                     "focusTrap" => h.a11y_focus_trap = true,
                     "skipLink" | "visuallyHidden" => h.a11y_styles = true,
                     "liveRegion" => {}
+                    // arch-5 M1 routing macro elements
+                    "router" => h.router_element = true,
+                    "link" => {
+                        h.link_element = true;
+                        h.needs_effect = true; // aria-current is reactive
+                    }
+                    "outlet" => {
+                        h.outlet_element = true;
+                        h.needs_effect = true; // outlet content reacts to route signal
+                    }
+                    "navigate" => h.navigate_element = true,
                     _ => {}
                 }
                 collect_helpers_recursive(children, h);
@@ -244,6 +267,27 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     if h.warp_boundary {
         lines.push("const createWarpBoundary = (tgt, b) => b();");
     }
+    // arch-5 M1 — routing boundary helpers emitted only when used.
+    // These delegate to `@aihu/router` runtime; the full module import is
+    // added to `build_function_imports` when any of these flags is set.
+    if h.router_element {
+        // `<$router>` — provide route context with reactive signal; render children.
+        lines.push("const createRouterBoundary = (router, vt, b) => {\n  const sig = __aihuRouter.createRouteSignal(router);\n  const ctx = { router, current: sig.read, viewTransitions: !!vt };\n  __aihuRouter.bindRouteSignalWriter(ctx, sig.write);\n  __aihuRouter.provideRouteContext(ctx);\n  onCleanup(() => sig.dispose());\n  return b();\n};");
+    }
+    if h.link_element {
+        // `<$link>` — render <a>, intercept clicks, set aria-current via effect.
+        lines.push("const createLinkBoundary = (href, prefetch, replace, children) => {\n  const node = branch('a', { href, 'data-aihu-link': '' }, children);\n  const ariaCompute = () => {\n    const r = __aihuRouter.useRoute();\n    return r && r.pathname === href ? 'page' : null;\n  };\n  onMount(() => {\n    const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n    const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n    if (!a) return () => {};\n    const onClick = (e) => {\n      if (e.defaultPrevented || e.button !== 0) return;\n      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n      e.preventDefault();\n      void __aihuRouter.navigate(href, { replace: !!replace });\n    };\n    a.addEventListener('click', onClick);\n    const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n    pf.attach(a, ariaCompute);\n    const stop = effect(() => {\n      const v = ariaCompute();\n      if (v) a.setAttribute('aria-current', v);\n      else a.removeAttribute('aria-current');\n    });\n    return () => { a.removeEventListener('click', onClick); pf.detach(a); stop && stop(); };\n  });\n  return node;\n};");
+    }
+    if h.outlet_element {
+        // `<$outlet>` — render the matched route component as a child custom element.
+        // Replaces children via DOM methods (no innerHTML). The matched component
+        // reads `route` JSON via the standard $prop pattern.
+        lines.push("const createOutletBoundary = () => {\n  const host = branch('div', { 'data-aihu-outlet': '' }, []);\n  onMount(() => {\n    const el = host && host.el;\n    if (!el) return () => {};\n    let cleanup = null;\n    const stop = effect(() => {\n      const m = __aihuRouter.useRoute();\n      if (cleanup) { cleanup(); cleanup = null; }\n      while (el.firstChild) el.removeChild(el.firstChild);\n      if (!m) return;\n      Promise.resolve(m.route.module()).then(async (mod) => {\n        const Component = mod.default;\n        const loaderData = mod.loader ? await mod.loader(m.params) : undefined;\n        const inst = (typeof Component === 'function') ? new Component() : null;\n        if (inst && inst.setAttribute) {\n          inst.setAttribute('route', JSON.stringify({ params: m.params, pathname: m.pathname, data: loaderData }));\n          el.appendChild(inst);\n          cleanup = () => { try { el.removeChild(inst); } catch {} };\n        }\n      });\n    });\n    return () => { if (cleanup) cleanup(); stop && stop(); };\n  });\n  return host;\n};");
+    }
+    if h.navigate_element {
+        // `<$navigate>` — programmatic redirect on mount.
+        lines.push("const createNavigateBoundary = (to, replace) => {\n  onMount(() => { void __aihuRouter.navigate(to, { replace: !!replace }); });\n  return branch('span', { hidden: '', 'aria-hidden': 'true', 'data-aihu-navigate': to }, []);\n};");
+    }
     if lines.is_empty() {
         String::new()
     } else {
@@ -286,6 +330,15 @@ fn process_state_body(
             }
             StateMacro::Resource { .. } => {
                 si.needs_create_resource = true;
+            }
+            // arch-5 M1 — routing macros require @aihu/router namespace import.
+            StateMacro::Route { name } => {
+                si.needs_aihu_router = true;
+                si.needs_computed = true;
+                signal_map.insert_computed(name);
+            }
+            StateMacro::BeforeNavigate { .. } | StateMacro::AfterNavigate { .. } => {
+                si.needs_aihu_router = true;
             }
         }
     }
@@ -514,6 +567,18 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
             StateMacro::LifecycleDispose { body } => {
                 lines.push(format!("  onCleanup(() => {{ {body} }});"));
             }
+            // arch-5 M1 — routing macros.
+            StateMacro::Route { name } => {
+                lines.push(format!(
+                    "  const {name} = computed(() => __aihuRouter.useRoute());"
+                ));
+            }
+            StateMacro::BeforeNavigate { expr } => {
+                lines.push(format!("  __aihuRouter.__router_registerBeforeGuard({expr});"));
+            }
+            StateMacro::AfterNavigate { expr } => {
+                lines.push(format!("  __aihuRouter.__router_registerAfterGuard({expr});"));
+            }
         }
     }
     if lines.is_empty() {
@@ -602,7 +667,11 @@ fn build_function_imports(
     helpers: &NeededHelpers,
 ) -> String {
     let script_uses_effect = script.contains("effect(");
-    let emit_effect = needs_effect || script_uses_effect || si.needs_effect_for_macros;
+    // arch-5 M1: routing helpers (`<$link>`, `<$outlet>`, `<$navigate>`)
+    // emit `effect()` calls inside their boundaries, so ensure `effect` is imported.
+    let helper_effect = helpers.link_element || helpers.outlet_element;
+    let emit_effect =
+        needs_effect || script_uses_effect || si.needs_effect_for_macros || helper_effect;
 
     // Arbor imports
     let arbor_items = if needs_each {
@@ -633,11 +702,15 @@ fn build_function_imports(
         }
     }
 
-    // Runtime imports
+    // Runtime imports — onMount/onCleanup are also required by router boundary
+    // helpers (which call them at component setup time).
     let mut rt_items: Vec<String> =
         vec!["defineComponent".to_string(), "defineElement".to_string()];
-    if si.needs_on_mount { rt_items.push("onMount".to_string()); }
-    if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
+    let needs_on_mount_for_router =
+        helpers.router_element || helpers.link_element || helpers.outlet_element || helpers.navigate_element;
+    let needs_on_cleanup_for_router = helpers.router_element || helpers.outlet_element;
+    if si.needs_on_mount || needs_on_mount_for_router { rt_items.push("onMount".to_string()); }
+    if si.needs_on_cleanup || needs_on_cleanup_for_router { rt_items.push("onCleanup".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {
@@ -650,6 +723,18 @@ fn build_function_imports(
         rt_items.push("announce as __a11y_announce".to_string());
     }
     lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
+
+    // arch-5 M1: namespace import for @aihu/router when `$route`,
+    // `$beforeNavigate`, `$afterNavigate`, or any of `<$router>`,
+    // `<$link>`, `<$outlet>`, `<$navigate>` are used.
+    let needs_router_ns = si.needs_aihu_router
+        || helpers.router_element
+        || helpers.link_element
+        || helpers.outlet_element
+        || helpers.navigate_element;
+    if needs_router_ns {
+        lines.push("import * as __aihuRouter from '@aihu/router'".to_string());
+    }
 
     lines.join("\n")
 }
@@ -1399,6 +1484,57 @@ fn emit_macro_element(
             )
         }
 
+        // ── arch-5 M1 routing macro elements ─────────────────────────────────
+        "router" => {
+            // `<$router>` — RFC-A5-011. Provides RouteContext to descendants.
+            // Optional attribute `router={expr}` — when omitted, falls back to
+            // `createRouter(routes)` using the file-system routes virtual module.
+            let router_expr = find_static_or_binding_attr(attrs, "router")
+                .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
+            let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
+                .unwrap_or_else(|| "false".to_string());
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            format!(
+                "createRouterBoundary({}, {}, () => {{ return {} }})",
+                router_expr, vt_expr, children_subtree
+            )
+        }
+
+        "link" => {
+            // `<$link href prefetch replace>` — RFC-A5-012.
+            let href_expr = find_static_or_binding_attr(attrs, "href")
+                .unwrap_or_else(|| "'#'".to_string());
+            let prefetch_expr = find_static_or_binding_attr(attrs, "prefetch")
+                .unwrap_or_else(|| "'none'".to_string());
+            let replace_expr = find_static_or_binding_attr(attrs, "replace")
+                .unwrap_or_else(|| "false".to_string());
+            // Children render inside the <a>.
+            let children_subtree = if children.is_empty() {
+                "[]".to_string()
+            } else {
+                let inner = emit_nodes(children, signal_map, &next_indent);
+                format!("[{}]", inner)
+            };
+            format!(
+                "createLinkBoundary({}, {}, {}, {})",
+                href_expr, prefetch_expr, replace_expr, children_subtree
+            )
+        }
+
+        "outlet" => {
+            // `<$outlet>` — RFC-A5-013. No props.
+            "createOutletBoundary()".to_string()
+        }
+
+        "navigate" => {
+            // `<$navigate to replace />` — RFC-A5-014.
+            let to_expr = find_static_or_binding_attr(attrs, "to")
+                .unwrap_or_else(|| "'/'".to_string());
+            let replace_expr = find_static_or_binding_attr(attrs, "replace")
+                .unwrap_or_else(|| "false".to_string());
+            format!("createNavigateBoundary({}, {})", to_expr, replace_expr)
+        }
+
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
             let children_subtree = emit_nodes(children, signal_map, &next_indent);
@@ -1424,6 +1560,8 @@ fn find_static_or_binding_attr(attrs: &[crate::types::Attr], attr_name: &str) ->
         crate::types::Attr::Static { name, value } if name == attr_name => {
             Some(format!("'{}'", value))
         }
+        // Plain bindings like `router={myRouter}` parsed as Attr::Binding.
+        crate::types::Attr::Binding { name, expr } if name == attr_name => Some(expr.clone()),
         crate::types::Attr::Macro {
             name,
             value: MacroValue::Curly(expr),

@@ -170,6 +170,13 @@ pub enum StateMacro {
     LifecycleMount { body: String },
     /// `$lifecycle.dispose { body }`
     LifecycleDispose { body: String },
+    // ─── arch-5 M1 — routing macros (RFC-A5-010, 015, 016) ───────────────────
+    /// `$route name` — reactive `MatchResult` signal. RFC-A5-010.
+    Route { name: String },
+    /// `$beforeNavigate(fn)` — register a guard. RFC-A5-015.
+    BeforeNavigate { expr: String },
+    /// `$afterNavigate(fn)` — register an after-navigation callback. RFC-A5-016.
+    AfterNavigate { expr: String },
 }
 
 // ─── v0.4.7 — @style macro declarations ─────────────────────────────────────

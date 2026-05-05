@@ -29,9 +29,9 @@
     <header>
       <h1>aihu HN</h1>
       <nav>
-        <a href={`/?page=${Math.max(1, route.data.page - 1)}`} $if={route.data.page > 1}>&larr; prev</a>
+        <$link href={`/?page=${Math.max(1, route.data.page - 1)}`} $if={route.data.page > 1} prefetch="hover">&larr; prev</$link>
         <span class="page">page {route.data.page}</span>
-        <a href={`/?page=${route.data.page + 1}`} $if={route.data.hasMore}>next &rarr;</a>
+        <$link href={`/?page=${route.data.page + 1}`} $if={route.data.hasMore} prefetch="hover">next &rarr;</$link>
       </nav>
     </header>
 
@@ -43,9 +43,9 @@
         </div>
         <div class="meta">
           {item.score} points by
-          <a href={`/user/${item.by}`}>{item.by}</a>
+          <$link href={`/user/${item.by}`} prefetch="hover">{item.by}</$link>
           {ago(item.time)} |
-          <a href={`/item/${item.id}`}>{item.descendants ?? 0} comments</a>
+          <$link href={`/item/${item.id}`} prefetch="hover">{item.descendants ?? 0} comments</$link>
         </div>
       </li>
     </ol>
