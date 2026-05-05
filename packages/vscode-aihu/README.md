@@ -1,8 +1,8 @@
-# @aihu/plugin
+# vscode-aihu
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface.
+Syntax highlighting, snippets, and language support for .aihu Single File Components
 
 Held-private workspace package. Not yet published to npm.
 
@@ -17,13 +17,9 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- BEGIN_AUTOGEN: install -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-```bash
-npm install @aihu/plugin
-# or
-bun add @aihu/plugin
-```
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=fellwork.vscode-aihu) (publishing as part of v1.1 LSP work).
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,12 +30,11 @@ bun add @aihu/plugin
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
-| **Tier** | E — Plugin substrate — runtime hook surface (held private until live-binding RATIFIES) |
-| **Published files** | 3 entries |
+| **Version** | `1.0.0` |
+| **Tier** | E — Editor — VS Code extension (TextMate grammar + snippets; LSP in M2) |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -48,11 +43,9 @@ bun add @aihu/plugin
 <!-- BEGIN_AUTOGEN: exports -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-| Subpath | ESM | CJS |
-|---|---|---|
-| `.` | `./dist/index.js` | `—` |
+_No `exports` field in `package.json`. Main entry: `unset`._
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -63,7 +56,7 @@ bun add @aihu/plugin
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -72,11 +65,10 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [Plugin Contract spec](../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md)
-- [Live-Binding RFC](../../docs/superpowers/specs/2026-05-05-spec-live-binding.md)
+- [arch-4 (DX tools)](../../docs/roadmap/arch-4-dx-tools.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -87,6 +79,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `2eba8b0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

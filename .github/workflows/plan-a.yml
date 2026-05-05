@@ -37,6 +37,10 @@ jobs:
           auto-install: true
       - run: bun install --frozen-lockfile
       - run: bunx biome ci .
+      # README autogen sync — fails CI if README.md or any per-package README
+      # is out of sync with its canonical sources. Author runs
+      # `bun scripts/sync-readme.ts` to fix; pre-commit hook runs it locally.
+      - run: bun scripts/sync-readme.ts --check
       - run: bun run typecheck
       - run: bun run test --coverage
       - run: bun run build

@@ -1,10 +1,19 @@
 # @aihu/adapter-vercel
 
-> Vercel deployment adapter for @aihu/app.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Vercel deployment adapter for @aihu/app.
+
+Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/adapter-vercel
@@ -12,21 +21,73 @@ npm install @aihu/adapter-vercel
 bun add @aihu/adapter-vercel
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
 
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import { aihu } from '@aihu/app';
-import vercel from '@aihu/adapter-vercel';
+<!-- END_AUTOGEN: install -->
 
-export default defineConfig({ plugins: [aihu({ adapter: vercel() })] });
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | B — Meta-framework — Vercel deploy adapter |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Peer dependencies:**
+
+- `@aihu/app` — `workspace:*`
+- `vite` — `>=5.0.0`
+
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [@aihu/app](../app)
+- [@aihu/server](../server)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

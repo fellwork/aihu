@@ -1,3 +1,10 @@
 # Pre-commit: fast checks only (biome formats/lints in <1s)
 # For the full CI replay, use `bun run check:ci` or rely on the pre-push hook.
 bunx biome check --write --staged --no-errors-on-unmatched
+
+# README autogen sync — keeps the data-heavy sections of README.md and every
+# packages/**/README.md fresh on every commit. Stages any files the script
+# regenerated. CI also runs `bun scripts/sync-readme.ts --check`, so author
+# does not need to remember.
+bun scripts/sync-readme.ts
+git add README.md scripts/__package-inventory.json packages/**/README.md

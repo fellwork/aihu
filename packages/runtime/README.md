@@ -1,10 +1,19 @@
 # @aihu/runtime
 
-> Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler.
+
+Part of the **runtime core** layer of the Aihu meta-framework. Shipped to the client; sized via `bun run size`. The runtime core is dep-free and stacks under `@aihu/runtime` → `@aihu/router` → `@aihu/server` → `@aihu/app`.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/runtime
@@ -12,21 +21,74 @@ npm install @aihu/runtime
 bun add @aihu/runtime
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
 
-```typescript
-// In a .aihu Single File Component the runtime is auto-imported.
-// To register a compiled component manually:
-import { defineComponent } from '@aihu/runtime';
-import MyCounter from './my-counter.aihu';
+<!-- END_AUTOGEN: install -->
 
-defineComponent('my-counter', MyCounter);
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | A — Reactive runtime core — custom-element wiring for compiled SFCs |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Peer dependencies:**
+
+- `@aihu/arbor` — `workspace:*`
+- `@aihu/signals` — `workspace:*`
+
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [Phase 4 spec (runtime)](../../.team/phase-4/spec-runtime.md)
+- [@aihu/arbor](../arbor)
+- [@aihu/compiler](../compiler)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/runtime@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

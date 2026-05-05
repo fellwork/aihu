@@ -1,10 +1,19 @@
 # @aihu/data
 
-> Reactive data loaders and resource primitives for aihu.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Reactive data loaders and resource primitives for aihu.
+
+Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/data
@@ -12,21 +21,73 @@ npm install @aihu/data
 bun add @aihu/data
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
 
-```typescript
-import { resource } from '@aihu/data';
+<!-- END_AUTOGEN: install -->
 
-const user = resource(async (id: string) => {
-  const res = await fetch(`/api/users/${id}`);
-  return res.json();
-});
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | B — Meta-framework — reactive resources + loader protocol |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Dependencies:**
+
+- `@aihu/signals` — `workspace:*`
+- `@aihu/context` — `workspace:*`
+
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [docs/site/data-fetching.md](../../docs/site/data-fetching.md)
+- [@aihu/context](../context)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

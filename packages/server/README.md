@@ -1,12 +1,19 @@
 # @aihu/server
 
-> Server runtime + native renderer (napi-rs) for aihu SSR.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-Requires one of the platform-specific native packages: `@aihu/server-darwin-arm64`, `@aihu/server-darwin-x64`, `@aihu/server-linux-x64-gnu`, or `@aihu/server-win32-x64-msvc`. npm picks the right one automatically via `optionalDependencies`.
+Server runtime + native renderer (napi-rs) for aihu SSR.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/server
@@ -14,18 +21,82 @@ npm install @aihu/server
 bun add @aihu/server
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
 
-```typescript
-import { renderToString } from '@aihu/server';
+<!-- END_AUTOGEN: install -->
 
-const html = await renderToString(App, { url: req.url });
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | B — Meta-framework — SSR + native renderer (napi-rs) |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Dependencies:**
+
+- `@aihu/agent` — `workspace:*`
+- `@aihu/plugin` — `workspace:*`
+
+**Optional dependencies (platform-specific):**
+
+- `@aihu/server-darwin-arm64` — `0.1.0`
+- `@aihu/server-darwin-x64` — `0.1.0`
+- `@aihu/server-linux-x64-gnu` — `0.1.0`
+- `@aihu/server-win32-x64-msvc` — `0.1.0`
+
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [arch-1 (website)](../../docs/roadmap/arch-1-website.md)
+- [docs/site/ssr-hydration.md](../../docs/site/ssr-hydration.md)
+- [@aihu/router](../router)
+- [@aihu/agent-readiness](../agent-readiness)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

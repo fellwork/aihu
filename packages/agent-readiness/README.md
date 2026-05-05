@@ -1,10 +1,19 @@
 # @aihu/agent-readiness
 
-> Discovery + readiness manifest emitter so agents can introspect aihu apps.
+> **Aihu** — agentic discovery and interaction, for human purpose.
 
-Part of the [aihu](https://github.com/fellwork/aihu) framework — agentic discovery and interaction, for human purpose.
+Discovery + readiness manifest emitter so agents can introspect aihu apps.
+
+Part of the **agent surface** layer of Aihu. Every Aihu component exposes its agent surface via the `@agent` block; this package implements one slice of the dispatch + protocol surface that connects `@agent` actions to live runtime signals (per the [Live-Binding RFC](../../docs/superpowers/specs/2026-05-05-spec-live-binding.md)).
+
+<!-- BEGIN_HANDWRITTEN: prose -->
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+<!-- END_HANDWRITTEN: prose -->
 
 ## Install
+
+<!-- BEGIN_AUTOGEN: install -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
 npm install @aihu/agent-readiness
@@ -12,19 +21,73 @@ npm install @aihu/agent-readiness
 bun add @aihu/agent-readiness
 ```
 
-## Usage
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
 
-```typescript
-import { readinessHandler } from '@aihu/agent-readiness';
+<!-- END_AUTOGEN: install -->
 
-// Mount at /.well-known/agent-readiness
-app.get('/.well-known/agent-readiness', readinessHandler());
-```
+## Package facts
 
-## Status
+<!-- BEGIN_AUTOGEN: stats -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Early access (`0.1.x`). API may evolve before v1.1 GA. See the [v1.1 roadmap](https://github.com/fellwork/aihu/tree/main/docs/roadmap) for stability commitments.
+| | |
+|---|---|
+| **Version** | `0.1.0` |
+| **Tier** | C — Agent surface — discovery manifests (llms.txt, MCP Server Card, robots) |
+| **Published files** | 3 entries |
+| **License** | MIT |
+
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: stats -->
+
+## Exports
+
+<!-- BEGIN_AUTOGEN: exports -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+| Subpath | ESM | CJS |
+|---|---|---|
+| `.` | `./dist/index.js` | `—` |
+
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: exports -->
+
+## Dependencies
+
+<!-- BEGIN_AUTOGEN: deps -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+**Dependencies:**
+
+- `@aihu/server` — `workspace:*`
+- `@aihu/agent` — `workspace:*`
+
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: deps -->
+
+## See also
+
+<!-- BEGIN_AUTOGEN: see-also -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+- [Agent-Readiness spec](../../.team/agent-readiness/spec-agent-readiness.md)
+- [@aihu/server](../server)
+- [Aihu framework root](../../README.md)
+
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: see-also -->
 
 ## License
 
-MIT — see [LICENSE](https://github.com/fellwork/aihu/blob/main/LICENSE).
+<!-- BEGIN_AUTOGEN: license -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
+MIT — see [LICENSE](../../LICENSE).
+
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `2eba8b0`.</i></sub>
+
+<!-- END_AUTOGEN: license -->

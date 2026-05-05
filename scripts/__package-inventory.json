@@ -1,0 +1,140 @@
+[
+  {
+    "name": "@aihu/adapter-cloudflare",
+    "version": "0.1.0",
+    "dir": "packages/adapter-cloudflare",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/adapter-vercel",
+    "version": "0.1.0",
+    "dir": "packages/adapter-vercel",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/agent",
+    "version": "0.1.0",
+    "dir": "packages/agent",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/agent-a2a",
+    "version": "0.1.0",
+    "dir": "packages/agent-a2a",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/agent-acp",
+    "version": "0.1.0",
+    "dir": "packages/agent-acp",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/agent-readiness",
+    "version": "0.1.0",
+    "dir": "packages/agent-readiness",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/agent-service",
+    "version": "0.1.0",
+    "dir": "packages/agent-service",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/app",
+    "version": "0.1.0",
+    "dir": "packages/app",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/arbor",
+    "version": "0.1.0",
+    "dir": "packages/arbor",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/cli",
+    "version": "0.1.0",
+    "dir": "packages/cli",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/compiler",
+    "version": "0.1.0",
+    "dir": "packages/compiler",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/context",
+    "version": "0.1.0",
+    "dir": "packages/context",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/data",
+    "version": "0.1.0",
+    "dir": "packages/data",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/plugin",
+    "version": "0.1.0",
+    "dir": "packages/plugin",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/router",
+    "version": "0.1.0",
+    "dir": "packages/router",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/runtime",
+    "version": "0.1.0",
+    "dir": "packages/runtime",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/server",
+    "version": "0.1.0",
+    "dir": "packages/server",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu/server-darwin-arm64",
+    "version": "0.1.0",
+    "dir": "packages/server/npm/darwin-arm64",
+    "isPlatform": true
+  },
+  {
+    "name": "@aihu/server-darwin-x64",
+    "version": "0.1.0",
+    "dir": "packages/server/npm/darwin-x64",
+    "isPlatform": true
+  },
+  {
+    "name": "@aihu/server-linux-x64-gnu",
+    "version": "0.1.0",
+    "dir": "packages/server/npm/linux-x64-gnu",
+    "isPlatform": true
+  },
+  {
+    "name": "@aihu/server-win32-x64-msvc",
+    "version": "0.1.0",
+    "dir": "packages/server/npm/win32-x64-msvc",
+    "isPlatform": true
+  },
+  {
+    "name": "@aihu/signals",
+    "version": "0.1.0",
+    "dir": "packages/signals",
+    "isPlatform": false
+  },
+  {
+    "name": "vscode-aihu",
+    "version": "1.0.0",
+    "dir": "packages/vscode-aihu",
+    "isPlatform": false
+  }
+]
