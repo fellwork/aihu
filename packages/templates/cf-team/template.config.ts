@@ -78,6 +78,7 @@ export const config = {
     '@aihu/arbor': '^0.2.0',
     '@aihu/signals': '^0.2.0',
     '@aihu/router': '^0.2.0',
+    '@aihu/server': '^0.2.0',
     '@aihu/adapter-cloudflare': '^0.2.0',
   },
   appPeerDepsConditional: {
