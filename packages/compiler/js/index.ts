@@ -526,49 +526,50 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
       if (!rawId.endsWith('.aihu')) return
       return (async () => {
         const result = transform(code, rawId)
-      const compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
-      const elementTag = _extractElementTag(compiled)
+        const compiled =
+          shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+        const elementTag = _extractElementTag(compiled)
 
-      let out: string
+        let out: string
 
-      // Plan 3.3 — static-island fast path. Bypasses HMR injection because
-      // a component with no signals has no setup state to hot-replace.
-      // Static islands strip @aihu/runtime entirely — do NOT inject auto-wiring
-      // (it would reference _setMount/_setSignal as undefined identifiers).
-      if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
-        out = _buildStaticIsland(compiled, elementTag)
-      } else if (elementTag !== null) {
-        // Inject HMR instrumentation. The injected block is gated on
-        // `typeof __DEV__ !== 'undefined' && __DEV__` so production
-        // bundlers dead-code-eliminate it when they set __DEV__ = false.
-        out = _buildHmrCode(compiled, elementTag)
-        // Plan 3.3 — interactive islands also gain `defer` attribute
-        // support so individual instances can opt into lazy hydration.
-        out = _buildDeferredHydration(out, elementTag)
-        // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
-        out = _injectAutoWiring(out)
-      } else {
-        out = compiled
-        // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
-        out = _injectAutoWiring(out)
-      }
+        // Plan 3.3 — static-island fast path. Bypasses HMR injection because
+        // a component with no signals has no setup state to hot-replace.
+        // Static islands strip @aihu/runtime entirely — do NOT inject auto-wiring
+        // (it would reference _setMount/_setSignal as undefined identifiers).
+        if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
+          out = _buildStaticIsland(compiled, elementTag)
+        } else if (elementTag !== null) {
+          // Inject HMR instrumentation. The injected block is gated on
+          // `typeof __DEV__ !== 'undefined' && __DEV__` so production
+          // bundlers dead-code-eliminate it when they set __DEV__ = false.
+          out = _buildHmrCode(compiled, elementTag)
+          // Plan 3.3 — interactive islands also gain `defer` attribute
+          // support so individual instances can opt into lazy hydration.
+          out = _buildDeferredHydration(out, elementTag)
+          // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
+          out = _injectAutoWiring(out)
+        } else {
+          out = compiled
+          // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
+          out = _injectAutoWiring(out)
+        }
 
-      // The Rust compiler emits TypeScript (type casts, import type, etc.) and
-      // the injected HMR / defer helpers also contain TS generics and casts.
-      // Vite does NOT re-run its esbuild TypeScript-strip step when a plugin
-      // returns code for a non-.ts ID — so we strip types here ourselves using
-      // Vite's own transformWithEsbuild API (always available in a Vite context).
-      try {
-        const { transformWithEsbuild } = await import('vite')
-        const stripped = await transformWithEsbuild(out, 'component.ts', {
-          target: 'esnext',
-          sourcemap: false,
-        })
-        return { code: stripped.code, map: null }
-      } catch {
-        // If running outside Vite (e.g. tests, standalone transform), return as-is.
-        return { code: out, map: null }
-      }
+        // The Rust compiler emits TypeScript (type casts, import type, etc.) and
+        // the injected HMR / defer helpers also contain TS generics and casts.
+        // Vite does NOT re-run its esbuild TypeScript-strip step when a plugin
+        // returns code for a non-.ts ID — so we strip types here ourselves using
+        // Vite's own transformWithEsbuild API (always available in a Vite context).
+        try {
+          const { transformWithEsbuild } = await import('vite')
+          const stripped = await transformWithEsbuild(out, 'component.ts', {
+            target: 'esnext',
+            sourcemap: false,
+          })
+          return { code: stripped.code, map: null }
+        } catch {
+          // If running outside Vite (e.g. tests, standalone transform), return as-is.
+          return { code: out, map: null }
+        }
       })()
     },
   }
