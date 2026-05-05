@@ -2,3 +2,15 @@
 # time. Always platform-specific and never committed — consumers download
 # from GitHub Releases.
 bin/
+
+# Cargo build outputs (native + cross-compiled targets).
+target/
+
+# wasm-pack output — built locally for benchmarks; CI builds it from
+# source and publishes to GitHub Releases as aihu-compile-wasm.tar.gz.
+pkg-wasm/
+
+# SHA256 sidecars produced during local release-asset staging or
+# verification. CI generates these and uploads them alongside binaries;
+# nothing locally generated should ever be committed.
+*.sha256
