@@ -1,0 +1,44 @@
+name: Changesets release PR
+
+# Opens / updates a "Release PR" whenever a `.changeset/*.md` lands on main.
+# Merging that Release PR commits the version bumps and creates a `v*` tag,
+# which then triggers `release.yml` to build binaries + WASM and publish all
+# tier A/B/C/D `@aihu/*` packages to npm.
+#
+# This is the standard Changesets release flow; do not publish from this
+# workflow. Tag-driven publish lives in `release.yml`.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-pr:
+    name: Open release PR
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Open / update Release PR
+        uses: changesets/action@v1
+        with:
+          version: bun changeset version
+          # No `publish` script here — actual publishing happens on tag push
+          # via release.yml, gated on the binary builds completing first.
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

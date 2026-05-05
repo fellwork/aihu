@@ -1,6 +1,6 @@
 {
   "name": "@aihu/agent-readiness",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,15 +13,29 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/server": "workspace:*",
     "@aihu/agent": "workspace:*"
+  },
+  "description": "Discovery + readiness manifest emitter so agents can introspect aihu apps.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/agent-readiness"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/agent-readiness#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

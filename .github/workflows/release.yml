@@ -307,3 +307,74 @@ jobs:
               echo "no .node artifact for $platform — skipping"
             fi
           done
+
+  # ---------------------------------------------------------------------------
+  # Publish all tier A/B/C/D @aihu/* JS packages on `v*` tag.
+  #
+  # Mirrors the publish-native pattern: triggered only by an actual tag push,
+  # consumes NPM_TOKEN secret, runs after compiler binaries (`build`) and the
+  # @aihu/server-* native packages (`build-native` + `publish-native`) so that
+  # by the time these JS packages reach npm their declared
+  # `optionalDependencies` already resolve.
+  #
+  # Uses `bun publish --workspaces` because Bun rewrites `workspace:*` deps to
+  # actual versions automatically. Changesets has versioned the packages on
+  # the previous Release-PR merge; this job just publishes whatever's in
+  # package.json today.
+  # ---------------------------------------------------------------------------
+  publish-packages:
+    name: Publish @aihu/* packages to npm
+    needs: [build, build-wasm, build-native, publish-native]
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node (for npm token)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install workspace
+        run: bun install --frozen-lockfile
+
+      - name: Download compiler binaries
+        # Postinstall would normally fetch from GitHub releases at install
+        # time on the consumer machine; in CI we have the freshly-built
+        # artifacts available. Stage the host platform's binary so the
+        # compiler package's prepublishOnly + bin field are coherent.
+        uses: actions/download-artifact@v4
+        with:
+          path: native-artifacts
+
+      - name: Stage compiler bin (linux-x64 host)
+        run: |
+          mkdir -p packages/compiler/bin
+          if [ -f native-artifacts/aihu-compile-linux-x64/aihu-compile-linux-x64 ]; then
+            cp native-artifacts/aihu-compile-linux-x64/aihu-compile-linux-x64 packages/compiler/bin/aihu-compile
+            chmod 0755 packages/compiler/bin/aihu-compile
+          fi
+          # The published tarball does NOT include this bin file — consumer
+          # postinstall fetches the right binary for their platform from the
+          # GitHub Release. The bin/ entry in package.json points to the
+          # postinstall-populated path. Staging here is for prepublishOnly
+          # build steps that exec the binary; not bundled.
+
+      - name: Build all packages
+        run: bun run build
+
+      - name: Publish via Changesets
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run release

@@ -31,10 +31,13 @@
     "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
+    "release": "bun run build && changeset publish",
     "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^20.16.5",
     "@vitest/coverage-v8": "^2.1.9",
     "chrome-launcher": "^1.1.2",

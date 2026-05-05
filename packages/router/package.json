@@ -1,6 +1,6 @@
 {
   "name": "@aihu/router",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,14 +17,28 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/server": "workspace:*"
+  },
+  "description": "File-based router for the aihu meta-framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/router"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/router#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

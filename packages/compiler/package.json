@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,13 +18,16 @@
   "files": [
     "dist",
     "js/postinstall.ts",
-    "bin"
+    "bin",
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit",
-    "postinstall": "bun run js/postinstall.ts"
+    "postinstall": "bun run js/postinstall.ts",
+    "prepublishOnly": "bun run build"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
@@ -33,5 +36,16 @@
     "vite": {
       "optional": true
     }
+  },
+  "description": "Single File Component (.aihu) compiler — Rust binary + JS glue.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/compiler"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/compiler#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }
