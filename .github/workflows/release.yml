@@ -202,7 +202,13 @@ jobs:
       - name: Flatten artifact directory
         run: |
           mkdir -p release-assets
-          find artifacts -type f -exec cp {} release-assets/ \;
+          # Skip 0-byte files. The GitHub Release Asset API rejects empty
+          # uploads with "size must be greater than or equal to 1"; a single
+          # empty sidecar (typically from a partial-failed prior run that
+          # downloaded an artifact for re-upload) would tank the whole
+          # release-create step.
+          find artifacts -type f ! -empty -exec cp {} release-assets/ \;
+          ls -la release-assets/
           ls -la release-assets
 
       - name: Create GitHub Release
@@ -367,6 +373,15 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup moon toolchain
+        # `bun run build` invokes `moon run :build` (root package.json) which
+        # requires the moon CLI on PATH. Plan A CI installs this via
+        # moonrepo/setup-toolchain; mirror it here so prepublishOnly can
+        # actually compile the workspace before publish.
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
 
       - name: Install workspace
         run: bun install --frozen-lockfile
