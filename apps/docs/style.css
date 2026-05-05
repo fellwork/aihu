@@ -101,3 +101,40 @@ a:hover { text-decoration: underline; }
   font-size: .875rem;
 }
 .header-link:hover { color: var(--fg); text-decoration: none; }
+
+/* ── Hero playground (Directive 1) ──────────────────────────────── */
+
+.hero-playground {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.hero-playground-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 40px;
+}
+
+.hero-playground h2 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.hero-playground-tagline {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: .95rem;
+}
+
+.hero-playground-tagline code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: .875rem;
+}
+
+@media (max-width: 640px) {
+  .hero-playground-inner { padding: 20px 16px 28px; }
+  .hero-playground h2 { font-size: 1.25rem; }
+}
