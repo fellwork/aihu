@@ -21,7 +21,7 @@ npm install @aihu/server
 bun add @aihu/server
 ```
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -37,7 +37,7 @@ bun add @aihu/server
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/server
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -71,7 +71,7 @@ bun add @aihu/server
 - `@aihu/server-linux-x64-gnu` — `0.1.0`
 - `@aihu/server-win32-x64-msvc` — `0.1.0`
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -86,7 +86,7 @@ bun add @aihu/server
 - [@aihu/agent-readiness](../agent-readiness)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -97,6 +97,6 @@ bun add @aihu/server
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `2eba8b0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.0` on commit `5ae26a0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

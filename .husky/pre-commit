@@ -7,4 +7,8 @@ bunx biome check --write --staged --no-errors-on-unmatched
 # regenerated. CI also runs `bun scripts/sync-readme.ts --check`, so author
 # does not need to remember.
 bun scripts/sync-readme.ts
-git add README.md scripts/__package-inventory.json packages/**/README.md
+git add README.md scripts/__package-inventory.json
+# Stage every regenerated package README, including platform binaries at
+# packages/server/npm/<plat>/. `git ls-files -mo` enumerates modified +
+# untracked files; the grep filters down to README.md anywhere under packages/.
+git ls-files -mo --exclude-standard packages/ | grep -E 'README\.md$' | xargs -r git add
