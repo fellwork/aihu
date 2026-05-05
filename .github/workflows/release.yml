@@ -321,7 +321,7 @@ jobs:
         with:
           path: native-artifacts
 
-      - name: Stage and publish each platform package
+      - name: Stage and publish each platform package (idempotent)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -329,12 +329,23 @@ jobs:
           for dir in packages/server/npm/*/; do
             platform=$(basename "$dir")
             node_file=$(ls native-artifacts/native-$platform/*.node 2>/dev/null || true)
-            if [ -n "$node_file" ]; then
-              cp "$node_file" "$dir/"
-              ( cd "$dir" && npm publish --access public )
-            else
+            if [ -z "$node_file" ]; then
               echo "no .node artifact for $platform — skipping"
+              continue
             fi
+            cp "$node_file" "$dir/"
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            # Idempotency: 'npm view <pkg>@<ver>' returns the version string when
+            # already published, empty string otherwise. Skip publish on hit so
+            # release workflow re-runs (post-fix retag) don't 403 on the fixed
+            # platform-publish step and skip-block downstream workspace publish.
+            existing=$(npm view "${pkg_name}@${pkg_version}" version 2>/dev/null || true)
+            if [ -n "$existing" ]; then
+              echo "${pkg_name}@${pkg_version} already published — skipping"
+              continue
+            fi
+            ( cd "$dir" && npm publish --access public )
           done
 
   # ---------------------------------------------------------------------------
