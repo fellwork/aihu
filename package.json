@@ -22,6 +22,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
+    "check:ci": "bunx biome ci . && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "test:quality": "bun scripts/lighthouse.ts",
