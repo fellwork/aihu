@@ -1,0 +1,118 @@
+// Option 4 — Object-literal collection-form macros
+//
+// User-proposed alternative to the 3 team options. Each named-collection
+// macro ($prop, $computed, $action, $resource, $lifecycle) takes ONE
+// object-literal whose keys are the names. Per-entry metadata (describe,
+// expose, default, value, handler) lives co-located with the declaration.
+//
+// Expected wins:
+//   - AC-1: each name appears exactly once (object key)
+//   - AC-2: shape is plain JS object literal — universally familiar
+//   - AC-4: macro-name reduction — N invocations collapse to 1 per macro kind
+//   - Agent surface: derived from `describe` + `expose` keys; @agent block
+//     keeps only cross-cutting metadata ($scope, $rate-limit)
+//
+// Open trade: $action is denser per-entry (4-key object) than today's
+// per-line form. See trade-offs in architect-design-options.md §4.
+
+@state {
+  $prop: {
+    hue:        { describe: 'Hue channel (0-360)',        expose: 'rw', default: 215 },
+    saturation: { describe: 'Saturation channel (0-100)', expose: 'rw', default: 70 },
+    lightness:  { describe: 'Lightness channel (0-100)',  expose: 'rw', default: 55 },
+  }
+
+  $computed: {
+    primary: {
+      describe: 'Computed HSL primary color string',
+      expose: true,
+      value: () => `hsl(${hue} ${saturation}% ${lightness}%)`,
+    },
+    onPrimary: {
+      value: () => lightness < 60 ? '#ffffff' : '#111111',
+    },
+    surface: {
+      value: () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
+    },
+  }
+
+  $action: {
+    setPreset: {
+      describe: 'Set a named color preset by hue value',
+      expose: true,
+      handler: (h: number) => {
+        hue = h
+        saturation = 70
+        lightness = 55
+      },
+    },
+    setHue: {
+      describe: 'Set hue directly (0-360)',
+      expose: true,
+      handler: (h: number) => { hue = h },
+    },
+    setSaturation: {
+      describe: 'Set saturation directly (0-100)',
+      expose: true,
+      handler: (s: number) => { saturation = s },
+    },
+    setLightness: {
+      describe: 'Set lightness directly (0-100)',
+      expose: true,
+      handler: (l: number) => { lightness = l },
+    },
+  }
+
+  // Stretch examples — show how the collection-form extends to the
+  // remaining state-block macros. Not part of color-theme proper.
+  //
+  // $resource: {
+  //   data: { describe: 'User list', expose: true, value: () => fetchUsers() },
+  // }
+  //
+  // $effect: {
+  //   logData:    { value: () => { console.log(data()) } },
+  //   updateList: { on: [data], value: () => { updateList(data()) } },
+  // }
+  //
+  // $lifecycle: {
+  //   mount:   () => initializeWidget(),
+  //   dispose: () => cleanup(),
+  // }
+}
+
+@template {
+  <section class="theme-picker">
+    <fieldset>
+      <legend>HSL controls</legend>
+      <label><span>Hue {hue}°</span>        <input type="range" min="0" max="360" $bind:value="hue"        /></label>
+      <label><span>Saturation {saturation}%</span> <input type="range" min="0" max="100" $bind:value="saturation" /></label>
+      <label><span>Lightness {lightness}%</span>  <input type="range" min="0" max="100" $bind:value="lightness"  /></label>
+    </fieldset>
+    <div class="presets">
+      <button $on:click={() => setPreset(215)}>Blue</button>
+      <button $on:click={() => setPreset(140)}>Green</button>
+      <button $on:click={() => setPreset(0)}>Red</button>
+      <button $on:click={() => setPreset(40)}>Amber</button>
+    </div>
+  </section>
+}
+
+@style {
+  $global {
+    :root {
+      --color-primary:    $reactive(primary);
+      --color-on-primary: $reactive(onPrimary);
+      --color-surface:    $reactive(surface);
+    }
+  }
+  /* (full color-theme styles elided for brevity — see examples/color-theme/) */
+}
+
+@agent {
+  // Vestigial cross-cutting block. All per-name metadata (describe / expose /
+  // action descriptions) is derived from @state's collection-form macros.
+  // This block holds only what cannot be attached to a single declaration.
+  $scope "user:read"
+  $rate-limit 100
+}
