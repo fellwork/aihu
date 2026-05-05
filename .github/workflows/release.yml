@@ -69,7 +69,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: stable
+          toolchain: "1.88"
           targets: ${{ matrix.target }}
 
       - name: Install cross (aarch64-linux only)
@@ -128,7 +128,7 @@ jobs:
       - name: Install Rust toolchain (wasm32)
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: stable
+          toolchain: "1.88"
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
@@ -242,7 +242,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: stable
+          toolchain: "1.88"
           targets: ${{ matrix.target }}
 
       - name: Setup Node

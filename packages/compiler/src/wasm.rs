@@ -25,13 +25,16 @@ pub fn wasm_compile(source: &str) -> Result<JsValue, JsValue> {
     let unit = crate::compile_full(&parsed)
         .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
-    // Phase 3: resolve tag name (mirrors src/bin/main.rs logic)
+    // Phase 3: resolve tag name (mirrors src/bin/main.rs logic).
+    // Note: AihuSource.script is `Option<&str>` (raw script body); the parsed
+    // `name: "..."` lives on `unit.source.meta`, which is a `ScriptMeta`
+    // (not Optional). Earlier draft of this file walked through `script` —
+    // that was wrong and would never have compiled for wasm32.
     let tag_name = unit
         .source
-        .script
-        .as_ref()
-        .and_then(|s| s.meta.as_ref())
-        .and_then(|m| m.name.clone())
+        .meta
+        .name
+        .clone()
         .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
         .unwrap_or_else(|| "aihu-component".to_string());
 
