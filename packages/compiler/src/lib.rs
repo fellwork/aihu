@@ -2,6 +2,11 @@ pub mod codegen;
 pub mod parser;
 pub mod types;
 
+// WASM bindings — only compiled for the wasm32 target. The module is declared
+// unconditionally so `cargo check` is consistent across native + wasm builds;
+// item-level `#[cfg]` gates the actual exports.
+pub mod wasm;
+
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use parser::sfc;
 pub use types::{
