@@ -155,6 +155,13 @@ struct NeededHelpers {
     warp_boundary: bool,
     /// True when $html or $show directives are used (they emit `effect()` calls).
     needs_effect: bool,
+    // ── arch-5 M1 a11y (RFC-A5-017..021) ─────────────────────────────────────
+    /// True when `<$focusTrap>` appears in the template — needs `createFocusTrap` from runtime.
+    a11y_focus_trap: bool,
+    /// True when `<$skipLink>` or `<$visuallyHidden>` appears — needs sr-only/skip CSS injected.
+    a11y_styles: bool,
+    /// True when `$announce(...)` is called from any `@state` action body.
+    a11y_announce: bool,
 }
 
 fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
@@ -173,6 +180,14 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                     "shield" => h.shield_boundary = true,
                     "guard" => h.guard_boundary = true,
                     "warp" => h.warp_boundary = true,
+                    // arch-5 M1 a11y primitives — RFC-A5-017..020.
+                    // <$liveRegion> lowers to a plain branch + ARIA attrs and needs no
+                    // runtime helper. <$focusTrap> needs `createFocusTrap`. <$skipLink>
+                    // and <$visuallyHidden> are CSS-only but rely on a one-time style
+                    // injector at runtime mount.
+                    "focusTrap" => h.a11y_focus_trap = true,
+                    "skipLink" | "visuallyHidden" => h.a11y_styles = true,
+                    "liveRegion" => {}
                     _ => {}
                 }
                 collect_helpers_recursive(children, h);
@@ -485,6 +500,10 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
                 lines.push(format!("  effect(() => {{ {name}; {body} }});"));
             }
             StateMacro::Action { name, args, body } => {
+                // arch-5 M1: rewrite $announce(...) call sites in action bodies to
+                // the runtime-imported alias. The compiler does NOT recognize
+                // `$announce` as a declaration macro — it's a function call only.
+                let body = body.replace("$announce(", "__a11y_announce(");
                 lines.push(format!(
                     "  function {name}({args}) {{ return batch(() => {{ {body} }}) }}"
                 ));
@@ -515,12 +534,22 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
     let (si, macros, plain_body) = process_state_body(raw_script, &mut signal_map);
 
+    // arch-5 M1: scan action bodies for $announce(...) so we can request
+    // the runtime import alias and rewrite call sites in emit_state_macro_code.
+    let a11y_announce_used = macros.iter().any(|m| match m {
+        crate::types::StateMacro::Action { body, .. } => body.contains("$announce("),
+        _ => false,
+    });
+    let mut helpers_needed = helpers_needed;
+    helpers_needed.a11y_announce = a11y_announce_used;
+
     let imports = build_function_imports(
         &signal_map,
         helpers_needed.needs_effect,
         raw_script,
         &si,
         helpers_needed.each_boundary,
+        &helpers_needed,
     );
     let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
 
@@ -541,6 +570,11 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let body = {
         let mut b = String::new();
         b.push_str(&style_injection);
+        // arch-5 M1: inject sr-only / skip-link CSS once when the template uses
+        // <$visuallyHidden> or <$skipLink>. Idempotent; cost is trivially small.
+        if helpers_needed.a11y_styles {
+            b.push_str("  _ensureA11yStyles()\n");
+        }
         if !macro_code.is_empty() {
             b.push_str(&macro_code);
         }
@@ -565,6 +599,7 @@ fn build_function_imports(
     script: &str,
     si: &StateImports,
     needs_each: bool,
+    helpers: &NeededHelpers,
 ) -> String {
     let script_uses_effect = script.contains("effect(");
     let emit_effect = needs_effect || script_uses_effect || si.needs_effect_for_macros;
@@ -599,9 +634,21 @@ fn build_function_imports(
     }
 
     // Runtime imports
-    let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
-    if si.needs_on_mount { rt_items.push("onMount"); }
-    if si.needs_on_cleanup { rt_items.push("onCleanup"); }
+    let mut rt_items: Vec<String> =
+        vec!["defineComponent".to_string(), "defineElement".to_string()];
+    if si.needs_on_mount { rt_items.push("onMount".to_string()); }
+    if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
+    // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
+    // SFCs that don't use a11y primitives import nothing extra.
+    if helpers.a11y_focus_trap {
+        rt_items.push("createFocusTrap".to_string());
+    }
+    if helpers.a11y_styles {
+        rt_items.push("_ensureA11yStyles".to_string());
+    }
+    if helpers.a11y_announce {
+        rt_items.push("announce as __a11y_announce".to_string());
+    }
     lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
     lines.join("\n")
@@ -672,9 +719,17 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         import_lines.push("import { effect } from '@aihu/signals'".to_string());
     }
 
-    let mut rt_items: Vec<&str> = vec!["defineComponent", "defineElement"];
-    if si.needs_on_mount { rt_items.push("onMount"); }
-    if si.needs_on_cleanup { rt_items.push("onCleanup"); }
+    let mut rt_items: Vec<String> =
+        vec!["defineComponent".to_string(), "defineElement".to_string()];
+    if si.needs_on_mount { rt_items.push("onMount".to_string()); }
+    if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
+    // arch-5 M1 a11y imports — RFC-A5-017..020 in options form (`@agent` SFCs).
+    if helpers_needed.a11y_focus_trap {
+        rt_items.push("createFocusTrap".to_string());
+    }
+    if helpers_needed.a11y_styles {
+        rt_items.push("_ensureA11yStyles".to_string());
+    }
     import_lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
     let imports = import_lines.join("\n");
@@ -704,6 +759,9 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     let mut setup_body = String::new();
     if !style_injection.is_empty() {
         setup_body.push_str(&style_injection);
+    }
+    if helpers_needed.a11y_styles {
+        setup_body.push_str("    _ensureA11yStyles()\n");
     }
     if !agent_bindings.is_empty() {
         setup_body.push_str(&agent_bindings);
@@ -1237,6 +1295,107 @@ fn emit_macro_element(
                 child_indent,
                 child_indent,
                 child_indent
+            )
+        }
+
+        // ── arch-5 M1 a11y primitives ────────────────────────────────────────
+
+        // <$liveRegion politeness="polite|assertive" atomic={bool}> — RFC-A5-017.
+        // Lowers to <div role="status" aria-live="..." aria-atomic="true">. Pure DOM,
+        // no runtime helper.
+        "liveRegion" => {
+            let politeness = find_static_attr(attrs, "politeness").unwrap_or("polite");
+            // Validate politeness: silently coerce unknown values to 'polite' rather
+            // than failing the build — defensive for HMR/templating cases.
+            let politeness = if politeness == "assertive" { "assertive" } else { "polite" };
+            let atomic = find_static_attr(attrs, "atomic")
+                .map(|v| v != "false")
+                .unwrap_or(true);
+            let atomic_str = if atomic { "true" } else { "false" };
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            // children_subtree is the wrapped branch; we want its children only. Easiest:
+            // emit a branch wrapping the existing subtree as a single fragment child.
+            format!(
+                "branch('div', {{ role: 'status', 'aria-live': '{}', 'aria-atomic': '{}' }}, [{}])",
+                politeness, atomic_str, children_subtree
+            )
+        }
+
+        // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
+        // once at component mount via _ensureA11yStyles().
+        "visuallyHidden" => {
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            format!(
+                "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
+                children_subtree
+            )
+        }
+
+        // <$skipLink target="#id"> — RFC-A5-019. Pure HTML/CSS anchor; class
+        // injected once at component mount.
+        "skipLink" => {
+            let target = find_static_attr(attrs, "target").unwrap_or("#main");
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            format!(
+                "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
+                target, children_subtree
+            )
+        }
+
+        // <$focusTrap active={...} returnFocus initialFocus="..."> — RFC-A5-018.
+        // `createFocusTrap` is imported from @aihu/runtime; lowering hands it
+        // the active getter (signal-ref via `() => expr` for curly bindings),
+        // returnFocus flag, optional initialFocus selector, and a child function.
+        "focusTrap" => {
+            // active: curly `active={expr}` lands as `Attr::Binding`;
+            // static `active="isOpen"` lands as `Attr::Static`. Wrap both in
+            // `() => (expr)` so the helper can re-read on focus changes.
+            // Literal `"true"`/`"false"` pass through as booleans.
+            let active_expr = match attrs.iter().find_map(|a| match a {
+                crate::types::Attr::Binding { name, expr } if name == "active" => {
+                    Some(format!("() => ({})", expr))
+                }
+                crate::types::Attr::Static { name, value } if name == "active" => {
+                    if value == "true" || value == "false" {
+                        Some(value.clone())
+                    } else {
+                        Some(format!("() => ({})", value))
+                    }
+                }
+                _ => None,
+            }) {
+                Some(e) => e,
+                None => "false".to_string(),
+            };
+
+            // returnFocus: void-style boolean attr (`returnFocus`), static
+            // (`returnFocus="false"`), or curly (`returnFocus={expr}`). Default
+            // is `true` per spec.
+            let return_focus = attrs.iter().find_map(|a| match a {
+                crate::types::Attr::Static { name, value } if name == "returnFocus" => {
+                    if value.is_empty() {
+                        Some("true".to_string())
+                    } else if value == "false" {
+                        Some("false".to_string())
+                    } else {
+                        Some("true".to_string())
+                    }
+                }
+                crate::types::Attr::Binding { name, expr } if name == "returnFocus" => {
+                    Some(expr.clone())
+                }
+                _ => None,
+            }).unwrap_or_else(|| "true".to_string());
+
+            let initial_focus = match find_static_attr(attrs, "initialFocus") {
+                Some(s) => format!("'{}'", s),
+                None => "null".to_string(),
+            };
+
+            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            format!(
+                "createFocusTrap({}, {}, {}, () => {{ return {} }})",
+                active_expr, return_focus, initial_focus, children_subtree
             )
         }
 
