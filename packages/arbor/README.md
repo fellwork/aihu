@@ -127,7 +127,7 @@ npm install @aihu/arbor
 bun add @aihu/arbor
 ```
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -143,7 +143,7 @@ bun add @aihu/arbor
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -156,7 +156,7 @@ bun add @aihu/arbor
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -169,7 +169,7 @@ bun add @aihu/arbor
 
 - `@aihu/signals` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -184,7 +184,7 @@ bun add @aihu/arbor
 - [@aihu/runtime](../runtime)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -195,6 +195,6 @@ bun add @aihu/arbor
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -34,7 +34,7 @@ npm install @aihu/server-darwin-x64
 bun add @aihu/server-darwin-x64
 ```
 
-<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -50,7 +50,7 @@ bun add @aihu/server-darwin-x64
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/server-darwin-x64
 - [@aihu/server](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/server-darwin-x64
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-darwin-x64@0.1.0` on commit `e04d51a`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
