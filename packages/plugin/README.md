@@ -23,7 +23,7 @@ npm install @aihu/plugin
 bun add @aihu/plugin
 ```
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -39,7 +39,7 @@ bun add @aihu/plugin
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -52,7 +52,7 @@ bun add @aihu/plugin
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -63,7 +63,7 @@ bun add @aihu/plugin
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -76,7 +76,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [Live-Binding RFC](../../docs/superpowers/specs/2026-05-05-spec-live-binding.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -87,6 +87,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/plugin@0.1.0` on commit `fead070`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
