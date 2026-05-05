@@ -1,10 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
     "outDir": "dist",
     "noEmit": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@aihu/signals": ["../signals/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

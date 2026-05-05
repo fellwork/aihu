@@ -3,9 +3,13 @@
   "compilerOptions": {
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./js",
     "declaration": true,
-    "declarationDir": "./dist"
+    "declarationDir": "./dist",
+    "paths": {
+      "@aihu/arbor": ["../arbor/src/index.ts"],
+      "@aihu/runtime": ["../runtime/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
+    }
   },
   "include": ["js/**/*.ts"]
 }
