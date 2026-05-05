@@ -20,6 +20,16 @@ bun run test     # unit tests
 bun run check    # biome check + write
 ```
 
+## Setup
+
+Copy `apps/web/.env.example.<provider>` to `apps/web/.env` and fill in your
+auth provider's credentials. The `.env.example.<provider>` file is
+provider-suffixed so the template can ship all three example shapes — only
+the chosen provider's file lands in your scaffold; rename it to `.env` to
+use it.
+
+<!-- Future: pipeline-rename will drop the .<provider> suffix automatically; v0.2.1. -->
+
 ## Project structure
 
 ```

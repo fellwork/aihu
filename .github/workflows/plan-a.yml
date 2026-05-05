@@ -28,6 +28,7 @@ jobs:
     # Push-to-main and ready-for-review PRs still gate.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,6 +43,15 @@ jobs:
       # `bun scripts/sync-readme.ts` to fix; pre-commit hook runs it locally.
       - run: bun scripts/sync-readme.ts --check
       - run: bun run typecheck
+      # CLI templates B1.3 — scaffold-and-compile harness exercises the
+      # template against an isolated tmpdir and asserts typecheck passes
+      # against the emitted scaffold. Skipped on Windows runners (matches
+      # the test-level skip in scaffold-and-compile.test.ts; bun + symlink
+      # behavior on Win is unreliable for this harness). legacy-snapshot
+      # is platform-agnostic and always runs.
+      - if: runner.os != 'Windows'
+        run: bun run test packages/cli/tests/scaffold-and-compile.test.ts
+      - run: bun run test packages/cli/tests/legacy-snapshot.test.ts
       - run: bun run test --coverage
       - run: bun run build
       - run: bun run size
