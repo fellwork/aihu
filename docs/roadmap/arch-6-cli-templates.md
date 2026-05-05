@@ -15,7 +15,7 @@
 - **Q1 (Deploy):** Cloudflare + Vercel + Fly are **distinct vendors in M1**. Each owns its full file set (wrangler.toml / vercel.json / Dockerfile + fly.toml). No shared base across vendors.
 - **Q2 (Publish strategy):** Separate `@aihu/templates-*` family — one npm package per template. `@aihu/cli` dispatches by name.
 - **Q3 (Agent surface default):** ON / Minimal. Every scaffolded template ships `.mcp.json` + at least one `@expose` block. "OFF" is an explicit opt-out flag, not the default.
-- **Q4 (Persona):** Team-ready — promote into M1: monorepo (Bun workspaces + moon), a third-party auth scaffold option (default = `better-auth` — see §13 surface), stricter team CI defaults (commitlint hook + branch-protection cookbook reference). `@aihu/auth` (RFC #56) stays held; if a user picks it the scaffold imports compile but throw a clear unratified-error at runtime — never silent.
+- **Q4 (Persona):** Team-ready — promote into M1: monorepo (Bun workspaces + moon), a third-party auth scaffold prompt **{better-auth, kinde, supabase}** with `better-auth` as default (RESOLVED §13 Q3), stricter team CI defaults (commitlint hook + branch-protection cookbook reference). `@aihu/auth` (RFC #56) stays held; once RFC #56 ratifies it joins the auth prompt list — not in v0.2.0.
 
 ---
 
@@ -70,11 +70,11 @@ Three reductions get us from 12 → 5:
 
 | Template package | Cells fixed | Cells overridden by prompt |
 |---|---|---|
-| **`@aihu/templates-cf-team`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party (default `better-auth`), Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | App name; CSS (`@style`/Tailwind-deferred-to-v0.2.1 → for M1 only `@style`); starter (`<live-counter>` / empty); deploy-already-fixed; agent surface (minimal/none — full-agent users pick the dedicated template) |
-| **`@aihu/templates-vercel-team`** | Vendor=Vercel, Persona=team, Repo=monorepo+moon, Auth=third-party (default `better-auth`), Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
-| **`@aihu/templates-fly-team`** | Vendor=Fly (Dockerfile + fly.toml emit), Persona=team, Repo=monorepo+moon, Auth=third-party (default `better-auth`), Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
+| **`@aihu/templates-cf-team`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | App name; CSS (`@style`/Tailwind-deferred-to-v0.2.1 → for M1 only `@style`); starter (`<live-counter>` / empty); deploy-already-fixed; agent surface (minimal/none — full-agent users pick the dedicated template) |
+| **`@aihu/templates-vercel-team`** | Vendor=Vercel, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
+| **`@aihu/templates-fly-team`** | Vendor=Fly (Dockerfile + fly.toml emit), Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
 | **`@aihu/templates-cf-solo`** | Vendor=CF, Persona=solo, Repo=single-package, Auth=none, Lint=Biome, CI=GitHub Actions (no commitlint), Test=Vitest (skippable), Agent=minimal | App name; CSS; starter (`<live-counter>` / empty); agent surface (minimal/none); test runner (vitest/none) |
-| **`@aihu/templates-cf-full-agent`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party (default `better-auth`), Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=**FULL** (A2A + ACP scaffold + `@expose` + `$rate-limit` annotation) | App name; CSS; starter (always `<live-counter>` — the showcase) |
+| **`@aihu/templates-cf-full-agent`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=**FULL** (A2A + ACP scaffold + `@expose` + `$rate-limit` annotation) | App name; CSS; starter (always `<live-counter>` — the showcase) |
 
 **Total = 5 templates in M1.** All five are distinct enough that scaffolding one tells the user nothing about the others; combining any two into a flag-driven base would re-introduce the option-explosion the curation just removed.
 
@@ -176,7 +176,6 @@ export default {
     vendor: 'cloudflare',
     persona: 'team',
     repo: 'monorepo-moon',
-    auth: 'better-auth',
     lint: 'biome',
     ci: 'gh-actions-commitlint',
     test: 'vitest',
@@ -186,6 +185,12 @@ export default {
     css: { choices: ['style-block'], default: 'style-block' }, // tailwind in v0.2.1
     starter: { choices: ['live-counter', 'empty'], default: 'live-counter' },
     agentSurface: { choices: ['minimal', 'none'], default: 'minimal' },
+    auth: {
+      // §13 Q3 RESOLVED: 3 third-party auth providers as a runtime prompt.
+      // @aihu/auth joins this list once RFC #56 ratifies — not in v0.2.0.
+      choices: ['better-auth', 'kinde', 'supabase'],
+      default: 'better-auth',
+    },
     initGit: { choices: [true, false], default: true },
   },
   // Files in template/ are included unconditionally unless listed here.
@@ -193,6 +198,13 @@ export default {
     { path: 'src/components/live-counter.aihu', when: 'starter === "live-counter"' },
     { path: '.mcp.json', when: 'agentSurface !== "none"' },
     { path: 'src/agent/expose.aihu', when: 'agentSurface !== "none"' },
+    // Per-auth-provider conditional file sets (§13 Q3 propagation):
+    { path: 'src/auth/better-auth.ts', when: 'auth === "better-auth"' },
+    { path: 'src/auth/kinde.ts',       when: 'auth === "kinde"' },
+    { path: 'src/auth/supabase.ts',    when: 'auth === "supabase"' },
+    { path: '.env.example.better-auth', when: 'auth === "better-auth"' },
+    { path: '.env.example.kinde',       when: 'auth === "kinde"' },
+    { path: '.env.example.supabase',    when: 'auth === "supabase"' },
   ],
   // Placeholders the substitution pass replaces (full list locked in §4.3).
   placeholders: ['APP_NAME', 'APP_VERSION', 'AIHU_VERSION', 'APP_DESCRIPTION', 'TEMPLATE_NAME'],
@@ -204,13 +216,19 @@ export default {
   ],
   // Runtime peer dep set the emitted package.json must declare. Pinned to a
   // minor range; sync-readme renders this for the README.
+  // Auth deps are conditional (per §13 Q3) — only the chosen provider's
+  // dep gets emitted into the user's package.json.
   appPeerDeps: {
     '@aihu/runtime': '^1.0.0',
     '@aihu/arbor': '^1.0.0',
     '@aihu/signals': '^1.0.0',
     '@aihu/router': '^1.0.0',
     '@aihu/adapter-cloudflare': '^1.0.0',
-    'better-auth': '^1.0.0',
+  },
+  appPeerDepsConditional: {
+    'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },
+    '@kinde-oss/kinde-typescript-sdk': { version: '^2.0.0', when: 'auth === "kinde"' },
+    '@supabase/supabase-js': { version: '^2.0.0', when: 'auth === "supabase"' },
   },
 } satisfies TemplateManifest
 ```
@@ -848,45 +866,43 @@ When this spec PR lands:
 
 Per "surface domain unknowns" universal principle, the following are **not** decisions I have grounds to take inline. They need user input before Builder Round B2 starts (B1 is fully unblocked):
 
-### Q1 — Fly.io template: new package or pure-server pattern? (R-CT-09)
+### Q1 — Fly.io template — RESOLVED 2026-05-05
 
-Two options:
+**User decision:** pure-server pattern (option b). No `@aihu/adapter-fly` package.
 
-- **(a) New `@aihu/adapter-fly` package.** Mirrors `@aihu/adapter-cloudflare`/`@aihu/adapter-vercel`. Dep on `@aihu/server` + Fly-specific Node-on-container shim. Cost: 1 new package to publish, version, document. Benefit: symmetric with existing adapter family; users see one mental model.
-- **(b) Fly template emits Dockerfile + Node entry that imports `@aihu/server` directly.** No dedicated adapter package. Cost: asymmetric — users wonder why CF/Vercel have an adapter and Fly doesn't. Benefit: no stub package; Fly is genuinely just "container running Node", which is a different shape from edge-runtime adapters.
+The fly-team template emits `Dockerfile` + `fly.toml` + a Node entry point importing `@aihu/server` directly. Template README explains the asymmetry vs CF/Vercel adapters in 2 sentences.
 
-**Architect recommendation:** (b). Fly is container-shaped; the server is the runtime, the Dockerfile is deploy metadata. Publishing a stub `@aihu/adapter-fly` package whose only role is "import @aihu/server and re-export" creates noise without value. The template's README explains the asymmetry in two sentences ("CF/Vercel run on edge runtimes that need adapters; Fly runs your code on a Linux container — `@aihu/server` is the adapter, no further package needed").
+### Q2 — Prompts library — RESOLVED 2026-05-05
 
-If user says "(a) — keep symmetry," Builder Round B2 adds a `packages/adapter-fly/` package as a sibling task before fly-team template authoring.
+**User decision:** hand-roll. Architect rec accepted. Dep-free thesis preserved; ~150 LOC of `node:readline` + raw stdin escape codes lands in `@aihu/cli`.
 
-### Q2 — Add `prompts` npm dep to `@aihu/cli`? (§3.4)
+### Q3 — Auth default for v0.2.0 team templates — RESOLVED 2026-05-05
 
-Current spec locks: hand-roll prompts (zero new deps). Cost: ~150 LOC of `node:readline` + raw stdin escape codes. Benefit: preserves dep-free thesis (Learning #49).
+**User decision:** offer **three** auth providers as runtime-prompt choices, with `better-auth` as the default. Kinde and Supabase Auth ship as alternatives in the same M1 release — no deferral to v0.2.1.
 
-Alternative: add `prompts` (~13 transitive deps). Cost: breaks dep-free thesis. Benefit: ~50 LOC saved + better UX out of the box (arrow-key navigation, fuzzy filter).
+**Resolution:**
+- The `auth` cell of `template.config.ts.fixed` for the 4 team templates (cf-team, vercel-team, fly-team, cf-full-agent) becomes a `template.config.ts.overrides.auth` entry with three choices:
+  - `better-auth` *(default — type-first, edge-portable, open-source)*
+  - `kinde` *(hosted, multi-tenant, B2B-friendly; great for org-scoped apps)*
+  - `supabase` *(combines naturally with Supabase data + storage if user picks Supabase later in v0.2.1)*
+- The scaffold-time prompt asks: *"Auth provider: [better-auth, kinde, supabase]"* with `better-auth` selected on Enter.
+- Each chosen provider gets its own conditional file set in the template (auth client wiring, env-var template, sign-in/sign-out scaffold). Conditional inclusion uses the `template.config.ts` manifest mechanism per §4.3.
+- `peerDependencies` becomes a per-provider map; only the chosen provider's deps install.
+- The `cf-solo` template keeps `auth: 'none'` (no auth scaffold) — auth is a team-persona feature.
+- `@aihu/auth` (RFC #56-blocked) remains a future option — added to the prompt list once RFC #56 ratifies, NOT in v0.2.0.
 
-**Architect recommendation:** hand-roll. The dep-free thesis is a load-bearing public claim about `@aihu/cli`; keeping it intact is worth the 100 extra LOC. `create-vite` (most popular dep-free-CLI competitor) does the same.
+**B1 implication:** the cf-team template ships scaffolding for all 3 providers behind the conditional. Smoke-test matrix doubles for cf-team: 3 auth-provider × cf-team = 3 scaffold-and-build runs (still well within CI budget per §5.4).
 
-If user says "ship it with `prompts`," I update §3.4 and remove the hand-rolled-prompts task from B1.
+Updates this propagates to elsewhere in the spec:
+- §1.3 — `auth` column in the table moves from "fixed: third-party (default `better-auth`)" to "overrides: auth ∈ {better-auth, kinde, supabase}; default better-auth"
+- §3 — adds the auth-provider prompt to the per-template override sequence
+- §4.3 — auth-conditional files manifested per `auth=<name>` value
+- §5.2 — cf-team smoke matrix adds auth-provider dimension
+- §10 B1 — explicitly includes wiring all 3 auth providers for cf-team (otherwise B2 carries a bigger uncovered surface)
 
-### Q3 — Auth default for v0.2.0 team templates: `better-auth`, Lucia, or Clerk? (R-CT-15)
+### Q4 — Naming convention — RESOLVED 2026-05-05
 
-Current spec locks: `better-auth`. Cost/benefit:
-- **better-auth** — newer (early 2025); active dev; type-first API; works on edge. Risk: long-term adoption uncertain.
-- **Lucia** — established (since 2022); Auth.js alternative; server-side session lib; less edge-ergonomic. Risk: project went into maintenance-mode in late 2025 (state varies by source — confirm with user).
-- **Clerk** — hosted (paid above 10k MAU); fully managed; great DX; vendor lock-in; not edge-portable across all providers. Risk: cost surface; brand-mismatch with Aihu's "no vendor lock-in" thesis.
-
-**Architect recommendation:** `better-auth` if it's still actively maintained as of B2 dispatch. Otherwise Lucia. Avoid Clerk as default (costs money, vendor-lock framing wrong for a default).
-
-If user says "Clerk" or "Lucia," update `template.config.ts.fixed.auth` in all 4 team templates (cf-team, vercel-team, fly-team, cf-full-agent). The non-chosen options become v0.2.1 alternative-template candidates.
-
-### Q4 — Naming convention final approval (§1.5)
-
-I propose `@aihu/templates-<vendor>-<persona-or-feature>` with `<vendor>` ∈ {cf, vercel, fly}. Defended in §1.5.
-
-If user prefers full names (`@aihu/templates-cloudflare-team` instead of `@aihu/templates-cf-team`), the trade-off is: full names = more typing in `bunx create-aihu --template <T>`; abbreviations = ambiguity ("cf" could mean ClearFork or other). Architect leans abbreviations because they match `@aihu/adapter-cloudflare`'s shortened form in user-facing CLI output.
-
-Confirm or override before B1 names the cf-team package.
+**User decision:** abbreviations (`cf/vercel/fly`). Architect rec accepted. The 5 template package names in §1.3 are locked.
 
 ---
 
