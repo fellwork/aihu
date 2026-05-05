@@ -520,11 +520,12 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
   return {
     name: 'aihu-compiler',
     enforce: 'pre',
-    async transform(code, id) {
+    transform(code, id) {
       // Strip Vite query strings (e.g. `?import`, `?t=...`) before checking the extension.
       const rawId = id.split('?')[0]!
-      if (!rawId.endsWith('.aihu')) return undefined
-      const result = transform(code, rawId)
+      if (!rawId.endsWith('.aihu')) return
+      return (async () => {
+        const result = transform(code, rawId)
       const compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
       const elementTag = _extractElementTag(compiled)
 
@@ -568,6 +569,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // If running outside Vite (e.g. tests, standalone transform), return as-is.
         return { code: out, map: null }
       }
+      })()
     },
   }
 }
