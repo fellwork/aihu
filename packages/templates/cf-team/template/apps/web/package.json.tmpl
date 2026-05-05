@@ -1,0 +1,25 @@
+{
+  "name": "@__APP_NAME__/web",
+  "version": "__APP_VERSION__",
+  "private": true,
+  "type": "module",
+  "description": "__APP_DESCRIPTION__",
+  "main": "src/main.ts",
+  "scripts": {
+    "dev": "bun run vite dev",
+    "build": "bun run vite build",
+    "test": "bun run vitest run",
+    "typecheck": "bun run tsc --noEmit"
+  },
+  "dependencies": {
+    "@aihu/runtime": "^0.2.0",
+    "@aihu/arbor": "^0.2.0",
+    "@aihu/signals": "^0.2.0",
+    "@aihu/router": "^0.2.0",
+    "@aihu/adapter-cloudflare": "^0.2.0",
+    "@aihu/server": "^0.2.0",
+    "better-auth": "^1.0.0",
+    "@kinde-oss/kinde-typescript-sdk": "^2.0.0",
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}
