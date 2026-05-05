@@ -21,7 +21,7 @@ npm install @aihu/router
 bun add @aihu/router
 ```
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -38,7 +38,7 @@ bun add @aihu/router
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -52,7 +52,7 @@ bun add @aihu/router
 | `.` | `./dist/index.js` | `—` |
 | `./plugin` | `./dist/plugin.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -67,7 +67,7 @@ bun add @aihu/router
 - `@aihu/server` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -81,7 +81,7 @@ bun add @aihu/router
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -92,6 +92,6 @@ bun add @aihu/router
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `f894eec`.</i></sub>
+<sub><i>Auto-generated against `@aihu/router@0.1.0` on commit `9c13ea7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

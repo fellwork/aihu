@@ -1,45 +1,44 @@
-// Option 4 — Object-literal collection-form macros
+// Option 4 — Object-literal collection-form macros (RATIFIED)
 //
-// User-proposed alternative to the 3 team options. Each named-collection
-// macro ($prop, $computed, $action, $resource, $lifecycle) takes ONE
-// object-literal whose keys are the names. Per-entry metadata (describe,
-// expose, default, value, handler) lives co-located with the declaration.
+// All 7 round-005 decisions locked:
+//   D.1 type:           opt-in fallback when default/value can't carry the type
+//   D.2 handler:        bare fn = implicit handler; key required in wrapped form
+//   D.3 $lifecycle:     bare function-as-value always (no metadata-bag form)
+//   D.4 $effect:        object-keyed (consistent with $action / $resource)
+//   D.5 computed:       explicit thunk only (no compiler closure synthesis)
+//   D.6 expose:         object form { read?: true; write?: true }
+//   D.7 formatter:      inline ≤3 keys + fits default line width; multi-line else
 //
-// Expected wins:
-//   - AC-1: each name appears exactly once (object key)
-//   - AC-2: shape is plain JS object literal — universally familiar
-//   - AC-4: macro-name reduction — N invocations collapse to 1 per macro kind
-//   - Agent surface: derived from `describe` + `expose` keys; @agent block
-//     keeps only cross-cutting metadata ($scope, $rate-limit)
+// Emergent rule: value-side is the running code; metadata wraps when present.
+// Bare entry-value-is-function = implicit handler/value/callback; wrap in
+// object literal with explicit `handler:` / `value:` key when metadata coexists.
 //
-// Open trade: $action is denser per-entry (4-key object) than today's
-// per-line form. See trade-offs in architect-design-options.md §4.
+// $lifecycle is the one exception: always bare (lifecycle has no agent surface).
+// $prop is the other exception: always wrapped (no running code to imply).
 
 @state {
   $prop: {
-    hue:        { describe: 'Hue channel (0-360)',        expose: 'rw', default: 215 },
-    saturation: { describe: 'Saturation channel (0-100)', expose: 'rw', default: 70 },
-    lightness:  { describe: 'Lightness channel (0-100)',  expose: 'rw', default: 55 },
+    hue:        { default: 215, describe: 'Hue channel (0-360)',        expose: { read: true, write: true } },
+    saturation: { default: 70,  describe: 'Saturation channel (0-100)', expose: { read: true, write: true } },
+    lightness:  { default: 55,  describe: 'Lightness channel (0-100)',  expose: { read: true, write: true } },
   }
 
   $computed: {
+    // Wrapped — has metadata (describe + expose)
     primary: {
       describe: 'Computed HSL primary color string',
-      expose: true,
+      expose: { read: true },
       value: () => `hsl(${hue} ${saturation}% ${lightness}%)`,
     },
-    onPrimary: {
-      value: () => lightness < 60 ? '#ffffff' : '#111111',
-    },
-    surface: {
-      value: () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
-    },
+    // Bare — no metadata, no agent surface
+    onPrimary: () => lightness < 60 ? '#ffffff' : '#111111',
+    surface:   () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
   }
 
   $action: {
     setPreset: {
       describe: 'Set a named color preset by hue value',
-      expose: true,
+      expose: { read: true, write: true },
       handler: (h: number) => {
         hue = h
         saturation = 70
@@ -48,34 +47,42 @@
     },
     setHue: {
       describe: 'Set hue directly (0-360)',
-      expose: true,
+      expose: { read: true, write: true },
       handler: (h: number) => { hue = h },
     },
     setSaturation: {
       describe: 'Set saturation directly (0-100)',
-      expose: true,
+      expose: { read: true, write: true },
       handler: (s: number) => { saturation = s },
     },
     setLightness: {
       describe: 'Set lightness directly (0-100)',
-      expose: true,
+      expose: { read: true, write: true },
       handler: (l: number) => { lightness = l },
     },
   }
 
-  // Stretch examples — show how the collection-form extends to the
-  // remaining state-block macros. Not part of color-theme proper.
+  // Stretch examples — show the bare/wrapped duality across the rest of
+  // the @state macro family. Not part of color-theme proper.
   //
   // $resource: {
-  //   data: { describe: 'User list', expose: true, value: () => fetchUsers() },
+  //   data: () => fetchUsers(),                    // bare — implicit value
+  //   user: {                                      // wrapped — with metadata
+  //     describe: 'Current user',
+  //     expose: { read: true },
+  //     value: () => fetchUser(userId),
+  //   },
   // }
   //
   // $effect: {
-  //   logData:    { value: () => { console.log(data()) } },
-  //   updateList: { on: [data], value: () => { updateList(data()) } },
+  //   logData: () => { console.log(data()) },      // bare — auto-tracks deps
+  //   updateList: {                                // wrapped — explicit deps
+  //     on: [data],
+  //     value: () => { updateList(data()) },
+  //   },
   // }
   //
-  // $lifecycle: {
+  // $lifecycle: {                                  // always bare — no metadata
   //   mount:   () => initializeWidget(),
   //   dispose: () => cleanup(),
   // }
