@@ -10,10 +10,11 @@ bun.lock binary
 *.gif binary
 *.webp binary
 
-# GitHub Linguist — render .aihu files as Vue SFCs (closest match for the
-# template/style/script block structure). Aihu is not yet a registered
-# language in linguist; submit a PR to github-linguist/linguist when the
-# project hits the 200+ adopter bar. Until then this gives PR diffs and
-# code views proper syntax highlighting on github.com.
-*.aihu linguist-language=Vue
+# GitHub Linguist — .aihu files are not yet a registered language. Until
+# the project qualifies for a PR to github-linguist/linguist (200+ adopter
+# bar + sample files + grammar reference), the bulk of an .aihu file is
+# TypeScript (inside @state and @agent blocks), so map to that — the block
+# markers (@template {, @style {) render as harmless annotations rather
+# than the broken-tag look that Vue/HTML mappings produce.
+*.aihu linguist-language=TypeScript
 *.aihu linguist-detectable=true
