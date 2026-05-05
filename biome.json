@@ -18,7 +18,8 @@
       "!.team",
       "!.mcp.json",
       "!examples/**/*.css",
-      "!bench/compiler-conformance"
+      "!bench/compiler-conformance",
+      "!packages/cli/tests/legacy-snapshot.golden"
     ]
   },
   "formatter": {

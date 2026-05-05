@@ -344,7 +344,13 @@ function discoverPackages(): PkgInfo[] {
     for (const rawRel of g.scanSync(REPO_ROOT)) {
       // Normalize path separators (Windows ships backslashes from bun glob/dirname)
       const rel = rawRel.replace(/\\/g, '/')
-      if (rel.includes('node_modules') || rel.includes('/dist/') || rel.includes('/fixtures/')) continue
+      if (
+        rel.includes('node_modules') ||
+        rel.includes('/dist/') ||
+        rel.includes('/fixtures/') ||
+        rel.includes('/legacy-snapshot.golden/')
+      )
+        continue
       if (seen.has(rel)) continue
       seen.add(rel)
       const pkg = JSON.parse(readFileSync(join(REPO_ROOT, rel), 'utf8'))
