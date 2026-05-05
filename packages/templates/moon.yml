@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+#
+# packages/templates/ is a NAMESPACE directory holding template packages
+# (cf-team, vercel-team, fly-team, cf-solo, cf-full-agent — see arch-6 §1.3).
+# It is NOT itself a project. Without this file moon's `packages/*` discovery
+# auto-registers it and surfaces a phantom `templates:typecheck` task that
+# runs unconfigured `tsc --noEmit` workspace-wide.
+#
+# `language: 'unknown'` opts moon out of running typescript task inheritance
+# against this directory while preserving discovery of true subprojects
+# underneath (packages/templates/cf-team, etc.). We also explicitly disable
+# the inherited tasks as belt-and-suspenders.
+language: 'unknown'
+
+tasks:
+  build:
+    command: 'noop'
+    options:
+      cache: false
+  typecheck:
+    command: 'noop'
+    options:
+      cache: false
