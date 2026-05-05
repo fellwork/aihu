@@ -21,7 +21,7 @@ npm install @aihu/adapter-vercel
 bun add @aihu/adapter-vercel
 ```
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -37,7 +37,7 @@ bun add @aihu/adapter-vercel
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/adapter-vercel
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +64,7 @@ bun add @aihu/adapter-vercel
 - `@aihu/app` — `workspace:*`
 - `vite` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +77,7 @@ bun add @aihu/adapter-vercel
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +88,6 @@ bun add @aihu/adapter-vercel
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-vercel@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

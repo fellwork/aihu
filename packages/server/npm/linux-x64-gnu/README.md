@@ -34,7 +34,7 @@ npm install @aihu/server-linux-x64-gnu
 bun add @aihu/server-linux-x64-gnu
 ```
 
-<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -50,7 +50,7 @@ bun add @aihu/server-linux-x64-gnu
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/server-linux-x64-gnu
 - [@aihu/server](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/server-linux-x64-gnu
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `c08bfa7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server-linux-x64-gnu@0.1.0` on commit `d3624c5`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
