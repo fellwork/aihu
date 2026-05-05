@@ -21,7 +21,7 @@ npm install @aihu/agent-readiness
 bun add @aihu/agent-readiness
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -37,7 +37,7 @@ bun add @aihu/agent-readiness
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/agent-readiness
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +64,7 @@ bun add @aihu/agent-readiness
 - `@aihu/server` — `workspace:*`
 - `@aihu/agent` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +77,7 @@ bun add @aihu/agent-readiness
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +88,6 @@ bun add @aihu/agent-readiness
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

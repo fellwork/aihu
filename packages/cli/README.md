@@ -34,7 +34,7 @@ bunx @aihu/cli app my-app
 bun add -g @aihu/cli
 ```
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -50,7 +50,7 @@ bun add -g @aihu/cli
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -63,7 +63,7 @@ bun add -g @aihu/cli
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -74,7 +74,7 @@ bun add -g @aihu/cli
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -87,7 +87,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [@aihu/compiler](../compiler)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -98,6 +98,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `fead070`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.1.0` on commit `ccf5564`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
