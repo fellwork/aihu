@@ -7,8 +7,8 @@
     "types": ["node"],
     "lib": ["ES2022", "DOM"],
     "paths": {
-      "@aihu/arbor": ["../../packages/arbor/dist/index.d.ts"],
-      "@aihu/signals": ["../../packages/signals/dist/index.d.ts"]
+      "@aihu/arbor": ["../../packages/arbor/dist/index.js"],
+      "@aihu/signals": ["../../packages/signals/dist/index.js"]
     }
   },
   "include": ["src/**/*.ts"]
