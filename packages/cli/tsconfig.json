@@ -15,5 +15,6 @@
       "@aihu/signals": ["../signals/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["tests/legacy-snapshot.golden/**"]
 }

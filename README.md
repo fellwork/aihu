@@ -165,7 +165,7 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 | `update-1-of-10k-leaves` | 25.00 ns | 635.80 µs | — | — | 1.64 ms | 3.14 µs |
 | `krausest-1k-cycle` | 22.27 ms | 79.42 ms | — | — | 19.71 ms | 16.46 ms |
 
-<sub><i>Auto-generated on commit `95f51d6`.</i></sub>
+<sub><i>Auto-generated on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: performance -->
 
@@ -194,7 +194,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/agent-a2a` | — | 750 B | _no dist_ |
 | `@aihu/app` | — | 800 B | _no dist_ |
 
-<sub><i>Auto-generated on commit `95f51d6`.</i></sub>
+<sub><i>Auto-generated on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: bundle-sizes -->
 
@@ -240,9 +240,10 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/server`](./packages/server) | `0.1.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `0.2.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
+| [`legacy-snapshot`](./packages/cli/tests/legacy-snapshot.golden) | `0.1.0` | _no description_ |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 
-<sub><i>Auto-generated on commit `95f51d6`.</i></sub>
+<sub><i>Auto-generated on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: packages -->
 
@@ -267,7 +268,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | 08 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
 | 09 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
 
-<sub><i>Auto-generated on commit `95f51d6`.</i></sub>
+<sub><i>Auto-generated on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: examples -->
 
@@ -402,7 +403,7 @@ Run all compliance checks: `bun run test && bun run test:quality`
 - [`docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](./docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md) — Template Attribute Syntax — `@aihu/compiler` _(Ratified 2026-05-02)_
 - [`docs/superpowers/specs/2026-05-05-spec-live-binding.md`](./docs/superpowers/specs/2026-05-05-spec-live-binding.md) — Live-Binding Architecture — `@aihu/arbor` + `@aihu/agent-service` _(APPROVED per Directive 3)_
 
-<sub><i>Auto-generated on commit `95f51d6`.</i></sub>
+<sub><i>Auto-generated on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: reference -->
 

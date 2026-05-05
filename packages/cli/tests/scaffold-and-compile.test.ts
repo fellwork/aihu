@@ -97,50 +97,45 @@ function scaffoldCfTeam(appName: string, auth: Provider): ScaffoldedApp {
 }
 
 describe('scaffold-and-compile · cf-team · 3-auth-provider matrix', () => {
-  it.each(PROVIDERS)(
-    'auth=%s — scaffolds correct conditional file set',
-    (auth) => {
-      const appName = `myapp-${auth}`
-      const { appRoot } = scaffoldCfTeam(appName, auth)
+  it.each(PROVIDERS)('auth=%s — scaffolds correct conditional file set', (auth) => {
+    const appName = `myapp-${auth}`
+    const { appRoot } = scaffoldCfTeam(appName, auth)
 
-      // App root must exist after scaffold.
-      expect(existsSync(appRoot)).toBe(true)
+    // App root must exist after scaffold.
+    expect(existsSync(appRoot)).toBe(true)
 
-      // ── Provider-specific auth file: only the chosen one is present. ──
-      for (const p of PROVIDERS) {
-        const authFile = join(appRoot, 'apps', 'web', 'src', 'auth', `${p}.ts`)
-        if (p === auth) {
-          expect(existsSync(authFile), `expected auth file ${p}.ts to be present`).toBe(true)
-        } else {
-          expect(existsSync(authFile), `expected auth file ${p}.ts to be absent`).toBe(false)
-        }
+    // ── Provider-specific auth file: only the chosen one is present. ──
+    for (const p of PROVIDERS) {
+      const authFile = join(appRoot, 'apps', 'web', 'src', 'auth', `${p}.ts`)
+      if (p === auth) {
+        expect(existsSync(authFile), `expected auth file ${p}.ts to be present`).toBe(true)
+      } else {
+        expect(existsSync(authFile), `expected auth file ${p}.ts to be absent`).toBe(false)
       }
+    }
 
-      // ── .env.example.<provider>: only the chosen suffix is present. ──
-      for (const p of PROVIDERS) {
-        const envFile = join(appRoot, 'apps', 'web', `.env.example.${p}`)
-        if (p === auth) {
-          expect(existsSync(envFile), `expected .env.example.${p} to be present`).toBe(true)
-        } else {
-          expect(existsSync(envFile), `expected .env.example.${p} to be absent`).toBe(false)
-        }
+    // ── .env.example.<provider>: only the chosen suffix is present. ──
+    for (const p of PROVIDERS) {
+      const envFile = join(appRoot, 'apps', 'web', `.env.example.${p}`)
+      if (p === auth) {
+        expect(existsSync(envFile), `expected .env.example.${p} to be present`).toBe(true)
+      } else {
+        expect(existsSync(envFile), `expected .env.example.${p} to be absent`).toBe(false)
       }
+    }
 
-      // ── Default-on conditionals (agentSurface=minimal, starter=live-counter). ──
-      expect(existsSync(join(appRoot, '.mcp.json'))).toBe(true)
-      expect(
-        existsSync(
-          join(appRoot, 'apps', 'web', 'src', 'components', 'live-counter.aihu'),
-        ),
-      ).toBe(true)
+    // ── Default-on conditionals (agentSurface=minimal, starter=live-counter). ──
+    expect(existsSync(join(appRoot, '.mcp.json'))).toBe(true)
+    expect(existsSync(join(appRoot, 'apps', 'web', 'src', 'components', 'live-counter.aihu'))).toBe(
+      true,
+    )
 
-      // ── Sanity: top-level package.json + apps/web/package.json emitted. ──
-      expect(existsSync(join(appRoot, 'package.json'))).toBe(true)
-      expect(existsSync(join(appRoot, 'apps', 'web', 'package.json'))).toBe(true)
-      // Ensure .tmpl was stripped on emit.
-      expect(existsSync(join(appRoot, 'package.json.tmpl'))).toBe(false)
-    },
-  )
+    // ── Sanity: top-level package.json + apps/web/package.json emitted. ──
+    expect(existsSync(join(appRoot, 'package.json'))).toBe(true)
+    expect(existsSync(join(appRoot, 'apps', 'web', 'package.json'))).toBe(true)
+    // Ensure .tmpl was stripped on emit.
+    expect(existsSync(join(appRoot, 'package.json.tmpl'))).toBe(false)
+  })
 
   // The compile phase is gated; see file header for why. When run, it
   // exercises the full bun-install + typecheck + build chain on the

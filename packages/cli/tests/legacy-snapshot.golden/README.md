@@ -1,8 +1,8 @@
-# vscode-aihu
+# legacy-snapshot
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Syntax highlighting, snippets, and language support for .aihu Single File Components
+Held private (unmapped tier)
 
 Held-private workspace package. Not yet published to npm.
 
@@ -17,9 +17,13 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- BEGIN_AUTOGEN: install -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=fellwork.vscode-aihu) (publishing as part of v1.1 LSP work).
+```bash
+npm install legacy-snapshot
+# or
+bun add legacy-snapshot
+```
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -30,11 +34,10 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
-| **Tier** | E — Editor — VS Code extension (TextMate grammar + snippets; LSP in M2) |
-| **License** | MIT |
+| **Version** | `0.1.0` |
+| **Tier** | E — Held private (unmapped tier) |
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -45,7 +48,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 _No `exports` field in `package.json`. Main entry: `unset`._
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -54,9 +57,13 @@ _No `exports` field in `package.json`. Main entry: `unset`._
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+**Dependencies:**
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+- `@aihu/arbor` — `^1.0.0`
+- `@aihu/runtime` — `^1.0.0`
+- `@aihu/signals` — `^1.0.0`
+
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -65,10 +72,10 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [arch-4 (DX tools)](../../docs/roadmap/arch-4-dx-tools.md)
-- [Aihu framework root](../../README.md)
+- [Aihu framework root](../../../../README.md)
+- [v1.1 roadmap](../../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -77,8 +84,8 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: license -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-MIT — see [LICENSE](../../LICENSE).
+MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `65a4b02`.</i></sub>
+<sub><i>Auto-generated against `legacy-snapshot@0.1.0` on commit `65a4b02`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
