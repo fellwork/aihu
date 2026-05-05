@@ -1,9 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@aihu/context": ["./src/index.ts"],
+      "@aihu/context/ssr": ["./src/ssr.ts"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }
