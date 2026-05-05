@@ -1,4 +1,4 @@
-# DX Report — `@scribe/signals` (Phase 2)
+# DX Report — `@aihu/signals` (Phase 2)
 
 **Author:** DX Verifier (Vue/Nuxt persona)
 **Date:** 2026-04-26
@@ -20,7 +20,7 @@ For each task I sketched a minimal script to `c:/Users/srmcg/AppData/Local/Temp/
 ### Task A — Hello counter (`signal` + `effect`)
 
 ```ts
-import { signal, effect } from '@scribe/signals'
+import { signal, effect } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 effect(() => console.log('count is', count()))
@@ -66,7 +66,7 @@ batch(() => {
 
 **One stumble:** I tried `const id = batch(() => insertRow())` and got `void`. Inferred from the `.d.ts` (after looking) that `batch` is no-return-value. Spec §1.5 calls this out, but I didn't read the spec first. Vue users don't have `batch` at all, so the comparison is "wow, this is better than `nextTick` for atomic updates", with a small wart that you can't return from the closure.
 
-**~0.5× Vue baseline** — Vue's `nextTick` story is genuinely worse, so scribe wins here even with the void return.
+**~0.5× Vue baseline** — Vue's `nextTick` story is genuinely worse, so aihu wins here even with the void return.
 
 ### Task E — `$state` runes-style counter
 
@@ -96,8 +96,8 @@ effect(() => {
 ### Task G — Hello, error message
 
 - `signal()` with no argument: TypeScript catches at compile time ("Expected 1-2 arguments, but got 0"). At runtime, `signal()` returns `[() => undefined, write]` — no runtime guard. Acceptable for size budget but means a JS consumer (no TS) gets no help.
-- `effect("foo" as any)`: TS catches at compile time. At runtime, the body runs `fn()` and gets `TypeError: fn is not a function` from V8. Generic, not scribe-flavored.
-- `effect(async () => { ... })`: the async fn returns a Promise, scribe's `EffectFn = () => void` accepts it (the `void` return type is permissive about *more*-specific returns). The promise is silently discarded. **No warning.** Vue's `watchEffect` has the same trap, so the persona is used to it, but it is a real foot-gun.
+- `effect("foo" as any)`: TS catches at compile time. At runtime, the body runs `fn()` and gets `TypeError: fn is not a function` from V8. Generic, not aihu-flavored.
+- `effect(async () => { ... })`: the async fn returns a Promise, aihu's `EffectFn = () => void` accepts it (the `void` return type is permissive about *more*-specific returns). The promise is silently discarded. **No warning.** Vue's `watchEffect` has the same trap, so the persona is used to it, but it is a real foot-gun.
 
 **Score:** errors are minimal — TS does the heavy lifting. For a primitives layer at 1 KB, this is the right trade.
 
@@ -107,7 +107,7 @@ effect(() => {
 
 | # | Dimension | Score | Justification |
 |---|---|---:|---|
-| 1 | Mental model transfer (Vue → scribe) | **4** | Concepts map 1:1: `signal`≈`ref`, `computed`≈`computed`, `effect`≈`watchEffect`, `batch`≈`nextTick` (better). The only mental adjustment is read-shape (tuple vs. `.value`). |
+| 1 | Mental model transfer (Vue → aihu) | **4** | Concepts map 1:1: `signal`≈`ref`, `computed`≈`computed`, `effect`≈`watchEffect`, `batch`≈`nextTick` (better). The only mental adjustment is read-shape (tuple vs. `.value`). |
 | 2 | `signal` tuple vs. Vue `ref` accessor | **3** | The tuple is a real shape change. Mid-level Vue muscle memory keeps wanting `.value`. The "use `$state` for `.value` ergonomics" answer in spec §1.4 is satisfying *if you find it* — but I had to read the spec to find it. Doc problem, not API problem. |
 | 3 | `effect` vs. `watchEffect` | **5** | Naming is shorter, semantics match (sync default), dispose pattern (returned function) is *better* than Vue's `WatchHandle.stop()`. The persona prefers it. |
 | 4 | `computed` lazy semantics | **4** | Matches Vue's lazy-default behavior. Two surprises a Vue user might hit: (a) `ComputedOptions.equals` is type-only / reserved (`computed.ts:13-15`), so the equality-suppression promised by the type isn't *yet* wired through to cascade — minor; (b) no dep cleanup means inactive-branch reads still pin subscribers (Task C). |
@@ -124,7 +124,7 @@ effect(() => {
 
 ## 4. Friction points (HIGH → LOW)
 
-### 1. (HIGH) No README means the "Vue user → scribe" mapping is invisible
+### 1. (HIGH) No README means the "Vue user → aihu" mapping is invisible
 - **Surfaced in:** Task A, Task E, Task D (every task, basically)
 - **Symptom:** I had to read the spec, the source, and the tests to learn the API. The cross-library cheat sheet in spec §1.1–§1.5 is the single most useful artifact for my persona, and a real consumer wouldn't open the spec.
 - **Recommended fix (doc, not API):** A 30–60 line `packages/signals/README.md` (see §5 below for a starter). Hits the four hot keywords (`ref`, `computed`, `watchEffect`, `nextTick`) early so a Vue user grepping their muscle memory finds the answer.
@@ -132,7 +132,7 @@ effect(() => {
 ### 2. (HIGH) `.value` muscle-memory friction on `signal` reads
 - **Surfaced in:** Task A
 - **Symptom:** Twice, my fingers typed `count.value` before remembering `count()`. TypeScript caught it (the tuple has no `.value`), but the friction is real and recurring for the first hour.
-- **Recommended fix (doc, not API):** README should lead with the cheat sheet line "Vue `ref(0).value` ↔ scribe `signal(0)[0]()` ↔ scribe `$state(0).value`" and explicitly say "if `.value` muscle memory matters, use `$state` instead — same primitive underneath." This is one sentence that saves an hour.
+- **Recommended fix (doc, not API):** README should lead with the cheat sheet line "Vue `ref(0).value` ↔ aihu `signal(0)[0]()` ↔ aihu `$state(0).value`" and explicitly say "if `.value` muscle memory matters, use `$state` instead — same primitive underneath." This is one sentence that saves an hour.
 
 ### 3. (MEDIUM) `batch` returns void, not the closure value
 - **Surfaced in:** Task D
@@ -153,17 +153,17 @@ effect(() => {
 
 ## 5. Recommended README starter
 
-> *Below is a recommended starter for `packages/signals/README.md`. Builder/Scribe owns actually writing it in a future task; this is the doc that, if it had existed, would have prevented most of the friction I hit.*
+> *Below is a recommended starter for `packages/signals/README.md`. Builder/Aihu owns actually writing it in a future task; this is the doc that, if it had existed, would have prevented most of the friction I hit.*
 
 ```md
-# @scribe/signals
+# @aihu/signals
 
-Tiny (~1 KB gz) reactive primitives — the foundation layer for Scribe's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
+Tiny (~1 KB gz) reactive primitives — the foundation layer for Aihu's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
 
 ## Hello counter
 
 ```ts
-import { signal, effect } from '@scribe/signals'
+import { signal, effect } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 effect(() => console.log('count =', count()))
@@ -174,7 +174,7 @@ setCount((n) => n + 10) // logs "count = 11"
 ## Derived values with `computed`
 
 ```ts
-import { signal, computed, effect } from '@scribe/signals'
+import { signal, computed, effect } from '@aihu/signals'
 
 const [n, setN] = signal(2)
 const doubled = computed(() => n() * 2)
@@ -188,7 +188,7 @@ setN(3)                                            // logs "doubled = 6"
 ## Atomic updates with `batch`
 
 ```ts
-import { signal, effect, batch } from '@scribe/signals'
+import { signal, effect, batch } from '@aihu/signals'
 
 const [name, setName] = signal('')
 const [email, setEmail] = signal('')
@@ -213,7 +213,7 @@ batch(() => { id = insertRow(); setName('Ada') })
 If `.value` muscle memory matters, use `$state` instead of `signal`:
 
 ```ts
-import { $state, effect } from '@scribe/signals'
+import { $state, effect } from '@aihu/signals'
 
 const count = $state(0)
 effect(() => console.log(count.value))
@@ -224,7 +224,7 @@ Same underlying cell as `signal` — pick the shape that fits your code.
 
 ## Cross-library cheat sheet
 
-| Vue 3 | Solid | Preact Signals | scribe |
+| Vue 3 | Solid | Preact Signals | aihu |
 |---|---|---|---|
 | `ref(0)` + `.value` | `createSignal(0)` → `[get, set]` | `signal(0)` + `.value` | `signal(0)` → `[get, set]` *or* `$state(0).value` |
 | `computed(fn)` + `.value` | `createMemo(fn)` (eager) | `computed(fn)` + `.value` (lazy) | `computed(fn)` (lazy, call-shape) |
@@ -235,7 +235,7 @@ Same underlying cell as `signal` — pick the shape that fits your code.
 
 - **Cycle errors carry no chain context.** `SignalCircularError` is thrown synchronously from the writer; richer chain info lands with devtools.
 - **`computed` does not yet short-circuit cascade on equal recompute.** `ComputedOptions.equals` is reserved for that optimization in a future release.
-- **No `untrack` / `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@scribe/arbor`.
+- **No `untrack` / `peek` / `onCleanup`.** Single-purpose primitives only; arbor's higher-level scopes live in `@aihu/arbor`.
 ```
 
 That's ~55 lines. Hits all six items the brief asked for.
@@ -247,7 +247,7 @@ That's ~55 lines. Hits all six items the brief asked for.
 - **I did not actually run the test suite or compile any of my scratch scripts.** I read the source, the tests, and the types, and reasoned about behavior. For Tasks A–E my reasoning is well-grounded by tests that already exist (`signal.test.ts`, `effect.test.ts`, `computed.test.ts`, `state.test.ts`, `batch.test.ts` all cover the same shapes I wrote). For Task C specifically, no existing test covers the "inactive-branch dep cleanup" question; my conclusion ("no cleanup, but the user-visible effect is mostly fine because of `Object.is` short-circuit at the signal layer") is grounded in the source, not a runtime experiment.
 - **I did not measure bundle size or runtime perf.** Out of scope for DX; size budget is the Verifier-Functional's job.
 - **I did not test the package as installed via `node_modules`.** I evaluated against `src/` and `dist/index.d.ts` directly. The `package.json` exports look standard (`./dist/index.js`, `./dist/index.d.ts`); I have no reason to expect resolution issues but did not verify.
-- **I did not score the Phase-3 `arbor` consumer experience.** Out of scope per the brief — this report is for the Vue/Nuxt user persona consuming `@scribe/signals` directly.
+- **I did not score the Phase-3 `arbor` consumer experience.** Out of scope per the brief — this report is for the Vue/Nuxt user persona consuming `@aihu/signals` directly.
 
 ---
 
@@ -257,5 +257,5 @@ That's ~55 lines. Hits all six items the brief asked for.
 2. **Total dimension score: 34 / 50.**
 3. **Top friction:** No README — the cross-library cheat sheet that would unblock Vue users lives in the spec, not the package.
 4. **Most surprising thing for a Vue user:** `signal` reads are function calls (`count()`), not property accesses (`count.value`). Muscle memory takes ~10 minutes to retrain.
-5. **Single doc example that prevents the most pain:** the cross-library cheat sheet (Vue ⇄ scribe row) at the top of the README.
+5. **Single doc example that prevents the most pain:** the cross-library cheat sheet (Vue ⇄ aihu row) at the top of the README.
 6. **Spec change despite Decision 2B?** **No.** Every gotcha I found resolves with documentation or a JSDoc tweak in the existing `.d.ts`. The closest call is `ComputedOptions.equals` being type-only / reserved — if Architect wants to pull that field until it's honored, that's a (tiny) API change worth considering, but the doc-only fix (`@see` JSDoc note) is the conservative win and respects 2B.

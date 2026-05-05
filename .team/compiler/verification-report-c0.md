@@ -10,7 +10,7 @@
 
 | # | Criterion | Result | Notes |
 |---|---|---|---|
-| C0-1 | `Cargo.toml` with `name = "scribe-compiler"`, `edition = "2021"` | PASS | Exact match |
+| C0-1 | `Cargo.toml` with `name = "aihu-compiler"`, `edition = "2021"` | PASS | Exact match |
 | C0-2 | `.prototools` contains `rust = "1.87.0"` | PASS | `bun` and `node` lines untouched |
 | C0-3 | `rust-toolchain.toml` at repo root with `channel = "1.87.0"` | PASS | Two-line file, exact spec contents |
 | C0-4 | `cargo test` exits 0 | PASS (TL verified) | 6/6 |
@@ -20,7 +20,7 @@
 | C0-8 | `cargo fmt --check` exits 0 | PASS (TL verified) | |
 | C0-9 | No files outside allowed paths modified | PASS | Only `packages/compiler/`, `.prototools`, `rust-toolchain.toml` |
 | C0-10 | `CompileError` implements `std::error::Error` | PASS | `impl std::error::Error for CompileError {}` at `types.rs:26` |
-| C0-11 | `compile("")` returns `Ok(ScribeSource { script: None, template: None, style: None })` | PASS | `compile_empty_source` test |
+| C0-11 | `compile("")` returns `Ok(AihuSource { script: None, template: None, style: None })` | PASS | `compile_empty_source` test |
 
 ---
 
@@ -29,7 +29,7 @@
 **None.** All 11 criteria satisfied.
 
 Detailed spec contract checks:
-- `ScribeSource<'a>` derives `Debug + PartialEq` with lifetime — PASS (`types.rs:1-6`)
+- `AihuSource<'a>` derives `Debug + PartialEq` with lifetime — PASS (`types.rs:1-6`)
 - `ScriptMeta` derives `Debug + PartialEq` — PASS (`types.rs:8-11`)
 - `CompileError` derives `Debug`, implements `Display` and `Error` — PASS (`types.rs:13-26`)
 - Display format `"line {line}, col {col}: {message}"` — PASS (`types.rs:22`)

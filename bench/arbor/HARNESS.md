@@ -1,6 +1,6 @@
 # `bench/arbor` Harness Guide
 
-**Round N+1 Track A** — @scribe/arbor vs. SOTA DOM-binding libraries
+**Round N+1 Track A** — @aihu/arbor vs. SOTA DOM-binding libraries
 
 ---
 
@@ -48,7 +48,7 @@ bun bench/arbor/src/gate.ts bench/arbor/RESULTS.md bench/arbor/RESULTS.md
      n: 10,  // Memory runner N override (see table below)
      build(adapter) {
        // Setup (not timed): build any pre-allocated templates/data
-       // Call the relevant adapter setter (e.g. setScribeHook)
+       // Call the relevant adapter setter (e.g. setAihuHook)
        const host = getHost()
        const session = adapter.setup(host)
        return {
@@ -96,14 +96,14 @@ bun bench/arbor/src/gate.ts bench/arbor/RESULTS.md bench/arbor/RESULTS.md
 
 ## The adapter hook pattern
 
-For adapters where the tree shape varies per workload (scribe, solid), the
+For adapters where the tree shape varies per workload (aihu, solid), the
 workload calls a setter to install its template before `adapter.setup(host)`.
 This keeps `DomAdapter.setup()` shape uniform while allowing library-specific
 tree vocabulary.
 
 | Adapter | Setter |
 |---|---|
-| @scribe/arbor | `setScribeHook({ buildTree(): Node, attach?(scope): void })` |
+| @aihu/arbor | `setAihuHook({ buildTree(): Node, attach?(scope): void })` |
 | lit-html | `setLitTemplate(() => TemplateResult)`, `setLitUpdater(v => TemplateResult)` |
 | solid-js | `setSolidComponent(() => JSX.Element)`, `setSolidSignalSetter(fn)` |
 | @vue/runtime-dom | `setVueRenderFn(() => VNode)`, `setVueRefSetter(fn)` |
@@ -159,7 +159,7 @@ GC, not real memory reduction caused by the workload. Focus on the sign of
 consistently close to `buildHeapDelta` across all competitors on a workload,
 this indicates that V8's young-generation GC did not run within the 3-settle
 window after `cleanup()`. The objects are reclaimed on the next GC cycle but
-have not been freed yet at measurement time. This is not a scribe-specific
+have not been freed yet at measurement time. This is not a aihu-specific
 leak — it affects preact, vanilla, and all competitors equally on the same
 workload. Treat equal residuals across all competitors as a measurement
 artifact rather than a regression signal.

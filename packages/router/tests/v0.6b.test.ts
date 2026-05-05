@@ -1,7 +1,7 @@
 /**
- * v0.6b tests for @scribe/router:
+ * v0.6b tests for @aihu/router:
  *   - v0.6.3: RouteDefinition sidecar fields + readRouteSidecar()
- *   - v0.6.8: scanLayouts(), virtual:scribe-layouts plugin hooks
+ *   - v0.6.8: scanLayouts(), virtual:aihu-layouts plugin hooks
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -95,7 +95,7 @@ describe('RouteDefinition — v0.6.3 sidecar fields', () => {
 
 describe('readRouteSidecar()', () => {
   it('returns null when no sidecar file exists', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-test-'))
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-test-'))
     try {
       writeFileSync(join(tmp, 'index.ts'), '')
       const result = readRouteSidecar(join(tmp, 'index.ts'))
@@ -106,7 +106,7 @@ describe('readRouteSidecar()', () => {
   })
 
   it('reads and parses sidecar JSON when it exists', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-test-'))
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-test-'))
     try {
       const sidecar = { name: 'home', middleware: ['auth'], ssr: true, layout: 'default' }
       writeFileSync(join(tmp, 'index.ts'), '')
@@ -119,7 +119,7 @@ describe('readRouteSidecar()', () => {
   })
 
   it('returns null on malformed JSON', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-test-'))
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-test-'))
     try {
       writeFileSync(join(tmp, 'broken.ts'), '')
       writeFileSync(join(tmp, 'broken.route.json'), 'NOT_VALID_JSON{{{')
@@ -130,13 +130,13 @@ describe('readRouteSidecar()', () => {
     }
   })
 
-  it('handles .scribe extension correctly', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-test-'))
+  it('handles .aihu extension correctly', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-test-'))
     try {
       const sidecar = { name: 'my-page', ssr: false }
-      writeFileSync(join(tmp, 'page.scribe'), '')
+      writeFileSync(join(tmp, 'page.aihu'), '')
       writeFileSync(join(tmp, 'page.route.json'), JSON.stringify(sidecar))
-      const result = readRouteSidecar(join(tmp, 'page.scribe'))
+      const result = readRouteSidecar(join(tmp, 'page.aihu'))
       expect(result).toEqual(sidecar)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
@@ -154,25 +154,25 @@ describe('scanLayouts()', () => {
     expect(result).toEqual({})
   })
 
-  it('maps .scribe files to layout names', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-layouts-'))
+  it('maps .aihu files to layout names', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layouts-'))
     try {
-      writeFileSync(join(tmp, 'default.scribe'), '<layout></layout>')
-      writeFileSync(join(tmp, 'admin.scribe'), '<layout></layout>')
-      writeFileSync(join(tmp, 'blog.scribe'), '<layout></layout>')
+      writeFileSync(join(tmp, 'default.aihu'), '<layout></layout>')
+      writeFileSync(join(tmp, 'admin.aihu'), '<layout></layout>')
+      writeFileSync(join(tmp, 'blog.aihu'), '<layout></layout>')
       const result = scanLayouts(tmp)
       expect(Object.keys(result).sort()).toEqual(['admin', 'blog', 'default'])
-      expect(result.default).toContain('default.scribe')
-      expect(result.admin).toContain('admin.scribe')
+      expect(result.default).toContain('default.aihu')
+      expect(result.admin).toContain('admin.aihu')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
   })
 
-  it('ignores non-.scribe files in layouts dir', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-layouts-'))
+  it('ignores non-.aihu files in layouts dir', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layouts-'))
     try {
-      writeFileSync(join(tmp, 'default.scribe'), '')
+      writeFileSync(join(tmp, 'default.aihu'), '')
       writeFileSync(join(tmp, 'README.md'), '')
       writeFileSync(join(tmp, '_partial.ts'), '')
       const result = scanLayouts(tmp)
@@ -184,14 +184,14 @@ describe('scanLayouts()', () => {
 })
 
 // ---------------------------------------------------------------------------
-// v0.6.8 — viteRouterPlugin resolveId/load for virtual:scribe-layouts
+// v0.6.8 — viteRouterPlugin resolveId/load for virtual:aihu-layouts
 // ---------------------------------------------------------------------------
 
-describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
-  it('resolves virtual:scribe-layouts to internal ID', () => {
+describe('viteRouterPlugin — virtual:aihu-layouts hooks', () => {
+  it('resolves virtual:aihu-layouts to internal ID', () => {
     const plugin = viteRouterPlugin()
-    const resolved = plugin.resolveId?.('virtual:scribe-layouts')
-    expect(resolved).toBe('\0virtual:scribe-layouts')
+    const resolved = plugin.resolveId?.('virtual:aihu-layouts')
+    expect(resolved).toBe('\0virtual:aihu-layouts')
   })
 
   it('does not resolve unknown virtual IDs', () => {
@@ -200,9 +200,9 @@ describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
     expect(resolved == null).toBe(true)
   })
 
-  it('load returns string content for virtual:scribe-layouts', () => {
+  it('load returns string content for virtual:aihu-layouts', () => {
     const plugin = viteRouterPlugin()
-    const content = plugin.load?.('\0virtual:scribe-layouts')
+    const content = plugin.load?.('\0virtual:aihu-layouts')
     expect(typeof content).toBe('string')
     expect(content).toContain('export default')
   })
@@ -214,12 +214,12 @@ describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
   })
 
   it('generated layouts module contains scanned layouts', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'scribe-layouts-plugin-'))
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layouts-plugin-'))
     const layoutsTmp = join(tmp, 'layouts')
     mkdirSync(layoutsTmp)
     try {
-      writeFileSync(join(layoutsTmp, 'default.scribe'), '')
-      writeFileSync(join(layoutsTmp, 'admin.scribe'), '')
+      writeFileSync(join(layoutsTmp, 'default.aihu'), '')
+      writeFileSync(join(layoutsTmp, 'admin.aihu'), '')
       // Use the layoutsDir option pointing to our temp dir
       // We set cwd to tmp so relative path 'layouts' resolves correctly
       const plugin = viteRouterPlugin({ layoutsDir: 'layouts' })
@@ -230,7 +230,7 @@ describe('viteRouterPlugin — virtual:scribe-layouts hooks', () => {
         moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
       }
       plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
-      const content = plugin.load?.('\0virtual:scribe-layouts')
+      const content = plugin.load?.('\0virtual:aihu-layouts')
       expect(typeof content).toBe('string')
       expect(content).toContain('"default"')
       expect(content).toContain('"admin"')

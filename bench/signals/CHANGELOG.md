@@ -41,7 +41,7 @@ removed redundant per-fan-out-node `recomputeIfNeeded` cost.
 
 ### Size
 
-`@scribe/signals`: 1956 B → 1833 B (**-123 B**, **+137 B headroom** vs 1970 B limit).
+`@aihu/signals`: 1956 B → 1833 B (**-123 B**, **+137 B headroom** vs 1970 B limit).
 The byte recovery comes from removing `visited[]`, `clearVisited`,
 `settleAndDrain`, and the now-dead `checkDirty` function.
 
@@ -66,7 +66,7 @@ The byte recovery comes from removing `visited[]`, `clearVisited`,
 **Spec:** `.team/round-n1/bench-design.md` §2 (memory protocol), §5.2 (RESULTS.md restructure), §6.2 (file change list)
 
 Adds the memory dimension to `bench/signals/` and lifts three parity
-workloads from competitor benches per the design's "measure scribe on
+workloads from competitor benches per the design's "measure aihu on
 the axes the competitors themselves emphasise" instruction.
 
 ### What's new
@@ -97,18 +97,18 @@ the axes the competitors themselves emphasise" instruction.
 
 This is the first run with memory + the 3 new workloads. **No previous
 baseline to gate against** — these numbers seed the baseline. Headlines
-(scribe vs. fastest competitor, p50):
+(aihu vs. fastest competitor, p50):
 
-| Workload | scribe | fastest competitor | Δ |
+| Workload | aihu | fastest competitor | Δ |
 |---|---:|---:|---:|
-| cellx | 514 ns | scribe | leader |
+| cellx | 514 ns | aihu | leader |
 | wide-fanout-100 | 4.90 µs | alien-signals 3.30 µs | -33 % (behind) |
-| batched-writes-100 | 2.54 µs | scribe | leader |
+| batched-writes-100 | 2.54 µs | aihu | leader |
 | deep-propagation-100 (NEW) | 4.05 µs | s-js 2.02 µs | -50 % (behind, no hard-stop) |
 | dynamic-deps (NEW) | 787 ns | s-js 621 ns | -27 % (behind) |
 | creation-1to1000 (NEW) | 71 µs | preact 53 µs | -36 % (behind) |
 
-Sample memory numbers for scribe on the 3 new workloads (N=1000, B/graph):
+Sample memory numbers for aihu on the 3 new workloads (N=1000, B/graph):
 
 | Workload | buildHeapDelta | peakMalloc | disposeResidual |
 |---|---:|---:|---:|
@@ -124,24 +124,24 @@ exists. This is correct semantics for the workload shapes.)
 
 ### Headline per-competitor-axis read
 
-- **alien-signals' axes** (cellx, mol, kairo, s-bench): scribe **wins
-  cellx**, **trails on mol** (deep cascade — scribe 4.05 µs vs alien
-  2.44 µs), **leads kairo** (scribe 787 ns vs alien 1.21 µs), **leads
-  s-bench creation** (scribe 71 µs vs alien 87 µs).
-- **Vue's axes** (effect, computed): scribe leads cellx (computed) and
+- **alien-signals' axes** (cellx, mol, kairo, s-bench): aihu **wins
+  cellx**, **trails on mol** (deep cascade — aihu 4.05 µs vs alien
+  2.44 µs), **leads kairo** (aihu 787 ns vs alien 1.21 µs), **leads
+  s-bench creation** (aihu 71 µs vs alien 87 µs).
+- **Vue's axes** (effect, computed): aihu leads cellx (computed) and
   trails wide-fanout (effect) by 9 % vs alien. reactiveObject = NOT
   MEASURED (intentional gap, different model).
-- **Preact's axes** (small-graph throughput): scribe leads on cellx
+- **Preact's axes** (small-graph throughput): aihu leads on cellx
   and batched-writes; trails on creation-1to1000 by 36 %.
-- **Solid's axes** (1to1, 1to1000 etc.): scribe leads 1to1 (cellx)
+- **Solid's axes** (1to1, 1to1000 etc.): aihu leads 1to1 (cellx)
   and trails 1to1000 (creation) by ~2 %.
-- **s-js' axis** (cellx): scribe leads — 514 ns vs 616 ns.
+- **s-js' axis** (cellx): aihu leads — 514 ns vs 616 ns.
 
 ### Hard stops considered (none triggered)
 
 - All 36 cells (6 workloads × 6 competitors) ran cleanly under
   `--expose-gc` and the time runner.
-- No new workload has scribe losing by >5x to any competitor (worst
+- No new workload has aihu losing by >5x to any competitor (worst
   case: deep-propagation-100 is 2.0x behind s-js, well within band).
 - `--expose-gc` works for all six adapters (no native-binding break).
 
@@ -566,7 +566,7 @@ reactive surfaces) win by 3.5×; the trade is favorable. Tagged for
 
 ### Bundle size
 
-scribe ships at **1.01 KB gzipped** under size-limit's measurement
+aihu ships at **1.01 KB gzipped** under size-limit's measurement
 (was 742 B). +37 % over the wip baseline; the structural rewrite
 spends bytes on the two-phase pipeline + visited/effectQueue + the
 NOTIFIED dedup bit infrastructure. Fits inside the 1024 B hard cap
@@ -584,20 +584,20 @@ linked-list dep graph) deferred to a follow-up perf session.
 
 First baseline. 3 workloads × 6 competitors = 18 cells, all populated.
 
-### Where scribe is competitive (within 30 % of fastest)
+### Where aihu is competitive (within 30 % of fastest)
 
-- **wide-fanout-100** — scribe ~10.2 µs p50, alien (fastest) ~9.4 µs p50.
-  Scribe is ~9 % slower than the leader on this workload. **This is the
-  Phase 2 retro's canonical concern; scribe is essentially tied with alien
+- **wide-fanout-100** — aihu ~10.2 µs p50, alien (fastest) ~9.4 µs p50.
+  Aihu is ~9 % slower than the leader on this workload. **This is the
+  Phase 2 retro's canonical concern; aihu is essentially tied with alien
   and ahead of @preact, @vue, solid, and s-js.**
-- **batched-writes-100** — scribe ~11.9 µs p50, alien (fastest non-S.js)
-  ~9.6 µs p50. Scribe is ~24 % slower than alien but faster than Vue and
+- **batched-writes-100** — aihu ~11.9 µs p50, alien (fastest non-S.js)
+  ~9.6 µs p50. Aihu is ~24 % slower than alien but faster than Vue and
   Solid. (S.js is fastest at 6.9 µs because `S.freeze` is more aggressive
-  than scribe's batch — worth investigating in a future optimization PR.)
+  than aihu's batch — worth investigating in a future optimization PR.)
 
-### Where scribe loses
+### Where aihu loses
 
-- **cellx** — scribe ~9.4 µs p50, alien (fastest) ~1.3 µs p50. **Scribe is
+- **cellx** — aihu ~9.4 µs p50, alien (fastest) ~1.3 µs p50. **Aihu is
   ~7× slower** than alien on the deep-diamond propagation workload. This
   trips the "5× slower than fastest" hard-stop in the bench-spike brief.
   Continuation note in `.team/phase-2-5-builder-blockers.md` documents the
@@ -606,15 +606,15 @@ First baseline. 3 workloads × 6 competitors = 18 cells, all populated.
 
 ### Bundle size
 
-scribe ships at **781 B gzipped** when measured with the same methodology
-as `bun run size` (esbuild minify + gzip). That puts scribe at the smallest
+aihu ships at **781 B gzipped** when measured with the same methodology
+as `bun run size` (esbuild minify + gzip). That puts aihu at the smallest
 gzipped of any competitor measured: 30 % smaller than alien-signals
 (1.11 KB), 58 % smaller than Preact (1.86 KB), and ~88 % smaller than Vue
 (7.05 KB).
 
 Note: an earlier draft of this changelog cited "1.56 KB gzipped (un-minified)"
 because the initial `size.ts` script gzipped raw source without minification,
-making `@scribe/signals` look bigger than the libs that ship pre-minified.
+making `@aihu/signals` look bigger than the libs that ship pre-minified.
 That methodology was inconsistent with `bun run size` (size-limit minifies
 first). The updated `size.ts` now runs each competitor through esbuild
 before gzipping, producing apples-to-apples numbers.

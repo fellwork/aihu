@@ -1,8 +1,8 @@
-# Phase 5 — `@scribe/agent` build manifest
+# Phase 5 — `@aihu/agent` build manifest
 
 **Builder:** Mode-2 parallel Builder
 **Branch:** `phase-5/agent-implementation`
-**Base:** `claude/scribe-phase-3-team-Za4UQ` @ `0353263`
+**Base:** `claude/aihu-phase-3-team-Za4UQ` @ `0353263`
 **Spec:** `.team/phase-5/spec-agent.md` (Final, binding)
 
 ## Files created / modified
@@ -16,7 +16,7 @@
 | `packages/agent/src/registry.ts` | create — `Map`, `register`/`get`, `__resetRegistryForTesting`, `AgentMetadata` |
 | `packages/agent/src/index.ts` | create — re-exports `AgentMetadata`, `getAgentMetadata`, `registerAgentMetadata` |
 | `packages/agent/tests/registry.test.ts` | create — 7 unit tests per spec §4 |
-| `.size-limit.json` | modify — add `@scribe/agent` row at `100 B gzip` |
+| `.size-limit.json` | modify — add `@aihu/agent` row at `100 B gzip` |
 
 ## Module layout
 
@@ -44,16 +44,16 @@ Chose **option (a)** from spec §4: `__resetRegistryForTesting` exported from `r
 
 | Package | Limit | Measured | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | 1.6 kB | 1.55 kB | 49 B |
-| `@scribe/arbor` | 2.05 kB | 1.28 kB | 766 B |
-| `@scribe/runtime` | 1.02 kB | 438 B | 586 B |
-| `@scribe/agent` | **100 B** | **72 B** | **28 B** |
+| `@aihu/signals` | 1.6 kB | 1.55 kB | 49 B |
+| `@aihu/arbor` | 2.05 kB | 1.28 kB | 766 B |
+| `@aihu/runtime` | 1.02 kB | 438 B | 586 B |
+| `@aihu/agent` | **100 B** | **72 B** | **28 B** |
 
 ## Acceptance-criteria check
 
 - 7 spec §4 tests pass — yes
-- `@scribe/agent` ≤ 100 B gz — 72 B, 28 B headroom
-- Zero source-level imports of `@scribe/signals`/`@scribe/arbor`/`@scribe/runtime`: `grep "from '@scribe/" packages/agent/src/*.ts` returns no matches
+- `@aihu/agent` ≤ 100 B gz — 72 B, 28 B headroom
+- Zero source-level imports of `@aihu/signals`/`@aihu/arbor`/`@aihu/runtime`: `grep "from '@aihu/" packages/agent/src/*.ts` returns no matches
 - `__resetRegistryForTesting` exported from `registry.ts` only — confirmed
 - No `AgentError` class — confirmed
 - All gates green from clean (`rm -rf packages/agent/dist`) state — confirmed
@@ -64,4 +64,4 @@ Chose **option (a)** from spec §4: `__resetRegistryForTesting` exported from `r
 
 | SHA | Message |
 |---|---|
-| `648d11c` | feat(agent): scaffold @scribe/agent + registry + 7 tests |
+| `648d11c` | feat(agent): scaffold @aihu/agent + registry + 7 tests |

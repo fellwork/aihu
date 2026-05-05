@@ -6,24 +6,24 @@ pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use parser::sfc;
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileError, CompileUnit,
-    InputDecl, InputKind, MacroValue, RouteBlock, ScribeSource, ScriptMeta, StateDecl, StateMacro,
+    InputDecl, InputKind, MacroValue, RouteBlock, AihuSource, ScriptMeta, StateDecl, StateMacro,
     StyleBlock, StyleMacro, StyleScope, TemplateNode,
 };
 
-pub fn compile(source: &str) -> Result<ScribeSource<'_>, CompileError> {
+pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError> {
     parser::sfc::parse(source)
 }
 
-pub fn compile_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<ScribeSource<'a>, CompileError> {
+pub fn compile_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<AihuSource<'a>, CompileError> {
     parser::sfc::parse_with_path(source, file_path)
 }
 
-pub fn compile_full<'a>(source: &'a ScribeSource<'a>) -> Result<CompileUnit<'a>, CompileError> {
+pub fn compile_full<'a>(source: &'a AihuSource<'a>) -> Result<CompileUnit<'a>, CompileError> {
     compile_full_with_target(source, BuildTarget::Universal)
 }
 
 pub fn compile_full_with_target<'a>(
-    source: &'a ScribeSource<'a>,
+    source: &'a AihuSource<'a>,
     target: BuildTarget,
 ) -> Result<CompileUnit<'a>, CompileError> {
     let template_ast = match source.template {

@@ -374,8 +374,8 @@ That floor is below the ≤ 2 KB hard target.
 Alien lands at **−872 B** (dispose-positive). Reaching that requires
 clearing the ~17 B/Sub × 102 = ~1.7 KB non-closure residual too —
 which means matching alien's smaller Subscriber field count (alien
-computed = 7 fields; scribe computed at H5 = 6 fields + 2 method
-slots = 8). K1c-pure removes 2 method slots → scribe Computed = 6 fields
+computed = 7 fields; aihu computed at H5 = 6 fields + 2 method
+slots = 8). K1c-pure removes 2 method slots → aihu Computed = 6 fields
 + `lastWave` if K1c subvariant = **7 fields**, matching alien's count.
 
 So even at K1c-pure shape parity is achieved, but the post-settle
@@ -899,8 +899,8 @@ and types. K1c preserves both.
 ### Risks the Architect MUST address in spec
 
 1. **Arbor bundle headroom (+67 B) is binding.** Architect must require
-   Builder to per-commit `bun run build` on both `@scribe/signals` AND
-   `@scribe/arbor`. (Same rule as H5 §13.6; carry forward.) **R-B
+   Builder to per-commit `bun run build` on both `@aihu/signals` AND
+   `@aihu/arbor`. (Same rule as H5 §13.6; carry forward.) **R-B
    mitigation.**
 
 2. **`disposed` closure-local on `effect()`'s returned dispose function
@@ -958,11 +958,11 @@ mitigated structurally.
 Files read in full (or fully relevant sections) during this
 investigation:
 
-1. `C:\git\fellwork\scribe\.team\v1\director-notes\track-c-round-006.md`
+1. `C:\git\fellwork\aihu\.team\v1\director-notes\track-c-round-006.md`
    — read §0–§13 (lines 1–763 in full).
-2. `C:\git\fellwork\scribe\.team\v1\investigation-6.2-phase2-h5.md`
+2. `C:\git\fellwork\aihu\.team\v1\investigation-6.2-phase2-h5.md`
    — read §Summary + §1.1 + §1.2 + §1.3 (lines 1–250 in full).
-3. `C:\git\fellwork\scribe\.team\v1\verification-report-6.2-phase2-h5.md`
+3. `C:\git\fellwork\aihu\.team\v1\verification-report-6.2-phase2-h5.md`
    — read §Verdict + §1 AC table + §2 perf table (lines 1–120 in full).
 4. `git show 62f737f:packages/signals/src/signal.ts` — read in full
    (585 lines). Specifically validated: lines 12–43 (Subscriber types),

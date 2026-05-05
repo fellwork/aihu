@@ -13,7 +13,7 @@ Single stream (Rust only): `feat/v0.5-macro-elements-compiler`
 ## Key constraints
 
 - **No new arbor exports** — boundaries reuse `arbor.mount`, `arbor.when`, `arbor.slot`, `arbor.ErrorHandler`
-- **No runtime size raise** — helpers are SFC-internal, not exported from `@scribe/runtime`
+- **No runtime size raise** — helpers are SFC-internal, not exported from `@aihu/runtime`
 - **`<slot>` HTML form continues to parse** — same lowering as `<$slot>`, deprecated alias, removal at v1.0
 - **`$action` form-attr** (from v0.4 deferral) is NOT part of v0.5 — stays deferred to v0.6
 - **v0.5.5 `<$warp>` risk**: if `arbor.mount` can't accept an arbitrary host node, surface to user rather than adding new arbor surface

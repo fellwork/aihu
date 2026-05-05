@@ -40,7 +40,7 @@ Accumulated learnings from Sessions 1–8. Numbers continue from the project-wid
 ## Learning #53 — `TextEncoder` for SSE in jsdom test environments
 
 **Session:** 8
-**Context:** `@scribe/agent-a2a` implements `POST /a2a/tasks/sendSubscribe` as an SSE stream. Tests run in Vitest with jsdom, where `Response` constructor does not accept `ReadableStream` with raw string chunks.
+**Context:** `@aihu/agent-a2a` implements `POST /a2a/tasks/sendSubscribe` as an SSE stream. Tests run in Vitest with jsdom, where `Response` constructor does not accept `ReadableStream` with raw string chunks.
 
 **Resolution:** Encode SSE chunks with `new TextEncoder().encode(chunk)` to produce `Uint8Array` — jsdom-compatible. Add a `// jsdom compat` comment in the test file.
 

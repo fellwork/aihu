@@ -136,7 +136,7 @@ All other Scout findings are confirmatory rather than blocking:
   nulled in `finally`. The Architect's §2.3 spec maps directly to these lines.
 - LIFO dispose loop confirmed (lines 134–137). Effect disposers and DOM removal are
   fully separated — `appendedNodes` is not in `disposers`.
-- `untrack` confirmed available from `@scribe/signals` and not yet used in arbor.
+- `untrack` confirmed available from `@aihu/signals` and not yet used in arbor.
   The reconciler will use it to read the condition/list signal during initial `_materialize`
   traversal without subscribing the outer traversal effect.
 - 255 passing tests. Zero failures. Clean baseline.
@@ -187,8 +187,8 @@ Comparing the Architect's §4 acceptance criteria against `plan-v1-roadmap.md`:
 - Roadmap criterion: "each preserves DOM identity for stable keys — no remount on reorder."
   Architect criteria: "Signal update reordering items → DOM order matches new key order; no
   old scopes recreated." Equivalent.
-- Roadmap criterion: "bun run size passes — when/each adds ≤ 0.5 kB gz to `@scribe/arbor`."
-  Architect: "bun run size — `@scribe/arbor` ≤ 2048 B gz passes (watch carefully — ~4 B
+- Roadmap criterion: "bun run size passes — when/each adds ≤ 0.5 kB gz to `@aihu/arbor`."
+  Architect: "bun run size — `@aihu/arbor` ≤ 2048 B gz passes (watch carefully — ~4 B
   headroom after 4.2)." The roadmap's "≤ 0.5 kB gz" delta criterion is slightly weaker
   than the Architect's absolute limit check — 0.5 kB from 1329 B = 1829 B, well within 2048 B.
   The Architect's absolute check is strictly correct.
@@ -312,7 +312,7 @@ Verifier checks that `attrs.test.ts` still passes without modification.
    `errorHandler(err, path)`; (b) call `dispose()` on the current effect to prevent further
    throws from the same binding. The `dispose()` call is safe inside the effect body per the
    Architect's note (the `dispose` reference is captured in closure before the effect runs;
-   `@scribe/signals` treats self-dispose as idempotent).
+   `@aihu/signals` treats self-dispose as idempotent).
 
 **When `onError` is NOT provided:**
 - `_mountEffect` runs the effect body without any try/catch (no overhead on the hot path).
@@ -351,7 +351,7 @@ After Plan 4.2 (including push-pop stack), run:
 bun run size
 ```
 
-Expected: `@scribe/arbor` ≤ 2048 B gz. Target landing size: ~1489 B (840 B headroom before
+Expected: `@aihu/arbor` ≤ 2048 B gz. Target landing size: ~1489 B (840 B headroom before
 Plan 1.1 begins). If the actual post-4.2 size exceeds 1550 B, investigate before committing —
 the Architect's estimates are well-founded and overrun indicates something was added beyond
 spec. Do not raise the cap. Report the discrepancy.
@@ -380,7 +380,7 @@ The Verifier checks each item independently and reports pass/fail:
 - [ ] `_currentMountDisposers()` function is present and returns the top of the stack or null
 - [ ] Tests T1–T4 above all pass
 - [ ] All 255 pre-existing tests pass (`bun run test` exit code 0)
-- [ ] `bun run size` passes with `@scribe/arbor` ≤ 2048 B gz
+- [ ] `bun run size` passes with `@aihu/arbor` ≤ 2048 B gz
 - [ ] No existing `mount()` call site in tests requires modification (the `options` param
       is optional — grep `mount(` in test files to confirm all callers are unaffected)
 - [ ] `attrs.test.ts` — all 9 existing tests pass without modification (the 4th parameter
@@ -416,14 +416,14 @@ enabled to quantify the headroom before writing a single reconciler line.
 
 ### Plan 1.2 (after 1.1 Verifier pass)
 
-Requires 1.1 because: `@scribe/context` (Plan 2.1, downstream dependency) requires the
+Requires 1.1 because: `@aihu/context` (Plan 2.1, downstream dependency) requires the
 reconciler to exist. More directly, `defineComponent` with `attrs` should work correctly
 inside `each()` items — this means `_setSignal` injection and the per-attribute signal
 creation must work in sub-scope mounted components, not just top-level mounts. If 1.1 is not
 complete, no real-world test of Plan 1.2 inside a list rendering exists.
 
-Plan 1.2 is isolated to `@scribe/runtime` (`define-component.ts`, `types.ts`). It does not
-modify `@scribe/arbor`. It can begin as soon as the 1.1 Verifier signs off.
+Plan 1.2 is isolated to `@aihu/runtime` (`define-component.ts`, `types.ts`). It does not
+modify `@aihu/arbor`. It can begin as soon as the 1.1 Verifier signs off.
 
 ### Plan 1.2 scope correction (roadmap vs. Architect design)
 

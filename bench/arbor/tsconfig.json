@@ -1,14 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
     "outDir": "dist",
     "noEmit": true,
     "types": ["node"],
     "lib": ["ES2022", "DOM"],
     "paths": {
-      "@scribe/arbor": ["../../packages/arbor/dist/index.d.ts"],
-      "@scribe/signals": ["../../packages/signals/dist/index.d.ts"]
+      "@aihu/arbor": ["../../packages/arbor/src/index.ts"],
+      "@aihu/signals": ["../../packages/signals/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

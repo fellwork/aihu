@@ -1,6 +1,6 @@
 # API Reference
 
-## @scribe/signals
+## @aihu/signals
 
 | Export | Description |
 |--------|-------------|
@@ -14,7 +14,7 @@
 | `maxLatticeSignal(initial?)` | Numeric lattice signal (max-merge) |
 | `$state` | State bag shorthand accessor |
 
-## @scribe/arbor
+## @aihu/arbor
 
 | Export | Description |
 |--------|-------------|
@@ -25,14 +25,14 @@
 | `hydrate(root, tree)` | Hydrate a server-rendered root |
 | `materialize(descriptor)` | Materialize a component descriptor |
 
-## @scribe/runtime
+## @aihu/runtime
 
 | Export | Description |
 |--------|-------------|
 | `onMount(fn)` | Register a callback to run after component mounts |
 | `onCleanup(fn)` | Register a callback to run when component unmounts |
 
-## @scribe/router
+## @aihu/router
 
 | Export | Description |
 |--------|-------------|
@@ -41,16 +41,16 @@
 | `composeRouterMiddleware(...fns)` | Compose router middleware with stage ordering |
 | `RouteDefinition` | Type: a route definition object |
 
-## @scribe/router/plugin
+## @aihu/router/plugin
 
 | Export | Description |
 |--------|-------------|
 | `viteRouterIntegration(opts?)` | Vite plugin: scan pages + emit route manifest |
-| `scanPages(dir)` | Scan src/pages/ for .scribe files + .route.json sidecars |
-| `scanLayouts(dir)` | Scan src/layouts/ for .scribe layout files |
+| `scanPages(dir)` | Scan src/pages/ for .aihu files + .route.json sidecars |
+| `scanLayouts(dir)` | Scan src/layouts/ for .aihu layout files |
 | `readRouteSidecar(path)` | Read a .route.json sidecar file |
 
-## @scribe/server
+## @aihu/server
 
 | Export | Description |
 |--------|-------------|
@@ -64,57 +64,57 @@
 | `renderToStream(component, opts)` | Stream-render a component to HTML |
 | `renderToString(loader)` | String-render a server component |
 | `defineLoader(fn)` | Define a server-side data loader |
-| `defineScribeConfig(config)` | Define the scribe app configuration |
+| `defineAihuConfig(config)` | Define the aihu app configuration |
 | `createServerCall<A, R>(endpoint)` | Create a typed client fetch stub |
 | `BuildTarget` | Type: `'client' \| 'server' \| 'universal'` |
 
-## @scribe/agent
+## @aihu/agent
 
 | Export | Description |
 |--------|-------------|
 | `defineAgent(opts)` | Register an agent definition |
 | `AgentRegistry` | Agent registry type |
 
-## @scribe/agent-service
+## @aihu/agent-service
 
 | Export | Description |
 |--------|-------------|
 | `AgentService` | Agent service adapter class |
 | `defineAgentService(opts)` | Create an agent service instance |
 
-## @scribe/agent-readiness
+## @aihu/agent-readiness
 
 | Export | Description |
 |--------|-------------|
 | `viteAgentReadinessIntegration(opts?)` | Vite plugin for MCP/agent readiness |
 
-## @scribe/data
+## @aihu/data
 
 | Export | Description |
 |--------|-------------|
 | `createDataPlugin(opts)` | Create a data plugin instance |
 
-## @scribe/plugin
+## @aihu/plugin
 
 | Export | Description |
 |--------|-------------|
-| `definePlugin(opts)` | Define a scribe plugin |
+| `definePlugin(opts)` | Define a aihu plugin |
 | `validatePlugin(plugin)` | Validate a plugin at build time |
 | `Plugin` | Plugin interface type |
 | `BuildTarget` | Build target type |
 
-## @scribe/cli
+## @aihu/cli
 
 | Export | Description |
 |--------|-------------|
-| `scaffoldApp(name, dir)` | Scaffold a new scribe application |
+| `scaffoldApp(name, dir)` | Scaffold a new aihu application |
 | `scaffoldPage(route, dir)` | Add a page to an existing project |
-| `scaffoldComponent(name, dir)` | Scaffold a .scribe component |
+| `scaffoldComponent(name, dir)` | Scaffold a .aihu component |
 | `scaffoldPlugin(name, dir)` | Scaffold a plugin package skeleton |
 | `migrateFile(content)` | Convert HTML-tag SFC content to @blockname{} |
 | `migrateFiles(files, dryRun, cwd)` | Migrate files in-place or dry-run |
 
-## @scribe/context
+## @aihu/context
 
 | Export | Description |
 |--------|-------------|

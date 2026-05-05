@@ -1,7 +1,7 @@
-# scribe
+# aihu
 
 A JavaScript/TypeScript meta-framework for building Web Components with
-runtime-first reactivity. Authored as `.scribe` SFCs, compiled to vanilla
+runtime-first reactivity. Authored as `.aihu` SFCs, compiled to vanilla
 custom elements, mounted with sub-2 kB reactive primitives.
 
 ## Commands
@@ -19,10 +19,10 @@ bun run typecheck           # tsc --noEmit across packages
 - **bun** — runtime, package manager
 - **vitest** — test runner
 - Workspace packages under `packages/`:
-  - `@scribe/signals` — push-based signals/computeds/effects (≤ 1.7 kB gz)
-  - `@scribe/arbor` — `branch`/`leaf`/`mount` DOM primitives
-  - `@scribe/runtime` — runtime layer
-  - `@scribe/agent` + agent-readiness — agent/MCP compliance helpers
+  - `@aihu/signals` — push-based signals/computeds/effects (≤ 1.7 kB gz)
+  - `@aihu/arbor` — `branch`/`leaf`/`mount` DOM primitives
+  - `@aihu/runtime` — runtime layer
+  - `@aihu/agent` + agent-readiness — agent/MCP compliance helpers
 - Rust SFC compiler is the v0 → v1 gate (not yet shipped)
 
 ## Conventions

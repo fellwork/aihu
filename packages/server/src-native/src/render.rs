@@ -126,7 +126,7 @@ pub fn render_document_string(
 ///   - kind === 'branch': tag default 'div'; iterate attrs in insertion order;
 ///       v === true → ` k`; v === false || v === undefined → omit;
 ///       otherwise → ` k="${escapeAttr(String(v))}"`.
-///       If hydratable, append ` data-scribe-path="${escapeAttr(path)}"`.
+///       If hydratable, append ` data-aihu-path="${escapeAttr(path)}"`.
 ///       Render children with path `${path}.${i}` and concat.
 ///       Return `<${tag}${attrStr}>${inner}</${tag}>`.
 ///   - any other kind → return ''
@@ -217,7 +217,7 @@ fn render_value(node: &Value, path: &str, hydratable: bool, out: &mut String) {
             }
         }
         if hydratable {
-            out.push_str(" data-scribe-path=\"");
+            out.push_str(" data-aihu-path=\"");
             out.push_str(&escape_attr(path));
             out.push('"');
         }
@@ -405,7 +405,7 @@ mod tests {
             true,
         )
         .unwrap();
-        assert!(html.contains("data-scribe-path=\"0\""));
+        assert!(html.contains("data-aihu-path=\"0\""));
     }
 
     #[test]

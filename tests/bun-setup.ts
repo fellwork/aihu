@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom'
 
 if (typeof window === 'undefined') {
   const { window } = new JSDOM('<!doctype html><html><body></body></html>', {
-    url: 'https://scribe.test/',
+    url: 'https://aihu.test/',
   })
 
   Object.assign(globalThis, {

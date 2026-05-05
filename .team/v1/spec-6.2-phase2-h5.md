@@ -50,7 +50,7 @@ SHIP decision is downstream.**
 Per the verification of H4 and the Investigator's §1 measurement
 (`investigation-6.2-phase2-h5.md` §"Summary" + §1.1):
 
-| Workload | scribe.buildHeapDelta | alien.buildHeapDelta | Delta | Per-Sub |
+| Workload | aihu.buildHeapDelta | alien.buildHeapDelta | Delta | Per-Sub |
 |---|---:|---:|---:|---:|
 | `deep-propagation-100` | **+10.24 KB** | **−872 B** | **+11.10 KB** | **~108 B/Sub** (over 102 Subs) |
 | `cellx` | 0 B | 0 B | 0 B | n/a (small graph; gc reclaims pre-settle) |
@@ -228,7 +228,7 @@ AFTER it has marks"):
 - **Computed second `linkAdd`:** MERGE bit set; on next `markOne`, the
   type-guarded dedup at site A enters the lastWave write path. **First
   `lastWave = wave` write transitions the hidden class from Linear to
-  Merge.** This is identical to scribe's pre-H5 behavior (where every
+  Merge.** This is identical to aihu's pre-H5 behavior (where every
   computed transitions on first mark). Net: hidden-class machinery is
   **strictly more stable** under M4 — only Merge nodes ever transition.
 - **Effect construction (fresh):** literal includes `flags: EFFECT |
@@ -693,7 +693,7 @@ it('linkAdd: linear sub stays Linear with 1 dep, upgrades to Merge on 2nd dep, d
   expect(observed).toBe(1)
   // After read: c1.depsHead is set (1 edge from src). c1 should still be Linear.
   // Access via type-cast since Subscriber is /** @internal */:
-  const c1node = (c1 as any).__node ?? /* internal accessor matching scribe convention */
+  const c1node = (c1 as any).__node ?? /* internal accessor matching aihu convention */
   expect((c1node.flags & MERGE) === 0).toBe(true)   // (a) Linear
 
   // (b) Add a second dep. Build a second computed that reads BOTH c1 and a new signal.
@@ -782,8 +782,8 @@ by Architect via `bun scripts/size.ts`):
 
 | Package | gz size | Cap | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | **1809 B** (post-H4, per Investigator §3.4) | 1850 B | **+41 B** |
-| `@scribe/arbor` | ~2171 B (post-H4) | 2200 B | **+29 B** |
+| `@aihu/signals` | **1809 B** (post-H4, per Investigator §3.4) | 1850 B | **+41 B** |
+| `@aihu/arbor` | ~2171 B (post-H4) | 2200 B | **+29 B** |
 
 Note: the H4 verification report (2026-04-30) gave a different signals
 number; this spec uses the Investigator's post-H4 measurement of 1809 B
@@ -846,7 +846,7 @@ for signals.**
 
 #### 10.1.3 Arbor cascade
 
-**`@scribe/arbor` is at +29 B headroom post-H4.** The H5 changes are
+**`@aihu/arbor` is at +29 B headroom post-H4.** The H5 changes are
 strictly internal to `markOne`/`linkAdd`/`drainBatch`/`checkDirty` —
 arbor's tree-shaker already exposes `markOne` (via `mount`'s effect
 path), so the +10 B gz from signals could propagate up to ~+10 B in
@@ -859,7 +859,7 @@ arbor.
 | H5 worst-case (+30 B propagation) | ~2201 B | **−1 B** (BREAK) |
 
 **Builder MUST run `bun scripts/size.ts` after H5 lands and confirm
-BOTH `@scribe/signals` AND `@scribe/arbor` pass.** If arbor exceeds
+BOTH `@aihu/signals` AND `@aihu/arbor` pass.** If arbor exceeds
 2200 B, this is a §15 conditional escalation (arbor cap raise required
 — separate from signals; user approval per Director-note hard line on
 "Pre-approving any bundle cap raise"). See §15.2 below.
@@ -901,7 +901,7 @@ Round-5 stance (Director-note §"Memory gates") was "measure first,
 then bar". H5 IS the first round to bar. The bar is set per
 Investigator §6.1:
 
-| Workload | scribe.buildHeapDelta | Hard pass | Soft pass | Fail |
+| Workload | aihu.buildHeapDelta | Hard pass | Soft pass | Fail |
 |---|---:|---|---|---|
 | `deep-propagation-100` | (current 10.24 KB) | **≤ 2.00 KB** | ≤ 5.00 KB | > 5.00 KB |
 | `cellx` | (current 0 B) | ≤ 0 B (no regression) | ≤ +500 B | ≥ +1.00 KB |
@@ -916,7 +916,7 @@ the residual ~8 KB of overhead is per-instance method closures (NOT
 addressed by H5; v2 redesign).
 
 **Confirm-the-cause check (Verifier — Investigator §6.4):** compute
-`(scribe.buildHeapDelta − alien.buildHeapDelta) / 102` per Subscriber
+`(aihu.buildHeapDelta − alien.buildHeapDelta) / 102` per Subscriber
 on `deep-propagation-100` post-H5. Pre-H5 ~108 B/Sub. **Target
 post-H5: ≤ 50 B/Sub.** If post-H5 the per-Sub delta is still ~80 B,
 Investigator §1.1's "per-instance closure" diagnosis is confirmed and
@@ -984,7 +984,7 @@ that the dedup gate's call-site sees as polymorphic. The first chase
 through that node post-upgrade might trip a deopt.
 
 **Mitigation per Investigator §5.5:** the transition is identical in
-character to scribe's pre-H5 behavior (where every Subscriber added
+character to aihu's pre-H5 behavior (where every Subscriber added
 `lastWave` on first markOne write). H5 actually has **fewer** such
 transitions because Linear nodes never transition. Net hidden-class
 machinery is more stable, not less.
@@ -1106,8 +1106,8 @@ from `index.ts`. The `MERGE` flag constant MAY be exported as
 `/** @internal */` for the §9.3 property test (with a re-export through
 a test-only path); it MUST NOT appear in the public API.
 
-If the Builder believes any consumer of `@scribe/signals` (including
-`@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`) needs to observe
+If the Builder believes any consumer of `@aihu/signals` (including
+`@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`) needs to observe
 the typed shapes, that is a substance question — escalate to Architect
 before exposing the types.
 
@@ -1153,8 +1153,8 @@ The Builder ships a single PR on `feat/v1-signals-6.2-phase2-h5`
 - [ ] `bun typecheck` from repo root — no type errors. The Subscriber
       interface split (§8) MUST type-check cleanly across all packages.
 - [ ] `bun run build` from repo root — completes without error.
-- [ ] `bun scripts/size.ts` from repo root — both `@scribe/signals`
-      ≤ 1850 B AND `@scribe/arbor` ≤ 2200 B. If arbor exceeds cap →
+- [ ] `bun scripts/size.ts` from repo root — both `@aihu/signals`
+      ≤ 1850 B AND `@aihu/arbor` ≤ 2200 B. If arbor exceeds cap →
       §15.2 escalation; do NOT push.
 - [ ] `cd bench/signals && bun src/runner.ts` — completes without
       error. Builder does NOT interpret bench numbers.
@@ -1211,7 +1211,7 @@ estimate of +25 B also fits.
 ### §15.2 Arbor cascade — CONDITIONAL ESCALATION
 
 🟡 **CONDITIONAL ESCALATION:** if `bun scripts/size.ts` reports
-`@scribe/arbor` > 2200 B after H5 lands, the Builder STOPS and surfaces
+`@aihu/arbor` > 2200 B after H5 lands, the Builder STOPS and surfaces
 to Architect with the following options:
 
 > **Option A.** Investigate arbor's tree-shaking. The H5 type-guards
@@ -1268,7 +1268,7 @@ The Verifier MUST flag rank-break separately from absolute-floor-break.
 ### §15.8 If the §8 Subscriber interface split breaks downstream consumer typing
 
 🟡 **CONDITIONAL ESCALATION.** If `bun typecheck` post-H5 reports
-type errors in `@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`,
+type errors in `@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`,
 or any other workspace package, the Builder STOPS and surfaces to
 Architect. Likely cause: an external consumer narrowed against the
 old `Subscriber` shape and the new union confuses TS inference.
@@ -1310,8 +1310,8 @@ follow-up PR (less preferred).
     finally `:51`)
   - `packages/signals/src/effect.ts` (pool ~21–22, runEffect ~28–38,
     pool reuse path 43–52, factory 54–67)
-- Post-H4 bundle baseline: `@scribe/signals` 1809 B (41 B headroom);
-  `@scribe/arbor` ~2171 B (29 B headroom). Re-measure post-H5 via
+- Post-H4 bundle baseline: `@aihu/signals` 1809 B (41 B headroom);
+  `@aihu/arbor` ~2171 B (29 B headroom). Re-measure post-H5 via
   `bun scripts/size.ts`.
 - H4 verification baseline: `deep-propagation-100` 3.41 µs WSL2 p50;
   all shallow ranks held; cellx body-count = 17.

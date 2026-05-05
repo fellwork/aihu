@@ -1,8 +1,8 @@
 /**
- * @scribe/router — isomorphic router middleware API (v0.7.1).
+ * @aihu/router — isomorphic router middleware API (v0.7.1).
  *
  * These primitives are isomorphic (run in both browser and server) and are
- * intentionally separate from the server-only `@scribe/server` middleware, which
+ * intentionally separate from the server-only `@aihu/server` middleware, which
  * wraps the Fetch-API `Request`/`Response` cycle.
  *
  * Browser bundle impact: ~150–220 B — within the 1536 B budget.

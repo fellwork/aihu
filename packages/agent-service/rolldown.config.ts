@@ -3,7 +3,7 @@ import { dts } from 'rolldown-plugin-dts'
 
 export default defineConfig({
   input: 'src/index.ts',
-  external: ['@scribe/agent'],
+  external: ['@aihu/agent'],
   checks: { circularDependency: true },
   output: {
     dir: 'dist',

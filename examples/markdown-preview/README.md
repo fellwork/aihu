@@ -23,7 +23,7 @@ Or open `index.html` through the dev server.
 
 ## Security note
 
-`$html` sets `innerHTML` directly without sanitization. It is scribe's equivalent of React's raw-HTML escape hatch and Vue's `v-html`. This example renders only what the user typed locally — the author and the consumer are the same person — so the trust boundary is trivial. Any production use must run the input through a real sanitizer (DOMPurify, a server-side allowlist, or a markdown library that emits safe HTML by construction). The 15-LOC regex here is demo-grade only and intentionally HTML-escapes raw `<` / `>` first, but it is not a substitute for sanitization on untrusted input.
+`$html` sets `innerHTML` directly without sanitization. It is aihu's equivalent of React's raw-HTML escape hatch and Vue's `v-html`. This example renders only what the user typed locally — the author and the consumer are the same person — so the trust boundary is trivial. Any production use must run the input through a real sanitizer (DOMPurify, a server-side allowlist, or a markdown library that emits safe HTML by construction). The 15-LOC regex here is demo-grade only and intentionally HTML-escapes raw `<` / `>` first, but it is not a substitute for sanitization on untrusted input.
 
 ## Compare with
 

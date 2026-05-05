@@ -1,4 +1,4 @@
-# Spec — `@scribe/signals` (Phase 2)
+# Spec — `@aihu/signals` (Phase 2)
 
 **Author:** Architect
 **Date:** 2026-04-26
@@ -8,15 +8,15 @@
 This spec is binding. Where it deviates from the plan, the plan is overridden under the Team Lead's Decision 2B authority. Where it deviates from the v0 spec, that is called out explicitly in §6 and the Team Lead's adjudication has already approved.
 
 References:
-- Spec: `docs/superpowers/specs/2026-04-23-scribe-v0-vertical-slice-design.md` (`spec` below)
-- Plan: `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` (`plan` below)
+- Spec: `docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md` (`spec` below)
+- Plan: `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` (`plan` below)
 - Scout: `.team/phase-2/scout-report.md` (`scout` below)
 
 ---
 
 ## 1. Public API surface
 
-End-of-Phase-2 exports from `@scribe/signals` (re-exported through `packages/signals/src/index.ts`):
+End-of-Phase-2 exports from `@aihu/signals` (re-exported through `packages/signals/src/index.ts`):
 
 | Kind | Symbol |
 |---|---|
@@ -54,7 +54,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T>
 
 **Example.**
 ```ts
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 console.log(count())        // 0
@@ -81,7 +81,7 @@ export function effect(fn: EffectFn): Dispose
 
 **Example.**
 ```ts
-import { signal, effect } from '@scribe/signals'
+import { signal, effect } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 const dispose = effect(() => {
@@ -113,7 +113,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T>
 
 **Example.**
 ```ts
-import { signal, computed, effect } from '@scribe/signals'
+import { signal, computed, effect } from '@aihu/signals'
 
 const [n, setN] = signal(2)
 const doubled = computed(() => n() * 2)
@@ -143,7 +143,7 @@ export function $state<T>(initial: T): State<T>
 
 **Example.**
 ```ts
-import { $state, effect } from '@scribe/signals'
+import { $state, effect } from '@aihu/signals'
 
 const count = $state(0)
 effect(() => console.log('count =', count.value))
@@ -153,7 +153,7 @@ count.value = 5    // → logs "count = 5"
 count.value = 5    // Object.is short-circuit — no log
 ```
 
-**Cross-library mapping.** Vue: `ref(0)` returns the same `.value` shape. Svelte 5: `$state(0)` (compiler-only — Scribe's compiler will follow). Preact: `signal(0)` (object with `.value`). Solid: no direct equivalent.
+**Cross-library mapping.** Vue: `ref(0)` returns the same `.value` shape. Svelte 5: `$state(0)` (compiler-only — Aihu's compiler will follow). Preact: `signal(0)` (object with `.value`). Solid: no direct equivalent.
 
 ---
 
@@ -175,7 +175,7 @@ export function batch(fn: () => void): void
 
 **Example.**
 ```ts
-import { signal, effect, batch } from '@scribe/signals'
+import { signal, effect, batch } from '@aihu/signals'
 
 const [a, setA] = signal(0)
 const [b, setB] = signal(0)
@@ -355,10 +355,10 @@ Builder applies this in Task 6 step 1.5 (a new sub-step inserted between "Create
 
 ### 3.3 `.size-limit.json` shape
 
-**Confirmed: Phase 2 ends with the file containing only the `@scribe/signals` row** (per plan §657-672). The four other rows (`@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`, "Combined runtime family") are added back in:
-- Task 12 — add `@scribe/arbor` row
-- Task 20 — add `@scribe/runtime` row
-- Task 23 — add `@scribe/agent` row
+**Confirmed: Phase 2 ends with the file containing only the `@aihu/signals` row** (per plan §657-672). The four other rows (`@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`, "Combined runtime family") are added back in:
+- Task 12 — add `@aihu/arbor` row
+- Task 20 — add `@aihu/runtime` row
+- Task 23 — add `@aihu/agent` row
 - Task 25 — add the "Combined runtime family" aggregate row
 
 Hard-gate value: **`limit: "1024 B"`** with `gzip: true`. Spec §6.6 says "~1.0 KB" (approximate); plan and `.size-limit.json` use the hard 1024 B value. Confirmed: the contract is **exactly 1024 bytes gzipped**, not "approximately 1 KB". This 24-byte cushion vs. 1000 covers (a) gzip-table jitter between bun versions and (b) one-line comment additions Builder may need to make.
@@ -375,7 +375,7 @@ Append a new step to Task 11 (call it Task 11.5) that uncomments the three lines
 
 Optional: also remove the now-stale 4-line comment block on lines 20-22 (it explained why those lines were commented; once they aren't, delete the comment). Builder's call.
 
-Commit message: `ci(plan-a): re-enable typecheck/build/size after @scribe/signals lands`.
+Commit message: `ci(plan-a): re-enable typecheck/build/size after @aihu/signals lands`.
 
 ---
 

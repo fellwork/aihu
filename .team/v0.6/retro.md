@@ -26,10 +26,10 @@ v0.6 landed page-aware compilation: `@route` block, `BuildTarget` enum, server-a
 
 | Sub-item | Description |
 |----------|-------------|
-| v0.6.3 | `@scribe/router` vite-plugin reads `.route.json` sidecars; `RouteDefinition` extended; `readRouteSidecar()` exported from `@scribe/router/plugin` |
-| v0.6.5 | `BuildTarget` + `BuildConfig` + `ScribeConfig.build?` field in `@scribe/server` |
-| v0.6.7 | `createServerCall<Args, Return>(endpoint)` in `packages/server/src/client.ts`; exported from `@scribe/server` |
-| v0.6.8 | `virtual:scribe-layouts` vite plugin hook; `scanLayouts()` in `@scribe/router/plugin` subpath |
+| v0.6.3 | `@aihu/router` vite-plugin reads `.route.json` sidecars; `RouteDefinition` extended; `readRouteSidecar()` exported from `@aihu/router/plugin` |
+| v0.6.5 | `BuildTarget` + `BuildConfig` + `AihuConfig.build?` field in `@aihu/server` |
+| v0.6.7 | `createServerCall<Args, Return>(endpoint)` in `packages/server/src/client.ts`; exported from `@aihu/server` |
+| v0.6.8 | `virtual:aihu-layouts` vite plugin hook; `scanLayouts()` in `@aihu/router/plugin` subpath |
 
 **TS tests:** 483 → 516 (+33)
 
@@ -37,7 +37,7 @@ v0.6 landed page-aware compilation: `@route` block, `BuildTarget` enum, server-a
 
 ## Notable finding: router browser/plugin bundle split
 
-The v0.6b Builder moved all vite-plugin code (file scanning, sidecar reading, layout scanning) to a separate `@scribe/router/plugin` subpath. The main browser bundle (`@scribe/router`) now contains only the runtime (`createRouter`, `RouteDefinition` types). Result: router browser bundle dropped from **1451 B to 740 B** (+796 B headroom vs +85 B before). This is a durable architectural separation: build-time tooling never ships to the browser.
+The v0.6b Builder moved all vite-plugin code (file scanning, sidecar reading, layout scanning) to a separate `@aihu/router/plugin` subpath. The main browser bundle (`@aihu/router`) now contains only the runtime (`createRouter`, `RouteDefinition` types). Result: router browser bundle dropped from **1451 B to 740 B** (+796 B headroom vs +85 B before). This is a durable architectural separation: build-time tooling never ships to the browser.
 
 This aligns with `.size-limit.README.md` policy: build/dev-only code must NOT appear in browser-eligible bundles.
 
@@ -53,14 +53,14 @@ This aligns with `.size-limit.README.md` policy: build/dev-only code must NOT ap
 
 | Package | Size | Budget | Headroom |
 |---------|------|--------|----------|
-| `@scribe/context` | 249 B | 300 B | +51 B |
-| `@scribe/signals` | 1.67 kB | 1970 B | +261 B |
-| `@scribe/arbor` | 2.06 kB | 2200 B | +89 B |
-| `@scribe/runtime` | 1.14 kB | 1170 B | +7 B |
-| `@scribe/agent` | 117 B | 200 B | +83 B |
-| `@scribe/data` | 778 B | 800 B | +22 B |
-| `@scribe/router` | 740 B | 1536 B | **+796 B** |
-| `@scribe/agent-service` | 580 B | 600 B | +20 B |
+| `@aihu/context` | 249 B | 300 B | +51 B |
+| `@aihu/signals` | 1.67 kB | 1970 B | +261 B |
+| `@aihu/arbor` | 2.06 kB | 2200 B | +89 B |
+| `@aihu/runtime` | 1.14 kB | 1170 B | +7 B |
+| `@aihu/agent` | 117 B | 200 B | +83 B |
+| `@aihu/data` | 778 B | 800 B | +22 B |
+| `@aihu/router` | 740 B | 1536 B | **+796 B** |
+| `@aihu/agent-service` | 580 B | 600 B | +20 B |
 
 **Dep envelope:** no new runtime deps.
 

@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "paths": {
+      "@aihu/compiler": ["../compiler/js/index.ts"],
+      "@aihu/router": ["../router/src/index.ts"],
+      "@aihu/router/plugin": ["../router/src/plugin.ts"],
+      "@aihu/agent-readiness": ["../agent-readiness/src/index.ts"],
+      "@aihu/server": ["../server/src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/arbor": ["../arbor/src/index.ts"],
+      "@aihu/runtime": ["../runtime/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+}

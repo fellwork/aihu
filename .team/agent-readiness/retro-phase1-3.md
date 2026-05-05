@@ -1,7 +1,7 @@
 # Retro — Agent-Readiness Phases 1–3
 
 **Date:** 2026-04-30
-**Track:** `@scribe/server` + `@scribe/agent-readiness`
+**Track:** `@aihu/server` + `@aihu/agent-readiness`
 **Branch at close:** `feat/agent-readiness-phase3` @ `8e4f885`
 **Tests:** 140 → 206 (+66)
 
@@ -23,7 +23,7 @@ Package scaffolds, `server/types.ts`, `agent-readiness/llms-txt.ts`, `agent-read
 - `server/config.ts` + `server/agent-readiness-config.ts` (mirror, sync comment in both)
 - Final barrels: `server/index.ts` (spec §2.8 complete) + `agent-readiness/index.ts` (spec §3.7 minus vite-plugin)
 - Removed `@internal` functions from agent-readiness barrel
-- 4 config tests (ScribeConfig shape, defineScribeConfig identity, AgentReadinessConfig mirror)
+- 4 config tests (AihuConfig shape, defineAihuConfig identity, AgentReadinessConfig mirror)
 
 ### Phase 3
 - `agent-readiness/vite-plugin.ts` — `agentReadiness()` Vite plugin + `createAgentReadinessRoutes()`
@@ -69,11 +69,11 @@ Package scaffolds, `server/types.ts`, `agent-readiness/llms-txt.ts`, `agent-read
 
 3. **`__DEV__` define timing** — `serverError` security requirement (S-1) depends on the build-time `__DEV__` constant. Needed in `rolldown.config.ts` before tests can assert production behavior. Added in Phase 1 alongside `api.ts`.
 
-4. **Vite as `external` in rolldown** — `vite-plugin.ts` imports `type { Plugin } from 'vite'`. `vite` must be listed in `rolldown.config.ts` externals (alongside `@scribe/server`, `@scribe/agent`) or the build tries to bundle Vite itself. Caught in Phase 3 config review.
+4. **Vite as `external` in rolldown** — `vite-plugin.ts` imports `type { Plugin } from 'vite'`. `vite` must be listed in `rolldown.config.ts` externals (alongside `@aihu/server`, `@aihu/agent`) or the build tries to bundle Vite itself. Caught in Phase 3 config review.
 
 5. **`createAgentReadinessRoutes` decoupling** — Spec §3.6 explicitly notes the plugin does NOT inject into `createRouter` automatically; it exports named handlers instead. This preserves consumer flexibility (e.g., add auth middleware per-route). Pattern validated by integration tests.
 
-6. **OQ-3 deferral pattern** — `getAllAgentMetadata()` is absent from `@scribe/agent` v0. Rather than block vite-plugin.ts, a TODO comment was left at the call site with the OQ-3 reference. The plugin works fully without it; auto-generation of the Components section is additive when the minor bump lands.
+6. **OQ-3 deferral pattern** — `getAllAgentMetadata()` is absent from `@aihu/agent` v0. Rather than block vite-plugin.ts, a TODO comment was left at the call site with the OQ-3 reference. The plugin works fully without it; auto-generation of the Components section is additive when the minor bump lands.
 
 ---
 
@@ -81,8 +81,8 @@ Package scaffolds, `server/types.ts`, `agent-readiness/llms-txt.ts`, `agent-read
 
 | Item | Ref | Detail |
 |------|-----|--------|
-| `getAllAgentMetadata()` integration | OQ-3 | `@scribe/agent` needs minor-version bump. TODO comment in `vite-plugin.ts`. Blocks llms.txt Components auto-section at runtime. |
-| Hot-reload wiring | Phase 3 note | `configureServer` hook is in place in `vite-plugin.ts`. Invalidation listener for `.scribe` module changes not yet wired. Dev-mode follow-on. |
+| `getAllAgentMetadata()` integration | OQ-3 | `@aihu/agent` needs minor-version bump. TODO comment in `vite-plugin.ts`. Blocks llms.txt Components auto-section at runtime. |
+| Hot-reload wiring | Phase 3 note | `configureServer` hook is in place in `vite-plugin.ts`. Invalidation listener for `.aihu` module changes not yet wired. Dev-mode follow-on. |
 | Dist build + AC-6 verification | AC-6 | `bun run build` not yet run on `feat/agent-readiness-phase3`. `scripts/check-edge-safe.sh` is ready; needs dist files to run against. |
 
 ---
@@ -92,5 +92,5 @@ Package scaffolds, `server/types.ts`, `agent-readiness/llms-txt.ts`, `agent-read
 1. Squash-merge `feat/agent-readiness-phase1` → `phase2` → `phase3` → `main`
 2. Run `bun run build` from repo root — verify rolldown output + `.d.ts` emission for both packages
 3. Run `bash scripts/check-edge-safe.sh` against dist files — AC-6 final PASS/FAIL
-4. Minor-version bump `@scribe/agent` to add `getAllAgentMetadata()` (OQ-3)
+4. Minor-version bump `@aihu/agent` to add `getAllAgentMetadata()` (OQ-3)
 5. Wire hot-reload invalidation in `vite-plugin.ts` `configureServer` hook

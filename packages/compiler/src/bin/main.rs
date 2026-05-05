@@ -31,16 +31,16 @@ fn main() {
                     process::exit(1);
                 }
                 match args[i + 1].as_str() {
-                    "client" => scribe_compiler::BuildTarget::Client,
-                    "server" => scribe_compiler::BuildTarget::Server,
-                    "universal" => scribe_compiler::BuildTarget::Universal,
+                    "client" => aihu_compiler::BuildTarget::Client,
+                    "server" => aihu_compiler::BuildTarget::Server,
+                    "universal" => aihu_compiler::BuildTarget::Universal,
                     other => {
                         eprintln!("error: unknown --target '{}' (expected: client|server|universal)", other);
                         process::exit(1);
                     }
                 }
             }
-            None => scribe_compiler::BuildTarget::Universal,
+            None => aihu_compiler::BuildTarget::Universal,
         }
     };
 
@@ -63,13 +63,20 @@ fn main() {
                 process::exit(1);
             });
 
-        (src, tag, "<stdin>".to_string(), None)
+        // v1.x: Parse optional --path <filepath> for @route C500 check in stdin mode.
+        let path_pos = args.iter().position(|a| a == "--path");
+        let stdin_path: Option<String> = match path_pos {
+            Some(i) if i + 1 < args.len() => Some(args[i + 1].clone()),
+            _ => None,
+        };
+
+        (src, tag, "<stdin>".to_string(), stdin_path)
     } else {
         // File mode: argv[1] is the file path
         let file_path = match args.get(1) {
             Some(p) if !p.starts_with("--") => p.clone(),
             _ => {
-                eprintln!("usage: scribe-compile <file.scribe> [--out <dir>] [--target <client|server|universal>]");
+                eprintln!("usage: aihu-compile <file.aihu> [--out <dir>] [--target <client|server|universal>]");
                 process::exit(1);
             }
         };
@@ -93,7 +100,7 @@ fn main() {
         (src, stem, label, Some(path_copy))
     };
 
-    let parsed = scribe_compiler::sfc::parse_with_path(
+    let parsed = aihu_compiler::sfc::parse_with_path(
         &source,
         file_path_opt.as_deref(),
     ).unwrap_or_else(|e| {
@@ -101,18 +108,20 @@ fn main() {
         process::exit(1);
     });
 
-    let unit = scribe_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
+    let unit = aihu_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
 
-    // meta.name override (OQ-C6)
-    let tag_name = match &unit.source.meta.name {
-        Some(name) => name.clone(),
-        None => file_stem,
-    };
+    // Tag name resolution (OQ-C6):
+    // 1. @meta { name: "..." } — explicit override (highest priority)
+    // 2. @route { name: "..." } — derived from route block (e.g. "blog-index")
+    // 3. file_stem — basename of the source file (fallback)
+    let tag_name = unit.source.meta.name.clone()
+        .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+        .unwrap_or(file_stem);
 
-    let result = scribe_compiler::emit(&unit, &tag_name);
+    let result = aihu_compiler::emit(&unit, &tag_name);
 
     match out_dir {
         Some(ref dir) => {

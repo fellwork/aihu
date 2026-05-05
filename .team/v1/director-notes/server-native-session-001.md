@@ -1,16 +1,16 @@
 # Director Note — server-native session 001
 
 **Date:** 2026-05-02
-**Topic:** Rust napi-rs core for `@scribe/server` SSR
+**Topic:** Rust napi-rs core for `@aihu/server` SSR
 **Status:** Fresh topic — no prior session.
 
 ---
 
 ## 1. Substance frame
 
-**Success looks like:** a `@scribe/server` import path that, on platforms where a prebuilt native binary is available, runs `renderToString` 5×+ faster than the current TS implementation in `packages/server/src/ssr.ts` while emitting **byte-identical** HTML. On platforms where a native binary cannot load (edge runtimes, unsupported triples, stripped install), the module silently falls through to the existing TS path. Public API is unchanged.
+**Success looks like:** a `@aihu/server` import path that, on platforms where a prebuilt native binary is available, runs `renderToString` 5×+ faster than the current TS implementation in `packages/server/src/ssr.ts` while emitting **byte-identical** HTML. On platforms where a native binary cannot load (edge runtimes, unsupported triples, stripped install), the module silently falls through to the existing TS path. Public API is unchanged.
 
-**What's at stake:** SSR is the production hot path for any scribe app. A Rust core is the lever that turns scribe from "fast on the client" into "fast end-to-end" — a credible v1+ differentiator. Failure modes are equally load-bearing: silent parity drift would poison the "vanilla custom elements out the back" promise; a hard-fail on Cloudflare Workers would kneecap the edge story.
+**What's at stake:** SSR is the production hot path for any aihu app. A Rust core is the lever that turns aihu from "fast on the client" into "fast end-to-end" — a credible v1+ differentiator. Failure modes are equally load-bearing: silent parity drift would poison the "vanilla custom elements out the back" promise; a hard-fail on Cloudflare Workers would kneecap the edge story.
 
 **Acceptance bar:**
 1. **Byte-identical output** — property test (random arbor trees → both impls → assert string equality). No "semantically equivalent" wiggle room. Cement this as a CI gate on every PR touching either implementation.
@@ -24,7 +24,7 @@
 
 **Scout audits:**
 - The full `ssr.ts` HTML emission contract — every escape rule, every attr ordering choice, every conditional (`hydratable`, `serializer`, `contextSetup`, `dataSource` boundary).
-- The `_setContextFns` injection slot — how it interacts with FFI boundary (Rust cannot import `@scribe/context`).
+- The `_setContextFns` injection slot — how it interacts with FFI boundary (Rust cannot import `@aihu/context`).
 - The `packages/compiler/` postinstall + release pattern as a template (NOT to copy — to learn the gaps; current compiler is a *binary spawned via execFileSync*, napi-rs ships a `.node` addon loaded via `require`).
 - napi-rs current state of the art (release 2.x, build matrix conventions, `@napi-rs/cli` capabilities).
 - Edge-runtime detection signals (how Workers/Deno/Vercel-Edge advertise themselves at runtime).
@@ -71,7 +71,7 @@ Reasoning:
 
 ## 6. Open questions for the user
 
-1. **npm package name** — `@scribe/server` already exists. The native addon needs *some* identity. Options: (a) bundle the `.node` directly inside `@scribe/server` with platform-specific optionalDependencies (napi-rs default), (b) split a `@scribe/server-core` package consumed by `@scribe/server`, (c) `@scribe/server-native`. Recommend (a) — fewest moving parts. **User decides.**
+1. **npm package name** — `@aihu/server` already exists. The native addon needs *some* identity. Options: (a) bundle the `.node` directly inside `@aihu/server` with platform-specific optionalDependencies (napi-rs default), (b) split a `@aihu/server-core` package consumed by `@aihu/server`, (c) `@aihu/server-native`. Recommend (a) — fewest moving parts. **User decides.**
 2. **Permitted Rust dependencies** — any restrictions? `napi`, `napi-derive` are required. Beyond that: do we permit a small HTML-escape crate, or write our own (matching `escapeAttr` in `ssr.ts`)? Recommend writing our own — escape rules are the parity surface and a dep there couples us to that crate's semver.
 3. **License of bundled binaries** — repo has no `LICENSE` per README §License. Compiler postinstall ships binaries under no declared license. Surface this for v1.
 4. **Performance bar** — is "5× faster `renderToString` on a 10k-leaf tree" enough? Or do we want a specific target (e.g., 10× on a defined workload) before we declare the work shipped?
@@ -92,11 +92,11 @@ Pause for user review at:
 
 ### Scout brief (paste-ready)
 
-> Audit the surface for a Rust napi-rs port of `@scribe/server`'s `renderToString`. Read `packages/server/src/ssr.ts` and `packages/server/src/stream-types.ts` end-to-end and produce a contract inventory: every HTML emission rule (tag default, attr ordering, escape behavior in `escapeAttr`, boolean-attr handling, `data-scribe-path` formatting, head/body assembly, state-script emission, fall-through behavior on unknown `kind`). Document the `_setContextFns` injection slot and how it interacts with a future FFI boundary (Rust cannot import `@scribe/context`). Report the napi-rs 2.x release pattern, edge-runtime detection signals (Workers/Deno/Vercel-Edge), and the deltas vs `packages/compiler/`'s release workflow (compiler ships a *spawned binary*; napi-rs ships a *loaded `.node` addon* — different postinstall shape). Do NOT touch `ssr.ts`, `packages/server/src/`, `packages/compiler/`, or any release workflow. Output: `.team/v1/scout-report-server-native-session-001.md`.
+> Audit the surface for a Rust napi-rs port of `@aihu/server`'s `renderToString`. Read `packages/server/src/ssr.ts` and `packages/server/src/stream-types.ts` end-to-end and produce a contract inventory: every HTML emission rule (tag default, attr ordering, escape behavior in `escapeAttr`, boolean-attr handling, `data-aihu-path` formatting, head/body assembly, state-script emission, fall-through behavior on unknown `kind`). Document the `_setContextFns` injection slot and how it interacts with a future FFI boundary (Rust cannot import `@aihu/context`). Report the napi-rs 2.x release pattern, edge-runtime detection signals (Workers/Deno/Vercel-Edge), and the deltas vs `packages/compiler/`'s release workflow (compiler ships a *spawned binary*; napi-rs ships a *loaded `.node` addon* — different postinstall shape). Do NOT touch `ssr.ts`, `packages/server/src/`, `packages/compiler/`, or any release workflow. Output: `.team/v1/scout-report-server-native-session-001.md`.
 
 ### Architect brief (paste-ready)
 
-> Design the Rust napi-rs core for `@scribe/server`'s `renderToString` — static-only, no streaming, no async boundaries, no `contextSetup` in v0+M (TS fall-through covers those). Recommended crate location: `packages/server/src-native/` (confirm with Director). Recommended build matrix: 4 platforms matching `packages/compiler/`'s release.yml (darwin-arm64, darwin-x64, linux-x64-gnu, win32-x64-msvc).
+> Design the Rust napi-rs core for `@aihu/server`'s `renderToString` — static-only, no streaming, no async boundaries, no `contextSetup` in v0+M (TS fall-through covers those). Recommended crate location: `packages/server/src-native/` (confirm with Director). Recommended build matrix: 4 platforms matching `packages/compiler/`'s release.yml (darwin-arm64, darwin-x64, linux-x64-gnu, win32-x64-msvc).
 >
 > The spec MUST contain:
 > 1. **FFI boundary types** — what crosses Rust/JS (recommend: a serialized tree representation; JS factory invocation stays JS-side).

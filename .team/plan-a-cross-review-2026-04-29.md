@@ -1,11 +1,11 @@
-# Cross-review: `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` vs shipped state
+# Cross-review: `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` vs shipped state
 
 **Date:** 2026-04-29
 **Reviewer:** post-Phase-3 review pass
-**Subject:** `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` (1741 lines, dated 2026-04-24)
+**Subject:** `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` (1741 lines, dated 2026-04-24)
 **Method:** read the plan in full, walk every claim against the shipped repo state (`packages/`, `.size-limit.json`, `.prototools`, `.moon/`, `.github/workflows/`, `bench/`, `.team/`).
 
-The plan was authored before any source code shipped. Phase 1 task boxes are all checked (`[x]`); Phase 2 task boxes (6–11) are still unchecked even though `@scribe/signals` shipped. Phases 3/4/5 were rewritten as navigational stubs pointing to `.team/` specs — those sections are accurate but minimal. Below is what's drifted, what's accurate, and what to do about it.
+The plan was authored before any source code shipped. Phase 1 task boxes are all checked (`[x]`); Phase 2 task boxes (6–11) are still unchecked even though `@aihu/signals` shipped. Phases 3/4/5 were rewritten as navigational stubs pointing to `.team/` specs — those sections are accurate but minimal. Below is what's drifted, what's accurate, and what to do about it.
 
 ---
 
@@ -14,11 +14,11 @@ The plan was authored before any source code shipped. Phase 1 task boxes are all
 | Phase | Plan state | Shipped state | Verdict |
 |---|---|---|---|
 | 1 — Scaffolding | All boxes checked | Shipped (with Moon 2.x migration) | **Accurate with one path drift** |
-| 2 — `@scribe/signals` | Tasks 6–11 specified inline, all `[ ]` | Shipped, 59 tests, exports include `batch` + `untrack` not mentioned in plan | **Stale on multiple axes** |
+| 2 — `@aihu/signals` | Tasks 6–11 specified inline, all `[ ]` | Shipped, 59 tests, exports include `batch` + `untrack` not mentioned in plan | **Stale on multiple axes** |
 | 2.5 — Bench-spike + perf | One paragraph at end | Shipped: `bench/signals/`, structural rewrite, wide-fanout recovery v2, deep-perf-wins | **Plan acknowledges existence only** |
-| 3 — `@scribe/arbor` | Pointer to `.team/phase-3/spec-arbor.md` | Shipped, 51 tests, 1.16 kB / 2.05 kB budget | **Accurate (deliberately minimal)** |
-| 4 — `@scribe/runtime` | Pointer to `.team/phase-4/spec-runtime.md` | Not built | **Accurate, not yet built** |
-| 5 — `@scribe/agent` | Pointer to `.team/phase-5/spec-agent.md` | Not built | **Accurate, not yet built** |
+| 3 — `@aihu/arbor` | Pointer to `.team/phase-3/spec-arbor.md` | Shipped, 51 tests, 1.16 kB / 2.05 kB budget | **Accurate (deliberately minimal)** |
+| 4 — `@aihu/runtime` | Pointer to `.team/phase-4/spec-runtime.md` | Not built | **Accurate, not yet built** |
+| 5 — `@aihu/agent` | Pointer to `.team/phase-5/spec-agent.md` | Not built | **Accurate, not yet built** |
 | 6 — Integration | "Not yet specced" | Partial: 1 cross-package test exists (`mount-arbor-with-signals.test.ts`) | **Mostly accurate, undercounted** |
 
 ---
@@ -42,7 +42,7 @@ The plan section is detailed (Tasks 6–11 with full code listings) and was clea
 2. **§540 — "computed is lazy: it does not run until read, and re-runs only when a dep changed since the last read."** Shipped computed has the "eager recompute when subs > 0" structural fact discovered at the keyboard during Phase 2 (Phase 2 retro Learning #9, build-manifest Task 12). The plan's lazy-only model is incomplete; the actual behavior is lazy-when-unsubscribed, eager-when-subscribed.
 3. **§539 — equality is `Object.is`.** Phase 2 shipped with `equals` as a configurable comparator (not just `equals: false`) per spec Deviation 8 + the `ComputedOptions.equals` follow-up commit (the contradiction that Learning #2 was named after). Plan doesn't mention `ComputedOptions` or `equals` at all.
 4. **Public surface in plan vs shipped exports.** Plan implies the Task 11 final surface is `signal, effect, computed, $state, SignalError, SignalCircularError`. Shipped `signals/index.ts` adds: `batch`, `untrack`, `MAX_BATCH_ITERATIONS`, `ComputedOptions`. `untrack` was Task 12.5 (Phase 3 prep, authorized in the Phase 3 launch brief, never folded back into the plan). `batch` was Decision 1.
-5. **Size budget for `@scribe/signals`** — plan §400 says `"limit": "1024 B"`. Shipped `.size-limit.json` says `"limit": "1600 B"`. Phase 2.5 bumped it 1024 → 1500 → 1600 across the perf work. Plan is stale.
+5. **Size budget for `@aihu/signals`** — plan §400 says `"limit": "1024 B"`. Shipped `.size-limit.json` says `"limit": "1600 B"`. Phase 2.5 bumped it 1024 → 1500 → 1600 across the perf work. Plan is stale.
 6. **Hidden tasks** — `.team/` references Task **11.5** (un-comment CI gates per Learning #5) and Task **12.5** (untrack). Neither exists in the plan's task numbering. The plan goes 11 → 12 with no half-steps.
 7. **Source files not in plan** — `packages/signals/src/batch.ts` and `untrack.ts`. Both shipped, both have tests, neither in §17's File Structure tree.
 
@@ -81,7 +81,7 @@ It's worth being clear about what survives — the plan isn't worthless:
 - **The 4-package structure** (`signals` → `arbor` → `runtime` → `agent`) is intact and matches every downstream spec.
 - **The ~4 KB combined budget** is intact; current draws are 716 B + 1.16 kB = ~1.9 kB, leaving generous headroom for the un-built two packages.
 - **The tech stack list** (Bun, Moon, Rolldown, Biome, vitest, fast-check, jsdom, size-limit, GitHub Actions) is fully accurate.
-- **Out-of-scope** (Rust crates, Vite plugin, SFC compiler, `.scribe` files, Playwright e2e) still holds.
+- **Out-of-scope** (Rust crates, Vite plugin, SFC compiler, `.aihu` files, Playwright e2e) still holds.
 - **Phase 3/4/5/6 navigational sections** correctly defer to `.team/` specs and were clearly written *after* the spec session.
 - **Phase 2 design clarifications** §537 (`signal<T>` returns `[get, set]` Solid-shaped), §538 (`effect` synchronous, returns `dispose()`), §541 (cycle detection via `running` flag) all match shipped behavior.
 
@@ -116,7 +116,7 @@ Move the file to `docs/superpowers/plans/_archive/` and replace it with a one-pa
 ## Method notes
 
 Files inspected:
-- `docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md` (full, 1741 lines)
+- `docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md` (full, 1741 lines)
 - `package.json`, `.prototools`, `.size-limit.json`, `vitest.config.ts`, `tsconfig.base.json`, `tsconfig.json`, `biome.json`
 - `.moon/` directory layout
 - `.github/workflows/plan-a.yml`

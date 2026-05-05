@@ -16,7 +16,7 @@ Round 2 ships the developer-facing surface that makes the Round 1 compiler usabl
 - `docs/grammar.md` must reflect RC-3 ('' fallback) and RC-4 (Set validation) as locked — not aspirational alternatives.
 - Lane D uses `cross` (or equivalent) for cross-compile; `serde_json` stays out of the compiler dependency tree (T-4 from Round 1 still applies).
 
-**Latent thesis pressure to call out:** the `examples/` directory is the public face of scribe. The two examples must communicate the value prop ("one file, two surfaces") in their structure — not just compile cleanly.
+**Latent thesis pressure to call out:** the `examples/` directory is the public face of aihu. The two examples must communicate the value prop ("one file, two surfaces") in their structure — not just compile cleanly.
 
 ---
 
@@ -42,9 +42,9 @@ Round 2 ships the developer-facing surface that makes the Round 1 compiler usabl
 
 | File / Path | Lane C | Lane D |
 |-------------|:------:|:------:|
-| `examples/airtime-quote/airtime-quote.scribe` | ✓ | — |
+| `examples/airtime-quote/airtime-quote.aihu` | ✓ | — |
 | `examples/airtime-quote/dist/*` (built output) | ✓ | — |
-| `examples/scripture-reference/scripture-reference.scribe` | ✓ | — |
+| `examples/scripture-reference/scripture-reference.aihu` | ✓ | — |
 | `examples/scripture-reference/dist/*` | ✓ | — |
 | `docs/grammar.md` | ✓ | — |
 | `docs/tthw-log.md` | ✓ | — |
@@ -65,7 +65,7 @@ If either Builder finds a file not in this matrix, escalate before touching it.
 
 ## 4. Scout Brief
 
-The Scout is read-only. Run from `C:/git/fellwork/scribe` on `feat/phase1-contract`. Report PASS/FAIL with raw output for each.
+The Scout is read-only. Run from `C:/git/fellwork/aihu` on `feat/phase1-contract`. Report PASS/FAIL with raw output for each.
 
 **SC-1: Branch state clean**
 ```bash
@@ -90,10 +90,10 @@ Expected: 323 TS tests pass. 68 Rust tests pass + 1 ignored.
 ```bash
 cargo build --release --manifest-path packages/compiler/Cargo.toml 2>&1 | tail -3
 ```
-Expected: "Finished release profile [optimized]". Binary exists at `packages/compiler/target/release/scribe-compile.exe` (Windows) or `scribe-compile` (Unix).
+Expected: "Finished release profile [optimized]". Binary exists at `packages/compiler/target/release/aihu-compile.exe` (Windows) or `aihu-compile` (Unix).
 
 **SC-5: Binary smoke test against airtime-quote agent block**
-Use the binary to compile a tmp `.scribe` with the canonical airtime-quote agent block. Verify:
+Use the binary to compile a tmp `.aihu` with the canonical airtime-quote agent block. Verify:
 - Output JS contains `defineComponent({`, `attrs: ['plan', 'amount']`, `_plan_V`, `computed(() => Number(`, `defineElement('airtime-quote'`
 - `agent-manifest.json` is produced with `"airtime_quote"`, `"airtime-quote"`, `"plan"`, `"amount"`, `"quote"`
 
@@ -131,11 +131,11 @@ Work entirely within Lane C files (see §3 matrix). Branch from `feat/phase1-con
 
 ### Pre-flight (do BEFORE coding)
 
-Run `bun run test` and `bun run typecheck` to confirm a green baseline. Build the release binary: `cargo build --release --manifest-path packages/compiler/Cargo.toml`. Confirm it exists at `packages/compiler/target/release/scribe-compile.exe` (Windows) or `scribe-compile` (other platforms). **All examples below are authored against this binary's output, NOT speculation.**
+Run `bun run test` and `bun run typecheck` to confirm a green baseline. Build the release binary: `cargo build --release --manifest-path packages/compiler/Cargo.toml`. Confirm it exists at `packages/compiler/target/release/aihu-compile.exe` (Windows) or `aihu-compile` (other platforms). **All examples below are authored against this binary's output, NOT speculation.**
 
-### Step C-1: `examples/airtime-quote/airtime-quote.scribe`
+### Step C-1: `examples/airtime-quote/airtime-quote.aihu`
 
-Create the directory and the canonical `.scribe` file. Use this exact agent-block source:
+Create the directory and the canonical `.aihu` file. Use this exact agent-block source:
 
 ```html
 <agent>
@@ -145,7 +145,7 @@ state total: number   # Final quoted total shown to the user
 action quote() -> { plan: string, amount: number, fee: number, total: number }
 </agent>
 <script setup lang="ts" name="airtime-quote">
-import { computed } from '@scribe/signals'
+import { computed } from '@aihu/signals'
 
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
 const total = computed(() => amount() + fee())
@@ -184,7 +184,7 @@ export function quote() {
 
 **Also create** `examples/airtime-quote/README.md` (3-5 sentences max): what the example demonstrates, how to compile it, what the output is. No tutorial bloat.
 
-### Step C-2: `examples/scripture-reference/scripture-reference.scribe`
+### Step C-2: `examples/scripture-reference/scripture-reference.aihu`
 
 Fellwork-specific dogfood. Look up a Bible verse by reference. Use this agent block:
 
@@ -197,7 +197,7 @@ state text: string   # The verse text after lookup
 action look_up() -> { book: string, chapter: number, verse: number, text: string }
 </agent>
 <script setup lang="ts" name="scripture-reference">
-import { signal, computed } from '@scribe/signals'
+import { signal, computed } from '@aihu/signals'
 
 const [text, setText] = signal('')
 
@@ -244,7 +244,7 @@ Time-to-Hello-World log. Skeleton structure:
 ```markdown
 # TTHW Log
 
-Measurements of how long it takes a developer to go from `git clone` to a working `.scribe` component.
+Measurements of how long it takes a developer to go from `git clone` to a working `.aihu` component.
 
 ## Methodology
 - TTHW_UI: time to a custom element rendering in browser
@@ -262,8 +262,8 @@ Measurements of how long it takes a developer to go from `git clone` to a workin
 
 Minimal VS Code extension:
 - `editors/vscode/package.json` — extension manifest
-- `editors/vscode/syntaxes/scribe.tmLanguage.json` — TextMate grammar for `.scribe` files. Should highlight: `<agent>`, `<script setup>`, `<template>`, `<style>` block boundaries, agent-block keywords (`input`, `state`, `action`), type tokens.
-- `editors/vscode/snippets/scribe.json` — 3-5 snippets: `agent-input`, `agent-action`, `agent-state`, `script-setup`, `template-block`.
+- `editors/vscode/syntaxes/aihu.tmLanguage.json` — TextMate grammar for `.aihu` files. Should highlight: `<agent>`, `<script setup>`, `<template>`, `<style>` block boundaries, agent-block keywords (`input`, `state`, `action`), type tokens.
+- `editors/vscode/snippets/aihu.json` — 3-5 snippets: `agent-input`, `agent-action`, `agent-state`, `script-setup`, `template-block`.
 - `editors/vscode/README.md` — install instructions (extension is not yet on the marketplace; load locally via "Developer: Install Extension from Folder").
 
 Length target: a working extension that highlights at minimum the agent block keywords. Do NOT publish to marketplace this round.
@@ -284,8 +284,8 @@ bun run typecheck 2>&1 | tail -10
 bun run test 2>&1 | tail -5
 bun run build 2>&1 | tail -10
 cargo build --release --manifest-path packages/compiler/Cargo.toml 2>&1 | tail -3
-./packages/compiler/target/release/scribe-compile examples/airtime-quote/airtime-quote.scribe --out examples/airtime-quote/dist/ 2>&1
-./packages/compiler/target/release/scribe-compile examples/scripture-reference/scripture-reference.scribe --out examples/scripture-reference/dist/ 2>&1
+./packages/compiler/target/release/aihu-compile examples/airtime-quote/airtime-quote.aihu --out examples/airtime-quote/dist/ 2>&1
+./packages/compiler/target/release/aihu-compile examples/scripture-reference/scripture-reference.aihu --out examples/scripture-reference/dist/ 2>&1
 ```
 
 All must succeed. The two example compilations must produce both `<name>.ts` and `agent-manifest.json` files in their respective `dist/` directories. Add `examples/*/dist/` to `.gitignore` so build outputs aren't committed.
@@ -293,7 +293,7 @@ All must succeed. The two example compilations must produce both `<name>.ts` and
 ### Builder C deliverable
 
 Commits:
-- `feat(examples): C-1+C-2 — airtime-quote and scripture-reference .scribe examples`
+- `feat(examples): C-1+C-2 — airtime-quote and scripture-reference .aihu examples`
 - `docs(grammar): C-3 — full BNF + null behavior + error codes`
 - `docs(tthw): C-4 — TTHW measurement log skeleton`
 - `feat(editors): C-5 — VS Code TextMate grammar + snippets`
@@ -309,14 +309,14 @@ Work entirely within Lane D files (§3 matrix). Branch from `feat/phase1-contrac
 
 ### Step D-1: `.github/workflows/release.yml`
 
-Cross-compile matrix workflow. Trigger on `push: tags: ['v*']`. Build `scribe-compile` for four targets:
+Cross-compile matrix workflow. Trigger on `push: tags: ['v*']`. Build `aihu-compile` for four targets:
 
 | Target | Runner | Rust target triple | Asset name |
 |--------|--------|--------------------|-----------|
-| mac-arm64 | macos-14 | `aarch64-apple-darwin` | `scribe-compile-darwin-arm64` |
-| mac-x64 | macos-13 | `x86_64-apple-darwin` | `scribe-compile-darwin-x64` |
-| linux-x64 | ubuntu-22.04 | `x86_64-unknown-linux-gnu` | `scribe-compile-linux-x64` |
-| windows-x64 | windows-2022 | `x86_64-pc-windows-msvc` | `scribe-compile-windows-x64.exe` |
+| mac-arm64 | macos-14 | `aarch64-apple-darwin` | `aihu-compile-darwin-arm64` |
+| mac-x64 | macos-13 | `x86_64-apple-darwin` | `aihu-compile-darwin-x64` |
+| linux-x64 | ubuntu-22.04 | `x86_64-unknown-linux-gnu` | `aihu-compile-linux-x64` |
+| windows-x64 | windows-2022 | `x86_64-pc-windows-msvc` | `aihu-compile-windows-x64.exe` |
 
 For each: `cargo build --release --target <triple> --manifest-path packages/compiler/Cargo.toml`. Upload binary to GitHub Release using `softprops/action-gh-release@v2` (or current stable equivalent).
 
@@ -328,7 +328,7 @@ Add a postinstall script (likely as a separate file `packages/compiler/js/postin
 
 Behavior:
 1. Detect platform: `process.platform` + `process.arch` → asset name (use the same naming as D-1).
-2. Download from `https://github.com/fellwork/scribe/releases/latest/download/<asset-name>` to `packages/compiler/bin/scribe-compile<extension>`.
+2. Download from `https://github.com/fellwork/aihu/releases/latest/download/<asset-name>` to `packages/compiler/bin/aihu-compile<extension>`.
 3. `chmod 0755` on Unix.
 4. **Fail loud** on missing artifact: `process.exit(1)` with a clear stderr message naming the URL it tried.
 5. Skip download if the binary already exists (idempotent — for CI re-installs).
@@ -337,7 +337,7 @@ Add a fallback: if `SCRIBE_COMPILE_BIN` env var is set, use that path instead of
 
 Update `packages/compiler/package.json`:
 - `"scripts": { "postinstall": "bun run packages/compiler/js/postinstall.ts" }` (or equivalent)
-- `"bin": { "scribe-compile": "./bin/scribe-compile" }` (so it's available as a CLI after install)
+- `"bin": { "aihu-compile": "./bin/aihu-compile" }` (so it's available as a CLI after install)
 - `"files"` includes `bin/`, `js/`, `dist/`
 
 ### Step D-3: Verification without pushing a tag
@@ -346,7 +346,7 @@ Document a dry-run procedure in `packages/compiler/RELEASE.md`:
 1. `gh workflow run release.yml` — manual dispatch
 2. Inspect the produced artifacts on the workflow run page
 3. Confirm all 4 binaries are uploaded
-4. Confirm `packages/compiler/js/postinstall.ts` against `SCRIBE_COMPILE_BIN=$(pwd)/packages/compiler/target/release/scribe-compile.exe bun install` resolves correctly without network
+4. Confirm `packages/compiler/js/postinstall.ts` against `SCRIBE_COMPILE_BIN=$(pwd)/packages/compiler/target/release/aihu-compile.exe bun install` resolves correctly without network
 
 ### Builder D acceptance gate
 
@@ -395,4 +395,4 @@ Branch `feat/phase1-lane-d`. Do not merge until Verifier D clears.
 
 ## On-Thesis One-Liner
 
-Round 2 makes scribe usable: pre-built binaries (no Rust toolchain required), worked examples that round-trip through the actual compiler, BNF-grade docs, editor highlighting, and an MIT license. After Round 2, a developer can `bun add @scribe/compiler` and ship a `.scribe` component to production in under 5 minutes.
+Round 2 makes aihu usable: pre-built binaries (no Rust toolchain required), worked examples that round-trip through the actual compiler, BNF-grade docs, editor highlighting, and an MIT license. After Round 2, a developer can `bun add @aihu/compiler` and ship a `.aihu` component to production in under 5 minutes.

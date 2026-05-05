@@ -1,6 +1,6 @@
 /**
- * Integration tests — `@scribe/runtime` x `@scribe/arbor` x
- * `@scribe/signals`.
+ * Integration tests — `@aihu/runtime` x `@aihu/arbor` x
+ * `@aihu/signals`.
  *
  * Per `.team/phase-4/spec-runtime.md` §4 Task 22.
  *
@@ -9,9 +9,9 @@
  * uses arbor primitives backed by signals reactivity.
  */
 
-import { branch, leaf, type MountScope, mount } from '@scribe/arbor'
-import { defineElement } from '@scribe/runtime'
-import { signal } from '@scribe/signals'
+import { branch, leaf, type MountScope, mount } from '@aihu/arbor'
+import { defineElement } from '@aihu/runtime'
+import { signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
 
 describe('runtime + arbor + signals integration', () => {

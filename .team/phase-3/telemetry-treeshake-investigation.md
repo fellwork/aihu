@@ -1,9 +1,9 @@
-# Telemetry tree-shake investigation — `@scribe/arbor` v0+1 / v1
+# Telemetry tree-shake investigation — `@aihu/arbor` v0+1 / v1
 
 **Investigator:** Researcher (code agent, Opus 4.7 1M)
 **Date:** 2026-04-27
 **Time spent:** ~30 min
-**Worktree:** `C:/git/fellwork-worktrees/scribe-arbor-task-12` (branch `phase-3/arbor-implementation`, PR #7)
+**Worktree:** `C:/git/fellwork-worktrees/aihu-arbor-task-12` (branch `phase-3/arbor-implementation`, PR #7)
 **Subject:** spec §2.8 telemetry call sites surviving Rolldown + esbuild → ~80–100 B gz overhead
 
 ---
@@ -279,7 +279,7 @@ file" rather than "dev-only code is gated by a flag."
 - Drift: dev and prod mount.ts can diverge. Mitigation: a CI rule that
   diffs the two and forbids divergence outside the telemetry block.
 - Surprise: a consumer who imports a private internal file
-  (`@scribe/arbor/dist/index.js` directly) bypasses the conditional.
+  (`@aihu/arbor/dist/index.js` directly) bypasses the conditional.
   Low risk; arbor's `exports` map is the only documented entry.
 - More files in the published tarball.
 
@@ -452,13 +452,13 @@ call with side effects, also no DCE.
 reduction in the published tarball) and post-size-limit gz from
 ~1.16 kB to ~250 B (≈ 80 B savings).
 
-Caveat: per `bun.lock` / `package.json`, `@scribe/signals` shares the
+Caveat: per `bun.lock` / `package.json`, `@aihu/signals` shares the
 same package-level `rolldown.config.ts` pattern. Apply the same minify
 flag there too — same ~30% gz drop expected for free.
 
 **Risk:** sourcemap quality for stack traces in production logs. Not
 arbor's concern at v0 (no consumers running it in production yet).
-Re-evaluate before scribe ships to actual users.
+Re-evaluate before aihu ships to actual users.
 
 **Why this is the right first step:** zero source-code change; the
 elimination happens for any consumer-facing minifier (oxc, esbuild,
@@ -553,8 +553,8 @@ heavier infrastructure. Not needed for v0 or v1 as currently scoped.
 - [ ] `bun run test:integration` — green (1/1)
 - [ ] `bun run build` — produces `packages/arbor/dist/index.js` with
       raw size ≈ 310 B (down from 13.77 kB)
-- [ ] `bun run size` — `@scribe/arbor` reports ~250 B gz / 2048 B (was
-      1.16 kB / 2048 B); `@scribe/signals` reports ~530 B / 1024 B
+- [ ] `bun run size` — `@aihu/arbor` reports ~250 B gz / 2048 B (was
+      1.16 kB / 2048 B); `@aihu/signals` reports ~530 B / 1024 B
       (was 716 B). Numbers approximate.
 - [ ] Verify `dist/index.d.ts` is unchanged (still 8.44 kB) —
       `rolldown-plugin-dts` is independent of `output.minify`
@@ -578,7 +578,7 @@ whitespace.)
 ```
 build(arbor,signals): enable Rolldown built-in minifier
 
-The shipped dist files were unminified — `@scribe/arbor` published a
+The shipped dist files were unminified — `@aihu/arbor` published a
 13.77 kB raw bundle that compressed to 1.16 kB gz only because
 size-limit re-minifies via @size-limit/esbuild before measuring.
 Consumers got the unminified file and had to rely on their own
@@ -600,7 +600,7 @@ plan if v1 reconciler eats headroom).
 > **Title:** `arbor: switch to __DEV__ define when telemetry size budget
 > tightens`
 >
-> **Body:** Tracking issue. When `@scribe/arbor` headroom drops below
+> **Body:** Tracking issue. When `@aihu/arbor` headroom drops below
 > 350 B (likely during Task 18 v1 reconciler), implement the
 > `__DEV__` constant + `if (__DEV__)` guards described in
 > `.team/phase-3/telemetry-treeshake-investigation.md` §2A. Recovers

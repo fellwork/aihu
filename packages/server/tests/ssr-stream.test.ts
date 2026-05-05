@@ -24,7 +24,7 @@ async function drain(stream: ReadableStream<string>): Promise<string> {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('@scribe/server renderToStream', () => {
+describe('@aihu/server renderToStream', () => {
   it('synchronous { toHtml() } component yields full output', async () => {
     const stream = renderToStream({ toHtml: () => '<p>Hello</p>' }, { head: { title: 'Test' } })
     const result = await drain(stream)
@@ -139,7 +139,7 @@ describe('@scribe/server renderToStream', () => {
     expect(result).toMatch(/<\/body><\/html>$/)
   })
 
-  it('opts.hydratable: true emits data-scribe-path on branch nodes', async () => {
+  it('opts.hydratable: true emits data-aihu-path on branch nodes', async () => {
     const result = await drain(
       renderToStream(
         () => ({
@@ -158,7 +158,7 @@ describe('@scribe/server renderToStream', () => {
         { hydratable: true },
       ),
     )
-    expect(result).toContain('data-scribe-path="0"')
-    expect(result).toContain('data-scribe-path="0.0"')
+    expect(result).toContain('data-aihu-path="0"')
+    expect(result).toContain('data-aihu-path="0.0"')
   })
 })

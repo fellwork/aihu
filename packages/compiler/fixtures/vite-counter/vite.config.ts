@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
-import { scribeCompilerPlugin } from '../../js/index.ts'
+import { aihuCompilerPlugin } from '../../js/index.ts'
 
 export default defineConfig({
-  plugins: [scribeCompilerPlugin()],
+  plugins: [aihuCompilerPlugin()],
   build: {
     outDir: 'dist',
     rollupOptions: {

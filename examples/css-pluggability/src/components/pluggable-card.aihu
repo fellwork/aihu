@@ -1,0 +1,20 @@
+@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
+}
+
+@template {
+  <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
+    <header class="mb-3">
+      <h2 class="text-xl font-semibold text-slate-900">Tailwind Card</h2>
+      <p class="text-sm text-slate-500">A aihu component styled by Tailwind utility classes.</p>
+    </header>
+    <p class="mb-4 text-slate-700">
+      Click count: <span class="font-mono text-emerald-600">{{ count }}</span>
+    </p>
+    <button class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" onclick="increment">
+      Increment
+    </button>
+  </article>
+}

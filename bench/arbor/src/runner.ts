@@ -98,13 +98,13 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
     }
   })()
   const lines: string[] = []
-  lines.push('# `@scribe/arbor` Bench Results')
+  lines.push('# `@aihu/arbor` Bench Results')
   lines.push('')
   lines.push(`**Generated:** ${date}`)
   lines.push(
     `**Runner:** mitata 1.0.34 · Bun ${process.versions.bun ?? 'n/a'} · JSDOM ${jsdomVersion}`,
   )
-  lines.push('**Track:** A — @scribe/arbor vs. SOTA DOM-binding libs (Round N+1)')
+  lines.push('**Track:** A — @aihu/arbor vs. SOTA DOM-binding libs (Round N+1)')
   lines.push('**Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.')
   lines.push('')
   lines.push('---')
@@ -142,15 +142,15 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   lines.push('')
   lines.push(
     'The competitors in this matrix each have a primary bench axis.\n' +
-      'This section answers: "how does @scribe/arbor perform on the axis\n' +
+      'This section answers: "how does @aihu/arbor perform on the axis\n' +
       'each competitor holds itself to?"',
   )
   lines.push('')
 
-  const scribeCells = cells.filter((c) => c.competitor === '@scribe/arbor')
+  const aihuCells = cells.filter((c) => c.competitor === '@aihu/arbor')
 
   const axisCell = (workloadName: string): string => {
-    const c = scribeCells.find((x) => x.workload === workloadName)
+    const c = aihuCells.find((x) => x.workload === workloadName)
     if (!c) return '— (not run)'
     if ('error' in c.result) return `ERROR: ${c.result.error}`
     return `p50 = ${fmtNs(c.result.p50)}, ${fmtOps(c.result.opsPerSec)} ops/s`

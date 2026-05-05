@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/router",
+  "name": "@aihu/router",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -25,6 +25,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/server": "workspace:*"
+    "@aihu/server": "workspace:*"
   }
 }

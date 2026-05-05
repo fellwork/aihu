@@ -22,7 +22,7 @@
 **Sequencing rationale:**
 
 - 4.3 is a small Rust-only change that removes the `as unknown as` quality concern before the v1 ship.
-- 5.3 is two independent packages with a one-function prerequisite addition to `@scribe/agent`. Both adapters are parallel-safe.
+- 5.3 is two independent packages with a one-function prerequisite addition to `@aihu/agent`. Both adapters are parallel-safe.
 - 7.1 is mechanical: README update, version bumps, GHA trigger re-enable. No design decisions needed.
 
 ---
@@ -73,7 +73,7 @@ This is the direct tuple type that `leaf([signal, setter])` accepts. Accurate fo
 
 **Decision: Implement both adapters this session.**
 
-### §3.1 Pre-requisite: `getAllAgentMetadata()` in `@scribe/agent`
+### §3.1 Pre-requisite: `getAllAgentMetadata()` in `@aihu/agent`
 
 `packages/agent/src/registry.ts` exports only `getAgentMetadata(tag)` — a single-tag lookup. Both adapters need to enumerate all registered agents for discovery endpoints.
 
@@ -97,8 +97,8 @@ This can be committed on the A2A branch (first commit) or as a standalone commit
 
 ```
 packages/agent-a2a/
-  package.json          -- name: @scribe/agent-a2a, dep: @scribe/agent-service: workspace:*
-  rolldown.config.ts    -- externalize @scribe/agent-service
+  package.json          -- name: @aihu/agent-a2a, dep: @aihu/agent-service: workspace:*
+  rolldown.config.ts    -- externalize @aihu/agent-service
   tsconfig.json
   moon.yml
   src/
@@ -121,8 +121,8 @@ packages/agent-a2a/
 **A2A agent card shape** (minimum valid):
 ```json
 {
-  "name": "scribe-agent-service",
-  "description": "Scribe agent service",
+  "name": "aihu-agent-service",
+  "description": "Aihu agent service",
   "version": "1.0.0",
   "capabilities": { "streaming": true },
   "defaultInputModes": ["application/json"],
@@ -143,17 +143,17 @@ Skills list is built from `service.getManifest().tools` — one skill per `{ too
 - [ ] `POST /a2a/tasks/sendSubscribe` returns `content-type: text/event-stream`
 - [ ] Non-matching requests return `null`
 - [ ] ≥12 tests passing
-- [ ] Bundle ≤ 700 B gz (externalize `@scribe/agent-service`)
+- [ ] Bundle ≤ 700 B gz (externalize `@aihu/agent-service`)
 - [ ] Entry in `.size-limit.json`, alias in `vitest.config.ts`
 
 **`.size-limit.json` entry:**
 ```json
 {
-  "name": "@scribe/agent-a2a",
+  "name": "@aihu/agent-a2a",
   "path": "packages/agent-a2a/dist/index.js",
   "limit": "700 B",
   "gzip": true,
-  "ignore": ["@scribe/agent-service"]
+  "ignore": ["@aihu/agent-service"]
 }
 ```
 
@@ -166,8 +166,8 @@ Skills list is built from `service.getManifest().tools` — one skill per `{ too
 
 ```
 packages/agent-acp/
-  package.json          -- name: @scribe/agent-acp, dep: @scribe/agent-service: workspace:*
-  rolldown.config.ts    -- externalize @scribe/agent-service
+  package.json          -- name: @aihu/agent-acp, dep: @aihu/agent-service: workspace:*
+  rolldown.config.ts    -- externalize @aihu/agent-service
   tsconfig.json
   moon.yml
   src/
@@ -189,8 +189,8 @@ packages/agent-acp/
 **ACP agent card shape** (minimum valid):
 ```json
 {
-  "agent_id": "scribe-agent-service",
-  "description": "Scribe ACP agent",
+  "agent_id": "aihu-agent-service",
+  "description": "Aihu ACP agent",
   "skills": [
     { "skill_id": "<tag>/<action>", "name": "<action>" }
   ]
@@ -206,17 +206,17 @@ packages/agent-acp/
 - [ ] `POST /acp/messages` unknown skill → ACP error response message (not a 4xx)
 - [ ] Non-matching requests return `null`
 - [ ] ≥10 tests passing
-- [ ] Bundle ≤ 600 B gz (externalize `@scribe/agent-service`)
+- [ ] Bundle ≤ 600 B gz (externalize `@aihu/agent-service`)
 - [ ] Entry in `.size-limit.json`, alias in `vitest.config.ts`
 
 **`.size-limit.json` entry:**
 ```json
 {
-  "name": "@scribe/agent-acp",
+  "name": "@aihu/agent-acp",
   "path": "packages/agent-acp/dist/index.js",
   "limit": "600 B",
   "gzip": true,
-  "ignore": ["@scribe/agent-service"]
+  "ignore": ["@aihu/agent-service"]
 }
 ```
 
@@ -241,7 +241,7 @@ packages/agent-acp/
 | GHA publish step | `.github/workflows/release.yml` | Keep gated on `tags: ['v*']`; do NOT auto-publish on push |
 | Package versions | All `packages/*/package.json` | Set `"version": "1.0.0"` on all packages |
 | License field check | All `packages/*/package.json` | Verify `"license": "MIT"` present on all |
-| New adapters in size-limit | `.size-limit.json` | Confirm entries for `@scribe/agent-a2a` and `@scribe/agent-acp` (added by 5.3) |
+| New adapters in size-limit | `.size-limit.json` | Confirm entries for `@aihu/agent-a2a` and `@aihu/agent-acp` (added by 5.3) |
 
 **Acceptance criteria (Plan 7.1):**
 
@@ -261,16 +261,16 @@ packages/agent-acp/
 |------|-----------|
 | 570 TS tests | `bun run test` must stay green across all builders |
 | 221 Rust tests | `cargo test` must stay green after Plan 4.3 |
-| `counter.scribe` regression | Must still compile to function form |
-| `@scribe/signals` bundle | ≤ 1970 B gz |
-| `@scribe/arbor` bundle | ≤ 2200 B gz |
-| `@scribe/runtime` bundle | ≤ 1170 B gz |
-| `@scribe/agent` bundle | ≤ 200 B gz |
-| `@scribe/agent-service` bundle | ≤ 600 B gz (unchanged) |
+| `counter.aihu` regression | Must still compile to function form |
+| `@aihu/signals` bundle | ≤ 1970 B gz |
+| `@aihu/arbor` bundle | ≤ 2200 B gz |
+| `@aihu/runtime` bundle | ≤ 1170 B gz |
+| `@aihu/agent` bundle | ≤ 200 B gz |
+| `@aihu/agent-service` bundle | ≤ 600 B gz (unchanged) |
 | `packages/signals/src/` | Read-only |
 | `packages/arbor/src/` | Read-only |
 | `Cargo.toml` | No new dependencies — Option B is dep-free |
-| `@scribe/agent-service` public API | Locked at Plan 5.2 contract |
+| `@aihu/agent-service` public API | Locked at Plan 5.2 contract |
 
 ---
 
@@ -282,8 +282,8 @@ packages/agent-acp/
 | ST-2 | `leaf` type signature mismatch discovered by Plan 4.3 Builder | Stop; surface actual signature |
 | ST-3 | Plan 4.3 requires new Cargo.toml dependency | Stop; surface for scope re-decision |
 | ST-4 | `bun run build` fails a size-limit gate on any existing package | Stop; surface size delta |
-| ST-5 | Either adapter requires breaking change to `@scribe/agent-service` API | Stop; surface |
-| ST-6 | `@scribe/agent` bundle exceeds 200 B gz | Surface (low probability) |
+| ST-5 | Either adapter requires breaking change to `@aihu/agent-service` API | Stop; surface |
+| ST-6 | `@aihu/agent` bundle exceeds 200 B gz | Surface (low probability) |
 | ST-7 | GHA publish step would auto-publish to npm on push to main | Stop; surface before merging |
 | ST-8 | TS test count drops below 570 | Stop; surface failing tests |
 
@@ -311,7 +311,7 @@ packages/agent-acp/
 This session is DONE when all of the following are true on `main`:
 
 - [ ] **Plan 4.3-B merged:** `emit.rs` emits `as [Signal<string>, (v: string) => void]`; no `as unknown as Signal<string>`; new Rust test passing; all 221 Rust tests green
-- [ ] **5.3 prereq merged:** `getAllAgentMetadata()` exported from `@scribe/agent`; 1 new test added
+- [ ] **5.3 prereq merged:** `getAllAgentMetadata()` exported from `@aihu/agent`; 1 new test added
 - [ ] **Plan 5.3-A2A merged:** `packages/agent-a2a/` present; ≥12 tests green; `.size-limit.json` entry; `vitest.config.ts` alias
 - [ ] **Plan 5.3-ACP merged:** `packages/agent-acp/` present; ≥10 tests green; `.size-limit.json` entry; `vitest.config.ts` alias
 - [ ] **Plan 7.1 merged:** README v1 feature table; all packages at `"version": "1.0.0"`; GHA triggers updated; `bun run test` ≥592; `bun run build` all size gates pass

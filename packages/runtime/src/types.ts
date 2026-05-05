@@ -1,5 +1,5 @@
 /**
- * Public + internal types for `@scribe/runtime`.
+ * Public + internal types for `@aihu/runtime`.
  *
  * Per `.team/phase-4/spec-runtime.md` §1.2 / §1.3 / §1.5 / §2.1.
  *
@@ -9,8 +9,8 @@
  * type-only imports do not count.
  */
 
-import type { Branch, Leaf, MountScope } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
+import type { Branch, Leaf, MountScope } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
 
 /**
  * Shadow DOM mode for the custom element.
@@ -30,7 +30,7 @@ export type ShadowMode = 'open' | 'closed' | 'none'
 
 export interface DefineOptions {
   shadowMode?: ShadowMode
-  /** When true, connectedCallback checks window.__scribe_state__[name] and calls the injected hydrate fn. Plan 3.2. */
+  /** When true, connectedCallback checks window.__aihu_state__[name] and calls the injected hydrate fn. Plan 3.2. */
   hydrate?: boolean
 }
 
@@ -57,7 +57,7 @@ export type Setup = (ctx: SetupContext) => Branch | Leaf
 /**
  * Internal — signature of `mount` injected via `_setMount`.
  *
- * Spec §2.4 forbids source-level *value* imports from `@scribe/arbor`,
+ * Spec §2.4 forbids source-level *value* imports from `@aihu/arbor`,
  * so `defineComponent` cannot statically `import { mount }`. The
  * consumer wires it once via `_setMount(mount)` at app boot. Tests
  * and integration tests do the same.

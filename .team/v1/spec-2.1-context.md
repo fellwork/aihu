@@ -1,4 +1,4 @@
-# spec-2.1-context.md — `@scribe/context` Implementation Spec
+# spec-2.1-context.md — `@aihu/context` Implementation Spec
 
 **STATUS: READY FOR BUILDER**
 
@@ -15,7 +15,7 @@
 
 ## §1 Summary
 
-`@scribe/context` is a new scribe package providing typed context propagation across component trees. It offers the `createContext` / `provide` / `inject` triad familiar from React, Vue, and Solid, adapted to scribe's custom-element runtime and SSR model.
+`@aihu/context` is a new aihu package providing typed context propagation across component trees. It offers the `createContext` / `provide` / `inject` triad familiar from React, Vue, and Solid, adapted to aihu's custom-element runtime and SSR model.
 
 **What it does:**
 - Creates opaque typed tokens (`ContextToken<T>`) that uniquely identify a context value kind.
@@ -26,7 +26,7 @@
 
 **What it does NOT do:**
 - No DOM traversal. Zero references to `window`, `document`, `Element`, `parentElement`, or any DOM API.
-- No `@scribe/arbor` coupling. The package does not import from arbor.
+- No `@aihu/arbor` coupling. The package does not import from arbor.
 - No automatic reactivity on context changes. If a caller wants reactive context, they provide a `Signal<T>` as the context value. The context system itself is not reactive — it is a synchronous map lookup during setup.
 - No parent-to-child context propagation threading through nested components in the browser at v1. Each component receives its own fresh context map during setup; cross-component provider/inject works only when both components are in the same setup call chain (SSR), or when the parent explicitly sets up context in the same synchronous window (see §5). DOM-hierarchy-based inheritance (walk `parentElement` to find the nearest `provide`) is deferred to v1.1.
 - No `ContextError` throw on missing provider. `inject()` returns `undefined` (or the `createContext` default) silently. Application code that requires a provider must check the return value.
@@ -38,23 +38,23 @@
 ### Package identity
 
 ```
-name:     @scribe/context
+name:     @aihu/context
 location: packages/context/
 ```
 
 ### Dependencies
 
-`@scribe/context` has **zero runtime dependencies**. It does not import from `@scribe/signals`, `@scribe/arbor`, or any other scribe package.
+`@aihu/context` has **zero runtime dependencies**. It does not import from `@aihu/signals`, `@aihu/arbor`, or any other aihu package.
 
-Rationale: The context system operates exclusively on a `Map<symbol, unknown>` (standard JS built-in). It never reads or writes reactive signals internally. If a caller stores a `Signal<T>` as a context value by calling `provide(token, mySignal)`, the context system is transparent to that — it stores and returns the tuple unchanged. No signal primitives are needed inside `@scribe/context`.
+Rationale: The context system operates exclusively on a `Map<symbol, unknown>` (standard JS built-in). It never reads or writes reactive signals internally. If a caller stores a `Signal<T>` as a context value by calling `provide(token, mySignal)`, the context system is transparent to that — it stores and returns the tuple unchanged. No signal primitives are needed inside `@aihu/context`.
 
-The `Signal` type from `@scribe/signals` appears in documentation and examples but is never imported in the context package source.
+The `Signal` type from `@aihu/signals` appears in documentation and examples but is never imported in the context package source.
 
 ### `package.json` shape
 
 ```json
 {
-  "name": "@scribe/context",
+  "name": "@aihu/context",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -79,7 +79,7 @@ The `Signal` type from `@scribe/signals` appears in documentation and examples b
 }
 ```
 
-No `dependencies` field. (Mirrors `@scribe/signals/package.json` exactly, with the addition of the `./ssr` export condition.)
+No `dependencies` field. (Mirrors `@aihu/signals/package.json` exactly, with the addition of the `./ssr` export condition.)
 
 ### Bundle budget
 
@@ -88,20 +88,20 @@ No `dependencies` field. (Mirrors `@scribe/signals/package.json` exactly, with t
 - Entry in `.size-limit.json`:
   ```json
   {
-    "name": "@scribe/context",
+    "name": "@aihu/context",
     "path": "packages/context/dist/index.js",
     "limit": "300 B",
     "gzip": true
   }
   ```
 
-Note: At the time of writing, `.size-limit.json` already has `@scribe/agent` at `200 B` (F-1 was pre-fixed at HEAD). The Builder adds only the `@scribe/context` row.
+Note: At the time of writing, `.size-limit.json` already has `@aihu/agent` at `200 B` (F-1 was pre-fixed at HEAD). The Builder adds only the `@aihu/context` row.
 
 ### vitest alias entry
 
 Add to `vitest.config.ts` `resolve.alias`:
 ```typescript
-'@scribe/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
+'@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
 ```
 
 ---
@@ -218,14 +218,14 @@ export function runWithContext<R>(map: ContextMap, fn: () => R): R
  * Set the SSR context map. Called by renderToString/renderToStream before
  * the virtual tree walk begins, and called with null after.
  *
- * This function is exported from the `@scribe/context/ssr` subpath, NOT
- * from the main `@scribe/context` barrel. @scribe/server accesses it only
+ * This function is exported from the `@aihu/context/ssr` subpath, NOT
+ * from the main `@aihu/context` barrel. @aihu/server accesses it only
  * via the contextSetup callback in SsrOptions (the application entry point
- * imports it directly from @scribe/context/ssr and passes it as the callback).
- * This preserves the hard boundary: @scribe/server never imports from
- * @scribe/context at the module level.
+ * imports it directly from @aihu/context/ssr and passes it as the callback).
+ * This preserves the hard boundary: @aihu/server never imports from
+ * @aihu/context at the module level.
  *
- * @internal — for use by @scribe/server integration and runWithContext only
+ * @internal — for use by @aihu/server integration and runWithContext only
  */
 export function setSsrContextMap(map: ReadonlyMap<symbol, unknown> | null): void
 ```
@@ -353,9 +353,9 @@ The Director offered two paths (director note §5.2). This spec selects **Option
 
 Rationale:
 - Zero arbor changes needed. No new file in `packages/arbor/`.
-- `@scribe/context` remains dependency-free (no arbor import needed).
-- The runtime (`@scribe/runtime`) already uses the `_setMount` injection pattern for wiring arbor. Extending it with `_setContext` is symmetric and keeps all cross-package wiring in one place.
-- Scout finding B2 confirms `@scribe/arbor` is DOM-coupled; importing from it in a context package would violate the DOM-free constraint.
+- `@aihu/context` remains dependency-free (no arbor import needed).
+- The runtime (`@aihu/runtime`) already uses the `_setMount` injection pattern for wiring arbor. Extending it with `_setContext` is symmetric and keeps all cross-package wiring in one place.
+- Scout finding B2 confirms `@aihu/arbor` is DOM-coupled; importing from it in a context package would violate the DOM-free constraint.
 
 ### The `_setContext` injection pattern
 
@@ -368,16 +368,16 @@ type SetContextMapFn = (map: Map<symbol, unknown> | null) => void
 let _setContextMap: SetContextMapFn | null = null
 
 /**
- * Inject the setActiveContextMap function from @scribe/context.
+ * Inject the setActiveContextMap function from @aihu/context.
  * Must be called once at app boot, alongside _setMount.
  *
  * If not called, context is simply unavailable (provide/inject no-op).
- * This keeps @scribe/context optional — apps that don't use context
+ * This keeps @aihu/context optional — apps that don't use context
  * skip this wiring entirely.
  *
  * Wiring:
- *   import { setActiveMap } from '@scribe/context/src/state'
- *   import { _setContext } from '@scribe/runtime/src/define-component'
+ *   import { setActiveMap } from '@aihu/context/src/state'
+ *   import { _setContext } from '@aihu/runtime/src/define-component'
  *   _setContext(setActiveMap)
  *
  * @internal
@@ -421,7 +421,7 @@ At v1, each component's `connectedCallback` creates a **fresh, empty** `Map<symb
 
 Concretely: if `ParentComponent` calls `provide(ThemeToken, 'dark')` in its setup, and `ChildComponent` calls `inject(ThemeToken)` in its setup, the child receives `undefined` (or the token default). The two setup invocations happen in separate `connectedCallback` calls, each with their own fresh map.
 
-**v1.1** will address this by threading the parent's context map through to child setup via a DOM walk (`closest('[data-scribe-ctx]')`) or by the runtime tracking the currently mounted scope's context map in a parent chain. This is explicitly out of scope for Plan 2.1.
+**v1.1** will address this by threading the parent's context map through to child setup via a DOM walk (`closest('[data-aihu-ctx]')`) or by the runtime tracking the currently mounted scope's context map in a parent chain. This is explicitly out of scope for Plan 2.1.
 
 **What does work at v1:**
 - SSR context: the server builds a full map and all `inject()` calls during the render walk read from it.
@@ -436,9 +436,9 @@ An app that uses context must wire up `_setContext` alongside `_setMount`:
 
 ```typescript
 // app/boot.ts
-import { mount } from '@scribe/arbor'
-import { _setMount, _setContext } from '@scribe/runtime/src/define-component'
-import { setActiveMap } from '@scribe/context/src/state'
+import { mount } from '@aihu/arbor'
+import { _setMount, _setContext } from '@aihu/runtime/src/define-component'
+import { setActiveMap } from '@aihu/context/src/state'
 
 _setMount(mount)
 _setContext(setActiveMap)
@@ -462,7 +462,7 @@ export interface SsrOptions {
    * Context map for SSR rendering. Values in this map are available to
    * inject() calls made during the synchronous renderToString tree walk.
    *
-   * Callers may also use runWithContext() from @scribe/context to wrap
+   * Callers may also use runWithContext() from @aihu/context to wrap
    * renderToString instead of using this field — both patterns are valid.
    *
    * @example
@@ -476,13 +476,13 @@ export interface SsrOptions {
    * Optional hook called immediately before the render walk begins.
    * Use to call setSsrContextMap() when you cannot use contextMap directly.
    *
-   * This hook preserves the hard package boundary: @scribe/server never
-   * imports @scribe/context at the module level. The application entry
-   * point imports setSsrContextMap from @scribe/context/ssr and passes
+   * This hook preserves the hard package boundary: @aihu/server never
+   * imports @aihu/context at the module level. The application entry
+   * point imports setSsrContextMap from @aihu/context/ssr and passes
    * it wrapped in this callback.
    *
    * @example
-   *   import { setSsrContextMap } from '@scribe/context/ssr'
+   *   import { setSsrContextMap } from '@aihu/context/ssr'
    *   await renderToString(component, {
    *     contextSetup: () => setSsrContextMap(myMap),
    *   })
@@ -526,7 +526,7 @@ export async function renderToString(
   } finally {
     reader.releaseLock()
     // Clear SSR context after render completes — prevents cross-request leakage.
-    // @scribe/server does NOT import setSsrContextMap directly.
+    // @aihu/server does NOT import setSsrContextMap directly.
     // Clearing is the responsibility of the contextSetup caller (who set it).
     // The recommended pattern (runWithContext) handles this automatically via finally.
   }
@@ -537,8 +537,8 @@ export async function renderToString(
 **Recommended primary pattern for SSR callers** — `runWithContext`:
 
 ```typescript
-import { runWithContext } from '@scribe/context'
-import { renderToString } from '@scribe/server'
+import { runWithContext } from '@aihu/context'
+import { renderToString } from '@aihu/server'
 
 const map = new Map()
 map.set(ThemeToken._id, 'dark')
@@ -552,19 +552,19 @@ This is the **primary documented API** because:
 - It composes with any async operation, not just `renderToString`.
 - The caller manages the map's lifetime explicitly.
 - No changes to `renderToString` are required for the basic use case.
-- `@scribe/server` does not need to import anything from `@scribe/context`.
+- `@aihu/server` does not need to import anything from `@aihu/context`.
 
 The `contextSetup` hook in `SsrOptions` is the **escape hatch** for situations where the caller cannot wrap `renderToString` in a function (e.g., when using a third-party framework adapter that calls `renderToString` internally).
 
 ### Hard boundary preservation
 
-`@scribe/server` **never imports from `@scribe/context`** at the module level. The `contextSetup` hook pattern means the application entry point does the import and the server just calls the callback. The `contextMap` field is typed as `ReadonlyMap<unknown, unknown>` — a standard TypeScript built-in type, no cross-package import needed.
+`@aihu/server` **never imports from `@aihu/context`** at the module level. The `contextSetup` hook pattern means the application entry point does the import and the server just calls the callback. The `contextMap` field is typed as `ReadonlyMap<unknown, unknown>` — a standard TypeScript built-in type, no cross-package import needed.
 
 The package dependency graph remains:
 
 ```
-@scribe/context    ← no deps
-@scribe/server     ← no @scribe/context import (uses callback injection only)
+@aihu/context    ← no deps
+@aihu/server     ← no @aihu/context import (uses callback injection only)
 ```
 
 ---
@@ -596,18 +596,18 @@ effect(() => {
 
 ### DOM freedom constraint
 
-`@scribe/context` source files must contain **zero references to**:
+`@aihu/context` source files must contain **zero references to**:
 - `window`
 - `document`
 - `Element`, `HTMLElement`, `ShadowRoot`, `Node`
 - `parentElement`, `closest`, `getAttribute`, `setAttribute`
 - Any browser global
 
-This constraint enables `@scribe/context` to run in Workers, Deno, Bun, and pure Node.js without any polyfills or `jsdom`. Tests 9 and 10 (see §8) must use `/* @vitest-environment node */` to mechanically verify this.
+This constraint enables `@aihu/context` to run in Workers, Deno, Bun, and pure Node.js without any polyfills or `jsdom`. Tests 9 and 10 (see §8) must use `/* @vitest-environment node */` to mechanically verify this.
 
 ### No arbor import
 
-`@scribe/context` source must have **zero imports from `@scribe/arbor`**. Not even `import type`. The only context-adjacent arbor change in this plan is the addition of `_setContext` to `@scribe/runtime/src/define-component.ts`, which `@scribe/runtime` owns.
+`@aihu/context` source must have **zero imports from `@aihu/arbor`**. Not even `import type`. The only context-adjacent arbor change in this plan is the addition of `_setContext` to `@aihu/runtime/src/define-component.ts`, which `@aihu/runtime` owns.
 
 ### Nested component isolation (v1)
 
@@ -783,7 +783,7 @@ packages/context/
     index.ts            [CREATE — public barrel]
     types.ts            [CREATE — ContextToken<T>, ContextMap]
     state.ts            [CREATE — _activeMap, _ssrMap slots + getters/setters]
-    ssr.ts              [CREATE — setSsrContextMap, exported as @scribe/context/ssr]
+    ssr.ts              [CREATE — setSsrContextMap, exported as @aihu/context/ssr]
   tests/
     context.test.ts     [CREATE — 10+ test cases from §8]
 ```
@@ -802,7 +802,7 @@ packages/context/
 }
 ```
 
-Note: no `"lib"` override. `@scribe/context` is DOM-free, so inheriting the base `lib: ["ES2022", "DOM", "DOM.Iterable"]` is fine — having the DOM types available does not mean the code uses them. The no-DOM constraint is enforced by the test environment (T9, T10) and code review, not by tsconfig.
+Note: no `"lib"` override. `@aihu/context` is DOM-free, so inheriting the base `lib: ["ES2022", "DOM", "DOM.Iterable"]` is fine — having the DOM types available does not mean the code uses them. The no-DOM constraint is enforced by the test environment (T9, T10) and code review, not by tsconfig.
 
 ### `packages/context/rolldown.config.ts` [CREATE]
 
@@ -835,14 +835,14 @@ language: typescript
 layer: library
 ```
 
-No `dependsOn` because `@scribe/context` has zero workspace dependencies. (If the dependency on `@scribe/signals` were added for types, `dependsOn: ['signals']` would be needed, but it is not needed at v1.)
+No `dependsOn` because `@aihu/context` has zero workspace dependencies. (If the dependency on `@aihu/signals` were added for types, `dependsOn: ['signals']` would be needed, but it is not needed at v1.)
 
 ### Root `vitest.config.ts` [MODIFY]
 
 Add to `resolve.alias` block:
 
 ```typescript
-'@scribe/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
+'@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
 ```
 
 ### Root `.size-limit.json` [MODIFY]
@@ -851,7 +851,7 @@ Add one row (agent limit fix was already applied at HEAD):
 
 ```json
 {
-  "name": "@scribe/context",
+  "name": "@aihu/context",
   "path": "packages/context/dist/index.js",
   "limit": "300 B",
   "gzip": true
@@ -917,23 +917,23 @@ Target: 200 B gz. Estimate: ~160 B gz. Hard limit: 300 B gz. **Fits.**
 ## Appendix: Dependency graph after Plan 2.1
 
 ```
-@scribe/signals          ← no deps
+@aihu/signals          ← no deps
     ↑
-@scribe/arbor            ← depends on signals
+@aihu/arbor            ← depends on signals
     ↑
-@scribe/runtime          ← _setMount dep on arbor (injected); _setContext dep on context (injected)
+@aihu/runtime          ← _setMount dep on arbor (injected); _setContext dep on context (injected)
     ↑
-@scribe/agent            ← no deps
-@scribe/context          ← no deps  ← NEW
+@aihu/agent            ← no deps
+@aihu/context          ← no deps  ← NEW
 
 ════════════ HARD BOUNDARY ════════════
 
-@scribe/server           ← no @scribe/context import (contextSetup callback pattern)
+@aihu/server           ← no @aihu/context import (contextSetup callback pattern)
     ↑
-@scribe/agent-readiness  ← depends on @scribe/server + @scribe/agent
+@aihu/agent-readiness  ← depends on @aihu/server + @aihu/agent
 ```
 
-`@scribe/context` sits above the hard boundary with zero imports from any other scribe package. `@scribe/server` remains below the hard boundary and never imports from `@scribe/context`.
+`@aihu/context` sits above the hard boundary with zero imports from any other aihu package. `@aihu/server` remains below the hard boundary and never imports from `@aihu/context`.
 
 ---
 

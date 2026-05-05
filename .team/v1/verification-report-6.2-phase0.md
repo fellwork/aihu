@@ -46,7 +46,7 @@ Both assignments are made atomically in the same `if` branch, so the closure-loc
 | AC-1e | `STALE` flag is still set unconditionally | PASS | Line 219: `sub.flags |= STALE` is unchanged and unconditional |
 | AC-1f | In `computed.ts`, `node.flags |= HAS_EFFECT_SUB` set on effect subscriber | PASS | Line 95: `{ hasEffectSub = true; node.flags |= HAS_EFFECT_SUB }` |
 | AC-2a | All tests pass | PASS | 255 tests passed (see below) |
-| AC-2b | `@scribe/signals` size ≤ 1700 B gz | PASS | 1.54 kB (160 B headroom) |
+| AC-2b | `@aihu/signals` size ≤ 1700 B gz | PASS | 1.54 kB (160 B headroom) |
 | AC-3a | `deep-propagation-100` p50 improvement vs 4.00 µs baseline | PASS | Manifest reports 3.27 µs p50 (mitata), ~18% improvement |
 | AC-3b | All 5 no-regression gates reported PASS in manifest | PASS | All 5 gates within floors (see bench section) |
 
@@ -67,7 +67,7 @@ All 255 tests pass. The build manifest reports 255 tests passing as well — con
 ### `bun run size`
 
 ```
-@scribe/signals
+@aihu/signals
   Size limit:  1.7 kB
   Size:        1.54 kB  (with all dependencies, minified and gzipped)
   Package size is 160 B less than limit

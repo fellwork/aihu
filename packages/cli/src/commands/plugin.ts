@@ -1,5 +1,5 @@
 /**
- * `scribe plugin <name>` — scaffold a plugin package skeleton.
+ * `aihu plugin <name>` — scaffold a plugin package skeleton.
  *
  * Creates `<name>/` under `targetDir` with:
  *   package.json, src/index.ts
@@ -25,13 +25,13 @@ export function scaffoldPlugin(name: string, targetDir: string): void {
     type: 'module',
     exports: { '.': './dist/index.js' },
     peerDependencies: {
-      '@scribe/plugin': 'latest',
+      '@aihu/plugin': 'latest',
     },
   }
   writeFileSync(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`, 'utf8')
 
   // src/index.ts
-  const indexTs = `import { definePlugin } from '@scribe/plugin'
+  const indexTs = `import { definePlugin } from '@aihu/plugin'
 
 export default definePlugin({
   name: '${name}',

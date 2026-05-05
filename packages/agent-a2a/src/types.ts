@@ -1,11 +1,11 @@
-import type { AgentService } from '@scribe/agent-service'
+import type { AgentService } from '@aihu/agent-service'
 
 export type { AgentService }
 
 export interface A2aAdapterOptions {
   /** URL prefix for all routes. Default: '' */
   prefix?: string
-  /** Agent name for the agent card. Default: 'scribe-agent-service' */
+  /** Agent name for the agent card. Default: 'aihu-agent-service' */
   name?: string
 }
 

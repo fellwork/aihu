@@ -1,14 +1,14 @@
 /**
- * `@scribe/agent-service` — type definitions (Plan 5.2).
+ * `@aihu/agent-service` — type definitions (Plan 5.2).
  *
  * `AgentManifest` is the MCP multi-tool manifest shape.
  * `AgentToolEntry` is the per-tool descriptor.
  * `AgentServiceOptions` configures `createAgentService`.
- * Re-uses `InputSchema` and `ActionSchema` from `@scribe/agent`.
+ * Re-uses `InputSchema` and `ActionSchema` from `@aihu/agent`.
  */
-export type { ActionSchema, InputSchema } from '@scribe/agent'
+export type { ActionSchema, InputSchema } from '@aihu/agent'
 
-import type { AgentMetadata } from '@scribe/agent'
+import type { AgentMetadata } from '@aihu/agent'
 
 /**
  * Per-tool entry in an `AgentManifest`.
@@ -20,9 +20,9 @@ export interface AgentToolEntry {
   /** Custom-element tag, identical to `name`. */
   tag: string
   /** Input fields declared on the component. */
-  inputs: Record<string, import('@scribe/agent').InputSchema>
+  inputs: Record<string, import('@aihu/agent').InputSchema>
   /** Callable actions declared on the component. */
-  actions: Record<string, import('@scribe/agent').ActionSchema>
+  actions: Record<string, import('@aihu/agent').ActionSchema>
 }
 
 /**
@@ -57,7 +57,7 @@ export interface AgentService {
   handleToolCall(toolName: string, params: unknown): Promise<unknown>
   /**
    * Returns a fetch-compatible middleware function.
-   * Handles `POST /__scribe/tools/call` with `{ tool, params }` JSON body.
+   * Handles `POST /__aihu/tools/call` with `{ tool, params }` JSON body.
    * Returns `null` for non-matching requests (pass-through).
    */
   asMiddleware(): (req: Request) => Promise<Response | null>

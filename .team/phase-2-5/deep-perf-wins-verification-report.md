@@ -1,4 +1,4 @@
-# Verification report — `@scribe/signals` Deep Perf Wins (size-relaxed)
+# Verification report — `@aihu/signals` Deep Perf Wins (size-relaxed)
 
 **Verifier:** independent (read-only)
 **Date:** 2026-04-28
@@ -184,21 +184,21 @@ Verifier ran the full command suite and recorded outputs verbatim.
 
 ```
 === Run 1 ===
-  cellx × @scribe/signals … 1.21 µs p50 · 752.67K ops/s
-  wide-fanout-100 × @scribe/signals … 9.20 µs p50 · 99.32K ops/s
-  batched-writes-100 × @scribe/signals … 5.76 µs p50 · 163.20K ops/s
+  cellx × @aihu/signals … 1.21 µs p50 · 752.67K ops/s
+  wide-fanout-100 × @aihu/signals … 9.20 µs p50 · 99.32K ops/s
+  batched-writes-100 × @aihu/signals … 5.76 µs p50 · 163.20K ops/s
 === Run 2 ===
-  cellx × @scribe/signals … 1.17 µs p50 · 731.64K ops/s
-  wide-fanout-100 × @scribe/signals … 9.85 µs p50 · 95.97K ops/s
-  batched-writes-100 × @scribe/signals … 5.20 µs p50 · 176.77K ops/s
+  cellx × @aihu/signals … 1.17 µs p50 · 731.64K ops/s
+  wide-fanout-100 × @aihu/signals … 9.85 µs p50 · 95.97K ops/s
+  batched-writes-100 × @aihu/signals … 5.20 µs p50 · 176.77K ops/s
 === Run 3 ===
-  cellx × @scribe/signals … 1.21 µs p50 · 723.41K ops/s
-  wide-fanout-100 × @scribe/signals … 8.70 µs p50 · 103.44K ops/s
-  batched-writes-100 × @scribe/signals … 5.44 µs p50 · 175.45K ops/s
+  cellx × @aihu/signals … 1.21 µs p50 · 723.41K ops/s
+  wide-fanout-100 × @aihu/signals … 8.70 µs p50 · 103.44K ops/s
+  batched-writes-100 × @aihu/signals … 5.44 µs p50 · 175.45K ops/s
 === Run 4 ===
-  cellx × @scribe/signals … 1.18 µs p50 · 740.86K ops/s
-  wide-fanout-100 × @scribe/signals … 8.70 µs p50 · 108.28K ops/s
-  batched-writes-100 × @scribe/signals … 5.49 µs p50 · 163.89K ops/s
+  cellx × @aihu/signals … 1.18 µs p50 · 740.86K ops/s
+  wide-fanout-100 × @aihu/signals … 8.70 µs p50 · 108.28K ops/s
+  batched-writes-100 × @aihu/signals … 5.49 µs p50 · 163.89K ops/s
 ```
 
 4-run medians (sorted, midpoint of two middle values):
@@ -535,6 +535,6 @@ documented machine-offset rationale; no follow-up perf work is
 warranted on this branch. If Team Lead wants to enforce the strict
 8.6 µs ceiling, the path is a CI-machine bench rather than further
 optimisation, since alien-signals on the same machine is at 9.36 µs
-and scribe is at-or-ahead of alien on all three workloads.
+and aihu is at-or-ahead of alien on all three workloads.
 
 End of verification report.

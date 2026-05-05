@@ -1,4 +1,4 @@
-# Phase 4 build manifest — `@scribe/runtime`
+# Phase 4 build manifest — `@aihu/runtime`
 
 **Builder:** Phase 4 Builder (this session, 2026-04-30)
 **Branch:** `phase-4/runtime-implementation`
@@ -10,7 +10,7 @@
 
 | Task | Description | SHA | Status |
 |---|---|---|---|
-| 20 | Scaffold `@scribe/runtime` package | `3aa20d8` | DONE |
+| 20 | Scaffold `@aihu/runtime` package | `3aa20d8` | DONE |
 | 21a | Implement `defineElement` + 10 unit tests | `39b962f` | DONE |
 | 21b | Add `defineComponent` + 4 unit tests | `636857a` | DONE |
 | 22 | Integration tests (runtime + arbor + signals) | `58ad0c4` | DONE |
@@ -30,7 +30,7 @@ Per Learning #19 (Pattern B + per-task atomic commits) and Learning #20
 | `packages/runtime/package.json` | create — peerDeps on arbor + signals |
 | `packages/runtime/tsconfig.json` | create — extends base, explicit DOM lib |
 | `packages/runtime/moon.yml` | create — `layer: library` (Moon 2.x) |
-| `packages/runtime/rolldown.config.ts` | create — `external: [@scribe/arbor, @scribe/signals]`, `minify: true` |
+| `packages/runtime/rolldown.config.ts` | create — `external: [@aihu/arbor, @aihu/signals]`, `minify: true` |
 | `packages/runtime/src/index.ts` | create — empty stub |
 | `packages/runtime/src/types.ts` | create — `ShadowMode`, `DefineOptions`, `RuntimeError` (internal) |
 | `packages/runtime/src/define-element.ts` | create — stub throwing `'not implemented'` |
@@ -43,14 +43,14 @@ Per Learning #19 (Pattern B + per-task atomic commits) and Learning #20
 | `packages/runtime/src/define-element.ts` | implement — `wrapClass`, `defineElement`, `SHADOW_ROOT_SYM` |
 | `packages/runtime/src/index.ts` | export `defineElement` + types |
 | `packages/runtime/tests/define-element.test.ts` | create — 10 unit tests |
-| `.size-limit.json` | add `@scribe/runtime` row at 1024 B |
+| `.size-limit.json` | add `@aihu/runtime` row at 1024 B |
 
 ### Task 21b (`636857a`)
 
 | File | Action |
 |---|---|
 | `packages/runtime/src/define-component.ts` | create — `defineComponent`, `_setMount` |
-| `packages/runtime/src/types.ts` | add `SetupContext`, `Setup`, `MountFn`; type-only import of `Branch`/`Leaf`/`MountScope` from `@scribe/arbor` |
+| `packages/runtime/src/types.ts` | add `SetupContext`, `Setup`, `MountFn`; type-only import of `Branch`/`Leaf`/`MountScope` from `@aihu/arbor` |
 | `packages/runtime/src/index.ts` | re-export `defineComponent`, `Setup`, `SetupContext` |
 | `packages/runtime/tests/define-component.test.ts` | create — 4 unit tests |
 
@@ -59,7 +59,7 @@ Per Learning #19 (Pattern B + per-task atomic commits) and Learning #20
 | File | Action |
 |---|---|
 | `tests/integration/define-element-integration.test.ts` | create — 2 cross-package tests |
-| `tests/vitest.config.ts` | add `@scribe/runtime` alias (was already present at root vitest.config.ts) |
+| `tests/vitest.config.ts` | add `@aihu/runtime` alias (was already present at root vitest.config.ts) |
 
 ### Build-manifest commit (this)
 
@@ -91,9 +91,9 @@ Per Learning #19 (Pattern B + per-task atomic commits) and Learning #20
 
 | Package | Size | Limit | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | 1.55 kB | 1.6 kB | 49 B |
-| `@scribe/arbor` | 1.28 kB | 2.05 kB | 766 B |
-| **`@scribe/runtime`** | **438 B** | **1.02 kB** | **586 B** |
+| `@aihu/signals` | 1.55 kB | 1.6 kB | 49 B |
+| `@aihu/arbor` | 1.28 kB | 2.05 kB | 766 B |
+| **`@aihu/runtime`** | **438 B** | **1.02 kB** | **586 B** |
 
 Runtime is well under both the 600 B target and 1024 B budget.
 
@@ -107,7 +107,7 @@ imports from arbor or signals; nothing to inline).
 
 ## Spec compliance — public API
 
-End-of-Phase-4 exports from `@scribe/runtime`:
+End-of-Phase-4 exports from `@aihu/runtime`:
 
 | Spec §1 | Symbol | Kind | Implemented at |
 |---|---|---|---|
@@ -134,15 +134,15 @@ from `define-element.ts` per Learning #13's 150-line module rule).
 ### Deviation B — `defineComponent` requires explicit `_setMount(mount)` wiring
 
 Spec §1.5 sketches `defineComponent(setup)` with no wiring step. Spec
-§2.4 forbids source-level value imports from `@scribe/arbor`. The
-brief explicitly authorized either (a) dynamic `import('@scribe/arbor')`
+§2.4 forbids source-level value imports from `@aihu/arbor`. The
+brief explicitly authorized either (a) dynamic `import('@aihu/arbor')`
 inside `connectedCallback` or (b) `mount` injected as a helper.
 
 I chose **(b) module-level setter `_setMount(mount)`** because:
 - Keeps `connectedCallback` synchronous (no async-lifecycle hazard
   where `el.remove()` could race the dynamic-import promise).
 - Strict §2.4 compliance — zero source-level value imports from
-  `@scribe/arbor`. The dist contains no static `import` statement
+  `@aihu/arbor`. The dist contains no static `import` statement
   resolving to arbor.
 - 1 KB budget: 438 B gz with both `defineElement` and `defineComponent`,
   586 B headroom.
@@ -150,8 +150,8 @@ I chose **(b) module-level setter `_setMount(mount)`** because:
 Cost: one line of friction at app boot:
 
 ```ts
-import { mount } from '@scribe/arbor'
-import { _setMount } from '@scribe/runtime'
+import { mount } from '@aihu/arbor'
+import { _setMount } from '@aihu/runtime'
 _setMount(mount)
 ```
 
@@ -179,7 +179,7 @@ This is the same shape Phase 3 settled on. No public surface change.
 Although §1 says 3 public exports, the realized count is 5 values+types
 in `index.ts` (defineElement, defineComponent, DefineOptions, ShadowMode,
 Setup, SetupContext). `_setMount` is internal, not in `index.ts` —
-consumers reach it via `'@scribe/runtime/src/define-component.ts'`
+consumers reach it via `'@aihu/runtime/src/define-component.ts'`
 directly. This is the documented Phase 3 internal-export pattern
 (arbor's `_setMountObserver` follows the same model).
 
@@ -190,7 +190,7 @@ directly. This is the documented Phase 3 internal-export pattern
 - `.github/workflows/plan-a.yml` triggers commented out for v0 (post-
   Phase-3 director note). Spec §3.6's branch-glob fix is moot until
   v1 re-enables CI. No action.
-- Root `vitest.config.ts` already has `@scribe/runtime` alias — no
+- Root `vitest.config.ts` already has `@aihu/runtime` alias — no
   action.
 - Integration `tests/vitest.config.ts` did NOT have it — added in Task
   22's commit.

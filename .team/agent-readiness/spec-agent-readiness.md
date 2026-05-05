@@ -1,4 +1,4 @@
-# Spec — Agent-Readiness + Server Layer (`@scribe/server` + `@scribe/agent-readiness`)
+# Spec — Agent-Readiness + Server Layer (`@aihu/server` + `@aihu/agent-readiness`)
 
 **Author:** Architect (Agent-Readiness track)
 **Date:** 2026-04-30
@@ -25,9 +25,9 @@ References:
 ┌─────────────────────────────────────────────────────────────┐
 │  BROWSER (client runtime) — ≤ 4 kB total, LOCKED           │
 │                                                             │
-│  @scribe/signals  @scribe/arbor  @scribe/runtime            │
+│  @aihu/signals  @aihu/arbor  @aihu/runtime            │
 │      1.53 kB          1.28 kB        438 B                  │
-│                    @scribe/agent                            │
+│                    @aihu/agent                            │
 │                        72 B                                 │
 │                                                             │
 │  Dependency direction: signals ← arbor ← runtime           │
@@ -35,18 +35,18 @@ References:
 └─────────────────────────────────────────────────────────────┘
            NO IMPORTS CROSS THIS LINE (hard boundary)
 ┌─────────────────────────────────────────────────────────────┐
-│  SERVER LAYER — @scribe/server (new)                        │
+│  SERVER LAYER — @aihu/server (new)                        │
 │  Fetch-API only. Universal edge. No size constraint.        │
 │                                                             │
 │  router · middleware · api · ssr · data · config            │
 │                                                             │
-│  Imports: ZERO from @scribe/{signals,arbor,runtime}         │
-│  MAY import: @scribe/agent (read-only AgentMetadata types)  │
+│  Imports: ZERO from @aihu/{signals,arbor,runtime}         │
+│  MAY import: @aihu/agent (read-only AgentMetadata types)  │
 └─────────────────────────────────────────────────────────────┘
            DEPENDS ON SERVER LAYER
 ┌─────────────────────────────────────────────────────────────┐
-│  AGENT-READINESS LAYER — @scribe/agent-readiness (new)      │
-│  Builds on @scribe/server primitives.                       │
+│  AGENT-READINESS LAYER — @aihu/agent-readiness (new)      │
+│  Builds on @aihu/server primitives.                       │
 │  Pure functions + fetch-API handlers. No global state.      │
 │                                                             │
 │  llms-txt · mcp-server-card · robots · content-negotiation  │
@@ -57,36 +57,36 @@ References:
 **Dependency direction (strict, enforced by package.json `dependencies`):**
 
 ```
-@scribe/agent-readiness
-    → @scribe/server   (direct dependency)
-    → @scribe/agent    (direct dependency — read types only)
+@aihu/agent-readiness
+    → @aihu/server   (direct dependency)
+    → @aihu/agent    (direct dependency — read types only)
 
-@scribe/server
-    → @scribe/agent    (direct dependency — read types only)
+@aihu/server
+    → @aihu/agent    (direct dependency — read types only)
 
-@scribe/signals, @scribe/arbor, @scribe/runtime
+@aihu/signals, @aihu/arbor, @aihu/runtime
     — NEVER imported by server or agent-readiness layers
 ```
 
-The boundary is enforced structurally: `@scribe/server` and `@scribe/agent-readiness` do not list `@scribe/signals`, `@scribe/arbor`, or `@scribe/runtime` in their `package.json` `dependencies`. Any accidental import fails `tsc --noEmit` with TS2307 at CI time.
+The boundary is enforced structurally: `@aihu/server` and `@aihu/agent-readiness` do not list `@aihu/signals`, `@aihu/arbor`, or `@aihu/runtime` in their `package.json` `dependencies`. Any accidental import fails `tsc --noEmit` with TS2307 at CI time.
 
-`@scribe/agent` is allowed as a read-only dependency because it has zero imports of its own — it is a registry with no coupling to the client rendering primitives.
+`@aihu/agent` is allowed as a read-only dependency because it has zero imports of its own — it is a registry with no coupling to the client rendering primitives.
 
 ---
 
-## 2. Package A: `@scribe/server`
+## 2. Package A: `@aihu/server`
 
 ### 2.0 File layout
 
 ```
 packages/server/
-  package.json               name: "@scribe/server"
-                             deps: { "@scribe/agent": "workspace:*" }
+  package.json               name: "@aihu/server"
+                             deps: { "@aihu/agent": "workspace:*" }
                              peerDeps: none
   tsconfig.json              extends ../../tsconfig.base.json
                              lib: ["ES2022"]  — NO DOM
   moon.yml                   layer: library
-  rolldown.config.ts         ESM + dts; external: ["@scribe/agent"]
+  rolldown.config.ts         ESM + dts; external: ["@aihu/agent"]
   src/
     index.ts                 public re-exports, no logic
     types.ts                 RouteContext, Next, RouteHandler, Middleware, HttpMethod
@@ -95,7 +95,7 @@ packages/server/
     api.ts                   defineApiRoute, json, notFound, methodNotAllowed, badRequest, serverError
     ssr.ts                   renderToString, SsrOptions, HeadConfig, MetaTag, LinkTag
     data.ts                  defineLoader, LoaderResult, LoaderFn, DefinedLoader
-    config.ts                defineScribeConfig, ScribeConfig, ServerConfig, CorsConfig, RouteConfig
+    config.ts                defineAihuConfig, AihuConfig, ServerConfig, CorsConfig, RouteConfig
     agent-readiness-config.ts AgentReadinessConfig mirror (internal)
 ```
 
@@ -184,7 +184,7 @@ export function defineRoute<T>(
 /**
  * Shape of the route manifest produced by the file-based routing
  * Vite plugin at build time. The runtime router only consumes this
- * shape — no filesystem or Vite dependency in @scribe/server.
+ * shape — no filesystem or Vite dependency in @aihu/server.
  */
 export interface RouteManifest {
   readonly routes: ReadonlyArray<Route>
@@ -284,11 +284,11 @@ export function serverError(err?: unknown): Response
 ```typescript
 /**
  * CRITICAL CONSTRAINTS:
- * 1. Zero imports from @scribe/arbor, @scribe/signals, @scribe/runtime.
+ * 1. Zero imports from @aihu/arbor, @aihu/signals, @aihu/runtime.
  * 2. Zero DOM globals (no window, document, HTMLElement, customElements).
  * 3. Runs in: Workers, Deno, Bun, Node ESM.
  *
- * Connection to @scribe/arbor's MountScope.serialize() stub:
+ * Connection to @aihu/arbor's MountScope.serialize() stub:
  * The `SsrOptions.serializer` field accepts an injected serialize function.
  * In v0 the stub always throws ArborNotImplementedError; the spec path is
  * wired for sub-project #6. This module never imports arbor.
@@ -322,7 +322,7 @@ export interface SsrOptions {
 
   /**
    * When true: rendered HTML includes hydration markers as data attributes:
-   *   `data-scribe-path="{rootId}.{indexChain}.{bindingKind}"`
+   *   `data-aihu-path="{rootId}.{indexChain}.{bindingKind}"`
    * Matches the arbor §2.7 path-key format exactly.
    * Default: false.
    */
@@ -416,30 +416,30 @@ export interface RouteConfig {
   readonly manifestPath?: string
 }
 
-export interface ScribeConfig {
+export interface AihuConfig {
   readonly server?: ServerConfig
   readonly agent?: import('./agent-readiness-config.ts').AgentReadinessConfig
   readonly routes?: RouteConfig
 }
 
 /**
- * Define the scribe application configuration.
+ * Define the aihu application configuration.
  *
  * IMPORTANT: BUILD-TIME ONLY. Not bundled into or available at edge
  * execution time. For runtime-dynamic configuration, call individual
  * generator functions directly in route handlers.
  *
  * @example
- * // scribe.config.ts
- * export default defineScribeConfig({
+ * // aihu.config.ts
+ * export default defineAihuConfig({
  *   server: { cors: { origin: '*' } },
  *   agent: { name: 'My App', version: '1.0.0', endpoint: 'https://myapp.workers.dev/mcp' },
  * })
  */
-export function defineScribeConfig(config: ScribeConfig): ScribeConfig
+export function defineAihuConfig(config: AihuConfig): AihuConfig
 ```
 
-**`src/agent-readiness-config.ts`** is a slim internal module containing `AgentReadinessConfig` mirrored from `@scribe/agent-readiness/src/types.ts`. Interface-only — no implementation. Both files carry the comment: `// Mirror of @scribe/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.`
+**`src/agent-readiness-config.ts`** is a slim internal module containing `AgentReadinessConfig` mirrored from `@aihu/agent-readiness/src/types.ts`. Interface-only — no implementation. Both files carry the comment: `// Mirror of @aihu/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.`
 
 ### 2.8 `src/index.ts`
 
@@ -454,27 +454,27 @@ export type { MetaTag, LinkTag, HeadConfig, SsrOptions, ComponentDescription } f
 export { renderToString } from './ssr.ts'
 export type { LoaderResult, LoaderFn, DefinedLoader, LoadedRouteContext } from './data.ts'
 export { defineLoader } from './data.ts'
-export type { ServerConfig, CorsConfig, RouteConfig, ScribeConfig } from './config.ts'
-export { defineScribeConfig } from './config.ts'
+export type { ServerConfig, CorsConfig, RouteConfig, AihuConfig } from './config.ts'
+export { defineAihuConfig } from './config.ts'
 export type { AgentReadinessConfig } from './agent-readiness-config.ts'
 ```
 
 ---
 
-## 3. Package B: `@scribe/agent-readiness`
+## 3. Package B: `@aihu/agent-readiness`
 
 ### 3.0 File layout
 
 ```
 packages/agent-readiness/
-  package.json               name: "@scribe/agent-readiness"
+  package.json               name: "@aihu/agent-readiness"
                              deps: {
-                               "@scribe/server": "workspace:*",
-                               "@scribe/agent": "workspace:*"
+                               "@aihu/server": "workspace:*",
+                               "@aihu/agent": "workspace:*"
                              }
   tsconfig.json              extends ../../tsconfig.base.json, lib: ES2022
   moon.yml                   layer: library
-  rolldown.config.ts         ESM + dts; external: ["@scribe/server","@scribe/agent","vite"]
+  rolldown.config.ts         ESM + dts; external: ["@aihu/server","@aihu/agent","vite"]
   src/
     index.ts                 public re-exports + agentReadiness() Vite plugin export
     types.ts                 AgentReadinessConfig, McpAuthConfig
@@ -511,7 +511,7 @@ export interface McpAuthConfig {
 
 /**
  * Agent-readiness configuration.
- * Canonical source — @scribe/server mirrors this type internally.
+ * Canonical source — @aihu/server mirrors this type internally.
  * Minimum viable config: `{ name: 'My App' }`.
  */
 export interface AgentReadinessConfig {
@@ -606,7 +606,7 @@ export function generateLlmsFullTxt(config: LlmsTxtConfig): string
  * @internal
  */
 export function agentMetadataToLlmsTxtLink(
-  meta: import('@scribe/agent').AgentMetadata,
+  meta: import('@aihu/agent').AgentMetadata,
   baseUrl: string,
 ): LlmsTxtLink | null
 ```
@@ -702,7 +702,7 @@ export function generateMcpServerCard(config: McpServerCardConfig): McpServerCar
  * @internal
  */
 export function agentMetadataToSkills(
-  meta: import('@scribe/agent').AgentMetadata,
+  meta: import('@aihu/agent').AgentMetadata,
 ): ReadonlyArray<AgentSkill>
 ```
 
@@ -757,7 +757,7 @@ export function generateRobotsTxt(config: RobotsConfig): string
 ### 3.5 `src/content-negotiation.ts`
 
 ```typescript
-import type { Middleware } from '@scribe/server'
+import type { Middleware } from '@aihu/server'
 
 /**
  * Abstract interface for resolving markdown content from a URL path.
@@ -817,7 +817,7 @@ import type { AgentReadinessConfig } from './types.ts'
  *
  * configureServer (dev):
  * - Serves /llms.txt, /llms-full.txt, /.well-known/mcp/server-card.json, /robots.txt
- * Hot-reload: re-generates all four when a .scribe module is invalidated.
+ * Hot-reload: re-generates all four when a .aihu module is invalidated.
  *
  * generateBundle (build):
  * - Writes all four files as static assets to dist/
@@ -827,7 +827,7 @@ import type { AgentReadinessConfig } from './types.ts'
  *
  * @example
  * // vite.config.ts
- * import { agentReadiness } from '@scribe/agent-readiness'
+ * import { agentReadiness } from '@aihu/agent-readiness'
  * export default defineConfig({
  *   plugins: [agentReadiness({ name: 'My App', endpoint: '...' })]
  * })
@@ -852,10 +852,10 @@ export function agentReadiness(config: AgentReadinessConfig): Plugin
 export function createAgentReadinessRoutes(
   config: AgentReadinessConfig,
 ): {
-  readonly llmsTxt: import('@scribe/server').RouteHandler
-  readonly llmsFullTxt: import('@scribe/server').RouteHandler
-  readonly mcpServerCard: import('@scribe/server').RouteHandler
-  readonly robotsTxt: import('@scribe/server').RouteHandler
+  readonly llmsTxt: import('@aihu/server').RouteHandler
+  readonly llmsFullTxt: import('@aihu/server').RouteHandler
+  readonly mcpServerCard: import('@aihu/server').RouteHandler
+  readonly robotsTxt: import('@aihu/server').RouteHandler
 }
 ```
 
@@ -879,22 +879,22 @@ export { agentReadiness, createAgentReadinessRoutes } from './vite-plugin.ts'
 ## 4. Dependency Graph
 
 ```
-@scribe/signals      ← no deps
+@aihu/signals      ← no deps
     ↑
-@scribe/arbor        ← depends on signals
+@aihu/arbor        ← depends on signals
     ↑
-@scribe/runtime      ← peer deps: arbor, signals
+@aihu/runtime      ← peer deps: arbor, signals
     ↑
-@scribe/agent        ← no deps
+@aihu/agent        ← no deps
 
 ════════════ HARD BOUNDARY — ZERO IMPORTS CROSS DOWN ════════════
 
-@scribe/server       ← depends on @scribe/agent (types only)
+@aihu/server       ← depends on @aihu/agent (types only)
     ↑
-@scribe/agent-readiness  ← depends on @scribe/server + @scribe/agent
+@aihu/agent-readiness  ← depends on @aihu/server + @aihu/agent
 ```
 
-**Enforcement:** `@scribe/server` and `@scribe/agent-readiness` do not list `@scribe/signals`, `@scribe/arbor`, or `@scribe/runtime` in `package.json` `dependencies`. Any accidental cross-boundary import fails `tsc --noEmit` with TS2307 at CI time.
+**Enforcement:** `@aihu/server` and `@aihu/agent-readiness` do not list `@aihu/signals`, `@aihu/arbor`, or `@aihu/runtime` in `package.json` `dependencies`. Any accidental cross-boundary import fails `tsc --noEmit` with TS2307 at CI time.
 
 ---
 
@@ -1039,7 +1039,7 @@ done
 set -e
 FAIL=0
 for dir in packages/server/src packages/agent-readiness/src; do
-  for pkg in "@scribe/signals" "@scribe/arbor" "@scribe/runtime"; do
+  for pkg in "@aihu/signals" "@aihu/arbor" "@aihu/runtime"; do
     if grep -rqF "$pkg" "$dir" 2>/dev/null; then
       echo "FAIL: $dir imports $pkg"
       FAIL=1
@@ -1053,7 +1053,7 @@ done
 
 ```typescript
 // tests/integration/agent-context-unchanged.test.ts
-import { mount, leaf } from '@scribe/arbor'
+import { mount, leaf } from '@aihu/arbor'
 
 it('AC-8: MountScope.agent shape unchanged by agent-readiness', () => {
   const host = document.createElement('div')
@@ -1073,7 +1073,7 @@ it('AC-8: MountScope.agent shape unchanged by agent-readiness', () => {
 **Chosen:** Fetch-API. Universal (Workers, Deno, Bun, Node v22+). Zero-cost globals. Edge-aligned.
 **Alternative:** Express-style `(req, res)`. Rejected: Node-only; not on the thesis path.
 
-### 6.2 Separate packages vs. monolithic `@scribe/server`
+### 6.2 Separate packages vs. monolithic `@aihu/server`
 **Chosen:** Two packages. Apps without agent-readiness don't bundle it. Dependency direction is explicit.
 **Alternative:** Single package. Rejected: implicit coupling; harder tree-shaking.
 
@@ -1101,51 +1101,51 @@ it('AC-8: MountScope.agent shape unchanged by agent-readiness', () => {
 This spec specifies "before `</body>`". Sub-project #6 must confirm or override before implementing client-side hydration deserialization.
 
 **OQ-2 (HIGH) — File-based routing Vite plugin scope**
-`RouteManifest` shape is the stable contract. The Vite plugin that produces it belongs in a separate `@scribe/vite-plugin-router` package. Out of scope here.
+`RouteManifest` shape is the stable contract. The Vite plugin that produces it belongs in a separate `@aihu/vite-plugin-router` package. Out of scope here.
 
-**OQ-3 (MEDIUM) — `getAllAgentMetadata()` missing from `@scribe/agent` v0**
-Server-side llms.txt auto-generation needs to enumerate all registered components. `@scribe/agent` v0 only exports `getAgentMetadata(tag)`. A minor version bump adding `getAllAgentMetadata(): AgentMetadata[]` unblocks the auto-generation path. The Vite plugin can work at build time; the server route handler skips auto-generation until this is added.
+**OQ-3 (MEDIUM) — `getAllAgentMetadata()` missing from `@aihu/agent` v0**
+Server-side llms.txt auto-generation needs to enumerate all registered components. `@aihu/agent` v0 only exports `getAgentMetadata(tag)`. A minor version bump adding `getAllAgentMetadata(): AgentMetadata[]` unblocks the auto-generation path. The Vite plugin can work at build time; the server route handler skips auto-generation until this is added.
 
 **OQ-4 (MEDIUM) — MCP transport default: `streamable-http` vs `sse`**
 Defaults to `streamable-http` (MCP 2025-06-18 primary). If a target runtime compatibility issue is found during build, document in build manifest and surface.
 
 **OQ-5 (LOW) — `x-markdown-tokens` header standardization**
-Informal scribe extension as of 2026-04. Rename when/if an IETF/W3C standard lands.
+Informal aihu extension as of 2026-04. Rename when/if an IETF/W3C standard lands.
 
-**OQ-6 (LOW) — `defineScribeConfig` runtime availability**
+**OQ-6 (LOW) — `defineAihuConfig` runtime availability**
 Config is build-time only. For runtime-dynamic endpoint URLs, call `generateMcpServerCard` inside the route handler. Document in README.
 
 **OQ-7 (LOW) — `AgentReadinessConfig` type mirroring strategy**
-Mirrored in `@scribe/server/src/agent-readiness-config.ts`. Both files carry sync comment. Alternative (having server depend on agent-readiness for the type) reverses dependency direction — rejected.
+Mirrored in `@aihu/server/src/agent-readiness-config.ts`. Both files carry sync comment. Alternative (having server depend on agent-readiness for the type) reverses dependency direction — rejected.
 
 ---
 
 ## 8. Implementation Sequence
 
 **Phase 0 — No dependencies (fully parallel):**
-- [ ] `@scribe/server` package scaffold (package.json, tsconfig, moon.yml, rolldown.config.ts)
-- [ ] `@scribe/server/src/types.ts`
-- [ ] `@scribe/agent-readiness` package scaffold
-- [ ] `@scribe/agent-readiness/src/llms-txt.ts` + tests
-- [ ] `@scribe/agent-readiness/src/robots.ts` + tests
+- [ ] `@aihu/server` package scaffold (package.json, tsconfig, moon.yml, rolldown.config.ts)
+- [ ] `@aihu/server/src/types.ts`
+- [ ] `@aihu/agent-readiness` package scaffold
+- [ ] `@aihu/agent-readiness/src/llms-txt.ts` + tests
+- [ ] `@aihu/agent-readiness/src/robots.ts` + tests
 
 **Phase 1 — Depends on Phase 0:**
-- [ ] `@scribe/server/src/router.ts` + tests
-- [ ] `@scribe/server/src/middleware.ts` + tests
-- [ ] `@scribe/server/src/api.ts` + tests
-- [ ] `@scribe/server/src/ssr.ts` + tests
-- [ ] `@scribe/server/src/data.ts` + tests
-- [ ] `@scribe/agent-readiness/src/types.ts`
-- [ ] `@scribe/agent-readiness/src/mcp-server-card.ts` + tests
-- [ ] `@scribe/agent-readiness/src/content-negotiation.ts` + tests
+- [ ] `@aihu/server/src/router.ts` + tests
+- [ ] `@aihu/server/src/middleware.ts` + tests
+- [ ] `@aihu/server/src/api.ts` + tests
+- [ ] `@aihu/server/src/ssr.ts` + tests
+- [ ] `@aihu/server/src/data.ts` + tests
+- [ ] `@aihu/agent-readiness/src/types.ts`
+- [ ] `@aihu/agent-readiness/src/mcp-server-card.ts` + tests
+- [ ] `@aihu/agent-readiness/src/content-negotiation.ts` + tests
 
 **Phase 2 — Depends on Phase 1:**
-- [ ] `@scribe/server/src/config.ts` + `agent-readiness-config.ts`
-- [ ] `@scribe/server/src/index.ts` (barrel)
-- [ ] `@scribe/agent-readiness/src/index.ts` (barrel)
+- [ ] `@aihu/server/src/config.ts` + `agent-readiness-config.ts`
+- [ ] `@aihu/server/src/index.ts` (barrel)
+- [ ] `@aihu/agent-readiness/src/index.ts` (barrel)
 
 **Phase 3 — Depends on Phase 2 (integration + Vite):**
-- [ ] `@scribe/agent-readiness/src/vite-plugin.ts`
+- [ ] `@aihu/agent-readiness/src/vite-plugin.ts`
 - [ ] Integration tests: `createRouter` + `createContentNegotiationHandler`
 - [ ] AC-6 and AC-7 bundle inspection scripts
 

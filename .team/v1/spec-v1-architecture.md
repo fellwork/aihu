@@ -1,4 +1,4 @@
-# Scribe v1 — Architecture Specification
+# Aihu v1 — Architecture Specification
 
 **Status:** DRAFT — authoring session 2026-04-30
 **Prerequisite reading:** `.team/phase-3/spec-arbor.md`, `.team/agent-readiness/spec-agent-readiness.md`, `.team/compiler/plan-compiler.md`
@@ -14,7 +14,7 @@ Three architectural questions arose during v1 planning that need locked answers 
 2. **Data protocol** — how does the framework handle async state without locking to magna?
 3. **Dual-surface components** — how does one SFC serve both human UI interaction and agent programmatic interaction from the same signal graph?
 
-The answers here constrain the compiler (`<agent>` block grammar, codegen), the new packages (`@scribe/data`, `@scribe/context`, `@scribe/agent-service`), and the v1 reconciler. They must be agreed before any of those projects spec.
+The answers here constrain the compiler (`<agent>` block grammar, codegen), the new packages (`@aihu/data`, `@aihu/context`, `@aihu/agent-service`), and the v1 reconciler. They must be agreed before any of those projects spec.
 
 ---
 
@@ -23,38 +23,38 @@ The answers here constrain the compiler (`<agent>` block grammar, codegen), the 
 The full v1 stack is five layers. **Layers 0–3 are the framework. Layer 4 is adapters. No layer imports from a layer above it.**
 
 ```
-Layer 4 │ Adapters        @scribe/agent-service  @scribe/data-fetch  @fellwork/magna-scribe
-        │                 @scribe/agent-mcp       @scribe/data-ws     @scribe/agent-a2a
+Layer 4 │ Adapters        @aihu/agent-service  @aihu/data-fetch  @fellwork/magna-aihu
+        │                 @aihu/agent-mcp       @aihu/data-ws     @aihu/agent-a2a
         │                 (all optional, all swappable, none in browser bundle)
 ────────┤
-Layer 3 │ Surface         @scribe/agent           @scribe/data
+Layer 3 │ Surface         @aihu/agent           @aihu/data
         │                 AgentManifest + registry  createResource protocol
         │                 Declared capabilities     DataSource<T> interface
         │                 (agent block emits here)  (adapters satisfy here)
 ────────┤
-Layer 2 │ Runtime         @scribe/runtime         @scribe/context
+Layer 2 │ Runtime         @aihu/runtime         @aihu/context
         │                 defineComponent           provide / inject
         │                 defineElement             signal-keyed context tree
 ────────┤
-Layer 1 │ DOM             @scribe/arbor
+Layer 1 │ DOM             @aihu/arbor
         │                 branch / leaf / mount / when / each
         │                 path keys on every _mountEffect
 ────────┤
-Layer 0 │ Reactive        @scribe/signals
+Layer 0 │ Reactive        @aihu/signals
         │                 signal / computed / effect / batch / untrack
 ```
 
 **Hard rules:**
 - Layer 0–2 ship in the browser bundle. Size budget enforced by `size-limit`.
-- Layer 3 (`@scribe/agent`, `@scribe/data`) is browser-safe but not required in every app.
+- Layer 3 (`@aihu/agent`, `@aihu/data`) is browser-safe but not required in every app.
 - Layer 4 is **server/edge only**. None of it enters the browser bundle.
-- `@fellwork/magna-scribe` is not in `packages/` — it lives in a separate repo. Scribe has zero knowledge of magna.
+- `@fellwork/magna-aihu` is not in `packages/` — it lives in a separate repo. Aihu has zero knowledge of magna.
 
 ---
 
 ## 2. Component surfaces
 
-A `.scribe` SFC has three surfaces, all derived from one signal graph:
+A `.aihu` SFC has three surfaces, all derived from one signal graph:
 
 ```
 <script setup>   →   Signal Graph   →   <template>   (visual surface — for humans)
@@ -75,7 +75,7 @@ Nothing in the signal graph is automatically exposed to agents. The `<agent>` bl
 ### 3.1 TypeScript types
 
 ```typescript
-// @scribe/agent — public export in v1
+// @aihu/agent — public export in v1
 
 export interface AgentManifest {
   /** Custom element tag name. */
@@ -180,7 +180,7 @@ export type JSONSchema7 = {
 
 All three protocols can be satisfied by adapters that translate from `AgentManifest`:
 
-| Concern | MCP | A2A | ACP | Scribe manifest field |
+| Concern | MCP | A2A | ACP | Aihu manifest field |
 |---|---|---|---|---|
 | Capability advertisement | `tools[]` | AgentCard `skills[]` | `capabilities` | `actions` |
 | State observation | `resources[]` | Task streaming | Event streaming | `state` (streaming: true) |
@@ -207,7 +207,7 @@ The Layer 4 adapter negotiates: if the protocol expects sync and the action retu
 
 ## 4. `<agent>` block grammar
 
-The `<agent>` block is an optional fourth top-level block in a `.scribe` SFC alongside `<script setup>`, `<template>`, and `<style>`.
+The `<agent>` block is an optional fourth top-level block in a `.aihu` SFC alongside `<script setup>`, `<template>`, and `<style>`.
 
 ### 4.1 Grammar (EBNF sketch)
 
@@ -235,9 +235,9 @@ param          ::= IDENT ':' type-expr
 
 ### 4.2 Full example
 
-```scribe
+```aihu
 <script setup name="x-contact-form">
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [name, setName] = signal('')
 const [email, setEmail] = signal('')
@@ -298,7 +298,7 @@ async function submit() {
 
 ### 4.4 Compiler artifacts per component
 
-For every `.scribe` file with an `<agent>` block, the compiler emits three exports alongside the standard custom element class:
+For every `.aihu` file with an `<agent>` block, the compiler emits three exports alongside the standard custom element class:
 
 ```typescript
 // 1. Custom element — unchanged from v0
@@ -343,7 +343,7 @@ export function __agentBindings__(element: XContactForm): AgentBindings {
 }
 ```
 
-`AgentBindings` (runtime type, `@scribe/agent` v1):
+`AgentBindings` (runtime type, `@aihu/agent` v1):
 ```typescript
 export interface AgentBindings {
   tag: string
@@ -388,20 +388,20 @@ The `sets:` expansion looks up the setter for each named signal using the naming
 
 ---
 
-## 6. Data protocol — `@scribe/data`
+## 6. Data protocol — `@aihu/data`
 
 ### 6.1 Design constraints
 
 - Works with any async backend: REST, GraphQL, WebSocket, IndexedDB, magna, mock
-- Backend adapters live in separate packages (`@scribe/data-fetch`, `@fellwork/magna-scribe`, etc.)
+- Backend adapters live in separate packages (`@aihu/data-fetch`, `@fellwork/magna-aihu`, etc.)
 - Ships in the browser bundle — size budget ~0.4 kB gz
 - Signal-native: `DataState<T>` is a `Signal<...>`, not a separate observable
-- SSR-aware: server-fetched data serializes into `__scribe_state__`, client rehydrates without re-fetch
+- SSR-aware: server-fetched data serializes into `__aihu_state__`, client rehydrates without re-fetch
 
 ### 6.2 Core types
 
 ```typescript
-// @scribe/data — public surface
+// @aihu/data — public surface
 
 export type DataState<T> =
   | { readonly status: 'idle' }
@@ -454,31 +454,31 @@ export function createResource<T>(
 During SSR, `renderToString` collects all `DataSource` instances whose state is `'ready'` and serializes them keyed by their current key value:
 
 ```html
-<script type="application/json" id="__scribe_state__">
+<script type="application/json" id="__aihu_state__">
   { "resources": { "/api/user/1": { "status": "ready", "data": { "id": 1, "name": "Alice" } } } }
 </script>
 ```
 
-On the client, before any `createResource` fetcher fires, the runtime checks `__scribe_state__` for a matching key. If found, the resource initializes as `status: 'ready'` with the server-fetched data — no network round-trip.
+On the client, before any `createResource` fetcher fires, the runtime checks `__aihu_state__` for a matching key. If found, the resource initializes as `status: 'ready'` with the server-fetched data — no network round-trip.
 
 This is backend-agnostic: magna, REST, GraphQL, any adapter that uses `createResource` gets SSR dehydration for free.
 
 ### 6.4 Adapter pattern
 
 ```typescript
-// @scribe/data-fetch  (separate package, ~0.2 kB)
+// @aihu/data-fetch  (separate package, ~0.2 kB)
 export function fromFetch<T>(
   url: Signal<string | null>,
   options?: RequestInit,
 ): DataSource<T>
 
-// @fellwork/magna-scribe  (separate repo, not in scribe monorepo)
+// @fellwork/magna-aihu  (separate repo, not in aihu monorepo)
 export function fromMagna<T>(
   document: TypedDocumentNode<T>,
   variables: Signal<VariablesOf<T> | null>,
 ): DataSource<T>
 
-// @scribe/data-ws  (separate package)
+// @aihu/data-ws  (separate package)
 export function fromWebSocket<T>(
   url: Signal<string | null>,
   message: Signal<unknown>,
@@ -489,16 +489,16 @@ All adapters satisfy `DataSource<T>`. Components use `DataSource<T>` — they ne
 
 ---
 
-## 7. Context API — `@scribe/context`
+## 7. Context API — `@aihu/context`
 
-Required by both `@scribe/data` (cache store) and `@scribe/agent-service` (service handle). Unblocks both.
+Required by both `@aihu/data` (cache store) and `@aihu/agent-service` (service handle). Unblocks both.
 
 ### 7.1 Design
 
 Signal-based provide/inject. Context is a typed token. Providing creates a signal in the component tree; injecting subscribes to the nearest ancestor's signal.
 
 ```typescript
-// @scribe/context — ~0.2 kB gz
+// @aihu/context — ~0.2 kB gz
 
 export interface ContextToken<T> {
   readonly _brand: unique symbol
@@ -519,7 +519,7 @@ Context propagates through the custom element tree via a hidden attribute on the
 
 ---
 
-## 8. Agent service — `@scribe/agent-service`
+## 8. Agent service — `@aihu/agent-service`
 
 **Layer 4. Server/edge only. Zero browser bundle footprint.**
 
@@ -527,7 +527,7 @@ The agent service discovers mounted components (via the `AgentManifest` registry
 
 ### 8.1 Responsibilities
 
-- Enumerate all registered `AgentManifest` objects from `@scribe/agent`
+- Enumerate all registered `AgentManifest` objects from `@aihu/agent`
 - When a component mounts: call `__agentBindings__(element)` to get live bindings
 - When a component unmounts: release bindings (GC)
 - Route inbound protocol calls to the correct action binding
@@ -540,17 +540,17 @@ The agent service discovers mounted components (via the `AgentManifest` registry
 Each protocol is a separate package that takes an `AgentService` instance:
 
 ```typescript
-// @scribe/agent-mcp  — already partially done via @scribe/agent-readiness
+// @aihu/agent-mcp  — already partially done via @aihu/agent-readiness
 mountMcpAdapter(service: AgentService, options: McpOptions): void
 
-// @scribe/agent-a2a  — Google A2A protocol
+// @aihu/agent-a2a  — Google A2A protocol
 mountA2aAdapter(service: AgentService, options: A2aOptions): void
 
-// @scribe/agent-acp  — ACP protocol
+// @aihu/agent-acp  — ACP protocol
 mountAcpAdapter(service: AgentService, options: AcpOptions): void
 ```
 
-One `AgentService`, multiple protocol adapters. Adding a new protocol = new adapter package, no changes to components or `@scribe/agent`.
+One `AgentService`, multiple protocol adapters. Adding a new protocol = new adapter package, no changes to components or `@aihu/agent`.
 
 ---
 
@@ -558,28 +558,28 @@ One `AgentService`, multiple protocol adapters. Adding a new protocol = new adap
 
 | Package | Layer | Browser? | Size target | Unblocks |
 |---|---|---|---|---|
-| `@scribe/context` | 2 | ✓ | ~0.2 kB gz | `@scribe/data`, `@scribe/agent-service` |
-| `@scribe/data` | 3 | ✓ | ~0.4 kB gz | client data fetching, SSR rehydration |
-| `@scribe/agent-service` | 4 | ✗ | no constraint | A2A/ACP/MCP routing |
-| `@scribe/data-fetch` | 4 | ✓ (thin) | ~0.2 kB gz | fetch-backed resources |
-| `@scribe/agent-a2a` | 4 | ✗ | no constraint | A2A protocol |
-| `@scribe/agent-acp` | 4 | ✗ | no constraint | ACP protocol |
+| `@aihu/context` | 2 | ✓ | ~0.2 kB gz | `@aihu/data`, `@aihu/agent-service` |
+| `@aihu/data` | 3 | ✓ | ~0.4 kB gz | client data fetching, SSR rehydration |
+| `@aihu/agent-service` | 4 | ✗ | no constraint | A2A/ACP/MCP routing |
+| `@aihu/data-fetch` | 4 | ✓ (thin) | ~0.2 kB gz | fetch-backed resources |
+| `@aihu/agent-a2a` | 4 | ✗ | no constraint | A2A protocol |
+| `@aihu/agent-acp` | 4 | ✗ | no constraint | ACP protocol |
 
-`@fellwork/magna-scribe` is a separate repository. It depends on `@scribe/data` as a peer. No scribe package may import from it.
+`@fellwork/magna-aihu` is a separate repository. It depends on `@aihu/data` as a peer. No aihu package may import from it.
 
 ---
 
 ## 10. Browser bundle budget update
 
-Adding `@scribe/context` and `@scribe/data` to the client-side layer:
+Adding `@aihu/context` and `@aihu/data` to the client-side layer:
 
 | Package | v0 | v1 target | Delta |
 |---|---|---|---|
-| `@scribe/signals` | 1.55 kB | 1.55 kB | — |
-| `@scribe/arbor` + reconciler | 1.29 kB | ~1.8 kB | +0.5 kB (when/each) |
-| `@scribe/runtime` + HMR | 0.48 kB | ~0.6 kB | +0.1 kB |
-| `@scribe/context` | — | ~0.2 kB | new |
-| `@scribe/data` | — | ~0.4 kB | new |
+| `@aihu/signals` | 1.55 kB | 1.55 kB | — |
+| `@aihu/arbor` + reconciler | 1.29 kB | ~1.8 kB | +0.5 kB (when/each) |
+| `@aihu/runtime` + HMR | 0.48 kB | ~0.6 kB | +0.1 kB |
+| `@aihu/context` | — | ~0.2 kB | new |
+| `@aihu/data` | — | ~0.4 kB | new |
 | **Combined** | **3.46 kB** | **~4.55 kB** | +1.1 kB |
 
 The current 4.0 kB hard budget needs revisiting for v1. Proposed: raise browser layer budget to **5.0 kB gz**, retaining the "under 5 kB for the full reactive + DOM + data + context stack" positioning. This is still well under Svelte (~6 kB), Solid (~7 kB), Vue (~10 kB), React (~45 kB).
@@ -598,7 +598,7 @@ The v0 compiler (Phases C-0 through C-4) handles `<script setup>` and `<template
 | `<slot>` in template → slot element passthrough | C-5 | Slots |
 | Props via `defineProps()` → `observedAttributes` | C-5 | Component props |
 | TypeScript template type-checking | C-6 | TS-checked templates |
-| Source map: `.scribe` → `.ts` (deferred from C-4) | C-4 | Dev experience |
+| Source map: `.aihu` → `.ts` (deferred from C-4) | C-4 | Dev experience |
 
 ---
 
@@ -608,10 +608,10 @@ The v0 compiler (Phases C-0 through C-4) handles `<script setup>` and `<template
 |---|---|---|
 | OQ-V1 | Raise browser bundle budget from 4.0 → 5.0 kB gz? | All v1 browser packages |
 | OQ-V2 | `<agent>` block: YAML-style DSL vs. TypeScript annotations vs. auto-derived? | Compiler C-5, `AgentManifest` |
-| OQ-V3 | Context propagation mechanism: DOM attribute traversal vs. custom element registry? | `@scribe/context` |
-| OQ-V4 | `createResource` cache: module-level singleton vs. context-provided store? | `@scribe/data` |
+| OQ-V3 | Context propagation mechanism: DOM attribute traversal vs. custom element registry? | `@aihu/context` |
+| OQ-V4 | `createResource` cache: module-level singleton vs. context-provided store? | `@aihu/data` |
 | OQ-V5 | Streaming action return type: `AsyncIterable<T>` only, or also `ReadableStream<T>`? | `AgentActionDecl`, adapters |
-| OQ-V6 | SSR dehydration: opt-in per-resource or automatic for all `createResource` calls? | `@scribe/data`, SSR pass |
+| OQ-V6 | SSR dehydration: opt-in per-resource or automatic for all `createResource` calls? | `@aihu/data`, SSR pass |
 
 Recommended resolutions (not binding — Architect must ratify per spec):
 - OQ-V1: YES — 5.0 kB

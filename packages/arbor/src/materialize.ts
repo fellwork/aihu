@@ -1,4 +1,4 @@
-import type { Dispose } from '@scribe/signals'
+import type { Dispose } from '@aihu/signals'
 import { _applyAttrs, type MountEffectFn } from './attrs.ts'
 import { _materializeStructural } from './structural.ts'
 import type { ErrorHandler, Node } from './types.ts'

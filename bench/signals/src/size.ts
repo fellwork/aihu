@@ -6,7 +6,7 @@ import { transformSync } from 'esbuild'
 
 /**
  * Bundle-size methodology: minify with esbuild (matches size-limit's internal
- * approach), then gzip at level 9. This makes `@scribe/signals` directly
+ * approach), then gzip at level 9. This makes `@aihu/signals` directly
  * comparable to `bun run size`'s 698 B reading. Pre-minified ESM builds
  * (Vue's reactivity.esm-browser.prod, Solid's solid.js) pass through esbuild
  * cleanly without re-minification artifacts.
@@ -24,8 +24,8 @@ interface SizeRow {
 }
 
 const targets: Array<{ name: string; path: string }> = [
-  // For scribe we use the built dist that size-limit gates on.
-  { name: '@scribe/signals', path: resolve(ROOT, 'packages/signals/dist/index.js') },
+  // For aihu we use the built dist that size-limit gates on.
+  { name: '@aihu/signals', path: resolve(ROOT, 'packages/signals/dist/index.js') },
   // Competitors live in the bench workspace's node_modules (versions pinned).
   { name: 'alien-signals', path: resolve(BENCH_NM, 'alien-signals/esm/index.mjs') },
   {

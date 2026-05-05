@@ -35,7 +35,7 @@ The baseline arms are stable across runs. The packed arms are not. The single-ru
 
 The bench harness as run is **structurally invalid as an apples-to-apples comparison**:
 
-- The **baseline** workload imports through the published entrypoint `@scribe/signals` (i.e. mangled `dist/index.js`, post-build).
+- The **baseline** workload imports through the published entrypoint `@aihu/signals` (i.e. mangled `dist/index.js`, post-build).
 - The **packed** workload imports raw TypeScript source from `packages/signals/src/*.ts`.
 
 This asymmetry is not incidental. The packed path needs to share a `signal.ts` module instance with `packed-mode.ts` because the write-interceptor slot is **module-level mutable state** (`let _writeInterceptor: WriteInterceptorFn | null`). If the packed workload imported through `dist/index.js`, it would get a different module instance than `packed-mode.ts` and the interceptor wiring would silently no-op.
@@ -54,7 +54,7 @@ From the adjudication director-note:
 
 2. **Split direction is structural, not a measurement artifact.** Bitmap-based dirty propagation amortizes cost over wide fanout. Topo-walking 102 nodes to deliver one useful update penalizes deep chains. This is the design, working as specified.
 
-3. **A meta-framework outputting vanilla custom elements cannot ship a primitive whose perf depends on consumer-graph topology it never sees.** The compiler emits stand-alone custom elements; the consumer assembles them into graphs of arbitrary shape. Choosing a dispatch strategy that wins on one shape and loses on another is framework lock-in to graph shape — exactly the form of lock-in scribe's positioning forbids.
+3. **A meta-framework outputting vanilla custom elements cannot ship a primitive whose perf depends on consumer-graph topology it never sees.** The compiler emits stand-alone custom elements; the consumer assembles them into graphs of arbitrary shape. Choosing a dispatch strategy that wins on one shape and loses on another is framework lock-in to graph shape — exactly the form of lock-in aihu's positioning forbids.
 
 4. **Re-benching costs 1–2 rounds and cannot change the architectural conclusion.** Even if a clean re-bench produced tighter numbers, the split-direction structural finding stands and we'd cut on architectural grounds anyway. Re-benching is sunk cost on a foregone outcome.
 

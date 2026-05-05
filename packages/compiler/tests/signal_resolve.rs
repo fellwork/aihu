@@ -1,5 +1,5 @@
 use insta::assert_debug_snapshot;
-use scribe_compiler::codegen::signals::resolve_signals;
+use aihu_compiler::codegen::signals::resolve_signals;
 
 #[test]
 fn single_signal() {
@@ -21,7 +21,7 @@ fn non_signal_var_excluded() {
 #[test]
 fn mixed_vars_and_signals() {
     assert_debug_snapshot!(resolve_signals(
-        "import { signal } from '@scribe/signals'\nconst x = 1\nconst [count, setCount] = signal(0)\nconst increment = () => setCount(c => c + 1)"
+        "import { signal } from '@aihu/signals'\nconst x = 1\nconst [count, setCount] = signal(0)\nconst increment = () => setCount(c => c + 1)"
     ));
 }
 

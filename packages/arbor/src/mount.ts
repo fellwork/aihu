@@ -1,4 +1,4 @@
-import { type Dispose, effect } from '@scribe/signals'
+import { type Dispose, effect } from '@aihu/signals'
 import { _materialize } from './materialize.ts'
 import { _observeMount } from './telemetry.ts'
 import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
@@ -76,7 +76,7 @@ let _rootIdCounter = 0
 
 /**
  * Create an effect that's owned by the active mount scope. Wraps
- * `effect(fn)` from `@scribe/signals` and pushes the returned `Dispose`
+ * `effect(fn)` from `@aihu/signals` and pushes the returned `Dispose`
  * into the supplied `disposers` array. Telemetry events bracket the call
  * so dev-mode profiling can observe create/fire/dispose boundaries.
  *

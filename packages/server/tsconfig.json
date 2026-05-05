@@ -2,9 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
-    "rootDir": ".",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@aihu/plugin": ["../plugin/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

@@ -10,7 +10,7 @@
 ## Outcome
 
 Phase 1 ships its developer-facing surface. A user with no Rust toolchain can
-now `bun add @scribe/compiler`, get a platform-matched binary auto-downloaded
+now `bun add @aihu/compiler`, get a platform-matched binary auto-downloaded
 from GitHub Releases, and compile two worked examples (airtime-quote,
 scripture-reference) that round-trip through the actual binary. Documentation
 covers full BNF, null-fallback semantics, error codes C001-C007, and manifest
@@ -145,7 +145,7 @@ surface, not the runtime or compiler core.
 - **`docs/tthw-log.md` should have come with at least one measurement.** It
   shipped as a 50-line skeleton with a single "TBD" row. The brief allowed
   this, but the document is more useful with even a rough first measurement
-  ("clone → counter.scribe in browser: ~6 min on macOS, Bun 1.3.8") to anchor
+  ("clone → counter.aihu in browser: ~6 min on macOS, Bun 1.3.8") to anchor
   future entries. Not a regression, but a missed opportunity to seed the log.
 
 ---
@@ -189,7 +189,7 @@ fix.
 
 | Regression | Status | Evidence |
 |------------|--------|----------|
-| `counter.scribe` → function form | PASS | `counter_no_agent_block_regression` integration test still in `tests/integration.rs`, still green. No edits to `packages/compiler/src/codegen/`. |
+| `counter.aihu` → function form | PASS | `counter_no_agent_block_regression` integration test still in `tests/integration.rs`, still green. No edits to `packages/compiler/src/codegen/`. |
 | Files without `<agent>` use function form | PASS | `no_agent_block_manifest_empty` test still green. Lane A code unchanged this round. |
 | `defineComponent` function-form path | PASS | No edits to `packages/runtime/src/define-component.ts` or `packages/agent/src/registry.ts`. All 323 TS tests green. |
 | Bundle size budgets (signals, arbor, runtime, agent) | PASS | `bun run build` budgets unchanged — no source files mutated. |
@@ -198,7 +198,7 @@ fix.
 
 **New regression class introduced this round:** None. Round 2 was structurally
 additive — examples, docs, editor scaffolds, MIT license metadata, release
-workflow, postinstall hook. The `scribe-compile` binary, the runtime, the
+workflow, postinstall hook. The `aihu-compile` binary, the runtime, the
 arbor primitives, and the agent registry are all byte-identical to their
 Round 1 final state.
 
@@ -216,7 +216,7 @@ This is the LAST round of Phase 1. Phase 1 is **DONE** on
 | Rust tests | 32 | 68 + 1 ignored | +36 (+1 ignored) |
 | TS tests | 320 | 323 | +3 |
 | Workspace package.json `license` fields | 0 | 10 | +10 |
-| `examples/` files (excl. dist) | 0 | 4 (.scribe + README × 2) | +4 |
+| `examples/` files (excl. dist) | 0 | 4 (.aihu + README × 2) | +4 |
 | `docs/` files | (existing) | +2 (`grammar.md`, `tthw-log.md`) | +2 |
 | `editors/vscode/` files | 0 | 6 (grammar, snippets, lang-config, README, package.json, manifest) | +6 |
 | GitHub workflows | 1 (`plan-a.yml`) | 2 (+ `release.yml`) | +1 |
@@ -261,8 +261,8 @@ None of these block Phase 1 from shipping. All are appropriate Phase 2 inbox.
    cross-compile run of `release.yml`. Watch the workflow page; confirm all 4
    asset binaries upload.
 3. Once binaries are public, run a clean-room install:
-   `bun add @scribe/compiler` in a tmpdir on each platform that's available,
-   verify the postinstall downloads the matching binary, and `scribe-compile
+   `bun add @aihu/compiler` in a tmpdir on each platform that's available,
+   verify the postinstall downloads the matching binary, and `aihu-compile
    --version` works as a CLI.
 4. Update `docs/tthw-log.md` with the first real TTHW measurement after the
    v0.1.0 tag fires. This closes the loop on the brief's "first measurement

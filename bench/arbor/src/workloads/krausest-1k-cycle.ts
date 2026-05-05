@@ -18,7 +18,7 @@
  * show JS execution cost only. Matches design §3.5.
  *
  * **Adapter-specific notes:**
- * - scribe: 1000 branch('tr') trees with signal-bound leaf for label.
+ * - aihu: 1000 branch('tr') trees with signal-bound leaf for label.
  *   Each op: rebuild the 1000 branches (create), mount, drive 100 signal
  *   writes (partial update), dispose (clear).
  * - lit-html: create all rows in one template, render, update (re-render
@@ -33,9 +33,9 @@
  * row objects between phases).
  */
 
-import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
+import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
 import type { Ref } from '@vue/runtime-dom'
 import { ref, h as vueH } from '@vue/runtime-dom'
 import type { TemplateResult } from 'lit-html'
@@ -44,10 +44,9 @@ import type { VNode } from 'preact'
 import { h as preactH } from 'preact'
 import { createSignal } from 'solid-js'
 import solidH from 'solid-js/h'
-
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setLitTemplate, setLitUpdater } from '../competitors/lit.ts'
 import { setPreactUpdater, setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRenderFn } from '../competitors/vue.ts'
@@ -67,14 +66,14 @@ export const krausest1k: WorkloadDefinition = {
     'Create 1000 rows, partial-update every 10th, clear. Three-phase timed as one op. JSDOM-relative.',
   n: 10,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
       const host = getHost()
 
       // Label signals are rebuilt each op (create phase).
       let labelSignals: Signal<string>[] = []
 
-      setScribeHook({
+      setAihuHook({
         buildTree() {
           labelSignals = Array.from({ length: ROW_COUNT }, (_, i) => signal(`item-${i + 1}`))
           const rows = Array.from({ length: ROW_COUNT }, (_, i) => {

@@ -3,14 +3,14 @@ export type { ApiHandler } from './api.ts'
 export { badRequest, defineApiRoute, json, methodNotAllowed, notFound, serverError } from './api.ts'
 export { createServerCall } from './client.ts'
 export type {
+  AihuConfig,
   BuildConfig,
   BuildTarget,
   CorsConfig,
   RouteConfig,
-  ScribeConfig,
   ServerConfig,
 } from './config.ts'
-export { defineScribeConfig } from './config.ts'
+export { defineAihuConfig } from './config.ts'
 export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from './data.ts'
 export { defineLoader } from './data.ts'
 export { renderToString } from './loader.ts'

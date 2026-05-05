@@ -10,23 +10,23 @@
 
 | Package | Gzip size | Cap | Headroom |
 |---|---|---|---|
-| `@scribe/signals` | 1.53 kB | 1.70 kB | **172 B** |
-| `@scribe/arbor` | 1.28 kB | 2.05 kB | **772 B** |
-| `@scribe/runtime` | 438 B | 1.02 kB | **586 B** |
-| `@scribe/agent` | 72 B | 100 B | **28 B** |
+| `@aihu/signals` | 1.53 kB | 1.70 kB | **172 B** |
+| `@aihu/arbor` | 1.28 kB | 2.05 kB | **772 B** |
+| `@aihu/runtime` | 438 B | 1.02 kB | **586 B** |
+| `@aihu/agent` | 72 B | 100 B | **28 B** |
 
-Caps defined in `C:/git/fellwork/scribe/.size-limit.json`.
+Caps defined in `C:/git/fellwork/aihu/.size-limit.json`.
 
 Track A additions to consider against headroom:
-- Plan 4.2 `onError` hook in `@scribe/arbor`: estimated small; 772 B headroom is comfortable.
+- Plan 4.2 `onError` hook in `@aihu/arbor`: estimated small; 772 B headroom is comfortable.
 - Plan 1.1 `when()`/`each()` reconciler bodies (currently stubs, zero runtime cost): will consume arbor headroom.
-- Plan 1.2 `observedAttributes`/props wiring in `@scribe/runtime`: 586 B headroom is very tight for a non-trivial props system.
+- Plan 1.2 `observedAttributes`/props wiring in `@aihu/runtime`: 586 B headroom is very tight for a non-trivial props system.
 
 ---
 
 ## Task 2: `_activeMountDisposers` re-entry
 
-**File:** `C:/git/fellwork/scribe/packages/arbor/src/mount.ts`
+**File:** `C:/git/fellwork/aihu/packages/arbor/src/mount.ts`
 
 (a) **Initialized/assigned:** line 44 (module-level declaration `let _activeMountDisposers: Dispose[] | null = null`) and line 117 (`_activeMountDisposers = disposers` inside `mount()` before the `try`).
 
@@ -44,7 +44,7 @@ Track A additions to consider against headroom:
 
 ## Task 3: Dispose chain in MountScope
 
-**File:** `C:/git/fellwork/scribe/packages/arbor/src/mount.ts`
+**File:** `C:/git/fellwork/aihu/packages/arbor/src/mount.ts`
 
 **LIFO dispose loop line range:** lines 134–137.
 ```
@@ -64,7 +64,7 @@ for (let i = disposers.length - 1; i >= 0; i--) {
 
 ## Task 4: `when()`/`each()` stub return type and `_materialize` handling
 
-**File:** `C:/git/fellwork/scribe/packages/arbor/src/structural.ts`
+**File:** `C:/git/fellwork/aihu/packages/arbor/src/structural.ts`
 
 **Declared return types:**
 - `when(_condition: Signal<boolean>, _grow: () => Branch | Leaf): Branch` — line 29
@@ -72,7 +72,7 @@ for (let i = disposers.length - 1; i >= 0; i--) {
 
 Both return `Branch` (even though both throw immediately, the declared signature is `Branch`).
 
-**`_materialize` switch/if structure** (`C:/git/fellwork/scribe/packages/arbor/src/materialize.ts`):
+**`_materialize` switch/if structure** (`C:/git/fellwork/aihu/packages/arbor/src/materialize.ts`):
 
 There is no `switch`. The structure is two `if` guards:
 
@@ -88,7 +88,7 @@ There is no `switch`. The structure is two `if` guards:
 
 ## Task 5: `SetupContext` and `observedAttributes` flow
 
-**File:** `C:/git/fellwork/scribe/packages/runtime/src/types.ts`
+**File:** `C:/git/fellwork/aihu/packages/runtime/src/types.ts`
 
 **`SetupContext` TypeScript interface (lines 43–46):**
 ```typescript
@@ -101,7 +101,7 @@ export interface SetupContext {
 Two fields only: `host` and `element`. There is no `attrs`, `props`, or `observedAttributes` field.
 
 **`attributeChangedCallback` on `defineComponent`-produced class:**
-ABSENT. `C:/git/fellwork/scribe/packages/runtime/src/define-component.ts` defines a `Component` class (lines 78–96) with only `connectedCallback` (line 80) and `disconnectedCallback` (line 92). There is no `attributeChangedCallback` method and no `static observedAttributes` on this class.
+ABSENT. `C:/git/fellwork/aihu/packages/runtime/src/define-component.ts` defines a `Component` class (lines 78–96) with only `connectedCallback` (line 80) and `disconnectedCallback` (line 92). There is no `attributeChangedCallback` method and no `static observedAttributes` on this class.
 
 This is the confirmed gap for Plan 1.2. The spec comment at `define-element.ts:42–43` notes: "`static observedAttributes` and instance methods propagate through `class extends` prototype inheritance — no explicit copy needed." This means `wrapClass` in `define-element.ts` relies on the compiler-emitted class providing these. `defineComponent`-produced classes do NOT provide them.
 
@@ -123,7 +123,7 @@ For Plan 1.2 to work with `defineComponent`, two insertion points are required:
 
 **`_mountEffect` call signature:**
 
-Defined in `C:/git/fellwork/scribe/packages/arbor/src/mount.ts:69`:
+Defined in `C:/git/fellwork/aihu/packages/arbor/src/mount.ts:69`:
 ```typescript
 export function _mountEffect(disposers: Dispose[], fn: () => void, path: string): void
 ```
@@ -136,7 +136,7 @@ Called in `_materialize` (via the injected `mountEffect` parameter) at:
 
 **`effect()` return type:**
 
-`C:/git/fellwork/scribe/packages/signals/src/effect.ts:40`:
+`C:/git/fellwork/aihu/packages/signals/src/effect.ts:40`:
 ```typescript
 export function effect(fn: EffectFn): Dispose
 ```
@@ -144,13 +144,13 @@ export function effect(fn: EffectFn): Dispose
 `Dispose` is `() => void` (line 5). The function runs `fn()` synchronously on creation (line 68: `runEffect(node)`) and returns a synchronous dispose closure. Confirmed: `effect()` returns a synchronous `Dispose` function.
 
 **`untrack` usage in `packages/arbor/src/`:**
-Not used anywhere. Grep over all `packages/arbor/src/*.ts` returned no matches. `untrack` is exported from `@scribe/signals` (`signals/src/index.ts:11`) but is not imported anywhere in `packages/arbor/src/`.
+Not used anywhere. Grep over all `packages/arbor/src/*.ts` returned no matches. `untrack` is exported from `@aihu/signals` (`signals/src/index.ts:11`) but is not imported anywhere in `packages/arbor/src/`.
 
 ---
 
 ## Task 7: Branch/Node kind discriminants
 
-**File:** `C:/git/fellwork/scribe/packages/arbor/src/node.ts`
+**File:** `C:/git/fellwork/aihu/packages/arbor/src/node.ts`
 
 **`kind` values today:** Only two:
 - `'branch'` — set by `_makeBranch` at line 39: `{ kind: 'branch', tag, attrs, children }`
@@ -158,7 +158,7 @@ Not used anywhere. Grep over all `packages/arbor/src/*.ts` returned no matches. 
 
 Confirmed: no other `kind` values exist in any source file.
 
-**Exact TypeScript types** (`C:/git/fellwork/scribe/packages/arbor/src/types.ts`):
+**Exact TypeScript types** (`C:/git/fellwork/aihu/packages/arbor/src/types.ts`):
 
 ```typescript
 // types.ts:44–49
@@ -229,7 +229,7 @@ The `kind` field uses string literal types for discrimination. Both interfaces r
 1. Extending the `MountScope` interface with an `onError(handler)` registration method or an options parameter to `mount()`.
 2. Wrapping the effect callbacks in `_mountEffect` to call the handler on throw instead of propagating.
 3. Deciding whether `onError` is per-scope (set on the returned `MountScope`) or per-mount (passed as an option to `mount()`).
-4. The 772 B headroom in `@scribe/arbor` is comfortable.
+4. The 772 B headroom in `@aihu/arbor` is comfortable.
 
 **Design questions for Architect:** Does `onError` replace or supplement the existing thrown error from `_mountEffect`? Does it fire on effect-throw only, or also on `_materialize` synchronous errors?
 
@@ -241,16 +241,16 @@ The `kind` field uses string literal types for discrimination. Both interfaces r
 
 The `when()` and `each()` return type is declared `Branch`. If the v1 reconciler returns a wrapper `Branch` whose children are managed reactively via a `mountEffect`, `_materialize` needs a new case that can re-invoke the `_grow` factory and swap DOM subtrees. This is a non-trivial addition.
 
-**Signal subscription wiring:** `untrack` is available from `@scribe/signals` but not currently used anywhere in `packages/arbor/src/`. The reconciler will likely need `untrack` to read the condition/list signal inside `_materialize` without subscribing the outer traversal.
+**Signal subscription wiring:** `untrack` is available from `@aihu/signals` but not currently used anywhere in `packages/arbor/src/`. The reconciler will likely need `untrack` to read the condition/list signal inside `_materialize` without subscribing the outer traversal.
 
-### Plan 1.2 — `observedAttributes`/props in `@scribe/runtime`
+### Plan 1.2 — `observedAttributes`/props in `@aihu/runtime`
 
 **Confirmed gap — `defineComponent`-produced class has no `attributeChangedCallback` or `static observedAttributes`.** Specific gaps:
 
 1. `SetupContext` (`types.ts:43–46`) has only `host` and `element`. It needs a props surface (signals or plain values).
 2. `define-component.ts:78–96`: `Component` class body has no `static observedAttributes` and no `attributeChangedCallback`. Both must be added.
 3. `defineComponent(setup: Setup)` signature (`define-component.ts:76`) takes only a `setup` function. There is no mechanism to declare which attributes are observed. A second argument (e.g., `options: { observedAttributes?: string[] }`) or a different API shape is needed.
-4. The 586 B headroom in `@scribe/runtime` may be tight for a complete props system — especially if signal-per-attribute wiring is used.
+4. The 586 B headroom in `@aihu/runtime` may be tight for a complete props system — especially if signal-per-attribute wiring is used.
 
 **`define-element.ts:42–43`** explicitly notes that `static observedAttributes` and `attributeChangedCallback` propagate through prototype inheritance from the compiler-emitted class — this is the intended compiler path. `defineComponent` is the hand-authored path and is currently behind on this.
 

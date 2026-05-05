@@ -8,13 +8,13 @@
  * resulting `MountScope` in `disconnectedCallback`.
  *
  * Spec §2.4: runtime has no source-level *value* imports from
- * `@scribe/arbor`. Tests inject `mount` via `_setMount(mount)` (the
+ * `@aihu/arbor`. Tests inject `mount` via `_setMount(mount)` (the
  * same hook real apps use at boot).
  */
 
-import { branch, leaf, mount } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
+import { branch, leaf, mount } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { _setMount, _setSignal, defineComponent } from '../src/define-component.ts'
 import { defineElement } from '../src/define-element.ts'

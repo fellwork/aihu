@@ -7,15 +7,15 @@
  *
  * The shape is deliberately minimal — a workload tells the adapter "build the
  * graph, mount, drive updates, dispose". Each adapter owns its own template
- * shape (lit literals, solid h-trees, scribe Branch/Leaf, etc.) and its own
- * notion of reactivity (lit re-renders, solid signals, scribe signals…).
+ * shape (lit literals, solid h-trees, aihu Branch/Leaf, etc.) and its own
+ * notion of reactivity (lit re-renders, solid signals, aihu signals…).
  *
  * **Spawn 1 note.** This file lands the *minimal* interface the spawn-1
- * scribe adapter + mount-10k-leaves workload need. Spawn 2's adapters and
+ * aihu adapter + mount-10k-leaves workload need. Spawn 2's adapters and
  * workloads may extend this — design §3.3 sketches a richer shape with
  * `prepare(kind, params)` separation and `update(event)` event semantics.
  * Carry that forward in spawn 2 if the additional workloads need it; for
- * spawn 1 the scribe adapter alone doesn't.
+ * spawn 1 the aihu adapter alone doesn't.
  */
 
 /**

@@ -1,1 +1,1 @@
-import './counter.scribe'
+import './counter.aihu'

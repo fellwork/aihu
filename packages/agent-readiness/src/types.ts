@@ -1,4 +1,4 @@
-// Mirror of @scribe/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
+// Mirror of @aihu/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
 import type { LlmsTxtLink, LlmsTxtSection } from './llms-txt.ts'
 import type { AgentSkill } from './mcp-server-card.ts'
 import type { RobotsConfig, RobotsRule } from './robots.ts'
@@ -22,7 +22,7 @@ export interface McpAuthConfig {
 
 /**
  * Agent-readiness configuration.
- * Canonical source — @scribe/server mirrors this type internally.
+ * Canonical source — @aihu/server mirrors this type internally.
  * Minimum viable config: `{ name: 'My App' }`.
  */
 export interface AgentReadinessConfig {

@@ -1,4 +1,4 @@
-# `@scribe/arbor` Memory Results
+# `@aihu/arbor` Memory Results
 
 **Generated:** 2026-04-30
 **Runner:** --expose-gc · Bun 1.3.8
@@ -15,7 +15,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 4.21 MB | 42.08 MB | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |
@@ -28,7 +28,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 0 B | 0 B | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |
@@ -41,7 +41,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 100 |
+| @aihu/arbor | 0 B | 0 B | 100 |
 | lit-html | 0 B | 0 B | 100 |
 | solid-js | 0 B | 0 B | 100 |
 | @vue/runtime-dom | 0 B | 0 B | 100 |
@@ -54,7 +54,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | -31.12 MB | -31.12 MB | 1 |
+| @aihu/arbor | -31.12 MB | -31.12 MB | 1 |
 | lit-html | 38.62 MB | 38.62 MB | 1 |
 | solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
 | @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
@@ -67,7 +67,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 5.82 MB | 58.24 MB | 10 |
+| @aihu/arbor | 5.82 MB | 58.24 MB | 10 |
 | lit-html | ERROR | `Attempted to assign to readonly property.` | — |
 | solid-js | ERROR | `Client-only API called on the server side. Run client-only c` | — |
 | @vue/runtime-dom | ERROR | `SVGElement is not defined` | — |
@@ -80,7 +80,7 @@
 
 | Competitor | buildHeapDelta/ctx | disposeResidual | n |
 | --- | ---: | ---: | ---: |
-| @scribe/arbor | 0 B | 0 B | 10 |
+| @aihu/arbor | 0 B | 0 B | 10 |
 | lit-html | 0 B | 0 B | 10 |
 | solid-js | 0 B | 0 B | 10 |
 | @vue/runtime-dom | 0 B | 0 B | 10 |

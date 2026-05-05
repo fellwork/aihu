@@ -45,9 +45,9 @@ The single asterisk: **deep-prop p50 mean 3.39 µs across 3 WSL2 reruns (3.37 / 
 
 ## §2 Perf table (3 WSL2 reruns)
 
-### Headline: deep-propagation-100 — `@scribe/signals`
+### Headline: deep-propagation-100 — `@aihu/signals`
 
-| Run | scribe p50 | alien | preact | vue | solid | s-js | Rank |
+| Run | aihu p50 | alien | preact | vue | solid | s-js | Rank |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Run 1 | 3.37 µs | 2.63 | 3.38 | 4.87 | 6.57 | 2.14 | #4 |
 | Run 2 | 3.41 µs | 2.42 | 3.26 | 4.65 | 6.56 | 2.62 | #4 |
@@ -62,7 +62,7 @@ vs H5 baseline (3.30 µs single-run p50 / 3.37 µs 3-run mean): essentially flat
 
 #### cellx (floor ≤ 540 ns, rank #1 required)
 
-| Run | scribe | alien | preact | vue | solid | s-js | Rank |
+| Run | aihu | alien | preact | vue | solid | s-js | Rank |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Run 1 | 541.70 ns | 774.78 | 624.73 | 1075.44 | 1725.12 | 647.66 | **#1** |
 | Run 2 | 511.35 ns | 732.91 | 630.86 | 1198.61 | 1985.75 | 721.22 | **#1** |
@@ -71,7 +71,7 @@ vs H5 baseline (3.30 µs single-run p50 / 3.37 µs 3-run mean): essentially flat
 
 #### batched-writes-100 (floor ≤ 2.75 µs, rank #1 required)
 
-| Run | scribe | alien | preact | vue | solid | s-js | Rank |
+| Run | aihu | alien | preact | vue | solid | s-js | Rank |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Run 1 | 2.57 µs | 3.19 | 4.20 | 7.78 | 7.22 | 2.74 | **#1** |
 | Run 2 | 2.51 µs | 3.78 | 4.98 | 9.80 | 7.29 | 2.74 | **#1** |
@@ -80,7 +80,7 @@ vs H5 baseline (3.30 µs single-run p50 / 3.37 µs 3-run mean): essentially flat
 
 #### dynamic-deps (floor ≤ 740 ns, rank #1 or #2 required)
 
-| Run | scribe | alien | preact | vue | solid | s-js | Rank |
+| Run | aihu | alien | preact | vue | solid | s-js | Rank |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Run 1 | 691.24 ns | 1314.26 | 968.38 | 3822.53 | 1049.44 | 644.07 | #2 (s-js #1) |
 | Run 2 | 776.22 ns | 1369.19 | 1182.31 | 4748.71 | 1438.72 | 1252.00 | **#1** |
@@ -93,7 +93,7 @@ All three load-bearing ranks held across all three runs. ✓
 
 #### wide-fanout-100 (no rank requirement)
 
-| Run | scribe p50 | alien | preact | vue | solid | s-js |
+| Run | aihu p50 | alien | preact | vue | solid | s-js |
 |---|---:|---:|---:|---:|---:|---:|
 | Run 1 | 4.31 µs | 3.68 | 4.89 | 5.71 | 11.91 | 4.34 |
 | Run 2 | 5.07 µs | 4.13 | 6.06 | 6.61 | 11.27 | 3.98 |
@@ -104,7 +104,7 @@ Behind alien/s-js (forward-subscription leaders). Stable vs H5; not gated.
 
 #### creation-1to1000 (no rank requirement; Builder said this broke without commit-3 fix)
 
-| Run | scribe p50 | alien | preact | vue | solid | s-js |
+| Run | aihu p50 | alien | preact | vue | solid | s-js |
 |---|---:|---:|---:|---:|---:|---:|
 | Run 1 | 106.47 µs | 121.00 | 72.76 | 98.12 | 73.20 | 83.94 |
 | Run 2 | 106.00 µs | 72.40 | 70.00 | 103.15 | 127.20 | 81.58 |
@@ -120,7 +120,7 @@ Behind alien/s-js (forward-subscription leaders). Stable vs H5; not gated.
 
 | Competitor | buildHeapDelta | peakMalloc | disposeResidual |
 |---|---:|---:|---:|
-| **@scribe/signals** | **1.62 KB** | 0 B | 1.58 MB |
+| **@aihu/signals** | **1.62 KB** | 0 B | 1.58 MB |
 | alien-signals | 6.91 KB | 0 B | 6.75 MB |
 | @preact/signals-core | -8.81 KB | 0 B | -8.60 MB |
 | @vue/reactivity | 3.77 KB | 0 B | 3.68 MB |
@@ -137,7 +137,7 @@ Behind alien/s-js (forward-subscription leaders). Stable vs H5; not gated.
 
 This single number is the entire memory case for Phase 3, and it lands ahead of every analytical bound the Architect set.
 
-### All-workload memory (`@scribe/signals` row)
+### All-workload memory (`@aihu/signals` row)
 
 | Workload | buildHeap | peakMalloc | disposeResidual |
 |---|---:|---:|---:|
@@ -156,8 +156,8 @@ cellx, dynamic-deps, creation-1to1000 all 0-build-delta (graphs are reused acros
 
 | Package | At 62f737f | At a0a93d6 | Cap | Headroom | Δ |
 |---|---:|---:|---:|---:|---:|
-| `@scribe/signals` | 1679 B | **1775 B** | 1850 | +75 B | +96 B |
-| `@scribe/arbor` | 2133 B | **2086 B** | 2200 | +114 B | **−47 B** |
+| `@aihu/signals` | 1679 B | **1775 B** | 1850 | +75 B | +96 B |
+| `@aihu/arbor` | 2133 B | **2086 B** | 2200 | +114 B | **−47 B** |
 
 (Sizes from `bun scripts/size.ts` — rolldown in-memory generate + esbuild minify + gzip-9. Same toolchain as H5.)
 
@@ -295,7 +295,7 @@ This is the correct implementation. A class-field `disposed` would be visible to
 - **Deep-prop perf:** still ~3.39 µs vs spec's 3.20 µs hard target. Two known levers from the closure-removal investigation: (a) v2 closure-removal completion plan (move remaining factory-local closures in `signal()` host construction and `linkAdd` to prototype/global helpers — Architect estimated ~0.05–0.10 µs); (b) further tail-recursion optimisations in markOne / drainBatch. Round 7 candidate.
 - **Arbor headroom:** 114 B remaining vs 2200 B cap (47 B under H5 baseline). Investigation §Q-future identified additional candidates (mount.ts:166–223 closure factoring, structural.ts:90+ when/each implementations) for Phase 4. Bundle ceiling enforcement protects against unintentional growth.
 - **Signals headroom:** 75 B is tight. Future K1c+ refinements (e.g. eliminating the third `recompute()` prototype method by re-inlining if size-pressured) are in the toolbox.
-- **Wide-fanout perf / memory:** scribe is consistently behind alien-signals and s-js on this workload (~1 µs and ~35 KB build-heap). Investigated as forward-subscription model overhead; not on the v1 critical path. Round N+2 candidate.
+- **Wide-fanout perf / memory:** aihu is consistently behind alien-signals and s-js on this workload (~1 µs and ~35 KB build-heap). Investigated as forward-subscription model overhead; not on the v1 critical path. Round N+2 candidate.
 - **Track C bench:** still deferred per Round 005 review (referenced in MEMORY).
 - **Spec gate language:** the 3.20 µs hard target was set against a single-run best p50 of 3.27 µs (Phase 1). The H5 mean was 3.37 µs. Recommend: Round 7 spec should phrase perf gates as "≤ X µs 3-run mean" to match the verifier's actual measurement protocol, removing the strict-vs-realistic ambiguity that landed Phase 3 at the SOFT/FAIL boundary.
 
@@ -305,7 +305,7 @@ This is the correct implementation. A class-field `disposed` would be visible to
 
 ### deep-propagation-100 (load-bearing — primary verdict)
 
-| Run | scribe | alien | preact | vue | solid | s-js |
+| Run | aihu | alien | preact | vue | solid | s-js |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 | **3.37 µs** | 2.63 | 3.38 | 4.87 | 6.57 | 2.14 |
 | 2 | **3.41 µs** | 2.42 | 3.26 | 4.65 | 6.56 | 2.62 |

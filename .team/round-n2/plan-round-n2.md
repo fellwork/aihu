@@ -115,7 +115,7 @@ Minimum: **7 tests**.
 
 Directory: `demo/`
 
-A minimal scribe application that exercises the full stack:
+A minimal aihu application that exercises the full stack:
 - `demo/server.ts` — `createRouter` + `renderToString` + `createAgentReadinessRoutes`
 - `demo/pages/home.ts` — a component returning `{ kind: 'branch', tag: 'main', ... }` with a heading, paragraph, and nav link
 - `demo/pages/about.ts` — second route for multi-page Lighthouse test coverage
@@ -171,8 +171,8 @@ Unit-level checks that `renderToString` produces structurally valid HTML:
 | Branch with boolean attr `disabled: true` → `disabled` attribute (no value) |
 | Branch with boolean attr `disabled: false` → attr omitted |
 | Nested branches render correct depth |
-| `data-scribe-path` attributes present when `opts.hydratable: true` |
-| Serializer result injected as `<script id="__scribe_state__">` |
+| `data-aihu-path` attributes present when `opts.hydratable: true` |
+| Serializer result injected as `<script id="__aihu_state__">` |
 | Serializer throw → no script tag, no error thrown |
 
 Minimum: **12 tests**.

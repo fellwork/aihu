@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createAgentReadinessRoutes } from '../src/index.ts'
 
-describe('@scribe/agent-readiness createAgentReadinessRoutes', () => {
+describe('@aihu/agent-readiness createAgentReadinessRoutes', () => {
   const config = {
     name: 'Test App',
     version: '1.0.0',

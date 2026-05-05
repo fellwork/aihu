@@ -1,0 +1,38 @@
+{
+  "name": "@aihu/app",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@aihu/arbor": "workspace:*",
+    "@aihu/router": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/signals": "workspace:*",
+    "vite": ">=5.0.0"
+  },
+  "devDependencies": {
+    "@aihu/agent-readiness": "workspace:*",
+    "@aihu/compiler": "workspace:*"
+  }
+}

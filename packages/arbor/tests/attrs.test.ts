@@ -1,4 +1,4 @@
-import type { Dispose } from '@scribe/signals'
+import type { Dispose } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { _applyAttrs, _setAttrOrProp, type MountEffectFn } from '../src/attrs.ts'
 

@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/agent-a2a",
+  "name": "@aihu/agent-a2a",
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
@@ -19,6 +19,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/agent-service": "workspace:*"
+    "@aihu/agent-service": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 # `examples/blog-loader`
 
-A server-rendered post page demonstrating scribe's loader pattern.
+A server-rendered post page demonstrating aihu's loader pattern.
 
 ## What this teaches
 
@@ -28,7 +28,7 @@ Then navigate to `/posts/hello`, `/posts/meta`, or `/posts/agents`.
 
 | File | Role |
 |---|---|
-| `src/pages/posts/[slug].scribe` | SFC reading `route.data` |
+| `src/pages/posts/[slug].aihu` | SFC reading `route.data` |
 | `src/pages/posts/[slug].loader.ts` | Server-side `defineLoader` |
 | `vite.config.ts` | Wires `viteRouterIntegration()` + SSR target |
 
@@ -48,7 +48,7 @@ Request │  GET /posts/hello                │
                          │
                          ▼
         ┌──────────────────────────────────┐
-        │ [slug].scribe → @template        │   server + client
+        │ [slug].aihu → @template        │   server + client
         │   $prop route: { data: T }       │
         │   <h1>{route.data.title}</h1>    │
         └──────────────────────────────────┘

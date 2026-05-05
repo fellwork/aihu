@@ -1,4 +1,4 @@
-//! @scribe/server native renderer — napi-rs bindings.
+//! @aihu/server native renderer — napi-rs bindings.
 //!
 //! Exports two functions to JS:
 //!   - render_tree(tree_json, hydratable) -> string

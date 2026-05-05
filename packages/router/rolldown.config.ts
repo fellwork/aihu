@@ -5,7 +5,7 @@ export default defineConfig([
   // Browser runtime — measured by .size-limit.json (≤1536 B gzip)
   {
     input: 'src/index.ts',
-    external: ['@scribe/server'],
+    external: ['@aihu/server'],
     checks: { circularDependency: true },
     output: {
       dir: 'dist',
@@ -18,7 +18,7 @@ export default defineConfig([
   // Build-time Vite plugin — NOT measured by .size-limit.json
   {
     input: { plugin: 'src/plugin.ts' },
-    external: ['@scribe/server', 'vite', 'node:fs', 'node:path', 'node:url'],
+    external: ['@aihu/server', 'vite', 'node:fs', 'node:path', 'node:url'],
     checks: { circularDependency: true },
     output: {
       dir: 'dist',

@@ -32,7 +32,7 @@ pub struct StyleBlock<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ScribeSource<'a> {
+pub struct AihuSource<'a> {
     pub script: Option<&'a str>,
     pub template: Option<&'a str>,
     pub style: Option<StyleBlock<'a>>,
@@ -87,7 +87,7 @@ pub enum Attr {
 
 #[derive(Debug)]
 pub struct CompileUnit<'a> {
-    pub source: ScribeSource<'a>,
+    pub source: AihuSource<'a>,
     pub template_ast: Option<Vec<TemplateNode>>,
     /// v0.6.4: build target for artifact gating.
     pub target: BuildTarget,

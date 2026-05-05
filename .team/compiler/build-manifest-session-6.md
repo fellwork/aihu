@@ -27,7 +27,7 @@
 - `SignalMap::default()` constructor unchanged — derives `Default` which now
   calls `BTreeMap::default()`
 
-**Test result:** `cargo test -p scribe-compiler` — 32 passed, 1 ignored (exit 0)
+**Test result:** `cargo test -p aihu-compiler` — 32 passed, 1 ignored (exit 0)
 
 **Snapshot re-acceptance:** Not required. All 31 existing snapshots remained
 valid because the signal resolver tests (`multiple_signals`, `mixed_vars_and_signals`)
@@ -61,14 +61,14 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite'
    of its own, so there is no local `vite` installation.
 
 2. **Bun + Rollup4 ESM bridge:** Even with Vite installed, Bun processes
-   `vite.config.ts` via its internal bundler at startup. The `@scribe/compiler`
+   `vite.config.ts` via its internal bundler at startup. The `@aihu/compiler`
    module resolves through the workspace symlink to `dist/index.js`. If the
-   Rust binary does not exist at `../target/release/scribe-compile`, the
+   Rust binary does not exist at `../target/release/aihu-compile`, the
    `execFileSync` call throws at config-load time — not at per-file transform
    time — aborting the entire build.
 
 **Resolution:** Added a comprehensive `Known Limitation` JSDoc block above
-`scribeCompilerPlugin()` in `packages/compiler/js/index.ts` explaining:
+`aihuCompilerPlugin()` in `packages/compiler/js/index.ts` explaining:
 - What fails and why (both errors)
 - The workaround: `bun run integrate.ts`
 - The v1 resolution path
@@ -97,7 +97,7 @@ Covers:
 
 | Criterion | Status |
 |-----------|--------|
-| `cargo test -p scribe-compiler` exits 0, 32 passed (1 ignored) | PASS |
+| `cargo test -p aihu-compiler` exits 0, 32 passed (1 ignored) | PASS |
 | Vite investigation complete (fixed or documented) | PASS (documented) |
 | Compiler topic summary written | PASS |
 | No packages outside `packages/compiler/` and `.team/compiler/` touched | PASS |
@@ -111,6 +111,6 @@ Covers:
 | File | Change |
 |------|--------|
 | `packages/compiler/src/codegen/signals.rs` | HashMap → BTreeMap |
-| `packages/compiler/js/index.ts` | Added Known Limitation JSDoc above `scribeCompilerPlugin()` |
+| `packages/compiler/js/index.ts` | Added Known Limitation JSDoc above `aihuCompilerPlugin()` |
 | `.team/compiler/summaries/compiler-summary.md` | NEW — topic summary |
 | `.team/compiler/build-manifest-session-6.md` | NEW — this file |

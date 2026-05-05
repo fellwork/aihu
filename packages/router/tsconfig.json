@@ -6,7 +6,8 @@
     "declaration": true,
     "declarationDir": "./dist",
     "paths": {
-      "@scribe/server": ["../server/src/index.ts"]
+      "@aihu/server": ["../server/src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

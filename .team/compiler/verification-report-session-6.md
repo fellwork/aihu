@@ -15,13 +15,13 @@
 |----|-------------|--------|----------|
 | A-1 | BTreeMap import + newtype | PASS | `signals.rs` line 1: `use std::collections::BTreeMap;` line 4: `pub struct SignalMap(pub BTreeMap<String, String>);` |
 | A-2 | No residual HashMap for SignalMap | PASS | `grep -i hashmap` on PR branch `signals.rs` returns zero matches; diff confirms only 2 lines changed (import + struct definition) |
-| B-1 | Vite limitation JSDoc block present | PASS | 33-line JSDoc block added above `scribeCompilerPlugin()` covering (a) Bun+Rollup4 ESM incompatibility, (b) the failing scenario `bun vite build`, (c) workaround (`bun run integrate.ts`) and v1 resolution path |
+| B-1 | Vite limitation JSDoc block present | PASS | 33-line JSDoc block added above `aihuCompilerPlugin()` covering (a) Bun+Rollup4 ESM incompatibility, (b) the failing scenario `bun vite build`, (c) workaround (`bun run integrate.ts`) and v1 resolution path |
 | C-1 | Summary exists, covers C-0 through C-4 | PASS | `.team/compiler/summaries/compiler-summary.md` is 290+ lines; Section 2 pipeline table explicitly lists C-0 through C-4 with key file for each |
-| C-2 | Summary includes key Rust types | PASS | Section 2 documents `ScribeSource`, `CompileUnit`, `TemplateNode`, `Attr`, `SignalMap`, and the `emit()` function signature with full field descriptions |
+| C-2 | Summary includes key Rust types | PASS | Section 2 documents `AihuSource`, `CompileUnit`, `TemplateNode`, `Attr`, `SignalMap`, and the `emit()` function signature with full field descriptions |
 | C-3 | Summary includes OQ resolutions + known limitations | PASS | Section 3 covers OQ-C1, OQ-C3, OQ-C9, OQ-C16; Section 4 covers 5 known limitations including identifier-only interpolation, no v-if/v-for, style blocks ignored, no source maps, and Bun+Vite ESM incompatibility |
 | O-1 | Only 4 expected files changed | PASS | `git diff main..origin/chore/compiler-session-6-cleanup --name-only` lists exactly: `.team/compiler/build-manifest-session-6.md`, `.team/compiler/summaries/compiler-summary.md`, `packages/compiler/js/index.ts`, `packages/compiler/src/codegen/signals.rs` — no other files |
 | O-2 | signals.rs — type-only change | PASS | Diff shows exactly 2 lines changed: the `use` import and the struct field type. No new logic, no new public API, no test changes. `resolve_signals()` function body is untouched. |
-| O-3 | js/index.ts — docs-only change | PASS | Diff shows 33 lines added, all inside the JSDoc comment block above `scribeCompilerPlugin()`. The function body, `transform()`, imports, and all other logic are unchanged. |
+| O-3 | js/index.ts — docs-only change | PASS | Diff shows 33 lines added, all inside the JSDoc comment block above `aihuCompilerPlugin()`. The function body, `transform()`, imports, and all other logic are unchanged. |
 | T-1 | Rust tests: X passed, Y failed, Z ignored | PASS | `cargo test` (from `packages/compiler/`): **32 passed, 0 failed, 1 ignored** — codegen: 10, sfc_split: 6, signal_resolve: 6, template_parse: 10, integration c4: 1 ignored (by design — requires pre-built binary) |
 | T-2 | TS tests: 320/320 | PASS | `bun run test`: **320 passed, 0 failed** across 41 test files |
 

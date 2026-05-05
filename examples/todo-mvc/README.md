@@ -2,7 +2,7 @@
 
 **What this teaches:** the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration. Mandatory parity anchor.
 
-Every framework ships a TodoMVC. This is scribe's: ~110 LOC of one-file SFC covering add / toggle / delete / filter / clear-completed against an in-memory list.
+Every framework ships a TodoMVC. This is aihu's: ~110 LOC of one-file SFC covering add / toggle / delete / filter / clear-completed against an in-memory list.
 
 ## Run
 

@@ -63,7 +63,7 @@ and grouping symbol clusters. All numbers are gz.
 | **Total** | **~2130 B** | — |
 
 Per Inv 3 R5/S5, the inlined `effect()` runtime is intrinsic to arbor's
-standalone-bundle UX (consumers `npm install @scribe/arbor` and get
+standalone-bundle UX (consumers `npm install @aihu/arbor` and get
 reactive elements without a peer dep). The ~520 B of imported signals
 code is **not duplication of arbor-internal code**; it's the cost of
 shipping a reactive primitive in a self-contained package.
@@ -670,25 +670,25 @@ R7-only.
 
 Files read in full or in load-bearing sections during this investigation:
 
-- `C:\git\fellwork\scribe\packages\arbor\src\index.ts` — full file (19 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\mount.ts` — full file (236 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\structural.ts` — full file (160 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\materialize.ts` — full file (113 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\attrs.ts` — full file (120 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\node.ts` — full file (66 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\branch.ts` — full file (26 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\leaf.ts` — full file (40 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\errors.ts` — full file (24 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\telemetry.ts` — full file (49 lines)
-- `C:\git\fellwork\scribe\packages\arbor\src\types.ts` — full file (136 lines)
-- `C:\git\fellwork\scribe\packages\arbor\dist\index.js` — full minified single line (2128 B gz post-mangle)
-- `C:\git\fellwork\scribe\packages\arbor\scripts\mangle-dist.mjs` — full file (53 lines)
-- `C:\git\fellwork\scribe\packages\arbor\rolldown.config.ts` — full file (22 lines)
-- `C:\git\fellwork\scribe\packages\arbor\package.json` — full manifest (27 lines)
-- `C:\git\fellwork\scribe\packages\signals\scripts\mangle-dist.mjs` — full file (80 lines) — for the regex parity comparison
-- `C:\git\fellwork\scribe\.team\v1\investigation-restructure-shrink.md` — full file (~800 lines) — Inv 3 predecessor; built on R5/S3
-- `C:\git\fellwork\scribe\bench\arbor\RESULTS.md` — first 80 lines for perf baseline
-- `C:\git\fellwork\scribe\packages\arbor\tests\mount.test.ts` — first 50 lines for test-coverage shape
+- `C:\git\fellwork\aihu\packages\arbor\src\index.ts` — full file (19 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\mount.ts` — full file (236 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\structural.ts` — full file (160 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\materialize.ts` — full file (113 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\attrs.ts` — full file (120 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\node.ts` — full file (66 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\branch.ts` — full file (26 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\leaf.ts` — full file (40 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\errors.ts` — full file (24 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\telemetry.ts` — full file (49 lines)
+- `C:\git\fellwork\aihu\packages\arbor\src\types.ts` — full file (136 lines)
+- `C:\git\fellwork\aihu\packages\arbor\dist\index.js` — full minified single line (2128 B gz post-mangle)
+- `C:\git\fellwork\aihu\packages\arbor\scripts\mangle-dist.mjs` — full file (53 lines)
+- `C:\git\fellwork\aihu\packages\arbor\rolldown.config.ts` — full file (22 lines)
+- `C:\git\fellwork\aihu\packages\arbor\package.json` — full manifest (27 lines)
+- `C:\git\fellwork\aihu\packages\signals\scripts\mangle-dist.mjs` — full file (80 lines) — for the regex parity comparison
+- `C:\git\fellwork\aihu\.team\v1\investigation-restructure-shrink.md` — full file (~800 lines) — Inv 3 predecessor; built on R5/S3
+- `C:\git\fellwork\aihu\bench\arbor\RESULTS.md` — first 80 lines for perf baseline
+- `C:\git\fellwork\aihu\packages\arbor\tests\mount.test.ts` — first 50 lines for test-coverage shape
 
 Bundle measurements (gzip baseline):
 - `gzip -c packages/arbor/dist/index.js | wc -c` (pre-mangle, this session): 2151 B

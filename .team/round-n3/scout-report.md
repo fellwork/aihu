@@ -14,10 +14,10 @@ Captured at HEAD `51a1572`, baseline file committed at `bench/baselines/round-n3
 
 | Metric | Value | Notes |
 |---|---:|---|
-| `@scribe/signals` size (gz, via `bun run size`) | **1925 B** | `.size-limit.json` says 1850 B; HEAD is 72 B over the declared limit (see Open Q #1). |
-| `cellx` p50 | 532.64 ns | scribe leads field. |
+| `@aihu/signals` size (gz, via `bun run size`) | **1925 B** | `.size-limit.json` says 1850 B; HEAD is 72 B over the declared limit (see Open Q #1). |
+| `cellx` p50 | 532.64 ns | aihu leads field. |
 | `wide-fanout-100` p50 | 6.60 µs | alien 4.63 µs (43 % gap). |
-| `batched-writes-100` p50 | 3.01 µs | scribe leads field. |
+| `batched-writes-100` p50 | 3.01 µs | aihu leads field. |
 | **`deep-propagation-100` p50** | **4.02 µs** | **load-bearing — Fusion must hit ≤ 3.62 µs (≥ 10 % gain).** alien 3.06 µs. |
 | `dynamic-deps` p50 | 1.14 µs | s-js leads at 677 ns. |
 | `creation-1to1000` p50 | 106.65 µs | s-js leads at 51.80 µs. |
@@ -51,7 +51,7 @@ Alien defers dep settling to the effect run, not to the mark walk. Inside `run(e
 - `checkDirty` walks the dep tree backward through Pending computeds. When it finds a `(1 | 16)` (Mutable + Dirty) signal, it calls the user-supplied `update(dep)` callback to forward-recompute the chain.
 - `updateComputed` (`index.mjs:167–181`) increments `cycle`, sets RecursedCheck, calls `c.getter(oldValue)`, and returns `oldValue !== c.value`.
 
-Translation to scribe terms: alien's `checkDirty` is the same shape as scribe's existing `checkDirty` (`signal.ts:292–318`) — both walk back through PENDING deps, both stop on a Dirty signal source, both pull-recompute downward. Scribe's `recomputeIfNeeded` (in `computed.ts`) is alien's `update`. **The two systems converged on the same dep-settle protocol.**
+Translation to aihu terms: alien's `checkDirty` is the same shape as aihu's existing `checkDirty` (`signal.ts:292–318`) — both walk back through PENDING deps, both stop on a Dirty signal source, both pull-recompute downward. Aihu's `recomputeIfNeeded` (in `computed.ts`) is alien's `update`. **The two systems converged on the same dep-settle protocol.**
 
 ### 2.3 Error isolation — alien does NOT isolate per-effect throws
 
@@ -80,15 +80,15 @@ function flush() {
 
 There is **no try/catch around `run(effect)`**. The first throw aborts the loop. The `finally` block re-flags the un-run effects with `2 | 8` (Watching | Recursed) — they are NOT re-run; they are silently restored to the state where the next propagation will re-queue them.
 
-**This is a design choice, not a fix-up.** Alien-signals lets first-throw-wins: if effect A throws, effect B does not run, effect C does not run, the whole flush wave aborts. This is **strictly weaker than scribe's EI-1** (per-effect try/catch + AggregateError surface). See `.team/v1/investigation-deep-chain.md` for confirmation that alien chose this tradeoff for hot-path bytes.
+**This is a design choice, not a fix-up.** Alien-signals lets first-throw-wins: if effect A throws, effect B does not run, effect C does not run, the whole flush wave aborts. This is **strictly weaker than aihu's EI-1** (per-effect try/catch + AggregateError surface). See `.team/v1/investigation-deep-chain.md` for confirmation that alien chose this tradeoff for hot-path bytes.
 
 ### 2.4 Effect dispatch order — depth-first with parent-before-child swap
 
 In `notify` (`index.mjs:17–34`), when an effect is reached, alien walks `effect.subs?.sub` upward — this is the chain of **scope-parent effects** (i.e. an effect declared inside another effect's body). The do-while loop (lines 20–27) walks up until it finds a non-Watching parent or runs out. Then lines 29–33 reverse-swap the just-pushed slice so the **outermost parent runs before its child**.
 
-Scribe does not use scope-parents at all (no `effectScope` API in `effect.ts`); this branch is dead code in our adaptation. Order in alien's flat (no-scope) case is **mark-walk discovery order** (depth-first DFS through the dep→sub graph).
+Aihu does not use scope-parents at all (no `effectScope` API in `effect.ts`); this branch is dead code in our adaptation. Order in alien's flat (no-scope) case is **mark-walk discovery order** (depth-first DFS through the dep→sub graph).
 
-Scribe today fires effects in `effectQueue` push order, which is:
+Aihu today fires effects in `effectQueue` push order, which is:
 - `propagateMark(host.subsHead)` walks the signal's outbound subs forward (head → tail);
 - For each sub, `markOne` does an iterative DFS;
 - DFS uses an explicit `markStack` (`signal.ts:200`); push order at fan-out is `tail → head` (line 231–233 / 253–255), so pop order is `head → tail`. **Net effect: depth-first pre-order, head-to-tail in each sub list.**
@@ -101,11 +101,11 @@ In a **simple linear or wide chain with no re-entrancy**, B1 produces the same o
 
 Alien uses `flags & 4` (RecursedCheck): set during `updateComputed` and `run(effect)` re-entry. Re-entry into the same node while RecursedCheck is set means alien either skips (line 102: `flags = 0`) or marks `Recursed` (line 105). It does NOT throw on a cycle — alien-signals tolerates re-entrant effect writes by re-queueing and running again.
 
-Scribe enforces cycles with `RUNNING` flag + `SignalCircularError`. `markOne` line 222 / 244: `if (sub.flags & RUNNING) throw new SignalCircularError()`. `drainBatch` line 401–404: throws after `MAX_BATCH_ITERATIONS = 100`. **Scribe's protection is stricter than alien's** — scribe throws on direct self-write within an effect body (test at `effect.test.ts:76–85`); alien would silently re-run.
+Aihu enforces cycles with `RUNNING` flag + `SignalCircularError`. `markOne` line 222 / 244: `if (sub.flags & RUNNING) throw new SignalCircularError()`. `drainBatch` line 401–404: throws after `MAX_BATCH_ITERATIONS = 100`. **Aihu's protection is stricter than alien's** — aihu throws on direct self-write within an effect body (test at `effect.test.ts:76–85`); alien would silently re-run.
 
 ---
 
-## 3. Scribe's mark/drain invariants (lines 200–435 of `packages/signals/src/signal.ts`)
+## 3. Aihu's mark/drain invariants (lines 200–435 of `packages/signals/src/signal.ts`)
 
 ### DI-1: Dependency Invariant
 

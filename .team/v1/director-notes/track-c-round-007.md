@@ -30,25 +30,25 @@ The substance question is therefore not "did the spec hold" but "what does v1 sh
 - **Memory direction: OVERWHELMINGLY satisfied.**
   - 10.24 KB → **1.62 KB** = 84% reduction across Phase 0 → Phase 3.
   - Per-Sub residual: ~100 B → **~16 B** (50% under Architect's 33 B estimate).
-  - vs alien-signals (−872 B dispose-positive): scribe is now ~2.5 KB delta vs alien, down from ~11 KB delta at session start.
+  - vs alien-signals (−872 B dispose-positive): aihu is now ~2.5 KB delta vs alien, down from ~11 KB delta at session start.
   - vs the original 4 KB hard target: **40% of cap** (2.4 KB headroom).
 
 - **Performance direction: PARTIALLY satisfied.**
   - 4.00 µs → **3.39 µs** = 15% improvement across Phase 0 → Phase 3.
   - Strict spec gate (≤ 3.20 µs hard, ≤ 3.30 µs soft, > 3.30 µs fail): **FAIL by strict reading**, mean 3.39 µs.
   - Realistic (3-run-mean vs H5's 3-run-mean of 3.37 µs): **flat**, indistinguishable.
-  - vs alien (2.42 µs): scribe is 0.97 µs / 1.40× behind on this synthetic workload.
+  - vs alien (2.42 µs): aihu is 0.97 µs / 1.40× behind on this synthetic workload.
 
-### §1.2 What is scribe's contractual position now?
+### §1.2 What is aihu's contractual position now?
 
-After Phase 3, scribe-signals can claim:
+After Phase 3, aihu-signals can claim:
 
 1. **#1 on cellx** (508 ns mean across 3 runs vs preact 610, alien 728, s-js 680). Cellx is the canonical "deep diamond + glitch-free + cached read" benchmark and the workload most representative of component-tree update patterns.
 2. **#1 on batched-writes-100** (2.50 µs mean vs s-js 2.72, alien 3.57, preact 4.54). Batched writes is the "componentDidUpdate" workload — what UI frameworks actually run when state setters fire in event handlers.
-3. **#1 or #2 on dynamic-deps** (715 ns mean; s-js often 1st, scribe always within 80 ns). Dynamic-deps measures dependency rotation cost — what happens when `<Show>` toggles or a list item re-keys.
+3. **#1 or #2 on dynamic-deps** (715 ns mean; s-js often 1st, aihu always within 80 ns). Dynamic-deps measures dependency rotation cost — what happens when `<Show>` toggles or a list item re-keys.
 4. **#4 on deep-propagation-100** (3.39 µs vs alien 2.42, s-js 2.26, preact 3.36). The synthetic 100-deep linear chain is **not a real component shape** — Scout's competitor survey found no surveyed framework enforces a deep-chain p50 gate.
 5. **Bundle: 1775 B signals + 2086 B arbor = 3861 B gz** vs the project's 3460 B ceiling for the browser bundle... wait, the ceiling enforcement is per-package; combined signals + arbor is in the right range for the runtime layer. Both packages are net-negative or net-tight against H5.
-6. **Memory: 1.62 KB on the worst-case workload**, parity-ish with alien (which is dispose-positive on the same metric due to GC reclaim heuristics; scribe's −7 KB drop closes the meaningful delta).
+6. **Memory: 1.62 KB on the worst-case workload**, parity-ish with alien (which is dispose-positive on the same metric due to GC reclaim heuristics; aihu's −7 KB drop closes the meaningful delta).
 7. **Public API byte-identical** — `git diff 62f737f..a0a93d6 -- packages/signals/src/index.ts` is empty. No consumer code changes for the entire 6-round optimisation campaign.
 
 The **load-bearing claims for v1's competitive positioning are fully secured.** The deep-propagation-100 ranking is the asterisk, and the question is whether closing it is worth more than the alternative use of the next research cycle.
@@ -75,7 +75,7 @@ Five bullets summarising what shipped:
 
 Three real paths forward, all defensible:
 
-- **Path X — Ship Phase 3 as-is.** Relax perf target to ≤ 3.40 µs, declare Phase 3 PASS, open Round 8 for separate plan (Plan 1.3 or 1.4 from Track A). Argument: scribe's contractual position is fully secured on the load-bearing workloads; the deep-prop perf gap is on a synthetic workload no framework enforces; v2 closure-removal completion can finish the perf piece in a separate plan.
+- **Path X — Ship Phase 3 as-is.** Relax perf target to ≤ 3.40 µs, declare Phase 3 PASS, open Round 8 for separate plan (Plan 1.3 or 1.4 from Track A). Argument: aihu's contractual position is fully secured on the load-bearing workloads; the deep-prop perf gap is on a synthetic workload no framework enforces; v2 closure-removal completion can finish the perf piece in a separate plan.
 
 - **Path Y — Round 7 attempts H4-tactical to close perf gap.** Re-run the Path A H4 tactical re-spec that was BLOCKED at +60 B over the old 1809 B signals baseline (= 1869 B, busting the 1850 cap). The new baseline is 1775 B with 75 B headroom — H4-tactical fits IF the same +60 B holds (1775 + 60 = 1835 B, 15 B under cap). Architect predicted 200–400 ns recovery from T1+T2+T6; predicted landing 3.10–3.20 µs. Memory unchanged.
 
@@ -89,7 +89,7 @@ Each is evaluated below.
 
 ### §4.1 Pros
 
-- **Load-bearing competitive position fully secured.** scribe owns cellx (#1 by 100+ ns over preact, the closest competitor), batched-writes (#1 by 220 ns over s-js), and dynamic-deps (#1/#2 within 80 ns of s-js). These three workloads cover the actual cost shapes that real components hit: glitch-free updates with caching, batched event-handler writes, and dependency rotation on conditional rendering. Verifier §2 confirms all three held #1 or #2 across all three runs.
+- **Load-bearing competitive position fully secured.** aihu owns cellx (#1 by 100+ ns over preact, the closest competitor), batched-writes (#1 by 220 ns over s-js), and dynamic-deps (#1/#2 within 80 ns of s-js). These three workloads cover the actual cost shapes that real components hit: glitch-free updates with caching, batched event-handler writes, and dependency rotation on conditional rendering. Verifier §2 confirms all three held #1 or #2 across all three runs.
 
 - **Memory direction over-delivered.** 84% drop from session start (10.24 KB → 1.62 KB), 2× under the Architect's realistic forecast of 3.4 KB landing. The user mandate "find optimization related to memory use" was the secondary direction at session start; it is now arguably the primary win of the optimisation campaign.
 
@@ -99,7 +99,7 @@ Each is evaluated below.
 
 - **deep-propagation-100 is synthetic.** A 100-deep linear computed chain is not a component shape any real SFC produces. The closest analog in real apps would be deep derived state (e.g. `selectorA → selectorB → selectorC → ...`); empirically these depths sit at 3–8, not 100. Scout report (track-a, track-b) found no surveyed framework enforces a deep-chain p50 gate.
 
-- **The remaining 0.97 µs gap to alien is structural.** scribe uses forward-subscription push; alien uses push-pull with version counters that short-circuit on equal versions. Closing this without a model change would require either (a) version counters on every signal/computed (memory + bundle cost), or (b) a hybrid mode (control complexity). Both are v2-scope per the original Phase 2 scope rules (`state-track-c.md` line 198: "Surface to user immediately if: alien-signals' algorithm requires a model change incompatible with scribe's effect-settled-in-mark contract — this would be a v2 redesign, not a v1 phase").
+- **The remaining 0.97 µs gap to alien is structural.** aihu uses forward-subscription push; alien uses push-pull with version counters that short-circuit on equal versions. Closing this without a model change would require either (a) version counters on every signal/computed (memory + bundle cost), or (b) a hybrid mode (control complexity). Both are v2-scope per the original Phase 2 scope rules (`state-track-c.md` line 198: "Surface to user immediately if: alien-signals' algorithm requires a model change incompatible with aihu's effect-settled-in-mark contract — this would be a v2 redesign, not a v1 phase").
 
 - **Cost: zero additional research cycles.** Track A's Plan 1.3 or 1.4 work can begin immediately. The Round 6 budget shows 1/5 Builder↔Verifier rounds used; reclaiming the remaining 4/5 budget for a different track delivers a higher EV use of research time.
 
@@ -117,7 +117,7 @@ Each is evaluated below.
 
 ### §4.3 User-facing pitch
 
-> Phase 3 K1c+fn-promotion ships scribe-signals with **#1 ranking on the three load-bearing workloads** (cellx, batched-writes, dynamic-deps), an **84% memory reduction** from session-start (10.24 KB → 1.62 KB on deep-prop-100, 2× under the realistic forecast), and **net-improved bundles** (signals at 1775 B with 75 B headroom; arbor net-negative at 2086 B). All six H5 invariants preserved bit-arithmetically; public API byte-identical across six rounds of optimisation. The single open item — synthetic deep-prop-100 propagation at 3.39 µs vs the spec's strict 3.30 µs ceiling — is within mitata noise of the H5 baseline (3.37 µs 3-run mean) and reflects a structural model difference (forward-subscription vs alien's push-pull with version counters) that is v2-scope by the original Phase 2 scope rules. **Recommendation: ship Phase 3, update spec language to "≤ X µs 3-run mean" per Verifier §10 #6, open Round 8 on a different track.**
+> Phase 3 K1c+fn-promotion ships aihu-signals with **#1 ranking on the three load-bearing workloads** (cellx, batched-writes, dynamic-deps), an **84% memory reduction** from session-start (10.24 KB → 1.62 KB on deep-prop-100, 2× under the realistic forecast), and **net-improved bundles** (signals at 1775 B with 75 B headroom; arbor net-negative at 2086 B). All six H5 invariants preserved bit-arithmetically; public API byte-identical across six rounds of optimisation. The single open item — synthetic deep-prop-100 propagation at 3.39 µs vs the spec's strict 3.30 µs ceiling — is within mitata noise of the H5 baseline (3.37 µs 3-run mean) and reflects a structural model difference (forward-subscription vs alien's push-pull with version counters) that is v2-scope by the original Phase 2 scope rules. **Recommendation: ship Phase 3, update spec language to "≤ X µs 3-run mean" per Verifier §10 #6, open Round 8 on a different track.**
 
 ---
 
@@ -195,9 +195,9 @@ V8's IC starts monomorphic, transitions to polymorphic at 2 shapes, and goes meg
 
 ### §6.3 Hypothesis Z3 — `lastWave: 0` SMI vs HeapNumber transition
 
-**Sketch.** Post-K1c+, every `Computed` instance is born with `lastWave: 0` (SMI). On the first signal write, `wave++` is executed and `dep.lastWave = wave` is assigned. If `wave` ever exceeds 2^31 (V8's SMI boundary), `lastWave` transitions to HeapNumber and the hidden class migrates. On deep-prop-100, the wave counter likely stays below 100K (well within SMI range), but in long-lived processes (e.g., scribe apps running for hours), the wave counter could plausibly cross 2^31 during a single browser session. If it does, every Computed migrates to a new HC and IC sites deopt.
+**Sketch.** Post-K1c+, every `Computed` instance is born with `lastWave: 0` (SMI). On the first signal write, `wave++` is executed and `dep.lastWave = wave` is assigned. If `wave` ever exceeds 2^31 (V8's SMI boundary), `lastWave` transitions to HeapNumber and the hidden class migrates. On deep-prop-100, the wave counter likely stays below 100K (well within SMI range), but in long-lived processes (e.g., aihu apps running for hours), the wave counter could plausibly cross 2^31 during a single browser session. If it does, every Computed migrates to a new HC and IC sites deopt.
 
-**How to investigate.** Architect computes the wave-counter consumption rate (e.g., assuming 100 signal writes/sec, 2^31 / 100 ≈ 248 days; for high-frequency scribe apps perhaps 10K writes/sec → ~60 hours). For deep-prop-100 the bench fires ~700K iterations × ~500 writes/test ≈ 3.5×10^8 — this is 16% of SMI range. Probability that bench triggers the transition: low. Probability that production triggers it: depends on use case.
+**How to investigate.** Architect computes the wave-counter consumption rate (e.g., assuming 100 signal writes/sec, 2^31 / 100 ≈ 248 days; for high-frequency aihu apps perhaps 10K writes/sec → ~60 hours). For deep-prop-100 the bench fires ~700K iterations × ~500 writes/test ≈ 3.5×10^8 — this is 16% of SMI range. Probability that bench triggers the transition: low. Probability that production triggers it: depends on use case.
 
 **Predicted ceiling.** Negligible perf delta on deep-prop-100 (probably < 5 ns). Production hardening value, not a v1 perf lever.
 
@@ -331,7 +331,7 @@ These remain active regardless of path choice:
 
 ## §11 v1 → v2 narrative update
 
-### §11.1 Where scribe-signals stands at end of Phase 3
+### §11.1 Where aihu-signals stands at end of Phase 3
 
 | Axis | Session start | End of Phase 3 | Δ | vs alien-signals |
 |---|---:|---:|---:|---:|
@@ -350,7 +350,7 @@ Two gaps remain after Phase 3:
 
 1. **deep-propagation-100 p50: 3.39 µs vs alien's 2.42 µs (1.40× behind).** Closing this requires either:
    - **v1.x lever (Path Y or Z)**: +0.10–0.20 µs achievable at one Builder+Verifier round; would land 3.10–3.30 µs (close to or matching preact's 3.36 µs). This is the "close the strict spec gate" play.
-   - **v2 lever**: introduce push-pull with version counters. This is the alien-signals model — fundamentally different from scribe's effect-settled-in-mark. Closes the gap to ~2.50–2.70 µs. v2-scope per `state-track-c.md` line 198.
+   - **v2 lever**: introduce push-pull with version counters. This is the alien-signals model — fundamentally different from aihu's effect-settled-in-mark. Closes the gap to ~2.50–2.70 µs. v2-scope per `state-track-c.md` line 198.
 
 2. **wide-fanout-100: 4.64 µs vs alien's 3.75 µs (1.24× behind).** Closing this requires reducing forward-subscription model overhead on dense fan-outs. Investigated as "not on v1 critical path" per Verifier §10 — Round N+2 candidate.
 
@@ -363,7 +363,7 @@ The post-v1 plan should include:
 
 ### §11.4 The v1 ship narrative
 
-> scribe-signals v1 ships at #1 ranking on cellx, batched-writes-100, and dynamic-deps (the load-bearing component-update workloads), with an 84% memory reduction from session start (1.62 KB on deep-propagation-100 vs alien's −872 B; ~2.5 KB delta down from ~11 KB). Bundle: 1.7 kB / 2.1 kB gz. Public API: zero breaking changes across six rounds of internal optimisation. v1.x will close the deep-chain perf tail; v2 will add push-pull with version counters for full alien parity.
+> aihu-signals v1 ships at #1 ranking on cellx, batched-writes-100, and dynamic-deps (the load-bearing component-update workloads), with an 84% memory reduction from session start (1.62 KB on deep-propagation-100 vs alien's −872 B; ~2.5 KB delta down from ~11 KB). Bundle: 1.7 kB / 2.1 kB gz. Public API: zero breaking changes across six rounds of internal optimisation. v1.x will close the deep-chain perf tail; v2 will add push-pull with version counters for full alien parity.
 
 This is a clean shipping narrative regardless of whether Round 7 is Path X (ship now) or Path Y/Z (one more optimisation round before ship). The marginal value of Round 7 is whether the v1 ship narrative includes "deep-chain on par with preact" (Path Y/Z best case) or "deep-chain in v1.x" (Path X).
 
@@ -527,7 +527,7 @@ Budget consumed: 1/5–3/5 (worst case if mechanism rotates).
 
 **Round 7 substance: defer to user.** Director's prior is Path X; Path Y is defensible at 1 cycle / coin-flip-on-hard-pass; Path Z is the lowest-EV option at 2–3 cycles for similar expected delta.
 
-**v1 narrative is intact regardless of path:** scribe-signals leads on the load-bearing workloads, crushed memory 84%, bundles net-improved, public API byte-identical across six rounds. The deep-chain perf tail is a v1.x or v2 lever; Path Y / Z would pull it forward, Path X defers it.
+**v1 narrative is intact regardless of path:** aihu-signals leads on the load-bearing workloads, crushed memory 84%, bundles net-improved, public API byte-identical across six rounds. The deep-chain perf tail is a v1.x or v2 lever; Path Y / Z would pull it forward, Path X defers it.
 
 **Iteration budget:** 4/5 remains in Phase 3 if Path Y or Z is picked; budget retires if Path X.
 

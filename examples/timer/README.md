@@ -1,6 +1,6 @@
 # timer
 
-**What this teaches:** lifecycle hooks plus reactive derivations — the 7GUIs #4 pattern in scribe form.
+**What this teaches:** lifecycle hooks plus reactive derivations — the 7GUIs #4 pattern in aihu form.
 
 A `setInterval` is registered in `$lifecycle.mount` and torn down in `$lifecycle.dispose`. The slider-controlled duration is two-way bound; `$computed` derivations turn raw elapsed-ms into a progress fraction, formatted seconds, and a "done" boolean used for `$if`.
 

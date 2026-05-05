@@ -6,13 +6,13 @@ export function AboutPage() {
     tag: 'main',
     attrs: {},
     children: [
-      { kind: 'branch' as const, tag: 'h1', attrs: {}, children: [leaf('About Scribe')] },
+      { kind: 'branch' as const, tag: 'h1', attrs: {}, children: [leaf('About Aihu')] },
       {
         kind: 'branch' as const,
         tag: 'p',
         attrs: {},
         children: [
-          leaf('Scribe is a JavaScript/TypeScript meta-framework for building Web Components.'),
+          leaf('Aihu is a JavaScript/TypeScript meta-framework for building Web Components.'),
         ],
       },
       {

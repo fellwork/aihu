@@ -1,6 +1,6 @@
 # color-theme
 
-**What this teaches:** `$reactive(...)` inside `@style` plus `$global { ... }` to propagate tokens beyond component scope. The unique scribe `@style` capability with no Svelte/Vue/Lit equivalent.
+**What this teaches:** `$reactive(...)` inside `@style` plus `$global { ... }` to propagate tokens beyond component scope. The unique aihu `@style` capability with no Svelte/Vue/Lit equivalent.
 
 Three HSL signals drive three CSS custom properties on `:root`. Every consumer of `var(--color-primary)` updates without a single template re-render.
 

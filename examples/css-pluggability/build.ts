@@ -1,18 +1,18 @@
 /**
- * build.ts — example pipeline for compiling a CSS-pluggable scribe app.
+ * build.ts — example pipeline for compiling a CSS-pluggable aihu app.
  *
  * Runs three stages, none of which need Vite (Vite-on-Bun has a known
- * limitation with the @scribe/compiler workspace symlink — see
- * packages/compiler/js/index.ts JSDoc on scribeCompilerPlugin).
+ * limitation with the @aihu/compiler workspace symlink — see
+ * packages/compiler/js/index.ts JSDoc on aihuCompilerPlugin).
  *
- *   1. Compile each .scribe SFC → .ts via `transform()`.
+ *   1. Compile each .aihu SFC → .ts via `transform()`.
  *      For each compiled module, post-process the emitted defineElement
  *      call with `_injectShadowMode(..., 'none')` so the components
  *      mount in light DOM and Tailwind classes reach them.
  *   2. Bundle the compiled .ts modules (and `src/main.ts`) into
  *      `dist/main.js` via Bun's bundler.
  *   3. Run `bunx @tailwindcss/cli@3` to compile `src/styles/tailwind.css`
- *      into `dist/tailwind.css`, scanning the .scribe sources for the
+ *      into `dist/tailwind.css`, scanning the .aihu sources for the
  *      utility classes actually referenced (per `tailwind.config.ts`).
  *
  * Output:
@@ -27,7 +27,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { _injectShadowMode, transform } from '@scribe/compiler'
+import { _injectShadowMode, transform } from '@aihu/compiler'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const componentsDir = resolve(__dirname, 'src/components')
@@ -35,12 +35,12 @@ const distDir = resolve(__dirname, 'dist')
 mkdirSync(distDir, { recursive: true })
 mkdirSync(resolve(__dirname, 'src/components/.gen'), { recursive: true })
 
-// ─── Stage 1: compile .scribe → .ts (with shadowMode: 'none') ──────────────────
-const sfcs = readdirSync(componentsDir).filter((f) => f.endsWith('.scribe'))
-console.log(`[build] compiling ${sfcs.length} .scribe files...`)
+// ─── Stage 1: compile .aihu → .ts (with shadowMode: 'none') ──────────────────
+const sfcs = readdirSync(componentsDir).filter((f) => f.endsWith('.aihu'))
+console.log(`[build] compiling ${sfcs.length} .aihu files...`)
 for (const sfc of sfcs) {
   const inPath = resolve(componentsDir, sfc)
-  const outPath = resolve(componentsDir, `${basename(sfc, '.scribe')}.ts`)
+  const outPath = resolve(componentsDir, `${basename(sfc, '.aihu')}.ts`)
   const source = readFileSync(inPath, 'utf-8')
   const { code } = transform(source, inPath)
   // Capability addition: post-process for light-DOM mount so Tailwind classes apply.

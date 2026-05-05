@@ -13,7 +13,7 @@ This was a blocker-resolution session, not a feature session. Four items were id
 
 | # | Blocker | Mode | Outcome |
 |---|---------|------|---------|
-| 1 | `npx size-limit` fails — esbuild cannot resolve `@scribe/signals` / `@scribe/context` in `@scribe/data` bundle | Mode 2 (Build) | COMPLETE — commit `20d66b7` |
+| 1 | `npx size-limit` fails — esbuild cannot resolve `@aihu/signals` / `@aihu/context` in `@aihu/data` bundle | Mode 2 (Build) | COMPLETE — commit `20d66b7` |
 | 2 | Arbor bundle at 2151 B / 2200 B cap (49 B headroom) — Plan 1.4 viability unknown | Mode 1 (Investigate) | COMPLETE — filed at `.team/v1/arbor-bundle-investigation.md` |
 | 3 | Compiler session-6 cleanup: BTreeMap, Vite investigation, topic summary | Mode 2 (Build) | COMPLETE — PR #14 merged at `808f1c0` |
 | 4 | Track C 6.2-P1 bench validation (deep-chain) | No dispatch — hardware-blocked | DEFERRED — CONDITIONAL PASS unchanged |
@@ -26,11 +26,11 @@ This was a blocker-resolution session, not a feature session. Four items were id
 
 **Commit:** `20d66b7`
 
-`npx size-limit` exited 1 with `Could not resolve '@scribe/signals'` and `Could not resolve '@scribe/context'` when evaluating `@scribe/data`'s bundle. Root cause: size-limit reads `peerDependencies` from the *workspace root* `package.json` to auto-populate the `ignore` list; the workspace root has no `peerDependencies`, so nothing was excluded for `@scribe/data`.
+`npx size-limit` exited 1 with `Could not resolve '@aihu/signals'` and `Could not resolve '@aihu/context'` when evaluating `@aihu/data`'s bundle. Root cause: size-limit reads `peerDependencies` from the *workspace root* `package.json` to auto-populate the `ignore` list; the workspace root has no `peerDependencies`, so nothing was excluded for `@aihu/data`.
 
-Fix: added `"ignore": ["@scribe/signals", "@scribe/context"]` to the `@scribe/data` entry in `.size-limit.json` only. No other entries were changed.
+Fix: added `"ignore": ["@aihu/signals", "@aihu/context"]` to the `@aihu/data` entry in `.size-limit.json` only. No other entries were changed.
 
-Result: `npx size-limit` exits 0. All 6 entries report sizes. `@scribe/data` at 306 B gz / 750 B limit (444 B headroom). Every Verifier can now run `npx size-limit` as a single clean gate without manual intervention.
+Result: `npx size-limit` exits 0. All 6 entries report sizes. `@aihu/data` at 306 B gz / 750 B limit (444 B headroom). Every Verifier can now run `npx size-limit` as a single clean gate without manual intervention.
 
 ### Blocker 2 — Arbor bundle investigation
 
@@ -50,7 +50,7 @@ Slot cost estimate: a `slot()` primitive implemented as a `_makeElementLeaf` wra
 
 Three tasks:
 1. **BTreeMap in `signals.rs`** — replaced `HashMap<String, String>` with `BTreeMap<String, String>` in `SignalMap`. Eliminates snapshot ordering non-determinism permanently. 32 Rust tests pass, affected snapshots re-accepted.
-2. **Vite limitation documented** — `bun vite build` with `scribeCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Documented with a clear note in `packages/compiler/js/index.ts` JSDoc. The `transform()` function works correctly; only the Vite plugin hook is affected.
+2. **Vite limitation documented** — `bun vite build` with `aihuCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Documented with a clear note in `packages/compiler/js/index.ts` JSDoc. The `transform()` function works correctly; only the Vite plugin hook is affected.
 3. **Compiler topic summary written** — `.team/compiler/summaries/compiler-summary.md` now exists. Covers SFC → TypeScript pipeline, architecture, key decisions, 5 known limitations, and what a new engineer needs before touching the code.
 
 Verifier: PASS on all 11 ACs. 32 Rust tests green, 320 TS tests green.

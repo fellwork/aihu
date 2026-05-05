@@ -28,19 +28,19 @@ There is **NO separate inner-loop function-call boundary** in alien's design. Th
 - **`system.mjs:128–131`** — sibling continuation along the linked list (`link = next; next = link.nextSub; continue`).
 - **`system.mjs:132–139`** — pop-stack-and-continue when current chain exhausts.
 
-The unified `do/while (true)` loop is alien's structural answer to scribe's outer-loop+inner-loop split. Alien achieves single-monomorphic-loop V8 inlining via labelled `continue top` + linked-list stack; scribe achieves the same via two explicit while-loops (T1+T2+T6 fence; see §2).
+The unified `do/while (true)` loop is alien's structural answer to aihu's outer-loop+inner-loop split. Alien achieves single-monomorphic-loop V8 inlining via labelled `continue top` + linked-list stack; aihu achieves the same via two explicit while-loops (T1+T2+T6 fence; see §2).
 
 ### 1.4 Per-iteration optimizations alien uses
 
 - **Per-edge version dedup at link** (`link.version` set at construction in `link()`, **`system.mjs:36`**, and read at **`system.mjs:30`**) — but this is a *link-creation* optimization, not a propagate-walk one. (This is alien technique 2 in Scout's report; deferred to Track-B per `.team/round-n2/retro.md` §"alien-signals investigation".)
-- **No pre-flagged-children fast-path** in `propagate`. Effects are queued via `notify(sub)` callback at **`system.mjs:115`** when `flags & 2` — same eager-queue shape scribe's `markOne` uses (`signal.ts:220, 246`).
-- **Linked-list stack frames** (`{value, prev}` plain object at `system.mjs:122`) instead of typed array — but this allocates per fan-out vs scribe's amortised module-level `markStack: Subscriber[]` at `signal.ts:195`. **Scribe's choice is faster on V8** (already validated at H4-tactical landing, commit `54d73d7`).
+- **No pre-flagged-children fast-path** in `propagate`. Effects are queued via `notify(sub)` callback at **`system.mjs:115`** when `flags & 2` — same eager-queue shape aihu's `markOne` uses (`signal.ts:220, 246`).
+- **Linked-list stack frames** (`{value, prev}` plain object at `system.mjs:122`) instead of typed array — but this allocates per fan-out vs aihu's amortised module-level `markStack: Subscriber[]` at `signal.ts:195`. **Aihu's choice is faster on V8** (already validated at H4-tactical landing, commit `54d73d7`).
 
-**Net assessment:** alien's `propagate` is structurally one outer loop with descent folded in via labelled `continue`; scribe's `markOne` is two explicit while-loops with the same DFS semantics. The two designs are **structurally equivalent for the work performed**; they differ only in syntactic shape.
+**Net assessment:** alien's `propagate` is structurally one outer loop with descent folded in via labelled `continue`; aihu's `markOne` is two explicit while-loops with the same DFS semantics. The two designs are **structurally equivalent for the work performed**; they differ only in syntactic shape.
 
 ---
 
-## Section 2 — scribe post-Fusion `markOne` outer-loop shape
+## Section 2 — aihu post-Fusion `markOne` outer-loop shape
 
 Source: `packages/signals/src/signal.ts` lines 198–266 on main HEAD `4824b91`.
 
@@ -58,7 +58,7 @@ Per the comment block at **`signal.ts:198–208`** and commits `54d73d7` (perf: 
 
 > "Split into two distinct loops so V8 can monomorphise each independently — the ternary `isChase ? MARKED | PENDING : MARKED` in the unified loop is polymorphic in the hot inner path and prevents type inference."
 
-The split exists *because* a unified single-loop walk caused V8 to deopt the hot inner path. **The current outer/inner split is the V8-monomorphism-forced answer to alien's labelled `continue top` design** — scribe achieves the same end via two distinct loops; alien achieves it via one labelled loop with linked-list stack frames.
+The split exists *because* a unified single-loop walk caused V8 to deopt the hot inner path. **The current outer/inner split is the V8-monomorphism-forced answer to alien's labelled `continue top` design** — aihu achieves the same end via two distinct loops; alien achieves it via one labelled loop with linked-list stack frames.
 
 ### 2.3 Function-call boundary status
 
@@ -136,7 +136,7 @@ Item 2 was scoped against the pre-Round-N+3 `markOne` shape (the depth-aware mar
 
 ## Section 3 — Empirical baseline (Q7 environment lockdown)
 
-3-run capture committed at `bench/baselines/autonomous-session-4824b91.md`. Summary (3-run-median p50, `@scribe/signals`):
+3-run capture committed at `bench/baselines/autonomous-session-4824b91.md`. Summary (3-run-median p50, `@aihu/signals`):
 
 | Workload | Pre-α p50 (`round-n3-pre-9f06acb.md`) | Post-α median p50 (this session) | Δ% | Verifier post-α (retro §3) | Δ% (retro) |
 |---|---:|---:|---:|---:|---:|
@@ -192,23 +192,23 @@ Per `.team/dual-session-direction/retro.md` §3 (Verifier 3-run-median):
 
 #### wide-fanout-100
 
-- Post-α `RESULTS.md`: scribe **3.13 µs** vs alien **3.02 µs** (−3.5 % gap, scribe ~3 % behind). Functionally tied at the field lead.
-- Item 2 target: per-fan-out-node call overhead. **There is no per-fan-out-node function call in scribe's `markOne` post-α** (§2.3, §2.4). The fan-out branch (`signal.ts:223–234, 249–259`) is in-loop `markStack.push(child)` — V8 intrinsic, no user-level function boundary.
+- Post-α `RESULTS.md`: aihu **3.13 µs** vs alien **3.02 µs** (−3.5 % gap, aihu ~3 % behind). Functionally tied at the field lead.
+- Item 2 target: per-fan-out-node call overhead. **There is no per-fan-out-node function call in aihu's `markOne` post-α** (§2.3, §2.4). The fan-out branch (`signal.ts:223–234, 249–259`) is in-loop `markStack.push(child)` — V8 intrinsic, no user-level function boundary.
 - **Residual gain: ZERO on this axis.** Item 2 has no inlining target on the fan-out path.
 
 #### deep-propagation-100
 
-- Post-α `RESULTS.md`: scribe **2.88 µs** vs alien **2.27 µs** (~1.27× gap, narrowed from pre-α ~1.65×).
-- Item 2 target: per-hop call overhead in linear chain walk. **The linear-chain walk in scribe is the inner chase loop** (`signal.ts:239–261`) — `while (true) { ... head = sub.subsHead; ... }` — flat in-loop, no per-hop function call.
+- Post-α `RESULTS.md`: aihu **2.88 µs** vs alien **2.27 µs** (~1.27× gap, narrowed from pre-α ~1.65×).
+- Item 2 target: per-hop call overhead in linear chain walk. **The linear-chain walk in aihu is the inner chase loop** (`signal.ts:239–261`) — `while (true) { ... head = sub.subsHead; ... }` — flat in-loop, no per-hop function call.
 - The remaining ~1.27× gap to alien is not call-boundary overhead (already eliminated). Likely sources:
   - Per-hop bit-flag checks (`if (sub.flags & DISPOSED) break`, `if (sub.flags & MERGE && sub.lastWave === wave) break`, `if (sub.flags & RUNNING) throw ...`) — alien collapses some of these via per-edge version dedup (technique 2; deferred to Track-B per N+2 retro).
-  - Alien's `checkDirty` pull-on-demand short-circuit on equality-stable upstream — **scribe ALSO has this post-α** via the unconditional per-effect dep-walk in `drainEffectQueue` (`signal.ts:303–308`). The `recomputeIfNeeded?.()` chain through `Computed.read()`'s lazy-pull (per arch-signals-fusion.md §3.1) is structurally equivalent to alien's `checkDirty`.
+  - Alien's `checkDirty` pull-on-demand short-circuit on equality-stable upstream — **aihu ALSO has this post-α** via the unconditional per-effect dep-walk in `drainEffectQueue` (`signal.ts:303–308`). The `recomputeIfNeeded?.()` chain through `Computed.read()`'s lazy-pull (per arch-signals-fusion.md §3.1) is structurally equivalent to alien's `checkDirty`.
   - V8 ICs at the polymorphic call sites (`l.dep.recomputeIfNeeded?.()` in `drainEffectQueue:306`).
 - **Residual gain from iterative outer-loop inlining: ~0 %.** The gap is structural (per-edge version dedup is a different optimization; bit-flag count is a different optimization; ICs are V8-side). Inlining the (already-non-existent) outer-loop call boundary cannot close this gap.
 
 #### Other workloads
 
-- **cellx, batched-writes-100, dynamic-deps, creation-1to1000:** all are workloads where scribe leads or ties the field per `RESULTS.md`. None are call-boundary-overhead-dominated. Item 2 has no inlining target relevant to these workloads.
+- **cellx, batched-writes-100, dynamic-deps, creation-1to1000:** all are workloads where aihu leads or ties the field per `RESULTS.md`. None are call-boundary-overhead-dominated. Item 2 has no inlining target relevant to these workloads.
 
 ### 4.4 Bytes / risk balance
 
@@ -229,9 +229,9 @@ Pursuing Item 2 against the current shape would **either**:
 
 α captured the gain Item 2 was targeting **and** the structural shape Item 2 was meant to optimize no longer exists post-α. Specifically:
 
-1. **The "per-node function call in the fan-out outer loop" Item 2 targets does not exist on main HEAD `4824b91`.** Per `signal.ts:212–262` (cited in §2.3–2.4), scribe's `markOne` is already iterative with explicit `markStack` and an outer/inner-loop split that is **load-bearing for V8 monomorphism** (commit `54d73d7` H4-tactical T1+T2+T6). There is no function-call boundary on the hot path to inline.
+1. **The "per-node function call in the fan-out outer loop" Item 2 targets does not exist on main HEAD `4824b91`.** Per `signal.ts:212–262` (cited in §2.3–2.4), aihu's `markOne` is already iterative with explicit `markStack` and an outer/inner-loop split that is **load-bearing for V8 monomorphism** (commit `54d73d7` H4-tactical T1+T2+T6). There is no function-call boundary on the hot path to inline.
 
-2. **α already extracted the gain Item 2 was projecting.** Item 1 (single-pass mark + effect queue via lazy dep-settle) delivered Verifier-confirmed deep-propagation-100 −13.2 %, wide-fanout-100 −27.7 %, cellx −14.0 %, dynamic-deps −15.0 %. Wide-fanout-100 went from "alien 4.63 µs vs scribe 4.47 µs" pre-α to "alien 3.02 µs vs scribe 3.13 µs" post-α (`RESULTS.md`) — scribe is now functionally tied with alien at the field lead.
+2. **α already extracted the gain Item 2 was projecting.** Item 1 (single-pass mark + effect queue via lazy dep-settle) delivered Verifier-confirmed deep-propagation-100 −13.2 %, wide-fanout-100 −27.7 %, cellx −14.0 %, dynamic-deps −15.0 %. Wide-fanout-100 went from "alien 4.63 µs vs aihu 4.47 µs" pre-α to "alien 3.02 µs vs aihu 3.13 µs" post-α (`RESULTS.md`) — aihu is now functionally tied with alien at the field lead.
 
 3. **The residual deep-propagation gap (~1.27×) is not call-boundary-overhead.** Per §4.3, the gap's likely sources are (a) per-edge version dedup (alien technique 2; deferred to Track-B per N+2 retro), (b) bit-flag-check count, (c) V8 IC quality at polymorphic recompute call sites. None of these are addressed by iterative outer-loop inlining.
 
@@ -240,7 +240,7 @@ Pursuing Item 2 against the current shape would **either**:
 **Recommendation:** Round N+3 Item 2 closes. If a future round wants to address the ~1.27× deep-propagation gap, the productive paths are (a) Track-B per-edge version counter (alien technique 2; in `feat/signals-n2-packed-proto`'s reference work — see memory `project_packed_proto_branch.md`), or (b) bit-flag-check consolidation (a separate Compressor-style micro-pass). Neither of those is "Item 2" as originally scoped.
 
 **Direct quote of justification (§4.3 wide-fanout):**
-> "There is no per-fan-out-node function call in scribe's `markOne` post-α (§2.3, §2.4). The fan-out branch (`signal.ts:223–234, 249–259`) is in-loop `markStack.push(child)` — V8 intrinsic, no user-level function boundary. Residual gain: ZERO on this axis."
+> "There is no per-fan-out-node function call in aihu's `markOne` post-α (§2.3, §2.4). The fan-out branch (`signal.ts:223–234, 249–259`) is in-loop `markStack.push(child)` — V8 intrinsic, no user-level function boundary. Residual gain: ZERO on this axis."
 
 ### Surface conditions per Decision 3
 

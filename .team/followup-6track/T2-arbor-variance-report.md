@@ -23,7 +23,7 @@ A 5-minute single-line config fix is **not available**. Unifying the measurement
 
 ## 1. Reproduce variance — measured byte data
 
-All measurements taken on `t2/arbor-variance-investigation` branched off main 2c47efd, with `@scribe/signals` already built (so workspace external resolves). Numbers in **bold** are the gz value reported / measurable for that path.
+All measurements taken on `t2/arbor-variance-investigation` branched off main 2c47efd, with `@aihu/signals` already built (so workspace external resolves). Numbers in **bold** are the gz value reported / measurable for that path.
 
 ### Path A — `bunx rolldown -c` from inside `packages/arbor` (≈ moon shared build)
 
@@ -88,9 +88,9 @@ This **does** match the +15 / +47 / +62 / +89 B figures in Learning #47 if those
 
 The variance is not arbor-specific — every package whose `package.json` build script is more than `rolldown -c` will exhibit the same variance pattern. Search:
 
-- `@scribe/signals/package.json` `build`: `rolldown -c && node scripts/mangle-dist.mjs` — same shape, exhibits same variance
-- `@scribe/runtime/package.json` `build`: `rolldown -c` only — no variance contribution from mangle stage
-- `@scribe/arbor/package.json` `build`: `rolldown -c && node scripts/mangle-dist.mjs` — same shape
+- `@aihu/signals/package.json` `build`: `rolldown -c && node scripts/mangle-dist.mjs` — same shape, exhibits same variance
+- `@aihu/runtime/package.json` `build`: `rolldown -c` only — no variance contribution from mangle stage
+- `@aihu/arbor/package.json` `build`: `rolldown -c && node scripts/mangle-dist.mjs` — same shape
 
 The 9 B source-map-trailer delta applies to ALL packages and is independent of mangle.
 
@@ -166,7 +166,7 @@ const bytes = entry.gzip !== false ? gzipSync(raw).length : raw.length
 This eliminates the in-memory rebundle and Cause 2 + Cause 3 both vanish. `bun run size` would then exactly match `gzip -c <dist>/index.js | wc -c` on the disk artifact.
 
 **Pros:** simplest fix for measurement consistency; removes 30+ lines of rolldown re-bundle plumbing.
-**Cons:** **forbidden by the brief** ("NO source code edits"). Also: it changes the *meaning* of `bun run size` in subtle ways — it would no longer enforce the "external" graph treatment per `.size-limit.json` `ignore`, because it would just gzip the on-disk artifact as-is. That is fine for arbor (whose dist already excludes `@scribe/signals`) but might break the `agent-acp` / `agent-a2a` / `data` rows that rely on the `ignore` field to externalize workspace deps.
+**Cons:** **forbidden by the brief** ("NO source code edits"). Also: it changes the *meaning* of `bun run size` in subtle ways — it would no longer enforce the "external" graph treatment per `.size-limit.json` `ignore`, because it would just gzip the on-disk artifact as-is. That is fine for arbor (whose dist already excludes `@aihu/signals`) but might break the `agent-acp` / `agent-a2a` / `data` rows that rely on the `ignore` field to externalize workspace deps.
 
 Net: not a 5-minute fix; needs cross-package validation.
 
@@ -187,7 +187,7 @@ Set `output.sourcemap: process.env.SIZE_GATE !== '1'` in `rolldown.config.ts`. A
 
 **Defer to v1.1.** Apply no fix in this round. Rationale:
 
-- The canonical-path policy is **already documented and authoritative** at `.size-limit.README.md` § "Canonical command", `bench/signals/HARNESS.md` § "Build paths", and the v0.2.5 plan section in `docs/superpowers/plans/2026-05-02-scribe-v1-framework.md`. Every plan, PR, and verifier audit must use `bun run size`. The human-process layer is sound.
+- The canonical-path policy is **already documented and authoritative** at `.size-limit.README.md` § "Canonical command", `bench/signals/HARNESS.md` § "Build paths", and the v0.2.5 plan section in `docs/superpowers/plans/2026-05-02-aihu-v1-framework.md`. Every plan, PR, and verifier audit must use `bun run size`. The human-process layer is sound.
 - A real fix needs source code changes (Option F2 in `scripts/size.ts`) plus cross-package validation that the `ignore`/`external` semantics still work after stripping the in-memory re-bundle. That's a reasonable hour of work, not five minutes.
 - The variance band (0–35 B) is small enough that nobody in any merged PR has accidentally landed an over-budget package because of it — the canonical path and the budgets have several hundred bytes of headroom on most rows.
 - The biggest practical risk is a future contributor running `gzip -c dist/index.js | wc -c` and panicking that arbor "regressed +9 B" against a previously-cited `bun run size` figure. The doc updates in the canonical-path policy already warn against this cross-comparison.
@@ -243,13 +243,13 @@ gzip -c packages/arbor/dist/index.js | wc -c     # 2120
 
 # Path D — bun run size against mangled dist
 bun run size | grep arbor
-# → ✓ @scribe/arbor   2.06 kB / 2200 B  (+89 B headroom)  ⇒ 2111 B
+# → ✓ @aihu/arbor   2.06 kB / 2200 B  (+89 B headroom)  ⇒ 2111 B
 
 # Path D — bun run size against unmangled dist
 rm -rf packages/arbor/dist
 (cd packages/arbor && bunx rolldown -c)
 bun run size | grep arbor
-# → ✓ @scribe/arbor   2.09 kB / 2200 B  (+56 B headroom)  ⇒ 2144 B
+# → ✓ @aihu/arbor   2.09 kB / 2200 B  (+56 B headroom)  ⇒ 2144 B
 ```
 
 ## Inputs read

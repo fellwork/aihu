@@ -16,8 +16,8 @@ interface VitePlugin {
   }) => void
 }
 
-const RR = '\0virtual:scribe-routes'
-const LR = '\0virtual:scribe-layouts'
+const RR = '\0virtual:aihu-routes'
+const LR = '\0virtual:aihu-layouts'
 
 export interface RouterPluginOptions {
   pagesDir?: string
@@ -31,6 +31,8 @@ export interface RouteSidecar {
   middleware?: string[]
   ssr?: boolean
   layout?: string
+  /** Declared route param names, e.g. ["slug"]. Emitted by the Rust compiler from $prop declarations. */
+  params?: string[]
 }
 
 /** Layout name → absolute file path (v0.6.8). */
@@ -39,7 +41,7 @@ export interface LayoutMap {
 }
 
 function segs(rel: string): RouteSegment[] {
-  return rel
+  const parts = rel
     .replace(/\.[^/]+$/, '')
     .replace(/\\/g, '/')
     .split('/')
@@ -52,6 +54,27 @@ function segs(rel: string): RouteSegment[] {
             ? { kind: 'param', name: p.slice(1, -1) }
             : { kind: 'static', path: p },
     )
+  // File-router convention: trailing `index` segment is the parent directory's root.
+  // e.g. src/pages/index.aihu → /,  src/pages/posts/index.aihu → /posts
+  if (parts.length > 0) {
+    const last = parts[parts.length - 1]!
+    if (last.kind === 'static' && last.path === 'index') parts.pop()
+  }
+  return parts
+}
+
+/** Extract the component tag name from an `@route { name: "..." }` block in a .aihu file. */
+function readAihuRouteName(f: string): string | null {
+  if (!f.endsWith('.aihu')) return null
+  try {
+    const content = readFileSync(f, 'utf8')
+    const block = content.match(/@route\s*\{([^}]*)\}/)
+    if (!block) return null
+    const nm = block[1]!.match(/name\s*:\s*["']([^"']+)["']/)
+    return nm ? nm[1]! : null
+  } catch {
+    return null
+  }
 }
 
 function pat(ss: RouteSegment[]): string {
@@ -73,28 +96,32 @@ export function readRouteSidecar(f: string): RouteSidecar | null {
   }
 }
 
-/** v0.6.8: Scan layouts dir for .scribe files. Build-time only. */
+/** v0.6.8: Scan layouts dir for .aihu files. Build-time only. */
 export function scanLayouts(d: string): LayoutMap {
   if (!existsSync(d)) return {}
   const m: LayoutMap = {}
   for (const e of readdirSync(d, { withFileTypes: true }))
-    if (e.isFile() && e.name.endsWith('.scribe'))
-      m[e.name.slice(0, -7)] = join(d, e.name).replace(/\\/g, '/')
+    if (e.isFile() && e.name.endsWith('.aihu'))
+      m[e.name.slice(0, -5)] = join(d, e.name).replace(/\\/g, '/')
   return m
 }
 
-const SK = ['name', 'middleware', 'ssr', 'layout'] as const
+const SK = ['name', 'middleware', 'ssr', 'layout', 'params'] as const
 
 function genR(files: string[], pd: string, middlewareByDir: Record<string, string> = {}): string {
   return `// AUTO-GENERATED\nexport default [\n${files
     .map((f) => {
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
       const sc = readRouteSidecar(f)
+      // For .aihu files without a sidecar, fall back to reading `name` from the @route block.
+      const aihuName = !sc?.name && f.endsWith('.aihu') ? readAihuRouteName(f) : null
       const x = sc
         ? SK.filter((k) => sc[k] !== undefined)
             .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)
             .join('\n')
-        : ''
+        : aihuName
+          ? `    name: ${JSON.stringify(aihuName)},`
+          : ''
       // v0.7.2: embed _middleware file path for file-convention auto-wire
       const fileDir = dirname(f).replace(/\\/g, '/')
       const mwFile = middlewareByDir[fileDir]
@@ -122,7 +149,7 @@ export interface MiddlewareScan {
   middlewareByDir: Record<string, string>
 }
 
-function scanPages(root: string, pd: string): MiddlewareScan {
+export function scanPages(root: string, pd: string): MiddlewareScan {
   const d = resolve(root, pd)
   if (!existsSync(d)) return { routes: [], middlewareByDir: {} }
   const routes: string[] = []
@@ -136,7 +163,7 @@ function scanPages(root: string, pd: string): MiddlewareScan {
         // v0.7.2: capture _middleware.ts / _middleware.js / _middleware.tsx / _middleware.jsx
         if (/^_middleware\.(ts|js|tsx|jsx)$/.test(e.name)) {
           middlewareByDir[dir.replace(/\\/g, '/')] = fp.replace(/\\/g, '/')
-        } else if (/\.(ts|js|tsx|jsx|scribe)$/.test(e.name) && !e.name.startsWith('_')) {
+        } else if (/\.(ts|js|tsx|jsx|aihu)$/.test(e.name) && !e.name.startsWith('_')) {
           routes.push(fp)
         }
       }
@@ -157,9 +184,9 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
     cr: string | null = null,
     cl: string | null = null
   return {
-    name: 'scribe-router',
+    name: 'aihu-router',
     resolveId: (id) =>
-      id === 'virtual:scribe-routes' ? RR : id === 'virtual:scribe-layouts' ? LR : null,
+      id === 'virtual:aihu-routes' ? RR : id === 'virtual:aihu-layouts' ? LR : null,
     load(id) {
       if (id === RR) {
         if (!cr) {
@@ -216,7 +243,7 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
 // ---------------------------------------------------------------------------
 
 /**
- * @scribe/router Vite integration (v0.7.4 rename of `viteRouterPlugin`).
+ * @aihu/router Vite integration (v0.7.4 rename of `viteRouterPlugin`).
  * Prefer this name going forward; `viteRouterPlugin` is kept as the original
  * function name (deprecated) until v1.0.
  */

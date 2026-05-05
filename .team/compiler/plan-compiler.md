@@ -1,4 +1,4 @@
-# Compiler Track — Rust SFC Compiler for `.scribe` Single-File Components
+# Compiler Track — Rust SFC Compiler for `.aihu` Single-File Components
 
 **Track:** `compiler`
 **Branch convention:** `feat/compiler-*`
@@ -9,17 +9,17 @@
 
 ## Goal
 
-The Rust SFC compiler is the remaining v0 → v1 gate. It reads `.scribe` single-file component files, parses the template and setup script, and emits TypeScript/JavaScript that calls `@scribe/arbor` primitives directly — no JSX runtime, no virtual DOM, no template strings.
+The Rust SFC compiler is the remaining v0 → v1 gate. It reads `.aihu` single-file component files, parses the template and setup script, and emits TypeScript/JavaScript that calls `@aihu/arbor` primitives directly — no JSX runtime, no virtual DOM, no template strings.
 
-The hand-authored equivalent (`defineComponent` with explicit `branch`/`leaf` calls) already works. The compiler makes `.scribe` files a first-class authoring surface.
+The hand-authored equivalent (`defineComponent` with explicit `branch`/`leaf` calls) already works. The compiler makes `.aihu` files a first-class authoring surface.
 
 ---
 
-## What a `.scribe` file looks like
+## What a `.aihu` file looks like
 
-```scribe
+```aihu
 <script setup>
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 const increment = () => setCount(c => c + 1)
@@ -36,9 +36,9 @@ const increment = () => setCount(c => c + 1)
 The compiler emits (conceptually):
 
 ```typescript
-import { branch, leaf, mount } from '@scribe/arbor'
-import { signal } from '@scribe/signals'
-import { defineComponent } from '@scribe/runtime'
+import { branch, leaf, mount } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
+import { defineComponent } from '@aihu/runtime'
 
 export default defineComponent({
   tag: 'x-counter',         // derived from filename or <script setup name="x-counter">
@@ -62,9 +62,9 @@ The output is a valid TypeScript module. `defineComponent` + `mount` handle the 
 
 **OQ-C1 (HIGH) — Template syntax: subset of HTML or custom DSL?**
 Two options:
-- A: Parse as HTML, extract scribe-specific attributes (`{{ }}` interpolation, `@event`, `:attr`) as a thin layer on top of standard HTML parsing.
+- A: Parse as HTML, extract aihu-specific attributes (`{{ }}` interpolation, `@event`, `:attr`) as a thin layer on top of standard HTML parsing.
 - B: Custom grammar (like Vue's template compiler). More powerful; much larger compiler scope.
-Recommendation: Option A for v0. HTML-first, scribe directives are attribute/text transforms only.
+Recommendation: Option A for v0. HTML-first, aihu directives are attribute/text transforms only.
 
 **OQ-C2 (HIGH) — Interpolation: `{{ expr }}` only, or full expression support?**
 - v0: `{{ identifier }}` only — direct signal/value binding. No `{{ a + b }}`, no method calls in template.
@@ -85,15 +85,15 @@ Option A is deterministic and requires no type inference. Recommended for v0.
 `branch` children is a static array — no reconciler in v0. Conditionals and lists require the `when` and `each` stubs, which throw `ArborNotImplementedError`. v0 compiler: no conditional or list directives. They are parse errors with a helpful message.
 
 **OQ-C6 (MEDIUM) — Component tag name: filename or explicit declaration?**
-- A: Filename: `my-counter.scribe` → tag `my-counter` (requires hyphen per custom elements spec)
+- A: Filename: `my-counter.aihu` → tag `my-counter` (requires hyphen per custom elements spec)
 - B: Explicit: `<script setup name="my-counter">` or `defineComponent({ tag: 'my-counter' })`
 Recommendation: filename-derived for v0, explicit override optional.
 
 **OQ-C7 (LOW) — Scoped styles?**
-`<style>` block in `.scribe` files is common in Vue/Svelte. For v0, scoped styles are deferred — the compiler emits a warning if a `<style>` block is present and ignores it.
+`<style>` block in `.aihu` files is common in Vue/Svelte. For v0, scoped styles are deferred — the compiler emits a warning if a `<style>` block is present and ignores it.
 
 **OQ-C8 (LOW) — Source maps?**
-Rolldown/Vite expect source maps for dev experience. The compiler should emit `.scribe → .ts` source map. This is a known Rust complexity — use `oxc_sourcemap` or similar from the OXC ecosystem since rolldown already uses OXC.
+Rolldown/Vite expect source maps for dev experience. The compiler should emit `.aihu → .ts` source map. This is a known Rust complexity — use `oxc_sourcemap` or similar from the OXC ecosystem since rolldown already uses OXC.
 
 ---
 
@@ -102,16 +102,16 @@ Rolldown/Vite expect source maps for dev experience. The compiler should emit `.
 ### Language: Rust
 
 - Uses the [OXC](https://oxc.rs) ecosystem (parser, transformer, codegen) — already in the project's toolchain via rolldown.
-- The `.scribe` template is NOT valid JavaScript, so OXC's JS parser cannot parse the template block directly. The template parser is a separate HTML-ish parser.
+- The `.aihu` template is NOT valid JavaScript, so OXC's JS parser cannot parse the template block directly. The template parser is a separate HTML-ish parser.
 - Recommended crate for HTML parsing: `html5ever` or a hand-rolled recursive descent (the template grammar is simple in v0).
 
 ### Package structure
 
 ```
 packages/compiler/
-  Cargo.toml                 name = "scribe-compiler"
+  Cargo.toml                 name = "aihu-compiler"
   src/
-    main.rs                  CLI entrypoint: scribe-compile <file> [--out <dir>]
+    main.rs                  CLI entrypoint: aihu-compile <file> [--out <dir>]
     lib.rs                   public API: compile(source: &str) -> Result<Output>
     parser/
       sfc.rs                 Split source into <script setup> + <template> + <style> blocks
@@ -123,12 +123,12 @@ packages/compiler/
       attrs.rs               Attribute + event binding emission
     types.rs                 TemplateAst, DirectiveKind, ScfcBlock, CompileOutput
   tests/
-    snapshots/               Input .scribe → expected output .ts pairs (insta snapshots)
+    snapshots/               Input .aihu → expected output .ts pairs (insta snapshots)
     fixtures/
-      counter.scribe         Basic signal + event
-      static.scribe          No signals (pure static tree)
-      nested.scribe          Nested branches
-      error-conditional.scribe  Should fail with helpful message
+      counter.aihu         Basic signal + event
+      static.aihu          No signals (pure static tree)
+      nested.aihu          Nested branches
+      error-conditional.aihu  Should fail with helpful message
 ```
 
 ### Vite / rolldown integration
@@ -137,16 +137,16 @@ packages/compiler/
 packages/compiler/
   js/                        Node.js binding (napi-rs or wasm-bindgen)
     index.ts                 exports transform(source, id): { code, map }
-    package.json             name: "@scribe/compiler"
+    package.json             name: "@aihu/compiler"
 ```
 
-The Vite plugin (in `packages/vite-plugin-router/` or `packages/agent-readiness/src/vite-plugin.ts` extension) registers a transform hook for `*.scribe` files:
+The Vite plugin (in `packages/vite-plugin-router/` or `packages/agent-readiness/src/vite-plugin.ts` extension) registers a transform hook for `*.aihu` files:
 
 ```typescript
 // In a Vite plugin:
 transform(code, id) {
-  if (!id.endsWith('.scribe')) return
-  return compilerTransform(code, id)  // calls @scribe/compiler wasm/napi binding
+  if (!id.endsWith('.aihu')) return
+  return compilerTransform(code, id)  // calls @aihu/compiler wasm/napi binding
 }
 ```
 
@@ -157,7 +157,7 @@ transform(code, id) {
 ### Phase C-0 — Scaffold + SFC block splitter
 
 **Files:** `packages/compiler/Cargo.toml`, `src/lib.rs`, `src/parser/sfc.rs`
-**Deliverable:** `compile(source)` splits a `.scribe` file into `{ script: Option<&str>, template: Option<&str>, style: Option<&str> }` blocks. No template parsing yet.
+**Deliverable:** `compile(source)` splits a `.aihu` file into `{ script: Option<&str>, template: Option<&str>, style: Option<&str> }` blocks. No template parsing yet.
 **Tests:** 5 snapshot tests — valid split, missing template, missing script, extra whitespace, `<style>` block present.
 
 ### Phase C-1 — Template parser → TemplateAst
@@ -193,7 +193,7 @@ enum Attr {
 - `Interpolation(id)` — if signal: `leaf([id, setId])` — if plain var: `leaf(id)`
 - `@event` attrs → `{ onclick: handler }` (or `on${event}`)
 - `:attr` bindings → computed attr value (expression passed through)
-- Full `.scribe` → `.ts` output wraps in `defineComponent({ tag, setup(ctx) { ...script...; return branch(...) } })`
+- Full `.aihu` → `.ts` output wraps in `defineComponent({ tag, setup(ctx) { ...script...; return branch(...) } })`
 
 **Tests:** 10 snapshot tests — counter, static tree, nested, event handler, attr binding.
 
@@ -201,9 +201,9 @@ enum Attr {
 
 **Files:** `src/main.rs`, `packages/compiler/js/` (napi-rs or wasm binding)
 **Deliverable:**
-- `scribe-compile counter.scribe` emits `counter.ts` to stdout or `--out` dir
-- `@scribe/compiler` npm package with `transform(source, id)` function
-- Vite plugin transform hook in a new `packages/vite-plugin-router/src/scribe-transform.ts`
+- `aihu-compile counter.aihu` emits `counter.ts` to stdout or `--out` dir
+- `@aihu/compiler` npm package with `transform(source, id)` function
+- Vite plugin transform hook in a new `packages/vite-plugin-router/src/aihu-transform.ts`
 - Source map output
 
 **Tests:** CLI integration tests (run the binary on fixture files), Vite transform tests.
@@ -229,20 +229,20 @@ Zero overlap. Safe to run on parallel branches.
 
 ## Acceptance criteria
 
-**Phase C-0 complete:** `compile()` splits a `.scribe` source into blocks without panicking on edge cases.
+**Phase C-0 complete:** `compile()` splits a `.aihu` source into blocks without panicking on edge cases.
 
 **Phase C-1 complete:** All template constructs used in v0 parse to correct `TemplateAst` nodes. Invalid directives produce a compile error with file + line number.
 
 **Phase C-2 complete:** Signal map built correctly from `const [read, write] = signal(...)` convention for all v0 signal patterns.
 
-**Phase C-3 complete:** `packages/compiler/tests/snapshots/counter.scribe.snap` matches expected TypeScript output exactly. `bun run test` on the JS binding passes.
+**Phase C-3 complete:** `packages/compiler/tests/snapshots/counter.aihu.snap` matches expected TypeScript output exactly. `bun run test` on the JS binding passes.
 
-**Phase C-4 complete:** `bun vite build` on a project with a `.scribe` component produces valid `dist/` output. `defineComponent` receives the emitted class and registers it as a custom element.
+**Phase C-4 complete:** `bun vite build` on a project with a `.aihu` component produces valid `dist/` output. `defineComponent` receives the emitted class and registers it as a custom element.
 
 **v0 compiler complete (all phases):**
-- [ ] `.scribe` → `.ts` transform works for static trees, signal bindings, and event handlers
+- [ ] `.aihu` → `.ts` transform works for static trees, signal bindings, and event handlers
 - [ ] Conditionals and list rendering produce a compile error with a clear message pointing to v1 roadmap
-- [ ] Source maps correct (Vite dev server shows `.scribe` source in devtools)
+- [ ] Source maps correct (Vite dev server shows `.aihu` source in devtools)
 - [ ] `README.md` status block: "Rust SFC compiler: v0 ✓" removes the v0 → v1 gate callout
 
 ---

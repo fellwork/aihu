@@ -13,7 +13,7 @@ The work is on-thesis. Every item in the implementation lanes flows directly fro
 
 One scoping boundary to hold firm: Lane B work this round is **only** D5 (the `_setMount`/`_setSignal` re-export) and RC-2 (the `AgentMetadata.actions` type upgrade). The compiler does not yet emit calls to `registerAgentMetadata` — that is Lane A emission work. Builder B must not pre-author registry-population tests that depend on compiler output. That integration lives in a later round when Lane C examples and Lane D CI are wired.
 
-The one latent scope-creep risk is the `dist/index.d.ts` for `@scribe/agent` (currently at `/C:/git/fellwork/scribe/packages/agent/dist/index.d.ts`). It reflects the **old** `actions?: Record<string, string>` shape. After Builder B upgrades the source type in `registry.ts`, the dist declaration file will be stale. Builder B must regenerate it (or make clear in the acceptance criterion that `bun run build` is required before CI passes). Do not let a stale `.d.ts` be committed.
+The one latent scope-creep risk is the `dist/index.d.ts` for `@aihu/agent` (currently at `/C:/git/fellwork/aihu/packages/agent/dist/index.d.ts`). It reflects the **old** `actions?: Record<string, string>` shape. After Builder B upgrades the source type in `registry.ts`, the dist declaration file will be stale. Builder B must regenerate it (or make clear in the acceptance criterion that `bun run build` is required before CI passes). Do not let a stale `.d.ts` be committed.
 
 ---
 
@@ -21,13 +21,13 @@ The one latent scope-creep risk is the `dist/index.d.ts` for `@scribe/agent` (cu
 
 **Confirmed:** Lanes A and B are fully independent and run in parallel this round.
 
-- Lane A touches only Rust files under `/C:/git/fellwork/scribe/packages/compiler/src/` and the Rust test files under `/C:/git/fellwork/scribe/packages/compiler/tests/`.
-- Lane B touches only `/C:/git/fellwork/scribe/packages/runtime/src/index.ts` and `/C:/git/fellwork/scribe/packages/agent/src/registry.ts` (plus its test file and the rebuilt dist).
+- Lane A touches only Rust files under `/C:/git/fellwork/aihu/packages/compiler/src/` and the Rust test files under `/C:/git/fellwork/aihu/packages/compiler/tests/`.
+- Lane B touches only `/C:/git/fellwork/aihu/packages/runtime/src/index.ts` and `/C:/git/fellwork/aihu/packages/agent/src/registry.ts` (plus its test file and the rebuilt dist).
 - There is zero file overlap between A and B.
 
-**Lane C blocks on Lane A binary** because the example `.scribe` files and grammar docs need the real parser and emitter to validate output. Do not start Lane C until Lane A has a green `cargo test` run.
+**Lane C blocks on Lane A binary** because the example `.aihu` files and grammar docs need the real parser and emitter to validate output. Do not start Lane C until Lane A has a green `cargo test` run.
 
-**Lane D blocks on Lane A binary** for the same reason — the release workflow needs the binary to build and the `@scribe/compiler` Node wrapper's postinstall to function correctly.
+**Lane D blocks on Lane A binary** for the same reason — the release workflow needs the binary to build and the `@aihu/compiler` Node wrapper's postinstall to function correctly.
 
 **Sequencing risk — one flag:** `packages/compiler/src/lib.rs` currently re-exports `emit` (the old `emit(unit, tag) -> String` signature). When Builder A changes `emit` to return `EmitResult`, the public re-export in `lib.rs` must be updated in the same commit, or `main.rs` will fail to compile. Builder A must treat `lib.rs` as part of the same step as the `emit.rs` change.
 
@@ -38,51 +38,51 @@ The one latent scope-creep risk is the `dist/index.d.ts` for `@scribe/agent` (cu
 The Scout is read-only. Run the following checks in order and report each result as PASS/FAIL with the raw output.
 
 **SC-1: Test count baseline**
-Run `bun run test` from `/C:/git/fellwork/scribe`. Confirm the final line shows 320 tests passing, 0 failing. Record the exact count.
+Run `bun run test` from `/C:/git/fellwork/aihu`. Confirm the final line shows 320 tests passing, 0 failing. Record the exact count.
 
-**SC-2: counter.scribe compiles clean**
+**SC-2: counter.aihu compiles clean**
 Run the Rust binary against the fixture:
 ```bash
-cd /C:/git/fellwork/scribe
-cargo run --manifest-path packages/compiler/Cargo.toml --bin scribe-compile -- packages/compiler/fixtures/vite-counter/counter.scribe
+cd /C:/git/fellwork/aihu
+cargo run --manifest-path packages/compiler/Cargo.toml --bin aihu-compile -- packages/compiler/fixtures/vite-counter/counter.aihu
 ```
 Expected: output to stdout contains both `defineElement(` and `defineComponent((_ctx)`. No `error:` lines on stderr.
 
 **SC-3: Key files exist at expected paths**
 Confirm the following files are present:
-- `/C:/git/fellwork/scribe/packages/compiler/src/parser/sfc.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/types.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/codegen/emit.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/bin/main.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/lib.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/parser/mod.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/src/codegen/mod.rs`
-- `/C:/git/fellwork/scribe/packages/runtime/src/index.ts`
-- `/C:/git/fellwork/scribe/packages/agent/src/registry.ts`
-- `/C:/git/fellwork/scribe/packages/agent/tests/registry.test.ts`
+- `/C:/git/fellwork/aihu/packages/compiler/src/parser/sfc.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/types.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/codegen/emit.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/bin/main.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/lib.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/parser/mod.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/codegen/mod.rs`
+- `/C:/git/fellwork/aihu/packages/runtime/src/index.ts`
+- `/C:/git/fellwork/aihu/packages/agent/src/registry.ts`
+- `/C:/git/fellwork/aihu/packages/agent/tests/registry.test.ts`
 
 Confirm the following files do NOT yet exist (they are new files for this round):
-- `/C:/git/fellwork/scribe/packages/compiler/src/parser/agent.rs`
-- `/C:/git/fellwork/scribe/packages/compiler/tests/integration.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/src/parser/agent.rs`
+- `/C:/git/fellwork/aihu/packages/compiler/tests/integration.rs`
 
 **SC-4: No conflicting uncommitted changes**
 Run `git status`. The only untracked files should be `.mcp.json.local-backup` and `AGENTS.db.local-backup`. There must be no modified tracked files in the `packages/` tree.
 
 **SC-5: `_setMount` and `_setSignal` not yet on the public index**
-Confirm that `/C:/git/fellwork/scribe/packages/runtime/src/index.ts` does NOT contain `_setMount` or `_setSignal` in its exports.
+Confirm that `/C:/git/fellwork/aihu/packages/runtime/src/index.ts` does NOT contain `_setMount` or `_setSignal` in its exports.
 
 **SC-6: Current `AgentMetadata.actions` type**
-Confirm that `/C:/git/fellwork/scribe/packages/agent/src/registry.ts` contains `actions?: Record<string, string>` (the pre-RC-2 shape).
+Confirm that `/C:/git/fellwork/aihu/packages/agent/src/registry.ts` contains `actions?: Record<string, string>` (the pre-RC-2 shape).
 
 ---
 
 ## 4. Builder A Brief (Rust Compiler)
 
-Work entirely within `/C:/git/fellwork/scribe/packages/compiler/`. All steps must leave `cargo test` green.
+Work entirely within `/C:/git/fellwork/aihu/packages/compiler/`. All steps must leave `cargo test` green.
 
 ### Step A-1: `types.rs` — extend `CompileError` and add contract AST types
 
-File: `/C:/git/fellwork/scribe/packages/compiler/src/types.rs`
+File: `/C:/git/fellwork/aihu/packages/compiler/src/types.rs`
 
 Add `#[derive(Default)]` to `CompileError`. Add three optional fields: `code: Option<String>`, `hint: Option<String>`, `fix: Option<String>`. All existing construction sites use named-field syntax and don't set these fields; they compile because fields are `Option` with `Default`. This satisfies D7.
 
@@ -123,18 +123,18 @@ pub struct AgentBlock {
 }
 ```
 
-Add `agent: Option<AgentBlock>` to `ScribeSource`:
+Add `agent: Option<AgentBlock>` to `AihuSource`:
 ```rust
 pub agent: Option<AgentBlock>,   // NEW
 ```
 
 Update `lib.rs` to re-export: `InputDecl`, `InputKind`, `StateDecl`, `ActionDecl`, `AgentBlock`.
 
-**Note on sfc_split snapshots:** Adding `agent` field to `ScribeSource` will change the debug output for existing snapshots. Run `cargo insta review` and accept all snapshots that now show `agent: None`. These are expected — not regressions.
+**Note on sfc_split snapshots:** Adding `agent` field to `AihuSource` will change the debug output for existing snapshots. Run `cargo insta review` and accept all snapshots that now show `agent: None`. These are expected — not regressions.
 
 ### Step A-2: `agent.rs` — contract parser
 
-File: `/C:/git/fellwork/scribe/packages/compiler/src/parser/agent.rs` (NEW)
+File: `/C:/git/fellwork/aihu/packages/compiler/src/parser/agent.rs` (NEW)
 
 Public API: `pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError>`
 
@@ -189,9 +189,9 @@ Update `parser/mod.rs`: add `pub mod contract;`.
 
 ### Step A-3: `sfc.rs` — add `<agent>` block
 
-File: `/C:/git/fellwork/scribe/packages/compiler/src/parser/sfc.rs`
+File: `/C:/git/fellwork/aihu/packages/compiler/src/parser/sfc.rs`
 
-Add `BlockKind::Contract` variant. In `next_block`, include contract detection in the offset scan. In parse loop, handle `BlockKind::Contract`: extract content, call `parser::agent::parse_agent`, propagate errors, store `Option<AgentBlock>` in `ScribeSource.agent`.
+Add `BlockKind::Contract` variant. In `next_block`, include contract detection in the offset scan. In parse loop, handle `BlockKind::Contract`: extract content, call `parser::agent::parse_agent`, propagate errors, store `Option<AgentBlock>` in `AihuSource.agent`.
 
 No changes to script/template/style logic. Files without `<agent>` parse with `agent: None`. Accept updated snapshots showing `agent: None`.
 
@@ -203,7 +203,7 @@ No changes to script/template/style logic. Files without `<agent>` parse with `a
 Add `pub struct EmitResult { pub js: String, pub manifest_json: String }`. Change `emit()` return from `String` to `EmitResult`. Set `manifest_json: String::new()` temporarily. Update `lib.rs`, `codegen/mod.rs`, `main.rs` in the same commit. All existing codegen snapshots must pass.
 
 **A-4b: Import-span state machine**
-Replace `extract_script_body` with a stateful filter that tracks `in_import: bool` across lines. Handles multiline imports (`import { computed } from '@scribe/signals'` split across lines). Add test `multiline_import_stripped` to `codegen.rs`.
+Replace `extract_script_body` with a stateful filter that tracks `in_import: bool` across lines. Handles multiline imports (`import { computed } from '@aihu/signals'` split across lines). Add test `multiline_import_stripped` to `codegen.rs`.
 
 **A-4c: Options-form emission**
 Add `fn emit_agent_bindings(unit: &CompileUnit, tag_name: &str, contract: &AgentBlock) -> EmitResult`. Branch on `agent: Some` vs `None`. When `None`, existing function-form path runs unchanged.
@@ -223,14 +223,14 @@ Add `fn emit_manifest(tag_name: &str, contract: &AgentBlock) -> String`. Snake-c
 
 ### Step A-5: `tests/integration.rs` — 5 E2E tests
 
-File: `/C:/git/fellwork/scribe/packages/compiler/tests/integration.rs` (NEW)
+File: `/C:/git/fellwork/aihu/packages/compiler/tests/integration.rs` (NEW)
 
 Five tests:
 1. `counter_no_agent_block_regression` — function form emitted, no `attrs:`, no options form. CRITICAL regression firewall.
 2. `agent_airtime_quote_js_shape` — options form emitted, contains `attrs:`, `_plan_V`, `computed(() => Number(`.
 3. `agent_airtime_quote_manifest_keys` — manifest_json contains `"airtime_quote"`, `"airtime-quote"`, `"quote"`.
 4. `contract_parse_error_propagates` — malformed contract → compile_full returns Err with code `Some("C002")`.
-5. `no_agent_block_manifest_empty` — counter.scribe → manifest_json is empty.
+5. `no_agent_block_manifest_empty` — counter.aihu → manifest_json is empty.
 
 ---
 

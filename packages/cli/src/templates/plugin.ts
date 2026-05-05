@@ -1,10 +1,10 @@
 /**
  * Plugin skeleton template file contents.
- * Used by `scribe plugin` to generate the plugin entry point.
+ * Used by `aihu plugin` to generate the plugin entry point.
  */
 
 export function pluginIndexTs(name: string): string {
-  return `import { definePlugin } from '@scribe/plugin'
+  return `import { definePlugin } from '@aihu/plugin'
 
 export default definePlugin({
   name: '${name}',

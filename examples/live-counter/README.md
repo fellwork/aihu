@@ -1,8 +1,8 @@
 # live-counter
 
-**What this teaches:** the smallest possible scribe component — state, event handlers, and a reactive text node, in one file.
+**What this teaches:** the smallest possible aihu component — state, event handlers, and a reactive text node, in one file.
 
-This is scribe's hello-world. It's the same shape as 7GUIs task #1 (Counter), shipped by every framework starter you've seen.
+This is aihu's hello-world. It's the same shape as 7GUIs task #1 (Counter), shipped by every framework starter you've seen.
 
 ## Run
 

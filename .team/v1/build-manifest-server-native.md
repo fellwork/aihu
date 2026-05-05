@@ -26,7 +26,7 @@
 
 | Path | Summary |
 |------|---------|
-| `loader.ts` | Three-state loader (`native-loaded`, `edge-skipped`, `unsupported-platform`, `native-failed-loud`). Exports `renderToString` matching ssr.ts signature. Hard fall-throughs to TS for `serializer`, `contextSetup`, `{ toHtml() }` providers, edge runtime, missing platform package. `SCRIBE_FORCE_NATIVE=1` promotes missing-binary to thrown `ScribeNativeError` (CI parity gate signal). Corrupt-binary errors are always loud. Exports `_getLoaderStateKind`/`_resetLoaderState` for the parity-test harness only. |
+| `loader.ts` | Three-state loader (`native-loaded`, `edge-skipped`, `unsupported-platform`, `native-failed-loud`). Exports `renderToString` matching ssr.ts signature. Hard fall-throughs to TS for `serializer`, `contextSetup`, `{ toHtml() }` providers, edge runtime, missing platform package. `SCRIBE_FORCE_NATIVE=1` promotes missing-binary to thrown `AihuNativeError` (CI parity gate signal). Corrupt-binary errors are always loud. Exports `_getLoaderStateKind`/`_resetLoaderState` for the parity-test harness only. |
 | `index.ts` (modified) | Line 8 split: `renderToString` now from `./loader.ts`; `renderToStream` and `_setContextFns` still from `./ssr.ts`. All other exports unchanged. |
 
 ### Tests (`packages/server/tests/`)
@@ -40,10 +40,10 @@
 | Path | Summary |
 |------|---------|
 | `.gitignore` | Ignores `*.node` (binary added by CI publish job, not committed). |
-| `darwin-arm64/package.json` | `@scribe/server-darwin-arm64@0.1.0`, `os:["darwin"]`, `cpu:["arm64"]`, `license:"MIT"`. |
-| `darwin-x64/package.json` | `@scribe/server-darwin-x64@0.1.0`, `os:["darwin"]`, `cpu:["x64"]`, `license:"MIT"`. |
-| `linux-x64-gnu/package.json` | `@scribe/server-linux-x64-gnu@0.1.0`, `os:["linux"]`, `cpu:["x64"]`, `libc:["glibc"]`, `license:"MIT"`. |
-| `win32-x64-msvc/package.json` | `@scribe/server-win32-x64-msvc@0.1.0`, `os:["win32"]`, `cpu:["x64"]`, `license:"MIT"`. |
+| `darwin-arm64/package.json` | `@aihu/server-darwin-arm64@0.1.0`, `os:["darwin"]`, `cpu:["arm64"]`, `license:"MIT"`. |
+| `darwin-x64/package.json` | `@aihu/server-darwin-x64@0.1.0`, `os:["darwin"]`, `cpu:["x64"]`, `license:"MIT"`. |
+| `linux-x64-gnu/package.json` | `@aihu/server-linux-x64-gnu@0.1.0`, `os:["linux"]`, `cpu:["x64"]`, `libc:["glibc"]`, `license:"MIT"`. |
+| `win32-x64-msvc/package.json` | `@aihu/server-win32-x64-msvc@0.1.0`, `os:["win32"]`, `cpu:["x64"]`, `license:"MIT"`. |
 
 ### Files modified
 
@@ -51,7 +51,7 @@
 |------|--------|
 | `packages/server/package.json` | Added `optionalDependencies` block with all four platform packages pinned at `0.1.0`. |
 | `packages/server/src/index.ts` | Line 8 split (renderToString from loader.ts). |
-| `packages/server/rolldown.config.ts` | Added `node:module` and the four `@scribe/server-<platform>` packages to `external` list so they are not bundled. |
+| `packages/server/rolldown.config.ts` | Added `node:module` and the four `@aihu/server-<platform>` packages to `external` list so they are not bundled. |
 | `.github/workflows/release.yml` | Appended `build-native` (matrix: darwin-arm64, darwin-x64, linux-x64-gnu, win32-x64-msvc) and `publish-native` jobs. AC-15 comment block at line 117 documents the parity-gate paths (`packages/server/src/ssr.ts` and `packages/server/src-native/**`). |
 
 ### Build artifact (this manifest)
@@ -80,7 +80,7 @@ Verified untouched:
 | OQ-SN-1 | `serde_json` with `preserve_order` (no `indexmap`). | Cargo.toml line: `serde_json = { ..., features = ["alloc", "preserve_order"] }`. render.rs uses `serde_json::Map` directly. |
 | OQ-SN-2 | Crate at `packages/server/src-native/`. | Confirmed. |
 | OQ-SN-3 | Hydratable implemented but excluded from parity gate. | `render_value` honours `hydratable`; named samples + fast-check arbitraries do NOT toggle hydratable. Rust unit test covers it. |
-| OQ-SN-4 | Wire npm publish for the 4 platform packages. | `publish-native` job in release.yml. (Main `@scribe/server` publish is OQ-SN-4 future work — not in this delivery.) |
+| OQ-SN-4 | Wire npm publish for the 4 platform packages. | `publish-native` job in release.yml. (Main `@aihu/server` publish is OQ-SN-4 future work — not in this delivery.) |
 | OQ-SN-7 | MIT license on each platform package. | `"license": "MIT"` in all four package.json files. |
 
 ---
@@ -113,7 +113,7 @@ Cargo unit tests (bonus): `cargo test --release` reports 21 passed / 0 failed. C
 | AC-7 | Requires `SCRIBE_FORCE_NATIVE=1 bun test packages/server/tests/native-parity.test.ts` against a host with the addon resolvable from the loader's `createRequire`. |
 | AC-8 | Subsumed by AC-7. |
 | AC-9 | Requires renaming/removing the addon and re-running with `SCRIBE_FORCE_NATIVE=1` to assert the formatted error message body. |
-| AC-10 | Requires `SCRIBE_NATIVE_SKIP=1 node -e "..."` against a built and installed `@scribe/server`. |
+| AC-10 | Requires `SCRIBE_NATIVE_SKIP=1 node -e "..."` against a built and installed `@aihu/server`. |
 | AC-11 | Partially covered by `native-parity.test.ts` (mocks `EdgeRuntime` global and asserts `_getLoaderStateKind() === 'edge-skipped'`); full integration check needs the addon present so the bypass behaviour is observable end-to-end. |
 
 ---
@@ -121,26 +121,26 @@ Cargo unit tests (bonus): `cargo test --release` reports 21 passed / 0 failed. C
 ## §6 Surface-to-user notes
 
 - **napi-build pin:** rustc 1.87 (current toolchain) cannot build `napi-build@2.3.1` (needs 1.88). Pinned to `2.2.2` via `cargo update --precise`. CI runners using `dtolnay/rust-toolchain@stable` already get rustc ≥ 1.88 so they will pick up the unpinned latest. The pin is encoded in the lockfile only — Cargo.toml uses `version = "2"` per spec §6.2 verbatim.
-- **Loader fall-through behaviour:** Per the dispatch brief and existing test compatibility, missing-binary errors fall through silently to TS by default; `SCRIBE_FORCE_NATIVE=1` is required to promote them to `ScribeNativeError`. This keeps all 454 existing tests green on developer machines without a built addon. AC-9's "throws on missing binary" assertion is therefore conditional on `SCRIBE_FORCE_NATIVE=1` — flagged for the Verifier.
+- **Loader fall-through behaviour:** Per the dispatch brief and existing test compatibility, missing-binary errors fall through silently to TS by default; `SCRIBE_FORCE_NATIVE=1` is required to promote them to `AihuNativeError`. This keeps all 454 existing tests green on developer machines without a built addon. AC-9's "throws on missing binary" assertion is therefore conditional on `SCRIBE_FORCE_NATIVE=1` — flagged for the Verifier.
 - **`AttrValue`/typed `Node` enum:** Kept under `#[allow(dead_code)]` in `render.rs` for documentation purposes and as a starting point for any future typed-deserialization optimization. Active rendering uses the permissive `Value` walker for byte-exact JS duck-typing parity.
 
 ---
 
 ## §7 Verification commands (for Verifier)
 
-On a supported platform, after `cargo build --release` the addon at `packages/server/src-native/target/release/{libscribe_server_native.dylib | .so | scribe_server_native.dll}` must be staged into `packages/server/npm/<platform>/server-native.<platform>.node` and the platform package symlinked or installed for `createRequire('@scribe/server-<platform>')` to resolve.
+On a supported platform, after `cargo build --release` the addon at `packages/server/src-native/target/release/{libaihu_server_native.dylib | .so | aihu_server_native.dll}` must be staged into `packages/server/npm/<platform>/server-native.<platform>.node` and the platform package symlinked or installed for `createRequire('@aihu/server-<platform>')` to resolve.
 
 ```bash
 # 1. Build native
 cargo build --release --manifest-path packages/server/src-native/Cargo.toml
 
 # 2. Stage (Linux example)
-cp packages/server/src-native/target/release/libscribe_server_native.so \
+cp packages/server/src-native/target/release/libaihu_server_native.so \
    packages/server/npm/linux-x64-gnu/server-native.linux-x64-gnu.node
 
 # 3. Make resolvable (workspace link)
 cd packages/server/npm/linux-x64-gnu && bun link && cd -
-cd packages/server && bun link @scribe/server-linux-x64-gnu
+cd packages/server && bun link @aihu/server-linux-x64-gnu
 
 # 4. Run parity gate
 SCRIBE_FORCE_NATIVE=1 bun test packages/server/tests/native-parity.test.ts
@@ -156,13 +156,13 @@ SCRIBE_FORCE_NATIVE=1 bun test packages/server/tests/native-parity.test.ts
 
 ### Why this round happened
 
-Round 1's loader inverted the spec's failure-loud default. `SCRIBE_FORCE_NATIVE=1` was added as an opt-in to promote a missing binary into a thrown `ScribeNativeError`; without it the loader silently fell through to the TS implementation. Director session-002 ruled this an unacceptable deviation: the documented contract (spec §3.1, §5.1, §5.3) is loud-on-supported-platform-with-missing-binary, with `SCRIBE_NATIVE_SKIP=1` as the **only** opt-out. Round 1's design made the safety contract opt-in instead of opt-out, exactly the silent-perf-degradation failure mode the original frame called load-bearing.
+Round 1's loader inverted the spec's failure-loud default. `SCRIBE_FORCE_NATIVE=1` was added as an opt-in to promote a missing binary into a thrown `AihuNativeError`; without it the loader silently fell through to the TS implementation. Director session-002 ruled this an unacceptable deviation: the documented contract (spec §3.1, §5.1, §5.3) is loud-on-supported-platform-with-missing-binary, with `SCRIBE_NATIVE_SKIP=1` as the **only** opt-out. Round 1's design made the safety contract opt-in instead of opt-out, exactly the silent-perf-degradation failure mode the original frame called load-bearing.
 
 ### Changes in Round 2
 
 | Path | Change |
 |------|--------|
-| `packages/server/src/loader.ts` | (a) Removed `SCRIBE_FORCE_NATIVE` flag and every branch that referenced it (deleted from both `resolveState` and `renderToString`). (b) Added eager module-load resolution: a NATIVE_FAILED_LOUD state now throws a `ScribeNativeError` *at module import time* per spec §3.1 ("module never finishes loading; callers get the thrown error"). (c) Added explicit top-of-`resolveState` short-circuit on `SCRIBE_NATIVE_SKIP=1` so the documented escape hatch is impossible to miss when reading the file. (d) Updated module header comment to reflect the corrected contract and cite session-002. |
+| `packages/server/src/loader.ts` | (a) Removed `SCRIBE_FORCE_NATIVE` flag and every branch that referenced it (deleted from both `resolveState` and `renderToString`). (b) Added eager module-load resolution: a NATIVE_FAILED_LOUD state now throws a `AihuNativeError` *at module import time* per spec §3.1 ("module never finishes loading; callers get the thrown error"). (c) Added explicit top-of-`resolveState` short-circuit on `SCRIBE_NATIVE_SKIP=1` so the documented escape hatch is impossible to miss when reading the file. (d) Updated module header comment to reflect the corrected contract and cite session-002. |
 | `vitest.config.ts` | Added `test.env = { SCRIBE_NATIVE_SKIP: '1' }` so a fresh-clone `bun run test` passes without a built native addon. This is the one-line repo-config fix Director §3 specified. |
 | `packages/server/tests/native-parity.test.ts` | Updated header doc and `beforeAll` skip logic to match the new contract: SKIP-set → skip silently with diagnostic; otherwise run only when loader resolved to NATIVE_LOADED. Removed all `SCRIBE_FORCE_NATIVE` references from comments. |
 | `.github/workflows/release.yml` | Updated the parity-gate AC-15 comment block at the top of `build-native` to remove the `SCRIBE_FORCE_NATIVE=1` reference; the new wording explains that a missing binary on a supported platform throws via the loader, so no env-var gate is needed. |

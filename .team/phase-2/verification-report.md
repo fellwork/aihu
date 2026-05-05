@@ -1,8 +1,8 @@
-# Verification Report — Phase 2 (`@scribe/signals`)
+# Verification Report — Phase 2 (`@aihu/signals`)
 
 **Verifier:** Verifier (code)
 **Date:** 2026-04-26
-**Worktree:** `c:/git/fellwork-worktrees/scribe-phase-2-builder` (branch `plan-a-phase-2`)
+**Worktree:** `c:/git/fellwork-worktrees/aihu-phase-2-builder` (branch `plan-a-phase-2`)
 **Time spent:** ~45 min
 
 ---
@@ -248,7 +248,7 @@ walked. All map to a code line that satisfies it. No gaps.
 | 5 | `.size-limit.json` only signals row at end of Phase 2 | PASS | File contains exactly one entry; `git diff main -- .size-limit.json` shows the four other rows removed |
 | 6 | `.github/workflows/plan-a.yml` lines 23, 25, 26 uncommented | PASS | Diff shows `bun run typecheck`, `bun run build`, `bun run size` all uncommented; the explanatory comment block at L20–22 also dropped (Builder's call, allowed by spec §3.4) |
 | 7 | No new root devDeps beyond Phase 1 + spec-authorized | PASS | `git diff main -- package.json` empty |
-| 8 | `bun.lock` frozen-installable | PASS | Only addition is the `@scribe/signals` workspace pointer; no new external packages |
+| 8 | `bun.lock` frozen-installable | PASS | Only addition is the `@aihu/signals` workspace pointer; no new external packages |
 
 ---
 
@@ -651,7 +651,7 @@ re-enables a fresh recompute. This is correct.)
   `batch`, `$state`) resolve to actual `index.ts` exports at L1-10.
   `count.value++` (README L62) works against the `state.ts` getter+setter pair.
 - **Cheat sheet correct.** `computed(fn) (lazy, call-shape)` accurately
-  describes scribe's `Read<T>` shape (vs. Vue's `.value` and Preact's
+  describes aihu's `Read<T>` shape (vs. Vue's `.value` and Preact's
   `.value`). Solid's `createMemo` is eager — accurate.
 - **v0 limitations list correctly TRIMMED.** Per Team Lead's brief, the bullet
   about "computed does not yet short-circuit cascade" is gone (verified by

@@ -24,7 +24,7 @@ All tracks shipped to main:
 - **612 TS tests passing** (up from 607; +5 TS — none of the 5 are regressions).
 - **222 Rust tests** (untouched).
 - **No new npm runtime/dev deps** (Learning #49 honored).
-- **One new compiler capability** landed: `scribeCompilerPlugin({ shadowMode })`.
+- **One new compiler capability** landed: `aihuCompilerPlugin({ shadowMode })`.
 - **Three v1.x parser/spec issues** surfaced during T4-E2 — flagged for
   separate sessions.
 
@@ -144,13 +144,13 @@ expansions):
 
 ## Capability additions
 
-### `scribeCompilerPlugin({ shadowMode: 'open' | 'closed' | 'none' })`
+### `aihuCompilerPlugin({ shadowMode: 'open' | 'closed' | 'none' })`
 
 **Track:** T4-E3 (`3c81f62`, `04e9f7f`).
 
 **What:** The Vite/rolldown plugin gained a `shadowMode` option that the
 compiler reads when emitting `defineElement(tag, Ctor, { shadowMode })`. Prior
-state: `.scribe` SFCs had no syntax to opt into light-DOM, and the compiler
+state: `.aihu` SFCs had no syntax to opt into light-DOM, and the compiler
 always emitted with default open shadow root. New state: a single plugin
 config flag flips the entire app to light DOM, enabling Tailwind / UnoCSS /
 Pico / vanilla CSS to apply via the global cascade.
@@ -214,7 +214,7 @@ sheets?). Surface to a separate spec-quartet review session.
 ### Latent path-mismatch bug (postinstall write target vs runtime read target)
 
 T7's fix made `bun install` graceful on 404, but the postinstall script writes
-the binary to `bin/scribe-compiler<.exe>` while the runtime loader resolves
+the binary to `bin/aihu-compiler<.exe>` while the runtime loader resolves
 via `target/release/`. If a future graceful-fallback path writes the
 downloaded binary to `bin/`, the local-cargo-build path writes to
 `target/release/`, and the runtime loader reads the `target/release/` path
@@ -237,7 +237,7 @@ path post-v1.
 T6's typecheck-align fix unblocked the immediate failure but a deeper audit
 during T6 found a TS6059 `rootDir` misconfig in agent-acp / agent-a2a's
 tsconfig. The fix as shipped works around it; v1.1 should normalize rootDir
-across all `@scribe/agent-*` packages.
+across all `@aihu/agent-*` packages.
 
 ---
 

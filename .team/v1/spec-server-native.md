@@ -23,10 +23,10 @@
 - `renderToStream` — async boundaries cannot be expressed in the synchronous Rust path; TS implementation covers all streaming and DataSource paths (ssr.ts:168-285).
 - `contextSetup` / `_setContextFns` — these are injection slots that call JS callbacks (ssr.ts:31-37, 95-98); all context activation stays JS-side.
 - `serializer` — the `() => Record<string, unknown>` callback (ssr.ts:76) is a JS closure; Rust cannot invoke it. The state-script emission stays in the TS drain wrapper.
-- `hydratable` mode — deferred. The `data-scribe-path` path injection (ssr.ts:135) adds indexing logic that must be parity-tested independently before Rust takes it on.
+- `hydratable` mode — deferred. The `data-aihu-path` path injection (ssr.ts:135) adds indexing logic that must be parity-tested independently before Rust takes it on.
 - `{ toHtml(): string }` component shape — direct HTML provider bypasses tree-walk entirely (ssr.ts:307-318); Rust adds zero value here. TS handles it unchanged.
 - WASM fallback — not in scope. napi-rs produces `.node` native addons only.
-- The `@scribe/compiler` CLI binary pattern is explicitly NOT followed. That package uses `execFileSync` against a standalone binary (compiler/js/index.ts:8). This addon uses `require()` of a `.node` napi binding — a different distribution shape.
+- The `@aihu/compiler` CLI binary pattern is explicitly NOT followed. That package uses `execFileSync` against a standalone binary (compiler/js/index.ts:8). This addon uses `require()` of a `.node` napi binding — a different distribution shape.
 
 ---
 
@@ -36,7 +36,7 @@
 
 **Recommendation: JSON string, serialized on the JS side before crossing FFI.**
 
-Rationale: The tree shape (`kind: 'leaf' | 'branch'`, `tag`, `attrs`, `children`) is already a plain JS object graph. JSON serialization is zero-dependency, already available in every runtime that `@scribe/server` targets (ssr.ts:2-3 — Workers, Deno, Bun, Node ESM), and gives Rust a stable, version-independent contract. napi-rs types (`JsObject`, `JsArray`) require per-field extraction at the Rust boundary, adding N round-trips per node; a single `JSON.parse` on the Rust side is faster and simpler.
+Rationale: The tree shape (`kind: 'leaf' | 'branch'`, `tag`, `attrs`, `children`) is already a plain JS object graph. JSON serialization is zero-dependency, already available in every runtime that `@aihu/server` targets (ssr.ts:2-3 — Workers, Deno, Bun, Node ESM), and gives Rust a stable, version-independent contract. napi-rs types (`JsObject`, `JsArray`) require per-field extraction at the Rust boundary, adding N round-trips per node; a single `JSON.parse` on the Rust side is faster and simpler.
 
 The JS loader calls:
 
@@ -105,7 +105,7 @@ STATE = EDGE_SKIPPED:
   renderToString = tsRenderToString  // re-export from ssr.ts unchanged
 
 STATE = NATIVE_FAILED_LOUD:
-  THROW ScribeNativeError (see §5.1)
+  THROW AihuNativeError (see §5.1)
   [module never finishes loading; callers get the thrown error]
 ```
 
@@ -152,7 +152,7 @@ The function remains `async` regardless of native/TS state, because:
 - The TS fallback is async (ssr.ts:345).
 - The native path wraps the synchronous Rust call in an async function for signature parity. The `await` resolves in the same microtask.
 
-All existing imports of `renderToString` from `@scribe/server` are drop-in compatible. No consumer changes.
+All existing imports of `renderToString` from `@aihu/server` are drop-in compatible. No consumer changes.
 
 ---
 
@@ -258,34 +258,34 @@ CI gate trigger: any PR that modifies `packages/server/src/ssr.ts` OR any file u
 When `isPlatformSupported() === true` and `requireAddon()` fails with `MODULE_NOT_FOUND`:
 
 ```
-[@scribe/server] Native renderer binary not found for this platform.
+[@aihu/server] Native renderer binary not found for this platform.
 
   Platform:         darwin-arm64
-  Expected package: @scribe/server-darwin-arm64
-  Expected file:    @scribe/server-darwin-arm64/server-native.darwin-arm64.node
+  Expected package: @aihu/server-darwin-arm64
+  Expected file:    @aihu/server-darwin-arm64/server-native.darwin-arm64.node
 
-  This binary is distributed as an optionalDependency of @scribe/server.
+  This binary is distributed as an optionalDependency of @aihu/server.
   Your package manager may have skipped it.
 
   To reinstall:
-    npm install @scribe/server
+    npm install @aihu/server
     # or: pnpm install   or: bun install
 
   If you built from source or are running a CI environment without npm access,
   set SCRIBE_NATIVE_SKIP=1 to use the TypeScript fallback (slower, always correct).
 ```
 
-This error is thrown as a `ScribeNativeError extends Error` with `code: 'SCRIBE_NATIVE_MISSING'`. The error message includes the platform string, the package name, and the `.node` filename — all derived from the same platform mapping table used by `isPlatformSupported()`.
+This error is thrown as a `AihuNativeError extends Error` with `code: 'SCRIBE_NATIVE_MISSING'`. The error message includes the platform string, the package name, and the `.node` filename — all derived from the same platform mapping table used by `isPlatformSupported()`.
 
 ### §5.2 Corrupt Binary Error
 
 When `requireAddon()` throws an error other than `MODULE_NOT_FOUND` (e.g., invalid ELF, version mismatch, napi ABI incompatibility):
 
 ```
-[@scribe/server] Native renderer binary failed to load.
+[@aihu/server] Native renderer binary failed to load.
 
   Platform:         linux-x64-gnu
-  Expected package: @scribe/server-linux-x64-gnu
+  Expected package: @aihu/server-linux-x64-gnu
   Load error:       <original error message>
 
   The binary exists but could not be initialized. This usually means:
@@ -293,12 +293,12 @@ When `requireAddon()` throws an error other than `MODULE_NOT_FOUND` (e.g., inval
     - The file is corrupted (incomplete download or disk error)
 
   To fix:
-    npm install @scribe/server   (re-downloads the platform package)
+    npm install @aihu/server   (re-downloads the platform package)
 
   Original error: <stack trace>
 ```
 
-The original error is wrapped: `new ScribeNativeError(msg, { cause: originalError })`.
+The original error is wrapped: `new AihuNativeError(msg, { cause: originalError })`.
 
 ### §5.3 Edge Runtime Behavior
 
@@ -328,7 +328,7 @@ No `main.rs` — this is a `cdylib` crate, not a binary.
 
 ```toml
 [package]
-name    = "scribe-server-native"
+name    = "aihu-server-native"
 version = "0.1.0"
 edition = "2021"
 
@@ -359,14 +359,14 @@ A `build.rs` at the crate root calls `napi_build::setup()` — this generates th
 
 ### §6.3 package.json for the Addon
 
-The addon is distributed as four platform-specific npm packages. Each contains only a `.node` file. The main `@scribe/server` package.json gains:
+The addon is distributed as four platform-specific npm packages. Each contains only a `.node` file. The main `@aihu/server` package.json gains:
 
 ```json
 "optionalDependencies": {
-  "@scribe/server-darwin-arm64":    "0.1.0",
-  "@scribe/server-darwin-x64":      "0.1.0",
-  "@scribe/server-linux-x64-gnu":   "0.1.0",
-  "@scribe/server-win32-x64-msvc":  "0.1.0"
+  "@aihu/server-darwin-arm64":    "0.1.0",
+  "@aihu/server-darwin-x64":      "0.1.0",
+  "@aihu/server-linux-x64-gnu":   "0.1.0",
+  "@aihu/server-win32-x64-msvc":  "0.1.0"
 }
 ```
 
@@ -374,7 +374,7 @@ Each platform package has its own `package.json`:
 
 ```json
 {
-  "name": "@scribe/server-linux-x64-gnu",
+  "name": "@aihu/server-linux-x64-gnu",
   "version": "0.1.0",
   "os": ["linux"],
   "cpu": ["x64"],
@@ -480,15 +480,15 @@ build-native:
     - name: Stage .node file (Unix)
       if: runner.os != 'Windows'
       run: |
-        cp packages/server/src-native/target/${{ matrix.target }}/release/libscribe_server_native.so \
+        cp packages/server/src-native/target/${{ matrix.target }}/release/libaihu_server_native.so \
            ${{ matrix.node-file }} 2>/dev/null || \
-        cp packages/server/src-native/target/${{ matrix.target }}/release/libscribe_server_native.dylib \
+        cp packages/server/src-native/target/${{ matrix.target }}/release/libaihu_server_native.dylib \
            ${{ matrix.node-file }}
     - name: Stage .node file (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        Copy-Item "packages/server/src-native/target/${{ matrix.target }}/release/scribe_server_native.dll" `
+        Copy-Item "packages/server/src-native/target/${{ matrix.target }}/release/aihu_server_native.dll" `
           -Destination "${{ matrix.node-file }}"
     - uses: actions/upload-artifact@v4
       with:
@@ -529,13 +529,13 @@ Platform package `package.json` files live at `packages/server/npm/<platform>/pa
 
 ### §7.2 npm Publish
 
-Credential: `secrets.NPM_TOKEN` (org-level secret, same credential used by any future `@scribe/*` npm publish). Scope: `@scribe`. All four platform packages are published with `--access public`. The main `@scribe/server` package is published in the existing release pipeline (or a new `publish-server` job; exact location is an open question — see §9 OQ-SN-4).
+Credential: `secrets.NPM_TOKEN` (org-level secret, same credential used by any future `@aihu/*` npm publish). Scope: `@aihu`. All four platform packages are published with `--access public`. The main `@aihu/server` package is published in the existing release pipeline (or a new `publish-server` job; exact location is an open question — see §9 OQ-SN-4).
 
-### §7.3 Postinstall Behavior in `@scribe/server`
+### §7.3 Postinstall Behavior in `@aihu/server`
 
-No postinstall script. The `.node` file is included in each platform package's `files` array. npm/pnpm/bun install the matching `optionalDependency` automatically at `npm install @scribe/server` time based on `os`/`cpu`/`libc` fields. The loader in `loader.ts` calls `createRequire(import.meta.url)('@scribe/server-<platform>')` to load the `.node` file at runtime.
+No postinstall script. The `.node` file is included in each platform package's `files` array. npm/pnpm/bun install the matching `optionalDependency` automatically at `npm install @aihu/server` time based on `os`/`cpu`/`libc` fields. The loader in `loader.ts` calls `createRequire(import.meta.url)('@aihu/server-<platform>')` to load the `.node` file at runtime.
 
-No HTTPS download at install time. No postinstall script in `@scribe/server`. This is the key distinction from `@scribe/compiler`'s postinstall pattern: the platform packages ship the binary directly, not as a GitHub Release download.
+No HTTPS download at install time. No postinstall script in `@aihu/server`. This is the key distinction from `@aihu/compiler`'s postinstall pattern: the platform packages ship the binary directly, not as a GitHub Release download.
 
 ---
 
@@ -557,9 +557,9 @@ No HTTPS download at install time. No postinstall script in `@scribe/server`. Th
 
 **AC-8:** On a supported platform with the native addon installed, `await nativeImpl(factory) === await tsImpl(factory)` for all 8 named samples in §4.3 — verified by AC-7 passing.
 
-**AC-9:** When the platform package `.node` file is renamed/removed and `isPlatformSupported()` returns `true`, requiring `@scribe/server` throws an error matching `/\[@scribe\/server\] Native renderer binary not found/` with the platform name, expected package name, and `npm install @scribe/server` in the message body.
+**AC-9:** When the platform package `.node` file is renamed/removed and `isPlatformSupported()` returns `true`, requiring `@aihu/server` throws an error matching `/\[@aihu\/server\] Native renderer binary not found/` with the platform name, expected package name, and `npm install @aihu/server` in the message body.
 
-**AC-10:** When `SCRIBE_NATIVE_SKIP=1` is set, `require('@scribe/server')` succeeds and `renderToString` is the TS implementation — verified by `SCRIBE_NATIVE_SKIP=1 node -e "const {renderToString} = require('@scribe/server'); console.log(typeof renderToString)"` printing `function`.
+**AC-10:** When `SCRIBE_NATIVE_SKIP=1` is set, `require('@aihu/server')` succeeds and `renderToString` is the TS implementation — verified by `SCRIBE_NATIVE_SKIP=1 node -e "const {renderToString} = require('@aihu/server'); console.log(typeof renderToString)"` printing `function`.
 
 **AC-11:** When `EdgeRuntime = 'experimental'` is set as a global before `loader.ts` initializes, the loader enters `EDGE_SKIPPED` state and no `require()` of the platform package is attempted — verified by unit test in `native-parity.test.ts` mocking the global.
 
@@ -589,15 +589,15 @@ The Director brief recommends `packages/server/src-native/`. This is confirmed i
 
 **OQ-SN-3 (MEDIUM — hydratable deferral): Should hydratable be in v0+M or v0+M+1?**
 
-This spec defers `hydratable` mode (§1 non-goals). The `data-scribe-path` indexing in ssr.ts:135 (`${path}.${i}`) requires path tracking through the recursive walk — straightforward in Rust but adds parity surface. The parity test would need 2 additional named samples (S9: hydratable false, S10: hydratable true path indexing). The `render_tree` signature already accepts `hydratable: bool` (§6.4), leaving the door open.
+This spec defers `hydratable` mode (§1 non-goals). The `data-aihu-path` indexing in ssr.ts:135 (`${path}.${i}`) requires path tracking through the recursive walk — straightforward in Rust but adds parity surface. The parity test would need 2 additional named samples (S9: hydratable false, S10: hydratable true path indexing). The `render_tree` signature already accepts `hydratable: bool` (§6.4), leaving the door open.
 
 **Recommendation: keep deferred.** The hydratable path is used only when `opts.hydratable === true`, which is uncommon in production SSR. The deferred scope reduces parity surface and Builder risk. However, since the function signature already takes `hydratable: bool`, the Builder should implement it correctly even in v0+M — just exclude it from the parity AC and property test until a follow-on spec adds the named samples.
 
-**OQ-SN-4 (MEDIUM — publish coordination): When and how does `@scribe/server` itself get published to npm?**
+**OQ-SN-4 (MEDIUM — publish coordination): When and how does `@aihu/server` itself get published to npm?**
 
-The existing `release.yml` publishes only the compiler binaries as GitHub Release assets. It has no npm publish step for any `@scribe/*` package. This spec adds a `publish-native` job for the four platform packages, but the main `@scribe/server` package also needs to be published (with the updated `optionalDependencies` in its `package.json`) before or simultaneously with the platform packages, otherwise npm install of `@scribe/server` will fail to resolve the version-pinned platform packages.
+The existing `release.yml` publishes only the compiler binaries as GitHub Release assets. It has no npm publish step for any `@aihu/*` package. This spec adds a `publish-native` job for the four platform packages, but the main `@aihu/server` package also needs to be published (with the updated `optionalDependencies` in its `package.json`) before or simultaneously with the platform packages, otherwise npm install of `@aihu/server` will fail to resolve the version-pinned platform packages.
 
-**Recommendation:** Add a `publish-server` job in `release.yml` that `npm publish`es `@scribe/server` immediately after `publish-native`. The sequencing must be: `build-native` → `publish-native` → `publish-server`.
+**Recommendation:** Add a `publish-server` job in `release.yml` that `npm publish`es `@aihu/server` immediately after `publish-native`. The sequencing must be: `build-native` → `publish-native` → `publish-server`.
 
 **OQ-SN-5 (MEDIUM — Director §6.2 carryover): Permitted Rust dependencies**
 

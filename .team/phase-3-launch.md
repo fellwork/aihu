@@ -6,16 +6,16 @@
 **Branch this brief lives on:** `main` after PR #4 merges; ride along as `chore/phase-3-launch-brief`.
 **Predecessor PRs:**
 - #1 Phase 1 (scaffolding) — merged
-- #2 Phase 2 (`@scribe/signals`) — merged
+- #2 Phase 2 (`@aihu/signals`) — merged
 - #3 Phase 3 prep (`chore/phase-3-prep`) — merged before this brief
 
 ---
 
 ## Why this session exists
 
-Phase 2 shipped `@scribe/signals` cleanly: 36 tests, 698 B / 1024 B size budget, 51/51 spec rows verified. The four remaining packages (`arbor`, `runtime`, `agent`, integration) need to ship next. The user asked: *"Can we get started on multiple areas of the roadmap now?"*
+Phase 2 shipped `@aihu/signals` cleanly: 36 tests, 698 B / 1024 B size budget, 51/51 spec rows verified. The four remaining packages (`arbor`, `runtime`, `agent`, integration) need to ship next. The user asked: *"Can we get started on multiple areas of the roadmap now?"*
 
-The answer is **partially**. Building can't all be parallel — `runtime` consumes `arbor`, `integration` consumes everything. But **planning can be parallel.** Three Architects can each write a spec for one of {`arbor`, `runtime`, `agent`} concurrently, sharing only the v0 spec and the now-shipped `@scribe/signals` API as common context. They produce three spec documents that the *next* session's Builders can implement.
+The answer is **partially**. Building can't all be parallel — `runtime` consumes `arbor`, `integration` consumes everything. But **planning can be parallel.** Three Architects can each write a spec for one of {`arbor`, `runtime`, `agent`} concurrently, sharing only the v0 spec and the now-shipped `@aihu/signals` API as common context. They produce three spec documents that the *next* session's Builders can implement.
 
 This session's deliverable: **three locked specs, one per package.** No code is written this session.
 
@@ -24,8 +24,8 @@ This session's deliverable: **three locked specs, one per package.** No code is 
 ## Repos in scope (read-only for this session)
 
 ```
-- fellwork/scribe (read-only):
-    local: c:/git/fellwork/scribe
+- fellwork/aihu (read-only):
+    local: c:/git/fellwork/aihu
     branch: main (current)
     purpose: source-of-truth spec, plan, learnings, signals API
 - fellwork/api (read-only, optional):
@@ -33,17 +33,17 @@ This session's deliverable: **three locked specs, one per package.** No code is 
     purpose: cross-reference Rust workspace conventions only
 ```
 
-No write repos. Architects produce markdown files only, committed to `c:/git/fellwork/scribe/.team/phase-3/`, `.team/phase-4/`, `.team/phase-5/`. Branch: spawn one branch per package spec to keep diff hygiene clean (see §Spawn instructions).
+No write repos. Architects produce markdown files only, committed to `c:/git/fellwork/aihu/.team/phase-3/`, `.team/phase-4/`, `.team/phase-5/`. Branch: spawn one branch per package spec to keep diff hygiene clean (see §Spawn instructions).
 
 ---
 
 ## Source-of-truth docs (every Architect reads these)
 
-1. **v0 spec** — `c:/git/fellwork/scribe/docs/superpowers/specs/2026-04-23-scribe-v0-vertical-slice-design.md`. The contract for all four packages. Sections 6 (arbor model), 7 (runtime API), 8 (agent metadata), 9 (integration tests) are the package-specific ones.
-2. **Implementation plan** — `c:/git/fellwork/scribe/docs/superpowers/plans/2026-04-24-scribe-v0-plan-a-ts-runtime.md`. Phase 3 is tasks 12–19 (`arbor`), Phase 4 is 20–22 (`runtime`), Phase 5 is 23–24 (`agent`), Phase 6 is 25–27 (integration). Apply Learning #6 — call out staleness.
-3. **`@scribe/signals` shipped API** — `c:/git/fellwork/scribe/packages/signals/`. Read `src/index.ts`, `dist/index.d.ts`, `README.md`. The API surface is locked; specs that need to extend it (e.g. `untrack`, `peek`, scope-collected dispose) must spell out the addition explicitly with rationale.
-4. **Phase 2 team artifacts** — `c:/git/fellwork/scribe/.team/phase-2/`. The retro (`retro.md`) lists Phase 3 risks already visible. The verification report has the Verifier's "concern for Phase 3" notes. Read them.
-5. **Project-portable learnings** — `c:/git/fellwork/scribe/.team/learnings.md`. **Mandatory.** Every Architect must apply Learnings #1, #2, #3, #6 explicitly — those four were the most expensive misses in Phase 2 and they are the ones most likely to recur in spec authoring.
+1. **v0 spec** — `c:/git/fellwork/aihu/docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md`. The contract for all four packages. Sections 6 (arbor model), 7 (runtime API), 8 (agent metadata), 9 (integration tests) are the package-specific ones.
+2. **Implementation plan** — `c:/git/fellwork/aihu/docs/superpowers/plans/2026-04-24-aihu-v0-plan-a-ts-runtime.md`. Phase 3 is tasks 12–19 (`arbor`), Phase 4 is 20–22 (`runtime`), Phase 5 is 23–24 (`agent`), Phase 6 is 25–27 (integration). Apply Learning #6 — call out staleness.
+3. **`@aihu/signals` shipped API** — `c:/git/fellwork/aihu/packages/signals/`. Read `src/index.ts`, `dist/index.d.ts`, `README.md`. The API surface is locked; specs that need to extend it (e.g. `untrack`, `peek`, scope-collected dispose) must spell out the addition explicitly with rationale.
+4. **Phase 2 team artifacts** — `c:/git/fellwork/aihu/.team/phase-2/`. The retro (`retro.md`) lists Phase 3 risks already visible. The verification report has the Verifier's "concern for Phase 3" notes. Read them.
+5. **Project-portable learnings** — `c:/git/fellwork/aihu/.team/learnings.md`. **Mandatory.** Every Architect must apply Learnings #1, #2, #3, #6 explicitly — those four were the most expensive misses in Phase 2 and they are the ones most likely to recur in spec authoring.
 
 ---
 
@@ -60,9 +60,9 @@ Three Architects, each working on a different package spec. They run in parallel
 | Role | Output | Time budget |
 |---|---|---|
 | Team Lead (you, the next session) | Spawn 3 Architects, surface taste decisions to the user, commit/push each spec | ~15 min orchestration + decision time |
-| Architect A — `arbor` | `c:/git/fellwork/scribe/.team/phase-3/spec-arbor.md` | ~75 min wall-clock |
-| Architect B — `runtime` | `c:/git/fellwork/scribe/.team/phase-4/spec-runtime.md` | ~45 min wall-clock |
-| Architect C — `agent` | `c:/git/fellwork/scribe/.team/phase-5/spec-agent.md` | ~30 min wall-clock |
+| Architect A — `arbor` | `c:/git/fellwork/aihu/.team/phase-3/spec-arbor.md` | ~75 min wall-clock |
+| Architect B — `runtime` | `c:/git/fellwork/aihu/.team/phase-4/spec-runtime.md` | ~45 min wall-clock |
+| Architect C — `agent` | `c:/git/fellwork/aihu/.team/phase-5/spec-agent.md` | ~30 min wall-clock |
 
 Each Architect operates with **Decision 2B authority** as in Phase 2 — they may override the plan with written rationale. The Team Lead surfaces only **genuine taste decisions** to the user; mechanical decisions stay with the Architect.
 
@@ -101,17 +101,17 @@ Default to **one combined branch** unless user requests otherwise. Specs are sma
 Before any Architect spawns, surface these three calls to the user. They affect all three Architects' briefs and would otherwise cascade through the specs. Don't spawn before getting answers.
 
 **Call 1 — `untrack` / `peek` API.** Phase 2 deferred per spec §2.5 ("add when arbor needs it"). Verifier-code's Phase 3 concern (lazy fan-out under wide observed graphs) and Builder's eager-recompute pivot both make this likely to surface. Three options:
-- **A.** Architect A (`arbor`) decides — and if it decides yes, the API is added in a Phase 3 PR that touches `@scribe/signals`. Adds to the v0 surface.
-- **B.** Pre-decide: ship `untrack` in `@scribe/signals` proactively as a Phase 3 prep task. ~30 B gz, simple. Lets `arbor` consume it on day one.
+- **A.** Architect A (`arbor`) decides — and if it decides yes, the API is added in a Phase 3 PR that touches `@aihu/signals`. Adds to the v0 surface.
+- **B.** Pre-decide: ship `untrack` in `@aihu/signals` proactively as a Phase 3 prep task. ~30 B gz, simple. Lets `arbor` consume it on day one.
 - **C.** Force `arbor` to live without it. Painful — `MountScope.dispose()` walks the tree and reads-without-tracking is a primitive need.
 
 Recommendation: **B**. Pay 30 B now, save Architect A from designing around an absent primitive.
 
 **Call 2 — `MountScope` lifecycle vs. `effect` dispose.** Spec §6.3 says `MountScope.dispose()` must compose with effect disposal. Phase 2's `effect()` returns a single dispose fn — no scope concept. Two ways to compose:
-- **A.** `arbor` adds a scope-collector that wraps `effect()`. Effects created during a mount are gathered; `MountScope.dispose()` calls them all. No change to `@scribe/signals`.
-- **B.** `@scribe/signals` exports a public `runInScope(scope, fn)` that effects auto-register with. Heavier touch; couples `signals` to a `scope` concept earlier than necessary.
+- **A.** `arbor` adds a scope-collector that wraps `effect()`. Effects created during a mount are gathered; `MountScope.dispose()` calls them all. No change to `@aihu/signals`.
+- **B.** `@aihu/signals` exports a public `runInScope(scope, fn)` that effects auto-register with. Heavier touch; couples `signals` to a `scope` concept earlier than necessary.
 
-Recommendation: **A**. Keeps `@scribe/signals` minimal; `arbor` owns lifecycle.
+Recommendation: **A**. Keeps `@aihu/signals` minimal; `arbor` owns lifecycle.
 
 **Call 3 — Single combined PR for all three specs, or three separate PRs.** Already addressed in Step 1 default — but confirm with the user, as it affects how Architect outputs get committed.
 
@@ -123,7 +123,7 @@ Spawn all three simultaneously. They have NO dependencies on each other; only on
 
 #### Architect A — `arbor` (Phase 3)
 
-**Goal:** Produce `.team/phase-3/spec-arbor.md` covering the persistent reactive tree: `Branch`, `Leaf`, `mount(target, branch): MountScope`, `MountScope.dispose()`, structural-update primitives. Implements v0 spec §6 (arbor rendering model). Consumes `@scribe/signals` (and per Call 2 may extend it).
+**Goal:** Produce `.team/phase-3/spec-arbor.md` covering the persistent reactive tree: `Branch`, `Leaf`, `mount(target, branch): MountScope`, `MountScope.dispose()`, structural-update primitives. Implements v0 spec §6 (arbor rendering model). Consumes `@aihu/signals` (and per Call 2 may extend it).
 
 **Reference Phase 2's spec format** (`.team/phase-2/spec-signals.md`): 7 sections (Public API, Internal architecture, Tooling, Test plan, File-level change list, Deviations from plan, Open questions for Team Lead).
 
@@ -142,7 +142,7 @@ Spawn all three simultaneously. They have NO dependencies on each other; only on
 
 #### Architect B — `runtime` (Phase 4)
 
-**Goal:** Produce `.team/phase-4/spec-runtime.md` covering `defineElement(name, options)` and the Web Components wiring. Implements v0 spec §7. Consumes both `@scribe/signals` and `@scribe/arbor`.
+**Goal:** Produce `.team/phase-4/spec-runtime.md` covering `defineElement(name, options)` and the Web Components wiring. Implements v0 spec §7. Consumes both `@aihu/signals` and `@aihu/arbor`.
 
 **Critical constraint.** The `arbor` API surface is being designed *concurrently* by Architect A. Architect B's spec must:
 1. Anchor against the *current* arbor public API in v0 spec §6 (not Architect A's in-flight spec).
@@ -155,7 +155,7 @@ Spawn all three simultaneously. They have NO dependencies on each other; only on
 
 #### Architect C — `agent` (Phase 5)
 
-**Goal:** Produce `.team/phase-5/spec-agent.md` for `@scribe/agent`. Implements v0 spec §8 — static metadata accessor only in v0 (no MCP server). Independent of arbor and runtime; this is the smallest package.
+**Goal:** Produce `.team/phase-5/spec-agent.md` for `@aihu/agent`. Implements v0 spec §8 — static metadata accessor only in v0 (no MCP server). Independent of arbor and runtime; this is the smallest package.
 
 **Same format and learnings.** This Architect is small enough that you may consider running it sequentially before A and B if context is tight — it can finish in 30 min and the others won't depend on it.
 
@@ -196,7 +196,7 @@ Update `.team/learnings.md` if any of this session's work surfaces new project-p
 - An Architect requests information beyond the source-of-truth docs → escalate to user, don't speculate.
 - An Architect spends >120% of its time budget → pause, reassess scope.
 - Reconciliation in Step 4 surfaces a fundamental incompatibility (e.g. v0 spec §6 and §7 contradict each other in a way Phase 2 already shipped around) → stop, flag to user, do not paper over.
-- An Architect proposes adding to `@scribe/signals` beyond Call 1's authorization → stop, surface as a **new** Team Lead call.
+- An Architect proposes adding to `@aihu/signals` beyond Call 1's authorization → stop, surface as a **new** Team Lead call.
 
 ---
 

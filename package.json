@@ -1,5 +1,5 @@
 {
-  "name": "fellwork-scribe",
+  "name": "aihu",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -22,24 +22,27 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
+    "check:ci": "bunx biome ci . && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "test:quality": "bun scripts/lighthouse.ts",
     "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
-    "check:hmr": "bun scripts/hmr-check.ts"
+    "check:hmr": "bun scripts/hmr-check.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "@types/node": "^20.16.5",
     "@vitest/coverage-v8": "^2.1.9",
+    "chrome-launcher": "^1.1.2",
     "fast-check": "^3.22.0",
+    "husky": "^9.1.7",
     "jsdom": "^25.0.1",
+    "lighthouse": "^12.0.0",
     "rolldown": "^1.0.0-rc.17",
     "rolldown-plugin-dts": "^0.23.2",
     "typescript": "^5.6.2",
-    "vitest": "^2.1.1",
-    "lighthouse": "^12.0.0",
-    "chrome-launcher": "^1.1.2"
+    "vitest": "^2.1.1"
   }
 }

@@ -1,10 +1,10 @@
-use scribe_compiler::{compile_full, emit, sfc};
+use aihu_compiler::{compile_full, emit, sfc};
 
 fn counter_source() -> &'static str {
     concat!(
         "<script setup>
 ",
-        "import { signal } from '@scribe/signals'
+        "import { signal } from '@aihu/signals'
 ",
         "
 ",
@@ -251,7 +251,7 @@ fn multiline_import_stripped() {
     let source = r#"<script setup lang="ts" name="x-test">
 import {
   computed
-} from '@scribe/signals'
+} from '@aihu/signals'
 
 const fee = computed(() => 5)
 </script>
@@ -265,9 +265,15 @@ const fee = computed(() => 5)
         result.js.contains("const fee = computed"),
         "body should contain fee"
     );
+    // The multiline import continuation `} from '@aihu/signals'` must NOT appear
+    // inside the component setup function body. The auto-generated imports at the top
+    // of the file may contain `} from '@aihu/signals'` as part of single-line import
+    // statements (which is correct), but the raw multiline import lines must not leak
+    // into the setup body. Check that the setup body doesn't have `  computed` (the
+    // indented identifier that was a continuation of the import block).
     assert!(
-        !result.js.contains("} from '@scribe/signals'"),
-        "multiline import should be stripped from script body"
+        !result.js.contains("  computed\n"),
+        "multiline import continuation line should be stripped from script body"
     );
 }
 
@@ -276,7 +282,7 @@ fn side_effect_import_does_not_eat_following_lines() {
     // Bare side-effect import (no `from`, no `;`) must not falsely open a
     // multiline import span — it has no `{`, so should be skipped as single-line.
     let source = r#"<script setup lang="ts" name="x-test">
-import '@scribe/polyfill'
+import '@aihu/polyfill'
 const fee = 5
 </script>
 <template>
@@ -330,7 +336,7 @@ state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
 </agent>
 <script setup lang="ts" name="airtime-quote">
-import { computed } from '@scribe/signals'
+import { computed } from '@aihu/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
 const total = computed(() => amount() + fee())
 export function quote() {
@@ -377,10 +383,10 @@ fn agent_airtime_quote_manifest() {
 
 #[test]
 fn no_agent_block_manifest_empty() {
-    let source = include_str!("../fixtures/vite-counter/counter.scribe");
+    let source = include_str!("../fixtures/vite-counter/counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
-    let result = emit(&unit, "scribe-counter");
+    let result = emit(&unit, "aihu-counter");
     assert!(
         result.manifest_json.is_empty(),
         "no agent block = no manifest"

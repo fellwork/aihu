@@ -30,8 +30,8 @@
 
 | Package | Before | After | Delta | Budget |
 |---|---|---|---|---|
-| `@scribe/arbor` | 1.38 kB gz | 2.04 kB gz | +662 B | ≤ 2048 B ✓ |
-| `@scribe/runtime` | 438 B gz | 438 B gz | 0 B | ≤ 1024 B ✓ |
+| `@aihu/arbor` | 1.38 kB gz | 2.04 kB gz | +662 B | ≤ 2048 B ✓ |
+| `@aihu/runtime` | 438 B gz | 438 B gz | 0 B | ≤ 1024 B ✓ |
 
 **Headroom:** 2048 − 2044 = 4 B
 
@@ -97,7 +97,7 @@ The `key` field on `ChildScope` was removed (it was debug metadata, never read b
 - [x] `_mountDisposersStack` exported from `mount.ts` and used by `_mc` for re-entrant push/pop
 - [x] Tests T1–T8 pass (8 real reconciler tests)
 - [x] All 276 pre-existing tests pass (`bun run test` exit code 0) → 284 total
-- [x] `bun run size` passes: `@scribe/arbor` = 2.04 kB ≤ 2048 B (4 B headroom)
+- [x] `bun run size` passes: `@aihu/arbor` = 2.04 kB ≤ 2048 B (4 B headroom)
 - [x] `packages/arbor/scripts/mangle-dist.mjs` post-build mangler present and functional
 - [x] `packages/arbor/package.json` build script runs mangler after rolldown
 

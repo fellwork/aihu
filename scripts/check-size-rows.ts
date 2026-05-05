@@ -29,13 +29,19 @@ import { fileURLToPath } from 'node:url'
  * Server-side packages — run on Node/Bun, budgeted by SSR-bytes-served and
  * dep-tree audit, not browser-bundle bytes.
  */
-const SERVER_SIDE = new Set<string>(['@scribe/server', '@scribe/agent-readiness'])
+const SERVER_SIDE = new Set<string>(['@aihu/server', '@aihu/agent-readiness'])
 
 /**
  * Build/dev-time-only packages — run in the build toolchain or dev tooling,
  * never reach a browser bundle.
  */
-const BUILD_DEV_ONLY = new Set<string>(['@scribe/plugin', '@scribe/compiler', '@scribe/cli'])
+const BUILD_DEV_ONLY = new Set<string>([
+  '@aihu/plugin',
+  '@aihu/compiler',
+  '@aihu/cli',
+  '@aihu/adapter-cloudflare',
+  '@aihu/adapter-vercel',
+])
 
 type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only'
 
@@ -116,7 +122,7 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
 
   for (const pkg of packages) {
     if (!pkg.hasIndexTs) {
-      // Packages without src/index.ts are out of scope — e.g. @scribe/compiler
+      // Packages without src/index.ts are out of scope — e.g. @aihu/compiler
       // (Rust-backed, JS wrapper at js/index.ts). Skip silently.
       continue
     }

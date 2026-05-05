@@ -1,13 +1,13 @@
 /*
  * Tailwind input file. The Tailwind CLI scans the `content` paths declared
- * in tailwind.config.ts (which include the .scribe sources) and emits the
+ * in tailwind.config.ts (which include the .aihu sources) and emits the
  * subset of utility classes actually referenced.
  *
  * Output: dist/tailwind.css — linked from index.html as a global stylesheet.
  *
  * Light-DOM custom elements pick the classes up via the normal CSS cascade.
  * (Shadow-DOM components would NOT see this stylesheet — that is why
- * scribeCompilerPlugin is configured with shadowMode: 'none' in build.ts.)
+ * aihuCompilerPlugin is configured with shadowMode: 'none' in build.ts.)
  */
 
 @tailwind base;

@@ -1,9 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@aihu/data": ["./src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/server": ["../server/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu/context": ["../context/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

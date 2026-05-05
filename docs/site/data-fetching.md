@@ -1,6 +1,6 @@
 # Data Fetching
 
-scribe provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.
+aihu provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.
 
 ## `$resource` macro
 
@@ -21,13 +21,13 @@ The `user` variable is a 3-state loader object:
 
 When `userId` changes, the resource re-fetches automatically.
 
-## `createResource` from `@scribe/runtime`
+## `createResource` from `@aihu/runtime`
 
 Use `createResource` directly in TypeScript outside of SFCs:
 
 ```typescript
-import { createResource } from '@scribe/runtime'
-import { signal } from '@scribe/signals'
+import { createResource } from '@aihu/runtime'
+import { signal } from '@aihu/signals'
 
 const userId = signal(1)
 const user = createResource(() => fetch(`/api/users/${userId()}`).then(r => r.json()))
@@ -37,10 +37,10 @@ The resource is automatically re-fetched when any signals read inside the fetche
 
 ## Server loaders
 
-Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with `defineLoader` from `@scribe/server`:
+Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with `defineLoader` from `@aihu/server`:
 
 ```typescript
-import { defineLoader } from '@scribe/server'
+import { defineLoader } from '@aihu/server'
 
 export const loader = defineLoader(async (ctx) => {
   const users = await db.users.findMany()
@@ -61,14 +61,14 @@ The loader payload is delivered as the `data` field on the SFC's `route` prop. T
 `src/pages/posts/[slug].loader.ts`:
 
 ```typescript
-import { defineLoader } from '@scribe/server'
+import { defineLoader } from '@aihu/server'
 
 export const loader = defineLoader(async (ctx) => {
   return await db.posts.findOne({ slug: ctx.params.slug })
 })
 ```
 
-`src/pages/posts/[slug].scribe`:
+`src/pages/posts/[slug].aihu`:
 
 ```
 @route { path: "/posts/[slug]", ssr: true }
@@ -90,7 +90,7 @@ export const loader = defineLoader(async (ctx) => {
 
 The runtime injects the resolved loader payload as `route.data` before mount. During streaming SSR or client-side re-validation, wrap the consumer in `<$suspense>` to declaratively handle the pending state — see [the 3-state loader pattern](#the-3-state-loader-pattern) below.
 
-A worked end-to-end example lives at [`examples/blog-loader/`](https://github.com/fellwork/scribe/tree/main/examples/blog-loader).
+A worked end-to-end example lives at [`examples/blog-loader/`](https://github.com/fellwork/aihu/tree/main/examples/blog-loader).
 
 ### Pattern B — `$resource` + `createServerCall`
 
@@ -98,7 +98,7 @@ If the data needs to be fetched _on demand_ (e.g. on a button click or when a se
 
 ```typescript
 // shared/api.ts
-import { createServerCall } from '@scribe/server'
+import { createServerCall } from '@aihu/server'
 import type { Post } from './types'
 
 export const getPost = createServerCall<[slug: string], Post>('posts/getPost')
@@ -143,7 +143,7 @@ When compiling with `BuildTarget.Client`, any `$server` references are elided fr
 `createServerCall` creates a typed fetch stub that calls a server action from client-side code:
 
 ```typescript
-import { createServerCall } from '@scribe/server'
+import { createServerCall } from '@aihu/server'
 
 const getUser = createServerCall<[id: number], User>('users/getUser')
 
@@ -151,11 +151,11 @@ const getUser = createServerCall<[id: number], User>('users/getUser')
 const user = await getUser(42)
 ```
 
-The stub sends a `POST` request to `/_scribe/call/<endpoint>` with the args serialized as JSON. The server routes it to the registered action and returns the typed response.
+The stub sends a `POST` request to `/_aihu/call/<endpoint>` with the args serialized as JSON. The server routes it to the registered action and returns the typed response.
 
 ## The 3-state loader pattern
 
-All async data in scribe follows the 3-state pattern:
+All async data in aihu follows the 3-state pattern:
 
 | State | `pending` | `value` | `error` |
 |-------|-----------|---------|---------|

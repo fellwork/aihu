@@ -1,13 +1,13 @@
 // @vitest-environment node
 
-import { runWithContext } from '@scribe/context'
+import { runWithContext } from '@aihu/context'
 import {
   createResource,
   createResourceSerializer,
   createResourceStore,
   ResourceStoreToken,
-} from '@scribe/data'
-import { batch, signal } from '@scribe/signals'
+} from '@aihu/data'
+import { batch, signal } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------

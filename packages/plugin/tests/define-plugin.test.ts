@@ -9,7 +9,7 @@ import {
   validatePlugin,
 } from '../src/index.ts'
 
-describe('@scribe/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
+describe('@aihu/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
   beforeEach(() => {
     // Per spec §8.1: duplicate-namespace tracking spans a single registration
     // pass. Reset the tracker between tests so each starts from a clean slate.
@@ -33,7 +33,7 @@ describe('@scribe/plugin definePlugin + validatePlugin (spec §1, §8.1)', () =>
       },
     })
 
-    expect(plugin.__scribe_plugin).toBe(true)
+    expect(plugin.__aihu_plugin).toBe(true)
     expect(plugin.name).toBe('forms')
     expect(plugin.namespace).toBe('forms')
     expect(validatePlugin(plugin)).toEqual({ ok: true })
@@ -54,7 +54,7 @@ describe('@scribe/plugin definePlugin + validatePlugin (spec §1, §8.1)', () =>
     }
   })
 
-  it('rejects a reserved namespace — `state` is reserved by scribe (spec §1.3, §8.1 row 2)', () => {
+  it('rejects a reserved namespace — `state` is reserved by aihu (spec §1.3, §8.1 row 2)', () => {
     const plugin = definePlugin({
       name: 'fake-state',
       version: '0.1.0',
@@ -89,7 +89,7 @@ describe('@scribe/plugin definePlugin + validatePlugin (spec §1, §8.1)', () =>
     // shape that exercises the runtime guard. The validator MUST still
     // catch this — TypeScript prevents it at compile time, but the spec
     // requires runtime enforcement for compiler implementations.
-    const broken = { __scribe_plugin: true } as unknown as Plugin
+    const broken = { __aihu_plugin: true } as unknown as Plugin
 
     const result = validatePlugin(broken)
     expect(result.ok).toBe(false)
@@ -102,32 +102,32 @@ describe('@scribe/plugin definePlugin + validatePlugin (spec §1, §8.1)', () =>
     }
   })
 
-  it('rejects a scribeVersion mismatch (spec §7.3, §8.1 row 5)', () => {
+  it('rejects a aihuVersion mismatch (spec §7.3, §8.1 row 5)', () => {
     const plugin = definePlugin({
       name: 'forms',
       version: '0.1.0',
       namespace: 'forms',
       // ^2.0.0 cannot be satisfied by 0.2.0 (current SCRIBE_VERSION).
-      scribeVersion: '^2.0.0',
+      aihuVersion: '^2.0.0',
     })
 
     const result = validatePlugin(plugin)
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      const mismatch = result.errors.find((e) => e.code === 'scribe-version-mismatch')
+      const mismatch = result.errors.find((e) => e.code === 'aihu-version-mismatch')
       expect(mismatch).toBeDefined()
       expect(mismatch?.message).toContain('^2.0.0')
       expect(mismatch?.message).toContain(SCRIBE_VERSION)
     }
   })
 
-  it('accepts a compatible scribeVersion range (spec §7.3 happy path)', () => {
+  it('accepts a compatible aihuVersion range (spec §7.3 happy path)', () => {
     const plugin = definePlugin({
       name: 'forms',
       version: '0.1.0',
       namespace: 'forms-compat',
       // ^0.2.0 is compatible with 0.2.0.
-      scribeVersion: '^0.2.0',
+      aihuVersion: '^0.2.0',
     })
 
     expect(validatePlugin(plugin)).toEqual({ ok: true })

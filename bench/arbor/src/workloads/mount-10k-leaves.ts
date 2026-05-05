@@ -14,13 +14,13 @@
  * be 10M nodes — easily multi-GB. Documented per design §8.8.
  *
  * **Per-op shape.** Each op rebuilds the static tree from pre-allocated data
- * (cheap) and runs one full mount + dispose cycle. For scribe, the children
+ * (cheap) and runs one full mount + dispose cycle. For aihu, the children
  * array is pre-allocated; `branch()` itself is the only per-op allocation on
- * the scribe path. For other adapters, the per-op cost includes their own
+ * the aihu path. For other adapters, the per-op cost includes their own
  * vnode/template allocation semantics (lit TemplateResult array, etc.).
  *
  * **Adapter-specific notes:**
- * - scribe: branch(null, undefined, children) — static leaf array pre-built.
+ * - aihu: branch(null, undefined, children) — static leaf array pre-built.
  * - lit-html: array of html`<span>` TemplateResults pre-built outside timed path.
  * - solid-js: h('div', null, [...children]) — children array pre-built.
  * - @vue/runtime-dom: h('div', null, [...children]) — children array pre-built.
@@ -29,17 +29,16 @@
  *   the span creation IS part of what we measure for vanilla).
  */
 
-import { branch, leaf } from '@scribe/arbor'
+import { branch, leaf } from '@aihu/arbor'
 import { h as vueH } from '@vue/runtime-dom'
 import type { TemplateResult } from 'lit-html'
 import { html as litHtml } from 'lit-html'
 import type { VNode } from 'preact'
 import { h as preactH } from 'preact'
 import solidH from 'solid-js/h'
-
+import { setAihuHook } from '../competitors/aihu.ts'
 import { setLitTemplate } from '../competitors/lit.ts'
 import { setPreactVNode } from '../competitors/preact.ts'
-import { setScribeHook } from '../competitors/scribe.ts'
 import { setSolidComponent } from '../competitors/solid.ts'
 import { setVanillaMounter } from '../competitors/vanilla.ts'
 import { setVueRenderFn } from '../competitors/vue.ts'
@@ -54,15 +53,15 @@ export const mountTenK: WorkloadDefinition = {
     'Mount 10k static text leaves under a fragment and dispose. One mount+dispose = 1 op.',
   n: 10,
   build(adapter: DomAdapter) {
-    // ---------- scribe ----------
-    if (adapter.name === '@scribe/arbor') {
+    // ---------- aihu ----------
+    if (adapter.name === '@aihu/arbor') {
       // Pre-allocate the children array once. Building a fresh `Leaf` per op
       // is included in the timed path (`Leaf` construction is part of the
       // workload), but keeping `Array.from` outside avoids measuring the
       // allocator's amortized growth pattern.
       const children = Array.from({ length: LEAF_COUNT }, (_, i) => leaf(String(i)))
 
-      setScribeHook({
+      setAihuHook({
         buildTree() {
           return branch(null, undefined, children)
         },

@@ -1,10 +1,10 @@
 # Authoring Agents
 
-scribe is agent-first. Every `.scribe` component can expose MCP-compatible tools and resources via the `@agent` block. The `@scribe/agent`, `@scribe/agent-service`, and `@scribe/agent-readiness` packages form the agent layer.
+aihu is agent-first. Every `.aihu` component can expose MCP-compatible tools and resources via the `@agent` block. The `@aihu/agent`, `@aihu/agent-service`, and `@aihu/agent-readiness` packages form the agent layer.
 
 ## The `@agent` block
 
-Add an `@agent` block to any `.scribe` SFC to expose agent capabilities:
+Add an `@agent` block to any `.aihu` SFC to expose agent capabilities:
 
 ```
 @agent {
@@ -27,12 +27,12 @@ Add an `@agent` block to any `.scribe` SFC to expose agent capabilities:
 
 When compiling with `BuildTarget.Client`, the `@agent` block is fully elided — no manifest JSON is emitted and the JS output contains a `// [client build] @agent block elided` comment. Agent code never reaches the browser bundle.
 
-## `@scribe/agent`
+## `@aihu/agent`
 
-The `@scribe/agent` package provides the registry and registration primitives:
+The `@aihu/agent` package provides the registry and registration primitives:
 
 ```typescript
-import { defineAgent } from '@scribe/agent'
+import { defineAgent } from '@aihu/agent'
 
 const agent = defineAgent({
   name: 'my-agent',
@@ -49,12 +49,12 @@ const agent = defineAgent({
 
 `AgentRegistry` holds registered agent definitions. Each `defineAgent` call returns an `AgentDefinition` that can be passed to `AgentService`.
 
-## `@scribe/agent-service`
+## `@aihu/agent-service`
 
-The `@scribe/agent-service` package adapts agent definitions to a runtime service:
+The `@aihu/agent-service` package adapts agent definitions to a runtime service:
 
 ```typescript
-import { defineAgentService } from '@scribe/agent-service'
+import { defineAgentService } from '@aihu/agent-service'
 import { myAgent } from './agents/my-agent.ts'
 
 const service = defineAgentService({
@@ -66,14 +66,14 @@ const service = defineAgentService({
 
 `AgentService` handles request routing, rate limiting, and MCP protocol serialization.
 
-## `@scribe/agent-readiness` — Vite integration
+## `@aihu/agent-readiness` — Vite integration
 
 In development and build, use `viteAgentReadinessIntegration()` to wire agent manifests into the Vite build:
 
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { viteAgentReadinessIntegration } from '@scribe/agent-readiness'
+import { viteAgentReadinessIntegration } from '@aihu/agent-readiness'
 
 export default defineConfig({
   plugins: [
@@ -88,4 +88,4 @@ The plugin:
 2. Aggregates tool/resource descriptors into a single `agent-manifest.json` asset.
 3. Emits an `llms.txt` file at the root of the output for MCP discovery.
 
-The `llms.txt` and MCP manifest are part of the scribe contract — every scribe application ships them.
+The `llms.txt` and MCP manifest are part of the aihu contract — every aihu application ships them.

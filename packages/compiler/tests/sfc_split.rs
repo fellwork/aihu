@@ -1,4 +1,4 @@
-use scribe_compiler::{compile, compile_full, emit, sfc};
+use aihu_compiler::{compile, compile_full, emit, sfc};
 
 /// Normalize emitted JS for byte-for-byte comparison modulo whitespace.
 ///
@@ -12,7 +12,7 @@ fn normalize_ws(s: &str) -> String {
 
 #[test]
 fn split_valid_full() {
-    let src = "<script setup>\nimport { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)\n</script>\n\n<template>\n  <div>{{ count }}</div>\n</template>\n\n<style>\ndiv { color: red; }\n</style>\n";
+    let src = "<script setup>\nimport { signal } from '@aihu/signals'\n\nconst [count, setCount] = signal(0)\n</script>\n\n<template>\n  <div>{{ count }}</div>\n</template>\n\n<style>\ndiv { color: red; }\n</style>\n";
     let result = compile(src).unwrap();
     insta::assert_debug_snapshot!(result);
 }
@@ -47,14 +47,14 @@ fn split_style_only() {
 
 // ─── v0.2.2 dual-grammar fixtures ────────────────────────────────────────────
 //
-// Per plan §v0.2.2 (docs/superpowers/plans/2026-05-02-scribe-v1-framework.md)
+// Per plan §v0.2.2 (docs/superpowers/plans/2026-05-02-aihu-v1-framework.md)
 // and Block Structure Spec §2 (Block Declaration Syntax), the parser accepts
 // both `<tag>` and `@blockname { }` forms at v0.2. Both lower to the same
 // emitted JS shape. No deprecation banner at v0.2 (plan §137).
 
-const DUAL_GRAMMAR_HTML_FORM: &str = "<script setup>\nimport { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)\n</script>\n\n<template>\n  <div>{{ count }}</div>\n</template>\n\n<style>\ndiv { color: red; }\n</style>\n";
+const DUAL_GRAMMAR_HTML_FORM: &str = "<script setup>\nimport { signal } from '@aihu/signals'\n\nconst [count, setCount] = signal(0)\n</script>\n\n<template>\n  <div>{{ count }}</div>\n</template>\n\n<style>\ndiv { color: red; }\n</style>\n";
 
-const DUAL_GRAMMAR_AT_FORM: &str = "@state {\nimport { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)\n}\n\n@template {\n  <div>{{ count }}</div>\n}\n\n@style {\ndiv { color: red; }\n}\n";
+const DUAL_GRAMMAR_AT_FORM: &str = "@state {\nimport { signal } from '@aihu/signals'\n\nconst [count, setCount] = signal(0)\n}\n\n@template {\n  <div>{{ count }}</div>\n}\n\n@style {\ndiv { color: red; }\n}\n";
 
 #[test]
 fn dual_grammar_html_form() {
@@ -146,11 +146,11 @@ fn compile_empty_source() {
     let result = compile("").unwrap();
     assert_eq!(
         result,
-        scribe_compiler::ScribeSource {
+        aihu_compiler::AihuSource {
             script: None,
             template: None,
             style: None,
-            meta: scribe_compiler::ScriptMeta { name: None },
+            meta: aihu_compiler::ScriptMeta { name: None },
             agent: None,
             route: None,
         }

@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-30
 **Started from:** Session 002 retro (`061ddf7`) — Plans 3.1/4.2/2.1/6.2-P0 COMPLETE
-**Plans shipped:** 1.1 (when/each Reconciler), 2.2 (@scribe/data), 6.2-P1 (Option D hybrid propagation)
+**Plans shipped:** 1.1 (when/each Reconciler), 2.2 (@aihu/data), 6.2-P1 (Option D hybrid propagation)
 **Final HEAD:** `acd56fe`
 **Test count:** 312/312 passing (41 test files)
 **All JS packages within size budget (adjusted caps noted below).**
@@ -11,7 +11,7 @@
 
 ## What was built
 
-### Plan 1.1 — when/each Reconciler (`@scribe/arbor`)
+### Plan 1.1 — when/each Reconciler (`@aihu/arbor`)
 
 `StructuralNode` and `ChildScope` types added to `structural.ts`. `when(condition, grow)` and `each(list, key, grow)` now perform a proper keyed diff rather than throwing stubs. The `_materializeStructural` helper drives reconciliation: on each signal change it computes the new key set, tears down removed `ChildScope` instances via their disposers, and mounts new ones in the correct position. The implementation property-mangles internal fields per spec requirements.
 
@@ -20,7 +20,7 @@ Commits: `b4bf47f` (main impl), `75ba4e1` (Team Lead fix: export leak + cap rais
 Verifier: PARTIAL on first pass; accepted as PASS after Team Lead inline fixes
 Tests: 8 new structural tests, 284 total arbor tests, 312 monorepo total
 
-### Plan 2.2 — `@scribe/data` (new package)
+### Plan 2.2 — `@aihu/data` (new package)
 
 New package `packages/data/` shipping `createResource`, `Resource<T>`, `DataState<T>` (5-state discriminated union: idle | loading | ready | error | streaming), `ResourceStore`, and `createResourceSerializer`. The `DataState<T>` naming collision with the server package's `DataSource<T>` was identified and resolved pre-build: the server's `DataSource<T>` SSR stub type keeps its name; the data package exposes `Resource<T>` as its primary public surface. 24 tests. Full SSR dehydration path with opt-in `{ dehydrate: true }` flag. Cache key is a reactive `Signal<string | null | undefined>` per the OQ-V4 resolution.
 
@@ -29,7 +29,7 @@ Commits: `8e74a95` (merged to main from worktree alongside 6.2-P1)
 Verifier: PASS (all 9 AC on first pass)
 Bundle: 687 B gz against a 750 B cap (spec §8.6 originally estimated 500 B — see issues section)
 
-### Plan 6.2 Phase 1 — Hybrid Fanout/Lazy Propagation (`@scribe/signals`)
+### Plan 6.2 Phase 1 — Hybrid Fanout/Lazy Propagation (`@aihu/signals`)
 
 Option D (hybrid fanout/lazy) implemented. Key additions: `PENDING = 0x100` flag; `markOne` split into linear-chain path and fan-out path; `checkDirty` iterative function that walks the dependency chain before committing a recompute; `drainEffectQueue` PENDING check; cascade-suppression settle step; `lastWave` detection for signal short-circuit. Four new deep-chain tests added.
 
@@ -81,14 +81,14 @@ Two packages required cap adjustments:
 
 | Package | Original cap | Actual gz | Adjusted cap |
 |---|---|---|---|
-| `@scribe/data` | 500 B (spec §8.6) | 687 B | 750 B |
-| `@scribe/signals` | 1700 B (Phase 0 cap) | 1.67 kB | 1850 B (spec §10.3) |
+| `@aihu/data` | 500 B (spec §8.6) | 687 B | 750 B |
+| `@aihu/signals` | 1700 B (Phase 0 cap) | 1.67 kB | 1850 B (spec §10.3) |
 
-For `@scribe/data`, the 500 B estimate did not account for the `ResourceStore`, `createResourceSerializer`, and the full 5-state union serialization path. The 687 B actual is reasonable for the feature surface; the cap was simply too aggressive. For `@scribe/signals`, the Phase 1 additions (PENDING flag + checkDirty + settle step) added ~130 B gz to the Phase 0 baseline of 1.54 kB. The spec author pre-authorized the raise at §10.3.
+For `@aihu/data`, the 500 B estimate did not account for the `ResourceStore`, `createResourceSerializer`, and the full 5-state union serialization path. The 687 B actual is reasonable for the feature surface; the cap was simply too aggressive. For `@aihu/signals`, the Phase 1 additions (PENDING flag + checkDirty + settle step) added ~130 B gz to the Phase 0 baseline of 1.54 kB. The spec author pre-authorized the raise at §10.3.
 
 ### 4 — Arbor bundling signals causes cap spillover
 
-Plan 1.1 revealed that `@scribe/arbor` bundles `@scribe/signals` at build time (signals is not externalized in the arbor rolldown config). When Plan 6.2-P1 grew signals by ~130 B gz, that growth flowed through into the arbor bundle, pushing it toward its cap. This is why the arbor cap was raised from the original ceiling to 2200 B.
+Plan 1.1 revealed that `@aihu/arbor` bundles `@aihu/signals` at build time (signals is not externalized in the arbor rolldown config). When Plan 6.2-P1 grew signals by ~130 B gz, that growth flowed through into the arbor bundle, pushing it toward its cap. This is why the arbor cap was raised from the original ceiling to 2200 B.
 
 **This is a structural concern for v1.** If signals continues to grow (Plan 6.2-P2 or further optimization work), arbor's cap will need to track it. The alternative is to externalize signals from the arbor bundle, but that changes the consumption model for downstream users.
 
@@ -122,11 +122,11 @@ The Verifier accepted 6.2-P1 as a conditional PASS. Correctness AC all passed. T
 
 ### Track A — Plan 1.2 (Component props)
 
-Plan 1.1 merged to main. Plan 1.2 (typed `observedAttributes` binding in `@scribe/runtime`) is now unblocked. Architect spec already covers 1.2 in `spec-track-a-architect-round-001.md`. Builder can start from main.
+Plan 1.1 merged to main. Plan 1.2 (typed `observedAttributes` binding in `@aihu/runtime`) is now unblocked. Architect spec already covers 1.2 in `spec-track-a-architect-round-001.md`. Builder can start from main.
 
 ### Track B — Integration / Plan 2.3 (if defined)
 
-Plan 2.2 complete. Next step is either a defined Plan 2.3 (none yet scoped) or integration testing of `@scribe/data` with the `@scribe/context` SSR path — specifically verifying that `createResource` dehydration and `ResourceStore` serialize correctly through `renderToString`/`renderToStream` with a live context map.
+Plan 2.2 complete. Next step is either a defined Plan 2.3 (none yet scoped) or integration testing of `@aihu/data` with the `@aihu/context` SSR path — specifically verifying that `createResource` dehydration and `ResourceStore` serialize correctly through `renderToString`/`renderToStream` with a live context map.
 
 ### Track C — Linux perf validation
 

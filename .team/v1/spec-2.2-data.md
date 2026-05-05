@@ -1,17 +1,17 @@
-# Spec 2.2 — `@scribe/data` Plan
+# Spec 2.2 — `@aihu/data` Plan
 
 **Status:** READY FOR BUILDER
 **Date:** 2026-04-30
 **Plan:** 2.2
-**Package:** `@scribe/data`
+**Package:** `@aihu/data`
 **Branch:** `feat/v1-data` (sequential after Plan 2.1 merge)
-**Depends on:** Plan 2.1 (`@scribe/context`) merged to `main`
+**Depends on:** Plan 2.1 (`@aihu/context`) merged to `main`
 
 ---
 
 ## 0. Summary
 
-`@scribe/data` is the signal-native, backend-agnostic data fetching primitive for scribe v1. It exposes a single public function — `createResource` — that wraps any `(key: string) => Promise<T>` fetcher in a reactive `Resource<T>` object backed by a shared, context-injectable cache store. Resources dehydrate to JSON at SSR time and rehydrate on the client without a second network round-trip.
+`@aihu/data` is the signal-native, backend-agnostic data fetching primitive for aihu v1. It exposes a single public function — `createResource` — that wraps any `(key: string) => Promise<T>` fetcher in a reactive `Resource<T>` object backed by a shared, context-injectable cache store. Resources dehydrate to JSON at SSR time and rehydrate on the client without a second network round-trip.
 
 This is a Layer 3 (Surface) browser package. It ships in every app that uses async data. Its size budget is **500 B gzip**.
 
@@ -23,37 +23,37 @@ This is a Layer 3 (Surface) browser package. It ships in every app that uses asy
 
 Components need to load async data reactively — re-fetching when a key changes, skipping the fetch when the key is absent, and sharing cached results across siblings. Without a standard primitive, every component reinvents this logic, and SSR rehydration is impossible.
 
-### 1.2 What `@scribe/data` provides
+### 1.2 What `@aihu/data` provides
 
 - `createResource<T>` — reactive data resource backed by a signal-reactive key
 - `DataState<T>` — five-state discriminated union modelling all async lifecycle states
 - `Resource<T>` — the return type: state signal + imperative controls (`refetch`, `invalidate`)
 - `ResourceStore` — the cache backing store interface
 - `createResourceStore()` — factory for the default in-memory store
-- `ResourceStoreToken` — context token for store injection via `@scribe/context`
+- `ResourceStoreToken` — context token for store injection via `@aihu/context`
 - `createResourceSerializer(store)` — SSR dehydration helper for `SsrOptions.serializer`
 
 ### 1.3 Dependency graph
 
 ```
-@scribe/data
-  ├── @scribe/signals   (signal, effect, Signal type)
-  └── @scribe/context   (inject, ContextToken — for ResourceStoreToken injection)
+@aihu/data
+  ├── @aihu/signals   (signal, effect, Signal type)
+  └── @aihu/context   (inject, ContextToken — for ResourceStoreToken injection)
 ```
 
-These are the **only two dependencies**. `@scribe/data` does NOT import from `@scribe/server`, `@scribe/arbor`, `@scribe/runtime`, or any Layer 4 package. The hard package boundary is maintained: `@scribe/data` is a browser-safe package; `@scribe/context` is also browser-safe.
+These are the **only two dependencies**. `@aihu/data` does NOT import from `@aihu/server`, `@aihu/arbor`, `@aihu/runtime`, or any Layer 4 package. The hard package boundary is maintained: `@aihu/data` is a browser-safe package; `@aihu/context` is also browser-safe.
 
-### 1.4 What `@scribe/data` does NOT provide
+### 1.4 What `@aihu/data` does NOT provide
 
-- Fetch adapters — those live in `@scribe/data-fetch` (separate package, separate plan)
-- WebSocket / streaming adapters — `fromWebSocket()` is a future adapter; `@scribe/data` reserves the `'streaming'` state in `DataState<T>` as a forward-compatibility slot only
-- SSR rendering integration — `@scribe/data` provides `createResourceSerializer`; wiring it into `renderToString` is the application's responsibility via `SsrOptions.serializer`
+- Fetch adapters — those live in `@aihu/data-fetch` (separate package, separate plan)
+- WebSocket / streaming adapters — `fromWebSocket()` is a future adapter; `@aihu/data` reserves the `'streaming'` state in `DataState<T>` as a forward-compatibility slot only
+- SSR rendering integration — `@aihu/data` provides `createResourceSerializer`; wiring it into `renderToString` is the application's responsibility via `SsrOptions.serializer`
 
 ---
 
 ## 2. Public API surface
 
-The following TypeScript definitions are the complete public surface of `@scribe/data`. They are locked — the Builder must not deviate from these signatures.
+The following TypeScript definitions are the complete public surface of `@aihu/data`. They are locked — the Builder must not deviate from these signatures.
 
 ### 2.1 `DataState<T>` — five-state discriminated union
 
@@ -111,7 +111,7 @@ export interface ResourceOptions<T> {
   dehydrate?: boolean
   /**
    * Cache store to use. When omitted, createResource attempts to inject
-   * ResourceStoreToken from @scribe/context; if that also yields undefined,
+   * ResourceStoreToken from @aihu/context; if that also yields undefined,
    * the module-level default singleton store is used.
    */
   store?: ResourceStore
@@ -164,7 +164,7 @@ export function createResourceStore(): ResourceStore
 export const ResourceStoreToken: ContextToken<ResourceStore>
 ```
 
-`ResourceStoreToken` is created via `createContext<ResourceStore>()` (imported from `@scribe/context`) at module load time. It has no default value — `inject(ResourceStoreToken)` returns `undefined` when no store is provided, which causes `createResource` to fall back to the module-level singleton.
+`ResourceStoreToken` is created via `createContext<ResourceStore>()` (imported from `@aihu/context`) at module load time. It has no default value — `inject(ResourceStoreToken)` returns `undefined` when no store is provided, which causes `createResource` to fall back to the module-level singleton.
 
 ### 2.7 `createResourceSerializer` — SSR dehydration
 
@@ -261,14 +261,14 @@ packages/data/src/
 
 ### 4.2 `createResource` internals
 
-`createResource` uses `effect()` from `@scribe/signals` to watch the key signal and manage the fetch lifecycle.
+`createResource` uses `effect()` from `@aihu/signals` to watch the key signal and manage the fetch lifecycle.
 
 **Pseudocode — internal implementation guide:**
 
 ```typescript
-import { signal, effect } from '@scribe/signals'
-import type { Signal } from '@scribe/signals'
-import { inject } from '@scribe/context'
+import { signal, effect } from '@aihu/signals'
+import type { Signal } from '@aihu/signals'
+import { inject } from '@aihu/context'
 import { ResourceStoreToken, createResourceStore } from './store.ts'
 import type { DataState, Resource, ResourceOptions } from './types.ts'
 
@@ -410,11 +410,11 @@ export function createResource<T>(
 
 ```
 1. options.store             (explicit, highest priority)
-2. inject(ResourceStoreToken) from @scribe/context  (context-provided)
+2. inject(ResourceStoreToken) from @aihu/context  (context-provided)
 3. module-level singleton    (fallback, lowest priority)
 ```
 
-The `inject(ResourceStoreToken)` call happens at `createResource` invocation time (i.e., during component setup), not lazily at fetch time. This matches `@scribe/context`'s model: injection is synchronous and scoped to the setup call.
+The `inject(ResourceStoreToken)` call happens at `createResource` invocation time (i.e., during component setup), not lazily at fetch time. This matches `@aihu/context`'s model: injection is synchronous and scoped to the setup call.
 
 ### 4.4 Key-signal change behaviour
 
@@ -472,7 +472,7 @@ The `ResourceStore` interface does not include `setStale`/`getStale` methods —
 ### 5.4 `ResourceStoreToken`
 
 ```typescript
-import { createContext } from '@scribe/context'
+import { createContext } from '@aihu/context'
 import type { ResourceStore } from './store.ts'
 
 export const ResourceStoreToken = createContext<ResourceStore>()
@@ -485,8 +485,8 @@ No default value is provided. `inject(ResourceStoreToken)` returns `undefined` w
 Application root (example wiring):
 
 ```typescript
-import { provide } from '@scribe/context'
-import { createResourceStore, ResourceStoreToken } from '@scribe/data'
+import { provide } from '@aihu/context'
+import { createResourceStore, ResourceStoreToken } from '@aihu/data'
 
 // In the root component's setup():
 const store = createResourceStore()
@@ -498,9 +498,9 @@ All descendant `createResource` calls that do not specify `options.store` will i
 SSR wiring (via `runWithContext`):
 
 ```typescript
-import { runWithContext } from '@scribe/context'
-import { createResourceStore, ResourceStoreToken, createResourceSerializer } from '@scribe/data'
-import { renderToString } from '@scribe/server'
+import { runWithContext } from '@aihu/context'
+import { createResourceStore, ResourceStoreToken, createResourceSerializer } from '@aihu/data'
+import { renderToString } from '@aihu/server'
 
 const store = createResourceStore()
 const contextMap = new Map()
@@ -585,23 +585,23 @@ export function createResourceSerializer(
 }
 ```
 
-The JSON is emitted into the `<script type="application/json" id="__scribe_state__">` block already present in `packages/server/src/ssr.ts` via the `SsrOptions.serializer` hook.
+The JSON is emitted into the `<script type="application/json" id="__aihu_state__">` block already present in `packages/server/src/ssr.ts` via the `SsrOptions.serializer` hook.
 
 Only `{ status: 'ready' }` entries are emitted. Resources that are `loading`, `error`, or `idle` at serialization time are skipped.
 
 ### 6.5 Client rehydration
 
-On the client, before the first `createResource` effect runs, the application reads the dehydrated store from `__scribe_state__` and pre-populates its `ResourceStore`:
+On the client, before the first `createResource` effect runs, the application reads the dehydrated store from `__aihu_state__` and pre-populates its `ResourceStore`:
 
 ```typescript
-// Client entry point (application code, not a @scribe/data concern):
-import { createResourceStore, ResourceStoreToken } from '@scribe/data'
-import { provide } from '@scribe/context'
+// Client entry point (application code, not a @aihu/data concern):
+import { createResourceStore, ResourceStoreToken } from '@aihu/data'
+import { provide } from '@aihu/context'
 
 const store = createResourceStore()
 
 // Hydrate from SSR state
-const ssrStateEl = document.getElementById('__scribe_state__')
+const ssrStateEl = document.getElementById('__aihu_state__')
 if (ssrStateEl) {
   const { resources } = JSON.parse(ssrStateEl.textContent ?? '{}')
   for (const [key, state] of Object.entries(resources ?? {})) {
@@ -614,7 +614,7 @@ provide(ResourceStoreToken, store)
 
 When `createResource` initializes, it finds the pre-populated cache entry and starts as `ready` without firing the fetcher. This is the zero-rehydration-fetch guarantee.
 
-**Note:** `@scribe/data` does not implement the client-side hydration bootstrap — that belongs to the application entry point or a future `@scribe/data-hydration` helper. The Builder must document this boundary clearly in code comments.
+**Note:** `@aihu/data` does not implement the client-side hydration bootstrap — that belongs to the application entry point or a future `@aihu/data-hydration` helper. The Builder must document this boundary clearly in code comments.
 
 ---
 
@@ -624,9 +624,9 @@ The following questions were open at spec-writing time. They are resolved here a
 
 ### OQ-D1: Signal import source
 
-`createResource` imports `signal` and `effect` from `@scribe/signals`. This is the **only reactive dependency**. No other package is used for reactivity. The `Signal<T>` type (the `readonly [Read<T>, Write<T>]` tuple) is also imported from `@scribe/signals`.
+`createResource` imports `signal` and `effect` from `@aihu/signals`. This is the **only reactive dependency**. No other package is used for reactivity. The `Signal<T>` type (the `readonly [Read<T>, Write<T>]` tuple) is also imported from `@aihu/signals`.
 
-Resolved: `@scribe/data` imports `signal`, `effect`, and the `Signal` type from `@scribe/signals`. `@scribe/context` is the only other dependency (for `inject` and `ContextToken`). No other dependencies.
+Resolved: `@aihu/data` imports `signal`, `effect`, and the `Signal` type from `@aihu/signals`. `@aihu/context` is the only other dependency (for `inject` and `ContextToken`). No other dependencies.
 
 ### OQ-D2: `refetch()` and `invalidate()` semantics
 
@@ -657,13 +657,13 @@ The context token is exported as:
 export const ResourceStoreToken: ContextToken<ResourceStore>
 ```
 
-This name is descriptive and matches the `*Token` naming convention established by `@scribe/context`'s `ContextToken<T>` type. It is exported from `packages/data/src/index.ts` as part of the public barrel.
+This name is descriptive and matches the `*Token` naming convention established by `@aihu/context`'s `ContextToken<T>` type. It is exported from `packages/data/src/index.ts` as part of the public barrel.
 
-### OQ-D4: `@scribe/data` → `@scribe/context` dependency
+### OQ-D4: `@aihu/data` → `@aihu/context` dependency
 
-Confirmed acceptable. Both `@scribe/data` and `@scribe/context` are browser packages at Layer 2/3. The dependency goes upward in the layer graph (data at Layer 3 depends on context at Layer 2), which is permitted by the hard rules in `spec-v1-architecture.md §1`.
+Confirmed acceptable. Both `@aihu/data` and `@aihu/context` are browser packages at Layer 2/3. The dependency goes upward in the layer graph (data at Layer 3 depends on context at Layer 2), which is permitted by the hard rules in `spec-v1-architecture.md §1`.
 
-The hard boundary ("browser packages don't import server packages") is maintained: `@scribe/data` does not import from `@scribe/server` or any Layer 4 package.
+The hard boundary ("browser packages don't import server packages") is maintained: `@aihu/data` does not import from `@aihu/server` or any Layer 4 package.
 
 ### OQ-D5: Streaming state in v1
 
@@ -675,13 +675,13 @@ Confirmed: the `'streaming'` state is in `DataState<T>` for forward compatibilit
 
 ## 8. Package infra checklist
 
-Follow `@scribe/context` as the exact structural model. All files below must be created from scratch.
+Follow `@aihu/context` as the exact structural model. All files below must be created from scratch.
 
 ### 8.1 `packages/data/package.json`
 
 ```json
 {
-  "name": "@scribe/data",
+  "name": "@aihu/data",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -700,13 +700,13 @@ Follow `@scribe/context` as the exact structural model. All files below must be 
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/signals": "workspace:*",
-    "@scribe/context": "workspace:*"
+    "@aihu/signals": "workspace:*",
+    "@aihu/context": "workspace:*"
   }
 }
 ```
 
-No `./ssr` export — `createResourceSerializer` is in the main barrel. SSR callers import it as `import { createResourceSerializer } from '@scribe/data'`.
+No `./ssr` export — `createResourceSerializer` is in the main barrel. SSR callers import it as `import { createResourceSerializer } from '@aihu/data'`.
 
 ### 8.2 `packages/data/tsconfig.json`
 
@@ -762,7 +762,7 @@ dependsOn:
 Add to the `resolve.alias` map in the root `vitest.config.ts`:
 
 ```typescript
-'@scribe/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
+'@aihu/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
 ```
 
 ### 8.6 `.size-limit.json` — new entry
@@ -771,7 +771,7 @@ Add to `.size-limit.json`:
 
 ```json
 {
-  "name": "@scribe/data",
+  "name": "@aihu/data",
   "path": "packages/data/dist/index.js",
   "limit": "500 B",
   "gzip": true
@@ -909,23 +909,23 @@ The following packages must not be modified as part of the Plan 2.2 PR. Any requ
 
 | Package | Constraint |
 |---|---|
-| `@scribe/signals` | No changes to `signal`, `effect`, `computed`, `batch`, `untrack` signatures or semantics |
-| `@scribe/arbor` | No changes |
-| `@scribe/runtime` | No changes |
-| `@scribe/context` | No changes to `createContext`, `provide`, `inject`, `runWithContext`, `setSsrContextMap`, `clearSsrContextMap` |
-| `@scribe/server` | No changes — `SsrOptions.serializer` is an existing hook; `@scribe/data` wires into it from application code, not from within `@scribe/server` |
-| `@scribe/agent` | No changes |
-| `@scribe/agent-readiness` | No changes |
-| `packages/server/src/stream-types.ts` | The existing `DataSource<T>` in this file is a different interface (used by `renderToStream` for suspension boundaries). `@scribe/data`'s `Resource<T>` is a different, richer type. The Builder must NOT rename or alias these to each other. Both coexist. The server's `DataSource<T>` is a stream-suspension contract; `@scribe/data`'s `Resource<T>` is a fetch-state + controls object. The name is different by design; the two types are unrelated. |
+| `@aihu/signals` | No changes to `signal`, `effect`, `computed`, `batch`, `untrack` signatures or semantics |
+| `@aihu/arbor` | No changes |
+| `@aihu/runtime` | No changes |
+| `@aihu/context` | No changes to `createContext`, `provide`, `inject`, `runWithContext`, `setSsrContextMap`, `clearSsrContextMap` |
+| `@aihu/server` | No changes — `SsrOptions.serializer` is an existing hook; `@aihu/data` wires into it from application code, not from within `@aihu/server` |
+| `@aihu/agent` | No changes |
+| `@aihu/agent-readiness` | No changes |
+| `packages/server/src/stream-types.ts` | The existing `DataSource<T>` in this file is a different interface (used by `renderToStream` for suspension boundaries). `@aihu/data`'s `Resource<T>` is a different, richer type. The Builder must NOT rename or alias these to each other. Both coexist. The server's `DataSource<T>` is a stream-suspension contract; `@aihu/data`'s `Resource<T>` is a fetch-state + controls object. The name is different by design; the two types are unrelated. |
 
 ### Note on `stream-types.ts` type distinction
 
-`packages/server/src/stream-types.ts` defines a `DataSource<T>` interface for the server's streaming suspension model (`status: 'pending' | 'ready' | 'error'`, plus `onReady(cb)`). This is a different, narrower interface than `@scribe/data`'s `Resource<T>`. They serve different purposes.
+`packages/server/src/stream-types.ts` defines a `DataSource<T>` interface for the server's streaming suspension model (`status: 'pending' | 'ready' | 'error'`, plus `onReady(cb)`). This is a different, narrower interface than `@aihu/data`'s `Resource<T>`. They serve different purposes.
 
-- The server's `DataSource<T>` is internal to `@scribe/server` and used by `renderToStream`.
-- `@scribe/data`'s `Resource<T>` is public and used by application components.
+- The server's `DataSource<T>` is internal to `@aihu/server` and used by `renderToStream`.
+- `@aihu/data`'s `Resource<T>` is public and used by application components.
 
-Because `@scribe/data` does not import from `@scribe/server`, there is no runtime collision. TypeScript callers who import both will see two distinct types with distinct names (`DataSource<T>` vs `Resource<T>`) and no aliasing is required.
+Because `@aihu/data` does not import from `@aihu/server`, there is no runtime collision. TypeScript callers who import both will see two distinct types with distinct names (`DataSource<T>` vs `Resource<T>`) and no aliasing is required.
 
 ---
 

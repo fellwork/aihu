@@ -1,4 +1,4 @@
-# Build Manifest — Plan 2.1: @scribe/context
+# Build Manifest — Plan 2.1: @aihu/context
 
 **Date:** 2026-04-30
 **Branch:** feat/v1-context-data
@@ -11,7 +11,7 @@
 
 | File | Notes |
 |------|-------|
-| `packages/context/package.json` | name `@scribe/context`, version `0.0.0`, type module, exports map (`.` + `./ssr`), sideEffects false, no dependencies |
+| `packages/context/package.json` | name `@aihu/context`, version `0.0.0`, type module, exports map (`.` + `./ssr`), sideEffects false, no dependencies |
 | `packages/context/tsconfig.json` | extends `../../tsconfig.base.json` |
 | `packages/context/rolldown.config.ts` | Two entries: `src/index.ts` + `src/ssr.ts`, each ESM + dts() + minify:true |
 | `packages/context/moon.yml` | language typescript, layer library |
@@ -26,8 +26,8 @@
 |------|--------|
 | `packages/runtime/src/define-component.ts` | Added `_setSsrContextMap`, `_clearSsrContextMap` module-level vars + `_setContext()` export; wired into `connectedCallback` with try/finally |
 | `packages/server/src/ssr.ts` | Added `_setContextFns()` injection export + `SsrOptions.contextSetup` hook; wired context activation/deactivation with try/finally around tree walk |
-| `vitest.config.ts` | Added `@scribe/context` + `@scribe/context/ssr` aliases |
-| `.size-limit.json` | Added `@scribe/context` entry (limit: 300 B) |
+| `vitest.config.ts` | Added `@aihu/context` + `@aihu/context/ssr` aliases |
+| `.size-limit.json` | Added `@aihu/context` entry (limit: 300 B) |
 
 ---
 
@@ -35,7 +35,7 @@
 
 | Fix | Description |
 |-----|-------------|
-| F-1 | Added `./ssr` subpath to `package.json` exports; created `src/ssr.ts`; added second rolldown entry; added `@scribe/context/ssr` vitest alias |
+| F-1 | Added `./ssr` subpath to `package.json` exports; created `src/ssr.ts`; added second rolldown entry; added `@aihu/context/ssr` vitest alias |
 | F-2 | Added `_setContextFns()` + `SsrOptions.contextSetup` to `packages/server/src/ssr.ts` with try/finally context lifecycle |
 | F-3 | Added test 11: shadow behavior (T5 spec coverage) |
 | F-4 | Added test 12: token identity `_id` distinct symbols (T1 spec coverage) |
@@ -43,7 +43,7 @@
 
 ---
 
-## @scribe/context Size
+## @aihu/context Size
 
 | Metric | Value |
 |--------|-------|
@@ -70,8 +70,8 @@ All 272 tests pass. No pre-existing tests broken.
 
 ## Architecture notes
 
-- `@scribe/context` has zero external imports (DOM-free, Node-safe)
-- `@scribe/server` does NOT import `@scribe/context` at module level (hard boundary preserved)
+- `@aihu/context` has zero external imports (DOM-free, Node-safe)
+- `@aihu/server` does NOT import `@aihu/context` at module level (hard boundary preserved)
 - `_setContextFns(setSsrContextMap, clearSsrContextMap)` is the injection point for server
 - `_setContext(setSsrContextMap, clearSsrContextMap)` is the injection point for runtime
 - `SsrOptions.contextSetup` callback receives activate/deactivate from the module-level slots

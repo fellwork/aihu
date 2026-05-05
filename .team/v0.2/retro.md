@@ -12,12 +12,12 @@
 
 | Sub-item | Title | Outcome |
 |----------|-------|---------|
-| v0.2.1 | `@scribe/plugin` + `defineScribeConfig.plugins` | New package, +12 tests |
+| v0.2.1 | `@aihu/plugin` + `defineAihuConfig.plugins` | New package, +12 tests |
 | v0.2.2 | `@blockname {}` dual-grammar parser stub | Rust parser foundation, +6 Rust tests |
 | v0.2.3 | arbor Compressor pass | 99 B recovered, +89 B headroom |
 | v0.2.4 | size-row policy + `check:size-rows` CI lint | +7 tests, policy documented |
 | v0.2.5 | `bun run size` named canonical path | 3 doc edits, no new tests |
-| v0.2.6 | `@scribe/data` plugin registration shim | +3 tests; `@scribe/data` limit raised 750→800 B |
+| v0.2.6 | `@aihu/data` plugin registration shim | +3 tests; `@aihu/data` limit raised 750→800 B |
 
 **Test delta:** 454 → 476 (+22 tests across 58 test files)
 
@@ -31,7 +31,7 @@
 
 **Compressor pass (v0.2.3) delivered above target.** 99 B recovered vs an estimated 83 B headroom goal. Brings arbor from +15 B headroom (post-v1-reconciliation, Learning #47 build-path-variance band) to +89 B — the cleanest arbor headroom since Round N+1.
 
-**Plugin package design was clean.** v0.2.1 shipped `@scribe/plugin` with a well-defined `defineScribeConfig.plugins` extension point with no runtime deps. The new package follows all existing conventions (index.ts, size gate, vitest config alias).
+**Plugin package design was clean.** v0.2.1 shipped `@aihu/plugin` with a well-defined `defineAihuConfig.plugins` extension point with no runtime deps. The new package follows all existing conventions (index.ts, size gate, vitest config alias).
 
 **Rust parser stub (v0.2.2) is a clean foundation.** The `@blockname {}` dual-grammar parser stub added 6 Rust tests and establishes the parser surface required for v0.3 block grammar migration. The stub's interface is already aligned with the spec quartet's syntax migration requirements.
 
@@ -39,7 +39,7 @@
 
 ## What to watch
 
-**v0.2.6 size assumption was wrong — plugin object literals have runtime cost.** The Director note for v0.2.6 framed the data plugin shim as "zero-runtime-bytes" because it used `import type` for type imports and a direct object literal for the plugin definition. In practice, the plugin registration shim added 28 B gz to the `@scribe/data` bundle even with the `import type` + object literal approach. The v0.2.6 Builder correctly identified the budget breach and raised the limit 750→800 B. The Director's assumption was incorrect.
+**v0.2.6 size assumption was wrong — plugin object literals have runtime cost.** The Director note for v0.2.6 framed the data plugin shim as "zero-runtime-bytes" because it used `import type` for type imports and a direct object literal for the plugin definition. In practice, the plugin registration shim added 28 B gz to the `@aihu/data` bundle even with the `import type` + object literal approach. The v0.2.6 Builder correctly identified the budget breach and raised the limit 750→800 B. The Director's assumption was incorrect.
 
 **Pre-dispatch size modeling needs to include plugin shim bytes.** Any time a feature is framed as "just wires up X with import type," a quick `bun run size` before declaring "zero-runtime-footprint" is warranted. The cost of being wrong is a limit raise mid-session, which is a policy exception (per the framework plan §"What this roadmap does NOT do" item 4: "Re-opening any v0 size budget"). In this case the limit raise was clearly justified (FEATURE bytes, not DEBT bytes) — but it still required a policy exception that should be forecasted rather than discovered.
 
@@ -63,4 +63,4 @@ See Learning #37 in `.team/learnings.md`.
 
 ## v0.3 preview
 
-v0.3 is the block grammar migration milestone: 8 Rust compiler sub-items migrating `@blockname {}` from the v0.2.2 stub to a full dual-grammar parser + emitter. This is the first milestone where the Rust compiler gates a TypeScript surface change — the `@scribe/plugin` v0.2.1 surface is what v0.3 will exercise at the compiler boundary.
+v0.3 is the block grammar migration milestone: 8 Rust compiler sub-items migrating `@blockname {}` from the v0.2.2 stub to a full dual-grammar parser + emitter. This is the first milestone where the Rust compiler gates a TypeScript surface change — the `@aihu/plugin` v0.2.1 surface is what v0.3 will exercise at the compiler boundary.

@@ -13,7 +13,7 @@ C3-5   [PASS] signal leaf cast — codegen__signal_leaf_cast.snap: `leaf([val, s
 C3-6   [PASS] plain var no cast — codegen__no_signals_plain_leaf.snap: `leaf(message)` — no cast, 2-line import block.
 C3-7   [PASS] style block excluded — codegen__style_block_warning.snap: no CSS, no style content. eprintln! warning in emit.rs lines 7-9.
 C3-8   [PASS] _ctx present — counter_full.snap: `defineComponent((_ctx) => {`. Hard-coded in emit.rs format string.
-C3-9   [PASS] import type Signal present — counter_full.snap line 2: `import type { Signal } from '@scribe/signals'`.
+C3-9   [PASS] import type Signal present — counter_full.snap line 2: `import type { Signal } from '@aihu/signals'`.
 C3-10  [PASS] no export default — emit.rs: no `export default` anywhere. codegen__no_export_default.snap: clean. Runtime assert at test line 179.
 C3-11  [PASS] clippy/fmt — no `#[allow(...)]` overrides in emit.rs. All private functions consumed. No dead code.
 BIDIR  [PASS] 2-line import when no signals; 4-line when signals — no_signals_plain_leaf.snap: 2 import lines only (no Signal type/value). counter_full.snap: all 4 lines + full branch tree.

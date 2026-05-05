@@ -13,7 +13,7 @@ window.__DOCS__ = {
   'api-reference': {
     title: 'API Reference',
     html: `<h1>API Reference</h1>
-<h2>@scribe/signals</h2>
+<h2>@aihu/signals</h2>
 <table>
 <thead>
 <tr>
@@ -58,7 +58,7 @@ window.__DOCS__ = {
 <td>State bag shorthand accessor</td>
 </tr>
 </tbody></table>
-<h2>@scribe/arbor</h2>
+<h2>@aihu/arbor</h2>
 <table>
 <thead>
 <tr>
@@ -91,7 +91,7 @@ window.__DOCS__ = {
 <td>Materialize a component descriptor</td>
 </tr>
 </tbody></table>
-<h2>@scribe/runtime</h2>
+<h2>@aihu/runtime</h2>
 <table>
 <thead>
 <tr>
@@ -108,7 +108,7 @@ window.__DOCS__ = {
 <td>Register a callback to run when component unmounts</td>
 </tr>
 </tbody></table>
-<h2>@scribe/router</h2>
+<h2>@aihu/router</h2>
 <table>
 <thead>
 <tr>
@@ -133,7 +133,7 @@ window.__DOCS__ = {
 <td>Type: a route definition object</td>
 </tr>
 </tbody></table>
-<h2>@scribe/router/plugin</h2>
+<h2>@aihu/router/plugin</h2>
 <table>
 <thead>
 <tr>
@@ -147,18 +147,18 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>scanPages(dir)</code></td>
-<td>Scan src/pages/ for .scribe files + .route.json sidecars</td>
+<td>Scan src/pages/ for .aihu files + .route.json sidecars</td>
 </tr>
 <tr>
 <td><code>scanLayouts(dir)</code></td>
-<td>Scan src/layouts/ for .scribe layout files</td>
+<td>Scan src/layouts/ for .aihu layout files</td>
 </tr>
 <tr>
 <td><code>readRouteSidecar(path)</code></td>
 <td>Read a .route.json sidecar file</td>
 </tr>
 </tbody></table>
-<h2>@scribe/server</h2>
+<h2>@aihu/server</h2>
 <table>
 <thead>
 <tr>
@@ -207,8 +207,8 @@ window.__DOCS__ = {
 <td>Define a server-side data loader</td>
 </tr>
 <tr>
-<td><code>defineScribeConfig(config)</code></td>
-<td>Define the scribe app configuration</td>
+<td><code>defineAihuConfig(config)</code></td>
+<td>Define the aihu app configuration</td>
 </tr>
 <tr>
 <td><code>createServerCall&lt;A, R&gt;(endpoint)</code></td>
@@ -219,7 +219,7 @@ window.__DOCS__ = {
 <td>Type: <code>&#39;client&#39; | &#39;server&#39; | &#39;universal&#39;</code></td>
 </tr>
 </tbody></table>
-<h2>@scribe/agent</h2>
+<h2>@aihu/agent</h2>
 <table>
 <thead>
 <tr>
@@ -236,7 +236,7 @@ window.__DOCS__ = {
 <td>Agent registry type</td>
 </tr>
 </tbody></table>
-<h2>@scribe/agent-service</h2>
+<h2>@aihu/agent-service</h2>
 <table>
 <thead>
 <tr>
@@ -253,7 +253,7 @@ window.__DOCS__ = {
 <td>Create an agent service instance</td>
 </tr>
 </tbody></table>
-<h2>@scribe/agent-readiness</h2>
+<h2>@aihu/agent-readiness</h2>
 <table>
 <thead>
 <tr>
@@ -266,7 +266,7 @@ window.__DOCS__ = {
 <td>Vite plugin for MCP/agent readiness</td>
 </tr>
 </tbody></table>
-<h2>@scribe/data</h2>
+<h2>@aihu/data</h2>
 <table>
 <thead>
 <tr>
@@ -279,7 +279,7 @@ window.__DOCS__ = {
 <td>Create a data plugin instance</td>
 </tr>
 </tbody></table>
-<h2>@scribe/plugin</h2>
+<h2>@aihu/plugin</h2>
 <table>
 <thead>
 <tr>
@@ -289,7 +289,7 @@ window.__DOCS__ = {
 </thead>
 <tbody><tr>
 <td><code>definePlugin(opts)</code></td>
-<td>Define a scribe plugin</td>
+<td>Define a aihu plugin</td>
 </tr>
 <tr>
 <td><code>validatePlugin(plugin)</code></td>
@@ -304,7 +304,7 @@ window.__DOCS__ = {
 <td>Build target type</td>
 </tr>
 </tbody></table>
-<h2>@scribe/cli</h2>
+<h2>@aihu/cli</h2>
 <table>
 <thead>
 <tr>
@@ -314,7 +314,7 @@ window.__DOCS__ = {
 </thead>
 <tbody><tr>
 <td><code>scaffoldApp(name, dir)</code></td>
-<td>Scaffold a new scribe application</td>
+<td>Scaffold a new aihu application</td>
 </tr>
 <tr>
 <td><code>scaffoldPage(route, dir)</code></td>
@@ -322,7 +322,7 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>scaffoldComponent(name, dir)</code></td>
-<td>Scaffold a .scribe component</td>
+<td>Scaffold a .aihu component</td>
 </tr>
 <tr>
 <td><code>scaffoldPlugin(name, dir)</code></td>
@@ -337,7 +337,7 @@ window.__DOCS__ = {
 <td>Migrate files in-place or dry-run</td>
 </tr>
 </tbody></table>
-<h2>@scribe/context</h2>
+<h2>@aihu/context</h2>
 <table>
 <thead>
 <tr>
@@ -363,9 +363,9 @@ window.__DOCS__ = {
   'authoring-agents': {
     title: 'Authoring Agents',
     html: `<h1>Authoring Agents</h1>
-<p>scribe is agent-first. Every <code>.scribe</code> component can expose MCP-compatible tools and resources via the <code>@agent</code> block. The <code>@scribe/agent</code>, <code>@scribe/agent-service</code>, and <code>@scribe/agent-readiness</code> packages form the agent layer.</p>
+<p>aihu is agent-first. Every <code>.aihu</code> component can expose MCP-compatible tools and resources via the <code>@agent</code> block. The <code>@aihu/agent</code>, <code>@aihu/agent-service</code>, and <code>@aihu/agent-readiness</code> packages form the agent layer.</p>
 <h2>The <code>@agent</code> block</h2>
-<p>Add an <code>@agent</code> block to any <code>.scribe</code> SFC to expose agent capabilities:</p>
+<p>Add an <code>@agent</code> block to any <code>.aihu</code> SFC to expose agent capabilities:</p>
 <pre><code>@agent {
   $expose greet(name: string) -&gt; { message: string } &quot;Greet a user by name&quot;
   $expose getUser(id: number) -&gt; User &quot;Fetch a user by ID&quot;
@@ -383,9 +383,9 @@ window.__DOCS__ = {
 </ul>
 <h3>Client build elision</h3>
 <p>When compiling with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and the JS output contains a <code>// [client build] @agent block elided</code> comment. Agent code never reaches the browser bundle.</p>
-<h2><code>@scribe/agent</code></h2>
-<p>The <code>@scribe/agent</code> package provides the registry and registration primitives:</p>
-<pre><code class="language-typescript">import { defineAgent } from &#39;@scribe/agent&#39;
+<h2><code>@aihu/agent</code></h2>
+<p>The <code>@aihu/agent</code> package provides the registry and registration primitives:</p>
+<pre><code class="language-typescript">import { defineAgent } from &#39;@aihu/agent&#39;
 
 const agent = defineAgent({
   name: &#39;my-agent&#39;,
@@ -400,9 +400,9 @@ const agent = defineAgent({
 })
 </code></pre>
 <p><code>AgentRegistry</code> holds registered agent definitions. Each <code>defineAgent</code> call returns an <code>AgentDefinition</code> that can be passed to <code>AgentService</code>.</p>
-<h2><code>@scribe/agent-service</code></h2>
-<p>The <code>@scribe/agent-service</code> package adapts agent definitions to a runtime service:</p>
-<pre><code class="language-typescript">import { defineAgentService } from &#39;@scribe/agent-service&#39;
+<h2><code>@aihu/agent-service</code></h2>
+<p>The <code>@aihu/agent-service</code> package adapts agent definitions to a runtime service:</p>
+<pre><code class="language-typescript">import { defineAgentService } from &#39;@aihu/agent-service&#39;
 import { myAgent } from &#39;./agents/my-agent.ts&#39;
 
 const service = defineAgentService({
@@ -412,11 +412,11 @@ const service = defineAgentService({
 })
 </code></pre>
 <p><code>AgentService</code> handles request routing, rate limiting, and MCP protocol serialization.</p>
-<h2><code>@scribe/agent-readiness</code> — Vite integration</h2>
+<h2><code>@aihu/agent-readiness</code> — Vite integration</h2>
 <p>In development and build, use <code>viteAgentReadinessIntegration()</code> to wire agent manifests into the Vite build:</p>
 <pre><code class="language-typescript">// vite.config.ts
 import { defineConfig } from &#39;vite&#39;
-import { viteAgentReadinessIntegration } from &#39;@scribe/agent-readiness&#39;
+import { viteAgentReadinessIntegration } from &#39;@aihu/agent-readiness&#39;
 
 export default defineConfig({
   plugins: [
@@ -430,13 +430,13 @@ export default defineConfig({
 <li>Aggregates tool/resource descriptors into a single <code>agent-manifest.json</code> asset.</li>
 <li>Emits an <code>llms.txt</code> file at the root of the output for MCP discovery.</li>
 </ol>
-<p>The <code>llms.txt</code> and MCP manifest are part of the scribe contract — every scribe application ships them.</p>
+<p>The <code>llms.txt</code> and MCP manifest are part of the aihu contract — every aihu application ships them.</p>
 `,
   },
   'authoring-components': {
     title: 'Authoring Components',
     html: `<h1>Authoring Components</h1>
-<p>A <code>.scribe</code> Single File Component (SFC) is composed of named blocks. Each block uses the <code>@blockname { ... }</code> syntax introduced in v0.5.</p>
+<p>A <code>.aihu</code> Single File Component (SFC) is composed of named blocks. Each block uses the <code>@blockname { ... }</code> syntax introduced in v0.5.</p>
 <h2>@state block</h2>
 <p>The <code>@state</code> block declares the reactive contract of the component.</p>
 <h3>Macros</h3>
@@ -459,7 +459,7 @@ export default defineConfig({
 }
 </code></pre>
 <h2>@template block</h2>
-<p>The <code>@template</code> block defines the DOM output using scribe&#39;s template DSL.</p>
+<p>The <code>@template</code> block defines the DOM output using aihu&#39;s template DSL.</p>
 <h3>Interpolation</h3>
 <ul>
 <li><code>{{ expr }}</code> — reactive text node. Uses <code>nodeValue</code> for targeted updates.</li>
@@ -488,7 +488,7 @@ export default defineConfig({
   &lt;span&gt;{{ resource.value.name }}&lt;/span&gt;
 &lt;/$suspense&gt;
 </code></pre>
-<p>Backed by <code>createSuspenseBoundary(source, fallback, loaded)</code> from <code>@scribe/arbor</code>.</p>
+<p>Backed by <code>createSuspenseBoundary(source, fallback, loaded)</code> from <code>@aihu/arbor</code>.</p>
 <p><strong><code>&lt;$shield&gt;</code></strong> — isolates a subtree behind a shield boundary:</p>
 <pre><code class="language-html">&lt;$shield&gt;
   &lt;template #main&gt;&lt;div&gt;Main content&lt;/div&gt;&lt;/template&gt;
@@ -542,10 +542,10 @@ export default defineConfig({
   'authoring-plugins': {
     title: 'Authoring Plugins',
     html: `<h1>Authoring Plugins</h1>
-<p>scribe plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.</p>
+<p>aihu plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.</p>
 <h2>Defining a plugin</h2>
-<p>Use <code>definePlugin</code> from <code>@scribe/plugin</code>:</p>
-<pre><code class="language-typescript">import { definePlugin } from &#39;@scribe/plugin&#39;
+<p>Use <code>definePlugin</code> from <code>@aihu/plugin</code>:</p>
+<pre><code class="language-typescript">import { definePlugin } from &#39;@aihu/plugin&#39;
 
 export const myPlugin = definePlugin({
   name: &#39;my-plugin&#39;,
@@ -578,7 +578,7 @@ export const myPlugin = definePlugin({
 </code></pre>
 <h2>Validating a plugin</h2>
 <p>Call <code>validatePlugin(plugin)</code> at build time to verify the plugin definition is structurally correct:</p>
-<pre><code class="language-typescript">import { validatePlugin } from &#39;@scribe/plugin&#39;
+<pre><code class="language-typescript">import { validatePlugin } from &#39;@aihu/plugin&#39;
 
 validatePlugin(myPlugin) // throws if invalid
 </code></pre>
@@ -590,11 +590,11 @@ validatePlugin(myPlugin) // throws if invalid
 <li>No duplicate block or macro names within the namespace.</li>
 </ul>
 <h2>Registering a plugin</h2>
-<p>Plugins are registered in <code>defineScribeConfig</code> in your app&#39;s config file:</p>
-<pre><code class="language-typescript">import { defineScribeConfig } from &#39;@scribe/server&#39;
+<p>Plugins are registered in <code>defineAihuConfig</code> in your app&#39;s config file:</p>
+<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
 import { myPlugin } from &#39;./plugins/my-plugin.ts&#39;
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   plugins: [myPlugin],
   build: {
     target: &#39;universal&#39;,
@@ -604,7 +604,7 @@ export default defineScribeConfig({
 <p>Per Plugin Contract Spec §7.2, plugins <strong>must</strong> be listed in the explicit <code>plugins</code> array. There is no filesystem scanning, package.json detection, or magic import resolution. This keeps build behavior deterministic and auditable.</p>
 <h2>Plugin lifecycle</h2>
 <ol>
-<li><code>defineScribeConfig</code> collects all plugins.</li>
+<li><code>defineAihuConfig</code> collects all plugins.</li>
 <li>At build start, <code>validatePlugin</code> is called for each registered plugin.</li>
 <li>The Rust compiler receives the plugin manifest and routes block/macro names to the appropriate handlers.</li>
 <li><code>contributes.transforms</code> are applied as post-parse AST passes.</li>
@@ -615,7 +615,7 @@ export default defineScribeConfig({
   'data-fetching': {
     title: 'Data Fetching',
     html: `<h1>Data Fetching</h1>
-<p>scribe provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.</p>
+<p>aihu provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.</p>
 <h2><code>$resource</code> macro</h2>
 <p>In a <code>@state</code> block, <code>$resource</code> binds an async fetcher to a reactive signal:</p>
 <pre><code>@state {
@@ -630,18 +630,18 @@ export default defineScribeConfig({
 <li><code>user.error</code> — the error (or <code>undefined</code> if pending/success).</li>
 </ul>
 <p>When <code>userId</code> changes, the resource re-fetches automatically.</p>
-<h2><code>createResource</code> from <code>@scribe/runtime</code></h2>
+<h2><code>createResource</code> from <code>@aihu/runtime</code></h2>
 <p>Use <code>createResource</code> directly in TypeScript outside of SFCs:</p>
-<pre><code class="language-typescript">import { createResource } from &#39;@scribe/runtime&#39;
-import { signal } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { createResource } from &#39;@aihu/runtime&#39;
+import { signal } from &#39;@aihu/signals&#39;
 
 const userId = signal(1)
 const user = createResource(() =&gt; fetch(\`/api/users/\${userId()}\`).then(r =&gt; r.json()))
 </code></pre>
 <p>The resource is automatically re-fetched when any signals read inside the fetcher change.</p>
 <h2>Server loaders</h2>
-<p>Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with <code>defineLoader</code> from <code>@scribe/server</code>:</p>
-<pre><code class="language-typescript">import { defineLoader } from &#39;@scribe/server&#39;
+<p>Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with <code>defineLoader</code> from <code>@aihu/server</code>:</p>
+<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
 
 export const loader = defineLoader(async (ctx) =&gt; {
   const users = await db.users.findMany()
@@ -654,13 +654,13 @@ export const loader = defineLoader(async (ctx) =&gt; {
 <h3>Pattern A — <code>route.data</code> prop (default)</h3>
 <p>The loader payload is delivered as the <code>data</code> field on the SFC&#39;s <code>route</code> prop. This is the most common pattern and what every page route gets for free.</p>
 <p><code>src/pages/posts/[slug].loader.ts</code>:</p>
-<pre><code class="language-typescript">import { defineLoader } from &#39;@scribe/server&#39;
+<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
 
 export const loader = defineLoader(async (ctx) =&gt; {
   return await db.posts.findOne({ slug: ctx.params.slug })
 })
 </code></pre>
-<p><code>src/pages/posts/[slug].scribe</code>:</p>
+<p><code>src/pages/posts/[slug].aihu</code>:</p>
 <pre><code>@route { path: &quot;/posts/[slug]&quot;, ssr: true }
 
 @state {
@@ -678,11 +678,11 @@ export const loader = defineLoader(async (ctx) =&gt; {
 }
 </code></pre>
 <p>The runtime injects the resolved loader payload as <code>route.data</code> before mount. During streaming SSR or client-side re-validation, wrap the consumer in <code>&lt;$suspense&gt;</code> to declaratively handle the pending state — see <a href="#the-3-state-loader-pattern">the 3-state loader pattern</a> below.</p>
-<p>A worked end-to-end example lives at <a href="https://github.com/fellwork/scribe/tree/main/examples/blog-loader"><code>examples/blog-loader/</code></a>.</p>
+<p>A worked end-to-end example lives at <a href="https://github.com/fellwork/aihu/tree/main/examples/blog-loader"><code>examples/blog-loader/</code></a>.</p>
 <h3>Pattern B — <code>$resource</code> + <code>createServerCall</code></h3>
 <p>If the data needs to be fetched <em>on demand</em> (e.g. on a button click or when a search box changes), skip the loader and use a typed client stub instead. <code>createServerCall</code> returns a function that posts to a server-registered action.</p>
 <pre><code class="language-typescript">// shared/api.ts
-import { createServerCall } from &#39;@scribe/server&#39;
+import { createServerCall } from &#39;@aihu/server&#39;
 import type { Post } from &#39;./types&#39;
 
 export const getPost = createServerCall&lt;[slug: string], Post&gt;(&#39;posts/getPost&#39;)
@@ -715,16 +715,16 @@ export const getPost = createServerCall&lt;[slug: string], Post&gt;(&#39;posts/g
 <p>When compiling with <code>BuildTarget.Client</code>, any <code>$server</code> references are elided from the output and replaced with a <code>// [client build] $server macro reference elided</code> comment.</p>
 <h2><code>createServerCall</code></h2>
 <p><code>createServerCall</code> creates a typed fetch stub that calls a server action from client-side code:</p>
-<pre><code class="language-typescript">import { createServerCall } from &#39;@scribe/server&#39;
+<pre><code class="language-typescript">import { createServerCall } from &#39;@aihu/server&#39;
 
 const getUser = createServerCall&lt;[id: number], User&gt;(&#39;users/getUser&#39;)
 
 // In an effect or event handler:
 const user = await getUser(42)
 </code></pre>
-<p>The stub sends a <code>POST</code> request to <code>/_scribe/call/&lt;endpoint&gt;</code> with the args serialized as JSON. The server routes it to the registered action and returns the typed response.</p>
+<p>The stub sends a <code>POST</code> request to <code>/_aihu/call/&lt;endpoint&gt;</code> with the args serialized as JSON. The server routes it to the registered action and returns the typed response.</p>
 <h2>The 3-state loader pattern</h2>
-<p>All async data in scribe follows the 3-state pattern:</p>
+<p>All async data in aihu follows the 3-state pattern:</p>
 <table>
 <thead>
 <tr>
@@ -767,24 +767,24 @@ const user = await getUser(42)
 <pre><code class="language-bash">bun run build
 bun run preview
 </code></pre>
-<p><code>bun run build</code> compiles all <code>.scribe</code> SFCs, bundles with Vite/Rolldown, and validates size budgets. <code>bun run preview</code> serves the production build locally using Bun&#39;s built-in HTTP server.</p>
+<p><code>bun run build</code> compiles all <code>.aihu</code> SFCs, bundles with Vite/Rolldown, and validates size budgets. <code>bun run preview</code> serves the production build locally using Bun&#39;s built-in HTTP server.</p>
 <h2>Node.js</h2>
-<p>scribe output is standard ESM. Any Node.js ≥20.18.0 runtime can serve a scribe application:</p>
+<p>aihu output is standard ESM. Any Node.js ≥20.18.0 runtime can serve a aihu application:</p>
 <pre><code class="language-bash">npm run build
 node dist/server/entry.js
 </code></pre>
-<p>The server entry is generated by the universal build and uses <code>@scribe/server</code>&#39;s request router.</p>
+<p>The server entry is generated by the universal build and uses <code>@aihu/server</code>&#39;s request router.</p>
 <h2>Cloudflare Workers and Vercel Edge</h2>
-<p>scribe uses only Web Standard APIs (Fetch, ReadableStream, URL) in its server runtime, making it compatible with edge environments.</p>
+<p>aihu uses only Web Standard APIs (Fetch, ReadableStream, URL) in its server runtime, making it compatible with edge environments.</p>
 <p>Set the <code>SCRIBE_NATIVE_SKIP</code> environment variable to disable any Node.js-specific compatibility shims:</p>
 <pre><code class="language-bash">SCRIBE_NATIVE_SKIP=1 bun run build
 </code></pre>
-<p>Deploy the <code>dist/server/</code> output as a Worker or Edge Function. The <code>@scribe/server</code> request router handles incoming <code>Request</code> objects and returns <code>Response</code> objects natively — no adapter layer needed.</p>
-<h2><code>defineScribeConfig</code></h2>
-<p>The app configuration lives in <code>scribe.config.ts</code> (or exported from <code>vite.config.ts</code>):</p>
-<pre><code class="language-typescript">import { defineScribeConfig } from &#39;@scribe/server&#39;
+<p>Deploy the <code>dist/server/</code> output as a Worker or Edge Function. The <code>@aihu/server</code> request router handles incoming <code>Request</code> objects and returns <code>Response</code> objects natively — no adapter layer needed.</p>
+<h2><code>defineAihuConfig</code></h2>
+<p>The app configuration lives in <code>aihu.config.ts</code> (or exported from <code>vite.config.ts</code>):</p>
+<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   build: {
     target: &#39;universal&#39;,
     outDir: &#39;dist&#39;,
@@ -793,10 +793,10 @@ export default defineScribeConfig({
   plugins: [],
 })
 </code></pre>
-<h2><code>@scribe/server</code> request router</h2>
+<h2><code>@aihu/server</code> request router</h2>
 <p>The <code>createRequestRouter</code> handles edge function dispatch:</p>
-<pre><code class="language-typescript">import { createRequestRouter } from &#39;@scribe/server&#39;
-import routes from &#39;virtual:scribe-routes&#39;
+<pre><code class="language-typescript">import { createRequestRouter } from &#39;@aihu/server&#39;
+import routes from &#39;virtual:aihu-routes&#39;
 
 const router = createRequestRouter({ routes })
 
@@ -809,9 +809,9 @@ export default {
 <h2><code>viteRouterIntegration()</code> at build time</h2>
 <p>The Vite plugin performs these steps at build time:</p>
 <ol>
-<li><code>scanPages(dir)</code> — discovers all <code>.scribe</code> files under <code>src/pages/</code>.</li>
+<li><code>scanPages(dir)</code> — discovers all <code>.aihu</code> files under <code>src/pages/</code>.</li>
 <li>For each page, reads the <code>.route.json</code> sidecar emitted by the Rust compiler.</li>
-<li>Assembles the route manifest into the <code>virtual:scribe-routes</code> module.</li>
+<li>Assembles the route manifest into the <code>virtual:aihu-routes</code> module.</li>
 <li>Emits <code>dist/routes.json</code> for runtime consumption.</li>
 </ol>
 <p>This means route manifests are fully static after build — no filesystem scanning at runtime.</p>
@@ -824,7 +824,7 @@ export default {
     title: 'Getting Started',
     html: `<h1>Getting Started</h1>
 <h2>Hello World walkthrough</h2>
-<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.scribe</code>. The v0.8 template looks like this:</p>
+<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The v0.8 template looks like this:</p>
 <pre><code>@state {
   $prop name: string = &#39;world&#39;
 }
@@ -851,7 +851,7 @@ export default {
 }
 </code></pre>
 <h3>The <code>@template</code> block</h3>
-<p><code>@template</code> defines the component&#39;s DOM structure using scribe&#39;s template DSL:</p>
+<p><code>@template</code> defines the component&#39;s DOM structure using aihu&#39;s template DSL:</p>
 <ul>
 <li><code>{{ expr }}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
 <li><code>$attr:foo=&quot;val&quot;</code> — binds an attribute reactively.</li>
@@ -868,7 +868,7 @@ export default {
 </code></pre>
 <p>During build, the Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled SFC. <code>viteRouterIntegration()</code> in <code>vite.config.ts</code> reads these sidecars at build time and assembles the route manifest.</p>
 <h3>HMR in development</h3>
-<p>In dev mode, Vite watches <code>.scribe</code> files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the <code>name</code> default value or the template expression and the browser updates immediately.</p>
+<p>In dev mode, Vite watches <code>.aihu</code> files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the <code>name</code> default value or the template expression and the browser updates immediately.</p>
 <h2>Next steps</h2>
 <ul>
 <li><a href="authoring-components.md">Authoring Components</a> — full reference for <code>@state</code>, <code>@template</code>, and <code>@style</code> blocks.</li>
@@ -881,14 +881,14 @@ export default {
     title: 'Installation',
     html: `<h1>Installation</h1>
 <h2>Prerequisites</h2>
-<p>scribe requires one of the following runtimes:</p>
+<p>aihu requires one of the following runtimes:</p>
 <ul>
 <li><strong>Bun</strong> ≥1.3.0 (recommended — faster installs, native TypeScript, built-in test runner)</li>
 <li><strong>Node.js</strong> ≥20.18.0 with a package manager of your choice (npm, pnpm, or yarn)</li>
 </ul>
 <h2>Scaffold a new application</h2>
-<p>Use the <code>npx scribe</code> CLI to generate a new project from the Hello World template:</p>
-<pre><code class="language-bash">npx scribe app my-app
+<p>Use the <code>npx aihu</code> CLI to generate a new project from the Hello World template:</p>
+<pre><code class="language-bash">npx aihu app my-app
 </code></pre>
 <p>The scaffolder generates six files:</p>
 <pre><code>my-app/
@@ -898,39 +898,39 @@ export default {
   src/
     main.ts
     pages/
-      index.scribe
+      index.aihu
 </code></pre>
 <ul>
-<li><strong><code>package.json</code></strong> — workspace manifest with <code>@scribe/runtime</code>, <code>@scribe/signals</code>, <code>@scribe/arbor</code>, and <code>@scribe/router</code> as dependencies, plus Vite and the scribe Vite plugin as devDependencies.</li>
-<li><strong><code>tsconfig.json</code></strong> — extends the scribe base TypeScript config with <code>moduleResolution: bundler</code>.</li>
+<li><strong><code>package.json</code></strong> — workspace manifest with <code>@aihu/runtime</code>, <code>@aihu/signals</code>, <code>@aihu/arbor</code>, and <code>@aihu/router</code> as dependencies, plus Vite and the aihu Vite plugin as devDependencies.</li>
+<li><strong><code>tsconfig.json</code></strong> — extends the aihu base TypeScript config with <code>moduleResolution: bundler</code>.</li>
 <li><strong><code>vite.config.ts</code></strong> — Vite config with <code>viteRouterIntegration()</code> wired in.</li>
 <li><strong><code>src/main.ts</code></strong> — entry point that calls <code>mount()</code> on <code>document.body</code>.</li>
-<li><strong><code>src/pages/index.scribe</code></strong> — the Hello World SFC with <code>@state</code>, <code>@template</code>, and <code>@route</code> blocks.</li>
+<li><strong><code>src/pages/index.aihu</code></strong> — the Hello World SFC with <code>@state</code>, <code>@template</code>, and <code>@route</code> blocks.</li>
 </ul>
 <h2>Install and run</h2>
 <pre><code class="language-bash">cd my-app
 bun install
 bun run dev
 </code></pre>
-<p>The dev server starts at <code>http://localhost:5173</code> with HMR enabled. Edit <code>src/pages/index.scribe</code> and the browser updates automatically.</p>
+<p>The dev server starts at <code>http://localhost:5173</code> with HMR enabled. Edit <code>src/pages/index.aihu</code> and the browser updates automatically.</p>
 <h2>Build for production</h2>
 <pre><code class="language-bash">bun run build
 bun run preview
 </code></pre>
-<p><code>bun run build</code> compiles all <code>.scribe</code> files through the Rust SFC compiler, bundles with Vite/Rolldown, and validates against the size budgets defined in <code>.size-limit.ts</code>.</p>
+<p><code>bun run build</code> compiles all <code>.aihu</code> files through the Rust SFC compiler, bundles with Vite/Rolldown, and validates against the size budgets defined in <code>.size-limit.ts</code>.</p>
 `,
   },
   introduction: {
     title: 'Introduction',
     html: `<h1>Introduction</h1>
-<p>scribe is a JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Applications are authored as <code>.scribe</code> Single File Components (SFCs), compiled to vanilla custom elements, and mounted with sub-2 kB reactive primitives.</p>
-<h2>Why scribe</h2>
+<p>aihu is a JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Applications are authored as <code>.aihu</code> Single File Components (SFCs), compiled to vanilla custom elements, and mounted with sub-2 kB reactive primitives.</p>
+<h2>Why aihu</h2>
 <ul>
-<li><strong>No framework lock-in</strong> — output is vanilla custom elements; any consumer can use them without knowing about scribe.</li>
-<li><strong>v3 dep-free thesis</strong> — zero non-<code>@scribe/*</code> runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.</li>
-<li><strong>Sub-2 kB reactive core</strong> — <code>@scribe/signals</code> (≤1.97 kB) + <code>@scribe/arbor</code> (≤2.2 kB) together cover signals, computeds, effects, and DOM diffing in a tight envelope.</li>
-<li><strong>Targeted updates</strong> — scribe uses <code>nodeValue</code> rather than <code>textContent</code> for reactive text nodes, which is 122× faster on targeted updates.</li>
-<li><strong>MCP + agent-first</strong> — <code>@scribe/agent</code> and <code>@scribe/agent-readiness</code> are first-class; every scribe application can expose MCP tool/resource endpoints out of the box.</li>
+<li><strong>No framework lock-in</strong> — output is vanilla custom elements; any consumer can use them without knowing about aihu.</li>
+<li><strong>v3 dep-free thesis</strong> — zero non-<code>@aihu/*</code> runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.</li>
+<li><strong>Sub-2 kB reactive core</strong> — <code>@aihu/signals</code> (≤1.97 kB) + <code>@aihu/arbor</code> (≤2.2 kB) together cover signals, computeds, effects, and DOM diffing in a tight envelope.</li>
+<li><strong>Targeted updates</strong> — aihu uses <code>nodeValue</code> rather than <code>textContent</code> for reactive text nodes, which is 122× faster on targeted updates.</li>
+<li><strong>MCP + agent-first</strong> — <code>@aihu/agent</code> and <code>@aihu/agent-readiness</code> are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.</li>
 </ul>
 <h2>Package overview</h2>
 <table>
@@ -942,62 +942,62 @@ bun run preview
 </tr>
 </thead>
 <tbody><tr>
-<td><code>@scribe/signals</code></td>
+<td><code>@aihu/signals</code></td>
 <td>Push-based signals, computeds, effects</td>
 <td>≤1.97 kB</td>
 </tr>
 <tr>
-<td><code>@scribe/arbor</code></td>
+<td><code>@aihu/arbor</code></td>
 <td>DOM tree primitives: branch/leaf/mount</td>
 <td>≤2.2 kB</td>
 </tr>
 <tr>
-<td><code>@scribe/runtime</code></td>
+<td><code>@aihu/runtime</code></td>
 <td>onMount/onCleanup lifecycle</td>
 <td>≤1.17 kB</td>
 </tr>
 <tr>
-<td><code>@scribe/router</code></td>
+<td><code>@aihu/router</code></td>
 <td>File-based router, middleware</td>
 <td>≤1.54 kB</td>
 </tr>
 <tr>
-<td><code>@scribe/server</code></td>
+<td><code>@aihu/server</code></td>
 <td>Request router, SSR, loaders</td>
 <td>server-only</td>
 </tr>
 <tr>
-<td><code>@scribe/agent</code></td>
+<td><code>@aihu/agent</code></td>
 <td>Agent/MCP registration</td>
 <td>≤200 B</td>
 </tr>
 <tr>
-<td><code>@scribe/agent-service</code></td>
+<td><code>@aihu/agent-service</code></td>
 <td>Agent service adapter</td>
 <td>≤600 B</td>
 </tr>
 <tr>
-<td><code>@scribe/agent-readiness</code></td>
+<td><code>@aihu/agent-readiness</code></td>
 <td>Vite integration for MCP</td>
 <td>build-time</td>
 </tr>
 <tr>
-<td><code>@scribe/data</code></td>
+<td><code>@aihu/data</code></td>
 <td>Data plugin adapter</td>
 <td>≤800 B</td>
 </tr>
 <tr>
-<td><code>@scribe/plugin</code></td>
+<td><code>@aihu/plugin</code></td>
 <td>Plugin contract types</td>
 <td>build-time</td>
 </tr>
 <tr>
-<td><code>@scribe/cli</code></td>
+<td><code>@aihu/cli</code></td>
 <td>Scaffold CLI</td>
 <td>build-time</td>
 </tr>
 <tr>
-<td><code>@scribe/context</code></td>
+<td><code>@aihu/context</code></td>
 <td>Shared context primitives</td>
 <td>≤300 B</td>
 </tr>
@@ -1007,10 +1007,10 @@ bun run preview
   reactivity: {
     title: 'Reactivity',
     html: `<h1>Reactivity</h1>
-<p><code>@scribe/signals</code> provides the reactive foundation for the entire scribe framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.</p>
+<p><code>@aihu/signals</code> provides the reactive foundation for the entire aihu framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.</p>
 <h2><code>signal&lt;T&gt;(initialValue)</code></h2>
 <p>Creates a writable reactive cell:</p>
-<pre><code class="language-typescript">import { signal } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { signal } from &#39;@aihu/signals&#39;
 
 const count = signal(0)
 
@@ -1020,7 +1020,7 @@ count(1)      // write: sets to 1, flushes effects
 <p>Signals are the atomic unit of state. They are not wrapped in objects or proxies — call them as functions to read or write.</p>
 <h2><code>computed&lt;T&gt;(fn)</code></h2>
 <p>Derives a read-only signal from other signals:</p>
-<pre><code class="language-typescript">import { signal, computed } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { signal, computed } from &#39;@aihu/signals&#39;
 
 const count = signal(0)
 const doubled = computed(() =&gt; count() * 2)
@@ -1032,7 +1032,7 @@ doubled() // 10
 <p>Computed signals are lazily evaluated and memoized. They re-evaluate only when a tracked dependency changes.</p>
 <h2><code>effect(fn)</code></h2>
 <p>Runs a side effect whenever tracked signals change. Returns a dispose function:</p>
-<pre><code class="language-typescript">import { signal, effect } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { signal, effect } from &#39;@aihu/signals&#39;
 
 const name = signal(&#39;world&#39;)
 const dispose = effect(() =&gt; {
@@ -1040,15 +1040,15 @@ const dispose = effect(() =&gt; {
 })
 // Logs: &quot;Hello, world&quot;
 
-name(&#39;scribe&#39;)
-// Logs: &quot;Hello, scribe&quot;
+name(&#39;aihu&#39;)
+// Logs: &quot;Hello, aihu&quot;
 
 dispose() // stops the effect
 </code></pre>
 <p>Effects run synchronously after each signal write. They auto-track all signals read during their execution.</p>
 <h2><code>batch(fn)</code></h2>
 <p>Defers effect flushes until the batch function returns:</p>
-<pre><code class="language-typescript">import { signal, effect, batch } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { signal, effect, batch } from &#39;@aihu/signals&#39;
 
 const a = signal(0)
 const b = signal(0)
@@ -1064,7 +1064,7 @@ batch(() =&gt; {
 <p><code>batch</code> is useful when updating multiple signals that drive the same derived computation — it prevents intermediate renders.</p>
 <h2><code>untrack(fn)</code></h2>
 <p>Reads signals inside <code>fn</code> without subscribing to them. Re-entrancy safe:</p>
-<pre><code class="language-typescript">import { signal, effect, untrack } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { signal, effect, untrack } from &#39;@aihu/signals&#39;
 
 const count = signal(0)
 const multiplier = signal(2)
@@ -1080,7 +1080,7 @@ effect(() =&gt; {
 <p>Lattice signals are merge-monotone reactive cells. They are useful for collaborative state where multiple sources update the same value and the result should be the &quot;join&quot; of all inputs.</p>
 <h3><code>latticeSignal&lt;T&gt;(merge, initial)</code></h3>
 <p>General-purpose lattice signal with a custom merge function:</p>
-<pre><code class="language-typescript">import { latticeSignal } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { latticeSignal } from &#39;@aihu/signals&#39;
 
 const versions = latticeSignal&lt;Set&lt;string&gt;&gt;(
   (a, b) =&gt; new Set([...a, ...b]),
@@ -1089,7 +1089,7 @@ const versions = latticeSignal&lt;Set&lt;string&gt;&gt;(
 </code></pre>
 <h3><code>boolLatticeSignal(initial?)</code></h3>
 <p>Boolean OR-merge lattice signal. Once set to <code>true</code>, stays <code>true</code>:</p>
-<pre><code class="language-typescript">import { boolLatticeSignal } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { boolLatticeSignal } from &#39;@aihu/signals&#39;
 
 const ready = boolLatticeSignal(false)
 ready(true)  // true
@@ -1097,7 +1097,7 @@ ready(false) // still true — OR merge
 </code></pre>
 <h3><code>maxLatticeSignal(initial?)</code></h3>
 <p>Numeric max-merge lattice signal. Monotonically increases:</p>
-<pre><code class="language-typescript">import { maxLatticeSignal } from &#39;@scribe/signals&#39;
+<pre><code class="language-typescript">import { maxLatticeSignal } from &#39;@aihu/signals&#39;
 
 const highScore = maxLatticeSignal(0)
 highScore(42)
@@ -1106,15 +1106,15 @@ highScore(10)  // stays 42 — max merge
 <h2><code>$state</code> accessor</h2>
 <p><code>$state</code> is a shorthand accessor for the component state bag in SFCs. Inside <code>@state</code> blocks, all declared props and computeds are available on <code>$state</code> without qualification.</p>
 <h2>Push-based semantics</h2>
-<p>scribe signals are push-based: effects run synchronously after each signal write (or after a <code>batch</code> completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.</p>
+<p>aihu signals are push-based: effects run synchronously after each signal write (or after a <code>batch</code> completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.</p>
 `,
   },
   'routing-layouts': {
     title: 'Routing and Layouts',
     html: `<h1>Routing and Layouts</h1>
-<p>scribe uses file-based routing. Pages live under <code>src/pages/</code> and automatically become routes when compiled.</p>
+<p>aihu uses file-based routing. Pages live under <code>src/pages/</code> and automatically become routes when compiled.</p>
 <h2>File-based routing</h2>
-<p>Any <code>.scribe</code> file under <code>src/pages/</code> that contains an <code>@route</code> block (or <code>@layout</code> shorthand) is treated as a page route. The file path determines the default URL pattern:</p>
+<p>Any <code>.aihu</code> file under <code>src/pages/</code> that contains an <code>@route</code> block (or <code>@layout</code> shorthand) is treated as a page route. The file path determines the default URL pattern:</p>
 <table>
 <thead>
 <tr>
@@ -1123,15 +1123,15 @@ highScore(10)  // stays 42 — max merge
 </tr>
 </thead>
 <tbody><tr>
-<td><code>src/pages/index.scribe</code></td>
+<td><code>src/pages/index.aihu</code></td>
 <td><code>/</code></td>
 </tr>
 <tr>
-<td><code>src/pages/about.scribe</code></td>
+<td><code>src/pages/about.aihu</code></td>
 <td><code>/about</code></td>
 </tr>
 <tr>
-<td><code>src/pages/users/[id].scribe</code></td>
+<td><code>src/pages/users/[id].aihu</code></td>
 <td><code>/users/:id</code></td>
 </tr>
 </tbody></table>
@@ -1162,20 +1162,20 @@ highScore(10)  // stays 42 — max merge
   &quot;layout&quot;: &quot;admin&quot;
 }
 </code></pre>
-<p>Read a sidecar programmatically with <code>readRouteSidecar(path)</code> from <code>@scribe/router/plugin</code>.</p>
+<p>Read a sidecar programmatically with <code>readRouteSidecar(path)</code> from <code>@aihu/router/plugin</code>.</p>
 <h2><code>viteRouterIntegration()</code></h2>
 <p><code>viteRouterIntegration()</code> is a Vite plugin that scans <code>src/pages/</code> at build time, reads all <code>.route.json</code> sidecars, and assembles a virtual route manifest module:</p>
 <pre><code class="language-typescript">// vite.config.ts
 import { defineConfig } from &#39;vite&#39;
-import { viteRouterIntegration } from &#39;@scribe/router/plugin&#39;
+import { viteRouterIntegration } from &#39;@aihu/router/plugin&#39;
 
 export default defineConfig({
   plugins: [viteRouterIntegration()],
 })
 </code></pre>
-<p>The virtual module <code>virtual:scribe-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRequestRouter</code> consumes it to handle navigation.</p>
+<p>The virtual module <code>virtual:aihu-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRequestRouter</code> consumes it to handle navigation.</p>
 <h2>Layouts</h2>
-<p>Layouts live under <code>src/layouts/</code>. The default layout is <code>src/layouts/default.scribe</code>. A layout wraps the page&#39;s rendered output via <code>&lt;$slot&gt;</code>:</p>
+<p>Layouts live under <code>src/layouts/</code>. The default layout is <code>src/layouts/default.aihu</code>. A layout wraps the page&#39;s rendered output via <code>&lt;$slot&gt;</code>:</p>
 <pre><code>@template {
   &lt;header&gt;My App&lt;/header&gt;
   &lt;main&gt;
@@ -1184,10 +1184,10 @@ export default defineConfig({
   &lt;footer&gt;Footer&lt;/footer&gt;
 }
 </code></pre>
-<p><code>scanLayouts(dir)</code> from <code>@scribe/router/plugin</code> returns all discovered layout names.</p>
+<p><code>scanLayouts(dir)</code> from <code>@aihu/router/plugin</code> returns all discovered layout names.</p>
 <h2>Router middleware</h2>
 <p>Middleware is defined with <code>defineRouterMiddleware</code> and composed with <code>composeRouterMiddleware</code>:</p>
-<pre><code class="language-typescript">import { defineRouterMiddleware, composeRouterMiddleware } from &#39;@scribe/router&#39;
+<pre><code class="language-typescript">import { defineRouterMiddleware, composeRouterMiddleware } from &#39;@aihu/router&#39;
 
 const authMiddleware = defineRouterMiddleware(async (ctx, next) =&gt; {
   if (!ctx.params.token) {
@@ -1217,12 +1217,12 @@ export const composed = composeRouterMiddleware(loggingMiddleware, authMiddlewar
   'ssr-hydration': {
     title: 'SSR and Hydration',
     html: `<h1>SSR and Hydration</h1>
-<p>scribe supports server-side rendering via <code>@scribe/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.</p>
+<p>aihu supports server-side rendering via <code>@aihu/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.</p>
 <h2>Build targets</h2>
-<p>Set the build target in <code>defineScribeConfig</code>:</p>
-<pre><code class="language-typescript">import { defineScribeConfig } from &#39;@scribe/server&#39;
+<p>Set the build target in <code>defineAihuConfig</code>:</p>
+<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
 
-export default defineScribeConfig({
+export default defineAihuConfig({
   build: {
     target: &#39;universal&#39;,
   },
@@ -1252,7 +1252,7 @@ export default defineScribeConfig({
 </tbody></table>
 <h2><code>renderToStream</code></h2>
 <p>Stream-render a component to an HTML response:</p>
-<pre><code class="language-typescript">import { renderToStream } from &#39;@scribe/server&#39;
+<pre><code class="language-typescript">import { renderToStream } from &#39;@aihu/server&#39;
 
 const response = renderToStream(MyComponent, {
   props: { userId: 42 },
@@ -1262,7 +1262,7 @@ const response = renderToStream(MyComponent, {
 <p>Returns a <code>ReadableStream&lt;string&gt;</code> that emits HTML chunks as the component tree resolves. Suitable for edge runtimes and Node.js streaming responses.</p>
 <h2><code>renderToString</code></h2>
 <p>Render a server component to a complete HTML string:</p>
-<pre><code class="language-typescript">import { renderToString } from &#39;@scribe/server&#39;
+<pre><code class="language-typescript">import { renderToString } from &#39;@aihu/server&#39;
 
 const html = await renderToString(async () =&gt; {
   const data = await myLoader(ctx)
@@ -1277,8 +1277,8 @@ const html = await renderToString(async () =&gt; {
 <li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
 </ul>
 <p>This ensures zero server-only code reaches the browser bundle.</p>
-<h2><code>defineScribeConfig</code> build options</h2>
-<pre><code class="language-typescript">defineScribeConfig({
+<h2><code>defineAihuConfig</code> build options</h2>
+<pre><code class="language-typescript">defineAihuConfig({
   build: {
     target: &#39;universal&#39;,    // &#39;client&#39; | &#39;server&#39; | &#39;universal&#39;
     outDir: &#39;dist&#39;,         // output directory

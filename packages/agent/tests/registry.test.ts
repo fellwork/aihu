@@ -19,7 +19,7 @@ import {
  * Each test uses a unique tag name (`x-test-N`) for defence-in-depth against
  * registry pollution if reset is ever skipped.
  */
-describe('@scribe/agent registry', () => {
+describe('@aihu/agent registry', () => {
   beforeEach(() => {
     __resetRegistryForTesting()
   })
@@ -33,7 +33,7 @@ describe('@scribe/agent registry', () => {
   it('returns the registered metadata object for a known tag', () => {
     const meta: AgentMetadata = {
       tag: 'x-test-2',
-      describes: 'a hello-scribe component',
+      describes: 'a hello-aihu component',
     }
     registerAgentMetadata(meta)
     const result = getAgentMetadata('x-test-2')
@@ -88,7 +88,7 @@ describe('@scribe/agent registry', () => {
   })
 })
 
-describe('@scribe/agent registry — getAllAgentMetadata (Plan 5.3 prereq)', () => {
+describe('@aihu/agent registry — getAllAgentMetadata (Plan 5.3 prereq)', () => {
   beforeEach(() => {
     __resetRegistryForTesting()
   })
@@ -133,7 +133,7 @@ describe('@scribe/agent registry — getAllAgentMetadata (Plan 5.3 prereq)', () 
   })
 })
 
-describe('@scribe/agent registry — RC-2 ActionSchema/InputSchema', () => {
+describe('@aihu/agent registry — RC-2 ActionSchema/InputSchema', () => {
   beforeEach(() => {
     __resetRegistryForTesting()
   })

@@ -2,8 +2,8 @@
 /// Covers: <$slot>, <$suspense>, <$shield>, <$guard>, <$warp>,
 /// deprecation of <slot> HTML form, C400 mutual-exclusion, C401 inline-JSX.
 
-use scribe_compiler::{compile_full, emit, sfc, TemplateNode};
-use scribe_compiler::parser::template::parse_template;
+use aihu_compiler::{compile_full, emit, sfc, TemplateNode};
+use aihu_compiler::parser::template::parse_template;
 
 // ─── Parser: MacroElement nodes ───────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ fn dollar_guard_parses_as_macro_element() {
         TemplateNode::MacroElement { name, attrs, .. } => {
             assert_eq!(name, "guard");
             assert!(attrs.iter().any(|a| match a {
-                scribe_compiler::Attr::Static { name, value } => {
+                aihu_compiler::Attr::Static { name, value } => {
                     name == "check" && value == "isAuthed"
                 }
                 _ => false,
@@ -97,7 +97,7 @@ fn dollar_slot_with_expose_attr_parses() {
         TemplateNode::MacroElement { name, attrs, .. } => {
             assert_eq!(name, "slot");
             assert!(attrs.iter().any(|a| match a {
-                scribe_compiler::Attr::Static { name, value } => {
+                aihu_compiler::Attr::Static { name, value } => {
                     name == "expose" && value == "user, index"
                 }
                 _ => false,

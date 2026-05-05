@@ -5,7 +5,7 @@
  *   1. Read every `docs/site/*.md` from the repo root
  *   2. Render Markdown → HTML with `marked`
  *   3. Write `src/content.ts` with a `window.__DOCS__` map
- *   4. Run `rolldown -c rolldown.config.ts` to bundle the scribe components
+ *   4. Run `rolldown -c rolldown.config.ts` to bundle the aihu components
  *
  * Usage:
  *   bun run build.ts

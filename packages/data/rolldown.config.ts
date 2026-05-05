@@ -12,6 +12,6 @@ export default defineConfig([
       minify: true,
     },
     plugins: [dts()],
-    external: ['@scribe/signals', '@scribe/context'],
+    external: ['@aihu/signals', '@aihu/context'],
   },
 ])

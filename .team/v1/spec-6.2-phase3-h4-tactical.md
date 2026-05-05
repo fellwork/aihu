@@ -126,8 +126,8 @@ This is bit-for-bit identical to the current `isChase` logic.
 | creation-1to1000 | ~70 µs | ≤ 76.2 µs |
 
 ### Bundle (post-mangle)
-- `@scribe/signals` dist ≤ **1850 B gz** (hard cap per §10.3; current 1775 B + estimated +60 B = 1835 B → 15 B residual)
-- `@scribe/arbor` dist ≤ **2200 B gz** (arbor bundles signals; signals growth propagates)
+- `@aihu/signals` dist ≤ **1850 B gz** (hard cap per §10.3; current 1775 B + estimated +60 B = 1835 B → 15 B residual)
+- `@aihu/arbor` dist ≤ **2200 B gz** (arbor bundles signals; signals growth propagates)
 
 ---
 

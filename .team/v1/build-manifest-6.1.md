@@ -1,4 +1,4 @@
-# Build Manifest 6.1 — File-based routing (@scribe/router)
+# Build Manifest 6.1 — File-based routing (@aihu/router)
 
 **Plan:** 6.1  
 **Branch:** feat/v1-router  
@@ -7,14 +7,14 @@
 
 ## Summary
 
-New package `@scribe/router` implementing file-based routing for the scribe meta-framework via a Vite plugin that scans a `pages/` directory and generates a route manifest, plus a `createRouter` function that wires the manifest to a fetch-API compatible router.
+New package `@aihu/router` implementing file-based routing for the aihu meta-framework via a Vite plugin that scans a `pages/` directory and generates a route manifest, plus a `createRouter` function that wires the manifest to a fetch-API compatible router.
 
 ## Files Created
 
 ### Package scaffold
-- `packages/router/package.json` — workspace package, depends on `@scribe/server`
+- `packages/router/package.json` — workspace package, depends on `@aihu/server`
 - `packages/router/tsconfig.json` — extends `tsconfig.base.json`
-- `packages/router/rolldown.config.ts` — ESM build with dts, externals: `@scribe/server`, `vite`, `node:fs`, `node:path`, `node:url`
+- `packages/router/rolldown.config.ts` — ESM build with dts, externals: `@aihu/server`, `vite`, `node:fs`, `node:path`, `node:url`
 - `packages/router/moon.yml` — moon task config
 
 ### Source
@@ -26,8 +26,8 @@ New package `@scribe/router` implementing file-based routing for the scribe meta
 - `packages/router/tests/router.test.ts` — 18 unit tests covering all acceptance criteria
 
 ### Config changes
-- `vitest.config.ts` — added `@scribe/router` alias
-- `.size-limit.json` — added `@scribe/router` entry at 1536 B cap
+- `vitest.config.ts` — added `@aihu/router` alias
+- `.size-limit.json` — added `@aihu/router` entry at 1536 B cap
 
 ## Test Results
 
@@ -42,7 +42,7 @@ New package `@scribe/router` implementing file-based routing for the scribe meta
 
 | Package | Size (gz) | Limit | Headroom |
 |---------|-----------|-------|----------|
-| @scribe/router | 1.45 kB | 1536 B | +50 B |
+| @aihu/router | 1.45 kB | 1536 B | +50 B |
 
 ## Acceptance Criteria
 
@@ -61,6 +61,6 @@ New package `@scribe/router` implementing file-based routing for the scribe meta
 - `createRouter` ordering: static → param → catchall (prevents catch-all swallowing specific routes)
 - Catch-all segments (`[...all]`) map to `/*` and capture remainder as `params['*']`
 - Vite plugin uses static `node:fs`/`node:path` imports (external), avoiding CJS interop shim — kept bundle at 1.45 kB
-- `handle()` injects loader data as an inline `<script type="application/json" id="__scribe_loader__">` after the HTML
-- Virtual module ID `virtual:scribe-routes` resolved to `\0virtual:scribe-routes` per Vite convention
+- `handle()` injects loader data as an inline `<script type="application/json" id="__aihu_loader__">` after the HTML
+- Virtual module ID `virtual:aihu-routes` resolved to `\0virtual:aihu-routes` per Vite convention
 - Private files (`_*.ts`) are excluded from page scanning

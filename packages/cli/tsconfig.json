@@ -1,9 +1,19 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@aihu/agent": ["../agent/src/index.ts"],
+      "@aihu/agent-readiness": ["../agent-readiness/src/index.ts"],
+      "@aihu/app/client": ["../app/src/client.ts"],
+      "@aihu/compiler/plugin": ["../compiler/js/index.ts"],
+      "@aihu/data": ["../data/src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/router": ["../router/src/index.ts"],
+      "@aihu/server": ["../server/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

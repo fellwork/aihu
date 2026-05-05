@@ -215,18 +215,32 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            // Single-brace expression interpolation: {expr}
+            // Must start with `{` but not `{{` (already handled above).
+            if self.starts_with("{") {
+                nodes.push(self.parse_expr_interpolation()?);
+                continue;
+            }
+
             let next_tag = self.input[self.pos..]
                 .find('<')
                 .map(|offset| self.pos + offset);
             let next_interp = self.input[self.pos..]
                 .find("{{")
                 .map(|offset| self.pos + offset);
+            let next_single_brace = self.input[self.pos..]
+                .find('{')
+                .map(|offset| self.pos + offset);
 
-            let next_stop = match (next_tag, next_interp) {
-                (Some(tag), Some(interp)) => tag.min(interp),
-                (Some(tag), None) => tag,
-                (None, Some(interp)) => interp,
-                (None, None) => self.input.len(),
+            let next_stop = match (next_tag, next_interp, next_single_brace) {
+                (Some(tag), Some(interp), Some(brace)) => tag.min(interp).min(brace),
+                (Some(tag), Some(interp), None) => tag.min(interp),
+                (Some(tag), None, Some(brace)) => tag.min(brace),
+                (None, Some(interp), Some(brace)) => interp.min(brace),
+                (Some(tag), None, None) => tag,
+                (None, Some(interp), None) => interp,
+                (None, None, Some(brace)) => brace,
+                (None, None, None) => self.input.len(),
             };
 
             let text = &self.input[self.pos..next_stop];
@@ -237,6 +251,34 @@ impl<'a> Parser<'a> {
         }
 
         Ok(())
+    }
+
+    /// Parse a `{expr}` single-brace expression in template text content.
+    /// The expr is returned as a raw string (no identifier validation).
+    fn parse_expr_interpolation(&mut self) -> Result<TemplateNode, CompileError> {
+        let start = self.pos;
+        self.expect("{")?;
+        // Read until matching `}`, respecting nesting.
+        let mut depth = 1usize;
+        let mut expr_end = self.pos;
+        while expr_end < self.input.len() {
+            match self.input.as_bytes()[expr_end] {
+                b'{' => { depth += 1; expr_end += 1; }
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 { break; }
+                    expr_end += 1;
+                }
+                _ => expr_end += 1,
+            }
+        }
+        if depth != 0 {
+            return Err(self.error("unclosed '{' in expression interpolation".to_string()));
+        }
+        let expr = self.input[self.pos..expr_end].to_string();
+        self.pos = expr_end + 1; // past the closing `}`
+        let _ = start;
+        Ok(TemplateNode::Interpolation(expr))
     }
 
     fn parse_interpolation(&mut self) -> Result<TemplateNode, CompileError> {

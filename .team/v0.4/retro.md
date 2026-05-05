@@ -10,11 +10,11 @@
 
 v0.4 landed all `$attr` template-attribute syntax and per-block macro lowerings across two parallel streams.
 
-### Stream A — `@scribe/runtime` lifecycle helpers (PR #36)
+### Stream A — `@aihu/runtime` lifecycle helpers (PR #36)
 
 | Sub-item | Description |
 |----------|-------------|
-| v0.4.9 | `onMount(fn)` + `onCleanup(fn)` exported from `@scribe/runtime` |
+| v0.4.9 | `onMount(fn)` + `onCleanup(fn)` exported from `@aihu/runtime` |
 | Compressor | Pre-authorized Compressor pass (Polish Note 5); 213 B raw recovered; runtime within 1170 B gz |
 
 **Tests:** +7 lifecycle tests (476 → 483 TS)

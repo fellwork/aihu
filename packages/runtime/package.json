@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/runtime",
+  "name": "@aihu/runtime",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -21,7 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@scribe/arbor": "workspace:*",
-    "@scribe/signals": "workspace:*"
+    "@aihu/arbor": "workspace:*",
+    "@aihu/signals": "workspace:*"
   }
 }

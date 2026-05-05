@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  appAihuConfig,
   appDefaultLayout,
-  appIndexScribe,
+  appIndexAihu,
   appPackageJson,
   appRolldownConfig,
-  appScribeConfig,
   appViteConfig,
-  componentScribe,
-  pageScribe,
+  componentAihu,
+  pageAihu,
   pluginIndex,
   pluginPackageJson,
   scaffoldApp,
@@ -31,19 +31,19 @@ describe('appPackageJson', () => {
     expect(pkg.name).toBe('my-app')
   })
 
-  it('lists core scribe runtime dependencies', () => {
+  it('lists core aihu runtime dependencies', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as { dependencies: Record<string, string> }
     const deps = pkg.dependencies
-    expect(deps).toHaveProperty('@scribe/arbor')
-    expect(deps).toHaveProperty('@scribe/runtime')
-    expect(deps).toHaveProperty('@scribe/signals')
+    expect(deps).toHaveProperty('@aihu/arbor')
+    expect(deps).toHaveProperty('@aihu/runtime')
+    expect(deps).toHaveProperty('@aihu/signals')
   })
 
-  it('lists @scribe/cli and rolldown as devDependencies', () => {
+  it('lists @aihu/cli and rolldown as devDependencies', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as {
       devDependencies: Record<string, string>
     }
-    expect(pkg.devDependencies).toHaveProperty('@scribe/cli')
+    expect(pkg.devDependencies).toHaveProperty('@aihu/cli')
     expect(pkg.devDependencies).toHaveProperty('rolldown')
   })
 
@@ -54,12 +54,12 @@ describe('appPackageJson', () => {
 })
 
 describe('appRolldownConfig', () => {
-  it('references scribeCompilerPlugin', () => {
-    expect(appRolldownConfig('my-app')).toContain('scribeCompilerPlugin')
+  it('references aihuCompilerPlugin', () => {
+    expect(appRolldownConfig('my-app')).toContain('aihuCompilerPlugin')
   })
 
-  it('sets moduleTypes for .scribe files', () => {
-    expect(appRolldownConfig('my-app')).toContain('.scribe')
+  it('sets moduleTypes for .aihu files', () => {
+    expect(appRolldownConfig('my-app')).toContain('.aihu')
   })
 
   it('outputs to dist/', () => {
@@ -73,28 +73,28 @@ describe('appViteConfig (deprecated alias)', () => {
   })
 })
 
-describe('appScribeConfig', () => {
-  it('references defineScribeConfig', () => {
-    expect(appScribeConfig()).toContain('defineScribeConfig')
+describe('appAihuConfig', () => {
+  it('references defineAihuConfig', () => {
+    expect(appAihuConfig()).toContain('defineAihuConfig')
   })
 
   it('sets build.target to universal', () => {
-    expect(appScribeConfig()).toContain("target: 'universal'")
+    expect(appAihuConfig()).toContain("target: 'universal'")
   })
 })
 
-describe('appIndexScribe', () => {
+describe('appIndexAihu', () => {
   it('has a @state block with signal import', () => {
-    expect(appIndexScribe()).toContain('@state')
-    expect(appIndexScribe()).toContain("from '@scribe/signals'")
+    expect(appIndexAihu()).toContain('@state')
+    expect(appIndexAihu()).toContain("from '@aihu/signals'")
   })
 
   it('has a @template block', () => {
-    expect(appIndexScribe()).toContain('@template')
+    expect(appIndexAihu()).toContain('@template')
   })
 
   it('uses v1 signal pattern', () => {
-    expect(appIndexScribe()).toContain('signal(')
+    expect(appIndexAihu()).toContain('signal(')
   })
 })
 
@@ -104,41 +104,41 @@ describe('appDefaultLayout', () => {
   })
 })
 
-describe('pageScribe', () => {
+describe('pageAihu', () => {
   it('sets route name from path', () => {
-    expect(pageScribe('/about')).toContain("name: 'about'")
+    expect(pageAihu('/about')).toContain("name: 'about'")
   })
 
   it('converts nested path to kebab name', () => {
-    expect(pageScribe('/admin/users')).toContain("name: 'admin-users'")
+    expect(pageAihu('/admin/users')).toContain("name: 'admin-users'")
   })
 
   it('falls back to "page" for root path', () => {
-    expect(pageScribe('/')).toContain("name: 'page'")
+    expect(pageAihu('/')).toContain("name: 'page'")
   })
 })
 
-describe('componentScribe', () => {
+describe('componentAihu', () => {
   it('produces a @template block', () => {
-    expect(componentScribe('MyCard')).toContain('@template')
+    expect(componentAihu('MyCard')).toContain('@template')
   })
 
   it('uses kebab-case class name', () => {
-    expect(componentScribe('MyCard')).toContain('my-card')
+    expect(componentAihu('MyCard')).toContain('my-card')
   })
 })
 
 describe('pluginPackageJson', () => {
-  it('names the package scribe-plugin-<kebab>', () => {
+  it('names the package aihu-plugin-<kebab>', () => {
     const pkg = JSON.parse(pluginPackageJson('MyForms')) as { name: string }
-    expect(pkg.name).toBe('scribe-plugin-my-forms')
+    expect(pkg.name).toBe('aihu-plugin-my-forms')
   })
 
-  it('has @scribe/plugin as peerDependency', () => {
+  it('has @aihu/plugin as peerDependency', () => {
     const pkg = JSON.parse(pluginPackageJson('forms')) as {
       peerDependencies: Record<string, string>
     }
-    expect(pkg.peerDependencies).toHaveProperty('@scribe/plugin')
+    expect(pkg.peerDependencies).toHaveProperty('@aihu/plugin')
   })
 })
 
@@ -195,7 +195,7 @@ describe('toSafe', () => {
 let tmpDir: string
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'scribe-cli-test-'))
+  tmpDir = mkdtempSync(join(tmpdir(), 'aihu-cli-test-'))
 })
 
 afterEach(() => {
@@ -221,9 +221,9 @@ describe('scaffoldApp', () => {
     expect(existsSync(join(tmpDir, 'demo', 'rolldown.config.ts'))).toBe(true)
   })
 
-  it('writes src/pages/index.scribe', () => {
+  it('writes src/pages/index.aihu', () => {
     scaffoldApp('demo', tmpDir)
-    expect(existsSync(join(tmpDir, 'demo', 'src', 'pages', 'index.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'demo', 'src', 'pages', 'index.aihu'))).toBe(true)
   })
 
   it('writes index.html', () => {
@@ -247,24 +247,24 @@ describe('scaffoldApp', () => {
 describe('scaffoldPage', () => {
   it('creates a page file at the correct path', () => {
     scaffoldPage('/about', tmpDir)
-    expect(existsSync(join(tmpDir, 'src', 'pages', 'about.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'src', 'pages', 'about.aihu'))).toBe(true)
   })
 
   it('handles nested routes', () => {
     scaffoldPage('/admin/users', tmpDir)
-    expect(existsSync(join(tmpDir, 'src', 'pages', 'admin', 'users.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'src', 'pages', 'admin', 'users.aihu'))).toBe(true)
   })
 
-  it('falls back to index.scribe for root path', () => {
+  it('falls back to index.aihu for root path', () => {
     scaffoldPage('/', tmpDir)
-    expect(existsSync(join(tmpDir, 'src', 'pages', 'index.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'src', 'pages', 'index.aihu'))).toBe(true)
   })
 })
 
 describe('scaffoldComponent', () => {
   it('creates a component file with kebab name', () => {
     scaffoldComponent('MyCard', tmpDir)
-    expect(existsSync(join(tmpDir, 'src', 'components', 'my-card.scribe'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'src', 'components', 'my-card.aihu'))).toBe(true)
   })
 })
 
@@ -274,9 +274,9 @@ describe('scaffoldPlugin', () => {
     expect(result.created).toHaveLength(2)
   })
 
-  it('writes the plugin directory as scribe-plugin-<kebab>', () => {
+  it('writes the plugin directory as aihu-plugin-<kebab>', () => {
     scaffoldPlugin('my-forms', tmpDir)
-    expect(existsSync(join(tmpDir, 'scribe-plugin-my-forms', 'package.json'))).toBe(true)
-    expect(existsSync(join(tmpDir, 'scribe-plugin-my-forms', 'src', 'index.ts'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'package.json'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'src', 'index.ts'))).toBe(true)
   })
 })

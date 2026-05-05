@@ -1,4 +1,4 @@
-# Verification Report — Plan 2.2: @scribe/data
+# Verification Report — Plan 2.2: @aihu/data
 
 **Date:** 2026-04-30
 **Verifier:** Claude Sonnet 4.6
@@ -17,24 +17,24 @@
 | AC-3 DataState shape | PASS | All 5 states: idle, loading, ready, error, streaming — all readonly, exact spec §2.1 match |
 | AC-4 Resource shape | PASS | `state: Signal<DataState<T>>`, `refetch()`, `invalidate()` — exact spec §2.2 match |
 | AC-5 Key reactivity | PASS | effect() watches key; null/undefined → idle; key change → new fetch; _fetchId stale-promise guard |
-| AC-6 No @scribe/server imports | PASS | Only a comment reference, no runtime imports |
+| AC-6 No @aihu/server imports | PASS | Only a comment reference, no runtime imports |
 | AC-7 Serializer shape | PASS | Iterates store entries, filters by dehydratable eligibility, returns `{resources: {...}}` |
-| AC-8 Context token | PASS | `ResourceStoreToken = createContext<ResourceStore>()` from @scribe/context |
+| AC-8 Context token | PASS | `ResourceStoreToken = createContext<ResourceStore>()` from @aihu/context |
 | AC-9 Monorepo regressions | PASS — 296 passing (incl. context + prior packages) | No regressions |
 
 ---
 
 ## Size Deviation
 
-Spec §8.6 set `@scribe/data` budget at **500 B gzip**. Actual dist is **687 B gz**. The spec budget underestimated the full implementation surface (reactive key watching, fetch lifecycle, stale guard, store injection with dehydration tracking, serializer). Cap raised to **750 B gz** (687 + 63 B headroom) in `.size-limit.json`.
+Spec §8.6 set `@aihu/data` budget at **500 B gzip**. Actual dist is **687 B gz**. The spec budget underestimated the full implementation surface (reactive key watching, fetch lifecycle, stale guard, store injection with dehydration tracking, serializer). Cap raised to **750 B gz** (687 + 63 B headroom) in `.size-limit.json`.
 
-The overall v1 bundle remains healthy — the combined tracked packages total ~4.7 kB gz against the loose 4.00 kB browser bundle target (the 4.00 kB target is for context+signals+arbor+runtime; the @scribe/data package is a separate Surface layer package used only in data-fetching code paths).
+The overall v1 bundle remains healthy — the combined tracked packages total ~4.7 kB gz against the loose 4.00 kB browser bundle target (the 4.00 kB target is for context+signals+arbor+runtime; the @aihu/data package is a separate Surface layer package used only in data-fetching code paths).
 
 ---
 
 ## Additional Notes
 
-1. **`ResourceStoreToken` dist type emits as `any`**: rolldown-plugin-dts externalizes `@scribe/context`, so the `ContextToken<ResourceStore>` type becomes `any` in the built `.d.ts`. Source typing is correct; vitest alias consumers see correct types. Pre-existing limitation in the monorepo's dist type generation.
+1. **`ResourceStoreToken` dist type emits as `any`**: rolldown-plugin-dts externalizes `@aihu/context`, so the `ContextToken<ResourceStore>` type becomes `any` in the built `.d.ts`. Source typing is correct; vitest alias consumers see correct types. Pre-existing limitation in the monorepo's dist type generation.
 
 2. **`ResourceStoreWithMeta` type exported**: Internal type needed by `createResourceSerializer` and test T9's `markDehydratable` call. Minor deviation from spec's "internal" designation; harmless.
 

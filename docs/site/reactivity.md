@@ -1,13 +1,13 @@
 # Reactivity
 
-`@scribe/signals` provides the reactive foundation for the entire scribe framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.
+`@aihu/signals` provides the reactive foundation for the entire aihu framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.
 
 ## `signal<T>(initialValue)`
 
 Creates a writable reactive cell:
 
 ```typescript
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 
 const count = signal(0)
 
@@ -22,7 +22,7 @@ Signals are the atomic unit of state. They are not wrapped in objects or proxies
 Derives a read-only signal from other signals:
 
 ```typescript
-import { signal, computed } from '@scribe/signals'
+import { signal, computed } from '@aihu/signals'
 
 const count = signal(0)
 const doubled = computed(() => count() * 2)
@@ -39,7 +39,7 @@ Computed signals are lazily evaluated and memoized. They re-evaluate only when a
 Runs a side effect whenever tracked signals change. Returns a dispose function:
 
 ```typescript
-import { signal, effect } from '@scribe/signals'
+import { signal, effect } from '@aihu/signals'
 
 const name = signal('world')
 const dispose = effect(() => {
@@ -47,8 +47,8 @@ const dispose = effect(() => {
 })
 // Logs: "Hello, world"
 
-name('scribe')
-// Logs: "Hello, scribe"
+name('aihu')
+// Logs: "Hello, aihu"
 
 dispose() // stops the effect
 ```
@@ -60,7 +60,7 @@ Effects run synchronously after each signal write. They auto-track all signals r
 Defers effect flushes until the batch function returns:
 
 ```typescript
-import { signal, effect, batch } from '@scribe/signals'
+import { signal, effect, batch } from '@aihu/signals'
 
 const a = signal(0)
 const b = signal(0)
@@ -81,7 +81,7 @@ batch(() => {
 Reads signals inside `fn` without subscribing to them. Re-entrancy safe:
 
 ```typescript
-import { signal, effect, untrack } from '@scribe/signals'
+import { signal, effect, untrack } from '@aihu/signals'
 
 const count = signal(0)
 const multiplier = signal(2)
@@ -104,7 +104,7 @@ Lattice signals are merge-monotone reactive cells. They are useful for collabora
 General-purpose lattice signal with a custom merge function:
 
 ```typescript
-import { latticeSignal } from '@scribe/signals'
+import { latticeSignal } from '@aihu/signals'
 
 const versions = latticeSignal<Set<string>>(
   (a, b) => new Set([...a, ...b]),
@@ -117,7 +117,7 @@ const versions = latticeSignal<Set<string>>(
 Boolean OR-merge lattice signal. Once set to `true`, stays `true`:
 
 ```typescript
-import { boolLatticeSignal } from '@scribe/signals'
+import { boolLatticeSignal } from '@aihu/signals'
 
 const ready = boolLatticeSignal(false)
 ready(true)  // true
@@ -129,7 +129,7 @@ ready(false) // still true — OR merge
 Numeric max-merge lattice signal. Monotonically increases:
 
 ```typescript
-import { maxLatticeSignal } from '@scribe/signals'
+import { maxLatticeSignal } from '@aihu/signals'
 
 const highScore = maxLatticeSignal(0)
 highScore(42)
@@ -142,4 +142,4 @@ highScore(10)  // stays 42 — max merge
 
 ## Push-based semantics
 
-scribe signals are push-based: effects run synchronously after each signal write (or after a `batch` completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.
+aihu signals are push-based: effects run synchronously after each signal write (or after a `batch` completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.

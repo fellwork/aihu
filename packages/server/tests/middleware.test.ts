@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { composeMiddleware, defineMiddleware } from '../src/middleware.ts'
 import type { Middleware } from '../src/types.ts'
 
-describe('@scribe/server middleware', () => {
+describe('@aihu/server middleware', () => {
   it('defineMiddleware returns the same function reference', () => {
     const mw: Middleware = async (_req, next) => next()
     expect(defineMiddleware(mw)).toBe(mw)

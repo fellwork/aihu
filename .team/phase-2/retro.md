@@ -1,9 +1,9 @@
-# Phase 2 Retrospective — `@scribe/signals`
+# Phase 2 Retrospective — `@aihu/signals`
 
 **Author:** Historian
 **Date:** 2026-04-26
 **Branch:** `plan-a-phase-2`
-**PR:** `fellwork/scribe#2` (just opened)
+**PR:** `fellwork/aihu#2` (just opened)
 
 This retro reflects on **how Phase 2 worked**, not what it shipped. Every claim is grounded in a Phase 2 artifact. No blame, no new feature work, no edits to the source artifacts.
 
@@ -56,7 +56,7 @@ Systemic root cause: the spec had no self-consistency review pass. Deviations we
 
 ### Team Lead's brief to Builder on the equals follow-up gave wrong implementation specifics
 
-What happened: when adjudicating Finding 3, the Team Lead's brief to the Builder suggested "Option X: set self STALE on notify; cascade on next read" — an implementation that doesn't work in scribe's forward-subscription model. `verification-report.md` §6 ("The Builder's design pivot") explicitly diagnoses this: "Team Lead's Option X … doesn't work in this forward-subscription model: `computed.notify()` propagates only by calling `sub.notify()` on each forward subscriber — there is no separate 'I am stale, please ask me again later' channel."
+What happened: when adjudicating Finding 3, the Team Lead's brief to the Builder suggested "Option X: set self STALE on notify; cascade on next read" — an implementation that doesn't work in aihu's forward-subscription model. `verification-report.md` §6 ("The Builder's design pivot") explicitly diagnoses this: "Team Lead's Option X … doesn't work in this forward-subscription model: `computed.notify()` propagates only by calling `sub.notify()` on each forward subscriber — there is no separate 'I am stale, please ask me again later' channel."
 
 Cost: the Builder noticed the mismatch only by *writing* the code (manifest §Task 12: "Implementation chose Option X (re-think when STALE cascades) over Option Y (version counters) per brief recommendation"). The pivot landed correctly because the Builder reasoned through the four scenarios (`verification-report.md` §6 traces them: lazy preservation, linear chain, cycle, diamond) — but the brief misled before that reasoning happened. Near-miss, not a hit.
 
@@ -94,7 +94,7 @@ Systemic root cause: Phase 1 scaffolded Moon 1.x shape and let `typecheck`/`buil
 
 - **Earned its keep?** Yes, decisively.
 - **Concrete value:** running `moon project signals` and `tsc --noEmit` against the existing scaffold turned plan-prescription into reproducible-blocker. Scout `scout-report.md` §1.0 + §1.1 are prescriptive *because* they're cited at the bash output level. The Architect inherited a do-list, not a discover-list.
-- **Sharpening for Phase 3:** Scout's prior-art survey (§3) gave the Architect five comparison points but didn't include any direct *reading* of competitor source files. Phase 3 (`@scribe/arbor`) prior art is harder (DOM diffing, scope disposal, mount/unmount) — Scout should plan to read at least one comparable lib's source (`@vue/runtime-dom`, `solid-js/web`) end-to-end, not just docs.
+- **Sharpening for Phase 3:** Scout's prior-art survey (§3) gave the Architect five comparison points but didn't include any direct *reading* of competitor source files. Phase 3 (`@aihu/arbor`) prior art is harder (DOM diffing, scope disposal, mount/unmount) — Scout should plan to read at least one comparable lib's source (`@vue/runtime-dom`, `solid-js/web`) end-to-end, not just docs.
 
 ### Architect
 
@@ -132,7 +132,7 @@ Systemic root cause: Phase 1 scaffolded Moon 1.x shape and let `typecheck`/`buil
 
 ### Builder's "eager recompute when subs > 0" pivot during the equals wiring
 
-Not predicted by any prior artifact. `verification-report.md` §6 lays out the structural fact: scribe's forward-subscription model has no "I am stale, please ask me again later" channel. The Team Lead's brief (Option X) assumed a pull-based model; the Builder discovered by writing the code that the only correct hookup is "recompute eagerly when subs exist, stay lazy when no one's listening." This is a *structural* fact about the codebase that the spec didn't capture — surfaced only at hands-on-keyboard time. Verifier confirmed correctness across four scenarios (lazy preservation, linear chain, cycle, diamond) and the design held.
+Not predicted by any prior artifact. `verification-report.md` §6 lays out the structural fact: aihu's forward-subscription model has no "I am stale, please ask me again later" channel. The Team Lead's brief (Option X) assumed a pull-based model; the Builder discovered by writing the code that the only correct hookup is "recompute eagerly when subs exist, stay lazy when no one's listening." This is a *structural* fact about the codebase that the spec didn't capture — surfaced only at hands-on-keyboard time. Verifier confirmed correctness across four scenarios (lazy preservation, linear chain, cycle, diamond) and the design held.
 
 ### Moon 2.x migration was scaffold debt invisible until Phase 2 turned on the lights
 

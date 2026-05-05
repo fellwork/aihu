@@ -1,4 +1,4 @@
-import { createRequestRouter, defineRoute } from '@scribe/server'
+import { createRequestRouter, defineRoute } from '@aihu/server'
 import { describe, expect, it } from 'vitest'
 import { createAgentReadinessRoutes, createContentNegotiationHandler } from '../src/index.ts'
 

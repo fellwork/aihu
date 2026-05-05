@@ -1,10 +1,10 @@
-use scribe_compiler::{compile_full, compile_full_with_target, compile_with_path, emit, sfc, BuildTarget};
+use aihu_compiler::{compile_full, compile_full_with_target, compile_with_path, emit, sfc, BuildTarget};
 
 #[test]
 fn route_block_parses_path() {
     let parsed = sfc::parse_with_path(
         "@template { <h1>Users</h1> }\n@route { path: \"/admin/users\" }\n",
-        Some("src/pages/users.scribe"),
+        Some("src/pages/users.aihu"),
     )
     .unwrap();
     let route = parsed.route.expect("route block");
@@ -16,7 +16,7 @@ fn route_block_parses_path() {
 fn route_block_parses_all_fields() {
     let parsed = sfc::parse_with_path(
         "@template { <h1>Users</h1> }\n@route { path: \"/admin/users\", name: \"admin-users\", middleware: [\"auth\", \"audit\"], ssr: false, layout: \"admin\" }\n",
-        Some("src/pages/users.scribe"),
+        Some("src/pages/users.aihu"),
     )
     .unwrap();
     let route = parsed.route.expect("route block");
@@ -31,7 +31,7 @@ fn route_block_parses_all_fields() {
 fn route_block_empty_is_ok() {
     let parsed = sfc::parse_with_path(
         "@template { <h1>Users</h1> }\n@route { }\n",
-        Some("src/pages/users.scribe"),
+        Some("src/pages/users.aihu"),
     )
     .unwrap();
     let route = parsed.route.expect("route block");
@@ -43,7 +43,7 @@ fn route_block_empty_is_ok() {
 fn route_codegen_emits_route_json() {
     let parsed = sfc::parse_with_path(
         "@template { <h1>Users</h1> }\n@route { path: \"/admin/users\", name: \"admin-users\", middleware: [\"auth\", \"audit\"], ssr: false, layout: \"admin\" }\n",
-        Some("src/pages/users.scribe"),
+        Some("src/pages/users.aihu"),
     )
     .unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -80,7 +80,7 @@ fn build_target_client_suppresses_manifest() {
 fn route_block_errors_outside_pages_when_path_known() {
     let err = compile_with_path(
         "@template { <h1>Users</h1> }\n@route { path: \"/admin/users\" }\n",
-        Some("src/components/users.scribe"),
+        Some("src/components/users.aihu"),
     )
     .expect_err("route outside src/pages should fail");
     assert!(err.message.contains("C500"));

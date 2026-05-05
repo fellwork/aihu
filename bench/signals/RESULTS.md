@@ -1,8 +1,8 @@
-# `@scribe/signals` Bench Results
+# `@aihu/signals` Bench Results
 
 **Generated:** 2026-05-02
 **Runner:** mitata 1.0.34 + memory.ts (--expose-gc) · Bun 1.3.8 · Node 24.3.0
-**Track:** A — vanilla scribe vs. SOTA JS reactivity libs
+**Track:** A — vanilla aihu vs. SOTA JS reactivity libs
 
 See `HARNESS.md` for how this is measured and how to add new workloads. See `CHANGELOG.md` for the historical record.
 
@@ -14,7 +14,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 428.09 ns | 415.89 ns | 583.57 ns | 2.34M |
+| @aihu/signals | 428.09 ns | 415.89 ns | 583.57 ns | 2.34M |
 | alien-signals | 729.49 ns | 716.09 ns | 928.10 ns | 1.37M |
 | @preact/signals-core | 582.76 ns | 572.12 ns | 803.05 ns | 1.72M |
 | @vue/reactivity | 1.00 µs | 954.10 ns | 1.25 µs | 995.57K |
@@ -25,7 +25,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -40,7 +40,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 3.18 µs | 3.13 µs | 3.69 µs | 314.73K |
+| @aihu/signals | 3.18 µs | 3.13 µs | 3.69 µs | 314.73K |
 | alien-signals | 3.05 µs | 3.02 µs | 3.28 µs | 328.13K |
 | @preact/signals-core | 4.84 µs | 4.80 µs | 5.29 µs | 206.61K |
 | @vue/reactivity | 5.70 µs | 5.67 µs | 5.86 µs | 175.59K |
@@ -51,7 +51,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -66,7 +66,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 2.70 µs | 2.69 µs | 2.98 µs | 370.77K |
+| @aihu/signals | 2.70 µs | 2.69 µs | 2.98 µs | 370.77K |
 | alien-signals | 3.68 µs | 3.64 µs | 4.04 µs | 271.71K |
 | @preact/signals-core | 4.51 µs | 4.47 µs | 4.85 µs | 221.93K |
 | @vue/reactivity | 8.36 µs | 8.34 µs | 8.57 µs | 119.62K |
@@ -77,7 +77,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -92,7 +92,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 2.91 µs | 2.88 µs | 3.23 µs | 343.51K |
+| @aihu/signals | 2.91 µs | 2.88 µs | 3.23 µs | 343.51K |
 | alien-signals | 2.27 µs | 2.25 µs | 2.41 µs | 440.92K |
 | @preact/signals-core | 3.46 µs | 3.48 µs | 3.61 µs | 289.18K |
 | @vue/reactivity | 4.87 µs | 4.86 µs | 5.09 µs | 205.42K |
@@ -103,7 +103,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -118,7 +118,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 595.55 ns | 585.94 ns | 780.10 ns | 1.68M |
+| @aihu/signals | 595.55 ns | 585.94 ns | 780.10 ns | 1.68M |
 | alien-signals | 1.41 µs | 1.35 µs | 2.09 µs | 707.16K |
 | @preact/signals-core | 947.46 ns | 952.44 ns | 1.15 µs | 1.06M |
 | @vue/reactivity | 3.95 µs | 3.93 µs | 4.27 µs | 252.93K |
@@ -129,7 +129,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -144,7 +144,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @scribe/signals | 88.06 µs | 87.63 µs | 91.09 µs | 11.36K |
+| @aihu/signals | 88.06 µs | 87.63 µs | 91.09 µs | 11.36K |
 | alien-signals | 97.08 µs | 96.43 µs | 98.90 µs | 10.30K |
 | @preact/signals-core | 57.95 µs | 57.70 µs | 60.14 µs | 17.26K |
 | @vue/reactivity | 90.60 µs | 89.86 µs | 95.20 µs | 11.04K |
@@ -155,7 +155,7 @@ See `HARNESS.md` for how this is measured and how to add new workloads. See `CHA
 
 | Competitor | build/graph | peak-malloc | dispose-residual |
 | --- | ---: | ---: | ---: |
-| @scribe/signals | — | — | — |
+| @aihu/signals | — | — | — |
 | alien-signals | — | — | — |
 | @preact/signals-core | — | — | — |
 | @vue/reactivity | — | — | — |
@@ -170,10 +170,10 @@ The competitors in this matrix emphasise different axes in their own READMEs. Th
 
 *alien-signals' canonical bench is `transitive-bullshit/js-reactivity-benchmark` (cellx, mol, kairo, s-bench).*
 
-- `cellx` (diamond): see Time table above — scribe is the head-to-head measurement.
-- `mol-bench` (deep-propagation-100, NEW): scribe is measured on alien-signals' deep-chain headline axis.
-- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, scribe) historically lead this; we now have receipts.
-- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; scribe's per-graph cost is the load-bearing memory number.
+- `cellx` (diamond): see Time table above — aihu is the head-to-head measurement.
+- `mol-bench` (deep-propagation-100, NEW): aihu is measured on alien-signals' deep-chain headline axis.
+- `kairo-bench` (dynamic-deps, NEW): subscription-churn axis. Forward-subscription models (alien, aihu) historically lead this; we now have receipts.
+- `s-bench 1to1000` (creation-1to1000, NEW): allocation/wiring throughput. See Time + Memory tables; aihu's per-graph cost is the load-bearing memory number.
 
 ### vs. @vue/reactivity
 
@@ -181,7 +181,7 @@ The competitors in this matrix emphasise different axes in their own READMEs. Th
 
 - `effect.bench` ≈ our `wide-fanout-100`: see Time table.
 - `computed.bench` ≈ our `cellx`: see Time table.
-- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from scribe's tuple signals. Intentional gap; scribe does not aim to compete on object-property thrash. Documented per design §1.3.
+- `reactiveObject.bench`: **NOT MEASURED** — proxy-reactivity is a fundamentally different model from aihu's tuple signals. Intentional gap; aihu does not aim to compete on object-property thrash. Documented per design §1.3.
 
 ### vs. @preact/signals-core
 
@@ -206,11 +206,11 @@ The competitors in this matrix emphasise different axes in their own READMEs. Th
 
 ## Bundle size (gz)
 
-Each competitor's main entry as shipped, gzipped at level 9. Note: not minified — Vue and Solid ship dev/prod variants; we use the production ESM build where one exists. `@scribe/signals` is measured against `dist/index.js` (the same file size-limit gates).
+Each competitor's main entry as shipped, gzipped at level 9. Note: not minified — Vue and Solid ship dev/prod variants; we use the production ESM build where one exists. `@aihu/signals` is measured against `dist/index.js` (the same file size-limit gates).
 
 | Competitor | Raw | Gzipped |
 | --- | ---: | ---: |
-| @scribe/signals | 4.68 KB | 1.82 KB |
+| @aihu/signals | 4.68 KB | 1.82 KB |
 | alien-signals | 7.28 KB | 1.58 KB |
 | @preact/signals-core | 5.31 KB | 1.95 KB |
 | @vue/reactivity | 19.19 KB | 7.27 KB |
@@ -224,7 +224,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
   "cells": [
     {
       "workload": "cellx",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 428.08961041205754,
       "p50": 415.8935546875,
       "p99": 583.5693359375,
@@ -272,7 +272,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     },
     {
       "workload": "wide-fanout-100",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 3177.3230147688355,
       "p50": 3128.7109375,
       "p99": 3688.37890625,
@@ -320,7 +320,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     },
     {
       "workload": "batched-writes-100",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 2697.0680414244184,
       "p50": 2693.5302734375,
       "p99": 2983.5205078125,
@@ -368,7 +368,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     },
     {
       "workload": "deep-propagation-100",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 2911.0897827148438,
       "p50": 2878.9794921875,
       "p99": 3227.1240234375,
@@ -416,7 +416,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     },
     {
       "workload": "dynamic-deps",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 595.5468990532636,
       "p50": 585.9375,
       "p99": 780.1025390625,
@@ -464,7 +464,7 @@ Each competitor's main entry as shipped, gzipped at level 9. Note: not minified 
     },
     {
       "workload": "creation-1to1000",
-      "competitor": "@scribe/signals",
+      "competitor": "@aihu/signals",
       "mean": 88055.36702473958,
       "p50": 87627.490234375,
       "p99": 91086.6455078125,

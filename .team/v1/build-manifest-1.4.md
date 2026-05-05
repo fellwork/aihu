@@ -22,7 +22,7 @@
 - JS tests: 350 passed (was 340 before — +10 new slot unit tests)
 - Rust compiler tests: 72 passed (was 70 — +2 new slot codegen tests)
 
-## Size Delta — @scribe/arbor
+## Size Delta — @aihu/arbor
 - Before: ~2117 B gz (per plan spec headroom note)
 - After: 1847 B gz
 - Cap: 2200 B gz
@@ -34,7 +34,7 @@
 |---|-----------|--------|
 | 1 | `slot()` creates `<slot>` DOM element, returns Leaf | PASS |
 | 2 | `slot('header')` creates `<slot name="header">` | PASS |
-| 3 | Both exported from `@scribe/arbor` | PASS |
+| 3 | Both exported from `@aihu/arbor` | PASS |
 | 4 | Compiler: `<slot>` → `slot()`, `<slot name="x">` → `slot('x')` | PASS |
 | 5 | All existing tests pass | PASS (350/350) |
 | 6 | `bun run build` size gate ≤ 2200 B gz | PASS (1847 B) |

@@ -1,15 +1,15 @@
 /**
- * `@scribe/agent-service` — core implementation (Plan 5.2).
+ * `@aihu/agent-service` — core implementation (Plan 5.2).
  *
  * `createAgentService` aggregates registered `AgentMetadata` entries and
  * exposes them as MCP-compatible tools via `getManifest`, `handleToolCall`,
  * and `asMiddleware`.
  */
-import type { AgentMetadata } from '@scribe/agent'
+import type { AgentMetadata } from '@aihu/agent'
 import type { AgentManifest, AgentService, AgentServiceOptions, AgentToolEntry } from './types.ts'
 
 /** Route prefix for the tool-call middleware. */
-const TOOL_CALL_PATH = '/__scribe/tools/call'
+const TOOL_CALL_PATH = '/__aihu/tools/call'
 
 /**
  * Convert a single `AgentMetadata` entry into an `AgentToolEntry`.
@@ -80,7 +80,7 @@ function buildService(metas: AgentMetadata[]): AgentService {
  * Create an `AgentService`.
  *
  * When `options.manifests` is provided those entries are used directly.
- * Otherwise the function reads all entries from the `@scribe/agent` global
+ * Otherwise the function reads all entries from the `@aihu/agent` global
  * registry at call time (not lazily — the snapshot is taken once).
  *
  * Full Plan 5.2 note: the registry export `getAgentMetadata` looks up by tag,

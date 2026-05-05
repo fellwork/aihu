@@ -55,30 +55,30 @@ Round 5 has two candidate plans: **Plan 1.3 (Scoped Styles)** and **Plan 1.4 (Sl
 
 ### Brief A: size-limit fix (Builder)
 
-**Context:** `npx size-limit` exits with code 1 because size-limit's internal esbuild pass cannot resolve `@scribe/signals` and `@scribe/context` when evaluating `@scribe/data`'s bundle. These are peer dependencies of `@scribe/data`, not dependencies of the workspace root, so size-limit's automatic peer-ignore logic (which reads `peerDependencies` from the root `package.json`) does not pick them up.
+**Context:** `npx size-limit` exits with code 1 because size-limit's internal esbuild pass cannot resolve `@aihu/signals` and `@aihu/context` when evaluating `@aihu/data`'s bundle. These are peer dependencies of `@aihu/data`, not dependencies of the workspace root, so size-limit's automatic peer-ignore logic (which reads `peerDependencies` from the root `package.json`) does not pick them up.
 
-**Root cause confirmed:** `node_modules/size-limit/get-config.js` lines 188–190 show that size-limit reads `peerDependencies` from the *root* `package.json` and auto-populates `check.ignore`. The workspace root has no `peerDependencies`, so none are excluded. The `@scribe/data` entry needs an explicit `"ignore"` field.
+**Root cause confirmed:** `node_modules/size-limit/get-config.js` lines 188–190 show that size-limit reads `peerDependencies` from the *root* `package.json` and auto-populates `check.ignore`. The workspace root has no `peerDependencies`, so none are excluded. The `@aihu/data` entry needs an explicit `"ignore"` field.
 
 **The fix (one operation):**
 
 File: `.size-limit.json`
 
-Add `"ignore": ["@scribe/signals", "@scribe/context"]` to the `@scribe/data` entry only. Do not add it to other entries — those packages bundle their deps correctly already.
+Add `"ignore": ["@aihu/signals", "@aihu/context"]` to the `@aihu/data` entry only. Do not add it to other entries — those packages bundle their deps correctly already.
 
 Result:
 ```json
 {
-  "name": "@scribe/data",
+  "name": "@aihu/data",
   "path": "packages/data/dist/index.js",
   "limit": "750 B",
   "gzip": true,
-  "ignore": ["@scribe/signals", "@scribe/context"]
+  "ignore": ["@aihu/signals", "@aihu/context"]
 }
 ```
 
 **Acceptance criteria:**
 - `npx size-limit` exits 0 with no `Could not resolve` errors
-- All 6 entries report their sizes and PASS (or, if `@scribe/data`'s dist is not yet built, the entry is skipped gracefully — the error being fixed is the resolution failure, not the size measurement)
+- All 6 entries report their sizes and PASS (or, if `@aihu/data`'s dist is not yet built, the entry is skipped gracefully — the error being fixed is the resolution failure, not the size measurement)
 - No other entries in `.size-limit.json` are changed
 - `bun run build` still passes (it uses raw gzip; should be unaffected)
 
@@ -88,11 +88,11 @@ Result:
 
 ### Brief B: arbor bundle investigation (Investigator)
 
-**Context:** `@scribe/arbor` is at 2151 B gz against a 2200 B cap — 49 B headroom. Plan 1.4 (Slots) is the next arbor-touching plan. Before a Builder is dispatched for 1.4, we need a clear accounting of what's in the bundle and a recommendation: raise the cap, reclaim bytes, or defer 1.4.
+**Context:** `@aihu/arbor` is at 2151 B gz against a 2200 B cap — 49 B headroom. Plan 1.4 (Slots) is the next arbor-touching plan. Before a Builder is dispatched for 1.4, we need a clear accounting of what's in the bundle and a recommendation: raise the cap, reclaim bytes, or defer 1.4.
 
 **What to measure:**
 
-1. **Bundle composition breakdown.** Arbor bundles signals — the dist does NOT externalize `@scribe/signals`. Measure what fraction of the 2151 B is signal code vs. arbor-native code. Method: compare `gzip -c packages/signals/dist/index.js | wc -c` (1732 B) vs. the overlap in the arbor bundle. Note that bundled + minified signals may compress differently when combined with arbor code. The Investigator should estimate signal contribution by temporarily externalizing signals in the rolldown config (for measurement only, not for ship) and noting the before/after.
+1. **Bundle composition breakdown.** Arbor bundles signals — the dist does NOT externalize `@aihu/signals`. Measure what fraction of the 2151 B is signal code vs. arbor-native code. Method: compare `gzip -c packages/signals/dist/index.js | wc -c` (1732 B) vs. the overlap in the arbor bundle. Note that bundled + minified signals may compress differently when combined with arbor code. The Investigator should estimate signal contribution by temporarily externalizing signals in the rolldown config (for measurement only, not for ship) and noting the before/after.
 
 2. **Per-module cost in the arbor bundle.** Identify the top contributors by logical module (structural.ts is the largest source at 160 lines; mount.ts is 235 lines). Use rolldown's bundle analysis output or inspect the minified dist directly to estimate which logical blocks take the most bytes.
 
@@ -131,19 +131,19 @@ Change `SignalMap`'s internal `HashMap<String, String>` to `BTreeMap<String, Str
 Steps:
 1. In `signals.rs`, replace `use std::collections::HashMap` with `use std::collections::BTreeMap`.
 2. Replace the `HashMap::new()` call (or equivalent) inside `SignalMap`'s constructor with `BTreeMap::new()`.
-3. Run `cargo test -p scribe-compiler` — some snapshot files will now have a different (sorted) key order. Re-accept changed snapshots with `cargo insta review` or `UPDATE_EXPECT=1 cargo test`.
+3. Run `cargo test -p aihu-compiler` — some snapshot files will now have a different (sorted) key order. Re-accept changed snapshots with `cargo insta review` or `UPDATE_EXPECT=1 cargo test`.
 4. Confirm all 32+ tests still pass and no new failures are introduced.
 5. Commit with message: `refactor(compiler): use BTreeMap for SignalMap — deterministic snapshot order`.
 
 **Item 2 — Vite/Bun integration investigation:**
 
-`bun vite build` in `packages/compiler/fixtures/vite-counter/` fails because Bun+Rollup4 does not properly invoke `scribeCompilerPlugin()`. The `bun run integrate.ts` path works correctly (it calls `transform()` directly). Acceptance criteria C4-6 (`bun vite build` → valid `dist/`) is listed as PASS in the verification report but may be based on the working `integrate.ts` path.
+`bun vite build` in `packages/compiler/fixtures/vite-counter/` fails because Bun+Rollup4 does not properly invoke `aihuCompilerPlugin()`. The `bun run integrate.ts` path works correctly (it calls `transform()` directly). Acceptance criteria C4-6 (`bun vite build` → valid `dist/`) is listed as PASS in the verification report but may be based on the working `integrate.ts` path.
 
 Steps:
 1. Run `bun vite build` in `packages/compiler/fixtures/vite-counter/` and capture the exact error.
-2. Determine whether the failure is: (a) a Bun+ESM module interop issue with the `scribeCompilerPlugin()` Vite hook, (b) a Rollup4 plugin API incompatibility, or (c) a path/resolution issue.
+2. Determine whether the failure is: (a) a Bun+ESM module interop issue with the `aihuCompilerPlugin()` Vite hook, (b) a Rollup4 plugin API incompatibility, or (c) a path/resolution issue.
 3. If fixable with ≤ 10 lines of change: fix it and note the change.
-4. If not fixable without significant rework: document the limitation clearly in `packages/compiler/js/index.ts` JSDoc and in `@scribe/compiler`'s README section of the package.json or a `KNOWN_ISSUES` comment block. Do not silently leave C4-6 in a broken state.
+4. If not fixable without significant rework: document the limitation clearly in `packages/compiler/js/index.ts` JSDoc and in `@aihu/compiler`'s README section of the package.json or a `KNOWN_ISSUES` comment block. Do not silently leave C4-6 in a broken state.
 5. Update `.team/compiler/state-compiler.md` with the outcome.
 
 **Item 3 — Compiler topic summary:**
@@ -152,13 +152,13 @@ Write `.team/compiler/summaries/compiler-summary.md`. The summaries directory al
 
 The summary should cover (approximately 400–700 words):
 - What the compiler does: SFC → TypeScript pipeline (C-0 through C-4)
-- Architecture in one paragraph: Rust binary + npm JS bridge, key types (`ScribeSource`, `CompileUnit`, `SignalMap`, `TemplateNode`), canonical emit form
+- Architecture in one paragraph: Rust binary + npm JS bridge, key types (`AihuSource`, `CompileUnit`, `SignalMap`, `TemplateNode`), canonical emit form
 - Key decisions made and why (OQ-C9 emit pattern, OQ-C3 signal naming, OQ-C7 scoped styles warn-and-ignore, OQ-C16 HashMap → now BTreeMap)
 - Known limitations: source maps deferred (OQ-C8), conditionals/lists compile error, `bun vite build` status (per Item 2 outcome)
 - What a future engineer needs to know before touching this code
 
 **Acceptance criteria for Brief C overall:**
-- `cargo test -p scribe-compiler` exits 0 with all tests passing (post BTreeMap change)
+- `cargo test -p aihu-compiler` exits 0 with all tests passing (post BTreeMap change)
 - All updated snapshots re-accepted and committed
 - Vite investigation documented (fixed or known-limitation note in place)
 - `.team/compiler/summaries/compiler-summary.md` exists with all five sections above

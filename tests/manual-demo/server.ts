@@ -9,14 +9,14 @@ import { AboutPage } from './pages/about.ts'
 import { HomePage } from './pages/home.ts'
 
 const ar = createAgentReadinessRoutes({
-  name: 'Scribe Demo',
-  summary: 'A scribe-powered demo app.',
-  endpoint: 'https://demo.scribe.dev/mcp',
+  name: 'Aihu Demo',
+  summary: 'A aihu-powered demo app.',
+  endpoint: 'https://demo.aihu.dev/mcp',
   version: '0.0.0',
 })
 
 const headConfig = {
-  title: 'Scribe',
+  title: 'Aihu',
   lang: 'en',
   meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
   links: [{ rel: 'stylesheet', href: '/style.css' }],
@@ -61,4 +61,4 @@ export default Bun.serve({
   port: 3456,
 })
 
-console.log('Scribe demo running at http://localhost:3456/')
+console.log('Aihu demo running at http://localhost:3456/')

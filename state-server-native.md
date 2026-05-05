@@ -5,7 +5,7 @@
 **Test floor:** 612 TS + 222 Rust
 **Previously updated:** 2026-05-02 (post-PR #27 merge + Historian closeout)
 **Written by:** Historian (server-native session-001/002 closeout)
-**Track:** server-native (Rust napi-rs core for `@scribe/server` SSR)
+**Track:** server-native (Rust napi-rs core for `@aihu/server` SSR)
 **Track HEAD on main (server-native milestone):** `b459d6e` (Merge PR #27)
 
 ---
@@ -14,7 +14,7 @@
 
 | Component | Status | Location |
 |---|---|---|
-| Rust crate (`scribe-server-native`, cdylib) | ✅ Done | `packages/server/src-native/` (Cargo.toml, build.rs, src/lib.rs, src/render.rs, src/escape.rs) |
+| Rust crate (`aihu-server-native`, cdylib) | ✅ Done | `packages/server/src-native/` (Cargo.toml, build.rs, src/lib.rs, src/render.rs, src/escape.rs) |
 | JS three-state loader | ✅ Done | `packages/server/src/loader.ts` |
 | Index re-export wiring | ✅ Done | `packages/server/src/index.ts:8` |
 | Property-test parity harness (8 named + 200 fast-check) | ✅ Done | `packages/server/tests/native-parity.test.ts` |
@@ -58,7 +58,7 @@ Verifier verdict: **PASS_WITH_NOTES**. Zero blocking findings.
 
 | Item | Priority | Status / Notes |
 |---|---|---|
-| `publish-server` job for `@scribe/server` itself | **HIGH (before v0.1.0 tag)** | OQ-SN-4 deferred. Without it, `npm install @scribe/server` cannot resolve platform optionalDependencies. Sequence required: `build-native` → `publish-native` → `publish-server`. |
+| `publish-server` job for `@aihu/server` itself | **HIGH (before v0.1.0 tag)** | OQ-SN-4 deferred. Without it, `npm install @aihu/server` cannot resolve platform optionalDependencies. Sequence required: `build-native` → `publish-native` → `publish-server`. |
 | Hydratable mode parity tests (S9 + S10) | MEDIUM | OQ-SN-3 deferred. Rust impl supports `hydratable` (Rust unit-tested); not in property gate. Add S9/S10 named samples in v0+M+1 spec. |
 | `renderToStream` Rust port | MEDIUM (v0+M+1) | Async boundaries + DataSource suspension. Streaming-controller protocol stabilization first. |
 | `null` attr coverage in property gate | LOW | Verifier §5 HIGH; correctness verified by analysis. Extend `attrValueArb` or add named sample. |

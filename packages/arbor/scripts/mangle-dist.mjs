@@ -1,5 +1,5 @@
 /**
- * Post-build property mangler for @scribe/arbor.
+ * Post-build property mangler for @aihu/arbor.
  *
  * rolldown v1.0.0-rc.17's mangle.properties API is not wired through in the
  * rc.17 output config. This script applies safe post-minification property
@@ -53,7 +53,7 @@ const replacements = [
   // ─────── Inlined signals runtime (R7-arbor parity with signals mangler) ───────
   //
   // Mirrors packages/signals/scripts/mangle-dist.mjs:39-83. These names
-  // appear in arbor's bundle because @scribe/arbor inlines @scribe/signals's
+  // appear in arbor's bundle because @aihu/arbor inlines @aihu/signals's
   // `effect()` for the standalone-package UX. signals's own mangler runs
   // on signals's dist; arbor must mangle a copy.
 

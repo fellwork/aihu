@@ -1,9 +1,9 @@
-import { createAgentService } from '@scribe/agent-service'
+import { createAgentService } from '@aihu/agent-service'
 import { describe, expect, it } from 'vitest'
 import { mountAcpAdapter } from '../src/index.ts'
 
 /**
- * Plan 5.3 — unit tests for `@scribe/agent-acp`.
+ * Plan 5.3 — unit tests for `@aihu/agent-acp`.
  *
  * AC-1:  Agent card GET returns 200 JSON.
  * AC-2:  Agent card has agent_id, description, skills.
@@ -96,7 +96,7 @@ describe('agent card — GET /.well-known/acp-agent', () => {
     const mw = adapter.asMiddleware()
     const res = await mw(makeGet('http://localhost/.well-known/acp-agent'))
     const body = (await res?.json()) as { agent_id: string }
-    expect(body.agent_id).toBe('scribe-agent-service')
+    expect(body.agent_id).toBe('aihu-agent-service')
   })
 })
 

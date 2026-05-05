@@ -15,7 +15,7 @@
 | Bun | `1.3.8` |
 | Runner | `bench/signals/src/runner.ts` (mitata) |
 
-## 3-run capture (`@scribe/signals`, p50)
+## 3-run capture (`@aihu/signals`, p50)
 
 | Workload | Run 1 | Run 2 | Run 3 | **Median** |
 |---|---:|---:|---:|---:|
@@ -71,8 +71,8 @@ Same uniform-upward pattern (~7–14 %) vs the Verifier's pre-merge capture. **T
 
 The within-this-session pre-vs-post deltas remain useful for Item 2 residual-gain analysis if interpreted relative to the Verifier's same-environment numbers (which are the load-bearing α gate evidence):
 
-- **wide-fanout-100:** my Δ −17.6 % vs Verifier Δ −27.7 % — both decisively show α captured the gain. **Scribe is now the field leader vs alien (3.65 µs vs alien 3.57 µs in run 1; in RESULTS.md 3.13 µs vs alien 3.02 µs — within ~2 %).**
-- **deep-propagation-100:** my Δ −3.8 % vs Verifier Δ −13.2 % — gain is real but reduced in this session by environmental noise; RESULTS.md shows scribe at 2.88 µs vs alien 2.27 µs (~1.30× gap remaining).
+- **wide-fanout-100:** my Δ −17.6 % vs Verifier Δ −27.7 % — both decisively show α captured the gain. **Aihu is now the field leader vs alien (3.65 µs vs alien 3.57 µs in run 1; in RESULTS.md 3.13 µs vs alien 3.02 µs — within ~2 %).**
+- **deep-propagation-100:** my Δ −3.8 % vs Verifier Δ −13.2 % — gain is real but reduced in this session by environmental noise; RESULTS.md shows aihu at 2.88 µs vs alien 2.27 µs (~1.30× gap remaining).
 - **cellx:** my Δ −1.7 % vs Verifier Δ −14.0 % — gain confirmed.
 - **batched-writes-100, dynamic-deps, creation-1to1000:** noisy within-session deltas; RESULTS.md confirms post-α numbers within α gate tolerance.
 

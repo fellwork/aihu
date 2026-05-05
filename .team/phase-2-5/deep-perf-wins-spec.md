@@ -1,4 +1,4 @@
-# Spec — `@scribe/signals` Deep Perf Wins (size-relaxed)
+# Spec — `@aihu/signals` Deep Perf Wins (size-relaxed)
 
 **Author:** Architect
 **Date:** 2026-04-28
@@ -11,7 +11,7 @@ restricted leaf path; commits `235312a` and `2790610`).
 
 This spec is binding. It is **size-relaxed**: the bundle hard cap is
 raised to **1500 B gz** (from 1024 B) per Team Lead authorization. The
-public `@scribe/signals` API surface is unchanged; every win is internal.
+public `@aihu/signals` API surface is unchanged; every win is internal.
 Phase 3's `phase-3/arbor-implementation` worktree is concurrent — this
 spec touches **no** files under `packages/arbor/` and **no** files under
 `bench/signals/` (other than auto-regenerated `RESULTS.md` /
@@ -74,7 +74,7 @@ this spec is `/** @internal */`. The Phase 2 verification matrix
 ### §1.5 Relationship to concurrent Phase 3 arbor work
 
 Arbor lives on `phase-3/arbor-implementation` (separate worktree) and
-consumes `@scribe/signals` only through the public surface. Because
+consumes `@aihu/signals` only through the public surface. Because
 this spec preserves that surface bit-for-bit, **the two branches do
 not need to coordinate.** This spec MUST NOT touch:
 - `packages/arbor/` (any file)
@@ -264,7 +264,7 @@ Per-edge cost: 1 Link object = ~6 fields. Per-node cost: 4 head/tail
 slots replacing the `subs` field (net +24 B per node closure).
 
 **Why this is the load-bearing win for wide-fanout.** alien-signals'
-8.26 µs on this machine vs scribe's 12.59 µs is largely the difference
+8.26 µs on this machine vs aihu's 12.59 µs is largely the difference
 between `Set.add` / iterator-walk and Link push / pointer-walk. A
 single forward edge walk in alien is `for (let l = head; l; l = l.nextSub)`
 — no iterator allocation, no hash lookup. On wide-fanout-100, that's
@@ -448,7 +448,7 @@ would benefit from topological ordering:
 - `batched-writes-100`: 1 effect.
 
 The shape that *would* benefit is "1 signal → c1 → {effA, effB}
-where effA's body also reads c1 again" — and *even there*, scribe's
+where effA's body also reads c1 again" — and *even there*, aihu's
 two-phase mark/settle/drain (parent §2.4) already ensures c1 is
 fresh before either effect runs (settle phase runs all visited
 computeds before any drain effect runs). **Topological ordering of
@@ -536,12 +536,12 @@ applies the per-phase fallback noted in that phase's "Risks" subsection.
 ### §3.5 Sanity-check predictions vs alien-signals
 
 After Phase 2:
-- **wide-fanout-100:** scribe ~7.5 µs (Builder machine) vs alien
-  ~8.26 µs. Scribe at parity-or-better. Goal cleared.
-- **cellx:** scribe ~1.15 µs (Builder machine) vs alien ~1.63 µs.
-  Scribe **ahead** (alien runs the same Set-equivalent linked-list but
+- **wide-fanout-100:** aihu ~7.5 µs (Builder machine) vs alien
+  ~8.26 µs. Aihu at parity-or-better. Goal cleared.
+- **cellx:** aihu ~1.15 µs (Builder machine) vs alien ~1.63 µs.
+  Aihu **ahead** (alien runs the same Set-equivalent linked-list but
   has slightly heavier per-eval path).
-- **batched-writes-100:** scribe ~7.7 µs vs alien ~9.81 µs. Scribe
+- **batched-writes-100:** aihu ~7.7 µs vs alien ~9.81 µs. Aihu
   **ahead.**
 
 If the actual numbers come in within ±2σ of these predictions, the

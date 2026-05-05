@@ -35,7 +35,7 @@ Commit: 32ba955
 | `"const ["` prefix guard is a sufficient, tight discriminator for array-destructured signal declarations | **YES** | Not obvious from source alone. Future agents writing alternate signal parsers might reach for regex or AST-based approaches. The fact that a simple prefix check is sufficient (and verified against imports, plain assignments, arrow functions, and non-destructuring patterns) is load-bearing architectural knowledge for C-3/C-4 codegen. |
 | `mixed_vars_and_signals` bidirectional test pattern | **YES** | Design principle applicable beyond this codebase. A single snapshot that contains both in-scope and out-of-scope items simultaneously guards against both under- and over-extraction. Worth encoding as a testing convention for future phases. |
 | `TemplateNode` uses owned `String` fields (not `&'a str`) — delimiter-stripping produces non-contiguous substrings | **PENDING (from session 2)** | Still load-bearing. Not yet promoted. |
-| Hand-rolled recursive descent parser — zero dependencies, full control over scribe-specific directives | **PENDING (from session 2)** | Still load-bearing. Not yet promoted. |
+| Hand-rolled recursive descent parser — zero dependencies, full control over aihu-specific directives | **PENDING (from session 2)** | Still load-bearing. Not yet promoted. |
 | `_setMount` constraint: app-level bootstrap call, not a compiler concern | **PENDING (from session 2)** | Still load-bearing. Not yet promoted. |
 
 ---

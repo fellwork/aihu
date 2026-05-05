@@ -3,13 +3,13 @@
   "compilerOptions": {
     "noEmit": true,
     "paths": {
-      "@scribe/signals": ["./packages/signals/src/index.ts"],
-      "@scribe/arbor": ["./packages/arbor/src/index.ts"],
-      "@scribe/runtime": ["./packages/runtime/src/index.ts"],
-      "@scribe/agent": ["./packages/agent/src/index.ts"],
-      "@scribe/server": ["./packages/server/src/index.ts"],
-      "@scribe/agent-readiness": ["./packages/agent-readiness/src/index.ts"],
-      "@scribe/plugin": ["./packages/plugin/src/index.ts"]
+      "@aihu/signals": ["./packages/signals/src/index.ts"],
+      "@aihu/arbor": ["./packages/arbor/src/index.ts"],
+      "@aihu/runtime": ["./packages/runtime/src/index.ts"],
+      "@aihu/agent": ["./packages/agent/src/index.ts"],
+      "@aihu/server": ["./packages/server/src/index.ts"],
+      "@aihu/agent-readiness": ["./packages/agent-readiness/src/index.ts"],
+      "@aihu/plugin": ["./packages/plugin/src/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/tests/**/*.ts", "tests/**/*.ts"]

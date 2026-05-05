@@ -20,7 +20,7 @@ parser with semantic analysis, deprecation warnings, and a conformance fixture s
 | v0.3.5 | `warn_undeclared_template_refs()` — checks template for `{identifier}` refs not declared in `@state` | `29fb1df` |
 | v0.3.6 | `check_reserved_tokens()` — rejects `$$`, `$_`, `$0`…`$9` prefixes (C200–C203) | `29fb1df` |
 | v0.3.7 | `@agent` block routing confirmed + comment header added to parse output | `29fb1df` |
-| v0.3 fixtures | `bench/compiler-conformance/blocks/` — 5 `.scribe` + 5 `.golden.js` files | `4768672` |
+| v0.3 fixtures | `bench/compiler-conformance/blocks/` — 5 `.aihu` + 5 `.golden.js` files | `4768672` |
 
 **Rust tests:** 78 → 100 (+22, all green; 1 pre-existing ignored)
 **TS tests:** 476 → 476 (unchanged — Rust-only milestone)
@@ -39,7 +39,7 @@ The analysis-phase work was lightweight enough to fit in one Builder commit pair
 ## What worked
 
 - Single-PR atomic delivery: all 8 sub-items as 2 commits, both green on first try.
-- Conformance fixture pattern (`.scribe` + `.golden.js` pairs) validates lowering correctness at a glance; reusable for v0.4+ macro attribute fixtures.
+- Conformance fixture pattern (`.aihu` + `.golden.js` pairs) validates lowering correctness at a glance; reusable for v0.4+ macro attribute fixtures.
 
 ## What to improve
 

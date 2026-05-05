@@ -1,4 +1,4 @@
-import type { Dispose } from '@scribe/signals'
+import type { Dispose } from '@aihu/signals'
 import type { AttrMap, ErrorHandler, EventHandler } from './types.ts'
 
 /**

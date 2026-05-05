@@ -8,7 +8,7 @@
 
 ## What was built
 
-Plan 4.1 adds Vite HMR support so `.scribe` component changes hot-reload
+Plan 4.1 adds Vite HMR support so `.aihu` component changes hot-reload
 in dev without a full page reload.
 
 ---
@@ -28,8 +28,8 @@ in dev without a full page reload.
   - Re-exported `_hmrReplace` from `define-component.ts`
 - `packages/compiler/js/index.ts`
   - Added `_extractElementTag(code)` helper to extract the custom element tag from compiled output
-  - Added `_buildHmrCode(compiledCode, elementTag)` that instruments compiled `.scribe` modules with HMR support
-  - Updated `scribeCompilerPlugin()` transform hook to inject HMR instrumentation
+  - Added `_buildHmrCode(compiledCode, elementTag)` that instruments compiled `.aihu` modules with HMR support
+  - Updated `aihuCompilerPlugin()` transform hook to inject HMR instrumentation
 
 ---
 
@@ -52,15 +52,15 @@ set `__DEV__ = false` drop them entirely.
 
 ### Vite plugin HMR injection
 
-The `scribeCompilerPlugin()` transform hook now appends HMR instrumentation
-to each compiled `.scribe` module:
+The `aihuCompilerPlugin()` transform hook now appends HMR instrumentation
+to each compiled `.aihu` module:
 
-1. **Import rewrite** — adds `_hmrReplace` to the `@scribe/runtime` import
+1. **Import rewrite** — adds `_hmrReplace` to the `@aihu/runtime` import
 2. **Setup capture** — rewrites the single `defineComponent(setup)` call to
-   `defineComponent(__scribe_setup__ = setup)` so the setup function is
+   `defineComponent(__aihu_setup__ = setup)` so the setup function is
    captured in a module-level slot (assignment expression is valid JS;
    evaluates to `setup`, so `defineComponent` still receives it unchanged)
-3. **Default export** — `export { __scribe_setup__ as default }` makes the
+3. **Default export** — `export { __aihu_setup__ as default }` makes the
    current setup available as `newModule.default` in the HMR acceptance callback
 4. **HMR acceptance block** — guarded by `typeof __DEV__ !== 'undefined' && __DEV__`:
 
@@ -107,8 +107,8 @@ if (typeof __DEV__ !== 'undefined' && __DEV__ && import.meta.hot) {
 
 ## Acceptance criteria
 
-1. `_hmrReplace(element, newSetup)` exists and is exported from `@scribe/runtime`
-2. Vite plugin injects HMR acceptance code for `.scribe`-derived modules
+1. `_hmrReplace(element, newSetup)` exists and is exported from `@aihu/runtime`
+2. Vite plugin injects HMR acceptance code for `.aihu`-derived modules
 3. Injected code is gated behind `typeof __DEV__ !== 'undefined' && __DEV__`
 4. All existing tests pass (`bun run test` — 345/345)
 5. Runtime gz 932 B — within 1024 B size-limit gate

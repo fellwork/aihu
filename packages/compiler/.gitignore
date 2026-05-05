@@ -1,4 +1,4 @@
-# Pre-built scribe-compile binary fetched by js/postinstall.ts at install
+# Pre-built aihu-compile binary fetched by js/postinstall.ts at install
 # time. Always platform-specific and never committed — consumers download
 # from GitHub Releases.
 bin/

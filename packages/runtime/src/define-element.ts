@@ -1,4 +1,4 @@
-import type { MountScope } from '@scribe/arbor'
+import type { MountScope } from '@aihu/arbor'
 import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
 
 export const SHADOW_ROOT_SYM: unique symbol = Symbol()
@@ -42,7 +42,7 @@ function wrapClass(
 
     connectedCallback(): void {
       if (enableHydration && _hydrateFn !== null) {
-        const state = (globalThis as Record<string, unknown>).__scribe_state__ as
+        const state = (globalThis as Record<string, unknown>).__aihu_state__ as
           | Record<string, unknown>
           | undefined
         const snapshot = state?.[name] as Record<string, unknown> | undefined

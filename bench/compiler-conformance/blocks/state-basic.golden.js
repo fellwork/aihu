@@ -1,15 +1,10 @@
-import { branch, leaf, slot } from '@scribe/arbor'
+import { branch, leaf, slot } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
-import type { Signal } from '@scribe/signals'
+defineElement('state-basic', defineComponent((_ctx) => {
+  const [count, setCount] = signal(0)
 
-import { defineComponent, defineElement } from '@scribe/runtime'
-import { signal } from '@scribe/signals'
-
-defineElement(
-  'state-basic',
-  defineComponent((_ctx) => {
-    const [count, setCount] = signal(0)
-
-    return branch('div', undefined, [leaf([count, setCount] as unknown as Signal<string>)])
-  }),
-)
+  return branch('div', undefined, [leaf([count, setCount] as unknown as Signal<string>)])
+}))

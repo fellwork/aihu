@@ -1,4 +1,4 @@
-use scribe_compiler::parser::template::parse_template;
+use aihu_compiler::parser::template::parse_template;
 
 #[test]
 fn element_static_attrs() {

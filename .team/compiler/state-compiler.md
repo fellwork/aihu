@@ -50,7 +50,7 @@ All original OQs (C1–C8) resolved in Round 1. All carry-forward items resolved
 
 | OQ | Resolution | Status |
 |----|-----------|--------|
-| OQ-C1: Template syntax | Option A — HTML-first, scribe directives as thin transform layer | CLOSED |
+| OQ-C1: Template syntax | Option A — HTML-first, aihu directives as thin transform layer | CLOSED |
 | OQ-C2: Interpolation | `{{ identifier }}` only in v0; expressions are a compile error | CLOSED |
 | OQ-C3: Signal identity | Naming convention: `[foo, setFoo] = signal(...)` | CLOSED |
 | OQ-C4: Event binding | `@click` → `{ onclick: fn }` per AttrMap `on`-prefix rule | CLOSED |
@@ -61,7 +61,7 @@ All original OQs (C1–C8) resolved in Round 1. All carry-forward items resolved
 | OQ-C9: Compiler emit pattern | Option A — `defineElement('tag', defineComponent((_ctx) => { ... }))` | CLOSED |
 | OQ-C10: `leaf()` Signal type | `as unknown as Signal<string>` cast in emitted code | CLOSED |
 | OQ-C11: Rust toolchain version | `rust = "1.87.0"` in `.prototools` + `rust-toolchain.toml` at root | CLOSED |
-| OQ-C12: ScriptMeta wiring timing | Wire `pub meta: ScriptMeta` into `ScribeSource` in C-1 | CLOSED |
+| OQ-C12: ScriptMeta wiring timing | Wire `pub meta: ScriptMeta` into `AihuSource` in C-1 | CLOSED |
 | OQ-C13: `_setMount` constraint | App-level bootstrap call; not a compiler concern | CLOSED |
 | OQ-C14: `TemplateNode` lifetime | Use owned `String` fields | CLOSED |
 | OQ-C15: `parse_template()` wiring timing | Wire in C-2 via `compile_full()` | CLOSED |
@@ -111,10 +111,10 @@ All OQs closed. No new open questions.
 Files delivered:
 - `.prototools` — added `rust = "1.87.0"`
 - `rust-toolchain.toml` — new
-- `packages/compiler/Cargo.toml` — `name = "scribe-compiler"`, `edition = "2021"`
+- `packages/compiler/Cargo.toml` — `name = "aihu-compiler"`, `edition = "2021"`
 - `packages/compiler/Cargo.lock` — new
 - `packages/compiler/src/lib.rs` — public `compile()` API
-- `packages/compiler/src/types.rs` — `ScribeSource`, `ScriptMeta`, `CompileError`
+- `packages/compiler/src/types.rs` — `AihuSource`, `ScriptMeta`, `CompileError`
 - `packages/compiler/src/parser/mod.rs` — `pub mod sfc`
 - `packages/compiler/src/parser/sfc.rs` — SFC block splitter + `extract_script_meta`
 - `packages/compiler/tests/sfc_split.rs` — 5 snapshot tests + `compile_empty_source`
@@ -169,7 +169,7 @@ Files delivered:
 - `packages/compiler/tests/codegen.rs` — new: 10 named snapshot tests
 - `packages/compiler/tests/snapshots/` — 10 new `codegen__*.snap` files
 
-**counter_full snapshot** matches Section 7 oracle exactly. TypeScript codegen pipeline: `ScribeSource` → `CompileUnit` → `emit()` → `.ts` output.
+**counter_full snapshot** matches Section 7 oracle exactly. TypeScript codegen pipeline: `AihuSource` → `CompileUnit` → `emit()` → `.ts` output.
 
 ---
 
@@ -182,19 +182,19 @@ Files created or amended:
 
 | File | Commit | Notes |
 |------|--------|-------|
-| `packages/compiler/Cargo.toml` | `f82eb56` | Added `[[bin]]` entry for `scribe-compile` |
+| `packages/compiler/Cargo.toml` | `f82eb56` | Added `[[bin]]` entry for `aihu-compile` |
 | `packages/compiler/src/bin/main.rs` | `f82eb56` | CLI binary: file + stdin modes, `--out`, `--tag`, `--stdin` flags, exit 1 on error |
 | `packages/compiler/src/codegen/emit.rs` | `ffcbc3b` | Fix: `"null"` → `"undefined"` for empty attrs in `emit_attrs()` |
 | `packages/compiler/tests/snapshots/` (8 files) | `ffcbc3b` | Re-accepted after null→undefined fix |
-| `packages/compiler/js/index.ts` | `f82eb56`, `a0af4d4` | `transform()` + `scribeCompilerPlugin()` exports; `.exe` extension; `enforce: 'pre'` |
-| `packages/compiler/package.json` | `f82eb56` | `@scribe/compiler` npm package manifest |
+| `packages/compiler/js/index.ts` | `f82eb56`, `a0af4d4` | `transform()` + `aihuCompilerPlugin()` exports; `.exe` extension; `enforce: 'pre'` |
+| `packages/compiler/package.json` | `f82eb56` | `@aihu/compiler` npm package manifest |
 | `packages/compiler/moon.yml` | `f82eb56` | Moon task definitions for build/typecheck |
 | `packages/compiler/rolldown.config.ts` | `f82eb56` | Rolldown RC-17 build config |
 | `packages/compiler/tsconfig.json` | `f82eb56` | TypeScript project config |
-| `packages/compiler/fixtures/vite-counter/counter.scribe` | `f82eb56` | Integration fixture |
+| `packages/compiler/fixtures/vite-counter/counter.aihu` | `f82eb56` | Integration fixture |
 | `packages/compiler/fixtures/vite-counter/index.html` | `f82eb56` | Integration fixture |
 | `packages/compiler/fixtures/vite-counter/main.ts` | `f82eb56` | Integration fixture |
-| `packages/compiler/fixtures/vite-counter/vite.config.ts` | `f82eb56`, `a0af4d4` | Integration fixture; updated to import from `@scribe/compiler` dist |
+| `packages/compiler/fixtures/vite-counter/vite.config.ts` | `f82eb56`, `a0af4d4` | Integration fixture; updated to import from `@aihu/compiler` dist |
 | `packages/compiler/fixtures/vite-counter/integrate.ts` | `a0af4d4` | Bun script: calls `transform()` directly, asserts `defineElement(` + `map === null` |
 | `packages/compiler/tests/c4_integration.rs` | `f82eb56`, `a0af4d4` | `#[ignore]` test: `c4_transform_produces_typescript`; uses `bun run integrate.ts` |
 | `.team/compiler/architecture.md` | `012e506` | Section 17 — Phase C-4 CLI + Vite spec |
@@ -206,16 +206,16 @@ Files created or amended:
 
 ## Phase C-4 scope (COMPLETE — session 5)
 
-**Deliverable:** CLI binary (`scribe-compile`) + npm package (`@scribe/compiler`) with Vite transform hook.
+**Deliverable:** CLI binary (`aihu-compile`) + npm package (`@aihu/compiler`) with Vite transform hook.
 
 **Acceptance criteria (from architecture.md Section 8 C4-1 through C4-7):**
-- C4-1: `scribe-compile counter.scribe` → TypeScript to stdout
-- C4-2: `scribe-compile counter.scribe --out dist/` → `dist/counter.ts`
+- C4-1: `aihu-compile counter.aihu` → TypeScript to stdout
+- C4-2: `aihu-compile counter.aihu --out dist/` → `dist/counter.ts`
 - C4-3: Exit code 1 on error with `file:line: message` on stderr
-- C4-4: `@scribe/compiler` npm package exports `transform(source, id): { code, map }`
-- C4-5: Vite transform hook registered for `*.scribe`
-- C4-6: `bun vite build` with `.scribe` component → valid `dist/`
-- C4-7: Source map maps back to `.scribe` source lines
+- C4-4: `@aihu/compiler` npm package exports `transform(source, id): { code, map }`
+- C4-5: Vite transform hook registered for `*.aihu`
+- C4-6: `bun vite build` with `.aihu` component → valid `dist/`
+- C4-7: Source map maps back to `.aihu` source lines
 
 **Tag name derivation:** filename stem from `id` parameter in Vite transform. `compile_full()` + `emit()` pipeline is already complete.
 
@@ -224,10 +224,10 @@ Files created or amended:
 ## Canonical emit form (locked — do not change without spec amendment)
 
 ```typescript
-import { branch, leaf } from '@scribe/arbor'
-import type { Signal } from '@scribe/signals'
-import { signal } from '@scribe/signals'
-import { defineComponent, defineElement } from '@scribe/runtime'
+import { branch, leaf } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('counter', defineComponent((_ctx) => {
   const [count, setCount] = signal(0)
@@ -258,7 +258,7 @@ All session-6 next actions resolved:
 
 1. **Merged to main** — PR #14 at `808f1c0`.
 2. **BTreeMap in `signals.rs`** — DONE. `HashMap` → `BTreeMap`. Deterministic snapshot order. All 32 Rust tests pass, affected snapshots re-accepted.
-3. **Vite limitation documented** — DONE. `bun vite build` with `scribeCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Clear note added to `packages/compiler/js/index.ts` JSDoc. `transform()` function works correctly via `bun run integrate.ts`.
+3. **Vite limitation documented** — DONE. `bun vite build` with `aihuCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Clear note added to `packages/compiler/js/index.ts` JSDoc. `transform()` function works correctly via `bun run integrate.ts`.
 4. **Topic summary written** — DONE. `.team/compiler/summaries/compiler-summary.md` exists. Covers pipeline, architecture, key decisions, 5 known limitations.
 5. 32 Rust tests green, 320 TS tests green.
 
@@ -269,12 +269,12 @@ See `.team/compiler/summaries/compiler-summary.md` Section 4 for full list. Summ
 2. Conditionals and list rendering compile error (v1 roadmap message)
 3. `bun vite build` with Vite plugin hook broken under Bun+Rollup4 ESM interop
 4. Signal naming convention is enforced by convention, not compiler validation
-5. No type-checking of `.scribe` template expressions
+5. No type-checking of `.aihu` template expressions
 
 ## Next compiler session (if any)
 
 Pending Director decision. Candidates:
 - **Phase C-5 (watch mode)** — incremental rebuild on file change
-- **Consumer integration test** — end-to-end `.scribe` → browser rendering test
+- **Consumer integration test** — end-to-end `.aihu` → browser rendering test
 
 Neither gates Round 005. The compiler track is closed for current v0 scope.

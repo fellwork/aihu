@@ -1,4 +1,4 @@
-# Spec — `@scribe/signals` Structural Rewrite (Phase 2.5 → Phase 3-class)
+# Spec — `@aihu/signals` Structural Rewrite (Phase 2.5 → Phase 3-class)
 
 **Author:** Architect
 **Date:** 2026-04-27
@@ -8,7 +8,7 @@
 
 This spec is binding. It is not a refinement of the Phase 2.5 hybrid
 notify split — it is a structural replacement of the reactive scheduler
-inside `@scribe/signals`, scoped to fix the diamond glitch storm
+inside `@aihu/signals`, scoped to fix the diamond glitch storm
 identified by the Investigator (`cellx-investigation-report.md`,
 committed `f2f23f9`). The Phase 2 public surface is preserved verbatim;
 all four Phase 2 verification scenarios remain green; Phase 2 Finding 3
@@ -47,10 +47,10 @@ the only acknowledgment.
 
 ## §2 Internal architecture
 
-### §2.1 Direction selection: D (composite), refined for scribe
+### §2.1 Direction selection: D (composite), refined for aihu
 
 The four candidate directions described in the prompt all reach 17
-ops/op on cellx. The selection criterion is: which fits scribe's
+ops/op on cellx. The selection criterion is: which fits aihu's
 constraints (size budget ≤ 880 B target / 1024 B hard cap; no public
 surface change; preserve Phase 2 invariants; future arbor `untrack`
 hook room) at the lowest size cost while delivering parity-class perf.
@@ -64,7 +64,7 @@ hook room) at the lowest size cost while delivering parity-class perf.
 
 **Why D, specifically.** The Investigator's evidence is unambiguous: the
 gap to alien-signals is the work multiplier (5.4× more body executions),
-not call overhead (scribe's per-eval is already 16% faster than alien).
+not call overhead (aihu's per-eval is already 16% faster than alien).
 Closing the gap requires the algorithmic class that prevents the
 diamond glitch. Among glitch-free algorithms:
 
@@ -257,9 +257,9 @@ Under the originally-specified pure two-phase design (phase 1 marks only; phase 
 
 To pass the Finding 3 test, the equality short-circuit must fire **before** the effect drains. The hybrid (eager recompute in phase-2 settle, before phase-3 drain) achieves this: parity recomputes during settle, equality fires during settle, shallowClear clears MARKED on the downstream effect during settle, drain skips the effect's run because MARKED is cleared. `runs === 1`. Test passes.
 
-This is **Phase 2 Learning #9 in action** — hands-on-keyboard discovery surfaces a structural fact the spec's analytic model didn't capture. The pure two-phase design is correct in the abstract (alien-signals uses essentially this shape) but their equality-suppression mechanism is woven differently into their drain loop. Scribe's Finding 3 invariant requires the eager-on-settle hybrid; the spec is updated to reflect what the implementation must do.
+This is **Phase 2 Learning #9 in action** — hands-on-keyboard discovery surfaces a structural fact the spec's analytic model didn't capture. The pure two-phase design is correct in the abstract (alien-signals uses essentially this shape) but their equality-suppression mechanism is woven differently into their drain loop. Aihu's Finding 3 invariant requires the eager-on-settle hybrid; the spec is updated to reflect what the implementation must do.
 
-The hybrid preserves the structural goal (no diamond glitch — the body-count regression test confirms 92 → 17) and Phase 2 Finding 3. It pays a per-write settle-walk cost over `visited` that the pure design would not, but the cost is bounded by the marked-subgraph size and is the load-bearing reason the structural rewrite achieves cellx 1.6 µs (vs alien's 1.25 µs) — alien's tighter design saves ~25% on cellx but cannot fit scribe's Finding 3 contract without restructuring.
+The hybrid preserves the structural goal (no diamond glitch — the body-count regression test confirms 92 → 17) and Phase 2 Finding 3. It pays a per-write settle-walk cost over `visited` that the pure design would not, but the cost is bounded by the marked-subgraph size and is the load-bearing reason the structural rewrite achieves cellx 1.6 µs (vs alien's 1.25 µs) — alien's tighter design saves ~25% on cellx but cannot fit aihu's Finding 3 contract without restructuring.
 
 (Builder-blocker §D, commit-history reference: `846ac57` shipped the hybrid; `cellx-rewrite-builder-blockers.md §D` documents the discovery.)
 
@@ -674,7 +674,7 @@ second visit*).
 
 **Per-body-execution timing prediction:**
 
-The current scribe per-eval is 62 ns. The new design's per-eval cost is
+The current aihu per-eval is 62 ns. The new design's per-eval cost is
 slightly different:
 - `recompute()` body: same closure call as today. Same ~30 ns of fn().
 - Per-read overhead: today it's `subs.has() + EFFECT-flag check` (~5 ns);
@@ -731,7 +731,7 @@ Phase 2: each `setN(i)` call inside batch enqueues the effect once; the
 QUEUED flag dedups to 1 entry. The batch drain's phase-1 marks the
 single effect; phase 2 runs it once. Body executions: 1 (effect).
 
-Current scribe: 11.16 µs. The hot path is 100 × signal.write (which
+Current aihu: 11.16 µs. The hot path is 100 × signal.write (which
 does equality check, value mutation, queue check) plus 1 effect run.
 
 Per-write cost slightly increases:
@@ -893,7 +893,7 @@ and confirm. If it trips, apply the inlining mitigation in §3.5 risk 1.
 
 ### §4.3 Per-body-execution speed comparison
 
-Investigator's measurement: scribe 62 ns/eval, alien 74 ns/eval. The
+Investigator's measurement: aihu 62 ns/eval, alien 74 ns/eval. The
 new design changes per-eval cost only marginally (the version-XOR adds
 ~1 ns per dep read). **Predicted post-rewrite: 63–65 ns/eval.** Still
 faster than alien per call.

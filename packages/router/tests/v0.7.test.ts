@@ -32,7 +32,7 @@ const continueResult: RouterResult = { kind: 'continue' }
 // v0.7.1 — defineRouterMiddleware
 // ---------------------------------------------------------------------------
 
-describe('@scribe/router v0.7 — defineRouterMiddleware', () => {
+describe('@aihu/router v0.7 — defineRouterMiddleware', () => {
   it('returns the passed function unchanged', () => {
     const fn: RouterMiddleware = async (_ctx, next) => next()
     const result = defineRouterMiddleware(fn)
@@ -51,7 +51,7 @@ describe('@scribe/router v0.7 — defineRouterMiddleware', () => {
 // v0.7.1 — composeRouterMiddleware
 // ---------------------------------------------------------------------------
 
-describe('@scribe/router v0.7 — composeRouterMiddleware', () => {
+describe('@aihu/router v0.7 — composeRouterMiddleware', () => {
   it('calls middlewares left-to-right (chaining via next)', async () => {
     const order: string[] = []
     const a = defineRouterMiddleware(async (_ctx, next) => {
@@ -124,24 +124,24 @@ describe('@scribe/router v0.7 — composeRouterMiddleware', () => {
 })
 
 // ---------------------------------------------------------------------------
-// v0.7.4 — viteRouterIntegration export from @scribe/router/plugin
+// v0.7.4 — viteRouterIntegration export from @aihu/router/plugin
 // ---------------------------------------------------------------------------
 
-describe('@scribe/router v0.7.4 — viteRouterIntegration naming', () => {
-  it('viteRouterIntegration is exported from @scribe/router/plugin', () => {
+describe('@aihu/router v0.7.4 — viteRouterIntegration naming', () => {
+  it('viteRouterIntegration is exported from @aihu/router/plugin', () => {
     expect(typeof viteRouterIntegration).toBe('function')
   })
 
   it('viteRouterIntegration() returns a valid Vite plugin', () => {
     const plugin = viteRouterIntegration()
-    expect(plugin.name).toBe('scribe-router')
+    expect(plugin.name).toBe('aihu-router')
     expect(typeof plugin.resolveId).toBe('function')
     expect(typeof plugin.load).toBe('function')
   })
 
   it('viteRouterPlugin (deprecated alias) still works', () => {
     const plugin = viteRouterPlugin()
-    expect(plugin.name).toBe('scribe-router')
+    expect(plugin.name).toBe('aihu-router')
   })
 
   it('viteRouterIntegration === viteRouterPlugin (same function reference)', () => {

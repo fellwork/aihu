@@ -1,4 +1,4 @@
-import { signal } from '@scribe/signals'
+import { signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
 import { branch, each, leaf, mount, when } from '../src/index.ts'
 

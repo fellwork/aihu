@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/data",
+  "name": "@aihu/data",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -21,11 +21,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/signals": "workspace:*",
-    "@scribe/context": "workspace:*"
+    "@aihu/signals": "workspace:*",
+    "@aihu/context": "workspace:*"
   },
   "devDependencies": {
-    "@scribe/plugin": "workspace:*",
-    "@scribe/server": "workspace:*"
+    "@aihu/plugin": "workspace:*",
+    "@aihu/server": "workspace:*"
   }
 }

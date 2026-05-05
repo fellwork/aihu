@@ -26,8 +26,8 @@
 
 | Package | Before | After | Delta | Budget |
 |---|---|---|---|---|
-| `@scribe/arbor` | 1.28 kB gz | 1.38 kB gz | +100 B | ≤ 2048 B ✓ |
-| `@scribe/runtime` | 438 B gz | 438 B gz | 0 B | ≤ 1024 B ✓ |
+| `@aihu/arbor` | 1.28 kB gz | 1.38 kB gz | +100 B | ≤ 2048 B ✓ |
+| `@aihu/runtime` | 438 B gz | 438 B gz | 0 B | ≤ 1024 B ✓ |
 
 **Headroom remaining for Plan 1.1:** 2048 − 1382 = ~666 B (vs. Architect's ~559 B estimate — actual delta of ~100 B is lower than the 160 B estimate, leaving more headroom).
 
@@ -67,7 +67,7 @@ This means: if an effect throws on its **first synchronous run** (initial materi
 
 `mount()` wraps `_materialize` in try/catch. If caught and `errorHandler` is defined, the handler is called with `(error, pathBase)`. If `errorHandler` returns a `Node`, it is stored (stub — `// Plan 1.1: materialize fallback here`). The `finally` block safely pops the disposers stack without double-popping.
 
-### Runtime (`@scribe/runtime`)
+### Runtime (`@aihu/runtime`)
 
 No changes per Architect §1.5 and Director §5.1. `defineComponent` does not wire `onError` in Plan 4.2. The `MountOptions` third parameter on `mount()` is optional; existing `MountFn` callers are unaffected.
 
@@ -86,7 +86,7 @@ No changes per Architect §1.5 and Director §5.1. `defineComponent` does not wi
 - [x] `_currentMountDisposers()` function present and returns top of stack or null
 - [x] Tests T1–T4 pass
 - [x] All 255 pre-existing tests pass (`bun run test` exit code 0) → 259 total
-- [x] `bun run size` passes: `@scribe/arbor` = 1.38 kB ≤ 2048 B
+- [x] `bun run size` passes: `@aihu/arbor` = 1.38 kB ≤ 2048 B
 - [x] No existing `mount()` call sites in tests require modification
 - [x] `attrs.test.ts` — all 9 existing tests pass without modification
 

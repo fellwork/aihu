@@ -1,4 +1,4 @@
-import type { Signal } from '@scribe/signals'
+import type { Signal } from '@aihu/signals'
 import type { ResourceStore } from './store.ts'
 
 /**
@@ -57,7 +57,7 @@ export interface ResourceOptions<T> {
   dehydrate?: boolean
   /**
    * Cache store to use. When omitted, createResource attempts to inject
-   * ResourceStoreToken from @scribe/context; if that also yields undefined,
+   * ResourceStoreToken from @aihu/context; if that also yields undefined,
    * the module-level default singleton store is used.
    */
   store?: ResourceStore

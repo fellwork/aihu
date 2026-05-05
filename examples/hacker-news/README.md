@@ -1,6 +1,6 @@
 # `examples/hacker-news`
 
-A scribe port of the canonical Hacker News reader, modelled after
+A aihu port of the canonical Hacker News reader, modelled after
 [Vue HN](https://github.com/vuejs/vue-hackernews-2.0),
 [Solid HN](https://github.com/solidjs/solid-hackernews), and
 [React HN](https://github.com/insin/react-hn). Hits the live HN public API.
@@ -11,7 +11,7 @@ A scribe port of the canonical Hacker News reader, modelled after
 - Server-side data fetching via `defineLoader` for every route.
 - Real network I/O against `https://hacker-news.firebaseio.com/v0/`.
 - List rendering with `$each` + `$key`.
-- **Recursive components** — `Comment.scribe` renders itself for nested
+- **Recursive components** — `Comment.aihu` renders itself for nested
   replies. Path-based component naming makes the recursion direct
   (no special syntax).
 - The `route.data` prop for loader → SFC handoff (see
@@ -36,10 +36,10 @@ The HN API is public and CORS-permissive, so no proxy is needed.
 
 | File | Role |
 |---|---|
-| `src/pages/index.scribe` + `.loader.ts` | Top-stories list (paginated) |
-| `src/pages/item/[id].scribe` + `.loader.ts` | Story + recursive comment tree |
-| `src/pages/user/[id].scribe` + `.loader.ts` | User profile |
-| `src/components/Comment.scribe` | Self-recursive comment renderer |
+| `src/pages/index.aihu` + `.loader.ts` | Top-stories list (paginated) |
+| `src/pages/item/[id].aihu` + `.loader.ts` | Story + recursive comment tree |
+| `src/pages/user/[id].aihu` + `.loader.ts` | User profile |
+| `src/components/Comment.aihu` | Self-recursive comment renderer |
 | `vite.config.ts` | Wires `viteRouterIntegration()` + SSR target |
 
 ## Loader bounds

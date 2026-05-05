@@ -1,10 +1,10 @@
 // content.ts populates window.__DOCS__ before any component reads it
 import './content.ts'
 
-// Scribe components — registered as custom elements on import
-import './components/theme-toggle.scribe'
-import './components/live-demo.scribe'
-import './components/docs-shell.scribe'
+// Aihu components — registered as custom elements on import
+import './components/theme-toggle.aihu'
+import './components/live-demo.aihu'
+import './components/docs-shell.aihu'
 
 // Handle hash-based routing on first load
 const hash = window.location.hash.slice(1)

@@ -1,0 +1,3 @@
+# Pre-commit: fast checks only (biome formats/lints in <1s)
+# For the full CI replay, use `bun run check:ci` or rely on the pre-push hook.
+bunx biome check --write --staged --no-errors-on-unmatched

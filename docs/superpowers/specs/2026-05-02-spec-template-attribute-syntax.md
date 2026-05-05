@@ -1,11 +1,11 @@
-# Template Attribute Syntax — `@scribe/compiler`
+# Template Attribute Syntax — `@aihu/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
 **Spec version:** 0.1.0-draft (no amendments applied)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
-**Depends on:** `@scribe/signals` (stable), `@scribe/arbor` (stable), `@scribe/runtime` (stable)
-**Consumes:** Macro vocabulary spec (separate document), `scribe.config.ts` plugin and scope registrations
+**Depends on:** `@aihu/signals` (stable), `@aihu/arbor` (stable), `@aihu/runtime` (stable)
+**Consumes:** Macro vocabulary spec (separate document), `aihu.config.ts` plugin and scope registrations
 **Related specs:** Plugin Contract Spec, Macro Vocabulary Spec, Block Structure Spec
 
 > **Ratification note:** Migrated from `docs/spec-template-attribute-syntax.md` to `docs/superpowers/specs/` on 2026-05-02. No amendments target this spec.
@@ -14,7 +14,7 @@
 
 ## 0. Posture
 
-This spec defines the syntax for attribute values inside `@template` blocks of `.scribe` files. It is the binding contract between SFC source code and the compiler's parser.
+This spec defines the syntax for attribute values inside `@template` blocks of `.aihu` files. It is the binding contract between SFC source code and the compiler's parser.
 
 The rule is intentionally restrictive. The goal is **maximum visual clarity at the cost of some flexibility**. Attribute values follow exactly two forms; bare unquoted values are forbidden; inline JSX in attributes is forbidden in v1.
 
@@ -71,8 +71,8 @@ Some attributes take no value at all. They are present-or-absent, never quoted, 
 
 ```
 ✓ <button disabled>           ← HTML boolean attribute
-✓ <div $once>                 ← scribe boolean macro
-✓ <pre $raw>                  ← scribe boolean macro
+✓ <div $once>                 ← aihu boolean macro
+✓ <pre $raw>                  ← aihu boolean macro
 ```
 
 Boolean-only attributes are listed in their respective macro specs. The compiler MUST treat boolean-only attributes as exempt from the `=`-requires-quote-or-curly rule.
@@ -90,7 +90,7 @@ The compiler resolves identifiers in this order:
 1. Local declarations in the SFC's `@state` block (signals, computeds, resources, props, actions, lifecycle hooks)
 2. Slot-exposed context (`shield.error`, `guard.user`, etc. — see §5.3)
 3. Plugin-contributed values made available to all SFCs (per the Plugin Contract Spec §3)
-4. Project-level imports declared in `scribe.config.ts`
+4. Project-level imports declared in `aihu.config.ts`
 
 Identifiers not found in any scope MUST cause a compile error citing the SFC line and the attempted lookup chain.
 
@@ -309,7 +309,7 @@ Slot content references exposed context using property paths in quoted form:
 User components MAY expose context to their slot consumers using the `expose` attribute on a `<$slot>` declaration:
 
 ```
-<!-- In UserList.scribe template -->
+<!-- In UserList.aihu template -->
 <$slot name="row" expose="user, index">
   <!-- default content -->
 </$slot>
@@ -358,7 +358,7 @@ Error messages for attribute syntax violations MUST follow this template:
 
 ```
 error: invalid attribute value form
-   src/pages/users/[id].scribe:14:21
+   src/pages/users/[id].aihu:14:21
    
    12 |   @template {
    13 |     <button 
@@ -511,7 +511,7 @@ Leading and trailing whitespace inside quoted attribute values is preserved for 
 A component may declare props that accept either string literals or identifier references. The component's prop declaration determines which:
 
 ```
-<!-- UserCard.scribe declares: -->
+<!-- UserCard.aihu declares: -->
 @state {
   $prop name: string                          ← string-typed prop
   $prop user: Resource<User>                  ← identifier-ref prop (resource)
@@ -537,7 +537,7 @@ Some attributes have default values when omitted. The defaults are documented pe
 
 ### 9.5 HTML compatibility
 
-Standard HTML attributes (not scribe macros) preserve HTML semantics:
+Standard HTML attributes (not aihu macros) preserve HTML semantics:
 
 ```
 <a href="/about">About</a>            ← string href
@@ -556,7 +556,7 @@ This section provides translation rules for developers coming from Vue, React, o
 
 ### 10.1 From Vue
 
-| Vue | Scribe |
+| Vue | Aihu |
 |---|---|
 | `v-if="condition"` | `$if="condition"` (signal) or `$if={expr}` (expression) |
 | `v-for="item in items"` | `$each="items as item"` |
@@ -567,7 +567,7 @@ This section provides translation rules for developers coming from Vue, React, o
 
 ### 10.2 From React/JSX
 
-| React | Scribe |
+| React | Aihu |
 |---|---|
 | `onClick={fn}` | `$on:click="fn"` (preferred) or `$on:click={fn}` |
 | `value={state}` (controlled) | `$bind:value="state"` |
@@ -578,11 +578,11 @@ This section provides translation rules for developers coming from Vue, React, o
 
 ### 10.3 From Svelte
 
-| Svelte | Scribe |
+| Svelte | Aihu |
 |---|---|
 | `bind:value={signal}` | `$bind:value="signal"` |
 | `on:click={fn}` | `$on:click="fn"` |
-| `class:active={isActive}` | `class={isActive ? 'active' : ''}` (no scribe equivalent) |
+| `class:active={isActive}` | `class={isActive ? 'active' : ''}` (no aihu equivalent) |
 | `{#if cond}...{/if}` | `<element $if="cond">...` |
 | `{#each items as item}` | `<element $each="items as item">` |
 
@@ -603,7 +603,7 @@ The v1 ban on `fallback={<Component />}` is strict. Real-world usage may show th
 
 ### 11.2 Conditional attribute presence
 
-Currently no syntax for "include this attribute only if condition." Vue uses `:attr={cond ? value : null}`. React passes `null` props. Scribe could:
+Currently no syntax for "include this attribute only if condition." Vue uses `:attr={cond ? value : null}`. React passes `null` props. Aihu could:
 
 - Permit null/undefined-valued attributes to be elided (silent)
 - Add a `$attr-if` macro for explicit conditional presence
@@ -613,7 +613,7 @@ Currently no syntax for "include this attribute only if condition." Vue uses `:a
 
 ### 11.3 Class and style binding shortcuts
 
-Vue offers `:class="{ active: cond }"` and `:style="{ color: red }"`. Scribe currently requires curly expression: `class={cond ? 'active' : ''}` or `style={ { color: 'red' } }`.
+Vue offers `:class="{ active: cond }"` and `:style="{ color: red }"`. Aihu currently requires curly expression: `class={cond ? 'active' : ''}` or `style={ { color: 'red' } }`.
 
 **Proposed resolution:** Defer to v2. The straightforward curly forms work for v1; shortcuts can be evaluated if usage shows real need.
 

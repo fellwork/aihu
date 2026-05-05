@@ -1,4 +1,4 @@
-# Scribe v1 — Roadmap
+# Aihu v1 — Roadmap
 
 **Status:** PLANNING — 2026-04-30
 **Prerequisite:** Compiler v0 complete (Phases C-0 → C-4), `main` at `597e932`
@@ -13,7 +13,7 @@ Parallel-safe pairs are noted explicitly — they can run on separate branches s
 
 ### 1.1 · Reconciler — `when()` and `each()`
 
-**Package:** `@scribe/arbor`
+**Package:** `@aihu/arbor`
 **Branch convention:** `feat/v1-reconciler`
 **Parallel-safe with:** 1.2, 1.3 (different packages)
 
@@ -34,14 +34,14 @@ The stubs in `packages/arbor/src/structural.ts` throw `ArborNotImplementedError`
 - `each` preserves DOM identity for stable keys — no remount on reorder
 - `each` handles add, remove, reorder in a single `list` write (batched)
 - Existing 255 tests still pass (zero regressions)
-- `bun run size` passes — when/each adds ≤ 0.5 kB gz to `@scribe/arbor`
+- `bun run size` passes — when/each adds ≤ 0.5 kB gz to `@aihu/arbor`
 - Bench: `each` 100-item reorder ≤ 2× vanilla `innerHTML` replacement (not a regression target, just a sanity bound)
 
 ---
 
 ### 1.2 · Component props — typed `observedAttributes` surface
 
-**Package:** `@scribe/runtime`, compiler Phase C-5
+**Package:** `@aihu/runtime`, compiler Phase C-5
 **Branch convention:** `feat/v1-props`
 **Parallel-safe with:** 1.1, 1.3
 
@@ -85,7 +85,7 @@ OQ-C7 deferred scoped styles. Shadow DOM makes this nearly free — the compiler
 
 ### 1.4 · Slots — content projection
 
-**Package:** `@scribe/arbor`, `@scribe/runtime`, compiler Phase C-5
+**Package:** `@aihu/arbor`, `@aihu/runtime`, compiler Phase C-5
 **Branch convention:** `feat/v1-slots`
 **Depends on:** 1.2 (props must exist first — slots are effectively unnamed children props)
 
@@ -103,20 +103,20 @@ Custom elements support `<slot>` natively through Shadow DOM. The compiler needs
 - Default slot projects parent light DOM content into shadow root
 - Named slots project correctly
 - Multiple named slots in one component work
-- `slot()` adds ≤ 50 B gz to `@scribe/arbor`
+- `slot()` adds ≤ 50 B gz to `@aihu/arbor`
 
 ---
 
 ## Phase 2 — Context and data (unlocks composition)
 
-### 2.1 · Context API — `@scribe/context`
+### 2.1 · Context API — `@aihu/context`
 
 **Package:** new `packages/context/`
 **Branch convention:** `feat/v1-context`
 **Depends on:** 1.1 (reconciler must exist — context needs to propagate through dynamic trees)
 **Parallel-safe with:** 2.2 (context must land first, but the two can overlap)
 
-Unblocks `@scribe/data` (cache store), `@scribe/agent-service` (service handle), and deeply nested component communication without prop drilling.
+Unblocks `@aihu/data` (cache store), `@aihu/agent-service` (service handle), and deeply nested component communication without prop drilling.
 
 **Scope:**
 - `createContext<T>(defaultValue?: T): ContextToken<T>`
@@ -134,7 +134,7 @@ Unblocks `@scribe/data` (cache store), `@scribe/agent-service` (service handle),
 
 ---
 
-### 2.2 · Data protocol — `@scribe/data`
+### 2.2 · Data protocol — `@aihu/data`
 
 **Package:** new `packages/data/`
 **Branch convention:** `feat/v1-data`
@@ -145,8 +145,8 @@ Unblocks `@scribe/data` (cache store), `@scribe/agent-service` (service handle),
 - `DataState<T>` discriminated union: idle | loading | ready | error | streaming
 - Module-level cache (keyed by cache key string) with staleTime / cacheTime eviction
 - `provide(DataCacheToken, cache)` / `inject(DataCacheToken)` — cache is context-provided so it's testable and SSR-injectable
-- SSR dehydration: during `renderToString`, collect all `ready` resources → serialize to `__scribe_state__`
-- Client rehydration: before first fetch, check `__scribe_state__` for matching key
+- SSR dehydration: during `renderToString`, collect all `ready` resources → serialize to `__aihu_state__`
+- Client rehydration: before first fetch, check `__aihu_state__` for matching key
 
 **Acceptance criteria:**
 - Two components with the same cache key share one fetch (deduplication)
@@ -162,7 +162,7 @@ Unblocks `@scribe/data` (cache store), `@scribe/agent-service` (service handle),
 
 ### 3.1 · Streaming SSR
 
-**Package:** `@scribe/server`
+**Package:** `@aihu/server`
 **Branch convention:** `feat/v1-streaming-ssr`
 **Depends on:** 2.2 (data dehydration must exist to stream a complete document)
 
@@ -184,31 +184,31 @@ Unblocks `@scribe/data` (cache store), `@scribe/agent-service` (service handle),
 
 ### 3.2 · Full hydration — sub-project #6
 
-**Package:** `@scribe/arbor`, `@scribe/server`, `@scribe/runtime`
+**Package:** `@aihu/arbor`, `@aihu/server`, `@aihu/runtime`
 **Branch convention:** `feat/v1-hydration`
 **Depends on:** 3.1, 2.2
 **Note:** Path keys are already wired in every `_mountEffect` — this is the infrastructure sub-project #6 was designed around.
 
 **Scope:**
 - `MountScope.serialize()` — walks path key → Dispose map, calls each signal's current value, returns `Record<string, unknown>`
-- `hydrate(component, host, snapshot)` — new function in `@scribe/arbor`
-  - Reads `__scribe_state__` from the DOM (written by SSR)
+- `hydrate(component, host, snapshot)` — new function in `@aihu/arbor`
+  - Reads `__aihu_state__` from the DOM (written by SSR)
   - Walks the pre-rendered DOM using path keys as anchors
   - Wires signal effects to existing DOM nodes (no re-creation of elements)
   - On mismatch between expected and actual DOM: falls back to full mount + DOM replace
-- `defineElement` gains a `hydrate` option: when true, `connectedCallback` calls `hydrate` instead of `mount` if `__scribe_state__` is present
+- `defineElement` gains a `hydrate` option: when true, `connectedCallback` calls `hydrate` instead of `mount` if `__aihu_state__` is present
 
 **Acceptance criteria:**
 - No flicker: client hydration attaches to SSR HTML without DOM replacement for matching components
 - `scope.serialize()` round-trips: `serialize → JSON.stringify → JSON.parse → hydrate` restores exact signal state
 - Mismatch fallback works: altered SSR HTML triggers clean re-mount, no crash
-- Path key coverage: every `leaf([signal, setter])` has a stable `data-scribe-path` attribute after SSR
+- Path key coverage: every `leaf([signal, setter])` has a stable `data-aihu-path` attribute after SSR
 
 ---
 
 ### 3.3 · Islands / partial hydration
 
-**Package:** `@scribe/runtime`, Vite plugin
+**Package:** `@aihu/runtime`, Vite plugin
 **Branch convention:** `feat/v1-islands`
 **Depends on:** 3.2
 
@@ -232,12 +232,12 @@ Custom elements are naturally islands — each `<x-counter>` is independently hy
 
 ### 4.1 · HMR — hot module replacement
 
-**Package:** `@scribe/runtime`, Vite plugin
+**Package:** `@aihu/runtime`, Vite plugin
 **Branch convention:** `feat/v1-hmr`
 **Depends on:** 1.2 (props must exist — HMR re-runs setup with existing props)
 **Parallel-safe with:** 4.2, 4.3
 
-Vite's `import.meta.hot` API lets modules register update handlers. When a `.scribe` file changes, the component should re-run `setup()` and re-mount without a full page reload.
+Vite's `import.meta.hot` API lets modules register update handlers. When a `.aihu` file changes, the component should re-run `setup()` and re-mount without a full page reload.
 
 **Scope:**
 - Runtime: `_hmrReplace(element, newSetup)` — disposes the current `MountScope`, re-runs `newSetup(ctx)`, mounts new tree into the same host
@@ -246,7 +246,7 @@ Vite's `import.meta.hot` API lets modules register update handlers. When a `.scr
 - `<style>` block changes: hot-reload CSS without touching JS at all
 
 **Acceptance criteria:**
-- Editing template in a `.scribe` file: DOM updates without page reload in < 200ms
+- Editing template in a `.aihu` file: DOM updates without page reload in < 200ms
 - Editing setup logic: component re-mounts with preserved signal values where compatible
 - Editing `<style>` block: CSS updates without JS reload
 - HMR code is dead-code eliminated from production builds (`__DEV__` guard)
@@ -255,7 +255,7 @@ Vite's `import.meta.hot` API lets modules register update handlers. When a `.scr
 
 ### 4.2 · Error boundaries
 
-**Package:** `@scribe/runtime`, `@scribe/arbor`
+**Package:** `@aihu/runtime`, `@aihu/arbor`
 **Branch convention:** `feat/v1-error-boundaries`
 **Parallel-safe with:** 4.1, 4.3
 
@@ -282,7 +282,7 @@ An unhandled throw in `setup()`, an effect, or a `when`/`each` grow function cur
 **Branch convention:** `feat/v1-ts-template`
 **Depends on:** 1.2 (props), 1.4 (slots) — type system must cover the full component surface
 
-Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-checking is done by removing the `as unknown as Signal<string>` casts and emitting precise types instead.
+Vue has `vue-tsc`. Aihu's compiler emits TypeScript — the template type-checking is done by removing the `as unknown as Signal<string>` casts and emitting precise types instead.
 
 **Scope:**
 - Compiler: resolve `{{ expr }}` types from the setup script's TypeScript AST (via OXC)
@@ -303,12 +303,12 @@ Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-chec
 
 ### 5.1 · AgentManifest + `<agent>` block compiler support
 
-**Package:** `@scribe/agent` (v1 additions), Compiler Phase C-5
+**Package:** `@aihu/agent` (v1 additions), Compiler Phase C-5
 **Branch convention:** `feat/v1-agent-manifest`
 **Depends on:** Compiler C-4 complete, spec-v1-architecture.md §3–§5 ratified
 
 **Scope:**
-- `@scribe/agent` v1 additions: `AgentManifest`, `AgentStateDecl`, `AgentActionDecl`, `AgentBindings` types per spec §3.1
+- `@aihu/agent` v1 additions: `AgentManifest`, `AgentStateDecl`, `AgentActionDecl`, `AgentBindings` types per spec §3.1
 - `registerAgentManifest(manifest)` — replaces/extends `registerAgentMetadata` (backward compatible)
 - Compiler C-5: parse `<agent>` block per grammar in spec §4.1
 - Compiler C-5: emit `__agentManifest__` static export per spec §4.4
@@ -316,14 +316,14 @@ Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-chec
 - Compiler C-5: dual-mode action codegen per spec §5
 
 **Acceptance criteria:**
-- Counter example `.scribe` → `__agentManifest__` matches snapshot exactly
+- Counter example `.aihu` → `__agentManifest__` matches snapshot exactly
 - Form example with `sets:` → `__agentBindings__().actions.submit('Alice', 'alice@x.com')` pre-fills signals and returns `{ status: 'done' | 'error' }`
 - Private signal not in `<agent>` block → not in manifest, not in bindings
 - `registerAgentManifest` backward-compatible: old `registerAgentMetadata` callers still work
 
 ---
 
-### 5.2 · `@scribe/agent-service`
+### 5.2 · `@aihu/agent-service`
 
 **Package:** new `packages/agent-service/`
 **Branch convention:** `feat/v1-agent-service`
@@ -332,7 +332,7 @@ Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-chec
 
 **Scope:**
 - `createAgentService(options)` — discovers all registered manifests, manages bindings lifecycle
-- Attaches to a scribe app's router as middleware
+- Attaches to a aihu app's router as middleware
 - MCP adapter: maps `AgentManifest` to MCP server tools/resources (replaces current static `McpServerCard` approach)
 - `AgentService.getManifest()` — returns aggregated app-level manifest for discovery endpoints
 
@@ -340,7 +340,7 @@ Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-chec
 - MCP `tools/call increment` → routes to correct component binding → signal updates → response returned
 - State subscription: MCP resource subscription → signal change → SSE event emitted
 - Unmounted component: binding released, calls return 404-equivalent
-- Backward compatible with existing `@scribe/agent-readiness` static card generation
+- Backward compatible with existing `@aihu/agent-readiness` static card generation
 
 ---
 
@@ -366,13 +366,13 @@ Vue has `vue-tsc`. Scribe's compiler emits TypeScript — the template type-chec
 
 ## Phase 6 — Application layer
 
-### 6.1 · File-based routing — `@scribe/router`
+### 6.1 · File-based routing — `@aihu/router`
 
 **Package:** new `packages/router/`
 **Branch convention:** `feat/v1-router`
 **Depends on:** 2.2 (data integration), 2.1 (context for route params)
 
-Vite plugin that scans `pages/` directory, generates a route manifest, and wires it to `createRouter` from `@scribe/server`.
+Vite plugin that scans `pages/` directory, generates a route manifest, and wires it to `createRouter` from `@aihu/server`.
 
 **Scope:**
 - `pages/index.ts` → `GET /`
@@ -385,12 +385,12 @@ Vite plugin that scans `pages/` directory, generates a route manifest, and wires
 
 ### 6.2 · Signals deep-chain optimization
 
-**Package:** `@scribe/signals`
+**Package:** `@aihu/signals`
 **Branch convention:** `feat/v1-signals-deepchain`
 **Depends on:** nothing (standalone)
 **Parallel-safe with:** everything
 
-Learning #26: scribe loses 1.65× on 100-deep linear chains vs. alien-signals. The gap is documented and the fix (version-counter short-circuit) is identified.
+Learning #26: aihu loses 1.65× on 100-deep linear chains vs. alien-signals. The gap is documented and the fix (version-counter short-circuit) is identified.
 
 **Scope:**
 - Investigate alien-signals' version-counter approach
@@ -411,7 +411,7 @@ Learning #26: scribe loses 1.65× on 100-deep linear chains vs. alien-signals. T
 - Remove "Rust SFC compiler is the remaining v0 → v1 gate" callout from README
 - Update README: v1 feature table, bundle sizes, test count
 - Re-enable GHA auto-triggers (push/PR) — remove `workflow_dispatch` only note
-- Publish packages to npm registry: `@scribe/signals`, `@scribe/arbor`, `@scribe/runtime`, `@scribe/agent`, `@scribe/server`, `@scribe/agent-readiness`, `@scribe/context`, `@scribe/data`
+- Publish packages to npm registry: `@aihu/signals`, `@aihu/arbor`, `@aihu/runtime`, `@aihu/agent`, `@aihu/server`, `@aihu/agent-readiness`, `@aihu/context`, `@aihu/data`
 - Package versions: all 1.0.0
 - Add `LICENSE` file
 
@@ -466,11 +466,11 @@ Learning #26: scribe loses 1.65× on 100-deep linear chains vs. alien-signals. T
 | Phase | Plans | New packages |
 |---|---|---|
 | 1 — Core runtime | 4 | — |
-| 2 — Context + data | 2 | `@scribe/context`, `@scribe/data` |
+| 2 — Context + data | 2 | `@aihu/context`, `@aihu/data` |
 | 3 — SSR/hydration | 3 | — |
 | 4 — DX | 3 | — |
-| 5 — Agentic | 3 | `@scribe/agent-service`, `@scribe/agent-a2a`, `@scribe/agent-acp` |
-| 6 — Application | 2 | `@scribe/router`, `@scribe/data-fetch` |
+| 5 — Agentic | 3 | `@aihu/agent-service`, `@aihu/agent-a2a`, `@aihu/agent-acp` |
+| 6 — Application | 2 | `@aihu/router`, `@aihu/data-fetch` |
 | 7 — Cutover | 1 | — |
 | **Total** | **18** | **6** |
 

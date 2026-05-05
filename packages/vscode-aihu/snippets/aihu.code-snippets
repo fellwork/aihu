@@ -1,0 +1,118 @@
+{
+  "Aihu Component (minimal)": {
+    "prefix": "aihu-min",
+    "description": "Minimal aihu component with state and template",
+    "body": [
+      "@state {",
+      "import { signal } from '@aihu/signals'",
+      "",
+      "const [${1:count}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:0})",
+      "}",
+      "",
+      "@template {",
+      "  <div class=\"${3:component}\">",
+      "    <span>{{ ${1:count} }}</span>",
+      "    $0",
+      "  </div>",
+      "}"
+    ]
+  },
+
+  "Aihu Component (full)": {
+    "prefix": "aihu",
+    "description": "Full aihu SFC with state, template, and style",
+    "body": [
+      "@state {",
+      "import { signal } from '@aihu/signals'",
+      "",
+      "const [${1:count}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:0})",
+      "}",
+      "",
+      "@template {",
+      "  <div class=\"${3:component}\">",
+      "    $0",
+      "  </div>",
+      "}",
+      "",
+      "@style {",
+      ".${3:component} {",
+      "  $4",
+      "}",
+      "}"
+    ]
+  },
+
+  "Signal": {
+    "prefix": "signal",
+    "description": "Create a aihu signal pair",
+    "body": "const [${1:value}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:undefined})"
+  },
+
+  "Event handler binding": {
+    "prefix": "on",
+    "description": "$on:event directive",
+    "body": "\\$on:${1:click}={${2:handler}}"
+  },
+
+  "Template interpolation": {
+    "prefix": "{{",
+    "description": "Template interpolation expression",
+    "body": "{{ ${1:value} }}"
+  },
+
+  "Each directive": {
+    "prefix": "each",
+    "description": "$each iteration directive",
+    "body": "\\$each=\"${1:items} as ${2:item}\""
+  },
+
+  "If directive": {
+    "prefix": "if",
+    "description": "$if conditional directive",
+    "body": "\\$if={${1:condition}}"
+  },
+
+  "State block": {
+    "prefix": "@state",
+    "description": "@state block",
+    "body": ["@state {", "import { signal } from '@aihu/signals'", "", "$0", "}"]
+  },
+
+  "Template block": {
+    "prefix": "@template",
+    "description": "@template block",
+    "body": ["@template {", "  <div>", "    $0", "  </div>", "}"]
+  },
+
+  "Style block": {
+    "prefix": "@style",
+    "description": "@style block",
+    "body": ["@style {", "$0", "}"]
+  },
+
+  "Agent block": {
+    "prefix": "@agent",
+    "description": "@agent block for MCP tool exposure",
+    "body": [
+      "@agent {",
+      "  name: ${1:my-tool}",
+      "  $input ${2:param}: string",
+      "  $action ${3:run}() {",
+      "    $0",
+      "  }",
+      "}"
+    ]
+  },
+
+  "Route block": {
+    "prefix": "@route",
+    "description": "@route block for file-based routing",
+    "body": ["@route {", "  path: ${1:/}", "  name: ${2:home}", "}"]
+  },
+
+  "HTML injection": {
+    "prefix": "html",
+    "description": "$html directive for raw HTML injection",
+    "body": "\\$html={${1:htmlContent}}"
+  }
+}

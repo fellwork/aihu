@@ -1,6 +1,6 @@
-# scribe — CSS Framework Pluggability
+# aihu — CSS Framework Pluggability
 
-A worked example showing how to plug **Tailwind CSS** into a scribe app, plus
+A worked example showing how to plug **Tailwind CSS** into a aihu app, plus
 documented swap paths to **UnoCSS**, **Pico CSS**, and **vanilla `@style { }`**.
 
 > The research that picked this approach lives at
@@ -13,11 +13,11 @@ documented swap paths to **UnoCSS**, **Pico CSS**, and **vanilla `@style { }`**.
 ```bash
 cd examples/css-pluggability
 bun install
-bun run build      # compiles .scribe + bundles JS + runs Tailwind CLI
+bun run build      # compiles .aihu + bundles JS + runs Tailwind CLI
 bun run start      # serves at http://localhost:3457/
 ```
 
-You'll see two scribe components — `<pluggable-card>` and `<pluggable-button>` — styled
+You'll see two aihu components — `<pluggable-card>` and `<pluggable-button>` — styled
 entirely by Tailwind utility classes written directly on elements inside the
 `@template { }` block.
 
@@ -25,24 +25,24 @@ entirely by Tailwind utility classes written directly on elements inside the
 
 ## How it works
 
-scribe SFCs default to **shadow-DOM** custom elements with scoped styles via
+aihu SFCs default to **shadow-DOM** custom elements with scoped styles via
 Constructable Stylesheets (`@style { }` lowers to `adoptedStyleSheets` on the
 shadow root). That gives you free style isolation but blocks global utility
 stylesheets from reaching your components.
 
 For Tailwind / UnoCSS / Pico to work, components mount in **light DOM**
 instead, and the framework's stylesheet is loaded once globally. This example
-uses `scribeCompilerPlugin({ shadowMode: 'none' })` (or in this case the
+uses `aihuCompilerPlugin({ shadowMode: 'none' })` (or in this case the
 direct `_injectShadowMode(code, 'none')` post-process — see `build.ts`) to
 register every component with `defineElement(tag, ctor, { shadowMode: 'none' })`.
 
 The pipeline:
 
-1. **Compile** each `.scribe` file with `@scribe/compiler`'s `transform()`.
+1. **Compile** each `.aihu` file with `@aihu/compiler`'s `transform()`.
 2. **Post-process** the compiled JS with `_injectShadowMode(code, 'none')`
    so emitted `defineElement` calls register components in light DOM.
 3. **Bundle** the JS with Bun's bundler.
-4. **Compile Tailwind** with `bunx tailwindcss`, scanning the `.scribe`
+4. **Compile Tailwind** with `bunx tailwindcss`, scanning the `.aihu`
    sources for class names.
 5. **Serve** `index.html` with `<link rel="stylesheet" href="dist/tailwind.css">`.
 
@@ -51,7 +51,7 @@ The pipeline:
 ## Why Tailwind?
 
 Tailwind is the most-used CSS framework on npm (>11M weekly downloads) and
-its integration exercises every surface scribe exposes for CSS pluggability:
+its integration exercises every surface aihu exposes for CSS pluggability:
 
 - A build-time CSS pipeline.
 - The runtime light-DOM opt-out (`shadowMode: 'none'`).
@@ -75,7 +75,7 @@ utility-class shape. To swap:
    // uno.config.ts
    import { defineConfig, presetUno } from 'unocss'
    export default defineConfig({
-     content: { filesystem: ['src/components/*.scribe', 'index.html'] },
+     content: { filesystem: ['src/components/*.aihu', 'index.html'] },
      presets: [presetUno()],
    })
    ```
@@ -84,7 +84,7 @@ utility-class shape. To swap:
 
    ```diff
    - 'bunx', ['tailwindcss', '-i', '...', '-o', 'dist/tailwind.css', '-c', '...']
-   + 'bunx', ['unocss', 'src/components/*.scribe', '-o', 'dist/tailwind.css', '-c', 'uno.config.ts']
+   + 'bunx', ['unocss', 'src/components/*.aihu', '-o', 'dist/tailwind.css', '-c', 'uno.config.ts']
    ```
 
 4. Replace `@tailwind base/components/utilities;` directives in
@@ -109,7 +109,7 @@ stylesheet and write semantic markup.
    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
    ```
 
-4. Strip class attributes from the `.scribe` files. For example, the Card
+4. Strip class attributes from the `.aihu` files. For example, the Card
    becomes:
 
    ```
@@ -117,7 +117,7 @@ stylesheet and write semantic markup.
      <article>
        <header>
          <h2>Card</h2>
-         <p>A scribe component styled by Pico.</p>
+         <p>A aihu component styled by Pico.</p>
        </header>
        <p>Click count: {{ count }}</p>
        <button onclick="increment">Increment</button>
@@ -134,7 +134,7 @@ look with zero per-component styling work.
 
 ## Swap to vanilla `@style { }` (no framework)
 
-This is what scribe ships out-of-box. Each component carries its own
+This is what aihu ships out-of-box. Each component carries its own
 scoped stylesheet via `@style { }`.
 
 1. Drop `tailwindcss` from devDependencies.
@@ -197,7 +197,7 @@ A pragmatic split many apps land on:
 The Plugin Contract spec
 ([`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`](../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md))
 declares a `transformBlock` hook that lets a plugin rewrite block contents
-before lowering. A future `@scribe/plugin-tailwind` would run Tailwind's
+before lowering. A future `@aihu/plugin-tailwind` would run Tailwind's
 PostCSS pipeline inside `@style { }` blocks, restoring `@apply` ergonomics
 and per-component scoping with utility-class authoring.
 
@@ -209,11 +209,11 @@ demonstrated here is the production path.
 
 ## Files
 
-- `src/components/pluggable-card.scribe` — Tailwind-styled card with a counter signal.
-- `src/components/pluggable-button.scribe` — Tailwind-styled toggle button.
+- `src/components/pluggable-card.aihu` — Tailwind-styled card with a counter signal.
+- `src/components/pluggable-button.aihu` — Tailwind-styled toggle button.
 - `src/styles/tailwind.css` — Tailwind input file (`@tailwind base/components/utilities`).
 - `src/main.ts` — wires `_setMount(mount)` and imports the compiled components.
-- `tailwind.config.ts` — Tailwind config; scans `.scribe` files for class names.
+- `tailwind.config.ts` — Tailwind config; scans `.aihu` files for class names.
 - `build.ts` — pipeline (compile → post-process → bundle → Tailwind CLI).
 - `server.ts` — minimal Bun.serve for viewing.
 - `index.html` — host page with `<link>` to `dist/tailwind.css`.

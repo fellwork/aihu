@@ -1,5 +1,5 @@
 {
-  "name": "@scribe/arbor",
+  "name": "@aihu/arbor",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -21,6 +21,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribe/signals": "workspace:*"
+    "@aihu/signals": "workspace:*"
   }
 }

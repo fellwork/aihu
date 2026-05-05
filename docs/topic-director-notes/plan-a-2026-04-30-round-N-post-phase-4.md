@@ -2,7 +2,7 @@
 
 **Director:** Topic Director (post-Phase-4 Verifier PASS, post-signals-headroom Investigation)
 **Track:** plan-a (TypeScript runtime family)
-**Active branches:** `claude/scribe-phase-3-team-Za4UQ` (team), `phase-4/runtime-implementation` (Phase 4 PASS, unmerged), `investigate/signals-headroom` (investigation done)
+**Active branches:** `claude/aihu-phase-3-team-Za4UQ` (team), `phase-4/runtime-implementation` (Phase 4 PASS, unmerged), `investigate/signals-headroom` (investigation done)
 **Inputs read:** state-plan-a.md, prior director-note 2026-04-30, Phase 4 verification-report.md, Phase 4 build-manifest.md, signals-headroom-investigation.md, learnings #10/#11/#13/#15/#16/#17, spec-agent.md.
 
 ---
@@ -14,7 +14,7 @@ The thesis is **sub-2 kB primitives → DOM → runtime → AI-first agent bindi
 | Candidate | Learning #10 (in-house) | Learning #11 (SOTA-or-no-ship) | Learning #13 (150-line cap) | Learning #15 (AI-first in-tree) | Learning #16 (Tier 3 hooks now) | Learning #17 (magna canonical) |
 |---|---|---|---|---|---|---|
 | A. Land Phase 4 → team branch | n/a (logistics) | neutral | neutral | enables §15 stack | neutral | neutral |
-| B. Phase 5 (`@scribe/agent`) | **on-thesis** (registry is in-tree) | neutral (100 B budget — no perf axis) | on-thesis (2-file package) | **load-bearing** — registry is the runtime-side data source for the manifest | **on-thesis** — v0 ships the data shape sub-project #7 needs | aligns (manifest unifies `<agent>` + magna introspection) |
+| B. Phase 5 (`@aihu/agent`) | **on-thesis** (registry is in-tree) | neutral (100 B budget — no perf axis) | on-thesis (2-file package) | **load-bearing** — registry is the runtime-side data source for the manifest | **on-thesis** — v0 ships the data shape sub-project #7 needs | aligns (manifest unifies `<agent>` + magna introspection) |
 | C. Signals headroom recovery | on-thesis (perf hygiene) | **on-thesis** — preserves the cellx/deep-perf wins | n/a | neutral | neutral | neutral |
 | D. Arbor v0+1 cleanup | on-thesis (#10 housekeeping) | neutral | **load-bearing** — mount.ts 195 → ~150 closes the known #13 deviation | neutral | neutral | neutral |
 | E. Arbor SOTA bench | on-thesis | **HIGHEST stake** — without this, arbor's 1.16 kB has no axis we've named-and-won | neutral | neutral | partial — bench includes magna track per §17 but standalone is fine | partial (two-track bench from §17) |
@@ -44,9 +44,9 @@ The Team Lead inherits this note as the routing input. No formal topic summary i
 
 | Rank | Item | Rationale |
 |---|---|---|
-| **P0** | **A. Land Phase 4 → team branch** (merge `phase-4/runtime-implementation` → `claude/scribe-phase-3-team-Za4UQ`) | Logistics, but precondition for state coherence. Phase 4 is PASS; sitting unmerged on a phase branch creates drift risk against any concurrent work on the team branch. ~5 min ff-merge. |
+| **P0** | **A. Land Phase 4 → team branch** (merge `phase-4/runtime-implementation` → `claude/aihu-phase-3-team-Za4UQ`) | Logistics, but precondition for state coherence. Phase 4 is PASS; sitting unmerged on a phase branch creates drift risk against any concurrent work on the team branch. ~5 min ff-merge. |
 | **P0** | **C. Signals headroom recovery — bump 1.6 → 1.7 kB + Candidates 1+2+7** | ~30 min, ~40–60 B recovered, AND it unfreezes the "1.55/1.6 kB / 49 B" number that has been a yellow flag in three Director notes. Must land before Phase 5 closes v0 (see §6). Touches `packages/signals/src/signal.ts` (1 line for `__HOST` Symbol), `packages/signals/src/index.ts` (1 line for `MAX_BATCH_ITERATIONS`), `packages/signals/src/effect.ts` (~10 lines for `unlinkAllDeps` inline), `.size-limit.json` (1 line for budget bump). Disjoint from Phase 5 and arbor cleanup. |
-| **P0** | **B. Phase 5 Builder dispatch (`@scribe/agent`, Tasks 23–24)** | Spec final. ~80 B / 100 B target. Disjoint from signals and arbor source. Closes the v0 phase ladder. **Dispatch in parallel with C and D** per Learning #19 non-overlapping-package pattern. |
+| **P0** | **B. Phase 5 Builder dispatch (`@aihu/agent`, Tasks 23–24)** | Spec final. ~80 B / 100 B target. Disjoint from signals and arbor source. Closes the v0 phase ladder. **Dispatch in parallel with C and D** per Learning #19 non-overlapping-package pattern. |
 | **P1** | **D. Arbor v0+1 cleanup** (Phase 3 Findings 1+3 + missing test for §4 Task 15 #5) | Closes the 195-line mount.ts known-#13-deviation, the `_activeMountDisposers` accidental public export, and the missing assertion. Disjoint from B and C. Worthy of parallel dispatch in this round. ~1 hour. Telemetry extraction is the pre-requisite for E (cleaner module boundary makes bench harness cleaner). |
 | **P1** | **G. state-plan-a.md update** | After A/B/C/D land. Must reflect: Phase 4 done at 438 B/1024 B, Phase 5 done at NB/100 B, signals at 1.5 kB/1.7 kB, arbor cleanup landed, mount.ts now ≤150 lines, Phase 4 LOW findings logged. End-of-round Historian work, not parallel. |
 | **P2** | **E. Arbor SOTA bench** | Thesis-critical (Learning #11) but **deferred to next round**. This round is already 4 parallel tracks; adding bench-spike Mode 2 is a fifth track that touches enough state (new `bench/arbor/` directory, comparator pinning, RESULTS.md authoring) to deserve its own session. Rationale in §6. |
@@ -81,7 +81,7 @@ The Phase 4 Verifier explicitly recommends "open PR for Phase 4 now." The prior 
 - v1 cleanup will batch-merge the team branch to main once CI is re-enabled and branch protection is wired (state-plan-a.md "Re-enable CI before v1 ships" row).
 - The Verifier's "recommend ship" is correct as a code-quality signal. Translating it to "open PR" is the wrong shape for v0 mechanics.
 
-**Action:** ff-merge `phase-4/runtime-implementation` → `claude/scribe-phase-3-team-Za4UQ`. Push the team branch to origin (already in user policy). Delete the phase branch locally and on origin (per Phase-3 precedent — phase branches are ephemeral).
+**Action:** ff-merge `phase-4/runtime-implementation` → `claude/aihu-phase-3-team-Za4UQ`. Push the team branch to origin (already in user policy). Delete the phase branch locally and on origin (per Phase-3 precedent — phase branches are ephemeral).
 
 ### 4.3 Arbor SOTA bench timing (decision needed before next-round planning)
 
@@ -103,7 +103,7 @@ Team Lead handles logistics (branches, worktrees, watchdog calibration). Substan
 
 ### 5.1 First action: A — Phase 4 merge (Team Lead, no Builder)
 
-ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-phase-3-team-Za4UQ`. Push team branch. Delete phase branch local + origin. **No Builder agent needed**; this is a Team Lead mechanical step. Should complete in 5 minutes before any Builder spawns.
+ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/aihu-phase-3-team-Za4UQ`. Push team branch. Delete phase branch local + origin. **No Builder agent needed**; this is a Team Lead mechanical step. Should complete in 5 minutes before any Builder spawns.
 
 ### 5.2 Parallel Builder #1 — C: Signals headroom recovery
 
@@ -112,17 +112,17 @@ ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-p
 **Phase + tasks:** Pre-Phase-5 hardening (no spec section — derived from `.team/investigations/signals-headroom-investigation.md` §5).
 
 **Scope (precise):**
-1. Edit `packages/signals/src/signal.ts:474` — replace `Symbol('scribe.signals.host')` with `Symbol()`. (Investigator Candidate 1, ~12–15 B recovered.)
+1. Edit `packages/signals/src/signal.ts:474` — replace `Symbol('aihu.signals.host')` with `Symbol()`. (Investigator Candidate 1, ~12–15 B recovered.)
 2. Edit `packages/signals/src/index.ts:8` — remove `MAX_BATCH_ITERATIONS` from the public export list. (Investigator Candidate 2, ~10–15 B recovered.) Confirm no consumer in `packages/{arbor,runtime,agent}/src/**` imports it.
 3. Edit `packages/signals/src/effect.ts` — inline `unlinkAllDeps(sub)` into its single dispose-closure call site; delete the standalone function. (Investigator Candidate 7, ~20 B recovered.) Confirm `grep -r "unlinkAllDeps" packages/signals/src/` shows zero residual references after the edit.
-4. Edit `.size-limit.json` — bump `@scribe/signals` row from `1.6 kB` to `1.7 kB`. (Per §4.1 above; this is decoupled from the source recovery so the commit log tells the story cleanly.)
+4. Edit `.size-limit.json` — bump `@aihu/signals` row from `1.6 kB` to `1.7 kB`. (Per §4.1 above; this is decoupled from the source recovery so the commit log tells the story cleanly.)
 5. Run `bun run build && bun run test && bun run size && bunx biome ci .` from clean state (per Learning #5 amendment).
 6. Commit on team branch (or sub-branch if Team Lead prefers). Message:
    - Commit 1: `perf(signals): inline unlinkAllDeps + drop __HOST description + remove MAX_BATCH_ITERATIONS export` — body lists per-candidate before/after gz sizes.
    - Commit 2: `chore(signals): bump size-limit budget 1.6 → 1.7 kB to absorb cellx/deep-perf growth` — body cites Investigator §6 rationale.
 
 **Acceptance criteria:**
-- `@scribe/signals` size delta is **negative**: target ~40–60 B drop. (Investigator-projected; record actual.)
+- `@aihu/signals` size delta is **negative**: target ~40–60 B drop. (Investigator-projected; record actual.)
 - All 124 unit tests + 3 integration tests stay green. Especially: `effect.test.ts` dispose-path tests.
 - No type changes to public surface (typecheck-clean is mandatory; `MAX_BATCH_ITERATIONS` removal is a v0 type-API break — confirm zero internal consumers first).
 - Final size-limit row reads `1.7 kB` and PASSES.
@@ -139,9 +139,9 @@ ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-p
 
 **Watchdog calibration:** sub-1-task spawn within Pattern B. Far below the 600s ceiling.
 
-### 5.3 Parallel Builder #2 — B: Phase 5 (`@scribe/agent`, Tasks 23–24)
+### 5.3 Parallel Builder #2 — B: Phase 5 (`@aihu/agent`, Tasks 23–24)
 
-**Mission:** ship `@scribe/agent` per `.team/phase-5/spec-agent.md` (binding, final).
+**Mission:** ship `@aihu/agent` per `.team/phase-5/spec-agent.md` (binding, final).
 
 **Phase + tasks:** Phase 5 Tasks 23 + 24 (the entire phase).
 
@@ -151,7 +151,7 @@ ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-p
 
 **Spec staleness items (Learning #6):**
 - Confirm `packages/agent/` does NOT exist before Builder edits.
-- Confirm `vitest.config.ts` `@scribe/agent` alias IS present (state-plan-a.md line 38–42 says yes; re-verify).
+- Confirm `vitest.config.ts` `@aihu/agent` alias IS present (state-plan-a.md line 38–42 says yes; re-verify).
 - Confirm `tests/vitest.config.ts` integration alias presence (Phase 4 added runtime; agent may or may not be there).
 - Confirm `.size-limit.json` agent row does NOT exist before adding it.
 
@@ -160,7 +160,7 @@ ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-p
 - OQ-2 (compiler import contract): no compiler exists yet in plan-a; the contract is forward-compat-only. **Resolved: keep as-spec'd; revisit when compiler ships.**
 
 **"Do not do" guardrails:**
-- Do NOT import `@scribe/signals`, `@scribe/arbor`, or `@scribe/runtime` (spec §2.2).
+- Do NOT import `@aihu/signals`, `@aihu/arbor`, or `@aihu/runtime` (spec §2.2).
 - Do NOT add `AgentError` (spec §2.3).
 - Do NOT bump the 100 B budget without measurement-first escalation (spec §3.2).
 - Do NOT re-export `__resetRegistryForTesting` from `index.ts` (spec §5 final index.ts).
@@ -180,7 +180,7 @@ ff-merge `phase-4/runtime-implementation` (HEAD `0353263`) into `claude/scribe-p
 
 **Acceptance criteria:**
 - `packages/arbor/src/mount.ts` line count ≤ 150 (excluding blanks + standalone JSDoc per Learning #13).
-- `@scribe/arbor` size unchanged or improved (telemetry.ts is internal-only; tree-shake should make this byte-neutral).
+- `@aihu/arbor` size unchanged or improved (telemetry.ts is internal-only; tree-shake should make this byte-neutral).
 - All 51 arbor unit tests stay green; new missing test passes.
 - `_activeMountDisposers` not in `packages/arbor/src/index.ts`.
 

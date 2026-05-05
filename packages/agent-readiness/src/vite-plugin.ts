@@ -1,5 +1,5 @@
-import type { RouteHandler } from '@scribe/server'
-import { json, notFound } from '@scribe/server'
+import type { RouteHandler } from '@aihu/server'
+import { json, notFound } from '@aihu/server'
 import { generateLlmsFullTxt, generateLlmsTxt } from './llms-txt.ts'
 import { generateMcpServerCard } from './mcp-server-card.ts'
 import { generateRobotsTxt } from './robots.ts'
@@ -62,7 +62,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
-    // TODO: add Components section once @scribe/agent exports getAllAgentMetadata()
+    // TODO: add Components section once @aihu/agent exports getAllAgentMetadata()
     return new Response(txt, {
       status: 200,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -142,7 +142,7 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
   }
 
   return {
-    name: 'scribe-agent-readiness',
+    name: 'aihu-agent-readiness',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = (req.url as string | undefined) ?? '/'

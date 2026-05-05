@@ -1,6 +1,6 @@
 # Authoring Components
 
-A `.scribe` Single File Component (SFC) is composed of named blocks. Each block uses the `@blockname { ... }` syntax introduced in v0.5.
+A `.aihu` Single File Component (SFC) is composed of named blocks. Each block uses the `@blockname { ... }` syntax introduced in v0.5.
 
 ## @state block
 
@@ -30,7 +30,7 @@ The `@state` block declares the reactive contract of the component.
 
 ## @template block
 
-The `@template` block defines the DOM output using scribe's template DSL.
+The `@template` block defines the DOM output using aihu's template DSL.
 
 ### Interpolation
 
@@ -67,7 +67,7 @@ The `@template` block defines the DOM output using scribe's template DSL.
 </$suspense>
 ```
 
-Backed by `createSuspenseBoundary(source, fallback, loaded)` from `@scribe/arbor`.
+Backed by `createSuspenseBoundary(source, fallback, loaded)` from `@aihu/arbor`.
 
 **`<$shield>`** — isolates a subtree behind a shield boundary:
 

@@ -1,0 +1,12 @@
+@state {
+import { signal } from '@aihu/signals'
+const [pressed, setPressed] = signal(false)
+const toggle = () => setPressed(p => !p)
+}
+
+@template {
+  <button class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 active:bg-slate-200" onclick="toggle">
+    <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+    Press me — pressed: {{ pressed }}
+  </button>
+}

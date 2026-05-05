@@ -286,7 +286,7 @@ function checkDirty(node: Subscriber): boolean {
 }
 ```
 
-**Note on signal-source detection:** Signal hosts in scribe have `recomputeIfNeeded === undefined`
+**Note on signal-source detection:** Signal hosts in aihu have `recomputeIfNeeded === undefined`
 and are represented as `Subscriber`-shaped objects with `flags = 0` at rest. A signal that was
 written this wave will have caused `propagateMark` to be called on its subscriber chain,
 resulting in those subscribers receiving `PENDING` (linear path) or `STALE` (fan-out path) marks.
@@ -808,7 +808,7 @@ makes zero `recomputeIfNeeded` calls for the deep-propagation-100 workload.
 
 | Metric | Value |
 |---|---|
-| `@scribe/signals` gz (post Option C) | **1.54 kB** |
+| `@aihu/signals` gz (post Option C) | **1.54 kB** |
 | Budget cap | **1.70 kB** |
 | Headroom | ~160 B |
 
@@ -836,12 +836,12 @@ makes zero `recomputeIfNeeded` calls for the deep-propagation-100 workload.
 This slightly exceeds the 160 B headroom. The total sits at 150–185 B net gz addition against
 160 B headroom — the upper end of the estimate overshoots by ~25 B.
 
-**Architect's decision: raise the `@scribe/signals` budget to 1.85 kB gz.**
+**Architect's decision: raise the `@aihu/signals` budget to 1.85 kB gz.**
 
 Justification:
 - The combined 4-package browser bundle is currently ~3.46 kB gz, against a 4.00 kB total cap.
   The remaining headroom across all packages is ~540 B gz.
-- Raising `@scribe/signals` from 1.70 kB to 1.85 kB uses 150 B of that headroom.
+- Raising `@aihu/signals` from 1.70 kB to 1.85 kB uses 150 B of that headroom.
 - The remaining 390 B headroom across the bundle is sufficient for remaining v1 work.
 - Alternative: drop the `pendingNodes` cleanup array (saves ~15 B gz) and the `drainBatch`
   dep-walk (saves ~35–45 B gz) in exchange for the "no-new-array" PENDING cleanup strategy
@@ -851,7 +851,7 @@ Justification:
 
 ### §10.4 Size budget table
 
-| Scenario | `@scribe/signals` gz | Cap | Headroom |
+| Scenario | `@aihu/signals` gz | Cap | Headroom |
 |---|---:|---:|---:|
 | Post Option C (current) | 1.54 kB | 1.70 kB | ~160 B |
 | Option D (full, with batched fix) | ~1.69–1.73 kB | **1.85 kB** (raised) | ~120–160 B |
@@ -868,7 +868,7 @@ Per `investigation-deep-chain.md` §6, adjusted for the post-Option-C state:
 | `cellx` ≤ 557 ns | Currently ~506 ns | **MEDIUM** — diamond merge points. Interior L1–L3 nodes have fan-out (`head.nextSub !== null`); they take the STALE path unchanged. L3→effect edge is linear → PENDING. `checkDirty` correctly finds STALE on L2/L1 deps (§7.3). After the `(STALE \| PENDING)` read guard fix (§7.3), L3 recomputes lazily at read. **Correctness is preserved; no regression expected if §7.3 is implemented correctly.** | Implement §7.3 `(STALE \| PENDING)` read guard in `computed.ts`. Run `bun .team/phase-2-5/scratch/cellx-counter.ts` — must print TOTAL = 17. |
 | `wide-fanout-100` ≤ 5.15 µs | Currently ~4.68 µs | **LOW-MEDIUM** — linear path applies to each `c[i]→effect[i]` edge, adding `checkDirty` overhead (100 × ~3 ops). The signal `lastWave` fix (§7.4) is required for correctness. Performance: 100 `checkDirty` calls of depth 2 each = 200 dep-chain hops. At ~3 ns/hop, ~600 ns. But the mark phase improves (no `visited[]` push for `c[i]`). Net change: approximately neutral to slightly worse. | Implement signal `lastWave` detection in `checkDirty`. Bench must stay ≤ 5.15 µs. |
 | `batched-writes-100` ≤ 2.86 µs | Currently ~2.60 µs | **LOW** — each signal has 1 subscriber (the effect). Linear path applies. `checkDirty` finds signal source dirty via `lastWave`. Overhead: 1 `checkDirty` call per write = 100 calls at depth 1 each = trivial. | Implement `drainBatch` `lastWave` patch (§7.4). |
-| `dynamic-deps` ≤ 816 ns | Currently ~742 ns | **LOW** — computed has 1 effect sub. Linear path for `computed→effect` edge. `checkDirty` walks the computed's deps (5 signals). Each signal is checked for `lastWave`. If all are clean → effect skipped (correct). If any dirty → effect runs (correct). Scribe's dynamic-dep advantage (fast re-wiring) is unaffected. | No special mitigation beyond §7.4 signal detection. |
+| `dynamic-deps` ≤ 816 ns | Currently ~742 ns | **LOW** — computed has 1 effect sub. Linear path for `computed→effect` edge. `checkDirty` walks the computed's deps (5 signals). Each signal is checked for `lastWave`. If all are clean → effect skipped (correct). If any dirty → effect runs (correct). Aihu's dynamic-dep advantage (fast re-wiring) is unaffected. | No special mitigation beyond §7.4 signal detection. |
 | `creation-1to1000` ≤ 76.2 µs | Currently ~69.3 µs | **NONE** — graph construction. No propagation path touched. | None. |
 
 ---
@@ -1024,7 +1024,7 @@ No existing test may be modified. All current tests must pass at every intermedi
    path now provides differently — investigate before modifying tests.
 
 6. **Size validation:** After implementation, run `bunx size-limit` (or `bun run build` and check
-   the gz output). If the `@scribe/signals` gz exceeds 1.85 kB, the Builder must reduce scope
+   the gz output). If the `@aihu/signals` gz exceeds 1.85 kB, the Builder must reduce scope
    (remove the `drainBatch` dep-walk patch and accept that Option D only applies to non-batched
    paths) before escalating to the Architect.
 

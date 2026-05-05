@@ -1,11 +1,11 @@
 {
-  "name": "@scribe/cli",
+  "name": "@aihu/cli",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "scribe": "./dist/bin.js",
-    "create-scribe": "./dist/create.js"
+    "aihu": "./dist/bin.js",
+    "create-aihu": "./dist/create.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

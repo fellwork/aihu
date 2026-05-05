@@ -27,7 +27,7 @@
   - if (v === true) → emit  k (no ="")
   - else if (v !== false && v !== undefined) → emit  k="<escapeAttr(v)>"
   - false, undefined → omitted
-- **data-scribe-path format (line 125):** data-scribe-path="${escapeAttr(path)}" (path: 0, 0.0, 0.0.1)
+- **data-aihu-path format (line 125):** data-aihu-path="${escapeAttr(path)}" (path: 0, 0.0, 0.0.1)
 - **Tag default:** 'div' if absent
 - **Children iteration:** children.map((c, i) => renderNode(c, ${path}.${i}, hydratable)).join('')
 
@@ -55,7 +55,7 @@
   - If { toHtml() } → call sync, enqueue HTML directly
   - If () => node → call factory, kick off async walk
 - **State script:** emitted by emitStateScriptAndClose when serializer() succeeds; swallows errors
-- **State script format:** <script type="application/json" id="__scribe_state__">${JSON.stringify(state)}</script>
+- **State script format:** <script type="application/json" id="__aihu_state__">${JSON.stringify(state)}</script>
 - **Closing tags:** If opts.head, emit </body></html>
 
 ### renderToString (line 322–345, public API)
@@ -87,14 +87,14 @@
 
 **Entrypoint (line 21–32):** _setContextFns(set, clear): void
 
-**Expected caller:** _setContextFns(setSsrContextMap, clearSsrContextMap) from @scribe/context/ssr
+**Expected caller:** _setContextFns(setSsrContextMap, clearSsrContextMap) from @aihu/context/ssr
 
 **Interaction with renderToString (line 330–335):**
 - If opts.contextSetup + both fns: activate map, call contextSetup, clear in finally
 - If not configured: no context map
 
 **FFI boundary implication:**
-- Rust cannot import @scribe/context (hard constraint)
+- Rust cannot import @aihu/context (hard constraint)
 - Rust calls Rust callbacks via FFI, OR accepts context map as parameter
 
 ---
@@ -124,8 +124,8 @@
 - <!DOCTYPE html> start when opts.head
 - Boolean disabled: true → " disabled" (no ="")
 - Boolean disabled: false → omitted
-- __scribe_state__ before </body></html>
-- data-scribe-path: 0, 0.0, 0.0.1 (dot-indexed, escaped)
+- __aihu_state__ before </body></html>
+- data-aihu-path: 0, 0.0, 0.0.1 (dot-indexed, escaped)
 - <meta>, <link> attrs in insertion order
 
 ---
@@ -142,13 +142,13 @@
 - Runs: npm postinstall
 - Logic: Detect process.platform/arch, fetch asset from releases/latest/download/
 - Fallback: SCRIBE_COMPILE_BIN env var
-- Output: packages/compiler/bin/scribe-compile<.exe>
+- Output: packages/compiler/bin/aihu-compile<.exe>
 
 **napi-rs parallel:**
 - Build: napi build --release --target <triple>
 - Artifacts: <package>.<triple>.node per triple
-- Distribution: npm optionalDependencies @scribe/server-<platform>-<arch>
-- Loading: require('@scribe/server-x64') or conditional per platform
+- Distribution: npm optionalDependencies @aihu/server-<platform>-<arch>
+- Loading: require('@aihu/server-x64') or conditional per platform
 
 **Key diff:** napi-rs uses npm native platform selector (simpler).
 
@@ -168,12 +168,12 @@
 - package.json with napi config + optionalDependencies
 
 **Recommended optionalDependencies:**
-- @scribe/server-darwin-arm64
-- @scribe/server-darwin-x64
-- @scribe/server-linux-x64
-- @scribe/server-win32-x64
+- @aihu/server-darwin-arm64
+- @aihu/server-darwin-x64
+- @aihu/server-linux-x64
+- @aihu/server-win32-x64
 
-Load via: `require('@scribe/server-${process.platform}-${process.arch}')`
+Load via: `require('@aihu/server-${process.platform}-${process.arch}')`
 
 ---
 
@@ -207,13 +207,13 @@ Load via: `require('@scribe/server-${process.platform}-${process.arch}')`
    - " → &quot;
    - Order: insertion order, not alphabetic
 
-4. **data-scribe-path:**
-   - Format: data-scribe-path="0.0.1" (dot-delimited, numeric)
+4. **data-aihu-path:**
+   - Format: data-aihu-path="0.0.1" (dot-delimited, numeric)
    - Must be escaped via escapeAttr()
 
 5. **State script:**
    - Before </body></html>
-   - Format: <script type="application/json" id="__scribe_state__">{…}</script>
+   - Format: <script type="application/json" id="__aihu_state__">{…}</script>
 
 6. **Attr iteration:** Object.entries() insertion order
 

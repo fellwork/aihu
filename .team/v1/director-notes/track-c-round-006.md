@@ -29,7 +29,7 @@ Reasoning, citing the Phase 2 scope rules in `state-track-c.md` lines 194–199:
 
 - **Phase 2's hypothesis space** was "tune the mark loop" (H1 linear chase, H4 outer/inner split, H5 typed Subscribers). H1 was subsumed by H4. H4 was merged. H5 was the memory-driven pivot inside Phase 2 because the Architect could carry the typed-Subscriber subclassing as a *memory* lever within the existing chase-loop frame.
 - **Closure removal is a different problem.** It restructures the Subscriber's method-bearing pattern (computed.ts:55–87 `node: Subscriber = { notify() {...}, recomputeIfNeeded() {...} }`) into a static-dispatch model (see alien-signals' `createReactiveSystem({ update, notify, ...})` in `bench/signals/node_modules/alien-signals/esm/system.mjs:11–16`). That is **not** "tune the mark loop" — it is a structural change to how Subscribers carry behaviour.
-- **Per the scope-shift rule** (`state-track-c.md` line 198 "Surface to user immediately if: alien-signals' algorithm requires a model change incompatible with scribe's effect-settled-in-mark contract — this would be a v2 redesign, not a v1 phase"), the trigger fired during H5 Round 5: the user has now overridden the v1/v2 boundary specifically for **closure removal**, while keeping the effect-settled-in-mark contract and public API intact. The override is partial and surgical; it does not unlock other v2 levers.
+- **Per the scope-shift rule** (`state-track-c.md` line 198 "Surface to user immediately if: alien-signals' algorithm requires a model change incompatible with aihu's effect-settled-in-mark contract — this would be a v2 redesign, not a v1 phase"), the trigger fired during H5 Round 5: the user has now overridden the v1/v2 boundary specifically for **closure removal**, while keeping the effect-settled-in-mark contract and public API intact. The override is partial and surgical; it does not unlock other v2 levers.
 - Therefore I open **Phase 3** of Plan 6.2 — explicitly bounded to the closure-removal restructure — and reset all per-phase budgets accordingly.
 
 ### §1.2 Mode 1 vs Mode 2 — call
@@ -56,7 +56,7 @@ Reasoning:
 
 ### §2.1 Performance (WSL2, three independent bench runs)
 
-| Workload | scribe p50 | Target | Status | Citation |
+| Workload | aihu p50 | Target | Status | Citation |
 |---|---:|---:|---|---|
 | **deep-propagation-100** | **3.30 µs** (RESULTS.md), **3.37 µs** (3-run mean of medians) | ≤ 3.20 µs (relaxed) | **MISS** by 0.10–0.17 µs | Verifier §2 |
 | cellx | 537.7 ns | ≤ 540 ns AND #1 | PASS (#1 vs preact 570, s-js 614, alien 671) | Verifier §2 |
@@ -69,7 +69,7 @@ Headline: deep-prop-100 missed the relaxed 3.20 µs target by ~0.10 µs (RESULTS
 
 ### §2.2 Memory (deep-propagation-100 buildHeapDelta)
 
-| State | scribe deep-prop buildHeapDelta | Per-Sub (÷102) | Verdict |
+| State | aihu deep-prop buildHeapDelta | Per-Sub (÷102) | Verdict |
 |---|---:|---:|---|
 | H4 baseline (architect-cited) | 10.24 KB | ~100 B | (baseline) |
 | H4 baseline (verifier same-hardware re-bench at 378d494) | 10.20 KB | ~100 B | matches |
@@ -83,8 +83,8 @@ Headline: H5 freed ~1.52 KB out of an ~8.34 KB gap to the soft target. **The H5 
 
 | Package | At H5 (62f737f) | Cap | Headroom |
 |---|---:|---:|---:|
-| `@scribe/signals` | **1679 B** raw-gz | 1850 B | **+171 B** |
-| `@scribe/arbor` | **2133 B** raw-gz | 2200 B | **+67 B** |
+| `@aihu/signals` | **1679 B** raw-gz | 1850 B | **+171 B** |
+| `@aihu/arbor` | **2133 B** raw-gz | 2200 B | **+67 B** |
 
 Verifier §4 confirms both packages comfortably under cap. Note that this came in **lighter than the architect's H5 §10.2 projection of ~1834 B** thanks to the R6a (HAS_COMPUTED_DEPS removal) and R7 (mangler patterns) restructures stacked into the same Builder pass. **This is the only place where H5's projection landed better than predicted; it is also the headroom that Phase 3 must not consume incautiously.**
 
@@ -102,7 +102,7 @@ Direct quotes from `verification-report-6.2-phase2-h5.md` §9:
 2. **Perf gate above relaxed 3.20 µs by ~0.10 µs**, with 156–171 B signals headroom available for one tactical pass.
 3. Builder D3 "6 pre-existing test failures" claim was unreproduced — Verifier flagged as Builder-environment artefact.
 4. `creation-1to1000` p50 +2.2 µs over 76.2 µs floor (no rank gate; flagged for monitoring) — Verifier hypothesises this is the `lastWave: 0` field initialisation cost on every signal/effect construction. Phase 3 should watch this metric — if closure removal introduces another per-construction field, this could regress further.
-5. `@scribe/data` 1039 B over a 750 B cap — pre-existing v0 debt, orthogonal.
+5. `@aihu/data` 1039 B over a 750 B cap — pre-existing v0 debt, orthogonal.
 6. WSL2 baseline H4 perf is 3.30 µs (not the 3.41 µs cited in spec) — meaning H5's mechanism delivered "roughly net-zero time on this host." Architect must reconfirm bench-host calibration before Phase 3 sets perf targets.
 
 ---
@@ -381,7 +381,7 @@ H5 §13.1 ("test files modified ⊆ {append-only}") and Verifier AC-5 (test file
 
 **Iron Law:** No fix code, no Architect spec, no Builder dispatch until the Investigator's `.md` is on disk and answers the questions below. Quantitative answers only — no narrative without numbers.
 
-**Brief:** Read `bench/signals/node_modules/alien-signals/esm/system.mjs` (the static-callback pattern) and the H5 sources at `feat/v1-signals-6.2-phase2-h5 @ 62f737f`. Quantify scribe's per-Sub closure cost at the slot level; evaluate K1 (a/b/c sub-variants), K2, K3, K4 mechanisms with concrete byte / time / bundle estimates.
+**Brief:** Read `bench/signals/node_modules/alien-signals/esm/system.mjs` (the static-callback pattern) and the H5 sources at `feat/v1-signals-6.2-phase2-h5 @ 62f737f`. Quantify aihu's per-Sub closure cost at the slot level; evaluate K1 (a/b/c sub-variants), K2, K3, K4 mechanisms with concrete byte / time / bundle estimates.
 
 **Output:** `.team/v1/investigation-closure-removal.md` answering:
 
@@ -665,12 +665,12 @@ Alien's Subscriber shape (`index.mjs:77–105`):
 
 **No `notify`. No `recomputeIfNeeded`. No `update`.** Behaviour lives at the module level; instances are pure data.
 
-**The H5 investigation §1.1 already cited this** — the closure-pair pattern is what scribe carries that alien does not. K1 (prototype methods) is the OOP-flavoured path to the same destination; K2 (module-level static functions) is the direct port of alien's pattern.
+**The H5 investigation §1.1 already cited this** — the closure-pair pattern is what aihu carries that alien does not. K1 (prototype methods) is the OOP-flavoured path to the same destination; K2 (module-level static functions) is the direct port of alien's pattern.
 
 The Investigator should:
 
 1. Read alien's full `system.mjs` and understand how `propagate`, `checkDirty`, `shallowPropagate` route through the static `notify(sub)` and `update(sub)` callbacks.
-2. Compare the dispatch overhead per call site between alien's static call and scribe's per-instance closure call.
+2. Compare the dispatch overhead per call site between alien's static call and aihu's per-instance closure call.
 3. Determine whether K2 (module-level static, alien-port) ships smaller or larger than K1 (prototype methods) in the gz bundle. The static-function path may compress better because there are fewer object-literal contexts; the prototype-method path may compress better because methods inside `class { }` are shorter syntactically than module-level `function notify(sub) { }` declarations. **This is empirical and bench-dependent.**
 
 ---

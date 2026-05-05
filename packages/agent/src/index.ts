@@ -1,5 +1,5 @@
 /**
- * `@scribe/agent` public surface (spec §1, §5).
+ * `@aihu/agent` public surface (spec §1, §5).
  *
  * 2 value exports + 3 type-only exports = 5 total. `__resetRegistryForTesting`
  * is intentionally NOT re-exported here — it is internal to the package and

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * @scribe/cli bin entry — parses argv and dispatches to scaffold functions.
+ * @aihu/cli bin entry — parses argv and dispatches to scaffold functions.
  *
  * Usage:
- *   scribe app <name>            Scaffold a new application
- *   scribe page <route>          Scaffold a page file
- *   scribe component <name>      Scaffold a component file
- *   scribe plugin <name>         Scaffold a plugin package
+ *   aihu app <name>            Scaffold a new application
+ *   aihu page <route>          Scaffold a page file
+ *   aihu component <name>      Scaffold a component file
+ *   aihu plugin <name>         Scaffold a plugin package
  */
 
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
@@ -17,10 +17,10 @@ function usage(): never {
   process.stderr.write(
     [
       'Usage:',
-      '  scribe app <name>         Scaffold a new application',
-      '  scribe page <route>       Scaffold a page file (e.g. /about)',
-      '  scribe component <name>   Scaffold a component file',
-      '  scribe plugin <name>      Scaffold a plugin package',
+      '  aihu app <name>         Scaffold a new application',
+      '  aihu page <route>       Scaffold a page file (e.g. /about)',
+      '  aihu component <name>   Scaffold a component file',
+      '  aihu plugin <name>      Scaffold a plugin package',
       '',
     ].join('\n'),
   )

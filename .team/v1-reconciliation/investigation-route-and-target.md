@@ -41,12 +41,12 @@ the compiler still parses HTML-tag blocks); regardless of the syntax form, no
 - **File:** `packages/compiler/src/types.rs`
 - **`@route` block represented in AST:** **NO**
 - **Cite:**
-  - `packages/compiler/src/types.rs:13-20` — `ScribeSource` struct has fields
+  - `packages/compiler/src/types.rs:13-20` — `AihuSource` struct has fields
     `script`, `template`, `style`, `meta`, `agent`. No `route` field.
   - `packages/compiler/src/types.rs:96-101` — `AgentBlock` is the only
     structured-data block type defined; no `RouteBlock` exists.
   - `packages/compiler/src/types.rs:46-49` — `CompileUnit` wraps
-    `ScribeSource` + `template_ast`; nothing route-related.
+    `AihuSource` + `template_ast`; nothing route-related.
 
 ### Codegen audit
 
@@ -77,7 +77,7 @@ the compiler still parses HTML-tag blocks); regardless of the syntax form, no
     segments purely from the file path (`[id]` → param, `[...all]` →
     catchall). No `@route { path: ... }` override is read.
   - `packages/router/src/vite-plugin.ts:61-73` — `generateVirtualModule()`
-    emits the `virtual:scribe-routes` body straight from filenames:
+    emits the `virtual:aihu-routes` body straight from filenames:
     `pattern`, `segments`, and `module: () => import(<file>)`. No `name`,
     `middleware`, or `ssr` field carried through (the four fields shown
     in spec §7.3 example).
@@ -112,7 +112,7 @@ defer to v1.1) — there is no implementation to ratify. Required pieces:
    TypeScript-object-literal body shown in spec §7.3).
 2. Types: add `RouteBlock` struct (with `path`, `name?`, `middleware?`,
    `ssr?`, `layout?` fields) and a `route: Option<RouteBlock>` field on
-   `ScribeSource`.
+   `AihuSource`.
 3. Codegen: emit a sidecar (e.g. `<component-id>.route.json`) or extend
    the `defineElement` call to embed metadata, OR emit a third artifact
    for the router's vite-plugin to discover.
@@ -145,7 +145,7 @@ handed to a sub-parser at `parser/agent.rs`).
 - **Cite:**
   - `packages/compiler/src/lib.rs:1-25` — public surface is `compile()`
     and `compile_full()`; both take only `source: &str` (or
-    `&ScribeSource`). No target parameter, no environment toggle, no
+    `&AihuSource`). No target parameter, no environment toggle, no
     feature flag.
   - `packages/compiler/src/codegen/emit.rs:26` — `emit(unit, tag_name)`
     has only two parameters. No target argument; the emitted JS shape is
@@ -177,21 +177,21 @@ agent-manifest emission — both are runtime-agnostic.
 ### Config field
 
 - **File:** `packages/server/src/config.ts`
-- **`build.target` field in `defineScribeConfig`:** **NO**
+- **`build.target` field in `defineAihuConfig`:** **NO**
 - **Other build-related config:** none. There is no `build` object at
   all.
 - **Cite:**
-  - `packages/server/src/config.ts:11-27` — `ScribeConfig` interface has
+  - `packages/server/src/config.ts:11-27` — `AihuConfig` interface has
     exactly three optional members: `server` (CORS, basePath,
     maxBodySize), `agent`, `routes` (only `manifestPath`). No `build`
     field.
-  - `packages/server/src/config.ts:43-45` — `defineScribeConfig` is the
+  - `packages/server/src/config.ts:43-45` — `defineAihuConfig` is the
     identity function; whatever the user passes is what they get. There
     is no build-time mutation, default-target injection, or schema
     validation that would constrain target.
   - Repo-wide grep for `build\.target`: only one file matches —
     `docs/AMENDMENT-02-block-structure-split-bundle.md` (the proposal
-    itself). Confirmed via Grep on `C:\git\fellwork\scribe`.
+    itself). Confirmed via Grep on `C:\git\fellwork\aihu`.
 
 ### Loader coordination
 
@@ -220,7 +220,7 @@ The loader's three states (`NATIVE_LOADED`, `EDGE_SKIPPED`,
 `client/server/universal`. The loader answers "where am I running
 right now?"; the build target answers "what artifacts should the
 compiler emit?". They could in principle interact (e.g. an
-`EDGE_SKIPPED` deployment might still want server-only `_scribe-server/`
+`EDGE_SKIPPED` deployment might still want server-only `_aihu-server/`
 artifacts) but there is no coordinating mechanism today.
 
 ### Codegen target awareness
@@ -232,7 +232,7 @@ artifacts) but there is no coordinating mechanism today.
   - `packages/compiler/src/codegen/emit.rs:26-47` — single emission path;
     only branch is "agent block present" (options form + manifest) vs
     "no agent block" (function form). No conditional that elides
-    `_scribe-server/...` artifacts for `client`-only builds, no
+    `_aihu-server/...` artifacts for `client`-only builds, no
     conditional that elides client component JS for `server`-only
     builds.
   - `packages/compiler/src/codegen/emit.rs:228-311` — `emit_manifest()`
@@ -265,7 +265,7 @@ to ratify and no rename-vs-amend choice to make.
   - Add `--target <client|server|universal>` flag to
     `packages/compiler/src/bin/main.rs` (default `universal` per spec
     §11.5 last paragraph).
-  - Add `build` object with `target` field to `ScribeConfig` in
+  - Add `build` object with `target` field to `AihuConfig` in
     `packages/server/src/config.ts`.
   - Once split-bundle macros (`$server`, `$action` on `<form>`,
     `@agent` block emitting MCP) land, gate their server-artifact
@@ -338,9 +338,9 @@ fields that don't require server emission (`path`, `name`, `layout`).
    §12 as a candidate to drop (line 695). Out of scope for this
    investigation; flag for the Architect when scoping `@route`.
 
-3. **`scribe.config.ts` schema canonicalization.** The Block Structure
+3. **`aihu.config.ts` schema canonicalization.** The Block Structure
    Spec references "Project Config Spec — currently not yet drafted"
-   (Amendment 02, Verification block), but `defineScribeConfig` exists
+   (Amendment 02, Verification block), but `defineAihuConfig` exists
    today in `packages/server/src/config.ts`. There is a real config
    schema and a planned spec, but they don't yet meet. Adding
    `build.target` is a fine wedge to start the spec, but the

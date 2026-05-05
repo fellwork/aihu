@@ -4,15 +4,15 @@ Deferred items captured during plan reviews. Each has enough context to act on c
 
 ---
 
-## TODO-001: GitHub Actions release workflow for pre-built scribe-compile binaries
+## TODO-001: GitHub Actions release workflow for pre-built aihu-compile binaries
 
-**What:** Write `.github/workflows/release.yml` that cross-compiles `scribe-compile` for `mac-arm64`, `mac-x64`, `linux-x64`, `windows-x64` and publishes to GitHub Releases on version tags.
+**What:** Write `.github/workflows/release.yml` that cross-compiles `aihu-compile` for `mac-arm64`, `mac-x64`, `linux-x64`, `windows-x64` and publishes to GitHub Releases on version tags.
 
-**Why:** Without pre-built binaries, `TTHW_UI` is gated behind `cargo build --release` (4-10 minutes). With binaries, the `@scribe/compiler` postinstall script downloads the correct binary in <30 seconds. This is the single biggest TTHW improvement for the compiler DX.
+**Why:** Without pre-built binaries, `TTHW_UI` is gated behind `cargo build --release` (4-10 minutes). With binaries, the `@aihu/compiler` postinstall script downloads the correct binary in <30 seconds. This is the single biggest TTHW improvement for the compiler DX.
 
 **Status:** MOVED TO Phase 1-DX SCOPE (build now, not defer). Captured here for tracking.
 
-**How to start:** Use `cross` crate for cross-compilation. Target matrix: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`. Trigger on `push: tags: ['v*']`. Upload binaries to GitHub Release assets. Update `packages/compiler/js/index.ts` postinstall to download from `releases/latest/download/scribe-compile-{platform}`.
+**How to start:** Use `cross` crate for cross-compilation. Target matrix: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`. Trigger on `push: tags: ['v*']`. Upload binaries to GitHub Release assets. Update `packages/compiler/js/index.ts` postinstall to download from `releases/latest/download/aihu-compile-{platform}`.
 
 **Depends on:** Phase 1-compiler (binary must build successfully first).
 
@@ -20,7 +20,7 @@ Deferred items captured during plan reviews. Each has enough context to act on c
 
 ## TODO-002: `batch()` wrapping for initial attribute parsing
 
-**What:** Investigate whether the compiler-emitted `connectedCallback` should wrap initial attribute set operations in `batch()` from `@scribe/signals`.
+**What:** Investigate whether the compiler-emitted `connectedCallback` should wrap initial attribute set operations in `batch()` from `@aihu/signals`.
 
 **Why:** When a custom element with 5+ inputs connects to the DOM, the browser fires `attributeChangedCallback` once per attribute. Each callback calls a signal setter, which may trigger a reactive update. With 10 inputs, that's 10 individual updates before the element is fully initialized. `batch(() => { ... })` collapses them to one. Current benchmarks show this is not a problem for 1-3 inputs (Phase 1 examples), but it becomes measurable above 5.
 

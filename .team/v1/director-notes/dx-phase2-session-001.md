@@ -20,7 +20,7 @@ This session resolves the pending Track C Round 7 surface-to-user call, then dis
 
 ### TODO-002 — `batch()` wrapping for initial attribute parsing
 
-**In scope: NO.** Requires a 10-input benchmark harness that does not exist yet. Defer until the first 10+-input `.scribe` example exists.
+**In scope: NO.** Requires a 10-input benchmark harness that does not exist yet. Defer until the first 10+-input `.aihu` example exists.
 
 **Priority:** DEFER to Phase 2 performance review.
 
@@ -42,7 +42,7 @@ This session resolves the pending Track C Round 7 surface-to-user call, then dis
 
 **Recommendation: PATH X. Ship Phase 3.**
 
-EV math from track-c-round-007.md: scribe ranks #1 on all three load-bearing workloads (cellx, batched-writes, dynamic-deps). Memory over-delivered 2× (1.62 KB vs 3.4 KB forecast). Bundle net-improved. The remaining 0.97 µs gap to alien on deep-prop-100 is structural — forward-subscription vs push-pull with version counters — and is v2-scope per the original Phase 2 scope rules.
+EV math from track-c-round-007.md: aihu ranks #1 on all three load-bearing workloads (cellx, batched-writes, dynamic-deps). Memory over-delivered 2× (1.62 KB vs 3.4 KB forecast). Bundle net-improved. The remaining 0.97 µs gap to alien on deep-prop-100 is structural — forward-subscription vs push-pull with version counters — and is v2-scope per the original Phase 2 scope rules.
 
 Path Y (H4-tactical): 35% hard-pass odds, 50% soft-pass odds. The H4-tactical spec file is missing on disk, which would add a full Investigator + Architect cycle before Builder. ~3 research cycles for a coin-flip result.
 
@@ -59,9 +59,9 @@ Path Z (new hypothesis): 2–3 research cycles on V8 IC polymorphism / markStack
 
 DX Phase 2 is COMPLETE when:
 
-1. **TTHW_UI measured.** `docs/tthw-log.md` has one real measurement row with actual minutes. Gate: Lane D binaries available at `releases/latest/download/scribe-compile-{platform}`.
+1. **TTHW_UI measured.** `docs/tthw-log.md` has one real measurement row with actual minutes. Gate: Lane D binaries available at `releases/latest/download/aihu-compile-{platform}`.
 
-2. **Plan 1.3 (Scoped Styles) shipped.** `<style>` block in `.scribe` SFCs emits `CSSStyleSheet.replaceSync()` + `shadowRoot.adoptedStyleSheets` wiring. Files: `packages/compiler/src/codegen/emit.rs` (primary), `packages/compiler/src/parser/sfc.rs` (style block extraction), new integration tests, `docs/grammar.md` §9.
+2. **Plan 1.3 (Scoped Styles) shipped.** `<style>` block in `.aihu` SFCs emits `CSSStyleSheet.replaceSync()` + `shadowRoot.adoptedStyleSheets` wiring. Files: `packages/compiler/src/codegen/emit.rs` (primary), `packages/compiler/src/parser/sfc.rs` (style block extraction), new integration tests, `docs/grammar.md` §9.
 
 3. **TODO-004 re-enabled.** `#[ignore]` removed from `c4_transform_produces_typescript` in `packages/compiler/tests/c4_integration.rs`. Test passes without `--ignored`.
 
@@ -113,7 +113,7 @@ DX Phase 2 is COMPLETE when:
 **Scope:** `<style>` block parsing + emission in Rust SFC compiler.
 
 **Key files:**
-- `packages/compiler/src/parser/sfc.rs` — extract `<style>` block + `scoped`/`global` attr; new `ScribeSource.style: Option<StyleBlock>` field
+- `packages/compiler/src/parser/sfc.rs` — extract `<style>` block + `scoped`/`global` attr; new `AihuSource.style: Option<StyleBlock>` field
 - `packages/compiler/src/codegen/emit.rs` — emit `CSSStyleSheet.replaceSync()` + `adoptedStyleSheets` in `connectedCallback`
 - `packages/compiler/tests/integration.rs` — add ≥2 new tests: `<style scoped>` and `<style global>`
 - `docs/grammar.md` — add §9 for `<style>` block BNF

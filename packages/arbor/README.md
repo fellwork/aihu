@@ -1,14 +1,14 @@
-# @scribe/arbor
+# @aihu/arbor
 
-DOM materialization primitives for the [scribe](../../README.md) project. Build a tree of `branch` / `leaf` nodes, hand it to `mount`, and the renderer wires every reactive binding once and tears it down LIFO when the scope disposes. No JSX runtime, no virtual DOM, no scheduler queue — just direct DOM operations against the live nodes.
+DOM materialization primitives for the [aihu](../../README.md) project. Build a tree of `branch` / `leaf` nodes, hand it to `mount`, and the renderer wires every reactive binding once and tears it down LIFO when the scope disposes. No JSX runtime, no virtual DOM, no scheduler queue — just direct DOM operations against the live nodes.
 
 **Status:** v0 surface frozen (Phase 3). Spec: [`.team/phase-3/spec-arbor.md`](../../.team/phase-3/spec-arbor.md). Bundle ≤ 2 kB gzipped.
 
 ## Hello mount
 
 ```ts
-import { signal } from '@scribe/signals'
-import { branch, leaf, mount } from '@scribe/arbor'
+import { signal } from '@aihu/signals'
+import { branch, leaf, mount } from '@aihu/arbor'
 
 const [count, setCount] = signal(0)
 
@@ -89,14 +89,14 @@ a.dispose()   // independent
 ## Coming in v1 (today: stubs that throw)
 
 ```ts
-import { when, each } from '@scribe/arbor'
+import { when, each } from '@aihu/arbor'
 when(condition, () => branch(...))                     // ArborNotImplementedError in v0
 each(list, item => item.id, item => branch(...))      // ArborNotImplementedError in v0
 ```
 
 The signatures are locked; the v1 reconciler will swap the bodies.
 
-## Pairing with non-`@scribe/signals` reactive systems
+## Pairing with non-`@aihu/signals` reactive systems
 
 Arbor only requires the signal shape: a tuple `readonly [Read<T>, Write<T>]` where `Read<T> = () => T`. Anything that exposes that shape works. The runtime detects it via `Array.isArray(value)` (per the [Deviation #11 invariant](../../.team/phase-3/spec-arbor.md)).
 

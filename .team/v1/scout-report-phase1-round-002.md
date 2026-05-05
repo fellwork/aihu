@@ -11,7 +11,7 @@
 | SC-1: Branch state clean for Phase 1 | PASS | Only Track-C-related files untracked (`.team/v1/spec-6.2-*.md`, etc.). No modified `packages/` or `examples/` files. |
 | SC-2: Round 1 commits present | PASS | `feat/phase1-contract` shows full Lane A + Lane B history through `64356cf` retro + `2411742` Round 2 director note. |
 | SC-3: 323 TS tests pass | PASS | 41 test files, 323 tests passing. |
-| SC-4: Release binary builds | PASS | `cargo build --release` produces `packages/compiler/target/release/scribe-compile.exe` (324608 bytes). |
+| SC-4: Release binary builds | PASS | `cargo build --release` produces `packages/compiler/target/release/aihu-compile.exe` (324608 bytes). |
 | SC-5: Binary smoke test on airtime-quote | PASS | Compiled the canonical airtime-quote agent block, produced JS + manifest matching D11 shape exactly. |
 | SC-6: No dist files committed | PASS | `git ls-files packages/*/dist/` empty. |
 | SC-7: LICENSE/license field baseline | PASS | NO root `LICENSE`. NO `"license"` field in any `package.json`. Clean baseline for C-6. |

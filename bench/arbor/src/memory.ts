@@ -121,7 +121,7 @@ async function measureCell(
 function renderMemoryMarkdown(cells: MemoryCell[]): string {
   const date = new Date().toISOString().slice(0, 10)
   const lines: string[] = []
-  lines.push('# `@scribe/arbor` Memory Results')
+  lines.push('# `@aihu/arbor` Memory Results')
   lines.push('')
   lines.push(`**Generated:** ${date}`)
   lines.push(`**Runner:** --expose-gc · Bun ${process.versions.bun ?? 'n/a'}`)
