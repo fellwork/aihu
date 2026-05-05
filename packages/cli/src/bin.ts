@@ -11,24 +11,47 @@
  *   aihu build [options]       Production build (arch-4 §3)
  */
 
+import { readdirSync, statSync } from 'node:fs'
+import { dirname, join, posix, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
+import {
+  enumerateFiles,
+  mergeOptions,
+  printNextSteps,
+  readSubstituteWrite,
+  realFileSystem,
+  realSpawner,
+  resolveTemplate,
+  runPostInstall,
+  type ResolvedOptions,
+} from './scaffold-pipeline.js'
 import { resolveTemplateName } from './templates-registry.js'
 
 const [, , cmd, ...rest] = process.argv
 
 /**
- * Pull the value of `--template <T>` (or `--template=<T>`) out of an argv
- * tail. Returns `undefined` when the flag is absent, the literal `'true'`
- * when the flag was passed without a value (we still treat that as an
- * "intent" signal and fall through to legacy), or the supplied value.
+ * Pull the value of `--<flag> <V>` (or `--<flag>=<V>`) out of an argv tail.
+ * Returns `undefined` when the flag is absent.
  */
-function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
+function extractFlag(args: ReadonlyArray<string>, flag: string): string | undefined {
+  const long = `--${flag}`
+  const longEq = `${long}=`
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!
-    if (a === '--template') return args[i + 1]
-    if (a.startsWith('--template=')) return a.slice('--template='.length)
+    if (a === long) return args[i + 1]
+    if (a.startsWith(longEq)) return a.slice(longEq.length)
   }
   return undefined
+}
+
+/** True when `--<flag>` (boolean) appears in argv. */
+function hasFlag(args: ReadonlyArray<string>, flag: string): boolean {
+  return args.includes(`--${flag}`)
+}
+
+function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
+  return extractFlag(args, 'template')
 }
 
 function usage(): never {
@@ -45,6 +68,252 @@ function usage(): never {
     ].join('\n'),
   )
   process.exit(1)
+}
+
+/**
+ * Recursively enumerate every file under `root`. Returns POSIX-style relpaths
+ * (forward slashes), suitable for `enumerateFiles({ templateFiles })`.
+ */
+function walkTemplateFiles(root: string): string[] {
+  const out: string[] = []
+  const stack: string[] = [root]
+  while (stack.length > 0) {
+    const cur = stack.pop()!
+    for (const entry of readdirSync(cur)) {
+      const abs = join(cur, entry)
+      const st = statSync(abs)
+      if (st.isDirectory()) {
+        stack.push(abs)
+      } else if (st.isFile()) {
+        const rel = relative(root, abs).replace(/\\/g, '/')
+        out.push(rel)
+      }
+    }
+  }
+  return out.sort()
+}
+
+/**
+ * Resolve a template package's on-disk root directory. Tries (in order):
+ *   1. Node ESM resolution: `import.meta.resolve(<pkg>)` — the production
+ *      path used after `npm install <template-pkg>`.
+ *   2. Workspace-relative fallback: walk up from this file looking for a
+ *      sibling `packages/templates/<short>/template.config.*` — the dev
+ *      path used inside the aihu monorepo before templates packages publish.
+ *
+ * Returns the directory containing `template.config.{ts,js,mjs}` and a
+ * sub-directory `template/`. Throws if neither path resolves.
+ */
+async function resolveTemplatePackagePath(pkgName: string): Promise<string> {
+  // Strategy 1: Node ESM resolution.
+  try {
+    // import.meta.resolve is sync since Node 20.6+; it returns a URL string.
+    // We try to resolve `<pkg>/template.config.ts` first, falling back to
+    // `<pkg>/template.config.js` and the package root.
+    const candidates = [
+      `${pkgName}/template.config.ts`,
+      `${pkgName}/template.config.js`,
+      `${pkgName}/template.config.mjs`,
+      pkgName,
+    ]
+    for (const c of candidates) {
+      try {
+        const url = import.meta.resolve(c)
+        const fsPath = fileURLToPath(url)
+        // Normalize to the package root (parent of template.config.* file).
+        if (/template\.config\.(ts|js|mjs)$/.test(fsPath)) {
+          return dirname(fsPath)
+        }
+        return fsPath
+      } catch {
+        // try next candidate
+      }
+    }
+  } catch {
+    // fall through to workspace fallback
+  }
+
+  // Strategy 2: workspace-relative fallback. The CLI source lives at
+  // `<repo>/packages/cli/src/bin.ts` (or `dist/bin.js` after build). Walk up
+  // until we find `packages/templates/`, then look for the short-name dir.
+  const short = pkgName.startsWith('@aihu/templates-')
+    ? pkgName.slice('@aihu/templates-'.length)
+    : pkgName
+  const here = fileURLToPath(import.meta.url)
+  let dir = dirname(here)
+  for (let i = 0; i < 8; i++) {
+    const candidate = join(dir, 'packages', 'templates', short)
+    try {
+      const st = statSync(candidate)
+      if (st.isDirectory()) {
+        // Confirm a template.config.* file is present.
+        for (const ext of ['ts', 'js', 'mjs']) {
+          try {
+            statSync(join(candidate, `template.config.${ext}`))
+            return candidate
+          } catch {
+            // try next ext
+          }
+        }
+      }
+    } catch {
+      // not here; walk up
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+
+  throw new Error(
+    `Could not resolve template package ${JSON.stringify(pkgName)}: ` +
+      'not installed via npm and not found in workspace fallback. ' +
+      `Run 'npm install ${pkgName}' first, or invoke the CLI from inside the aihu monorepo.`,
+  )
+}
+
+/**
+ * Load a template package's manifest. Tries
+ * `<pkg>/template.config.{ts,js,mjs}` via dynamic import; expects either a
+ * default export or a named export `config` shaped per TemplateManifest.
+ */
+async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
+  for (const ext of ['ts', 'js', 'mjs']) {
+    const candidate = join(pkgRoot, `template.config.${ext}`)
+    try {
+      statSync(candidate)
+      // Use file:// URL so dynamic import works on Windows.
+      const mod = (await import(`file://${candidate.replace(/\\/g, '/')}`)) as Record<
+        string,
+        unknown
+      >
+      return mod.default ?? mod.config ?? mod
+    } catch {
+      // try next ext
+    }
+  }
+  throw new Error(`No template.config.{ts,js,mjs} found under ${pkgRoot}`)
+}
+
+/**
+ * Parse `--options-json '<JSON>'` into a record of override values. Returns
+ * `{}` when the flag is absent. Throws on invalid JSON.
+ */
+function parseOptionsJson(raw: string | undefined): Record<string, string | boolean> {
+  if (raw === undefined) return {}
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (err) {
+    throw new Error(`--options-json: invalid JSON: ${(err as Error).message}`)
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('--options-json: must be a JSON object')
+  }
+  const out: Record<string, string | boolean> = {}
+  for (const [k, v] of Object.entries(parsed)) {
+    if (typeof v !== 'string' && typeof v !== 'boolean') {
+      throw new Error(`--options-json.${k}: value must be string or boolean`)
+    }
+    out[k] = v
+  }
+  return out
+}
+
+/**
+ * Pipeline dispatcher for `aihu app <name> --template <T>`. Replaces the
+ * B1.1 stub: drives the 6 pure pipeline functions through the
+ * realFileSystem + realSpawner injection seam.
+ *
+ * Backward-compat flags honored:
+ *   --no-interactive    (interactive prompts not yet implemented; default)
+ *   --use-defaults      (skip prompts; emit manifest defaults)
+ *   --options-json <S>  (overrides for the manifest's `overridable` cells)
+ *   --no-git            (skip git-init post-install step)
+ *   --pm <bun|pnpm|...> (package manager for pm-install + emitted scripts)
+ */
+async function dispatchTemplate(args: {
+  appName: string
+  templatePkg: string
+  rest: ReadonlyArray<string>
+}): Promise<void> {
+  const { appName, templatePkg, rest } = args
+
+  // --- flag parsing ---
+  const noGit = hasFlag(rest, 'no-git')
+  const pmFlag = extractFlag(rest, 'pm')
+  const pm: ResolvedOptions['pm'] =
+    pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun'
+      ? pmFlag
+      : 'bun'
+  const userOverrides = parseOptionsJson(extractFlag(rest, 'options-json'))
+  // --use-defaults / --no-interactive: in B1.3 we don't yet drive interactive
+  // prompts from bin.ts. Both flags currently mean "use manifest defaults
+  // for unspecified overridable cells" — which mergeOptions() already does
+  // when a key is absent from userOverrides. Reserved for B2+ wiring.
+  const _useDefaults = hasFlag(rest, 'use-defaults')
+  const _noInteractive = hasFlag(rest, 'no-interactive')
+  void _useDefaults
+  void _noInteractive
+
+  // --- 1. resolveTemplate ---
+  const pkgRoot = await resolveTemplatePackagePath(templatePkg)
+  const manifest = await resolveTemplate({
+    loader: () => loadTemplateConfig(pkgRoot),
+  })
+
+  // --- 2. mergeOptions ---
+  const options = mergeOptions(manifest, {
+    appName,
+    pm,
+    noGit,
+    userOverrides,
+  })
+
+  // --- 3. enumerateFiles ---
+  const templateRoot = join(pkgRoot, 'template')
+  const templateFiles = walkTemplateFiles(templateRoot)
+  const files = enumerateFiles(manifest, options, { templateFiles })
+
+  // --- 4. readSubstituteWrite ---
+  const targetDir = resolve(process.cwd(), appName)
+  const written = readSubstituteWrite(files, {
+    templateRoot: posix.normalize(templateRoot.replace(/\\/g, '/')),
+    targetDir,
+    manifest,
+    options,
+    fs: realFileSystem,
+  })
+
+  // --- 5. runPostInstall ---
+  const postResult = runPostInstall({
+    manifest,
+    options,
+    targetDir,
+    spawner: realSpawner,
+  })
+
+  // --- output summary ---
+  for (const f of written.written) {
+    process.stdout.write(`  created  ${f}\n`)
+  }
+  for (const f of written.skipped) {
+    process.stdout.write(`  skipped  ${f} (already exists)\n`)
+  }
+  for (const step of postResult.ran) {
+    process.stdout.write(`  ran      ${step.kind}\n`)
+  }
+  for (const step of postResult.skipped) {
+    process.stdout.write(`  skipped  ${step.kind}\n`)
+  }
+  if (postResult.failures.length > 0) {
+    for (const f of postResult.failures) {
+      process.stderr.write(`  FAILED   ${f.step.kind}: ${f.error}\n`)
+    }
+    process.exit(1)
+  }
+
+  // --- 6. printNextSteps ---
+  printNextSteps({ options, targetDir })
 }
 
 async function main(): Promise<void> {
@@ -69,14 +338,17 @@ async function main(): Promise<void> {
   let result: { created: ReadonlyArray<string>; skipped: ReadonlyArray<string> }
   switch (cmd) {
     case 'app': {
-      // B1.1: when --template <T> is passed AND T resolves in the registry,
-      // emit a stub message and exit 0. The new pipeline gets wired in B1.2.
-      // When --template is absent OR T is not a known template name, fall
-      // through to the legacy scaffoldApp() path (preserves R-CT-06).
+      // B1.3: when --template <T> resolves in the registry, drive the real
+      // 6-stage scaffold pipeline (resolveTemplate → mergeOptions →
+      // enumerateFiles → readSubstituteWrite → runPostInstall →
+      // printNextSteps). When --template is absent OR T is not a known
+      // template name, fall through to the legacy scaffoldApp() path
+      // (preserves R-CT-06 backward compatibility).
       const tplFlag = extractTemplateFlag(rest)
-      if (tplFlag !== undefined && resolveTemplateName(tplFlag) !== undefined) {
-        process.stderr.write('STUB: new pipeline not yet wired in B1.1\n')
-        process.exit(0)
+      const resolved = tplFlag !== undefined ? resolveTemplateName(tplFlag) : undefined
+      if (resolved !== undefined) {
+        await dispatchTemplate({ appName: arg, templatePkg: resolved, rest })
+        return
       }
       result = scaffoldApp(arg)
       break
