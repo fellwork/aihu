@@ -43,7 +43,7 @@ independently hydratable boundary.
 - `packages/compiler/js/index.ts`:
   - new `AihuCompilerPluginOptions` interface (`islands?: boolean`)
   - new `_classifyIsland`, `_buildStaticIsland`, `_buildDeferredHydration` helpers
-  - `scribeCompilerPlugin(options)` accepts `{ islands }`; default `true`
+  - `aihuCompilerPlugin(options)` accepts `{ islands }`; default `true`
   - Vite plugin transform branches: static islands → `_buildStaticIsland`;
     interactive → existing HMR pass + `_buildDeferredHydration`
 - `.size-limit.json` — `@aihu/runtime` cap raised from 1140 B → 1170 B to
@@ -115,7 +115,7 @@ already over on `main` HEAD `86cb25a` and is out of scope for Plan 3.3.
   and `defineElement('tag', ...)`), not after. A naive
   `customElements.get(tag).prototype.connectedCallback = ...` rewrite
   AFTER `defineElement` would have no effect.
-- **`scribeCompilerPlugin({ islands: false })`** opts every component back
+- **`aihuCompilerPlugin({ islands: false })`** opts every component back
   into the unified runtime path for parity with Plan 3.2 baseline.
 - **Static-island shape requirement**: the rewrite expects the canonical
   `defineElement('tag', defineComponent((_ctx) => {...}))` shape produced

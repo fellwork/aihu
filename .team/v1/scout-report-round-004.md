@@ -63,7 +63,7 @@ Notable test files:
 ## 4. Compiler state
 
 - Phases C-0 through C-4 squash-merged to `main` as `fb02cd3`
-- `packages/compiler/js/index.ts` exports `transform()` and `scribeCompilerPlugin()` ✅
+- `packages/compiler/js/index.ts` exports `transform()` and `aihuCompilerPlugin()` ✅
 - Rust tests: 32 passing, 1 ignored (per last state file; live `cargo test` not run)
 - Cleanup tasks from session 6 still open (BTreeMap, Vite investigation, topic summary)
 

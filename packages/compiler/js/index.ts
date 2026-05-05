@@ -3,7 +3,7 @@
  *
  * Exports:
  *   transform(source, id)    — compile a single .aihu file to TypeScript
- *   scribeCompilerPlugin()   — Vite plugin that wires transform() into the build
+ *   aihuCompilerPlugin()   — Vite plugin that wires transform() into the build
  */
 import { execFileSync } from 'node:child_process'
 import { basename, dirname, resolve } from 'node:path'
@@ -28,7 +28,7 @@ interface VitePlugin {
 }
 
 /**
- * Options for `scribeCompilerPlugin()` (Plan 3.3 — Islands).
+ * Options for `aihuCompilerPlugin()` (Plan 3.3 — Islands).
  */
 export interface AihuCompilerPluginOptions {
   /**
@@ -470,8 +470,8 @@ export function _injectAutoWiring(code: string): string {
  *
  * @example
  * // vite.config.ts
- * import { scribeCompilerPlugin } from '@aihu/compiler'
- * export default { plugins: [scribeCompilerPlugin()] }
+ * import { aihuCompilerPlugin } from '@aihu/compiler'
+ * export default { plugins: [aihuCompilerPlugin()] }
  *
  * **Known Limitation — Bun + Rollup4 ESM incompatibility (v0):**
  *
@@ -506,7 +506,7 @@ export function _injectAutoWiring(code: string): string {
  * strategy so the Rust binary is bundled with the npm package and does not
  * require a separate `cargo build --release` step.
  */
-export function scribeCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
+export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
   return {

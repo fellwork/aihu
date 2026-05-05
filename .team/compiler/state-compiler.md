@@ -186,7 +186,7 @@ Files created or amended:
 | `packages/compiler/src/bin/main.rs` | `f82eb56` | CLI binary: file + stdin modes, `--out`, `--tag`, `--stdin` flags, exit 1 on error |
 | `packages/compiler/src/codegen/emit.rs` | `ffcbc3b` | Fix: `"null"` → `"undefined"` for empty attrs in `emit_attrs()` |
 | `packages/compiler/tests/snapshots/` (8 files) | `ffcbc3b` | Re-accepted after null→undefined fix |
-| `packages/compiler/js/index.ts` | `f82eb56`, `a0af4d4` | `transform()` + `scribeCompilerPlugin()` exports; `.exe` extension; `enforce: 'pre'` |
+| `packages/compiler/js/index.ts` | `f82eb56`, `a0af4d4` | `transform()` + `aihuCompilerPlugin()` exports; `.exe` extension; `enforce: 'pre'` |
 | `packages/compiler/package.json` | `f82eb56` | `@aihu/compiler` npm package manifest |
 | `packages/compiler/moon.yml` | `f82eb56` | Moon task definitions for build/typecheck |
 | `packages/compiler/rolldown.config.ts` | `f82eb56` | Rolldown RC-17 build config |
@@ -258,7 +258,7 @@ All session-6 next actions resolved:
 
 1. **Merged to main** — PR #14 at `808f1c0`.
 2. **BTreeMap in `signals.rs`** — DONE. `HashMap` → `BTreeMap`. Deterministic snapshot order. All 32 Rust tests pass, affected snapshots re-accepted.
-3. **Vite limitation documented** — DONE. `bun vite build` with `scribeCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Clear note added to `packages/compiler/js/index.ts` JSDoc. `transform()` function works correctly via `bun run integrate.ts`.
+3. **Vite limitation documented** — DONE. `bun vite build` with `aihuCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Clear note added to `packages/compiler/js/index.ts` JSDoc. `transform()` function works correctly via `bun run integrate.ts`.
 4. **Topic summary written** — DONE. `.team/compiler/summaries/compiler-summary.md` exists. Covers pipeline, architecture, key decisions, 5 known limitations.
 5. 32 Rust tests green, 320 TS tests green.
 

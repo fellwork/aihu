@@ -256,7 +256,7 @@ export interface PluginConfig {
   readonly version: string
   readonly namespace: string
   /** Compatible aihu versions (semver range). Checked at registration (spec §7.3). */
-  readonly scribeVersion?: string
+  readonly aihuVersion?: string
   readonly configSchema?: ConfigSchema
   readonly contributes?: Contributes
   readonly hooks?: Hooks
@@ -325,7 +325,7 @@ export type ValidationResult =
   | { readonly ok: false; readonly errors: ReadonlyArray<ValidationError> }
 
 /**
- * Current aihu framework version against which `scribeVersion` ranges are
+ * Current aihu framework version against which `aihuVersion` ranges are
  * checked. Imported by `validatePlugin` for the §7.3 compatibility check.
  *
  * v0.2.1: `0.2.0` per the v1 framework plan (`@aihu/plugin` package version).
@@ -357,7 +357,7 @@ export function resetValidationState(): void {
  *   - reserved-namespace       (`aihu`, `core`, `state`, `template`, `style`, `agent`, `route`)
  *   - duplicate-namespace      (two plugins with the same `namespace` in one pass)
  *   - missing-required-field   (no `name` / `version` / `namespace`)
- *   - aihu-version-mismatch  (declared `scribeVersion` range incompatible with framework)
+ *   - aihu-version-mismatch  (declared `aihuVersion` range incompatible with framework)
  */
 export function validatePlugin(plugin: Plugin): ValidationResult {
   const errors: ValidationError[] = []
@@ -396,12 +396,12 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
     }
   }
 
-  // scribeVersion compatibility (spec §7.3, §8.1 row 5)
-  if (plugin.scribeVersion && !satisfies(SCRIBE_VERSION, plugin.scribeVersion)) {
+  // aihuVersion compatibility (spec §7.3, §8.1 row 5)
+  if (plugin.aihuVersion && !satisfies(SCRIBE_VERSION, plugin.aihuVersion)) {
     const id = plugin.name && plugin.version ? `'${plugin.name}@${plugin.version}'` : 'plugin'
     errors.push({
       code: 'aihu-version-mismatch',
-      message: `plugin ${id} requires aihu ${plugin.scribeVersion}; running ${SCRIBE_VERSION}`,
+      message: `plugin ${id} requires aihu ${plugin.aihuVersion}; running ${SCRIBE_VERSION}`,
     })
   }
 
@@ -410,7 +410,7 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
 
 /**
  * Minimal semver range check. Supports the subset used by the spec for
- * `scribeVersion`: exact (`0.2.0`), caret (`^0.2.0`), tilde (`~0.2.0`), and
+ * `aihuVersion`: exact (`0.2.0`), caret (`^0.2.0`), tilde (`~0.2.0`), and
  * `*` / `x` wildcards. We deliberately do NOT pull in a `semver` dependency
  * (Learning #49: zero non-`@aihu/*` runtime deps).
  *

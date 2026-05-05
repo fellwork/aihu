@@ -50,7 +50,7 @@ Slot cost estimate: a `slot()` primitive implemented as a `_makeElementLeaf` wra
 
 Three tasks:
 1. **BTreeMap in `signals.rs`** — replaced `HashMap<String, String>` with `BTreeMap<String, String>` in `SignalMap`. Eliminates snapshot ordering non-determinism permanently. 32 Rust tests pass, affected snapshots re-accepted.
-2. **Vite limitation documented** — `bun vite build` with `scribeCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Documented with a clear note in `packages/compiler/js/index.ts` JSDoc. The `transform()` function works correctly; only the Vite plugin hook is affected.
+2. **Vite limitation documented** — `bun vite build` with `aihuCompilerPlugin()` does not work under Bun+Rollup4 ESM interop. Documented with a clear note in `packages/compiler/js/index.ts` JSDoc. The `transform()` function works correctly; only the Vite plugin hook is affected.
 3. **Compiler topic summary written** — `.team/compiler/summaries/compiler-summary.md` now exists. Covers SFC → TypeScript pipeline, architecture, key decisions, 5 known limitations, and what a new engineer needs before touching the code.
 
 Verifier: PASS on all 11 ACs. 32 Rust tests green, 320 TS tests green.

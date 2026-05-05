@@ -68,7 +68,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite'
    time — aborting the entire build.
 
 **Resolution:** Added a comprehensive `Known Limitation` JSDoc block above
-`scribeCompilerPlugin()` in `packages/compiler/js/index.ts` explaining:
+`aihuCompilerPlugin()` in `packages/compiler/js/index.ts` explaining:
 - What fails and why (both errors)
 - The workaround: `bun run integrate.ts`
 - The v1 resolution path
@@ -111,6 +111,6 @@ Covers:
 | File | Change |
 |------|--------|
 | `packages/compiler/src/codegen/signals.rs` | HashMap → BTreeMap |
-| `packages/compiler/js/index.ts` | Added Known Limitation JSDoc above `scribeCompilerPlugin()` |
+| `packages/compiler/js/index.ts` | Added Known Limitation JSDoc above `aihuCompilerPlugin()` |
 | `.team/compiler/summaries/compiler-summary.md` | NEW — topic summary |
 | `.team/compiler/build-manifest-session-6.md` | NEW — this file |

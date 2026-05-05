@@ -126,7 +126,7 @@ Two exports:
 - `transform(source, id): { code, map }` — calls the `aihu-compile` binary
   via `execFileSync` in `--stdin --tag <stem>` mode. Used directly by
   `integrate.ts` and internally by the Vite plugin.
-- `scribeCompilerPlugin(): VitePlugin` — Vite plugin with `enforce: 'pre'`
+- `aihuCompilerPlugin(): VitePlugin` — Vite plugin with `enforce: 'pre'`
   that filters on `id.endsWith('.aihu')` and delegates to `transform()`.
 
 Binary path resolution: `SCRIBE_COMPILE_BIN` env var → fallback to
@@ -304,7 +304,7 @@ and is not built automatically by any Moon task (see `moon.yml` comment).
 | `packages/compiler/src/codegen/signals.rs` | `SignalMap` (BTreeMap) + `resolve_signals()` (C-2) |
 | `packages/compiler/src/codegen/emit.rs` | TypeScript codegen: `emit()`, `build_imports()`, `extract_script_body()`, `emit_nodes()`, `emit_node()`, `emit_attrs()` (C-3) |
 | `packages/compiler/src/bin/main.rs` | CLI binary: file mode + `--stdin --tag` mode (C-4) |
-| `packages/compiler/js/index.ts` | npm/Vite wrapper: `transform()`, `scribeCompilerPlugin()` (C-4) |
+| `packages/compiler/js/index.ts` | npm/Vite wrapper: `transform()`, `aihuCompilerPlugin()` (C-4) |
 | `packages/compiler/package.json` | `@aihu/compiler` npm package manifest |
 | `packages/compiler/fixtures/vite-counter/` | Integration fixture: `counter.aihu`, `integrate.ts`, `vite.config.ts` |
 | `packages/compiler/tests/c4_integration.rs` | `#[ignore]` integration test using `bun run integrate.ts` |

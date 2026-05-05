@@ -212,10 +212,10 @@ If absent, all defaults apply — `outletId: 'outlet'`, no title.
 **Before (current blog-router):**
 ```typescript
 import { viteRouterPlugin } from '@aihu/router/plugin'
-import { scribeCompilerPlugin } from '@aihu/compiler'
+import { aihuCompilerPlugin } from '@aihu/compiler'
 
 export default {
-  plugins: [scribeCompilerPlugin(), viteRouterPlugin({ pagesDir: 'src/pages' })],
+  plugins: [aihuCompilerPlugin(), viteRouterPlugin({ pagesDir: 'src/pages' })],
 }
 ```
 
@@ -231,11 +231,11 @@ export default defineConfig({ plugins: [aihu()] })
 Option B (incremental — add only `viteAppPlugin` if not adopting full composition yet):
 ```typescript
 import { viteRouterPlugin } from '@aihu/router/plugin'
-import { scribeCompilerPlugin } from '@aihu/compiler'
+import { aihuCompilerPlugin } from '@aihu/compiler'
 import { viteAppPlugin } from '@aihu/app'
 
 export default {
-  plugins: [scribeCompilerPlugin(), viteRouterPlugin({ pagesDir: 'src/pages' }), viteAppPlugin()],
+  plugins: [aihuCompilerPlugin(), viteRouterPlugin({ pagesDir: 'src/pages' }), viteAppPlugin()],
 }
 ```
 

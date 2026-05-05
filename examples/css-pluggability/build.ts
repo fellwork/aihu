@@ -3,7 +3,7 @@
  *
  * Runs three stages, none of which need Vite (Vite-on-Bun has a known
  * limitation with the @aihu/compiler workspace symlink — see
- * packages/compiler/js/index.ts JSDoc on scribeCompilerPlugin).
+ * packages/compiler/js/index.ts JSDoc on aihuCompilerPlugin).
  *
  *   1. Compile each .aihu SFC → .ts via `transform()`.
  *      For each compiled module, post-process the emitted defineElement

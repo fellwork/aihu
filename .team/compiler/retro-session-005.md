@@ -20,7 +20,7 @@ Commit: a0af4d4
 
 ## What to improve
 
-**Bun/Rollup4 ESM plugin-loading incompatibility required integration test pivot.** The original C4-6 criterion was `bun vite build` with a `.aihu` component. When Bun processes `vite.config.ts` as the config loader, the `scribeCompilerPlugin()` transform hook is not invoked for `.aihu` files — the plugin is loaded but the transform does not fire. Root cause: Bun + Rollup4 ESM plugin incompatibility in the CLI path. The fix was pragmatic: replace `bun vite build` with `bun run integrate.ts` which calls `transform()` directly. This is correct coverage for C4-6 (the transform function works), but the `bun vite build` end-to-end path remains untested. Future sessions should either fix the Bun/Rollup4 incompatibility or document it as a known limitation in the `@aihu/compiler` README.
+**Bun/Rollup4 ESM plugin-loading incompatibility required integration test pivot.** The original C4-6 criterion was `bun vite build` with a `.aihu` component. When Bun processes `vite.config.ts` as the config loader, the `aihuCompilerPlugin()` transform hook is not invoked for `.aihu` files — the plugin is loaded but the transform does not fire. Root cause: Bun + Rollup4 ESM plugin incompatibility in the CLI path. The fix was pragmatic: replace `bun vite build` with `bun run integrate.ts` which calls `transform()` directly. This is correct coverage for C4-6 (the transform function works), but the `bun vite build` end-to-end path remains untested. Future sessions should either fix the Bun/Rollup4 incompatibility or document it as a known limitation in the `@aihu/compiler` README.
 
 **HashMap ordering non-determinism across test isolation boundaries is now fully understood but still requires re-acceptance.** The `multiple_signals` snapshot needed re-acceptance twice: once running the isolated suite, and once running the full suite. The HashMap key-insertion order is non-deterministic across parallelism boundaries, not just within a single run. Mitigation: switch `SignalMap` to `BTreeMap` to guarantee lexicographic ordering in all snapshot output.
 
@@ -59,7 +59,7 @@ Commit: a0af4d4
 .aihu → AihuSource → CompileUnit → emit() → .ts
 ```
 
-Delivered: `aihu-compile` binary (file + stdin modes), `@aihu/compiler` npm package (`transform`, `scribeCompilerPlugin`), Vite plugin with `enforce: 'pre'`, rolldown-built `dist/`, integration fixture (`fixtures/vite-counter/`).
+Delivered: `aihu-compile` binary (file + stdin modes), `@aihu/compiler` npm package (`transform`, `aihuCompilerPlugin`), Vite plugin with `enforce: 'pre'`, rolldown-built `dist/`, integration fixture (`fixtures/vite-counter/`).
 
 **Compiler track C-0 through C-4: COMPLETE.** No Phase C-5 is planned.
 

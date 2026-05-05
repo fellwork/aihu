@@ -10,7 +10,7 @@
 The composed plugin array must be emitted in this exact order:
 
 ```
-[scribeCompilerPlugin(), viteRouterIntegration(opts), viteAgentReadinessIntegration(cfg)]
+[aihuCompilerPlugin(), viteRouterIntegration(opts), viteAgentReadinessIntegration(cfg)]
 ```
 
 **Dependency chain:**
@@ -58,7 +58,7 @@ No overloads needed for V0. `config` is optional so the zero-config case (`aihu(
 
 All derivations are pure synchronous reads — no async, no file I/O.
 
-### 3a. Compiler plugin (`scribeCompilerPlugin`)
+### 3a. Compiler plugin (`aihuCompilerPlugin`)
 
 ```typescript
 const compilerOpts: AihuCompilerPluginOptions = {}
@@ -101,7 +101,7 @@ Appended after the three framework plugins:
 
 ```typescript
 return [
-  scribeCompilerPlugin(compilerOpts),
+  aihuCompilerPlugin(compilerOpts),
   viteRouterIntegration(routerOpts),
   agentReadinessPluginOrNoop,
   ...(config?.plugins ?? []),
@@ -176,7 +176,7 @@ The "inline wins, file is fallback" pattern is deferred to V1 via Vite's `loadCo
 ### Files to create
 
 - **`packages/app/src/vite-plugin.ts`** — `aihu()` function; imports:
-  - `scribeCompilerPlugin` from `@aihu/compiler` (default entry, NOT `@aihu/compiler/plugin`)
+  - `aihuCompilerPlugin` from `@aihu/compiler` (default entry, NOT `@aihu/compiler/plugin`)
   - `viteRouterIntegration` from `@aihu/router/plugin` (build-time subpath)
   - `viteAgentReadinessIntegration` from `@aihu/agent-readiness`
   - `AihuConfig` from `./config.ts`
@@ -197,7 +197,7 @@ The "inline wins, file is fallback" pattern is deferred to V1 via Vite's `loadCo
 
 ## 8. Builder Risks
 
-1. **Import path for `scribeCompilerPlugin`** — Use default entry (`@aihu/compiler`), NOT `@aihu/compiler/plugin`
+1. **Import path for `aihuCompilerPlugin`** — Use default entry (`@aihu/compiler`), NOT `@aihu/compiler/plugin`
 2. **`viteRouterIntegration` import** — Use `@aihu/router/plugin` subpath, NOT `@aihu/router`
 3. **`AgentReadinessConfig` type-only import** — Add `@aihu/agent-readiness` to `@aihu/app/package.json` dependencies
 4. **`check-size-rows` classification** — `@aihu/app` is browser-eligible (client subpath); add `.size-limit.json` row for `packages/app/dist/client.js`

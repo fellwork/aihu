@@ -129,7 +129,7 @@
 
 **Defines:** how plugins extend the compiler and runtime. Plugins are first-class — data, agent surface, forms helpers are themselves plugins. Core ships minimal compiler+runtime; everything beyond markup/state/style/agent is plugin contribution.
 
-**Plugin anatomy (§1):** npm package exporting `definePlugin({...})` default. Required: `name`, `version`, `namespace`. Optional: `configSchema`, `contributes`, `hooks`, `parsers`, `dependencies`, `scribeVersion`. Namespace must be valid identifier (no `@scope/`), not collide with reserved names (`aihu`, `core`, `state`, `template`, `style`, `agent`, `route`).
+**Plugin anatomy (§1):** npm package exporting `definePlugin({...})` default. Required: `name`, `version`, `namespace`. Optional: `configSchema`, `contributes`, `hooks`, `parsers`, `dependencies`, `aihuVersion`. Namespace must be valid identifier (no `@scope/`), not collide with reserved names (`aihu`, `core`, `state`, `template`, `style`, `agent`, `route`).
 
 **Contribution categories (§2):**
 - **Blocks:** `contributes.blocks: ['fields']` -> permits `@forms.fields { ... }`. Plugin provides `parsers.fields = (body, ctx) => AST`.
@@ -152,7 +152,7 @@
 
 Server-side build coordination: compiler emits per-plugin server bundle entry; cross-plugin server-side imports allowed only via declared deps; client cannot import plugin's server middleware.
 
-**Plugin discovery (§7):** explicit registration only — no auto-discovery from `package.json` / `node_modules`. `scribeVersion: '^1.0.0'` matched at registration.
+**Plugin discovery (§7):** explicit registration only — no auto-discovery from `package.json` / `node_modules`. `aihuVersion: '^1.0.0'` matched at registration.
 
 **Plugin composition (§10):** `dependencies: ['data']` — topological sort orders hooks; cross-plugin `ctx.runtime('@aihu-plugin/data:query')` allowed only with declared dep.
 
@@ -285,7 +285,7 @@ Status legend:
 | **6.5.7** | Build target awareness for plugin contributions | **GAP** | Same as Block Structure §11.5 build target — universally GAP |
 | 7.1 | Explicit registration in `aihu.config.ts plugins` | **GAP** | Field doesn't exist |
 | 7.2 | No auto-discovery from `node_modules` | SHIPPED (vacuous) | Compiler doesn't auto-discover anything; structurally compliant by absence |
-| 7.3 | `scribeVersion: '^1.0.0'` compatibility check | **GAP** | n/a |
+| 7.3 | `aihuVersion: '^1.0.0'` compatibility check | **GAP** | n/a |
 | 10 | `dependencies: ['data']` topological sort | **GAP** | n/a |
 | 11 | Conformance suite at `bench/compiler-conformance/plugins/` | **GAP** | Not present |
 
@@ -327,7 +327,7 @@ This audit walks four naming surfaces. **The Architect should adjudicate which o
 | `transforms` (in `contributes`) | YES | clear | "What transforms this plugin contributes" — clear in context |
 | `hooks` | YES | clear | Standard plugin-system naming |
 | `dependencies` (plugin deps) | partial | **MILDLY AMBIGUOUS** | Collides with npm `package.json.dependencies`. Alt: `pluginDependencies` or `requires` |
-| `scribeVersion` (compat check) | YES | clear | Clear |
+| `aihuVersion` (compat check) | YES | clear | Clear |
 | `componentAliases` (in aihu.config) | NO | **AMBIGUOUS** | Doesn't reveal plugin-aliasing intent. Alt: `pluginComponentAliases` |
 | `validIn` (macro field) | partial | **MILDLY AMBIGUOUS** | Acceptable — macro-specific |
 
@@ -465,7 +465,7 @@ The Architect can proceed without these; the Investigator dispatch resolves them
 
 9. **Plugin Contract `contributes.middleware` (Amendment 03 §6.5.3, provisional) interaction with `defineMiddleware` (`packages/server/src/middleware.ts`).** Are these the same wire format or distinct? Spec implies plugin middleware is a separate registration channel; current `defineMiddleware` is a hand-authored helper. Investigator: confirm intent — should plugin-contributed middleware compose with `composeMiddleware`, or run on a separate pipeline?
 
-10. **`scribeVersion` semver compat check (§7.3) feasibility for v1.0 ratification.** Compiler is Rust-side; reading TS plugin version requires either a build-time bridge or the compiler reading `package.json` of registered plugins. Implementation-shape unknown.
+10. **`aihuVersion` semver compat check (§7.3) feasibility for v1.0 ratification.** Compiler is Rust-side; reading TS plugin version requires either a build-time bridge or the compiler reading `package.json` of registered plugins. Implementation-shape unknown.
 
 11. **`@aihu/runtime` lifecycle helper exports (`onMount`, `onCleanup` per Macro Vocabulary §2.8 lowering).** `packages/runtime/src/index.ts` doesn't export these names. Whether they exist as internals (`define-component.ts` connectedCallback timing) and just aren't exposed, or whether they need to be added, is unconfirmed. Investigator: read `packages/runtime/src/` end-to-end.
 

@@ -24,7 +24,7 @@ All tracks shipped to main:
 - **612 TS tests passing** (up from 607; +5 TS — none of the 5 are regressions).
 - **222 Rust tests** (untouched).
 - **No new npm runtime/dev deps** (Learning #49 honored).
-- **One new compiler capability** landed: `scribeCompilerPlugin({ shadowMode })`.
+- **One new compiler capability** landed: `aihuCompilerPlugin({ shadowMode })`.
 - **Three v1.x parser/spec issues** surfaced during T4-E2 — flagged for
   separate sessions.
 
@@ -144,7 +144,7 @@ expansions):
 
 ## Capability additions
 
-### `scribeCompilerPlugin({ shadowMode: 'open' | 'closed' | 'none' })`
+### `aihuCompilerPlugin({ shadowMode: 'open' | 'closed' | 'none' })`
 
 **Track:** T4-E3 (`3c81f62`, `04e9f7f`).
 

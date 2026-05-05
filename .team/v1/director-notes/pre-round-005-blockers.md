@@ -137,11 +137,11 @@ Steps:
 
 **Item 2 — Vite/Bun integration investigation:**
 
-`bun vite build` in `packages/compiler/fixtures/vite-counter/` fails because Bun+Rollup4 does not properly invoke `scribeCompilerPlugin()`. The `bun run integrate.ts` path works correctly (it calls `transform()` directly). Acceptance criteria C4-6 (`bun vite build` → valid `dist/`) is listed as PASS in the verification report but may be based on the working `integrate.ts` path.
+`bun vite build` in `packages/compiler/fixtures/vite-counter/` fails because Bun+Rollup4 does not properly invoke `aihuCompilerPlugin()`. The `bun run integrate.ts` path works correctly (it calls `transform()` directly). Acceptance criteria C4-6 (`bun vite build` → valid `dist/`) is listed as PASS in the verification report but may be based on the working `integrate.ts` path.
 
 Steps:
 1. Run `bun vite build` in `packages/compiler/fixtures/vite-counter/` and capture the exact error.
-2. Determine whether the failure is: (a) a Bun+ESM module interop issue with the `scribeCompilerPlugin()` Vite hook, (b) a Rollup4 plugin API incompatibility, or (c) a path/resolution issue.
+2. Determine whether the failure is: (a) a Bun+ESM module interop issue with the `aihuCompilerPlugin()` Vite hook, (b) a Rollup4 plugin API incompatibility, or (c) a path/resolution issue.
 3. If fixable with ≤ 10 lines of change: fix it and note the change.
 4. If not fixable without significant rework: document the limitation clearly in `packages/compiler/js/index.ts` JSDoc and in `@aihu/compiler`'s README section of the package.json or a `KNOWN_ISSUES` comment block. Do not silently leave C4-6 in a broken state.
 5. Update `.team/compiler/state-compiler.md` with the outcome.

@@ -32,7 +32,7 @@ stylesheets from reaching your components.
 
 For Tailwind / UnoCSS / Pico to work, components mount in **light DOM**
 instead, and the framework's stylesheet is loaded once globally. This example
-uses `scribeCompilerPlugin({ shadowMode: 'none' })` (or in this case the
+uses `aihuCompilerPlugin({ shadowMode: 'none' })` (or in this case the
 direct `_injectShadowMode(code, 'none')` post-process — see `build.ts`) to
 register every component with `defineElement(tag, ctor, { shadowMode: 'none' })`.
 

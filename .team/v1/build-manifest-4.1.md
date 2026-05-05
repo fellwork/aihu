@@ -29,7 +29,7 @@ in dev without a full page reload.
 - `packages/compiler/js/index.ts`
   - Added `_extractElementTag(code)` helper to extract the custom element tag from compiled output
   - Added `_buildHmrCode(compiledCode, elementTag)` that instruments compiled `.aihu` modules with HMR support
-  - Updated `scribeCompilerPlugin()` transform hook to inject HMR instrumentation
+  - Updated `aihuCompilerPlugin()` transform hook to inject HMR instrumentation
 
 ---
 
@@ -52,7 +52,7 @@ set `__DEV__ = false` drop them entirely.
 
 ### Vite plugin HMR injection
 
-The `scribeCompilerPlugin()` transform hook now appends HMR instrumentation
+The `aihuCompilerPlugin()` transform hook now appends HMR instrumentation
 to each compiled `.aihu` module:
 
 1. **Import rewrite** — adds `_hmrReplace` to the `@aihu/runtime` import

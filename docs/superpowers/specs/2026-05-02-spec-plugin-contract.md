@@ -626,12 +626,12 @@ The compiler checks plugin version compatibility against aihu's version at regis
 definePlugin({
   name: 'forms',
   version: '0.1.0',
-  scribeVersion: '^1.0.0',    // compatible aihu versions
+  aihuVersion: '^1.0.0',    // compatible aihu versions
   // ...
 })
 ```
 
-The compiler emits an error if the plugin's `scribeVersion` doesn't match the running aihu version. Prevents plugins from running against incompatible compiler interfaces.
+The compiler emits an error if the plugin's `aihuVersion` doesn't match the running aihu version. Prevents plugins from running against incompatible compiler interfaces.
 
 ---
 
@@ -645,7 +645,7 @@ The compiler emits an error if the plugin's `scribeVersion` doesn't match the ru
 | Reserved namespace | `namespace: 'core'` | "plugin namespace 'core' is reserved by aihu" |
 | Duplicate namespace | Two plugins with same namespace | "duplicate plugin namespace 'forms'. Plugins must have unique namespaces" |
 | Missing required field | `definePlugin({})` | "plugin definition missing required fields: name, version, namespace" |
-| Invalid scribeVersion | Mismatched semver | "plugin '@aihu-plugin/forms@0.1.0' requires aihu ^2.0.0; running ^1.0.0" |
+| Invalid aihuVersion | Mismatched semver | "plugin '@aihu-plugin/forms@0.1.0' requires aihu ^2.0.0; running ^1.0.0" |
 
 ### 8.2 Plugin contribution errors
 

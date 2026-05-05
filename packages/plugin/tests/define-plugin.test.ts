@@ -102,13 +102,13 @@ describe('@aihu/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
     }
   })
 
-  it('rejects a scribeVersion mismatch (spec §7.3, §8.1 row 5)', () => {
+  it('rejects a aihuVersion mismatch (spec §7.3, §8.1 row 5)', () => {
     const plugin = definePlugin({
       name: 'forms',
       version: '0.1.0',
       namespace: 'forms',
       // ^2.0.0 cannot be satisfied by 0.2.0 (current SCRIBE_VERSION).
-      scribeVersion: '^2.0.0',
+      aihuVersion: '^2.0.0',
     })
 
     const result = validatePlugin(plugin)
@@ -121,13 +121,13 @@ describe('@aihu/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
     }
   })
 
-  it('accepts a compatible scribeVersion range (spec §7.3 happy path)', () => {
+  it('accepts a compatible aihuVersion range (spec §7.3 happy path)', () => {
     const plugin = definePlugin({
       name: 'forms',
       version: '0.1.0',
       namespace: 'forms-compat',
       // ^0.2.0 is compatible with 0.2.0.
-      scribeVersion: '^0.2.0',
+      aihuVersion: '^0.2.0',
     })
 
     expect(validatePlugin(plugin)).toEqual({ ok: true })

@@ -8,7 +8,7 @@ import type { RouteDefinition } from '@aihu/router'
 
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
-import { scribeCompilerPlugin } from '@aihu/compiler'
+import { aihuCompilerPlugin } from '@aihu/compiler'
 import { viteRouterIntegration, scanPages } from '@aihu/router/plugin'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
@@ -105,7 +105,7 @@ function buildAdapterContext(
  * viteAihuPlugin() — composed Vite plugin for aihu SPA projects.
  *
  * Returns Plugin[] composing:
- *   [0] scribeCompilerPlugin (enforce:'pre') — transforms .aihu SFCs
+ *   [0] aihuCompilerPlugin (enforce:'pre') — transforms .aihu SFCs
  *   [1] viteRouterIntegration — serves virtual:aihu-routes + virtual:aihu-layouts
  *   [2] aihu-agent-readiness (opt-in) or no-op
  *   [3..n] user plugins from config.plugins
@@ -187,7 +187,7 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   }
 
   return [
-    scribeCompilerPlugin() as unknown as Plugin,
+    aihuCompilerPlugin() as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,
     agentPlugin,
     ...((config?.plugins ?? []) as Plugin[]),

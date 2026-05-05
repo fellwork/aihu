@@ -84,7 +84,7 @@ This is what aihu ships out-of-box; the example documents it as the "no framewor
 
 To ship the worked example with `.aihu` SFCs (per directive: "use v1 `@blockname { }` form"), the compiler needs a way for the SFC to declare `shadowMode: 'none'`. Today the compiler emits `defineElement(tag, defineComponent(...))` with no options.
 
-**Smallest viable change:** the `scribeCompilerPlugin` accepts an `options.shadowMode` setting (`'open' | 'closed' | 'none'`). When set, the plugin post-processes the compiled JS to inject `, { shadowMode: 'X' }` as the third arg to `defineElement(...)`. Project-wide setting in `vite.config.ts`. Per-component override deferred to v1.x (tracked as future work — would require a new `@element { shadow: 'none' }` SFC block, post-v1 feature).
+**Smallest viable change:** the `aihuCompilerPlugin` accepts an `options.shadowMode` setting (`'open' | 'closed' | 'none'`). When set, the plugin post-processes the compiled JS to inject `, { shadowMode: 'X' }` as the third arg to `defineElement(...)`. Project-wide setting in `vite.config.ts`. Per-component override deferred to v1.x (tracked as future work — would require a new `@element { shadow: 'none' }` SFC block, post-v1 feature).
 
 **Size impact:** ~15 LOC in `packages/compiler/js/index.ts`, no Rust changes. Test: 1 unit test in `packages/compiler/tests/`. No runtime size change.
 
@@ -111,7 +111,7 @@ examples/css-pluggability/
 └── README.md                  # Cover Tailwind, UnoCSS swap, Pico swap, vanilla swap, trade-offs
 ```
 
-The build skips Vite (the compiler's Vite path has a known Bun-specific limitation, see `packages/compiler/js/index.ts` JSDoc on `scribeCompilerPlugin`). Instead `build.ts` calls `transform()` from `@aihu/compiler` directly and `bunx @tailwindcss/cli` for the CSS. This is the same pattern as the existing `tests/manual-demo/` fixture and works under Bun without the Vite/Rollup4 ESM bridge issue.
+The build skips Vite (the compiler's Vite path has a known Bun-specific limitation, see `packages/compiler/js/index.ts` JSDoc on `aihuCompilerPlugin`). Instead `build.ts` calls `transform()` from `@aihu/compiler` directly and `bunx @tailwindcss/cli` for the CSS. This is the same pattern as the existing `tests/manual-demo/` fixture and works under Bun without the Vite/Rollup4 ESM bridge issue.
 
 ---
 

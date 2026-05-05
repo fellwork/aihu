@@ -49,13 +49,13 @@ export function scaffoldApp(name: string, targetDir: string): void {
   writeFile(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`)
 
   // aihu.config.ts
-  const scribeConfig = `import { defineAihuConfig } from '@aihu/server'
+  const aihuConfig = `import { defineAihuConfig } from '@aihu/server'
 
 export default defineAihuConfig({
   build: { target: 'universal' },
 })
 `
-  writeFile(join(root, 'aihu.config.ts'), scribeConfig)
+  writeFile(join(root, 'aihu.config.ts'), aihuConfig)
 
   // vite.config.ts
   const viteConfig = `import { defineConfig } from 'vite'

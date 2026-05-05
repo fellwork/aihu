@@ -954,7 +954,7 @@ Files introduced or amended by Phase C-4. Every path is relative to the repo roo
 | Path | Description |
 |---|---|
 | `packages/compiler/src/bin/main.rs` | CLI binary — file-path and `--stdin` modes |
-| `packages/compiler/js/index.ts` | TS wrapper — `transform()` + `scribeCompilerPlugin()` |
+| `packages/compiler/js/index.ts` | TS wrapper — `transform()` + `aihuCompilerPlugin()` |
 | `packages/compiler/package.json` | npm package manifest for `@aihu/compiler` |
 | `packages/compiler/moon.yml` | Moon project config |
 | `packages/compiler/rolldown.config.ts` | Rolldown build config |
@@ -1154,7 +1154,7 @@ export function transform(source: string, id: string): { code: string; map: null
 /**
  * Vite plugin that compiles .aihu files to TypeScript during build and dev.
  */
-export function scribeCompilerPlugin(): VitePlugin {
+export function aihuCompilerPlugin(): VitePlugin {
   return {
     name: 'aihu-compiler',
     transform(code, id) {
@@ -1284,10 +1284,10 @@ const increment = () => setCount(c => c + 1)
 import { defineConfig } from 'vite'
 // Imports directly from source tree (pre-build).
 // After `bun run build` in packages/compiler/, change to '@aihu/compiler'.
-import { scribeCompilerPlugin } from '../../../js/index.ts'
+import { aihuCompilerPlugin } from '../../../js/index.ts'
 
 export default defineConfig({
-  plugins: [scribeCompilerPlugin()],
+  plugins: [aihuCompilerPlugin()],
   build: {
     outDir: 'dist',
     rollupOptions: { input: 'index.html' },
@@ -1376,7 +1376,7 @@ fn c4_vite_build_produces_dist() {
 | **C4-2** `--out dist/` → `dist/counter.ts` | `src/bin/main.rs` `--out` branch, `fs::write` | Tag name resolves to `counter`; writes `dist/counter.ts` |
 | **C4-3** Exit 1, `file:line: message` on stderr | `src/bin/main.rs` step 5 error handler | `e.line` + `e.message` from `CompileError`; `process::exit(1)` |
 | **C4-4** `@aihu/compiler` exports `transform()` | `js/index.ts` `export function transform(...)` | Re-exported through `dist/index.js` after build |
-| **C4-5** Vite hook for `*.aihu` | `js/index.ts` `scribeCompilerPlugin().transform` | Filters `id.endsWith('.aihu')` |
+| **C4-5** Vite hook for `*.aihu` | `js/index.ts` `aihuCompilerPlugin().transform` | Filters `id.endsWith('.aihu')` |
 | **C4-6** `bun vite build` → valid `dist/` | `fixtures/vite-counter/` + `tests/c4_integration.rs` | `#[ignore]` test: asserts exit 0 + non-empty `dist/` |
 | **C4-7-stub** `map: null` with comment | `js/index.ts` return statement | `map: null, // source maps deferred to v1 (OQ-C8)` |
 
@@ -1433,4 +1433,4 @@ grep 'source maps deferred' packages/compiler/js/index.ts
 
 ## STATUS
 
-DONE -- Spec covers full compiler track C-0 through C-4. C-1 amendment (Sections 11-14) added 2026-04-30. C-2 amendment (Section 15) documented 2026-04-30: CompileUnit, compile_full(), SignalMap, resolve_signals(), 6 tests. C-3 amendment (Section 16) added 2026-04-30: emit() algorithm, import block, script passthrough, template walk (emit_nodes/emit_node/emit_attrs), counter fixture trace, 10 test cases. C-4 amendment (Section 17) added 2026-04-30: CLI binary (file + stdin modes), tag name derivation, TS wrapper with scribeCompilerPlugin(), package.json, moon.yml, rolldown.config.ts, tsconfig.json, integration fixture, C4-6 Rust integration test (#[ignore]), C4-7 null-map stub, Verifier checklist.
+DONE -- Spec covers full compiler track C-0 through C-4. C-1 amendment (Sections 11-14) added 2026-04-30. C-2 amendment (Section 15) documented 2026-04-30: CompileUnit, compile_full(), SignalMap, resolve_signals(), 6 tests. C-3 amendment (Section 16) added 2026-04-30: emit() algorithm, import block, script passthrough, template walk (emit_nodes/emit_node/emit_attrs), counter fixture trace, 10 test cases. C-4 amendment (Section 17) added 2026-04-30: CLI binary (file + stdin modes), tag name derivation, TS wrapper with aihuCompilerPlugin(), package.json, moon.yml, rolldown.config.ts, tsconfig.json, integration fixture, C4-6 Rust integration test (#[ignore]), C4-7 null-map stub, Verifier checklist.

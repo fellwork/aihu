@@ -54,8 +54,8 @@ describe('appPackageJson', () => {
 })
 
 describe('appRolldownConfig', () => {
-  it('references scribeCompilerPlugin', () => {
-    expect(appRolldownConfig('my-app')).toContain('scribeCompilerPlugin')
+  it('references aihuCompilerPlugin', () => {
+    expect(appRolldownConfig('my-app')).toContain('aihuCompilerPlugin')
   })
 
   it('sets moduleTypes for .aihu files', () => {

@@ -7,7 +7,7 @@
  *
  * Light-DOM custom elements pick the classes up via the normal CSS cascade.
  * (Shadow-DOM components would NOT see this stylesheet — that is why
- * scribeCompilerPlugin is configured with shadowMode: 'none' in build.ts.)
+ * aihuCompilerPlugin is configured with shadowMode: 'none' in build.ts.)
  */
 
 @tailwind base;

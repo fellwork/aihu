@@ -20,12 +20,12 @@ import { fileURLToPath } from 'node:url'
 import { transform } from '../../js/index.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const scribeFile = resolve(__dirname, 'counter.aihu')
+const aihuFile = resolve(__dirname, 'counter.aihu')
 const distDir = resolve(__dirname, 'dist')
 const outFile = resolve(distDir, 'counter.ts')
 
-const source = readFileSync(scribeFile, 'utf-8')
-const result = transform(source, scribeFile)
+const source = readFileSync(aihuFile, 'utf-8')
+const result = transform(source, aihuFile)
 
 if (!result.code.includes('defineElement(')) {
   console.error('FAIL: output does not contain defineElement')
