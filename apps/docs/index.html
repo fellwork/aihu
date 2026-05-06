@@ -140,7 +140,7 @@
 
     // Close drawer when a nav link is tapped on mobile
     document.addEventListener('click', (e) => {
-      if (e.target && e.target.classList.contains('nav-link')) {
+      if (e.target?.classList.contains('nav-link')) {
         if (window.innerWidth <= 768) {
           closeDrawer();
         }
@@ -159,7 +159,7 @@
       fetch('./package.json')
         .then((r) => r.json())
         .then((pkg) => {
-          if (pkg && pkg.version) {
+          if (pkg?.version) {
             badge.textContent = `v${pkg.version}`;
           }
         })
