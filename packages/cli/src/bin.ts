@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @aihu/cli bin entry — parses argv and dispatches to commands.
  *
