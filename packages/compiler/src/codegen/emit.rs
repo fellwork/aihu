@@ -2466,7 +2466,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // Same IIFE pattern as $show: capture node, wire reactive effect inside
                 // onMount so .el is guaranteed to be set, return node to parent children.
                 effects.push(format!(
-                    "{}(() => {{ const _n = {}; _onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
                     indent, subtree, class_name, expr
                 ));
             }
