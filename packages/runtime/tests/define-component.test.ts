@@ -229,3 +229,244 @@ describe('defineComponent — Plan 1.2 props tests', () => {
     _setSignal(signal)
   })
 })
+
+// ─── R1 — $prop reactivity (template-syntax-v2 round 5, Builder B1) ──────────
+//
+// Surface: defineComponent({ props: { name: { value, attribute, reflect, converter } }, setup })
+// Acceptance criteria from director-notes/template-syntax-005.md §5 (B1):
+//   AC5  attribute mutation flows to signal       (R1-AC5)
+//   AC6  attribute: false skips observedAttributes (R1-AC6)
+//   AC7  reflect: true writes attribute on set    (R1-AC7)
+//   AC8  converter Date round-trip                (R1-AC8)
+//   AC10 fine-grained signal preserved            (R1-AC10)
+//   AC11 attribute: false + reflect: true rejected (R1-AC11)
+describe('defineComponent — R1 ($prop reactivity)', () => {
+  it('R1-AC5: setAttribute → ctx.props.<name>() updates the signal', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { name: { value: 'default' } },
+      setup: (ctx) => {
+        captured = ctx.props.name
+        return leaf('ac5')
+      },
+    })
+    defineElement('x-r1-ac5', Cmp)
+    const el = document.createElement('x-r1-ac5')
+    document.body.appendChild(el)
+    expect(captured).not.toBeNull()
+    expect(captured!()).toBe('default')
+    el.setAttribute('name', 'after')
+    expect(captured!()).toBe('after')
+    el.remove()
+  })
+
+  it('R1-AC6: attribute: false omits the prop from observedAttributes', () => {
+    const Cmp = defineComponent({
+      props: {
+        title: { value: '' }, // observed (default)
+        user: { value: null, attribute: false }, // property-only
+      },
+      setup: (_ctx) => leaf('ac6'),
+    })
+    const observed = (Cmp as { observedAttributes?: string[] }).observedAttributes ?? []
+    expect(observed).toContain('title')
+    expect(observed).not.toContain('user')
+  })
+
+  it('R1-AC7: reflect: true writes signal value back to attribute on .set', () => {
+    _setSignal(signal)
+    const Cmp = defineComponent({
+      props: { count: { value: 0, reflect: true } },
+      setup: (_ctx) => leaf('ac7'),
+    })
+    defineElement('x-r1-ac7', Cmp)
+    const el = document.createElement('x-r1-ac7') as HTMLElement & { count: number }
+    document.body.appendChild(el)
+    expect(el.getAttribute('count')).toBe(null) // initial absence
+    el.count = 5
+    expect(el.getAttribute('count')).toBe('5')
+    el.count = 12
+    expect(el.getAttribute('count')).toBe('12')
+    el.remove()
+  })
+
+  it('R1-AC8: converter round-trips an ISO Date attribute', () => {
+    _setSignal(signal)
+    let dateProp: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: {
+        date: {
+          value: new Date(0),
+          converter: (s: string | null) => (s !== null ? new Date(s) : new Date(0)),
+        },
+      },
+      setup: (ctx) => {
+        dateProp = ctx.props.date
+        return leaf('ac8')
+      },
+    })
+    defineElement('x-r1-ac8', Cmp)
+    const el = document.createElement('x-r1-ac8')
+    el.setAttribute('date', '2026-01-15T00:00:00.000Z')
+    document.body.appendChild(el)
+    expect(dateProp).not.toBeNull()
+    const v = dateProp!() as Date
+    expect(v).toBeInstanceOf(Date)
+    expect(v.toISOString()).toBe('2026-01-15T00:00:00.000Z')
+    el.setAttribute('date', '2027-06-20T12:00:00.000Z')
+    expect((dateProp!() as Date).toISOString()).toBe('2027-06-20T12:00:00.000Z')
+    el.remove()
+  })
+
+  it('R1-AC10: prop signal is fine-grained — derived computed updates only when prop changes', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { color: { value: 'red' } },
+      setup: (ctx) => {
+        captured = ctx.props.color
+        return leaf('ac10')
+      },
+    })
+    defineElement('x-r1-ac10', Cmp)
+    const el = document.createElement('x-r1-ac10')
+    el.setAttribute('color', 'blue')
+    document.body.appendChild(el)
+    expect(captured!()).toBe('blue')
+    // The signal getter is the same reference across reads (callable
+    // signal). Subscribing through it tracks fine-grained changes.
+    el.setAttribute('color', 'green')
+    expect(captured!()).toBe('green')
+    // Setting a different attribute does NOT trigger the color signal.
+    el.setAttribute('unrelated', '1')
+    expect(captured!()).toBe('green')
+    el.remove()
+  })
+
+  it('R1-AC11: attribute: false + reflect: true throws RuntimeError at class build', () => {
+    expect(() =>
+      defineComponent({
+        props: { x: { value: 5, attribute: false, reflect: true } },
+        setup: (_ctx) => leaf('ac11'),
+      }),
+    ).toThrow(RuntimeError)
+  })
+
+  it('R1: number type-conversion via default-typed default value', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { count: { value: 0 } }, // typeof default === 'number' → Number coercion
+      setup: (ctx) => {
+        captured = ctx.props.count
+        return leaf('num')
+      },
+    })
+    defineElement('x-r1-num', Cmp)
+    const el = document.createElement('x-r1-num')
+    el.setAttribute('count', '42')
+    document.body.appendChild(el)
+    expect(captured!()).toBe(42)
+    el.setAttribute('count', '7')
+    expect(captured!()).toBe(7)
+    // NaN-guard: bad numeric attribute falls back to default.
+    el.setAttribute('count', 'not-a-number')
+    expect(captured!()).toBe(0)
+    el.remove()
+  })
+
+  it('R1: boolean prop uses presence-based conversion', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { open: { value: false, reflect: true } },
+      setup: (ctx) => {
+        captured = ctx.props.open
+        return leaf('bool')
+      },
+    })
+    defineElement('x-r1-bool', Cmp)
+    const el = document.createElement('x-r1-bool') as HTMLElement & { open: boolean }
+    document.body.appendChild(el)
+    expect(captured!()).toBe(false)
+    el.setAttribute('open', '')
+    expect(captured!()).toBe(true)
+    el.removeAttribute('open')
+    expect(captured!()).toBe(false)
+    // Reflect: setting the property writes the attribute (presence convention).
+    el.open = true
+    expect(el.hasAttribute('open')).toBe(true)
+    el.open = false
+    expect(el.hasAttribute('open')).toBe(false)
+    el.remove()
+  })
+
+  it('R1: attribute: "kebab-name" overrides the default kebab mapping', () => {
+    _setSignal(signal)
+    const Cmp = defineComponent({
+      props: { user: { value: null, attribute: 'data-user' } },
+      setup: (_ctx) => leaf('alias'),
+    })
+    const observed = (Cmp as { observedAttributes?: string[] }).observedAttributes ?? []
+    expect(observed).toContain('data-user')
+    expect(observed).not.toContain('user')
+  })
+
+  it('R1: default kebab-cased attribute name (myProp → my-prop)', () => {
+    const Cmp = defineComponent({
+      props: { myProp: { value: '' } },
+      setup: (_ctx) => leaf('kebab'),
+    })
+    const observed = (Cmp as { observedAttributes?: string[] }).observedAttributes ?? []
+    expect(observed).toContain('my-prop')
+  })
+
+  it('R1: el.prop = v flows through .set (property accessor wired)', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { count: { value: 0 } },
+      setup: (ctx) => {
+        captured = ctx.props.count
+        return leaf('accessor')
+      },
+    })
+    defineElement('x-r1-accessor', Cmp)
+    const el = document.createElement('x-r1-accessor') as HTMLElement & { count: number }
+    document.body.appendChild(el)
+    expect(captured!()).toBe(0)
+    el.count = 99
+    expect(captured!()).toBe(99)
+    // Read-back via accessor.
+    expect(el.count).toBe(99)
+    el.remove()
+  })
+
+  it('R1: reflect re-entrancy guard — setting via .set does not double-fire', () => {
+    _setSignal(signal)
+    let setCount = 0
+    const Cmp = defineComponent({
+      props: { tag: { value: '', reflect: true } },
+      setup: (ctx) => {
+        const orig = ctx.props.tag.set
+        ctx.props.tag.set = (v: unknown) => {
+          setCount++
+          orig.call(ctx.props.tag, v)
+        }
+        return leaf('reentry')
+      },
+    })
+    defineElement('x-r1-reentry', Cmp)
+    const el = document.createElement('x-r1-reentry') as HTMLElement & { tag: string }
+    document.body.appendChild(el)
+    setCount = 0
+    el.tag = 'hello'
+    // Exactly one set: external assignment. The attribute write that follows
+    // re-enters attributeChangedCallback, but the reflect guard suppresses
+    // the inner ps.set re-dispatch → setCount stays at 1.
+    expect(setCount).toBe(1)
+    expect(el.getAttribute('tag')).toBe('hello')
+    el.remove()
+  })
+})

@@ -17,4 +17,13 @@ export {
 export { _setHydrate, defineElement } from './define-element.ts'
 /** @internal */
 export { _hydrateOnVisible } from './hydrate-on-visible.ts'
-export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'
+export type {
+  ComponentOptions,
+  DefineOptions,
+  PropDef,
+  PropsConfig,
+  PropSignal,
+  Setup,
+  SetupContext,
+  ShadowMode,
+} from './types.ts'

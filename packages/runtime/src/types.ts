@@ -95,7 +95,70 @@ export type AttrContext<A extends ReadonlyArray<string>> = {
  */
 export interface ComponentOptions<A extends ReadonlyArray<string> = ReadonlyArray<string>> {
   attrs?: A
-  setup: (ctx: SetupContext & AttrContext<A>) => Branch | Leaf
+  /**
+   * R1 ($prop reactivity, template-syntax-v2 round 5): rich per-prop
+   * metadata bag describing the Lit-style `attribute` / `reflect` /
+   * `converter` lowering. When non-empty, the runtime synthesizes
+   * `observedAttributes` from prop entries with `attribute !== false`,
+   * wires `attributeChangedCallback`, allocates one `Signal` per prop
+   * initialized to `value`, defines a JS property accessor on the class
+   * prototype, and (when `reflect: true`) reflects signal writes back to
+   * the attribute with a re-entrancy guard.
+   *
+   * Value flows through to the setup function via `ctx.props.<name>`,
+   * a per-name `Signal<unknown>`. Setup callers are expected to read via
+   * the signal-getter call (e.g. `props.title()`); writes via
+   * `props.title.set(...)` or via the JS property accessor on the host
+   * element (`el.title = newValue`) flow back through the same signal.
+   */
+  props?: PropsConfig
+  setup: (ctx: SetupContext & AttrContext<A> & PropsContext) => Branch | Leaf
+}
+
+/**
+ * R1 — single `$prop` definition. Matches the spec sketch in
+ * `2026-05-06-spec-template-syntax-v2-platform-audit.md` §3.6.
+ *
+ * - `value`        — initial value if attribute is absent at connect time.
+ * - `attribute`    — `false` to skip observedAttributes registration
+ *                    (property-only), `true` (default) for kebab-cased
+ *                    name, or a string to override the attribute name.
+ * - `reflect`      — write signal value back to attribute on set.
+ *                    Forbidden together with `attribute: false`.
+ * - `converter`    — `(s: string | null) => unknown` called with the raw
+ *                    attribute string when it changes. Defaults derived
+ *                    from `type:` (string identity, number coercion,
+ *                    boolean presence, JSON.parse for objects).
+ */
+export interface PropDef {
+  value?: unknown
+  attribute?: boolean | string
+  reflect?: boolean
+  converter?: (raw: string | null) => unknown
+}
+
+export type PropsConfig = Record<string, PropDef>
+
+/**
+ * R1 — runtime intersection added to setup ctx when `props` is non-empty.
+ * Each prop name is a `Signal<unknown>` getter+setter tuple; setup code
+ * reads via `props.name()` and writes via `props.name.set(...)`.
+ *
+ * @internal — exported for type-only use; not re-exported from index.ts.
+ */
+export interface PropsContext {
+  readonly props: Record<string, PropSignal>
+}
+
+/**
+ * R1 — per-prop signal handle exposed to setup. `()` reads (subscribes
+ * in tracking scope); `.set(v)` writes (flows through reflect when
+ * configured). Implemented as a callable function with attached `set`
+ * method to keep call-site ergonomics stable across the codebase.
+ */
+export interface PropSignal {
+  (): unknown
+  set(v: unknown): void
 }
 
 export class RuntimeError extends Error {
