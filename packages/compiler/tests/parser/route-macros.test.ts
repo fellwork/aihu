@@ -29,9 +29,13 @@ describe('$route macro — RFC-A5-010', () => {
 
   it('coexists with other state macros', () => {
     const out = compile(`@state {
-  $prop kind: String
+  $prop: {
+    kind: { type: String }
+  }
   $route here
-  $computed upper = kind.toUpperCase()
+  $computed: {
+    upper: () => kind.toUpperCase(),
+  }
 }
 @template {
   <div>x</div>
