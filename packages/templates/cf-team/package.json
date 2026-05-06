@@ -1,6 +1,6 @@
 {
   "name": "@aihu/templates-cf-team",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "private": false,
@@ -19,7 +19,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@aihu/cli": "^0.2.0"
+    "@aihu/cli": "^0.3.0"
   },
   "dependencies": {},
   "devDependencies": {},
