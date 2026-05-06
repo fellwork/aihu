@@ -21,7 +21,7 @@ npm install @aihu/agent-a2a
 bun add @aihu/agent-a2a
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -38,7 +38,7 @@ bun add @aihu/agent-a2a
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +51,7 @@ bun add @aihu/agent-a2a
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +64,7 @@ bun add @aihu/agent-a2a
 
 - `@aihu/agent-service` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +77,7 @@ bun add @aihu/agent-a2a
 - [@aihu/agent](../agent)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +88,6 @@ bun add @aihu/agent-a2a
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `b8d92a2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-a2a@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
