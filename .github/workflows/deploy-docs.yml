@@ -54,7 +54,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             packages/compiler/target
-          key: rust-${{ runner.os }}-${{ hashFiles('packages/compiler/Cargo.lock') }}
+          key: rust-${{ runner.os }}-${{ hashFiles('packages/compiler/Cargo.lock', 'packages/compiler/src/**') }}
           restore-keys: rust-${{ runner.os }}-
 
       - name: Build compiler binary
