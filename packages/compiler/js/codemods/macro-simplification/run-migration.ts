@@ -20,7 +20,9 @@ for (const filePath of files) {
   try {
     const src = readFileSync(filePath, 'utf8')
     const { rewritten, warnings } = migrate(src)
-    if (warnings.some((w) => w.toLowerCase().includes('parse') && w.toLowerCase().includes('fail'))) {
+    if (
+      warnings.some((w) => w.toLowerCase().includes('parse') && w.toLowerCase().includes('fail'))
+    ) {
       console.error(`PARSE-FAIL: ${filePath}`)
       for (const w of warnings) console.error(`  ${w}`)
       parseFails.push(filePath)
@@ -43,7 +45,9 @@ for (const filePath of files) {
   }
 }
 
-console.log(`\nSummary: ${modified} modified, ${unchanged} unchanged, ${parseFails.length} parse-fail`)
+console.log(
+  `\nSummary: ${modified} modified, ${unchanged} unchanged, ${parseFails.length} parse-fail`,
+)
 if (parseFails.length > 0) {
   console.log('Parse-fail files:')
   for (const f of parseFails) console.log(`  ${f}`)

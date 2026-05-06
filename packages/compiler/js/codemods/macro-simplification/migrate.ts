@@ -1046,7 +1046,7 @@ function trimTrailingBlanks(out: string[]): void {
 function emitProps(entries: PropEntry[]): string {
   const lines: string[] = []
   const firstLeading = entries[0]?.leading
-  const headerLeading = firstLeading && firstLeading.trim() ? firstLeading : ''
+  const headerLeading = firstLeading?.trim() ? firstLeading : ''
   const inner: string[] = []
   for (const [idx, e] of entries.entries()) {
     if (idx > 0 && e.leading.trim()) {
@@ -1114,7 +1114,7 @@ function emitEffectNamed(entries: ValueEntry[]): string {
 
 function emitValueCollection(macro: string, entries: ValueEntry[]): string {
   const firstLeading = entries[0]?.leading
-  const headerLeading = firstLeading && firstLeading.trim() ? firstLeading : ''
+  const headerLeading = firstLeading?.trim() ? firstLeading : ''
   const inner: string[] = []
   for (const [idx, e] of entries.entries()) {
     if (idx > 0 && e.leading.trim()) {
@@ -1160,7 +1160,7 @@ function formatValueEntry(e: ValueEntry): string {
 
 function emitAction(entries: FunctionishEntry[]): string {
   const firstLeading = entries[0]?.leading
-  const headerLeading = firstLeading && firstLeading.trim() ? firstLeading : ''
+  const headerLeading = firstLeading?.trim() ? firstLeading : ''
   const inner: string[] = []
   for (const [idx, e] of entries.entries()) {
     if (idx > 0 && e.leading.trim()) {
@@ -1201,7 +1201,7 @@ function formatActionEntry(e: FunctionishEntry): string {
 
 function emitLifecycle(hooks: LifecycleHook[]): string {
   const firstLeading = hooks[0]?.leading
-  const headerLeading = firstLeading && firstLeading.trim() ? firstLeading : ''
+  const headerLeading = firstLeading?.trim() ? firstLeading : ''
   const inner: string[] = []
   const baseIndent = INDENT.length * 2
   const linePrefix = ' '.repeat(baseIndent)
@@ -1300,7 +1300,7 @@ function reindentBlockBody(bodyText: string, targetInner: number): string {
     while (n < line.length && (line[n] === ' ' || line[n] === '\t')) n++
     if (n < minIndent) minIndent = n
   }
-  if (!isFinite(minIndent)) minIndent = 0
+  if (!Number.isFinite(minIndent)) minIndent = 0
   const rebased: string[] = ['']
   const targetSpaces = ' '.repeat(targetInner)
   for (let k = firstReal; k <= lastReal; k++) {
@@ -1327,7 +1327,7 @@ function reindentExpr(expr: string, targetInner: number): string {
     while (n < line.length && (line[n] === ' ' || line[n] === '\t')) n++
     if (n < minIndent) minIndent = n
   }
-  if (!isFinite(minIndent)) minIndent = 0
+  if (!Number.isFinite(minIndent)) minIndent = 0
   const targetSpaces = ' '.repeat(targetInner)
   const rebasedRest = rest.map((line) =>
     line.trim() === '' ? '' : targetSpaces + line.slice(minIndent),
