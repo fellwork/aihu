@@ -34,6 +34,7 @@
         <li><a class="nav-link" href="#introduction" $class:active={activePage() === 'introduction'}>Introduction</a></li>
         <li><a class="nav-link" href="#installation" $class:active={activePage() === 'installation'}>Installation</a></li>
         <li><a class="nav-link" href="#getting-started" $class:active={activePage() === 'getting-started'}>Getting Started</a></li>
+        <li><a class="nav-link" href="#playground" $class:active={activePage() === 'playground'}>Playground</a></li>
       </ul>
 
       <span class="nav-group-label">Core</span>
@@ -59,7 +60,14 @@
 
     </nav>
     <main class="docs-content">
-      <article $html={activeHtml()}></article>
+      <div $if={activePage() !== 'playground'}>
+        <article $html={activeHtml()}></article>
+      </div>
+      <div $if={activePage() === 'playground'} class="playground-page">
+        <h1>Playground</h1>
+        <p class="playground-intro">Edit. Compile. Inspect. All in your browser — powered by the WASM build of <code>aihu-compile</code>.</p>
+        <playground-embed></playground-embed>
+      </div>
     </main>
   </div>
 }
@@ -188,6 +196,34 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.playground-page {
+  width: 100%;
+}
+
+.playground-page h1 {
+  margin-top: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.playground-page .playground-intro {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.playground-page .playground-intro code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--accent);
 }
 
 @media (max-width: 768px) {
