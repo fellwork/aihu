@@ -1,6 +1,6 @@
 @state {
-  $prop label: String
-  $computed upper = label.toUpperCase()
+  $prop: { label: { default: '', type: 'String' } }
+  $computed: { upper: () => label.toUpperCase() }
 }
 
 @template {
