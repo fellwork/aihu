@@ -557,14 +557,18 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // The Rust compiler emits TypeScript (type casts, import type, etc.) and
         // the injected HMR / defer helpers also contain TS generics and casts.
         // Vite does NOT re-run its TS-strip step when a plugin returns code for a
-        // non-.ts ID — so we strip types here ourselves.
-        // Vite 8+ uses Rolldown/Oxc (transformWithEsbuild is a no-op stub there);
-        // prefer transformWithOxc when available, fall back to transformWithEsbuild.
+        // non-.ts ID, so we must strip types ourselves before returning.
+        //
+        // Vite 8+ (Rolldown/Oxc): transformWithEsbuild is a no-op; declare the
+        // module type as 'ts' so Rolldown strips types natively. The extra
+        // moduleType field is silently ignored by Vite 5 / esbuild.
+        // Vite 5 (esbuild): transformWithEsbuild does the stripping.
         try {
           const vite = await import('vite')
           if ('transformWithOxc' in vite && typeof vite.transformWithOxc === 'function') {
-            const stripped = await vite.transformWithOxc(out, 'component.ts')
-            return { code: stripped.code, map: null }
+            // Vite 8+: return TS and declare the module type — Rolldown strips types.
+            // biome-ignore lint/suspicious/noExplicitAny: moduleType is vite 8 / rolldown API
+            return { code: out, moduleType: 'ts', map: null } as any
           }
           const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
             target: 'esnext',
