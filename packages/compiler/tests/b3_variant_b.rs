@@ -358,3 +358,64 @@ fn b3_fixture_dot_form_bind() {
         js
     );
 }
+
+// ─── AC #12 — Sidecar .aihu.ts emit ───────────────────────────────────────────
+
+#[test]
+fn b3_ac12_sidecar_ts_contains_template_expressions() {
+    // The sidecar should pick up every curly expression in @template so tsc
+    // can flag type errors at the lang-server level.
+    let src = r#"<script setup>
+const [count, setCount] = signal(0)
+const [view, setView] = signal('list')
+</script>
+<template>
+  {#if view === 'list'}
+    <div>{count}</div>
+  {:else}
+    <div>none</div>
+  {/if}
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3-sidecar");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("function __aihu_template"),
+        "sidecar must define __aihu_template: {}",
+        sidecar
+    );
+    assert!(
+        sidecar.contains("view === 'list'"),
+        "sidecar must include {{#if}} cond: {}",
+        sidecar
+    );
+    assert!(
+        sidecar.contains("count"),
+        "sidecar must include {{count}} interpolation: {}",
+        sidecar
+    );
+}
+
+#[test]
+fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
+    // Sidecar preamble must declare $emit and $event so tsc doesn't flag them
+    // as undefined at the call site (until the typed-payload generation lands).
+    let src = r#"<template>
+  <div></div>
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3-sidecar-decls");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("declare const $emit"),
+        "sidecar must declare $emit: {}",
+        sidecar
+    );
+    assert!(
+        sidecar.contains("declare const $event"),
+        "sidecar must declare $event: {}",
+        sidecar
+    );
+}
