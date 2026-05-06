@@ -5,7 +5,7 @@ expression: result
 ---
 Err(
     CompileError {
-        message: "unknown directive 'v-show'; scribe v0 supports @event, :attr, and { identifier } only",
+        message: "unknown directive 'v-show'; aihu v0 supports @event, :attr, and { identifier } only",
         line: 1,
         col: 5,
         code: None,

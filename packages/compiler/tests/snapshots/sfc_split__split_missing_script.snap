@@ -1,8 +1,9 @@
 ---
 source: tests/sfc_split.rs
+assertion_line: 31
 expression: result
 ---
-ScribeSource {
+AihuSource {
     script: None,
     template: Some(
         "<span>hello</span>",

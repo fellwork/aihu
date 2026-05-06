@@ -1,8 +1,9 @@
 ---
 source: tests/sfc_split.rs
+assertion_line: 24
 expression: result
 ---
-ScribeSource {
+AihuSource {
     script: Some(
         "const x = 1",
     ),

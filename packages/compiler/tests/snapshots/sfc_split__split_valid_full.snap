@@ -1,10 +1,11 @@
 ---
 source: tests/sfc_split.rs
+assertion_line: 17
 expression: result
 ---
-ScribeSource {
+AihuSource {
     script: Some(
-        "import { signal } from '@scribe/signals'\n\nconst [count, setCount] = signal(0)",
+        "import { signal } from '@aihu/signals'\n\nconst [count, setCount] = signal(0)",
     ),
     template: Some(
         "<div>{{ count }}</div>",
