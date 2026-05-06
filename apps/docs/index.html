@@ -103,7 +103,7 @@
     function getNav() {
       // .docs-nav lives inside docs-shell's shadow root
       var shell = document.querySelector('docs-shell');
-      return shell && shell.shadowRoot && shell.shadowRoot.querySelector('.docs-nav');
+      return shell?.shadowRoot?.querySelector('.docs-nav');
     }
 
     function openDrawer() {
@@ -140,7 +140,7 @@
     // for events originating inside docs-shell's shadow DOM.
     document.addEventListener('click', (e) => {
       var path = e.composedPath();
-      var isNavLink = path.some((el) => el.classList && el.classList.contains('nav-link'));
+      var isNavLink = path.some((el) => el.classList?.contains('nav-link'));
       if (isNavLink && window.innerWidth <= 768) {
         closeDrawer();
       }
