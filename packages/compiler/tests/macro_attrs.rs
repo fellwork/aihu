@@ -208,8 +208,8 @@ fn each_spec_form_posts_as_post_emits_correct_boundary() {
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
     assert!(
-        result.js.contains("createEachBoundary(posts, undefined, (post, i) =>"),
-        "Expected createEachBoundary(posts, undefined, (post, i) => in: {}",
+        result.js.contains("createEachBoundary([() => (posts)], undefined, (post, i) =>"),
+        "Expected createEachBoundary([() => (posts)], undefined, (post, i) => in: {}",
         result.js
     );
 }
@@ -225,8 +225,8 @@ fn each_spec_form_users_as_user_idx_emits_correct_aliases() {
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
     assert!(
-        result.js.contains("createEachBoundary(users, undefined, (user, idx) =>"),
-        "Expected createEachBoundary(users, undefined, (user, idx) => in: {}",
+        result.js.contains("createEachBoundary([() => (users)], undefined, (user, idx) =>"),
+        "Expected createEachBoundary([() => (users)], undefined, (user, idx) => in: {}",
         result.js
     );
 }
@@ -242,8 +242,8 @@ fn each_with_key_emits_key_as_function() {
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
     assert!(
-        result.js.contains("createEachBoundary(items, (item) => item.id, (item, i) =>"),
-        "Expected createEachBoundary(items, (item) => item.id, (item, i) => in: {}",
+        result.js.contains("createEachBoundary([() => (items)], (item) => item.id, (item, i) =>"),
+        "Expected createEachBoundary([() => (items)], (item) => item.id, (item, i) => in: {}",
         result.js
     );
 }

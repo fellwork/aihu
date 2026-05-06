@@ -252,7 +252,13 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
 fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     let mut lines: Vec<&str> = Vec::new();
     if h.if_boundary {
-        lines.push("const createIfBoundary = (cond, b) => cond ? b() : branch(null, undefined, []);");
+        // R5 (Defect E): reactive $if. The condition arrives as a thunk array
+        // [() => bool] (Signal-shaped). Returning a structural node lets the
+        // arbor reconciler set up an effect that swaps the rendered subtree
+        // whenever the tracked condition flips. The non-reactive value-snapshot
+        // form (`cond ? b() : branch(null, undefined, [])`) was a one-time
+        // evaluation at mount time — UI never updated when state changed.
+        lines.push("const createIfBoundary = (cond, grow) => ({ kind: 'structural', structuralKind: 'conditional', condition: cond, grow, list: null, keyFn: null, listGrow: null });");
     }
     if h.once_boundary {
         lines.push("const createOnceBoundary = (b) => b();");
@@ -261,7 +267,13 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         lines.push("const createMemoBoundary = (deps, b) => b();");
     }
     if h.each_boundary {
-        lines.push("const createEachBoundary = (items, key, itemFn) => branch(null, undefined, (items ?? []).map((item, i) => itemFn(item, i)));");
+        // R5 (Defect E): reactive $each fallback for plain class-property lists.
+        // Items arrives as a thunk array [() => arr] (Signal-shaped). The
+        // structural-list reconciler in arbor sets up an effect that re-keys
+        // children whenever the tracked list changes. The previous static
+        // `branch(null, undefined, items.map(...))` form snapshotted at mount
+        // time and never re-rendered.
+        lines.push("const createEachBoundary = (items, key, itemFn) => ({ kind: 'structural', structuralKind: 'list', condition: null, grow: null, list: items, keyFn: key, listGrow: itemFn });");
     }
     if h.slot_boundary {
         lines.push("const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);");
@@ -2295,8 +2307,13 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
         match name.as_str() {
             "if" => {
                 let cond = macro_value_expr(value);
+                // R5 (Defect E): wrap the condition in a thunk array so the
+                // structural-conditional reconciler tracks it reactively.
+                // Matches the [() => expr] thunk pattern used for reactive
+                // attribute bindings (R2 Defect B). Without this wrap the
+                // condition would only be evaluated once at mount time.
                 effects.push(format!(
-                    "{}createIfBoundary({}, () => {{ return {} }})",
+                    "{}createIfBoundary([() => ({})], () => {{ return {} }})",
                     indent, cond, subtree
                 ));
             }
@@ -2374,8 +2391,9 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             format!("({}) => {}", item_alias, key_fn)
         };
 
-        // Use arbor's reactive `each()` when the list is a signal;
-        // fall back to the static createEachBoundary for plain arrays.
+        // Use arbor's reactive `each()` when the list is an authored signal;
+        // otherwise wrap the list in a [() => list] thunk and use the
+        // (now reactive) createEachBoundary fallback (R5 Defect E).
         if signal_map.is_reactive(&each_items) {
             effects.push(format!(
                 "{}each({}, {}, ({}, {}) => {{ return {} }})",
@@ -2383,7 +2401,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             ));
         } else {
             effects.push(format!(
-                "{}createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
+                "{}createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
                 indent, each_items, key_part, item_alias, idx_alias, subtree
             ));
         }
