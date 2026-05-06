@@ -695,10 +695,10 @@ svg {
   font-style: italic;
 }
 
-/* Highlight.js overrides — ensure code blocks look right in both themes */
-.hljs {
-  background: transparent !important;
-  padding: 0 !important;
+/* Highlight.js overrides — pre > code specificity beats hljs defaults */
+pre code.hljs {
+  background: transparent;
+  padding: 0;
 }
 
 /* ── Theme toggle ────────────────────────────────────────────────── */
