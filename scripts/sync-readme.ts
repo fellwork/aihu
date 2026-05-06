@@ -31,7 +31,6 @@ import { rolldown } from 'rolldown'
 const REPO_ROOT = process.cwd()
 const CHECK_MODE = process.argv.includes('--check')
 
-
 interface SectionResult {
   key: string
   body: string
