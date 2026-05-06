@@ -1,0 +1,120 @@
+// Option 4 — Object-literal collection-form macros (RATIFIED + 005.5 BLOCKER resolved)
+//
+// All 7 round-005 decisions + 2 round-005.5 dryrun resolutions locked:
+//   D.1 type:           opt-in fallback when default/value can't carry the type
+//   D.2 handler:        bare fn = implicit handler; key required in wrapped form
+//   D.3 $lifecycle:     bare function-as-value always (no metadata-bag form)
+//   D.4 $effect:        object-keyed when named OR when metadata is present;
+//                       anonymous bare-callback form ALSO allowed (Q.B-1 → a),
+//                       parallel to $lifecycle. Carve-out healed:
+//                       all "side-effect callback at a framework hook point"
+//                       (lifecycle hooks + ad-hoc effects) share the same rule.
+//   D.5 computed:       explicit thunk only (no compiler closure synthesis)
+//   D.6 expose:         object form { read?: true; write?: true }
+//   D.7 formatter:      inline ≤3 keys + fits default line width; multi-line else
+//
+// AC-6 wording (Q.B-2 → a): "byte-identical for @state-side lowering
+// (defineExpose, effect, computed, lifecycle calls); semantically equivalent
+// (per-name reshape allowed) for @agent metadata payload."
+//
+// Emergent rule: value-side is the running code; metadata wraps when present.
+// Bare entry-value-is-function = implicit handler/value/callback; wrap in
+// object literal with explicit `handler:` / `value:` key when metadata coexists.
+//
+// Carve-outs:
+//   - $lifecycle / $effect (anonymous): always bare. No metadata-bag form.
+//   - $prop: always wrapped (no running code to imply).
+
+@state {
+  $prop: {
+    hue: { default: 215, describe: 'Hue channel (0-360)', expose: { read: true, write: true } },
+    saturation: {
+      default: 70,
+      describe: 'Saturation channel (0-100)',
+      expose: { read: true, write: true },
+    },
+    lightness: {
+      default: 55,
+      describe: 'Lightness channel (0-100)',
+      expose: { read: true, write: true },
+    },
+  }
+
+    // Wrapped — has metadata (describe + expose)
+  $computed: {
+    primary: {
+      describe: 'Computed HSL primary color string',
+      expose: { read: true },
+      value: () => `hsl(${hue} ${saturation}% ${lightness}%)`,
+    },
+        // Bare — no metadata, no agent surface
+    onPrimary: () => lightness < 60 ? '#ffffff' : '#111111',
+    surface: () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
+  }
+
+  $action: {
+    setPreset: {
+      describe: 'Set a named color preset by hue value',
+      expose: { read: true, write: true },
+      handler: (h: number) => {
+        hue = h
+        saturation = 70
+        lightness = 55
+      },
+    },
+    setHue: {
+      describe: 'Set hue directly (0-360)',
+      expose: { read: true, write: true },
+      handler: (h: number) => {
+        hue = h
+      },
+    },
+    setSaturation: {
+      describe: 'Set saturation directly (0-100)',
+      expose: { read: true, write: true },
+      handler: (s: number) => {
+        saturation = s
+      },
+    },
+    setLightness: {
+      describe: 'Set lightness directly (0-100)',
+      expose: { read: true, write: true },
+      handler: (l: number) => {
+        lightness = l
+      },
+    },
+  }
+}
+
+@template {
+  <section class="theme-picker">
+    <fieldset>
+      <legend>HSL controls</legend>
+      <label><span>Hue {hue}°</span>        <input type="range" min="0" max="360" $bind:value="hue"        /></label>
+      <label><span>Saturation {saturation}%</span> <input type="range" min="0" max="100" $bind:value="saturation" /></label>
+      <label><span>Lightness {lightness}%</span>  <input type="range" min="0" max="100" $bind:value="lightness"  /></label>
+    </fieldset>
+    <div class="presets">
+      <button $on:click={() => setPreset(215)}>Blue</button>
+      <button $on:click={() => setPreset(140)}>Green</button>
+      <button $on:click={() => setPreset(0)}>Red</button>
+      <button $on:click={() => setPreset(40)}>Amber</button>
+    </div>
+  </section>
+}
+
+@style {
+  $global {
+    :root {
+      --color-primary:    $reactive(primary);
+      --color-on-primary: $reactive(onPrimary);
+      --color-surface:    $reactive(surface);
+    }
+  }
+  /* (full color-theme styles elided for brevity — see examples/color-theme/) */
+}
+
+@agent {
+  $scope "user:read"
+  $rate-limit 100
+}

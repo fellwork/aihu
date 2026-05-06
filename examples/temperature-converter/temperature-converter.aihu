@@ -2,16 +2,33 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  celsius: number = 20
-
-  $computed fahrenheit = celsius * 9 / 5 + 32
-
-  $action setFromF(f: number) {
-    celsius = (f - 32) * 5 / 9
+  $prop: {
+    celsius: { default: 20, describe: 'Temperature in degrees Celsius', expose: { read: true } },
   }
 
-  $action setCelsius(c: number) {
-    celsius = c
+  $computed: {
+    fahrenheit: {
+      describe: 'Temperature in degrees Fahrenheit (computed)',
+      expose: { read: true },
+      value: () => celsius * 9 / 5 + 32,
+    },
+  }
+
+  $action: {
+    setFromF: {
+      describe: 'Set the temperature by Fahrenheit value',
+      expose: { read: true, write: true },
+      handler: (f: number) => {
+        celsius = (f - 32) * 5 / 9
+      },
+    },
+    setCelsius: {
+      describe: 'Set the temperature by Celsius value',
+      expose: { read: true, write: true },
+      handler: (c: number) => {
+        celsius = c
+      },
+    },
   }
 }
 
@@ -58,16 +75,4 @@
     font-size: 1rem;
   }
   input:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
-}
-
-@agent {
-  $expose celsius, fahrenheit
-
-  $action setCelsius
-  $action setFromF
-
-  $describe celsius     "Temperature in degrees Celsius"
-  $describe fahrenheit  "Temperature in degrees Fahrenheit (computed)"
-  $describe setCelsius  "Set the temperature by Celsius value"
-  $describe setFromF    "Set the temperature by Fahrenheit value"
 }

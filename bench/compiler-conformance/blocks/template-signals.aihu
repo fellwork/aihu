@@ -1,7 +1,8 @@
 @state {
-import { signal } from '@aihu/signals'
-const [msg, setMsg] = signal('hello')
-const [count, setCount] = signal(0)
+  import { signal } from '@aihu/signals'
+  const [msg, setMsg] = signal('hello')
+
+  const [count, setCount] = signal(0)
 }
 
 @template {

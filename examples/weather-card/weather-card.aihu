@@ -6,10 +6,26 @@
   // Standalone signal so the example is interactive in isolation.
   // Swap to `$prop location: string = 'San Francisco'` for a parent-driven variant
   // (and remove $bind:value="location" from the input below).
-  location: string = 'San Francisco'
+  $prop: {
+    location: {
+      default: 'San Francisco',
+      describe: 'City name to query forecasts for',
+      expose: { read: true },
+    },
+    forecast: {
+      type: { high: number; low: number; conditions: string } | null,
+      default: null,
+      describe: 'Most recent forecast: high, low, conditions',
+      expose: { read: true },
+    },
+    status: {
+      type: 'idle' | 'loading' | 'ready' | 'error',
+      default: 'idle',
+      describe: 'One of: idle | loading | ready | error',
+      expose: { read: true },
+    },
+  }
 
-  forecast: { high: number; low: number; conditions: string } | null = null
-  status: 'idle' | 'loading' | 'ready' | 'error' = 'idle'
   errorMessage: string = ''
 
   // Inline mock table standing in for a real forecast API.
@@ -21,18 +37,24 @@
     'Sydney':        { high: 78, low: 64, conditions: 'Sunny' },
   }
 
-  $action fetchForecast() {
-    status = 'loading'
-    const data = mockForecasts[location]
-    if (data) {
-      forecast = data
-      status = 'ready'
-      errorMessage = ''
-    } else {
-      forecast = null
-      status = 'error'
-      errorMessage = `No forecast available for "${location}".`
-    }
+  $action: {
+    fetchForecast: {
+      describe: 'Look up the forecast for the current location signal',
+      expose: { read: true, write: true },
+      handler: () => {
+        status = 'loading'
+        const data = mockForecasts[location]
+        if (data) {
+          forecast = data
+          status = 'ready'
+          errorMessage = ''
+        } else {
+          forecast = null
+          status = 'error'
+          errorMessage = `No forecast available for "${location}".`
+        }
+      },
+    },
   }
 }
 
@@ -84,15 +106,4 @@
   dl            { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; margin: 0; }
   dt            { font-weight: 600; }
   dd            { margin: 0; font-variant-numeric: tabular-nums; }
-}
-
-@agent {
-  $expose location, forecast, status
-
-  $action fetchForecast
-
-  $describe location       "City name to query forecasts for"
-  $describe forecast       "Most recent forecast: high, low, conditions"
-  $describe status         "One of: idle | loading | ready | error"
-  $describe fetchForecast  "Look up the forecast for the current location signal"
 }

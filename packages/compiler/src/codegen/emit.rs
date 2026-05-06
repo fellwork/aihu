@@ -1,6 +1,9 @@
 use crate::codegen::signals::SignalMap;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
-use crate::types::{AgentBlock, AgentMacroDecl, Attr, BuildTarget, CompileUnit, InputKind, MacroValue, RouteBlock, StyleBlock, StyleMacro, StyleScope, TemplateNode};
+use crate::types::{
+    AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
+    MacroValue, RouteBlock, StyleBlock, StyleMacro, StyleScope, TemplateNode,
+};
 // Note: $html macro emits innerHTML assignments — these are intentionally unsafe
 // and documented as requiring consumer-side sanitization (see spec).
 
@@ -309,29 +312,40 @@ fn process_state_body(
 
     for mac in &macros {
         match mac {
-            StateMacro::Computed { name, .. } => {
-                si.needs_computed = true;
-                signal_map.insert_computed(name);
-            }
-            StateMacro::Prop { name, .. } => {
-                let _ = name; // not reactive at this stage
-            }
-            StateMacro::Action { .. } => {
-                si.needs_batch = true;
-            }
-            StateMacro::LifecycleMount { .. } => {
-                si.needs_on_mount = true;
-            }
-            StateMacro::LifecycleDispose { .. } => {
-                si.needs_on_cleanup = true;
-            }
-            StateMacro::Effect { .. } | StateMacro::EffectOn { .. } | StateMacro::Watch { .. } => {
+            StateMacro::Collection { kind, entries } => match kind {
+                CollectionKind::Computed => {
+                    si.needs_computed = true;
+                    for e in entries {
+                        signal_map.insert_computed(&e.name);
+                    }
+                }
+                CollectionKind::Prop => {
+                    // Not reactive at this stage; codegen handles per-entry.
+                }
+                CollectionKind::Action => {
+                    si.needs_batch = true;
+                }
+                CollectionKind::Resource => {
+                    si.needs_create_resource = true;
+                }
+                CollectionKind::Effect => {
+                    si.needs_effect_for_macros = true;
+                }
+                CollectionKind::Lifecycle => {
+                    for e in entries {
+                        match e.name.as_str() {
+                            "mount" => si.needs_on_mount = true,
+                            "dispose" => si.needs_on_cleanup = true,
+                            _ => {}
+                        }
+                    }
+                }
+            },
+            StateMacro::EffectAnon { .. }
+            | StateMacro::EffectOn { .. }
+            | StateMacro::Watch { .. } => {
                 si.needs_effect_for_macros = true;
             }
-            StateMacro::Resource { .. } => {
-                si.needs_create_resource = true;
-            }
-            // arch-5 M1 — routing macros require @aihu/router namespace import.
             StateMacro::Route { name } => {
                 si.needs_aihu_router = true;
                 si.needs_computed = true;
@@ -370,40 +384,121 @@ fn process_state_body(
             continue;
         }
 
-        // Skip $macro lines (and their multi-line bodies)
+        // Skip $macro lines (and their multi-line bodies).
+        //
+        // v2 collection-form: `$<keyword>: { ... }` — skip past the matching
+        // `}`. Anonymous `$effect: () => { ... }` — skip past the matching
+        // `}` of the arrow body. Preserved-from-v1 `$effect.on(...)`,
+        // `$watch <name> { ... }` — skip past the matching `}`.
         if line.starts_with('$') {
-            let has_brace = raw_script[i..].find('{').map(|r| i + r);
-            let has_nl_first = raw_script[i..].find('\n').map(|r| i + r);
-            let macro_keyword = line.trim_start_matches('$').split_ascii_whitespace().next();
-            let is_block_macro = matches!(
-                macro_keyword,
-                Some("effect") | Some("effect.on") | Some("action") | Some("watch") |
-                Some("lifecycle.mount") | Some("lifecycle.dispose")
-            );
-            // Also check for $effect.on( prefix
-            let is_block_macro = is_block_macro || line.trim_start_matches('$').starts_with("effect.on(");
-            if is_block_macro {
-                // For `$action`, the argument list may contain `{ Type }` annotations —
-                // the first `{` in the line is NOT the body brace.  Use paren-depth
-                // tracking to skip past the arg list and find the true body brace.
-                let brace_start_opt = if macro_keyword == Some("action") {
-                    let mut depth_paren = 0usize;
-                    let mut found: Option<usize> = None;
-                    for (j, ch) in raw_script[i..].char_indices() {
-                        if ch == '\n' { break; }
-                        match ch {
-                            '(' => depth_paren += 1,
-                            ')' => { depth_paren = depth_paren.saturating_sub(1); }
-                            '{' if depth_paren == 0 => { found = Some(i + j); break; }
-                            _ => {}
+            let stripped = line.trim_start_matches('$');
+            let macro_keyword = stripped.split_ascii_whitespace().next();
+            let is_collection_macro = matches!(
+                macro_keyword.map(|k| {
+                    // Strip trailing `:` for keyword comparison.
+                    k.trim_end_matches(':')
+                }),
+                Some("prop")
+                    | Some("computed")
+                    | Some("action")
+                    | Some("resource")
+                    | Some("effect")
+                    | Some("lifecycle")
+            ) && stripped.contains(':');
+            let is_preserved_macro = stripped.starts_with("effect.on(")
+                || matches!(macro_keyword, Some("watch"));
+
+            if is_collection_macro {
+                // For v2 collection-form, the body opens with `:` followed by
+                // `{` (named-collection) or `(` (anonymous `$effect`). Find
+                // the colon, skip whitespace, then jump past the matching
+                // closing brace / paren.
+                if let Some(colon_rel) = raw_script[i..].find(':') {
+                    let mut p = i + colon_rel + 1;
+                    while p < raw_script.len()
+                        && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r')
+                    {
+                        p += 1;
+                    }
+                    if p < raw_script.len() {
+                        if bytes[p] == b'{' {
+                            if let Some(close) = crate::parser::state_macros::find_brace_close(
+                                raw_script,
+                                p + 1,
+                            ) {
+                                i = close + 1;
+                                if i < bytes.len() && bytes[i] == b'\n' {
+                                    i += 1;
+                                }
+                                continue;
+                            }
+                        } else if bytes[p] == b'(' {
+                            // Anonymous `$effect: () => { ... }` — skip past
+                            // the closing `)`, then `=>`, then the body.
+                            if let Some(close_paren) =
+                                crate::parser::state_macros::find_paren_close(raw_script, p + 1)
+                            {
+                                let mut q = close_paren + 1;
+                                while q < raw_script.len()
+                                    && matches!(bytes[q], b' ' | b'\t')
+                                {
+                                    q += 1;
+                                }
+                                if q + 1 < raw_script.len()
+                                    && bytes[q] == b'='
+                                    && bytes[q + 1] == b'>'
+                                {
+                                    q += 2;
+                                    while q < raw_script.len()
+                                        && matches!(
+                                            bytes[q],
+                                            b' ' | b'\t' | b'\n' | b'\r'
+                                        )
+                                    {
+                                        q += 1;
+                                    }
+                                    if q < raw_script.len() && bytes[q] == b'{' {
+                                        if let Some(close) =
+                                            crate::parser::state_macros::find_brace_close(
+                                                raw_script,
+                                                q + 1,
+                                            )
+                                        {
+                                            i = close + 1;
+                                            if i < bytes.len() && bytes[i] == b'\n' {
+                                                i += 1;
+                                            }
+                                            continue;
+                                        }
+                                    } else {
+                                        // Expression body — skip to end of line.
+                                        let nl2 = raw_script[q..]
+                                            .find('\n')
+                                            .map(|r| q + r)
+                                            .unwrap_or(raw_script.len());
+                                        i = nl2 + 1;
+                                        continue;
+                                    }
+                                }
+                            }
                         }
                     }
-                    found
-                } else {
-                    has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2))
-                };
+                }
+            }
+
+            if is_preserved_macro {
+                // Find the body `{`. For `$effect.on(dep) { body }`, the `{`
+                // is after the closing `)`; for `$watch name { body }` the
+                // `{` is the next one on the line.
+                let has_brace = raw_script[i..].find('{').map(|r| i + r);
+                let has_nl_first = raw_script[i..].find('\n').map(|r| i + r);
+                let brace_start_opt =
+                    has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2));
                 if let Some(brace_start) = brace_start_opt {
-                    if let Some(close) = crate::parser::state_macros::find_brace_close(raw_script, brace_start + 1) {
+                    if let Some(close) = crate::parser::state_macros::find_brace_close(
+                        raw_script,
+                        brace_start + 1,
+                    ) {
                         i = close + 1;
                         if i < bytes.len() && bytes[i] == b'\n' {
                             i += 1;
@@ -412,6 +507,7 @@ fn process_state_body(
                     }
                 }
             }
+
             i = nl + 1;
             continue;
         }
@@ -528,56 +624,132 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
 }
 
 fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
-    use crate::types::StateMacro;
+    use crate::parser::state_macros::{arrow_args, arrow_body, meta_get, running_code};
+    use crate::types::{CollectionKind, StateMacro};
     let mut lines: Vec<String> = Vec::new();
+    let indent = "  ";
     for mac in macros {
         match mac {
-            StateMacro::Prop { name, type_name } => {
-                lines.push(format!(
-                    "  const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
-                ));
+            StateMacro::Collection { kind, entries } => {
+                for entry in entries {
+                    match kind {
+                        CollectionKind::Prop => {
+                            // Type comes from `type:` key (string-literal form
+                            // or bare identifier); fall back to `any` if absent.
+                            let type_name = meta_get(entry, "type")
+                                .map(|s| {
+                                    s.trim()
+                                        .trim_matches(|c| c == '"' || c == '\'')
+                                        .to_string()
+                                })
+                                .unwrap_or_else(|| "any".to_string());
+                            let name = &entry.name;
+                            lines.push(format!(
+                                "{indent}const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
+                            ));
+                        }
+                        CollectionKind::Computed => {
+                            let thunk = match running_code(entry) {
+                                Some(t) => t,
+                                None => continue,
+                            };
+                            let body =
+                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            lines.push(format!(
+                                "{indent}const {} = computed(() => {body});",
+                                entry.name
+                            ));
+                        }
+                        CollectionKind::Resource => {
+                            let thunk = match running_code(entry) {
+                                Some(t) => t,
+                                None => continue,
+                            };
+                            let body =
+                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            lines.push(format!(
+                                "{indent}const {} = createResource(() => {body});",
+                                entry.name
+                            ));
+                        }
+                        CollectionKind::Action => {
+                            let arrow = match running_code(entry) {
+                                Some(t) => t,
+                                None => continue,
+                            };
+                            let args = arrow_args(arrow).unwrap_or_default();
+                            let body = arrow_body(arrow).unwrap_or_default();
+                            // arch-5 M1: rewrite $announce(...) call sites in
+                            // action bodies to the runtime-imported alias.
+                            let body = body.replace("$announce(", "__a11y_announce(");
+                            lines.push(format!(
+                                "{indent}function {}({args}) {{ return batch(() => {{ {body} }}) }}",
+                                entry.name
+                            ));
+                        }
+                        CollectionKind::Effect => {
+                            let thunk = match running_code(entry) {
+                                Some(t) => t,
+                                None => continue,
+                            };
+                            let body =
+                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            if let Some(deps_raw) = meta_get(entry, "on") {
+                                let deps_inner = deps_raw
+                                    .trim()
+                                    .strip_prefix('[')
+                                    .and_then(|s| s.strip_suffix(']'))
+                                    .unwrap_or(deps_raw);
+                                lines.push(format!(
+                                    "{indent}effect(() => {{ {dep}; {body} }});",
+                                    dep = deps_inner.trim()
+                                ));
+                            } else {
+                                lines.push(format!("{indent}effect(() => {{ {body} }});"));
+                            }
+                        }
+                        CollectionKind::Lifecycle => {
+                            let arrow = match running_code(entry) {
+                                Some(t) => t,
+                                None => continue,
+                            };
+                            let body =
+                                arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+                            match entry.name.as_str() {
+                                "mount" => lines
+                                    .push(format!("{indent}onMount(() => {{ {body} }});")),
+                                "dispose" => lines
+                                    .push(format!("{indent}onCleanup(() => {{ {body} }});")),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
             }
-            StateMacro::Computed { name, expr } => {
-                lines.push(format!("  const {name} = computed(() => {expr});"));
-            }
-            StateMacro::Resource { name, fetcher } => {
-                lines.push(format!("  const {name} = createResource(() => {fetcher});"));
-            }
-            StateMacro::Effect { body } => {
-                lines.push(format!("  effect(() => {{ {body} }});"));
+            StateMacro::EffectAnon { body } => {
+                lines.push(format!("{indent}effect(() => {{ {body} }});"));
             }
             StateMacro::EffectOn { dep, body } => {
-                lines.push(format!("  effect(() => {{ {dep}; {body} }});"));
+                lines.push(format!("{indent}effect(() => {{ {dep}; {body} }});"));
             }
             StateMacro::Watch { name, body } => {
-                lines.push(format!("  effect(() => {{ {name}; {body} }});"));
-            }
-            StateMacro::Action { name, args, body } => {
-                // arch-5 M1: rewrite $announce(...) call sites in action bodies to
-                // the runtime-imported alias. The compiler does NOT recognize
-                // `$announce` as a declaration macro — it's a function call only.
-                let body = body.replace("$announce(", "__a11y_announce(");
-                lines.push(format!(
-                    "  function {name}({args}) {{ return batch(() => {{ {body} }}) }}"
-                ));
-            }
-            StateMacro::LifecycleMount { body } => {
-                lines.push(format!("  onMount(() => {{ {body} }});"));
-            }
-            StateMacro::LifecycleDispose { body } => {
-                lines.push(format!("  onCleanup(() => {{ {body} }});"));
+                lines.push(format!("{indent}effect(() => {{ {name}; {body} }});"));
             }
             // arch-5 M1 — routing macros.
             StateMacro::Route { name } => {
                 lines.push(format!(
-                    "  const {name} = computed(() => __aihuRouter.useRoute());"
+                    "{indent}const {name} = computed(() => __aihuRouter.useRoute());"
                 ));
             }
             StateMacro::BeforeNavigate { expr } => {
-                lines.push(format!("  __aihuRouter.__router_registerBeforeGuard({expr});"));
+                lines.push(format!(
+                    "{indent}__aihuRouter.__router_registerBeforeGuard({expr});"
+                ));
             }
             StateMacro::AfterNavigate { expr } => {
-                lines.push(format!("  __aihuRouter.__router_registerAfterGuard({expr});"));
+                lines.push(format!(
+                    "{indent}__aihuRouter.__router_registerAfterGuard({expr});"
+                ));
             }
         }
     }
@@ -602,7 +774,14 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // arch-5 M1: scan action bodies for $announce(...) so we can request
     // the runtime import alias and rewrite call sites in emit_state_macro_code.
     let a11y_announce_used = macros.iter().any(|m| match m {
-        crate::types::StateMacro::Action { body, .. } => body.contains("$announce("),
+        crate::types::StateMacro::Collection {
+            kind: crate::types::CollectionKind::Action,
+            entries,
+        } => entries.iter().any(|e| {
+            crate::parser::state_macros::running_code(e)
+                .map(|s| s.contains("$announce("))
+                .unwrap_or(false)
+        }),
         _ => false,
     });
     let mut helpers_needed = helpers_needed;
@@ -626,7 +805,13 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     };
 
     // Need ctx access for $prop (JSON attribute parsing) — use "ctx" if macros use it
-    let uses_ctx = macros.iter().any(|m| matches!(m, crate::types::StateMacro::Prop { .. }));
+    let uses_ctx = macros.iter().any(|m| matches!(
+        m,
+        crate::types::StateMacro::Collection {
+            kind: crate::types::CollectionKind::Prop,
+            ..
+        }
+    ));
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
     let macro_code = emit_state_macro_code(&macros);
@@ -1004,7 +1189,10 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
         format!("{{\n{}\n    }}", action_entries.join(",\n"))
     };
 
-    // Build agent macros extras (v0.4.8)
+    // Build agent macros extras (v2: only $scope and $rate-limit survive).
+    // Per-name `expose` / `describe` metadata is now carried on the
+    // corresponding `@state` collection entry (codegen reshapes the
+    // `registerAgentMetadata` payload per AC-6 revised — Q.B-2 (a)).
     let mut extra_fields = String::new();
     for mac in &agent.agent_macros {
         match mac {
@@ -1013,15 +1201,6 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
             }
             AgentMacroDecl::RateLimit(n) => {
                 extra_fields.push_str(&format!(",\n    \"rateLimit\": {}", n));
-            }
-            AgentMacroDecl::Describe(text) => {
-                extra_fields.push_str(&format!(",\n    \"description\": \"{}\"", text));
-            }
-            AgentMacroDecl::Expose { name, type_name, writable } => {
-                extra_fields.push_str(&format!(
-                    ",\n    \"exposes\": {{\"name\": \"{}\", \"type\": \"{}\", \"writable\": {}}}",
-                    name, type_name, writable
-                ));
             }
         }
     }

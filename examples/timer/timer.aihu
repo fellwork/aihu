@@ -2,32 +2,51 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  duration: number = 10000
-  elapsed: number = 0
+  $prop: {
+    duration: {
+      default: 10000,
+      describe: 'Timer duration in milliseconds (slider-controlled)',
+      expose: { read: true },
+    },
+    elapsed: { default: 0, describe: 'Elapsed time in milliseconds', expose: { read: true } },
+  }
+
   intervalId: number | null = null
 
-  $computed progress = duration === 0 ? 0 : Math.min(elapsed / duration, 1)
-  $computed seconds  = (elapsed / 1000).toFixed(1)
-  $computed maxSecs  = (duration / 1000).toFixed(1)
-  $computed done     = elapsed >= duration
-
-  $action tick() {
-    if (elapsed < duration) {
-      elapsed = Math.min(elapsed + 100, duration)
-    }
+  $computed: {
+    progress: {
+      describe: 'Elapsed fraction from 0 to 1',
+      expose: { read: true },
+      value: () => duration === 0 ? 0 : Math.min(elapsed / duration, 1),
+    },
+    seconds: () => (elapsed / 1000).toFixed(1),
+    maxSecs: () => (duration / 1000).toFixed(1),
+    done: () => elapsed >= duration,
   }
 
-  $action reset() {
-    elapsed = 0
+  $action: {
+    tick: () => {
+      if (elapsed < duration) {
+        elapsed = Math.min(elapsed + 100, duration)
+      }
+    },
+    reset: {
+      describe: 'Reset the elapsed time to 0',
+      expose: { read: true, write: true },
+      handler: () => {
+        elapsed = 0
+      },
+    },
   }
 
-  $lifecycle.mount(() => {
-    intervalId = setInterval(() => tick(), 100) as unknown as number
-  })
-
-  $lifecycle.dispose(() => {
-    if (intervalId !== null) clearInterval(intervalId)
-  })
+  $lifecycle: {
+    mount: () => {
+      intervalId = setInterval(() => tick(), 100) as unknown as number
+    },
+    dispose: () => {
+      if (intervalId !== null) clearInterval(intervalId)
+    },
+  }
 }
 
 @template {
@@ -64,15 +83,4 @@
   button    { padding: 0.5rem 0.75rem; cursor: pointer; background: var(--btn-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); transition: background 0.1s; }
   button:hover { background: var(--hover-bg); }
   .status   { color: var(--success); font-weight: 600; margin: 0; }
-}
-
-@agent {
-  $expose elapsed, duration, progress
-
-  $action reset
-
-  $describe elapsed   "Elapsed time in milliseconds"
-  $describe duration  "Timer duration in milliseconds (slider-controlled)"
-  $describe progress  "Elapsed fraction from 0 to 1"
-  $describe reset     "Reset the elapsed time to 0"
 }

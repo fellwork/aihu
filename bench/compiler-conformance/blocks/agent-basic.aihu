@@ -1,13 +1,8 @@
 @state {
-import { signal } from '@aihu/signals'
-const [greeting, setGreeting] = signal('')
+  import { signal } from '@aihu/signals'
+  const [greeting, setGreeting] = signal('')
 }
 
 @template {
   <div>{{ greeting }}</div>
-}
-
-@agent {
-input name: string
-action greet()
 }

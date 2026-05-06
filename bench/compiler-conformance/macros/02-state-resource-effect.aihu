@@ -1,6 +1,6 @@
 @state {
-  $resource data = fetchUsers()
-  $effect { console.log(data()) }
+  $resource: { data: () => fetchUsers() }
+  $effect: () => { console.log(data()) }
   $effect.on(data) { updateList(data()) }
 }
 

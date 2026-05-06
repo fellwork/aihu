@@ -5,12 +5,20 @@
 
 @state {
   posts: Array<{ slug: string; title: string }> = [
-    { slug: 'hello',  title: 'Hello, world' },
-    { slug: 'meta',   title: 'Why aihu is meta' },
-    { slug: 'agents', title: 'Agents are first-class' },
-  ]
 
-  $action postKey(p: { slug: string }): string { return p.slug }
+  $action: {
+    postKey: (p: { slug: string }): string => {
+      return p.slug
+    },
+  }
+
+  { slug: 'hello',  title: 'Hello, world' },
+
+  { slug: 'meta',   title: 'Why aihu is meta' },
+
+  { slug: 'agents', title: 'Agents are first-class' },
+
+  ]
 }
 
 @template {
