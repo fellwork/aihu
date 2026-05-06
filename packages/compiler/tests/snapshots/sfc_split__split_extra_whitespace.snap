@@ -1,5 +1,6 @@
 ---
 source: tests/sfc_split.rs
+assertion_line: 38
 expression: result
 ---
 AihuSource {

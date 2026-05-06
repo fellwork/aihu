@@ -16,42 +16,42 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 2066,
+    "bytes": -1,
     "limit": "2100 B"
   },
   {
     "name": "@aihu/agent",
-    "bytes": 142,
+    "bytes": -1,
     "limit": "200 B"
   },
   {
     "name": "@aihu/data",
-    "bytes": 774,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": 2067,
+    "bytes": -1,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 579,
+    "bytes": -1,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 591,
+    "bytes": -1,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 721,
+    "bytes": -1,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 737,
+    "bytes": 764,
     "limit": "800 B"
   }
 ]

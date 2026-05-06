@@ -30,7 +30,7 @@ describe('$route macro — RFC-A5-010', () => {
   it('coexists with other state macros', () => {
     const out = compile(`@state {
   $prop: {
-    kind: { type: String }
+    kind: { type: string },
   }
   $route here
   $computed: {

@@ -87,22 +87,30 @@ export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'
  * **interactive** island (uses the signals reactivity system).
  *
  * The heuristic is intentionally conservative: any source-level reference
- * to `signal(`, `computed(`, `effect(`, or `setSignal(` flips the file to
- * `'interactive'`. False positives (e.g. a string literal containing
- * `signal(`) are tolerable — they only forfeit the static-island
+ * to a primitive that requires the `defineComponent` owner context flips
+ * the file to `'interactive'`. False positives (e.g. a string literal
+ * containing `signal(`) are tolerable — they only forfeit the static-island
  * optimisation. False negatives are forbidden: a static-classified file
  * MUST NOT depend on the signals runtime at execution time.
+ *
+ * Owner-requiring primitives covered:
+ *   - `signal(`, `computed(`, `effect(`, `setSignal(` (signals runtime)
+ *   - `onMount(`, `onCleanup(` (lifecycle hooks — throw `no owner` outside
+ *     `defineComponent` because they push into the active owner's mount/
+ *     cleanup queues)
  *
  * Plan 3.3 / acceptance criterion 1.
  *
  * @internal
  */
 export function _classifyIsland(compiledCode: string): 'static' | 'interactive' {
-  // Match call sites of the four reactive primitives. Use word-boundary
+  // Match call sites of the reactive + lifecycle primitives. Use word-boundary
   // anchors so identifiers like `mySignal(` or `__effect(` do not trip the
   // heuristic. The `(` is required so that bare imports of the names in an
   // unused `import { signal }` line do not flip an otherwise-static module.
-  return /\b(?:signal|computed|effect|setSignal)\s*\(/.test(compiledCode) ? 'interactive' : 'static'
+  return /\b(?:signal|computed|effect|setSignal|onMount|onCleanup)\s*\(/.test(compiledCode)
+    ? 'interactive'
+    : 'static'
 }
 
 /**
@@ -556,12 +564,21 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
 
         // The Rust compiler emits TypeScript (type casts, import type, etc.) and
         // the injected HMR / defer helpers also contain TS generics and casts.
-        // Vite does NOT re-run its esbuild TypeScript-strip step when a plugin
-        // returns code for a non-.ts ID — so we strip types here ourselves using
-        // Vite's own transformWithEsbuild API (always available in a Vite context).
+        // Vite does NOT re-run its TS-strip step when a plugin returns code for a
+        // non-.ts ID, so we must strip types ourselves before returning.
+        //
+        // Vite 8+ (Rolldown/Oxc): transformWithEsbuild is a no-op; declare the
+        // module type as 'ts' so Rolldown strips types natively. The extra
+        // moduleType field is silently ignored by Vite 5 / esbuild.
+        // Vite 5 (esbuild): transformWithEsbuild does the stripping.
         try {
-          const { transformWithEsbuild } = await import('vite')
-          const stripped = await transformWithEsbuild(out, 'component.ts', {
+          const vite = await import('vite')
+          if ('transformWithOxc' in vite && typeof vite.transformWithOxc === 'function') {
+            // Vite 8+: return TS and declare the module type — Rolldown strips types.
+            // biome-ignore lint/suspicious/noExplicitAny: moduleType is vite 8 / rolldown API
+            return { code: out, moduleType: 'ts', map: null } as any
+          }
+          const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
             target: 'esnext',
             sourcemap: false,
           })

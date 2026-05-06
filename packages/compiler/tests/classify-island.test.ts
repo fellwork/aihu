@@ -74,4 +74,23 @@ describe('_classifyIsland — Plan 3.3', () => {
     const code = STATIC_OUTPUT.replace("const message = 'hello'", 'const [v] = signal (0)')
     expect(_classifyIsland(code)).toBe('interactive')
   })
+
+  it('treats onMount() as interactive (#8)', () => {
+    // onMount requires defineComponent's owner context — must NOT be classified
+    // static, otherwise the static-island shim strips defineComponent and the
+    // call throws RuntimeError SCR-R0010 'no owner' at connectedCallback time.
+    const code = STATIC_OUTPUT.replace(
+      "const message = 'hello'",
+      "onMount(() => { console.log('mounted') })\n  const message = 'hello'",
+    )
+    expect(_classifyIsland(code)).toBe('interactive')
+  })
+
+  it('treats onCleanup() as interactive (#9)', () => {
+    const code = STATIC_OUTPUT.replace(
+      "const message = 'hello'",
+      "onCleanup(() => { console.log('cleaned') })\n  const message = 'hello'",
+    )
+    expect(_classifyIsland(code)).toBe('interactive')
+  })
 })
