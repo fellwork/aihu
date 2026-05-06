@@ -73,11 +73,13 @@ for (const file of files) {
 
 // ── 3. Write src/content.ts ──────────────────────────────────────
 
+// Biome noQuotedObjectKeys: only quote keys that aren't valid identifiers
+const jsIdent = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
 const entries = pages
-  .map(
-    (p) =>
-      `  '${p.id}': {\n    title: '${p.title.replace(/'/g, "\\'")}',\n    html: \`${p.html}\`,\n  }`,
-  )
+  .map((p) => {
+    const key = jsIdent.test(p.id) ? p.id : `'${p.id}'`
+    return `  ${key}: {\n    title: '${p.title.replace(/'/g, "\\'")}',\n    html: \`${p.html}\`,\n  }`
+  })
   .join(',\n')
 
 const contentTs = `/**
