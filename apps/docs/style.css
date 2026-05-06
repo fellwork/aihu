@@ -325,14 +325,17 @@ svg {
   width: auto;
 }
 
-/* Force wordmark to render light on dark hero — higher specificity avoids !important */
-.site-hero .hero-wordmark path,
-.site-hero .hero-wordmark text {
+/* Wordmark on dark hero — path is outline-only, text is filled, dot keeps accent */
+.site-hero .hero-wordmark path {
   stroke: var(--color-brand-warm-white);
-  fill: var(--color-brand-warm-white);
+  fill: none;
 }
 
-/* The accent dot keeps its color */
+.site-hero .hero-wordmark text {
+  fill: var(--color-brand-warm-white);
+  stroke: none;
+}
+
 .site-hero .hero-wordmark circle {
   fill: var(--color-brand-accent);
   stroke: none;
