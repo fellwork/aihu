@@ -226,9 +226,7 @@ fn focus_trap_emit_with_return_focus_false() {
 fn announce_call_site_rewritten_in_action_body() {
     let src = r#"
 @state {
-  $action save() {
-    $announce('Changes saved')
-  }
+  $action: { save: () => { $announce('Changes saved') } }
 }
 @template {
   <button>Save</button>
@@ -259,9 +257,7 @@ fn announce_not_imported_when_unused() {
     // Sanity: an SFC with no $announce call must NOT import announce.
     let src = r#"
 @state {
-  $action noop() {
-    return 1
-  }
+  $action: { noop: () => { return 1 } }
 }
 @template {
   <button>x</button>
@@ -288,9 +284,7 @@ fn announce_not_imported_when_unused() {
 fn a11y_kit_sfc_emits_all_imports() {
     let src = r##"
 @state {
-  $action save() {
-    $announce('Saved')
-  }
+  $action: { save: () => { $announce('Saved') } }
 }
 @template {
   <$skipLink target="#main">Skip</$skipLink>
