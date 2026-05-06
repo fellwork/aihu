@@ -20,7 +20,7 @@
   <header class="site-header">
     <div class="header-inner">
       <!-- Hamburger — wired by inline script below -->
-      <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation" aria-expanded="false">
         <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
           <line x1="2" y1="4.5" x2="16" y2="4.5"/>
           <line x1="2" y1="9"   x2="16" y2="9"/>
@@ -84,7 +84,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
     // Run once on initial load
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', () => {
       if (typeof hljs !== 'undefined') {
         hljs.configure({ ignoreUnescapedHTML: true });
         hljs.highlightAll();
@@ -92,12 +92,12 @@
     });
 
     // Re-run after each SPA navigation (docs-shell fires hashchange)
-    window.addEventListener('hashchange', function () {
+    window.addEventListener('hashchange', () => {
       // Small tick to let the component update the DOM first
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
           if (typeof hljs !== 'undefined') {
-            document.querySelectorAll('pre code:not(.hljs)').forEach(function (block) {
+            document.querySelectorAll('pre code:not(.hljs)').forEach((block) => {
               hljs.highlightElement(block);
             });
           }
@@ -127,9 +127,9 @@
       document.body.style.overflow = '';
     }
 
-    menuToggle.addEventListener('click', function () {
+    menuToggle.addEventListener('click', () => {
       var nav = document.querySelector('.docs-nav');
-      if (nav && nav.classList.contains('open')) {
+      if (nav?.classList.contains('open')) {
         closeDrawer();
       } else {
         openDrawer();
@@ -139,7 +139,7 @@
     backdrop.addEventListener('click', closeDrawer);
 
     // Close drawer when a nav link is tapped on mobile
-    document.addEventListener('click', function (e) {
+    document.addEventListener('click', (e) => {
       if (e.target && e.target.classList.contains('nav-link')) {
         if (window.innerWidth <= 768) {
           closeDrawer();
@@ -149,21 +149,21 @@
 
     // Inject version: try window.__AIHU_VERSION__ (set by build pipeline),
     // then fall back to fetching package.json, then static fallback.
-    (function () {
+    (() => {
       var badge = document.getElementById('version-badge');
       if (!badge) return;
       if (typeof window.__AIHU_VERSION__ !== 'undefined') {
-        badge.textContent = 'v' + window.__AIHU_VERSION__;
+        badge.textContent = `v${window.__AIHU_VERSION__}`;
         return;
       }
       fetch('./package.json')
-        .then(function (r) { return r.json(); })
-        .then(function (pkg) {
+        .then((r) => r.json())
+        .then((pkg) => {
           if (pkg && pkg.version) {
-            badge.textContent = 'v' + pkg.version;
+            badge.textContent = `v${pkg.version}`;
           }
         })
-        .catch(function () { /* keep static v0 */ });
+        .catch(() => { /* keep static v0 */ });
     })();
   </script>
 </body>

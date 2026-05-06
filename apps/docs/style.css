@@ -4,67 +4,67 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Google Fonts ──────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 /* ── Design tokens ─────────────────────────────────────────────── */
 :root {
   /* Brand colors — extracted from aihu SVG assets */
-  --color-brand-ink:        #1a1d24;   /* primary dark — logo stroke */
-  --color-brand-accent:     #c8543a;   /* terracotta — the dot, CTA */
-  --color-brand-accent-dim: #a8432b;   /* darker terracotta — hover */
-  --color-brand-warm-white: #faf8f4;   /* warm off-white background */
-  --color-brand-canvas:     #ece9e2;   /* warm surface */
-  --color-brand-rule:       #ece8e0;   /* warm border */
-  --color-brand-muted:      #5a5a55;   /* muted warm grey */
+  --color-brand-ink: #1a1d24; /* primary dark — logo stroke */
+  --color-brand-accent: #c8543a; /* terracotta — the dot, CTA */
+  --color-brand-accent-dim: #a8432b; /* darker terracotta — hover */
+  --color-brand-warm-white: #faf8f4; /* warm off-white background */
+  --color-brand-canvas: #ece9e2; /* warm surface */
+  --color-brand-rule: #ece8e0; /* warm border */
+  --color-brand-muted: #5a5a55; /* muted warm grey */
 
   /* Surface tokens — light theme */
-  --color-surface-base:     #faf8f4;
-  --color-surface-raised:   #ffffff;
-  --color-surface-overlay:  #f2ede7;
-  --color-surface-code:     #f0ede7;
-  --color-surface-hero:     #1a1d24;
+  --color-surface-base: #faf8f4;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: #f2ede7;
+  --color-surface-code: #f0ede7;
+  --color-surface-hero: #1a1d24;
 
   /* Text tokens */
-  --color-text-primary:     #1a1d24;
-  --color-text-secondary:   #5a5a55;
-  --color-text-muted:       #8a8880;
-  --color-text-inverse:     #faf8f4;
-  --color-text-accent:      #c8543a;
+  --color-text-primary: #1a1d24;
+  --color-text-secondary: #5a5a55;
+  --color-text-muted: #8a8880;
+  --color-text-inverse: #faf8f4;
+  --color-text-accent: #c8543a;
 
   /* Border tokens */
-  --color-border-default:   #ddd9d2;
-  --color-border-subtle:    #ece8e0;
-  --color-border-strong:    #c2bdb6;
+  --color-border-default: #ddd9d2;
+  --color-border-subtle: #ece8e0;
+  --color-border-strong: #c2bdb6;
 
   /* Accent/interactive */
-  --color-accent:           #c8543a;
-  --color-accent-hover:     #a8432b;
-  --color-accent-subtle:    rgba(200, 84, 58, 0.08);
-  --color-hover-bg:         #f0ede7;
+  --color-accent: #c8543a;
+  --color-accent-hover: #a8432b;
+  --color-accent-subtle: rgba(200, 84, 58, 0.08);
+  --color-hover-bg: #f0ede7;
 
   /* Legacy compat aliases (components reference these) */
-  --bg:        var(--color-surface-base);
-  --fg:        var(--color-text-primary);
-  --muted:     var(--color-text-secondary);
-  --border:    var(--color-border-default);
-  --accent:    var(--color-accent);
-  --hover-bg:  var(--color-hover-bg);
-  --code-bg:   var(--color-surface-code);
-  --btn-bg:    var(--color-surface-overlay);
+  --bg: var(--color-surface-base);
+  --fg: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --border: var(--color-border-default);
+  --accent: var(--color-accent);
+  --hover-bg: var(--color-hover-bg);
+  --code-bg: var(--color-surface-code);
+  --btn-bg: var(--color-surface-overlay);
 
   /* Typography */
-  --font-sans:  'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:  'JetBrains Mono', ui-monospace, 'Fira Code', 'Cascadia Code', monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace;
 
-  --font-size-xs:   0.75rem;
-  --font-size-sm:   0.875rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
-  --font-size-lg:   1.125rem;
-  --font-size-xl:   1.25rem;
-  --font-size-2xl:  1.5rem;
-  --font-size-3xl:  2rem;
-  --font-size-4xl:  2.75rem;
-  --font-size-5xl:  3.5rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+  --font-size-4xl: 2.75rem;
+  --font-size-5xl: 3.5rem;
 
   /* Spacing */
   --space-1: 0.25rem;
@@ -90,7 +90,7 @@
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(26, 29, 36, 0.06), 0 1px 2px rgba(26, 29, 36, 0.04);
-  --shadow-md: 0 4px 12px rgba(26, 29, 36, 0.10), 0 2px 4px rgba(26, 29, 36, 0.06);
+  --shadow-md: 0 4px 12px rgba(26, 29, 36, 0.1), 0 2px 4px rgba(26, 29, 36, 0.06);
 
   /* Transitions */
   --transition-fast: 100ms ease;
@@ -99,35 +99,35 @@
 
 /* ── Dark theme ─────────────────────────────────────────────────── */
 .dark {
-  --color-surface-base:     #13151b;
-  --color-surface-raised:   #1a1d24;
-  --color-surface-overlay:  #21252f;
-  --color-surface-code:     #1e222b;
-  --color-surface-hero:     #0d0f13;
+  --color-surface-base: #13151b;
+  --color-surface-raised: #1a1d24;
+  --color-surface-overlay: #21252f;
+  --color-surface-code: #1e222b;
+  --color-surface-hero: #0d0f13;
 
-  --color-text-primary:     #ede8e0;
-  --color-text-secondary:   #9e9890;
-  --color-text-muted:       #6e6860;
-  --color-text-inverse:     #1a1d24;
-  --color-text-accent:      #e8705a;
+  --color-text-primary: #ede8e0;
+  --color-text-secondary: #9e9890;
+  --color-text-muted: #6e6860;
+  --color-text-inverse: #1a1d24;
+  --color-text-accent: #e8705a;
 
-  --color-border-default:   #2e3240;
-  --color-border-subtle:    #252930;
-  --color-border-strong:    #404558;
+  --color-border-default: #2e3240;
+  --color-border-subtle: #252930;
+  --color-border-strong: #404558;
 
-  --color-accent:           #e8705a;
-  --color-accent-hover:     #f08070;
-  --color-accent-subtle:    rgba(232, 112, 90, 0.12);
-  --color-hover-bg:         #1e222b;
+  --color-accent: #e8705a;
+  --color-accent-hover: #f08070;
+  --color-accent-subtle: rgba(232, 112, 90, 0.12);
+  --color-hover-bg: #1e222b;
 
-  --bg:        var(--color-surface-base);
-  --fg:        var(--color-text-primary);
-  --muted:     var(--color-text-secondary);
-  --border:    var(--color-border-default);
-  --accent:    var(--color-accent);
-  --hover-bg:  var(--color-hover-bg);
-  --code-bg:   var(--color-surface-code);
-  --btn-bg:    var(--color-surface-overlay);
+  --bg: var(--color-surface-base);
+  --fg: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --border: var(--color-border-default);
+  --accent: var(--color-accent);
+  --hover-bg: var(--color-hover-bg);
+  --code-bg: var(--color-surface-code);
+  --btn-bg: var(--color-surface-overlay);
 }
 
 /* ── Reset ──────────────────────────────────────────────────────── */
@@ -151,7 +151,9 @@ body {
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
   line-height: 1.65;
-  transition: background var(--transition-base), color var(--transition-base);
+  transition:
+    background var(--transition-base),
+    color var(--transition-base);
 }
 
 a {
@@ -163,7 +165,8 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-img, svg {
+img,
+svg {
   display: block;
   max-width: 100%;
 }
@@ -292,12 +295,12 @@ img, svg {
 
 /* subtle warm grid pattern */
 .site-hero::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
 }
@@ -369,7 +372,10 @@ img, svg {
   text-decoration: none;
   cursor: pointer;
   border: none;
-  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -516,7 +522,10 @@ img, svg {
   font-size: var(--font-size-sm);
   font-weight: 450;
   border-left: 2px solid transparent;
-  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
   line-height: 1.4;
 }
 
@@ -704,7 +713,9 @@ img, svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
   width: 36px;
   height: 36px;
 }
@@ -733,10 +744,18 @@ img, svg {
 }
 
 /* Show sun in dark mode, moon in light mode */
-:root .icon-sun { display: none; }
-:root .icon-moon { display: flex; }
-.dark .icon-sun { display: flex; }
-.dark .icon-moon { display: none; }
+:root .icon-sun {
+  display: none;
+}
+:root .icon-moon {
+  display: flex;
+}
+.dark .icon-sun {
+  display: flex;
+}
+.dark .icon-moon {
+  display: none;
+}
 
 /* ── Live demo ───────────────────────────────────────────────────── */
 
@@ -841,7 +860,9 @@ img, svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
   font-family: var(--font-sans);
 }
 
@@ -867,7 +888,9 @@ img, svg {
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   padding: 4px 12px;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .btn-reset:hover {
@@ -965,31 +988,69 @@ img, svg {
 /* Warm, brand-aligned code color scheme */
 
 :root .hljs-keyword,
-:root .hljs-built_in { color: #c8543a; }
+:root .hljs-built_in {
+  color: #c8543a;
+}
 :root .hljs-string,
-:root .hljs-attr    { color: #6b9e5e; }
-:root .hljs-comment { color: #9e9890; font-style: italic; }
+:root .hljs-attr {
+  color: #6b9e5e;
+}
+:root .hljs-comment {
+  color: #9e9890;
+  font-style: italic;
+}
 :root .hljs-number,
-:root .hljs-literal { color: #4f88c4; }
+:root .hljs-literal {
+  color: #4f88c4;
+}
 :root .hljs-title,
-:root .hljs-function { color: #7b5ea8; }
+:root .hljs-function {
+  color: #7b5ea8;
+}
 :root .hljs-variable,
-:root .hljs-params  { color: #5a5a55; }
-:root .hljs-tag     { color: #c8543a; }
-:root .hljs-name    { color: #c8543a; }
-:root .hljs-type    { color: #7b5ea8; }
+:root .hljs-params {
+  color: #5a5a55;
+}
+:root .hljs-tag {
+  color: #c8543a;
+}
+:root .hljs-name {
+  color: #c8543a;
+}
+:root .hljs-type {
+  color: #7b5ea8;
+}
 
 .dark .hljs-keyword,
-.dark .hljs-built_in { color: #e8705a; }
+.dark .hljs-built_in {
+  color: #e8705a;
+}
 .dark .hljs-string,
-.dark .hljs-attr    { color: #88c07a; }
-.dark .hljs-comment { color: #6e6860; font-style: italic; }
+.dark .hljs-attr {
+  color: #88c07a;
+}
+.dark .hljs-comment {
+  color: #6e6860;
+  font-style: italic;
+}
 .dark .hljs-number,
-.dark .hljs-literal { color: #79aee0; }
+.dark .hljs-literal {
+  color: #79aee0;
+}
 .dark .hljs-title,
-.dark .hljs-function { color: #b08ad8; }
+.dark .hljs-function {
+  color: #b08ad8;
+}
 .dark .hljs-variable,
-.dark .hljs-params  { color: #9e9890; }
-.dark .hljs-tag     { color: #e8705a; }
-.dark .hljs-name    { color: #e8705a; }
-.dark .hljs-type    { color: #b08ad8; }
+.dark .hljs-params {
+  color: #9e9890;
+}
+.dark .hljs-tag {
+  color: #e8705a;
+}
+.dark .hljs-name {
+  color: #e8705a;
+}
+.dark .hljs-type {
+  color: #b08ad8;
+}
