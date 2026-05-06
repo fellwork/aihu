@@ -221,17 +221,17 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.1` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.1` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.2` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.2` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.0` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/agent-readiness) | `0.1.0` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.0` | Service-side agent runtime (server-hosted agent endpoints). |
-| [`@aihu/app`](./packages/app) | `0.1.1` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `0.1.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/cli`](./packages/cli) | `0.3.0` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.1.3` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.1.4` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |

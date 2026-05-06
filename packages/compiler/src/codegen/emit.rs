@@ -732,9 +732,26 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
                                 })
                                 .unwrap_or_else(|| "any".to_string());
                             let name = &entry.name;
-                            lines.push(format!(
-                                "{indent}const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
-                            ));
+                            // Primitive types read the attribute directly. Non-primitive
+                            // types (objects, arrays) JSON-parse with a `{}` fallback.
+                            // The legacy unconditional JSON.parse path mis-handled
+                            // string-typed props (e.g., from a `:id` route param) by
+                            // returning `{}` on parse failure of a non-JSON string.
+                            let trimmed_type = type_name.trim();
+                            match trimmed_type {
+                                "string" => lines.push(format!(
+                                    "{indent}const {name}: string = (ctx.element as HTMLElement).getAttribute('{name}') ?? ''"
+                                )),
+                                "number" => lines.push(format!(
+                                    "{indent}const {name}: number = Number((ctx.element as HTMLElement).getAttribute('{name}') ?? 0)"
+                                )),
+                                "boolean" => lines.push(format!(
+                                    "{indent}const {name}: boolean = (ctx.element as HTMLElement).getAttribute('{name}') !== null && (ctx.element as HTMLElement).getAttribute('{name}') !== 'false'"
+                                )),
+                                _ => lines.push(format!(
+                                    "{indent}const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
+                                )),
+                            }
                         }
                         CollectionKind::Computed => {
                             let thunk = match running_code(entry) {
