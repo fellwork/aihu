@@ -1,4 +1,4 @@
-use crate::codegen::signals::SignalMap;
+use crate::codegen::signals::{SignalMap, StateNames};
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{
     AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
@@ -311,12 +311,26 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
 fn process_state_body(
     raw_script: &str,
     signal_map: &mut SignalMap,
-) -> (StateImports, Vec<crate::types::StateMacro>, String, Vec<String>) {
+) -> (StateImports, Vec<crate::types::StateMacro>, String, Vec<String>, StateNames) {
     use crate::parser::state_macros::parse_state_macros;
     use crate::types::StateMacro;
 
     let macros = parse_state_macros(raw_script).unwrap_or_default();
     let mut si = StateImports::default();
+
+    // R2 (Defect B): collect every identifier declared in `@state`. Includes
+    // signals + computed + bare class-property declarations + $prop entries +
+    // $resource entries + $action function names + $route bindings. The
+    // template emitter consults this set in `emit_attrs` to decide whether
+    // a binding expression references state and must therefore be lowered
+    // to a `[() => (expr)]` thunk array.
+    let mut state_names = StateNames::default();
+
+    // Seed from any bindings already in signal_map (signals lifted by
+    // `resolve_signals` from authored `const [g, s] = signal(...)` forms).
+    for k in signal_map.0.keys() {
+        state_names.insert(k);
+    }
 
     for mac in &macros {
         match mac {
@@ -325,19 +339,29 @@ fn process_state_body(
                     si.needs_computed = true;
                     for e in entries {
                         signal_map.insert_computed(&e.name);
+                        state_names.insert(&e.name);
                     }
                 }
                 CollectionKind::Prop => {
-                    // Not reactive at this stage; codegen handles per-entry.
+                    for e in entries {
+                        state_names.insert(&e.name);
+                    }
                 }
                 CollectionKind::Action => {
                     si.needs_batch = true;
+                    for e in entries {
+                        state_names.insert(&e.name);
+                    }
                 }
                 CollectionKind::Resource => {
                     si.needs_create_resource = true;
+                    for e in entries {
+                        state_names.insert(&e.name);
+                    }
                 }
                 CollectionKind::Effect => {
                     si.needs_effect_for_macros = true;
+                    // $effect entries don't declare bindings; nothing to track.
                 }
                 CollectionKind::Lifecycle => {
                     for e in entries {
@@ -358,6 +382,7 @@ fn process_state_body(
                 si.needs_aihu_router = true;
                 si.needs_computed = true;
                 signal_map.insert_computed(name);
+                state_names.insert(name);
             }
             StateMacro::BeforeNavigate { .. } | StateMacro::AfterNavigate { .. } => {
                 si.needs_aihu_router = true;
@@ -534,6 +559,12 @@ fn process_state_body(
         }
 
         let transformed = transform_bare_declaration(line_raw);
+        // R2 (Defect B): when a bare class-property declaration becomes a
+        // `let <name>: <type> = ...`, capture <name> as a state identifier so
+        // the template emitter wraps references in `[() => expr]` thunks.
+        if let Some(name) = extract_state_decl_name(&transformed) {
+            state_names.insert(&name);
+        }
         plain_lines.push(transformed);
         i = nl + 1;
     }
@@ -568,10 +599,46 @@ fn process_state_body(
             .join("\n")
     };
 
-    (si, macros, plain_body, user_imports)
+    (si, macros, plain_body, user_imports, state_names)
 }
 
-/// Transform a bare TypeScript class-property declaration to a `const` declaration.
+/// Extract the binding name from a `let <name>...` / `const <name>...` line
+/// produced by `transform_bare_declaration`. Returns `None` for any line that
+/// is not a simple top-level declaration (e.g. destructuring patterns, arrow
+/// fn bodies, control-flow). R2 (Defect B): used to populate `StateNames`.
+fn extract_state_decl_name(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    let rest = trimmed
+        .strip_prefix("let ")
+        .or_else(|| trimmed.strip_prefix("const ")) ?;
+    let head = rest.trim_start();
+    // Must start with a simple identifier (not `[`, `{`, etc.).
+    let first = head.chars().next()?;
+    if !(first.is_ascii_alphabetic() || first == '_' || first == '$') {
+        return None;
+    }
+    // Walk while the char is a valid identifier continuation.
+    let mut end = 0usize;
+    for (i, c) in head.char_indices() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+            end = i + c.len_utf8();
+        } else {
+            break;
+        }
+    }
+    if end == 0 {
+        return None;
+    }
+    Some(head[..end].to_string())
+}
+
+/// Transform a bare TypeScript class-property declaration to a `let` declaration.
+///
+/// R2 (Defect A): emit `let`, not `const`. State declarations in `@state` are
+/// frequently reassigned from action / effect / lifecycle bodies (e.g.
+/// `loading = false` after a fetch resolves). Emitting `const` causes
+/// `Assignment to constant variable` at runtime; `let` is universally safe and
+/// the bundle-size delta is trivial.
 fn transform_bare_declaration(line: &str) -> String {
     let trimmed = line.trim();
 
@@ -616,7 +683,7 @@ fn transform_bare_declaration(line: &str) -> String {
     }
 
     let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
-    format!("{}const {}", leading_ws, trimmed)
+    format!("{}let {}", leading_ws, trimmed)
 }
 
 /// Find the position of the first `:` at depth 0 (not inside `<>`, `{}`, `[]`, `()`).
@@ -790,7 +857,8 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
 
     // Process state macros first (updates signal_map with computed names)
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
-    let (si, macros, plain_body, user_imports) = process_state_body(raw_script, &mut signal_map);
+    let (si, macros, plain_body, user_imports, state_names) =
+        process_state_body(raw_script, &mut signal_map);
 
     // arch-5 M1: scan action bodies for $announce(...) so we can request
     // the runtime import alias and rewrite call sites in emit_state_macro_code.
@@ -816,7 +884,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         helpers_needed.each_boundary,
         &helpers_needed,
     );
-    let return_expr = emit_nodes(template_nodes, &signal_map, "    ");
+    let return_expr = emit_nodes(template_nodes, &signal_map, &state_names, "    ");
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
@@ -846,12 +914,21 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         if helpers_needed.a11y_styles {
             b.push_str("  _ensureA11yStyles()\n");
         }
-        if !macro_code.is_empty() {
-            b.push_str(&macro_code);
-        }
+        // R2 (Defect A): state declarations (plain_body) MUST precede macro_code
+        // because `effect(...)` / `onMount(...)` / `onCleanup(...)` registrations
+        // capture state variables by lexical reference. effect() runs its callback
+        // synchronously once at registration time to track dependencies; if the
+        // referenced state has not been declared yet (whether `const` or `let`),
+        // the access hits the temporal dead zone and throws ReferenceError.
+        // Action functions are also emitted from macro_code; while `function`
+        // declarations are hoisted, calls to them from inside effect/onMount
+        // closures still trip TDZ when reaching the captured state vars.
         if !plain_body.is_empty() {
             b.push_str(&plain_body);
             b.push_str("\n\n");
+        }
+        if !macro_code.is_empty() {
+            b.push_str(&macro_code);
         }
         b.push_str(&format!("  return {}\n", return_expr));
         b
@@ -1170,7 +1247,15 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // agent-block bindings inside setup(ctx)
     let agent_bindings = emit_agent_bindings(agent);
 
-    let return_expr = emit_nodes(template_nodes, &signal_map, "      ");
+    // Options form (`@agent` SFCs) does not run `process_state_body` so no
+    // bare class-property names are tracked. Seed `state_names` from the
+    // signal_map directly so signals declared in the script body still get
+    // wrapped reactively in attribute bindings.
+    let mut state_names = StateNames::default();
+    for k in signal_map.0.keys() {
+        state_names.insert(k);
+    }
+    let return_expr = emit_nodes(template_nodes, &signal_map, &state_names, "      ");
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
@@ -1435,10 +1520,15 @@ fn extract_script_body(script: &str) -> String {
 
 // ─── Template emission helpers ────────────────────────────────────────────────
 
-fn emit_nodes(nodes: &[TemplateNode], signal_map: &SignalMap, child_indent: &str) -> String {
+fn emit_nodes(
+    nodes: &[TemplateNode],
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
     let non_empty: Vec<String> = nodes
         .iter()
-        .map(|n| emit_node(n, signal_map, child_indent))
+        .map(|n| emit_node(n, signal_map, state_names, child_indent))
         .filter(|s| !s.is_empty())
         .collect();
 
@@ -1467,7 +1557,12 @@ fn emit_nodes(nodes: &[TemplateNode], signal_map: &SignalMap, child_indent: &str
     }
 }
 
-fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) -> String {
+fn emit_node(
+    node: &TemplateNode,
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
     match node {
         TemplateNode::Text(s) => {
             let t = decode_html_entities(s.trim());
@@ -1542,7 +1637,7 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             // Check for $raw — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
-            let attrs_str = emit_attrs(attrs);
+            let attrs_str = emit_attrs(attrs, state_names);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -1553,7 +1648,7 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             } else {
                 children
                     .iter()
-                    .map(|c| emit_node(c, signal_map, &next_indent))
+                    .map(|c| emit_node(c, signal_map, state_names, &next_indent))
                     .filter(|s| !s.is_empty())
                     .collect()
             };
@@ -1593,7 +1688,7 @@ fn emit_node(node: &TemplateNode, signal_map: &SignalMap, child_indent: &str) ->
             }
         }
         TemplateNode::MacroElement { name, attrs, children } => {
-            emit_macro_element(name, attrs, children, signal_map, child_indent)
+            emit_macro_element(name, attrs, children, signal_map, state_names, child_indent)
         }
     }
 }
@@ -1606,6 +1701,7 @@ fn emit_macro_element(
     attrs: &[crate::types::Attr],
     children: &[TemplateNode],
     signal_map: &SignalMap,
+    state_names: &StateNames,
     child_indent: &str,
 ) -> String {
     let next_indent = format!("{}  ", child_indent);
@@ -1629,7 +1725,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 String::new()
             } else {
-                emit_nodes(children, signal_map, &next_indent)
+                emit_nodes(children, signal_map, state_names, &next_indent)
             };
 
             let child_fn = if children_subtree.is_empty() {
@@ -1658,8 +1754,8 @@ fn emit_macro_element(
 
             let (fallback_children, loaded_children) = split_slot_fallback(children);
 
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
-            let loaded_subtree = emit_nodes(&loaded_children, signal_map, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent);
 
             format!(
                 "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
@@ -1671,8 +1767,8 @@ fn emit_macro_element(
         "shield" => {
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, &next_indent);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
+            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
 
             format!(
                 "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
@@ -1687,8 +1783,8 @@ fn emit_macro_element(
 
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, &next_indent);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, &next_indent);
+            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
 
             format!(
                 "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
@@ -1704,7 +1800,7 @@ fn emit_macro_element(
             let target_expr = find_static_or_binding_attr(attrs, "target")
                 .unwrap_or_else(|| "undefined".to_string());
 
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             let child_fn = format!("() => {{ return {} }}", children_subtree);
 
             format!(
@@ -1731,7 +1827,7 @@ fn emit_macro_element(
                 .map(|v| v != "false")
                 .unwrap_or(true);
             let atomic_str = if atomic { "true" } else { "false" };
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             // children_subtree is the wrapped branch; we want its children only. Easiest:
             // emit a branch wrapping the existing subtree as a single fragment child.
             format!(
@@ -1743,7 +1839,7 @@ fn emit_macro_element(
         // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
         // once at component mount via _ensureA11yStyles().
         "visuallyHidden" => {
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             format!(
                 "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
                 children_subtree
@@ -1754,7 +1850,7 @@ fn emit_macro_element(
         // injected once at component mount.
         "skipLink" => {
             let target = find_static_attr(attrs, "target").unwrap_or("#main");
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             format!(
                 "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
                 target, children_subtree
@@ -1811,7 +1907,7 @@ fn emit_macro_element(
                 None => "null".to_string(),
             };
 
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             format!(
                 "createFocusTrap({}, {}, {}, () => {{ return {} }})",
                 active_expr, return_focus, initial_focus, children_subtree
@@ -1827,7 +1923,7 @@ fn emit_macro_element(
                 .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
             let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
                 .unwrap_or_else(|| "false".to_string());
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             format!(
                 "createRouterBoundary({}, {}, () => {{ return {} }})",
                 router_expr, vt_expr, children_subtree
@@ -1846,7 +1942,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 "[]".to_string()
             } else {
-                let inner = emit_nodes(children, signal_map, &next_indent);
+                let inner = emit_nodes(children, signal_map, state_names, &next_indent);
                 format!("[{}]", inner)
             };
             format!(
@@ -1871,7 +1967,7 @@ fn emit_macro_element(
 
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
-            let children_subtree = emit_nodes(children, signal_map, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
             format!(
                 "/* <${}> unknown macro element — passthrough */ {}",
                 name, children_subtree
@@ -1951,9 +2047,30 @@ fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<Tem
     (fallback, main)
 }
 
-fn emit_attrs(attrs: &[Attr]) -> String {
+fn emit_attrs(attrs: &[Attr], state_names: &StateNames) -> String {
     // Filter out macro attrs that aren't pure attribute expressions
     // (those are handled via emit_macro_effects instead).
+    //
+    // R2 (Defect B): when a Binding/`$bind:` value references any name
+    // declared in `@state`, lower the value to a single-element tuple
+    // `[() => (expr)]`. arbor's `_applyAttrs` discriminates via
+    // `Array.isArray(value)`: an array enters the reactive path, where
+    // `value[0]` is invoked as the getter. Wrapping in a thunk array
+    // achieves three goals at once:
+    //
+    //   1. `events={events}` where state initialises to `[]` no longer
+    //      tripwires `Array.isArray([]) === true → call value[0]() →
+    //      "TypeError: c is not a function"` (the LIVE crash on /calendar).
+    //   2. Non-reactive plain `let` state still produces the *current*
+    //      value at mount because the thunk is invoked once via
+    //      `mountEffect`.
+    //   3. When the underlying state IS reactive (signal/computed), the
+    //      thunk re-invokes on every read inside the effect, so DOM
+    //      attributes track signal changes natively.
+    //
+    // Static literal attributes and event handlers stay as plain values:
+    // event handlers go through arbor's Path 1 (typeof === 'function');
+    // statics go through Path 3 (string/number/boolean).
     let passthrough: Vec<String> = attrs
         .iter()
         .filter_map(|a| match a {
@@ -1967,8 +2084,17 @@ fn emit_attrs(attrs: &[Attr]) -> String {
                 }
             }
             Attr::Binding { name, expr } => {
-                // deprecated :prop alias — emit as direct attr
-                Some(format!("{}: {}", name, expr))
+                // Event-handler bindings (`<button onclick={handler}>`) take the
+                // runtime's Path 1 (typeof === 'function'). They MUST stay raw —
+                // wrapping them in a thunk array would put a function value
+                // inside an array and trigger Path 2 instead, breaking events.
+                let is_event = is_event_attr_name(name);
+                let lowered = if is_event {
+                    expr.to_string()
+                } else {
+                    lower_attr_expr(expr, state_names)
+                };
+                Some(format!("{}: {}", format_attr_key(name), lowered))
             }
             Attr::Event { name, handler } => {
                 // deprecated @event alias — emit as onX attr
@@ -1979,7 +2105,11 @@ fn emit_attrs(attrs: &[Attr]) -> String {
                 // other macros ($if, $show, $each, etc.) are emitted as effects outside.
                 if let Some(prop) = name.strip_prefix("bind:") {
                     let expr = macro_value_expr(value);
-                    Some(format!("{}: {}", prop, expr))
+                    Some(format!(
+                        "{}: {}",
+                        format_attr_key(prop),
+                        lower_attr_expr(&expr, state_names)
+                    ))
                 } else if let Some(event) = name.strip_prefix("on:") {
                     let handler = macro_value_expr(value);
                     Some(format!("on{}: {}", capitalize_first(event), handler))
@@ -1995,6 +2125,123 @@ fn emit_attrs(attrs: &[Attr]) -> String {
     } else {
         format!("{{ {} }}", passthrough.join(", "))
     }
+}
+
+/// Quote attribute keys that aren't valid bare JS identifiers (hyphenated
+/// names like `aria-label`, `data-foo`, custom-attr keys for web components).
+fn format_attr_key(name: &str) -> String {
+    if name.contains('-') {
+        format!("'{}'", name)
+    } else {
+        name.to_string()
+    }
+}
+
+/// Return true if `name` is an event-handler attribute (`onclick`, `onSubmit`,
+/// etc.). These take the runtime's Path 1 (typeof === 'function') so the
+/// emitter must NOT wrap their values in `[() => expr]` thunk arrays.
+fn is_event_attr_name(name: &str) -> bool {
+    if !name.starts_with("on") || name.len() < 3 {
+        return false;
+    }
+    // `on` followed by an uppercase letter (`onClick`, `onSubmit`) or a
+    // lowercase letter that pairs with a known DOM event (heuristic: any
+    // remaining char is alphabetic).
+    name.as_bytes()[2].is_ascii_alphabetic()
+}
+
+/// Lower a binding expression for the runtime attr setter. When the expression
+/// references any name declared in `@state`, wrap it in `[() => (expr)]` so
+/// arbor's `_applyAttrs` takes the reactive Path 2 (Array.isArray + getter[0]).
+/// Otherwise pass through unchanged so simple closed-over locals stay as
+/// static primitives.
+///
+/// Identifier extraction is a lightweight token walk — sufficient for
+/// well-formed JS expressions and indifferent to string-literal contents
+/// because string contents would not match `@state` declarations.
+fn lower_attr_expr(expr: &str, state_names: &StateNames) -> String {
+    if expr_references_state(expr, state_names) {
+        format!("[() => ({})]", expr.trim())
+    } else {
+        expr.to_string()
+    }
+}
+
+/// Return true iff `expr` contains an identifier token that matches any name
+/// in `state_names`. Skips identifiers inside string literals and after a `.`
+/// (member access — `obj.foo` where `foo` shadows a state name in property
+/// position is not a state reference).
+fn expr_references_state(expr: &str, state_names: &StateNames) -> bool {
+    if state_names.0.is_empty() {
+        return false;
+    }
+    let bytes = expr.as_bytes();
+    let mut i = 0usize;
+    let mut prev_significant: u8 = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        // Skip string literals — single, double, and template (no interpolation
+        // tracking for templates; conservative: also skip backtick strings).
+        if c == b'\'' || c == b'"' || c == b'`' {
+            let quote = c;
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    i += 2;
+                    continue;
+                }
+                if bytes[i] == quote {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            prev_significant = quote;
+            continue;
+        }
+        // Skip line / block comments.
+        if c == b'/' && i + 1 < bytes.len() {
+            if bytes[i + 1] == b'/' {
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+                continue;
+            }
+            if bytes[i + 1] == b'*' {
+                i += 2;
+                while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    i += 1;
+                }
+                if i + 1 < bytes.len() {
+                    i += 2;
+                }
+                continue;
+            }
+        }
+        // Identifier?
+        if c.is_ascii_alphabetic() || c == b'_' || c == b'$' {
+            let start = i;
+            while i < bytes.len()
+                && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'$')
+            {
+                i += 1;
+            }
+            let ident = &expr[start..i];
+            // Treat property-access positions (`.ident`, `?.ident`) as
+            // non-references so `obj.events` doesn't match a state `events`.
+            let is_member_access = prev_significant == b'.';
+            if !is_member_access && state_names.contains(ident) {
+                return true;
+            }
+            prev_significant = b'a'; // identifier marker
+            continue;
+        }
+        if !c.is_ascii_whitespace() {
+            prev_significant = c;
+        }
+        i += 1;
+    }
+    false
 }
 
 fn capitalize_first(s: &str) -> String {
