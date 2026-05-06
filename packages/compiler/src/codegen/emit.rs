@@ -2460,6 +2460,16 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     indent, deps, subtree
                 ));
             }
+            n if n.starts_with("class:") => {
+                let class_name = &n["class:".len()..];
+                let expr = macro_value_expr(value);
+                // Same IIFE pattern as $show: capture node, wire reactive effect inside
+                // onMount so .el is guaranteed to be set, return node to parent children.
+                effects.push(format!(
+                    "{}(() => {{ const _n = {}; _onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    indent, subtree, class_name, expr
+                ));
+            }
             n if n.starts_with("bind:") || n.starts_with("on:") => {
                 // These are already handled in emit_attrs — skip here.
             }

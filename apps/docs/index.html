@@ -109,8 +109,14 @@
     var menuToggle    = document.getElementById('menu-toggle');
     var backdrop      = document.getElementById('sidebar-backdrop');
 
+    function getNav() {
+      // .docs-nav lives inside docs-shell's shadow root
+      var shell = document.querySelector('docs-shell');
+      return shell && shell.shadowRoot && shell.shadowRoot.querySelector('.docs-nav');
+    }
+
     function openDrawer() {
-      var nav = document.querySelector('.docs-nav');
+      var nav = getNav();
       if (!nav) return;
       nav.classList.add('open');
       backdrop.classList.add('open');
@@ -119,7 +125,7 @@
     }
 
     function closeDrawer() {
-      var nav = document.querySelector('.docs-nav');
+      var nav = getNav();
       if (!nav) return;
       nav.classList.remove('open');
       backdrop.classList.remove('open');
@@ -128,7 +134,7 @@
     }
 
     menuToggle.addEventListener('click', () => {
-      var nav = document.querySelector('.docs-nav');
+      var nav = getNav();
       if (nav?.classList.contains('open')) {
         closeDrawer();
       } else {
@@ -138,12 +144,14 @@
 
     backdrop.addEventListener('click', closeDrawer);
 
-    // Close drawer when a nav link is tapped on mobile
+    // Close drawer when a nav link is tapped on mobile.
+    // Use composedPath() because e.target is retargeted to the shadow host
+    // for events originating inside docs-shell's shadow DOM.
     document.addEventListener('click', (e) => {
-      if (e.target?.classList.contains('nav-link')) {
-        if (window.innerWidth <= 768) {
-          closeDrawer();
-        }
+      var path = e.composedPath();
+      var isNavLink = path.some(function(el) { return el.classList && el.classList.contains('nav-link'); });
+      if (isNavLink && window.innerWidth <= 768) {
+        closeDrawer();
       }
     });
 

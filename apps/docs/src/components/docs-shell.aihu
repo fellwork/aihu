@@ -65,6 +65,11 @@
 }
 
 @style {
+:host {
+  display: block;
+  width: 100%;
+}
+
 .docs-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w, 260px) 1fr;
@@ -110,13 +115,14 @@
   font-weight: 600;
 }
 
-.dark .nav-link.active {
+:host-context(.dark) .nav-link.active {
   background: rgba(232, 112, 90, 0.12);
 }
 
 .docs-content {
   padding: 3rem 3rem 4rem;
   min-width: 0;
+  color: var(--fg);
 }
 
 .docs-content article {
