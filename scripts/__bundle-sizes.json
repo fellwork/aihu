@@ -1,12 +1,12 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": -1,
+    "bytes": 248,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 1709,
     "limit": "1970 B"
   },
   {
