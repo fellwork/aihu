@@ -12,7 +12,25 @@
 | `latticeSignal<T>(merge, initial)` | Merge-monotone signal |
 | `boolLatticeSignal(initial?)` | Boolean lattice signal (OR-merge) |
 | `maxLatticeSignal(initial?)` | Numeric lattice signal (max-merge) |
-| `$state` | State bag shorthand accessor |
+| `$state` | State bag shorthand accessor (SFC-internal) |
+
+## @state macro collection forms
+
+| Macro | v2 collection-form syntax |
+|-------|--------------------------|
+| `$prop` | `$prop: { name: { default: value, type?: "T", describe?: "...", expose?: { read?: true, write?: true } } }` |
+| `$computed` | `$computed: { name: { value: () => expr } }` |
+| `$action` | `$action: { name: { handler: (args) => expr, describe?: "...", expose?: { write?: true } } }` |
+| `$resource` | `$resource: { name: { source: () => fetcher() } }` |
+| `$effect` | `$effect { ... }` (anonymous) or `$effect.on(dep) { ... }` (scoped) |
+| `$lifecycle` | `$lifecycle: { mount: () => ..., dispose: () => ... }` |
+
+## @agent macro collection forms
+
+| Macro | v2 collection-form syntax |
+|-------|--------------------------|
+| `$describe` | `$describe: "human-readable description of the agent"` |
+| `$action` | `$action: { name: { expose: true, describe?: "..." } }` |
 
 ## @aihu/arbor
 

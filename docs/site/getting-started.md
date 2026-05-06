@@ -6,7 +6,9 @@ After scaffolding (see [Installation](installation.md)), open `src/pages/index.a
 
 ```
 @state {
-  $prop name: string = 'world'
+  $prop: {
+    name: { default: "'world'", type: "string" }
+  }
 }
 
 @template {
@@ -23,15 +25,21 @@ After scaffolding (see [Installation](installation.md)), open `src/pages/index.a
 
 `@state` declares the reactive state for the component:
 
-- `$prop name: string = 'world'` — declares a component property named `name` with a default value of `'world'`. Props are reactive and can be set from outside the component as HTML attributes.
+- `$prop: { name: { default: "'world'", type: "string" } }` — declares a component property named `name` with a default value of `'world'`. Props are reactive and can be set from outside the component as HTML attributes.
 
 You can add computed values and effects in the same block:
 
 ```
 @state {
-  $prop name: string = 'world'
-  $computed greeting = `Hello, ${name}!`
-  $effect { console.log('name changed to', name) }
+  $prop: {
+    name: { default: "'world'", type: "string" }
+  }
+
+  $computed: {
+    greeting: { value: () => `Hello, ${name()}!` }
+  }
+
+  $effect { console.log('name changed to', name()) }
 }
 ```
 

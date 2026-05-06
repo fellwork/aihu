@@ -8,23 +8,34 @@ The `@state` block declares the reactive contract of the component.
 
 ### Macros
 
-- `$prop name: Type = default` — a public property. Settable from HTML attributes. Reactive.
-- `$computed name = expr` — a derived signal. Re-evaluates when its dependencies change.
-- `$resource name = fetcher(signal)` — binds an async resource to a signal. Returns a 3-state loader: `{ pending, value, error }`.
-- `$effect { ... }` — runs a side effect when tracked signals change.
-- `$lifecycle.mount { ... }` — runs after the component is first mounted to the DOM.
-- `$lifecycle.cleanup { ... }` — runs when the component is unmounted.
-- `$action name(args) { ... }` — a named action method on the component.
+- `$prop: { name: { default: value, ... } }` — a public property. Settable from HTML attributes. Reactive. Use `expose: { read: true }` and/or `expose: { write: true }` to expose the prop to agents.
+- `$computed: { name: { value: () => expr } }` — a derived signal. Re-evaluates when its dependencies change.
+- `$resource: { name: { source: () => fetcher(signal) } }` — binds an async resource to a signal. Returns a 3-state loader: `{ pending, value, error }`.
+- `$effect { ... }` — runs a side effect when tracked signals change. Use `$effect.on(dep)` to scope to a specific dependency.
+- `$lifecycle: { mount: () => ..., dispose: () => ... }` — lifecycle hooks; `mount` runs after first DOM mount, `dispose` runs on unmount.
+- `$action: { name: { handler: (args) => ..., ... } }` — a named action method on the component. Use `expose: { write: true }` to expose to agents.
 
 ### Example
 
 ```
 @state {
-  $prop count: number = 0
-  $computed doubled = count * 2
-  $effect { console.log('count is', count) }
-  $lifecycle.mount { console.log('mounted') }
-  $action increment() { count++ }
+  $prop: {
+    count: { default: 0, type: "number" }
+  }
+
+  $computed: {
+    doubled: { value: () => count() * 2 }
+  }
+
+  $effect { console.log('count is', count()) }
+
+  $lifecycle: {
+    mount: () => console.log('mounted')
+  }
+
+  $action: {
+    increment: { handler: () => count(count() + 1) }
+  }
 }
 ```
 
@@ -129,9 +140,9 @@ The `@agent` block exposes the component as an MCP agent. See [Authoring Agents]
 
 ```
 @agent {
-  $expose greet(name: string) -> { message: string } "Greet a user by name"
-  $scope /api/greet
-  $rate-limit 100
-  $describe "Greeting agent for the home page"
+  $describe: "Greeting agent for the home page"
+  $action: {
+    greet: { expose: true, describe: "Greet a user by name" }
+  }
 }
 ```

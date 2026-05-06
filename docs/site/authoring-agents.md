@@ -8,20 +8,18 @@ Add an `@agent` block to any `.aihu` SFC to expose agent capabilities:
 
 ```
 @agent {
-  $expose greet(name: string) -> { message: string } "Greet a user by name"
-  $expose getUser(id: number) -> User "Fetch a user by ID"
-  $scope /api
-  $rate-limit 100
-  $describe "The main application agent"
+  $describe: "The main application agent"
+  $action: {
+    greet: { expose: true, describe: "Greet a user by name" }
+    getUser: { expose: true, describe: "Fetch a user by ID" }
+  }
 }
 ```
 
 ### Directives
 
-- **`$expose name(args) -> ReturnType "description"`** — expose a tool or resource. The compiler generates the MCP tool descriptor and wires the implementation to the component's action method of the same name.
-- **`$scope path`** — restrict the agent to a specific URL path prefix. Requests outside the scope are rejected.
-- **`$rate-limit n`** — limit calls to `n` per minute. The agent service enforces this at runtime.
-- **`$describe "text"`** — a human-readable description of the agent. Included in the MCP manifest.
+- **`$describe: "text"`** — a human-readable description of the agent. Included in the MCP manifest.
+- **`$action: { name: { expose: true, describe: "..." } }`** — expose an action as an MCP tool. The compiler generates the MCP tool descriptor and wires the implementation to the component's action method of the same name. Use `expose: true` to expose with default settings, or `expose: { read: true }` / `expose: { write: true }` for fine-grained control.
 
 ### Client build elision
 
