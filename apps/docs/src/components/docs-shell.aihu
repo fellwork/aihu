@@ -60,10 +60,10 @@
 
     </nav>
     <main class="docs-content">
-      <div $if={activePage() !== 'playground'}>
+      <div class="doc-page-wrapper" $class:is-active={activePage() !== 'playground'}>
         <article $html={activeHtml()}></article>
       </div>
-      <div $if={activePage() === 'playground'} class="playground-page">
+      <div class="playground-page" $class:is-active={activePage() === 'playground'}>
         <h1>Playground</h1>
         <p class="playground-intro">Edit. Compile. Inspect. All in your browser — powered by the WASM build of <code>aihu-compile</code>.</p>
         <playground-embed></playground-embed>
@@ -198,8 +198,21 @@
   color: var(--muted);
 }
 
+.doc-page-wrapper {
+  display: none;
+}
+
+.doc-page-wrapper.is-active {
+  display: block;
+}
+
 .playground-page {
+  display: none;
   width: 100%;
+}
+
+.playground-page.is-active {
+  display: block;
 }
 
 .playground-page h1 {

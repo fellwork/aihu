@@ -236,6 +236,11 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                                 h.needs_effect = true;
                                 h.needs_on_mount_for_directives = true;
                             }
+                            // $class:NAME also uses onMount+effect in its IIFE.
+                            n if n.starts_with("class:") => {
+                                h.needs_effect = true;
+                                h.needs_on_mount_for_directives = true;
+                            }
                             _ => {}
                         }
                     }
