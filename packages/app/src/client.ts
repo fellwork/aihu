@@ -9,6 +9,15 @@ import { signal } from '@aihu/signals'
 export interface AppConfig {
   /** Id of the outlet element in index.html. Default: 'outlet' */
   outletId?: string
+  /**
+   * App-level values hoisted into globalThis before any component runs.
+   * Use this for singletons (db clients, auth helpers, i18n) that are
+   * referenced as bare identifiers inside @state blocks.
+   *
+   * @example
+   * createApp({ provide: { supabase, checkAuth } })
+   */
+  provide?: Record<string, unknown>
 }
 
 /**
@@ -25,6 +34,12 @@ export interface AppConfig {
  * createApp()
  */
 export function createApp(config?: AppConfig): void {
+  // Hoist provided values into globalThis before any component runs so that
+  // @state blocks can reference them as bare identifiers.
+  if (config?.provide) {
+    Object.assign(globalThis, config.provide)
+  }
+
   // Wire runtime — null-guarded in @aihu/runtime, safe to call multiple times
   _setMount(mount)
   _setSignal(signal as Parameters<typeof _setSignal>[0])

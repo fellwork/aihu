@@ -70,6 +70,15 @@ export interface AihuConfig {
   readonly plugins?: ReadonlyArray<AihuPlugin>
   /** Runtime configuration split — public values are inlined in the client bundle. */
   readonly runtimeConfig?: RuntimeConfig
+  /**
+   * App-level values made available to all components as bare identifiers.
+   * Declared here for documentation and future build-time validation; the
+   * values are hoisted into globalThis by createApp() at runtime.
+   *
+   * @example
+   * export default defineConfig({ provide: { supabase, checkAuth } })
+   */
+  readonly provide?: Record<string, unknown>
   /** HTML <head> metadata. */
   readonly app?: AppHeadConfig
   /** Passthrough to Vite's UserConfig. Merged via Vite's config() hook. */
