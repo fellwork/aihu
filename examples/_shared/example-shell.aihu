@@ -55,7 +55,7 @@
       </div>
     </header>
     <main class="shell-main">
-      <$slot />
+      <$slot></$slot>
     </main>
   </div>
 }
