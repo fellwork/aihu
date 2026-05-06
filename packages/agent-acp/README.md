@@ -21,7 +21,7 @@ npm install @aihu/agent-acp
 bun add @aihu/agent-acp
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,10 +34,11 @@ bun add @aihu/agent-acp
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | C — Agent surface — ACP (Agent Control Protocol) protocol |
+| **Bundle size** | 591 B (gz) — limit 600 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +51,7 @@ bun add @aihu/agent-acp
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -63,7 +64,7 @@ bun add @aihu/agent-acp
 
 - `@aihu/agent-service` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -76,7 +77,7 @@ bun add @aihu/agent-acp
 - [@aihu/agent](../agent)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -87,6 +88,6 @@ bun add @aihu/agent-acp
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `e04d51a`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-acp@0.1.0` on commit `5768b0f`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
