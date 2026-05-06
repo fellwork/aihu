@@ -100,7 +100,6 @@ async function runVite(flags: DevFlags): Promise<void> {
 
   let vite: ViteModule
   try {
-    // @ts-expect-error vite is a peer dependency, loaded at runtime from the user's project
     vite = (await import(/* @vite-ignore */ 'vite')) as unknown as ViteModule
   } catch {
     process.stderr.write('vite not installed; run: bun add -d vite\n')

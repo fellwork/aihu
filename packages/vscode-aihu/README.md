@@ -19,7 +19,7 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 
 Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=fellwork.vscode-aihu) (publishing as part of v1.1 LSP work).
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,7 +34,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 | **Tier** | E — Editor — VS Code extension (TextMate grammar + snippets; LSP in M2) |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -45,7 +45,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 _No `exports` field in `package.json`. Main entry: `unset`._
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -56,7 +56,7 @@ _No `exports` field in `package.json`. Main entry: `unset`._
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -68,7 +68,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [arch-4 (DX tools)](../../docs/roadmap/arch-4-dx-tools.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -79,6 +79,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `ab36d12`.</i></sub>
+<sub><i>Auto-generated against `vscode-aihu@1.0.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
