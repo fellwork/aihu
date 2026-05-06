@@ -147,29 +147,71 @@ pub struct AgentBlock {
     pub agent_macros: Vec<AgentMacroDecl>,
 }
 
-// ─── v0.4.6 — @state macro declarations ─────────────────────────────────────
+// ─── v2 — @state macro declarations (collection-form) ──────────────────────
+//
+// The 6 changing macros (`$prop`, `$computed`, `$action`, `$resource`,
+// `$effect`, `$lifecycle`) all collapse into a single `Collection` variant
+// per Architect §4.5.4 of `option-4-evaluation.md`. The body of each macro
+// is a JS object literal whose keys are entry names and whose values are
+// either bare function expressions (implicit handler/value/callback) or
+// wrapped metadata-bag object literals.
+//
+// `$effect: () => { body }` — anonymous form per spec §2.5 — collapses
+// into `EffectAnon`.
+//
+// Macros NOT in v2 redesign scope (preserved unchanged): `$watch`,
+// `$effect.on(dep) { body }`, `$route`, `$beforeNavigate`, `$afterNavigate`.
+
+/// Discriminator for the collection-form macros.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum CollectionKind {
+    Prop,
+    Computed,
+    Action,
+    Resource,
+    Effect,
+    Lifecycle,
+}
+
+/// A single entry inside a collection-form macro body — `name: <value>`.
+///
+/// The metadata-bag form may carry any of: `describe`, `expose`, `default`,
+/// `type`, `value`, `handler`, `on`. The bare form's whole `<value>` is
+/// the running code (implicit handler/value/callback) and is stored in
+/// `value_raw` with `is_wrapped == false`.
+///
+/// `meta` carries the parsed key→raw-source pairs from the wrapped form
+/// (each key's value is the verbatim source text; codegen looks up the
+/// keys it needs and emits byte-identical lowering).
+#[derive(Debug, PartialEq, Clone)]
+pub struct CollectionEntry {
+    /// The entry-key name (e.g. `hue`, `setPreset`, `mount`).
+    pub name: String,
+    /// `true` when the value is a metadata-bag object literal `{...}`;
+    /// `false` when the value is a bare function/expression.
+    pub is_wrapped: bool,
+    /// For bare entries: the raw text of the entry's value (a function
+    /// expression, e.g. `(h: number) => { hue = h }`). Empty for wrapped.
+    pub value_raw: String,
+    /// For wrapped entries: parsed `(key, raw-source)` pairs from the
+    /// metadata bag. Empty for bare.
+    pub meta: Vec<(String, String)>,
+}
 
 /// One macro declaration inside an `@state { }` block.
 #[derive(Debug, PartialEq, Clone)]
 pub enum StateMacro {
-    /// `$prop name: Type`
-    Prop { name: String, type_name: String },
-    /// `$computed name = expr`
-    Computed { name: String, expr: String },
-    /// `$resource name = fetcher`
-    Resource { name: String, fetcher: String },
-    /// `$effect { body }`
-    Effect { body: String },
-    /// `$effect.on(dep) { body }`
+    /// `$<kind>: { <name>: <bare|wrapped>, ... }` — v2 collection-form.
+    Collection {
+        kind: CollectionKind,
+        entries: Vec<CollectionEntry>,
+    },
+    /// `$effect: () => { body }` — v2 anonymous-effect form per §2.5.
+    EffectAnon { body: String },
+    /// `$effect.on(dep) { body }` — preserved from v1 (out of v2 scope).
     EffectOn { dep: String, body: String },
-    /// `$watch name { body }`
+    /// `$watch name { body }` — preserved from v1 (out of v2 scope).
     Watch { name: String, body: String },
-    /// `$action name(args) { body }`
-    Action { name: String, args: String, body: String },
-    /// `$lifecycle.mount { body }`
-    LifecycleMount { body: String },
-    /// `$lifecycle.dispose { body }`
-    LifecycleDispose { body: String },
     // ─── arch-5 M1 — routing macros (RFC-A5-010, 015, 016) ───────────────────
     /// `$route name` — reactive `MatchResult` signal. RFC-A5-010.
     Route { name: String },
@@ -195,17 +237,19 @@ pub enum StyleMacro {
     When { expr: String, css: String },
 }
 
-// ─── v0.4.8 — @agent macro declarations ─────────────────────────────────────
+// ─── v2 — @agent manifest macros (vestigial) ───────────────────────────────
+//
+// Per spec §4: `@agent` survives as a vestigial cross-cutting block holding
+// only `$scope` and `$rate-limit`. `$expose`, `$expose.write`, agent-bare-
+// `$action`, and `$describe` are removed (the per-name `expose:` /
+// `describe:` keys on `@state` collection entries replace them); v1 source
+// using the removed forms is rejected with C440.
 
 /// One macro declaration from inside an `@agent { }` block that extends the manifest.
 #[derive(Debug, PartialEq, Clone)]
 pub enum AgentMacroDecl {
-    /// `$expose field: Type`
-    Expose { name: String, type_name: String, writable: bool },
     /// `$scope "value"`
     Scope(String),
     /// `$rate-limit N`
     RateLimit(u32),
-    /// `$describe "text"`
-    Describe(String),
 }
