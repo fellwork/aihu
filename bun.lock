@@ -274,7 +274,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -350,7 +350,7 @@
     },
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
-      "version": "0.2.0",
+      "version": "1.0.0",
       "peerDependencies": {
         "@aihu/cli": "^0.2.0",
       },

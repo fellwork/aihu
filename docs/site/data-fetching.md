@@ -8,8 +8,13 @@ In a `@state` block, `$resource` binds an async fetcher to a reactive signal:
 
 ```
 @state {
-  $prop userId: number = 1
-  $resource user = fetchUser(userId)
+  $prop: {
+    userId: { default: 1, type: "number" }
+  }
+
+  $resource: {
+    user: { source: () => fetchUser(userId()) }
+  }
 }
 ```
 
@@ -74,16 +79,15 @@ export const loader = defineLoader(async (ctx) => {
 @route { path: "/posts/[slug]", ssr: true }
 
 @state {
-  $prop route: {
-    params: { slug: string }
-    data: { title: string; body: string }
+  $prop: {
+    route: { type: "{ params: { slug: string }; data: { title: string; body: string } }" }
   }
 }
 
 @template {
   <article>
-    <h1>{route.data.title}</h1>
-    <p>{route.data.body}</p>
+    <h1>{route().data.title}</h1>
+    <p>{route().data.body}</p>
   </article>
 }
 ```
@@ -106,10 +110,14 @@ export const getPost = createServerCall<[slug: string], Post>('posts/getPost')
 
 ```
 @state {
-  searchTerm: string = ''
+  $prop: {
+    searchTerm: { default: "''", type: "string" }
+  }
 
-  // refetches when searchTerm changes
-  $resource matches = getPost(searchTerm)
+  $resource: {
+    // refetches when searchTerm changes
+    matches: { source: () => getPost(searchTerm()) }
+  }
 }
 
 @template {
