@@ -342,3 +342,222 @@ fn macro_bind_and_on_emit_in_attrs_object() {
     // $bind:value → value: count, $on:click → onClick: handleClick
     assert!(result.js.contains("value:") || result.js.contains("count"), "Expected count in: {}", result.js);
 }
+
+// ─── R2 Defect B: reactive attr lowering to `[() => (expr)]` ─────────────────
+
+#[test]
+fn r2_attr_referencing_state_class_property_wraps_in_thunk() {
+    // Plain class-property declaration `events = []` declares state. The
+    // template binding `events={events}` MUST lower to `events: [() => (events)]`
+    // — otherwise arbor's `_applyAttrs` sees the raw `[]` value, treats
+    // `Array.isArray` as a Signal tuple, and throws
+    // `TypeError: c is not a function` when it invokes `value[0]()`.
+    let src = r#"
+@state {
+  events: any[] = []
+}
+@template {
+  <CalendarGrid events={events}></CalendarGrid>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("events: [() => (events)]"),
+        "Expected reactive thunk wrap for state-referencing binding; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_attr_static_literal_passes_through_unchanged() {
+    // Static string attrs MUST stay as raw values — wrapping them in
+    // a thunk would force every static class through arbor's reactive path.
+    let src = r#"
+@template {
+  <div class="static"></div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("class: 'static'"),
+        "Static literal must remain unwrapped; got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("[() => ('static')]"),
+        "Static literal must not be wrapped:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_attr_local_const_outside_state_does_not_wrap() {
+    // A `const` declared in `<script setup>` (not `@state`) is not part of
+    // reactive state and the binding `value={localConst}` should pass
+    // through as a plain identifier. Wrapping these would change runtime
+    // semantics for closed-over locals that the author did not intend to
+    // make reactive.
+    let src = r#"<script setup>
+const localConst = 'hello'
+</script>
+<template><h1>{{ localConst }}</h1></template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        !result.js.contains("[() => (localConst)]"),
+        "Locally-declared (non-@state) const must not be wrapped; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
+    // `class={view === 'week' ? 'active' : ''}` has a ternary expression
+    // referencing state (`view`). It MUST wrap as a single thunk — the
+    // wrap is at the expression boundary, not per-identifier.
+    let src = r#"
+@state {
+  view: 'week' | 'month' = 'week'
+}
+@template {
+  <button class={view === 'week' ? 'active' : ''}>Week</button>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("class: [() => (view === 'week' ? 'active' : '')]"),
+        "Ternary referencing state must wrap once at the expression boundary; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_attr_event_handler_referencing_state_does_not_wrap() {
+    // Event handlers (`$on:click`, `@click`) take the runtime's Path 1
+    // (typeof === 'function'). They MUST stay as plain function references
+    // even when the body references state — wrapping would put a function
+    // value inside an array and trigger Path 2 instead.
+    let src = r#"
+@state {
+  count: number = 0
+  $action: {
+    inc: () => { count = count + 1 }
+  }
+}
+@template {
+  <button $on:click={inc}>+</button>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("onClick: inc"),
+        "Event handler must stay as function ref, not a thunk array; got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("onClick: [() => (inc)]"),
+        "Event handler must not be wrapped:\n{}",
+        result.js
+    );
+}
+
+// ─── R2 Defect A: state declaration ordering + mutability ────────────────────
+
+#[test]
+fn r2_state_declarations_precede_effect_registration() {
+    // `effect(...)` (and onMount/onCleanup) run their callbacks synchronously
+    // once at registration time to track dependencies. If state declarations
+    // are emitted AFTER the effect registration, the callback hits the
+    // temporal dead zone and throws ReferenceError when it reaches the
+    // referenced state. Verify ordering: state lines must appear before
+    // `effect(`, `onMount(`, `onCleanup(` in the emitted setup body.
+    let src = r#"
+@state {
+  count: number = 0
+  $effect: () => { count }
+}
+@template {
+  <div></div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    let count_pos = result.js.find("let count").expect("expected `let count` in: {result.js}");
+    let effect_pos = result.js.find("effect(").expect("expected effect( in: {result.js}");
+    assert!(
+        count_pos < effect_pos,
+        "State declaration must precede effect registration; count at {count_pos}, effect at {effect_pos} in:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_bare_class_property_declarations_use_let_not_const() {
+    // Bare class-property declarations like `count: number = 0` are
+    // commonly reassigned from action / lifecycle bodies (e.g.
+    // `count = count + 1`). Emitting `const` would throw
+    // `Assignment to constant variable` at runtime; `let` is universally safe.
+    let src = r#"
+@state {
+  count: number = 0
+}
+@template {
+  <div></div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("let count: number = 0"),
+        "Bare class-property declaration must lower to `let`; got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("const count: number = 0"),
+        "Must not emit `const` for reassignable state:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r2_state_precedes_action_function_definitions() {
+    // Action functions emitted from `$action:` are `function` declarations
+    // — JS hoists them, but their captured state references are evaluated
+    // by lexical scope at call time. If an effect runs synchronously and
+    // calls an action, the action body sees state in the TDZ unless state
+    // is declared before the macro_code block that contains both.
+    let src = r#"
+@state {
+  loading: boolean = true
+  $action: {
+    finish: () => { loading = false }
+  }
+  $effect: () => { finish() }
+}
+@template {
+  <div></div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    let loading_pos = result.js.find("let loading").expect("expected `let loading`");
+    let function_pos = result.js.find("function finish").expect("expected `function finish`");
+    let effect_pos = result.js.find("effect(").expect("expected effect(");
+    assert!(
+        loading_pos < function_pos && function_pos < effect_pos,
+        "Order must be: state → function → effect; got loading={loading_pos} function={function_pos} effect={effect_pos} in:\n{}",
+        result.js
+    );
+}

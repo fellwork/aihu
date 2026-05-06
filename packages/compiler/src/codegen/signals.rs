@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Maps reactive names to their setter name (for `[getter, setter] = signal(...)` pairs)
 /// or to an empty string (for computed signals emitted via `$computed name = expr`).
@@ -8,6 +8,32 @@ use std::collections::BTreeMap;
 /// plain leaf (`leaf(expr)`).
 #[derive(Debug, Default, PartialEq)]
 pub struct SignalMap(pub BTreeMap<String, String>);
+
+/// All identifiers declared in `@state` — the union of signals + computed
+/// values + plain class-property declarations like
+/// `view: 'week' | 'month' = 'week'`.
+///
+/// R2 (Defect B): the template emitter consults this set to decide whether
+/// an attribute binding (`class={view === 'week' ? 'active' : ''}`,
+/// `events={events}`) references reactive state and must therefore be lowered
+/// to a `[() => (expr)]` thunk array so arbor's `_applyAttrs` takes its
+/// reactive Path 2 (Array.isArray + getter[0]) instead of treating the value
+/// as a static primitive — or worse, mistaking a `[]`-initialized array for
+/// a Signal tuple and trying to invoke `value[0] as () => unknown`.
+///
+/// Lives outside `SignalMap` so the existing `Debug` snapshot serialization
+/// of `SignalMap` (a single-field tuple struct) stays byte-for-byte identical.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct StateNames(pub BTreeSet<String>);
+
+impl StateNames {
+    pub fn insert(&mut self, name: &str) {
+        self.0.insert(name.to_string());
+    }
+    pub fn contains(&self, name: &str) -> bool {
+        self.0.contains(name)
+    }
+}
 
 impl SignalMap {
     /// Returns true if `name` is a reactive value (signal or computed signal).
