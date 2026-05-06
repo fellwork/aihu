@@ -110,9 +110,22 @@ describe('legacy-snapshot · backward-compat freeze (arch-6 §7.3)', () => {
     expect(produced, 'produced file set must match golden file set').toEqual(golden)
 
     // 4. Byte-by-byte content comparison.
+    // package.json normalisation: strip "packageManager" before comparing —
+    // the field encodes the runner's bun version (process.versions.bun) which
+    // differs between developer machines and CI runners.
+    const normalize = (rel: string, buf: Buffer): Buffer => {
+      if (rel !== 'package.json') return buf
+      try {
+        const obj = JSON.parse(buf.toString('utf8')) as Record<string, unknown>
+        delete obj.packageManager
+        return Buffer.from(`${JSON.stringify(obj, null, 2)}\n`, 'utf8')
+      } catch {
+        return buf
+      }
+    }
     for (const rel of produced) {
-      const producedBuf = readFileSync(join(producedRoot, rel))
-      const goldenBuf = readFileSync(join(GOLDEN_DIR, rel))
+      const producedBuf = normalize(rel, readFileSync(join(producedRoot, rel)))
+      const goldenBuf = normalize(rel, readFileSync(join(GOLDEN_DIR, rel)))
       expect(
         producedBuf.equals(goldenBuf),
         `byte-mismatch in ${rel} — legacy scaffolding regressed. ` +
