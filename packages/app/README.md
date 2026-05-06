@@ -21,7 +21,7 @@ npm install @aihu/app
 bun add @aihu/app
 ```
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,11 +34,11 @@ bun add @aihu/app
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | B — Meta-framework — top-level integration of runtime, router, adapter |
-| **Bundle size** | 741 B (gz) — limit 800 B |
+| **Bundle size** | 737 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -52,7 +52,7 @@ bun add @aihu/app
 | `.` | `./dist/index.js` | `—` |
 | `./client` | `./dist/client.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -69,7 +69,7 @@ bun add @aihu/app
 - `@aihu/signals` — `workspace:*`
 - `vite` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -83,7 +83,7 @@ bun add @aihu/app
 - [@aihu/adapter-cloudflare](../adapter-cloudflare)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -94,6 +94,6 @@ bun add @aihu/app
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `5c4e3d7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/app@0.1.0` on commit `b8d92a2`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
