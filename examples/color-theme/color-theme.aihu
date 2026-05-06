@@ -65,15 +65,15 @@
       <legend>HSL controls</legend>
       <label>
         <span>Hue {hue}°</span>
-        <input type="range" min="0" max="360" $bind:value="hue" />
+        <input type="range" min="0" max="360" $bind:value="hue" >
       </label>
       <label>
         <span>Saturation {saturation}%</span>
-        <input type="range" min="0" max="100" $bind:value="saturation" />
+        <input type="range" min="0" max="100" $bind:value="saturation" >
       </label>
       <label>
         <span>Lightness {lightness}%</span>
-        <input type="range" min="0" max="100" $bind:value="lightness" />
+        <input type="range" min="0" max="100" $bind:value="lightness" >
       </label>
     </fieldset>
 
