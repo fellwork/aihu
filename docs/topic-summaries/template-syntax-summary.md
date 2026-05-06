@@ -1,9 +1,9 @@
 # Topic Summary — aihu template-syntax — userland-dx track
 
 **Last updated:** 2026-05-06
-**Active rounds:** 7 (5 research/governance + 2 Builder ↔ Verifier iterations closed clean on R1 + R2-R4/Q3-Q4)
-**Status:** B1 PASS 11/11 + B2 PASS 12/12 banked; iteration 2 of 5; B3 brief refined (largest round); auto-spine continues per user "go, auto mode" directive
-**Tags:** `topic:aihu-template-syntax track:userland-dx round:7 supersedes:1021113227`
+**Active rounds:** 8 (5 research/governance + 2 Builder ↔ Verifier iterations closed clean on R1 + R2-R4/Q3-Q4 + 1 partial-with-fold on B3a)
+**Status:** B1 PASS 11/11 + B2 PASS 12/12 banked; B3a closed (V3 NEEDS_FIX → ACCEPT-with-fold; 11/12 strict pass); iteration 3 of 5 (effective; topic-level slipped from 5 → 6); B3b refined (codemod + AC9/AC10 + sidecar consumer wiring + AC6/AC16 fills); auto-spine continues per user "go, auto mode" directive
+**Tags:** `topic:aihu-template-syntax track:userland-dx round:8 supersedes:2136928387`
 
 ---
 
@@ -48,6 +48,20 @@ Director r7 adjudicated the two open questions B2 surfaced honestly:
 **Refined B3 brief (per Director r7 §3): the largest round.** Variant B template syntax (block-tag control flow `{#if}` / `{#each}` / `{:else if}` / `{:else}` / `{:empty}`) + global colon→dot transition (`$on.click` + `$bind.value` dot-form parsing+emit; v1 colon-form preserved with W202 deprecation) + class-array form + `{@html}` + `$emit.<name>(payload)` via `$event` collection + R4 typed-conv at $bind site + sidecar `.aihu.ts` for type-safety + 640-700 LOC codemod (incl body-call-syntax migration) applied to in-aihu-repo corpus (62 .aihu files). **~1090-1390 LOC src+tests.** Branch: `feat/template-syntax-v2-b3` off post-B2 parent.
 
 **Surface conditions watch (per Director r7 §6):** carries forward r6 §6 and supersedes r6 §6 #2 (the 800 LOC codemod-only threshold) with a **1500 LOC threshold for the full B3 scope** for B3a/B3b re-cut (B3a = compiler emit + sidecar + R4 typed-conv ~430-540 LOC src; B3b = codemod + corpus + body-call ~640-700 LOC src). Adds: R4 typed-conv at $bind site reveals `_convert` not directly reachable at bind-emit (would need R1-machinery pre-pass); sidecar `.aihu.ts` discovery reveals existing TS pipeline can't ingest per-SFC sidecar without significant build-config change; codemod corpus migration breaks an in-aihu-repo `.aihu` file beyond mechanical fixup; body-call-syntax scope-tracking AST is materially harder than estimated. **Currently no surface trigger active.**
+
+### Round 8 governance: B3a PARTIAL surfaced + B3b refined
+
+V3 Verifier returned **NEEDS_FIX** on `feat/template-syntax-v2-b3` @ HEAD `155454f` covering 12 in-scope ACs from a 17-AC spec (verifier report id 1366974887; build manifest id 3726669823; investigation note pre-dating code at `.team/build-manifests/b3-investigation.md`). Director r8 (record id 3244510507) **adjudicated to ACCEPT B3a as-is with deferred-fixes folded into B3b** — a strict-AC-bar artifact, not a substance failure: **11 of 12 in-scope ACs strictly pass** (AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC11, AC16, AC17); AC12 partial **by-design** (compiler-side sidecar emit lands; consumer wiring honestly deferred); AC6 + AC16 minor under-implementation surfaced cleanly. **+35 cargo tests** (323 → 358; 19 in `tests/b3_variant_b.rs` + 16 lib tests); **0 bun regressions** (834 + 5 skipped); **0 over-implementation** (zero codemod code, zero corpus migration, zero R1/R2/R3/Q3/Q4 settled-territory regressions, zero build/CI/vite/moon changes outside the compiler crate).
+
+**Surface re-cut justification verified honest.** Director r7 §6 #8 trigger fired at 1660 LOC src+tests (just over 1500 by ~7%); investigation note (`.team/build-manifests/b3-investigation.md:1-130`) walks the B3a/B3b partition pre-code with realistic LOC table (codemod alone ~620 src + ~120 tests = ~740 additional; combined would push to ~2400 — strict re-cut territory). Builder did NOT start the codemod and surface mid-stream; the surface was raised before any codemod code was written. AC9/AC10 grouping with B3b defensible (~150-200 LOC additional compiler work which would push B3a to ~1860 LOC).
+
+**Variant B compiler grammar shipped on parent at HEAD post-merge:** block-tags (`{#if}`/`{#each}`/`{:else if}`/`{:else}`/`{:empty}`/`{@html}`), dot-form (`$on.`/`$bind.`), class-array, R4 typed-conv at `$bind.value` write site, sidecar `.aihu.ts` emit (compiler-side; consumer wiring → B3b), W202 deprecation on colon-form, C500 stderr on unknown directives, `$ref={signal}` setter-call-on-mount fix (closes Scout D1.4 silent-drop bug). Merge: -b3 fast-forwarded to parent at commit `155454f`; r8 governance docs added at `cf241fa`. The 5 phase-commits preserved as bisectable units (`7968d59` block-tag parser+codegen; `98244b1` dot-form + class array + $ref + W202/C500; `a130905` R4 typed-conv + b3 acceptance tests; `9e5685a` per-SFC sidecar; `155454f` final phase-commit per V3 audit-target HEAD).
+
+**Topic-level seam slipped from 5 → 6 effective Builder rounds.** Planning miss (Director optimism, marginal — r7 §3.D LOC trigger set at exactly the boundary; Builder's actual count crossed by 7%, within the noise floor of LOC estimation), not a discipline failure. The 1500 LOC trigger fired exactly as r7 §6 #8 named it; the re-cut path was prescribed in r7 §3.D verbatim. Flagged for Historian retro. **Per-defect-class ping-pong ceiling unchanged:** Variant B template syntax used **1 of 5 ping-pongs** (V3 NEEDS_FIX → B3a); B3b will use a 2nd. Healthy headroom.
+
+**B3b scope absorption (13 ACs total).** Original deferred ACs from r7 §3: AC9 (`$emit.<name>(payload)`), AC10 (listener `$on.<custom-event>={handler}`), AC13 (codemod prober-fixture round-trip), AC14 (codemod corpus migration of 62 .aihu files), AC15 (codemod idempotency). V3 NEEDS_FIX items folded: AC12-consumer-wiring (vite plugin/moon discovery + tsc --noEmit CI integration + deliberate-type-error fixture), AC6-W202-test (Command::output() stderr capture asserting deprecation line emitted), AC16-policy-decision (two-phase: stderr during codemod-running window; hard error post-corpus-migration as last commit on B3b branch). **Budget ~1080-1290 LOC src+tests + corpus deltas.** Branch convention: `feat/template-syntax-v2-b3b` off post-B3a-merge parent. **Surface trigger stays at 1500 LOC** for B3b1/B3b2 split (B3b1 = codemod-only including corpus apply; B3b2 = `$event`/`$emit` compiler + sidecar consumer wiring + AC6 test + AC16 policy).
+
+**Surface conditions watch (per Director r8 §6):** carries forward r6 §6 + r7 §6 and adds (15) B3b LOC trigger at 1500 for B3b1/B3b2 split; (16) body-call AST scope-tracking unproven at depth (destructuring + dynamic-access); (17) codemod corpus migration breaks ≥1 file beyond codemod-tweak fix; (18) AC16 hard-error gate (Phase 2) breaks build if codemod refuses to migrate ≥1 corpus file — Builder either extends codemod or leaves Phase 1 stderr and surfaces for r9; (19) sidecar consumer wiring discovers TS-pipeline incompatibility; (20) cumulative iteration counter (effective) reaches 5/5 with B5 still open. **Currently no surface trigger active.**
 
 ---
 
@@ -125,7 +139,7 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 
 **Blocking:** none. User cleared go-auto-mode directive (post-r5). B1 closed clean; B2 dispatched per Director r6 §3 refined brief. Hard gate from Director r1 §7 / r2 §8 has been satisfied.
 
-**Gate question (post-r7):** Auto-spine continues per user "go, auto mode" directive. B3 is the largest round; surface conditions watched per r6 §6 + r7 §6. Currently no surface trigger active.
+**Gate question (post-r8):** Auto-spine continues per user "go, auto mode" directive. B3b is iteration 4 of 5 effective; per-defect-class ping-pong on Variant B template syntax = 1 of 5 used. Surface conditions per r6 §6 + r7 §6 + r8 §6 watched.
 
 **Next:** B2 Builder ↔ Verifier round in flight (R2 + R3 + R4 + Q3 + Q4). Architect §11 acceptance criteria (a–i) remain runnable; B3 codemod (with body-call-migration, ~640-700 LOC) follows B2 close. B4 introduces $aria + auto-keyboard with lazy-attach + per-feature size budget. B5 lands $controller + $context combined (R6+R7) per r5 §5 Option A; B5a/B5b split named as fallback if WICG interop test goes flaky.
 
@@ -152,24 +166,34 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 - **Surface 1 — R4 typed-conversion at `$bind` write site:** **CLOSED** — folds into B3 compiler emit (~20-40 LOC + ~50 LOC tests; mirrors R1's `_convert` direction at the symmetric write side). Lands as B3 AC #11. Defense: R1 + R4 together form the durable invariant — typed prop signal stays typed across both attribute-set and bind-input pathways.
 - **Surface 2 — Q3 async-batched-attribute-write reverify trigger:** **CLOSED INFORMATIONALLY** — documented as v0.5+ watched assumption. No code change in v0.3. No current WHATWG proposal for async-batched attribute writes; Lit's `_isReflecting` precedent stands. Re-verify trigger is well-defined: if/when WHATWG ratifies an async-batched-attribute-write proposal, r-stage governance for that round revisits the assumption.
 
+### Closed in r8
+
+- **V3 NEEDS_FIX adjudication on B3a:** **CLOSED** — ACCEPT B3a as-is with deferred-fixes folded into B3b. Strict-AC-bar artifact, not substance failure; 11/12 in-scope ACs strictly pass; AC12 partial by-design (compiler-side sidecar emit lands; consumer wiring honestly deferred). Surface re-cut justification verified honest (1500 LOC trigger fired exactly as r7 §6 #8 named it; investigation note pre-dated code; AC9/AC10 grouping with B3b defensible). Merge: -b3 fast-forwarded to parent at `155454f`; r8 docs at `cf241fa`.
+- **AC12 sidecar consumer wiring:** **MOVED from "deferred to B3b" to "B3b in scope"** — sidecar consumer wiring sub-task absorbed: vite plugin/moon discovery + tsc --noEmit CI step + deliberate-type-error fixture (numeric signal used as Date — surfaces tsc error from sidecar). Closes Scout D4 near-zero TS-coverage baseline at the per-SFC level end-to-end.
+- **AC6 W202 test gap:** **FOLDED into B3b** — automated stderr-capture test for W202 deprecation (Command::output() pattern; assert deprecation line emitted on colon-form encounter).
+- **AC16 stderr-vs-error policy decision:** **FOLDED into B3b as two-phase policy** — Phase 1 (during B3b's codemod-running window): stderr warning. Phase 2 (post-corpus-migration in B3b's last commit): hard compile error. Defense: during codemod-running window the corpus is in mixed state; stderr is the only safe behavior. Post-codemod-apply the corpus is clean; promoting C500 to hard error becomes safe AND prevents regression.
+
 ### v0.5+ watched assumptions
 
 - **Q3 reflect-loop guard async-batch reverify** (watched; no current WHATWG proposal). The `_isInternalAttrChange` host-wide single boolean assumes synchronous-per-attribute platform contract (WHATWG today; Lit precedent). If async batched attribute writes ever land as a platform feature, the guard's correctness must be re-verified — sits alongside Trusted Types CSP integration, DSD, $form, LSP on the v0.5+ watched-items list.
 
-### Active open items (post-r7)
+### Active open items (post-r8)
 
-- **B3 brief (the largest round):** Variant B template syntax + global colon→dot transition (`$on.click` + `$bind.value` dot-form parsing+emit with v1 colon-form preserved under W202) + 640-700 LOC codemod (incl body-call-syntax migration) + R4 typed-conv at $bind site + sidecar `.aihu.ts` for type-safety + apply codemod to 62 in-aihu-repo `.aihu` files. **~1090-1390 LOC src+tests.** Surface trigger at 1500 LOC for B3a/B3b re-cut (B3a = compiler emit + sidecar + R4 typed-conv; B3b = codemod + corpus + body-call). Variant B canonical block-tag token is `{#each}` (NOT `{#for}`).
+- **B3b brief (codemod + AC9/AC10 + sidecar consumer wiring + AC6/AC16 fills):** B3b absorbs 13 ACs total. Original deferred from r7 §3: AC9 (`$emit.<name>(payload)` typed payload via `$event` collection), AC10 (listener `$on.<custom-event>={handler}` typed), AC13 (codemod prober-fixture round-trip), AC14 (codemod corpus migration of 62 .aihu files), AC15 (codemod idempotency). V3 NEEDS_FIX folded: AC12-consumer-wiring (vite plugin/moon + tsc --noEmit CI step + deliberate-type-error fixture), AC6-W202-test (Command::output() stderr capture), AC16-policy (two-phase: stderr during codemod-running window; hard error post-corpus-migration as last commit). **Budget ~1080-1290 LOC src+tests + corpus deltas.** Branch: `feat/template-syntax-v2-b3b` off post-B3a-merge parent. Surface trigger stays at 1500 LOC for B3b1/B3b2 split (B3b1 = codemod-only including corpus apply; B3b2 = `$event`/`$emit` compiler + sidecar consumer wiring + AC6 test + AC16 policy).
 
-### Durably-true facts (post-r7)
+### Durably-true facts (post-r8)
 
 - **B1 closed clean (V1 PASS 11/11); iteration 1 of 5 banked.** R1 ($prop reactivity fix + Lit-style optional keys) ratified in code; -b1 fast-forwarded into parent at `c4b2ede`; r6 docs added at `9ec48cf`.
 - **B2 closed clean (V2 PASS 12/12); iteration 2 of 5 banked.** R2/R3/R4/Q3/Q4 ratified in code on parent at HEAD post-merge; -b2 fast-forwarded into parent at `124adda`; r7 docs added at `da53779`. Surface 1 (R4 typed-conv) folds into B3. Surface 2 (Q3 async-batched-writes) documented as v0.5+ watched assumption.
-- **Two consecutive one-pass Builder closes** (B1 + B2). Banking budget for B3 (largest round) and beyond.
+- **B3a closed (V3 NEEDS_FIX adjudicated to ACCEPT-with-deferred-fixes-folded; 11/12 strict pass; surface re-cut honest).** -b3 fast-forwarded into parent at `155454f`; r8 docs added at `cf241fa`. AC12 partial by-design (compiler-side sidecar emit lands; consumer wiring honestly deferred to B3b); AC6 + AC16 minor under-implementation cleanly surfaced and folded into B3b.
+- **Variant B compiler grammar shipped on parent at HEAD post-merge:** block-tags (`{#if}`/`{#each}`/`{:else if}`/`{:else}`/`{:empty}`/`{@html}`), dot-form (`$on.`/`$bind.`), class-array, R4 typed-conv at `$bind.value`, sidecar `.aihu.ts` emit (compiler-side), W202 deprecation on colon-form, C500 stderr on unknown directives, `$ref={signal}` setter-call-on-mount fix (closes Scout D1.4).
+- **Two consecutive one-pass Builder closes** (B1 + B2), then B3a partial-with-honest-surface (re-cut to B3b). Banking budget intact.
+- **Topic-level seam slipped from 5 → 6 effective Builder rounds; per-defect-class ping-pong ceiling unchanged; slip flagged for Historian retro.** Variant B template syntax used 1 of 5 ping-pongs (V3 → B3a); B3b will use 2nd. Healthy.
+- **B3b absorbs 13 ACs total; budget ~1080-1290 LOC src+tests + corpus deltas; surface trigger stays at 1500 LOC for B3b1/B3b2 split.** B3b absorbs: $event/$emit (AC9), listener $on.<custom-event> (AC10), codemod (AC13/14/15), AC12-consumer-wiring, AC6-test-fix, AC16-policy.
 - **Lazy-attach architectural decision ratified for R5/R6/R7.** Per-feature gzipped sub-budgets: $aria ≤ 600 B / $controller ≤ 400 B / $context ≤ 600 B. `@aihu/runtime` core baseline stays at ~2.75 KB.
 - **Marketing position: ~5 KB runtime if you use everything; ~2.7 KB for legacy SFCs that don't opt into v2 collections.** Honest, dev-tool-inspectable via existing `bun run size-rows` pre-push; B4 introduces `bun run size-by-feature` for per-feature CI gating.
-- **B3 codemod scope expanded to include body-call-syntax migration** (~640-700 LOC budget, up from 560; r7 supersedes r6 §6 #2 with a 1500 LOC full-B3-scope threshold for B3a/B3b re-cut).
-- **B3 = Variant B syntax + codemod (640-700 LOC) + R4 typed-conv + sidecar `.aihu.ts`; ~1090-1390 LOC src+tests; the largest round.** Surface trigger at 1500 LOC for B3a/B3b re-cut.
-- **B2's R4 added write-back to colon-form (`$bind:value`) only; B3 handles the complete global colon→dot transition** (dot-form parsing+emit added in B3; v1 colon-form preserved under W202 deprecation; codemod migrates corpus).
+- **B3 codemod scope expanded to include body-call-syntax migration** (~640-700 LOC budget, up from 560; r7 supersedes r6 §6 #2 with a 1500 LOC full-B3-scope threshold for B3a/B3b re-cut; r8 confirms partition holds with B3b at ~1080-1290 LOC).
+- **B2's R4 added write-back to colon-form (`$bind:value`) only; B3a added the dot-form parsing+emit and R4 typed-conv at `$bind.value` write site.** v1 colon-form preserved under W202 deprecation during the transition window; B3b's codemod migrates the 62-file corpus to dot-form.
 
 ---
 

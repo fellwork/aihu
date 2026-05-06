@@ -464,6 +464,7 @@ fn match_collection_keyword(rest: &str) -> Option<CollectionKind> {
         ("resource", CollectionKind::Resource),
         ("action", CollectionKind::Action),
         ("effect", CollectionKind::Effect),
+        ("event", CollectionKind::Event),
         ("prop", CollectionKind::Prop),
     ];
     for (kw, kind) in keywords {
@@ -489,6 +490,7 @@ fn collection_keyword_len(kind: CollectionKind) -> usize {
         CollectionKind::Resource => 8,
         CollectionKind::Effect => 6,
         CollectionKind::Lifecycle => 9,
+        CollectionKind::Event => 5,
     }
 }
 
@@ -500,6 +502,7 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
         CollectionKind::Resource => "resource",
         CollectionKind::Effect => "effect",
         CollectionKind::Lifecycle => "lifecycle",
+        CollectionKind::Event => "event",
     }
 }
 
@@ -575,10 +578,23 @@ fn parse_object_collection(
         // Per-kind rules per spec §2.4:
         //   $prop     — always wrapped (no running code to imply)
         //   $lifecycle — always bare (no metadata-bag form, per D.3)
+        //   $event    — always wrapped (per spec §5.a; required: payload)
         if matches!(kind, CollectionKind::Prop) && !is_wrapped {
             return Err(CompileError {
                 message: format!(
                     "$prop entries are always wrapped — `{}` must be `{{ default: ..., type?: ..., describe?: ..., expose?: ... }}`",
+                    name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C444".to_string()),
+                ..Default::default()
+            });
+        }
+        if matches!(kind, CollectionKind::Event) && !is_wrapped {
+            return Err(CompileError {
+                message: format!(
+                    "$event entries are always wrapped — `{}` must be `{{ payload: <type>, describe?: ..., bubbles?: ..., composed?: ... }}`",
                     name
                 ),
                 line: 0,
@@ -1188,6 +1204,13 @@ fn emit_collection_entry(
                     body = body
                 ))
             }
+        }
+        CollectionKind::Event => {
+            // B3b — `$event` declarations are compile-time-only metadata. They
+            // contribute to (a) `$emit.<name>` resolution at the call site, and
+            // (b) the per-SFC `.aihu.ts` sidecar's typed-payload interface.
+            // No runtime code is emitted here.
+            None
         }
         CollectionKind::Lifecycle => {
             // R2 (Director r6 §3): four-callback extension. `mount` → onMount,

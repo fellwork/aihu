@@ -170,16 +170,74 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // Preamble re-declares typical SFC globals so tsc has a permissive type
     // scope. We type these as `any` because precise typing requires deeper
     // SFC -> TS lowering (B3+ sidecar refinement is a watched item).
-    let preamble = "\
+    // B3b — derive a typed `$emit` interface from the SFC's `$event:` collection
+    // entries (if any). Each `$event: { name: { payload: T } }` entry contributes
+    // a strongly-typed dispatcher: `dayjump: (payload: { day: Date }) => void`.
+    // Falls back to the permissive `unknown` shape when no $event collection
+    // is declared so existing fixtures continue to type-check.
+    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let event_entries: Vec<(&str, Option<&str>)> = macros
+        .iter()
+        .flat_map(|m| {
+            if let crate::types::StateMacro::Collection {
+                kind: crate::types::CollectionKind::Event,
+                entries,
+            } = m
+            {
+                entries
+                    .iter()
+                    .map(|e| {
+                        let payload = e
+                            .meta
+                            .iter()
+                            .find(|(k, _)| k == "payload")
+                            .map(|(_, v)| v.trim());
+                        (e.name.as_str(), payload)
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
+    let (emit_decl, event_decl) = if event_entries.is_empty() {
+        (
+            "declare const $emit: { [name: string]: (payload?: unknown) => void };".to_string(),
+            "declare const $event: { [name: string]: { payload: unknown } };".to_string(),
+        )
+    } else {
+        let emit_lines: Vec<String> = event_entries
+            .iter()
+            .map(|(n, p)| {
+                let p_ts = p.unwrap_or("unknown");
+                format!("  {}: (payload: {}) => void;", n, p_ts)
+            })
+            .collect();
+        let event_lines: Vec<String> = event_entries
+            .iter()
+            .map(|(n, p)| {
+                let p_ts = p.unwrap_or("unknown");
+                format!("  {}: {{ payload: {} }};", n, p_ts)
+            })
+            .collect();
+        (
+            format!("declare const $emit: {{\n{}\n}};", emit_lines.join("\n")),
+            format!("declare const $event: {{\n{}\n}};", event_lines.join("\n")),
+        )
+    };
+    let preamble = format!(
+        "\
 declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void];
 declare const computed: <T>(fn: () => T) => () => T;
 declare const onMount: (fn: () => void | (() => void)) => void;
 declare const onCleanup: (fn: () => void) => void;
 declare const onAdopt: (fn: () => void) => void;
 declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;
-declare const $emit: { [name: string]: (payload?: unknown) => void };
-declare const $event: { [name: string]: { payload: unknown } };
-";
+{}
+{}
+",
+        emit_decl, event_decl
+    );
     let body_exprs: Vec<String> = exprs
         .iter()
         .map(|e| {
@@ -581,6 +639,11 @@ fn process_state_body(
                             _ => {}
                         }
                     }
+                }
+                CollectionKind::Event => {
+                    // B3b — $event declarations are compile-time-only.
+                    // They surface to the sidecar typer + $emit resolution; no
+                    // runtime signal/binding side-effects.
                 }
             },
             StateMacro::EffectAnon { .. }
@@ -1049,6 +1112,12 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 _ => {}
                             }
                         }
+                        CollectionKind::Event => {
+                            // B3b — $event entries don't emit runtime code.
+                            // Event names are surfaced for sidecar typing
+                            // and validated against $emit.<name> call sites
+                            // separately (see collect_event_names + emit_node).
+                        }
                     }
                 }
             }
@@ -1175,13 +1244,27 @@ fn emit_props_config(prop_entries: &[&crate::types::CollectionEntry], indent: &s
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let raw_script = unit.source.script.unwrap_or("");
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
-    let helpers_needed = collect_needed_helpers(template_nodes);
 
     // Process state macros first (updates signal_map with computed names)
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
     let (si, macros, plain_body, user_imports, state_names) =
         process_state_body(raw_script, &mut signal_map);
+
+    // B3b — rewrite `$emit.<name>(payload)` → `dispatchEvent(new CustomEvent(...))`
+    // before any downstream emit walks the template AST. Operates on a
+    // working clone of the AST so the immutable `unit` reference is preserved.
+    let event_names = collect_event_names(&macros);
+    let template_owned: Vec<TemplateNode> = unit
+        .template_ast
+        .as_deref()
+        .map(|n| {
+            let mut cloned: Vec<TemplateNode> = n.to_vec();
+            apply_emit_lowering_nodes(&mut cloned, &event_names);
+            cloned
+        })
+        .unwrap_or_default();
+    let template_nodes: &[TemplateNode] = &template_owned;
+    let helpers_needed = collect_needed_helpers(template_nodes);
 
     // arch-5 M1: scan action bodies for $announce(...) so we can request
     // the runtime import alias and rewrite call sites in emit_state_macro_code.
@@ -1539,7 +1622,21 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
 
     let raw_script = unit.source.script.unwrap_or("");
     let script_body = extract_script_body(raw_script);
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
+
+    // B3b — pre-emit `$emit.<name>(...)` lowering pass against the @state
+    // $event collection (if any). Mirror function-form path.
+    let pre_macros = crate::parser::state_macros::parse_state_macros(raw_script).unwrap_or_default();
+    let event_names = collect_event_names(&pre_macros);
+    let template_owned: Vec<TemplateNode> = unit
+        .template_ast
+        .as_deref()
+        .map(|n| {
+            let mut cloned: Vec<TemplateNode> = n.to_vec();
+            apply_emit_lowering_nodes(&mut cloned, &event_names);
+            cloned
+        })
+        .unwrap_or_default();
+    let template_nodes: &[TemplateNode] = &template_owned;
     let helpers_needed = collect_needed_helpers(template_nodes);
     let script_uses_effect = raw_script.contains("effect(");
     let emit_effect = helpers_needed.needs_effect || script_uses_effect;
@@ -2964,6 +3061,278 @@ fn macro_value_expr(value: &MacroValue) -> String {
         MacroValue::Curly(s) => s.clone(),
         MacroValue::Boolean => "true".to_string(),
     }
+}
+
+/// B3b — Collect `$event` collection-form entry names from the parsed @state
+/// macros. Used for compile-time `$emit.<name>` resolution (C501) and sidecar
+/// typed-payload generation.
+fn collect_event_names(macros: &[crate::types::StateMacro]) -> std::collections::BTreeSet<String> {
+    use crate::types::{CollectionKind, StateMacro};
+    let mut out = std::collections::BTreeSet::new();
+    for m in macros {
+        if let StateMacro::Collection { kind: CollectionKind::Event, entries } = m {
+            for e in entries {
+                out.insert(e.name.clone());
+            }
+        }
+    }
+    out
+}
+
+/// B3b — Rewrite `$emit.<name>(payload)` → `this.dispatchEvent(new CustomEvent(...))`.
+///
+/// Scans `expr` for `$emit.<ident>` followed by `(args)`. Args may contain
+/// arbitrary JS, so paren-balanced extraction is used (string-aware).
+/// Per Architect spec §5.e: lowers to `dispatchEvent(new CustomEvent(name, {
+///   detail: payload, bubbles: true, composed: false, cancelable: true }))`
+/// on the host element. The host is `this` in the SFC's setup function,
+/// matching the post-customelement constructor context.
+///
+/// `event_names` are the declared `$event:` collection entries; emissions
+/// targeting an undeclared name surface stderr with C501.
+///
+/// Idempotency: if the call has already been rewritten (no `$emit.` markers),
+/// the input is returned unchanged.
+fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>) -> String {
+    let bytes = expr.as_bytes();
+    let mut out = String::with_capacity(expr.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // Skip strings to avoid rewriting `$emit.x` inside a string literal.
+        let c = bytes[i];
+        if c == b'"' || c == b'\'' || c == b'`' {
+            let q = c;
+            out.push(q as char);
+            i += 1;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if b == b'\\' && i + 1 < bytes.len() {
+                    out.push(b as char);
+                    out.push(bytes[i + 1] as char);
+                    i += 2;
+                    continue;
+                }
+                out.push(b as char);
+                i += 1;
+                if b == q {
+                    break;
+                }
+            }
+            continue;
+        }
+        // Skip line + block comments.
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            continue;
+        }
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+            out.push('/');
+            out.push('*');
+            i += 2;
+            while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            if i + 1 < bytes.len() {
+                out.push('*');
+                out.push('/');
+                i += 2;
+            }
+            continue;
+        }
+        // Detect `$emit.<ident>(`.
+        if expr[i..].starts_with("$emit.") {
+            // Identifier scan.
+            let name_start = i + 6;
+            let mut name_end = name_start;
+            while name_end < bytes.len() {
+                let b = bytes[name_end];
+                if b.is_ascii_alphanumeric() || b == b'_' || b == b'$' {
+                    name_end += 1;
+                } else {
+                    break;
+                }
+            }
+            // Skip whitespace.
+            let mut p = name_end;
+            while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') {
+                p += 1;
+            }
+            if p < bytes.len() && bytes[p] == b'(' && name_end > name_start {
+                let name = &expr[name_start..name_end];
+                let close = match find_paren_close_local(expr, p) {
+                    Some(k) => k,
+                    None => {
+                        // Malformed; leave verbatim.
+                        out.push(c as char);
+                        i += 1;
+                        continue;
+                    }
+                };
+                let args = &expr[p + 1..close];
+                let detail_arg = if args.trim().is_empty() {
+                    "undefined".to_string()
+                } else {
+                    args.to_string()
+                };
+                // Compile-time validation: name must be in $event collection.
+                if !event_names.is_empty() && !event_names.contains(name) {
+                    eprintln!(
+                        "C501: $emit.{} not declared — add `{}: {{ payload: <type> }}` to your @state $event collection",
+                        name, name
+                    );
+                }
+                out.push_str(&format!(
+                    "this.dispatchEvent(new CustomEvent('{}', {{ detail: {}, bubbles: true, composed: false, cancelable: true }}))",
+                    name, detail_arg
+                ));
+                i = close + 1;
+                continue;
+            }
+        }
+        out.push(c as char);
+        i += 1;
+    }
+    out
+}
+
+/// B3b — Walk the template AST and apply `lower_emit_calls` to every
+/// expression string (curly bindings, macro values, interpolations,
+/// {#if}/{#each}/{@html} expressions). Mutates in place.
+fn apply_emit_lowering_nodes(
+    nodes: &mut [TemplateNode],
+    event_names: &std::collections::BTreeSet<String>,
+) {
+    for node in nodes.iter_mut() {
+        match node {
+            TemplateNode::Element { attrs, children, .. }
+            | TemplateNode::MacroElement { attrs, children, .. } => {
+                for a in attrs.iter_mut() {
+                    apply_emit_lowering_attr(a, event_names);
+                }
+                apply_emit_lowering_nodes(children, event_names);
+            }
+            TemplateNode::Interpolation(s) => {
+                if s.contains("$emit.") {
+                    *s = lower_emit_calls(s, event_names);
+                }
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (cond, body) in branches.iter_mut() {
+                    if cond.contains("$emit.") {
+                        *cond = lower_emit_calls(cond, event_names);
+                    }
+                    apply_emit_lowering_nodes(body, event_names);
+                }
+            }
+            TemplateNode::EachBlock { list_expr, key_expr, body, empty_body, .. } => {
+                if list_expr.contains("$emit.") {
+                    *list_expr = lower_emit_calls(list_expr, event_names);
+                }
+                if let Some(k) = key_expr {
+                    if k.contains("$emit.") {
+                        *k = lower_emit_calls(k, event_names);
+                    }
+                }
+                apply_emit_lowering_nodes(body, event_names);
+                if let Some(eb) = empty_body {
+                    apply_emit_lowering_nodes(eb, event_names);
+                }
+            }
+            TemplateNode::HtmlBlock { expr } => {
+                if expr.contains("$emit.") {
+                    *expr = lower_emit_calls(expr, event_names);
+                }
+            }
+            TemplateNode::Text(_) => {}
+        }
+    }
+}
+
+fn apply_emit_lowering_attr(
+    a: &mut Attr,
+    event_names: &std::collections::BTreeSet<String>,
+) {
+    match a {
+        Attr::Binding { expr, .. } => {
+            if expr.contains("$emit.") {
+                *expr = lower_emit_calls(expr, event_names);
+            }
+        }
+        Attr::Event { handler, .. } => {
+            if handler.contains("$emit.") {
+                *handler = lower_emit_calls(handler, event_names);
+            }
+        }
+        Attr::Macro { value, .. } => {
+            if let MacroValue::Curly(s) = value {
+                if s.contains("$emit.") {
+                    *s = lower_emit_calls(s, event_names);
+                }
+            }
+        }
+        Attr::Static { .. } => {}
+    }
+}
+
+/// Local copy of paren-close finder (string/comment-aware) for use in
+/// `lower_emit_calls`. Returns the position of the matching `)` for the `(`
+/// at `i`, or `None` on imbalance.
+fn find_paren_close_local(s: &str, i: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    if i >= bytes.len() || bytes[i] != b'(' {
+        return None;
+    }
+    let mut depth: i32 = 0;
+    let mut j = i;
+    while j < bytes.len() {
+        let c = bytes[j];
+        if c == b'"' || c == b'\'' || c == b'`' {
+            let q = c;
+            j += 1;
+            while j < bytes.len() {
+                let b = bytes[j];
+                if b == b'\\' && j + 1 < bytes.len() {
+                    j += 2;
+                    continue;
+                }
+                j += 1;
+                if b == q {
+                    break;
+                }
+            }
+            continue;
+        }
+        if c == b'/' && j + 1 < bytes.len() && bytes[j + 1] == b'/' {
+            while j < bytes.len() && bytes[j] != b'\n' {
+                j += 1;
+            }
+            continue;
+        }
+        if c == b'/' && j + 1 < bytes.len() && bytes[j + 1] == b'*' {
+            j += 2;
+            while j + 1 < bytes.len() && !(bytes[j] == b'*' && bytes[j + 1] == b'/') {
+                j += 1;
+            }
+            if j + 1 < bytes.len() {
+                j += 2;
+            }
+            continue;
+        }
+        if c == b'(' {
+            depth += 1;
+        } else if c == b')' {
+            depth -= 1;
+            if depth == 0 {
+                return Some(j);
+            }
+        }
+        j += 1;
+    }
+    None
 }
 
 /// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)

@@ -188,6 +188,11 @@ pub enum CollectionKind {
     Resource,
     Effect,
     Lifecycle,
+    /// B3b — `$event: { name: { payload: T, describe?, bubbles?, composed? } }`
+    /// per Architect spec §5.a. Per-component custom-event declarations that
+    /// participate in `$emit.<name>(payload)` resolution and `<Tag $on.<name>=>`
+    /// listener typing.
+    Event,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.
