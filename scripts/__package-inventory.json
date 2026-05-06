@@ -61,7 +61,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "dir": "packages/compiler",
     "isPlatform": false
   },

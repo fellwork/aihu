@@ -2487,13 +2487,26 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             format!("({}) => {}", item_alias, key_fn)
         };
 
-        // Use arbor's reactive `each()` when the list is an authored signal;
-        // otherwise wrap the list in a [() => list] thunk and use the
-        // (now reactive) createEachBoundary fallback (R5 Defect E).
+        // Use arbor's reactive `each()` when the list is an authored signal.
+        // arbor expects a Signal tuple `[getter, setter]` (it reads `items[0]()`),
+        // so for `const [items, setItems] = signal(...)` we MUST pass
+        // `[items, setItems]` — not the getter alone (which would make
+        // `items[0]` an undefined string-indexed access on a function value).
+        // For computed signals (no setter) pass `[items]` — index-0 read still works.
+        // Plain class-property arrays (no signal) wrap in a `[() => list]` thunk.
         if signal_map.is_reactive(&each_items) {
+            let items_arg = if let Some(setter) = signal_map.0.get(&each_items) {
+                if !setter.is_empty() {
+                    format!("[{}, {}]", each_items, setter)
+                } else {
+                    format!("[{}]", each_items)
+                }
+            } else {
+                format!("[() => ({})]", each_items)
+            };
             effects.push(format!(
                 "{}each({}, {}, ({}, {}) => {{ return {} }})",
-                indent, each_items, key_part, item_alias, idx_alias, subtree
+                indent, items_arg, key_part, item_alias, idx_alias, subtree
             ));
         } else {
             effects.push(format!(
