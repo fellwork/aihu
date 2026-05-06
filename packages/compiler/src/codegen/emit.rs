@@ -252,13 +252,13 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
 fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     let mut lines: Vec<&str> = Vec::new();
     if h.if_boundary {
-        // R5 (Defect E): reactive $if. The condition arrives as a thunk array
-        // [() => bool] (Signal-shaped). Returning a structural node lets the
-        // arbor reconciler set up an effect that swaps the rendered subtree
-        // whenever the tracked condition flips. The non-reactive value-snapshot
-        // form (`cond ? b() : branch(null, undefined, [])`) was a one-time
-        // evaluation at mount time — UI never updated when state changed.
-        lines.push("const createIfBoundary = (cond, grow) => ({ kind: 'structural', structuralKind: 'conditional', condition: cond, grow, list: null, keyFn: null, listGrow: null });");
+        // R5 (Defect E): reactive $if. Delegate to arbor's `when()` rather
+        // than synthesizing the structural node literally — the arbor bundle
+        // mangles property names (`structuralKind` → `sk`, `condition` → `cn`)
+        // via oxc-minify, so a literal would mismatch the reconciler's reads.
+        // `when()` constructs the node internally and the property names match
+        // because both producer and reader live in the same minified bundle.
+        lines.push("const createIfBoundary = (cond, grow) => when(cond, grow);");
     }
     if h.once_boundary {
         lines.push("const createOnceBoundary = (b) => b();");
@@ -267,13 +267,10 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         lines.push("const createMemoBoundary = (deps, b) => b();");
     }
     if h.each_boundary {
-        // R5 (Defect E): reactive $each fallback for plain class-property lists.
-        // Items arrives as a thunk array [() => arr] (Signal-shaped). The
-        // structural-list reconciler in arbor sets up an effect that re-keys
-        // children whenever the tracked list changes. The previous static
-        // `branch(null, undefined, items.map(...))` form snapshotted at mount
-        // time and never re-rendered.
-        lines.push("const createEachBoundary = (items, key, itemFn) => ({ kind: 'structural', structuralKind: 'list', condition: null, grow: null, list: items, keyFn: key, listGrow: itemFn });");
+        // R5 (Defect E): reactive $each fallback. Delegate to arbor's `each()`
+        // rather than synthesizing the structural node literally (same
+        // property-mangling concern as `when()`).
+        lines.push("const createEachBoundary = (items, key, itemFn) => each(items, key, itemFn);");
     }
     if h.slot_boundary {
         lines.push("const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);");
@@ -1119,14 +1116,22 @@ fn build_function_imports(
     let emit_effect =
         needs_effect || script_uses_effect || si.needs_effect_for_macros || helper_effect;
 
-    // Arbor imports
-    let arbor_items = if needs_each {
-        "import { branch, leaf, slot, each } from '@aihu/arbor'"
-    } else {
-        "import { branch, leaf, slot } from '@aihu/arbor'"
-    };
-
-    let mut lines: Vec<String> = vec![arbor_items.to_string()];
+    // Arbor imports — `when` / `each` are arbor's exported reactive structural
+    // constructors. They MUST be imported (not inlined) because the published
+    // arbor bundle uses oxc-minify with property mangling; synthesizing the
+    // structural node literally with `structuralKind: 'list'` would mismatch
+    // the mangled `t.sk` reads in the bundled reconciler. R5 (Defect E).
+    let mut arbor_names: Vec<&str> = vec!["branch", "leaf", "slot"];
+    if helpers.if_boundary {
+        arbor_names.push("when");
+    }
+    if needs_each || helpers.each_boundary {
+        arbor_names.push("each");
+    }
+    let mut lines: Vec<String> = vec![format!(
+        "import {{ {} }} from '@aihu/arbor'",
+        arbor_names.join(", ")
+    )];
 
     // Signals imports
     if !signal_map.0.is_empty() {
@@ -1227,11 +1232,20 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
 
     let si = StateImports::default();
 
-    let mut import_lines: Vec<String> = if helpers_needed.each_boundary {
-        vec!["import { branch, leaf, slot, each } from '@aihu/arbor'".to_string()]
-    } else {
-        vec!["import { branch, leaf, slot } from '@aihu/arbor'".to_string()]
-    };
+    // R5 (Defect E): import `when`/`each` from arbor — never inline structural
+    // node literals, because the published arbor bundle minifies internal
+    // property names (`structuralKind` → `sk`, etc).
+    let mut arbor_names: Vec<&str> = vec!["branch", "leaf", "slot"];
+    if helpers_needed.if_boundary {
+        arbor_names.push("when");
+    }
+    if helpers_needed.each_boundary {
+        arbor_names.push("each");
+    }
+    let mut import_lines: Vec<String> = vec![format!(
+        "import {{ {} }} from '@aihu/arbor'",
+        arbor_names.join(", ")
+    )];
 
     // computed import if needed for number/boolean/enum coercions
     if needs_computed {
