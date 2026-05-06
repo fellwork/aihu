@@ -192,6 +192,8 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
+      - name: Build workspace packages
+        run: bun run build
       - name: Build examples
         run: |
           for dir in examples/*/; do
