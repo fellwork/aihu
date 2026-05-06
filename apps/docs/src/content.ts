@@ -55,7 +55,57 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>$state</code></td>
-<td>State bag shorthand accessor</td>
+<td>State bag shorthand accessor (SFC-internal)</td>
+</tr>
+</tbody></table>
+<h2>@state macro collection forms</h2>
+<table>
+<thead>
+<tr>
+<th>Macro</th>
+<th>v2 collection-form syntax</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>$prop</code></td>
+<td><code>$prop: { name: { default: value, type?: &quot;T&quot;, describe?: &quot;...&quot;, expose?: { read?: true, write?: true } } }</code></td>
+</tr>
+<tr>
+<td><code>$computed</code></td>
+<td><code>$computed: { name: { value: () =&gt; expr } }</code></td>
+</tr>
+<tr>
+<td><code>$action</code></td>
+<td><code>$action: { name: { handler: (args) =&gt; expr, describe?: &quot;...&quot;, expose?: { write?: true } } }</code></td>
+</tr>
+<tr>
+<td><code>$resource</code></td>
+<td><code>$resource: { name: { source: () =&gt; fetcher() } }</code></td>
+</tr>
+<tr>
+<td><code>$effect</code></td>
+<td><code>$effect { ... }</code> (anonymous) or <code>$effect.on(dep) { ... }</code> (scoped)</td>
+</tr>
+<tr>
+<td><code>$lifecycle</code></td>
+<td><code>$lifecycle: { mount: () =&gt; ..., dispose: () =&gt; ... }</code></td>
+</tr>
+</tbody></table>
+<h2>@agent macro collection forms</h2>
+<table>
+<thead>
+<tr>
+<th>Macro</th>
+<th>v2 collection-form syntax</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>$describe</code></td>
+<td><code>$describe: &quot;human-readable description of the agent&quot;</code></td>
+</tr>
+<tr>
+<td><code>$action</code></td>
+<td><code>$action: { name: { expose: true, describe?: &quot;...&quot; } }</code></td>
 </tr>
 </tbody></table>
 <h2>@aihu/arbor</h2>
@@ -367,19 +417,17 @@ window.__DOCS__ = {
 <h2>The <code>@agent</code> block</h2>
 <p>Add an <code>@agent</code> block to any <code>.aihu</code> SFC to expose agent capabilities:</p>
 <pre><code>@agent {
-  $expose greet(name: string) -&gt; { message: string } &quot;Greet a user by name&quot;
-  $expose getUser(id: number) -&gt; User &quot;Fetch a user by ID&quot;
-  $scope /api
-  $rate-limit 100
-  $describe &quot;The main application agent&quot;
+  $describe: &quot;The main application agent&quot;
+  $action: {
+    greet: { expose: true, describe: &quot;Greet a user by name&quot; }
+    getUser: { expose: true, describe: &quot;Fetch a user by ID&quot; }
+  }
 }
 </code></pre>
 <h3>Directives</h3>
 <ul>
-<li><strong><code>$expose name(args) -&gt; ReturnType &quot;description&quot;</code></strong> — expose a tool or resource. The compiler generates the MCP tool descriptor and wires the implementation to the component&#39;s action method of the same name.</li>
-<li><strong><code>$scope path</code></strong> — restrict the agent to a specific URL path prefix. Requests outside the scope are rejected.</li>
-<li><strong><code>$rate-limit n</code></strong> — limit calls to <code>n</code> per minute. The agent service enforces this at runtime.</li>
-<li><strong><code>$describe &quot;text&quot;</code></strong> — a human-readable description of the agent. Included in the MCP manifest.</li>
+<li><strong><code>$describe: &quot;text&quot;</code></strong> — a human-readable description of the agent. Included in the MCP manifest.</li>
+<li><strong><code>$action: { name: { expose: true, describe: &quot;...&quot; } }</code></strong> — expose an action as an MCP tool. The compiler generates the MCP tool descriptor and wires the implementation to the component&#39;s action method of the same name. Use <code>expose: true</code> to expose with default settings, or <code>expose: { read: true }</code> / <code>expose: { write: true }</code> for fine-grained control.</li>
 </ul>
 <h3>Client build elision</h3>
 <p>When compiling with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and the JS output contains a <code>// [client build] @agent block elided</code> comment. Agent code never reaches the browser bundle.</p>
@@ -441,21 +489,32 @@ export default defineConfig({
 <p>The <code>@state</code> block declares the reactive contract of the component.</p>
 <h3>Macros</h3>
 <ul>
-<li><code>$prop name: Type = default</code> — a public property. Settable from HTML attributes. Reactive.</li>
-<li><code>$computed name = expr</code> — a derived signal. Re-evaluates when its dependencies change.</li>
-<li><code>$resource name = fetcher(signal)</code> — binds an async resource to a signal. Returns a 3-state loader: <code>{ pending, value, error }</code>.</li>
-<li><code>$effect { ... }</code> — runs a side effect when tracked signals change.</li>
-<li><code>$lifecycle.mount { ... }</code> — runs after the component is first mounted to the DOM.</li>
-<li><code>$lifecycle.cleanup { ... }</code> — runs when the component is unmounted.</li>
-<li><code>$action name(args) { ... }</code> — a named action method on the component.</li>
+<li><code>$prop: { name: { default: value, ... } }</code> — a public property. Settable from HTML attributes. Reactive. Use <code>expose: { read: true }</code> and/or <code>expose: { write: true }</code> to expose the prop to agents.</li>
+<li><code>$computed: { name: { value: () =&gt; expr } }</code> — a derived signal. Re-evaluates when its dependencies change.</li>
+<li><code>$resource: { name: { source: () =&gt; fetcher(signal) } }</code> — binds an async resource to a signal. Returns a 3-state loader: <code>{ pending, value, error }</code>.</li>
+<li><code>$effect { ... }</code> — runs a side effect when tracked signals change. Use <code>$effect.on(dep)</code> to scope to a specific dependency.</li>
+<li><code>$lifecycle: { mount: () =&gt; ..., dispose: () =&gt; ... }</code> — lifecycle hooks; <code>mount</code> runs after first DOM mount, <code>dispose</code> runs on unmount.</li>
+<li><code>$action: { name: { handler: (args) =&gt; ..., ... } }</code> — a named action method on the component. Use <code>expose: { write: true }</code> to expose to agents.</li>
 </ul>
 <h3>Example</h3>
 <pre><code>@state {
-  $prop count: number = 0
-  $computed doubled = count * 2
-  $effect { console.log(&#39;count is&#39;, count) }
-  $lifecycle.mount { console.log(&#39;mounted&#39;) }
-  $action increment() { count++ }
+  $prop: {
+    count: { default: 0, type: &quot;number&quot; }
+  }
+
+  $computed: {
+    doubled: { value: () =&gt; count() * 2 }
+  }
+
+  $effect { console.log(&#39;count is&#39;, count()) }
+
+  $lifecycle: {
+    mount: () =&gt; console.log(&#39;mounted&#39;)
+  }
+
+  $action: {
+    increment: { handler: () =&gt; count(count() + 1) }
+  }
 }
 </code></pre>
 <h2>@template block</h2>
@@ -531,10 +590,10 @@ export default defineConfig({
 <h2>@agent block</h2>
 <p>The <code>@agent</code> block exposes the component as an MCP agent. See <a href="authoring-agents.md">Authoring Agents</a> for full details.</p>
 <pre><code>@agent {
-  $expose greet(name: string) -&gt; { message: string } &quot;Greet a user by name&quot;
-  $scope /api/greet
-  $rate-limit 100
-  $describe &quot;Greeting agent for the home page&quot;
+  $describe: &quot;Greeting agent for the home page&quot;
+  $action: {
+    greet: { expose: true, describe: &quot;Greet a user by name&quot; }
+  }
 }
 </code></pre>
 `,
@@ -619,8 +678,13 @@ export default defineAihuConfig({
 <h2><code>$resource</code> macro</h2>
 <p>In a <code>@state</code> block, <code>$resource</code> binds an async fetcher to a reactive signal:</p>
 <pre><code>@state {
-  $prop userId: number = 1
-  $resource user = fetchUser(userId)
+  $prop: {
+    userId: { default: 1, type: &quot;number&quot; }
+  }
+
+  $resource: {
+    user: { source: () =&gt; fetchUser(userId()) }
+  }
 }
 </code></pre>
 <p>The <code>user</code> variable is a 3-state loader object:</p>
@@ -664,16 +728,15 @@ export const loader = defineLoader(async (ctx) =&gt; {
 <pre><code>@route { path: &quot;/posts/[slug]&quot;, ssr: true }
 
 @state {
-  $prop route: {
-    params: { slug: string }
-    data: { title: string; body: string }
+  $prop: {
+    route: { type: &quot;{ params: { slug: string }; data: { title: string; body: string } }&quot; }
   }
 }
 
 @template {
   &lt;article&gt;
-    &lt;h1&gt;{route.data.title}&lt;/h1&gt;
-    &lt;p&gt;{route.data.body}&lt;/p&gt;
+    &lt;h1&gt;{route().data.title}&lt;/h1&gt;
+    &lt;p&gt;{route().data.body}&lt;/p&gt;
   &lt;/article&gt;
 }
 </code></pre>
@@ -688,10 +751,14 @@ import type { Post } from &#39;./types&#39;
 export const getPost = createServerCall&lt;[slug: string], Post&gt;(&#39;posts/getPost&#39;)
 </code></pre>
 <pre><code>@state {
-  searchTerm: string = &#39;&#39;
+  $prop: {
+    searchTerm: { default: &quot;&#39;&#39;&quot;, type: &quot;string&quot; }
+  }
 
-  // refetches when searchTerm changes
-  $resource matches = getPost(searchTerm)
+  $resource: {
+    // refetches when searchTerm changes
+    matches: { source: () =&gt; getPost(searchTerm()) }
+  }
 }
 
 @template {
@@ -776,8 +843,8 @@ node dist/server/entry.js
 <p>The server entry is generated by the universal build and uses <code>@aihu/server</code>&#39;s request router.</p>
 <h2>Cloudflare Workers and Vercel Edge</h2>
 <p>aihu uses only Web Standard APIs (Fetch, ReadableStream, URL) in its server runtime, making it compatible with edge environments.</p>
-<p>Set the <code>SCRIBE_NATIVE_SKIP</code> environment variable to disable any Node.js-specific compatibility shims:</p>
-<pre><code class="language-bash">SCRIBE_NATIVE_SKIP=1 bun run build
+<p>Set the <code>AIHU_NATIVE_SKIP</code> environment variable to disable any Node.js-specific compatibility shims:</p>
+<pre><code class="language-bash">AIHU_NATIVE_SKIP=1 bun run build
 </code></pre>
 <p>Deploy the <code>dist/server/</code> output as a Worker or Edge Function. The <code>@aihu/server</code> request router handles incoming <code>Request</code> objects and returns <code>Response</code> objects natively — no adapter layer needed.</p>
 <h2><code>defineAihuConfig</code></h2>
@@ -826,7 +893,9 @@ export default {
 <h2>Hello World walkthrough</h2>
 <p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The v0.8 template looks like this:</p>
 <pre><code>@state {
-  $prop name: string = &#39;world&#39;
+  $prop: {
+    name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; }
+  }
 }
 
 @template {
@@ -841,13 +910,19 @@ export default {
 <h3>The <code>@state</code> block</h3>
 <p><code>@state</code> declares the reactive state for the component:</p>
 <ul>
-<li><code>$prop name: string = &#39;world&#39;</code> — declares a component property named <code>name</code> with a default value of <code>&#39;world&#39;</code>. Props are reactive and can be set from outside the component as HTML attributes.</li>
+<li><code>$prop: { name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; } }</code> — declares a component property named <code>name</code> with a default value of <code>&#39;world&#39;</code>. Props are reactive and can be set from outside the component as HTML attributes.</li>
 </ul>
 <p>You can add computed values and effects in the same block:</p>
 <pre><code>@state {
-  $prop name: string = &#39;world&#39;
-  $computed greeting = \`Hello, \${name}!\`
-  $effect { console.log(&#39;name changed to&#39;, name) }
+  $prop: {
+    name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; }
+  }
+
+  $computed: {
+    greeting: { value: () =&gt; \`Hello, \${name()}!\` }
+  }
+
+  $effect { console.log(&#39;name changed to&#39;, name()) }
 }
 </code></pre>
 <h3>The <code>@template</code> block</h3>

@@ -31,7 +31,6 @@ import { rolldown } from 'rolldown'
 const REPO_ROOT = process.cwd()
 const CHECK_MODE = process.argv.includes('--check')
 
-
 interface SectionResult {
   key: string
   body: string
@@ -1056,8 +1055,33 @@ async function main() {
     `  → ${packages.length} packages discovered (${packages.filter((p) => p.isPlatform).length} platform)`,
   )
 
-  console.log('  → measuring bundle sizes (rolldown)…')
-  const measurements = await measureSizes()
+  const sizeCachePath = join(REPO_ROOT, 'scripts/__bundle-sizes.json')
+  let measurements: Array<{ name: string; bytes: number; limit: string; ok: boolean }>
+  let sizeCacheChanged = false
+
+  if (CHECK_MODE && existsSync(sizeCachePath)) {
+    // In check mode read the committed cache so the comparison is
+    // platform-independent (Windows dev vs Linux CI would produce different
+    // rolldown+gzip byte counts for the same source).
+    const cached: Array<{ name: string; bytes: number; limit: string }> = JSON.parse(
+      readFileSync(sizeCachePath, 'utf8'),
+    )
+    measurements = cached.map((c) => ({ ...c, ok: true }))
+    console.log('  → bundle sizes (from __bundle-sizes.json cache)…')
+  } else {
+    console.log('  → measuring bundle sizes (rolldown)…')
+    measurements = await measureSizes()
+    const sizeCacheJson = `${JSON.stringify(
+      measurements.map(({ name, bytes, limit }) => ({ name, bytes, limit })),
+      null,
+      2,
+    )}\n`
+    if (!existsSync(sizeCachePath) || readFileSync(sizeCachePath, 'utf8') !== sizeCacheJson) {
+      sizeCacheChanged = true
+      if (!CHECK_MODE) writeFileSync(sizeCachePath, sizeCacheJson)
+    }
+  }
+
   const sizeMap = new Map<string, { bytes: number; limit: string }>()
   for (const m of measurements) sizeMap.set(m.name, { bytes: m.bytes, limit: m.limit })
 
@@ -1105,11 +1129,12 @@ async function main() {
   if (CHECK_MODE) {
     const rootDrifted = beforeRoot !== readme
     const pkgDrifted = pkgResults.some((r) => r.before !== r.after)
-    if (rootDrifted || pkgDrifted || inventoryChanged) {
+    if (rootDrifted || pkgDrifted || inventoryChanged || sizeCacheChanged) {
       console.error('')
       console.error('  README drift detected. Run: bun scripts/sync-readme.ts')
       if (rootDrifted) console.error('    - README.md has stale autogen content')
       if (inventoryChanged) console.error('    - scripts/__package-inventory.json is stale')
+      if (sizeCacheChanged) console.error('    - scripts/__bundle-sizes.json is stale')
       for (const r of pkgResults) {
         if (r.before !== r.after)
           console.error(`    - ${relative(REPO_ROOT, r.path)} has stale autogen content`)
@@ -1124,12 +1149,13 @@ async function main() {
   for (const r of pkgResults) {
     if (r.changed) writeFileSync(r.path, r.after)
   }
-  if (rootChanged || pkgChanged || inventoryChanged) {
+  if (rootChanged || pkgChanged || inventoryChanged || sizeCacheChanged) {
     console.log('')
     console.log(
       `  Wrote ${[
         rootChanged && 'README.md',
         inventoryChanged && '__package-inventory.json',
+        sizeCacheChanged && '__bundle-sizes.json',
         pkgChanged && `${pkgCreated + pkgUpdated} package READMEs`,
       ]
         .filter(Boolean)

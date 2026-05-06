@@ -230,7 +230,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/app`](./packages/app) | `0.1.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
-| [`@aihu/cli`](./packages/cli) | `0.2.2` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `0.3.0` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.1.2` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
@@ -239,7 +239,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/runtime`](./packages/runtime) | `0.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/server`](./packages/server) | `0.1.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
-| [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `0.2.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
+| [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `1.0.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
@@ -401,6 +401,7 @@ Run all compliance checks: `bun run test && bun run test:quality`
 - [`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`](./docs/superpowers/specs/2026-05-02-spec-plugin-contract.md) — Plugin Contract — `@aihu/compiler` _(Ratified 2026-05-02)_
 - [`docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](./docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md) — Template Attribute Syntax — `@aihu/compiler` _(Ratified 2026-05-02)_
 - [`docs/superpowers/specs/2026-05-05-spec-live-binding.md`](./docs/superpowers/specs/2026-05-05-spec-live-binding.md) — Live-Binding Architecture — `@aihu/arbor` + `@aihu/agent-service` _(APPROVED per Directive 3)_
+- [`docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md`](./docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md) — Macro Vocabulary v2 — Object-literal Collection-Form _(RATIFIED 2026-05-05)_
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

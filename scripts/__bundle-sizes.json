@@ -1,0 +1,57 @@
+[
+  {
+    "name": "@aihu/context",
+    "bytes": 248,
+    "limit": "300 B"
+  },
+  {
+    "name": "@aihu/signals",
+    "bytes": 1709,
+    "limit": "1970 B"
+  },
+  {
+    "name": "@aihu/arbor",
+    "bytes": 2102,
+    "limit": "2200 B"
+  },
+  {
+    "name": "@aihu/runtime",
+    "bytes": 2066,
+    "limit": "2100 B"
+  },
+  {
+    "name": "@aihu/agent",
+    "bytes": 142,
+    "limit": "200 B"
+  },
+  {
+    "name": "@aihu/data",
+    "bytes": 774,
+    "limit": "800 B"
+  },
+  {
+    "name": "@aihu/router",
+    "bytes": 2067,
+    "limit": "2400 B"
+  },
+  {
+    "name": "@aihu/agent-service",
+    "bytes": 579,
+    "limit": "600 B"
+  },
+  {
+    "name": "@aihu/agent-acp",
+    "bytes": 591,
+    "limit": "600 B"
+  },
+  {
+    "name": "@aihu/agent-a2a",
+    "bytes": 721,
+    "limit": "750 B"
+  },
+  {
+    "name": "@aihu/app",
+    "bytes": 737,
+    "limit": "800 B"
+  }
+]

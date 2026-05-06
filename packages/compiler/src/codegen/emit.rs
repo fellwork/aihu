@@ -303,7 +303,7 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
 fn process_state_body(
     raw_script: &str,
     signal_map: &mut SignalMap,
-) -> (StateImports, Vec<crate::types::StateMacro>, String) {
+) -> (StateImports, Vec<crate::types::StateMacro>, String, Vec<String>) {
     use crate::parser::state_macros::parse_state_macros;
     use crate::types::StateMacro;
 
@@ -358,27 +358,40 @@ fn process_state_body(
     }
 
     let mut plain_lines: Vec<String> = Vec::new();
+    let mut user_imports: Vec<String> = Vec::new();
     let mut i = 0usize;
     let mut in_import = false;
+    let mut current_import: Vec<String> = Vec::new();
     let bytes = raw_script.as_bytes();
     while i < bytes.len() {
         let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
         let line_raw = &raw_script[i..nl];
         let line = line_raw.trim();
 
-        // Skip import lines (handled by extract_script_body)
-        // Use the same multiline state machine as extract_script_body.
+        // Collect import lines from @state and lift them to module scope.
         if line.starts_with("import ") || line.starts_with("import\t") {
+            // Skip type-only imports — they are erased at runtime.
+            if line.starts_with("import type ") || line.starts_with("import type\t") {
+                i = nl + 1;
+                continue;
+            }
             let opens_block = line.contains('{') && !line.contains('}');
+            current_import.push(line_raw.to_string());
             if opens_block {
                 in_import = true;
+            } else {
+                user_imports.push(current_import.join("\n"));
+                current_import.clear();
             }
             i = nl + 1;
             continue;
         }
         if in_import {
+            current_import.push(line_raw.to_string());
             if line.contains(" from ") || line.ends_with(';') {
                 in_import = false;
+                user_imports.push(current_import.join("\n"));
+                current_import.clear();
             }
             i = nl + 1;
             continue;
@@ -547,7 +560,7 @@ fn process_state_body(
             .join("\n")
     };
 
-    (si, macros, plain_body)
+    (si, macros, plain_body, user_imports)
 }
 
 /// Transform a bare TypeScript class-property declaration to a `const` declaration.
@@ -769,7 +782,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
 
     // Process state macros first (updates signal_map with computed names)
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
-    let (si, macros, plain_body) = process_state_body(raw_script, &mut signal_map);
+    let (si, macros, plain_body, user_imports) = process_state_body(raw_script, &mut signal_map);
 
     // arch-5 M1: scan action bodies for $announce(...) so we can request
     // the runtime import alias and rewrite call sites in emit_state_macro_code.
@@ -836,10 +849,16 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         b
     };
 
+    let user_imports_block = if user_imports.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", user_imports.join("\n"))
+    };
+
     format!(
-        "{}\n\n{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
+        "{}\n{}\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
 ",
-        imports, module_decl, helpers_decl, tag_name, ctx_param, body
+        imports, user_imports_block, module_decl, helpers_decl, "", tag_name, ctx_param, body
     )
 }
 

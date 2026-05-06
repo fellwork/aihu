@@ -11,64 +11,155 @@
 
 @template {
   <div class="live-demo">
-    <p class="demo-label">Interactive counter — powered by @aihu/signals</p>
-    <div class="demo-controls">
-      <button class="btn-dec" $on:click={decrement}>−</button>
-      <span class="demo-value">{{ count }}</span>
-      <button class="btn-inc" $on:click={increment}>+</button>
+    <div class="demo-header">
+      <div class="demo-label-group">
+        <span class="demo-badge">Live Demo</span>
+        <p class="demo-title">Reactive counter</p>
+        <p class="demo-description">Click +/− to update a signal. No virtual DOM — only the value re-renders.</p>
+      </div>
     </div>
-    <button class="btn-reset" $on:click={reset}>reset</button>
-    <p class="demo-hint">Each click updates a signal — no virtual DOM diff.</p>
+    <div class="demo-output">
+      <div class="demo-controls">
+        <button class="btn-dec" $on:click={decrement} aria-label="Decrement">−</button>
+        <span class="demo-value">{{ count }}</span>
+        <button class="btn-inc" $on:click={increment} aria-label="Increment">+</button>
+      </div>
+      <button class="btn-reset" $on:click={reset}>reset</button>
+      <p class="demo-hint">Each click updates a signal — no virtual DOM diff.</p>
+    </div>
   </div>
 }
 
 @style {
 .live-demo {
-  background: var(--code-bg);
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 20px 24px;
-  margin: 24px 0;
-  text-align: center;
+  border-radius: 12px;
+  margin: 2rem 0;
+  overflow: hidden;
 }
-.demo-label {
-  margin: 0 0 16px;
-  font-size: .875rem;
+
+.demo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--btn-bg);
+}
+
+.demo-label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(200, 84, 58, 0.08);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 84, 58, 0.2);
+  width: fit-content;
+  margin-bottom: 0.25rem;
+}
+
+.demo-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+
+.demo-description {
+  font-size: 0.875rem;
   color: var(--muted);
-  font-family: monospace;
+  margin: 0.25rem 0 0;
+  line-height: 1.5;
 }
+
+.demo-output {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: var(--code-bg);
+}
+
 .demo-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
 }
+
 .demo-value {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
   min-width: 3ch;
   display: inline-block;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  line-height: 1;
 }
-button {
+
+.btn-dec,
+.btn-inc {
   background: var(--btn-bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--fg);
   cursor: pointer;
   font-size: 1.25rem;
-  padding: 6px 16px;
+  font-weight: 500;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s ease, border-color 0.1s ease;
+  font-family: inherit;
 }
-button:hover { background: var(--hover-bg); }
+
+.btn-dec:hover,
+.btn-inc:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .btn-reset {
-  font-size: .875rem;
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   padding: 4px 12px;
-  color: var(--muted);
+  transition: background 0.1s ease, color 0.1s ease;
+  margin-bottom: 0.75rem;
 }
+
+.btn-reset:hover {
+  background: var(--hover-bg);
+  color: var(--fg);
+}
+
 .demo-hint {
-  margin: 12px 0 0;
-  font-size: .75rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
   color: var(--muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 }
