@@ -2,7 +2,7 @@
 
 **Track:** `cli-templates` · **Mode:** 2 (build/refactor, L-scope)
 **Opened:** 2026-05-05 · **Director round:** 001
-**Active milestone:** v0.2.0 (single end-to-end happy path)
+**Active milestone:** v0.2.0 — READY TO TAG (Synthesizer r-005 closure complete; Historian docket pending; tag push gates on Team Lead orchestration) · v0.2.0 → READY TO TAG
 
 ---
 
@@ -56,15 +56,14 @@ disabled. Vanilla `@style` works under both.
 
 | Choice | Status | Notes |
 |---|---|---|
-| **None** (default) | shipped | `<$guard>` UI boundary already ships (arch-5 §2.4); fallback renders correctly with no plugin. Zero-friction default. |
-| `@aihu/auth` | M2 (gated on RFC #56 RATIFY) | Per arch-3 §2.4 — STRONGEST FIT. JWT, `$user`, `<$guard>` enforcement, `<$signin>`/`<$signout>`. Dep-free except for jose at app level. |
-| Clerk (third-party adapter) | deferred v0.3 | Document + scaffold env vars; user wires SDK. |
-| Lucia (third-party adapter) | deferred v0.3 | Server-side session lib. |
-| better-auth (third-party adapter) | deferred v0.3 | Newer entrant; track adoption. |
+| **better-auth** (default) | shipped v0.2.0 | Type-first, edge-portable. Per arch-6 §13 Q3 RESOLVED — one of the 3 third-party providers offered as runtime prompt in `cf-team` template. Open-source, active dev. shipped via cf-team. |
+| Kinde | shipped v0.2.0 | Hosted, multi-tenant, B2B-friendly. Same prompt list. shipped via cf-team. |
+| Supabase Auth | shipped v0.2.0 | Combines naturally with Supabase data + storage if user picks Supabase later. Same prompt list. shipped via cf-team. |
+| `@aihu/auth` | held (gated on RFC #56 RATIFY) | Per arch-3 §2.4 — STRONGEST FIT. JWT, `$user`, `<$guard>` enforcement. Joins the auth prompt list once RFC #56 ratifies. Not in v0.2.0. |
+| Clerk | deferred v0.3+ | Vendor-lock; cost surface; not edge-portable across all providers. |
+| Lucia | deferred v0.3+ | Established (since 2022); maintenance-mode signal in late 2025. |
 
-**Compatibility:** `@aihu/auth` requires live-binding RATIFY. Until then,
-"None" is the only option that works without stub-glue. Defer `@aihu/auth`
-out of v0.2.0 if RFC #56 hasn't ratified by the Architect's read.
+**Compatibility:** All 3 v0.2.0 providers are edge-portable. `cf-team` template scaffolds with the chosen provider's client + env vars; only the chosen provider's `auth/<provider>.ts` and `.env.example.<provider>` files land per arch-6 §13 Q3. v0.2.0 ships better-auth as the default for team templates per arch-6 §13 Q3 RESOLVED; `@aihu/auth` re-evaluates for v0.2.1 if RFC #56 ratifies.
 
 ### D3 · Data/schemas
 
@@ -315,7 +314,7 @@ after scaffold" is a hard contract.
 | R-CT-04 | Generator template drift over time — once shipped, every prompt-flow change requires a major bump | HIGH | **Version templates separately from `@aihu/cli`**. Recommend `@aihu/templates-*` family OR a `templates/` subpackage with its own SemVer. CLI declares a templates *range*; templates can ship patch fixes without `@aihu/cli` rebuild. The "ejectable" question (do users vendor their own templates?) deferred to v0.3 — for v0.2.0, templates live in-tree. |
 | R-CT-05 | A2A / ACP protocol churn — Anthropic/Cursor/spec authors revise frequently | MEDIUM | v0.2.0 ships **MCP only** (Aihu has had MCP support since v1; spec is `2025-06-18` pinned). A2A + ACP enter D9's "Full" choice in M3 only after Aihu's `@aihu/agent-a2a` + `@aihu/agent-acp` packages stabilize. |
 | R-CT-06 | Existing `aihu app <name>` scaffold (in `packages/cli/src/index.ts`) vs new template-driven scaffold — interaction unclear | HIGH | **Backward-compat contract:** the existing `aihu app` keeps working with no flags (current default = "minimal" template). The new prompt flow only fires if invoked as `bunx create-aihu` OR `aihu app --interactive`. `aihu app foo` (no flags) emits today's output unchanged. The Architect must test this on its own fixture in CI. |
-| R-CT-07 | npm publish discipline — when does the CLI template metadata bump? | MEDIUM | Decision needed (surface to user — see §7): publish templates as `@aihu/cli` minor bumps (simpler, single tag) OR as a separate `@aihu/templates-*` package family (more flexible, independent versioning). Director recommends bundled-in-CLI for v0.2.0 to ship faster; split if a v0.2.x has > 3 template-only patch releases. |
+| R-CT-07 | Template family publish strategy — coordinating per-template releases vs bundling in CLI | RESOLVED v0.2.0 | RESOLVED 2026-05-05 (arch-6 §13 Q2): separate `@aihu/templates-*` family locked from day one. `@aihu/cli` declares a templates contractVersion range (B1.1 `template-manifest.ts` `cliRange`); template packages publish on independent SemVer. release.yml handles via the existing `bun changeset publish` job — no new pipeline needed. v0.2.0 ships first 2 packages: `@aihu/cli@0.2.0` + `@aihu/templates-cf-team@0.2.0`. Five M1 packages planned: `@aihu/templates-cf-team` (shipped v0.2.0), `-vercel-team`, `-fly-team`, `-cf-solo`, `-cf-full-agent` (deferred to B2 / v0.2.1). |
 | R-CT-08 | Brand fit — making sure the agent surface choice doesn't feel like opt-in spam | LOW | D9 default = "Minimal" (silent `.mcp.json` emission, single `@expose` line in the example component). The user only sees a prompt "Agent surface: Minimal / Full / None" with one-sentence descriptions. Not aggressive. |
 
 ---
@@ -460,3 +459,21 @@ B1.1's one-pass close.
 content (no scaffold-and-compile harness, no changesets, no further
 edits to the pipeline contract). Refined brief in
 `.team/director-notes/cli-templates-003.md`.
+
+---
+
+## Round 005 closure summary — v0.2.0 milestone (2026-05-05)
+
+All 3 sub-rounds closed clean per arch-6 §10's projection:
+
+| Round | Verifier | Verdict | Key shipped |
+|---|---|---|---|
+| B1.1 (pipeline machinery) | [PASS](.team/verifier-reports/cli-templates-b1.1.md) | clean — 138 tests, no creep | `template-manifest.ts`, `conditional-eval.ts`, `templates-registry.ts`, `prompts.ts`, `scaffold-pipeline.ts`, `bin.ts` (--template flag) |
+| B1.2 (cf-team package) | [PARTIAL→fixed](.team/verifier-reports/cli-templates-b1.2.md) | F-1 + F-6 patched in B1.2.1 | `@aihu/templates-cf-team@0.2.0` package + 22-file `template/` tree with 9 conditional files (3 auth providers × {auth client, env example} + .mcp.json + expose.aihu + live-counter) |
+| B1.3 (smoke + changeset + spec reconcile) | [PASS](.team/verifier-reports/cli-templates-b1.3.md) | clean — behavioral E2E across 3 auth providers green | `bin.ts` real pipeline dispatch (replaces B1.1 stub), `scaffold-and-compile.test.ts`, `legacy-snapshot.test.ts` + 6-file golden, v0.2.0 changeset, README addendum, plan-a.yml CI extension, arch-6 §2.3 + §2.6 + manifest reconciliation |
+
+**Iteration counter:** **5 of 5** in arch-6 §10's projection. At hard-stop boundary; milestone done — banked budget exits the track.
+
+**PR trail:** #75 (README) → #76 (Director r-001) → #77 (arch-6) → #78 (Director r-002 stall recovery) → #79 (B1.1) → #80 (Verifier B1.1) → #81 (Director r-003) → #82 (Synthesizer r-003) → #83 (B1.2 patches F-1+F-6) → #84 (Verifier B1.2) → #85 (Director r-004) → #86 (B1.3) → #87 (Verifier B1.3) → #88 (Director r-005) → this PR.
+
+This is the **Round 005 update** — v0.2.0 milestone closure record.
