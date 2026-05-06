@@ -177,7 +177,15 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   }
 
   return [
-    aihuCompilerPlugin() as unknown as Plugin,
+    // SPA mode: route components are top-level mounts that frequently use
+    // lifecycle hooks (onMount/onCleanup) and rely on the runtime/signals
+    // owner context regardless of whether they call signal() directly. The
+    // static-island optimization is unsafe to apply silently here — it strips
+    // defineComponent and breaks `no owner` for any module touching lifecycle.
+    // It also saves ~0 B in practice because the runtime already ships in the
+    // main bundle. Default islands off; opt back in via the compiler plugin
+    // directly if you genuinely have an MPA-style mixed-island layout.
+    aihuCompilerPlugin({ islands: false }) as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,
     agentPlugin,
     ...((config?.plugins ?? []) as Plugin[]),

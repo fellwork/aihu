@@ -87,22 +87,30 @@ export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'
  * **interactive** island (uses the signals reactivity system).
  *
  * The heuristic is intentionally conservative: any source-level reference
- * to `signal(`, `computed(`, `effect(`, or `setSignal(` flips the file to
- * `'interactive'`. False positives (e.g. a string literal containing
- * `signal(`) are tolerable — they only forfeit the static-island
+ * to a primitive that requires the `defineComponent` owner context flips
+ * the file to `'interactive'`. False positives (e.g. a string literal
+ * containing `signal(`) are tolerable — they only forfeit the static-island
  * optimisation. False negatives are forbidden: a static-classified file
  * MUST NOT depend on the signals runtime at execution time.
+ *
+ * Owner-requiring primitives covered:
+ *   - `signal(`, `computed(`, `effect(`, `setSignal(` (signals runtime)
+ *   - `onMount(`, `onCleanup(` (lifecycle hooks — throw `no owner` outside
+ *     `defineComponent` because they push into the active owner's mount/
+ *     cleanup queues)
  *
  * Plan 3.3 / acceptance criterion 1.
  *
  * @internal
  */
 export function _classifyIsland(compiledCode: string): 'static' | 'interactive' {
-  // Match call sites of the four reactive primitives. Use word-boundary
+  // Match call sites of the reactive + lifecycle primitives. Use word-boundary
   // anchors so identifiers like `mySignal(` or `__effect(` do not trip the
   // heuristic. The `(` is required so that bare imports of the names in an
   // unused `import { signal }` line do not flip an otherwise-static module.
-  return /\b(?:signal|computed|effect|setSignal)\s*\(/.test(compiledCode) ? 'interactive' : 'static'
+  return /\b(?:signal|computed|effect|setSignal|onMount|onCleanup)\s*\(/.test(compiledCode)
+    ? 'interactive'
+    : 'static'
 }
 
 /**

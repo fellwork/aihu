@@ -247,7 +247,10 @@ fn slot_named_codegen() {
 // ─── A-4b: multiline import state machine ─────────────────────────────────
 
 #[test]
-fn multiline_import_stripped() {
+fn multiline_import_lifted_to_module_scope() {
+    // Multiline user imports inside @state / <script setup> are lifted to
+    // module scope (alongside the auto-emitted framework imports), not stripped
+    // and not leaked into the setup function body.
     let source = r#"<script setup lang="ts" name="x-test">
 import {
   computed
@@ -265,15 +268,23 @@ const fee = computed(() => 5)
         result.js.contains("const fee = computed"),
         "body should contain fee"
     );
-    // The multiline import continuation `} from '@aihu/signals'` must NOT appear
-    // inside the component setup function body. The auto-generated imports at the top
-    // of the file may contain `} from '@aihu/signals'` as part of single-line import
-    // statements (which is correct), but the raw multiline import lines must not leak
-    // into the setup body. Check that the setup body doesn't have `  computed` (the
-    // indented identifier that was a continuation of the import block).
+    // The multiline user import must be lifted intact to module scope.
+    // The lifted block lives BEFORE the defineElement call.
+    let define_idx = result.js.find("defineElement(").expect("defineElement emitted");
+    let module_scope = &result.js[..define_idx];
     assert!(
-        !result.js.contains("  computed\n"),
-        "multiline import continuation line should be stripped from script body"
+        module_scope.contains("import {")
+            && module_scope.contains("computed")
+            && module_scope.contains("from '@aihu/signals'"),
+        "multiline user import should be lifted to module scope above defineElement"
+    );
+    // Setup body must not contain the raw `const fee = computed` followed by
+    // a stray import continuation. Locate the setup function and confirm.
+    let setup_idx = result.js.find("(_ctx) =>").expect("setup arrow emitted");
+    let setup_body = &result.js[setup_idx..];
+    assert!(
+        !setup_body.contains("} from '@aihu/signals'"),
+        "import continuation `}} from '@aihu/signals'` must not leak into setup body"
     );
 }
 

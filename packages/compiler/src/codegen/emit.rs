@@ -849,17 +849,145 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         b
     };
 
-    let user_imports_block = if user_imports.is_empty() {
-        String::new()
-    } else {
-        format!("{}\n", user_imports.join("\n"))
-    };
+    // Merge user-lifted imports into the framework imports block, deduping
+    // against framework-emitted bindings from the same source. ES modules forbid
+    // re-binding an identifier (`import { signal } from 'x'` twice is a
+    // SyntaxError), so we union named-import sets per source.
+    let merged_imports = merge_imports(&imports, &user_imports);
 
     format!(
-        "{}\n{}\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
+        "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
 ",
-        imports, user_imports_block, module_decl, helpers_decl, "", tag_name, ctx_param, body
+        merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
     )
+}
+
+/// Parsed shape of a single ES-module import statement, used by `merge_imports`
+/// to deduplicate named bindings across framework + user imports.
+#[derive(Debug, Clone)]
+struct ParsedImport {
+    /// `import type { ... }` — kept separate from value imports because TS allows
+    /// a value import and a type import from the same source to coexist.
+    type_only: bool,
+    source: String,
+    /// Named-import specifiers as authored (e.g., `signal`, `announce as __a`).
+    names: Vec<String>,
+    /// Verbatim original line for non-named-import shapes (default, namespace,
+    /// side-effect, or anything we don't fully parse). When set, `names` is
+    /// ignored and the original line is emitted as-is.
+    raw_passthrough: Option<String>,
+}
+
+/// Parse a single import statement. Returns `None` for non-import lines (blank,
+/// comment) which the caller should drop. Unknown shapes are returned with
+/// `raw_passthrough` so we never silently corrupt imports we don't understand.
+fn parse_import_line(line: &str) -> Option<ParsedImport> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || !trimmed.starts_with("import") {
+        return None;
+    }
+    // Find the `from 'source'` clause (single or double quotes).
+    let (rest, source) = {
+        let from_idx = trimmed.rfind(" from ")?;
+        let after_from = trimmed[from_idx + 6..].trim().trim_end_matches(';').trim();
+        let s = after_from
+            .strip_prefix('\'')
+            .and_then(|s| s.strip_suffix('\''))
+            .or_else(|| after_from.strip_prefix('"').and_then(|s| s.strip_suffix('"')))?;
+        (trimmed[..from_idx].trim(), s.to_string())
+    };
+    let (head, type_only) = if let Some(h) = rest.strip_prefix("import type ") {
+        (h.trim(), true)
+    } else if let Some(h) = rest.strip_prefix("import ") {
+        (h.trim(), false)
+    } else {
+        return Some(ParsedImport {
+            type_only: false,
+            source,
+            names: Vec::new(),
+            raw_passthrough: Some(line.to_string()),
+        });
+    };
+    if let Some(inner) = head.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
+        let names: Vec<String> = inner
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        return Some(ParsedImport { type_only, source, names, raw_passthrough: None });
+    }
+    Some(ParsedImport {
+        type_only,
+        source,
+        names: Vec::new(),
+        raw_passthrough: Some(line.to_string()),
+    })
+}
+
+/// Merge framework-emitted imports with user-lifted imports, deduping named
+/// bindings per (source, type_only) bucket. Preserves original framework
+/// ordering; user imports for unseen sources are appended after framework ones.
+fn merge_imports(framework: &str, user: &[String]) -> String {
+    // Parse framework imports line-by-line, preserving ordering.
+    let mut buckets: Vec<ParsedImport> = Vec::new();
+    let mut bucket_idx: std::collections::HashMap<(String, bool), usize> =
+        std::collections::HashMap::new();
+
+    let push = |imp: ParsedImport,
+                    buckets: &mut Vec<ParsedImport>,
+                    bucket_idx: &mut std::collections::HashMap<(String, bool), usize>| {
+        if imp.raw_passthrough.is_some() || imp.names.is_empty() {
+            buckets.push(imp);
+            return;
+        }
+        let key = (imp.source.clone(), imp.type_only);
+        if let Some(&i) = bucket_idx.get(&key) {
+            for n in &imp.names {
+                if !buckets[i].names.iter().any(|x| x == n) {
+                    buckets[i].names.push(n.clone());
+                }
+            }
+        } else {
+            bucket_idx.insert(key, buckets.len());
+            buckets.push(imp);
+        }
+    };
+
+    for line in framework.lines() {
+        if let Some(imp) = parse_import_line(line) {
+            push(imp, &mut buckets, &mut bucket_idx);
+        }
+    }
+
+    // User imports may span multiple lines per statement (already joined by
+    // process_state_body with `\n`). Collapse multi-line statements onto a
+    // single line before parsing so the regex-y parser above sees them whole.
+    for user_stmt in user {
+        let collapsed: String = user_stmt
+            .split('\n')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if let Some(imp) = parse_import_line(&collapsed) {
+            push(imp, &mut buckets, &mut bucket_idx);
+        }
+    }
+
+    // Re-emit.
+    let mut out: Vec<String> = Vec::new();
+    for b in buckets {
+        if let Some(raw) = b.raw_passthrough {
+            out.push(raw);
+        } else if b.names.is_empty() {
+            // No-op import (shouldn't occur via the framework), skip.
+            continue;
+        } else {
+            let kw = if b.type_only { "import type" } else { "import" };
+            out.push(format!("{} {{ {} }} from '{}'", kw, b.names.join(", "), b.source));
+        }
+    }
+    out.join("\n")
 }
 
 fn build_function_imports(
