@@ -2,7 +2,7 @@
 
 **Track:** `cli-templates` · **Mode:** 2 (build/refactor, L-scope)
 **Opened:** 2026-05-05 · **Director round:** 001
-**Active milestone:** v0.2.0 — READY TO TAG (Synthesizer r-005 closure complete; Historian docket pending; tag push gates on Team Lead orchestration) · v0.2.0 → READY TO TAG
+**Active milestone:** v0.2.0 — RETRO LANDED (Historian docket complete; Team Lead orchestrates tag push)
 
 ---
 
@@ -477,3 +477,90 @@ All 3 sub-rounds closed clean per arch-6 §10's projection:
 **PR trail:** #75 (README) → #76 (Director r-001) → #77 (arch-6) → #78 (Director r-002 stall recovery) → #79 (B1.1) → #80 (Verifier B1.1) → #81 (Director r-003) → #82 (Synthesizer r-003) → #83 (B1.2 patches F-1+F-6) → #84 (Verifier B1.2) → #85 (Director r-004) → #86 (B1.3) → #87 (Verifier B1.3) → #88 (Director r-005) → this PR.
 
 This is the **Round 005 update** — v0.2.0 milestone closure record.
+
+---
+
+## v0.2.1 docket — followups from v0.2.0 milestone
+
+Opened by Historian 2026-05-05 alongside `.team/retros/cli-templates-v0.2.0-retro.md`.
+This is a **queue, not a plan** — Director r-006 (when v0.2.1 opens) authors the
+substance of the next round. Items below are sourced from B1.2/B1.3 Verifier
+reports, arch-6 §10 round map, Synthesizer surfaces, repo-wide hygiene, and the
+HOLD set.
+
+### From Verifier (B1.2 + B1.3)
+
+- [ ] **F-3b — conditional-deps render pass.** Filter `apps/web/package.json.tmpl`
+      emitted deps by `appPeerDepsConditional` `when` rules so only the chosen
+      auth provider's deps land (currently all 3 ship unconditionally — ~15MB
+      extra `node_modules`; UX nit, not correctness).
+- [ ] **F-5b — `conditionalFiles` `rename` field.** Drop the `.<provider>` suffix
+      on emit so `.env.example.better-auth` lands as `.env.example`. Subsume
+      `.tmpl`-stripping logic into one unified rename pipeline pass.
+- [ ] **Wire `AIHU_SCAFFOLD_COMPILE` auto-running** once `@aihu/* ^0.2.0` are on
+      npm. (F-1 disposition: pre-publish manual gate today; self-running tomorrow.)
+
+### From arch-6 §10
+
+- [ ] **Round B2 — broaden curated-5.** Four more templates: `vercel-team`,
+      `fly-team`, `cf-solo`, `cf-full-agent`. Each gets the same shape as
+      cf-team (template package + manifest + template tree).
+- [ ] **Round B3 — README autogen tier=template + Windows path edge cases.**
+      Wire `sync-readme.ts` to recognize `tier: 'template'` so template
+      packages get autogen README treatment.
+- [ ] **R-CT-09 / §13 Q1 — Fly adapter resolution.** Block `fly-team` start
+      until Fly adapter package OR pure-server pattern is resolved.
+
+### Repo housekeeping
+
+- [ ] **`biome.json` `includes` plural warning** — single-key fix.
+- [ ] **`biome check:ci` red on main (~30 errors, pre-existing)** — cleanup
+      pass.
+- [ ] **scribe → aihu test snapshot remnants** in compiler tests
+      (fellwork-rename leftover).
+- [ ] **`vscode-aihu` versioning alignment** — `1.0.0` (vscode-aihu) vs
+      `0.1.0` (rest of `@aihu/*`).
+- [ ] **`cross` pin restore for aarch64-linux build** — user-flagged.
+- [ ] **Pre-commit hook should skip when only template files change** —
+      avoids the 24-26 README churn on cli-templates-only PRs (F-3 from
+      B1.3 verifier).
+- [ ] **`biome.json` schema migrate** — F-2 from B1.3 (info-only diagnostic;
+      `2.4.13` installed, `2.4.14` declared).
+- [ ] **Verifier worktrees fork-off-main rule.** Verifier-report PRs should
+      be scoped to just the report — not piggyback the Builder branch's
+      whole deliverable (PR #84 sneaky-merged the full B1.2 deliverable).
+
+### Held / blocked
+
+- [ ] **Live-binding RFC #56 implementation** (security review of arch-3 §9
+      required first; gates `@aihu/auth` joining the auth prompt list — D2
+      dimension in this state file).
+- [ ] **`<playground-embed>` validation** (post v0.2.0 publish; gates on
+      peer deps available on npm).
+
+### User actions
+
+- [ ] Run `scripts/setup-branch-protection.sh` once.
+
+---
+
+## Historian closure note — 2026-05-05
+
+The 5 earned learnings (CLI ↔ template contract pattern, parallel-builders-on-
+disjoint-subtree-branches recipe, byte-frozen-legacy-snapshot pattern,
+scope-too-big-stall → r-002 re-cut playbook, verify-before-claim anti-pattern)
+were written to `AGENTS.delta.db` with `kind=earned-learning` and
+`promotion-target:user` markers via `mcp__agentsdb__agents_context_write`
+(MCP context_ids: 3328769317, 196932221, 2160836637, 1098974815, 4095396807).
+
+**Note on promotion mechanics:** the brief specified `agents_context_write
+layer=user`, but the deployed MCP API only accepts `scope: local | delta`.
+Cross-layer promotion in this repo's tooling happens via the `agentsdb promote
+--from AGENTS.delta.db --to AGENTS.user.db --ids ...` CLI, executed against
+the on-disk delta after the MCP server flushes (typically on shutdown). The
+brief explicitly forbade `agents_context_propose`, so the chunks sit in delta
+with explicit promotion-target markers; the formal `delta → user` write
+happens at Team Lead's tag-push step, when the MCP server has settled.
+
+Retro lives at `.team/retros/cli-templates-v0.2.0-retro.md`.
+
