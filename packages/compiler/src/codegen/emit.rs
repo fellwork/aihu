@@ -161,6 +161,9 @@ struct NeededHelpers {
     warp_boundary: bool,
     /// True when $html or $show directives are used (they emit `effect()` calls).
     needs_effect: bool,
+    /// True when $html or $show are used on child elements — they need `onMount`
+    /// to access `node.el` after the arbor runtime mounts the descriptor.
+    needs_on_mount_for_directives: bool,
     // ── arch-5 M1 a11y (RFC-A5-017..021) ─────────────────────────────────────
     /// True when `<$focusTrap>` appears in the template — needs `createFocusTrap` from runtime.
     a11y_focus_trap: bool,
@@ -226,8 +229,13 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                             "once" => h.once_boundary = true,
                             "memo" => h.memo_boundary = true,
                             "each" => h.each_boundary = true,
-                            // $html and $show emit `effect()` calls — ensure effect is imported.
-                            "html" | "show" => h.needs_effect = true,
+                            // $html and $show emit effect() calls — ensure effect is imported.
+                            // They also need onMount to access node.el after arbor mounts
+                            // the branch descriptor.
+                            "html" | "show" => {
+                                h.needs_effect = true;
+                                h.needs_on_mount_for_directives = true;
+                            }
                             _ => {}
                         }
                     }
@@ -894,7 +902,7 @@ fn build_function_imports(
     let needs_on_mount_for_router =
         helpers.router_element || helpers.link_element || helpers.outlet_element || helpers.navigate_element;
     let needs_on_cleanup_for_router = helpers.router_element || helpers.outlet_element;
-    if si.needs_on_mount || needs_on_mount_for_router { rt_items.push("onMount".to_string()); }
+    if si.needs_on_mount || needs_on_mount_for_router || helpers.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup || needs_on_cleanup_for_router { rt_items.push("onCleanup".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
@@ -991,7 +999,7 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
 
     let mut rt_items: Vec<String> =
         vec!["defineComponent".to_string(), "defineElement".to_string()];
-    if si.needs_on_mount { rt_items.push("onMount".to_string()); }
+    if si.needs_on_mount || helpers_needed.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..020 in options form (`@agent` SFCs).
     if helpers_needed.a11y_focus_trap {
@@ -1860,7 +1868,7 @@ fn macro_value_expr(value: &MacroValue) -> String {
 
 /// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)
 /// attached to an element identified by `el_var`.
-fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
+fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
     let mut effects: Vec<String> = Vec::new();
 
     let mut has_each = false;
@@ -1883,9 +1891,12 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str,
             }
             "show" => {
                 let expr = macro_value_expr(value);
+                // branch() returns a descriptor; .el is set after arbor mounts it.
+                // Wrap in an IIFE: capture the node, wire the effect inside onMount,
+                // return the node so the parent children array receives the element.
                 effects.push(format!(
-                    "{}effect(() => {{ {}.style.setProperty('--show', ({}) ? '1' : '0') }})",
-                    indent, el_var, expr
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.style.setProperty('--show', ({}) ? '1' : '0') }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    indent, subtree, expr
                 ));
             }
             "each" => {
@@ -1913,10 +1924,13 @@ fn emit_macro_effects(attrs: &[Attr], el_var: &str, subtree: &str, indent: &str,
             }
             "html" => {
                 let expr = macro_value_expr(value);
-                // $html is unsafe — consumer must sanitize; see spec
+                // branch() returns a descriptor; .el is populated after arbor mounts it.
+                // IIFE: capture node, wire reactive effect inside onMount, return node
+                // so the parent children array receives the element (not a bare effect).
+                // replaceChildren + createContextualFragment parses trusted build-time HTML.
                 effects.push(format!(
-                    "{}// WARNING: $html is unsafe; sanitize consumer-side\n{}effect(() => {{ {}.innerHTML = {} }})",
-                    indent, indent, el_var, expr
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    indent, subtree, expr
                 ));
             }
             "once" => {

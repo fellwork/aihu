@@ -145,6 +145,38 @@ fn macro_show_emits_effect_with_css_var() {
     let result = emit(&unit, "my-comp");
     assert!(result.js.contains("--show"), "Expected --show in: {}", result.js);
     assert!(result.js.contains("effect("), "Expected effect( in: {}", result.js);
+    // The IIFE must capture the node and use onMount so el is defined after mount.
+    assert!(result.js.contains("onMount("), "Expected onMount( in: {}", result.js);
+    assert!(result.js.contains("_n.el"), "Expected _n.el in: {}", result.js);
+}
+
+#[test]
+fn macro_html_emits_replace_children_inside_on_mount() {
+    let src = r#"
+@state {
+  import { signal } from '@aihu/signals'
+  const [activePage, setActivePage] = signal('home')
+  const activeHtml = () => window.__DOCS__?.[activePage()]?.html ?? ''
+}
+@template {
+  <article $html={activeHtml()}></article>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    // Must emit an IIFE that captures the branch node.
+    assert!(result.js.contains("const _n ="), "Expected const _n = in: {}", result.js);
+    // Must defer to onMount so _n.el is available after arbor mounts the descriptor.
+    assert!(result.js.contains("onMount("), "Expected onMount( in: {}", result.js);
+    assert!(result.js.contains("_n.el"), "Expected _n.el in: {}", result.js);
+    // Must use replaceChildren + createContextualFragment (not a bare innerHTML assign).
+    assert!(result.js.contains("replaceChildren("), "Expected replaceChildren( in: {}", result.js);
+    assert!(result.js.contains("createContextualFragment("), "Expected createContextualFragment( in: {}", result.js);
+    // onMount must be imported.
+    assert!(result.js.contains("onMount"), "Expected onMount import in: {}", result.js);
+    // effect must still be imported (reactive update on signal change).
+    assert!(result.js.contains("effect"), "Expected effect import in: {}", result.js);
 }
 
 #[test]

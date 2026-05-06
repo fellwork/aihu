@@ -2,7 +2,7 @@
 source: tests/sfc_split.rs
 expression: result
 ---
-ScribeSource {
+AihuSource {
     script: Some(
         "const x = 1",
     ),
