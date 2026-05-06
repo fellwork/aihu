@@ -1,5 +1,12 @@
 # @aihu/adapter-vercel
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [[`82954a5`](https://github.com/fellwork/aihu/commit/82954a576a3f558133ee9cdb18df233c3b991972)]:
+  - @aihu/app@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
