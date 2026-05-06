@@ -5,9 +5,21 @@
   // Standalone signals so the example is interactive without a parent.
   // For a parent-driven variant, swap to $prop declarations and remove
   // the $bind:value attributes from <select> / <input>.
-  from:   'USD' | 'EUR' | 'GBP' | 'JPY' = 'USD'
-  to:     'USD' | 'EUR' | 'GBP' | 'JPY' = 'EUR'
-  amount: number = 100
+  $prop: {
+    from: {
+      type: 'USD' | 'EUR' | 'GBP' | 'JPY',
+      default: 'USD',
+      describe: 'Source currency code (USD | EUR | GBP | JPY)',
+      expose: { read: true },
+    },
+    to: {
+      type: 'USD' | 'EUR' | 'GBP' | 'JPY',
+      default: 'EUR',
+      describe: 'Target currency code (USD | EUR | GBP | JPY)',
+      expose: { read: true },
+    },
+    amount: { default: 100, describe: 'Amount in the source currency', expose: { read: true } },
+  }
 
   // USD-relative static rates. converted = amount * (rateOf(to) / rateOf(from)).
   rates: Record<'USD' | 'EUR' | 'GBP' | 'JPY', number> = {
@@ -17,8 +29,14 @@
     JPY: 156.0,
   }
 
-  $computed converted = amount * (rates[to] / rates[from])
-  $computed display   = converted.toFixed(2)
+  $computed: {
+    converted: {
+      describe: 'Equivalent amount in the target currency, computed from the static rate table',
+      expose: { read: true },
+      value: () => amount * (rates[to] / rates[from]),
+    },
+    display: () => converted.toFixed(2),
+  }
 }
 
 @template {
@@ -64,13 +82,4 @@
   input,
   select     { padding: 0.4rem; }
   .result    { font-size: 1.1rem; padding: 0.5rem; background: #f7f7f7; border-radius: 4px; margin: 0; font-variant-numeric: tabular-nums; }
-}
-
-@agent {
-  $expose from, to, amount, converted
-
-  $describe from      "Source currency code (USD | EUR | GBP | JPY)"
-  $describe to        "Target currency code (USD | EUR | GBP | JPY)"
-  $describe amount    "Amount in the source currency"
-  $describe converted "Equivalent amount in the target currency, computed from the static rate table"
 }

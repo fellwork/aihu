@@ -13,31 +13,45 @@
    * Modifier-keyed clicks (Cmd/Ctrl/Shift/Alt) and non-left clicks fall
    * through to the browser so "open in new tab" continues to work.
    */
+  $prop: {
+    href: { type: string },
+  }
 
-  $prop href: string
+  $action: {
+    onClick: (e: MouseEvent): void => {
+      // Honour modifier keys and non-primary clicks
+      if (e.defaultPrevented) return
+      if (e.button !== 0) return
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.preventDefault()
+      void navigate(href, { replace })
+    },
+  }
+
   $prop prefetch?: PrefetchMode = 'none'
+
   $prop replace?: boolean = false
 
   const currentRoute = computed(() => useRoute())
+
   const ariaCurrent = computed(() =>
-    currentRoute() && currentRoute()!.pathname === href ? 'page' : null,
+
+  currentRoute() && currentRoute()!.pathname === href ? 'page' : null,
+
   )
 
-  $action onClick(e: MouseEvent): void {
-    // Honour modifier keys and non-primary clicks
-    if (e.defaultPrevented) return
-    if (e.button !== 0) return
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-    e.preventDefault()
-    void navigate(href, { replace })
-  }
-
   $lifecycle.mount {
-    const a = (ctx.element as HTMLElement).querySelector('a')
-    if (!a) return
-    const pf = createPrefetcher(prefetch ?? 'none')
-    pf.attach(a as HTMLAnchorElement, () => currentRoute())
-    return () => pf.detach(a as HTMLAnchorElement)
+
+  const a = (ctx.element as HTMLElement).querySelector('a')
+
+  if (!a) return
+
+  const pf = createPrefetcher(prefetch ?? 'none')
+
+  pf.attach(a as HTMLAnchorElement, () => currentRoute())
+
+  return () => pf.detach(a as HTMLAnchorElement)
+
   }
 }
 

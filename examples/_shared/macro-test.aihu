@@ -27,21 +27,29 @@
 
 @state {
   $prop: {
-    hue:        { default: 215, describe: 'Hue channel (0-360)',        expose: { read: true, write: true } },
-    saturation: { default: 70,  describe: 'Saturation channel (0-100)', expose: { read: true, write: true } },
-    lightness:  { default: 55,  describe: 'Lightness channel (0-100)',  expose: { read: true, write: true } },
+    hue: { default: 215, describe: 'Hue channel (0-360)', expose: { read: true, write: true } },
+    saturation: {
+      default: 70,
+      describe: 'Saturation channel (0-100)',
+      expose: { read: true, write: true },
+    },
+    lightness: {
+      default: 55,
+      describe: 'Lightness channel (0-100)',
+      expose: { read: true, write: true },
+    },
   }
 
-  $computed: {
     // Wrapped — has metadata (describe + expose)
+  $computed: {
     primary: {
       describe: 'Computed HSL primary color string',
       expose: { read: true },
       value: () => `hsl(${hue} ${saturation}% ${lightness}%)`,
     },
-    // Bare — no metadata, no agent surface
+        // Bare — no metadata, no agent surface
     onPrimary: () => lightness < 60 ? '#ffffff' : '#111111',
-    surface:   () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
+    surface: () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
   }
 
   $action: {
@@ -57,46 +65,25 @@
     setHue: {
       describe: 'Set hue directly (0-360)',
       expose: { read: true, write: true },
-      handler: (h: number) => { hue = h },
+      handler: (h: number) => {
+        hue = h
+      },
     },
     setSaturation: {
       describe: 'Set saturation directly (0-100)',
       expose: { read: true, write: true },
-      handler: (s: number) => { saturation = s },
+      handler: (s: number) => {
+        saturation = s
+      },
     },
     setLightness: {
       describe: 'Set lightness directly (0-100)',
       expose: { read: true, write: true },
-      handler: (l: number) => { lightness = l },
+      handler: (l: number) => {
+        lightness = l
+      },
     },
   }
-
-  // Stretch examples — show the bare/wrapped duality across the rest of
-  // the @state macro family. Not part of color-theme proper.
-  //
-  // $resource: {
-  //   data: () => fetchUsers(),                    // bare — implicit value
-  //   user: {                                      // wrapped — with metadata
-  //     describe: 'Current user',
-  //     expose: { read: true },
-  //     value: () => fetchUser(userId),
-  //   },
-  // }
-  //
-  // $effect: {
-  //   logData: () => { console.log(data()) },      // bare named — auto-tracks deps
-  //   updateList: {                                // wrapped — explicit deps + metadata
-  //     on: [data],
-  //     value: () => { updateList(data()) },
-  //   },
-  // }
-  // // Anonymous bare $effect (parallel to $lifecycle, per Q.B-1 → a):
-  // $effect: () => { persist(state) }              // anon — no name needed
-  //
-  // $lifecycle: {                                  // always bare — no metadata
-  //   mount:   () => initializeWidget(),
-  //   dispose: () => cleanup(),
-  // }
 }
 
 @template {
@@ -128,9 +115,6 @@
 }
 
 @agent {
-  // Vestigial cross-cutting block. All per-name metadata (describe / expose /
-  // action descriptions) is derived from @state's collection-form macros.
-  // This block holds only what cannot be attached to a single declaration.
   $scope "user:read"
   $rate-limit 100
 }

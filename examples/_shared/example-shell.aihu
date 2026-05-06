@@ -12,19 +12,27 @@
 @state {
   import { signal, effect } from '@aihu/signals'
 
-  $prop title: string
-  $prop sourceUrl: string = ''
-  $prop liveUrl: string = ''
-
+  $prop: {
+    title: { type: string },
+    sourceUrl: { default: '' },
+    liveUrl: { default: '' },
+  }
   const [dark, setDark] = signal(
-    typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
+
+  typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
+
   )
 
   effect(() => {
-    document.documentElement.classList.toggle('dark', dark())
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('theme', dark() ? 'dark' : 'light')
-    }
+
+  document.documentElement.classList.toggle('dark', dark())
+
+  if (typeof localStorage !== 'undefined') {
+
+  localStorage.setItem('theme', dark() ? 'dark' : 'light')
+
+  }
+
   })
 
   const toggle = () => setDark(d => !d)

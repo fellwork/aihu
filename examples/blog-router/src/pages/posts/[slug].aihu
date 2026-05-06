@@ -4,7 +4,9 @@
 }
 
 @state {
-  $prop route: { params: { slug: string } }
+  $prop: {
+    route: { type: { params: { slug: string } } },
+  }
 
   // Demo-only: in real life, look this up via a loader (see ../../blog-loader/)
   bodies: Record<string, { title: string; body: string }> = {
@@ -13,7 +15,9 @@
     agents: { title: 'Agents are first-class', body: 'Every component is MCP-readable.' },
   }
 
-  $computed post = bodies[route.params.slug] ?? { title: 'Not found', body: '' }
+  $computed: {
+    post: () => bodies[route.params.slug] ?? { title: 'Not found', body: '' },
+  }
 }
 
 @template {

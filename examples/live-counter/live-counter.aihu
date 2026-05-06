@@ -3,11 +3,33 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  count: number = 0
+  $prop: {
+    count: { default: 0, describe: 'Current counter value', expose: { read: true } },
+  }
 
-  $action increment() { count++ }
-  $action decrement() { count-- }
-  $action reset()     { count = 0 }
+  $action: {
+    increment: {
+      describe: 'Add 1 to the counter',
+      expose: { read: true, write: true },
+      handler: () => {
+        count++
+      },
+    },
+    decrement: {
+      describe: 'Subtract 1 from the counter',
+      expose: { read: true, write: true },
+      handler: () => {
+        count--
+      },
+    },
+    reset: {
+      describe: 'Reset the counter to 0',
+      expose: { read: true, write: true },
+      handler: () => {
+        count = 0
+      },
+    },
+  }
 }
 
 @template {
@@ -27,17 +49,4 @@
   .controls { display: flex; gap: 0.5rem; }
   button    { flex: 1; padding: 0.5rem 0.75rem; cursor: pointer; background: var(--btn-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); font-size: 1rem; transition: background 0.1s; }
   button:hover { background: var(--hover-bg); }
-}
-
-@agent {
-  $expose count
-
-  $action increment
-  $action decrement
-  $action reset
-
-  $describe count      "Current counter value"
-  $describe increment  "Add 1 to the counter"
-  $describe decrement  "Subtract 1 from the counter"
-  $describe reset      "Reset the counter to 0"
 }

@@ -10,13 +10,16 @@
   import { getAllAgentMetadata } from '@aihu/agent'
   import { signal } from '@aihu/signals'
 
-  const [open, setOpen] = signal(false)
-  const toggle = () => setOpen(v => !v)
-
   // Snapshot on mount — refreshes if panel is closed + reopened.
-  $computed entries = getAllAgentMetadata()
-  $computed count = entries.length
-  $computed hasEntries = count > 0
+  $computed: {
+    entries: () => getAllAgentMetadata(),
+    count: () => entries.length,
+    hasEntries: () => count > 0,
+  }
+
+  const [open, setOpen] = signal(false)
+
+  const toggle = () => setOpen(v => !v)
 }
 
 @template {

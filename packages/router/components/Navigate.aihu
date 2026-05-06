@@ -12,12 +12,15 @@
    * Acceptance (§7): on mount, `history.pushState` (or `replaceState`) and
    * router update triggered.
    */
-
-  $prop to: string
+  $prop: {
+    to: { type: string },
+  }
   $prop replace?: boolean = false
 
   $lifecycle.mount {
-    void navigate(to, { replace })
+
+  void navigate(to, { replace })
+
   }
 }
 

@@ -1,12 +1,6 @@
 @state {
   import { effect } from '@aihu/signals'
   import {
-    bindRouteSignalWriter,
-    createRouteSignal,
-    provideRouteContext,
-    type RouteContextValue,
-    type Router as RouterT,
-  } from '../src/index.ts'
 
   /**
    * `<$router>` — root router component (RFC-A5-011).
@@ -18,20 +12,43 @@
    * Acceptance (§7): renders matched route on mount; updates on popstate;
    * 404 falls through to `<$shield>`.
    */
+  $prop: {
+    router: { type: RouterT },
+  }
 
-  $prop router: RouterT
+  current: sig.read,
+  bindRouteSignalWriter,
+
+  createRouteSignal,
+
+  provideRouteContext,
+
+  type RouteContextValue,
+
+  type Router as RouterT,
+
+  } from '../src/index.ts'
+
   $prop viewTransitions?: boolean = false
 
   $lifecycle.mount {
-    const sig = createRouteSignal(router)
-    const ctx: RouteContextValue = {
-      router,
-      current: sig.read,
-      viewTransitions,
-    }
-    bindRouteSignalWriter(ctx, sig.write)
-    provideRouteContext(ctx)
-    return () => sig.dispose()
+
+  const sig = createRouteSignal(router)
+
+  const ctx: RouteContextValue = {
+
+  router,
+
+  viewTransitions,
+
+  }
+
+  bindRouteSignalWriter(ctx, sig.write)
+
+  provideRouteContext(ctx)
+
+  return () => sig.dispose()
+
   }
 }
 

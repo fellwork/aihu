@@ -7,20 +7,25 @@
 @state {
   import type { Story } from './index.loader.ts'
 
-  $prop route: {
-    data: { stories: Array<Story>; page: number; hasMore: boolean }
+  $prop: {
+    route: {
+      type: { data: { stories: Array<Story>; page: number; hasMore: boolean } },
+      describe: 'Top stories data: stories array, current page, hasMore flag',
+      expose: { read: true },
+    },
   }
 
-  $action hostname(u: string | undefined): string {
-    if (!u) return ''
-    try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' }
-  }
-
-  $action ago(t: number): string {
-    const s = Math.floor(Date.now() / 1000 - t)
-    if (s < 3600)  return `${Math.floor(s / 60)}m ago`
-    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-    return `${Math.floor(s / 86400)}d ago`
+  $action: {
+    hostname: (u: string | undefined): string => {
+      if (!u) return ''
+      try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' }
+    },
+    ago: (t: number): string => {
+      const s = Math.floor(Date.now() / 1000 - t)
+      if (s < 3600)  return `${Math.floor(s / 60)}m ago`
+      if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+      return `${Math.floor(s / 86400)}d ago`
+    },
   }
 }
 
@@ -73,10 +78,4 @@
     .stories { padding-left: 1rem; }
     .title a { font-size: 0.95rem; }
   }
-}
-
-@agent {
-  $expose route
-
-  $describe route "Top stories data: stories array, current page, hasMore flag"
 }

@@ -1,19 +1,27 @@
 @state {
-import { signal, effect } from '@aihu/signals'
+  import { signal, effect } from '@aihu/signals'
+  const [activePage, setActivePage] = signal(
 
-const [activePage, setActivePage] = signal(
   typeof location !== 'undefined' && location.hash
-    ? location.hash.slice(1)
-    : 'introduction'
-)
 
-if (typeof window !== 'undefined') {
+  ? location.hash.slice(1)
+
+  : 'introduction'
+
+  )
+
+  if (typeof window !== 'undefined') {
+
   window.addEventListener('hashchange', () => {
-    setActivePage(location.hash ? location.hash.slice(1) : 'introduction')
-  })
-}
 
-const activeHtml = () =>
+  setActivePage(location.hash ? location.hash.slice(1) : 'introduction')
+
+  })
+
+  }
+
+  const activeHtml = () =>
+
   window.__DOCS__?.[activePage()]?.html ?? '<p>Loading content&hellip;</p>'
 }
 

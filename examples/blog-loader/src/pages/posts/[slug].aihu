@@ -8,9 +8,10 @@
   // The loader runs server-side (see [slug].loader.ts) and the resolved
   // payload is injected as the `route.data` prop. See:
   //   docs/site/data-fetching.md → "Server loaders → SFC handoff"
-  $prop route: {
-    params: { slug: string }
-    data: { title: string; body: string; readingTimeMs: number }
+  $prop: {
+    route: {
+      type: { params: { slug: string } data: { title: string; body: string; readingTimeMs: number } },
+    },
   }
 }
 
