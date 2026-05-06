@@ -15,7 +15,8 @@
       "@aihu/plugin": ["../plugin/src/index.ts"],
       "@aihu/arbor": ["../arbor/src/index.ts"],
       "@aihu/runtime": ["../runtime/src/index.ts"],
-      "@aihu/signals": ["../signals/src/index.ts"]
+      "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu/context": ["../context/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
