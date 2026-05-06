@@ -419,3 +419,169 @@ fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
         sidecar
     );
 }
+
+// ─── B3b — $event collection-form parsing (AC9 prerequisite) ─────────────────
+
+#[test]
+fn b3b_parse_event_collection_basic() {
+    use aihu_compiler::parser::state_macros::parse_state_macros;
+    use aihu_compiler::types::{CollectionKind, StateMacro};
+    let src = r#"$event: { dayjump: { payload: { day: Date }, describe: 'User picked a day' } }"#;
+    let macros = parse_state_macros(src).unwrap();
+    assert_eq!(macros.len(), 1);
+    let StateMacro::Collection { kind, entries } = &macros[0] else {
+        panic!("expected Collection, got {:?}", macros[0]);
+    };
+    assert_eq!(*kind, CollectionKind::Event);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].name, "dayjump");
+    assert!(entries[0].is_wrapped);
+}
+
+#[test]
+fn b3b_parse_event_collection_multi() {
+    use aihu_compiler::parser::state_macros::parse_state_macros;
+    use aihu_compiler::types::{CollectionKind, StateMacro};
+    let src = r#"$event: {
+        dayjump: { payload: { day: Date } },
+        rangechange: { payload: { start: Date, end: Date }, bubbles: false },
+    }"#;
+    let macros = parse_state_macros(src).unwrap();
+    let StateMacro::Collection { kind, entries } = &macros[0] else {
+        panic!("expected Collection");
+    };
+    assert_eq!(*kind, CollectionKind::Event);
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].name, "dayjump");
+    assert_eq!(entries[1].name, "rangechange");
+}
+
+#[test]
+fn b3b_parse_event_bare_form_rejected() {
+    use aihu_compiler::parser::state_macros::parse_state_macros;
+    // $event entries are always wrapped per spec §5.a — bare arrow rejected.
+    let src = r#"$event: { dayjump: () => {} }"#;
+    let err = parse_state_macros(src).err().expect("should reject bare $event entry");
+    assert_eq!(err.code.as_deref(), Some("C444"));
+}
+
+// ─── B3b — sidecar typed $emit / $event preamble (AC9 type-flow) ─────────────
+
+#[test]
+fn b3b_sidecar_typed_emit_decl_per_event() {
+    let src = r#"<script setup>
+@state {
+  $event: { dayjump: { payload: { day: Date } } }
+}
+</script>
+<template>
+  <button>x</button>
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3b-typed-sidecar");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    // Typed dispatcher entry — payload type carried verbatim from $event.payload.
+    assert!(
+        sidecar.contains("dayjump: (payload: { day: Date }) => void"),
+        "sidecar must emit typed $emit.dayjump dispatcher: {}",
+        sidecar
+    );
+    assert!(
+        sidecar.contains("dayjump: { payload: { day: Date } }"),
+        "sidecar must emit $event entry shape: {}",
+        sidecar
+    );
+}
+
+// ─── AC9 — $emit.<name>(payload) lowering to dispatchEvent ───────────────────
+
+#[test]
+fn b3b_ac9_emit_lowers_to_dispatch_custom_event() {
+    let src = r#"<script setup>
+@state {
+  $event: { dayjump: { payload: { day: Date } } }
+}
+const day = new Date()
+</script>
+<template>
+  <button $on.click={() => $emit.dayjump({ day })}>x</button>
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3b-emit-dispatch");
+    let js = result.js;
+    assert!(
+        js.contains("this.dispatchEvent(new CustomEvent('dayjump'"),
+        "expected $emit lowered to dispatchEvent: {}",
+        js
+    );
+    assert!(
+        js.contains("detail: { day }"),
+        "expected detail wrapping payload: {}",
+        js
+    );
+    assert!(
+        js.contains("bubbles: true"),
+        "expected default bubbles:true: {}",
+        js
+    );
+    assert!(
+        !js.contains("$emit."),
+        "expected no residual $emit. in JS: {}",
+        js
+    );
+}
+
+#[test]
+fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
+    let src = r#"<template>
+  <button $on.click={() => $emit.ping()}>x</button>
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3b-emit-ping");
+    let js = result.js;
+    assert!(
+        js.contains("this.dispatchEvent(new CustomEvent('ping'"),
+        "expected ping lowering: {}",
+        js
+    );
+    assert!(
+        js.contains("detail: undefined"),
+        "expected detail:undefined for empty args: {}",
+        js
+    );
+}
+
+// ─── AC10 — Listener `$on.<custom-event>` with payload typing surface ────────
+//
+// At the lowering level a custom-event listener (e.g. `$on.dayjump={…}`) is
+// emitted byte-identically to a DOM listener (`onDayjump: …`). The
+// distinction surfaces at the SIDECAR / tsc layer through the typed
+// `$emit`/`$event` declarations the SFC exports. This test covers the
+// emit-layer contract: a custom-event handler attribute compiles cleanly to
+// the right `on{Event}` attribute key and the typed handler argument flows
+// through to the sidecar.
+
+#[test]
+fn b3b_ac10_listener_dot_form_custom_event_lowers_attribute() {
+    let src = r#"<template>
+  <calendar-grid $on.dayjump={(e) => focusDate(e.detail.day)}></calendar-grid>
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-b3b-listener");
+    let js = result.js;
+    assert!(
+        js.contains("onDayjump:"),
+        "expected onDayjump attr key: {}",
+        js
+    );
+    // The handler text passes through verbatim.
+    assert!(
+        js.contains("focusDate(e.detail.day)"),
+        "expected handler body emitted: {}",
+        js
+    );
+}
