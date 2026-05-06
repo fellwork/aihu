@@ -2,14 +2,9 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  $prop: {
-    duration: {
-      default: 10000,
-      describe: 'Timer duration in milliseconds (slider-controlled)',
-      expose: { read: true },
-    },
-    elapsed: { default: 0, describe: 'Elapsed time in milliseconds', expose: { read: true } },
-  }
+  import { signal } from '@aihu/signals'
+  const [duration, setDuration] = signal(10000)
+  const [elapsed, setElapsed] = signal(0)
 
   intervalId: number | null = null
 
@@ -17,25 +12,23 @@
     progress: {
       describe: 'Elapsed fraction from 0 to 1',
       expose: { read: true },
-      value: () => duration === 0 ? 0 : Math.min(elapsed / duration, 1),
+      value: () => duration() === 0 ? 0 : Math.min(elapsed() / duration(), 1),
     },
-    seconds: () => (elapsed / 1000).toFixed(1),
-    maxSecs: () => (duration / 1000).toFixed(1),
-    done: () => elapsed >= duration,
+    seconds: () => (elapsed() / 1000).toFixed(1),
+    maxSecs: () => (duration() / 1000).toFixed(1),
+    done: () => elapsed() >= duration(),
   }
 
   $action: {
     tick: () => {
-      if (elapsed < duration) {
-        elapsed = Math.min(elapsed + 100, duration)
+      if (elapsed() < duration()) {
+        setElapsed(Math.min(elapsed() + 100, duration()))
       }
     },
     reset: {
       describe: 'Reset the elapsed time to 0',
       expose: { read: true, write: true },
-      handler: () => {
-        elapsed = 0
-      },
+      handler: () => setElapsed(0),
     },
   }
 

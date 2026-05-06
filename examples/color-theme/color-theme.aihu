@@ -3,20 +3,19 @@
 // M1 polish: $media(max-width: 480px) macro + @agent block + dark-mode tokens.
 
 @state {
-  $prop: {
-    hue: { default: 215, describe: 'Hue channel (0-360)', expose: { read: true } },
-    saturation: { default: 70, describe: 'Saturation channel (0-100)', expose: { read: true } },
-    lightness: { default: 55, describe: 'Lightness channel (0-100)', expose: { read: true } },
-  }
+  import { signal } from '@aihu/signals'
+  const [hue, _setHue] = signal(215)
+  const [saturation, _setSaturation] = signal(70)
+  const [lightness, _setLightness] = signal(55)
 
   $computed: {
     primary: {
       describe: 'Computed HSL primary color string',
       expose: { read: true },
-      value: () => `hsl(${hue} ${saturation}% ${lightness}%)`,
+      value: () => `hsl(${hue()} ${saturation()}% ${lightness()}%)`,
     },
-    onPrimary: () => lightness < 60 ? '#ffffff' : '#111111',
-    surface: () => `hsl(${hue} ${Math.max(saturation - 60, 5)}% 96%)`,
+    onPrimary: () => lightness() < 60 ? '#ffffff' : '#111111',
+    surface: () => `hsl(${hue()} ${Math.max(saturation() - 60, 5)}% 96%)`,
   }
 
   $action: {
@@ -24,31 +23,25 @@
       describe: 'Set a named color preset by hue value',
       expose: { read: true, write: true },
       handler: (h: number) => {
-        hue = h
-        saturation = 70
-        lightness = 55
+        _setHue(h)
+        _setSaturation(70)
+        _setLightness(55)
       },
     },
     setHue: {
       describe: 'Set hue directly (0-360)',
       expose: { read: true, write: true },
-      handler: (h: number) => {
-        hue = h
-      },
+      handler: (h: number) => _setHue(h),
     },
     setSaturation: {
       describe: 'Set saturation directly (0-100)',
       expose: { read: true, write: true },
-      handler: (s: number) => {
-        saturation = s
-      },
+      handler: (s: number) => _setSaturation(s),
     },
     setLightness: {
       describe: 'Set lightness directly (0-100)',
       expose: { read: true, write: true },
-      handler: (l: number) => {
-        lightness = l
-      },
+      handler: (l: number) => _setLightness(l),
     },
   }
 }

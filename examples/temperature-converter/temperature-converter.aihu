@@ -2,15 +2,14 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  $prop: {
-    celsius: { default: 20, describe: 'Temperature in degrees Celsius', expose: { read: true } },
-  }
+  import { signal } from '@aihu/signals'
+  const [celsius, writeCelsius] = signal(20)
 
   $computed: {
     fahrenheit: {
       describe: 'Temperature in degrees Fahrenheit (computed)',
       expose: { read: true },
-      value: () => celsius * 9 / 5 + 32,
+      value: () => celsius() * 9 / 5 + 32,
     },
   }
 
@@ -18,16 +17,12 @@
     setFromF: {
       describe: 'Set the temperature by Fahrenheit value',
       expose: { read: true, write: true },
-      handler: (f: number) => {
-        celsius = (f - 32) * 5 / 9
-      },
+      handler: (f: number) => writeCelsius((f - 32) * 5 / 9),
     },
     setCelsius: {
       describe: 'Set the temperature by Celsius value',
       expose: { read: true, write: true },
-      handler: (c: number) => {
-        celsius = c
-      },
+      handler: (c: number) => writeCelsius(c),
     },
   }
 }
@@ -44,7 +39,7 @@
       <input
         type="number"
         value={fahrenheit}
-        $on:input={(e) => setFromF(Number(e.target.value))}
+        $on:input={(e) => setFromF(Number((e.target as HTMLInputElement).value))}
       >
     </label>
   </fieldset>
@@ -62,17 +57,17 @@
     box-shadow: var(--card-shadow);
     color: var(--fg);
   }
-  legend { font-weight: 600; color: var(--fg); padding: 0 4px; }
-  label  { display: grid; grid-template-columns: 8ch 1fr; align-items: baseline; gap: 0.5rem; }
+  legend { color: var(--muted); font-size: 0.875rem; padding: 0 4px; }
+  label  { display: grid; grid-template-columns: 6rem 1fr; align-items: center; gap: 0.5rem; }
   span   { color: var(--muted); }
-  input  {
-    font-variant-numeric: tabular-nums;
-    padding: 0.4rem 0.5rem;
+  input[type="number"] {
+    padding: 0.4rem 0.6rem;
     background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--fg);
     font-size: 1rem;
+    width: 100%;
   }
-  input:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  input[type="number"]:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 }
