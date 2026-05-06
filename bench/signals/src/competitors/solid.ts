@@ -59,7 +59,6 @@ export const solid: SignalAdapter = {
       dispose = d
       value = fn()
     })
-    // biome-ignore lint/style/noNonNullAssertion: createRoot calls fn synchronously.
     return { value: value!, dispose }
   },
 }

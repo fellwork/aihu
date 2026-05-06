@@ -21,7 +21,7 @@ npm install @aihu/agent
 bun add @aihu/agent
 ```
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,10 +34,11 @@ bun add @aihu/agent
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | C — Agent surface — primitives (foundation of agent-readiness) |
+| **Bundle size** | 142 B (gz) — limit 200 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +51,7 @@ bun add @aihu/agent
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -61,7 +62,7 @@ bun add @aihu/agent
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -75,7 +76,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [@aihu/agent-service](../agent-service)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -86,6 +87,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `fa02c3b`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent@0.1.0` on commit `60a3bab`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

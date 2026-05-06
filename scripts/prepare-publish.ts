@@ -162,7 +162,7 @@ function ensurePackage(dir: string): { changed: boolean; readmeMissing: boolean 
   }
 
   if (changed) {
-    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
   }
 
   // README check

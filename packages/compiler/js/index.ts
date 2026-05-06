@@ -398,7 +398,7 @@ export function _injectAutoWiring(code: string): string {
       },
     )
   } else {
-    result = `import { mount } from '@aihu/arbor'\n` + code
+    result = `import { mount } from '@aihu/arbor'\n${code}`
   }
 
   // 2. Add `signal` to the non-type @aihu/signals import (or create it).

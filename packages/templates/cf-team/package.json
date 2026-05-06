@@ -1,0 +1,33 @@
+{
+  "name": "@aihu/templates-cf-team",
+  "version": "0.2.0",
+  "license": "MIT",
+  "type": "module",
+  "private": false,
+  "description": "Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu",
+  "main": "./template.config.js",
+  "types": "./template.config.ts",
+  "files": [
+    "template",
+    "template.config.ts",
+    "template.config.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@aihu/cli": "^0.2.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/templates/cf-team"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/templates/cf-team#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues"
+}

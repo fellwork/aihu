@@ -14,7 +14,7 @@ defineElement(
 
       const [text, setText] = signal('')
 
-      function look_up() {
+      function _look_up() {
         setText(`${book()} ${chapter()}:${verse()} (text would be fetched here)`)
         return { book: book(), chapter: chapter(), verse: verse(), text: text() }
       }

@@ -9,16 +9,16 @@
  *   new route."
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runWithContext } from '@aihu/context'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   bindRouteSignalWriter,
   createRouter,
   createRouteSignal,
   navigate,
+  RouteContext,
   type RouteContextValue,
   type RouteDefinition,
-  RouteContext,
 } from '../src/index.ts'
 
 const userRoute = (pattern: string): RouteDefinition => ({
@@ -27,7 +27,9 @@ const userRoute = (pattern: string): RouteDefinition => ({
     .split('/')
     .filter(Boolean)
     .map((p) =>
-      p.startsWith(':') ? { kind: 'param' as const, name: p.slice(1) } : { kind: 'static' as const, path: p },
+      p.startsWith(':')
+        ? { kind: 'param' as const, name: p.slice(1) }
+        : { kind: 'static' as const, path: p },
     ),
   module: () => Promise.resolve({ default: { toHtml: () => `<p>${pattern}</p>` } }),
 })

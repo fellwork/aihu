@@ -2,7 +2,7 @@
 
 **Track:** `cli-templates` · **Mode:** 2 (build/refactor, L-scope)
 **Opened:** 2026-05-05 · **Director round:** 001
-**Active milestone:** v0.2.0 (single end-to-end happy path)
+**Active milestone:** v0.2.0 — RETRO LANDED (Historian docket complete; Team Lead orchestrates tag push)
 
 ---
 
@@ -56,15 +56,14 @@ disabled. Vanilla `@style` works under both.
 
 | Choice | Status | Notes |
 |---|---|---|
-| **None** (default) | shipped | `<$guard>` UI boundary already ships (arch-5 §2.4); fallback renders correctly with no plugin. Zero-friction default. |
-| `@aihu/auth` | M2 (gated on RFC #56 RATIFY) | Per arch-3 §2.4 — STRONGEST FIT. JWT, `$user`, `<$guard>` enforcement, `<$signin>`/`<$signout>`. Dep-free except for jose at app level. |
-| Clerk (third-party adapter) | deferred v0.3 | Document + scaffold env vars; user wires SDK. |
-| Lucia (third-party adapter) | deferred v0.3 | Server-side session lib. |
-| better-auth (third-party adapter) | deferred v0.3 | Newer entrant; track adoption. |
+| **better-auth** (default) | shipped v0.2.0 | Type-first, edge-portable. Per arch-6 §13 Q3 RESOLVED — one of the 3 third-party providers offered as runtime prompt in `cf-team` template. Open-source, active dev. shipped via cf-team. |
+| Kinde | shipped v0.2.0 | Hosted, multi-tenant, B2B-friendly. Same prompt list. shipped via cf-team. |
+| Supabase Auth | shipped v0.2.0 | Combines naturally with Supabase data + storage if user picks Supabase later. Same prompt list. shipped via cf-team. |
+| `@aihu/auth` | held (gated on RFC #56 RATIFY) | Per arch-3 §2.4 — STRONGEST FIT. JWT, `$user`, `<$guard>` enforcement. Joins the auth prompt list once RFC #56 ratifies. Not in v0.2.0. |
+| Clerk | deferred v0.3+ | Vendor-lock; cost surface; not edge-portable across all providers. |
+| Lucia | deferred v0.3+ | Established (since 2022); maintenance-mode signal in late 2025. |
 
-**Compatibility:** `@aihu/auth` requires live-binding RATIFY. Until then,
-"None" is the only option that works without stub-glue. Defer `@aihu/auth`
-out of v0.2.0 if RFC #56 hasn't ratified by the Architect's read.
+**Compatibility:** All 3 v0.2.0 providers are edge-portable. `cf-team` template scaffolds with the chosen provider's client + env vars; only the chosen provider's `auth/<provider>.ts` and `.env.example.<provider>` files land per arch-6 §13 Q3. v0.2.0 ships better-auth as the default for team templates per arch-6 §13 Q3 RESOLVED; `@aihu/auth` re-evaluates for v0.2.1 if RFC #56 ratifies.
 
 ### D3 · Data/schemas
 
@@ -315,7 +314,7 @@ after scaffold" is a hard contract.
 | R-CT-04 | Generator template drift over time — once shipped, every prompt-flow change requires a major bump | HIGH | **Version templates separately from `@aihu/cli`**. Recommend `@aihu/templates-*` family OR a `templates/` subpackage with its own SemVer. CLI declares a templates *range*; templates can ship patch fixes without `@aihu/cli` rebuild. The "ejectable" question (do users vendor their own templates?) deferred to v0.3 — for v0.2.0, templates live in-tree. |
 | R-CT-05 | A2A / ACP protocol churn — Anthropic/Cursor/spec authors revise frequently | MEDIUM | v0.2.0 ships **MCP only** (Aihu has had MCP support since v1; spec is `2025-06-18` pinned). A2A + ACP enter D9's "Full" choice in M3 only after Aihu's `@aihu/agent-a2a` + `@aihu/agent-acp` packages stabilize. |
 | R-CT-06 | Existing `aihu app <name>` scaffold (in `packages/cli/src/index.ts`) vs new template-driven scaffold — interaction unclear | HIGH | **Backward-compat contract:** the existing `aihu app` keeps working with no flags (current default = "minimal" template). The new prompt flow only fires if invoked as `bunx create-aihu` OR `aihu app --interactive`. `aihu app foo` (no flags) emits today's output unchanged. The Architect must test this on its own fixture in CI. |
-| R-CT-07 | npm publish discipline — when does the CLI template metadata bump? | MEDIUM | Decision needed (surface to user — see §7): publish templates as `@aihu/cli` minor bumps (simpler, single tag) OR as a separate `@aihu/templates-*` package family (more flexible, independent versioning). Director recommends bundled-in-CLI for v0.2.0 to ship faster; split if a v0.2.x has > 3 template-only patch releases. |
+| R-CT-07 | Template family publish strategy — coordinating per-template releases vs bundling in CLI | RESOLVED v0.2.0 | RESOLVED 2026-05-05 (arch-6 §13 Q2): separate `@aihu/templates-*` family locked from day one. `@aihu/cli` declares a templates contractVersion range (B1.1 `template-manifest.ts` `cliRange`); template packages publish on independent SemVer. release.yml handles via the existing `bun changeset publish` job — no new pipeline needed. v0.2.0 ships first 2 packages: `@aihu/cli@0.2.0` + `@aihu/templates-cf-team@0.2.0`. Five M1 packages planned: `@aihu/templates-cf-team` (shipped v0.2.0), `-vercel-team`, `-fly-team`, `-cf-solo`, `-cf-full-agent` (deferred to B2 / v0.2.1). |
 | R-CT-08 | Brand fit — making sure the agent surface choice doesn't feel like opt-in spam | LOW | D9 default = "Minimal" (silent `.mcp.json` emission, single `@expose` line in the example component). The user only sees a prompt "Agent surface: Minimal / Full / None" with one-sentence descriptions. Not aggressive. |
 
 ---
@@ -413,3 +412,155 @@ follow.
   (D11 starter source), existing `packages/cli/src/{index,bin,create}.ts`
   (the surface to extend), `examples/_shared/` (token CSS that templates
   may want to inherit).
+
+---
+
+## Round 003 update (post B1.1 PASS) — 2026-05-05
+
+Builder B1.1 shipped the pipeline machinery for the `@aihu/cli` ↔ template
+contract — five new source files (`packages/cli/src/template-manifest.ts`,
+`conditional-eval.ts`, `templates-registry.ts`, `prompts.ts`,
+`scaffold-pipeline.ts`) plus a minimal `bin.ts` extension. Verifier audit
+returned PASS with zero out-of-scope creep across all six audit dimensions
+(138 tests green: 94 new + 44 legacy). PR #79 merged to main; arch-6
+unchanged. Closed in one Builder pass — under-run vs. the 5-iteration
+projection.
+
+**Three findings promoted from B1.1 PASS:**
+
+1. **CLI ↔ template contract is concrete in code.** The `TemplateManifest`
+   type + `validateManifest()` (`packages/cli/src/template-manifest.ts`),
+   the 6-stage pipeline (`packages/cli/src/scaffold-pipeline.ts`), the
+   strict-subset `evalWhen` evaluator (`packages/cli/src/conditional-eval.ts`),
+   hand-rolled `node:readline` prompts (`packages/cli/src/prompts.ts`),
+   and the baked `KNOWN_TEMPLATES` registry
+   (`packages/cli/src/templates-registry.ts`) collectively codify the
+   surface that arch-6 §2.3 / §3.4 / §3.5 / §4 had only described in
+   prose. Future arch decisions on the template surface should cite
+   these source files, not arch-6 §2.3 alone.
+2. **`evalWhen` security boundary is empirically tested.** 28 tests in
+   `conditional-eval.test.ts` include explicit rejection-path coverage
+   for function calls, member access, arithmetic, single `=`, escape
+   sequences, unterminated strings, and unmatched parens. R-CT-05
+   (supply-chain risk on template `when` expressions) is empirically
+   closed for the implemented operator set (`===`, `!==`, `&&`, `||`,
+   `!`, parens, bare identifiers, string/boolean literals).
+3. **`Spawner` / `FileSystem` injection seam is established.**
+   `scaffold-pipeline.ts` exports `realFileSystem` and `realSpawner`
+   defaults plus `Map<path,content>`-backed test fakes. B1.2 (template
+   content) and B1.3 (smoke harness + auth-provider matrix) have a
+   typed seam to consume rather than reaching for raw `node:fs` or
+   `child_process`.
+
+**Iteration counter:** 2 of 5 ping-pong rounds. Banked budget after
+B1.1's one-pass close.
+
+**Next round:** Builder B1.2 — `@aihu/templates-cf-team` package
+content (no scaffold-and-compile harness, no changesets, no further
+edits to the pipeline contract). Refined brief in
+`.team/director-notes/cli-templates-003.md`.
+
+---
+
+## Round 005 closure summary — v0.2.0 milestone (2026-05-05)
+
+All 3 sub-rounds closed clean per arch-6 §10's projection:
+
+| Round | Verifier | Verdict | Key shipped |
+|---|---|---|---|
+| B1.1 (pipeline machinery) | [PASS](.team/verifier-reports/cli-templates-b1.1.md) | clean — 138 tests, no creep | `template-manifest.ts`, `conditional-eval.ts`, `templates-registry.ts`, `prompts.ts`, `scaffold-pipeline.ts`, `bin.ts` (--template flag) |
+| B1.2 (cf-team package) | [PARTIAL→fixed](.team/verifier-reports/cli-templates-b1.2.md) | F-1 + F-6 patched in B1.2.1 | `@aihu/templates-cf-team@0.2.0` package + 22-file `template/` tree with 9 conditional files (3 auth providers × {auth client, env example} + .mcp.json + expose.aihu + live-counter) |
+| B1.3 (smoke + changeset + spec reconcile) | [PASS](.team/verifier-reports/cli-templates-b1.3.md) | clean — behavioral E2E across 3 auth providers green | `bin.ts` real pipeline dispatch (replaces B1.1 stub), `scaffold-and-compile.test.ts`, `legacy-snapshot.test.ts` + 6-file golden, v0.2.0 changeset, README addendum, plan-a.yml CI extension, arch-6 §2.3 + §2.6 + manifest reconciliation |
+
+**Iteration counter:** **5 of 5** in arch-6 §10's projection. At hard-stop boundary; milestone done — banked budget exits the track.
+
+**PR trail:** #75 (README) → #76 (Director r-001) → #77 (arch-6) → #78 (Director r-002 stall recovery) → #79 (B1.1) → #80 (Verifier B1.1) → #81 (Director r-003) → #82 (Synthesizer r-003) → #83 (B1.2 patches F-1+F-6) → #84 (Verifier B1.2) → #85 (Director r-004) → #86 (B1.3) → #87 (Verifier B1.3) → #88 (Director r-005) → this PR.
+
+This is the **Round 005 update** — v0.2.0 milestone closure record.
+
+---
+
+## v0.2.1 docket — followups from v0.2.0 milestone
+
+Opened by Historian 2026-05-05 alongside `.team/retros/cli-templates-v0.2.0-retro.md`.
+This is a **queue, not a plan** — Director r-006 (when v0.2.1 opens) authors the
+substance of the next round. Items below are sourced from B1.2/B1.3 Verifier
+reports, arch-6 §10 round map, Synthesizer surfaces, repo-wide hygiene, and the
+HOLD set.
+
+### From Verifier (B1.2 + B1.3)
+
+- [ ] **F-3b — conditional-deps render pass.** Filter `apps/web/package.json.tmpl`
+      emitted deps by `appPeerDepsConditional` `when` rules so only the chosen
+      auth provider's deps land (currently all 3 ship unconditionally — ~15MB
+      extra `node_modules`; UX nit, not correctness).
+- [ ] **F-5b — `conditionalFiles` `rename` field.** Drop the `.<provider>` suffix
+      on emit so `.env.example.better-auth` lands as `.env.example`. Subsume
+      `.tmpl`-stripping logic into one unified rename pipeline pass.
+- [ ] **Wire `AIHU_SCAFFOLD_COMPILE` auto-running** once `@aihu/* ^0.2.0` are on
+      npm. (F-1 disposition: pre-publish manual gate today; self-running tomorrow.)
+
+### From arch-6 §10
+
+- [ ] **Round B2 — broaden curated-5.** Four more templates: `vercel-team`,
+      `fly-team`, `cf-solo`, `cf-full-agent`. Each gets the same shape as
+      cf-team (template package + manifest + template tree).
+- [ ] **Round B3 — README autogen tier=template + Windows path edge cases.**
+      Wire `sync-readme.ts` to recognize `tier: 'template'` so template
+      packages get autogen README treatment.
+- [ ] **R-CT-09 / §13 Q1 — Fly adapter resolution.** Block `fly-team` start
+      until Fly adapter package OR pure-server pattern is resolved.
+
+### Repo housekeeping
+
+- [ ] **`biome.json` `includes` plural warning** — single-key fix.
+- [ ] **`biome check:ci` red on main (~30 errors, pre-existing)** — cleanup
+      pass.
+- [ ] **scribe → aihu test snapshot remnants** in compiler tests
+      (fellwork-rename leftover).
+- [ ] **`vscode-aihu` versioning alignment** — `1.0.0` (vscode-aihu) vs
+      `0.1.0` (rest of `@aihu/*`).
+- [ ] **`cross` pin restore for aarch64-linux build** — user-flagged.
+- [ ] **Pre-commit hook should skip when only template files change** —
+      avoids the 24-26 README churn on cli-templates-only PRs (F-3 from
+      B1.3 verifier).
+- [ ] **`biome.json` schema migrate** — F-2 from B1.3 (info-only diagnostic;
+      `2.4.13` installed, `2.4.14` declared).
+- [ ] **Verifier worktrees fork-off-main rule.** Verifier-report PRs should
+      be scoped to just the report — not piggyback the Builder branch's
+      whole deliverable (PR #84 sneaky-merged the full B1.2 deliverable).
+
+### Held / blocked
+
+- [ ] **Live-binding RFC #56 implementation** (security review of arch-3 §9
+      required first; gates `@aihu/auth` joining the auth prompt list — D2
+      dimension in this state file).
+- [ ] **`<playground-embed>` validation** (post v0.2.0 publish; gates on
+      peer deps available on npm).
+
+### User actions
+
+- [ ] Run `scripts/setup-branch-protection.sh` once.
+
+---
+
+## Historian closure note — 2026-05-05
+
+The 5 earned learnings (CLI ↔ template contract pattern, parallel-builders-on-
+disjoint-subtree-branches recipe, byte-frozen-legacy-snapshot pattern,
+scope-too-big-stall → r-002 re-cut playbook, verify-before-claim anti-pattern)
+were written to `AGENTS.delta.db` with `kind=earned-learning` and
+`promotion-target:user` markers via `mcp__agentsdb__agents_context_write`
+(MCP context_ids: 3328769317, 196932221, 2160836637, 1098974815, 4095396807).
+
+**Note on promotion mechanics:** the brief specified `agents_context_write
+layer=user`, but the deployed MCP API only accepts `scope: local | delta`.
+Cross-layer promotion in this repo's tooling happens via the `agentsdb promote
+--from AGENTS.delta.db --to AGENTS.user.db --ids ...` CLI, executed against
+the on-disk delta after the MCP server flushes (typically on shutdown). The
+brief explicitly forbade `agents_context_propose`, so the chunks sit in delta
+with explicit promotion-target markers; the formal `delta → user` write
+happens at Team Lead's tag-push step, when the MCP server has settled.
+
+Retro lives at `.team/retros/cli-templates-v0.2.0-retro.md`.
+

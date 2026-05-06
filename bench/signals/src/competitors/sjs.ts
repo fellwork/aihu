@@ -40,7 +40,6 @@ export const sjs: SignalAdapter = {
       dispose = d
       value = fn()
     })
-    // biome-ignore lint/style/noNonNullAssertion: S.root calls fn synchronously.
     return { value: value!, dispose }
   },
 }

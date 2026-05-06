@@ -1,0 +1,27 @@
+@state {
+import { signal } from '@aihu/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
+}
+
+@template {
+  <div class="home">
+    <h1>Hello from aihu</h1>
+    <p>Count: {{ count }}</p>
+    <button $on:click={increment}>+1</button>
+  </div>
+}
+
+@style {
+.home {
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 600px;
+  margin: 0 auto;
+}
+button {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+}

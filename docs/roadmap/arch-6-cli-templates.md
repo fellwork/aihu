@@ -70,13 +70,15 @@ Three reductions get us from 12 → 5:
 
 | Template package | Cells fixed | Cells overridden by prompt |
 |---|---|---|
-| **`@aihu/templates-cf-team`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | App name; CSS (`@style`/Tailwind-deferred-to-v0.2.1 → for M1 only `@style`); starter (`<live-counter>` / empty); deploy-already-fixed; agent surface (minimal/none — full-agent users pick the dedicated template) |
-| **`@aihu/templates-vercel-team`** | Vendor=Vercel, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
-| **`@aihu/templates-fly-team`** | Vendor=Fly (Dockerfile + fly.toml emit), Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
-| **`@aihu/templates-cf-solo`** | Vendor=CF, Persona=solo, Repo=single-package, Auth=none, Lint=Biome, CI=GitHub Actions (no commitlint), Test=Vitest (skippable), Agent=minimal | App name; CSS; starter (`<live-counter>` / empty); agent surface (minimal/none); test runner (vitest/none) |
-| **`@aihu/templates-cf-full-agent`** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=**FULL** (A2A + ACP scaffold + `@expose` + `$rate-limit` annotation) | App name; CSS; starter (always `<live-counter>` — the showcase) |
+| **`@aihu/templates-cf-team`** **(✅ shipped v0.2.0 — PR #86)** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | App name; CSS (`@style`/Tailwind-deferred-to-v0.2.1 → for M1 only `@style`); starter (`<live-counter>` / empty); deploy-already-fixed; agent surface (minimal/none — full-agent users pick the dedicated template) |
+| **`@aihu/templates-vercel-team`** **(deferred to B2 — v0.2.1+)** | Vendor=Vercel, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
+| **`@aihu/templates-fly-team`** **(deferred to B2 — v0.2.1+)** | Vendor=Fly (Dockerfile + fly.toml emit), Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=minimal | Same prompt set as `cf-team` |
+| **`@aihu/templates-cf-solo`** **(deferred to B2 — v0.2.1+)** | Vendor=CF, Persona=solo, Repo=single-package, Auth=none, Lint=Biome, CI=GitHub Actions (no commitlint), Test=Vitest (skippable), Agent=minimal | App name; CSS; starter (`<live-counter>` / empty); agent surface (minimal/none); test runner (vitest/none) |
+| **`@aihu/templates-cf-full-agent`** **(deferred to B2 — v0.2.1+)** | Vendor=CF, Persona=team, Repo=monorepo+moon, Auth=third-party prompt {better-auth/kinde/supabase}, default better-auth, Lint=Biome, CI=GitHub Actions+commitlint, Test=Vitest, Agent=**FULL** (A2A + ACP scaffold + `@expose` + `$rate-limit` annotation) | App name; CSS; starter (always `<live-counter>` — the showcase) |
 
-**Total = 5 templates in M1.** All five are distinct enough that scaffolding one tells the user nothing about the others; combining any two into a flag-driven base would re-introduce the option-explosion the curation just removed.
+**Total = 5 templates in M1 design space; only `cf-team` ships in v0.2.0** per arch-6 §10's "Round-B1 deliberate scope cut: no other vendors. No solo template. No full-agent." The other 4 stamp out from the same pipeline shape in B2 (v0.2.1). All five are distinct enough that scaffolding one tells the user nothing about the others; combining any two into a flag-driven base would re-introduce the option-explosion the curation just removed.
+
+> **B1.1 status (PR #79, merged 2026-05-05):** the `@aihu/cli`-side contract that every template package in this curated 5 conforms to (`TemplateManifest` type, scaffold pipeline, conditional-eval evaluator, prompts library, baked registry) is now in main. `cf-team` template content lands in B1.2.
 
 ### §1.4 What I considered and cut
 
@@ -219,11 +221,11 @@ export default {
   // Auth deps are conditional (per §13 Q3) — only the chosen provider's
   // dep gets emitted into the user's package.json.
   appPeerDeps: {
-    '@aihu/runtime': '^1.0.0',
-    '@aihu/arbor': '^1.0.0',
-    '@aihu/signals': '^1.0.0',
-    '@aihu/router': '^1.0.0',
-    '@aihu/adapter-cloudflare': '^1.0.0',
+    '@aihu/runtime': '^0.2.0',
+    '@aihu/arbor': '^0.2.0',
+    '@aihu/signals': '^0.2.0',
+    '@aihu/router': '^0.2.0',
+    '@aihu/adapter-cloudflare': '^0.2.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },
@@ -273,10 +275,17 @@ Source: arch-4 §6.6. This is identical across all 5 templates — there is no p
 Every M1 template that has `agentSurface !== 'none'` ships at minimum **one** `.aihu` SFC with an `@expose` block. For templates with the `<live-counter>` starter, that's `src/components/live-counter.aihu`'s existing `@expose count` line (already shipped in `examples/live-counter/`). For templates with `starter === 'empty'`, the CLI emits a tiny `src/agent/expose.aihu` shim:
 
 ```aihu
-@template { <span class="aihu-expose-stub">{{ appName }}</span> }
+@state {
+  appName: string = '__APP_NAME__'
+}
+
+@template {
+  <span class="aihu-expose-stub">{{ appName }}</span>
+}
 
 @agent {
   $expose appName as readonly
+  $describe appName "The scaffolded application's display name"
 }
 ```
 
@@ -767,7 +776,7 @@ State §6 enumerates 8 risks (R-CT-01..08). Architecture-level additions:
 
 ## §10 Implementation map (Builder rounds) *(coordinator-released — locked to curated 5)*
 
-### Round B1 — pipeline foundation + cf-team end-to-end
+### Round B1 — pipeline foundation + cf-team end-to-end (✅ B1.1 done · 2026-05-05) (✅ B1.2 done · 2026-05-05; PR #83 patches + #84 Verifier; F-1 + F-6 closed in B1.2.1) (✅ B1.3 done · 2026-05-05; PR #86 + #87 Verifier PASS; final round, v0.2.0 milestone engineering-complete)
 
 **Scope:** prove the pipeline against ONE template before fanning out.
 

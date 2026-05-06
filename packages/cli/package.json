@@ -1,6 +1,6 @@
 {
   "name": "@aihu/cli",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -27,7 +27,7 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
-  "description": "Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.",
+  "description": "Aihu CLI (`aihu`, `create-aihu`) \u00e2\u20ac\u201d scaffolding, dev, build commands.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",

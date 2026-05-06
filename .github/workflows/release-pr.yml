@@ -42,3 +42,6 @@ jobs:
           title: 'chore(release): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prevent husky pre-push hook from running on the CI runner — moon
+          # and other dev tools are not available in this minimal workflow.
+          HUSKY: '0'

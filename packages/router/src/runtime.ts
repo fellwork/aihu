@@ -211,7 +211,9 @@ async function navigateWithContext(
 
   if (useVT) {
     const start = (
-      document as unknown as { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
+      document as unknown as {
+        startViewTransition: (cb: () => void) => { finished: Promise<void> }
+      }
     ).startViewTransition
     const transition = start(commit)
     await transition.finished.catch(() => {})

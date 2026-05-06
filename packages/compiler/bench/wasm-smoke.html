@@ -97,7 +97,7 @@
         const max = timings[RUNS - 1]
 
         out.textContent += `\n--- Benchmark (${RUNS} runs) ---\n`
-        out.textContent += `Timings: ${timings.map(t => t.toFixed(2) + 'ms').join(', ')}\n`
+        out.textContent += `Timings: ${timings.map(t => `${t.toFixed(2)}ms`).join(', ')}\n`
         out.textContent += `Min: ${min.toFixed(2)}ms · p50: ${p50.toFixed(2)}ms · Max: ${max.toFixed(2)}ms\n\n`
 
         if (p50 < THRESHOLD_MS) {

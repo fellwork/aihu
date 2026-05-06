@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { spawnSync } from 'node:child_process'
 /**
  * Pre-build hook: fetches the latest `aihu-compile-wasm.tar.gz` from
  * GitHub Releases and extracts to the given output dir.
@@ -26,7 +27,6 @@
 import { existsSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { spawnSync } from 'node:child_process'
 
 const args = process.argv.slice(2)
 const outDirArg = args.find((a) => !a.startsWith('--'))
@@ -78,11 +78,9 @@ console.log(`[fetch-wasm-bundle] downloaded ${buf.length} bytes`)
 // Extract via the system tar binary. `--strip-components=1` drops the
 // leading `pkg-wasm/` prefix so files land directly in <outDir>.
 console.log(`[fetch-wasm-bundle] extracting to ${outDir}/`)
-const tarRes = spawnSync(
-  'tar',
-  ['-xzf', tarPath, '-C', outDir, '--strip-components=1'],
-  { stdio: 'inherit' },
-)
+const tarRes = spawnSync('tar', ['-xzf', tarPath, '-C', outDir, '--strip-components=1'], {
+  stdio: 'inherit',
+})
 
 if (tarRes.status !== 0) {
   console.error(`[fetch-wasm-bundle] tar extract failed (status=${tarRes.status})`)

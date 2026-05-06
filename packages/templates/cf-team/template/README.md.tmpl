@@ -1,0 +1,74 @@
+# __APP_NAME__
+
+__APP_DESCRIPTION__
+
+Scaffolded from `@aihu/templates-cf-team` (Aihu __AIHU_VERSION__).
+
+## TL;DR
+
+Cloudflare Workers monorepo with [Aihu](https://github.com/fellwork/aihu),
+managed by [Bun](https://bun.sh) workspaces + [moon](https://moonrepo.dev).
+Lint/format via Biome, tests via Vitest, agent-discoverable by default.
+
+## Quickstart
+
+```bash
+bun install
+bun run dev      # local dev server (apps/web)
+bun run build    # production bundle
+bun run test     # unit tests
+bun run check    # biome check + write
+```
+
+## Setup
+
+Copy `apps/web/.env.example.<provider>` to `apps/web/.env` and fill in your
+auth provider's credentials. The `.env.example.<provider>` file is
+provider-suffixed so the template can ship all three example shapes — only
+the chosen provider's file lands in your scaffold; rename it to `.env` to
+use it.
+
+<!-- Future: pipeline-rename will drop the .<provider> suffix automatically; v0.2.1. -->
+
+## Project structure
+
+```
+.
+├── apps/
+│   └── web/             # the Cloudflare Workers app (your code)
+├── packages/
+│   └── shared/          # cross-package types / utils
+├── moon.yml             # moon monorepo entry point
+├── wrangler.toml        # Cloudflare Workers config
+├── biome.json           # lint + format
+├── tsconfig.json        # workspace TS config (composite refs)
+└── .mcp.json            # agent surface (auto-discovered by MCP-aware tools)
+```
+
+`apps/web` is the application. `packages/shared` is reserved for cross-package
+types and utilities — start it empty and grow as the app does.
+
+## Agent surface
+
+If you scaffolded with `agentSurface !== 'none'`, this project ships a
+`.mcp.json` at the repo root. MCP-aware editors and CLIs (Claude Code,
+Cursor, etc.) auto-discover it and can connect to the Aihu agent host
+without further configuration.
+
+To opt out later, delete `.mcp.json` and the `apps/web/src/agent/expose.aihu`
+file (if present).
+
+## Deploy
+
+GitHub Actions are wired up:
+- `ci.yml` — runs on every push and PR (typecheck, test, build)
+- `deploy.yml` — runs on push to `main`, deploys via `wrangler deploy`
+
+Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repo secrets to
+enable the deploy workflow.
+
+## Learn more
+
+- [Aihu docs](https://github.com/fellwork/aihu)
+- [moon docs](https://moonrepo.dev/docs)
+- [Cloudflare Workers docs](https://developers.cloudflare.com/workers/)

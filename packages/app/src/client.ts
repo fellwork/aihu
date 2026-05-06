@@ -49,7 +49,7 @@ export function createApp(config?: AppConfig): void {
       if (notFoundRoute) {
         await notFoundRoute.module()
         const tag = notFoundRoute.name
-        if (tag && tag.includes('-')) {
+        if (tag?.includes('-')) {
           outlet.replaceChildren(document.createElement(tag))
           return
         }
@@ -65,7 +65,7 @@ export function createApp(config?: AppConfig): void {
     // Import the page module — registers its custom element + auto-wires runtime
     await match.route.module()
     const tag = match.route.name
-    if (!tag || !tag.includes('-')) return
+    if (!tag?.includes('-')) return
 
     const el = document.createElement(tag)
 

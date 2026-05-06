@@ -212,7 +212,6 @@ export function createRouter(routes: RouteDefinition[]): Router {
         else if (typeof d === 'string') decision = { redirect: d }
         else decision = 'continue'
       }
-      // biome-ignore lint/suspicious/useAwait: guard may be sync
       await guard(to, from, next)
       if (!decided) {
         // Guard never called next — treat as continue (defensive).
@@ -229,7 +228,6 @@ export function createRouter(routes: RouteDefinition[]): Router {
         guard(to, from)
       } catch (e) {
         // Don't let one bad after-guard kill the rest
-        // biome-ignore lint/suspicious/noConsole: surfacing user error
         console.error('[aihu/router] afterNavigate guard threw:', e)
       }
     }

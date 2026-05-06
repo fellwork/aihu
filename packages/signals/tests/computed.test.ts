@@ -336,7 +336,6 @@ describe('computed', () => {
     let sink = 0
     effect(() => {
       counters.eff++
-      // biome-ignore lint/style/noNonNullAssertion: fixed-shape array, indices known
       sink = l4[0]!() + l4[1]!() + l4[2]!() + l4[3]!()
     })
     // Reset post-construction.
