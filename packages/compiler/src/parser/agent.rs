@@ -220,6 +220,13 @@ pub fn parse_agent(src: &str) -> Result<AgentBlock, CompileError> {
             continue;
         }
 
+        // v2: skip JS-style `//` line comments (canonical examples use these
+        // for header attribution inside `@agent { }`). `#` comments are
+        // already handled by `strip_comment` above.
+        if line.starts_with("//") {
+            continue;
+        }
+
         // v0.4.8: Lines starting with `$` are manifest macros — parsed separately.
         if line.starts_with('$') {
             continue;
