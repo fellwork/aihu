@@ -1,9 +1,9 @@
 # Topic Summary — aihu template-syntax — userland-dx track
 
 **Last updated:** 2026-05-06
-**Active rounds:** 5 (research/governance; 0 Builder ↔ Verifier iterations)
-**Status:** AUDIT RECONCILED + R5/R6/R7 user-pulled into v0.3 ship; awaiting user gate before Builder dispatch
-**Tags:** `topic:aihu-template-syntax track:userland-dx round:5 supersedes:264831801`
+**Active rounds:** 6 (5 research/governance + 1 Builder ↔ Verifier iteration closed clean on R1)
+**Status:** B1 PASS 11/11 banked; B2 dispatched (R2+R3+R4+Q3+Q4); auto-spine continues per user "go, auto mode" directive
+**Tags:** `topic:aihu-template-syntax track:userland-dx round:6 supersedes:2304511529`
 
 ---
 
@@ -12,6 +12,23 @@
 After round-3 audit reconciliation landed, the user directed two scope expansions in quick succession: **r4 pulled D2 ($aria + auto-keyboard-promotion) → R5 and D3 ($controller collection) → R6** into RATIFY-now status (Director r4, `.team/director-notes/template-syntax-004.md`, AGENTS.delta.db record id 2048522989). **r5 pulled D4 ($context collection, WICG-Context-aligned) → R7** (Director r5, `.team/director-notes/template-syntax-005.md`, AGENTS.delta.db record id 4012772269). Manifest now **7 RATIFY-now / 3 DEFER-v0.4 / 8 DEFER-v0.5+ / 1 REJECT**. Codemod budget unchanged at 560 LOC; compiler/runtime grows ~270-390 LOC over r3's projection. Builder seam plan = 5 rounds (Option A: R7 folded into B5 alongside R6) — at iteration ceiling, but compatible.
 
 The three pulls form a coherent sugar-additions-via-`@state`-v2-collection-form bundle: each is a new collection-form macro alongside `$prop`/`$computed`/`$action`/`$resource`/`$effect`/`$lifecycle`/`$event`; each lowers to a well-understood platform mechanism (ElementInternals for $aria; per-instance registry + lifecycle hooks for $controller; WICG Context Protocol for $context); each lands additively with zero codemod cost.
+
+### Round 6 governance: B1 PASS + Q1 lazy-attach decision
+
+V1 Verifier returned **PASS 11/11** on R1 ($prop reactivity fix + Lit-style optional keys) at HEAD `c4b2ede` of `feat/template-syntax-v2-b1` (verifier report id 1915953857; build manifest id 3560191135). All 11 acceptance criteria confirmed by sample-named test rerun across compiler + runtime suites; zero over-implementation; manifest accurate to diff. **Iteration counter: 1 of 5 banked.** Builder ↔ Verifier round 1 closed in a single pass — banking budget for B2-B5.
+
+Director r6 (record id 2093303835) ratified the merge mechanic: **fast-forward `feat/template-syntax-v2-b1` → `feat/template-syntax-v2`** (NOT squash), preserving the per-phase commit lineage (`runtime-fix` / `compiler-emit` / `size-bump`). Eventual main merge stays per r5 §5 — one squash commit `feat: template-syntax-v2 (Variant B + R1-R7)` after B5 lands. Merge complete: -b1 fast-forwarded to parent at commit `c4b2ede`, then r6 governance docs added at `9ec48cf`.
+
+Director r6 adjudicated the four open questions Builder surfaced honestly:
+
+- **Q1 (Runtime size budget) → lazy-attach + per-feature gzipped sub-budgets.** Compiler conditionally emits per-feature imports + wiring code only when the SFC declares the corresponding collection (generalization of what B1 already does for $prop options-form). Per-feature size budgets: **$aria ≤ 600 B, $controller ≤ 400 B, $context ≤ 600 B**, all gzipped, all lazy-attached. Default-attach baseline for `@aihu/runtime` core stays at ~2.75 KB. Marketing position: **"~5 KB if you use everything; ~2.7 KB for legacy SFCs."** Verification mechanic (B4 territory): introduce `bun run size-by-feature` script that synthesizes minimal SFCs per feature and CI-flags regressions per-feature. B4 + B5 briefs MUST absorb the per-feature size budget acceptance criteria.
+- **Q2 (Body-call-syntax migration) → folded into B3 codemod.** Mechanical AST rewriting of `comment.by` → `comment().by`, `mockForecasts[location]` → `mockForecasts[location()]` etc. is bog-standard codemod work. One codemod run for userland (Variant B template syntax + $on.click rename + class array form lift + body-call migration, atomic). B3 codemod LOC budget grows from **560 → ~640-700 LOC**; surface trigger if Builder reports past **800 LOC** for B3a/B3b re-cut. Compatibility window: in-tree examples emit broken JS between -b1 merge and B3 codemod ship — acceptable, these are example/dev SFCs, not shipped product surface.
+- **Q3 ($bind + reflect interaction) → B2/R4 territory; `_isInternalAttrChange` flag is Director default.** B1's per-instance `Set<string>` reflect re-entrancy guard handles same-component cycles; the cross-component case ($bind:value="parentProp" with parent's `reflect: true`) is guarded via an `_isInternalAttrChange` flag on the host (set in `attributeChangedCallback` entry, cleared in `finally`; reflect path skips when flag set). Builder picks final implementation; B2 AC outcome is "no infinite loop, no stale writes, no double-fire." Test fixture: `packages/runtime/tests/bind-reflect.test.ts`.
+- **Q4 (observedAttributes name collision) → compile-time error `C446`.** When two $prop declarations (or one $prop + one explicit `attrs:` entry) map to the same observed-attribute name (via auto-kebab or explicit `attribute:`), compiler emits `C446` naming both colliding props + the conflicting attribute name + suggesting `specify attribute: explicitly on one of the two`. Detection in `state_macros.rs` validator alongside R1's `C445`. Test fixtures cover four collision cases (auto-auto, auto-explicit, explicit-explicit, attrs-prop). LOC: ~15-25 validator + ~30-50 tests, folds cleanly into B2.
+
+**Refined B2 brief (per Director r6 §3):** R2 + R3 + R4 + Q3 reflect-loop guard + Q4 attribute-collision compile-time error. **LOC estimate: ~150-220 LOC src + ~150-200 LOC tests** (was ~80-130 src in r5 §5; addition of Q3 fixture work + Q4 validator pushes higher; still well under the ≤ 500 src+tests playbook ceiling per round). Branch: `feat/template-syntax-v2-b2` off post-FF parent.
+
+**Surface conditions watch (per Director r6 §6):** B2 NEEDS_FIX with reflect-loop unresolved; B3 codemod past 800 LOC after body-call addition; B4 $aria boundary exceeds 600 B gzipped; B5 LOC + tests exceeds 600 LOC (R6+R7 split trigger); any same-defect-class iteration with NEEDS_FIX > 1; or v0.4 deferral pulled into RATIFY-now mid-build. **Currently no surface trigger active.**
 
 ---
 
@@ -87,9 +104,11 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 
 **Have:** ratified problem statement; three-variant spec at 540 lines; reconciled recommendation (Variant B); feasibility data with hand-transformations on 4 files × 3 variants; codemod path (`packages/compiler/js/codemods/template-syntax/migrate.ts`) and budget (560 LOC); error code reservation (C500); `$emit` design integrated into `@state` v2 collection-form via a new `$event:` collection (typed payloads, `$emit.<name>(payload)` resolves at compile time, lowers to real `CustomEvent`); type-safety strategy (path (i) — generated `.aihu.ts` sidecar with `@state` in scope, `tsc --noEmit` over `**/*.aihu.ts` in CI, no tsserver plugin required to ship); security model (escape-by-default preserved via `setAttribute(key, String(value))`, identity sanitizer hook in `aihu.config.ts`, `$html` → `{@html}` call-site rename, zero string-to-code paths preserved across all variants).
 
-**Blocking:** user gate (3 open questions + 1 go/no-go from Director r2 §5). Hard gate per Director r1 §7 reconfirmed in r2 §8: Builder dispatch is blocked until the user approves direction.
+**Blocking:** none. User cleared go-auto-mode directive (post-r5). B1 closed clean; B2 dispatched per Director r6 §3 refined brief. Hard gate from Director r1 §7 / r2 §8 has been satisfied.
 
-**Next:** post-user-approval, Builder dispatch in 1–2 sub-rounds per Director r2 timeline. Architect §11 acceptance criteria (a–i) are all runnable; Builder map by Architect §11 + Prober §6 LOC table closes the per-variant codemod sketch gap (Architect only fully sketched A; B/C said "would extend"). If the user balks at B and picks A, drop budget to 430 LOC for a single Builder round. If user picks C, a third research round is required (render-prop spike before any Builder). If user gives a non-binary answer ("A now, B in v0.4"), Director writes a round-3 director-note before any Builder — two-codemod-passes is a real cost not to bake in by assumption.
+**Gate question (post-r6):** Auto-spine continues per user "go, auto mode" directive. Surface conditions watched per r6 §6 — currently no surface trigger active.
+
+**Next:** B2 Builder ↔ Verifier round in flight (R2 + R3 + R4 + Q3 + Q4). Architect §11 acceptance criteria (a–i) remain runnable; B3 codemod (with body-call-migration, ~640-700 LOC) follows B2 close. B4 introduces $aria + auto-keyboard with lazy-attach + per-feature size budget. B5 lands $controller + $context combined (R6+R7) per r5 §5 Option A; B5a/B5b split named as fallback if WICG interop test goes flaky.
 
 ---
 
@@ -101,6 +120,21 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 - **Variant B's `{:else if}` vs `{#else if}`:** Architect spec §3.B.1 proposed the in-block sibling form `{:else if}`; user-surface deferred to Builder round (low-stakes detail; Prober fixture didn't exercise it).
 - **Whether to fix existing `$bind:` curly-form spec drift** (Scout `D1.1`: parser accepts but spec §3.2 forbids): codemod must decide accept-or-fix. Default is **fix** for spec hygiene — Variant B/C tighten and re-quote; codemod errors C501 on non-identifier curly content (Prober §2.4 R6).
 - **Re-cut threshold check:** Director r1 §7 strict reading of the trigger says re-cut (Variant B triggers 3 of 4 categories: sigil change, value-form change, structural-element addition; runtime change is non-goal). Director r2 §3 overrode because the spec at 540 lines is under the 600-line ceiling and the user-gate is the binding constraint. Flagged for retro if the Builder phase grows beyond the 560 LOC envelope.
+
+### Closed in r6
+
+- **Q1 — Runtime size budget for R5/R6/R7:** **CLOSED** — lazy-attach (Director default option b). Per-feature gzipped sub-budgets ratified: $aria ≤ 600 B, $controller ≤ 400 B, $context ≤ 600 B. Marketing position: "~5 KB runtime if you use everything; ~2.7 KB for legacy SFCs."
+- **Q2 — Body-call-syntax migration:** **CLOSED** — folds into B3 codemod (option a). LOC budget grows 560 → ~640-700; surface trigger at 800 LOC for B3a/B3b re-cut.
+- **Q3 — $bind two-way + reflect interaction:** **CLOSED** — B2/R4 territory; guard mechanism is `_isInternalAttrChange` flag on host (set in `attributeChangedCallback` entry, cleared in `finally`; reflect path skips when flag set). Builder picks final implementation; AC outcome: no infinite loop, no stale writes, no double-fire.
+- **Q4 — observedAttributes name collision:** **CLOSED** — compile-time error `C446` emitted by `state_macros.rs` validator. Diagnostic names both colliding props + the conflicting attribute name; suggests explicit `attribute:` override. Folded into B2 brief.
+
+### Durably-true facts (post-r6)
+
+- **B1 closed clean (V1 PASS 11/11); iteration 1 of 5 banked.** R1 ($prop reactivity fix + Lit-style optional keys) ratified in code; -b1 fast-forwarded into parent at `c4b2ede`; r6 docs added at `9ec48cf`.
+- **Lazy-attach architectural decision ratified for R5/R6/R7.** Per-feature gzipped sub-budgets: $aria ≤ 600 B / $controller ≤ 400 B / $context ≤ 600 B. `@aihu/runtime` core baseline stays at ~2.75 KB.
+- **Marketing position: ~5 KB runtime if you use everything; ~2.7 KB for legacy SFCs that don't opt into v2 collections.** Honest, dev-tool-inspectable via existing `bun run size-rows` pre-push; B4 introduces `bun run size-by-feature` for per-feature CI gating.
+- **B3 codemod scope expanded to include body-call-syntax migration** (~640-700 LOC budget, up from 560; surface trigger at 800 LOC for B3a/B3b re-cut).
+- **B2 refined brief: R2 + R3 + R4 + Q3 reflect-loop guard + Q4 attribute-collision compile-time error C446** (~150-220 LOC src + ~150-200 LOC tests; under the ≤ 500 src+tests per-round playbook ceiling).
 
 ---
 
