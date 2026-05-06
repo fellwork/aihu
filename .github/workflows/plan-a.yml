@@ -204,12 +204,11 @@ jobs:
         run: bun run build
       - name: Build examples
         run: |
-          for dir in examples/*/; do
-            # Require index.html to skip SSR/incomplete examples (e.g. blog-loader)
-            if [ -f "${dir}vite.config.ts" ] && [ -f "${dir}package.json" ] && [ -f "${dir}index.html" ]; then
-              echo "Building ${dir}..."
-              (cd "${dir}" && bun run build) || exit 1
-            fi
+          # Build only the polished examples that are also tested.
+          # blog-loader (no index.html) and blog-router (.aihu without plugin) are WIP.
+          for dir in examples/live-counter examples/temperature-converter examples/timer examples/todo-mvc examples/color-theme; do
+            echo "Building ${dir}..."
+            (cd "${dir}" && bun run build) || exit 1
           done
       - name: Test examples
         run: |
