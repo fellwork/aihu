@@ -273,7 +273,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -347,6 +347,13 @@
       "name": "@aihu/signals",
       "version": "0.1.0",
     },
+    "packages/templates/cf-team": {
+      "name": "@aihu/templates-cf-team",
+      "version": "0.2.0",
+      "peerDependencies": {
+        "@aihu/cli": "^0.2.0",
+      },
+    },
     "packages/vscode-aihu": {
       "name": "vscode-aihu",
       "version": "1.0.0",
@@ -419,6 +426,8 @@
     "@aihu/server-win32-x64-msvc": ["@aihu/server-win32-x64-msvc@0.1.0", "", { "os": "win32", "cpu": "x64" }, "sha512-oneX/KaS+g8jDCS+vCjIFoWKg2zm57NAX5hWRlBXLPmsl+IhD3gasyu41lXcnzmIsgfshnPZ/mAHAdgtI3fcUA=="],
 
     "@aihu/signals": ["@aihu/signals@workspace:packages/signals"],
+
+    "@aihu/templates-cf-team": ["@aihu/templates-cf-team@workspace:packages/templates/cf-team"],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
