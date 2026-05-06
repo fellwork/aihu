@@ -169,6 +169,9 @@ struct NeededHelpers {
     needs_on_mount_for_directives: bool,
     /// B3 — true when `class={[...]}` array form appears. Emits `__aihu_cls`.
     needs_class_helper: bool,
+    /// B3 / R4 — true when `$bind.value={signal}` (non-checked) is used and a
+    /// typed-conversion helper is needed at the write-back site.
+    needs_bind_conv_helper: bool,
     // ── arch-5 M1 a11y (RFC-A5-017..021) ─────────────────────────────────────
     /// True when `<$focusTrap>` appears in the template — needs `createFocusTrap` from runtime.
     a11y_focus_trap: bool,
@@ -257,6 +260,14 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                     if let Attr::Binding { name, expr } = attr {
                         if name == "class" && expr.trim_start().starts_with('[') {
                             h.needs_class_helper = true;
+                        }
+                    }
+                    // B3 / R4 — any `$bind.<non-checked>` needs the conv helper.
+                    if let Attr::Macro { name, .. } = attr {
+                        if let Some(prop) = name.strip_prefix("bind:") {
+                            if prop != "checked" {
+                                h.needs_bind_conv_helper = true;
+                            }
                         }
                     }
                 }
@@ -351,6 +362,15 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         // B3 — `class={[a, b && 'c']}` array-form helper. Joins truthy strings
         // with spaces; null/undefined/false/0 filtered out (clsx-shaped).
         lines.push("const __aihu_cls = (a) => Array.isArray(a) ? a.filter(v => typeof v === 'string' && v).join(' ') : (a == null ? '' : String(a));");
+    }
+    if h.needs_bind_conv_helper {
+        // B3 / R4 — typed-conversion at $bind.value write-back site. Inspects
+        // the current signal value's type and converts the input string to
+        // match. Mirror of R1's `_convert` direction at the write side.
+        // Numbers parse via Number(); booleans via String === 'true' (rare for
+        // input fields but correct for `<input value="…"> + signal(true)`);
+        // strings pass through; unknown types return the raw string.
+        lines.push("const __aihu_conv = (cur, raw) => { if (typeof cur === 'number') { const n = Number(raw); return Number.isFinite(n) ? n : cur; } if (typeof cur === 'boolean') return raw === 'true'; return raw; };");
     }
     if lines.is_empty() {
         String::new()
@@ -2618,14 +2638,24 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                                 "checked" => "change",
                                 _ => "input",
                             };
-                            // For `checked` write back e.target.checked, otherwise
-                            // e.target.value. Coerce to the prop signal's existing
-                            // type if possible — userland that authored a typed
-                            // `let count = signal(0)` keeps a number-typed signal.
+                            // B3 / R4 typed-conv (Director r7 §2 Surface 1):
+                            // Mirror R1's `_convert` direction at the write site.
+                            // The input event always gives back a string; if the
+                            // bound signal currently holds a number/boolean, coerce.
+                            // Compiler emits a small inline conversion helper:
+                            //   __aihu_conv(currentValue, inputString)
+                            // which inspects `typeof currentValue` and parses the
+                            // input string accordingly. Falls back to identity for
+                            // strings and unknown types.
+                            //
+                            // For `checked` (boolean by platform contract) we read
+                            // e.target.checked directly — no conversion needed.
                             let read_expr = if prop == "checked" {
-                                "e.target.checked"
+                                "e.target.checked".to_string()
                             } else {
-                                "e.target.value"
+                                // R4 typed-conv at $bind.value write site:
+                                //   __aihu_conv(getter(), e.target.value)
+                                format!("__aihu_conv({}(), e.target.value)", trimmed)
                             };
                             let evt_cap = capitalize_first(evt);
                             // Avoid clobbering an existing `on{Event}: ...` userland

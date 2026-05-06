@@ -68,10 +68,10 @@ fn r4_fixture_bind_two_way() {
         "missing read-side tuple for checked: {}",
         js
     );
-    // Write-side: oninput / onchange listeners
+    // Write-side: oninput / onchange listeners (B3 R4: typed-conv at $bind).
     assert!(
-        js.contains("onInput: (e) => setText(e.target.value)"),
-        "missing oninput write-back: {}",
+        js.contains("onInput: (e) => setText(__aihu_conv(text(), e.target.value))"),
+        "missing oninput write-back with typed-conv: {}",
         js
     );
     assert!(

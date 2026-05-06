@@ -377,10 +377,11 @@ const [name, setName] = signal('')
         "Expected read-side signal tuple; got:\n{}",
         result.js
     );
-    // Write-side: oninput: (e) => setName(e.target.value)
+    // Write-side: oninput: (e) => setName(__aihu_conv(name(), e.target.value))
+    // (B3 / R4 typed-conv: input string is coerced to the signal's current type).
     assert!(
-        result.js.contains("onInput: (e) => setName(e.target.value)"),
-        "Expected oninput write-back to setName; got:\n{}",
+        result.js.contains("onInput: (e) => setName(__aihu_conv(name(), e.target.value))"),
+        "Expected oninput write-back with typed-conv; got:\n{}",
         result.js
     );
 }
@@ -431,10 +432,14 @@ const [name, setName] = signal('')
         "Expected read-side tuple; got:\n{}",
         result.js
     );
-    // No auto-write-back (user-defined handler wins).
-    let auto_writeback = "(e) => setName(e.target.value)";
+    // No auto-write-back (user-defined handler wins). With B3 / R4 the auto
+    // emit shape uses __aihu_conv; check both old and new patterns are absent.
+    // Note: __aihu_conv may appear as a helper definition without being called;
+    // we check for the call site (`__aihu_conv(name(),`) specifically.
+    let auto_writeback_old = "(e) => setName(e.target.value)";
+    let auto_writeback_new = "__aihu_conv(name()";
     assert!(
-        !result.js.contains(auto_writeback),
+        !result.js.contains(auto_writeback_old) && !result.js.contains(auto_writeback_new),
         "User-supplied $on:input must override auto write-back; got:\n{}",
         result.js
     );

@@ -1,0 +1,13 @@
+// B3 Variant B — `{@html expr}` Svelte-style raw HTML block.
+
+@state {
+  $prop: {
+    rawText: { type: string, default: '<em>hello</em>' },
+  }
+}
+
+@template {
+  <article class="content">
+    {@html rawText}
+  </article>
+}

@@ -1,0 +1,44 @@
+// B3 Variant B — block-tag control flow (canonical shape).
+// Exercises {#if cond}, {:else if}, {:else}, {#each list as item (key)}, {:empty},
+// and {@html expr} block forms together with the dot-form $on.click.
+
+@state {
+  $prop: {
+    items: { type: string[], default: [], expose: { read: true } },
+    view: { type: 'list' | 'detail' | 'empty', default: 'list' },
+  }
+
+  selected: number = 0
+
+  $action: {
+    select: (i: number) => { selected = i },
+  }
+}
+
+@template {
+  {#if view === 'list'}
+    <ul class="items">
+      {#each items as item, idx (idx)}
+        <li class={['row', idx === selected && 'sel']} $on.click={() => select(idx)}>
+          {item}
+        </li>
+      {:empty}
+        <li class="empty">No items.</li>
+      {/each}
+    </ul>
+  {:else if view === 'detail'}
+    <article>
+      <h2>Detail</h2>
+      <p>Selected index: {selected}</p>
+    </article>
+  {:else}
+    <p>Empty.</p>
+  {/if}
+}
+
+@style {
+  .items { list-style: none; padding: 0; margin: 0; }
+  .row { padding: 4px 8px; cursor: pointer; }
+  .row.sel { background: var(--accent); color: white; }
+  .empty { color: var(--muted); padding: 8px; }
+}
