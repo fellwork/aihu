@@ -55,7 +55,7 @@
   },
   {
     "name": "@aihu/cli",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "dir": "packages/cli",
     "isPlatform": false
   },
@@ -133,7 +133,7 @@
   },
   {
     "name": "@aihu/templates-cf-team",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "dir": "packages/templates/cf-team",
     "isPlatform": false
   },
