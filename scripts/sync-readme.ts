@@ -22,7 +22,6 @@
  * Pre-commit + CI ensure the README + per-package READMEs never drift.
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { gzipSync } from 'node:zlib'
@@ -32,13 +31,6 @@ import { rolldown } from 'rolldown'
 const REPO_ROOT = process.cwd()
 const CHECK_MODE = process.argv.includes('--check')
 
-const SHORT_SHA = (() => {
-  try {
-    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
-  } catch {
-    return 'unknown'
-  }
-})()
 
 interface SectionResult {
   key: string
@@ -60,8 +52,8 @@ function replaceMarker(source: string, key: string, body: string, versionStamp?:
   }
   const note = `<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->`
   const stamp = versionStamp
-    ? `\n<sub><i>Auto-generated against ${versionStamp} on commit \`${SHORT_SHA}\`.</i></sub>\n`
-    : `\n<sub><i>Auto-generated on commit \`${SHORT_SHA}\`.</i></sub>\n`
+    ? `\n<sub><i>Auto-generated against ${versionStamp}.</i></sub>\n`
+    : `\n<sub><i>Auto-generated — run \`bun scripts/sync-readme.ts\` to update.</i></sub>\n`
   const replacement = `${begin}\n${note}\n\n${body.trim()}\n${stamp}\n${end}`
   return `${source.slice(0, beginIdx)}${replacement}${source.slice(endIdx + end.length)}`
 }
@@ -1044,7 +1036,7 @@ function syncPackageReadme(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log(`sync-readme.ts — commit ${SHORT_SHA} — mode: ${CHECK_MODE ? 'check' : 'write'}`)
+  console.log(`sync-readme.ts — mode: ${CHECK_MODE ? 'check' : 'write'}`)
 
   const packages = discoverPackages()
   const inventoryPath = join(REPO_ROOT, 'scripts/__package-inventory.json')
@@ -1110,32 +1102,21 @@ async function main() {
     `  Packages:    ${pkgCreated} new, ${pkgUpdated} updated, ${pkgResults.length - pkgCreated - pkgUpdated} unchanged`,
   )
 
-  // For drift detection, ignore the SHA stamp itself — the SHA changes on
-  // every commit, which would otherwise create infinite "drift" on CI. We
-  // compare the SHA-erased rendered file against the SHA-erased existing file.
-  const stripSha = (s: string): string =>
-    s.replace(
-      /Auto-generated (?:against [^\n]+? )?on commit `[a-f0-9]+`/g,
-      'Auto-generated on commit `STAMP`',
-    )
-
   if (CHECK_MODE) {
-    const realRootChanged = stripSha(beforeRoot) !== stripSha(readme)
-    const realPkgChanged = pkgResults.some((r) => stripSha(r.before) !== stripSha(r.after))
-    if (realRootChanged || realPkgChanged || inventoryChanged) {
+    const rootDrifted = beforeRoot !== readme
+    const pkgDrifted = pkgResults.some((r) => r.before !== r.after)
+    if (rootDrifted || pkgDrifted || inventoryChanged) {
       console.error('')
       console.error('  README drift detected. Run: bun scripts/sync-readme.ts')
-      if (realRootChanged) console.error('    - README.md has stale autogen content')
+      if (rootDrifted) console.error('    - README.md has stale autogen content')
       if (inventoryChanged) console.error('    - scripts/__package-inventory.json is stale')
       for (const r of pkgResults) {
-        if (stripSha(r.before) !== stripSha(r.after))
+        if (r.before !== r.after)
           console.error(`    - ${relative(REPO_ROOT, r.path)} has stale autogen content`)
       }
       process.exit(1)
     }
-    console.log(
-      '  All in sync (SHA stamps not checked — they refresh on each commit via the pre-commit hook).',
-    )
+    console.log('  All in sync.')
     return
   }
 
