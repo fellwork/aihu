@@ -250,6 +250,25 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                 }
                 collect_helpers_recursive(children, h);
             }
+            // B3 — Variant B block-tag forms reuse the same boundary helpers
+            // as their attribute-directive counterparts (same runtime contract).
+            TemplateNode::IfBlock { branches } => {
+                h.if_boundary = true;
+                for (_, body) in branches {
+                    collect_helpers_recursive(body, h);
+                }
+            }
+            TemplateNode::EachBlock { body, empty_body, .. } => {
+                h.each_boundary = true;
+                collect_helpers_recursive(body, h);
+                if let Some(eb) = empty_body {
+                    collect_helpers_recursive(eb, h);
+                }
+            }
+            TemplateNode::HtmlBlock { .. } => {
+                h.needs_effect = true;
+                h.needs_on_mount_for_directives = true;
+            }
             _ => {}
         }
     }
@@ -1866,7 +1885,253 @@ fn emit_node(
         TemplateNode::MacroElement { name, attrs, children } => {
             emit_macro_element(name, attrs, children, signal_map, state_names, child_indent)
         }
+        // B3 — Variant B block-tag forms. Lower to the same runtime calls as
+        // the v1 attribute-directives (`createIfBoundary` / `each`) so the
+        // reactivity contract is preserved.
+        TemplateNode::IfBlock { branches } => {
+            emit_if_block(branches, signal_map, state_names, child_indent)
+        }
+        TemplateNode::EachBlock {
+            list_expr,
+            item_alias,
+            idx_alias,
+            key_expr,
+            body,
+            empty_body,
+        } => emit_each_block(
+            list_expr,
+            item_alias,
+            idx_alias.as_deref(),
+            key_expr.as_deref(),
+            body,
+            empty_body.as_deref(),
+            signal_map,
+            state_names,
+            child_indent,
+        ),
+        TemplateNode::HtmlBlock { expr } => emit_html_block(expr, child_indent),
     }
+}
+
+/// B3 — Lower an `{#if}/{:else if}/{:else}/{/if}` block to nested
+/// `createIfBoundary` calls. Each branch becomes a fragment-list of children
+/// wrapped in `branch('', undefined, [...])` so the runtime reconciles across
+/// fragment boundaries the same way it does for attribute-form `$if`.
+fn emit_if_block(
+    branches: &[(String, Vec<TemplateNode>)],
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
+    fn emit_body(
+        body: &[TemplateNode],
+        signal_map: &SignalMap,
+        state_names: &StateNames,
+        child_indent: &str,
+    ) -> String {
+        let next_indent = format!("{}  ", child_indent);
+        let parts: Vec<String> = body
+            .iter()
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.is_empty() {
+            "branch('', undefined, [])".to_string()
+        } else if parts.len() == 1 {
+            // Wrap a single child in a fragment-style branch so the runtime
+            // sees a uniform shape across branches.
+            format!("branch('', undefined, [{}])", parts[0])
+        } else {
+            format!("branch('', undefined, [{}])", parts.join(", "))
+        }
+    }
+
+    // Compose else-if chain by negating prior conditions. The runtime's
+    // `when(cond, grow)` (via createIfBoundary) takes a single cond+grow pair —
+    // no built-in else slot — so for `{:else if}` we synthesize a sibling
+    // when() with the negated previous condition AND the new condition. The
+    // {:else} (empty cond) becomes a when() with the negation of all prior
+    // conditions.
+    //
+    // To preserve reactivity, the negation reads each cond expression directly
+    // (cond is wrapped with [() => (expr)] same as the original).
+    fn negate_chain_thunk(branches_so_far: &[String]) -> String {
+        // Build `[() => !(c0) && !(c1) && ... && (cN)]` for chained else-if;
+        // for plain else: `[() => !(c0) && !(c1) && ...]`.
+        let parts: Vec<String> = branches_so_far
+            .iter()
+            .map(|c| format!("!({})", c))
+            .collect();
+        format!("[() => ({})]", parts.join(" && "))
+    }
+
+    fn build_chain(
+        idx: usize,
+        branches: &[(String, Vec<TemplateNode>)],
+        prior_conds: &mut Vec<String>,
+        signal_map: &SignalMap,
+        state_names: &StateNames,
+        child_indent: &str,
+    ) -> Vec<String> {
+        // Returns a list of when() calls (siblings) for the branches starting
+        // at idx. The caller wraps these into a fragment-branch.
+        let mut out: Vec<String> = Vec::new();
+        if idx >= branches.len() {
+            return out;
+        }
+        let (cond, body) = &branches[idx];
+        let body_str = emit_body(body, signal_map, state_names, child_indent);
+
+        let cond_arg = if cond.is_empty() {
+            // {:else} — fire when all prior conds are false
+            negate_chain_thunk(prior_conds)
+        } else if prior_conds.is_empty() {
+            lower_if_cond(cond, signal_map)
+        } else {
+            // {:else if}: !prior0 && !prior1 && ... && cond
+            let mut parts: Vec<String> = prior_conds
+                .iter()
+                .map(|c| format!("!({})", c))
+                .collect();
+            parts.push(format!("({})", cond));
+            format!("[() => ({})]", parts.join(" && "))
+        };
+
+        out.push(format!(
+            "createIfBoundary({}, () => {{ return {} }})",
+            cond_arg, body_str
+        ));
+
+        if !cond.is_empty() {
+            prior_conds.push(cond.clone());
+            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent);
+            out.extend(rest);
+            prior_conds.pop();
+        }
+        out
+    }
+
+    let mut prior: Vec<String> = Vec::new();
+    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent);
+    if when_calls.len() == 1 {
+        when_calls.into_iter().next().unwrap()
+    } else {
+        format!("branch('', undefined, [{}])", when_calls.join(", "))
+    }
+}
+
+/// Lower a `{#if}` condition the same way the attribute-form `$if` does:
+/// simple identifier of a registered signal → `[get, set]` tuple; otherwise a
+/// thunk array.
+fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
+    let trimmed = cond.trim();
+    let is_simple_ident = !trimmed.is_empty()
+        && trimmed
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+    if is_simple_ident && signal_map.is_reactive(trimmed) {
+        if let Some(setter) = signal_map.0.get(trimmed) {
+            if !setter.is_empty() {
+                return format!("[{}, {}]", trimmed, setter);
+            } else {
+                return format!("[{}]", trimmed);
+            }
+        }
+    }
+    format!("[() => ({})]", trimmed)
+}
+
+/// B3 — Lower an `{#each}` block to the existing `each(...)` runtime call.
+fn emit_each_block(
+    list_expr: &str,
+    item_alias: &str,
+    idx_alias: Option<&str>,
+    key_expr: Option<&str>,
+    body: &[TemplateNode],
+    empty_body: Option<&[TemplateNode]>,
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
+    let next_indent = format!("{}  ", child_indent);
+    let body_parts: Vec<String> = body
+        .iter()
+        .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let body_str = if body_parts.len() == 1 {
+        body_parts.into_iter().next().unwrap()
+    } else {
+        format!("branch('', undefined, [{}])", body_parts.join(", "))
+    };
+
+    let idx = idx_alias.unwrap_or("i");
+    let key_part = match key_expr {
+        Some(k) => format!("({}) => {}", item_alias, k),
+        None => "undefined".to_string(),
+    };
+
+    let items_arg = if signal_map.is_reactive(list_expr) {
+        if let Some(setter) = signal_map.0.get(list_expr) {
+            if !setter.is_empty() {
+                format!("[{}, {}]", list_expr, setter)
+            } else {
+                format!("[{}]", list_expr)
+            }
+        } else {
+            format!("[() => ({})]", list_expr)
+        }
+    } else {
+        // Complex expression — wrap in thunk array to take Path 2.
+        format!("[() => ({})]", list_expr)
+    };
+
+    let each_call = if signal_map.is_reactive(list_expr) {
+        format!(
+            "each({}, {}, ({}, {}) => {{ return {} }})",
+            items_arg, key_part, item_alias, idx, body_str
+        )
+    } else {
+        format!(
+            "createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
+            items_arg, key_part, item_alias, idx, body_str
+        )
+    };
+
+    // {:empty} fallback: emit two sibling when() boundaries — one for the
+    // populated case (length > 0) and one for the empty case (length === 0).
+    if let Some(eb) = empty_body {
+        let empty_parts: Vec<String> = eb
+            .iter()
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .filter(|s| !s.is_empty())
+            .collect();
+        let empty_str = if empty_parts.len() == 1 {
+            empty_parts.into_iter().next().unwrap()
+        } else {
+            format!("branch('', undefined, [{}])", empty_parts.join(", "))
+        };
+        // Reactive length read uses thunk array.
+        let populated_cond = format!("[() => (({}) && ({}).length > 0)]", list_expr, list_expr);
+        let empty_cond = format!("[() => !(({}) && ({}).length > 0)]", list_expr, list_expr);
+        return format!(
+            "branch('', undefined, [createIfBoundary({}, () => {{ return {} }}), createIfBoundary({}, () => {{ return {} }})])",
+            populated_cond, each_call, empty_cond, empty_str
+        );
+    }
+
+    each_call
+}
+
+/// B3 — Lower a `{@html expr}` block to the same IIFE pattern as `$html`.
+fn emit_html_block(expr: &str, indent: &str) -> String {
+    // Mirror the `$html` attribute-form lowering: build a fragment branch with
+    // a placeholder element whose content gets replaced reactively.
+    format!(
+        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})(){}",
+        expr,
+        if indent.is_empty() { "" } else { "" }
+    )
 }
 
 // ─── v0.5 Macro element boundary emitters ────────────────────────────────────
