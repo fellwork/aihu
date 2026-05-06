@@ -112,7 +112,14 @@ console.log('\n✓ Build complete → dist/')
 
 // ── 5. Copy static assets into dist/ ────────────────────────────
 
-const staticFiles = ['index.html', 'style.css', 'favicon.svg', 'aihu-wordmark.svg']
+// index.html references ./dist/docs.js at development time (so the dev
+// server at apps/docs/ root can find the bundle). When deployed, dist/ IS
+// the root, so rewrite the path to ./docs.js in the copied file.
+const indexSrc = await readFile(join(__dir, 'index.html'), 'utf8')
+const indexDist = indexSrc.replace('./dist/docs.js', './docs.js')
+await writeFile(join(__dir, 'dist', 'index.html'), indexDist, 'utf8')
+
+const staticFiles = ['style.css', 'favicon.svg', 'aihu-wordmark.svg']
 for (const file of staticFiles) {
   await copyFile(join(__dir, file), join(__dir, 'dist', file))
 }
