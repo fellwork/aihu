@@ -231,7 +231,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/app`](./packages/app) | `0.1.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/cli`](./packages/cli) | `0.3.0` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.1.6` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.1.7` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
