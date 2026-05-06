@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
