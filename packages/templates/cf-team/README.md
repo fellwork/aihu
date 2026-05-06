@@ -69,7 +69,7 @@ npm install @aihu/templates-cf-team
 bun add @aihu/templates-cf-team
 ```
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -85,7 +85,7 @@ bun add @aihu/templates-cf-team
 | **Published files** | 5 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -96,7 +96,7 @@ bun add @aihu/templates-cf-team
 
 _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -109,7 +109,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
 - `@aihu/cli` — `^0.2.0`
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -121,7 +121,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 - [Aihu framework root](../../../README.md)
 - [v1.1 roadmap](../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -132,6 +132,6 @@ _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
 MIT — see [LICENSE](../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `086ac85`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `8e258e7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -5,6 +5,7 @@
  * `MatchResult.params` from `packages/router/src/router.ts:24`."
  */
 
+import { runWithContext } from '@aihu/context'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RouteDefinition } from '../src/index.ts'
 import {
@@ -12,13 +13,11 @@ import {
   createRouter,
   createRouteSignal,
   navigate,
-  provideRouteContext,
-  type RouteContextValue,
   RouteContext,
+  type RouteContextValue,
   useRoute,
   useRouter,
 } from '../src/index.ts'
-import { runWithContext } from '@aihu/context'
 
 // ---------------------------------------------------------------------------
 // JSDOM-like history shim (vitest in node uses jsdom by default per env hint
@@ -31,7 +30,9 @@ const userRoute = (pattern: string): RouteDefinition => ({
     .split('/')
     .filter(Boolean)
     .map((p) =>
-      p.startsWith(':') ? { kind: 'param' as const, name: p.slice(1) } : { kind: 'static' as const, path: p },
+      p.startsWith(':')
+        ? { kind: 'param' as const, name: p.slice(1) }
+        : { kind: 'static' as const, path: p },
     ),
   module: () => Promise.resolve({ default: { toHtml: () => `<p>${pattern}</p>` } }),
 })

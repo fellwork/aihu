@@ -182,9 +182,7 @@ async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
   try {
     entries = readdirSync(pkgRoot)
   } catch (e) {
-    throw new Error(
-      `Could not read template package root ${pkgRoot}: ${(e as Error).message}`,
-    )
+    throw new Error(`Could not read template package root ${pkgRoot}: ${(e as Error).message}`)
   }
   // Prefer .ts (Bun-native), fall through to compiled forms.
   const ordered = ['.ts', '.js', '.mjs', '.cjs']

@@ -229,9 +229,7 @@ class Parser {
       this.i++
       // Resolve identifier from the supplied context. Missing keys are `undefined`,
       // which lets `agentSurface !== "none"` work even if the key is absent.
-      return Object.prototype.hasOwnProperty.call(this.ctx, t.value)
-        ? this.ctx[t.value]
-        : undefined
+      return Object.hasOwn(this.ctx, t.value) ? this.ctx[t.value] : undefined
     }
     throw new Error(`unexpected token ${t.kind} (${JSON.stringify(t.value)}) at position ${t.pos}`)
   }

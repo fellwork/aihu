@@ -91,7 +91,6 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   const date = new Date().toISOString().slice(0, 10)
   const jsdomVersion = (() => {
     try {
-      // biome-ignore lint/suspicious/noExplicitAny: version introspection
       return (require('jsdom/package.json') as any).version as string
     } catch {
       return '25.x'

@@ -14,12 +14,7 @@
 
 import type { SpawnSyncReturns } from 'node:child_process'
 import { spawnSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, posix } from 'node:path'
 import { evalWhen } from './conditional-eval.ts'
 import type { PostInstallStep, TemplateManifest } from './template-manifest.ts'
@@ -115,15 +110,9 @@ export interface ResolveTemplateInput {
   loader?: () => Promise<unknown>
 }
 
-export async function resolveTemplate(
-  input: ResolveTemplateInput,
-): Promise<TemplateManifest> {
+export async function resolveTemplate(input: ResolveTemplateInput): Promise<TemplateManifest> {
   const raw =
-    input.manifest !== undefined
-      ? input.manifest
-      : input.loader
-        ? await input.loader()
-        : undefined
+    input.manifest !== undefined ? input.manifest : input.loader ? await input.loader() : undefined
   if (raw === undefined) {
     throw new Error('resolveTemplate: must provide either `manifest` or `loader`')
   }
@@ -155,9 +144,7 @@ export function mergeOptions(
   // Reject any user-attempted override of a `fixed` cell.
   for (const key of Object.keys(input.userOverrides)) {
     if (Object.hasOwn(manifest.fixed, key)) {
-      throw new Error(
-        `mergeOptions: cannot override fixed manifest cell ${JSON.stringify(key)}`,
-      )
+      throw new Error(`mergeOptions: cannot override fixed manifest cell ${JSON.stringify(key)}`)
     }
   }
 

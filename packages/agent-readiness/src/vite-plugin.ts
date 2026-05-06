@@ -14,23 +14,10 @@ interface VitePlugin {
   readonly name: string
   configureServer?: (server: {
     middlewares: {
-      use: (
-        fn: (
-          // biome-ignore lint/suspicious/noExplicitAny: vite/connect middleware types
-          req: any,
-          // biome-ignore lint/suspicious/noExplicitAny: vite/connect middleware types
-          res: any,
-          next: () => void,
-        ) => void,
-      ) => void
+      use: (fn: (req: any, res: any, next: () => void) => void) => void
     }
   }) => void
-  generateBundle?: (
-    // biome-ignore lint/suspicious/noExplicitAny: rollup bundle output types
-    options: any,
-    // biome-ignore lint/suspicious/noExplicitAny: rollup bundle output types
-    bundle: any,
-  ) => Promise<void>
+  generateBundle?: (options: any, bundle: any) => Promise<void>
 }
 
 /**
@@ -125,12 +112,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
 export function viteAgentReadinessIntegration(config: AgentReadinessConfig): VitePlugin {
   const routes = createAgentReadinessRoutes(config)
 
-  const serveResponse = async (
-    path: string,
-    handler: RouteHandler,
-    // biome-ignore lint/suspicious/noExplicitAny: connect response object
-    res: any,
-  ): Promise<boolean> => {
+  const serveResponse = async (path: string, handler: RouteHandler, res: any): Promise<boolean> => {
     const req = new Request(`http://localhost${path}`)
     const response = await handler(req, { params: {}, url: new URL(`http://localhost${path}`) })
     const body = await response.text()
@@ -176,7 +158,6 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
         })
         if (response.status === 200) {
           const body = await response.text()
-          // biome-ignore lint/suspicious/noExplicitAny: rollup plugin context
           ;(this as any).emitFile({ type: 'asset', fileName: name, source: body })
         }
       }

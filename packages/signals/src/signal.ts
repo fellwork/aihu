@@ -241,7 +241,6 @@ function markOne(root: Subscriber): void {
       // Linear entry: promote outer node to PENDING, then chase
       sub.flags |= PENDING
       // ── Inner chase loop: MARKED | PENDING on every hop (T1 + T2 + T6) ──
-      // biome-ignore lint/correctness/noConstantCondition: loop exits via break.
       while (true) {
         sub = head.sub // T6: one .sub read per iteration
         if (sub.flags & DISPOSED) break

@@ -1,43 +1,54 @@
 /* aihu docs — design tokens + global styles */
 
 :root {
-  --bg:       #ffffff;
-  --fg:       #1a1a1a;
-  --muted:    #666;
-  --border:   #e2e8f0;
-  --accent:   #7c3aed;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --border: #e2e8f0;
+  --accent: #7c3aed;
   --hover-bg: #f8f5ff;
-  --code-bg:  #f6f8fa;
-  --btn-bg:   #f1f5f9;
+  --code-bg: #f6f8fa;
+  --btn-bg: #f1f5f9;
   --header-h: 60px;
 }
 
 .dark {
-  --bg:       #0d1117;
-  --fg:       #e6edf3;
-  --muted:    #8b949e;
-  --border:   #30363d;
-  --accent:   #a78bfa;
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --accent: #a78bfa;
   --hover-bg: #161b22;
-  --code-bg:  #161b22;
-  --btn-bg:   #21262d;
+  --code-bg: #161b22;
+  --btn-bg: #21262d;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  transition: background .15s, color .15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
-a { color: var(--accent); }
-a:hover { text-decoration: underline; }
+a {
+  color: var(--accent);
+}
+a:hover {
+  text-decoration: underline;
+}
 
 /* ── Header ─────────────────────────────────────────────────────── */
 
@@ -78,11 +89,15 @@ a:hover { text-decoration: underline; }
 }
 
 /* Wordmark glyphs use --fg-derived ink color via filter so the mark adapts to dark mode. */
-:root .logo-mark { filter: none; }
-.dark .logo-mark { filter: invert(1) hue-rotate(180deg); }
+:root .logo-mark {
+  filter: none;
+}
+.dark .logo-mark {
+  filter: invert(1) hue-rotate(180deg);
+}
 
 .version {
-  font-size: .75rem;
+  font-size: 0.75rem;
   background: var(--accent);
   color: white;
   padding: 1px 6px;
@@ -98,9 +113,12 @@ a:hover { text-decoration: underline; }
 .header-link {
   color: var(--muted);
   text-decoration: none;
-  font-size: .875rem;
+  font-size: 0.875rem;
 }
-.header-link:hover { color: var(--fg); text-decoration: none; }
+.header-link:hover {
+  color: var(--fg);
+  text-decoration: none;
+}
 
 /* ── Hero playground (Directive 1) ──────────────────────────────── */
 
@@ -124,17 +142,21 @@ a:hover { text-decoration: underline; }
 .hero-playground-tagline {
   margin: 0 0 20px;
   color: var(--muted);
-  font-size: .95rem;
+  font-size: 0.95rem;
 }
 
 .hero-playground-tagline code {
   background: var(--code-bg);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: .875rem;
+  font-size: 0.875rem;
 }
 
 @media (max-width: 640px) {
-  .hero-playground-inner { padding: 20px 16px 28px; }
-  .hero-playground h2 { font-size: 1.25rem; }
+  .hero-playground-inner {
+    padding: 20px 16px 28px;
+  }
+  .hero-playground h2 {
+    font-size: 1.25rem;
+  }
 }

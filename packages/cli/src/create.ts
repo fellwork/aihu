@@ -1,4 +1,3 @@
-
 /**
  * `create-aihu` — interactive project scaffolder for `npx create-aihu@latest`.
  *

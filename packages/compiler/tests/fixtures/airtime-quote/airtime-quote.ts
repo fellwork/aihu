@@ -16,7 +16,7 @@ defineElement(
       const fee = computed(() => (plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20))
       const total = computed(() => amount() + fee())
 
-      function quote() {
+      function _quote() {
         return { plan: plan(), amount: amount(), fee: fee(), total: total() }
       }
       return branch('div', { class: 'airtime-quote' }, [branch('span', undefined, [leaf(total)])])

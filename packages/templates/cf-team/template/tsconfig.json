@@ -21,8 +21,5 @@
     "types": ["@cloudflare/workers-types", "node"]
   },
   "files": [],
-  "references": [
-    { "path": "./apps/web" },
-    { "path": "./packages/shared" }
-  ]
+  "references": [{ "path": "./apps/web" }, { "path": "./packages/shared" }]
 }

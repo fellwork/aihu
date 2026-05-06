@@ -108,8 +108,8 @@ async function runVite(flags: DevFlags): Promise<void> {
   }
 
   const serverOptions: Record<string, unknown> = { open: flags.open }
-  if (flags.port !== undefined) serverOptions['port'] = flags.port
-  if (flags.host !== undefined) serverOptions['host'] = flags.host
+  if (flags.port !== undefined) serverOptions.port = flags.port
+  if (flags.host !== undefined) serverOptions.host = flags.host
 
   const server = await vite.createServer({ server: serverOptions })
   const listening = await server.listen(flags.port)
