@@ -188,6 +188,7 @@ async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
   }
   // Prefer .ts (Bun-native), fall through to compiled forms.
   const ordered = ['.ts', '.js', '.mjs', '.cjs']
+  let lastImportError: Error | undefined
   for (const ext of ordered) {
     const match = entries.find((f) => f === `template.config${ext}`)
     if (!match) continue
@@ -200,18 +201,15 @@ async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
       >
       return mod.default ?? mod.config ?? mod
     } catch (e) {
-      // import failed — try next extension; preserve last error for diagnostics
-      const last = e as Error
-      if (ext === '.cjs') {
-        throw new Error(
-          `Failed to import template.config${ext} at ${candidate}: ${last.message}`,
-        )
-      }
+      // import failed — record and try next extension (e.g. .ts fails under
+      // Node.js, fall through to compiled .js)
+      lastImportError = e as Error
     }
   }
+  const importHint = lastImportError ? ` Last import error: ${lastImportError.message}` : ''
   throw new Error(
     `No template.config.{ts,js,mjs,cjs} found under ${pkgRoot}. ` +
-      `Directory contains: ${entries.slice(0, 20).join(', ')}${entries.length > 20 ? ', …' : ''}`,
+      `Directory contains: ${entries.slice(0, 20).join(', ')}${entries.length > 20 ? ', …' : ''}.${importHint}`,
   )
 }
 

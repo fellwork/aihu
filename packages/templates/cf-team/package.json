@@ -5,11 +5,12 @@
   "type": "module",
   "private": false,
   "description": "Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu",
-  "main": "./template.config.ts",
+  "main": "./template.config.js",
   "types": "./template.config.ts",
   "files": [
     "template",
     "template.config.ts",
+    "template.config.js",
     "README.md",
     "LICENSE"
   ],
