@@ -134,7 +134,10 @@ fn macro_if_emits_create_if_boundary() {
 }
 
 #[test]
-fn macro_show_emits_effect_with_css_var() {
+fn r3_ac1_macro_show_emits_toggle_hidden_attribute() {
+    // R3 (Director r6 §3.R3): $show lowers to the platform `hidden`
+    // attribute (NOT a `--show` CSS custom property). `toggleAttribute(name,
+    // !cond)` — true cond → hidden absent → element visible.
     let src = r#"
 @template {
   <div $show={count > 0}></div>
@@ -143,7 +146,16 @@ fn macro_show_emits_effect_with_css_var() {
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
-    assert!(result.js.contains("--show"), "Expected --show in: {}", result.js);
+    assert!(
+        result.js.contains("toggleAttribute('hidden'"),
+        "Expected toggleAttribute('hidden' in: {}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("--show"),
+        "Did not expect --show CSS var in: {}",
+        result.js
+    );
     assert!(result.js.contains("effect("), "Expected effect( in: {}", result.js);
     // The IIFE must capture the node and use onMount so el is defined after mount.
     assert!(result.js.contains("onMount("), "Expected onMount( in: {}", result.js);
@@ -341,6 +353,118 @@ fn macro_bind_and_on_emit_in_attrs_object() {
     let result = emit(&unit, "my-comp");
     // $bind:value → value: count, $on:click → onClick: handleClick
     assert!(result.js.contains("value:") || result.js.contains("count"), "Expected count in: {}", result.js);
+}
+
+// ─── R4 ($bind two-way write-side, Director r6 §3.R4) ────────────────────────
+
+#[test]
+fn r4_ac1_bind_value_to_signal_emits_oninput_writeback() {
+    // R4: when `$bind:value` references a registered signal (with a setter),
+    // the emit MUST also wire `oninput` to write the signal back. Without
+    // this, $bind is read-only and userland edits in the input vanish.
+    let src = r#"<script setup>
+const [name, setName] = signal('')
+</script>
+<template>
+  <input $bind:value="name">
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    // Read-side: value: [name, setName] (signal tuple).
+    assert!(
+        result.js.contains("value: [name, setName]"),
+        "Expected read-side signal tuple; got:\n{}",
+        result.js
+    );
+    // Write-side: oninput: (e) => setName(e.target.value)
+    assert!(
+        result.js.contains("onInput: (e) => setName(e.target.value)"),
+        "Expected oninput write-back to setName; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r4_ac1_bind_checked_emits_onchange_writeback() {
+    // `$bind:checked` for checkbox/radio uses `change` (not `input`), and
+    // reads `e.target.checked`.
+    let src = r#"<script setup>
+const [done, setDone] = signal(false)
+</script>
+<template>
+  <input type="checkbox" $bind:checked="done">
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    assert!(
+        result.js.contains("checked: [done, setDone]"),
+        "Expected read-side tuple; got:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("onChange: (e) => setDone(e.target.checked)"),
+        "Expected onchange write-back; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
+    // If the user already wrote `$on:input={fn}`, the bind write-back must
+    // NOT clobber it. Userland intent wins; bind silently skips the
+    // auto-emit. (Authors who want both behaviors compose them in the
+    // explicit handler.)
+    let src = r#"<script setup>
+const [name, setName] = signal('')
+</script>
+<template>
+  <input $bind:value="name" $on:input="customHandler">
+</template>"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    // Read-side still emits.
+    assert!(
+        result.js.contains("value: [name, setName]"),
+        "Expected read-side tuple; got:\n{}",
+        result.js
+    );
+    // No auto-write-back (user-defined handler wins).
+    let auto_writeback = "(e) => setName(e.target.value)";
+    assert!(
+        !result.js.contains(auto_writeback),
+        "User-supplied $on:input must override auto write-back; got:\n{}",
+        result.js
+    );
+    // User handler still emits.
+    assert!(
+        result.js.contains("onInput: customHandler"),
+        "User handler missing; got:\n{}",
+        result.js
+    );
+}
+
+#[test]
+fn r4_ac1_bind_to_non_signal_skips_writeback() {
+    // When the bound name is NOT a registered signal (no setter), no
+    // write-back should be emitted (otherwise we would call an undefined
+    // identifier).
+    let src = r#"
+@template {
+  <input $bind:value="literalName">
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "my-comp");
+    // No auto-write-back since `literalName` has no registered setter.
+    assert!(
+        !result.js.contains("onInput:"),
+        "Expected no auto-oninput for non-signal binding; got:\n{}",
+        result.js
+    );
 }
 
 // ─── R2 Defect B: reactive attr lowering to `[() => (expr)]` ─────────────────
