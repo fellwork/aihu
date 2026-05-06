@@ -22,6 +22,9 @@ on:
       - 'README.md'
       - '**/*.md'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   check:
     # Skip CI on draft PRs to keep the inner Builder loop cheap.
