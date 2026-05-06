@@ -14,8 +14,8 @@
    */
   $prop: {
     to: { type: string },
+    replace: { type: "boolean", default: "false" },
   }
-  $prop replace?: boolean = false
 
   $lifecycle.mount {
 
