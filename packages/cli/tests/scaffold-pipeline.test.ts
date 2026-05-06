@@ -1,6 +1,5 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { TemplateManifest } from '../src/template-manifest.ts'
 import {
   enumerateFiles,
   type FileSystem,
@@ -12,6 +11,7 @@ import {
   runPostInstall,
   type Spawner,
 } from '../src/scaffold-pipeline.ts'
+import type { TemplateManifest } from '../src/template-manifest.ts'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,9 @@ function manifestFixture(): TemplateManifest {
   }
 }
 
-function fakeFs(initialReadable: Record<string, string>): FileSystem & { writes: Map<string, string> } {
+function fakeFs(
+  initialReadable: Record<string, string>,
+): FileSystem & { writes: Map<string, string> } {
   const writes = new Map<string, string>()
   const dirs = new Set<string>()
   return {
@@ -76,7 +78,9 @@ function fakeFs(initialReadable: Record<string, string>): FileSystem & { writes:
   }
 }
 
-function fakeSpawner(): Spawner & { calls: Array<{ command: string; args: string[]; cwd: string }> } {
+function fakeSpawner(): Spawner & {
+  calls: Array<{ command: string; args: string[]; cwd: string }>
+} {
   const calls: Array<{ command: string; args: string[]; cwd: string }> = []
   return {
     calls,
@@ -105,7 +109,9 @@ describe('resolveTemplate', () => {
   })
 
   it('throws on an invalid manifest', async () => {
-    await expect(resolveTemplate({ manifest: { name: 'x' } })).rejects.toThrow(/Invalid TemplateManifest/)
+    await expect(resolveTemplate({ manifest: { name: 'x' } })).rejects.toThrow(
+      /Invalid TemplateManifest/,
+    )
   })
 })
 
@@ -136,23 +142,23 @@ describe('mergeOptions', () => {
 
   it('rejects user override of a fixed cell', () => {
     const m = manifestFixture()
-    expect(() =>
-      mergeOptions(m, { appName: 'demo', userOverrides: { vendor: 'vercel' } }),
-    ).toThrow(/fixed/)
+    expect(() => mergeOptions(m, { appName: 'demo', userOverrides: { vendor: 'vercel' } })).toThrow(
+      /fixed/,
+    )
   })
 
   it('rejects unknown override key', () => {
     const m = manifestFixture()
-    expect(() =>
-      mergeOptions(m, { appName: 'demo', userOverrides: { tailwind: true } }),
-    ).toThrow(/unknown override/)
+    expect(() => mergeOptions(m, { appName: 'demo', userOverrides: { tailwind: true } })).toThrow(
+      /unknown override/,
+    )
   })
 
   it('rejects out-of-choice value', () => {
     const m = manifestFixture()
-    expect(() =>
-      mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'lucia' } }),
-    ).toThrow(/not in allowed choices/)
+    expect(() => mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'lucia' } })).toThrow(
+      /not in allowed choices/,
+    )
   })
 
   it('rejects invalid appName', () => {
@@ -321,10 +327,13 @@ describe('readSubstituteWrite', () => {
       userOverrides: {},
     })
     const fs = fakeFs({ 'tpl-root/r.md.tmpl': 'desc=__APP_DESCRIPTION__' })
-    readSubstituteWrite(
-      [{ sourcePath: 'r.md.tmpl', targetRelPath: 'r.md', isTemplate: true }],
-      { templateRoot: 'tpl-root', targetDir: 'demo', manifest: m, options: o, fs },
-    )
+    readSubstituteWrite([{ sourcePath: 'r.md.tmpl', targetRelPath: 'r.md', isTemplate: true }], {
+      templateRoot: 'tpl-root',
+      targetDir: 'demo',
+      manifest: m,
+      options: o,
+      fs,
+    })
     expect([...fs.writes.values()][0]).toBe('desc=My great app')
   })
 })

@@ -21,7 +21,7 @@ npm install @aihu/data
 bun add @aihu/data
 ```
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -38,7 +38,7 @@ bun add @aihu/data
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +51,7 @@ bun add @aihu/data
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -65,7 +65,7 @@ bun add @aihu/data
 - `@aihu/signals` — `workspace:*`
 - `@aihu/context` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -78,7 +78,7 @@ bun add @aihu/data
 - [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -89,6 +89,6 @@ bun add @aihu/data
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

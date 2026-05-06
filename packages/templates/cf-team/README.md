@@ -69,7 +69,7 @@ npm install @aihu/templates-cf-team
 bun add @aihu/templates-cf-team
 ```
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -82,10 +82,10 @@ bun add @aihu/templates-cf-team
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Published files** | 4 entries |
+| **Published files** | 5 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -94,9 +94,9 @@ bun add @aihu/templates-cf-team
 <!-- BEGIN_AUTOGEN: exports -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_No `exports` field in `package.json`. Main entry: `./template.config.ts`._
+_No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -109,7 +109,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.ts`._
 
 - `@aihu/cli` — `^0.2.0`
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -121,7 +121,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.ts`._
 - [Aihu framework root](../../../README.md)
 - [v1.1 roadmap](../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -132,6 +132,6 @@ _No `exports` field in `package.json`. Main entry: `./template.config.ts`._
 
 MIT — see [LICENSE](../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@0.2.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

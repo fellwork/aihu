@@ -81,7 +81,6 @@ function parseBenchResults(path: string): Record<string, BenchRow[]> {
   const sections: Record<string, BenchRow[]> = {}
   const workloadRe = /## Workload: `([^`]+)`/g
   let match: RegExpExecArray | null
-  // biome-ignore lint/suspicious/noAssignInExpressions: classic regex iteration
   while ((match = workloadRe.exec(md)) !== null) {
     const workload = match[1]
     // find the next "### Time" or just the next table
@@ -94,7 +93,10 @@ function parseBenchResults(path: string): Record<string, BenchRow[]> {
       .split('\n')
       .filter((l) => l.startsWith('|') && !l.startsWith('| ---') && !l.startsWith('| Competitor'))
     for (const line of lines) {
-      const cols = line.split('|').map((c) => c.trim()).filter(Boolean)
+      const cols = line
+        .split('|')
+        .map((c) => c.trim())
+        .filter(Boolean)
       if (cols.length < 4) continue
       const [competitor, _mean, p50] = cols
       rows.push({ competitor, p50 })
@@ -120,7 +122,13 @@ function genPerformanceSection(): SectionResult {
   )
   lines.push('')
 
-  const sigWorkloads = ['cellx', 'batched-writes-100', 'dynamic-deps', 'creation-1to1000', 'deep-propagation-100']
+  const sigWorkloads = [
+    'cellx',
+    'batched-writes-100',
+    'dynamic-deps',
+    'creation-1to1000',
+    'deep-propagation-100',
+  ]
   const sigPresent = sigWorkloads.filter((w) => sigData[w])
   if (sigPresent.length > 0) {
     const competitors = sigData[sigPresent[0]].map((r) => r.competitor)
@@ -143,10 +151,18 @@ function genPerformanceSection(): SectionResult {
   // Arbor section
   lines.push(`### \`@aihu/arbor\` vs SOTA DOM-binding libraries`)
   lines.push('')
-  lines.push(`*Source: [\`bench/arbor/RESULTS.md\`](./bench/arbor/RESULTS.md). JSDOM workloads, p50 latency.*`)
+  lines.push(
+    `*Source: [\`bench/arbor/RESULTS.md\`](./bench/arbor/RESULTS.md). JSDOM workloads, p50 latency.*`,
+  )
   lines.push('')
 
-  const arbWorkloads = ['mount-10k-leaves', 'mount-deep-100x10', 'mount-wide-1000', 'update-1-of-10k-leaves', 'krausest-1k-cycle']
+  const arbWorkloads = [
+    'mount-10k-leaves',
+    'mount-deep-100x10',
+    'mount-wide-1000',
+    'update-1-of-10k-leaves',
+    'krausest-1k-cycle',
+  ]
   const arbPresent = arbWorkloads.filter((w) => arbData[w])
   if (arbPresent.length > 0) {
     const competitors = arbData[arbPresent[0]].map((r) => r.competitor)
@@ -200,7 +216,9 @@ async function peerDepsOf(entryPath: string): Promise<string[]> {
   }
 }
 
-async function measureSizes(): Promise<Array<{ name: string; bytes: number; limit: string; ok: boolean }>> {
+async function measureSizes(): Promise<
+  Array<{ name: string; bytes: number; limit: string; ok: boolean }>
+> {
   const entries: SizeEntry[] = JSON.parse(readFileSync(join(REPO_ROOT, '.size-limit.json'), 'utf8'))
   const out: Array<{ name: string; bytes: number; limit: string; ok: boolean }> = []
   for (const entry of entries) {
@@ -301,7 +319,8 @@ function genExamplesSection(): SectionResult {
   let i = 1
   for (const ex of all) {
     const link = `[\`${ex.folder}/\`](./examples/${ex.folder})`
-    const teaches = ex.teaches.length > 140 ? `${ex.teaches.slice(0, 137)}...` : ex.teaches || '_no README_'
+    const teaches =
+      ex.teaches.length > 140 ? `${ex.teaches.slice(0, 137)}...` : ex.teaches || '_no README_'
     lines.push(`| ${String(i).padStart(2, '0')} | ${link} | ${teaches} | ${ex.port} |`)
     i++
   }
@@ -377,7 +396,9 @@ function genPackagesListSection(packages: PkgInfo[]): SectionResult {
   lines.push(`|---|---|---|`)
   for (const p of packages) {
     if (p.isPlatform) continue
-    lines.push(`| [\`${p.name}\`](./${p.dir}) | \`${p.version}\` | ${p.description || '_no description_'} |`)
+    lines.push(
+      `| [\`${p.name}\`](./${p.dir}) | \`${p.version}\` | ${p.description || '_no description_'} |`,
+    )
   }
   return { key: 'packages', body: lines.join('\n') }
 }
@@ -536,7 +557,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     label: 'Agent surface — primitives (foundation of agent-readiness)',
     seeAlso: [
       { label: 'Phase 5 spec (agent)', href: '../../.team/phase-5/spec-agent.md' },
-      { label: 'Plugin Contract spec', href: '../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md' },
+      {
+        label: 'Plugin Contract spec',
+        href: '../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md',
+      },
       { label: '@aihu/agent-service', href: '../agent-service' },
     ],
   },
@@ -544,7 +568,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'C',
     label: 'Agent surface — server-side execution + tool dispatch',
     seeAlso: [
-      { label: 'Live-Binding RFC', href: '../../docs/superpowers/specs/2026-05-05-spec-live-binding.md' },
+      {
+        label: 'Live-Binding RFC',
+        href: '../../docs/superpowers/specs/2026-05-05-spec-live-binding.md',
+      },
       { label: '@aihu/agent', href: '../agent' },
       { label: '@aihu/agent-a2a', href: '../agent-a2a' },
       { label: '@aihu/agent-acp', href: '../agent-acp' },
@@ -570,7 +597,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'C',
     label: 'Agent surface — discovery manifests (llms.txt, MCP Server Card, robots)',
     seeAlso: [
-      { label: 'Agent-Readiness spec', href: '../../.team/agent-readiness/spec-agent-readiness.md' },
+      {
+        label: 'Agent-Readiness spec',
+        href: '../../.team/agent-readiness/spec-agent-readiness.md',
+      },
       { label: '@aihu/server', href: '../server' },
     ],
   },
@@ -579,9 +609,18 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'D',
     label: 'Compiler — Single-File Component (.aihu) → Web Component',
     seeAlso: [
-      { label: 'Block Structure spec', href: '../../docs/superpowers/specs/2026-05-02-spec-block-structure.md' },
-      { label: 'Template Attribute Syntax spec', href: '../../docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md' },
-      { label: 'Macro Vocabulary spec', href: '../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md' },
+      {
+        label: 'Block Structure spec',
+        href: '../../docs/superpowers/specs/2026-05-02-spec-block-structure.md',
+      },
+      {
+        label: 'Template Attribute Syntax spec',
+        href: '../../docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md',
+      },
+      {
+        label: 'Macro Vocabulary spec',
+        href: '../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md',
+      },
     ],
   },
   '@aihu/cli': {
@@ -597,8 +636,14 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'E',
     label: 'Plugin substrate — runtime hook surface (held private until live-binding RATIFIES)',
     seeAlso: [
-      { label: 'Plugin Contract spec', href: '../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md' },
-      { label: 'Live-Binding RFC', href: '../../docs/superpowers/specs/2026-05-05-spec-live-binding.md' },
+      {
+        label: 'Plugin Contract spec',
+        href: '../../docs/superpowers/specs/2026-05-02-spec-plugin-contract.md',
+      },
+      {
+        label: 'Live-Binding RFC',
+        href: '../../docs/superpowers/specs/2026-05-05-spec-live-binding.md',
+      },
     ],
   },
   'vscode-aihu': {
@@ -702,7 +747,9 @@ function genExportsSection(p: PkgInfo): SectionResult {
   const lines: string[] = []
   const exp = p.pkg.exports
   if (!exp) {
-    lines.push(`_No \`exports\` field in \`package.json\`. Main entry: \`${p.pkg.main ?? p.pkg.module ?? 'unset'}\`._`)
+    lines.push(
+      `_No \`exports\` field in \`package.json\`. Main entry: \`${p.pkg.main ?? p.pkg.module ?? 'unset'}\`._`,
+    )
   } else if (typeof exp === 'string') {
     lines.push(`Default export: \`${exp}\`.`)
   } else {
@@ -720,13 +767,13 @@ function genExportsSection(p: PkgInfo): SectionResult {
         typeof imp === 'string'
           ? imp
           : typeof imp === 'object' && imp !== null
-            ? ((imp as Record<string, unknown>).default as string) ?? '—'
+            ? (((imp as Record<string, unknown>).default as string) ?? '—')
             : '—'
       const reqStr =
         typeof req === 'string'
           ? req
           : typeof req === 'object' && req !== null
-            ? ((req as Record<string, unknown>).default as string) ?? '—'
+            ? (((req as Record<string, unknown>).default as string) ?? '—')
             : '—'
       lines.push(`| \`${subpath}\` | \`${impStr}\` | \`${reqStr}\` |`)
     }
@@ -745,7 +792,9 @@ function genDepsSection(p: PkgInfo): SectionResult {
     Object.keys(peerDeps).length === 0 &&
     Object.keys(optDeps).length === 0
   ) {
-    lines.push(`_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._`)
+    lines.push(
+      `_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._`,
+    )
     return { key: 'deps', body: lines.join('\n'), versionStamp: `\`${p.name}@${p.version}\`` }
   }
   if (Object.keys(deps).length > 0) {
@@ -800,7 +849,13 @@ function genSeeAlsoSection(p: PkgInfo): SectionResult {
       lines.push(`- [${link.label}](${link.href})`)
     }
     // Add framework root only if not already present in tier-specific list.
-    if (!ti.seeAlso.some((l) => l.label.toLowerCase().includes('framework root') || l.label.toLowerCase().includes('aihu (framework'))) {
+    if (
+      !ti.seeAlso.some(
+        (l) =>
+          l.label.toLowerCase().includes('framework root') ||
+          l.label.toLowerCase().includes('aihu (framework'),
+      )
+    ) {
       lines.push(`- [Aihu framework root](${rootHref})`)
     }
   }
@@ -846,7 +901,7 @@ function brandHeader(p: PkgInfo): string {
   return lines.join('\n')
 }
 
-function migrateExistingProse(p: PkgInfo, existing: string): string {
+function migrateExistingProse(_p: PkgInfo, existing: string): string {
   // Pull out the body between the H1 header and the License section, drop the
   // boilerplate "Part of the [aihu] framework — agentic discovery..." sentence
   // (we now put a richer paragraph in the brand block above), drop common
@@ -900,7 +955,9 @@ function buildPackageReadme(
   //   (b) first migration → migrate any prose between H1 and License
   let prose = ''
   if (existing) {
-    const m = existing.match(/<!-- BEGIN_HANDWRITTEN: prose -->([\s\S]*?)<!-- END_HANDWRITTEN: prose -->/)
+    const m = existing.match(
+      /<!-- BEGIN_HANDWRITTEN: prose -->([\s\S]*?)<!-- END_HANDWRITTEN: prose -->/,
+    )
     if (m) {
       prose = m[1].trim()
     } else {
@@ -952,7 +1009,9 @@ function syncPackageReadme(
   // doesn't carry the brand block.
   const tooShort = existing ? existing.split('\n').length < 40 : true
   const hasBrandBlock = existing
-    ? /^# (@aihu\/[a-z-]+|vscode-aihu|@aihu\/server-[a-z0-9-]+)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(existing)
+    ? /^# (@aihu\/[a-z-]+|vscode-aihu|@aihu\/server-[a-z0-9-]+)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(
+        existing,
+      )
     : false
 
   let after: string
@@ -1055,7 +1114,10 @@ async function main() {
   // every commit, which would otherwise create infinite "drift" on CI. We
   // compare the SHA-erased rendered file against the SHA-erased existing file.
   const stripSha = (s: string): string =>
-    s.replace(/Auto-generated (?:against [^\n]+? )?on commit `[a-f0-9]+`/g, 'Auto-generated on commit `STAMP`')
+    s.replace(
+      /Auto-generated (?:against [^\n]+? )?on commit `[a-f0-9]+`/g,
+      'Auto-generated on commit `STAMP`',
+    )
 
   if (CHECK_MODE) {
     const realRootChanged = stripSha(beforeRoot) !== stripSha(readme)
@@ -1071,7 +1133,9 @@ async function main() {
       }
       process.exit(1)
     }
-    console.log('  All in sync (SHA stamps not checked — they refresh on each commit via the pre-commit hook).')
+    console.log(
+      '  All in sync (SHA stamps not checked — they refresh on each commit via the pre-commit hook).',
+    )
     return
   }
 

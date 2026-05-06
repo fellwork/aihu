@@ -21,7 +21,7 @@ npm install @aihu/adapter-cloudflare
 bun add @aihu/adapter-cloudflare
 ```
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -37,7 +37,7 @@ bun add @aihu/adapter-cloudflare
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/adapter-cloudflare
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +64,7 @@ bun add @aihu/adapter-cloudflare
 - `@aihu/app` — `workspace:*`
 - `vite` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +77,7 @@ bun add @aihu/adapter-cloudflare
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +88,6 @@ bun add @aihu/adapter-cloudflare
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5768b0f`.</i></sub>
+<sub><i>Auto-generated against `@aihu/adapter-cloudflare@0.1.0` on commit `5c4e3d7`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

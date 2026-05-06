@@ -43,7 +43,6 @@ import { workloads } from './workloads/index.ts'
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const OUT_PATH = resolve(HERE, '..', 'RESULTS.memory.md')
 
-// biome-ignore lint/suspicious/noExplicitAny: GC is a Bun/V8 low-level API
 const gc: () => void = (globalThis as any).gc
 
 function settle(times = 3): void {

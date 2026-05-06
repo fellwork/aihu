@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs'
 import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve as resolvePath } from 'node:path'
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
@@ -11,7 +10,7 @@ import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
-function fileToRouteDefinition(filePath: string, root: string, pagesDir: string): RouteDefinition {
+function fileToRouteDefinition(filePath: string, _root: string, pagesDir: string): RouteDefinition {
   // Derive a URL pattern from the file path relative to the pages directory.
   const rel = filePath
     .replace(/\\/g, '/')

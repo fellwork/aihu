@@ -185,9 +185,7 @@ export function validateManifest(obj: unknown): TemplateManifest {
   }
 
   if (!Array.isArray(obj.postInstall)) fail('postInstall must be an array')
-  const postInstall = obj.postInstall.map((s, i) =>
-    validatePostInstallStep(s, `postInstall[${i}]`),
-  )
+  const postInstall = obj.postInstall.map((s, i) => validatePostInstallStep(s, `postInstall[${i}]`))
 
   const appPeerDeps = validateStringRecord(obj.appPeerDeps, 'appPeerDeps')
 
