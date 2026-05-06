@@ -189,12 +189,8 @@ jobs:
 
   examples:
     # Build and smoke-test all polished examples (arch-2 M1 gate).
-    # continue-on-error: examples use $prop/$action v1 syntax that the current
-    # compiler emits as malformed output. Tracked as a separate fix. Gate
-    # still runs and surfaces failures without blocking the overall workflow.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs: [check]
     steps:
       - uses: actions/checkout@v4
@@ -203,7 +199,24 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/compiler/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/compiler/Cargo.lock') }}
+      - name: Build compiler binary
+        run: cargo build --release --manifest-path packages/compiler/Cargo.toml
+      - name: Stage compiler binary
+        run: |
+          mkdir -p packages/compiler/bin
+          cp packages/compiler/target/release/aihu-compile packages/compiler/bin/aihu-compile
+          chmod 0755 packages/compiler/bin/aihu-compile
       - run: bun install --frozen-lockfile
+        env:
+          SCRIBE_SKIP_POSTINSTALL: "1"
       - name: Build workspace packages
         run: bun run build
       - name: Build examples

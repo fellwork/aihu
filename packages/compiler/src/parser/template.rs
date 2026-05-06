@@ -138,13 +138,28 @@ impl<'a> Parser<'a> {
         }
 
         self.skip_whitespace();
+
+        // HTML void elements and explicit self-closing `/>` both produce an element
+        // with no children. Void elements never take a closing tag in HTML.
+        const VOID_ELEMENTS: &[&str] = &[
+            "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+            "source", "track", "wbr",
+        ];
+
+        let is_self_closing = self.starts_with("/>") || (!is_macro && VOID_ELEMENTS.contains(&tag.as_str()));
+
         if self.starts_with("/>") {
-            return Err(
-                self.error("self-closing tags are not supported in v0 template parser".to_string())
-            );
+            self.pos += 2; // consume '/>'
+        } else {
+            self.expect(">")?;
         }
 
-        self.expect(">")?;
+        if is_self_closing {
+            if is_macro {
+                return Ok(TemplateNode::MacroElement { name: tag, attrs, children: vec![] });
+            }
+            return Ok(TemplateNode::Element { tag, attrs, children: vec![] });
+        }
 
         // The closing tag for a `<$foo>` is `</$foo>` — build the full name to match.
         let closing_name = if is_macro {

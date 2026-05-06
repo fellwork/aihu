@@ -37,7 +37,7 @@
     <legend>Temperature converter</legend>
     <label>
       <span>Celsius</span>
-      <input type="number" $bind:value="celsius" />
+      <input type="number" $bind:value="celsius" >
     </label>
     <label>
       <span>Fahrenheit</span>
@@ -45,7 +45,7 @@
         type="number"
         value={fahrenheit}
         $on:input={(e) => setFromF(Number(e.target.value))}
-      />
+      >
     </label>
   </fieldset>
 }

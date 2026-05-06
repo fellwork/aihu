@@ -65,7 +65,7 @@
         max="30000"
         step="500"
         $bind:value="duration"
-      />
+      >
     </label>
     <button $on:click="reset">Reset</button>
     <p class="status" $if={done}>Done.</p>

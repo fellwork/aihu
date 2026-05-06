@@ -735,9 +735,20 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
                             // or bare identifier); fall back to `any` if absent.
                             let type_name = meta_get(entry, "type")
                                 .map(|s| {
-                                    s.trim()
-                                        .trim_matches(|c| c == '"' || c == '\'')
-                                        .to_string()
+                                    let s = s.trim();
+                                    // Strip a single surrounding quote pair only when the
+                                    // inner value contains no further quotes — prevents
+                                    // mangling union literals like `'all' | 'active'`
+                                    // into `all' | 'active'` (trim_matches is too greedy).
+                                    let maybe_inner = s
+                                        .strip_prefix('"').and_then(|i| i.strip_suffix('"'))
+                                        .or_else(|| s.strip_prefix('\'').and_then(|i| i.strip_suffix('\'')));
+                                    if let Some(inner) = maybe_inner {
+                                        if !inner.contains('"') && !inner.contains('\'') {
+                                            return inner.to_string();
+                                        }
+                                    }
+                                    s.to_string()
                                 })
                                 .unwrap_or_else(|| "any".to_string());
                             let name = &entry.name;

@@ -567,22 +567,25 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // Vite does NOT re-run its TS-strip step when a plugin returns code for a
         // non-.ts ID, so we must strip types ourselves before returning.
         //
-        // Vite 8+ (Rolldown/Oxc): transformWithEsbuild is a no-op; declare the
-        // module type as 'ts' so Rolldown strips types natively. The extra
-        // moduleType field is silently ignored by Vite 5 / esbuild.
-        // Vite 5 (esbuild): transformWithEsbuild does the stripping.
+        // Priority: always try transformWithEsbuild first — it strips types to
+        // plain JS in both Vite 5 (via esbuild) and Vite 8 (deprecated wrapper).
+        // Using moduleType:'ts' only as a last resort because `import('vite')`
+        // resolves to the root node_modules vite (which may be v8 even when a
+        // consumer project runs v5), causing v5's Rollup to receive raw TypeScript
+        // and fail on import-type / as-casts.
         try {
           const vite = await import('vite')
-          if ('transformWithOxc' in vite && typeof vite.transformWithOxc === 'function') {
-            // Vite 8+: return TS and declare the module type — Rolldown strips types.
-            // biome-ignore lint/suspicious/noExplicitAny: moduleType is vite 8 / rolldown API
-            return { code: out, moduleType: 'ts', map: null } as any
+          if ('transformWithEsbuild' in vite && typeof vite.transformWithEsbuild === 'function') {
+            const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
+              target: 'esnext',
+              sourcemap: false,
+            })
+            return { code: stripped.code, map: null }
           }
-          const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
-            target: 'esnext',
-            sourcemap: false,
-          })
-          return { code: stripped.code, map: null }
+          // Fallback for future Vite versions where esbuild is fully removed:
+          // return TS and let Rolldown strip types natively.
+          // biome-ignore lint/suspicious/noExplicitAny: moduleType is rolldown API
+          return { code: out, moduleType: 'ts', map: null } as any
         } catch {
           // If running outside Vite (e.g. tests, standalone transform), return as-is.
           return { code: out, map: null }

@@ -101,7 +101,7 @@
         $bind:value="draft"
         $on:keydown={(e) => e.key === 'Enter' && addTodo()}
         autofocus
-      />
+      >
     </header>
 
     <ul class="todo-list">
@@ -114,7 +114,7 @@
           type="checkbox"
           checked={todo.done}
           $on:change={() => toggle(todo.id)}
-        />
+        >
         <label>{todo.text}</label>
         <button class="destroy" $on:click={() => remove(todo.id)}>×</button>
       </li>
