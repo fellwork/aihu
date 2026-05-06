@@ -205,7 +205,8 @@ jobs:
       - name: Build examples
         run: |
           for dir in examples/*/; do
-            if [ -f "${dir}vite.config.ts" ] && [ -f "${dir}package.json" ]; then
+            # Require index.html to skip SSR/incomplete examples (e.g. blog-loader)
+            if [ -f "${dir}vite.config.ts" ] && [ -f "${dir}package.json" ] && [ -f "${dir}index.html" ]; then
               echo "Building ${dir}..."
               (cd "${dir}" && bun run build) || exit 1
             fi
