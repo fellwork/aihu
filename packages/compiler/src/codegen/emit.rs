@@ -167,6 +167,8 @@ struct NeededHelpers {
     /// True when $html or $show are used on child elements — they need `onMount`
     /// to access `node.el` after the arbor runtime mounts the descriptor.
     needs_on_mount_for_directives: bool,
+    /// B3 — true when `class={[...]}` array form appears. Emits `__aihu_cls`.
+    needs_class_helper: bool,
     // ── arch-5 M1 a11y (RFC-A5-017..021) ─────────────────────────────────────
     /// True when `<$focusTrap>` appears in the template — needs `createFocusTrap` from runtime.
     a11y_focus_trap: bool,
@@ -239,12 +241,22 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                                 h.needs_effect = true;
                                 h.needs_on_mount_for_directives = true;
                             }
+                            // B3 — $ref also uses onMount to capture node.el.
+                            "ref" => {
+                                h.needs_on_mount_for_directives = true;
+                            }
                             // $class:NAME also uses onMount+effect in its IIFE.
                             n if n.starts_with("class:") => {
                                 h.needs_effect = true;
                                 h.needs_on_mount_for_directives = true;
                             }
                             _ => {}
+                        }
+                    }
+                    // B3 — `class={[...]}` array form needs the __aihu_cls helper.
+                    if let Attr::Binding { name, expr } = attr {
+                        if name == "class" && expr.trim_start().starts_with('[') {
+                            h.needs_class_helper = true;
                         }
                     }
                 }
@@ -334,6 +346,11 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     if h.navigate_element {
         // `<$navigate>` — programmatic redirect on mount.
         lines.push("const createNavigateBoundary = (to, replace) => {\n  onMount(() => { void __aihuRouter.navigate(to, { replace: !!replace }); });\n  return branch('span', { hidden: '', 'aria-hidden': 'true', 'data-aihu-navigate': to }, []);\n};");
+    }
+    if h.needs_class_helper {
+        // B3 — `class={[a, b && 'c']}` array-form helper. Joins truthy strings
+        // with spaces; null/undefined/false/0 filtered out (clsx-shaped).
+        lines.push("const __aihu_cls = (a) => Array.isArray(a) ? a.filter(v => typeof v === 'string' && v).join(' ') : (a == null ? '' : String(a));");
     }
     if lines.is_empty() {
         String::new()
@@ -2530,8 +2547,20 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                 // wrapping them in a thunk array would put a function value
                 // inside an array and trigger Path 2 instead, breaking events.
                 let is_event = is_event_attr_name(name);
+                // B3 — `class={[a, b && 'c']}` array form. When the binding is
+                // `class` and the expression syntactically starts with `[`, wrap
+                // the expression in `__aihu_cls([…])` so the runtime joins truthy
+                // entries with spaces. Detection is conservative — only direct
+                // bracket-literal at top level. Other class expressions
+                // (`class={cond ? 'a' : 'b'}`) pass through unchanged.
                 let lowered = if is_event {
                     expr.to_string()
+                } else if name == "class" && expr.trim_start().starts_with('[') {
+                    let inner = expr.trim();
+                    // Wrap the array in a class-joining helper. The wrapped form
+                    // becomes `[() => __aihu_cls([…])]` — a thunk-array reactive
+                    // binding that still tracks signal updates via mountEffect.
+                    format!("[() => __aihu_cls({})]", inner)
                 } else {
                     lower_attr_expr(expr, state_names, signal_map)
                 };
@@ -2905,7 +2934,40 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             "raw" => {
                 // $raw: node is pass-through, no child processing — handled at node level
             }
-            _ => {}
+            "ref" => {
+                // B3 — `$ref={signal}` writes the element node to the signal at mount.
+                // Mirror the IIFE pattern used by $show/$html to capture _n.el.
+                let expr = macro_value_expr(value);
+                let trimmed = expr.trim();
+                // If signal is a registered $prop/signal, get its setter.
+                let setter_call = if let Some(setter) = signal_map.0.get(trimmed) {
+                    if !setter.is_empty() {
+                        format!("{}(_el)", setter)
+                    } else {
+                        // computed/non-writable — best-effort, ignore.
+                        "/* $ref to non-writable signal */".to_string()
+                    }
+                } else {
+                    // Plain identifier reassignment in scope.
+                    format!("{} = _el", trimmed)
+                };
+                effects.push(format!(
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); return _n; }})()",
+                    indent, subtree, setter_call
+                ));
+            }
+            // B3 — C500 reserved error code. Unknown $<name> directives are
+            // not silently dropped; eprintln to stderr in the same shape as
+            // other v0-deprecation warnings. The codemod (B3b dispatch)
+            // promotes the runtime warning to a compile error when the
+            // codemod recognizes a v1 form needing migration.
+            other => {
+                eprintln!(
+                    "C500: unknown directive `${}` (template attribute) — ignored. \
+                     If this is a v1 form, run the template-syntax codemod.",
+                    other
+                );
+            }
         }
     }
 

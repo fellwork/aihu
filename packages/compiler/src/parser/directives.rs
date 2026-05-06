@@ -118,6 +118,14 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
 /// - `$name="quoted_value"`
 /// - `$name={arbitrary_expr}`
 /// - `$name.sub="value"` (e.g. `$bind:prop`, `$on:event`)
+///
+/// B3 — global colon→dot transition. The canonical Variant B form uses `.`
+/// as the namespace separator (`$on.click`, `$bind.value`). The colon form
+/// (`$on:click`, `$bind:value`) is still parsed for back-compat during the
+/// transition window; W202 is emitted to stderr. Internally, the AST stores
+/// the COLON form (`on:click`, `bind:value`) so existing emit-side code paths
+/// continue to work without churn — the colon-vs-dot distinction is purely a
+/// surface concern.
 fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
     // Split on `=` to find the value part (if any)
     // We need to handle `$name={...}` which contains `=` inside braces.
@@ -128,7 +136,38 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
         None => (rest, ""),
     };
 
-    let name = name_part.trim().to_string();
+    let raw_name = name_part.trim();
+
+    // B3 — global colon→dot transition. Normalize `$on.click` → `on:click` and
+    // `$bind.value` → `bind:value` (internally we keep the colon form so the
+    // emit-side strip_prefix("on:") / strip_prefix("bind:") logic continues
+    // working byte-identically). Other dotted directives (e.g. `$class:foo`
+    // already uses colon) are unchanged. Emits W202 deprecation when the
+    // colon-form is encountered — surface authors should migrate to dot-form.
+    let (name, dot_normalized) = if let Some(idx) = raw_name.find('.') {
+        let prefix = &raw_name[..idx];
+        let suffix = &raw_name[idx + 1..];
+        if prefix == "on" || prefix == "bind" {
+            // Canonical dot-form — accept and normalize internally to colon-form.
+            (format!("{}:{}", prefix, suffix), true)
+        } else {
+            (raw_name.to_string(), false)
+        }
+    } else if let Some(idx) = raw_name.find(':') {
+        let prefix = &raw_name[..idx];
+        if prefix == "on" || prefix == "bind" {
+            // V1 colon-form — emit W202 deprecation warning and pass through.
+            eprintln!(
+                "W202: $${} is deprecated; use $${} (dot-form) instead",
+                raw_name,
+                raw_name.replacen(':', ".", 1)
+            );
+        }
+        (raw_name.to_string(), false)
+    } else {
+        (raw_name.to_string(), false)
+    };
+    let _ = dot_normalized;
 
     // Boolean macros: no `=`, or explicit boolean void attrs
     if value_part.is_empty() {
@@ -543,6 +582,71 @@ mod tests {
             Attr::Macro {
                 name: "memo".to_string(),
                 value: MacroValue::Curly("[count, name]".to_string())
+            }
+        );
+    }
+
+    // ─── B3: $on. / $bind. dot-form parsing ──────────────────────────────────
+    #[test]
+    fn b3_on_dot_form_curly_parses() {
+        // $on.click is the canonical Variant B form; internally normalized to "on:click".
+        let attr = parse_attr("$on.click={handleClick}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "on:click".to_string(),
+                value: MacroValue::Curly("handleClick".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn b3_bind_dot_form_curly_parses() {
+        let attr = parse_attr("$bind.value={count}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "bind:value".to_string(),
+                value: MacroValue::Curly("count".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn b3_on_dot_form_quoted_parses() {
+        let attr = parse_attr("$on.click=\"handleClick\"").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "on:click".to_string(),
+                value: MacroValue::Quoted("handleClick".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn b3_colon_form_still_works() {
+        // V1 colon-form continues to parse during transition (W202 to stderr).
+        let attr = parse_attr("$on:click={handleClick}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "on:click".to_string(),
+                value: MacroValue::Curly("handleClick".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn b3_class_colon_namespaced_unchanged() {
+        // `$class:active` uses colon as a namespace; B3 colon→dot transition
+        // applies only to `$on` and `$bind`. Verify class:NAME pass-through.
+        let attr = parse_attr("$class:active={cond}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "class:active".to_string(),
+                value: MacroValue::Curly("cond".to_string())
             }
         );
     }
