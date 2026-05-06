@@ -247,7 +247,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { name: { value: 'default' } },
       setup: (ctx) => {
-        captured = ctx.props.name
+        captured = ctx.props.name as () => unknown
         return leaf('ac5')
       },
     })
@@ -302,7 +302,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
         },
       },
       setup: (ctx) => {
-        dateProp = ctx.props.date
+        dateProp = ctx.props.date as () => unknown
         return leaf('ac8')
       },
     })
@@ -325,7 +325,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { color: { value: 'red' } },
       setup: (ctx) => {
-        captured = ctx.props.color
+        captured = ctx.props.color as () => unknown
         return leaf('ac10')
       },
     })
@@ -359,7 +359,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { count: { value: 0 } }, // typeof default === 'number' → Number coercion
       setup: (ctx) => {
-        captured = ctx.props.count
+        captured = ctx.props.count as () => unknown
         return leaf('num')
       },
     })
@@ -382,7 +382,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { open: { value: false, reflect: true } },
       setup: (ctx) => {
-        captured = ctx.props.open
+        captured = ctx.props.open as () => unknown
         return leaf('bool')
       },
     })
@@ -428,7 +428,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { count: { value: 0 } },
       setup: (ctx) => {
-        captured = ctx.props.count
+        captured = ctx.props.count as () => unknown
         return leaf('accessor')
       },
     })
@@ -449,10 +449,11 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     const Cmp = defineComponent({
       props: { tag: { value: '', reflect: true } },
       setup: (ctx) => {
-        const orig = ctx.props.tag.set
-        ctx.props.tag.set = (v: unknown) => {
+        const tagSig = ctx.props.tag!
+        const orig = tagSig.set
+        tagSig.set = (v: unknown) => {
           setCount++
-          orig.call(ctx.props.tag, v)
+          orig.call(tagSig, v)
         }
         return leaf('reentry')
       },

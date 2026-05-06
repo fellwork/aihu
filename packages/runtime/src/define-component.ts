@@ -3,8 +3,8 @@ import type {
   ComponentOptions,
   MountFn,
   PropDef,
-  PropsConfig,
   PropSignal,
+  PropsConfig,
   Setup,
   SetupContext,
 } from './types.ts'
@@ -87,8 +87,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     return C
   }
 
-  const { attrs = [] as unknown as ReadonlyArray<string>, setup, props: propsCfg } =
-    setupOrOptions
+  const { attrs = [] as unknown as ReadonlyArray<string>, setup, props: propsCfg } = setupOrOptions
   const S = Symbol()
   const PROPS_SYM = Symbol()
   const REFLECT_SYM = Symbol()

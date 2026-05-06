@@ -357,7 +357,13 @@ fn process_state_body(
                     }
                 }
                 CollectionKind::Prop => {
+                    // R1 — register prop names as computed-style signals so
+                    // template binding sites (`{name}`) lower through the
+                    // reactive `signal_map.is_reactive` path. The body-side
+                    // declaration `const <name> = ctx.props.<name>` is emitted
+                    // as a callable signal-getter by `emit_state_macro_code`.
                     for e in entries {
+                        signal_map.insert_computed(&e.name);
                         state_names.insert(&e.name);
                     }
                 }
@@ -736,47 +742,27 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                 for entry in entries {
                     match kind {
                         CollectionKind::Prop => {
-                            // Type comes from `type:` key (string-literal form
-                            // or bare identifier); fall back to `any` if absent.
-                            let type_name = meta_get(entry, "type")
-                                .map(|s| {
-                                    let s = s.trim();
-                                    // Strip a single surrounding quote pair only when the
-                                    // inner value contains no further quotes — prevents
-                                    // mangling union literals like `'all' | 'active'`
-                                    // into `all' | 'active'` (trim_matches is too greedy).
-                                    let maybe_inner = s
-                                        .strip_prefix('"').and_then(|i| i.strip_suffix('"'))
-                                        .or_else(|| s.strip_prefix('\'').and_then(|i| i.strip_suffix('\'')));
-                                    if let Some(inner) = maybe_inner {
-                                        if !inner.contains('"') && !inner.contains('\'') {
-                                            return inner.to_string();
-                                        }
-                                    }
-                                    s.to_string()
-                                })
-                                .unwrap_or_else(|| "any".to_string());
+                            // R1 (template-syntax-v2 round 5, Builder B1): $prop
+                            // entries lower to a callable signal getter exposed via
+                            // `ctx.props.<name>`. The runtime allocates the signal,
+                            // wires `observedAttributes` + `attributeChangedCallback`,
+                            // and (when `reflect: true`) writes the signal value back
+                            // to the attribute. See packages/runtime/src/define-component.ts.
+                            //
+                            // The body-side declaration `const <name> = ctx.props.<name>`
+                            // makes `<name>` a function that returns the current value.
+                            // Template binding sites (e.g. `{name}`) lower through the
+                            // `signal_map` reactive path because we register the prop
+                            // name as a "computed" entry in `process_state_body`.
+                            //
+                            // Userland body code that needs the value calls `name()`
+                            // (consistent with `$computed` access semantics — see
+                            // Director r5 §2.b). This is a behavior change from the
+                            // pre-R1 read-once-at-mount const; surfaced in build_manifest.
                             let name = &entry.name;
-                            // Primitive types read the attribute directly. Non-primitive
-                            // types (objects, arrays) JSON-parse with a `{}` fallback.
-                            // The legacy unconditional JSON.parse path mis-handled
-                            // string-typed props (e.g., from a `:id` route param) by
-                            // returning `{}` on parse failure of a non-JSON string.
-                            let trimmed_type = type_name.trim();
-                            match trimmed_type {
-                                "string" => lines.push(format!(
-                                    "{indent}const {name}: string = (ctx.element as HTMLElement).getAttribute('{name}') ?? ''"
-                                )),
-                                "number" => lines.push(format!(
-                                    "{indent}const {name}: number = Number((ctx.element as HTMLElement).getAttribute('{name}') ?? 0)"
-                                )),
-                                "boolean" => lines.push(format!(
-                                    "{indent}const {name}: boolean = (ctx.element as HTMLElement).getAttribute('{name}') !== null && (ctx.element as HTMLElement).getAttribute('{name}') !== 'false'"
-                                )),
-                                _ => lines.push(format!(
-                                    "{indent}const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
-                                )),
-                            }
+                            lines.push(format!(
+                                "{indent}const {name} = ctx.props.{name}"
+                            ));
                         }
                         CollectionKind::Computed => {
                             let thunk = match running_code(entry) {
@@ -912,6 +898,69 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
     }
 }
 
+// ─── R1 — $prop options-form lowering helpers ───────────────────────────────
+
+/// Collect the entries of all `$prop` collections across the SFC's @state
+/// macros. R1 (template-syntax-v2 round 5, Builder B1): when this is
+/// non-empty, the function-form switches to the options-form
+/// `defineComponent({ props: { … }, setup: (ctx) => { … } })` shape so the
+/// runtime can synthesize observedAttributes + attributeChangedCallback.
+fn collect_prop_entries(macros: &[crate::types::StateMacro]) -> Vec<&crate::types::CollectionEntry> {
+    let mut out = Vec::new();
+    for m in macros {
+        if let crate::types::StateMacro::Collection {
+            kind: crate::types::CollectionKind::Prop,
+            entries,
+        } = m
+        {
+            for e in entries {
+                out.push(e);
+            }
+        }
+    }
+    out
+}
+
+/// Emit the `props: { name: { value, attribute, reflect, converter }, ... }`
+/// object literal passed to `defineComponent({ props, setup })`. Per-prop
+/// keys are pulled verbatim from the metadata-bag (`default:` is renamed to
+/// `value:` so the runtime side reads the same key universally).
+///
+/// Indent is applied to each top-level prop entry; the surrounding `props: {`
+/// + `}` are emitted by the caller.
+fn emit_props_config(prop_entries: &[&crate::types::CollectionEntry], indent: &str) -> String {
+    use crate::parser::state_macros::meta_get;
+    let mut lines: Vec<String> = Vec::new();
+    for entry in prop_entries {
+        let name = &entry.name;
+        // Build the inner `{ value: ..., attribute: ..., reflect: ..., converter: ... }`
+        // bag. Order matters only for snapshot stability; this canonical order
+        // mirrors the spec sketch in §3.6 of the platform audit.
+        let mut bag: Vec<String> = Vec::new();
+        // value: comes from `default:` (existing key) per spec §3.6 + the
+        // existing $prop entries in the wild (see examples/weather-card.aihu).
+        if let Some(default_raw) = meta_get(entry, "default") {
+            bag.push(format!("value: {}", default_raw.trim()));
+        }
+        if let Some(attr_raw) = meta_get(entry, "attribute") {
+            bag.push(format!("attribute: {}", attr_raw.trim()));
+        }
+        if let Some(reflect_raw) = meta_get(entry, "reflect") {
+            bag.push(format!("reflect: {}", reflect_raw.trim()));
+        }
+        if let Some(conv_raw) = meta_get(entry, "converter") {
+            bag.push(format!("converter: {}", conv_raw.trim()));
+        }
+        let bag_str = if bag.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{ {} }}", bag.join(", "))
+        };
+        lines.push(format!("{indent}{name}: {bag_str}"));
+    }
+    lines.join(",\n")
+}
+
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
@@ -957,14 +1006,13 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         (String::new(), String::new())
     };
 
-    // Need ctx access for $prop (JSON attribute parsing) — use "ctx" if macros use it
-    let uses_ctx = macros.iter().any(|m| matches!(
-        m,
-        crate::types::StateMacro::Collection {
-            kind: crate::types::CollectionKind::Prop,
-            ..
-        }
-    ));
+    // R1 — when `$prop` entries exist, switch to the options-form
+    // `defineComponent({ props, setup })` so the runtime can synthesize
+    // observedAttributes + attributeChangedCallback. Otherwise stay in the
+    // bare-arrow function form (smaller emit; no behavioral diff).
+    let prop_entries = collect_prop_entries(&macros);
+    let uses_props = !prop_entries.is_empty();
+    let uses_ctx = uses_props;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
     let macro_code = emit_state_macro_code(&macros, &signal_map);
@@ -1004,11 +1052,26 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // SyntaxError), so we union named-import sets per source.
     let merged_imports = merge_imports(&imports, &user_imports);
 
-    format!(
-        "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
-",
-        merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
-    )
+    if uses_props {
+        // R1 options-form. Emit `props: { ... }` config, then the setup arrow.
+        let props_block = emit_props_config(&prop_entries, "    ");
+        format!(
+            "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n  props: {{\n{}\n  }},\n  setup: ({}) => {{\n{}  }},\n}}))\n",
+            merged_imports,
+            module_decl,
+            helpers_decl,
+            "",
+            tag_name,
+            props_block,
+            ctx_param,
+            body
+        )
+    } else {
+        format!(
+            "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))\n",
+            merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
+        )
+    }
 }
 
 /// Parsed shape of a single ES-module import statement, used by `merge_imports`

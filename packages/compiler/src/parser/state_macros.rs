@@ -523,6 +523,40 @@ fn parse_object_collection(
             (value, Vec::new())
         };
 
+        // R1 — validate $prop optional keys at compile time. The
+        // `attribute: false + reflect: true` combination is meaningless
+        // (nothing to reflect to) and is rejected here as C445 instead of
+        // surfacing as a runtime SCR-R0004. Lit's reactive-element rejects
+        // the same combination at decorator-eval; we mirror that behavior.
+        if matches!(kind, CollectionKind::Prop) && is_wrapped {
+            let attribute = meta
+                .iter()
+                .find(|(k, _)| k == "attribute")
+                .map(|(_, v)| v.trim());
+            let reflect = meta
+                .iter()
+                .find(|(k, _)| k == "reflect")
+                .map(|(_, v)| v.trim());
+            if let (Some(attr), Some(refl)) = (attribute, reflect) {
+                if attr == "false" && refl == "true" {
+                    return Err(CompileError {
+                        message: format!(
+                            "$prop entry `{}`: `attribute: false` is incompatible with `reflect: true` (nothing to reflect to)",
+                            name
+                        ),
+                        line: 0,
+                        col: 0,
+                        code: Some("C445".to_string()),
+                        hint: Some(
+                            "remove either `attribute: false` (keeps observed attribute + reflect) or `reflect: true` (keeps property-only)"
+                                .to_string(),
+                        ),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
         entries.push(CollectionEntry {
             name,
             is_wrapped,
@@ -1065,29 +1099,16 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
             StateMacro::Collection { kind, entries } => {
                 for entry in entries {
                     if matches!(kind, CollectionKind::Prop) {
-                        // Richer typed lowering for $prop: extract `type:` if
-                        // present, fall back to inference-friendly default.
-                        let type_ann = meta_get(entry, "type")
-                            .map(|s| {
-                                let s = s.trim();
-                                // Strip a single surrounding quote pair ONLY when the
-                                // inner value contains no further quotes — prevents
-                                // mangling union literals like `'all' | 'active'`
-                                // into `all' | 'active'` (trim_matches was too greedy).
-                                let maybe_inner = s
-                                    .strip_prefix('"').and_then(|i| i.strip_suffix('"'))
-                                    .or_else(|| s.strip_prefix('\'').and_then(|i| i.strip_suffix('\'')));
-                                if let Some(inner) = maybe_inner {
-                                    if !inner.contains('"') && !inner.contains('\'') {
-                                        return inner.to_string();
-                                    }
-                                }
-                                s.to_string()
-                            })
-                            .unwrap_or_else(|| "any".to_string());
+                        // R1 — $prop now lowers to `const <name> = ctx.props.<name>`,
+                        // a callable signal getter. The runtime allocates per-prop
+                        // signals at connect time and wires observedAttributes +
+                        // attributeChangedCallback. See codegen::emit::emit_state_macro_code
+                        // for the canonical comment + the runtime side in
+                        // packages/runtime/src/define-component.ts.
                         lines.push(format!(
-                            "{indent}const {name}: {ty} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {ty} }} catch {{ return {{}} as {ty} }} }})()",
-                            indent = indent, name = entry.name, ty = type_ann
+                            "{indent}const {name} = ctx.props.{name}",
+                            indent = indent,
+                            name = entry.name
                         ));
                     } else if let Some(line) = emit_collection_entry(*kind, entry, indent) {
                         lines.push(line);
