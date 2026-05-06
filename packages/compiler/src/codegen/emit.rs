@@ -14,6 +14,9 @@ struct StateImports {
     needs_batch: bool,
     needs_on_mount: bool,
     needs_on_cleanup: bool,
+    // R2 (Director r6 §3): four-callback $lifecycle extension.
+    needs_on_adopt: bool,
+    needs_on_attribute_change: bool,
     needs_effect_for_macros: bool,
     needs_create_resource: bool,
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
@@ -388,6 +391,9 @@ fn process_state_body(
                         match e.name.as_str() {
                             "mount" => si.needs_on_mount = true,
                             "dispose" => si.needs_on_cleanup = true,
+                            // R2: adopt + attributeChange callbacks.
+                            "adopt" => si.needs_on_adopt = true,
+                            "attributeChange" => si.needs_on_attribute_change = true,
                             _ => {}
                         }
                     }
@@ -825,6 +831,13 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             }
                         }
                         CollectionKind::Lifecycle => {
+                            // R2 (Director r6 §3): four-callback extension.
+                            // mount → onMount, dispose → onCleanup,
+                            // adopt → onAdopt, attributeChange → onAttributeChange.
+                            // The two new callbacks are forwarded to the host
+                            // element's adoptedCallback / attributeChangedCallback
+                            // by the runtime; userland's attributeChange runs
+                            // AFTER R1's $prop signal-update (Director r6 §3.R2).
                             let arrow = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
@@ -836,6 +849,19 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                     .push(format!("{indent}onMount(() => {{ {body} }});")),
                                 "dispose" => lines
                                     .push(format!("{indent}onCleanup(() => {{ {body} }});")),
+                                "adopt" => lines
+                                    .push(format!("{indent}onAdopt(() => {{ {body} }});")),
+                                "attributeChange" => {
+                                    // Preserve the user-supplied param list so
+                                    // names match what the user authored.
+                                    let args = crate::parser::state_macros::arrow_args(arrow)
+                                        .unwrap_or_else(|| {
+                                            "_name, _oldValue, _newValue, _ctx".to_string()
+                                        });
+                                    lines.push(format!(
+                                        "{indent}onAttributeChange(({args}) => {{ {body} }});"
+                                    ));
+                                }
                                 _ => {}
                             }
                         }
@@ -1263,6 +1289,9 @@ fn build_function_imports(
     let needs_on_cleanup_for_router = helpers.router_element || helpers.outlet_element;
     if si.needs_on_mount || needs_on_mount_for_router || helpers.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup || needs_on_cleanup_for_router { rt_items.push("onCleanup".to_string()); }
+    // R2 (Director r6 §3): $lifecycle four-callback extension imports.
+    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
+    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {
@@ -1369,6 +1398,9 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         vec!["defineComponent".to_string(), "defineElement".to_string()];
     if si.needs_on_mount || helpers_needed.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
+    // R2 (Director r6 §3): $lifecycle four-callback extension imports.
+    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
+    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..020 in options form (`@agent` SFCs).
     if helpers_needed.a11y_focus_trap {
         rt_items.push("createFocusTrap".to_string());
@@ -2264,10 +2296,71 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
         })
         .collect();
 
-    if passthrough.is_empty() {
+    // R4 (Director r6 §3.R4): two-way `$bind:value` / `$bind:checked` write-side.
+    // When a `$bind:` macro references a registered signal (i.e. has a setter
+    // in `signal_map`), additionally emit an event listener that writes back
+    // to the signal on user input. `oninput` for `value` (textboxes, ranges);
+    // `onchange` for `checked` (checkboxes / radios). The userland-authored
+    // `on:` handler (if any) is preserved verbatim above; the bind write-back
+    // is composed alongside it.
+    let mut bind_writebacks: Vec<String> = Vec::new();
+    for a in attrs {
+        if let Attr::Macro { name, value } = a {
+            if let Some(prop) = name.strip_prefix("bind:") {
+                let expr = macro_value_expr(value);
+                let trimmed = expr.trim();
+                let is_simple_ident = !trimmed.is_empty()
+                    && trimmed
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                if is_simple_ident {
+                    if let Some(setter) = signal_map.0.get(trimmed) {
+                        if !setter.is_empty() {
+                            // Pick the event by bound prop. WHATWG: `value` mutates on
+                            // `input`; `checked` mutates on `change`. Other props use
+                            // `change` as a sane default (safe since custom elements
+                            // dispatching custom events override this anyway).
+                            let evt = match prop {
+                                "checked" => "change",
+                                _ => "input",
+                            };
+                            // For `checked` write back e.target.checked, otherwise
+                            // e.target.value. Coerce to the prop signal's existing
+                            // type if possible — userland that authored a typed
+                            // `let count = signal(0)` keeps a number-typed signal.
+                            let read_expr = if prop == "checked" {
+                                "e.target.checked"
+                            } else {
+                                "e.target.value"
+                            };
+                            let evt_cap = capitalize_first(evt);
+                            // Avoid clobbering an existing `on{Event}: ...` userland
+                            // attribute in the same attrs object: detect in passthrough
+                            // by scanning the rendered strings.
+                            let on_key = format!("on{}", evt_cap);
+                            let already_has_on = passthrough
+                                .iter()
+                                .any(|s| s.starts_with(&format!("{}:", on_key)));
+                            if !already_has_on {
+                                bind_writebacks.push(format!(
+                                    "{}: (e) => {}({})",
+                                    on_key, setter, read_expr
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut all_attrs = passthrough;
+    all_attrs.extend(bind_writebacks);
+
+    if all_attrs.is_empty() {
         "undefined".to_string()
     } else {
-        format!("{{ {} }}", passthrough.join(", "))
+        format!("{{ {} }}", all_attrs.join(", "))
     }
 }
 
@@ -2473,11 +2566,14 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             }
             "show" => {
                 let expr = macro_value_expr(value);
-                // branch() returns a descriptor; .el is set after arbor mounts it.
-                // Wrap in an IIFE: capture the node, wire the effect inside onMount,
-                // return the node so the parent children array receives the element.
+                // R3 (Director r6 §3.R3): lower $show to the platform `hidden`
+                // attribute (NOT --show CSS custom property). `hidden` respects
+                // user CSS [hidden] { display: none !important }; Shadow DOM
+                // consumers can override via :host([hidden]) { display: ... }.
+                // toggleAttribute is the WHATWG-canonical primitive: passing
+                // `false` removes the attribute; `true` writes empty-string.
                 effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.style.setProperty('--show', ({}) ? '1' : '0') }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
                     indent, subtree, expr
                 ));
             }

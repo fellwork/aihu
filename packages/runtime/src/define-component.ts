@@ -15,10 +15,17 @@ type _ScopeRef = ReturnType<MountFn>
 let _mount: MountFn | null = null
 let _signal: typeof SignalFactory | null = null
 
-// Lifecycle: current-instance pointer set during setup() calls
+// Lifecycle: current-instance pointer set during setup() calls.
+// R2 (Director r6 §3): four-callback $lifecycle extension. `a` (adopted) and
+// `ac` (attributeChanged) are added so the host's adoptedCallback /
+// attributeChangedCallback can dispatch userland callbacks at the right
+// platform moment. `attributeChange` per spec runs AFTER R1's $prop signal
+// dispatch (so authors see the post-converted signal value).
 interface _LC {
   m: Array<() => void | (() => void)>
   c: Array<() => void>
+  a: Array<() => void>
+  ac: Array<(name: string, oldValue: string | null, newValue: string | null) => void>
 }
 let _cur: _LC | null = null
 
@@ -31,6 +38,19 @@ function _runMounts(lc: _LC): void {
 
 function _runCleanups(lc: _LC): void {
   for (const fn of lc.c) fn()
+}
+
+function _runAdopts(lc: _LC): void {
+  for (const fn of lc.a) fn()
+}
+
+function _runAttrChanges(
+  lc: _LC,
+  name: string,
+  oldValue: string | null,
+  newValue: string | null,
+): void {
+  for (const fn of lc.ac) fn(name, oldValue, newValue)
 }
 
 /** @internal */
@@ -61,7 +81,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       private [LC_SYM]: _LC | null = null
       connectedCallback(): void {
         if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-        const lc: _LC = { m: [], c: [] }
+        const lc: _LC = { m: [], c: [], a: [], ac: [] }
         this[LC_SYM] = lc
         const host = this.shadowRoot ?? this
         _cur = lc
@@ -82,6 +102,23 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         this[S]?.dispose()
         this[S] = this[LC_SYM] = null
         _scopes.delete(this)
+      }
+      // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
+      adoptedCallback(): void {
+        const lc = this[LC_SYM]
+        if (lc) _runAdopts(lc)
+      }
+      // R2: attributeChangedCallback dispatches userland onAttributeChange.
+      // Function-form components have no observedAttributes by default, so
+      // this only fires if a derived class declares them — kept here for
+      // completeness + parity with options-form.
+      attributeChangedCallback(
+        name: string,
+        oldValue: string | null,
+        newValue: string | null,
+      ): void {
+        const lc = this[LC_SYM]
+        if (lc) _runAttrChanges(lc, name, oldValue, newValue)
       }
     }
     return C
@@ -139,6 +176,12 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     // R1 — re-entrancy guard for reflect: true. Set during setAttribute writes
     // triggered by signal updates so attributeChangedCallback skips dispatch.
     private [REFLECT_SYM] = new Set<string>()
+    // R4/Q3 (Director r6 §2.Q3): coarse-grained reflect-loop guard. Set on
+    // entry to attributeChangedCallback, cleared in finally. While set, any
+    // ps.set() that would reflect back to attribute is suppressed — covers
+    // the cross-component $bind + reflect: true cycle (Lit's _isReflecting
+    // precedent).
+    _isInternalAttrChange: boolean = false
 
     connectedCallback(): void {
       if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
@@ -169,8 +212,11 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         const ps = (() => get()) as PropSignal
         ps.set = (v: unknown): void => {
           set(v)
-          // Reflect to attribute when configured.
-          if (def.reflect === true && attrName !== null) {
+          // Reflect to attribute when configured. R4/Q3 (Director r6 §2.Q3):
+          // suppress reflect when we are mid-attributeChangedCallback — the
+          // attribute already holds the source-of-truth value and reflecting
+          // would re-fire the callback (cross-component $bind cycle).
+          if (def.reflect === true && attrName !== null && !this._isInternalAttrChange) {
             const reflected = _reflectToAttr(v)
             this[REFLECT_SYM].add(attrName)
             try {
@@ -188,7 +234,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       }
       this[PROPS_SYM] = propSignals
 
-      const lc: _LC = { m: [], c: [] }
+      const lc: _LC = { m: [], c: [], a: [], ac: [] }
       this[LC_SYM] = lc
       const host = this.shadowRoot ?? this
       _cur = lc
@@ -209,19 +255,41 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       _runMounts(lc)
     }
 
-    attributeChangedCallback(name: string, _old: string | null, newValue: string | null): void {
-      // Legacy attrs path — direct string signal update.
-      this[ATTR_SYM]?.[name]?.[1](newValue ?? '')
-      // R1 — prop path. Skip when this change was caused by our own reflect
-      // (re-entrancy guard).
-      if (this[REFLECT_SYM].has(name)) return
-      const propName = attrToProp.get(name)
-      if (propName === undefined) return
-      const ps = this[PROPS_SYM]?.[propName]
-      if (ps === undefined) return
-      const def = (propsCfg as PropsConfig)[propName]
-      if (def === undefined) return
-      ps.set(_convert(newValue, def, def.value))
+    attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+      // R4/Q3: reflect-loop guard. Set host-wide flag so ps.set() called from
+      // userland onAttributeChange (or from the propagated _convert below)
+      // does not reflect back to the attribute and re-fire this callback.
+      // Cleared in `finally` to keep stack-discipline correct under throws.
+      this._isInternalAttrChange = true
+      try {
+        // Legacy attrs path — direct string signal update.
+        this[ATTR_SYM]?.[name]?.[1](newValue ?? '')
+        // R1 — prop path. Skip when this change was caused by our own reflect
+        // (re-entrancy guard).
+        if (!this[REFLECT_SYM].has(name)) {
+          const propName = attrToProp.get(name)
+          if (propName !== undefined) {
+            const ps = this[PROPS_SYM]?.[propName]
+            const def = (propsCfg as PropsConfig)[propName]
+            if (ps !== undefined && def !== undefined) {
+              ps.set(_convert(newValue, def, def.value))
+            }
+          }
+        }
+        // R2 (Director r6 §3.R2): userland $lifecycle.attributeChange runs
+        // AFTER R1's $prop signal-update so authors observe the post-converted
+        // signal value. Order: legacy attr signal → R1 prop signal → userland.
+        const lc = this[LC_SYM]
+        if (lc) _runAttrChanges(lc, name, oldValue, newValue)
+      } finally {
+        this._isInternalAttrChange = false
+      }
+    }
+
+    // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
+    adoptedCallback(): void {
+      const lc = this[LC_SYM]
+      if (lc) _runAdopts(lc)
     }
 
     disconnectedCallback(): void {
@@ -319,4 +387,21 @@ export function _onMount(fn: () => void | (() => void)): void {
 export function _onCleanup(fn: () => void): void {
   if (!_cur) throw new RuntimeError('SCR-R0011', 'no owner')
   _cur.c.push(fn)
+}
+
+// R2 (Director r6 §3): four-callback $lifecycle extension. `onAdopt` and
+// `onAttributeChange` mirror the platform adoptedCallback /
+// attributeChangedCallback. Both register at setup() time per the same
+// _cur-pointer convention used by onMount/onCleanup; the host class
+// dispatches into these arrays from the platform-callback methods.
+export function _onAdopt(fn: () => void): void {
+  if (!_cur) throw new RuntimeError('SCR-R0012', 'no owner')
+  _cur.a.push(fn)
+}
+
+export function _onAttributeChange(
+  fn: (name: string, oldValue: string | null, newValue: string | null) => void,
+): void {
+  if (!_cur) throw new RuntimeError('SCR-R0013', 'no owner')
+  _cur.ac.push(fn)
 }

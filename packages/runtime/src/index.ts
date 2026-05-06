@@ -7,6 +7,8 @@
 export { _ensureA11yStyles, announce, createFocusTrap } from './a11y.ts'
 export {
   _hmrReplace,
+  _onAdopt as onAdopt,
+  _onAttributeChange as onAttributeChange,
   _onCleanup as onCleanup,
   _onMount as onMount,
   _setMount,

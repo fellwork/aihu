@@ -84,7 +84,119 @@ pub fn parse_state_macros(body: &str) -> Result<Vec<StateMacro>, CompileError> {
         });
     }
 
+    // Q4 (Director r6 §2.Q4): observedAttributes name-collision compile-time
+    // check. After parsing every `$prop` collection, walk all entries and
+    // compute the resolved attribute name (explicit `attribute:` override OR
+    // auto-kebab-cased prop name). Two props that map to the same attribute
+    // name → C446 with both prop names cited and the conflicting attribute
+    // named in the diagnostic. `attribute: false` (property-only) participates
+    // in NO collision because it's not in observedAttributes.
+    if let Some(err) = check_prop_attribute_collisions(&result) {
+        return Err(err);
+    }
+
     Ok(result)
+}
+
+/// Q4 — detect prop-attribute name collisions across all `$prop` entries in
+/// an `@state` block. Returns `Some(CompileError)` with code `C446` when two
+/// props map to the same observed-attribute name; `None` when no collision.
+///
+/// Rules (Director r6 §2.Q4):
+/// - `attribute: false` props are excluded (not observed).
+/// - Explicit `attribute: 'name'` wins over the auto-kebab default.
+/// - Two distinct prop names with the same explicit `attribute:` collide.
+/// - Two distinct prop names that auto-kebab to the same attribute collide
+///   (in practice rare since identifiers must be valid TS, but defensive).
+/// - One explicit + one auto-kebab to the same attribute collide.
+fn check_prop_attribute_collisions(macros: &[StateMacro]) -> Option<CompileError> {
+    // Collect (prop_name, resolved_attr_name) for every `$prop` entry where
+    // the attribute is observed (i.e. `attribute: false` is excluded).
+    let mut by_attr: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for mac in macros {
+        let StateMacro::Collection { kind, entries } = mac else {
+            continue;
+        };
+        if !matches!(kind, CollectionKind::Prop) {
+            continue;
+        }
+        for entry in entries {
+            // Resolve the attribute key. `attribute:` is in the metadata bag
+            // (parse_meta_pairs strips outer quotes from the KEY but preserves
+            // the raw VALUE text including any surrounding quotes).
+            let attr_meta = entry
+                .meta
+                .iter()
+                .find(|(k, _)| k == "attribute")
+                .map(|(_, v)| v.trim());
+
+            let resolved = match attr_meta {
+                Some("false") => continue, // property-only, not observed
+                Some(raw) => {
+                    // Strip optional surrounding quotes ('foo', "foo").
+                    let stripped = raw
+                        .trim_matches(|c| c == '\'' || c == '"')
+                        .to_string();
+                    if stripped == "true" {
+                        // attribute: true — fall through to auto-kebab.
+                        kebab_case(&entry.name)
+                    } else {
+                        stripped
+                    }
+                }
+                None => kebab_case(&entry.name),
+            };
+            by_attr
+                .entry(resolved)
+                .or_default()
+                .push(entry.name.clone());
+        }
+    }
+    for (attr, props) in &by_attr {
+        if props.len() > 1 {
+            // Stable order — first two collisions cited explicitly.
+            let (a, b) = (&props[0], &props[1]);
+            return Some(CompileError {
+                message: format!(
+                    "C446 — `$prop` attribute name collision: `{}` and `{}` both map to observed attribute `{}`",
+                    a, b, attr
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C446".to_string()),
+                hint: Some(format!(
+                    "specify `attribute:` explicitly on at least one to disambiguate (e.g. `{}: {{ attribute: 'data-{}' }}`)",
+                    a, attr
+                )),
+                fix: Some(
+                    "see docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md §3.6"
+                        .to_string(),
+                ),
+            });
+        }
+    }
+    None
+}
+
+/// kebab-case a camelCase identifier (`myProp` → `my-prop`). Mirrors the
+/// runtime-side `_kebab` in packages/runtime/src/define-component.ts so the
+/// compile-time collision check uses the SAME mapping the runtime uses.
+fn kebab_case(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 4);
+    for (i, ch) in s.chars().enumerate() {
+        if ch.is_ascii_uppercase() {
+            if i == 0 {
+                out.push(ch.to_ascii_lowercase());
+            } else {
+                out.push('-');
+                out.push(ch.to_ascii_lowercase());
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Try to parse a single macro declaration. `rest` is the line content
@@ -487,14 +599,20 @@ fn parse_object_collection(
                 ..Default::default()
             });
         }
-        // $lifecycle keys must be `mount` or `dispose` only (spec §3.6).
+        // $lifecycle keys must be one of `mount`, `dispose`, `adopt`,
+        // `attributeChange` (spec §3.6 + R2 four-callback extension per
+        // Director r6 §3). `mount` and `dispose` are the v1 surface;
+        // `adopt` and `attributeChange` were added in R2 to wire
+        // adoptedCallback and attributeChangedCallback respectively.
         if matches!(kind, CollectionKind::Lifecycle)
             && name != "mount"
             && name != "dispose"
+            && name != "adopt"
+            && name != "attributeChange"
         {
             return Err(CompileError {
                 message: format!(
-                    "$lifecycle key `{}` is invalid — only `mount` and `dispose` are valid",
+                    "$lifecycle key `{}` is invalid — only `mount`, `dispose`, `adopt`, `attributeChange` are valid",
                     name
                 ),
                 line: 0,
@@ -1072,13 +1190,32 @@ fn emit_collection_entry(
             }
         }
         CollectionKind::Lifecycle => {
-            // `mount` → onMount, `dispose` → onCleanup. The entry value is
-            // always a bare arrow per spec §3.6.
+            // R2 (Director r6 §3): four-callback extension. `mount` → onMount,
+            // `dispose` → onCleanup, `adopt` → onAdopt, `attributeChange` →
+            // onAttributeChange. Each entry value is always a bare arrow per
+            // spec §3.6. The two new callbacks are forwarded to the host
+            // element's adoptedCallback / attributeChangedCallback by the
+            // runtime (see packages/runtime/src/define-component.ts).
             let arrow = running_code(entry)?;
             let body = arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
             let call = match entry.name.as_str() {
                 "mount" => "onMount",
                 "dispose" => "onCleanup",
+                "adopt" => "onAdopt",
+                "attributeChange" => {
+                    // attributeChange takes (name, oldValue, newValue, ctx).
+                    // Preserve the user-supplied param list verbatim — fall
+                    // back to a generic 4-arg shape if we cannot extract it.
+                    let args = arrow_args(arrow).unwrap_or_else(|| {
+                        "_name, _oldValue, _newValue, _ctx".to_string()
+                    });
+                    return Some(format!(
+                        "{indent}onAttributeChange(({args}) => {{ {body} }});",
+                        indent = indent,
+                        args = args,
+                        body = body
+                    ));
+                }
                 _ => return None,
             };
             Some(format!(
@@ -1289,6 +1426,148 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "mount");
         assert_eq!(entries[1].name, "dispose");
+    }
+
+    // ─── R2 ($lifecycle four-callback extension, Director r6 §3.R2) ──────────
+
+    #[test]
+    fn r2_ac1_lifecycle_four_callbacks_parse() {
+        let src = "$lifecycle: {\n  mount: () => init(),\n  dispose: () => cleanup(),\n  adopt: () => onMoved(),\n  attributeChange: (name, oldV, newV) => log(name),\n}";
+        let macros = parse_state_macros(src).unwrap();
+        let (kind, entries) = first_collection(&macros);
+        assert_eq!(*kind, CollectionKind::Lifecycle);
+        assert_eq!(entries.len(), 4);
+        assert_eq!(entries[0].name, "mount");
+        assert_eq!(entries[1].name, "dispose");
+        assert_eq!(entries[2].name, "adopt");
+        assert_eq!(entries[3].name, "attributeChange");
+        // Each is bare (per spec §3.6 + R2: $lifecycle entries are always bare).
+        for e in entries {
+            assert!(!e.is_wrapped, "{} should be bare", e.name);
+        }
+    }
+
+    #[test]
+    fn r2_ac4_lifecycle_back_compat_mount_dispose() {
+        // The pre-R2 surface (mount + dispose only) must still parse.
+        let src = "$lifecycle: { mount: () => init(), dispose: () => cleanup() }";
+        let macros = parse_state_macros(src).unwrap();
+        let (_, entries) = first_collection(&macros);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "mount");
+        assert_eq!(entries[1].name, "dispose");
+    }
+
+    #[test]
+    fn r2_ac1_lifecycle_emit_adopt() {
+        let src = "$lifecycle: { adopt: () => onMoved() }";
+        let macros = parse_state_macros(src).unwrap();
+        let js = emit_state_macros(&macros);
+        assert_eq!(js, "onAdopt(() => { onMoved() });");
+    }
+
+    #[test]
+    fn r2_ac1_lifecycle_emit_attribute_change() {
+        let src = "$lifecycle: { attributeChange: (name, oldV, newV) => log(name) }";
+        let macros = parse_state_macros(src).unwrap();
+        let js = emit_state_macros(&macros);
+        // Param list preserved verbatim from the user-authored arrow.
+        assert_eq!(
+            js,
+            "onAttributeChange((name, oldV, newV) => { log(name) });"
+        );
+    }
+
+    #[test]
+    fn r2_ac1_lifecycle_emit_all_four() {
+        let src = "$lifecycle: {\n  mount: () => init(),\n  dispose: () => done(),\n  adopt: () => move(),\n  attributeChange: (n, o, v) => log(n, o, v),\n}";
+        let macros = parse_state_macros(src).unwrap();
+        let js = emit_state_macros(&macros);
+        assert!(js.contains("onMount(() => { init() });"));
+        assert!(js.contains("onCleanup(() => { done() });"));
+        assert!(js.contains("onAdopt(() => { move() });"));
+        assert!(js.contains("onAttributeChange((n, o, v) => { log(n, o, v) });"));
+    }
+
+    #[test]
+    fn r2_invalid_lifecycle_key_rejected() {
+        // Keys other than mount/dispose/adopt/attributeChange remain C444.
+        let err = parse_state_macros("$lifecycle: { foo: () => bar() }").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C444"));
+    }
+
+    // ─── Q4 (observedAttributes collision compile-time error C446) ────────────
+
+    #[test]
+    fn q4_collision_two_explicit_attributes() {
+        // Two $props with the same explicit `attribute:` → collision.
+        let src = "$prop: { foo: { default: 0, attribute: 'data-x' }, bar: { default: 0, attribute: 'data-x' } }";
+        let err = parse_state_macros(src).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C446"));
+        assert!(err.message.contains("data-x"), "got: {}", err.message);
+        assert!(err.message.contains("foo"), "got: {}", err.message);
+        assert!(err.message.contains("bar"), "got: {}", err.message);
+    }
+
+    #[test]
+    fn q4_collision_explicit_vs_default_kebab() {
+        // `dataX` auto-kebabs to `data-x`; another prop explicitly sets
+        // `attribute: 'data-x'` → collision.
+        let src = "$prop: { dataX: { default: 0 }, other: { default: 0, attribute: 'data-x' } }";
+        let err = parse_state_macros(src).unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C446"));
+        assert!(err.message.contains("data-x"), "got: {}", err.message);
+    }
+
+    #[test]
+    fn q4_collision_suggestion_in_hint() {
+        let src = "$prop: { a: { default: 0, attribute: 'shared' }, b: { default: 0, attribute: 'shared' } }";
+        let err = parse_state_macros(src).unwrap_err();
+        assert!(
+            err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("specify `attribute:`"),
+            "expected hint to contain 'specify `attribute:`', got: {:?}",
+            err.hint
+        );
+    }
+
+    #[test]
+    fn q4_attribute_false_does_not_collide() {
+        // `attribute: false` props are property-only — they never participate
+        // in observedAttributes, so they cannot collide.
+        let src = "$prop: { foo: { default: 0, attribute: false }, bar: { default: 0, attribute: 'foo' } }";
+        let macros = parse_state_macros(src).unwrap();
+        assert_eq!(macros.len(), 1);
+    }
+
+    #[test]
+    fn q4_no_collision_distinct_attributes() {
+        // Two props with distinct attributes — no collision.
+        let src = "$prop: { foo: { default: 0 }, bar: { default: 0 } }";
+        let macros = parse_state_macros(src).unwrap();
+        assert_eq!(macros.len(), 1);
+    }
+
+    #[test]
+    fn q4_no_collision_attribute_true_uses_kebab() {
+        // `attribute: true` is the explicit form of "use auto-kebab default".
+        // Two props that resolve to different kebab strings — no collision.
+        let src = "$prop: { foo: { default: 0, attribute: true }, bar: { default: 0 } }";
+        let macros = parse_state_macros(src).unwrap();
+        assert_eq!(macros.len(), 1);
+    }
+
+    #[test]
+    fn q4_kebab_helper_matches_runtime() {
+        // The compile-time kebab-case must mirror the runtime `_kebab` so the
+        // collision check uses the SAME mapping the runtime applies. Mirror
+        // a handful of cases from runtime tests.
+        assert_eq!(kebab_case("myProp"), "my-prop");
+        assert_eq!(kebab_case("themeMode"), "theme-mode");
+        assert_eq!(kebab_case("a"), "a");
+        assert_eq!(kebab_case("ABC"), "a-b-c");
     }
 
     // ─── C440 — old v1 forms rejected ─────────────────────────────────────────
