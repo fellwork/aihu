@@ -149,7 +149,7 @@
     // for events originating inside docs-shell's shadow DOM.
     document.addEventListener('click', (e) => {
       var path = e.composedPath();
-      var isNavLink = path.some(function(el) { return el.classList && el.classList.contains('nav-link'); });
+      var isNavLink = path.some((el) => el.classList && el.classList.contains('nav-link'));
       if (isNavLink && window.innerWidth <= 768) {
         closeDrawer();
       }
