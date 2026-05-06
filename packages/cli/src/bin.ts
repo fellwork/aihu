@@ -171,26 +171,48 @@ async function resolveTemplatePackagePath(pkgName: string): Promise<string> {
 }
 
 /**
- * Load a template package's manifest. Tries
- * `<pkg>/template.config.{ts,js,mjs}` via dynamic import; expects either a
- * default export or a named export `config` shaped per TemplateManifest.
+ * Load a template package's manifest. Reads the package directory listing
+ * to find any `template.config.{ts,js,mjs,cjs}` file (more robust than
+ * stat'ing fixed filenames — handles bunx temp-dir layouts where stat can
+ * misbehave). Then dynamic-imports it; expects either a default export or
+ * a named export `config` shaped per TemplateManifest.
  */
 async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
-  for (const ext of ['ts', 'js', 'mjs']) {
-    const candidate = join(pkgRoot, `template.config.${ext}`)
+  let entries: string[]
+  try {
+    entries = readdirSync(pkgRoot)
+  } catch (e) {
+    throw new Error(
+      `Could not read template package root ${pkgRoot}: ${(e as Error).message}`,
+    )
+  }
+  // Prefer .ts (Bun-native), fall through to compiled forms.
+  const ordered = ['.ts', '.js', '.mjs', '.cjs']
+  for (const ext of ordered) {
+    const match = entries.find((f) => f === `template.config${ext}`)
+    if (!match) continue
+    const candidate = join(pkgRoot, match)
     try {
-      statSync(candidate)
       // Use file:// URL so dynamic import works on Windows.
       const mod = (await import(`file://${candidate.replace(/\\/g, '/')}`)) as Record<
         string,
         unknown
       >
       return mod.default ?? mod.config ?? mod
-    } catch {
-      // try next ext
+    } catch (e) {
+      // import failed — try next extension; preserve last error for diagnostics
+      const last = e as Error
+      if (ext === '.cjs') {
+        throw new Error(
+          `Failed to import template.config${ext} at ${candidate}: ${last.message}`,
+        )
+      }
     }
   }
-  throw new Error(`No template.config.{ts,js,mjs} found under ${pkgRoot}`)
+  throw new Error(
+    `No template.config.{ts,js,mjs,cjs} found under ${pkgRoot}. ` +
+      `Directory contains: ${entries.slice(0, 20).join(', ')}${entries.length > 20 ? ', …' : ''}`,
+  )
 }
 
 /**
