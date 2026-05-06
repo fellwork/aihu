@@ -720,7 +720,7 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
     None
 }
 
-fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
+fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &SignalMap) -> String {
     use crate::parser::state_macros::{arrow_args, arrow_body, meta_get, running_code};
     use crate::types::{CollectionKind, StateMacro};
     let mut lines: Vec<String> = Vec::new();
@@ -855,10 +855,32 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro]) -> String {
                 lines.push(format!("{indent}effect(() => {{ {body} }});"));
             }
             StateMacro::EffectOn { dep, body } => {
-                lines.push(format!("{indent}effect(() => {{ {dep}; {body} }});"));
+                // R5c: if dep is a simple signal identifier, call the getter
+                // so the effect actually subscribes (`name;` would just read
+                // the function reference and not track).
+                let trimmed = dep.trim();
+                let is_simple_ident = !trimmed.is_empty()
+                    && trimmed
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                let dep_expr = if is_simple_ident && signal_map.is_reactive(trimmed) {
+                    format!("{}()", trimmed)
+                } else {
+                    dep.to_string()
+                };
+                lines.push(format!("{indent}effect(() => {{ {dep_expr}; {body} }});"));
             }
             StateMacro::Watch { name, body } => {
-                lines.push(format!("{indent}effect(() => {{ {name}; {body} }});"));
+                let is_simple_ident = !name.is_empty()
+                    && name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                let dep_expr = if is_simple_ident && signal_map.is_reactive(name) {
+                    format!("{}()", name)
+                } else {
+                    name.to_string()
+                };
+                lines.push(format!("{indent}effect(() => {{ {dep_expr}; {body} }});"));
             }
             // arch-5 M1 — routing macros.
             StateMacro::Route { name } => {
@@ -940,7 +962,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     ));
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
-    let macro_code = emit_state_macro_code(&macros);
+    let macro_code = emit_state_macro_code(&macros, &signal_map);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
 
     let body = {
@@ -1691,7 +1713,7 @@ fn emit_node(
             // Check for $raw — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
-            let attrs_str = emit_attrs(attrs, state_names);
+            let attrs_str = emit_attrs(attrs, state_names, signal_map);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -2101,7 +2123,7 @@ fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<Tem
     (fallback, main)
 }
 
-fn emit_attrs(attrs: &[Attr], state_names: &StateNames) -> String {
+fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) -> String {
     // Filter out macro attrs that aren't pure attribute expressions
     // (those are handled via emit_macro_effects instead).
     //
@@ -2146,7 +2168,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames) -> String {
                 let lowered = if is_event {
                     expr.to_string()
                 } else {
-                    lower_attr_expr(expr, state_names)
+                    lower_attr_expr(expr, state_names, signal_map)
                 };
                 Some(format!("{}: {}", format_attr_key(name), lowered))
             }
@@ -2162,7 +2184,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames) -> String {
                     Some(format!(
                         "{}: {}",
                         format_attr_key(prop),
-                        lower_attr_expr(&expr, state_names)
+                        lower_attr_expr(&expr, state_names, signal_map)
                     ))
                 } else if let Some(event) = name.strip_prefix("on:") {
                     let handler = macro_value_expr(value);
@@ -2213,9 +2235,26 @@ fn is_event_attr_name(name: &str) -> bool {
 /// Identifier extraction is a lightweight token walk — sufficient for
 /// well-formed JS expressions and indifferent to string-literal contents
 /// because string contents would not match `@state` declarations.
-fn lower_attr_expr(expr: &str, state_names: &StateNames) -> String {
+fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap) -> String {
+    let trimmed = expr.trim();
+    // R5c: pass-through signal tuple when the expression is a simple
+    // identifier that's a registered signal — matches the leaf-emission
+    // shape and `when()` shape, avoids the `() => getter` wrap that yields
+    // the function reference instead of the tracked value.
+    let is_simple_ident = !trimmed.is_empty()
+        && trimmed
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+    if is_simple_ident && signal_map.is_reactive(trimmed) {
+        if let Some(setter) = signal_map.0.get(trimmed) {
+            if !setter.is_empty() {
+                return format!("[{}, {}]", trimmed, setter);
+            }
+            return format!("[{}]", trimmed);
+        }
+    }
     if expr_references_state(expr, state_names) {
-        format!("[() => ({})]", expr.trim())
+        format!("[() => ({})]", trimmed)
     } else {
         expr.to_string()
     }
@@ -2332,14 +2371,36 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
         match name.as_str() {
             "if" => {
                 let cond = macro_value_expr(value);
-                // R5 (Defect E): wrap the condition in a thunk array so the
-                // structural-conditional reconciler tracks it reactively.
-                // Matches the [() => expr] thunk pattern used for reactive
-                // attribute bindings (R2 Defect B). Without this wrap the
-                // condition would only be evaluated once at mount time.
+                // R5c (Defect E follow-up): if cond is a simple identifier
+                // that's a registered signal, pass the signal tuple directly
+                // — `when()` reads `cond[0]()` reactively (matches the
+                // leaf-emission shape for `{name}` interpolation). Wrapping
+                // a signal in `[() => name]` would yield the getter function
+                // (truthy), making the condition always true.
+                let trimmed = cond.trim();
+                let is_simple_ident = !trimmed.is_empty()
+                    && trimmed
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                let cond_arg = if is_simple_ident && signal_map.is_reactive(trimmed) {
+                    if let Some(setter) = signal_map.0.get(trimmed) {
+                        if !setter.is_empty() {
+                            format!("[{}, {}]", trimmed, setter)
+                        } else {
+                            // computed signal — read-only getter, no setter
+                            format!("[{}]", trimmed)
+                        }
+                    } else {
+                        format!("[() => ({})]", trimmed)
+                    }
+                } else {
+                    // complex expression — wrap in thunk; user is responsible
+                    // for calling getters inside (e.g. `{loading() && !error()}`).
+                    format!("[() => ({})]", trimmed)
+                };
                 effects.push(format!(
-                    "{}createIfBoundary([() => ({})], () => {{ return {} }})",
-                    indent, cond, subtree
+                    "{}createIfBoundary({}, () => {{ return {} }})",
+                    indent, cond_arg, subtree
                 ));
             }
             "show" => {
