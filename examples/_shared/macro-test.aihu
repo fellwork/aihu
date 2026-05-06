@@ -1,20 +1,29 @@
-// Option 4 — Object-literal collection-form macros (RATIFIED)
+// Option 4 — Object-literal collection-form macros (RATIFIED + 005.5 BLOCKER resolved)
 //
-// All 7 round-005 decisions locked:
+// All 7 round-005 decisions + 2 round-005.5 dryrun resolutions locked:
 //   D.1 type:           opt-in fallback when default/value can't carry the type
 //   D.2 handler:        bare fn = implicit handler; key required in wrapped form
 //   D.3 $lifecycle:     bare function-as-value always (no metadata-bag form)
-//   D.4 $effect:        object-keyed (consistent with $action / $resource)
+//   D.4 $effect:        object-keyed when named OR when metadata is present;
+//                       anonymous bare-callback form ALSO allowed (Q.B-1 → a),
+//                       parallel to $lifecycle. Carve-out healed:
+//                       all "side-effect callback at a framework hook point"
+//                       (lifecycle hooks + ad-hoc effects) share the same rule.
 //   D.5 computed:       explicit thunk only (no compiler closure synthesis)
 //   D.6 expose:         object form { read?: true; write?: true }
 //   D.7 formatter:      inline ≤3 keys + fits default line width; multi-line else
+//
+// AC-6 wording (Q.B-2 → a): "byte-identical for @state-side lowering
+// (defineExpose, effect, computed, lifecycle calls); semantically equivalent
+// (per-name reshape allowed) for @agent metadata payload."
 //
 // Emergent rule: value-side is the running code; metadata wraps when present.
 // Bare entry-value-is-function = implicit handler/value/callback; wrap in
 // object literal with explicit `handler:` / `value:` key when metadata coexists.
 //
-// $lifecycle is the one exception: always bare (lifecycle has no agent surface).
-// $prop is the other exception: always wrapped (no running code to imply).
+// Carve-outs:
+//   - $lifecycle / $effect (anonymous): always bare. No metadata-bag form.
+//   - $prop: always wrapped (no running code to imply).
 
 @state {
   $prop: {
@@ -75,12 +84,14 @@
   // }
   //
   // $effect: {
-  //   logData: () => { console.log(data()) },      // bare — auto-tracks deps
-  //   updateList: {                                // wrapped — explicit deps
+  //   logData: () => { console.log(data()) },      // bare named — auto-tracks deps
+  //   updateList: {                                // wrapped — explicit deps + metadata
   //     on: [data],
   //     value: () => { updateList(data()) },
   //   },
   // }
+  // // Anonymous bare $effect (parallel to $lifecycle, per Q.B-1 → a):
+  // $effect: () => { persist(state) }              // anon — no name needed
   //
   // $lifecycle: {                                  // always bare — no metadata
   //   mount:   () => initializeWidget(),
