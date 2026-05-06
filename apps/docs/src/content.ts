@@ -1375,5 +1375,5 @@ export const loader = defineLoader(async (ctx) =&gt; {
 </code></pre>
 <p>The loader result is serialized into the SSR payload and dehydrated on the client — no second fetch needed.</p>
 `,
-  }
+  },
 }
