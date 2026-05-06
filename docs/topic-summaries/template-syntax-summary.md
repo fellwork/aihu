@@ -1,9 +1,9 @@
 # Topic Summary — aihu template-syntax — userland-dx track
 
 **Last updated:** 2026-05-06
-**Active rounds:** 6 (5 research/governance + 1 Builder ↔ Verifier iteration closed clean on R1)
-**Status:** B1 PASS 11/11 banked; B2 dispatched (R2+R3+R4+Q3+Q4); auto-spine continues per user "go, auto mode" directive
-**Tags:** `topic:aihu-template-syntax track:userland-dx round:6 supersedes:2304511529`
+**Active rounds:** 7 (5 research/governance + 2 Builder ↔ Verifier iterations closed clean on R1 + R2-R4/Q3-Q4)
+**Status:** B1 PASS 11/11 + B2 PASS 12/12 banked; iteration 2 of 5; B3 brief refined (largest round); auto-spine continues per user "go, auto mode" directive
+**Tags:** `topic:aihu-template-syntax track:userland-dx round:7 supersedes:1021113227`
 
 ---
 
@@ -29,6 +29,25 @@ Director r6 adjudicated the four open questions Builder surfaced honestly:
 **Refined B2 brief (per Director r6 §3):** R2 + R3 + R4 + Q3 reflect-loop guard + Q4 attribute-collision compile-time error. **LOC estimate: ~150-220 LOC src + ~150-200 LOC tests** (was ~80-130 src in r5 §5; addition of Q3 fixture work + Q4 validator pushes higher; still well under the ≤ 500 src+tests playbook ceiling per round). Branch: `feat/template-syntax-v2-b2` off post-FF parent.
 
 **Surface conditions watch (per Director r6 §6):** B2 NEEDS_FIX with reflect-loop unresolved; B3 codemod past 800 LOC after body-call addition; B4 $aria boundary exceeds 600 B gzipped; B5 LOC + tests exceeds 600 LOC (R6+R7 split trigger); any same-defect-class iteration with NEEDS_FIX > 1; or v0.4 deferral pulled into RATIFY-now mid-build. **Currently no surface trigger active.**
+
+### Round 7 governance: B2 PASS + B3 brief refined
+
+V2 Verifier returned **PASS 12/12** on `feat/template-syntax-v2-b2` covering R2 ($lifecycle four-callback), R3 ($show→hidden attribute), R4 ($bind two-way write-back), Q3 (reflect-loop guard via `_isInternalAttrChange`), and Q4 (C446 attribute-collision compile-time error). Verifier report id 2790235213; build manifest id 205759133; director r7 note id 4201323727. **Iteration counter: 2 of 5 banked.** Two consecutive one-pass Builder ↔ Verifier closes (B1 + B2) — banking budget for B3 (the largest round) and beyond.
+
+Director r7 (record id 4201323727) ratified the merge mechanic: **fast-forward `feat/template-syntax-v2-b2` → `feat/template-syntax-v2`** (NOT squash), preserving the 3 B2 phase-commits as bisectable units. Merge complete: -b2 fast-forwarded to parent at commit `124adda`; r7 governance docs added at `da53779`. Eventual main merge stays per r5 §5 — one squash commit `feat: template-syntax-v2 (Variant B + R1-R7)` after B5 lands.
+
+Director r7 adjudicated the two open questions B2 surfaced honestly:
+
+- **Surface 1 (R4 typed-conv at $bind site) → bundled into B3 compiler emit.** B2's R4 added auto write-back via `setName(e.target.value)`, which always stores a string — numeric signals get `'5'` instead of `5`. r7 routed to mirror R1's `_convert` direction at the bind write site (~20-40 LOC compiler emit + ~50 LOC tests). Lands as B3 AC #11. Defense: R1 + R4 together form the durable invariant ("a typed prop signal stays typed across both attribute-set and bind-input pathways"); coupling gain from one B3 emit-pass review is high; 5-round ceiling preserved (vs option (c) B2.1 split).
+- **Surface 2 (Q3 async-batched-attribute-write reverify trigger) → documented as v0.5+ watched assumption.** `_isInternalAttrChange` host-wide single boolean is correct for synchronous-per-attribute platform contract (WHATWG today; Lit's `_isReflecting` precedent). No current WHATWG proposal exists for async-batched attribute writes. Documented-watch with explicit re-verification trigger if/when WHATWG ratifies such a proposal. **No code change in v0.3.**
+
+**Critical r7 finding on the colon→dot transition.** B2's R4 added write-back to the **existing colon-form `$bind:value`** — it did NOT add the dot-form `$bind.value` parsing/emit. The Variant B spec (Architect §3.B.5) requires `$on.click` and `$bind.value` dot-forms. **Implication for B3:** B3 must handle the **complete global colon→dot transition** — both compiler emit (parse and lower the dot-form, with v1 colon-form still parsing under W202 deprecation warning during the transition window) AND codemod migration of all colon-form usages in the corpus. r7 confirms the existing 640-700 LOC codemod estimate from r6 §2.Q2 already encompasses this work.
+
+**Variant B canonical block-tag token is `{#each}` (NOT `{#for}`).** r7 §3.A.1 names this explicitly per Sample-catalog usage AND Svelte training-data alignment AND Prober report. If Builder finds spec-doc text uses `{#for}`, file the inconsistency and align to `{#each}`.
+
+**Refined B3 brief (per Director r7 §3): the largest round.** Variant B template syntax (block-tag control flow `{#if}` / `{#each}` / `{:else if}` / `{:else}` / `{:empty}`) + global colon→dot transition (`$on.click` + `$bind.value` dot-form parsing+emit; v1 colon-form preserved with W202 deprecation) + class-array form + `{@html}` + `$emit.<name>(payload)` via `$event` collection + R4 typed-conv at $bind site + sidecar `.aihu.ts` for type-safety + 640-700 LOC codemod (incl body-call-syntax migration) applied to in-aihu-repo corpus (62 .aihu files). **~1090-1390 LOC src+tests.** Branch: `feat/template-syntax-v2-b3` off post-B2 parent.
+
+**Surface conditions watch (per Director r7 §6):** carries forward r6 §6 and supersedes r6 §6 #2 (the 800 LOC codemod-only threshold) with a **1500 LOC threshold for the full B3 scope** for B3a/B3b re-cut (B3a = compiler emit + sidecar + R4 typed-conv ~430-540 LOC src; B3b = codemod + corpus + body-call ~640-700 LOC src). Adds: R4 typed-conv at $bind site reveals `_convert` not directly reachable at bind-emit (would need R1-machinery pre-pass); sidecar `.aihu.ts` discovery reveals existing TS pipeline can't ingest per-SFC sidecar without significant build-config change; codemod corpus migration breaks an in-aihu-repo `.aihu` file beyond mechanical fixup; body-call-syntax scope-tracking AST is materially harder than estimated. **Currently no surface trigger active.**
 
 ---
 
@@ -106,7 +125,7 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 
 **Blocking:** none. User cleared go-auto-mode directive (post-r5). B1 closed clean; B2 dispatched per Director r6 §3 refined brief. Hard gate from Director r1 §7 / r2 §8 has been satisfied.
 
-**Gate question (post-r6):** Auto-spine continues per user "go, auto mode" directive. Surface conditions watched per r6 §6 — currently no surface trigger active.
+**Gate question (post-r7):** Auto-spine continues per user "go, auto mode" directive. B3 is the largest round; surface conditions watched per r6 §6 + r7 §6. Currently no surface trigger active.
 
 **Next:** B2 Builder ↔ Verifier round in flight (R2 + R3 + R4 + Q3 + Q4). Architect §11 acceptance criteria (a–i) remain runnable; B3 codemod (with body-call-migration, ~640-700 LOC) follows B2 close. B4 introduces $aria + auto-keyboard with lazy-attach + per-feature size budget. B5 lands $controller + $context combined (R6+R7) per r5 §5 Option A; B5a/B5b split named as fallback if WICG interop test goes flaky.
 
@@ -128,13 +147,29 @@ Round 2 produced a reconciled recommendation, a corrected codemod budget, and a 
 - **Q3 — $bind two-way + reflect interaction:** **CLOSED** — B2/R4 territory; guard mechanism is `_isInternalAttrChange` flag on host (set in `attributeChangedCallback` entry, cleared in `finally`; reflect path skips when flag set). Builder picks final implementation; AC outcome: no infinite loop, no stale writes, no double-fire.
 - **Q4 — observedAttributes name collision:** **CLOSED** — compile-time error `C446` emitted by `state_macros.rs` validator. Diagnostic names both colliding props + the conflicting attribute name; suggests explicit `attribute:` override. Folded into B2 brief.
 
-### Durably-true facts (post-r6)
+### Closed in r7
+
+- **Surface 1 — R4 typed-conversion at `$bind` write site:** **CLOSED** — folds into B3 compiler emit (~20-40 LOC + ~50 LOC tests; mirrors R1's `_convert` direction at the symmetric write side). Lands as B3 AC #11. Defense: R1 + R4 together form the durable invariant — typed prop signal stays typed across both attribute-set and bind-input pathways.
+- **Surface 2 — Q3 async-batched-attribute-write reverify trigger:** **CLOSED INFORMATIONALLY** — documented as v0.5+ watched assumption. No code change in v0.3. No current WHATWG proposal for async-batched attribute writes; Lit's `_isReflecting` precedent stands. Re-verify trigger is well-defined: if/when WHATWG ratifies an async-batched-attribute-write proposal, r-stage governance for that round revisits the assumption.
+
+### v0.5+ watched assumptions
+
+- **Q3 reflect-loop guard async-batch reverify** (watched; no current WHATWG proposal). The `_isInternalAttrChange` host-wide single boolean assumes synchronous-per-attribute platform contract (WHATWG today; Lit precedent). If async batched attribute writes ever land as a platform feature, the guard's correctness must be re-verified — sits alongside Trusted Types CSP integration, DSD, $form, LSP on the v0.5+ watched-items list.
+
+### Active open items (post-r7)
+
+- **B3 brief (the largest round):** Variant B template syntax + global colon→dot transition (`$on.click` + `$bind.value` dot-form parsing+emit with v1 colon-form preserved under W202) + 640-700 LOC codemod (incl body-call-syntax migration) + R4 typed-conv at $bind site + sidecar `.aihu.ts` for type-safety + apply codemod to 62 in-aihu-repo `.aihu` files. **~1090-1390 LOC src+tests.** Surface trigger at 1500 LOC for B3a/B3b re-cut (B3a = compiler emit + sidecar + R4 typed-conv; B3b = codemod + corpus + body-call). Variant B canonical block-tag token is `{#each}` (NOT `{#for}`).
+
+### Durably-true facts (post-r7)
 
 - **B1 closed clean (V1 PASS 11/11); iteration 1 of 5 banked.** R1 ($prop reactivity fix + Lit-style optional keys) ratified in code; -b1 fast-forwarded into parent at `c4b2ede`; r6 docs added at `9ec48cf`.
+- **B2 closed clean (V2 PASS 12/12); iteration 2 of 5 banked.** R2/R3/R4/Q3/Q4 ratified in code on parent at HEAD post-merge; -b2 fast-forwarded into parent at `124adda`; r7 docs added at `da53779`. Surface 1 (R4 typed-conv) folds into B3. Surface 2 (Q3 async-batched-writes) documented as v0.5+ watched assumption.
+- **Two consecutive one-pass Builder closes** (B1 + B2). Banking budget for B3 (largest round) and beyond.
 - **Lazy-attach architectural decision ratified for R5/R6/R7.** Per-feature gzipped sub-budgets: $aria ≤ 600 B / $controller ≤ 400 B / $context ≤ 600 B. `@aihu/runtime` core baseline stays at ~2.75 KB.
 - **Marketing position: ~5 KB runtime if you use everything; ~2.7 KB for legacy SFCs that don't opt into v2 collections.** Honest, dev-tool-inspectable via existing `bun run size-rows` pre-push; B4 introduces `bun run size-by-feature` for per-feature CI gating.
-- **B3 codemod scope expanded to include body-call-syntax migration** (~640-700 LOC budget, up from 560; surface trigger at 800 LOC for B3a/B3b re-cut).
-- **B2 refined brief: R2 + R3 + R4 + Q3 reflect-loop guard + Q4 attribute-collision compile-time error C446** (~150-220 LOC src + ~150-200 LOC tests; under the ≤ 500 src+tests per-round playbook ceiling).
+- **B3 codemod scope expanded to include body-call-syntax migration** (~640-700 LOC budget, up from 560; r7 supersedes r6 §6 #2 with a 1500 LOC full-B3-scope threshold for B3a/B3b re-cut).
+- **B3 = Variant B syntax + codemod (640-700 LOC) + R4 typed-conv + sidecar `.aihu.ts`; ~1090-1390 LOC src+tests; the largest round.** Surface trigger at 1500 LOC for B3a/B3b re-cut.
+- **B2's R4 added write-back to colon-form (`$bind:value`) only; B3 handles the complete global colon→dot transition** (dot-form parsing+emit added in B3; v1 colon-form preserved under W202 deprecation; codemod migrates corpus).
 
 ---
 
