@@ -86,9 +86,6 @@
 :host .icon-sun  { display: none; }
 :host .icon-moon { display: flex; }
 
-:root .icon-sun  { display: none; }
-:root .icon-moon { display: flex; }
-
-.dark .icon-sun  { display: flex; }
-.dark .icon-moon { display: none; }
+:host-context(.dark) .icon-sun  { display: flex; }
+:host-context(.dark) .icon-moon { display: none; }
 }
