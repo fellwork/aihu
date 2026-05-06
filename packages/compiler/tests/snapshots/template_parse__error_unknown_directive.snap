@@ -1,6 +1,5 @@
 ---
 source: tests/template_parse.rs
-assertion_line: 48
 expression: result
 ---
 Err(

@@ -178,13 +178,17 @@ async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
   if (wasmPromise) return wasmPromise
   wasmPromise = (async () => {
     const base = wasmBaseUrl(host)
-    // Probe for the unavailable marker first so we render a clean
-    // fallback instead of a 404 cascade.
+    // Probe for the JS glue file. We check content-type because Cloudflare
+    // Pages serves index.html (200, text/html) for every unknown path in SPA
+    // mode — a plain `probe.ok` check would always be true, making the
+    // UNAVAILABLE marker probe unreliable. If the server returns HTML instead
+    // of JS, the bundle hasn't been deployed yet.
     try {
-      const probe = await fetch(`${base}UNAVAILABLE`, { method: 'HEAD' })
-      if (probe.ok) return null
+      const probe = await fetch(`${base}aihu_compiler.js`, { method: 'HEAD' })
+      const ct = probe.headers.get('content-type') ?? ''
+      if (!probe.ok || ct.includes('text/html')) return null
     } catch {
-      /* fall through and try the real load */
+      return null
     }
     try {
       // Use a runtime import so bundlers don't try to resolve at build.

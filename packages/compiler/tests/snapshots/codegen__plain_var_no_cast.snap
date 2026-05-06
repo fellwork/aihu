@@ -1,6 +1,5 @@
 ---
 source: tests/codegen.rs
-assertion_line: 106
 expression: output.js
 ---
 import { branch, leaf, slot } from '@aihu/arbor'
