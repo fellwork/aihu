@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
@@ -109,3 +109,19 @@ execFileSync(
   { cwd: __dir, stdio: 'inherit' },
 )
 console.log('\n✓ Build complete → dist/')
+
+// ── 5. Copy static assets into dist/ ────────────────────────────
+
+const staticFiles = ['index.html', 'style.css', 'favicon.svg', 'aihu-wordmark.svg']
+for (const file of staticFiles) {
+  await copyFile(join(__dir, file), join(__dir, 'dist', file))
+}
+
+// Copy public/ (_headers, _redirects, etc.)
+const publicDir = join(__dir, 'public')
+const publicFiles = await readdir(publicDir).catch(() => [])
+for (const file of publicFiles) {
+  await copyFile(join(publicDir, file), join(__dir, 'dist', file))
+}
+
+console.log('✓ Static assets copied → dist/')
