@@ -228,11 +228,23 @@ export default {
     }
 
     // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …)
+    const discoveryLink =
+      '</.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent.json>; rel="agent-card"'
     try {
-      return await env.ASSETS.fetch(request)
+      const assetRes = await env.ASSETS.fetch(request)
+      const ct = assetRes.headers.get('Content-Type') ?? ''
+      if (ct.includes('text/html')) {
+        const enriched = new Response(assetRes.body, assetRes)
+        enriched.headers.set('Link', discoveryLink)
+        return enriched
+      }
+      return assetRes
     } catch {
       // 3. SPA shell fallback — any unmatched path gets index.html
-      return env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request))
+      const fallback = await env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request))
+      const enriched = new Response(fallback.body, fallback)
+      enriched.headers.set('Link', discoveryLink)
+      return enriched
     }
   },
 }

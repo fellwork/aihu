@@ -22,8 +22,13 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+/
+  Cache-Control: public, max-age=0, must-revalidate
+  Link: </.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent.json>; rel="agent-card"
+
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
+  Link: </.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent.json>; rel="agent-card"
 
 /pagefind/*
   Cache-Control: public, max-age=86400
