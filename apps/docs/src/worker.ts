@@ -207,7 +207,7 @@ export default {
           status: 200,
           headers: {
             'Content-Type': 'text/markdown; charset=utf-8',
-            'Vary': 'Accept',
+            Vary: 'Accept',
             'x-markdown-tokens': String(Math.ceil(md.length / 4)),
           },
         })

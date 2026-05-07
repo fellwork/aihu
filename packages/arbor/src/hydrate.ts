@@ -237,7 +237,8 @@ export function hydrate(
   const hp = root.getAttribute?.('data-aihu-path')
   if (hp != null) pathMap.set(hp, root)
 
-  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__)
+    _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
 
   const disposers: Dispose[] = []
   const signalRegistry = new Map<string, () => unknown>()
@@ -248,7 +249,8 @@ export function hydrate(
   } catch (err) {
     if (errorHandler) {
       errorHandler(err, 'hydrate')
-      if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
+      if (typeof __DEV__ !== 'undefined' && __DEV__)
+        _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
       return _makeScope(disposers, signalRegistry)
     }
     throw err
@@ -259,7 +261,8 @@ export function hydrate(
 
   _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler)
 
-  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__)
+    _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
 
   return _makeScope(disposers, signalRegistry)
 }
