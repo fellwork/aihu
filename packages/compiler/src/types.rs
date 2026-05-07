@@ -118,6 +118,12 @@ pub struct CompileError {
     pub code: Option<String>,
     pub hint: Option<String>,
     pub fix: Option<String>,
+    /// Machine-readable: the original text that should be replaced.
+    /// Used by the LSP server to offer automated code actions.
+    pub from: Option<String>,
+    /// Machine-readable: the replacement text to substitute for `from`.
+    /// Used by the LSP server to offer automated code actions.
+    pub to: Option<String>,
 }
 
 impl std::fmt::Display for CompileError {

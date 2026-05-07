@@ -74,12 +74,17 @@ pub fn parse_state_macros(body: &str) -> Result<Vec<StateMacro>, CompileError> {
         .count();
     if anon_count > 1 {
         return Err(CompileError {
-            message: "two anonymous `$effect: () => {...}` lines in the same `@state` block — \
-                use the named-collection form (`$effect: { name: () => {...} }`) for multiple effects"
+            message: "C441: two anonymous `$effect: () => {...}` lines in the same `@state` block. \
+                Replace all anonymous effects with the named-collection form: \
+                `$effect: { effectName: () => { body }, otherEffect: () => { body } }`. \
+                Example: `$effect: () => { a() }` + `$effect: () => { b() }` \
+                → `$effect: { syncA: () => { a() }, syncB: () => { b() } }`"
                 .to_string(),
             line: 0,
             col: 0,
             code: Some("C441".to_string()),
+            from: Some("$effect: () => { ... } (multiple anonymous)".to_string()),
+            to: Some("$effect: { <name1>: () => { ... }, <name2>: () => { ... } }".to_string()),
             ..Default::default()
         });
     }
@@ -507,22 +512,71 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
 }
 
 /// Build the C440 error pointing at the migration codemod (per spec §6).
+/// Each kind includes an inline corrected form so agents can apply the fix
+/// without reading external docs.
 fn c440(rest: &str, kind: CollectionKind) -> CompileError {
+    let kw = keyword_name(kind);
+    let got = rest.trim_end();
+
+    let (corrected_form, from_text, to_text) = match kind {
+        CollectionKind::Prop => (
+            "Replace `$prop name: Type = default` with `$prop: { name: { type: Type, default: <default> } }`. \
+             Example: `$prop label: String = ''` → `$prop: { label: { type: String, default: '' } }`",
+            format!("$prop {}", got.trim_start_matches("prop").trim_start()),
+            "$prop: { <name>: { type: <Type>, default: <default> } }".to_string(),
+        ),
+        CollectionKind::Computed => (
+            "Replace `$computed name = expr` with `$computed: { name: () => expr }`. \
+             Example: `$computed upper = label.toUpperCase()` → `$computed: { upper: () => label.toUpperCase() }`",
+            format!("$computed {}", got.trim_start_matches("computed").trim_start()),
+            "$computed: { <name>: () => <expr> }".to_string(),
+        ),
+        CollectionKind::Action => (
+            "Replace `$action name(args) { body }` with `$action: { name: (args) => { body } }`. \
+             Example: `$action submit(data) { send(data) }` → `$action: { submit: (data) => { send(data) } }`",
+            format!("$action {}", got.trim_start_matches("action").trim_start()),
+            "$action: { <name>: (<args>) => { <body> } }".to_string(),
+        ),
+        CollectionKind::Resource => (
+            "Replace `$resource name = expr` with `$resource: { name: () => expr }`. \
+             Example: `$resource data = fetchUsers()` → `$resource: { data: () => fetchUsers() }`",
+            format!("$resource {}", got.trim_start_matches("resource").trim_start()),
+            "$resource: { <name>: () => <expr> }".to_string(),
+        ),
+        CollectionKind::Effect => (
+            "Replace `$effect(fn)` with `$effect: () => { body }` (anonymous) or \
+             `$effect: { name: () => { body } }` (named collection). \
+             Example: `$effect(() => { sync() })` → `$effect: () => { sync() }`",
+            format!("$effect {}", got.trim_start_matches("effect").trim_start()),
+            "$effect: () => { <body> }".to_string(),
+        ),
+        CollectionKind::Lifecycle => (
+            "Replace `$lifecycle.mount { body }` / `$lifecycle.dispose { body }` with \
+             `$lifecycle: { mount: () => { body }, dispose: () => { body } }`. \
+             Example: `$lifecycle.mount { init() }` → `$lifecycle: { mount: () => { init() } }`",
+            format!("$lifecycle.{}", got.trim_start_matches("lifecycle.").split_at(got.trim_start_matches("lifecycle.").find(|c: char| c.is_whitespace() || c == '{').unwrap_or(got.trim_start_matches("lifecycle.").len())).0.to_string()),
+            "$lifecycle: { mount: () => { <body> } }".to_string(),
+        ),
+    };
+
     CompileError {
         message: format!(
-            "C440 — old-spec macro form rejected for `${}`; \
-             run `packages/compiler/codemods/macro-simplification/migrate.ts` to upgrade to v2 collection-form. \
+            "C440: `${}` v1 form is not valid in v2. {} \
+             Run the migration codemod: packages/compiler/js/codemods/macro-simplification/migrate.ts. \
              Got: `${}`",
-            keyword_name(kind),
-            rest.trim_end()
+            kw, corrected_form, got
         ),
         line: 0,
         col: 0,
         code: Some("C440".to_string()),
-        hint: Some("v2 grammar: `$<macro>: { name: { ... }, ... }`".to_string()),
+        hint: Some(format!(
+            "v2 grammar: `$<macro>: {{ name: {{ ... }}, ... }}` — see packages/compiler/js/codemods/macro-simplification/migrate.ts"
+        )),
         fix: Some(
             "see docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md".to_string(),
         ),
+        from: Some(from_text),
+        to: Some(to_text),
     }
 }
 
@@ -582,12 +636,16 @@ fn parse_object_collection(
         if matches!(kind, CollectionKind::Prop) && !is_wrapped {
             return Err(CompileError {
                 message: format!(
-                    "$prop entries are always wrapped — `{}` must be `{{ default: ..., type?: ..., describe?: ..., expose?: ... }}`",
-                    name
+                    "C444: `$prop` entry `{}` must use the wrapped object form. \
+                     Replace `{}: <value>` with `{}: {{ default: <default>, type?: <Type>, describe?: '...', expose?: {{ read: true }} }}`. \
+                     Example: `{}: 215` → `{}: {{ default: 215 }}`",
+                    name, name, name, name, name
                 ),
                 line: 0,
                 col: 0,
                 code: Some("C444".to_string()),
+                from: Some(format!("{}: {}", name, value)),
+                to: Some(format!("{}: {{ default: {} }}", name, value)),
                 ..Default::default()
             });
         }
@@ -606,12 +664,16 @@ fn parse_object_collection(
         if matches!(kind, CollectionKind::Lifecycle) && is_wrapped {
             return Err(CompileError {
                 message: format!(
-                    "$lifecycle entries are always bare — `{}` must be a function expression, not a metadata-bag",
-                    name
+                    "C444: `$lifecycle` entry `{}` must be a bare function expression, not a metadata-bag. \
+                     Replace `{}: {{ handler: () => {{ body }} }}` with `{}: () => {{ body }}`. \
+                     Example: `{}: {{ handler: () => init() }}` → `{}: () => init()`",
+                    name, name, name, name, name
                 ),
                 line: 0,
                 col: 0,
                 code: Some("C444".to_string()),
+                from: Some(format!("{}: {{ ... }}", name)),
+                to: Some(format!("{}: () => {{ ... }}", name)),
                 ..Default::default()
             });
         }
@@ -628,12 +690,17 @@ fn parse_object_collection(
         {
             return Err(CompileError {
                 message: format!(
-                    "$lifecycle key `{}` is invalid — only `mount`, `dispose`, `adopt`, `attributeChange` are valid",
-                    name
+                    "C444: `$lifecycle` key `{}` is not valid. \
+                     Only `mount`, `dispose`, `adopt`, and `attributeChange` are allowed. \
+                     Replace `{}: ...` with one of: `mount: () => {{ ... }}`, `dispose: () => {{ ... }}`, \
+                     `adopt: (oldEl) => {{ ... }}`, `attributeChange: (name, old, next) => {{ ... }}`",
+                    name, name
                 ),
                 line: 0,
                 col: 0,
                 code: Some("C444".to_string()),
+                from: Some(format!("{}: ...", name)),
+                to: Some("mount: () => { ... }".to_string()),
                 ..Default::default()
             });
         }

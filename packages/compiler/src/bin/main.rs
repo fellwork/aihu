@@ -1,8 +1,55 @@
 use std::io::Read;
 use std::process;
 
+/// Emit a CompileError as a JSON object to stderr.
+/// Used when `--machine-errors` flag (or AIHU_MACHINE_ERRORS=1 env var) is set.
+/// Format: { "code", "message", "from", "to", "range" }
+fn emit_machine_error(e: &aihu_compiler::CompileError) {
+    use std::io::Write;
+
+    // range is line/col from the error; col and end positions may be 0 when unknown.
+    let range_json = if e.line > 0 {
+        format!(
+            r#"{{"line":{},"col":{},"end_line":{},"end_col":{}}}"#,
+            e.line, e.col, e.line, e.col
+        )
+    } else {
+        "null".to_string()
+    };
+
+    let escape = |s: &str| -> String {
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+            .replace('\t', "\\t")
+    };
+
+    let code = e.code.as_deref().unwrap_or("");
+    let message = escape(&e.message);
+    let from = match &e.from {
+        Some(f) => format!("\"{}\"", escape(f)),
+        None => "null".to_string(),
+    };
+    let to = match &e.to {
+        Some(t) => format!("\"{}\"", escape(t)),
+        None => "null".to_string(),
+    };
+
+    let json = format!(
+        r#"{{"code":"{}","message":"{}","from":{},"to":{},"range":{}}}"#,
+        escape(code), message, from, to, range_json
+    );
+
+    let _ = writeln!(std::io::stderr(), "{}", json);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    // --machine-errors flag OR AIHU_MACHINE_ERRORS=1 env var: emit JSON diagnostics to stderr.
+    let machine_errors = args.contains(&"--machine-errors".to_string())
+        || std::env::var("AIHU_MACHINE_ERRORS").as_deref() == Ok("1");
 
     let stdin_mode = args.contains(&"--stdin".to_string());
 
@@ -104,11 +151,17 @@ fn main() {
         &source,
         file_path_opt.as_deref(),
     ).unwrap_or_else(|e| {
+        if machine_errors {
+            emit_machine_error(&e);
+        }
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
 
     let unit = aihu_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
+        if machine_errors {
+            emit_machine_error(&e);
+        }
         eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
