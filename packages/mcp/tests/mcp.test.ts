@@ -10,14 +10,14 @@
  * - compileSource timeout handling
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  findBestMatch,
-  getAllTags,
-  getEntrySource,
   _resetIndex,
   _setIndex,
   type CookbookEntry,
+  findBestMatch,
+  getAllTags,
+  getEntrySource,
 } from '../src/cookbook.js'
 import { handleExample } from '../src/tools/example.js'
 
@@ -207,11 +207,15 @@ async function makeCompileSource(
   ): Promise<{ valid: true; code: string } | { valid: false; errors: unknown[] }> {
     const stem = basename(filename, '.aihu')
     try {
-      const { stdout } = await execFn('aihu-compile', ['--stdin', '--tag', stem, '--path', filename, '--machine-errors'], {
-        input: source,
-        encoding: 'utf8',
-        timeout: 10000,
-      })
+      const { stdout } = await execFn(
+        'aihu-compile',
+        ['--stdin', '--tag', stem, '--path', filename, '--machine-errors'],
+        {
+          input: source,
+          encoding: 'utf8',
+          timeout: 10000,
+        },
+      )
       return { valid: true, code: stdout }
     } catch (err: unknown) {
       const e = err as { stderr?: string; killed?: boolean; signal?: string }
@@ -285,10 +289,7 @@ describe('compileSource (injectable exec)', () => {
       return { stdout: compiledCode }
     })
 
-    const result = await compileSource(
-      '@state { }\n@template { <p>hello</p> }',
-      'my-widget.aihu',
-    )
+    const result = await compileSource('@state { }\n@template { <p>hello</p> }', 'my-widget.aihu')
 
     expect(result.valid).toBe(true)
     const tagIdx = capturedArgs.indexOf('--tag')

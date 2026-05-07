@@ -30,7 +30,7 @@ interface CookbookEntry {
  */
 function parseFrontmatter(source: string): { description: string; tags: string[] } | null {
   const match = /<!--\s*@cookbook\s*([\s\S]*?)-->/.exec(source)
-  if (!match || !match[1]) return null
+  if (!match?.[1]) return null
 
   const block = match[1]
   let description = ''
@@ -84,7 +84,5 @@ for (const filename of files.sort()) {
   })
 }
 
-writeFileSync(outputPath, JSON.stringify(entries, null, 2) + '\n', 'utf-8')
-console.log(
-  `[build-cookbook-index] Wrote ${entries.length} entries to ${basename(outputPath)}`,
-)
+writeFileSync(outputPath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8')
+console.log(`[build-cookbook-index] Wrote ${entries.length} entries to ${basename(outputPath)}`)
