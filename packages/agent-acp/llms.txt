@@ -1,0 +1,86 @@
+# @aihu/agent-acp
+
+`@aihu/agent-acp` is the Agent Communication Protocol (ACP) adapter for aihu. It bridges an `AgentService` (from `@aihu/agent-service`) to ACP message transport, enabling AI orchestration platforms to call component actions and read state via the ACP wire protocol.
+
+The package ships as ≤ 600 B gzipped (excluding `@aihu/agent-service`). Use it when your aihu app needs to participate in an ACP-based multi-agent system.
+
+## Right idioms
+
+### 1. Mount the ACP adapter on an existing `AgentService`
+
+```ts
+import { createAgentService } from '@aihu/agent-service'
+import { mountAcpAdapter } from '@aihu/agent-acp'
+
+const service = createAgentService({ manifest, invoke })
+const adapter = mountAcpAdapter(service, {
+  port: 3001,
+  // optional: filter which actions are accessible via ACP
+})
+```
+
+### 2. Use `AcpMessage` type for manual message construction in tests
+
+```ts
+import type { AcpMessage } from '@aihu/agent-acp'
+
+const msg: AcpMessage = {
+  type: 'tool_call',
+  action: 'addTodo',
+  params: { text: 'Write tests' },
+  id: '123',
+}
+```
+
+### 3. Dispose the adapter when the component disconnects
+
+```ts
+disconnectedCallback() {
+  adapter.dispose()
+  service.dispose?.()
+  scope.dispose()
+}
+```
+
+### 4. Set CORS and auth options in `AcpAdapterOptions` for production deployments
+
+```ts
+const adapter = mountAcpAdapter(service, {
+  port: 3001,
+  cors: { origin: 'https://my-orchestrator.example.com' },
+  auth: (req) => req.headers.get('X-Api-Key') === process.env.API_KEY,
+})
+```
+
+### 5. Keep the ACP adapter co-located with the component that owns the agent surface
+
+Each ACP adapter instance corresponds to one component's agent surface. Do not share one adapter across multiple components with different manifests.
+
+## Anti-patterns
+
+### 1. Do not import ACP adapter in browser bundles — it is for Node/edge server environments
+
+`@aihu/agent-acp` opens a network port or HTTP endpoint. It belongs in server-side entry points, not in client-side SFC bundles.
+
+### 2. Do not skip authentication in production ACP endpoints
+
+The adapter accepts incoming network connections. Without auth, any caller can invoke component actions.
+
+### 3. Do not rely on ACP for in-page component communication — use signals directly
+
+ACP is for cross-process or cross-network agent communication. For two components on the same page, use shared signals or `@aihu/context`.
+
+### 4. Do not use `@aihu/agent-acp` without first registering the underlying component's agent metadata
+
+The ACP adapter delegates to `AgentService`, which requires a valid `AgentManifest`. Missing manifest entries cause runtime errors on first tool call.
+
+### 5. Do not manually parse `AcpMessage` payloads — let `mountAcpAdapter` handle deserialization
+
+The adapter validates and routes messages. Duplicating this logic outside the adapter introduces drift between the schema and the handler.
+
+## Canonical example files
+
+- `packages/agent-acp/src/index.ts` — public API (mountAcpAdapter, types)
+- `packages/agent-acp/src/acp-adapter.ts` — adapter implementation
+- `packages/agent-acp/src/types.ts` — AcpAdapter, AcpAdapterOptions, AcpMessage
+- `packages/agent-service/llms.txt` — AgentService setup (prerequisite)

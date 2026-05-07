@@ -1,0 +1,137 @@
+# @aihu/data
+
+`@aihu/data` is aihu's signal-native, backend-agnostic data fetching primitive. It provides `createResource()` — a reactive async data container that integrates with `@aihu/signals` — plus a shared cache store, SSR dehydration helpers, and a plugin factory for registering the package with the build pipeline.
+
+The package ships as ≤ 800 B gzipped (excluding `@aihu/signals` and `@aihu/context` which are peer dependencies). It is backend-agnostic: the `fetcher` can call any async source — `fetch()`, a database client, or a local mock.
+
+## Right idioms
+
+### 1. Create a resource with `createResource()` and a signal-based key
+
+```ts
+import { createResource } from '@aihu/data'
+import { signal } from '@aihu/signals'
+
+const [userId, setUserId] = signal<string | null>(null)
+
+// Resource re-fetches automatically whenever userId() changes
+const userResource = createResource(
+  () => userId(),          // key fn — refetches when this changes
+  async (id) => {
+    if (!id) return null
+    const res = await fetch(`/api/users/${id}`)
+    return res.json()
+  }
+)
+
+// Read the resource in a template
+// userResource.data() — current value (undefined while loading)
+// userResource.loading() — true while fetch is in flight
+// userResource.error() — Error | null
+```
+
+### 2. Register the plugin in `aihu.config.ts` before using `$resource` macros
+
+```ts
+// aihu.config.ts
+import { data } from '@aihu/data'
+import { defineAihuConfig } from '@aihu/server'
+
+export default defineAihuConfig({
+  plugins: [data()],
+})
+```
+
+Then use `$resource` in `.aihu` `@state` blocks:
+
+```ts
+@state {
+  $resource: {
+    posts: () => fetch('/api/posts').then(r => r.json()),
+  }
+}
+```
+
+### 3. Use a shared `ResourceStore` for cross-component cache sharing
+
+```ts
+import { createResourceStore, ResourceStoreToken } from '@aihu/data'
+import { provide } from '@aihu/context'
+
+// At the app root
+const store = createResourceStore()
+provide(ResourceStoreToken, store)
+
+// In any component — createResource() will find and use the shared store
+const postsResource = createResource(
+  () => 'posts',
+  () => fetch('/api/posts').then(r => r.json())
+)
+```
+
+### 4. Dehydrate the resource store for SSR transfer
+
+```ts
+import { createResourceSerializer } from '@aihu/data'
+
+const serialize = createResourceSerializer(store)
+const payload = serialize()  // Record<string, unknown>
+// Embed payload in the HTML response for client-side rehydration
+```
+
+### 5. Handle loading and error states in the template
+
+```ts
+@template {
+  <div $if={posts.loading()}>Loading...</div>
+  <div $if={posts.error()}>Error: {posts.error()?.message}</div>
+  <ul $if={!posts.loading() && !posts.error()}>
+    <li $each="posts.data() ?? [] as post" $key={post.id}>{post.title}</li>
+  </ul>
+}
+```
+
+## Anti-patterns
+
+### 1. Do not call the fetcher directly inside a signal or computed — use `createResource()`
+
+```ts
+// WRONG — async inside a computed is not supported; will break reactivity
+const posts = computed(async () => {
+  return fetch('/api/posts').then(r => r.json())
+})
+
+// CORRECT
+const postsResource = createResource(() => 'posts', () => fetch('/api/posts').then(r => r.json()))
+```
+
+### 2. Do not ignore the `loading()` state — data() is undefined until the first fetch completes
+
+```ts
+// WRONG — data() may be undefined on first render; this will throw
+const title = posts.data()[0].title
+
+// CORRECT — check loading and null guard
+const title = posts.data()?.[0]?.title ?? 'Loading...'
+```
+
+### 3. Do not create a new `createResourceStore()` per component — share one at the app root
+
+Creating a store per component defeats caching and will cause redundant network requests.
+
+### 4. Do not use `@aihu/data` without registering the plugin when using the `$resource` macro
+
+The `$resource` macro lowering requires the plugin to be registered. Without `data()` in `defineAihuConfig`, the build will fail or the macro will not be processed.
+
+### 5. Do not import `@aihu/plugin` in browser code — it is build-time only
+
+`@aihu/data` exports the plugin factory (`data()`) which internally imports `@aihu/plugin`. That import is build-time only and is excluded from the browser bundle. Never import `@aihu/plugin` directly in SFC state blocks or client-side code.
+
+## Canonical example files
+
+- `packages/data/src/index.ts` — public API exports
+- `packages/data/src/resource.ts` — `createResource()` implementation
+- `packages/data/src/store.ts` — `createResourceStore()` and `ResourceStoreToken`
+- `packages/data/src/serializer.ts` — SSR dehydration helper
+- `examples/hacker-news/src/pages/index.aihu` — route with loader data (SSR pattern)
+- `examples/blog-loader/src/pages/posts/[slug].aihu` — data loading with route params

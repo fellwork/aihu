@@ -1,0 +1,132 @@
+# @aihu/context
+
+`@aihu/context` is a zero-dependency, DOM-free context system for the aihu framework. It provides React-style context tokens that work isomorphically: client-side via a module-level active map and server-side via `runWithContext()` which scopes each request to its own `Map` to prevent context leakage between concurrent requests.
+
+The package ships as ≤ 300 B gzipped. It is a foundational primitive used by `@aihu/router` (to pass `RouteContext`) and `@aihu/data` (to inject the resource store).
+
+## Right idioms
+
+### 1. Create a typed token and use `provide` / `inject` symmetrically
+
+```ts
+import { createContext, provide, inject } from '@aihu/context'
+
+// Define the token (usually in a shared file)
+export const ThemeContext = createContext<'light' | 'dark'>('light')
+
+// In a parent component setup
+provide(ThemeContext, 'dark')
+
+// In a child component setup
+const theme = inject(ThemeContext)  // 'dark' (or 'light' if no provider above)
+```
+
+### 2. Use `runWithContext()` for SSR — one Map per request
+
+```ts
+import { runWithContext } from '@aihu/context'
+
+// Per-request handler
+async function handleRequest(req: Request) {
+  const map = new Map()
+  return runWithContext(map, () => {
+    provide(ThemeContext, detectTheme(req))
+    return renderToString(app)
+  })
+}
+```
+
+### 3. Always provide a sensible default value in `createContext()`
+
+```ts
+// Good — inject() returns 'light' in environments where no provider runs
+const ThemeContext = createContext<'light' | 'dark'>('light')
+
+// Avoid — forces every inject() call to null-check
+const ThemeContext = createContext<'light' | 'dark'>()  // default is undefined
+```
+
+### 4. Provide at the outermost scope before any child injects
+
+Context is imperative and synchronous: `inject()` reads whatever `provide()` last wrote. Provide before the subtree that will inject.
+
+```ts
+// Correct order in a setup function
+provide(AuthContext, authValue)
+provide(RouterContext, routerValue)
+// ... child setup functions called below can now inject
+```
+
+### 5. Use `setSsrContextMap` / `clearSsrContextMap` for streaming SSR pipelines
+
+```ts
+import { setSsrContextMap, clearSsrContextMap } from '@aihu/context'
+
+setSsrContextMap(requestMap)
+try {
+  await streamRender()
+} finally {
+  clearSsrContextMap()
+}
+```
+
+## Anti-patterns
+
+### 1. Do not share a single `Map` across concurrent SSR requests
+
+```ts
+// WRONG — context leaks between requests in concurrent environments
+const sharedMap = new Map()
+setSsrContextMap(sharedMap)
+
+// CORRECT — new map per request, use runWithContext()
+runWithContext(new Map(), () => { /* ... */ })
+```
+
+### 2. Do not call `inject()` before `provide()` in the same setup pass and expect the provided value
+
+```ts
+// WRONG — inject reads before provide writes
+const val = inject(MyContext)  // gets default, not the value below
+provide(MyContext, 'hello')
+
+// CORRECT — provide first
+provide(MyContext, 'hello')
+const val = inject(MyContext)  // 'hello'
+```
+
+### 3. Do not use context tokens as mutable state containers
+
+```ts
+// WRONG — calling provide() again after child setup runs does not retroactively update inject() calls
+provide(MyContext, 'first')
+// ... children injected 'first'
+provide(MyContext, 'second')  // does not re-run children
+
+// CORRECT — use @aihu/signals for reactive state; context is for dependency injection
+```
+
+### 4. Do not use context across module singleton scope without `runWithContext`
+
+```ts
+// WRONG — module-level provide() sets global state permanently
+provide(ThemeContext, 'dark')  // leaks to all subsequent code in the same process
+
+// CORRECT — always scope to runWithContext() on the server
+```
+
+### 5. Do not import `@aihu/context` internals (`_activeContextMap`) — they are not part of the public API
+
+```ts
+// WRONG
+import { _activeContextMap } from '@aihu/context'
+
+// CORRECT
+import { inject, provide, createContext } from '@aihu/context'
+```
+
+## Canonical example files
+
+- `packages/context/src/index.ts` — full public API (createContext, provide, inject, runWithContext)
+- `packages/router/src/runtime.ts` — RouteContext token and usage pattern
+- `packages/data/src/store.ts` — ResourceStoreToken usage with inject()
