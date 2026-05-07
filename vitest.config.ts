@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts', 'cookbook/**/*.test.ts'],
     passWithNoTests: true,
     // Per Director session-002 (.team/v1/director-notes/server-native-session-002.md §3):
     // set SCRIBE_NATIVE_SKIP=1 in the repo's test env so a fresh clone's

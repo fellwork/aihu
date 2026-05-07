@@ -1,0 +1,49 @@
+<!-- Recipe: nested-component (child) — emits $event.selected; parent listens with $on.selected -->
+
+@state {
+  $prop: {
+    options: { type: Array, default: ['Option A', 'Option B', 'Option C'] },
+    placeholder: { type: String, default: 'Pick one…' },
+  }
+
+  $event: {
+    selected: {
+      payload: { value: string; index: number },
+      describe: 'User selected an option from the list.',
+    },
+  }
+
+  activeIndex: number = -1
+
+  $action: {
+    pick: (index: number) => {
+      activeIndex = index
+      $emit.selected({ value: options[index] ?? '', index })
+    },
+  }
+}
+
+@template {
+  <ul class="option-list" role="listbox" aria-label={placeholder}>
+    {#each options as option, i (option)}
+      <li
+        role="option"
+        aria-selected={String(i === activeIndex)}
+        class={['option', i === activeIndex && 'active']}
+        $on.click={() => pick(i)}
+      >
+        {option}
+      </li>
+    {:empty}
+      <li class="empty">{placeholder}</li>
+    {/each}
+  </ul>
+}
+
+@style {
+  .option-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border, #ccc); border-radius: 4px; }
+  .option { padding: 0.5rem 0.75rem; cursor: pointer; }
+  .option:hover { background: var(--hover-bg, #f5f5f5); }
+  .option.active { background: var(--accent, #06f); color: white; }
+  .empty { padding: 0.5rem 0.75rem; color: var(--muted, #888); font-style: italic; }
+}

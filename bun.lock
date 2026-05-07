@@ -288,7 +288,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",

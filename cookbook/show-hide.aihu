@@ -1,0 +1,47 @@
+<!-- Recipe: show-hide — $show={isVisible()} attribute vs {#if} trade-off -->
+<!--
+  When to use $show vs #if:
+  - $show={cond}  toggles the hidden attribute. The element STAYS in the DOM.
+                  Use when the element is expensive to re-create (canvas, video)
+                  or when you need CSS transitions on hide/show.
+  - #if cond      removes the element from the DOM entirely when false.
+                  Use when the subtree is large and rarely visible, or when
+                  you want to fully reset child state on hide.
+-->
+
+@state {
+  showPanel: boolean = false
+  showSection: boolean = true
+
+  $action: {
+    togglePanel: () => { showPanel = !showPanel },
+    toggleSection: () => { showSection = !showSection },
+  }
+}
+
+@template {
+  <div class="show-demo">
+    <button $on.click={togglePanel}>
+      Toggle panel ($show — stays in DOM)
+    </button>
+    <div $show={showPanel} class="panel">
+      I use $show — CSS transitions work on me, and I keep my internal state.
+    </div>
+
+    <button $on.click={toggleSection}>
+      Toggle section (if-block — removed from DOM)
+    </button>
+    {#if showSection}
+      <div class="panel">
+        I use if-block — I am fully removed from the DOM when hidden.
+      </div>
+    {/if}
+  </div>
+}
+
+@style {
+  .show-demo { display: grid; gap: 0.75rem; padding: 1rem; max-width: 28rem; }
+  .panel { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; background: var(--panel-bg, #fafafa); transition: opacity 0.2s; }
+  [hidden] { opacity: 0; pointer-events: none; }
+  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; text-align: left; }
+}

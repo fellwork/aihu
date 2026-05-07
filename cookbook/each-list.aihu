@@ -1,0 +1,56 @@
+<!-- Recipe: each-list — {#each items as item (item.id)} with key + empty state {:empty} -->
+
+@state {
+  items: Array<{ id: string; text: string; done: boolean }> = [
+    { id: '1', text: 'Learn aihu', done: false },
+    { id: '2', text: 'Write an SFC', done: false },
+  ]
+
+  draft: string = ''
+
+  $action: {
+    add: () => {
+      const text = draft.trim()
+      if (!text) return
+      items = [...items, { id: crypto.randomUUID(), text, done: false }]
+      draft = ''
+    },
+    toggle: (id: string) => {
+      items = items.map(item => item.id === id ? { ...item, done: !item.done } : item)
+    },
+    remove: (id: string) => {
+      items = items.filter(item => item.id !== id)
+    },
+  }
+}
+
+@template {
+  <div class="list-demo">
+    <form $on.submit={(e) => { e.preventDefault(); add() }}>
+      <input $bind.value={draft} placeholder="Add item…" />
+      <button type="submit">Add</button>
+    </form>
+    <ul class="items">
+      {#each items as item (item.id)}
+        <li class={['item', item.done && 'done']}>
+          <input type="checkbox" checked={item.done} $on.change={() => toggle(item.id)} />
+          <span>{item.text}</span>
+          <button $on.click={() => remove(item.id)} aria-label="Remove">×</button>
+        </li>
+      {:empty}
+        <li class="empty">Nothing here — add an item above.</li>
+      {/each}
+    </ul>
+  </div>
+}
+
+@style {
+  .list-demo { display: grid; gap: 0.75rem; max-width: 28rem; }
+  form { display: flex; gap: 0.5rem; }
+  input[type="text"] { flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }
+  .items { list-style: none; padding: 0; margin: 0; }
+  .item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border, #eee); }
+  .item.done span { text-decoration: line-through; color: var(--muted, #888); }
+  .empty { color: var(--muted, #888); font-style: italic; padding: 0.5rem 0; }
+  button { cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; padding: 0.2rem 0.5rem; }
+}
