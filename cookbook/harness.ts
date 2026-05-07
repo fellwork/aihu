@@ -37,7 +37,6 @@ if (sfcFiles.length < EXPECTED_COUNT) {
 // ── compile each SFC ────────────────────────────────────────────────────────
 
 let passed = 0
-let failed = 0
 
 for (const file of sfcFiles) {
   const filePath = join(cookbookDir, file)
@@ -46,7 +45,6 @@ for (const file of sfcFiles) {
     source = readFileSync(filePath, 'utf8')
   } catch (readErr) {
     console.error(`FAIL: ${file} — could not read file: ${(readErr as Error).message}`)
-    failed++
     process.exit(1)
   }
 
@@ -58,7 +56,6 @@ for (const file of sfcFiles) {
     const msg = (compileErr as Error).message ?? String(compileErr)
     console.error(`FAIL: ${file}`)
     console.error(`  Compiler error: ${msg}`)
-    failed++
     process.exit(1)
   }
 
@@ -67,7 +64,6 @@ for (const file of sfcFiles) {
     console.error(`FAIL: ${file}`)
     console.error(`  Expected output to contain 'defineElement' but it did not.`)
     console.error(`  Output snippet: ${code.slice(0, 200)}`)
-    failed++
     process.exit(1)
   }
 
