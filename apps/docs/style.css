@@ -303,7 +303,11 @@ svg {
   margin-bottom: var(--space-2);
 }
 
-/* Hidden by JavaScript once docs-shell mounts — see inline script */
+/* Hide static intro once docs-shell custom element is registered (JS ran).
+   Without JS, docs-shell is :not(:defined), so the intro remains visible. */
+docs-shell:defined ~ #static-intro {
+  display: none;
+}
 
 /* ── Accessibility utilities ──────────────────────────────────── */
 

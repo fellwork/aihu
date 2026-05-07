@@ -250,12 +250,6 @@
       }
     });
 
-    // Remove static intro once docs-shell registers (JS-capable agents see the component)
-    customElements.whenDefined('docs-shell').then(() => {
-      var intro = document.getElementById('static-intro');
-      if (intro) intro.remove();
-    });
-
     // WebMCP programmatic context for AI agents that support navigator.modelContext
     if (typeof navigator !== 'undefined' && 'modelContext' in navigator) {
       navigator.modelContext.provideContext({
