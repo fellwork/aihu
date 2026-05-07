@@ -104,7 +104,7 @@ export function createServer(): Server {
 
       const result = handleValidate({
         source: input.source,
-        filename: typeof input.filename === 'string' ? input.filename : undefined,
+        ...(typeof input.filename === 'string' ? { filename: input.filename } : {}),
       })
 
       return {
