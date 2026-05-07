@@ -6,4 +6,5 @@ import { defineAihuConfig } from '@aihu/server'
 export default defineAihuConfig({
   adapter: cloudflare(),
   build: { target: 'universal' },
+  rendering: { mode: 'ssr', hydratable: true },
 })
