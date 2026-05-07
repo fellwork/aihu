@@ -25,8 +25,8 @@ vi.mock('@aihu/runtime', () => ({
   _setHydrate: vi.fn(),
 }))
 
-import { createApp } from '../src/client.ts'
 import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
+import { createApp } from '../src/client.ts'
 
 const flushPromises = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -194,7 +194,11 @@ describe('createApp — initial rendering', () => {
   })
 
   it('falls back to inline 404 when not-found route tag has no hyphen', async () => {
-    mockRoutes.push({ pattern: '*', name: 'notfound', module: vi.fn().mockResolvedValue(undefined) })
+    mockRoutes.push({
+      pattern: '*',
+      name: 'notfound',
+      module: vi.fn().mockResolvedValue(undefined),
+    })
     createApp()
     await flushPromises()
     const p = outlet.querySelector('p')

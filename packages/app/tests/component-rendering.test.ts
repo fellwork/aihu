@@ -14,9 +14,6 @@
  */
 
 import { branch, leaf, mount } from '@aihu/arbor'
-import { signal } from '@aihu/signals'
-import type { Signal } from '@aihu/signals'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   _setMount,
   _setSignal,
@@ -25,6 +22,9 @@ import {
   onCleanup,
   onMount,
 } from '@aihu/runtime'
+import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RuntimeError } from '../../runtime/src/types.ts'
 
 // Wire real runtime once — same approach used in packages/runtime/tests/*.
@@ -41,7 +41,10 @@ describe('function-form component — mounting', () => {
 
   it('leaf text content appears in shadow DOM after connectedCallback', () => {
     const tag = nextTag()
-    defineElement(tag, defineComponent(() => leaf('hello world')))
+    defineElement(
+      tag,
+      defineComponent(() => leaf('hello world')),
+    )
     const el = document.createElement(tag)
     document.body.appendChild(el)
     expect(el.shadowRoot!.textContent).toBe('hello world')
@@ -69,7 +72,9 @@ describe('function-form component — mounting', () => {
         order.push('setup')
         // Use explicit block so the callback returns undefined, not push()'s
         // numeric return value — _runMounts treats any truthy return as cleanup.
-        onMount(() => { order.push('mounted') })
+        onMount(() => {
+          order.push('mounted')
+        })
         return leaf('')
       }),
     )
@@ -122,7 +127,10 @@ describe('function-form component — reactivity', () => {
   it('signal update propagates to DOM text', () => {
     const textSig = signal('initial')
     const tag = nextTag()
-    defineElement(tag, defineComponent(() => branch('span', null, [leaf(textSig)])))
+    defineElement(
+      tag,
+      defineComponent(() => branch('span', null, [leaf(textSig)])),
+    )
     const el = document.createElement(tag)
     document.body.appendChild(el)
     const span = el.shadowRoot!.querySelector('span')!
@@ -135,7 +143,10 @@ describe('function-form component — reactivity', () => {
   it('effects are disposed after disconnect — signal updates no longer propagate', () => {
     const textSig = signal('before')
     const tag = nextTag()
-    defineElement(tag, defineComponent(() => branch('p', null, [leaf(textSig)])))
+    defineElement(
+      tag,
+      defineComponent(() => branch('p', null, [leaf(textSig)])),
+    )
     const el = document.createElement(tag)
     document.body.appendChild(el)
     const p = el.shadowRoot!.querySelector('p')!
@@ -171,11 +182,9 @@ describe('function-form component — reactivity', () => {
     defineElement(
       tag,
       defineComponent(() =>
-        branch(
-          'button',
-          { onclick: () => countSig[1](String(Number(countSig[0]()) + 1)) },
-          [leaf(countSig)],
-        ),
+        branch('button', { onclick: () => countSig[1](String(Number(countSig[0]()) + 1)) }, [
+          leaf(countSig),
+        ]),
       ),
     )
     const el = document.createElement(tag)
@@ -359,7 +368,9 @@ describe('options-form component — typed props', () => {
       defineComponent({
         props: { label: { value: 'a' } },
         setup: ({ props }) => {
-          onMount(() => { renders.push(props.label() as string) })
+          onMount(() => {
+            renders.push(props.label() as string)
+          })
           return leaf('')
         },
       }),
@@ -412,7 +423,12 @@ describe('component — full lifecycle ordering', () => {
         })
         return branch(
           'button',
-          { onclick: () => { stateSig[1]('b'); events.push('click') } },
+          {
+            onclick: () => {
+              stateSig[1]('b')
+              events.push('click')
+            },
+          },
           [leaf(stateSig)],
         )
       }),
