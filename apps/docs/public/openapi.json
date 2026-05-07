@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "aihu Agent Readiness API",
-    "description": "Agent-readiness and discovery endpoints for aihu.dev. Provides MCP server cards, A2A agent cards, llms.txt content discovery, and sitemap resources for AI agents.",
+    "description": "Agent-readiness and discovery endpoints for aihu.dev. Provides MCP server cards, A2A agent cards, llms.txt content discovery, robots.txt, AI policy files, and sitemap resources for AI agents.",
     "version": "0.4.0",
     "contact": {
       "name": "Fellwork",
@@ -11,7 +11,9 @@
     "license": {
       "name": "MIT",
       "url": "https://github.com/fellwork/aihu/blob/main/LICENSE"
-    }
+    },
+    "x-llms-txt": "https://aihu.dev/llms.txt",
+    "x-llms-full-txt": "https://aihu.dev/llms-full.txt"
   },
   "servers": [
     {
@@ -25,6 +27,7 @@
         "operationId": "getLlmsTxt",
         "summary": "AI content discovery index",
         "description": "Returns the llms.txt content discovery document listing curated entry points for AI agents.",
+        "tags": ["AI Discovery"],
         "responses": {
           "200": {
             "description": "llms.txt content",
@@ -41,7 +44,8 @@
       "get": {
         "operationId": "getLlmsFullTxt",
         "summary": "Full LLM-optimised documentation",
-        "description": "Returns the complete aihu documentation in Markdown format, optimised for LLM consumption.",
+        "description": "Returns the complete aihu documentation (~3000 lines) in Markdown format, optimised for LLM consumption. Includes all guides: introduction, installation, authoring components, reactivity, agents, routing, data fetching, SSR, agent discovery, plugins, API reference, and deployment.",
+        "tags": ["AI Discovery"],
         "responses": {
           "200": {
             "description": "Full documentation in Markdown",
@@ -54,11 +58,66 @@
         }
       }
     },
+    "/robots.txt": {
+      "get": {
+        "operationId": "getRobotsTxt",
+        "summary": "Robots crawl policy",
+        "description": "Returns the robots.txt file specifying crawl permissions for AI bots including GPTBot, ClaudeBot, PerplexityBot, Google-Extended, OAI-SearchBot, and others. All AI crawlers are allowed.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "Robots.txt content",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai.txt": {
+      "get": {
+        "operationId": "getAiTxt",
+        "summary": "AI training policy",
+        "description": "Returns the ai.txt policy document (Spawning specification). aihu.dev allows all AI training on its content.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "AI training policy",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sitemap.xml": {
+      "get": {
+        "operationId": "getSitemap",
+        "summary": "XML sitemap",
+        "description": "Returns the XML sitemap listing all discoverable pages on aihu.dev.",
+        "tags": ["Discovery"],
+        "responses": {
+          "200": {
+            "description": "XML sitemap",
+            "content": {
+              "application/xml": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/.well-known/mcp/server-card.json": {
       "get": {
         "operationId": "getMcpServerCard",
         "summary": "MCP server card",
-        "description": "Returns the MCP (Model Context Protocol) server card describing available tools and capabilities.",
+        "description": "Returns the MCP (Model Context Protocol) server card (SEP-1649/SEP-2127, protocolVersion 2025-06-18) describing available tools and capabilities for AI agent integration.",
+        "tags": ["Agent Protocols"],
         "responses": {
           "200": {
             "description": "MCP server card",
@@ -67,34 +126,19 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "name": { "type": "string" },
+                    "$schema": { "type": "string" },
                     "version": { "type": "string" },
-                    "description": { "type": "string" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/.well-known/agent.json": {
-      "get": {
-        "operationId": "getA2aAgentCard",
-        "summary": "A2A agent card",
-        "description": "Returns the Google Agent-to-Agent (A2A) protocol agent card for aihu.dev.",
-        "responses": {
-          "200": {
-            "description": "A2A agent card",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "name": { "type": "string" },
-                    "description": { "type": "string" },
-                    "url": { "type": "string", "format": "uri" },
-                    "version": { "type": "string" }
+                    "protocolVersion": { "type": "string" },
+                    "serverInfo": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "version": { "type": "string" },
+                        "description": { "type": "string" },
+                        "homepage": { "type": "string", "format": "uri" }
+                      }
+                    },
+                    "capabilities": { "type": "object" }
                   }
                 }
               }
@@ -108,6 +152,7 @@
         "operationId": "getMcpDiscovery",
         "summary": "MCP discovery document",
         "description": "Returns the MCP server discovery document listing available MCP server endpoints.",
+        "tags": ["Agent Protocols"],
         "responses": {
           "200": {
             "description": "MCP discovery",
@@ -135,17 +180,96 @@
         }
       }
     },
-    "/sitemap.xml": {
+    "/.well-known/agent.json": {
       "get": {
-        "operationId": "getSitemap",
-        "summary": "XML sitemap",
-        "description": "Returns the XML sitemap listing all discoverable pages on aihu.dev.",
+        "operationId": "getA2aAgentCard",
+        "summary": "A2A agent card",
+        "description": "Returns the Google Agent-to-Agent (A2A) protocol agent card for aihu.dev. Also available at /.well-known/agents.json.",
+        "tags": ["Agent Protocols"],
         "responses": {
           "200": {
-            "description": "XML sitemap",
+            "description": "A2A agent card",
             "content": {
-              "application/xml": {
-                "schema": { "type": "string" }
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "url": { "type": "string", "format": "uri" },
+                    "version": { "type": "string" },
+                    "capabilities": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/agents.json": {
+      "get": {
+        "operationId": "getA2aAgentCardAlias",
+        "summary": "A2A agent card (alias)",
+        "description": "Alias for /.well-known/agent.json. Returns the Google A2A protocol agent card.",
+        "tags": ["Agent Protocols"],
+        "responses": {
+          "200": {
+            "description": "A2A agent card",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/ai-plugin.json": {
+      "get": {
+        "operationId": "getAiPlugin",
+        "summary": "OpenAI plugin manifest",
+        "description": "Returns the AI plugin manifest (OpenAI plugin format v1) referencing the OpenAPI spec for agent integration.",
+        "tags": ["Agent Protocols"],
+        "responses": {
+          "200": {
+            "description": "AI plugin manifest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": { "type": "string" },
+                    "name_for_model": { "type": "string" },
+                    "name_for_human": { "type": "string" },
+                    "description_for_model": { "type": "string" },
+                    "api": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/tdmrep.json": {
+      "get": {
+        "operationId": "getTdmRep",
+        "summary": "TDM Reservation policy",
+        "description": "Returns the Text and Data Mining Reservation (TDMRep) policy. tdm-reservation: 0 means all TDM is permitted.",
+        "tags": ["AI Discovery"],
+        "responses": {
+          "200": {
+            "description": "TDMRep policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@context": { "type": "string" },
+                    "tdm-reservation": { "type": "integer" }
+                  }
+                }
               }
             }
           }
