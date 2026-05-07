@@ -20,6 +20,10 @@ export interface OverridableField {
 export interface ConditionalFile {
   readonly path: string
   readonly when: string
+  /** F-5b: when set, the scaffolded file is written with this filename
+   * (relative to the same directory as `path`) instead of the source filename.
+   * Enables e.g. `.env.example.better-auth` → `.env.example`. */
+  readonly rename?: string
 }
 
 export type PostInstallKind = 'pm-install' | 'git-init' | 'lint-fix' | 'aihu-check'
@@ -97,10 +101,17 @@ function validateOverridable(v: unknown, path: string): OverridableField {
 
 function validateConditionalFile(v: unknown, path: string): ConditionalFile {
   if (!isObject(v)) fail(`${path} must be an object`)
-  return {
+  const result: ConditionalFile = {
     path: requireString(v.path, `${path}.path`),
     when: requireString(v.when, `${path}.when`),
   }
+  if (v.rename !== undefined) {
+    // F-5b: optional rename field — must be a non-empty string when present.
+    const rename = requireString(v.rename, `${path}.rename`)
+    if (rename.length === 0) fail(`${path}.rename must be a non-empty string`)
+    return { ...result, rename }
+  }
+  return result
 }
 
 function validatePostInstallStep(v: unknown, path: string): PostInstallStep {

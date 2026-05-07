@@ -692,6 +692,10 @@ fn process_state_body(
                     si.needs_context = true;
                     si.needs_on_mount = true;
                 }
+                CollectionKind::Form => {
+                    // D5 — $form wiring is handled by emit_form_wiring() at
+                    // SFC-body level. No signal/binding side-effects here.
+                }
             },
             StateMacro::EffectAnon { .. }
             | StateMacro::EffectOn { .. }
@@ -1197,6 +1201,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 factory = factory,
                             ));
                         }
+                        CollectionKind::Form => {
+                            // D5 — $form wiring is emitted by emit_form_wiring()
+                            // at the SFC-body level (called from emit_function_form).
+                            // Individual entries are not lowered here.
+                        }
                         CollectionKind::Context => {
                             // B5 — $context entries are `provide` or `consume`.
                             // Each is a wrapped entry whose `meta` pairs hold
@@ -1628,8 +1637,90 @@ fn emit_aria_wiring(
     (lines.join("\n"), needs_effect, should_inject_tabindex)
 }
 
-/// Collect all `$aria` entries from the parsed macros. Returns empty vec when
-/// no `$aria` collection is declared (lazy-attach invariant).
+// ─── D5 — $form collection wiring ────────────────────────────────────────────
+//
+// Lazy-attach: only emitted when the SFC declares `$form`. Zero overhead for
+// SFCs that don't use form-associated APIs. Shares the `attachInternals()`
+// singleton guard with `$aria` — when both are declared, only one
+// `attachInternals()` call is emitted (the guard pattern handles this).
+//
+// `static formAssociated = true` is emitted as a class field via the returned
+// boolean flag. The setup-body wiring (effects) is returned as a string.
+
+/// Emit the $form wiring code for the SFC setup body.
+/// Returns (setup_code, has_form) where `has_form` indicates whether
+/// `static formAssociated = true` must be emitted as a class field.
+fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
+    use crate::types::{CollectionKind, StateMacro};
+
+    // Find $form entries. Distinguish "not present" from "present but empty".
+    let has_form_collection = macros.iter().any(|m| {
+        matches!(m, StateMacro::Collection { kind: CollectionKind::Form, .. })
+    });
+    if !has_form_collection {
+        return (String::new(), false);
+    }
+
+    let form_entries: Vec<&crate::types::CollectionEntry> = macros
+        .iter()
+        .filter_map(|m| {
+            if let StateMacro::Collection { kind: CollectionKind::Form, entries } = m {
+                Some(entries.iter())
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect();
+
+    if form_entries.is_empty() {
+        return (String::new(), true);
+    }
+
+    let indent = "  ";
+    let mut lines: Vec<String> = Vec::new();
+
+    // attachInternals guard — lazy-attach (shared with $aria).
+    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+
+    // Emit per-entry wiring.
+    for entry in &form_entries {
+        let value = if entry.is_wrapped {
+            crate::parser::state_macros::running_code(entry)
+                .unwrap_or("")
+                .to_string()
+        } else {
+            entry.value_raw.clone()
+        };
+        let expr = value.trim();
+
+        match entry.name.as_str() {
+            "value" => {
+                if is_thunk(expr) {
+                    lines.push(format!(
+                        "{indent}effect(() => {{ this._internals.setFormValue(({expr})()); }});",
+                        indent = indent, expr = expr
+                    ));
+                } else {
+                    lines.push(format!(
+                        "{indent}effect(() => {{ this._internals.setFormValue({expr}); }});",
+                        indent = indent, expr = expr
+                    ));
+                }
+            }
+            "validity" => {
+                lines.push(format!(
+                    "{indent}effect(() => {{ const _fv = {expr}; const _fk = _fv && Object.keys(_fv); this._internals.setValidity(_fk && _fk.length ? _fv : {{}}); }});",
+                    indent = indent, expr = expr
+                ));
+            }
+            _ => {} // already rejected in parse
+        }
+    }
+
+    (lines.join("\n"), true)
+}
+
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
@@ -1658,6 +1749,22 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // template_nodes is borrowed for emit_nodes.
     let (aria_wiring, _aria_needs_effect, aria_inject_tabindex) =
         emit_aria_wiring(&macros, &template_owned);
+
+    // D5 — $form wiring. Lazy: only emitted when $form is declared.
+    let (form_wiring_raw, has_form) = emit_form_wiring(&macros);
+    // If $aria is already declared, it emits the attachInternals guard; suppress
+    // the duplicate guard from $form by stripping it when both are present.
+    let form_wiring = if has_form && !aria_wiring.is_empty() {
+        // The aria wiring already emitted the guard; strip the guard line from form_wiring.
+        let guard = "  if (!this._internals) this._internals = this.attachInternals();";
+        form_wiring_raw
+            .lines()
+            .filter(|l| l.trim() != guard.trim())
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        form_wiring_raw
+    };
 
     // B4 — tabindex injection: if $aria says we need tabindex="0" on the root
     // element and it's not already declared, inject it into the first element node.
@@ -1689,11 +1796,15 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let mut helpers_needed = helpers_needed;
     helpers_needed.a11y_announce = a11y_announce_used;
 
+    // D5 — $form wiring always uses `effect`; include in the effect flag.
+    let form_needs_effect = has_form && !form_wiring.is_empty();
+
     let imports = build_function_imports(
         &signal_map,
         // B4 — OR in aria's effect requirement so `effect` is imported when
         // $aria thunks are declared (even if no other effect is needed).
-        helpers_needed.needs_effect || _aria_needs_effect,
+        // D5 — OR in form's effect requirement similarly.
+        helpers_needed.needs_effect || _aria_needs_effect || form_needs_effect,
         raw_script,
         &si,
         helpers_needed.each_boundary,
@@ -1749,6 +1860,11 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
             b.push_str(&aria_wiring);
             b.push('\n');
         }
+        // D5 — $form wiring (lazy: only emitted when $form is declared).
+        if !form_wiring.is_empty() {
+            b.push_str(&form_wiring);
+            b.push('\n');
+        }
         b.push_str(&format!("  return {}\n", return_expr));
         b
     };
@@ -1759,19 +1875,58 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // SyntaxError), so we union named-import sets per source.
     let merged_imports = merge_imports(&imports, &user_imports);
 
+    // D5 — $form: `static formAssociated = true` must be set on the returned
+    // component class so the browser recognises the element as form-associated.
+    // We emit it as a post-define static property assignment on the class.
+    let form_associated_suffix = if has_form {
+        format!(
+            "// form-associated custom element (D5)\n_aihuFormEl_{tag_name}.formAssociated = true\n",
+            tag_name = tag_name.replace('-', "_")
+        )
+    } else {
+        String::new()
+    };
+
     if uses_props {
         // R1 options-form. Emit `props: { ... }` config, then the setup arrow.
         let props_block = emit_props_config(&prop_entries, "    ");
+        if has_form {
+            format!(
+                "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent({{\n  props: {{\n{props_block}\n  }},\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}))\n{form_associated_suffix}",
+                merged_imports = merged_imports,
+                module_decl = module_decl,
+                helpers_decl = helpers_decl,
+                tvar = tag_name.replace('-', "_"),
+                tag_name = tag_name,
+                props_block = props_block,
+                ctx_param = ctx_param,
+                body = body,
+                form_associated_suffix = form_associated_suffix,
+            )
+        } else {
+            format!(
+                "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n  props: {{\n{}\n  }},\n  setup: ({}) => {{\n{}  }},\n}}))\n",
+                merged_imports,
+                module_decl,
+                helpers_decl,
+                "",
+                tag_name,
+                props_block,
+                ctx_param,
+                body
+            )
+        }
+    } else if has_form {
         format!(
-            "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n  props: {{\n{}\n  }},\n  setup: ({}) => {{\n{}  }},\n}}))\n",
-            merged_imports,
-            module_decl,
-            helpers_decl,
-            "",
-            tag_name,
-            props_block,
-            ctx_param,
-            body
+            "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent(({ctx_param}) => {{\n{body}}}))\n{form_associated_suffix}",
+            merged_imports = merged_imports,
+            module_decl = module_decl,
+            helpers_decl = helpers_decl,
+            tvar = tag_name.replace('-', "_"),
+            tag_name = tag_name,
+            ctx_param = ctx_param,
+            body = body,
+            form_associated_suffix = form_associated_suffix,
         )
     } else {
         format!(
