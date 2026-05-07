@@ -4,6 +4,14 @@ import { dts } from 'rolldown-plugin-dts'
 export default defineConfig({
   input: 'src/index.ts',
   checks: { circularDependency: true },
+  // Replace `process.env.NODE_ENV` with the string `"production"` inside
+  // the transform step so that Rolldown's minifier DCEs the `__DEV__`
+  // guard in computed.ts (including the `read[__HOST] = node` assignment).
+  transform: {
+    define: {
+      'process.env.NODE_ENV': '"production"',
+    },
+  },
   output: {
     dir: 'dist',
     format: 'esm',

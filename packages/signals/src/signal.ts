@@ -132,6 +132,10 @@ export function exitBatch(): void {
  * wide-fanout). Returns true if a fresh Link was added, false if an
  * edge dep→sub already existed. */
 export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
+  // Tail fast-path: if the most recently added dep is already `dep`, skip
+  // the full dedup walk entirely. O(1). Safe because the MERGE bit was
+  // already set when the tail link was first created (line ~146 below).
+  if (sub.depsTail !== null && sub.depsTail.dep === dep) return false
   // Dedup: walk sub's back-edge list looking for an existing edge to dep.
   // The "last linked" optimisation (spec §2 Phase 2) keeps the most
   // recent dep at depsTail; many computeds re-read the same dep
