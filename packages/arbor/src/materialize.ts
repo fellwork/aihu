@@ -107,6 +107,9 @@ export function _materialize(
   // Cases 2+3: element leaf or branch with tag — create wrapper, apply attrs,
   // recurse into wrapper (no-op for leaf since its children list is empty).
   const el = document.createElement(node.tag as string)
+  // Set back-reference so compiler-emitted _onMount callbacks can reach the
+  // live DOM element via `_n.el` for $class: and @html bindings.
+  if (node.kind === 'branch') node.el = el
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   if (node.kind === 'branch') {
     const bChildren = node.children

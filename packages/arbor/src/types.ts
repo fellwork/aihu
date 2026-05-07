@@ -39,12 +39,19 @@ export type ChildList = ReadonlyArray<Branch | Leaf | StructuralNode>
  * A `branch` node. Returned opaque from `branch(tag, attrs?, children?)`.
  * The runtime shape is locked per §2.9: `kind`, `tag`, `attrs`, `children`
  * are always present.
+ *
+ * `el` is set by `_materialize` after the DOM element is created (non-null
+ * only for tagged branches — null-tag fragments have no wrapper element).
+ * The compiler-emitted `_onMount` callbacks for `$class:` and `@html`
+ * bindings read `_n.el` to reach the live DOM node.
  */
 export interface Branch {
   readonly kind: 'branch'
   readonly tag: string | null
   readonly attrs: AttrMap | null
   readonly children: ChildList
+  /** Written by `_materialize`; undefined until the branch is mounted. */
+  el?: Element
 }
 
 /**
