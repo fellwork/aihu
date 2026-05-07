@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineLoader } from '../src/data.ts'
-import { createRequestRouter, defineRoute } from '../src/router.ts'
+import { createRequestRouter, defineRoute, defineRoutes } from '../src/router.ts'
 import type { Middleware } from '../src/types.ts'
 
 describe('@aihu/server router', () => {
@@ -156,5 +156,108 @@ describe('@aihu/server router', () => {
     expect(f1).not.toBe(f2)
     expect(typeof f1).toBe('function')
     expect(typeof f2).toBe('function')
+  })
+})
+
+describe('defineRoutes — batch registration', () => {
+  it('registers multiple routes and all match', async () => {
+    const routes = defineRoutes([
+      { pattern: '/r1', handler: async () => new Response('r1') },
+      { pattern: '/r2', handler: async () => new Response('r2') },
+      { pattern: '/r3', handler: async () => new Response('r3') },
+    ])
+    expect(routes).toHaveLength(3)
+    const fetch = createRequestRouter({ routes })
+    expect(await (await fetch(new Request('http://localhost/r1'))).text()).toBe('r1')
+    expect(await (await fetch(new Request('http://localhost/r2'))).text()).toBe('r2')
+    expect(await (await fetch(new Request('http://localhost/r3'))).text()).toBe('r3')
+  })
+
+  it('passes options through (per-route middleware)', async () => {
+    const order: string[] = []
+    const mw: Middleware = async (_req, next) => { order.push('mw'); return next() }
+    const routes = defineRoutes([
+      {
+        pattern: '/mw-test',
+        handler: async () => { order.push('handler'); return new Response('ok') },
+        options: { middleware: [mw] },
+      },
+    ])
+    await createRequestRouter({ routes })(new Request('http://localhost/mw-test'))
+    expect(order).toEqual(['mw', 'handler'])
+  })
+
+  it('returns Route[] that can be inlined into routes alongside singular defineRoute', async () => {
+    const batch = defineRoutes([
+      { pattern: '/batch-a', handler: async () => new Response('a') },
+      { pattern: '/batch-b', handler: async () => new Response('b') },
+    ])
+    const single = defineRoute('/single', async () => new Response('single'))
+    const fetch = createRequestRouter({ routes: [batch, single] })
+    expect(await (await fetch(new Request('http://localhost/batch-a'))).text()).toBe('a')
+    expect(await (await fetch(new Request('http://localhost/batch-b'))).text()).toBe('b')
+    expect(await (await fetch(new Request('http://localhost/single'))).text()).toBe('single')
+  })
+})
+
+describe('defineRoute — prefix group', () => {
+  it('prepends prefix to all subroute patterns', async () => {
+    const routes = defineRoute('/api', [
+      ['/users', async () => new Response('users')],
+      ['/posts', async () => new Response('posts')],
+    ])
+    expect(routes).toHaveLength(2)
+    expect(routes[0]!.pattern).toBe('/api/users')
+    expect(routes[1]!.pattern).toBe('/api/posts')
+  })
+
+  it('all prefixed routes match correctly', async () => {
+    const fetch = createRequestRouter({
+      routes: [
+        defineRoute('/api', [
+          ['/users', async () => new Response('users')],
+          ['/users/:id', async (_req, ctx) => new Response(ctx.params.id ?? '')],
+        ]),
+      ],
+    })
+    expect(await (await fetch(new Request('http://localhost/api/users'))).text()).toBe('users')
+    expect(await (await fetch(new Request('http://localhost/api/users/42'))).text()).toBe('42')
+  })
+
+  it('subroute options (middleware) are preserved', async () => {
+    const order: string[] = []
+    const mw: Middleware = async (_req, next) => { order.push('mw'); return next() }
+    const fetch = createRequestRouter({
+      routes: [
+        defineRoute('/v1', [
+          ['/ping', async () => { order.push('handler'); return new Response('pong') }, { middleware: [mw] }],
+        ]),
+      ],
+    })
+    await fetch(new Request('http://localhost/v1/ping'))
+    expect(order).toEqual(['mw', 'handler'])
+  })
+
+  it('non-matching prefix route does not affect other routes', async () => {
+    const fetch = createRequestRouter({
+      routes: [
+        defineRoute('/api', [['/data', async () => new Response('data')]]),
+        defineRoute('/health', async () => new Response('ok')),
+      ],
+    })
+    expect(await (await fetch(new Request('http://localhost/health'))).text()).toBe('ok')
+    expect(await (await fetch(new Request('http://localhost/api/data'))).text()).toBe('data')
+  })
+
+  it('Route[] from prefix group inlines alongside Route entries in manifest', async () => {
+    const apiRoutes = defineRoute('/api', [
+      ['/a', async () => new Response('a')],
+      ['/b', async () => new Response('b')],
+    ])
+    const root = defineRoute('/', async () => new Response('root'))
+    const fetch = createRequestRouter({ routes: [apiRoutes, root] })
+    expect(await (await fetch(new Request('http://localhost/'))).text()).toBe('root')
+    expect(await (await fetch(new Request('http://localhost/api/a'))).text()).toBe('a')
+    expect(await (await fetch(new Request('http://localhost/api/b'))).text()).toBe('b')
   })
 })

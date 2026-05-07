@@ -15,8 +15,15 @@ export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from '
 export { defineLoader } from './data.ts'
 export { renderToString } from './loader.ts'
 export { composeMiddleware, defineMiddleware } from './middleware.ts'
-export type { Route, RouteManifest, RouteOptions, RouterOptions } from './router.ts'
-export { createRequestRouter, defineRoute } from './router.ts'
+export type {
+  Route,
+  RouteInput,
+  RouteManifest,
+  RouteOptions,
+  RouterOptions,
+  SubrouteTuple,
+} from './router.ts'
+export { createRequestRouter, defineRoute, defineRoutes } from './router.ts'
 export type { ComponentDescription, HeadConfig, LinkTag, MetaTag, SsrOptions } from './ssr.ts'
 export { _setContextFns, renderToStream } from './ssr.ts'
 export type { StreamRouteHandler } from './stream-route.ts'

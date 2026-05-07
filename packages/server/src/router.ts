@@ -14,6 +14,22 @@ export interface RouteOptions<T = never> {
   readonly middleware?: ReadonlyArray<Middleware>
 }
 
+/** A route config object for use with `defineRoutes`. */
+export interface RouteInput {
+  readonly pattern: string
+  readonly handler: RouteHandler
+  readonly options?: RouteOptions<never>
+}
+
+/**
+ * A subroute tuple for use with the prefix-group overload of `defineRoute`.
+ * `[subpattern, handler]` or `[subpattern, handler, options]`.
+ * The subpattern is concatenated onto the prefix: `'/api'` + `'/users'` → `'/api/users'`.
+ */
+export type SubrouteTuple =
+  | readonly [string, RouteHandler]
+  | readonly [string, RouteHandler, RouteOptions<never>]
+
 /** Register a route without a loader. */
 export function defineRoute(
   pattern: string,
@@ -26,13 +42,28 @@ export function defineRoute<T>(
   handler: (req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>,
   options: RouteOptions<T>,
 ): Route
+/**
+ * Prefix-group overload — prepends `prefix` to every subroute pattern and
+ * returns a `Route[]`. The prefix and subpattern are concatenated directly:
+ * `defineRoute('/api', [['/users', handler]])` → pattern `'/api/users'`.
+ */
+export function defineRoute(prefix: string, subroutes: ReadonlyArray<SubrouteTuple>): Route[]
 export function defineRoute<T = never>(
   pattern: string,
-  handler:
+  handlerOrSubroutes:
     | RouteHandler
-    | ((req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>),
+    | ((req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>)
+    | ReadonlyArray<SubrouteTuple>,
   options?: RouteOptions<T>,
-): Route {
+): Route | Route[] {
+  if (Array.isArray(handlerOrSubroutes)) {
+    return (handlerOrSubroutes as SubrouteTuple[]).map(([sub, handler, opts]) =>
+      defineRoute(`${pattern}${sub}`, handler, opts),
+    )
+  }
+  const handler = handlerOrSubroutes as
+    | RouteHandler
+    | ((req: Request, ctx: LoadedRouteContext<T>) => Response | Promise<Response>)
   const loader = options?.loader
   const finalHandler: RouteHandler = loader
     ? async (req, ctx) => {
@@ -47,9 +78,20 @@ export function defineRoute<T = never>(
   return result
 }
 
+/**
+ * Register multiple routes in a single call. Each entry is a `RouteInput`
+ * object with `pattern`, `handler`, and an optional `options`.
+ *
+ * For routes with a typed loader, use `defineRoute` (singular) which
+ * preserves the per-route generic.
+ */
+export function defineRoutes(inputs: ReadonlyArray<RouteInput>): Route[] {
+  return inputs.map(({ pattern, handler, options }) => defineRoute(pattern, handler, options))
+}
+
 /** Route manifest produced by the file-based routing Vite plugin at build time. */
 export interface RouteManifest {
-  readonly routes: ReadonlyArray<Route>
+  readonly routes: ReadonlyArray<Route | ReadonlyArray<Route>>
   readonly layouts?: Readonly<Record<string, ReadonlyArray<string>>>
 }
 
@@ -99,10 +141,13 @@ export function createRequestRouter(
   manifest: RouteManifest,
   options?: RouterOptions,
 ): (req: Request) => Promise<Response> {
+  const flat = (manifest.routes as ReadonlyArray<Route | ReadonlyArray<Route>>).flatMap((r) =>
+    Array.isArray(r) ? (r as Route[]) : [r as Route],
+  )
   const ordered = [
-    ...manifest.routes.filter((r) => classifyRoute(r.pattern) === 'static'),
-    ...manifest.routes.filter((r) => classifyRoute(r.pattern) === 'dynamic'),
-    ...manifest.routes.filter((r) => classifyRoute(r.pattern) === 'catchall'),
+    ...flat.filter((r) => classifyRoute(r.pattern) === 'static'),
+    ...flat.filter((r) => classifyRoute(r.pattern) === 'dynamic'),
+    ...flat.filter((r) => classifyRoute(r.pattern) === 'catchall'),
   ]
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url)
