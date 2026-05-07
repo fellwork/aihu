@@ -1,203 +1,40 @@
-# aihu framework
+# Aihu
 
-aihu is a JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Authors write Single-File Components (SFCs) in `.aihu` files composed of `@state`, `@template`, `@style`, `@route`, and `@agent` blocks. The compiler lowers each SFC to a vanilla custom element — no framework import lands at the consumer boundary, no hydration step, no global context.
+> A complete meta-framework for the agentic web. Write .aihu SFCs — the Rust compiler emits Web Components + MCP tool schemas. Sub-2 kB reactive runtime.
 
-The reactive core (`@aihu/signals`) uses a doubly-linked dependency graph with push-based propagation; `@aihu/arbor` materialises the compiled VDOM into real DOM nodes using `nodeValue` bindings (not `textContent`) for 122× faster targeted text updates.
+## Getting Started
 
-## Right idioms
+- [Quickstart](https://aihu.dev/#getting-started): Install the CLI and scaffold a new app in 3 minutes
+- [Installation](https://aihu.dev/#installation): Prerequisites and install instructions
+- [Hello World](https://aihu.dev/#getting-started): The minimal .aihu SFC — state, template, agent surface
 
-### 1. Declare signals with the tuple destructure; mutate only via the setter
+## Core Documentation
 
-```ts
-// Inside @state { ... }
-import { signal } from '@aihu/signals'
-const [count, setCount] = signal(0)
+- [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax and reactive macros
+- [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
+- [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
+- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterPlugin
+- [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders
+- [Authoring Plugins](https://aihu.dev/#authoring-plugins): definePlugin contract and plugin ecosystem
+- [SSR & Hydration](https://aihu.dev/#ssr-hydration): Server rendering and client hydration
+- [Deployment](https://aihu.dev/#deployment): Cloudflare, Vercel, Bun, and Deno adapters
 
-// Correct mutation — call the setter
-setCount(count() + 1)
-setCount(prev => prev + 1)   // updater form also accepted
-```
+## API Reference
 
-Read a signal inside `@template` by referencing its name without parentheses:
-```html
-<h1>Count: {count}</h1>
-```
-The compiler knows `count` is a `Read<number>` and generates a live binding automatically.
+- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu/agent-readiness
 
-### 2. Use v2 collection-form macros in `@state`
+## Agent & MCP
 
-All macros use the object-literal collection form (v2). `$prop`, `$computed`, `$action`, `$effect`, and `$lifecycle` are keyed blocks:
+- [MCP Server Card](https://aihu.dev/.well-known/mcp/server-card.json): Machine-readable MCP server card (SEP-1649)
+- [llms-full.txt](https://aihu.dev/llms-full.txt): Extended documentation for AI agents
 
-```ts
-@state {
-  import { signal } from '@aihu/signals'
-  const [name, setName] = signal('world')
+## Source
 
-  $prop: {
-    greeting: { type: string, default: 'Hello', describe: 'Greeting prefix' },
-  }
+- [GitHub Repository](https://github.com/fellwork/aihu): Source code, examples, and specs
+- [npm: @aihu/signals](https://www.npmjs.com/package/@aihu/signals): Reactive primitive package
+- [npm: @aihu/cli](https://www.npmjs.com/package/@aihu/cli): CLI scaffold tool
 
-  $computed: {
-    message: () => `${greeting} ${name()}`,
-  }
+## Optional
 
-  $action: {
-    reset: {
-      describe: 'Reset name to world',
-      expose: { read: true, write: true },
-      handler: () => setName('world'),
-    },
-  }
-
-  $lifecycle: {
-    mount: () => { console.log('mounted') },
-  }
-
-  $effect: () => {
-    document.title = message()
-  }
-}
-```
-
-### 3. Template macro attributes use colon-form for bindings, dot-form does not exist in templates
-
-In `@template`, directive attributes use `$on:event`, `$bind:value`, `$if`, `$each`, `$key`:
-
-```html
-@template {
-  <ul>
-    <li $each="items as item" $key={item.id}>
-      <input $bind:value="item.name" $on:input={() => save(item)} />
-      <button $on:click={() => remove(item.id)}>x</button>
-    </li>
-  </ul>
-  <p $if={items.length === 0}>No items yet.</p>
-}
-```
-
-### 4. Router primitives come from `@aihu/router`; use `$route` in state
-
-```ts
-@state {
-  import { useRoute } from '@aihu/router'
-  import { computed } from '@aihu/signals'
-
-  const currentRoute = computed(() => useRoute())
-  // $route macro is also available in @template for SSR-safe access
-}
-
-@route {
-  path: "/posts/:slug",
-  name: "post-detail",
-  ssr: true
-}
-```
-
-Navigation guards registered at the component level:
-```ts
-$beforeNavigate((to, from, next) => {
-  if (unsaved()) return next(false)
-  next()
-})
-```
-
-### 5. Expose agent surface from `@state`, not from `@agent`
-
-The v2 `@agent` block only holds `$scope` and `$rate-limit`. Expose and describe go inside the `$prop`, `$computed`, and `$action` collection entries:
-
-```ts
-$action: {
-  addItem: {
-    describe: 'Add a new item to the list',
-    expose: { read: true, write: true },
-    handler: (text: string) => setItems([...items(), { id: crypto.randomUUID(), text }]),
-  },
-}
-```
-
-## Anti-patterns
-
-### 1. Never reassign a signal directly or via `$prop`
-
-```ts
-// WRONG — signals are read-only; direct assignment is a no-op or type error
-count = 5
-$prop.name = 'Alice'
-
-// CORRECT
-setCount(5)
-setName('Alice')
-```
-
-Signals returned by `signal()` are `readonly [Read<T>, Write<T>]` tuples. The `Read<T>` function has no setter; mutation always goes through `Write<T>`.
-
-### 2. Do not use v1 colon-form macros in `@state`
-
-v1 syntax used statement-level `$action name(...) { }`, `$computed name = expr`, and `$lifecycle.mount(() => { })`. All of these are v2-migrated to collection form. Running the codemod (`npx aihu migrate`) upgrades automatically.
-
-```ts
-// WRONG — v1 statement form
-$action addTodo() { todos = [...todos(), { text: draft() }] }
-$computed remaining = todos().filter(t => !t.done).length
-$lifecycle.mount(() => { load() })
-
-// CORRECT — v2 collection form
-$action: {
-  addTodo: () => { setTodos([...todos(), { text: draft() }]) },
-}
-$computed: {
-  remaining: () => todos().filter(t => !t.done).length,
-}
-$lifecycle: {
-  mount: () => { load() },
-}
-```
-
-### 3. Never import from `@scribe/*` — the package scope is `@aihu/*`
-
-The framework was renamed. All packages live under `@aihu/`:
-
-```ts
-// WRONG
-import { signal } from '@scribe/signals'
-import { mount } from '@scribe/arbor'
-
-// CORRECT
-import { signal } from '@aihu/signals'
-import { branch, leaf, mount } from '@aihu/arbor'
-```
-
-### 4. Do not use `textContent` for reactive text nodes — the runtime uses `nodeValue`
-
-When writing low-level arbor code or debugging DOM bindings, `nodeValue` is the reactive property, not `textContent`. Suggesting `textContent` for a reactive text leaf will bypass the signal subscription.
-
-```ts
-// WRONG — bypasses the reactive binding
-node.textContent = count().toString()
-
-// CORRECT — arbor manages this automatically via nodeValue on Text nodes
-leaf(count)  // pass the Signal<string> to leaf(); arbor wires nodeValue
-```
-
-### 5. Do not wrap `@route` path params as optional unless the route is truly optional
-
-`@route` path segments like `:slug` are required by default. Making them optional (`/:slug?`) changes router matching behavior and is rarely correct for leaf routes:
-
-```ts
-// WRONG for a leaf route — slug will be undefined when not provided
-@route { path: "/posts/:slug?" }
-
-// CORRECT — required param
-@route { path: "/posts/:slug" }
-```
-
-## Canonical example files
-
-- `examples/live-counter/live-counter.aihu` — minimal signal + action SFC (7GUIs #1)
-- `examples/todo-mvc/todo-mvc.aihu` — full CRUD: signals, computed, lifecycle, effects, agent surface
-- `examples/_shared/macro-test.aihu` — v2 collection-form macro reference with all macro types
-- `packages/compiler/tests/codemods/fixtures/todo-mvc.input.aihu` — v1 syntax (before migration)
-- `packages/compiler/tests/codemods/fixtures/todo-mvc.expected.aihu` — v2 syntax (after migration)
-- `packages/router/components/Link.aihu` — router integration, `$prop`, `$action`, `$lifecycle`
-- `examples/blog-router/src/pages/index.aihu` — `@route` + `$each` list rendering
-- `examples/hacker-news/src/pages/index.aihu` — SSR route with loader data, `$each`, `$if`
+- [Contributing](https://github.com/fellwork/aihu/blob/main/CONTRIBUTING.md): How to contribute to aihu
+- [Changelog](https://github.com/fellwork/aihu/blob/main/packages/signals/CHANGELOG.md): @aihu/signals changelog
