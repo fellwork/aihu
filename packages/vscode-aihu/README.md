@@ -43,7 +43,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 <!-- BEGIN_AUTOGEN: exports -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_No `exports` field in `package.json`. Main entry: `unset`._
+_No `exports` field in `package.json`. Main entry: `./dist/client/index.js`._
 
 <sub><i>Auto-generated against `vscode-aihu@1.0.0`.</i></sub>
 
@@ -54,7 +54,11 @@ _No `exports` field in `package.json`. Main entry: `unset`._
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+**Dependencies:**
+
+- `vscode-languageclient` — `^9.0.1`
+- `vscode-languageserver` — `^9.0.1`
+- `vscode-languageserver-textdocument` — `^1.0.11`
 
 <sub><i>Auto-generated against `vscode-aihu@1.0.0`.</i></sub>
 
