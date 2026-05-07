@@ -1,0 +1,135 @@
+# @aihu/runtime
+
+`@aihu/runtime` is the glue layer that bridges the aihu compiler output to the browser's Custom Elements API. It provides `defineComponent()` and `defineElement()` — the two Custom Element class factories — along with `onMount` / `onCleanup` lifecycle hooks and accessibility helpers (`announce`, `createFocusTrap`).
+
+The package ships as ≤ 2.9 kB gzipped. Each compiled `.aihu` SFC is lowered to a `defineComponent()` or `defineElement()` call; consumers do not import `@aihu/runtime` directly in application code.
+
+## Right idioms
+
+### 1. Define components with `defineComponent()` in the compiled output
+
+The compiler generates calls like:
+
+```ts
+import { defineComponent } from '@aihu/runtime'
+import { branch, leaf } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
+
+const CounterElement = defineComponent(({ host }) => {
+  const [count, setCount] = signal(0)
+  const increment = () => setCount(c => c + 1)
+
+  return branch('section', null, [
+    branch('h1', null, [leaf(() => String(count()))]),
+    branch('button', { onclick: increment }, [leaf('+')])
+  ])
+})
+
+customElements.define('live-counter', CounterElement)
+```
+
+### 2. Use `onMount` / `onCleanup` inside a `defineComponent` setup for imperative lifecycle
+
+```ts
+import { defineComponent, onMount, onCleanup } from '@aihu/runtime'
+
+defineComponent(({ element }) => {
+  onMount(() => {
+    const timer = setInterval(() => tick(), 1000)
+    onCleanup(() => clearInterval(timer))
+  })
+  // ...
+})
+```
+
+`onMount` callbacks run after the initial render; returning a function from `onMount` registers it as a cleanup (equivalent to calling `onCleanup`).
+
+### 3. Wire `_setMount` and `_setSignal` once at app bootstrap
+
+`@aihu/app` does this automatically. Only do it manually in non-standard embedding:
+
+```ts
+import { _setMount, _setSignal } from '@aihu/runtime'
+import { mount } from '@aihu/arbor'
+import { signal } from '@aihu/signals'
+
+_setMount(mount)
+_setSignal(signal)
+```
+
+### 4. Use `defineElement()` for SFCs that need `observedAttributes` / attribute reflection
+
+```ts
+import { defineElement } from '@aihu/runtime'
+
+const MyButton = defineElement({
+  tag: 'my-button',
+  observedAttributes: ['label', 'disabled'],
+  setup({ element, attrs }) {
+    // attrs.label is reactive; updates when the HTML attribute changes
+    return branch('button', { disabled: () => attrs.disabled !== null }, [
+      leaf(() => attrs.label ?? 'Click me')
+    ])
+  }
+})
+```
+
+### 5. Use `announce()` for live-region accessibility notifications
+
+```ts
+import { announce } from '@aihu/runtime'
+
+// In an action handler:
+async function submitForm() {
+  await save()
+  announce('Form saved successfully', 'polite')
+}
+```
+
+## Anti-patterns
+
+### 1. Do not import `@aihu/runtime` in `.aihu` SFC script — only the compiler output imports it
+
+The aihu compiler handles runtime imports automatically. Hand-writing `import { defineComponent } from '@aihu/runtime'` inside an `@state` block will cause duplicate registration errors.
+
+```ts
+// WRONG — inside @state { ... } in a .aihu file
+import { defineComponent } from '@aihu/runtime'
+
+// CORRECT — just write your component logic; the compiler wraps it
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+}
+```
+
+### 2. Do not call `_setMount` / `_setSignal` more than once without confirming idempotency
+
+These setters overwrite the previous value. Calling them in each component module will cause issues in tests or multi-app-per-page scenarios.
+
+### 3. Do not access `host` as `HTMLElement` directly for reactive bindings — use the returned VDOM tree
+
+```ts
+// WRONG — bypasses reactive binding system
+const el = host as HTMLElement
+el.textContent = count().toString()  // not reactive
+
+// CORRECT — return a VDOM tree; arbor manages DOM updates
+return branch('span', null, [leaf(() => String(count()))])
+```
+
+### 4. Do not skip `onCleanup` for subscriptions or timers registered in `onMount`
+
+Any resource acquired in `onMount` must be released in `onCleanup` or the returned cleanup function to prevent memory leaks when custom elements are removed from the DOM.
+
+### 5. Do not use `createFocusTrap` outside of modal / dialog patterns — it breaks normal keyboard navigation
+
+`createFocusTrap` locks Tab to the trap container. Only activate it for modal dialogs, drawers, or overlays where focus must stay contained.
+
+## Canonical example files
+
+- `packages/runtime/src/index.ts` — public API exports
+- `packages/runtime/src/define-component.ts` — `defineComponent()` implementation
+- `packages/runtime/src/define-element.ts` — `defineElement()` with attribute reflection
+- `packages/runtime/src/a11y.ts` — `announce()` and `createFocusTrap()`
+- `packages/app/src/client.ts` — `_setMount`/`_setSignal` wiring in `createApp()`

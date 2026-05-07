@@ -1,0 +1,66 @@
+// Edge-case fixture transformed for Variant B (block-tag control flow).
+// Refinements applied:
+// - $if/$each -> {#if}/{#each} block-tag form
+// - $on:event / $bind:prop preserved (binding directives stay attribute-form)
+// - Inline class ternary -> array-form sugar (cross-variant invariant)
+// - Deprecated `:value=` removed in pre-pass (dropped to $bind:value=)
+// - $ref dropped: refused (codemod must warn — see report)
+// - Lambda LHS in $each: hoisted to $computed (refusal — block-tag form requires
+//   identifier or simple expr LHS; codemod errors with C501)
+
+@state {
+  $prop: {
+    posts: { type: Array<{ id: string; title: string; tags: string[]; bodyHtml?: string }> },
+    query: { type: string, default: '' },
+  }
+
+  selected: string = ''
+  selectedNode: HTMLElement | null = null
+
+  $computed: {
+    filtered: () => posts
+      .filter(p => p && p.title.includes(query))
+      .map(m => ({ id: m.id, title: m.title })),
+    selectedItem: () => filtered.find(it => it.id === selected),
+  }
+
+  $action: {
+    select: (id: string) => { selected = id },
+    setQuery: (q: string) => { query = q },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      // Variant B: $ref still requires curly form $ref={(el) => selectedNode = el}.
+      // Block-tag form does not affect ref handling.
+    },
+  }
+}
+
+@template {
+  <div class="search">
+    <!-- Pre-pass dropped `:value="query"` -> `$bind:value="query"` -->
+    <input $bind:value="query" $on:input={(e) => setQuery(e.target.value)} />
+
+    <!-- Drift fixed: was $bind:value={query} curly, codemod re-quotes -->
+    <input $bind:value="query" placeholder="curly-bind drift" />
+
+    {#if filtered.length > 0}
+      <ul>
+        {#each filtered as item, idx (item.id)}
+          <li
+            class={['row', item.id === selected && 'selected']}
+            $on:click={() => select(item.id)}
+          >
+            <span>{idx}: {item.title}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <!-- $ref refused in template; @state.$lifecycle.mount handles it -->
+    <div class="preview">
+      <article $html={selectedItem && selectedItem.bodyHtml}></article>
+    </div>
+  </div>
+}

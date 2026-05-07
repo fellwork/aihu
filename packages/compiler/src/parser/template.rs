@@ -69,7 +69,25 @@ fn check_c401(attrs: &[Attr]) -> Option<CompileError> {
 
 pub fn parse_template(input: &str) -> Result<Vec<TemplateNode>, CompileError> {
     let mut parser = Parser { input, pos: 0 };
-    parser.parse_nodes(None)
+    parser.parse_nodes(None, None)
+}
+
+/// B3 — block-tag boundary signals returned by `parse_nodes` when it stops at a
+/// sibling-form block-tag tail (`{:else}`, `{:else if ...}`, `{:empty}`, `{/if}`,
+/// `{/each}`). The caller (parse_if_block / parse_each_block) interprets these
+/// to assemble the full block-tag AST.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum BlockBoundary {
+    /// Stop at `{:else}` — the rest of the body collects into else branch.
+    ElseBranch,
+    /// Stop at `{:else if cond}` — caller starts a new branch with this cond.
+    ElseIfBranch(String),
+    /// Stop at `{:empty}` — caller switches to empty-body collection.
+    Empty,
+    /// Stop at `{/if}` — caller closes the IfBlock.
+    EndIf,
+    /// Stop at `{/each}` — caller closes the EachBlock.
+    EndEach,
 }
 
 struct Parser<'a> {
@@ -78,18 +96,59 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// Parse children until a closing element tag matches `closing_tag` OR a
+    /// block-tag boundary in `block_stops` is encountered. Returns the parsed
+    /// children plus the boundary that ended the parse (if any). When parsing
+    /// the top-level template, `closing_tag` and `block_stops` are both None.
     fn parse_nodes(
         &mut self,
         closing_tag: Option<&str>,
+        block_stops: Option<&[BlockBoundary]>,
     ) -> Result<Vec<TemplateNode>, CompileError> {
+        let (nodes, _) = self.parse_nodes_with_boundary(closing_tag, block_stops)?;
+        Ok(nodes)
+    }
+
+    fn parse_nodes_with_boundary(
+        &mut self,
+        closing_tag: Option<&str>,
+        block_stops: Option<&[BlockBoundary]>,
+    ) -> Result<(Vec<TemplateNode>, Option<BlockBoundary>), CompileError> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
+            // B3 — block-tag detection. Distinguish `{#…}` / `{:…}` / `{/…}` /
+            // `{@…}` from plain `{expr}` interpolation.
+            if self.starts_with("{#") {
+                let node = self.parse_block_tag_open()?;
+                nodes.push(node);
+                continue;
+            }
+            if self.starts_with("{@") {
+                let node = self.parse_at_block()?;
+                nodes.push(node);
+                continue;
+            }
+            if self.starts_with("{:") || self.starts_with("{/") {
+                if let Some(stops) = block_stops {
+                    let boundary = self.parse_block_boundary()?;
+                    if stops.iter().any(|s| std::mem::discriminant(s) == std::mem::discriminant(&boundary)) {
+                        return Ok((nodes, Some(boundary)));
+                    }
+                    return Err(self.error(format!(
+                        "unexpected block-tag tail: {:?}", boundary
+                    )));
+                }
+                return Err(self.error(
+                    "unexpected `{{:` or `{{/` outside of `{{#if}}` / `{{#each}}` block".to_string(),
+                ));
+            }
+
             if self.starts_with("</") {
                 if let Some(expected) = closing_tag {
                     let found = self.parse_closing_tag_name()?;
                     if found == expected {
-                        return Ok(nodes);
+                        return Ok((nodes, None));
                     }
 
                     return Err(self.error(format!(
@@ -112,8 +171,204 @@ impl<'a> Parser<'a> {
         if let Some(expected) = closing_tag {
             return Err(self.error(format!("unclosed <{}> element", expected)));
         }
+        if block_stops.is_some() {
+            return Err(self.error("unclosed block-tag (expected `{/if}` or `{/each}`)".to_string()));
+        }
 
-        Ok(nodes)
+        Ok((nodes, None))
+    }
+
+    /// Parse the opening of a block-tag: `{#if cond}` or `{#each list as item (key)}`.
+    fn parse_block_tag_open(&mut self) -> Result<TemplateNode, CompileError> {
+        self.expect("{#")?;
+        // Read tag word (alphabetic) - either "if" or "each"
+        let tag = self.read_word();
+        match tag.as_str() {
+            "if" => self.parse_if_block_body(),
+            "each" => self.parse_each_block_body(),
+            other => Err(self.error(format!(
+                "unknown block-tag `{{#{}}}` — expected `{{#if}}` or `{{#each}}`",
+                other
+            ))),
+        }
+    }
+
+    /// Body parser for `{#if cond}`. The `{#if` tokens have been consumed; this
+    /// reads `cond` up to the matching `}` and recursively parses children.
+    fn parse_if_block_body(&mut self) -> Result<TemplateNode, CompileError> {
+        // Read condition expression up to closing `}` (brace-balanced).
+        let cond = self.read_balanced_until_close_brace()?;
+        let cond = cond.trim().to_string();
+        if cond.is_empty() {
+            return Err(self.error("`{#if}` requires a condition expression".to_string()));
+        }
+
+        // Recursively parse the body, watching for else/elseif/end markers.
+        let stops = [
+            BlockBoundary::ElseBranch,
+            BlockBoundary::ElseIfBranch(String::new()),
+            BlockBoundary::EndIf,
+        ];
+        let mut branches: Vec<(String, Vec<TemplateNode>)> = Vec::new();
+        let mut current_cond = cond;
+
+        loop {
+            let (body, boundary) = self.parse_nodes_with_boundary(None, Some(&stops))?;
+            branches.push((current_cond.clone(), body));
+            match boundary {
+                Some(BlockBoundary::EndIf) | None => break,
+                Some(BlockBoundary::ElseBranch) => {
+                    current_cond = String::new(); // empty marks the else branch
+                    let stops_else = [BlockBoundary::EndIf];
+                    let (body, _b) = self.parse_nodes_with_boundary(None, Some(&stops_else))?;
+                    branches.push((current_cond.clone(), body));
+                    break;
+                }
+                Some(BlockBoundary::ElseIfBranch(c)) => {
+                    current_cond = c;
+                }
+                Some(other) => {
+                    return Err(self.error(format!(
+                        "unexpected boundary in `{{#if}}`: {:?}",
+                        other
+                    )));
+                }
+            }
+        }
+
+        Ok(TemplateNode::IfBlock { branches })
+    }
+
+    /// Body parser for `{#each list as item[, idx] [(key)]}`.
+    fn parse_each_block_body(&mut self) -> Result<TemplateNode, CompileError> {
+        let header = self.read_balanced_until_close_brace()?;
+        let header = header.trim().to_string();
+        if header.is_empty() {
+            return Err(self.error("`{#each}` requires `list as item` header".to_string()));
+        }
+
+        // Parse: `<list-expr> as <item>[, <idx>] [(<key>)]`
+        let (list_expr, item_alias, idx_alias, key_expr) = parse_each_header(&header)
+            .map_err(|msg| self.error(msg))?;
+
+        let stops = [BlockBoundary::Empty, BlockBoundary::EndEach];
+        let (body, boundary) = self.parse_nodes_with_boundary(None, Some(&stops))?;
+        let empty_body = match boundary {
+            Some(BlockBoundary::Empty) => {
+                let stops_empty = [BlockBoundary::EndEach];
+                let (body, _) = self.parse_nodes_with_boundary(None, Some(&stops_empty))?;
+                Some(body)
+            }
+            _ => None,
+        };
+
+        Ok(TemplateNode::EachBlock {
+            list_expr,
+            item_alias,
+            idx_alias,
+            key_expr,
+            body,
+            empty_body,
+        })
+    }
+
+    /// Parse `{@html expr}` raw-HTML block.
+    fn parse_at_block(&mut self) -> Result<TemplateNode, CompileError> {
+        self.expect("{@")?;
+        let tag = self.read_word();
+        if tag != "html" {
+            return Err(self.error(format!(
+                "unknown `{{@{}}}` block — only `{{@html}}` is supported",
+                tag
+            )));
+        }
+        let expr = self.read_balanced_until_close_brace()?;
+        let expr = expr.trim().to_string();
+        if expr.is_empty() {
+            return Err(self.error("`{@html}` requires an expression".to_string()));
+        }
+        Ok(TemplateNode::HtmlBlock { expr })
+    }
+
+    /// Parse a sibling-form block-tag tail: `{:else}`, `{:else if cond}`,
+    /// `{:empty}`, `{/if}`, `{/each}`.
+    fn parse_block_boundary(&mut self) -> Result<BlockBoundary, CompileError> {
+        if self.starts_with("{/") {
+            self.expect("{/")?;
+            let tag = self.read_word();
+            self.skip_whitespace();
+            self.expect("}")?;
+            return match tag.as_str() {
+                "if" => Ok(BlockBoundary::EndIf),
+                "each" => Ok(BlockBoundary::EndEach),
+                other => Err(self.error(format!("unknown closing block-tag `{{/{}}}`", other))),
+            };
+        }
+        // `{:else}`, `{:else if cond}`, `{:empty}`
+        self.expect("{:")?;
+        let word = self.read_word();
+        self.skip_whitespace();
+        match word.as_str() {
+            "else" => {
+                // either `{:else}` or `{:else if cond}`
+                if self.starts_with("if") {
+                    // consume `if`
+                    self.pos += 2;
+                    let cond = self.read_balanced_until_close_brace()?;
+                    let cond = cond.trim().to_string();
+                    if cond.is_empty() {
+                        return Err(self.error("`{:else if}` requires a condition".to_string()));
+                    }
+                    Ok(BlockBoundary::ElseIfBranch(cond))
+                } else {
+                    self.expect("}")?;
+                    Ok(BlockBoundary::ElseBranch)
+                }
+            }
+            "empty" => {
+                self.expect("}")?;
+                Ok(BlockBoundary::Empty)
+            }
+            other => Err(self.error(format!("unknown sibling block-tag `{{:{}}}`", other))),
+        }
+    }
+
+    /// Read text up to a closing `}`, respecting brace nesting. Consumes the
+    /// closing `}` and returns the inner text.
+    fn read_balanced_until_close_brace(&mut self) -> Result<String, CompileError> {
+        let start = self.pos;
+        let mut depth: usize = 0;
+        while self.pos < self.input.len() {
+            match self.input.as_bytes()[self.pos] {
+                b'{' => {
+                    depth += 1;
+                    self.pos += 1;
+                }
+                b'}' => {
+                    if depth == 0 {
+                        let text = self.input[start..self.pos].to_string();
+                        self.pos += 1;
+                        return Ok(text);
+                    }
+                    depth -= 1;
+                    self.pos += 1;
+                }
+                _ => self.pos += 1,
+            }
+        }
+        Err(self.error("unclosed `{` in block-tag header".to_string()))
+    }
+
+    fn read_word(&mut self) -> String {
+        let start = self.pos;
+        while let Some(ch) = self.peek_char() {
+            if ch.is_ascii_alphabetic() {
+                self.pos += ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        self.input[start..self.pos].to_string()
     }
 
     fn parse_element(&mut self) -> Result<TemplateNode, CompileError> {
@@ -168,7 +423,7 @@ impl<'a> Parser<'a> {
             tag.clone()
         };
 
-        let children = self.parse_nodes(Some(&closing_name))?;
+        let children = self.parse_nodes(Some(&closing_name), None)?;
 
         if is_macro {
             // C400: mutual-exclusion check for <$suspense> and <$shield>
@@ -225,6 +480,16 @@ impl<'a> Parser<'a> {
 
     fn parse_text_nodes(&mut self, nodes: &mut Vec<TemplateNode>) -> Result<(), CompileError> {
         while !self.is_eof() && !self.starts_with("<") {
+            // B3 — block-tag forms (`{#`, `{:`, `{/`, `{@`) bubble back to the
+            // caller so parse_nodes_with_boundary can dispatch them.
+            if self.starts_with("{#")
+                || self.starts_with("{:")
+                || self.starts_with("{/")
+                || self.starts_with("{@")
+            {
+                return Ok(());
+            }
+
             if self.starts_with("{{") {
                 nodes.push(self.parse_interpolation()?);
                 continue;
@@ -451,5 +716,276 @@ impl<'a> Parser<'a> {
             .map(|index| index + 1)
             .unwrap_or(0);
         self.input[line_start..pos].chars().count()
+    }
+}
+
+/// Parse a `{#each}` header: `<list-expr> as <item>[, <idx>] [(<key-expr>)]`.
+/// Returns `(list_expr, item_alias, idx_alias, key_expr)`.
+///
+/// `list-expr` may contain arbitrary expression syntax (parens, dots, lambdas)
+/// — we tokenize by skipping balanced strings/parens/braces and locate the
+/// first ` as ` outside of any nesting. The optional `(key)` is a parenthesized
+/// expression at the very end (after balanced match — caller's parse_balanced
+/// already accepted the body up to `}`, so the parenthesized key is still
+/// inside `header`).
+pub(crate) fn parse_each_header(
+    header: &str,
+) -> Result<(String, String, Option<String>, Option<String>), String> {
+    // Split off optional ` (key)` from the end. We match the LAST balanced
+    // `(...)` whose closing paren is the LAST non-whitespace char of header.
+    let trimmed = header.trim();
+    let (no_key_part, key_expr) = if trimmed.ends_with(')') {
+        // Walk backwards to find the matching opening paren at depth 0.
+        let bytes = trimmed.as_bytes();
+        let mut depth: usize = 0;
+        let mut open_idx: Option<usize> = None;
+        for i in (0..bytes.len()).rev() {
+            match bytes[i] {
+                b')' => depth += 1,
+                b'(' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        open_idx = Some(i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(open) = open_idx {
+            // Heuristic: the parenthesized expression at the end is the key
+            // ONLY when the chars before `(` are whitespace (it's separated
+            // from the iteration alias by ` `). If `(` directly follows a
+            // non-space character, this is part of the list expression
+            // (e.g. `{#each items.filter(p => p.ok) as p}`).
+            let head_before = trimmed[..open].trim_end();
+            let head_after = trimmed[..open].trim_end();
+            if head_before.len() < trimmed[..open].len() {
+                // there was whitespace between item alias and `(key)`
+                let key = trimmed[open + 1..trimmed.len() - 1].trim().to_string();
+                (head_after.to_string(), Some(key))
+            } else {
+                (trimmed.to_string(), None)
+            }
+        } else {
+            (trimmed.to_string(), None)
+        }
+    } else {
+        (trimmed.to_string(), None)
+    };
+
+    // Find ` as ` at top-level (not inside parens/strings/braces).
+    let bytes = no_key_part.as_bytes();
+    let mut depth_paren: usize = 0;
+    let mut depth_brace: usize = 0;
+    let mut depth_bracket: usize = 0;
+    let mut in_string: Option<u8> = None;
+    let mut as_pos: Option<usize> = None;
+    let mut i = 0;
+    while i + 4 <= bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_string {
+            if c == b'\\' && i + 1 < bytes.len() {
+                i += 2;
+                continue;
+            }
+            if c == q {
+                in_string = None;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'\'' | b'"' | b'`' => in_string = Some(c),
+            b'(' => depth_paren += 1,
+            b')' => depth_paren = depth_paren.saturating_sub(1),
+            b'{' => depth_brace += 1,
+            b'}' => depth_brace = depth_brace.saturating_sub(1),
+            b'[' => depth_bracket += 1,
+            b']' => depth_bracket = depth_bracket.saturating_sub(1),
+            b' ' if depth_paren == 0
+                && depth_brace == 0
+                && depth_bracket == 0
+                && bytes.get(i + 1) == Some(&b'a')
+                && bytes.get(i + 2) == Some(&b's')
+                && bytes.get(i + 3) == Some(&b' ') =>
+            {
+                as_pos = Some(i);
+                break;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let Some(as_at) = as_pos else {
+        return Err("`{#each}` header must contain ` as ` separator".to_string());
+    };
+
+    let list_expr = no_key_part[..as_at].trim().to_string();
+    let rest = no_key_part[as_at + 4..].trim();
+    if list_expr.is_empty() || rest.is_empty() {
+        return Err("`{#each}` requires non-empty list and item alias".to_string());
+    }
+    let (item_alias, idx_alias) = if let Some((item, idx)) = rest.split_once(',') {
+        (item.trim().to_string(), Some(idx.trim().to_string()))
+    } else {
+        (rest.to_string(), None)
+    };
+    Ok((list_expr, item_alias, idx_alias, key_expr))
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::TemplateNode;
+
+    #[test]
+    fn block_if_simple() {
+        let nodes = parse_template("{#if cond}<span>x</span>{/if}").unwrap();
+        assert_eq!(nodes.len(), 1);
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches.len(), 1);
+                assert_eq!(branches[0].0, "cond");
+                assert_eq!(branches[0].1.len(), 1);
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn block_if_else() {
+        let nodes = parse_template("{#if a}A{:else}B{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches.len(), 2);
+                assert_eq!(branches[0].0, "a");
+                assert_eq!(branches[1].0, ""); // empty marks else
+            }
+            _ => panic!("expected IfBlock"),
+        }
+    }
+
+    #[test]
+    fn block_if_elseif_chain() {
+        let nodes = parse_template("{#if a}A{:else if b}B{:else if c}C{:else}D{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches.len(), 4);
+                assert_eq!(branches[0].0, "a");
+                assert_eq!(branches[1].0, "b");
+                assert_eq!(branches[2].0, "c");
+                assert_eq!(branches[3].0, "");
+            }
+            _ => panic!("expected IfBlock"),
+        }
+    }
+
+    #[test]
+    fn block_each_simple() {
+        let nodes = parse_template("{#each xs as x}<li>{x}</li>{/each}").unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock {
+                list_expr,
+                item_alias,
+                idx_alias,
+                key_expr,
+                ..
+            } => {
+                assert_eq!(list_expr, "xs");
+                assert_eq!(item_alias, "x");
+                assert_eq!(idx_alias, &None);
+                assert_eq!(key_expr, &None);
+            }
+            _ => panic!("expected EachBlock"),
+        }
+    }
+
+    #[test]
+    fn block_each_with_key() {
+        let nodes = parse_template("{#each items as i (i.id)}<li>x</li>{/each}").unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock {
+                list_expr,
+                item_alias,
+                key_expr,
+                ..
+            } => {
+                assert_eq!(list_expr, "items");
+                assert_eq!(item_alias, "i");
+                assert_eq!(key_expr.as_deref(), Some("i.id"));
+            }
+            _ => panic!("expected EachBlock"),
+        }
+    }
+
+    #[test]
+    fn block_each_with_idx_and_key() {
+        let nodes = parse_template("{#each xs as item, idx (item.id)}<li>x</li>{/each}").unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock {
+                item_alias,
+                idx_alias,
+                key_expr,
+                ..
+            } => {
+                assert_eq!(item_alias, "item");
+                assert_eq!(idx_alias.as_deref(), Some("idx"));
+                assert_eq!(key_expr.as_deref(), Some("item.id"));
+            }
+            _ => panic!("expected EachBlock"),
+        }
+    }
+
+    #[test]
+    fn block_each_lambda_lhs() {
+        // The hidden landmine: lambda LHS should fit unhoisted in block-tag header.
+        let nodes = parse_template(
+            "{#each events.filter(e => e.ok) as evt (evt.id)}<li>x</li>{/each}",
+        )
+        .unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock { list_expr, item_alias, key_expr, .. } => {
+                assert_eq!(list_expr, "events.filter(e => e.ok)");
+                assert_eq!(item_alias, "evt");
+                assert_eq!(key_expr.as_deref(), Some("evt.id"));
+            }
+            _ => panic!("expected EachBlock"),
+        }
+    }
+
+    #[test]
+    fn block_each_with_empty() {
+        let nodes = parse_template("{#each xs as x}<li>x</li>{:empty}none{/each}").unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock { empty_body, .. } => {
+                assert!(empty_body.is_some());
+            }
+            _ => panic!("expected EachBlock"),
+        }
+    }
+
+    #[test]
+    fn block_html_simple() {
+        let nodes = parse_template("{@html foo}").unwrap();
+        match &nodes[0] {
+            TemplateNode::HtmlBlock { expr } => assert_eq!(expr, "foo"),
+            _ => panic!("expected HtmlBlock"),
+        }
+    }
+
+    #[test]
+    fn block_if_unclosed_errors() {
+        let err = parse_template("{#if a}body").unwrap_err();
+        assert!(err.message.contains("unclosed"));
+    }
+
+    #[test]
+    fn block_each_missing_as_errors() {
+        let err = parse_template("{#each items}body{/each}").unwrap_err();
+        assert!(err.message.contains("as"));
     }
 }

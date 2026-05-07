@@ -1,0 +1,143 @@
+# @aihu/agent
+
+`@aihu/agent` is the metadata registry for aihu's AI agent surface. It provides a compact (≤ 200 B gzipped) runtime that stores and retrieves `AgentMetadata` — the structured descriptions of component state, actions, and their exposure settings — so that MCP tooling and AI assistants can discover what each component exposes and how to invoke it.
+
+This package is the consumer-facing read side; the compiler writes agent metadata during build via `registerAgentMetadata()`, and MCP servers or test tooling read it via `getAgentMetadata()` / `getAllAgentMetadata()`.
+
+## Right idioms
+
+### 1. Expose agent surface in `@state` macros, not in `@agent` — registration is automatic
+
+The compiler automatically calls `registerAgentMetadata()` for any `$prop`, `$computed`, or `$action` that carries `expose: { read: true }` or `expose: { read: true, write: true }`. You never call this manually in application code:
+
+```ts
+// In .aihu @state — compiler generates registerAgentMetadata() call
+$action: {
+  addItem: {
+    describe: 'Add an item to the list',
+    expose: { read: true, write: true },
+    handler: (text: string) => setItems([...items(), text]),
+  },
+}
+```
+
+### 2. Read agent metadata in MCP tooling via `getAgentMetadata()`
+
+```ts
+import { getAgentMetadata } from '@aihu/agent'
+
+const meta = getAgentMetadata('my-counter')
+if (meta) {
+  console.log(meta.actions)  // e.g. [{ name: 'increment', describe: 'Add 1' }]
+  console.log(meta.state)    // e.g. [{ name: 'count', expose: { read: true } }]
+}
+```
+
+### 3. Enumerate all registered components for MCP discovery
+
+```ts
+import { getAllAgentMetadata } from '@aihu/agent'
+
+const all = getAllAgentMetadata()
+for (const [tag, meta] of Object.entries(all)) {
+  console.log(`${tag}: ${meta.actions.length} actions, ${meta.state.length} state slots`)
+}
+```
+
+### 4. Keep `describe` strings concise and in the imperative mood for actions
+
+Descriptions land in the AI assistant's tool schema. Follow the same conventions as function doc comments:
+
+```ts
+$action: {
+  submit: {
+    describe: 'Submit the current form and clear draft state',  // good
+    // NOT: 'This action submits...' or 'Used to submit...'
+    expose: { read: true, write: true },
+    handler: () => { /* ... */ },
+  },
+}
+```
+
+### 5. Use `$scope` and `$rate-limit` in `@agent` for access control metadata
+
+The `@agent` block in v2 is reserved for cross-cutting concerns; per-member metadata goes in `@state`:
+
+```ts
+@agent {
+  $scope "user:write"
+  $rate-limit 60
+}
+```
+
+## Anti-patterns
+
+### 1. Do not call `registerAgentMetadata()` directly in application code
+
+This is a compiler-emitted call. Calling it manually creates duplicate or incorrect metadata entries.
+
+```ts
+// WRONG — this is done by the compiler
+import { registerAgentMetadata } from '@aihu/agent'
+registerAgentMetadata('my-widget', { ... })
+
+// CORRECT — declare expose in @state; compiler handles registration
+```
+
+### 2. Do not use `@agent` for per-member `describe` and `expose` — that was v1 syntax
+
+```ts
+// WRONG — v1 @agent syntax
+@agent {
+  $expose count, remaining
+  $action addItem
+  $describe count "Current item count"
+}
+
+// CORRECT — v2: describe and expose inside @state collection entries
+$prop: {
+  count: { describe: 'Current item count', expose: { read: true } },
+}
+```
+
+### 3. Do not expose write without read — the agent can invoke but not inspect state
+
+```ts
+// WRONG — write-only exposure makes the agent blind to the current value
+expose: { read: false, write: true }
+
+// CORRECT — expose read to allow inspection; add write only if mutation is intended
+expose: { read: true, write: true }
+```
+
+### 4. Do not leave `describe` empty for exposed actions — AI assistants use it as the tool description
+
+```ts
+// WRONG — no description; AI cannot determine what the action does
+$action: {
+  sync: {
+    expose: { read: true, write: true },
+    handler: () => fetchAndSync(),
+  },
+}
+
+// CORRECT
+$action: {
+  sync: {
+    describe: 'Fetch latest data from the server and update local state',
+    expose: { read: true, write: true },
+    handler: () => fetchAndSync(),
+  },
+}
+```
+
+### 5. Do not import `@aihu/agent` in browser bundle code that does not use the registry
+
+The package is ≤ 200 B, but including it unnecessarily in a non-agent component wastes that budget. Only use it in MCP tooling, CLI tools, or test infrastructure.
+
+## Canonical example files
+
+- `packages/agent/src/index.ts` — public API (getAgentMetadata, getAllAgentMetadata, registerAgentMetadata)
+- `packages/agent/src/registry.ts` — AgentMetadata, ActionSchema, InputSchema types
+- `examples/todo-mvc/todo-mvc.aihu` — full agent surface: exposed state + actions with describe
+- `examples/hacker-news/src/pages/index.aihu` — minimal @agent usage with $scope

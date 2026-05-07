@@ -265,6 +265,8 @@ async handleToolCall(
 
 Every `handleToolCall` invocation requires a valid JWT in request context. `@aihu/auth`'s `before-handler` middleware (Plugin Contract Spec §6.5.3) runs before any route handler and injects `JwtClaims` into `requestContext`. Absent, expired, or invalid JWT: middleware returns 401 before `handleToolCall` is reached.
 
+**Fail-closed default** *(security amendment — CWE-306, OWASP API1:2023):* If `@aihu/auth` middleware is not registered in the application and `handleToolCall` receives a request targeting a component that declares a non-null `$scope`, the call MUST return HTTP 401 with error body `{ error: 'AUTH_MISSING' }`. The application MUST NOT serve `$scope`-protected bindings without an active auth plugin, regardless of whether `requestContext` is populated by another middleware. Rationale: `@aihu/auth` is an optional plugin per Plugin Contract Spec §6.5.3. Without this fail-closed rule, a misconfigured deployment that omits `@aihu/auth` would silently serve `$scope`-protected bindings to all callers. The fail-closed default prevents accidental open access.
+
 ### §6.2 Scope enforcement
 
 `binding.scope()` returns the string argument of `$scope` declared in the `@agent` block (Macro Vocabulary Spec §5.4). `checkScope` evaluates this against `requestContext.claims` using `@aihu/auth`'s scope definitions registered in `aihu.config.ts`. `$scope authenticated` becomes operationally enforced — not decorative syntax. Prior to this spec, `$scope` was parsed but never evaluated at runtime.
@@ -272,6 +274,8 @@ Every `handleToolCall` invocation requires a valid JWT in request context. `@aih
 ### §6.3 Rate-limit enforcement
 
 `binding.rateLimit()` returns the rate string from `$rate-limit` (Macro Vocabulary Spec §5.5). `checkRateLimit` uses a sliding-window counter keyed on `{userId}:{tag}` (arch-3 §3.4). The counter implementation is sourced from `@aihu/scraping`'s in-process rate limiter. The tighter of the component-level `$rate-limit` and any scope-level default wins. Prior to this spec, `$rate-limit` was parsed but no counter existed.
+
+**`userId` cardinality requirement** *(security amendment — CWE-285, OWASP API1:2023):* `requestContext.userId` MUST be a non-null, non-empty string extracted from verified JWT claims. If `userId` cannot be determined — due to an absent JWT, an invalid JWT, or a JWT that lacks a `sub` claim — `handleToolCall` MUST return HTTP 401. The call MUST NOT fall through to a shared anonymous rate-limit bucket. Rationale: permitting anonymous callers to share a single rate-limit bucket would allow multiple unauthenticated callers to jointly consume one user's rate-limit slot, enabling DoS amplification against the rate-limit subsystem.
 
 ### §6.4 Instance isolation
 
@@ -284,6 +288,62 @@ The `__agentBinding.actions` object is the allowlist, constructed by the compile
 ### §6.6 Registry write access
 
 `componentInstanceRegistry` is module-private in `packages/arbor/src/mount.ts`. Only the `mount()` path — executing compiled component server artifacts — can call `registerLiveBinding`. External callers, plugins, and request handlers cannot push entries into the registry directly. This is a primary mitigation for arch-3 R3 and SUMMARY.md §6 HIGH risk: "Only `mount()` registers; external callers cannot."
+
+### §6.7 Cross-Frame Trust
+
+*Security amendment — CWE-346, OWASP API4:2023.*
+
+(a) The `mount()` path on the client MUST NOT register a `LiveBinding` for a component materialized inside a cross-origin iframe. Implementations MUST enforce this via an origin check at mount time: when `window.parent !== window`, the mounting document's origin MUST be compared against the parent document's origin (using `document.referrer` or an equivalent mechanism). If the origins differ (cross-origin), `mount()` MUST skip `LiveBinding` registration for that component. No error need be thrown, but a `WARN`-level log entry SHOULD be emitted to surface misconfiguration.
+
+(b) Same-origin iframe scenarios satisfy the Same-Origin Policy by definition and are explicitly permitted. However, the binding mechanism MUST document this assumption explicitly: same-origin iframes share the JavaScript module graph and therefore share `componentInstanceRegistry`. This is a deliberate design consequence. Its security implication — that a same-origin iframe can observe mounts via shared module state — MUST be disclosed in framework documentation alongside any guidance on multi-frame deployments.
+
+(c) Framework documentation MUST include a warning: applying `sandbox="allow-scripts allow-same-origin"` to a content iframe that hosts aihu components negates the cross-origin isolation benefit of the `sandbox` attribute. These two flags (`allow-scripts` and `allow-same-origin`) MUST NOT be combined on aihu-hosted content iframes. CI/CD or static-analysis tooling SHOULD flag this combination when detected in application HTML output.
+
+### §6.8 Timing Properties
+
+*Security amendment — CWE-200, OWASP API4:2023.*
+
+(a) `checkRateLimit` MUST operate in O(1) constant time with respect to whether the `{userId}:{tag}` key has prior history in the sliding-window store. Implementations MUST NOT branch on key-existence in a way that is observable to external callers via response timing. The sliding-window store MUST initialize a new key's counter atomically on first access, without a separate existence-check round-trip that could create a timing differential.
+
+(b) The error-code ordering in the §5 dispatch algorithm — 404 (no binding found) → 403 (scope check fails) → 429 (rate-limited) — is a **security-relevant invariant**. This ordering MUST be preserved by all implementations. Reordering MUST NOT occur even for performance reasons. Rationale: responding with 429 before performing the scope check would implicitly confirm to the caller that the target tag is mounted AND that the caller possesses valid scope credentials, leaking binding existence to callers who have not yet passed authorization.
+
+(c) The rate-limit counter for a `{userId}:{tag}` pair MUST NOT be observable or inferable by a third-party caller making requests under a different `userId`. Implementations MUST ensure that rate-limit state for one `userId` cannot be side-channel-inferred through response timing or error-code variation by any other `userId`.
+
+### §6.9 Registry Capacity Bounds
+
+*Security amendment — CWE-400, OWASP API4:2023.*
+
+(a) The `LiveBinding[]` array for any single `tag` key in `componentInstanceRegistry` MUST NOT grow beyond a configurable maximum. The default cap is **1000 entries** per tag. The cap is configurable via `aihu.config.ts` under the key `agent.registry.maxBindingsPerTag`. Applications MAY lower this cap; they MUST NOT raise it above the default without explicit documented justification.
+
+(b) When the per-tag cap is reached, any attempt to register a new binding for that tag MUST:
+  - Produce a `WARN`-level log entry including the `tag` name and the current binding count.
+  - Return HTTP 503 to the calling context that triggered the excess mount, if that mount context has an associated HTTP response path (e.g. an SSR request handler). In contexts without an HTTP response path (e.g. client-side `mount()`), the log entry is sufficient.
+  - Existing bindings MUST NOT be evicted. The new binding is rejected; the registry contents are unchanged.
+
+(c) A TTL-based eviction fallback SHOULD be implemented for long-lived or headless bindings (§8.2 deferred scope), as a belt-and-suspenders measure alongside the `onCleanup`-driven `dispose$` pattern. The TTL default value is unspecified pending the M3 headless mount design (§8.2). However, the existence of the TTL eviction mechanism MUST be declared in this spec now: implementations MUST reserve a configuration key `agent.registry.bindingTtlMs` and document it as a future-activated control. Implementations MAY treat any binding whose last-heartbeat timestamp exceeds `bindingTtlMs` as eligible for eviction regardless of `dispose$` status.
+
+### §6.10 CSP Compatibility
+
+*Security amendment — CWE-693, OWASP API8:2023.*
+
+(a) The live-binding mechanism is compatible with `Content-Security-Policy: script-src 'self'`. It does not require `unsafe-eval`, `unsafe-inline`, or `blob:` URL evaluation at any point in the binding lifecycle — not during mount, signal access, action dispatch, or dispose. Framework documentation MUST affirm this CSP compatibility claim and MUST be updated if any future change to the binding lifecycle introduces an incompatibility.
+
+(b) `__agentBinding` elision from client bundles (§3) is a **compiler guarantee, not a runtime defense**. The security model depends on client bundles never containing `__agentBinding` references. This means:
+  - The build pipeline MUST be configured to use the `server`-artifact output for SSR paths and the `client`-artifact output for browser delivery. Mixing these artifacts is a misconfiguration with security consequences.
+  - CI/CD pipelines MUST validate that client bundles contain no string reference to `__agentBinding`. The §9(d) compiler fixture test covers the compiler's own output; production deployments MUST extend this check to their own assembled build output.
+  - Manually overriding the compiler split-bundle configuration (Block Structure Spec §11.5) is a security-relevant action. The deployment guide MUST document it as such, including the consequence that doing so may re-introduce `__agentBinding` into client artifacts.
+
+(c) The §9(d) acceptance criterion (compiler does not emit `__agentBinding` to the client artifact) is necessary but not sufficient for production safety. Add the following SHOULD criterion: production CI pipelines SHOULD include a step that executes `grep '__agentBinding'` (or an equivalent string-search) over the assembled client bundle and fails the pipeline if any match is found. This check is independent of and complementary to the compiler's own test fixture.
+
+### §6.11 Supply-Chain and Template Trust
+
+*Security amendment — CWE-345, CWE-440, OWASP API8:2023.*
+
+(a) **`$scope` declarations are a security control, not a DX annotation.** `@aihu/auth`'s build-time validation of `$scope` strings against the scope registry defined in `aihu.config.ts` is a security-required step, not an optional convenience. Applications using `@agent` blocks MUST have `@aihu/auth` installed. If `@aihu/auth` is not installed and the compiler encounters an `@agent` block containing a `$scope` declaration, the compiler MUST emit a warning flagged as security-relevant. The warning MUST be prefixed with `[SECURITY]` to distinguish it from informational diagnostics, and it MUST include the component filename and the unvalidated `$scope` string.
+
+(b) **Third-party templates and starter kits** may contain `@agent` blocks with `$scope` declarations originating from untrusted authors. Applications that install third-party `.aihu` templates SHOULD audit all `@agent` blocks before production deployment. The audit SHOULD specifically review `$scope`, `$expose`, and `$expose.write` declarations for privilege escalation risks — in particular, patterns where a low-privilege `$scope` is combined with a high-sensitivity `$expose` or `$expose.write` target (e.g. a signal holding session tokens, API keys, or PII). This guidance MUST appear in `SECURITY.md` in the aihu repository.
+
+(c) Future: `$expose.write` declarations targeting signals that hold sensitive data (API keys, session tokens, personally identifiable information) SHOULD require explicit opt-in via build-time review tooling before deployment. This mechanism is deferred to v0.4.x and is tracked as future work in §8 of this spec.
 
 ---
 
@@ -317,6 +377,10 @@ The mechanism for mounting a component server-side outside an SSR request — to
 
 The dispatch pseudocode in §5 uses `{ error, code }` for readability. The actual implementation must emit MCP protocol JSON-RPC 2.0 error objects for consistency with the `mcp-server-card-schema` compliance suite (scout-aihu §3C). The mapping from internal error codes to JSON-RPC error codes should be specified before implementation to prevent per-engineer interpretation divergence.
 
+### §8.4 Sensitive-signal write opt-in (v0.4.x, deferred)
+
+*Tracked from §6.11(c).* `$expose.write` declarations targeting signals that hold sensitive data (API keys, session tokens, personally identifiable information) SHOULD require explicit opt-in via build-time review tooling before deployment. The mechanism for declaring a signal as sensitive and the reviewer workflow are deferred to v0.4.x. A separate RFC is required before implementation.
+
 ---
 
 ## §9 Acceptance Criteria
@@ -341,6 +405,14 @@ The security review must verify:
 | (d) | Same call; no `weather-card` instance mounted | Returns `{ error: 'no live instance: weather-card', code: 404 }` |
 | (e) | `handleToolCall('weather-card/notAnAction', {}, ctx)` with valid JWT; component mounted | Returns `{ error: 'no action: notAnAction', code: 404 }` |
 | (f) | `weather-card` has `$scope 'admin'`; JWT carries `'user'` claims | Returns 403 |
+
+**Security amendment integration test gates (Amendments 2, 3, 5):**
+
+| # | Test scenario | Expected outcome |
+|---|---|---|
+| (g) | `@aihu/auth` is NOT registered; `handleToolCall` is invoked on a component with `$scope: 'authenticated'` | Response is HTTP 401 with error body `{ error: 'AUTH_MISSING' }` |
+| (h) | A valid JWT is presented that lacks a `sub` claim; `handleToolCall` is invoked | Response is HTTP 401 — not HTTP 429, not HTTP 200 |
+| (i) | 1001 concurrent mounts of the same component tag are performed | The 1001st mount produces a `WARN`-level log entry containing the tag name and count; subsequent `handleToolCall` requests to that tag continue to succeed using `bindings[0]` (no eviction); the warning is observable in server logs |
 
 **Compiler gate:**
 

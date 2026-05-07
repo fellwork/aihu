@@ -1,0 +1,13 @@
+// B3 Variant B — dot-form $on.input + $bind.value with R4 typed-conv at write site.
+
+<script setup>
+const [count, setCount] = signal(0)
+const [text, setText] = signal('')
+</script>
+
+<template>
+  <input type="number" $bind.value={count} />
+  <input type="text" $bind.value={text} />
+  <button $on.click={() => setCount(count() + 1)}>+</button>
+  <p>Count: {count}</p>
+</template>

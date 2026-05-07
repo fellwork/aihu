@@ -67,16 +67,11 @@ jobs:
             asset: aihu-compile-linux-x64
             ext: ''
             use_cross: false
-          # NOTE: aarch64-unknown-linux-gnu deferred to v0.1.x. The pinned
-          # `cross` rev fails to compile (thiserror v1 vs v2 in cross's own
-          # deps); needs a fresher pin or migration to cross-rs/cross-action.
-          # Tracked as a v0.1.x follow-up. Linux ARM users get a soft 404
-          # at install time per js/postinstall.ts handling (arch-4 §4.3).
-          # - runner: ubuntu-22.04
-          #   target: aarch64-unknown-linux-gnu
-          #   asset: aihu-compile-linux-arm64
-          #   ext: ''
-          #   use_cross: true
+          - runner: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            asset: aihu-compile-linux-arm64
+            ext: ''
+            use_cross: true
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
             asset: aihu-compile-windows-x64.exe
@@ -94,7 +89,11 @@ jobs:
 
       - name: Install cross (aarch64-linux only)
         if: matrix.use_cross == true
-        run: cargo install cross --git https://github.com/cross-rs/cross --rev 4090beca3cfffa44371a5bba524de3a578aa46c3
+        # cross v0.2.5 (2023-02-04) — latest stable tag; uses its committed
+        # Cargo.lock (--locked) so thiserror stays on v1, avoiding the v1/v2
+        # conflict that caused the previous git-rev pin (4090beca) to fail.
+        # Commit: 88f49ff79e777bef6d3564531636ee4d3cc2f8d2
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5 --locked
 
       - name: Build release binary (cargo)
         if: matrix.use_cross == false

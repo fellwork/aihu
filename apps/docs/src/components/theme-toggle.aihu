@@ -22,7 +22,7 @@
 }
 
 @template {
-  <button class="theme-toggle" $on:click={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
+  <button class="theme-toggle" $on.click={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
     <span class="icon-sun" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="4"></circle>

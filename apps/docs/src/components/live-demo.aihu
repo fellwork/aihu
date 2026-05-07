@@ -20,11 +20,11 @@
     </div>
     <div class="demo-output">
       <div class="demo-controls">
-        <button class="btn-dec" $on:click={decrement} aria-label="Decrement">−</button>
+        <button class="btn-dec" $on.click={decrement} aria-label="Decrement">−</button>
         <span class="demo-value">{{ count }}</span>
-        <button class="btn-inc" $on:click={increment} aria-label="Increment">+</button>
+        <button class="btn-inc" $on.click={increment} aria-label="Increment">+</button>
       </div>
-      <button class="btn-reset" $on:click={reset}>reset</button>
+      <button class="btn-reset" $on.click={reset}>reset</button>
       <p class="demo-hint">Each click updates a signal — no virtual DOM diff.</p>
     </div>
   </div>

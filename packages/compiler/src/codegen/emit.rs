@@ -14,6 +14,9 @@ struct StateImports {
     needs_batch: bool,
     needs_on_mount: bool,
     needs_on_cleanup: bool,
+    // R2 (Director r6 §3): four-callback $lifecycle extension.
+    needs_on_adopt: bool,
+    needs_on_attribute_change: bool,
     needs_effect_for_macros: bool,
     needs_create_resource: bool,
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
@@ -27,6 +30,11 @@ pub struct EmitResult {
     pub manifest_json: String,
     /// v0.6.2: Serialized `.route.json` sidecar. Some when @route block is present.
     pub route_json: Option<String>,
+    /// B3 — Per-SFC TypeScript sidecar. Contains `@state` declarations in
+    /// scope plus every `@template` curly expression as a typed body statement.
+    /// `tsc --noEmit` over `**/*.aihu.ts` enforces type-safety end-to-end per
+    /// Architect spec §7 path (i). None when no template/state is present.
+    pub sidecar_ts: Option<String>,
 }
 
 fn emit_style_block(style: &StyleBlock) -> (String, String) {
@@ -121,7 +129,195 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // v0.6.2: Emit route_json sidecar when @route block is present.
     let route_json = unit.source.route.as_ref().map(|r| emit_route_json(r));
 
-    EmitResult { js, manifest_json, route_json }
+    // B3 — Per-SFC `.aihu.ts` sidecar (Architect spec §7 path (i)). Generates
+    // a typed function body containing the template expressions so `tsc
+    // --noEmit` over `**/*.aihu.ts` checks template type-safety end-to-end.
+    let sidecar_ts = emit_sidecar_ts(unit, tag_name);
+
+    EmitResult { js, manifest_json, route_json, sidecar_ts }
+}
+
+/// B3 — Emit a TypeScript sidecar containing the SFC's template expressions
+/// as typed body statements. Per Architect spec §7 path (i):
+///
+/// ```ts
+/// // foo.aihu.ts (generated)
+/// declare function __template(): void {
+///   // expressions lifted from @template:
+///   ;(view === 'week') satisfies boolean
+///   ;(day.toISOString()) satisfies string
+///   // ...
+/// }
+/// ```
+///
+/// The sidecar is intentionally minimal — it captures the curly-binding
+/// expressions, $on handler bodies, $bind LHS identifiers, and {#if}/{#each}
+/// header conditions/list expressions. `tsc --noEmit` flags type errors;
+/// concrete type-checking depth grows in later rounds.
+fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
+    let nodes = unit.template_ast.as_ref()?;
+    let mut exprs: Vec<String> = Vec::new();
+    collect_template_exprs(nodes, &mut exprs);
+    // Always emit a sidecar when a template is present so tsc has a per-SFC
+    // surface to check, even if the @template happens to contain only static
+    // markup at this moment.
+
+    let script = unit.source.script.unwrap_or("").trim();
+    let header = format!(
+        "// generated sidecar for {}.aihu — DO NOT EDIT\n// Type-checking surface for @template expressions per spec §7 path (i).\n",
+        tag_name
+    );
+    // Preamble re-declares typical SFC globals so tsc has a permissive type
+    // scope. We type these as `any` because precise typing requires deeper
+    // SFC -> TS lowering (B3+ sidecar refinement is a watched item).
+    // B3b — derive a typed `$emit` interface from the SFC's `$event:` collection
+    // entries (if any). Each `$event: { name: { payload: T } }` entry contributes
+    // a strongly-typed dispatcher: `dayjump: (payload: { day: Date }) => void`.
+    // Falls back to the permissive `unknown` shape when no $event collection
+    // is declared so existing fixtures continue to type-check.
+    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let event_entries: Vec<(&str, Option<&str>)> = macros
+        .iter()
+        .flat_map(|m| {
+            if let crate::types::StateMacro::Collection {
+                kind: crate::types::CollectionKind::Event,
+                entries,
+            } = m
+            {
+                entries
+                    .iter()
+                    .map(|e| {
+                        let payload = e
+                            .meta
+                            .iter()
+                            .find(|(k, _)| k == "payload")
+                            .map(|(_, v)| v.trim());
+                        (e.name.as_str(), payload)
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
+    let (emit_decl, event_decl) = if event_entries.is_empty() {
+        (
+            "declare const $emit: { [name: string]: (payload?: unknown) => void };".to_string(),
+            "declare const $event: { [name: string]: { payload: unknown } };".to_string(),
+        )
+    } else {
+        let emit_lines: Vec<String> = event_entries
+            .iter()
+            .map(|(n, p)| {
+                let p_ts = p.unwrap_or("unknown");
+                format!("  {}: (payload: {}) => void;", n, p_ts)
+            })
+            .collect();
+        let event_lines: Vec<String> = event_entries
+            .iter()
+            .map(|(n, p)| {
+                let p_ts = p.unwrap_or("unknown");
+                format!("  {}: {{ payload: {} }};", n, p_ts)
+            })
+            .collect();
+        (
+            format!("declare const $emit: {{\n{}\n}};", emit_lines.join("\n")),
+            format!("declare const $event: {{\n{}\n}};", event_lines.join("\n")),
+        )
+    };
+    let preamble = format!(
+        "\
+declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void];
+declare const computed: <T>(fn: () => T) => () => T;
+declare const onMount: (fn: () => void | (() => void)) => void;
+declare const onCleanup: (fn: () => void) => void;
+declare const onAdopt: (fn: () => void) => void;
+declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;
+{}
+{}
+",
+        emit_decl, event_decl
+    );
+    let body_exprs: Vec<String> = exprs
+        .iter()
+        .map(|e| {
+            // Wrap each expression in `void (...)` so its result type isn't
+            // checked beyond syntactic validity. tsc will still flag undefined
+            // identifiers and most type errors.
+            format!("  void ({});", e)
+        })
+        .collect();
+    let body = body_exprs.join("\n");
+    // B3b — DO NOT embed the user @state script verbatim. The script body
+    // contains aihu macros (`$prop`, `$computed`, `$event` etc.) which
+    // surface as labeled-statement-shaped lines and are NOT valid TypeScript
+    // — they would emit noisy `TS1128 Declaration or statement expected`
+    // errors that mask real template type errors. The framework globals are
+    // already permissively re-declared in the preamble; that's enough for
+    // tsc to type-check the template expressions in `__aihu_template`.
+    let _ = script;
+    let out = format!(
+        "{}{}\nfunction __aihu_template(): void {{\n{}\n}}\n",
+        header, preamble, body
+    );
+    Some(out)
+}
+
+/// Walk the template AST and collect every JS expression appearing in a
+/// curly-binding, $on handler, $bind expr, {#if cond}, {#each list as item},
+/// {@html expr}, or text interpolation.
+fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<String>) {
+    for node in nodes {
+        match node {
+            TemplateNode::Element { attrs, children, .. } => {
+                for a in attrs {
+                    match a {
+                        Attr::Binding { expr, .. } => out.push(expr.clone()),
+                        Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
+                        _ => {}
+                    }
+                }
+                collect_template_exprs(children, out);
+            }
+            TemplateNode::MacroElement { attrs, children, .. } => {
+                for a in attrs {
+                    match a {
+                        Attr::Binding { expr, .. } => out.push(expr.clone()),
+                        Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
+                        _ => {}
+                    }
+                }
+                collect_template_exprs(children, out);
+            }
+            TemplateNode::Interpolation(s) => out.push(s.clone()),
+            TemplateNode::IfBlock { branches } => {
+                for (cond, body) in branches {
+                    if !cond.is_empty() {
+                        out.push(cond.clone());
+                    }
+                    collect_template_exprs(body, out);
+                }
+            }
+            TemplateNode::EachBlock {
+                list_expr,
+                key_expr,
+                body,
+                empty_body,
+                ..
+            } => {
+                out.push(list_expr.clone());
+                if let Some(k) = key_expr {
+                    out.push(k.clone());
+                }
+                collect_template_exprs(body, out);
+                if let Some(eb) = empty_body {
+                    collect_template_exprs(eb, out);
+                }
+            }
+            TemplateNode::HtmlBlock { expr } => out.push(expr.clone()),
+            TemplateNode::Text(_) => {}
+        }
+    }
 }
 
 // ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
@@ -164,6 +360,11 @@ struct NeededHelpers {
     /// True when $html or $show are used on child elements — they need `onMount`
     /// to access `node.el` after the arbor runtime mounts the descriptor.
     needs_on_mount_for_directives: bool,
+    /// B3 — true when `class={[...]}` array form appears. Emits `__aihu_cls`.
+    needs_class_helper: bool,
+    /// B3 / R4 — true when `$bind.value={signal}` (non-checked) is used and a
+    /// typed-conversion helper is needed at the write-back site.
+    needs_bind_conv_helper: bool,
     // ── arch-5 M1 a11y (RFC-A5-017..021) ─────────────────────────────────────
     /// True when `<$focusTrap>` appears in the template — needs `createFocusTrap` from runtime.
     a11y_focus_trap: bool,
@@ -236,6 +437,10 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                                 h.needs_effect = true;
                                 h.needs_on_mount_for_directives = true;
                             }
+                            // B3 — $ref also uses onMount to capture node.el.
+                            "ref" => {
+                                h.needs_on_mount_for_directives = true;
+                            }
                             // $class:NAME also uses onMount+effect in its IIFE.
                             n if n.starts_with("class:") => {
                                 h.needs_effect = true;
@@ -244,8 +449,41 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                             _ => {}
                         }
                     }
+                    // B3 — `class={[...]}` array form needs the __aihu_cls helper.
+                    if let Attr::Binding { name, expr } = attr {
+                        if name == "class" && expr.trim_start().starts_with('[') {
+                            h.needs_class_helper = true;
+                        }
+                    }
+                    // B3 / R4 — any `$bind.<non-checked>` needs the conv helper.
+                    if let Attr::Macro { name, .. } = attr {
+                        if let Some(prop) = name.strip_prefix("bind:") {
+                            if prop != "checked" {
+                                h.needs_bind_conv_helper = true;
+                            }
+                        }
+                    }
                 }
                 collect_helpers_recursive(children, h);
+            }
+            // B3 — Variant B block-tag forms reuse the same boundary helpers
+            // as their attribute-directive counterparts (same runtime contract).
+            TemplateNode::IfBlock { branches } => {
+                h.if_boundary = true;
+                for (_, body) in branches {
+                    collect_helpers_recursive(body, h);
+                }
+            }
+            TemplateNode::EachBlock { body, empty_body, .. } => {
+                h.each_boundary = true;
+                collect_helpers_recursive(body, h);
+                if let Some(eb) = empty_body {
+                    collect_helpers_recursive(eb, h);
+                }
+            }
+            TemplateNode::HtmlBlock { .. } => {
+                h.needs_effect = true;
+                h.needs_on_mount_for_directives = true;
             }
             _ => {}
         }
@@ -313,6 +551,20 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         // `<$navigate>` — programmatic redirect on mount.
         lines.push("const createNavigateBoundary = (to, replace) => {\n  onMount(() => { void __aihuRouter.navigate(to, { replace: !!replace }); });\n  return branch('span', { hidden: '', 'aria-hidden': 'true', 'data-aihu-navigate': to }, []);\n};");
     }
+    if h.needs_class_helper {
+        // B3 — `class={[a, b && 'c']}` array-form helper. Joins truthy strings
+        // with spaces; null/undefined/false/0 filtered out (clsx-shaped).
+        lines.push("const __aihu_cls = (a) => Array.isArray(a) ? a.filter(v => typeof v === 'string' && v).join(' ') : (a == null ? '' : String(a));");
+    }
+    if h.needs_bind_conv_helper {
+        // B3 / R4 — typed-conversion at $bind.value write-back site. Inspects
+        // the current signal value's type and converts the input string to
+        // match. Mirror of R1's `_convert` direction at the write side.
+        // Numbers parse via Number(); booleans via String === 'true' (rare for
+        // input fields but correct for `<input value="…"> + signal(true)`);
+        // strings pass through; unknown types return the raw string.
+        lines.push("const __aihu_conv = (cur, raw) => { if (typeof cur === 'number') { const n = Number(raw); return Number.isFinite(n) ? n : cur; } if (typeof cur === 'boolean') return raw === 'true'; return raw; };");
+    }
     if lines.is_empty() {
         String::new()
     } else {
@@ -357,7 +609,13 @@ fn process_state_body(
                     }
                 }
                 CollectionKind::Prop => {
+                    // R1 — register prop names as computed-style signals so
+                    // template binding sites (`{name}`) lower through the
+                    // reactive `signal_map.is_reactive` path. The body-side
+                    // declaration `const <name> = ctx.props.<name>` is emitted
+                    // as a callable signal-getter by `emit_state_macro_code`.
                     for e in entries {
+                        signal_map.insert_computed(&e.name);
                         state_names.insert(&e.name);
                     }
                 }
@@ -382,9 +640,17 @@ fn process_state_body(
                         match e.name.as_str() {
                             "mount" => si.needs_on_mount = true,
                             "dispose" => si.needs_on_cleanup = true,
+                            // R2: adopt + attributeChange callbacks.
+                            "adopt" => si.needs_on_adopt = true,
+                            "attributeChange" => si.needs_on_attribute_change = true,
                             _ => {}
                         }
                     }
+                }
+                CollectionKind::Event => {
+                    // B3b — $event declarations are compile-time-only.
+                    // They surface to the sidecar typer + $emit resolution; no
+                    // runtime signal/binding side-effects.
                 }
             },
             StateMacro::EffectAnon { .. }
@@ -736,47 +1002,27 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                 for entry in entries {
                     match kind {
                         CollectionKind::Prop => {
-                            // Type comes from `type:` key (string-literal form
-                            // or bare identifier); fall back to `any` if absent.
-                            let type_name = meta_get(entry, "type")
-                                .map(|s| {
-                                    let s = s.trim();
-                                    // Strip a single surrounding quote pair only when the
-                                    // inner value contains no further quotes — prevents
-                                    // mangling union literals like `'all' | 'active'`
-                                    // into `all' | 'active'` (trim_matches is too greedy).
-                                    let maybe_inner = s
-                                        .strip_prefix('"').and_then(|i| i.strip_suffix('"'))
-                                        .or_else(|| s.strip_prefix('\'').and_then(|i| i.strip_suffix('\'')));
-                                    if let Some(inner) = maybe_inner {
-                                        if !inner.contains('"') && !inner.contains('\'') {
-                                            return inner.to_string();
-                                        }
-                                    }
-                                    s.to_string()
-                                })
-                                .unwrap_or_else(|| "any".to_string());
+                            // R1 (template-syntax-v2 round 5, Builder B1): $prop
+                            // entries lower to a callable signal getter exposed via
+                            // `ctx.props.<name>`. The runtime allocates the signal,
+                            // wires `observedAttributes` + `attributeChangedCallback`,
+                            // and (when `reflect: true`) writes the signal value back
+                            // to the attribute. See packages/runtime/src/define-component.ts.
+                            //
+                            // The body-side declaration `const <name> = ctx.props.<name>`
+                            // makes `<name>` a function that returns the current value.
+                            // Template binding sites (e.g. `{name}`) lower through the
+                            // `signal_map` reactive path because we register the prop
+                            // name as a "computed" entry in `process_state_body`.
+                            //
+                            // Userland body code that needs the value calls `name()`
+                            // (consistent with `$computed` access semantics — see
+                            // Director r5 §2.b). This is a behavior change from the
+                            // pre-R1 read-once-at-mount const; surfaced in build_manifest.
                             let name = &entry.name;
-                            // Primitive types read the attribute directly. Non-primitive
-                            // types (objects, arrays) JSON-parse with a `{}` fallback.
-                            // The legacy unconditional JSON.parse path mis-handled
-                            // string-typed props (e.g., from a `:id` route param) by
-                            // returning `{}` on parse failure of a non-JSON string.
-                            let trimmed_type = type_name.trim();
-                            match trimmed_type {
-                                "string" => lines.push(format!(
-                                    "{indent}const {name}: string = (ctx.element as HTMLElement).getAttribute('{name}') ?? ''"
-                                )),
-                                "number" => lines.push(format!(
-                                    "{indent}const {name}: number = Number((ctx.element as HTMLElement).getAttribute('{name}') ?? 0)"
-                                )),
-                                "boolean" => lines.push(format!(
-                                    "{indent}const {name}: boolean = (ctx.element as HTMLElement).getAttribute('{name}') !== null && (ctx.element as HTMLElement).getAttribute('{name}') !== 'false'"
-                                )),
-                                _ => lines.push(format!(
-                                    "{indent}const {name}: {type_name} = (() => {{ try {{ return JSON.parse((ctx.element as HTMLElement).getAttribute('{name}') ?? '{{}}') as {type_name} }} catch {{ return {{}} as {type_name} }} }})()"
-                                )),
-                            }
+                            lines.push(format!(
+                                "{indent}const {name} = ctx.props.{name}"
+                            ));
                         }
                         CollectionKind::Computed => {
                             let thunk = match running_code(entry) {
@@ -839,6 +1085,13 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             }
                         }
                         CollectionKind::Lifecycle => {
+                            // R2 (Director r6 §3): four-callback extension.
+                            // mount → onMount, dispose → onCleanup,
+                            // adopt → onAdopt, attributeChange → onAttributeChange.
+                            // The two new callbacks are forwarded to the host
+                            // element's adoptedCallback / attributeChangedCallback
+                            // by the runtime; userland's attributeChange runs
+                            // AFTER R1's $prop signal-update (Director r6 §3.R2).
                             let arrow = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
@@ -850,8 +1103,27 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                     .push(format!("{indent}onMount(() => {{ {body} }});")),
                                 "dispose" => lines
                                     .push(format!("{indent}onCleanup(() => {{ {body} }});")),
+                                "adopt" => lines
+                                    .push(format!("{indent}onAdopt(() => {{ {body} }});")),
+                                "attributeChange" => {
+                                    // Preserve the user-supplied param list so
+                                    // names match what the user authored.
+                                    let args = crate::parser::state_macros::arrow_args(arrow)
+                                        .unwrap_or_else(|| {
+                                            "_name, _oldValue, _newValue, _ctx".to_string()
+                                        });
+                                    lines.push(format!(
+                                        "{indent}onAttributeChange(({args}) => {{ {body} }});"
+                                    ));
+                                }
                                 _ => {}
                             }
+                        }
+                        CollectionKind::Event => {
+                            // B3b — $event entries don't emit runtime code.
+                            // Event names are surfaced for sidecar typing
+                            // and validated against $emit.<name> call sites
+                            // separately (see collect_event_names + emit_node).
                         }
                     }
                 }
@@ -912,17 +1184,94 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
     }
 }
 
+// ─── R1 — $prop options-form lowering helpers ───────────────────────────────
+
+/// Collect the entries of all `$prop` collections across the SFC's @state
+/// macros. R1 (template-syntax-v2 round 5, Builder B1): when this is
+/// non-empty, the function-form switches to the options-form
+/// `defineComponent({ props: { … }, setup: (ctx) => { … } })` shape so the
+/// runtime can synthesize observedAttributes + attributeChangedCallback.
+fn collect_prop_entries(macros: &[crate::types::StateMacro]) -> Vec<&crate::types::CollectionEntry> {
+    let mut out = Vec::new();
+    for m in macros {
+        if let crate::types::StateMacro::Collection {
+            kind: crate::types::CollectionKind::Prop,
+            entries,
+        } = m
+        {
+            for e in entries {
+                out.push(e);
+            }
+        }
+    }
+    out
+}
+
+/// Emit the `props: { name: { value, attribute, reflect, converter }, ... }`
+/// object literal passed to `defineComponent({ props, setup })`. Per-prop
+/// keys are pulled verbatim from the metadata-bag (`default:` is renamed to
+/// `value:` so the runtime side reads the same key universally).
+///
+/// Indent is applied to each top-level prop entry; the surrounding `props: {`
+/// + `}` are emitted by the caller.
+fn emit_props_config(prop_entries: &[&crate::types::CollectionEntry], indent: &str) -> String {
+    use crate::parser::state_macros::meta_get;
+    let mut lines: Vec<String> = Vec::new();
+    for entry in prop_entries {
+        let name = &entry.name;
+        // Build the inner `{ value: ..., attribute: ..., reflect: ..., converter: ... }`
+        // bag. Order matters only for snapshot stability; this canonical order
+        // mirrors the spec sketch in §3.6 of the platform audit.
+        let mut bag: Vec<String> = Vec::new();
+        // value: comes from `default:` (existing key) per spec §3.6 + the
+        // existing $prop entries in the wild (see examples/weather-card.aihu).
+        if let Some(default_raw) = meta_get(entry, "default") {
+            bag.push(format!("value: {}", default_raw.trim()));
+        }
+        if let Some(attr_raw) = meta_get(entry, "attribute") {
+            bag.push(format!("attribute: {}", attr_raw.trim()));
+        }
+        if let Some(reflect_raw) = meta_get(entry, "reflect") {
+            bag.push(format!("reflect: {}", reflect_raw.trim()));
+        }
+        if let Some(conv_raw) = meta_get(entry, "converter") {
+            bag.push(format!("converter: {}", conv_raw.trim()));
+        }
+        let bag_str = if bag.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{ {} }}", bag.join(", "))
+        };
+        lines.push(format!("{indent}{name}: {bag_str}"));
+    }
+    lines.join(",\n")
+}
+
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     let raw_script = unit.source.script.unwrap_or("");
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
-    let helpers_needed = collect_needed_helpers(template_nodes);
 
     // Process state macros first (updates signal_map with computed names)
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
     let (si, macros, plain_body, user_imports, state_names) =
         process_state_body(raw_script, &mut signal_map);
+
+    // B3b — rewrite `$emit.<name>(payload)` → `dispatchEvent(new CustomEvent(...))`
+    // before any downstream emit walks the template AST. Operates on a
+    // working clone of the AST so the immutable `unit` reference is preserved.
+    let event_names = collect_event_names(&macros);
+    let template_owned: Vec<TemplateNode> = unit
+        .template_ast
+        .as_deref()
+        .map(|n| {
+            let mut cloned: Vec<TemplateNode> = n.to_vec();
+            apply_emit_lowering_nodes(&mut cloned, &event_names);
+            cloned
+        })
+        .unwrap_or_default();
+    let template_nodes: &[TemplateNode] = &template_owned;
+    let helpers_needed = collect_needed_helpers(template_nodes);
 
     // arch-5 M1: scan action bodies for $announce(...) so we can request
     // the runtime import alias and rewrite call sites in emit_state_macro_code.
@@ -957,14 +1306,13 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         (String::new(), String::new())
     };
 
-    // Need ctx access for $prop (JSON attribute parsing) — use "ctx" if macros use it
-    let uses_ctx = macros.iter().any(|m| matches!(
-        m,
-        crate::types::StateMacro::Collection {
-            kind: crate::types::CollectionKind::Prop,
-            ..
-        }
-    ));
+    // R1 — when `$prop` entries exist, switch to the options-form
+    // `defineComponent({ props, setup })` so the runtime can synthesize
+    // observedAttributes + attributeChangedCallback. Otherwise stay in the
+    // bare-arrow function form (smaller emit; no behavioral diff).
+    let prop_entries = collect_prop_entries(&macros);
+    let uses_props = !prop_entries.is_empty();
+    let uses_ctx = uses_props;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
     let macro_code = emit_state_macro_code(&macros, &signal_map);
@@ -1004,11 +1352,26 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // SyntaxError), so we union named-import sets per source.
     let merged_imports = merge_imports(&imports, &user_imports);
 
-    format!(
-        "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))
-",
-        merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
-    )
+    if uses_props {
+        // R1 options-form. Emit `props: { ... }` config, then the setup arrow.
+        let props_block = emit_props_config(&prop_entries, "    ");
+        format!(
+            "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n  props: {{\n{}\n  }},\n  setup: ({}) => {{\n{}  }},\n}}))\n",
+            merged_imports,
+            module_decl,
+            helpers_decl,
+            "",
+            tag_name,
+            props_block,
+            ctx_param,
+            body
+        )
+    } else {
+        format!(
+            "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))\n",
+            merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
+        )
+    }
 }
 
 /// Parsed shape of a single ES-module import statement, used by `merge_imports`
@@ -1200,6 +1563,9 @@ fn build_function_imports(
     let needs_on_cleanup_for_router = helpers.router_element || helpers.outlet_element;
     if si.needs_on_mount || needs_on_mount_for_router || helpers.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup || needs_on_cleanup_for_router { rt_items.push("onCleanup".to_string()); }
+    // R2 (Director r6 §3): $lifecycle four-callback extension imports.
+    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
+    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {
@@ -1263,7 +1629,21 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
 
     let raw_script = unit.source.script.unwrap_or("");
     let script_body = extract_script_body(raw_script);
-    let template_nodes = unit.template_ast.as_deref().unwrap_or(&[]);
+
+    // B3b — pre-emit `$emit.<name>(...)` lowering pass against the @state
+    // $event collection (if any). Mirror function-form path.
+    let pre_macros = crate::parser::state_macros::parse_state_macros(raw_script).unwrap_or_default();
+    let event_names = collect_event_names(&pre_macros);
+    let template_owned: Vec<TemplateNode> = unit
+        .template_ast
+        .as_deref()
+        .map(|n| {
+            let mut cloned: Vec<TemplateNode> = n.to_vec();
+            apply_emit_lowering_nodes(&mut cloned, &event_names);
+            cloned
+        })
+        .unwrap_or_default();
+    let template_nodes: &[TemplateNode] = &template_owned;
     let helpers_needed = collect_needed_helpers(template_nodes);
     let script_uses_effect = raw_script.contains("effect(");
     let emit_effect = helpers_needed.needs_effect || script_uses_effect;
@@ -1306,6 +1686,9 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         vec!["defineComponent".to_string(), "defineElement".to_string()];
     if si.needs_on_mount || helpers_needed.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
     if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
+    // R2 (Director r6 §3): $lifecycle four-callback extension imports.
+    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
+    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..020 in options form (`@agent` SFCs).
     if helpers_needed.a11y_focus_trap {
         rt_items.push("createFocusTrap".to_string());
@@ -1771,7 +2154,253 @@ fn emit_node(
         TemplateNode::MacroElement { name, attrs, children } => {
             emit_macro_element(name, attrs, children, signal_map, state_names, child_indent)
         }
+        // B3 — Variant B block-tag forms. Lower to the same runtime calls as
+        // the v1 attribute-directives (`createIfBoundary` / `each`) so the
+        // reactivity contract is preserved.
+        TemplateNode::IfBlock { branches } => {
+            emit_if_block(branches, signal_map, state_names, child_indent)
+        }
+        TemplateNode::EachBlock {
+            list_expr,
+            item_alias,
+            idx_alias,
+            key_expr,
+            body,
+            empty_body,
+        } => emit_each_block(
+            list_expr,
+            item_alias,
+            idx_alias.as_deref(),
+            key_expr.as_deref(),
+            body,
+            empty_body.as_deref(),
+            signal_map,
+            state_names,
+            child_indent,
+        ),
+        TemplateNode::HtmlBlock { expr } => emit_html_block(expr, child_indent),
     }
+}
+
+/// B3 — Lower an `{#if}/{:else if}/{:else}/{/if}` block to nested
+/// `createIfBoundary` calls. Each branch becomes a fragment-list of children
+/// wrapped in `branch('', undefined, [...])` so the runtime reconciles across
+/// fragment boundaries the same way it does for attribute-form `$if`.
+fn emit_if_block(
+    branches: &[(String, Vec<TemplateNode>)],
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
+    fn emit_body(
+        body: &[TemplateNode],
+        signal_map: &SignalMap,
+        state_names: &StateNames,
+        child_indent: &str,
+    ) -> String {
+        let next_indent = format!("{}  ", child_indent);
+        let parts: Vec<String> = body
+            .iter()
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.is_empty() {
+            "branch('', undefined, [])".to_string()
+        } else if parts.len() == 1 {
+            // Wrap a single child in a fragment-style branch so the runtime
+            // sees a uniform shape across branches.
+            format!("branch('', undefined, [{}])", parts[0])
+        } else {
+            format!("branch('', undefined, [{}])", parts.join(", "))
+        }
+    }
+
+    // Compose else-if chain by negating prior conditions. The runtime's
+    // `when(cond, grow)` (via createIfBoundary) takes a single cond+grow pair —
+    // no built-in else slot — so for `{:else if}` we synthesize a sibling
+    // when() with the negated previous condition AND the new condition. The
+    // {:else} (empty cond) becomes a when() with the negation of all prior
+    // conditions.
+    //
+    // To preserve reactivity, the negation reads each cond expression directly
+    // (cond is wrapped with [() => (expr)] same as the original).
+    fn negate_chain_thunk(branches_so_far: &[String]) -> String {
+        // Build `[() => !(c0) && !(c1) && ... && (cN)]` for chained else-if;
+        // for plain else: `[() => !(c0) && !(c1) && ...]`.
+        let parts: Vec<String> = branches_so_far
+            .iter()
+            .map(|c| format!("!({})", c))
+            .collect();
+        format!("[() => ({})]", parts.join(" && "))
+    }
+
+    fn build_chain(
+        idx: usize,
+        branches: &[(String, Vec<TemplateNode>)],
+        prior_conds: &mut Vec<String>,
+        signal_map: &SignalMap,
+        state_names: &StateNames,
+        child_indent: &str,
+    ) -> Vec<String> {
+        // Returns a list of when() calls (siblings) for the branches starting
+        // at idx. The caller wraps these into a fragment-branch.
+        let mut out: Vec<String> = Vec::new();
+        if idx >= branches.len() {
+            return out;
+        }
+        let (cond, body) = &branches[idx];
+        let body_str = emit_body(body, signal_map, state_names, child_indent);
+
+        let cond_arg = if cond.is_empty() {
+            // {:else} — fire when all prior conds are false
+            negate_chain_thunk(prior_conds)
+        } else if prior_conds.is_empty() {
+            lower_if_cond(cond, signal_map)
+        } else {
+            // {:else if}: !prior0 && !prior1 && ... && cond
+            let mut parts: Vec<String> = prior_conds
+                .iter()
+                .map(|c| format!("!({})", c))
+                .collect();
+            parts.push(format!("({})", cond));
+            format!("[() => ({})]", parts.join(" && "))
+        };
+
+        out.push(format!(
+            "createIfBoundary({}, () => {{ return {} }})",
+            cond_arg, body_str
+        ));
+
+        if !cond.is_empty() {
+            prior_conds.push(cond.clone());
+            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent);
+            out.extend(rest);
+            prior_conds.pop();
+        }
+        out
+    }
+
+    let mut prior: Vec<String> = Vec::new();
+    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent);
+    if when_calls.len() == 1 {
+        when_calls.into_iter().next().unwrap()
+    } else {
+        format!("branch('', undefined, [{}])", when_calls.join(", "))
+    }
+}
+
+/// Lower a `{#if}` condition the same way the attribute-form `$if` does:
+/// simple identifier of a registered signal → `[get, set]` tuple; otherwise a
+/// thunk array.
+fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
+    let trimmed = cond.trim();
+    let is_simple_ident = !trimmed.is_empty()
+        && trimmed
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+    if is_simple_ident && signal_map.is_reactive(trimmed) {
+        if let Some(setter) = signal_map.0.get(trimmed) {
+            if !setter.is_empty() {
+                return format!("[{}, {}]", trimmed, setter);
+            } else {
+                return format!("[{}]", trimmed);
+            }
+        }
+    }
+    format!("[() => ({})]", trimmed)
+}
+
+/// B3 — Lower an `{#each}` block to the existing `each(...)` runtime call.
+fn emit_each_block(
+    list_expr: &str,
+    item_alias: &str,
+    idx_alias: Option<&str>,
+    key_expr: Option<&str>,
+    body: &[TemplateNode],
+    empty_body: Option<&[TemplateNode]>,
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+) -> String {
+    let next_indent = format!("{}  ", child_indent);
+    let body_parts: Vec<String> = body
+        .iter()
+        .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let body_str = if body_parts.len() == 1 {
+        body_parts.into_iter().next().unwrap()
+    } else {
+        format!("branch('', undefined, [{}])", body_parts.join(", "))
+    };
+
+    let idx = idx_alias.unwrap_or("i");
+    let key_part = match key_expr {
+        Some(k) => format!("({}) => {}", item_alias, k),
+        None => "undefined".to_string(),
+    };
+
+    let items_arg = if signal_map.is_reactive(list_expr) {
+        if let Some(setter) = signal_map.0.get(list_expr) {
+            if !setter.is_empty() {
+                format!("[{}, {}]", list_expr, setter)
+            } else {
+                format!("[{}]", list_expr)
+            }
+        } else {
+            format!("[() => ({})]", list_expr)
+        }
+    } else {
+        // Complex expression — wrap in thunk array to take Path 2.
+        format!("[() => ({})]", list_expr)
+    };
+
+    let each_call = if signal_map.is_reactive(list_expr) {
+        format!(
+            "each({}, {}, ({}, {}) => {{ return {} }})",
+            items_arg, key_part, item_alias, idx, body_str
+        )
+    } else {
+        format!(
+            "createEachBoundary({}, {}, ({}, {}) => {{ return {} }})",
+            items_arg, key_part, item_alias, idx, body_str
+        )
+    };
+
+    // {:empty} fallback: emit two sibling when() boundaries — one for the
+    // populated case (length > 0) and one for the empty case (length === 0).
+    if let Some(eb) = empty_body {
+        let empty_parts: Vec<String> = eb
+            .iter()
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .filter(|s| !s.is_empty())
+            .collect();
+        let empty_str = if empty_parts.len() == 1 {
+            empty_parts.into_iter().next().unwrap()
+        } else {
+            format!("branch('', undefined, [{}])", empty_parts.join(", "))
+        };
+        // Reactive length read uses thunk array.
+        let populated_cond = format!("[() => (({}) && ({}).length > 0)]", list_expr, list_expr);
+        let empty_cond = format!("[() => !(({}) && ({}).length > 0)]", list_expr, list_expr);
+        return format!(
+            "branch('', undefined, [createIfBoundary({}, () => {{ return {} }}), createIfBoundary({}, () => {{ return {} }})])",
+            populated_cond, each_call, empty_cond, empty_str
+        );
+    }
+
+    each_call
+}
+
+/// B3 — Lower a `{@html expr}` block to the same IIFE pattern as `$html`.
+fn emit_html_block(expr: &str, indent: &str) -> String {
+    // Mirror the `$html` attribute-form lowering: build a fragment branch with
+    // a placeholder element whose content gets replaced reactively.
+    format!(
+        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})(){}",
+        expr,
+        if indent.is_empty() { "" } else { "" }
+    )
 }
 
 // ─── v0.5 Macro element boundary emitters ────────────────────────────────────
@@ -2170,8 +2799,20 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                 // wrapping them in a thunk array would put a function value
                 // inside an array and trigger Path 2 instead, breaking events.
                 let is_event = is_event_attr_name(name);
+                // B3 — `class={[a, b && 'c']}` array form. When the binding is
+                // `class` and the expression syntactically starts with `[`, wrap
+                // the expression in `__aihu_cls([…])` so the runtime joins truthy
+                // entries with spaces. Detection is conservative — only direct
+                // bracket-literal at top level. Other class expressions
+                // (`class={cond ? 'a' : 'b'}`) pass through unchanged.
                 let lowered = if is_event {
                     expr.to_string()
+                } else if name == "class" && expr.trim_start().starts_with('[') {
+                    let inner = expr.trim();
+                    // Wrap the array in a class-joining helper. The wrapped form
+                    // becomes `[() => __aihu_cls([…])]` — a thunk-array reactive
+                    // binding that still tracks signal updates via mountEffect.
+                    format!("[() => __aihu_cls({})]", inner)
                 } else {
                     lower_attr_expr(expr, state_names, signal_map)
                 };
@@ -2201,10 +2842,81 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
         })
         .collect();
 
-    if passthrough.is_empty() {
+    // R4 (Director r6 §3.R4): two-way `$bind:value` / `$bind:checked` write-side.
+    // When a `$bind:` macro references a registered signal (i.e. has a setter
+    // in `signal_map`), additionally emit an event listener that writes back
+    // to the signal on user input. `oninput` for `value` (textboxes, ranges);
+    // `onchange` for `checked` (checkboxes / radios). The userland-authored
+    // `on:` handler (if any) is preserved verbatim above; the bind write-back
+    // is composed alongside it.
+    let mut bind_writebacks: Vec<String> = Vec::new();
+    for a in attrs {
+        if let Attr::Macro { name, value } = a {
+            if let Some(prop) = name.strip_prefix("bind:") {
+                let expr = macro_value_expr(value);
+                let trimmed = expr.trim();
+                let is_simple_ident = !trimmed.is_empty()
+                    && trimmed
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                if is_simple_ident {
+                    if let Some(setter) = signal_map.0.get(trimmed) {
+                        if !setter.is_empty() {
+                            // Pick the event by bound prop. WHATWG: `value` mutates on
+                            // `input`; `checked` mutates on `change`. Other props use
+                            // `change` as a sane default (safe since custom elements
+                            // dispatching custom events override this anyway).
+                            let evt = match prop {
+                                "checked" => "change",
+                                _ => "input",
+                            };
+                            // B3 / R4 typed-conv (Director r7 §2 Surface 1):
+                            // Mirror R1's `_convert` direction at the write site.
+                            // The input event always gives back a string; if the
+                            // bound signal currently holds a number/boolean, coerce.
+                            // Compiler emits a small inline conversion helper:
+                            //   __aihu_conv(currentValue, inputString)
+                            // which inspects `typeof currentValue` and parses the
+                            // input string accordingly. Falls back to identity for
+                            // strings and unknown types.
+                            //
+                            // For `checked` (boolean by platform contract) we read
+                            // e.target.checked directly — no conversion needed.
+                            let read_expr = if prop == "checked" {
+                                "e.target.checked".to_string()
+                            } else {
+                                // R4 typed-conv at $bind.value write site:
+                                //   __aihu_conv(getter(), e.target.value)
+                                format!("__aihu_conv({}(), e.target.value)", trimmed)
+                            };
+                            let evt_cap = capitalize_first(evt);
+                            // Avoid clobbering an existing `on{Event}: ...` userland
+                            // attribute in the same attrs object: detect in passthrough
+                            // by scanning the rendered strings.
+                            let on_key = format!("on{}", evt_cap);
+                            let already_has_on = passthrough
+                                .iter()
+                                .any(|s| s.starts_with(&format!("{}:", on_key)));
+                            if !already_has_on {
+                                bind_writebacks.push(format!(
+                                    "{}: (e) => {}({})",
+                                    on_key, setter, read_expr
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut all_attrs = passthrough;
+    all_attrs.extend(bind_writebacks);
+
+    if all_attrs.is_empty() {
         "undefined".to_string()
     } else {
-        format!("{{ {} }}", passthrough.join(", "))
+        format!("{{ {} }}", all_attrs.join(", "))
     }
 }
 
@@ -2358,6 +3070,278 @@ fn macro_value_expr(value: &MacroValue) -> String {
     }
 }
 
+/// B3b — Collect `$event` collection-form entry names from the parsed @state
+/// macros. Used for compile-time `$emit.<name>` resolution (C501) and sidecar
+/// typed-payload generation.
+fn collect_event_names(macros: &[crate::types::StateMacro]) -> std::collections::BTreeSet<String> {
+    use crate::types::{CollectionKind, StateMacro};
+    let mut out = std::collections::BTreeSet::new();
+    for m in macros {
+        if let StateMacro::Collection { kind: CollectionKind::Event, entries } = m {
+            for e in entries {
+                out.insert(e.name.clone());
+            }
+        }
+    }
+    out
+}
+
+/// B3b — Rewrite `$emit.<name>(payload)` → `this.dispatchEvent(new CustomEvent(...))`.
+///
+/// Scans `expr` for `$emit.<ident>` followed by `(args)`. Args may contain
+/// arbitrary JS, so paren-balanced extraction is used (string-aware).
+/// Per Architect spec §5.e: lowers to `dispatchEvent(new CustomEvent(name, {
+///   detail: payload, bubbles: true, composed: false, cancelable: true }))`
+/// on the host element. The host is `this` in the SFC's setup function,
+/// matching the post-customelement constructor context.
+///
+/// `event_names` are the declared `$event:` collection entries; emissions
+/// targeting an undeclared name surface stderr with C501.
+///
+/// Idempotency: if the call has already been rewritten (no `$emit.` markers),
+/// the input is returned unchanged.
+fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>) -> String {
+    let bytes = expr.as_bytes();
+    let mut out = String::with_capacity(expr.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // Skip strings to avoid rewriting `$emit.x` inside a string literal.
+        let c = bytes[i];
+        if c == b'"' || c == b'\'' || c == b'`' {
+            let q = c;
+            out.push(q as char);
+            i += 1;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if b == b'\\' && i + 1 < bytes.len() {
+                    out.push(b as char);
+                    out.push(bytes[i + 1] as char);
+                    i += 2;
+                    continue;
+                }
+                out.push(b as char);
+                i += 1;
+                if b == q {
+                    break;
+                }
+            }
+            continue;
+        }
+        // Skip line + block comments.
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            continue;
+        }
+        if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+            out.push('/');
+            out.push('*');
+            i += 2;
+            while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            if i + 1 < bytes.len() {
+                out.push('*');
+                out.push('/');
+                i += 2;
+            }
+            continue;
+        }
+        // Detect `$emit.<ident>(`.
+        if expr[i..].starts_with("$emit.") {
+            // Identifier scan.
+            let name_start = i + 6;
+            let mut name_end = name_start;
+            while name_end < bytes.len() {
+                let b = bytes[name_end];
+                if b.is_ascii_alphanumeric() || b == b'_' || b == b'$' {
+                    name_end += 1;
+                } else {
+                    break;
+                }
+            }
+            // Skip whitespace.
+            let mut p = name_end;
+            while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') {
+                p += 1;
+            }
+            if p < bytes.len() && bytes[p] == b'(' && name_end > name_start {
+                let name = &expr[name_start..name_end];
+                let close = match find_paren_close_local(expr, p) {
+                    Some(k) => k,
+                    None => {
+                        // Malformed; leave verbatim.
+                        out.push(c as char);
+                        i += 1;
+                        continue;
+                    }
+                };
+                let args = &expr[p + 1..close];
+                let detail_arg = if args.trim().is_empty() {
+                    "undefined".to_string()
+                } else {
+                    args.to_string()
+                };
+                // Compile-time validation: name must be in $event collection.
+                if !event_names.is_empty() && !event_names.contains(name) {
+                    eprintln!(
+                        "C501: $emit.{} not declared — add `{}: {{ payload: <type> }}` to your @state $event collection",
+                        name, name
+                    );
+                }
+                out.push_str(&format!(
+                    "this.dispatchEvent(new CustomEvent('{}', {{ detail: {}, bubbles: true, composed: false, cancelable: true }}))",
+                    name, detail_arg
+                ));
+                i = close + 1;
+                continue;
+            }
+        }
+        out.push(c as char);
+        i += 1;
+    }
+    out
+}
+
+/// B3b — Walk the template AST and apply `lower_emit_calls` to every
+/// expression string (curly bindings, macro values, interpolations,
+/// {#if}/{#each}/{@html} expressions). Mutates in place.
+fn apply_emit_lowering_nodes(
+    nodes: &mut [TemplateNode],
+    event_names: &std::collections::BTreeSet<String>,
+) {
+    for node in nodes.iter_mut() {
+        match node {
+            TemplateNode::Element { attrs, children, .. }
+            | TemplateNode::MacroElement { attrs, children, .. } => {
+                for a in attrs.iter_mut() {
+                    apply_emit_lowering_attr(a, event_names);
+                }
+                apply_emit_lowering_nodes(children, event_names);
+            }
+            TemplateNode::Interpolation(s) => {
+                if s.contains("$emit.") {
+                    *s = lower_emit_calls(s, event_names);
+                }
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (cond, body) in branches.iter_mut() {
+                    if cond.contains("$emit.") {
+                        *cond = lower_emit_calls(cond, event_names);
+                    }
+                    apply_emit_lowering_nodes(body, event_names);
+                }
+            }
+            TemplateNode::EachBlock { list_expr, key_expr, body, empty_body, .. } => {
+                if list_expr.contains("$emit.") {
+                    *list_expr = lower_emit_calls(list_expr, event_names);
+                }
+                if let Some(k) = key_expr {
+                    if k.contains("$emit.") {
+                        *k = lower_emit_calls(k, event_names);
+                    }
+                }
+                apply_emit_lowering_nodes(body, event_names);
+                if let Some(eb) = empty_body {
+                    apply_emit_lowering_nodes(eb, event_names);
+                }
+            }
+            TemplateNode::HtmlBlock { expr } => {
+                if expr.contains("$emit.") {
+                    *expr = lower_emit_calls(expr, event_names);
+                }
+            }
+            TemplateNode::Text(_) => {}
+        }
+    }
+}
+
+fn apply_emit_lowering_attr(
+    a: &mut Attr,
+    event_names: &std::collections::BTreeSet<String>,
+) {
+    match a {
+        Attr::Binding { expr, .. } => {
+            if expr.contains("$emit.") {
+                *expr = lower_emit_calls(expr, event_names);
+            }
+        }
+        Attr::Event { handler, .. } => {
+            if handler.contains("$emit.") {
+                *handler = lower_emit_calls(handler, event_names);
+            }
+        }
+        Attr::Macro { value, .. } => {
+            if let MacroValue::Curly(s) = value {
+                if s.contains("$emit.") {
+                    *s = lower_emit_calls(s, event_names);
+                }
+            }
+        }
+        Attr::Static { .. } => {}
+    }
+}
+
+/// Local copy of paren-close finder (string/comment-aware) for use in
+/// `lower_emit_calls`. Returns the position of the matching `)` for the `(`
+/// at `i`, or `None` on imbalance.
+fn find_paren_close_local(s: &str, i: usize) -> Option<usize> {
+    let bytes = s.as_bytes();
+    if i >= bytes.len() || bytes[i] != b'(' {
+        return None;
+    }
+    let mut depth: i32 = 0;
+    let mut j = i;
+    while j < bytes.len() {
+        let c = bytes[j];
+        if c == b'"' || c == b'\'' || c == b'`' {
+            let q = c;
+            j += 1;
+            while j < bytes.len() {
+                let b = bytes[j];
+                if b == b'\\' && j + 1 < bytes.len() {
+                    j += 2;
+                    continue;
+                }
+                j += 1;
+                if b == q {
+                    break;
+                }
+            }
+            continue;
+        }
+        if c == b'/' && j + 1 < bytes.len() && bytes[j + 1] == b'/' {
+            while j < bytes.len() && bytes[j] != b'\n' {
+                j += 1;
+            }
+            continue;
+        }
+        if c == b'/' && j + 1 < bytes.len() && bytes[j + 1] == b'*' {
+            j += 2;
+            while j + 1 < bytes.len() && !(bytes[j] == b'*' && bytes[j + 1] == b'/') {
+                j += 1;
+            }
+            if j + 1 < bytes.len() {
+                j += 2;
+            }
+            continue;
+        }
+        if c == b'(' {
+            depth += 1;
+        } else if c == b')' {
+            depth -= 1;
+            if depth == 0 {
+                return Some(j);
+            }
+        }
+        j += 1;
+    }
+    None
+}
+
 /// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)
 /// attached to an element identified by `el_var`.
 fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
@@ -2410,11 +3394,14 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             }
             "show" => {
                 let expr = macro_value_expr(value);
-                // branch() returns a descriptor; .el is set after arbor mounts it.
-                // Wrap in an IIFE: capture the node, wire the effect inside onMount,
-                // return the node so the parent children array receives the element.
+                // R3 (Director r6 §3.R3): lower $show to the platform `hidden`
+                // attribute (NOT --show CSS custom property). `hidden` respects
+                // user CSS [hidden] { display: none !important }; Shadow DOM
+                // consumers can override via :host([hidden]) { display: ... }.
+                // toggleAttribute is the WHATWG-canonical primitive: passing
+                // `false` removes the attribute; `true` writes empty-string.
                 effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.style.setProperty('--show', ({}) ? '1' : '0') }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
                     indent, subtree, expr
                 ));
             }
@@ -2481,7 +3468,40 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             "raw" => {
                 // $raw: node is pass-through, no child processing — handled at node level
             }
-            _ => {}
+            "ref" => {
+                // B3 — `$ref={signal}` writes the element node to the signal at mount.
+                // Mirror the IIFE pattern used by $show/$html to capture _n.el.
+                let expr = macro_value_expr(value);
+                let trimmed = expr.trim();
+                // If signal is a registered $prop/signal, get its setter.
+                let setter_call = if let Some(setter) = signal_map.0.get(trimmed) {
+                    if !setter.is_empty() {
+                        format!("{}(_el)", setter)
+                    } else {
+                        // computed/non-writable — best-effort, ignore.
+                        "/* $ref to non-writable signal */".to_string()
+                    }
+                } else {
+                    // Plain identifier reassignment in scope.
+                    format!("{} = _el", trimmed)
+                };
+                effects.push(format!(
+                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); return _n; }})()",
+                    indent, subtree, setter_call
+                ));
+            }
+            // B3 — C500 reserved error code. Unknown $<name> directives are
+            // not silently dropped; eprintln to stderr in the same shape as
+            // other v0-deprecation warnings. The codemod (B3b dispatch)
+            // promotes the runtime warning to a compile error when the
+            // codemod recognizes a v1 form needing migration.
+            other => {
+                eprintln!(
+                    "C500: unknown directive `${}` (template attribute) — ignored. \
+                     If this is a v1 form, run the template-syntax codemod.",
+                    other
+                );
+            }
         }
     }
 

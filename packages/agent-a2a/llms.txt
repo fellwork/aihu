@@ -1,0 +1,91 @@
+# @aihu/agent-a2a
+
+`@aihu/agent-a2a` is the Agent-to-Agent (A2A) protocol adapter for aihu. It bridges an `AgentService` to A2A transport, enabling aihu components to act as A2A-compliant agents that can be discovered and invoked by A2A orchestrators and peer agents.
+
+The package ships as ≤ 750 B gzipped (excluding `@aihu/agent-service`). Use it when your aihu app needs to participate in an A2A multi-agent network.
+
+## Right idioms
+
+### 1. Mount the A2A adapter on an existing `AgentService`
+
+```ts
+import { createAgentService } from '@aihu/agent-service'
+import { mountA2aAdapter } from '@aihu/agent-a2a'
+
+const service = createAgentService({ manifest, invoke })
+const adapter = mountA2aAdapter(service, {
+  agentId: 'todo-app-agent',
+  endpoint: 'https://my-app.example.com/a2a',
+})
+```
+
+### 2. Provide a stable `agentId` that matches your component's identity in the A2A registry
+
+The `agentId` is how peer agents address your component. Use the custom element tag name or a globally unique identifier:
+
+```ts
+mountA2aAdapter(service, {
+  agentId: 'aihu://my-app/todo-app',  // use a namespaced URI for uniqueness
+})
+```
+
+### 3. Handle A2A task lifecycle events for long-running actions
+
+A2A tasks can be polled asynchronously. Implement status callbacks in `A2aAdapterOptions`:
+
+```ts
+mountA2aAdapter(service, {
+  agentId: 'todo-agent',
+  onTaskStart: (taskId) => console.log(`Task started: ${taskId}`),
+  onTaskComplete: (taskId, result) => console.log(`Task done: ${taskId}`, result),
+})
+```
+
+### 4. Dispose the adapter on component disconnect
+
+```ts
+disconnectedCallback() {
+  adapter.dispose()
+  scope.dispose()
+}
+```
+
+### 5. Keep A2A adapters in server-side entry points, not in browser bundles
+
+A2A involves network-level agent discovery and task routing. Mount adapters in your Node/edge server handler alongside your SSR entry point.
+
+## Anti-patterns
+
+### 1. Do not use A2A for same-page component communication — use signals
+
+A2A adds serialization, transport, and task lifecycle overhead. Two components on the same page should communicate via shared signals or context.
+
+### 2. Do not expose the A2A endpoint without authentication
+
+A2A endpoints are discoverable by design. Ensure your `A2aAdapterOptions` includes auth middleware for production deployments.
+
+### 3. Do not share one A2A adapter across multiple component manifests
+
+Each adapter instance is bound to one `AgentService` (one component's manifest). Multiple components need multiple adapters.
+
+### 4. Do not hardcode the `endpoint` URL in source — use environment variables
+
+```ts
+// WRONG
+mountA2aAdapter(service, { endpoint: 'https://staging.example.com/a2a' })
+
+// CORRECT
+mountA2aAdapter(service, { endpoint: import.meta.env.VITE_A2A_ENDPOINT })
+```
+
+### 5. Do not implement A2A task polling manually — delegate to the adapter
+
+The adapter handles task ID generation, status tracking, and response routing per the A2A spec. Duplicating this outside the adapter causes protocol violations.
+
+## Canonical example files
+
+- `packages/agent-a2a/src/index.ts` — public API (mountA2aAdapter, types)
+- `packages/agent-a2a/src/a2a-adapter.ts` — adapter implementation
+- `packages/agent-a2a/src/types.ts` — A2aAdapter, A2aAdapterOptions
+- `packages/agent-service/llms.txt` — AgentService setup (prerequisite)
+- `packages/agent-acp/llms.txt` — ACP adapter (parallel protocol)

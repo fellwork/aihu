@@ -68,10 +68,10 @@
     <div class="row">
       <input
         type="text"
-        $bind:value="location"
+        $bind.value="location"
         placeholder="City name"
       />
-      <button $on:click="fetchForecast">Get forecast</button>
+      <button $on.click="fetchForecast">Get forecast</button>
     </div>
 
     <div class="result" $if={status === 'loading'}>

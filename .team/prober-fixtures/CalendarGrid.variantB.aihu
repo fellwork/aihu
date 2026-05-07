@@ -1,0 +1,61 @@
+@state {
+  import type { CalendarEvent } from '../types.ts'
+
+  $prop: {
+    events: { type: CalendarEvent[] },
+    view: { type: 'week' | 'month' },
+    currentDate: { type: Date },
+  }
+
+  $computed: {
+    weekDays: () => Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(currentDate)
+        d.setDate(d.getDate() - d.getDay() + i)
+        return d
+      }),
+    monthCells: () => (() => {
+        const y = currentDate.getFullYear()
+        const m = currentDate.getMonth()
+        const firstDow = new Date(y, m, 1).getDay()
+        return Array.from({ length: 42 }, (_, i) => new Date(y, m, i - firstDow + 1))
+      })(),
+    dayEvents: (day: Date) => events.filter(e =>
+      new Date(e.start_at).toDateString() === day.toDateString()),
+  }
+
+  $emit: {
+    dayjump: { type: Date, describe: 'User selected a day cell' },
+  }
+}
+
+@template {
+  <div class="calendar-grid">
+    {#if view === 'week'}
+      <div class="week-grid">
+        {#each weekDays as day (day.toISOString())}
+          <div class="day-col">
+            <h4 class="day-header">{day.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}</h4>
+            {#each dayEvents(day) as evt (evt.id)}
+              <div class="event-chip">
+                <span class="event-time">{new Date(evt.start_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="event-title">{evt.title}</span>
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {/if}
+    {#if view === 'month'}
+      <div class="month-grid">
+        {#each monthCells as day (day.toISOString())}
+          <div
+            class={['month-cell', day.getMonth() !== currentDate.getMonth() && 'other-month']}
+            $on:click={() => $emit('dayjump', day)}
+          >
+            <span class="day-number">{day.getDate()}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+}

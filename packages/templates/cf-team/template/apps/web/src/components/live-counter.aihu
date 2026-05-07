@@ -14,9 +14,9 @@
   <section class="counter">
     <h1>Count: {count}</h1>
     <div class="controls">
-      <button $on:click="decrement">-</button>
-      <button $on:click="reset">Reset</button>
-      <button $on:click="increment">+</button>
+      <button $on.click="decrement">-</button>
+      <button $on.click="reset">Reset</button>
+      <button $on.click="increment">+</button>
     </div>
   </section>
 }

@@ -1,0 +1,120 @@
+# @aihu/agent-service
+
+`@aihu/agent-service` provides the browser-side bridge between an aihu component's `@agent` surface and external AI tooling. `createAgentService()` accepts an `AgentManifest` — the registry of exposed state and actions — and returns an `AgentService` object that can route tool calls from MCP clients, A2A peers, or ACP messages into the live component.
+
+The package ships as ≤ 600 B gzipped (excluding `@aihu/agent`). It is the shared foundation consumed by `@aihu/agent-acp` and `@aihu/agent-a2a`.
+
+## Right idioms
+
+### 1. Create an agent service from the component's registered metadata
+
+```ts
+import { createAgentService } from '@aihu/agent-service'
+import { getAgentMetadata } from '@aihu/agent'
+
+const meta = getAgentMetadata('my-counter')
+if (meta) {
+  const service = createAgentService({
+    manifest: meta,
+    invoke: async (actionName, params) => {
+      // Route the call to the live component action
+      return element.callAction(actionName, params)
+    }
+  })
+}
+```
+
+### 2. Use `AgentManifest` as the contract between the compiler and the service layer
+
+The compiler emits metadata conforming to `AgentManifest`. The service layer validates incoming tool calls against the manifest before dispatching:
+
+```ts
+import type { AgentManifest, AgentToolEntry } from '@aihu/agent-service'
+
+const manifest: AgentManifest = {
+  tag: 'todo-app',
+  actions: [
+    { name: 'addTodo', describe: 'Add a new todo', inputSchema: { text: { type: 'string' } } },
+    { name: 'clearCompleted', describe: 'Remove all completed todos', inputSchema: {} },
+  ],
+  state: [
+    { name: 'remaining', expose: { read: true } },
+  ],
+}
+```
+
+### 3. Wire the service to an adapter for protocol-specific transport
+
+```ts
+import { createAgentService } from '@aihu/agent-service'
+import { mountAcpAdapter } from '@aihu/agent-acp'
+
+const service = createAgentService({ manifest, invoke })
+const acp = mountAcpAdapter(service, { port: 3001 })
+// acp listens for ACP messages and routes them through the service
+```
+
+### 4. Implement `invoke` to validate params before forwarding to component actions
+
+```ts
+const service = createAgentService({
+  manifest,
+  invoke: async (actionName, params) => {
+    const action = manifest.actions.find(a => a.name === actionName)
+    if (!action) throw new Error(`Unknown action: ${actionName}`)
+    // params are already validated against action.inputSchema by the service layer
+    return component.actions[actionName](params)
+  }
+})
+```
+
+### 5. Tear down the service when the component disconnects
+
+```ts
+disconnectedCallback() {
+  service.dispose?.()
+  scope.dispose()
+}
+```
+
+## Anti-patterns
+
+### 1. Do not create `AgentService` instances in the render path — create them once on mount
+
+Creating a new service per render cycle causes repeated registration and listener leaks.
+
+### 2. Do not bypass `AgentService.invoke` to call component actions directly from adapters
+
+The `invoke` gate is where authentication, rate-limiting, and schema validation happen. Bypassing it creates a security hole.
+
+### 3. Do not ship `@aihu/agent-service` in code paths that do not use the agent surface
+
+The package adds minimal weight but imports should be lazy or conditional when the agent feature is optional.
+
+### 4. Do not expose `write: true` on state that should be read-only from AI tooling
+
+```ts
+// WRONG — allows AI to write arbitrary values to display state
+expose: { read: true, write: true }  // on a computed / derived value
+
+// CORRECT — computed values should be read-only from the agent surface
+expose: { read: true }
+```
+
+### 5. Do not define `inputSchema` fields without types — AI assistants rely on schema for parameter generation
+
+```ts
+// WRONG — empty schema; AI cannot generate correct params
+{ name: 'updateTitle', inputSchema: {} }
+
+// CORRECT
+{ name: 'updateTitle', inputSchema: { title: { type: 'string', describe: 'New title text' } } }
+```
+
+## Canonical example files
+
+- `packages/agent-service/src/index.ts` — public API (createAgentService, types)
+- `packages/agent-service/src/agent-service.ts` — service implementation
+- `packages/agent-service/src/types.ts` — AgentManifest, AgentToolEntry, AgentService types
+- `packages/agent-acp/src/index.ts` — ACP adapter that consumes AgentService
+- `packages/agent-a2a/src/index.ts` — A2A adapter that consumes AgentService
