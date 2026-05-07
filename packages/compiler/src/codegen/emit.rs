@@ -652,6 +652,10 @@ fn process_state_body(
                     // They surface to the sidecar typer + $emit resolution; no
                     // runtime signal/binding side-effects.
                 }
+                CollectionKind::Aria => {
+                    // B4 — $aria declarations are handled by emit_aria_wiring()
+                    // at SFC-body level. No signal/binding side-effects here.
+                }
             },
             StateMacro::EffectAnon { .. }
             | StateMacro::EffectOn { .. }
@@ -730,6 +734,8 @@ fn process_state_body(
                     | Some("resource")
                     | Some("effect")
                     | Some("lifecycle")
+                    | Some("event")
+                    | Some("aria")
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
@@ -1125,6 +1131,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // and validated against $emit.<name> call sites
                             // separately (see collect_event_names + emit_node).
                         }
+                        CollectionKind::Aria => {
+                            // B4 — $aria wiring is emitted by emit_aria_wiring()
+                            // at the SFC-body level (called from emit_function_form).
+                            // Individual entries are not lowered here.
+                        }
                     }
                 }
             }
@@ -1247,6 +1258,263 @@ fn emit_props_config(prop_entries: &[&crate::types::CollectionEntry], indent: &s
     lines.join(",\n")
 }
 
+// ─── B4 — $aria collection wiring (R5) ───────────────────────────────────────
+//
+// Lazy-attach: only emitted when the SFC declares `$aria`. Zero overhead for
+// SFCs that don't use ARIA. Per spec §3.2: `attachInternals()` is called once,
+// then per-key mountEffect calls wire the reactive ARIA properties.
+
+/// ARIA key → ElementInternals IDL property name. Static string values
+/// are written once at connect; thunks are wrapped in `mountEffect`.
+fn aria_idl_prop(key: &str) -> &'static str {
+    match key {
+        "role" => "role",
+        "label" => "ariaLabel",
+        "pressed" => "ariaPressed",
+        "expanded" => "ariaExpanded",
+        "disabled" => "ariaDisabled",
+        "hidden" => "ariaHidden",
+        "selected" => "ariaSelected",
+        "checked" => "ariaChecked",
+        "invalid" => "ariaInvalid",
+        "required" => "ariaRequired",
+        "level" => "ariaLevel",
+        "live" => "ariaLive",
+        "controls" => "ariaControls",
+        "current" => "ariaCurrent",
+        "keyShortcuts" => "ariaKeyShortcuts",
+        "modal" => "ariaModal",
+        "multiline" => "ariaMultiline",
+        "multiSelectable" => "ariaMultiSelectable",
+        "orientation" => "ariaOrientation",
+        "placeholder" => "ariaPlaceholder",
+        "posInSet" => "ariaPosInSet",
+        "readOnly" => "ariaReadOnly",
+        "roleDescription" => "ariaRoleDescription",
+        "setSize" => "ariaSetSize",
+        "sort" => "ariaSort",
+        "valueMax" => "ariaValueMax",
+        "valueMin" => "ariaValueMin",
+        "valueNow" => "ariaValueNow",
+        "valueText" => "ariaValueText",
+        // Any unrecognized key is passed through with "aria" prefix + capitalize.
+        _ => "",
+    }
+}
+
+/// Returns true when `value_raw` looks like a thunk (arrow function `() => ...`
+/// or `(args) => ...`). Static string literals like `'button'` are not thunks.
+fn is_thunk(value_raw: &str) -> bool {
+    let v = value_raw.trim();
+    // Starts with `(` followed by `)` => ...  OR starts with a direct `=>`
+    // after possibly a param. Common patterns: `() => expr`, `(x) => expr`, `x => expr`.
+    v.contains("=>")
+}
+
+/// Roles that get auto-keyboard-promotion (Enter+Space activation) per spec §3.2.
+const KEYBOARD_ROLES: &[&str] = &["button", "link", "menuitem", "tab"];
+
+/// Roles that require tabindex="0" injection unless already declared.
+const FOCUSABLE_ROLES: &[&str] = &[
+    "button", "link", "menuitem", "tab",
+    "menuitemcheckbox", "menuitemradio", "option", "switch",
+    "checkbox", "radio", "slider", "spinbutton", "textbox",
+];
+
+/// Native HTML tags that already handle keyboard interaction natively — the
+/// auto-keyboard handler is suppressed when the root element is one of these.
+const NATIVE_INTERACTIVE_TAGS: &[&str] = &["button", "a", "input", "select", "textarea"];
+
+/// Emit the $aria wiring code for the SFC setup body.
+/// Returns (setup_code, needs_mount_effect, tabindex_to_inject_on_root).
+/// `needs_mount_effect` indicates whether `mountEffect` must be imported.
+/// `tabindex_to_inject` is `Some("0")` when the compiler should add tabindex
+/// to the root template element.
+fn emit_aria_wiring(
+    macros: &[crate::types::StateMacro],
+    template_nodes: &[TemplateNode],
+) -> (String, bool, bool) {
+    use crate::parser::state_macros::running_code;
+    use crate::types::{CollectionKind, StateMacro};
+
+    // Find the $aria collection. Distinguish "not present" from "present but empty".
+    let has_aria_collection = macros.iter().any(|m| {
+        matches!(m, StateMacro::Collection { kind: CollectionKind::Aria, .. })
+    });
+    if !has_aria_collection {
+        return (String::new(), false, false);
+    }
+
+    let aria_entries: Vec<&crate::types::CollectionEntry> = macros
+        .iter()
+        .flat_map(|m| {
+            if let StateMacro::Collection { kind: CollectionKind::Aria, entries } = m {
+                entries.iter().collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
+
+    // Warn on empty collection (spec §3.2: "Empty $aria: {} is a parse warning").
+    if aria_entries.is_empty() {
+        eprintln!("warning: `$aria: {{}}` is empty — at least one ARIA property should be declared (role, label, etc.)");
+        return (String::new(), false, false);
+    }
+
+    // Extract the role (static string, stripped of quotes).
+    let role_entry = aria_entries.iter().find(|e| e.name == "role");
+    let role_raw = role_entry.map(|e| {
+        let v = if e.is_wrapped {
+            running_code(e).unwrap_or("").to_string()
+        } else {
+            e.value_raw.clone()
+        };
+        // Strip surrounding quotes from static string literals.
+        v.trim()
+            .trim_matches(|c| c == '\'' || c == '"')
+            .to_string()
+    });
+    let role_str = role_raw.as_deref().unwrap_or("");
+
+    // Determine root template element tag and whether tabindex is already declared.
+    let (root_tag, root_has_tabindex, root_has_click) = if let Some(first) = template_nodes.first() {
+        match first {
+            TemplateNode::Element { tag, attrs, .. } => {
+                let has_tabindex = attrs.iter().any(|a| match a {
+                    Attr::Static { name, .. } => name == "tabindex",
+                    Attr::Binding { name, .. } => name == "tabindex",
+                    _ => false,
+                });
+                let has_click = attrs.iter().any(|a| match a {
+                    Attr::Event { name, .. } => name == "click",
+                    Attr::Macro { name, .. } => {
+                        // $on.click={fn} is normalized to Macro { name: "on:click" } by the parser.
+                        name == "on:click" || name.starts_with("on:click")
+                    }
+                    _ => false,
+                });
+                (tag.clone(), has_tabindex, has_click)
+            }
+            _ => (String::new(), false, false),
+        }
+    } else {
+        (String::new(), false, false)
+    };
+
+    // Determine keyboard promotion eligibility per spec §3.2:
+    // - Role must be a keyboard-interactive role (button/link/menuitem/tab).
+    // - Root element must NOT be a native interactive element (browser handles keyboard).
+    // - The template must declare a $on.click handler (otherwise there's nothing to promote).
+    let is_keyboard_role = KEYBOARD_ROLES.contains(&role_str);
+    let is_native_interactive = NATIVE_INTERACTIVE_TAGS.contains(&root_tag.to_lowercase().as_str());
+    let should_promote_keyboard = is_keyboard_role && !is_native_interactive && root_has_click;
+
+    // Determine tabindex injection.
+    let should_inject_tabindex = FOCUSABLE_ROLES.contains(&role_str)
+        && !root_has_tabindex
+        && !root_tag.is_empty();
+
+    let indent = "  ";
+    let mut lines: Vec<String> = Vec::new();
+    let mut needs_effect = false;
+
+    // attachInternals — lazy-attach guard (only emitted when $aria is declared).
+    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+
+    // Emit per-key ARIA wiring.
+    for entry in &aria_entries {
+        let key = entry.name.as_str();
+        // Skip `describedBy` — special case handled below.
+        if key == "describedBy" {
+            let value = if entry.is_wrapped {
+                running_code(entry).unwrap_or("").to_string()
+            } else {
+                entry.value_raw.clone()
+            };
+            if is_thunk(value.trim()) {
+                needs_effect = true;
+                lines.push(format!(
+                    "{indent}effect(() => {{ this._internals.ariaDescribedByElements = [this.getRootNode().getElementById(({value})())]; }});",
+                    indent = indent, value = value.trim()
+                ));
+            } else {
+                // Static id string.
+                let id_str = value.trim().trim_matches(|c| c == '\'' || c == '"');
+                lines.push(format!(
+                    "{indent}this._internals.ariaDescribedByElements = [this.getRootNode().getElementById('{id_str}')];",
+                    indent = indent, id_str = id_str
+                ));
+            }
+            continue;
+        }
+
+        let idl_prop = aria_idl_prop(key);
+        let idl_prop_name = if idl_prop.is_empty() {
+            // Unknown key: capitalize first letter and prefix with "aria".
+            let mut chars = key.chars();
+            match chars.next() {
+                Some(c) => format!("aria{}{}", c.to_uppercase(), chars.as_str()),
+                None => format!("aria{}", key),
+            }
+        } else {
+            idl_prop.to_string()
+        };
+
+        let value = if entry.is_wrapped {
+            running_code(entry).unwrap_or("").to_string()
+        } else {
+            entry.value_raw.clone()
+        };
+        let value_trimmed = value.trim();
+
+        // Determine if this is a boolean-cast ARIA property.
+        let is_bool_cast = matches!(
+            key,
+            "pressed" | "expanded" | "disabled" | "hidden" | "selected"
+            | "checked" | "invalid" | "required" | "modal" | "multiline"
+            | "multiSelectable" | "readOnly"
+        );
+        let is_number_cast = matches!(key, "level" | "posInSet" | "setSize" | "valueMax" | "valueMin" | "valueNow");
+
+        if is_thunk(value_trimmed) {
+            needs_effect = true;
+            if is_bool_cast || is_number_cast {
+                lines.push(format!(
+                    "{indent}effect(() => {{ this._internals.{prop} = String(({value})()); }});",
+                    indent = indent, prop = idl_prop_name, value = value_trimmed
+                ));
+            } else {
+                lines.push(format!(
+                    "{indent}effect(() => {{ this._internals.{prop} = ({value})(); }});",
+                    indent = indent, prop = idl_prop_name, value = value_trimmed
+                ));
+            }
+        } else {
+            // Static value — write once at connect.
+            let static_val = value_trimmed.to_string();
+            lines.push(format!(
+                "{indent}this._internals.{prop} = {val};",
+                indent = indent, prop = idl_prop_name, val = static_val
+            ));
+        }
+    }
+
+    // Auto-keyboard-promotion (only when role is a keyboard role and root is not native interactive).
+    if should_promote_keyboard {
+        lines.push(format!(
+            "{indent}this.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); this.click(); }} }});",
+            indent = indent
+        ));
+    }
+
+    // root_has_click is used in should_promote_keyboard above.
+
+    (lines.join("\n"), needs_effect, should_inject_tabindex)
+}
+
+/// Collect all `$aria` entries from the parsed macros. Returns empty vec when
+/// no `$aria` collection is declared (lazy-attach invariant).
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
 fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
@@ -1261,7 +1529,7 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // before any downstream emit walks the template AST. Operates on a
     // working clone of the AST so the immutable `unit` reference is preserved.
     let event_names = collect_event_names(&macros);
-    let template_owned: Vec<TemplateNode> = unit
+    let mut template_owned: Vec<TemplateNode> = unit
         .template_ast
         .as_deref()
         .map(|n| {
@@ -1270,6 +1538,23 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
             cloned
         })
         .unwrap_or_default();
+
+    // B4 — $aria wiring. Collect entries and determine tabindex injection before
+    // template_nodes is borrowed for emit_nodes.
+    let (aria_wiring, _aria_needs_effect, aria_inject_tabindex) =
+        emit_aria_wiring(&macros, &template_owned);
+
+    // B4 — tabindex injection: if $aria says we need tabindex="0" on the root
+    // element and it's not already declared, inject it into the first element node.
+    if aria_inject_tabindex {
+        if let Some(TemplateNode::Element { attrs, .. }) = template_owned.first_mut() {
+            attrs.push(Attr::Static {
+                name: "tabindex".to_string(),
+                value: "0".to_string(),
+            });
+        }
+    }
+
     let template_nodes: &[TemplateNode] = &template_owned;
     let helpers_needed = collect_needed_helpers(template_nodes);
 
@@ -1291,7 +1576,9 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
 
     let imports = build_function_imports(
         &signal_map,
-        helpers_needed.needs_effect,
+        // B4 — OR in aria's effect requirement so `effect` is imported when
+        // $aria thunks are declared (even if no other effect is needed).
+        helpers_needed.needs_effect || _aria_needs_effect,
         raw_script,
         &si,
         helpers_needed.each_boundary,
@@ -1341,6 +1628,11 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         }
         if !macro_code.is_empty() {
             b.push_str(&macro_code);
+        }
+        // B4 — $aria wiring (lazy: only emitted when $aria is declared).
+        if !aria_wiring.is_empty() {
+            b.push_str(&aria_wiring);
+            b.push('\n');
         }
         b.push_str(&format!("  return {}\n", return_expr));
         b
