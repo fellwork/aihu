@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Raw HTML rendering with {@html} and XSS risk documentation
+tags: html, raw, unsafe, xss, sanitize, content, prop, security
+-->
 <!-- Recipe: html-unsafe — {@html sanitizedContent} with explicit comment about XSS risk -->
 
 @state {

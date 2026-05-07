@@ -182,10 +182,10 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 248 B | 300 B | pass |
-| `@aihu/signals` | 1.67 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.05 kB | 2200 B | pass |
-| `@aihu/runtime` | 2.80 kB | 2900 B | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2200 B | _no dist_ |
+| `@aihu/runtime` | — | 2900 B | _no dist_ |
 | `@aihu/agent` | — | 200 B | _no dist_ |
 | `@aihu/data` | — | 800 B | _no dist_ |
 | `@aihu/router` | — | 2400 B | _no dist_ |
@@ -234,6 +234,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/compiler`](./packages/compiler) | `0.1.9` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/router`](./packages/router) | `0.1.0` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |

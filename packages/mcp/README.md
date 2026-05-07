@@ -1,10 +1,12 @@
-# @aihu/context
+# @aihu/mcp
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Async-context-friendly request/SSR context primitives for aihu.
+MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.
 
-Part of the **runtime core** layer of the Aihu meta-framework. Shipped to the client; sized via `bun run size`. The runtime core is dep-free and stacks under `@aihu/runtime` → `@aihu/router` → `@aihu/server` → `@aihu/app`.
+Held-private workspace package. Not yet published to npm.
+
+> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 _(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
@@ -16,12 +18,12 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-npm install @aihu/context
+npm install @aihu/mcp
 # or
-bun add @aihu/context
+bun add @aihu/mcp
 ```
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -33,11 +35,11 @@ bun add @aihu/context
 | | |
 |---|---|
 | **Version** | `0.1.0` |
-| **Tier** | A — Reactive runtime core — async-context request primitives |
+| **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -49,9 +51,8 @@ bun add @aihu/context
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
-| `./ssr` | `./dist/ssr.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -60,9 +61,11 @@ bun add @aihu/context
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+**Dependencies:**
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+- `@modelcontextprotocol/sdk` — `^1.0.0`
+
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -71,11 +74,10 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [@aihu/data](../data)
-- [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
+- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -86,6 +88,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/context@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

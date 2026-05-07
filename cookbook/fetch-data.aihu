@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Async data fetching with $resource, loading/error/success states, and URL prop
+tags: fetch, async, resource, loading, error, data, api, http, prop, if
+-->
 <!-- Recipe: fetch-data — $resource for async fetch + {#if} loading/error/success states -->
 
 @state {

@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Component with $prop full options including type, default, reflect, attribute, and converter
+tags: prop, $prop, type, default, reflect, attribute, converter, Boolean, Number, String, Object
+-->
 <!-- Recipe: prop-types — $prop full options form: type, default, reflect, attribute, converter -->
 
 @state {

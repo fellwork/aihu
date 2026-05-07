@@ -72,7 +72,9 @@ bun add -g @aihu/cli
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+**Dependencies:**
+
+- `@aihu/mcp` — `workspace:*`
 
 <sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
 

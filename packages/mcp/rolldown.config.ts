@@ -2,13 +2,17 @@ import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
 
 const external = [
-  'node:fs',
-  'node:path',
-  'node:process',
-  'node:os',
-  'node:readline',
   'node:child_process',
-  '@aihu/mcp',
+  'node:path',
+  'node:url',
+  'node:util',
+  'node:fs',
+  'node:fs/promises',
+  'node:os',
+  '@modelcontextprotocol/sdk',
+  '@modelcontextprotocol/sdk/server/index.js',
+  '@modelcontextprotocol/sdk/server/stdio.js',
+  '@modelcontextprotocol/sdk/types.js',
 ]
 
 export default defineConfig([
@@ -20,26 +24,15 @@ export default defineConfig([
       dir: 'dist',
       format: 'esm',
       sourcemap: true,
-      minify: true,
     },
     plugins: [dts()],
   },
   {
-    input: 'src/bin.ts',
+    input: 'bin/serve.ts',
     external,
     checks: { circularDependency: true },
     output: {
-      dir: 'dist',
-      format: 'esm',
-      banner: '#!/usr/bin/env node',
-    },
-  },
-  {
-    input: 'src/create.ts',
-    external,
-    checks: { circularDependency: true },
-    output: {
-      dir: 'dist',
+      dir: 'dist/bin',
       format: 'esm',
       banner: '#!/usr/bin/env node',
     },

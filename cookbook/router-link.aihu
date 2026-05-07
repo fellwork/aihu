@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Router link with programmatic navigation via history.pushState and active-link styling
+tags: router, link, navigation, history, pushState, active, computed, lifecycle, prop
+-->
 <!-- Recipe: router-link — programmatic navigation with history.pushState + active-link styling -->
 <!-- TODO: $route / $navigate macros ship with the @route block (arch-5). Using platform APIs below. -->
 

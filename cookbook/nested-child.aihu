@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Child component that emits a selection event with $event and $emit for parent consumption
+tags: nested, child, event, emit, $event, $emit, composition, prop, listbox, selection
+-->
 <!-- Recipe: nested-component (child) — emits $event.selected; parent listens with $on.selected -->
 
 @state {

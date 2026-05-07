@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Todo list with each loop, keyed items, empty state, add/toggle/remove actions
+tags: each, list, todo, key, empty, action, crud, items, loop, array
+-->
 <!-- Recipe: each-list — {#each items as item (item.id)} with key + empty state {:empty} -->
 
 @state {

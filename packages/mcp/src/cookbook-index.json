@@ -1,0 +1,335 @@
+[
+  {
+    "filename": "action-collection.aihu",
+    "description": "Action collection with multiple named actions, undo history, and step counter",
+    "tags": [
+      "action",
+      "$action",
+      "collection",
+      "undo",
+      "history",
+      "counter",
+      "step",
+      "signal",
+      "increment",
+      "decrement"
+    ],
+    "source": "<!-- @cookbook\ndescription: Action collection with multiple named actions, undo history, and step counter\ntags: action, $action, collection, undo, history, counter, step, signal, increment, decrement\n-->\n<!-- Recipe: action-collection — $action collection form with multiple named actions -->\n\n@state {\n  count: number = 0\n  step: number = 1\n  history: number[] = []\n\n  $action: {\n    increment: () => {\n      history = [...history, count]\n      count += step\n    },\n    decrement: () => {\n      history = [...history, count]\n      count -= step\n    },\n    reset: () => {\n      history = [...history, count]\n      count = 0\n    },\n    setStep: (n: number) => {\n      step = Math.max(1, n)\n    },\n    undo: () => {\n      if (history.length === 0) return\n      count = history[history.length - 1] ?? 0\n      history = history.slice(0, -1)\n    },\n  }\n}\n\n@template {\n  <div class=\"action-demo\">\n    <output class=\"count\">{count}</output>\n    <div class=\"controls\">\n      <button $on.click={decrement}>- {step}</button>\n      <button $on.click={reset} class=\"ghost\">Reset</button>\n      <button $on.click={increment}>+ {step}</button>\n    </div>\n    <label class=\"step-label\">\n      Step\n      <input type=\"number\" min=\"1\" $bind.value={step} class=\"step-input\" />\n    </label>\n    <button $on.click={undo} class={['undo', history.length === 0 && 'disabled']}>\n      Undo ({history.length})\n    </button>\n  </div>\n}\n\n@style {\n  .action-demo { display: grid; gap: 0.75rem; max-width: 18rem; padding: 1rem; }\n  .count { font-size: 2.5rem; font-variant-numeric: tabular-nums; text-align: center; display: block; }\n  .controls { display: flex; gap: 0.5rem; }\n  .controls button { flex: 1; padding: 0.5rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .ghost { background: transparent; }\n  .step-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }\n  .step-input { width: 4rem; padding: 0.3rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .undo { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .undo.disabled { opacity: 0.4; pointer-events: none; }\n}\n"
+  },
+  {
+    "filename": "agent-surface.aihu",
+    "description": "Agent-surface counter with described actions and exposed computed state for agent introspection",
+    "tags": [
+      "agent",
+      "action",
+      "computed",
+      "expose",
+      "describe",
+      "mcp",
+      "surface",
+      "counter",
+      "agent-surface"
+    ],
+    "source": "<!-- @cookbook\ndescription: Agent-surface counter with described actions and exposed computed state for agent introspection\ntags: agent, action, computed, expose, describe, mcp, surface, counter, agent-surface\n-->\n<!-- Recipe: agent-surface — $action with describe/expose for agent visibility + $computed exposed state -->\n\n@state {\n  count: number = 0\n  label: string = 'Agent Counter'\n\n  $computed: {\n    doubled: {\n      describe: 'The count multiplied by 2.',\n      expose: { read: true },\n      value: () => count * 2,\n    },\n    status: {\n      describe: 'Human-readable status of the counter.',\n      expose: { read: true },\n      value: () => count === 0 ? 'at zero' : count > 0 ? 'positive' : 'negative',\n    },\n  }\n\n  $action: {\n    increment: {\n      describe: 'Add 1 to the counter. Use this when the user wants to increase the count.',\n      expose: { read: true, write: true },\n      handler: () => { count++ },\n    },\n    decrement: {\n      describe: 'Subtract 1 from the counter.',\n      expose: { read: true, write: true },\n      handler: () => { count-- },\n    },\n    reset: {\n      describe: 'Reset the counter to zero.',\n      expose: { read: true, write: true },\n      handler: () => { count = 0 },\n    },\n    setLabel: {\n      describe: 'Update the display label for the counter.',\n      expose: { read: true, write: true },\n      handler: (newLabel: string) => { label = newLabel },\n    },\n  }\n}\n\n@template {\n  <section class=\"agent-counter\" aria-label={label}>\n    <h2>{label}</h2>\n    <output class=\"count\">{count}</output>\n    <p class=\"status\">Status: {status} · Doubled: {doubled}</p>\n    <div class=\"controls\">\n      <button $on.click={decrement}>−</button>\n      <button $on.click={reset} class=\"ghost\">Reset</button>\n      <button $on.click={increment}>+</button>\n    </div>\n  </section>\n}\n\n@style {\n  .agent-counter { display: grid; gap: 0.75rem; padding: 1.5rem; max-width: 16rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .count { font-size: 3rem; font-variant-numeric: tabular-nums; text-align: center; display: block; }\n  .status { font-size: 0.85rem; color: var(--muted, #888); text-align: center; }\n  .controls { display: flex; gap: 0.5rem; }\n  .controls button { flex: 1; padding: 0.5rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 1.2rem; }\n  .ghost { background: transparent; }\n}\n"
+  },
+  {
+    "filename": "aria-button.aihu",
+    "description": "Accessible ARIA button with role, aria-label, keyboard support, and toggle state",
+    "tags": [
+      "aria",
+      "accessibility",
+      "button",
+      "keyboard",
+      "role",
+      "toggle",
+      "prop",
+      "event"
+    ],
+    "source": "<!-- @cookbook\ndescription: Accessible ARIA button with role, aria-label, keyboard support, and toggle state\ntags: aria, accessibility, button, keyboard, role, toggle, prop, event\n-->\n<!-- Recipe: aria-button — accessible button with role/aria-label + keyboard support -->\n<!-- TODO: requires B4 for $aria: { role, label } declarative form — stubbed as HTML attrs below -->\n\n@state {\n  $prop: {\n    label: { type: String, default: 'Action', reflect: true },\n    pressed: { type: Boolean, default: false, reflect: true },\n  }\n\n  $event: {\n    activate: { payload: { pressed: boolean }, describe: 'Button was activated by click or keyboard.' },\n  }\n\n  $action: {\n    toggle: () => {\n      pressed = !pressed\n      $emit.activate({ pressed })\n    },\n    handleKey: (e: KeyboardEvent) => {\n      if (e.key === 'Enter' || e.key === ' ') {\n        e.preventDefault()\n        toggle()\n      }\n    },\n  }\n}\n\n@template {\n  <span\n    role=\"button\"\n    tabindex=\"0\"\n    aria-pressed={String(pressed)}\n    aria-label={label}\n    class={['aria-btn', pressed && 'pressed']}\n    $on.click={toggle}\n    $on.keydown={handleKey}\n  >\n    {label}\n  </span>\n}\n\n@style {\n  .aria-btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; cursor: pointer; border: 2px solid var(--border, #ccc); border-radius: 4px; user-select: none; }\n  .aria-btn:focus-visible { outline: 2px solid var(--focus-ring, #06f); outline-offset: 2px; }\n  .aria-btn.pressed { background: var(--accent, #06f); color: white; border-color: var(--accent, #06f); }\n}\n"
+  },
+  {
+    "filename": "class-binding.aihu",
+    "description": "Dynamic class binding with array form including conditional and interpolated class names",
+    "tags": [
+      "class",
+      "binding",
+      "dynamic",
+      "array",
+      "conditional",
+      "prop",
+      "toggle",
+      "styling"
+    ],
+    "source": "<!-- @cookbook\ndescription: Dynamic class binding with array form including conditional and interpolated class names\ntags: class, binding, dynamic, array, conditional, prop, toggle, styling\n-->\n<!-- Recipe: class-binding — class={['base', isActive() && 'active', size()]} array form -->\n\n@state {\n  $prop: {\n    size: { type: String, default: 'md' },\n    variant: { type: String, default: 'primary' },\n  }\n\n  isActive: boolean = false\n  isDisabled: boolean = false\n\n  $action: {\n    toggleActive: () => { isActive = !isActive },\n    toggleDisabled: () => { isDisabled = !isDisabled },\n  }\n}\n\n@template {\n  <div class=\"demo\">\n    <div class={['card', `size-${size}`, `variant-${variant}`, isActive && 'active', isDisabled && 'disabled']}>\n      Card content\n    </div>\n    <div class=\"controls\">\n      <button $on.click={toggleActive}>Toggle active</button>\n      <button $on.click={toggleDisabled}>Toggle disabled</button>\n    </div>\n    <p class=\"classes-preview\">Applied: {['card', `size-${size}`, `variant-${variant}`, isActive && 'active', isDisabled && 'disabled'].filter(Boolean).join(' ')}</p>\n  </div>\n}\n\n@style {\n  .demo { display: grid; gap: 0.75rem; padding: 1rem; }\n  .card { padding: 1rem; border: 2px solid var(--border, #ccc); border-radius: 4px; transition: all 0.15s; }\n  .card.active { border-color: var(--accent, #06f); background: var(--accent-bg, #e8f0ff); }\n  .card.disabled { opacity: 0.4; pointer-events: none; }\n  .card.size-sm { font-size: 0.85rem; padding: 0.5rem; }\n  .card.size-lg { font-size: 1.2rem; padding: 1.5rem; }\n  .controls { display: flex; gap: 0.5rem; }\n  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .classes-preview { font-family: monospace; font-size: 0.8rem; color: var(--muted, #888); }\n}\n"
+  },
+  {
+    "filename": "computed-values.aihu",
+    "description": "Computed values derived from multiple signals with template binding for an order summary",
+    "tags": [
+      "computed",
+      "signal",
+      "derived",
+      "binding",
+      "calculation",
+      "reactive",
+      "price",
+      "quantity"
+    ],
+    "source": "<!-- @cookbook\ndescription: Computed values derived from multiple signals with template binding for an order summary\ntags: computed, signal, derived, binding, calculation, reactive, price, quantity\n-->\n<!-- Recipe: computed-values — $computed derived from multiple signals + template binding -->\n\n@state {\n  price: number = 10\n  quantity: number = 3\n  taxRate: number = 0.08\n\n  $computed: {\n    subtotal: () => price * quantity,\n    tax: () => subtotal * taxRate,\n    total: () => subtotal + tax,\n    formattedTotal: () => `$${total.toFixed(2)}`,\n  }\n\n  $action: {\n    setPrice: (v: number) => { price = v },\n    setQuantity: (v: number) => { quantity = v },\n  }\n}\n\n@template {\n  <div class=\"order-summary\">\n    <label>\n      Price\n      <input type=\"number\" min=\"0\" step=\"0.01\" $bind.value={price} />\n    </label>\n    <label>\n      Quantity\n      <input type=\"number\" min=\"1\" step=\"1\" $bind.value={quantity} />\n    </label>\n    <dl class=\"totals\">\n      <dt>Subtotal</dt><dd>${subtotal.toFixed(2)}</dd>\n      <dt>Tax ({(taxRate * 100).toFixed(0)}%)</dt><dd>${tax.toFixed(2)}</dd>\n      <dt class=\"total-label\">Total</dt><dd class=\"total\">{formattedTotal}</dd>\n    </dl>\n  </div>\n}\n\n@style {\n  .order-summary { display: grid; gap: 0.75rem; max-width: 20rem; padding: 1rem; }\n  label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }\n  input { padding: 0.4rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .totals { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 1rem; margin: 0; }\n  .total-label, .total { font-weight: bold; }\n}\n"
+  },
+  {
+    "filename": "counter.aihu",
+    "description": "Minimal counter with signal and increment/decrement/reset actions",
+    "tags": [
+      "counter",
+      "signal",
+      "action",
+      "minimal",
+      "7guis",
+      "increment",
+      "decrement",
+      "button",
+      "if"
+    ],
+    "source": "<!-- @cookbook\ndescription: Minimal counter with signal and increment/decrement/reset actions\ntags: counter, signal, action, minimal, 7guis, increment, decrement, button, if\n-->\n<!-- Recipe: counter — signal(0) + increment/decrement with $on.click, {#if} for disable state -->\n\n@state {\n  count: number = 0\n\n  $action: {\n    increment: () => { count++ },\n    decrement: () => { count-- },\n    reset: () => { count = 0 },\n  }\n}\n\n@template {\n  <section class=\"counter\">\n    <output class=\"count\">{count}</output>\n    <div class=\"controls\">\n      <button\n        $on.click={decrement}\n        class={['btn', count <= 0 && 'disabled']}\n      >\n        {#if count <= 0}\n          —\n        {:else}\n          −\n        {/if}\n      </button>\n      <button $on.click={reset} class=\"btn btn-ghost\">Reset</button>\n      <button $on.click={increment} class=\"btn\">+</button>\n    </div>\n  </section>\n}\n\n@style {\n  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; max-width: 14rem; }\n  .count { font-size: 2.5rem; font-variant-numeric: tabular-nums; text-align: center; }\n  .controls { display: flex; gap: 0.5rem; }\n  .btn { flex: 1; padding: 0.5rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .btn.disabled { opacity: 0.4; }\n  .btn-ghost { background: transparent; }\n}\n"
+  },
+  {
+    "filename": "each-list.aihu",
+    "description": "Todo list with each loop, keyed items, empty state, add/toggle/remove actions",
+    "tags": [
+      "each",
+      "list",
+      "todo",
+      "key",
+      "empty",
+      "action",
+      "crud",
+      "items",
+      "loop",
+      "array"
+    ],
+    "source": "<!-- @cookbook\ndescription: Todo list with each loop, keyed items, empty state, add/toggle/remove actions\ntags: each, list, todo, key, empty, action, crud, items, loop, array\n-->\n<!-- Recipe: each-list — {#each items as item (item.id)} with key + empty state {:empty} -->\n\n@state {\n  items: Array<{ id: string; text: string; done: boolean }> = [\n    { id: '1', text: 'Learn aihu', done: false },\n    { id: '2', text: 'Write an SFC', done: false },\n  ]\n\n  draft: string = ''\n\n  $action: {\n    add: () => {\n      const text = draft.trim()\n      if (!text) return\n      items = [...items, { id: crypto.randomUUID(), text, done: false }]\n      draft = ''\n    },\n    toggle: (id: string) => {\n      items = items.map(item => item.id === id ? { ...item, done: !item.done } : item)\n    },\n    remove: (id: string) => {\n      items = items.filter(item => item.id !== id)\n    },\n  }\n}\n\n@template {\n  <div class=\"list-demo\">\n    <form $on.submit={(e) => { e.preventDefault(); add() }}>\n      <input $bind.value={draft} placeholder=\"Add item…\" />\n      <button type=\"submit\">Add</button>\n    </form>\n    <ul class=\"items\">\n      {#each items as item (item.id)}\n        <li class={['item', item.done && 'done']}>\n          <input type=\"checkbox\" checked={item.done} $on.change={() => toggle(item.id)} />\n          <span>{item.text}</span>\n          <button $on.click={() => remove(item.id)} aria-label=\"Remove\">×</button>\n        </li>\n      {:empty}\n        <li class=\"empty\">Nothing here — add an item above.</li>\n      {/each}\n    </ul>\n  </div>\n}\n\n@style {\n  .list-demo { display: grid; gap: 0.75rem; max-width: 28rem; }\n  form { display: flex; gap: 0.5rem; }\n  input[type=\"text\"] { flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .items { list-style: none; padding: 0; margin: 0; }\n  .item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border, #eee); }\n  .item.done span { text-decoration: line-through; color: var(--muted, #888); }\n  .empty { color: var(--muted, #888); font-style: italic; padding: 0.5rem 0; }\n  button { cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; padding: 0.2rem 0.5rem; }\n}\n"
+  },
+  {
+    "filename": "effect-side.aihu",
+    "description": "Side-effect with $effect for localStorage sync and theme toggling with cleanup",
+    "tags": [
+      "effect",
+      "side-effect",
+      "localstorage",
+      "theme",
+      "toggle",
+      "cleanup",
+      "prop",
+      "reactive"
+    ],
+    "source": "<!-- @cookbook\ndescription: Side-effect with $effect for localStorage sync and theme toggling with cleanup\ntags: effect, side-effect, localStorage, theme, toggle, cleanup, prop, reactive\n-->\n<!-- Recipe: effect-side — $effect for a side-effect (localStorage sync) + cleanup -->\n\n@state {\n  $prop: {\n    storageKey: { type: String, default: 'aihu-theme' },\n  }\n\n  theme: string = localStorage.getItem(storageKey) ?? 'light'\n\n  $action: {\n    toggle: () => {\n      theme = theme === 'light' ? 'dark' : 'light'\n    },\n  }\n\n  // $effect runs once immediately, then re-runs whenever reactive deps change.\n  // The cleanup return is called before the next run and on dispose.\n  $effect: () => {\n    localStorage.setItem(storageKey, theme)\n    document.documentElement.setAttribute('data-theme', theme)\n  }\n}\n\n@template {\n  <div class=\"theme-toggle\">\n    <span>Current theme: <strong>{theme}</strong></span>\n    <button $on.click={toggle}>\n      {#if theme === 'light'}\n        Switch to dark\n      {:else}\n        Switch to light\n      {/if}\n    </button>\n  </div>\n}\n\n@style {\n  .theme-toggle { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; }\n  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n}\n"
+  },
+  {
+    "filename": "emit-event.aihu",
+    "description": "Custom event emission with $event collection, $emit, and $on consumer pattern",
+    "tags": [
+      "event",
+      "emit",
+      "$event",
+      "$emit",
+      "$on",
+      "custom-event",
+      "selection",
+      "list",
+      "prop"
+    ],
+    "source": "<!-- @cookbook\ndescription: Custom event emission with $event collection, $emit, and $on consumer pattern\ntags: event, emit, $event, $emit, $on, custom-event, selection, list, prop\n-->\n<!-- Recipe: emit-event — $event collection + $emit.selected({ id }) + $on.selected consumer pattern -->\n\n@state {\n  $prop: {\n    items: { type: Array, default: [] },\n  }\n\n  $event: {\n    selected: { payload: { id: string; label: string }, describe: 'User selected an item.' },\n  }\n}\n\n@template {\n  <ul class=\"item-list\" role=\"listbox\">\n    {#each items as item (item.id)}\n      <li\n        role=\"option\"\n        class=\"item\"\n        $on.click={() => $emit.selected({ id: item.id, label: item.label })}\n      >\n        {item.label}\n      </li>\n    {:empty}\n      <li class=\"empty\">No items to select.</li>\n    {/each}\n  </ul>\n}\n\n@style {\n  .item-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .item { padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border, #eee); }\n  .item:hover { background: var(--hover-bg, #f5f5f5); }\n  .empty { padding: 0.75rem; color: var(--muted, #888); font-style: italic; }\n}\n"
+  },
+  {
+    "filename": "fetch-data.aihu",
+    "description": "Async data fetching with $resource, loading/error/success states, and URL prop",
+    "tags": [
+      "fetch",
+      "async",
+      "resource",
+      "loading",
+      "error",
+      "data",
+      "api",
+      "http",
+      "prop",
+      "if"
+    ],
+    "source": "<!-- @cookbook\ndescription: Async data fetching with $resource, loading/error/success states, and URL prop\ntags: fetch, async, resource, loading, error, data, api, http, prop, if\n-->\n<!-- Recipe: fetch-data — $resource for async fetch + {#if} loading/error/success states -->\n\n@state {\n  $prop: {\n    url: { type: String, default: '/api/data' },\n  }\n\n  $resource: {\n    payload: async () => {\n      const res = await fetch(url)\n      if (!res.ok) throw new Error(`HTTP ${res.status}`)\n      return res.json()\n    },\n  }\n}\n\n@template {\n  <div class=\"fetch-data\">\n    {#if payload.loading}\n      <p class=\"state loading\">Loading…</p>\n    {:else if payload.error}\n      <p class=\"state error\">Error: {payload.error.message}</p>\n    {:else}\n      <pre class=\"result\">{JSON.stringify(payload.value, null, 2)}</pre>\n    {/if}\n  </div>\n}\n\n@style {\n  .fetch-data { font-family: monospace; }\n  .state { padding: 1rem; border-radius: 4px; }\n  .loading { background: var(--info-bg, #e8f4fd); color: var(--info, #036); }\n  .error { background: var(--error-bg, #fde8e8); color: var(--error, #c00); }\n  .result { background: var(--code-bg, #f5f5f5); padding: 1rem; overflow: auto; border-radius: 4px; }\n}\n"
+  },
+  {
+    "filename": "form-input.aihu",
+    "description": "Form with two-way binding, submit handler, and validation using signals",
+    "tags": [
+      "form",
+      "input",
+      "bind",
+      "validation",
+      "submit",
+      "email",
+      "signal",
+      "action",
+      "two-way"
+    ],
+    "source": "<!-- @cookbook\ndescription: Form with two-way binding, submit handler, and validation using signals\ntags: form, input, bind, validation, submit, email, signal, action, two-way\n-->\n<!-- Recipe: form-input — $bind.value two-way binding + $on.submit + form validation signal -->\n\n@state {\n  email: string = ''\n  name: string = ''\n  error: string = ''\n  submitted: boolean = false\n\n  $action: {\n    validate: () => {\n      if (!name.trim()) { error = 'Name is required'; return false }\n      if (!email.includes('@')) { error = 'Valid email required'; return false }\n      error = ''\n      return true\n    },\n    submit: () => {\n      if (!validate()) return\n      submitted = true\n    },\n    reset: () => {\n      email = ''\n      name = ''\n      error = ''\n      submitted = false\n    },\n  }\n}\n\n@template {\n  {#if submitted}\n    <p class=\"success\">Submitted! <button $on.click={reset}>Again</button></p>\n  {:else}\n    <form $on.submit={(e) => { e.preventDefault(); submit() }}>\n      <label>Name <input $bind.value={name} placeholder=\"Your name\" /></label>\n      <label>Email <input type=\"email\" $bind.value={email} placeholder=\"you@example.com\" /></label>\n      {#if error}\n        <p class=\"error\">{error}</p>\n      {/if}\n      <button type=\"submit\">Submit</button>\n    </form>\n  {/if}\n}\n\n@style {\n  form { display: grid; gap: 0.75rem; max-width: 24rem; }\n  label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }\n  input { padding: 0.5rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .error { color: var(--error, #c00); font-size: 0.85rem; }\n  .success { color: var(--success, #080); }\n}\n"
+  },
+  {
+    "filename": "html-unsafe.aihu",
+    "description": "Raw HTML rendering with {@html} and XSS risk documentation",
+    "tags": [
+      "html",
+      "raw",
+      "unsafe",
+      "xss",
+      "sanitize",
+      "content",
+      "prop",
+      "security"
+    ],
+    "source": "<!-- @cookbook\ndescription: Raw HTML rendering with {@html} and XSS risk documentation\ntags: html, raw, unsafe, xss, sanitize, content, prop, security\n-->\n<!-- Recipe: html-unsafe — {@html sanitizedContent} with explicit comment about XSS risk -->\n\n@state {\n  $prop: {\n    // WARNING: Always sanitize HTML before passing to this component.\n    // {@html} renders raw HTML — never pass unsanitized user input.\n    // Use a sanitizer like DOMPurify: content = DOMPurify.sanitize(rawHtml)\n    content: { type: String, default: '<em>Hello</em> <strong>world</strong>' },\n  }\n}\n\n@template {\n  <article class=\"html-content\">\n    {@html content}\n  </article>\n}\n\n@style {\n  .html-content { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; line-height: 1.6; }\n  .html-content em { font-style: italic; }\n  .html-content strong { font-weight: bold; }\n}\n"
+  },
+  {
+    "filename": "if-else.aihu",
+    "description": "Conditional rendering with if/else-if/else chain and reactive computed condition",
+    "tags": [
+      "if",
+      "else",
+      "conditional",
+      "computed",
+      "reactive",
+      "template",
+      "grade",
+      "branch"
+    ],
+    "source": "<!-- @cookbook\ndescription: Conditional rendering with if/else-if/else chain and reactive computed condition\ntags: if, else, conditional, computed, reactive, template, grade, branch\n-->\n<!-- Recipe: if-else — {#if} / {:else if} / {:else} chain + reactive condition -->\n\n@state {\n  $prop: {\n    score: { type: Number, default: 0 },\n  }\n\n  $computed: {\n    grade: () => {\n      if (score >= 90) return 'A'\n      if (score >= 80) return 'B'\n      if (score >= 70) return 'C'\n      if (score >= 60) return 'D'\n      return 'F'\n    },\n    passing: () => score >= 60,\n  }\n\n  $action: {\n    setScore: (v: number) => { score = Math.max(0, Math.min(100, v)) },\n  }\n}\n\n@template {\n  <div class=\"grade-display\">\n    <label>\n      Score (0–100)\n      <input type=\"range\" min=\"0\" max=\"100\" $bind.value={score} />\n      <output>{score}</output>\n    </label>\n\n    {#if grade === 'A'}\n      <p class=\"grade grade-a\">Excellent! Grade A</p>\n    {:else if grade === 'B'}\n      <p class=\"grade grade-b\">Good work! Grade B</p>\n    {:else if grade === 'C'}\n      <p class=\"grade grade-c\">Satisfactory. Grade C</p>\n    {:else if grade === 'D'}\n      <p class=\"grade grade-d\">Needs improvement. Grade D</p>\n    {:else}\n      <p class=\"grade grade-f\">Not passing. Grade F</p>\n    {/if}\n\n    {#if passing}\n      <span class=\"badge pass\">PASS</span>\n    {:else}\n      <span class=\"badge fail\">FAIL</span>\n    {/if}\n  </div>\n}\n\n@style {\n  .grade-display { display: grid; gap: 0.75rem; max-width: 22rem; padding: 1rem; }\n  label { display: flex; flex-direction: column; gap: 0.25rem; }\n  .grade { font-size: 1.1rem; font-weight: bold; padding: 0.5rem; border-radius: 4px; }\n  .grade-a { color: #0a0; background: #e8fce8; }\n  .grade-b { color: #060; background: #f0fce8; }\n  .grade-c { color: #660; background: #fdfce0; }\n  .grade-d { color: #a50; background: #fef5e0; }\n  .grade-f { color: #c00; background: #fde8e8; }\n  .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.85rem; font-weight: bold; }\n  .pass { background: #0a0; color: white; }\n  .fail { background: #c00; color: white; }\n}\n"
+  },
+  {
+    "filename": "lifecycle.aihu",
+    "description": "Lifecycle hooks with mount and dispose for interval timer setup and cleanup",
+    "tags": [
+      "lifecycle",
+      "mount",
+      "dispose",
+      "cleanup",
+      "timer",
+      "interval",
+      "$lifecycle",
+      "side-effect"
+    ],
+    "source": "<!-- @cookbook\ndescription: Lifecycle hooks with mount and dispose for interval timer setup and cleanup\ntags: lifecycle, mount, dispose, cleanup, timer, interval, $lifecycle, side-effect\n-->\n<!-- Recipe: lifecycle — $lifecycle: { mount, dispose } cleanup pattern -->\n\n@state {\n  status: string = 'idle'\n  ticks: number = 0\n  _timerId: number | null = null\n\n  $lifecycle: {\n    mount: () => {\n      status = 'running'\n      _timerId = setInterval(() => { ticks++ }, 1000) as unknown as number\n    },\n    dispose: () => {\n      if (_timerId !== null) {\n        clearInterval(_timerId)\n        _timerId = null\n      }\n      status = 'disposed'\n    },\n  }\n}\n\n@template {\n  <div class=\"lifecycle-demo\">\n    <p class={['status', status]}>Status: {status}</p>\n    <p class=\"ticks\">Ticks since mount: {ticks}</p>\n  </div>\n}\n\n@style {\n  .lifecycle-demo { padding: 1rem; font-family: monospace; }\n  .status { font-weight: bold; }\n  .status.running { color: var(--success, #080); }\n  .status.disposed { color: var(--muted, #888); }\n  .ticks { color: var(--fg, #333); }\n}\n"
+  },
+  {
+    "filename": "nested-child.aihu",
+    "description": "Child component that emits a selection event with $event and $emit for parent consumption",
+    "tags": [
+      "nested",
+      "child",
+      "event",
+      "emit",
+      "$event",
+      "$emit",
+      "composition",
+      "prop",
+      "listbox",
+      "selection"
+    ],
+    "source": "<!-- @cookbook\ndescription: Child component that emits a selection event with $event and $emit for parent consumption\ntags: nested, child, event, emit, $event, $emit, composition, prop, listbox, selection\n-->\n<!-- Recipe: nested-component (child) — emits $event.selected; parent listens with $on.selected -->\n\n@state {\n  $prop: {\n    options: { type: Array, default: ['Option A', 'Option B', 'Option C'] },\n    placeholder: { type: String, default: 'Pick one…' },\n  }\n\n  $event: {\n    selected: {\n      payload: { value: string; index: number },\n      describe: 'User selected an option from the list.',\n    },\n  }\n\n  activeIndex: number = -1\n\n  $action: {\n    pick: (index: number) => {\n      activeIndex = index\n      $emit.selected({ value: options[index] ?? '', index })\n    },\n  }\n}\n\n@template {\n  <ul class=\"option-list\" role=\"listbox\" aria-label={placeholder}>\n    {#each options as option, i (option)}\n      <li\n        role=\"option\"\n        aria-selected={String(i === activeIndex)}\n        class={['option', i === activeIndex && 'active']}\n        $on.click={() => pick(i)}\n      >\n        {option}\n      </li>\n    {:empty}\n      <li class=\"empty\">{placeholder}</li>\n    {/each}\n  </ul>\n}\n\n@style {\n  .option-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .option { padding: 0.5rem 0.75rem; cursor: pointer; }\n  .option:hover { background: var(--hover-bg, #f5f5f5); }\n  .option.active { background: var(--accent, #06f); color: white; }\n  .empty { padding: 0.5rem 0.75rem; color: var(--muted, #888); font-style: italic; }\n}\n"
+  },
+  {
+    "filename": "nested-parent.aihu",
+    "description": "Parent component that composes a child component and listens to its selection event",
+    "tags": [
+      "nested",
+      "parent",
+      "composition",
+      "$on",
+      "event",
+      "child",
+      "action",
+      "handler"
+    ],
+    "source": "<!-- @cookbook\ndescription: Parent component that composes a child component and listens to its selection event\ntags: nested, parent, composition, $on, event, child, action, handler\n-->\n<!-- Recipe: nested-component (parent) — composes nested-child; listens with $on.selected -->\n<!-- Demonstrates parent↔child event composition: child $emit → parent $on handler -->\n\n@state {\n  lastSelection: string = '(none)'\n  selectionCount: number = 0\n\n  $action: {\n    handleSelected: (detail: { value: string; index: number }) => {\n      lastSelection = `${detail.value} (index ${detail.index})`\n      selectionCount++\n    },\n  }\n}\n\n@template {\n  <div class=\"parent-demo\">\n    <h3>Parent component</h3>\n    <p>Last selection: <strong>{lastSelection}</strong></p>\n    <p>Total selections: {selectionCount}</p>\n\n    <nested-child\n      $on.selected={(e) => handleSelected(e.detail)}\n    ></nested-child>\n  </div>\n}\n\n@style {\n  .parent-demo { display: grid; gap: 1rem; padding: 1.5rem; max-width: 28rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n}\n"
+  },
+  {
+    "filename": "prop-types.aihu",
+    "description": "Component with $prop full options including type, default, reflect, attribute, and converter",
+    "tags": [
+      "prop",
+      "$prop",
+      "type",
+      "default",
+      "reflect",
+      "attribute",
+      "converter",
+      "boolean",
+      "number",
+      "string",
+      "object"
+    ],
+    "source": "<!-- @cookbook\ndescription: Component with $prop full options including type, default, reflect, attribute, and converter\ntags: prop, $prop, type, default, reflect, attribute, converter, Boolean, Number, String, Object\n-->\n<!-- Recipe: prop-types — $prop full options form: type, default, reflect, attribute, converter -->\n\n@state {\n  $prop: {\n    // Basic string prop — reflects back to attribute on change.\n    label: { type: String, default: 'Click me', reflect: true },\n\n    // Number prop — convertor parses attribute string to number.\n    count: { type: Number, default: 0, reflect: true },\n\n    // Boolean prop with custom attribute name.\n    disabled: { type: Boolean, default: false, attribute: 'aria-disabled', reflect: true },\n\n    // Property-only (no attribute observation).\n    config: { type: Object, default: null, attribute: false },\n\n    // Custom converter: parse ISO date string from attribute.\n    since: {\n      type: String,\n      default: null,\n      attribute: 'since',\n      converter: (s: string | null) => s ? new Date(s).toLocaleDateString() : null,\n    },\n  }\n}\n\n@template {\n  <div class={['prop-demo', disabled && 'disabled']}>\n    <h3>{label}</h3>\n    <p>Count: {count}</p>\n    {#if since}\n      <p class=\"since\">Since: {since}</p>\n    {/if}\n  </div>\n}\n\n@style {\n  .prop-demo { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .prop-demo.disabled { opacity: 0.5; pointer-events: none; }\n  .since { font-size: 0.85rem; color: var(--muted, #888); }\n}\n"
+  },
+  {
+    "filename": "ref-dom.aihu",
+    "description": "DOM element reference with $ref and canvas drawing in lifecycle mount",
+    "tags": [
+      "ref",
+      "$ref",
+      "dom",
+      "canvas",
+      "lifecycle",
+      "mount",
+      "element",
+      "access"
+    ],
+    "source": "<!-- @cookbook\ndescription: DOM element reference with $ref and canvas drawing in lifecycle mount\ntags: ref, $ref, dom, canvas, lifecycle, mount, element, access\n-->\n<!-- Recipe: ref-dom — $ref={myRef} + accessing DOM element in $lifecycle.mount -->\n\n@state {\n  canvasEl: HTMLCanvasElement | null = null\n  width: number = 300\n  height: number = 150\n\n  $lifecycle: {\n    mount: () => {\n      if (!canvasEl) return\n      const ctx = canvasEl.getContext('2d')\n      if (!ctx) return\n      // Draw a simple gradient to prove the ref works.\n      const gradient = ctx.createLinearGradient(0, 0, width, 0)\n      gradient.addColorStop(0, '#06f')\n      gradient.addColorStop(1, '#f06')\n      ctx.fillStyle = gradient\n      ctx.fillRect(0, 0, width, height)\n      ctx.fillStyle = 'white'\n      ctx.font = 'bold 18px sans-serif'\n      ctx.textAlign = 'center'\n      ctx.fillText('$ref works!', width / 2, height / 2 + 6)\n    },\n  }\n}\n\n@template {\n  <div class=\"canvas-demo\">\n    <canvas\n      $ref={canvasEl}\n      width={width}\n      height={height}\n      class=\"canvas\"\n    ></canvas>\n    <p class=\"caption\">Canvas drawn via $ref after mount</p>\n  </div>\n}\n\n@style {\n  .canvas-demo { display: grid; gap: 0.5rem; justify-items: center; padding: 1rem; }\n  .canvas { border: 1px solid var(--border, #ccc); border-radius: 4px; display: block; }\n  .caption { font-size: 0.85rem; color: var(--muted, #888); }\n}\n"
+  },
+  {
+    "filename": "route-guard.aihu",
+    "description": "Route guard auth gate pattern that redirects to login when unauthenticated",
+    "tags": [
+      "route",
+      "guard",
+      "auth",
+      "authentication",
+      "redirect",
+      "lifecycle",
+      "prop",
+      "navigation",
+      "if"
+    ],
+    "source": "<!-- @cookbook\ndescription: Route guard auth gate pattern that redirects to login when unauthenticated\ntags: route, guard, auth, authentication, redirect, lifecycle, prop, navigation, if\n-->\n<!-- Recipe: route-guard — auth gate pattern; redirects to /login when unauthenticated -->\n<!-- TODO: requires @route block / $beforeNavigate when the router macro ships -->\n\n@state {\n  $prop: {\n    // Pass your auth signal down from a parent or read from a shared store.\n    authenticated: { type: Boolean, default: false },\n    redirectTo: { type: String, default: '/login' },\n  }\n\n  $lifecycle: {\n    mount: () => {\n      // Imperative guard: navigate away if not authenticated.\n      // Replace with $beforeNavigate once the router macro ships.\n      if (!authenticated) {\n        const url = new URL(window.location.href)\n        url.pathname = redirectTo\n        window.location.replace(url.toString())\n      }\n    },\n  }\n}\n\n@template {\n  {#if authenticated}\n    <div class=\"guarded-content\"><slot></slot></div>\n  {:else}\n    <p class=\"redirect-notice\">Redirecting to {redirectTo}…</p>\n  {/if}\n}\n\n@style {\n  .redirect-notice { padding: 1rem; color: var(--muted, #888); font-style: italic; }\n}\n"
+  },
+  {
+    "filename": "router-link.aihu",
+    "description": "Router link with programmatic navigation via history.pushState and active-link styling",
+    "tags": [
+      "router",
+      "link",
+      "navigation",
+      "history",
+      "pushstate",
+      "active",
+      "computed",
+      "lifecycle",
+      "prop"
+    ],
+    "source": "<!-- @cookbook\ndescription: Router link with programmatic navigation via history.pushState and active-link styling\ntags: router, link, navigation, history, pushState, active, computed, lifecycle, prop\n-->\n<!-- Recipe: router-link — programmatic navigation with history.pushState + active-link styling -->\n<!-- TODO: $route / $navigate macros ship with the @route block (arch-5). Using platform APIs below. -->\n\n@state {\n  $prop: {\n    href: { type: String, default: '/' },\n    label: { type: String, default: 'Link' },\n    exact: { type: Boolean, default: false },\n  }\n\n  currentPath: string = window.location.pathname\n\n  $computed: {\n    isActive: () => exact\n      ? currentPath === href\n      : currentPath.startsWith(href),\n  }\n\n  $lifecycle: {\n    mount: () => {\n      const handler = () => { currentPath = window.location.pathname }\n      window.addEventListener('popstate', handler)\n    },\n  }\n\n  $action: {\n    navigate: (e: MouseEvent) => {\n      e.preventDefault()\n      window.history.pushState({}, '', href)\n      window.dispatchEvent(new PopStateEvent('popstate'))\n    },\n  }\n}\n\n@template {\n  <a\n    href={href}\n    class={['router-link', isActive && 'active']}\n    aria-current={isActive ? 'page' : undefined}\n    $on.click={navigate}\n  >\n    {label}\n  </a>\n}\n\n@style {\n  .router-link { text-decoration: none; color: var(--fg, #333); padding: 0.25rem 0.5rem; border-radius: 4px; }\n  .router-link:hover { background: var(--hover-bg, #f5f5f5); }\n  .router-link.active { color: var(--accent, #06f); font-weight: 600; }\n}\n"
+  },
+  {
+    "filename": "show-hide.aihu",
+    "description": "Show/hide with $show attribute vs if-block, demonstrating DOM presence trade-offs",
+    "tags": [
+      "show",
+      "hide",
+      "$show",
+      "if",
+      "toggle",
+      "visibility",
+      "dom",
+      "attribute",
+      "action"
+    ],
+    "source": "<!-- @cookbook\ndescription: Show/hide with $show attribute vs if-block, demonstrating DOM presence trade-offs\ntags: show, hide, $show, if, toggle, visibility, dom, attribute, action\n-->\n<!-- Recipe: show-hide — $show={isVisible()} attribute vs {#if} trade-off -->\n<!--\n  When to use $show vs #if:\n  - $show={cond}  toggles the hidden attribute. The element STAYS in the DOM.\n                  Use when the element is expensive to re-create (canvas, video)\n                  or when you need CSS transitions on hide/show.\n  - #if cond      removes the element from the DOM entirely when false.\n                  Use when the subtree is large and rarely visible, or when\n                  you want to fully reset child state on hide.\n-->\n\n@state {\n  showPanel: boolean = false\n  showSection: boolean = true\n\n  $action: {\n    togglePanel: () => { showPanel = !showPanel },\n    toggleSection: () => { showSection = !showSection },\n  }\n}\n\n@template {\n  <div class=\"show-demo\">\n    <button $on.click={togglePanel}>\n      Toggle panel ($show — stays in DOM)\n    </button>\n    <div $show={showPanel} class=\"panel\">\n      I use $show — CSS transitions work on me, and I keep my internal state.\n    </div>\n\n    <button $on.click={toggleSection}>\n      Toggle section (if-block — removed from DOM)\n    </button>\n    {#if showSection}\n      <div class=\"panel\">\n        I use if-block — I am fully removed from the DOM when hidden.\n      </div>\n    {/if}\n  </div>\n}\n\n@style {\n  .show-demo { display: grid; gap: 0.75rem; padding: 1rem; max-width: 28rem; }\n  .panel { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; background: var(--panel-bg, #fafafa); transition: opacity 0.2s; }\n  [hidden] { opacity: 0; pointer-events: none; }\n  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; text-align: left; }\n}\n"
+  }
+]

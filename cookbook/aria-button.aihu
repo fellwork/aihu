@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Accessible ARIA button with role, aria-label, keyboard support, and toggle state
+tags: aria, accessibility, button, keyboard, role, toggle, prop, event
+-->
 <!-- Recipe: aria-button — accessible button with role/aria-label + keyboard support -->
 <!-- TODO: requires B4 for $aria: { role, label } declarative form — stubbed as HTML attrs below -->
 
