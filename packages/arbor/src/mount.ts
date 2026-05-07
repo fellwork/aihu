@@ -34,6 +34,115 @@ import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from '.
  */
 
 // ---------------------------------------------------------------------------
+// v0.3.0 — Live-binding types (RFC §2.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Live binding for one mounted component instance. Module-private to this
+ * file — only `mount()` can construct and register a `LiveBinding`.
+ *
+ * This interface is intentionally duplicated in `@aihu/agent-service/types.ts`
+ * to avoid a circular package dependency (`@aihu/arbor` → `@aihu/agent-service`
+ * → `@aihu/agent` is fine; but `@aihu/arbor` must not import from
+ * `@aihu/agent-service`). Both interfaces share the same structural shape.
+ */
+interface LiveBinding {
+  readonly rootId: number
+  readonly tag: string
+  getSignal(name: string): unknown
+  setSignal(name: string, value: unknown): void
+  callAction(name: string, args: unknown[]): Promise<unknown>
+  scope(): string | null
+  rateLimit(): string | null
+  dispose$: () => boolean
+}
+
+// ---------------------------------------------------------------------------
+// v0.3.0 — componentInstanceRegistry (RFC §2.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Module-private registry mapping tag names to their live binding arrays.
+ * Maximum 1000 entries per tag (Amendment 5 / §6.9). This Map is NOT
+ * exported; only `mount()` via `registerLiveBinding()` can write to it.
+ * `@aihu/agent-service` accesses it via the `getRegistry` option getter
+ * injected at `createAgentService()` construction time.
+ *
+ * TTL eviction: reserved as `agent.registry.bindingTtlMs` config key;
+ * unactivated in v0.3.0 (deferred to v0.4.0 per spec §4 deferred items).
+ */
+const componentInstanceRegistry: Map<string, LiveBinding[]> = new Map()
+
+/** Maximum bindings per tag. Configurable in future via agent.registry.maxBindingsPerTag. */
+const MAX_BINDINGS_PER_TAG = 1000
+
+/**
+ * Export the registry getter for injection into `@aihu/agent-service`.
+ * Returns the live Map reference (not a snapshot).
+ *
+ * @internal — for use by `createAgentService({ getRegistry })` only.
+ */
+export function _getComponentInstanceRegistry(): Map<string, LiveBinding[]> {
+  return componentInstanceRegistry
+}
+
+/**
+ * Register a `LiveBinding` in the `componentInstanceRegistry`.
+ *
+ * Security invariants (per the 7 amendments):
+ * - Amendment 5 (§6.9): Capacity cap — MAX_BINDINGS_PER_TAG per tag.
+ * - Amendment 1 (§6.7): Cross-frame origin check — skip + WARN for cross-origin iframes.
+ *
+ * The caller (`mount()`) passes the binding and a `removeBinding` cleanup
+ * function that is called via `onCleanup` when the mount scope disposes.
+ *
+ * @internal
+ */
+function registerLiveBinding(binding: LiveBinding): void {
+  // Amendment 1 (§6.7 Cross-Frame Trust, CWE-346): when running in an iframe,
+  // compare origins. Cross-origin iframe → skip registration + WARN.
+  // Same-origin iframes share the module graph; registration is permitted.
+  if (typeof window !== 'undefined' && window.parent !== window) {
+    try {
+      const selfOrigin = window.location.origin
+      const parentOrigin = window.parent.location.origin
+      if (selfOrigin !== parentOrigin) {
+        console.warn(
+          `[aihu/arbor] LiveBinding registration skipped for <${binding.tag}>: ` +
+            `cross-origin iframe context (self=${selfOrigin}, parent=${parentOrigin}). ` +
+            `Amendment 1 §6.7 — cross-origin iframes are not permitted to register live bindings.`,
+        )
+        return
+      }
+    } catch {
+      // SecurityError reading window.parent.location.origin means cross-origin.
+      console.warn(
+        `[aihu/arbor] LiveBinding registration skipped for <${binding.tag}>: ` +
+          `cross-origin iframe context (SecurityError reading parent origin). ` +
+          `Amendment 1 §6.7 — cross-origin iframes are not permitted to register live bindings.`,
+      )
+      return
+    }
+  }
+
+  // Amendment 5 (§6.9 Registry Capacity Bounds, CWE-400): cap per-tag array.
+  const bindings = componentInstanceRegistry.get(binding.tag)
+  if (bindings !== undefined) {
+    if (bindings.length >= MAX_BINDINGS_PER_TAG) {
+      console.warn(
+        `[aihu/arbor] LiveBinding capacity cap (${MAX_BINDINGS_PER_TAG}) reached for <${binding.tag}>. ` +
+          `The ${MAX_BINDINGS_PER_TAG + 1}th mount is rejected; existing bindings are unaffected. ` +
+          `See agent.registry.maxBindingsPerTag for future configuration.`,
+      )
+      return
+    }
+    bindings.push(binding)
+  } else {
+    componentInstanceRegistry.set(binding.tag, [binding])
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Scope-collector stack (spec §2.3 — push-pop replaces single-slot v0 design)
 // ---------------------------------------------------------------------------
 
@@ -172,12 +281,16 @@ export const _frozenAgent: AgentContext = Object.freeze({
  * after the LIFO dispose loop; mount() uses it for DOM root removal,
  * hydrate() omits it (DOM is left intact).
  *
+ * v0.3.0: `agentContext` is set when the component has a `__agentBinding`
+ * export (live context); falls back to `_frozenAgent` sentinel (backward compat).
+ *
  * @internal
  */
 export function _makeScope(
   disposers: Dispose[],
   registry: Map<string, () => unknown>,
   cleanup?: () => void,
+  agentContext?: AgentContext,
 ): MountScope {
   let disposed = false
   return {
@@ -187,7 +300,7 @@ export function _makeScope(
       for (let i = disposers.length; i--; ) disposers[i]?.()
       cleanup?.()
     },
-    agent: _frozenAgent,
+    agent: agentContext ?? _frozenAgent,
     serialize(): Snapshot {
       const out: Snapshot = {}
       for (const [p, g] of registry) out[p] = g()
@@ -207,10 +320,15 @@ export function _makeScope(
  *
  * Plan 3.2: a `signalRegistry` map is maintained during materialization.
  * `serialize()` iterates this map to return current signal values by path key.
+ *
+ * v0.3.0: when `options.agentBinding` is present, registers a `LiveBinding`
+ * in the `componentInstanceRegistry`. The binding is removed via `onCleanup`
+ * when the scope disposes (AC3). Cross-origin iframes are rejected (AC13).
  */
 export function mount(node: Node, host: Element | ShadowRoot, options?: MountOptions): MountScope {
   // Path keys per spec §2.7: `<rootId>.0` for the root call.
-  const pathBase = `${_rootIdCounter++}.0`
+  const rootId = _rootIdCounter++
+  const pathBase = `${rootId}.0`
   const errorHandler = options?.onError
 
   _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
@@ -244,10 +362,76 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
 
   _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
 
-  // DOM removal runs after LIFO dispose so effects are silent first.
-  return _makeScope(disposers, signalRegistry, () => {
-    for (const root of appendedRoots) {
-      if (root.parentNode === host) host.removeChild(root)
+  // v0.3.0 — Live-binding wiring (RFC §2.3, AC2/AC3).
+  // When the component has a `__agentBinding` export, register a LiveBinding.
+  // The binding is removed via onCleanup-driven disposal (LIFO with effects).
+  let agentCtx: AgentContext | undefined
+  const agentSpec = options?.agentBinding
+  if (agentSpec !== undefined) {
+    // Build the LiveBinding from the compiler-emitted __agentBinding spec.
+    let bindingActive = true
+    const binding: LiveBinding = {
+      rootId,
+      tag: agentSpec.tag,
+      getSignal(name: string): unknown {
+        const getter = agentSpec.reads[name]
+        if (!getter) return undefined
+        return getter()
+      },
+      setSignal(name: string, value: unknown): void {
+        const setter = agentSpec.writes[name]
+        if (setter) setter(value)
+      },
+      async callAction(name: string, args: unknown[]): Promise<unknown> {
+        const action = agentSpec.actions[name]
+        if (!action) throw new Error(`no action: ${name}`)
+        return action(args)
+      },
+      scope(): string | null {
+        return agentSpec.scope ?? null
+      },
+      rateLimit(): string | null {
+        return agentSpec.rateLimit ?? null
+      },
+      dispose$(): boolean {
+        if (!bindingActive) return false
+        bindingActive = false
+        const bindings = componentInstanceRegistry.get(agentSpec.tag)
+        if (!bindings) return false
+        const idx = bindings.indexOf(binding)
+        if (idx === -1) return false
+        bindings.splice(idx, 1)
+        if (bindings.length === 0) componentInstanceRegistry.delete(agentSpec.tag)
+        return true
+      },
     }
-  })
+
+    // Register the binding (capacity + cross-frame checks are in registerLiveBinding).
+    registerLiveBinding(binding)
+
+    // Wire dispose$ into the LIFO disposer chain so it runs before DOM removal.
+    disposers.push(() => binding.dispose$())
+
+    // Build a live AgentContext for MountScope.agent (RFC §4.2).
+    agentCtx = Object.freeze({
+      _brand: 'AgentContext' as const,
+      rootId,
+      tag: agentSpec.tag,
+      readSignal: (name: string) => binding.getSignal(name),
+      writeSignal: (name: string, value: unknown) => binding.setSignal(name, value),
+      callAction: (name: string, args: unknown[]) => binding.callAction(name, args),
+    })
+  }
+
+  // DOM removal runs after LIFO dispose so effects are silent first.
+  return _makeScope(
+    disposers,
+    signalRegistry,
+    () => {
+      for (const root of appendedRoots) {
+        if (root.parentNode === host) host.removeChild(root)
+      }
+    },
+    agentCtx,
+  )
 }

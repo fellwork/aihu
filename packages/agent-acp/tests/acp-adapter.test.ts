@@ -1,9 +1,10 @@
+import type { LiveBinding } from '@aihu/agent-service'
 import { createAgentService } from '@aihu/agent-service'
 import { describe, expect, it } from 'vitest'
 import { mountAcpAdapter } from '../src/index.ts'
 
 /**
- * Plan 5.3 — unit tests for `@aihu/agent-acp`.
+ * Plan 5.3 / v0.3.0 — unit tests for `@aihu/agent-acp`.
  *
  * AC-1:  Agent card GET returns 200 JSON.
  * AC-2:  Agent card has agent_id, description, skills.
@@ -17,21 +18,47 @@ import { mountAcpAdapter } from '../src/index.ts'
  * AC-10: Non-matching path returns null.
  * AC-11: Non-matching method returns null.
  * AC-12: Custom prefix works.
+ *
+ * v0.3.0: Tests that exercise live dispatch inject a live registry via getRegistry.
  */
+
+const WIDGET_META = {
+  tag: 'my-widget',
+  describes: 'A test widget',
+  actions: {
+    doThing: { returns: {} },
+    doOther: { returns: { value: { type: 'string' } } },
+  },
+}
+
+function makeLiveBinding(tag: string): LiveBinding {
+  return {
+    rootId: 1,
+    tag,
+    getSignal: () => undefined,
+    setSignal: () => {},
+    async callAction(_name: string, _args: unknown[]) {
+      return { done: true }
+    },
+    scope: () => null,
+    rateLimit: () => null,
+    dispose$: () => true,
+  }
+}
 
 const sampleService = () =>
   createAgentService({
-    manifests: [
-      {
-        tag: 'my-widget',
-        describes: 'A test widget',
-        actions: {
-          doThing: { returns: {} },
-          doOther: { returns: { value: { type: 'string' } } },
-        },
-      },
-    ],
+    manifests: [WIDGET_META],
   })
+
+/** v0.3.0: service with live registry for dispatch tests. */
+const sampleServiceLive = () => {
+  const registry = new Map([['my-widget', [makeLiveBinding('my-widget')]]])
+  return createAgentService({
+    manifests: [WIDGET_META],
+    getRegistry: () => registry,
+  })
+}
 
 const makeGet = (url: string) => new Request(url, { method: 'GET' })
 const makePost = (url: string, body: unknown) =>
@@ -104,7 +131,7 @@ describe('agent card — GET /.well-known/acp-agent', () => {
 
 describe('POST /acp/messages', () => {
   it('handles valid tool name in parts[0].content.tool → 200 ACP response', async () => {
-    const adapter = mountAcpAdapter(sampleService())
+    const adapter = mountAcpAdapter(sampleServiceLive())
     const mw = adapter.asMiddleware()
     const req = makePost('http://localhost/acp/messages', {
       role: 'user',
@@ -121,7 +148,7 @@ describe('POST /acp/messages', () => {
 
   // AC-6: Tool name in content field
   it('handles valid tool name in content field → 200 ACP response', async () => {
-    const adapter = mountAcpAdapter(sampleService())
+    const adapter = mountAcpAdapter(sampleServiceLive())
     const mw = adapter.asMiddleware()
     const req = makePost('http://localhost/acp/messages', {
       role: 'user',
@@ -185,7 +212,7 @@ describe('POST /acp/messages', () => {
   })
 
   it('successful response includes parts with result', async () => {
-    const adapter = mountAcpAdapter(sampleService())
+    const adapter = mountAcpAdapter(sampleServiceLive())
     const mw = adapter.asMiddleware()
     const req = makePost('http://localhost/acp/messages', {
       role: 'user',
