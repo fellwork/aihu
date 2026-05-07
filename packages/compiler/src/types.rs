@@ -205,6 +205,17 @@ pub enum CollectionKind {
     /// `mountEffect` wiring for reactive properties. Includes auto-keyboard-
     /// promotion and default-tabindex injection per spec §3.2 (R5).
     Aria,
+    /// B5 — `$controller: { name: { value: () => new Ctrl(), describe? } }` —
+    /// Lit Reactive Controller pattern without class boilerplate. Each entry's
+    /// `value()` factory is called once at mount time. If the returned object
+    /// has `hostConnected` / `hostDisconnected` methods they are auto-wired into
+    /// onMount / onCleanup respectively.
+    Controller,
+    /// B5 — `$context: { provide: { ... }, consume: { ... } }` — tree-scoped
+    /// dependency injection aligned with the WICG Context Protocol. Components
+    /// can both provide context values (dispatched on mount) and consume context
+    /// values (listened for on mount). Lowered to DOM custom-event patterns.
+    Context,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.
