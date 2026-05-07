@@ -3782,15 +3782,15 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     indent, subtree, setter_call
                 ));
             }
-            // B3 — C500 reserved error code. Unknown $<name> directives are
-            // not silently dropped; eprintln to stderr in the same shape as
-            // other v0-deprecation warnings. The codemod (B3b dispatch)
-            // promotes the runtime warning to a compile error when the
-            // codemod recognizes a v1 form needing migration.
+            // B3c — C500 reserved error code. Unknown $<name> directives that
+            // reach codegen (not caught by the parser) are logged to stderr.
+            // If this is a v1 colon-form, it will already have been rejected
+            // by the parser with a hard C500 error. This path covers truly
+            // unknown directive names that pass through the AST unchanged.
             other => {
                 eprintln!(
                     "C500: unknown directive `${}` (template attribute) — ignored. \
-                     If this is a v1 form, run the template-syntax codemod.",
+                     Run: bun run --cwd packages/compiler codemod:template-syntax <glob>",
                     other
                 );
             }

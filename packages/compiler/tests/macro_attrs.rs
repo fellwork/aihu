@@ -77,7 +77,7 @@ fn macro_each_and_key_parse() {
 
 #[test]
 fn macro_bind_prop_parses() {
-    let nodes = parse_template("<div $bind:value=\"count\"></div>").unwrap();
+    let nodes = parse_template("<div $bind.value=\"count\"></div>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -91,7 +91,7 @@ fn macro_bind_prop_parses() {
 
 #[test]
 fn macro_on_event_parses() {
-    let nodes = parse_template("<button $on:click=\"handleClick\"></button>").unwrap();
+    let nodes = parse_template("<button $on.click=\"handleClick\"></button>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -345,13 +345,13 @@ fn c300_bare_value_is_error() {
 fn macro_bind_and_on_emit_in_attrs_object() {
     let src = r#"
 @template {
-  <div $bind:value="count" $on:click="handleClick"></div>
+  <div $bind.value="count" $on.click="handleClick"></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
-    // $bind:value → value: count, $on:click → onClick: handleClick
+    // $bind.value → value: count, $on.click → onClick: handleClick
     assert!(result.js.contains("value:") || result.js.contains("count"), "Expected count in: {}", result.js);
 }
 
@@ -359,14 +359,14 @@ fn macro_bind_and_on_emit_in_attrs_object() {
 
 #[test]
 fn r4_ac1_bind_value_to_signal_emits_oninput_writeback() {
-    // R4: when `$bind:value` references a registered signal (with a setter),
+    // R4: when `$bind.value` references a registered signal (with a setter),
     // the emit MUST also wire `oninput` to write the signal back. Without
     // this, $bind is read-only and userland edits in the input vanish.
     let src = r#"<script setup>
 const [name, setName] = signal('')
 </script>
 <template>
-  <input $bind:value="name">
+  <input $bind.value="name">
 </template>"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -388,13 +388,13 @@ const [name, setName] = signal('')
 
 #[test]
 fn r4_ac1_bind_checked_emits_onchange_writeback() {
-    // `$bind:checked` for checkbox/radio uses `change` (not `input`), and
+    // `$bind.checked` for checkbox/radio uses `change` (not `input`), and
     // reads `e.target.checked`.
     let src = r#"<script setup>
 const [done, setDone] = signal(false)
 </script>
 <template>
-  <input type="checkbox" $bind:checked="done">
+  <input type="checkbox" $bind.checked="done">
 </template>"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -413,7 +413,7 @@ const [done, setDone] = signal(false)
 
 #[test]
 fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
-    // If the user already wrote `$on:input={fn}`, the bind write-back must
+    // If the user already wrote `$on.input={fn}`, the bind write-back must
     // NOT clobber it. Userland intent wins; bind silently skips the
     // auto-emit. (Authors who want both behaviors compose them in the
     // explicit handler.)
@@ -421,7 +421,7 @@ fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
 const [name, setName] = signal('')
 </script>
 <template>
-  <input $bind:value="name" $on:input="customHandler">
+  <input $bind.value="name" $on.input="customHandler">
 </template>"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -440,7 +440,7 @@ const [name, setName] = signal('')
     let auto_writeback_new = "__aihu_conv(name()";
     assert!(
         !result.js.contains(auto_writeback_old) && !result.js.contains(auto_writeback_new),
-        "User-supplied $on:input must override auto write-back; got:\n{}",
+        "User-supplied $on.input must override auto write-back; got:\n{}",
         result.js
     );
     // User handler still emits.
@@ -458,7 +458,7 @@ fn r4_ac1_bind_to_non_signal_skips_writeback() {
     // identifier).
     let src = r#"
 @template {
-  <input $bind:value="literalName">
+  <input $bind.value="literalName">
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -569,7 +569,7 @@ fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
 
 #[test]
 fn r2_attr_event_handler_referencing_state_does_not_wrap() {
-    // Event handlers (`$on:click`, `@click`) take the runtime's Path 1
+    // Event handlers (`$on.click`, `@click`) take the runtime's Path 1
     // (typeof === 'function'). They MUST stay as plain function references
     // even when the body references state — wrapping would put a function
     // value inside an array and trigger Path 2 instead.
@@ -581,7 +581,7 @@ fn r2_attr_event_handler_referencing_state_does_not_wrap() {
   }
 }
 @template {
-  <button $on:click={inc}>+</button>
+  <button $on.click={inc}>+</button>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();

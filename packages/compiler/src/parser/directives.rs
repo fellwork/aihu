@@ -156,12 +156,22 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
     } else if let Some(idx) = raw_name.find(':') {
         let prefix = &raw_name[..idx];
         if prefix == "on" || prefix == "bind" {
-            // V1 colon-form — emit W202 deprecation warning and pass through.
-            eprintln!(
-                "W202: $${} is deprecated; use $${} (dot-form) instead",
-                raw_name,
-                raw_name.replacen(':', ".", 1)
-            );
+            // B3c Phase 2 — C500 hard error. The colon-form ($on:event, $bind:prop)
+            // was tolerated with a W202 warning during the B3a/B3b transition window.
+            // The corpus is now fully migrated; colon-form is a compile error.
+            let dot_form = raw_name.replacen(':', ".", 1);
+            return Err(CompileError {
+                message: format!(
+                    "C500: `${}` uses the deprecated colon-form syntax. \
+                     Rename to `${}` (dot-form). \
+                     Run: bun run --cwd packages/compiler codemod:template-syntax <glob>",
+                    raw_name, dot_form
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C500".to_string()),
+                ..Default::default()
+            });
         }
         (raw_name.to_string(), false)
     } else {
@@ -456,8 +466,9 @@ mod tests {
     }
 
     #[test]
-    fn macro_bind_dotted_name() {
-        let attr = parse_attr("$bind:value=\"count\"").unwrap();
+    fn macro_bind_dot_form() {
+        // B3c: colon-form is now C500; use dot-form instead.
+        let attr = parse_attr("$bind.value=\"count\"").unwrap();
         assert_eq!(
             attr,
             Attr::Macro {
@@ -469,7 +480,8 @@ mod tests {
 
     #[test]
     fn macro_on_event() {
-        let attr = parse_attr("$on:click=\"handleClick\"").unwrap();
+        // B3c: colon-form is now C500; use dot-form instead.
+        let attr = parse_attr("$on.click=\"handleClick\"").unwrap();
         assert_eq!(
             attr,
             Attr::Macro {
@@ -625,16 +637,10 @@ mod tests {
     }
 
     #[test]
-    fn b3_colon_form_still_works() {
-        // V1 colon-form continues to parse during transition (W202 to stderr).
-        let attr = parse_attr("$on:click={handleClick}").unwrap();
-        assert_eq!(
-            attr,
-            Attr::Macro {
-                name: "on:click".to_string(),
-                value: MacroValue::Curly("handleClick".to_string())
-            }
-        );
+    fn b3c_colon_form_is_hard_error() {
+        // B3c Phase 2: colon-form is now a C500 hard error.
+        let err = parse_attr("$on:click={handleClick}").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C500"));
     }
 
     #[test]

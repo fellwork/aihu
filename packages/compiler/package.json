@@ -27,7 +27,8 @@
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit",
     "postinstall": "bun run js/postinstall.ts",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"

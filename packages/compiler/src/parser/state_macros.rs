@@ -563,10 +563,10 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
             "$lifecycle: { mount: () => { <body> } }".to_string(),
         ),
         CollectionKind::Event => (
-            "Use `$event: { name: { payload: <type> } }` to declare a typed custom event. \
-             Example: `$event: { select: { payload: { item: Item } } }`",
+            "Replace `$event name: Type` with `$event: { name: { payload: Type } }`. \
+             Example: `$event click: MouseEvent` → `$event: { click: { payload: MouseEvent } }`",
             format!("$event {}", got.trim_start_matches("event").trim_start()),
-            "$event: { <name>: { payload: <type> } }".to_string(),
+            "$event: { <name>: { payload: <Type> } }".to_string(),
         ),
         CollectionKind::Aria => (
             "Use `$aria: { role: 'button', label: () => '...' }` to declare ARIA properties. \
