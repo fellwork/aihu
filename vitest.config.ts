@@ -51,6 +51,10 @@ export default defineConfig({
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
       '@aihu/auth': new URL('./packages/auth/src/index.ts', import.meta.url).pathname,
+      'virtual:aihu-routes': new URL(
+        './packages/app/tests/__stubs__/aihu-routes.ts',
+        import.meta.url,
+      ).pathname,
     },
   },
 })

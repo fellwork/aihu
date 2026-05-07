@@ -5,6 +5,13 @@ import { createRouter } from '@aihu/router'
 import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
 import { signal } from '@aihu/signals'
 
+/**
+ * Rendering mode passed from the server config into the client bootstrap.
+ * Inlined here to avoid importing @aihu/server into the client bundle.
+ * Must stay in sync with RenderingMode in @aihu/server.
+ */
+export type AppRenderingMode = 'ssr' | 'spa' | 'hybrid'
+
 /** Inline runtime configuration accepted by createApp(). All fields optional. */
 export interface AppConfig {
   /** Id of the outlet element in index.html. Default: 'outlet' */
@@ -18,6 +25,18 @@ export interface AppConfig {
    * createApp({ provide: { supabase, checkAuth } })
    */
   provide?: Record<string, unknown>
+  /**
+   * Rendering mode from the server config. Controls whether the client
+   * wires the hydration function into the runtime.
+   *
+   * - 'ssr' | 'hybrid' (default): wires _setHydrate so the client can
+   *   take over from server-rendered HTML without re-creating DOM.
+   * - 'spa': skips _setHydrate — no SSR HTML to hydrate, mount-only.
+   *
+   * Pass `defineAihuConfig(…).rendering?.mode` from your server config.
+   * Default: 'ssr' (hydration wired).
+   */
+  rendering?: { mode?: AppRenderingMode }
 }
 
 /**
@@ -43,7 +62,9 @@ export function createApp(config?: AppConfig): void {
   // Wire runtime — null-guarded in @aihu/runtime, safe to call multiple times
   _setMount(mount)
   _setSignal(signal as Parameters<typeof _setSignal>[0])
-  _setHydrate(hydrate as Parameters<typeof _setHydrate>[0])
+  if (config?.rendering?.mode !== 'spa') {
+    _setHydrate(hydrate as Parameters<typeof _setHydrate>[0])
+  }
 
   const outletId = config?.outletId ?? 'outlet'
   const outletEl = document.getElementById(outletId)
