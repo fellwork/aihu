@@ -91,6 +91,75 @@ export const realSpawner: Spawner = {
   },
 }
 
+// ─── Auto-install ─────────────────────────────────────────────────────────────
+
+/**
+ * Detect the first available package manager. Mirrors the logic in create.ts.
+ * Injectable via the `pmExists` parameter for tests.
+ */
+export function detectPackageManager(
+  pmExists: (pm: string) => boolean = (pm) => {
+    const r = spawnSync(pm, ['--version'], { stdio: 'ignore', shell: false })
+    return r.status === 0
+  },
+): 'bun' | 'pnpm' | 'yarn' | 'npm' {
+  for (const pm of ['bun', 'pnpm', 'yarn', 'npm'] as const) {
+    if (pmExists(pm)) return pm
+  }
+  return 'npm'
+}
+
+export interface AutoInstallTemplateInput {
+  /** Full package name, e.g. `@aihu/templates-cf-team`. */
+  pkgName: string
+  /** Package manager to use; auto-detected when absent. */
+  pm?: 'bun' | 'pnpm' | 'yarn' | 'npm'
+  /** Spawner for the install command. Defaults to realSpawner. */
+  spawner?: Spawner
+  /** Override PM detection (injectable for tests). */
+  pmExists?: (pm: string) => boolean
+  /** Override stdout writer (injectable for tests). */
+  write?: (s: string) => void
+}
+
+export interface AutoInstallTemplateResult {
+  /** True when the install command exited 0. */
+  success: boolean
+  /** The PM that was used. */
+  pm: 'bun' | 'pnpm' | 'yarn' | 'npm'
+  /** Install command args actually run (e.g. ['add', '@aihu/templates-cf-team']). */
+  args: string[]
+  /** Raw stderr from the install command on failure. */
+  stderr: string
+}
+
+/**
+ * Install a template package using the detected (or supplied) package manager.
+ *
+ * Emits one status line to stdout: `Installing template package <pkg>...`
+ * Returns a result record so callers can decide what to do on failure.
+ */
+export function autoInstallTemplate(input: AutoInstallTemplateInput): AutoInstallTemplateResult {
+  const spawner = input.spawner ?? realSpawner
+  const write = input.write ?? ((s: string) => process.stdout.write(s))
+  const pm = input.pm ?? detectPackageManager(input.pmExists)
+
+  // Build the install args per PM convention.
+  // bun/npm/yarn use `add`; pnpm uses `add` too.
+  const installArgs = ['add', input.pkgName]
+
+  write(`Installing template package ${input.pkgName}...\n`)
+
+  const res = spawner.run(pm, installArgs, process.cwd())
+
+  return {
+    success: res.status === 0,
+    pm,
+    args: installArgs,
+    stderr: res.stderr,
+  }
+}
+
 // ─── 1. resolveTemplate ──────────────────────────────────────────────────────
 
 /**

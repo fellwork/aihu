@@ -15,6 +15,7 @@ import { dirname, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
 import {
+  autoInstallTemplate,
   enumerateFiles,
   mergeOptions,
   printNextSteps,
@@ -245,10 +246,12 @@ function parseOptionsJson(raw: string | undefined): Record<string, string | bool
  *   --no-interactive    (interactive prompts not yet implemented; default)
  *   --use-defaults      (skip prompts; emit manifest defaults)
  *   --options-json <S>  (overrides for the manifest's `overridable` cells)
- *   --no-git            (skip git-init post-install step)
- *   --no-install        (skip pm-install + lint-fix post-install steps;
- *                        useful for harness tests + offline scaffolding)
- *   --pm <bun|pnpm|...> (package manager for pm-install + emitted scripts)
+ *   --no-git                     (skip git-init post-install step)
+ *   --no-install                 (skip pm-install + lint-fix post-install steps;
+ *                                 useful for harness tests + offline scaffolding)
+ *   --pm <bun|pnpm|...>         (package manager for pm-install + emitted scripts)
+ *   --no-auto-install-template  (skip auto-install when template package is missing;
+ *                                 surface the original error immediately)
  */
 async function dispatchTemplate(args: {
   appName: string
@@ -260,6 +263,7 @@ async function dispatchTemplate(args: {
   // --- flag parsing ---
   const noGit = hasFlag(rest, 'no-git')
   const noInstall = hasFlag(rest, 'no-install')
+  const noAutoInstall = hasFlag(rest, 'no-auto-install-template')
   const pmFlag = extractFlag(rest, 'pm')
   const pm: ResolvedOptions['pm'] =
     pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun' ? pmFlag : 'bun'
@@ -273,8 +277,36 @@ async function dispatchTemplate(args: {
   void _useDefaults
   void _noInteractive
 
-  // --- 1. resolveTemplate ---
-  const pkgRoot = await resolveTemplatePackagePath(templatePkg)
+  // --- 1. resolveTemplate (with auto-install on first-resolve failure) ---
+  let pkgRoot: string
+  try {
+    pkgRoot = await resolveTemplatePackagePath(templatePkg)
+  } catch (firstErr) {
+    // Auto-install is disabled — surface the original error immediately.
+    if (noAutoInstall) throw firstErr
+
+    // Attempt to auto-install the template package, then retry resolution.
+    const installResult = autoInstallTemplate({ pkgName: templatePkg, pm })
+    if (!installResult.success) {
+      throw new Error(
+        `Failed to install template package; please install manually: ` +
+          `${installResult.pm} add ${templatePkg}\n` +
+          (installResult.stderr.trim() ? `Install stderr: ${installResult.stderr.trim()}` : ''),
+      )
+    }
+
+    // Retry resolution after successful install.
+    try {
+      pkgRoot = await resolveTemplatePackagePath(templatePkg)
+    } catch (retryErr) {
+      throw new Error(
+        `Failed to install template package; please install manually: ` +
+          `${installResult.pm} add ${templatePkg}\n` +
+          `Resolution after install failed: ${(retryErr as Error).message}`,
+      )
+    }
+  }
+
   const manifest = await resolveTemplate({
     loader: () => loadTemplateConfig(pkgRoot),
   })
