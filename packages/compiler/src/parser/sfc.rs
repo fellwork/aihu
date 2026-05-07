@@ -1015,5 +1015,6 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
         meta,
         agent,
         route,
+        stream: None, // v0.4.0: @stream block parsing deferred to stream_macros module
     })
 }

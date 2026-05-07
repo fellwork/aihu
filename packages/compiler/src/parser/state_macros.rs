@@ -472,6 +472,7 @@ fn match_collection_keyword(rest: &str) -> Option<CollectionKind> {
         ("context", CollectionKind::Context),
         ("action", CollectionKind::Action),
         ("effect", CollectionKind::Effect),
+        ("stream", CollectionKind::Stream),
         ("event", CollectionKind::Event),
         ("prop", CollectionKind::Prop),
         // B4 — R5: `$aria` collection (declarative ARIA via ElementInternals).
@@ -507,6 +508,8 @@ fn collection_keyword_len(kind: CollectionKind) -> usize {
         // B5
         CollectionKind::Controller => 10,
         CollectionKind::Context => 7,
+        // v0.4.0
+        CollectionKind::Stream => 6,
         // D5
         CollectionKind::Form => 4,
     }
@@ -525,6 +528,8 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
         // B5
         CollectionKind::Controller => "controller",
         CollectionKind::Context => "context",
+        // v0.4.0
+        CollectionKind::Stream => "stream",
         // D5
         CollectionKind::Form => "form",
     }
@@ -598,6 +603,12 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
             "Use `$context: { provide: { key: { value: () => signal } }, consume: { key: { type: 'T' } } }` to declare context.",
             format!("$context {}", got.trim_start_matches("context").trim_start()),
             "$context: { provide: { <key>: { value: () => <expr> } }, consume: { <key>: { type: '<T>' } } }".to_string(),
+        ),
+        // v0.4.0 — $stream is new in v0.4.0; no v1 migration path.
+        CollectionKind::Stream => (
+            "$stream: { <name>: { source: () => ..., describe?: '...' } }",
+            format!("$stream {}", got.trim_start_matches("stream").trim_start()),
+            "$stream name = ...".to_string(),
         ),
         // D5 — $form: no v1 migration path; new in this release.
         CollectionKind::Form => (
@@ -740,6 +751,27 @@ fn parse_object_collection(
                 ..Default::default()
             });
         }
+        // v0.4.0 — $stream validation.
+        if matches!(kind, CollectionKind::Stream) {
+            if !is_wrapped {
+                return Err(CompileError {
+                    message: format!(
+                        "C553: $stream entry '{}' must use wrapped form {{ source: () => ... }}. \
+                         Bare form `{}: <expr>` is not supported for $stream. \
+                         Use `{}: {{ source: () => <factory>, describe?: '...' }}`.",
+                        name, name, name
+                    ),
+                    line: 0,
+                    col: 0,
+                    code: Some("C553".to_string()),
+                    from: Some(format!("{}: {}", name, value)),
+                    to: Some(format!("{}: {{ source: () => <factory> }}", name)),
+                    ..Default::default()
+                });
+            }
+            // Will parse meta pairs below; check for `source:` key after meta parse.
+            // We defer to after the meta parse block below.
+        }
         if matches!(kind, CollectionKind::Lifecycle) && is_wrapped {
             return Err(CompileError {
                 message: format!(
@@ -822,6 +854,28 @@ fn parse_object_collection(
         } else {
             (value, Vec::new())
         };
+
+        // v0.4.0 — C554: $stream entries must have a `source:` key.
+        if matches!(kind, CollectionKind::Stream) && is_wrapped {
+            let has_source = meta.iter().any(|(k, _)| k == "source");
+            if !has_source {
+                return Err(CompileError {
+                    message: format!(
+                        "C554: $stream entry '{}' missing required 'source' key. \
+                         Add `source: () => <factory>` to the metadata bag.",
+                        name
+                    ),
+                    line: 0,
+                    col: 0,
+                    code: Some("C554".to_string()),
+                    hint: Some(format!(
+                        "Example: `{}: {{ source: () => fetch('/api/stream').then(r => r.body), describe: '...' }}`",
+                        name
+                    )),
+                    ..Default::default()
+                });
+            }
+        }
 
         // R1 — validate $prop optional keys at compile time. The
         // `attribute: false + reflect: true` combination is meaningless
@@ -1495,6 +1549,22 @@ fn emit_collection_entry(
                 indent = indent,
                 call = call,
                 body = body
+            ))
+        }
+        CollectionKind::Stream => {
+            // v0.4.0 — `$stream` entries lower to `createStream(source_factory)`.
+            // The primary codegen is in codegen/emit.rs (emit_state_macro_code);
+            // this branch handles the legacy `emit_state_macros_indented` path.
+            let source_factory = entry
+                .meta
+                .iter()
+                .find(|(k, _)| k == "source")
+                .map(|(_, v)| v.trim())
+                .unwrap_or("() => null");
+            Some(format!(
+                "{indent}const {name} = createStream({source_factory});",
+                indent = indent,
+                name = entry.name,
             ))
         }
     }

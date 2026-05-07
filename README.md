@@ -228,6 +228,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/agent-readiness) | `0.1.0` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.0` | Service-side agent runtime (server-hosted agent endpoints). |
+| [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
 | [`@aihu/app`](./packages/app) | `0.1.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |

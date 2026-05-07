@@ -153,6 +153,7 @@ fn compile_empty_source() {
             meta: aihu_compiler::ScriptMeta { name: None },
             agent: None,
             route: None,
+            stream: None,
         }
     );
 }

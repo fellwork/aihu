@@ -19,6 +19,8 @@ struct StateImports {
     needs_on_attribute_change: bool,
     needs_effect_for_macros: bool,
     needs_create_resource: bool,
+    // v0.4.0 — `$stream` lowers to `createStream()` in `@aihu/runtime`.
+    needs_create_stream: bool,
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
     // calls into `@aihu/router`. When set, the namespace import is emitted.
     needs_aihu_router: bool,
@@ -104,11 +106,25 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     let elide_agent = target == BuildTarget::Client && unit.source.agent.is_some();
     let elide_server_macro = target == BuildTarget::Client
         && unit.source.script.map_or(false, |s| s.contains("$server"));
+    // v0.4.0: @stream block is server-only. Elide in client builds.
+    let elide_stream = target == BuildTarget::Client && unit.source.stream.is_some();
 
     let js = if !elide_agent && unit.source.agent.is_some() {
         emit_options_form(unit, tag_name, unit.source.agent.as_ref().unwrap())
     } else {
-        let base_js = emit_function_form(unit, tag_name);
+        let mut base_js = emit_function_form(unit, tag_name);
+        // v0.4.0: append __streamBinding export for server artifacts.
+        if let Some(stream_block) = &unit.source.stream {
+            if elide_stream {
+                // Client build: prepend elision comment.
+                base_js = format!("// [client build] @stream block elided\n{}", base_js);
+            } else {
+                // Server build: append __streamBinding export.
+                let stream_binding = emit_stream_binding(tag_name, stream_block);
+                base_js.push('\n');
+                base_js.push_str(&stream_binding);
+            }
+        }
         if elide_agent {
             eprintln!("WARNING: @agent block elided — client-only build");
             // Prepend elision comment to the emitted JS.
@@ -342,6 +358,23 @@ fn emit_route_json(route: &RouteBlock) -> String {
     format!(
         "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"\n}}",
         pattern, name, middleware_json, ssr, layout
+    )
+}
+
+// ─── v0.4.0 — @stream block binding export ───────────────────────────────────
+
+fn emit_stream_binding(tag_name: &str, stream: &crate::types::StreamBlock) -> String {
+    let scope_val = match &stream.scope {
+        Some(s) => format!("'{}'", s),
+        None => "undefined".to_string(),
+    };
+    let mime_val = stream
+        .mime
+        .as_deref()
+        .unwrap_or("text/plain; charset=utf-8");
+    format!(
+        "export const __streamBinding = {{\n  tag: '{}',\n  output: '{}',\n  scope: {},\n  mime: '{}',\n}};",
+        tag_name, stream.output, scope_val, mime_val
     )
 }
 
@@ -650,6 +683,13 @@ fn process_state_body(
                         state_names.insert(&e.name);
                     }
                 }
+                CollectionKind::Stream => {
+                    si.needs_create_stream = true;
+                    si.needs_on_cleanup = true; // onCleanup registered by createStream
+                    for e in entries {
+                        state_names.insert(&e.name);
+                    }
+                }
                 CollectionKind::Effect => {
                     si.needs_effect_for_macros = true;
                     // $effect entries don't declare bindings; nothing to track.
@@ -779,6 +819,8 @@ fn process_state_body(
                     // B5
                     | Some("controller")
                     | Some("context")
+                    // v0.4.0
+                    | Some("stream")
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
@@ -1094,6 +1136,20 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
                             lines.push(format!(
                                 "{indent}const {} = createResource(() => {body});",
+                                entry.name
+                            ));
+                        }
+                        CollectionKind::Stream => {
+                            // v0.4.0 — emit `const <name> = createStream(<source_factory>)`
+                            // The source factory is the verbatim value from the `source:` key.
+                            let source_factory = entry
+                                .meta
+                                .iter()
+                                .find(|(k, _)| k == "source")
+                                .map(|(_, v)| v.trim())
+                                .unwrap_or("() => null");
+                            lines.push(format!(
+                                "{indent}const {} = createStream({source_factory});",
                                 entry.name
                             ));
                         }
@@ -2128,6 +2184,8 @@ fn build_function_imports(
     // R2 (Director r6 §3): $lifecycle four-callback extension imports.
     if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
     if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
+    // v0.4.0 — `$stream` lazy-attach: only import createStream when used.
+    if si.needs_create_stream { rt_items.push("createStream".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {
@@ -2421,6 +2479,10 @@ fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &st
             AgentMacroDecl::RateLimit(n) => {
                 rate_limit_val = Some(*n);
             }
+            AgentMacroDecl::Stream(_) => {
+                // v0.4.0: $stream in @agent wires result → stream entry.
+                // Handled in emit_manifest / __agentBinding — skip for options form.
+            }
         }
     }
 
@@ -2604,6 +2666,10 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
             }
             AgentMacroDecl::RateLimit(n) => {
                 extra_fields.push_str(&format!(",\n    \"rateLimit\": {}", n));
+            }
+            AgentMacroDecl::Stream(name) => {
+                // v0.4.0: include streamOutput in manifest for agent-service bridge.
+                extra_fields.push_str(&format!(",\n    \"streamOutput\": \"{}\"", name));
             }
         }
     }
