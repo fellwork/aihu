@@ -278,7 +278,10 @@ export function enumerateFiles(
   // F-5b: track both `when` and optional `rename` per conditional file.
   const conditional = new Map<string, { when: string; rename?: string }>()
   for (const c of manifest.conditionalFiles) {
-    conditional.set(normalize(c.path), { when: c.when, rename: c.rename })
+    conditional.set(normalize(c.path), {
+      when: c.when,
+      ...(c.rename !== undefined ? { rename: c.rename } : {}),
+    })
   }
 
   const ctx: Record<string, unknown> = {

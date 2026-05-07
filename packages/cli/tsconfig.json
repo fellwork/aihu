@@ -5,6 +5,7 @@
     "noEmit": true,
     "paths": {
       "@aihu/agent": ["../agent/src/index.ts"],
+      "@aihu/mcp": ["../mcp/src/index.ts"],
       "@aihu/agent-readiness": ["../agent-readiness/src/index.ts"],
       "@aihu/app/client": ["../app/src/client.ts"],
       "@aihu/compiler/plugin": ["../compiler/js/index.ts"],

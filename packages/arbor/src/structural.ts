@@ -121,7 +121,7 @@ function _reconcileEach(
       sc.delete(k)
     }
   for (let i = 0; i < keys.length; i++) {
-    const k = keys[i]
+    const k = keys[i]!
     if (sc.has(k)) continue
     const cd: Dispose[] = []
     const ca = document.createComment('e')
@@ -131,7 +131,7 @@ function _reconcileEach(
       key: k,
       disposers: cd,
       appendedNodes: _mc(
-        lgrow(items[i], i),
+        lgrow(items[i]!, i),
         par,
         cd,
         `${pb}.list.${String(k).replace(/\./g, '_')}`,

@@ -9,17 +9,6 @@
  */
 
 export default async function mcpServe(_args: ReadonlyArray<string>): Promise<void> {
-  // Dynamically import @aihu/mcp so the CLI binary loads instantly
-  // when this subcommand is not being used.
-  let startServer: () => Promise<void>
-  try {
-    const mod = await import('@aihu/mcp')
-    startServer = mod.startServer
-  } catch {
-    // Fallback: try resolving the bin/serve.ts directly from workspace
-    // (useful when running from within the monorepo before publishing)
-    const { startServer: start } = await import('../../mcp/src/index.js')
-    startServer = start
-  }
+  const { startServer } = await import('@aihu/mcp')
   await startServer()
 }

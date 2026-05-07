@@ -6,12 +6,9 @@
  * an array of AihuDiagnostic objects on failure.
  */
 
-import { execFile } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
 
 // Binary path resolution:
 // 1. SCRIBE_COMPILE_BIN env override (matches convention in packages/compiler/js/index.ts)
@@ -77,7 +74,7 @@ export async function compileSource(source: string, filename: string): Promise<V
   const stem = basename(filename, '.aihu')
 
   try {
-    const { stdout } = await execFileAsync(
+    const stdout = execFileSync(
       binPath,
       ['--stdin', '--tag', stem, '--path', filename, '--machine-errors'],
       {

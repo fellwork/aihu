@@ -120,13 +120,15 @@ export function createStream(factory: () => Promise<ReadableStream<string> | nul
               }
               break
             }
-            // Handle both string and Uint8Array chunks.
+            // Handle both string and Uint8Array chunks (raw fetch bodies arrive as Uint8Array
+            // at runtime even though the stream is typed as ReadableStream<string>).
+            const chunk = value as string | Uint8Array | undefined
             const text =
-              typeof value === 'string'
-                ? value
-                : value instanceof Uint8Array
-                  ? decoder.decode(value, { stream: true })
-                  : String(value ?? '')
+              typeof chunk === 'string'
+                ? chunk
+                : chunk instanceof Uint8Array
+                  ? decoder.decode(chunk, { stream: true })
+                  : String(chunk ?? '')
             if (text) {
               setDelta(text)
               setValue(getValue() + text)

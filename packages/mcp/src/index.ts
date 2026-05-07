@@ -94,7 +94,10 @@ export function createServer(): Server {
         }
       }
 
-      const result = handleExample({ intent: input.intent, tags: input.tags })
+      const result = handleExample({
+        intent: input.intent,
+        ...(input.tags !== undefined ? { tags: input.tags } : {}),
+      })
 
       if ('isError' in result && result.isError) {
         return {
@@ -134,7 +137,7 @@ export function createServer(): Server {
 
       const result = await handleValidate({
         source: input.source,
-        filename: input.filename,
+        ...(input.filename !== undefined ? { filename: input.filename } : {}),
       })
 
       return {
