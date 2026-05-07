@@ -13,6 +13,8 @@ dist/
 build/
 *.tsbuildinfo
 examples/*/dist/
+# Compiler-generated TypeScript sidecar files (type-info artifacts from rolldown plugin)
+**/*.aihu.ts
 
 # Vite
 .vite/

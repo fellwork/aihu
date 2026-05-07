@@ -78,7 +78,11 @@ console.log(`[fetch-wasm-bundle] downloaded ${buf.length} bytes`)
 // Extract via the system tar binary. `--strip-components=1` drops the
 // leading `pkg-wasm/` prefix so files land directly in <outDir>.
 console.log(`[fetch-wasm-bundle] extracting to ${outDir}/`)
-const tarRes = spawnSync('tar', ['-xzf', tarPath, '-C', outDir, '--strip-components=1'], {
+// Use cwd + relative filename to avoid MSYS2/Git Bash tar treating the
+// "C:" drive prefix in Windows absolute paths as a hostname.
+const tarBasename = 'wasm-bundle.tar.gz'
+const tarRes = spawnSync('tar', ['-xzf', tarBasename, '--strip-components=1'], {
+  cwd: outDir,
   stdio: 'inherit',
 })
 
@@ -88,7 +92,7 @@ if (tarRes.status !== 0) {
 }
 
 // Drop the tarball after extraction.
-await rm(tarPath)
+await rm(join(outDir, tarBasename))
 
 // Sanity check: confirm the two critical files landed.
 const expected = ['aihu_compiler.js', 'aihu_compiler_bg.wasm']

@@ -10,6 +10,277 @@ declare global {
 }
 
 window.__DOCS__ = {
+  'agent-discovery': {
+    title: 'Agent Discovery & MCP Compliance',
+    html: `<h1>Agent Discovery &amp; MCP Compliance</h1>
+<p>aihu is designed from the ground up for the agentic web. Every aihu application automatically exposes standard discovery endpoints that let AI agents find, understand, and call your components as tools — with no manual configuration.</p>
+<h2>How AI agents discover aihu apps</h2>
+<p>Aihu apps expose four discovery endpoints that agents and crawlers check:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/llms.txt</code></td>
+<td>Human-readable index of docs and links in llmstxt.org format</td>
+</tr>
+<tr>
+<td><code>/llms-full.txt</code></td>
+<td>Extended index with full package list, examples, and spec links</td>
+</tr>
+<tr>
+<td><code>/.well-known/mcp/server-card.json</code></td>
+<td>Machine-readable MCP server card (SEP-1649)</td>
+</tr>
+<tr>
+<td><code>/robots.txt</code></td>
+<td>Agent-friendly crawl directives (RFC 9309)</td>
+</tr>
+</tbody></table>
+<p>All four are generated automatically by <code>@aihu/agent-readiness</code> from a single config object. The minimum viable setup is:</p>
+<pre><code class="language-ts">import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+import { createRequestRouter, defineRoute } from &#39;@aihu/server&#39;
+
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+  ],
+})
+</code></pre>
+<p>This works on Cloudflare Workers, Bun, and Deno — anywhere with a fetch-API request handler.</p>
+<h2>The MCP Server Card</h2>
+<p>The MCP Server Card is a machine-readable JSON document at <code>/.well-known/mcp/server-card.json</code> that describes your application&#39;s agent capabilities per the SEP-1649 schema.</p>
+<p>A minimal server card looks like:</p>
+<pre><code class="language-json">{
+  &quot;schema_version&quot;: &quot;1.0&quot;,
+  &quot;name&quot;: &quot;My App&quot;,
+  &quot;summary&quot;: &quot;A aihu-powered app.&quot;,
+  &quot;mcp_endpoint&quot;: &quot;https://myapp.workers.dev/mcp&quot;,
+  &quot;skills&quot;: [
+    {
+      &quot;id&quot;: &quot;my-counter&quot;,
+      &quot;name&quot;: &quot;Live Counter&quot;,
+      &quot;description&quot;: &quot;Read and increment a counter&quot;
+    }
+  ]
+}
+</code></pre>
+<p>The <code>skills</code> array is auto-populated from the <code>@agent</code> blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and <code>@aihu/agent-readiness</code> aggregates them at build time.</p>
+<p>To configure the server card, pass <code>AgentReadinessConfig</code> to <code>createAgentReadinessRoutes</code>:</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  version: &#39;1.0.0&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  // Optional: declare skills explicitly (merged with auto-derived from @agent blocks)
+  skills: [
+    { id: &#39;counter&#39;, name: &#39;Counter&#39;, description: &#39;Read and set counter value&#39; },
+  ],
+})
+</code></pre>
+<h3>Auth configuration (opt-in)</h3>
+<p>By default the MCP endpoint is public (no-auth, Option A). To require OAuth 2.0 (Option C per RFC 9728):</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  auth: {
+    type: &#39;oauth2&#39;,
+    authorizationUrl: &#39;https://auth.myapp.com/authorize&#39;,
+    tokenUrl: &#39;https://auth.myapp.com/token&#39;,
+    scopes: [&#39;mcp:read&#39;, &#39;mcp:write&#39;],
+  },
+})
+</code></pre>
+<h2>llms.txt</h2>
+<p>The <code>llms.txt</code> file at the app root follows the <a href="https://llmstxt.org">llmstxt.org</a> specification. It gives AI coding assistants a structured map of your app&#39;s documentation and endpoints.</p>
+<h3>Format</h3>
+<p>The file uses a small Markdown subset:</p>
+<ul>
+<li>First line: <code># &lt;Name&gt;</code> (H1 heading — the app name)</li>
+<li>Optional second non-blank line: <code>&gt; &lt;tagline&gt;</code> (blockquote summary)</li>
+<li>Sections: <code>## &lt;Section Title&gt;</code> (H2 headings)</li>
+<li>Links: <code>- [Title](URL)</code> or <code>- [Title](URL): Optional description</code></li>
+<li>An optional <code>## Optional</code> section at the end (for supplementary links)</li>
+</ul>
+<p>The <code>llms-full.txt</code> variant follows the same format but uses <code>## More</code> instead of <code>## Optional</code> for the trailing section, and typically includes more links (all packages, examples, spec files).</p>
+<h3>LlmsTxtConfig type</h3>
+<p><code>@aihu/agent-readiness</code> generates both files from <code>LlmsTxtConfig</code>:</p>
+<pre><code class="language-ts">interface LlmsTxtLink {
+  readonly title: string
+  readonly url: string
+  readonly description?: string
+}
+
+interface LlmsTxtSection {
+  readonly title: string
+  readonly links: ReadonlyArray&lt;LlmsTxtLink&gt;
+}
+
+interface LlmsTxtConfig {
+  readonly name: string
+  readonly summary?: string
+  readonly sections: ReadonlyArray&lt;LlmsTxtSection&gt;
+  readonly optional?: ReadonlyArray&lt;LlmsTxtLink&gt;
+}
+</code></pre>
+<p>To generate the files programmatically:</p>
+<pre><code class="language-ts">import { generateLlmsTxt, generateLlmsFullTxt } from &#39;@aihu/agent-readiness&#39;
+
+const config: LlmsTxtConfig = {
+  name: &#39;My App&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+  sections: [
+    {
+      title: &#39;Getting Started&#39;,
+      links: [
+        { title: &#39;Installation&#39;, url: &#39;https://myapp.com/docs/install&#39; },
+        { title: &#39;Quickstart&#39;, url: &#39;https://myapp.com/docs/quickstart&#39; },
+      ],
+    },
+  ],
+  optional: [
+    { title: &#39;Contributing&#39;, url: &#39;https://github.com/org/myapp/blob/main/CONTRIBUTING.md&#39; },
+  ],
+}
+
+const llmsTxt = generateLlmsTxt(config)      // uses &quot;## Optional&quot;
+const llmsFullTxt = generateLlmsFullTxt(config) // uses &quot;## More&quot;
+</code></pre>
+<p>The <code>llmsSections</code> and <code>llmsOptional</code> fields on <code>AgentReadinessConfig</code> feed directly into these generators, so you can customize the content without calling the generators manually.</p>
+<h2>robots.txt</h2>
+<p>Aihu generates an agent-friendly <code>robots.txt</code> per RFC 9309. The default (<code>aiAgents: &#39;allow-all&#39;</code>) produces directives that permit all compliant AI agents to crawl your app:</p>
+<pre><code>User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+</code></pre>
+<p>To restrict AI agent access, set <code>aiAgents: &#39;disallow-all&#39;</code> or <code>aiAgents: &#39;allow-verified&#39;</code>. You can also add custom rules for specific bots via <code>standardBots</code>:</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  aiAgents: &#39;allow-all&#39;,
+  standardBots: [
+    { userAgent: &#39;Googlebot&#39;, allow: [&#39;/&#39;], disallow: [&#39;/admin&#39;] },
+  ],
+  sitemap: &#39;https://myapp.com/sitemap.xml&#39;,
+})
+</code></pre>
+<h2>Calling aihu components as MCP tools</h2>
+<p>Agent-callable components are the core proposition of aihu. Here is the end-to-end flow:</p>
+<p><strong>Step 1 — Declare an agent surface in the SFC</strong></p>
+<p>Add an <code>@agent</code> block and expose actions from <code>@state</code>:</p>
+<pre><code>@state {
+  $prop: {
+    count: { default: 0, type: &quot;number&quot;, expose: { read: true } }
+  }
+
+  $action: {
+    increment: {
+      describe: &quot;Increment the counter by one&quot;,
+      expose: { write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+  }
+}
+
+@agent {
+  $describe: &quot;A simple counter component&quot;
+}
+</code></pre>
+<p><strong>Step 2 — Compiler emits <code>.mcp.json</code></strong></p>
+<p>When the Rust SFC compiler processes this file with <code>BuildTarget.Server</code> or <code>BuildTarget.Universal</code>, it emits a <code>.mcp.json</code> sidecar describing the exposed tools:</p>
+<pre><code class="language-json">{
+  &quot;tools&quot;: [
+    {
+      &quot;name&quot;: &quot;increment&quot;,
+      &quot;description&quot;: &quot;Increment the counter by one&quot;,
+      &quot;inputSchema&quot;: { &quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {} }
+    }
+  ],
+  &quot;resources&quot;: [
+    { &quot;name&quot;: &quot;count&quot;, &quot;description&quot;: &quot;Current counter value&quot;, &quot;type&quot;: &quot;number&quot; }
+  ]
+}
+</code></pre>
+<p>Note: with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and no agent code reaches the browser bundle.</p>
+<p><strong>Step 3 — <code>@aihu/agent-service</code> exposes via <code>aihu mcp serve</code></strong></p>
+<p>The <code>@aihu/agent-service</code> package reads the aggregated tool schemas and exposes them over the MCP protocol. Run:</p>
+<pre><code class="language-bash">aihu mcp serve
+</code></pre>
+<p>This starts an MCP-compatible server that AI agents (Claude, GPT, Gemini, etc.) can connect to and call your component actions as tools.</p>
+<p><strong>Step 4 — Live-binding connects tools to the running component</strong></p>
+<p>When an AI agent calls the <code>increment</code> tool, <code>@aihu/agent-service</code> uses the live-binding registry (RFC APPROVED) to find the running component instance and call the action against its actual signal graph — the UI updates in real time.</p>
+<h2>Testing compliance</h2>
+<p>All compliance checks are backed by vitest test suites that run as part of <code>bun run test</code>. The test files serve as the executable specification:</p>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>File</th>
+<th>Tests</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>llms.txt format</td>
+<td><code>packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts</code></td>
+<td>9</td>
+</tr>
+<tr>
+<td>MCP Server Card (SEP-1649)</td>
+<td><code>packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts</code></td>
+<td>14</td>
+</tr>
+<tr>
+<td>robots.txt (RFC 9309)</td>
+<td><code>packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>isitagentready.com checklist</td>
+<td><code>packages/agent-readiness/tests/compliance/isitagentready.test.ts</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>SSR output structure</td>
+<td><code>packages/server/tests/compliance/ssr-output.test.ts</code></td>
+<td>12</td>
+</tr>
+</tbody></table>
+<p>Run all compliance checks:</p>
+<pre><code class="language-bash">bun run test       # TS + Rust unit, integration, and compliance suites
+bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo)
+</code></pre>
+<h2>isitagentready.com</h2>
+<p>Aihu passes all 7 checks on <a href="https://isitagentready.com">isitagentready.com</a>. The checks are exercised by the compliance test suite at <code>packages/agent-readiness/tests/compliance/isitagentready.test.ts</code>. The seven gates are:</p>
+<ol>
+<li><code>llms.txt</code> present at root</li>
+<li><code>llms.txt</code> first line is <code># &lt;Name&gt;</code></li>
+<li><code>/.well-known/mcp/server-card.json</code> returns valid JSON</li>
+<li>MCP server card contains <code>mcp_endpoint</code></li>
+<li><code>robots.txt</code> present and allows AI agents</li>
+<li>App sets <code>X-Agent-Friendly: true</code> response header</li>
+<li>MCP endpoint responds to <code>POST</code> with a valid tool-list response</li>
+</ol>
+`,
+  },
   'api-reference': {
     title: 'API Reference',
     html: `<h1>API Reference</h1>
@@ -43,7 +314,7 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>latticeSignal&lt;T&gt;(merge, initial)</code></td>
-<td>Merge-monotone signal</td>
+<td>Merge-monotone signal with custom merge function</td>
 </tr>
 <tr>
 <td><code>boolLatticeSignal(initial?)</code></td>
@@ -57,57 +328,16 @@ window.__DOCS__ = {
 <td><code>$state</code></td>
 <td>State bag shorthand accessor (SFC-internal)</td>
 </tr>
-</tbody></table>
-<h2>@state macro collection forms</h2>
-<table>
-<thead>
 <tr>
-<th>Macro</th>
-<th>v2 collection-form syntax</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>$prop</code></td>
-<td><code>$prop: { name: { default: value, type?: &quot;T&quot;, describe?: &quot;...&quot;, expose?: { read?: true, write?: true } } }</code></td>
+<td><code>SignalError</code></td>
+<td>Base error class for signal errors</td>
 </tr>
 <tr>
-<td><code>$computed</code></td>
-<td><code>$computed: { name: { value: () =&gt; expr } }</code></td>
-</tr>
-<tr>
-<td><code>$action</code></td>
-<td><code>$action: { name: { handler: (args) =&gt; expr, describe?: &quot;...&quot;, expose?: { write?: true } } }</code></td>
-</tr>
-<tr>
-<td><code>$resource</code></td>
-<td><code>$resource: { name: { source: () =&gt; fetcher() } }</code></td>
-</tr>
-<tr>
-<td><code>$effect</code></td>
-<td><code>$effect { ... }</code> (anonymous) or <code>$effect.on(dep) { ... }</code> (scoped)</td>
-</tr>
-<tr>
-<td><code>$lifecycle</code></td>
-<td><code>$lifecycle: { mount: () =&gt; ..., dispose: () =&gt; ... }</code></td>
+<td><code>SignalCircularError</code></td>
+<td>Error thrown on circular signal dependencies</td>
 </tr>
 </tbody></table>
-<h2>@agent macro collection forms</h2>
-<table>
-<thead>
-<tr>
-<th>Macro</th>
-<th>v2 collection-form syntax</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>$describe</code></td>
-<td><code>$describe: &quot;human-readable description of the agent&quot;</code></td>
-</tr>
-<tr>
-<td><code>$action</code></td>
-<td><code>$action: { name: { expose: true, describe?: &quot;...&quot; } }</code></td>
-</tr>
-</tbody></table>
+<p><strong>Types:</strong> <code>Signal&lt;T&gt;</code>, <code>Read&lt;T&gt;</code>, <code>Write&lt;T&gt;</code>, <code>SignalOptions&lt;T&gt;</code>, <code>Dispose</code>, <code>EffectFn</code>, <code>LatticeSignal&lt;T&gt;</code>, <code>ComputedOptions&lt;T&gt;</code>, <code>State</code></p>
 <h2>@aihu/arbor</h2>
 <table>
 <thead>
@@ -137,10 +367,15 @@ window.__DOCS__ = {
 <td>Hydrate a server-rendered root</td>
 </tr>
 <tr>
-<td><code>materialize(descriptor)</code></td>
-<td>Materialize a component descriptor</td>
+<td><code>each(list, key, render)</code></td>
+<td>Keyed list rendering primitive</td>
+</tr>
+<tr>
+<td><code>when(cond, then, else?)</code></td>
+<td>Conditional rendering primitive</td>
 </tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>Branch</code>, <code>Leaf</code>, <code>Node</code>, <code>ChildList</code>, <code>AttrMap</code>, <code>MountOptions</code>, <code>MountScope</code>, <code>Snapshot</code>, <code>EventHandler</code>, <code>ErrorHandler</code>, <code>AgentBindingSpec</code>, <code>AgentContext</code></p>
 <h2>@aihu/runtime</h2>
 <table>
 <thead>
@@ -150,14 +385,43 @@ window.__DOCS__ = {
 </tr>
 </thead>
 <tbody><tr>
+<td><code>defineComponent(opts)</code></td>
+<td>Define a custom element component</td>
+</tr>
+<tr>
+<td><code>defineElement(opts)</code></td>
+<td>Define a base custom element (lower-level)</td>
+</tr>
+<tr>
 <td><code>onMount(fn)</code></td>
 <td>Register a callback to run after component mounts</td>
 </tr>
 <tr>
 <td><code>onCleanup(fn)</code></td>
-<td>Register a callback to run when component unmounts</td>
+<td>Register a cleanup callback for component unmount</td>
+</tr>
+<tr>
+<td><code>onAdopt(fn)</code></td>
+<td>Register a callback when element is adopted into a new document</td>
+</tr>
+<tr>
+<td><code>onAttributeChange(fn)</code></td>
+<td>Register a callback for attribute changes</td>
+</tr>
+<tr>
+<td><code>createStream(opts)</code></td>
+<td>Create a lazy-attach streaming primitive for <code>$stream</code> collection</td>
+</tr>
+<tr>
+<td><code>announce(message, opts?)</code></td>
+<td>Accessibility live-region announcement</td>
+</tr>
+<tr>
+<td><code>createFocusTrap(el)</code></td>
+<td>Create a keyboard focus trap for modals/dialogs</td>
 </tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>ComponentOptions</code>, <code>DefineOptions</code>, <code>PropDef</code>, <code>PropSignal</code>, <code>PropsConfig</code>, <code>Setup</code>, <code>SetupContext</code>, <code>ShadowMode</code>, <code>StreamHandle</code>, <code>StreamStatus</code></p>
 <h2>@aihu/router</h2>
 <table>
 <thead>
@@ -168,7 +432,7 @@ window.__DOCS__ = {
 </thead>
 <tbody><tr>
 <td><code>createRouter(routes)</code></td>
-<td>Create a file-based router from compiler-emitted route definitions</td>
+<td>Create a router from compiler-emitted route definitions</td>
 </tr>
 <tr>
 <td><code>defineRouterMiddleware(fn)</code></td>
@@ -179,11 +443,37 @@ window.__DOCS__ = {
 <td>Compose router middleware with stage ordering</td>
 </tr>
 <tr>
-<td><code>RouteDefinition</code></td>
-<td>Type: a route definition object</td>
+<td><code>navigate(path, opts?)</code></td>
+<td>Programmatically navigate to a path</td>
+</tr>
+<tr>
+<td><code>useRoute()</code></td>
+<td>Reactive accessor for the current route</td>
+</tr>
+<tr>
+<td><code>useRouter()</code></td>
+<td>Access the router instance</td>
+</tr>
+<tr>
+<td><code>createRouteSignal(router)</code></td>
+<td>Create a signal bound to the current route</td>
+</tr>
+<tr>
+<td><code>createPrefetcher(router)</code></td>
+<td>Create a route prefetcher</td>
+</tr>
+<tr>
+<td><code>provideRouteContext(router)</code></td>
+<td>Provide route context to the component tree</td>
+</tr>
+<tr>
+<td><code>RouteContext</code></td>
+<td>Context token for the current route</td>
 </tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>RouteDefinition</code>, <code>RouteModule</code>, <code>Router</code>, <code>RouteSegment</code>, <code>MatchResult</code>, <code>NextFn</code>, <code>BeforeGuard</code>, <code>AfterGuard</code>, <code>RouterMiddleware</code>, <code>RouteMatchContext</code>, <code>RouterResult</code>, <code>NavigateOptions</code>, <code>PrefetchMode</code>, <code>RouteContextValue</code></p>
 <h2>@aihu/router/plugin</h2>
+<p>Build-time Vite plugin. Import from <code>@aihu/router/plugin</code> in <code>vite.config.ts</code> — never in browser code.</p>
 <table>
 <thead>
 <tr>
@@ -193,21 +483,26 @@ window.__DOCS__ = {
 </thead>
 <tbody><tr>
 <td><code>viteRouterIntegration(opts?)</code></td>
-<td>Vite plugin: scan pages + emit route manifest</td>
+<td>Vite plugin: scan <code>src/pages/</code>, read <code>.route.json</code> sidecars, emit virtual route manifest</td>
 </tr>
 <tr>
 <td><code>scanPages(dir)</code></td>
-<td>Scan src/pages/ for .aihu files + .route.json sidecars</td>
+<td>Scan <code>src/pages/</code> for <code>.aihu</code> files and <code>.route.json</code> sidecars</td>
 </tr>
 <tr>
 <td><code>scanLayouts(dir)</code></td>
-<td>Scan src/layouts/ for .aihu layout files</td>
+<td>Scan <code>src/layouts/</code> for <code>.aihu</code> layout files</td>
 </tr>
 <tr>
 <td><code>readRouteSidecar(path)</code></td>
-<td>Read a .route.json sidecar file</td>
+<td>Read a <code>.route.json</code> sidecar file</td>
+</tr>
+<tr>
+<td><code>viteRouterPlugin</code></td>
+<td>Deprecated alias for <code>viteRouterIntegration</code> (removed at v1.0)</td>
 </tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>RouterPluginOptions</code>, <code>RouteSidecar</code>, <code>LayoutMap</code>, <code>MiddlewareScan</code></p>
 <h2>@aihu/server</h2>
 <table>
 <thead>
@@ -237,22 +532,6 @@ window.__DOCS__ = {
 <td>Define a REST API route</td>
 </tr>
 <tr>
-<td><code>json(data, status?)</code></td>
-<td>Return a JSON response</td>
-</tr>
-<tr>
-<td><code>notFound(msg?)</code></td>
-<td>Return a 404 response</td>
-</tr>
-<tr>
-<td><code>renderToStream(component, opts)</code></td>
-<td>Stream-render a component to HTML</td>
-</tr>
-<tr>
-<td><code>renderToString(loader)</code></td>
-<td>String-render a server component</td>
-</tr>
-<tr>
 <td><code>defineLoader(fn)</code></td>
 <td>Define a server-side data loader</td>
 </tr>
@@ -262,13 +541,152 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>createServerCall&lt;A, R&gt;(endpoint)</code></td>
-<td>Create a typed client fetch stub</td>
+<td>Create a typed client fetch stub for a server action</td>
 </tr>
 <tr>
-<td><code>BuildTarget</code></td>
-<td>Type: <code>&#39;client&#39; | &#39;server&#39; | &#39;universal&#39;</code></td>
+<td><code>defineStreamRoute(opts)</code></td>
+<td>Define a streaming HTTP route (v0.4.0+)</td>
+</tr>
+<tr>
+<td><code>json(data, status?)</code></td>
+<td>Return a JSON response</td>
+</tr>
+<tr>
+<td><code>notFound(msg?)</code></td>
+<td>Return a 404 response</td>
+</tr>
+<tr>
+<td><code>badRequest(msg?)</code></td>
+<td>Return a 400 response</td>
+</tr>
+<tr>
+<td><code>serverError(msg?)</code></td>
+<td>Return a 500 response</td>
+</tr>
+<tr>
+<td><code>methodNotAllowed(msg?)</code></td>
+<td>Return a 405 response</td>
+</tr>
+<tr>
+<td><code>renderToStream(component, opts)</code></td>
+<td>Stream-render a component to HTML</td>
+</tr>
+<tr>
+<td><code>renderToString(loader)</code></td>
+<td>String-render a server component</td>
 </tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>AihuConfig</code>, <code>BuildConfig</code>, <code>BuildTarget</code>, <code>CorsConfig</code>, <code>RouteConfig</code>, <code>ServerConfig</code>, <code>DefinedLoader</code>, <code>LoadedRouteContext</code>, <code>LoaderFn</code>, <code>LoaderResult</code>, <code>Route</code>, <code>RouteManifest</code>, <code>RouteOptions</code>, <code>RouterOptions</code>, <code>HttpMethod</code>, <code>Middleware</code>, <code>Next</code>, <code>RouteContext</code>, <code>RouteHandler</code>, <code>ApiHandler</code>, <code>ComponentDescription</code>, <code>HeadConfig</code>, <code>LinkTag</code>, <code>MetaTag</code>, <code>SsrOptions</code>, <code>StreamRouteHandler</code>, <code>DataSource</code>, <code>StreamOptions</code>, <code>AgentReadinessConfig</code></p>
+<h2>@aihu/data</h2>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>createResource(key, fetcher, opts?)</code></td>
+<td>Create a reactive async resource (signal-native, backend-agnostic)</td>
+</tr>
+<tr>
+<td><code>createResourceStore()</code></td>
+<td>Create a resource cache store</td>
+</tr>
+<tr>
+<td><code>createResourceSerializer(store)</code></td>
+<td>Create an SSR dehydration serializer for a resource store</td>
+</tr>
+<tr>
+<td><code>ResourceStoreToken</code></td>
+<td>Context token for store injection</td>
+</tr>
+<tr>
+<td><code>data(config?)</code></td>
+<td>Plugin factory — register <code>@aihu/data</code> in <code>defineAihuConfig({ plugins: [data()] })</code></td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>Resource&lt;T&gt;</code>, <code>ResourceOptions</code>, <code>DataState</code>, <code>ResourceStore</code>, <code>ResourceStoreWithMeta</code></p>
+<h2>@aihu/context</h2>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>createContext&lt;T&gt;(defaultValue?)</code></td>
+<td>Create a context token with an optional default value</td>
+</tr>
+<tr>
+<td><code>provide&lt;T&gt;(token, value)</code></td>
+<td>Write a value for a token into the active context map</td>
+</tr>
+<tr>
+<td><code>inject&lt;T&gt;(token)</code></td>
+<td>Read a value for a token from the active context map</td>
+</tr>
+<tr>
+<td><code>setSsrContextMap(map)</code></td>
+<td>Set the active context map (SSR entry point)</td>
+</tr>
+<tr>
+<td><code>clearSsrContextMap()</code></td>
+<td>Clear the active context map (SSR teardown)</td>
+</tr>
+<tr>
+<td><code>runWithContext&lt;R&gt;(map, fn)</code></td>
+<td>Run fn() with a per-request context map (recommended SSR pattern)</td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>ContextToken&lt;T&gt;</code></p>
+<h2>@aihu/agent-readiness</h2>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>viteAgentReadinessIntegration(opts?)</code></td>
+<td>Vite plugin for MCP/agent readiness routes (canonical name)</td>
+</tr>
+<tr>
+<td><code>agentReadiness(opts?)</code></td>
+<td>Deprecated alias for <code>viteAgentReadinessIntegration</code></td>
+</tr>
+<tr>
+<td><code>createAgentReadinessRoutes(config)</code></td>
+<td>Create agent readiness route handlers (framework-agnostic)</td>
+</tr>
+<tr>
+<td><code>generateLlmsTxt(config)</code></td>
+<td>Generate <code>llms.txt</code> content from config</td>
+</tr>
+<tr>
+<td><code>generateLlmsFullTxt(config)</code></td>
+<td>Generate <code>llms-full.txt</code> content from config</td>
+</tr>
+<tr>
+<td><code>generateMcpServerCard(config)</code></td>
+<td>Generate an MCP Server Card JSON</td>
+</tr>
+<tr>
+<td><code>generateRobotsTxt(config)</code></td>
+<td>Generate <code>robots.txt</code> from config</td>
+</tr>
+<tr>
+<td><code>createContentNegotiationHandler(opts)</code></td>
+<td>Create a content-negotiation handler for agent endpoints</td>
+</tr>
+<tr>
+<td><code>AI_BOT_LIST</code></td>
+<td>Known AI crawler user-agent strings</td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>LlmsTxtConfig</code>, <code>LlmsTxtLink</code>, <code>LlmsTxtSection</code>, <code>AgentReadinessConfig</code>, <code>McpAuthConfig</code>, <code>AgentSkill</code>, <code>McpServerCard</code>, <code>McpServerCardConfig</code>, <code>ContentNegotiationOptions</code>, <code>MarkdownResolver</code>, <code>RobotsConfig</code>, <code>RobotsRule</code></p>
 <h2>@aihu/agent</h2>
 <table>
 <thead>
@@ -281,11 +699,8 @@ window.__DOCS__ = {
 <td><code>defineAgent(opts)</code></td>
 <td>Register an agent definition</td>
 </tr>
-<tr>
-<td><code>AgentRegistry</code></td>
-<td>Agent registry type</td>
-</tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>AgentRegistry</code></p>
 <h2>@aihu/agent-service</h2>
 <table>
 <thead>
@@ -303,32 +718,6 @@ window.__DOCS__ = {
 <td>Create an agent service instance</td>
 </tr>
 </tbody></table>
-<h2>@aihu/agent-readiness</h2>
-<table>
-<thead>
-<tr>
-<th>Export</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>viteAgentReadinessIntegration(opts?)</code></td>
-<td>Vite plugin for MCP/agent readiness</td>
-</tr>
-</tbody></table>
-<h2>@aihu/data</h2>
-<table>
-<thead>
-<tr>
-<th>Export</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>createDataPlugin(opts)</code></td>
-<td>Create a data plugin instance</td>
-</tr>
-</tbody></table>
 <h2>@aihu/plugin</h2>
 <table>
 <thead>
@@ -339,21 +728,14 @@ window.__DOCS__ = {
 </thead>
 <tbody><tr>
 <td><code>definePlugin(opts)</code></td>
-<td>Define a aihu plugin</td>
+<td>Define an aihu plugin</td>
 </tr>
 <tr>
 <td><code>validatePlugin(plugin)</code></td>
 <td>Validate a plugin at build time</td>
 </tr>
-<tr>
-<td><code>Plugin</code></td>
-<td>Plugin interface type</td>
-</tr>
-<tr>
-<td><code>BuildTarget</code></td>
-<td>Build target type</td>
-</tr>
 </tbody></table>
+<p><strong>Types:</strong> <code>Plugin</code>, <code>BuildTarget</code></p>
 <h2>@aihu/cli</h2>
 <table>
 <thead>
@@ -372,7 +754,7 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>scaffoldComponent(name, dir)</code></td>
-<td>Scaffold a .aihu component</td>
+<td>Scaffold a <code>.aihu</code> component</td>
 </tr>
 <tr>
 <td><code>scaffoldPlugin(name, dir)</code></td>
@@ -380,295 +762,1329 @@ window.__DOCS__ = {
 </tr>
 <tr>
 <td><code>migrateFile(content)</code></td>
-<td>Convert HTML-tag SFC content to @blockname{}</td>
+<td>Convert HTML-tag SFC content to <code>@blockname{}</code> form</td>
 </tr>
 <tr>
 <td><code>migrateFiles(files, dryRun, cwd)</code></td>
 <td>Migrate files in-place or dry-run</td>
 </tr>
 </tbody></table>
-<h2>@aihu/context</h2>
+<h2>@state macro collection forms (v2)</h2>
+<p>The v2 collection-form syntax for <code>@state</code> macros. v1 forms produce error C440.</p>
 <table>
 <thead>
 <tr>
-<th>Export</th>
-<th>Description</th>
+<th>Macro</th>
+<th>Collection-form</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>createContext&lt;T&gt;(key)</code></td>
-<td>Create a scoped context cell</td>
+<td><code>$prop</code></td>
+<td><code>$prop: { name: { default: value, type?: &quot;T&quot;, describe?: &quot;...&quot;, expose?: { read?: true, write?: true } } }</code></td>
 </tr>
 <tr>
-<td><code>getContext&lt;T&gt;(key)</code></td>
-<td>Read a context value</td>
+<td><code>$computed</code></td>
+<td><code>$computed: { name: () =&gt; expr }</code> (bare) or <code>{ name: { value: () =&gt; expr, describe?: &quot;...&quot;, expose?: { read?: true } } }</code> (wrapped)</td>
 </tr>
 <tr>
-<td><code>setContext&lt;T&gt;(key, value)</code></td>
-<td>Set a context value</td>
+<td><code>$action</code></td>
+<td><code>$action: { name: (args) =&gt; expr }</code> (bare) or <code>{ name: { handler: (args) =&gt; expr, describe?: &quot;...&quot;, expose?: { write?: true } } }</code> (wrapped)</td>
+</tr>
+<tr>
+<td><code>$resource</code></td>
+<td><code>$resource: { name: () =&gt; fetcher() }</code> (bare) or <code>{ name: { value: () =&gt; fetcher(), describe?: &quot;...&quot;, expose?: { read?: true } } }</code> (wrapped)</td>
+</tr>
+<tr>
+<td><code>$effect</code></td>
+<td><code>$effect: () =&gt; { body }</code> (anonymous) or <code>$effect: { name: () =&gt; { body } }</code> (named)</td>
+</tr>
+<tr>
+<td><code>$lifecycle</code></td>
+<td><code>$lifecycle: { mount: () =&gt; ..., dispose: () =&gt; ... }</code> — always bare, wrapped form forbidden</td>
 </tr>
 </tbody></table>
+<h2>@agent block (v2)</h2>
+<p><code>@agent</code> holds only cross-cutting declarations. Per-name metadata lives on <code>@state</code> entries.</p>
+<pre><code>@agent {
+  $scope &quot;scope-name&quot;   // agent permission scope string
+  $rate-limit 100       // requests per minute (positive integer)
+}
+</code></pre>
+<p>Removed in v2 (C440 errors): <code>$expose</code>, <code>$expose.write</code>, <code>$action &lt;bareName&gt;</code>, <code>$describe</code>.</p>
 `,
   },
   'authoring-agents': {
     title: 'Authoring Agents',
     html: `<h1>Authoring Agents</h1>
-<p>aihu is agent-first. Every <code>.aihu</code> component can expose MCP-compatible tools and resources via the <code>@agent</code> block. The <code>@aihu/agent</code>, <code>@aihu/agent-service</code>, and <code>@aihu/agent-readiness</code> packages form the agent layer.</p>
-<h2>The <code>@agent</code> block</h2>
-<p>Add an <code>@agent</code> block to any <code>.aihu</code> SFC to expose agent capabilities:</p>
-<pre><code>@agent {
-  $describe: &quot;The main application agent&quot;
+<p>aihu is agent-first by design. Every <code>.aihu</code> SFC can declare an <code>@agent</code> block, and the Rust compiler emits both a Web Component and an MCP tool schema from the same source file. The result is a three-layer stack — component-level <code>@agent</code> declarations, the <code>@aihu/agent</code> static registry, and the <code>@aihu/agent-service</code> live execution engine — that makes every aihu app natively callable by MCP-compatible AI agents.</p>
+<hr>
+<h2>1. Overview: aihu&#39;s agent-first design</h2>
+<h3>Three layers</h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Package</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@agent</code> block</td>
+<td><code>.aihu</code> SFC</td>
+<td>Per-component declaration of exposed state and actions</td>
+</tr>
+<tr>
+<td>Registry</td>
+<td><code>@aihu/agent</code></td>
+<td>Compile-time metadata store, keyed by custom-element tag</td>
+</tr>
+<tr>
+<td>Service</td>
+<td><code>@aihu/agent-service</code></td>
+<td>Live-binding dispatch — routes agent tool calls to DOM signal graph</td>
+</tr>
+</tbody></table>
+<h3>Key properties</h3>
+<ul>
+<li><strong>Agent code is fully elided from client builds.</strong> When compiling with <code>BuildTarget.Client</code>, the <code>@agent</code> block produces a <code>// [client build] @agent block elided</code> comment and zero runtime bytes. Agent schemas never reach the browser bundle.</li>
+<li><strong>The Rust compiler emits a <code>.mcp.json</code> sidecar</strong> for every SFC that has an <code>@agent</code> block. The schema is derived directly from <code>describe:</code> and <code>expose:</code> metadata in <code>@state</code> entries.</li>
+<li><strong>Live-binding (v0.3.0+)</strong> wires agent tool calls to the actual signal graph of mounted components, so an AI agent invoking <code>live-counter/increment</code> triggers the same reactive path as a user clicking the button.</li>
+</ul>
+<hr>
+<h2>2. The <code>@agent</code> block (macro-vocabulary v2 syntax)</h2>
+<p>In macro-vocabulary v2 (RATIFIED 2026-05-05), agent metadata moves <em>into</em> <code>@state</code> collection entries. The <code>@agent</code> block is now a minimal cross-cutting block that holds only <code>$scope</code> and <code>$rate-limit</code>.</p>
+<p>The old v1 forms (<code>$expose</code>, <code>$expose.write</code>, agent-bare-<code>$action</code>, <code>$describe</code>) are rejected by the v2 parser with error code <strong>C440</strong>. Use the codemod to upgrade existing <code>.aihu</code> files.</p>
+<h3>v2 pattern: metadata on <code>@state</code> entries</h3>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+
+  $prop: {
+    count: {
+      default: 0,
+      type: &quot;number&quot;,
+      describe: &quot;The current counter value&quot;,
+      expose: { read: true },
+    }
+  }
+
   $action: {
-    greet: { expose: true, describe: &quot;Greet a user by name&quot; }
-    getUser: { expose: true, describe: &quot;Fetch a user by ID&quot; }
+    increment: {
+      describe: &quot;Add 1 to counter&quot;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    }
+    decrement: {
+      describe: &quot;Subtract 1 from counter&quot;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() - 1),
+    }
+  }
+}
+
+@agent {
+  $scope &quot;authenticated&quot;
+}
+</code></pre>
+<p>The <code>expose:</code> key accepts <code>{ read: true }</code> (read-only tool) or <code>{ read: true, write: true }</code> (callable action). The <code>describe:</code> key is the human-readable description surfaced in the MCP tool schema.</p>
+<h3><code>@agent</code> block grammar (v2)</h3>
+<pre><code>@agent {
+  $scope &lt;string-literal&gt;   // optional — access scope claim required in JWT
+  $rate-limit &lt;integer&gt;     // optional — requests per minute
+}
+</code></pre>
+<p>Both directives are optional; the entire block may be omitted if no scope or rate limiting is needed. Exposure and description metadata live on <code>@state</code> entries, not inside <code>@agent</code>.</p>
+<h3>Minimal <code>@agent</code> block (scope only)</h3>
+<pre><code>@agent {
+  $scope &quot;authenticated&quot;
+}
+</code></pre>
+<h3>No <code>@agent</code> block needed</h3>
+<p>If you only want MCP tools with no scope or rate-limit enforcement, you do not need to write an <code>@agent</code> block at all. Adding <code>expose:</code> to <code>@state</code> entries is sufficient to generate the MCP tool schema.</p>
+<h3>Real example: <code>live-counter.aihu</code></h3>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+    decrement: {
+      describe: &#39;Subtract 1 from the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() - 1),
+    },
+    reset: {
+      describe: &#39;Reset the counter to 0&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(0),
+    },
   }
 }
 </code></pre>
-<h3>Directives</h3>
-<ul>
-<li><strong><code>$describe: &quot;text&quot;</code></strong> — a human-readable description of the agent. Included in the MCP manifest.</li>
-<li><strong><code>$action: { name: { expose: true, describe: &quot;...&quot; } }</code></strong> — expose an action as an MCP tool. The compiler generates the MCP tool descriptor and wires the implementation to the component&#39;s action method of the same name. Use <code>expose: true</code> to expose with default settings, or <code>expose: { read: true }</code> / <code>expose: { write: true }</code> for fine-grained control.</li>
-</ul>
-<h3>Client build elision</h3>
-<p>When compiling with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and the JS output contains a <code>// [client build] @agent block elided</code> comment. Agent code never reaches the browser bundle.</p>
-<h2><code>@aihu/agent</code></h2>
-<p>The <code>@aihu/agent</code> package provides the registry and registration primitives:</p>
-<pre><code class="language-typescript">import { defineAgent } from &#39;@aihu/agent&#39;
+<p>No <code>@agent</code> block is needed here — these actions are exposed publicly with no scope restriction.</p>
+<hr>
+<h2>3. <code>@aihu/agent</code> — the registry layer</h2>
+<p>The <code>@aihu/agent</code> package is the compile-time metadata registry. The Rust compiler emits a <code>registerAgentMetadata()</code> call at the top level of every compiled <code>.aihu</code> module that has exposed state or actions. Module evaluation populates the registry.</p>
+<h3>Public API</h3>
+<pre><code class="language-typescript">import {
+  registerAgentMetadata, // emitted by compiler — do not call directly
+  getAgentMetadata,      // look up a single component by tag
+  getAllAgentMetadata,    // enumerate the full registry (used by adapters)
+} from &#39;@aihu/agent&#39;
+</code></pre>
+<h3><code>AgentMetadata</code> shape</h3>
+<pre><code class="language-typescript">interface AgentMetadata {
+  tag: string                              // custom-element tag name
+  describes?: string                       // top-level description (MCP prompt)
+  state?: Record&lt;string, string&gt;           // exposed signal names → descriptions
+  actions?: Record&lt;string, ActionSchema&gt;   // exposed action names → schemas
+  [key: string]: unknown                   // unknown fields preserved (spec §9.1)
+}
+</code></pre>
+<p>The compiler emits a frozen object. <code>getAgentMetadata(tag)</code> returns it by reference. <code>getAllAgentMetadata()</code> returns an array snapshot of all registered entries, used by adapters like <code>@aihu/agent-a2a</code> that need the full registry without knowing tags in advance.</p>
+<h3>When to call these directly</h3>
+<p>You typically do not call <code>registerAgentMetadata</code> — the compiler does. You may call <code>getAgentMetadata</code> or <code>getAllAgentMetadata</code> in server code (route handlers, adapters) to read the compile-time manifest.</p>
+<hr>
+<h2>4. <code>@aihu/agent-service</code> — the execution layer</h2>
+<p><code>@aihu/agent-service</code> bridges the compile-time <code>AgentMetadata</code> registry and the live component instance registry into a single service that MCP clients can call.</p>
+<h3>Creating a service</h3>
+<pre><code class="language-typescript">import { createAgentService } from &#39;@aihu/agent-service&#39;
+import { getAllAgentMetadata } from &#39;@aihu/agent&#39;
 
-const agent = defineAgent({
-  name: &#39;my-agent&#39;,
-  tools: [
-    {
-      name: &#39;greet&#39;,
-      description: &#39;Greet a user&#39;,
-      inputSchema: { type: &#39;object&#39;, properties: { name: { type: &#39;string&#39; } } },
-      handler: async ({ name }) =&gt; ({ message: \`Hello, \${name}!\` }),
-    },
+const service = createAgentService({
+  manifests: getAllAgentMetadata(),
+  // Wire live-binding registry from @aihu/arbor (v0.3.0+)
+  getRegistry: () =&gt; componentInstanceRegistry,
+  // Optional: scope enforcement
+  authPlugin: myAuthPlugin,
+  // Optional: rate limiting
+  rateLimitPlugin: myRateLimitPlugin,
+})
+</code></pre>
+<h3><code>AgentServiceOptions</code></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>manifests</code></td>
+<td><code>AgentMetadata[]</code></td>
+<td>Explicit metadata list.</td>
+</tr>
+<tr>
+<td><code>getRegistry</code></td>
+<td><code>() =&gt; Map&lt;string, LiveBinding[]&gt;</code></td>
+<td>Getter for the live instance registry from <code>@aihu/arbor/mount</code>. Required for live dispatch.</td>
+</tr>
+<tr>
+<td><code>authPlugin</code></td>
+<td><code>AuthPlugin</code></td>
+<td>Scope enforcement. Required when any component uses <code>$scope</code>.</td>
+</tr>
+<tr>
+<td><code>rateLimitPlugin</code></td>
+<td><code>RateLimitPlugin</code></td>
+<td>Rate-limit enforcement. Optional.</td>
+</tr>
+</tbody></table>
+<h3><code>AgentService</code> methods</h3>
+<pre><code class="language-typescript">interface AgentService {
+  getManifest(): AgentManifest
+  handleToolCall(toolName: string, params: unknown, requestContext?: RequestContext): Promise&lt;unknown&gt;
+  asMiddleware(): (req: Request) =&gt; Promise&lt;Response | null&gt;
+}
+</code></pre>
+<ul>
+<li><strong><code>getManifest()</code></strong> — returns the aggregated MCP manifest listing all tools.</li>
+<li><strong><code>handleToolCall(toolName, params, ctx)</code></strong> — routes <code>&quot;&lt;tag&gt;/&lt;action&gt;&quot;</code> to the live binding. Tool name format: <code>&quot;live-counter/increment&quot;</code>.</li>
+<li><strong><code>asMiddleware()</code></strong> — returns a fetch-API middleware that handles <code>POST /__aihu/tools/call</code> with <code>{ tool, params }</code> JSON body. Returns <code>null</code> for non-matching requests (pass-through compatible).</li>
+</ul>
+<h3>Using as middleware</h3>
+<pre><code class="language-typescript">import { createRouter, defineRoute } from &#39;@aihu/server&#39;
+
+const router = createRouter({
+  routes: [
+    defineRoute(&#39;/api/*&#39;, (req) =&gt; service.asMiddleware()(req)),
+    ...appRoutes,
   ],
 })
 </code></pre>
-<p><code>AgentRegistry</code> holds registered agent definitions. Each <code>defineAgent</code> call returns an <code>AgentDefinition</code> that can be passed to <code>AgentService</code>.</p>
-<h2><code>@aihu/agent-service</code></h2>
-<p>The <code>@aihu/agent-service</code> package adapts agent definitions to a runtime service:</p>
-<pre><code class="language-typescript">import { defineAgentService } from &#39;@aihu/agent-service&#39;
-import { myAgent } from &#39;./agents/my-agent.ts&#39;
+<hr>
+<h2>5. Live-binding — the <code>$live</code> directive</h2>
+<p>Live-binding (v0.3.0, spec APPROVED 2026-05-05) is the mechanism that makes <code>@agent</code> blocks operational rather than decorative.</p>
+<h3>What live-binding is</h3>
+<p>When a component with exposed state or actions mounts, the <code>mount()</code> path in <code>@aihu/arbor</code> detects the <code>__agentBinding</code> export on the server artifact and constructs a <code>LiveBinding</code> object. This object is registered in a module-level <code>componentInstanceRegistry</code> keyed by the component&#39;s tag name.</p>
+<pre><code class="language-typescript">interface LiveBinding {
+  rootId: number           // unique mount ID
+  tag: string              // component tag
+  getSignal(name): unknown
+  setSignal(name, value): void
+  callAction(name, args): Promise&lt;unknown&gt;
+  scope(): string | null
+  rateLimit(): string | null
+  dispose$: () =&gt; boolean  // called on unmount
+}
+</code></pre>
+<p>When an agent calls <code>handleToolCall(&#39;live-counter/increment&#39;, {})</code>, the service:</p>
+<ol>
+<li>Looks up <code>live-counter</code> in <code>componentInstanceRegistry</code>.</li>
+<li>Checks <code>$scope</code> — returns 403 if the JWT lacks the required claim.</li>
+<li>Checks <code>$rate-limit</code> — returns 429 if quota is exhausted.</li>
+<li>Calls <code>binding.callAction(&#39;increment&#39;, [{}])</code>.</li>
+<li>The action runs through the same reactive signal path as a user click, and the DOM updates immediately.</li>
+</ol>
+<h3>The <code>$guard</code> primitive</h3>
+<p><code>$guard</code> blocks an agent action when a condition fails. Declare it on an action in <code>@state</code>:</p>
+<pre><code>$action: {
+  checkout: {
+    describe: &quot;Complete the purchase&quot;,
+    expose: { read: true, write: true },
+    handler: () =&gt; processCheckout(),
+    // guard: cartItems().length &gt; 0  // (v1.1 syntax — see live-binding spec §4)
+  }
+}
+</code></pre>
+<p>Guards are evaluated before the action handler runs. A guard failure returns a structured error to the agent without executing the action.</p>
+<h3>SSR and headless considerations</h3>
+<p>A server-rendered <code>LiveBinding</code> is ephemeral — it lives only for the duration of the SSR request. For persistent stateful agent interactions (multi-turn conversations, cart mutations, collaborative state), the component must be client-hydrated. A client-mounted <code>LiveBinding</code> is long-lived for the page session.</p>
+<h3>Security invariants</h3>
+<ul>
+<li><strong>Error ordering (timing-channel protection):</strong> <code>handleToolCall</code> always returns errors in order: 404 (no instance) → 401 (missing auth) → 403 (scope denied) → 429 (rate limited). Reordering is forbidden — serving 429 before 403 would leak binding existence to unauthorized callers.</li>
+<li><strong>Fail-closed for missing auth:</strong> If <code>authPlugin</code> is not registered and a component declares <code>$scope</code>, <code>handleToolCall</code> returns <code>{ error: &#39;AUTH_MISSING&#39; }</code> (HTTP 401). The component is never served without an active auth plugin.</li>
+<li><strong><code>componentInstanceRegistry</code> is module-private.</strong> Only the <code>mount()</code> call path can register bindings. Plugins and request handlers cannot inject entries.</li>
+<li><strong><code>__agentBinding</code> is elided from client bundles.</strong> This is a compiler guarantee enforced by the split-bundle compilation (Block Structure Spec §11.5).</li>
+</ul>
+<hr>
+<h2>6. <code>@aihu/agent-readiness</code> — discovery and MCP compliance</h2>
+<p><code>@aihu/agent-readiness</code> generates the four standard agent-discovery endpoints: <code>llms.txt</code>, <code>llms-full.txt</code>, <code>/.well-known/mcp/server-card.json</code>, and <code>robots.txt</code>.</p>
+<h3>Router wiring (server/edge)</h3>
+<pre><code class="language-typescript">import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+import { createRouter, defineRoute } from &#39;@aihu/server&#39;
 
-const service = defineAgentService({
-  agent: myAgent,
-  transport: &#39;http&#39;,
-  port: 3001,
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  version: &#39;1.0.0&#39;,
+  summary: &#39;What this app does for AI agents&#39;,
+  endpoint: &#39;https://myapp.example.com/mcp&#39;,
+  llmsSections: [
+    {
+      title: &#39;Docs&#39;,
+      links: [
+        { title: &#39;API Reference&#39;, url: &#39;/llms-full.txt&#39;, description: &#39;Full API docs&#39; },
+      ],
+    },
+  ],
+})
+
+const router = createRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/llms-full.txt&#39;, ar.llmsFullTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+    ...appRoutes,
+  ],
+})
+
+export default { fetch: router }
+</code></pre>
+<p>Each handler is a pure function that generates fresh content on every request. No global state.</p>
+<h3><code>AgentReadinessConfig</code> fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Required. App name — appears as the H1 in <code>llms.txt</code>.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>string</code></td>
+<td>Semver string for the MCP server card.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td><code>string</code></td>
+<td>Blockquote summary in <code>llms.txt</code>.</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td><code>string</code></td>
+<td>MCP server URL. Required for <code>server-card.json</code> generation.</td>
+</tr>
+<tr>
+<td><code>llmsSections</code></td>
+<td><code>LlmsTxtSection[]</code></td>
+<td>Custom sections in <code>llms.txt</code>.</td>
+</tr>
+<tr>
+<td><code>llmsOptional</code></td>
+<td><code>LlmsTxtLink[]</code></td>
+<td>Links in the <code>## Optional</code> section.</td>
+</tr>
+<tr>
+<td><code>aiAgents</code></td>
+<td><code>&#39;allow-all&#39; | &#39;deny-all&#39; | RobotsRule[]</code></td>
+<td>AI bot policy for <code>robots.txt</code>. Default: <code>&#39;allow-all&#39;</code>.</td>
+</tr>
+<tr>
+<td><code>sitemap</code></td>
+<td><code>string</code></td>
+<td>Sitemap URL appended to <code>robots.txt</code>.</td>
+</tr>
+<tr>
+<td><code>auth</code></td>
+<td><code>McpAuthConfig</code></td>
+<td>Optional OAuth 2.0 config for the MCP server card.</td>
+</tr>
+<tr>
+<td><code>skills</code></td>
+<td><code>AgentSkill[]</code></td>
+<td>Manually declared MCP skills.</td>
+</tr>
+</tbody></table>
+<h3>With OAuth 2.0 (opt-in)</h3>
+<pre><code class="language-typescript">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.example.com/mcp&#39;,
+  auth: {
+    type: &#39;oauth2&#39;,
+    authorizationUrl: &#39;https://auth.example.com/authorize&#39;,
+    tokenUrl: &#39;https://auth.example.com/token&#39;,
+    scopes: [&#39;mcp:read&#39;, &#39;mcp:write&#39;],
+  },
 })
 </code></pre>
-<p><code>AgentService</code> handles request routing, rate limiting, and MCP protocol serialization.</p>
-<h2><code>@aihu/agent-readiness</code> — Vite integration</h2>
-<p>In development and build, use <code>viteAgentReadinessIntegration()</code> to wire agent manifests into the Vite build:</p>
+<p>The generated MCP server card includes public OAuth URLs only — client secrets are never emitted.</p>
+<h3>Vite integration (dev + build)</h3>
+<p>Use <code>viteAgentReadinessIntegration()</code> for Vite-based apps. In dev, it serves all four endpoints as Vite middleware. In build, it emits them as static assets.</p>
 <pre><code class="language-typescript">// vite.config.ts
 import { defineConfig } from &#39;vite&#39;
 import { viteAgentReadinessIntegration } from &#39;@aihu/agent-readiness&#39;
 
 export default defineConfig({
   plugins: [
-    viteAgentReadinessIntegration(),
+    viteAgentReadinessIntegration({
+      name: &#39;My App&#39;,
+      endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+      summary: &#39;Component-driven app with agent tools&#39;,
+    }),
   ],
 })
 </code></pre>
-<p>The plugin:</p>
-<ol>
-<li>Reads <code>manifest_json</code> from each compiled SFC that has an <code>@agent</code> block.</li>
-<li>Aggregates tool/resource descriptors into a single <code>agent-manifest.json</code> asset.</li>
-<li>Emits an <code>llms.txt</code> file at the root of the output for MCP discovery.</li>
-</ol>
-<p>The <code>llms.txt</code> and MCP manifest are part of the aihu contract — every aihu application ships them.</p>
+<p>Note: <code>viteAgentReadinessIntegration()</code> does NOT inject routes into <code>createRouter</code> automatically. For server-side route wiring, use <code>createAgentReadinessRoutes()</code> separately.</p>
+<blockquote>
+<p><code>agentReadiness()</code> is a deprecated alias for <code>viteAgentReadinessIntegration()</code>. It will be removed in v1.0.</p>
+</blockquote>
+<hr>
+<h2>7. MCP tool schema generation</h2>
+<p>The Rust compiler emits a <code>.mcp.json</code> sidecar alongside the compiled JS for every SFC that has exposed state or actions. The schema is derived from <code>describe:</code> and <code>expose:</code> metadata in <code>@state</code> entries.</p>
+<h3>Emitted schema for <code>live-counter.aihu</code></h3>
+<p>Given the live-counter example from §2, the compiler emits approximately:</p>
+<pre><code class="language-json">{
+  &quot;tag&quot;: &quot;live-counter&quot;,
+  &quot;tools&quot;: [
+    {
+      &quot;name&quot;: &quot;live-counter/increment&quot;,
+      &quot;description&quot;: &quot;Add 1 to the counter&quot;,
+      &quot;inputSchema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {}
+      }
+    },
+    {
+      &quot;name&quot;: &quot;live-counter/decrement&quot;,
+      &quot;description&quot;: &quot;Subtract 1 from the counter&quot;,
+      &quot;inputSchema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {}
+      }
+    },
+    {
+      &quot;name&quot;: &quot;live-counter/reset&quot;,
+      &quot;description&quot;: &quot;Reset the counter to 0&quot;,
+      &quot;inputSchema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {}
+      }
+    }
+  ]
+}
+</code></pre>
+<p>The <code>__agentBinding</code> server export, emitted alongside the client Web Component, wires the schema to the live signal graph:</p>
+<pre><code class="language-typescript">// server artifact — never reaches the client bundle
+export const __agentBinding = {
+  tag: &#39;live-counter&#39;,
+  actions: {
+    increment: (args) =&gt; increment(),
+    decrement: (args) =&gt; decrement(),
+    reset: (args) =&gt; reset(),
+  },
+  reads: {},
+  writes: {},
+  scope: undefined,
+  rateLimit: undefined,
+}
+</code></pre>
+<p>This export is completely absent from the client artifact — its absence is validated by CI (check for any <code>__agentBinding</code> string reference in client bundle output).</p>
+<hr>
+<h2>8. <code>@aihu/mcp</code> — the MCP stdio server</h2>
+<p><code>@aihu/mcp</code> exposes an MCP stdio server with two built-in tools that help AI coding agents work with aihu.</p>
+<h3>CLI usage</h3>
+<pre><code class="language-bash">aihu mcp serve
+</code></pre>
+<p>Starts an MCP stdio server. The process stays alive until stdin closes (the MCP host disconnects).</p>
+<h3>Built-in tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>aihu_example</code></td>
+<td>Returns canonical <code>.aihu</code> SFC snippets from the cookbook matching a natural-language intent.</td>
+</tr>
+<tr>
+<td><code>aihu_validate</code></td>
+<td>Compiles a <code>.aihu</code> source string using the Rust compiler and returns compiled TypeScript or structured diagnostics.</td>
+</tr>
+</tbody></table>
+<h3><code>aihu_example</code></h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;aihu_example&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;intent&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Natural-language description of component pattern&quot; },
+      &quot;tags&quot;: { &quot;type&quot;: &quot;array&quot;, &quot;items&quot;: { &quot;type&quot;: &quot;string&quot; }, &quot;description&quot;: &quot;Optional keyword tags&quot; }
+    },
+    &quot;required&quot;: [&quot;intent&quot;]
+  }
+}
+</code></pre>
+<p>Example call: <code>{ &quot;intent&quot;: &quot;counter with signal and action&quot; }</code> returns the canonical counter SFC.</p>
+<h3><code>aihu_validate</code></h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;aihu_validate&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;source&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Full .aihu SFC source to compile&quot; },
+      &quot;filename&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Optional virtual filename for diagnostics&quot; }
+    },
+    &quot;required&quot;: [&quot;source&quot;]
+  }
+}
+</code></pre>
+<p>Returns compiled TypeScript on success, or structured diagnostic errors (code, message, line/col) on failure. Use this to verify <code>.aihu</code> source before writing to disk.</p>
+<h3>Programmatic usage</h3>
+<pre><code class="language-typescript">import { createServer, startServer } from &#39;@aihu/mcp&#39;
+
+// Start the server (blocks until stdin closes)
+await startServer()
+
+// Or create without connecting (for testing)
+const server = createServer()
+</code></pre>
+<h3>MCP client configuration</h3>
+<p>To add the aihu MCP server to Claude Code or another MCP client:</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;aihu&quot;: {
+      &quot;command&quot;: &quot;aihu&quot;,
+      &quot;args&quot;: [&quot;mcp&quot;, &quot;serve&quot;]
+    }
+  }
+}
+</code></pre>
+<hr>
+<h2>9. A2A and ACP protocol adapters</h2>
+<p>aihu ships two in-tree protocol adapters for agent-to-agent communication.</p>
+<h3><code>@aihu/agent-a2a</code> — Agent-to-Agent protocol</h3>
+<p><code>mountA2aAdapter</code> wraps an <code>AgentService</code> with A2A protocol routes:</p>
+<pre><code class="language-typescript">import { mountA2aAdapter } from &#39;@aihu/agent-a2a&#39;
+
+const a2a = mountA2aAdapter(service, {
+  prefix: &#39;&#39;,          // URL prefix for all routes. Default: &#39;&#39;
+  name: &#39;my-app&#39;,     // Agent name in the discovery card. Default: &#39;aihu-agent-service&#39;
+})
+
+// Wire the middleware
+const router = createRouter({
+  routes: [
+    defineRoute(&#39;/*&#39;, async (req) =&gt; {
+      const res = await a2a.asMiddleware()(req)
+      return res ?? notFound()
+    }),
+  ],
+})
+</code></pre>
+<p>Routes exposed:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code></td>
+<td><code>/.well-known/agent.json</code></td>
+<td>A2A agent discovery card (capabilities, skills)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/a2a/tasks/send</code></td>
+<td>Submit a task (returns JSON result)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/a2a/tasks/sendSubscribe</code></td>
+<td>Submit a task with SSE streaming response</td>
+</tr>
+</tbody></table>
+<h3><code>@aihu/agent-acp</code> — Agent Communication Protocol</h3>
+<p><code>mountAcpAdapter</code> wraps an <code>AgentService</code> with ACP protocol routes:</p>
+<pre><code class="language-typescript">import { mountAcpAdapter } from &#39;@aihu/agent-acp&#39;
+
+const acp = mountAcpAdapter(service, {
+  prefix: &#39;&#39;,
+  agentId: &#39;my-app&#39;,
+})
+
+const router = createRouter({
+  routes: [
+    defineRoute(&#39;/*&#39;, async (req) =&gt; {
+      const res = await acp.asMiddleware()(req)
+      return res ?? notFound()
+    }),
+  ],
+})
+</code></pre>
+<p>Routes exposed:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code></td>
+<td><code>/.well-known/acp-agent</code></td>
+<td>ACP agent discovery card</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/acp/messages</code></td>
+<td>ACP message routing — routes tool calls from <code>parts[0].content.tool</code> or message content</td>
+</tr>
+</tbody></table>
+<h3>Combining adapters</h3>
+<p>Both adapters coexist on the same service instance:</p>
+<pre><code class="language-typescript">const service = createAgentService({ manifests: getAllAgentMetadata(), getRegistry })
+const a2a = mountA2aAdapter(service)
+const acp = mountAcpAdapter(service)
+
+const mw = async (req: Request) =&gt;
+  (await a2a.asMiddleware()(req)) ??
+  (await acp.asMiddleware()(req)) ??
+  notFound()
+</code></pre>
+<hr>
+<h2>10. Agent compliance checklist</h2>
+<p>Every aihu application ships these agent-readiness endpoints by contract. Use this checklist before deploying.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Endpoint</th>
+<th>Standard</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>llms.txt discovery</td>
+<td><code>GET /llms.txt</code></td>
+<td><a href="https://llmstxt.org">llmstxt.org</a></td>
+</tr>
+<tr>
+<td>llms-full.txt</td>
+<td><code>GET /llms-full.txt</code></td>
+<td>llmstxt.org</td>
+</tr>
+<tr>
+<td>MCP Server Card</td>
+<td><code>GET /.well-known/mcp/server-card.json</code></td>
+<td>SEP-1649 (MCP 2025-06-18)</td>
+</tr>
+<tr>
+<td>robots.txt</td>
+<td><code>GET /robots.txt</code></td>
+<td>RFC 9309</td>
+</tr>
+<tr>
+<td>A2A discovery</td>
+<td><code>GET /.well-known/agent.json</code></td>
+<td>A2A protocol</td>
+</tr>
+<tr>
+<td>ACP discovery</td>
+<td><code>GET /.well-known/acp-agent</code></td>
+<td>ACP protocol</td>
+</tr>
+<tr>
+<td>MCP stdio server</td>
+<td><code>aihu mcp serve</code></td>
+<td>MCP SDK</td>
+</tr>
+</tbody></table>
+<h3>isitagentready.com checklist</h3>
+<p>The full checklist at <a href="https://isitagentready.com">isitagentready.com</a> verifies:</p>
+<ul>
+<li><code>llms.txt</code> present and parseable (H1 name, optional blockquote, H2 sections, link format)</li>
+<li><code>robots.txt</code> includes explicit <code>Allow: /</code> for major AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Googlebot-Extended, CCBot, anthropic-ai, Google-Extended, Bytespider, cohere-ai)</li>
+<li>MCP server card present at <code>/.well-known/mcp/server-card.json</code> and valid against the SEP-1649 schema</li>
+<li>MCP endpoint responds to tool calls</li>
+</ul>
+<h3>AI bot policy in <code>robots.txt</code></h3>
+<p>The default <code>aiAgents: &#39;allow-all&#39;</code> policy emits explicit <code>Allow: /</code> rules for every bot in <code>AI_BOT_LIST</code>. To deny all AI bots:</p>
+<pre><code class="language-typescript">createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  aiAgents: &#39;deny-all&#39;,  // User-agent: *\\nDisallow: /
+})
+</code></pre>
+<p>To customize per-bot:</p>
+<pre><code class="language-typescript">createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  aiAgents: [
+    { userAgent: &#39;GPTBot&#39;, allow: [&#39;/&#39;] },
+    { userAgent: &#39;ClaudeBot&#39;, allow: [&#39;/&#39;] },
+    { userAgent: &#39;*&#39;, disallow: [&#39;/private/&#39;] },
+  ],
+})
+</code></pre>
+<h3>Security notes</h3>
+<ul>
+<li><code>$scope</code> declarations are a security control, not a DX annotation. Always install <code>@aihu/auth</code> when using scoped <code>@agent</code> blocks.</li>
+<li>Audit all <code>@agent</code> blocks in third-party <code>.aihu</code> templates before production deployment. Review <code>$scope</code>, <code>expose: { read: true }</code>, and <code>expose: { read: true, write: true }</code> declarations for privilege escalation risks.</li>
+<li>Client bundles must never contain <code>__agentBinding</code>. Add a CI step: <code>grep &#39;__agentBinding&#39; dist/client/*.js &amp;&amp; exit 1</code> to enforce this.</li>
+</ul>
 `,
   },
   'authoring-components': {
     title: 'Authoring Components',
     html: `<h1>Authoring Components</h1>
-<p>A <code>.aihu</code> Single File Component (SFC) is composed of named blocks. Each block uses the <code>@blockname { ... }</code> syntax introduced in v0.5.</p>
+<p>A <code>.aihu</code> Single File Component (SFC) is composed of named blocks. Each block uses the <code>@blockname { ... }</code> syntax.</p>
 <h2>@state block</h2>
-<p>The <code>@state</code> block declares the reactive contract of the component.</p>
+<p>The <code>@state</code> block declares the reactive contract of the component. All macros use the <strong>v2 collection-form</strong>: each macro keyword appears at most once per <code>@state</code> block and takes a single object whose keys are entry names.</p>
 <h3>Macros</h3>
-<ul>
-<li><code>$prop: { name: { default: value, ... } }</code> — a public property. Settable from HTML attributes. Reactive. Use <code>expose: { read: true }</code> and/or <code>expose: { write: true }</code> to expose the prop to agents.</li>
-<li><code>$computed: { name: { value: () =&gt; expr } }</code> — a derived signal. Re-evaluates when its dependencies change.</li>
-<li><code>$resource: { name: { source: () =&gt; fetcher(signal) } }</code> — binds an async resource to a signal. Returns a 3-state loader: <code>{ pending, value, error }</code>.</li>
-<li><code>$effect { ... }</code> — runs a side effect when tracked signals change. Use <code>$effect.on(dep)</code> to scope to a specific dependency.</li>
-<li><code>$lifecycle: { mount: () =&gt; ..., dispose: () =&gt; ... }</code> — lifecycle hooks; <code>mount</code> runs after first DOM mount, <code>dispose</code> runs on unmount.</li>
-<li><code>$action: { name: { handler: (args) =&gt; ..., ... } }</code> — a named action method on the component. Use <code>expose: { write: true }</code> to expose to agents.</li>
-</ul>
-<h3>Example</h3>
-<pre><code>@state {
-  $prop: {
-    count: { default: 0, type: &quot;number&quot; }
-  }
-
-  $computed: {
-    doubled: { value: () =&gt; count() * 2 }
-  }
-
-  $effect { console.log(&#39;count is&#39;, count()) }
-
-  $lifecycle: {
-    mount: () =&gt; console.log(&#39;mounted&#39;)
-  }
-
-  $action: {
-    increment: { handler: () =&gt; count(count() + 1) }
+<p><strong><code>$prop</code></strong> — a public, reactive property settable from HTML attributes. Always wrapped (bare form forbidden).</p>
+<pre><code>$prop: {
+  name: {
+    default: value,
+    type?: &quot;TypeAnnotation&quot;,   // required when default can&#39;t carry the TS type
+    describe?: &quot;human-readable description&quot;,
+    expose?: { read?: true, write?: true }
   }
 }
 </code></pre>
+<p>Use <code>expose: { read: true }</code> to expose the prop value to agents. Add <code>write: true</code> to also allow agents to set it.</p>
+<hr>
+<p><strong><code>$computed</code></strong> — a derived, read-only signal. Re-evaluates when dependencies change. Supports bare (no metadata) or wrapped (with metadata) form.</p>
+<pre><code>$computed: {
+  // bare — value-thunk, no metadata
+  name: () =&gt; expr,
+  // wrapped — add describe/expose
+  namedWithMeta: { value: () =&gt; expr, describe?: &quot;...&quot;, expose?: { read?: true } }
+}
+</code></pre>
+<p>The <code>type:</code> key is not valid for <code>$computed</code>. Annotate the thunk&#39;s return type inline when needed: <code>value: (): T[] =&gt; []</code>.</p>
+<hr>
+<p><strong><code>$action</code></strong> — a named method on the component. Bare (no metadata) or wrapped.</p>
+<pre><code>$action: {
+  // bare handler
+  doSomething: (args) =&gt; { /* body */ },
+  // wrapped — add describe/expose to surface to agents
+  doSomethingExposed: {
+    handler: (args) =&gt; { /* body */ },
+    describe?: &quot;human-readable description&quot;,
+    expose?: { read?: true, write?: true }
+  }
+}
+</code></pre>
+<hr>
+<p><strong><code>$effect</code></strong> — runs a side effect when tracked signals change. Two valid forms per <code>@state</code> block:</p>
+<pre><code>// anonymous — macro keyword takes a single function directly
+$effect: () =&gt; { /* side effect body */ }
+
+// named collection — auto-tracks deps (bare) or explicit deps (wrapped)
+$effect: {
+  logData: () =&gt; { console.log(data()) },                        // bare — auto-tracks
+  updateList: { on: [data], value: () =&gt; { updateList(data()) } } // wrapped — explicit deps
+}
+</code></pre>
+<p>Both forms may coexist in the same <code>@state</code> block. Two anonymous <code>$effect:</code> lines in one block is a parse error.</p>
+<hr>
+<p><strong><code>$resource</code></strong> — binds an async fetcher to a reactive signal. Returns a 3-state loader: <code>{ pending, value, error }</code>. Bare or wrapped.</p>
+<pre><code>$resource: {
+  // bare fetcher-thunk
+  data: () =&gt; fetchUsers(),
+  // wrapped — add describe/expose
+  user: { value: () =&gt; fetchUser(userId), describe?: &quot;...&quot;, expose?: { read?: true } }
+}
+</code></pre>
+<hr>
+<p><strong><code>$lifecycle</code></strong> — lifecycle hooks. Always bare functions; wrapped form is forbidden.</p>
+<pre><code>$lifecycle: {
+  mount:   () =&gt; { /* runs after first DOM mount */ },
+  dispose: () =&gt; { /* runs on unmount */ }
+}
+</code></pre>
+<p>Only <code>mount</code> and <code>dispose</code> are valid keys. <code>describe</code>, <code>expose</code>, <code>value</code>, and <code>handler</code> are forbidden on lifecycle entries.</p>
+<h3>Complete example</h3>
+<pre><code>@state {
+  $prop: {
+    count: { default: 0, describe: &#39;Current counter value&#39;, expose: { read: true } }
+  }
+
+  $computed: {
+    doubled: () =&gt; count * 2,
+    isHigh: { value: () =&gt; count &gt; 100, describe: &#39;True when count exceeds 100&#39;, expose: { read: true } }
+  }
+
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; { count++ }
+    },
+    reset: () =&gt; { count = 0 }
+  }
+
+  $lifecycle: {
+    mount:   () =&gt; console.log(&#39;mounted&#39;),
+    dispose: () =&gt; console.log(&#39;unmounted&#39;)
+  }
+
+  $effect: () =&gt; { document.title = \`Count: \${count}\` }
+}
+</code></pre>
+<h3><code>describe:</code> and <code>expose:</code> — agent visibility</h3>
+<p><code>describe:</code> and <code>expose:</code> are per-name keys on <code>$prop</code>, <code>$computed</code>, <code>$action</code>, and <code>$resource</code> entries. They replace the old <code>@agent</code>-level <code>$expose</code> and <code>$describe</code> macros (which are C440 errors in v2).</p>
+<ul>
+<li><code>describe: &quot;text&quot;</code> — makes the entry visible in the agent&#39;s capability description.</li>
+<li><code>expose: { read: true }</code> — the agent can read this value.</li>
+<li><code>expose: { read: true, write: true }</code> — the agent can read and write this value (props, actions).</li>
+</ul>
 <h2>@template block</h2>
 <p>The <code>@template</code> block defines the DOM output using aihu&#39;s template DSL.</p>
-<h3>Interpolation</h3>
+<h3>Text interpolation</h3>
 <ul>
-<li><code>{{ expr }}</code> — reactive text node. Uses <code>nodeValue</code> for targeted updates.</li>
+<li><code>{expr}</code> — reactive text node. Uses <code>nodeValue</code> for targeted updates (122x faster than <code>textContent</code> on targeted nodes).</li>
 </ul>
-<h3>Attribute bindings</h3>
+<h3>Event handlers</h3>
 <ul>
-<li><code>$attr:name=&quot;expr&quot;</code> — bind an attribute to a reactive expression.</li>
-<li><code>$on:event=&quot;handler&quot;</code> — attach an event listener.</li>
-<li><code>$ref:name</code> — capture a DOM element reference into the state bag.</li>
+<li><code>$on:click=&quot;handlerName&quot;</code> — attach an event listener (quoted identifier reference).</li>
+<li><code>$on:click={() =&gt; expr}</code> — attach an inline handler (curly expression).</li>
 </ul>
+<p>Colon separates the directive from the event name: <code>$on:&lt;event&gt;</code>.</p>
+<h3>Two-way binding</h3>
+<ul>
+<li><code>$bind:value=&quot;signalName&quot;</code> — two-way bind a writable signal to a form element. The value after the colon is the attribute name: <code>$bind:value</code>, <code>$bind:checked</code>, etc.</li>
+</ul>
+<p>Signal name must be a quoted identifier reference (not curly form).</p>
 <h3>Conditional rendering</h3>
 <ul>
-<li><code>$show=&quot;cond&quot;</code> — toggle display without removing from DOM.</li>
-<li><code>$when=&quot;cond&quot;</code> ... <code>$else</code> — conditional branch; removes/inserts DOM nodes.</li>
+<li><code>$if=&quot;cond&quot;</code> — remove/insert element from DOM based on a boolean signal or expression.</li>
+<li><code>$if={expr}</code> — curly expression form for non-signal conditions.</li>
+<li><code>$show=&quot;cond&quot;</code> — toggle visibility without removing from DOM.</li>
 </ul>
 <h3>List rendering</h3>
 <ul>
-<li><code>$each=&quot;item of list&quot;</code> — render a list. Keyed by identity by default.</li>
+<li><code>$each=&quot;items as item, i&quot;</code> — render a list. Uses quoted iteration syntax. Pair with <code>$key</code> for stable reconciliation:</li>
+</ul>
+<pre><code class="language-html">&lt;li $each=&quot;todos as todo&quot; $key=&quot;todo.id&quot;&gt;{todo.text}&lt;/li&gt;
+</code></pre>
+<h3>HTML output</h3>
+<ul>
+<li><code>$html=&quot;expr&quot;</code> — render raw HTML from a signal/identifier reference.</li>
+<li><code>$html={expr}</code> — render raw HTML from an expression.</li>
+</ul>
+<h3>Memoization and DOM stability</h3>
+<ul>
+<li><code>$key=&quot;expr&quot;</code> — key for list reconciliation (use inside <code>$each</code>).</li>
+<li><code>$memo={expr}</code> — memoize a subtree; only re-renders when expr changes. Requires curly form.</li>
+<li><code>$once</code> — boolean attribute; renders once and never re-renders.</li>
+<li><code>$raw</code> — boolean attribute; treat content as raw HTML (no escaping).</li>
+</ul>
+<h3>Class bindings</h3>
+<ul>
+<li><code>class={cond ? &#39;active&#39; : &#39;&#39;}</code> — standard curly expression for dynamic classes.</li>
 </ul>
 <h3>Special elements</h3>
 <p><strong><code>&lt;$slot&gt;</code></strong> — inserts slotted children provided by the parent:</p>
 <pre><code class="language-html">&lt;$slot name=&quot;header&quot; /&gt;
 </code></pre>
+<p>Use <code>expose</code> to pass context to slot consumers:</p>
+<pre><code class="language-html">&lt;!-- In UserList.aihu --&gt;
+&lt;$slot name=&quot;row&quot; expose=&quot;user, index&quot;&gt;
+  &lt;!-- default content --&gt;
+&lt;/$slot&gt;
+</code></pre>
 <p><strong><code>&lt;$suspense&gt;</code></strong> — wraps an async resource with a loading fallback:</p>
-<pre><code class="language-html">&lt;$suspense source={resource} fallback={&lt;span&gt;Loading...&lt;/span&gt;}&gt;
-  &lt;span&gt;{{ resource.value.name }}&lt;/span&gt;
+<pre><code class="language-html">&lt;!-- Simple: fallback attribute (component name) --&gt;
+&lt;$suspense fallback=&quot;Skeleton&quot;&gt;
+  &lt;UserProfile /&gt;
+&lt;/$suspense&gt;
+
+&lt;!-- Context-aware: slot form --&gt;
+&lt;$suspense&gt;
+  &lt;UserProfile /&gt;
+  &lt;$slot name=&quot;fallback&quot;&gt;
+    {loadAttempts &gt; 3 ? &lt;SlowConnection /&gt; : &lt;Spinner /&gt;}
+  &lt;/$slot&gt;
 &lt;/$suspense&gt;
 </code></pre>
-<p>Backed by <code>createSuspenseBoundary(source, fallback, loaded)</code> from <code>@aihu/arbor</code>.</p>
-<p><strong><code>&lt;$shield&gt;</code></strong> — isolates a subtree behind a shield boundary:</p>
+<p>The <code>fallback</code> attribute takes a component name (quoted string); <code>fallbackProps</code> may be added for static props. <code>fallback</code> attribute and <code>&lt;$slot name=&quot;fallback&quot;&gt;</code> are mutually exclusive.</p>
+<p><strong><code>&lt;$shield&gt;</code></strong> — isolates a subtree behind an error boundary:</p>
 <pre><code class="language-html">&lt;$shield&gt;
-  &lt;template #main&gt;&lt;div&gt;Main content&lt;/div&gt;&lt;/template&gt;
-  &lt;template #fallback&gt;&lt;div&gt;Shield fallback&lt;/div&gt;&lt;/template&gt;
+  &lt;UserProfile /&gt;
+  &lt;$slot name=&quot;fallback&quot;&gt;
+    &lt;ErrorPage error=&quot;shield.error&quot; retry=&quot;shield.retry&quot; /&gt;
+  &lt;/$slot&gt;
 &lt;/$shield&gt;
 </code></pre>
-<p>Backed by <code>createShieldBoundary(() =&gt; main, (shield) =&gt; fallback)</code>.</p>
-<p><strong><code>&lt;$guard&gt;</code></strong> — conditionally renders based on a check function:</p>
-<pre><code class="language-html">&lt;$guard check={isAuthenticated}&gt;
-  &lt;template #main&gt;&lt;div&gt;Protected content&lt;/div&gt;&lt;/template&gt;
-  &lt;template #fallback&gt;&lt;div&gt;Please log in&lt;/div&gt;&lt;/template&gt;
+<p>Exposes <code>shield.error</code> (Error) and <code>shield.retry</code> (function) to the fallback slot.</p>
+<p><strong><code>&lt;$guard&gt;</code></strong> — conditionally renders based on an auth scope:</p>
+<pre><code class="language-html">&lt;$guard scope=&quot;admin&quot; fallback=&quot;UnauthorizedPage&quot;&gt;
+  &lt;AdminPanel /&gt;
 &lt;/$guard&gt;
 </code></pre>
-<p>Backed by <code>createGuardBoundary(check, () =&gt; main, (guard) =&gt; fallback)</code>.</p>
-<p><strong><code>&lt;$warp&gt;</code></strong> — renders children into a portal target (stub in v0.5):</p>
-<pre><code class="language-html">&lt;$warp target=&quot;#modal-root&quot;&gt;
+<p>Attributes: <code>scope</code> (scope-name), <code>permissions</code>, <code>rateLimit</code>, <code>fallback</code> (component-ref), <code>redirect</code> (path), <code>onDeny</code> (function-ref). Exposes <code>guard.user</code>, <code>guard.reason</code>, <code>guard.path</code> to the fallback slot.</p>
+<p><strong><code>&lt;$warp&gt;</code></strong> — renders children into a portal target:</p>
+<pre><code class="language-html">&lt;$warp to=&quot;#modal-root&quot;&gt;
   &lt;div&gt;Portal content&lt;/div&gt;
 &lt;/$warp&gt;
 </code></pre>
-<p>Backed by <code>createWarpBoundary(target, () =&gt; children)</code>.</p>
+<h3>Attribute value forms</h3>
+<p>Every attribute value must be in one of two forms — bare unquoted values are forbidden:</p>
+<pre><code>✗ &lt;button $on:click=save&gt;            ← parse error
+✓ &lt;button $on:click=&quot;save&quot;&gt;          ← quoted identifier reference
+✓ &lt;button $on:click={() =&gt; save()}&gt;  ← curly expression
+</code></pre>
+<p>Some attributes are boolean-only (present-or-absent): <code>$once</code>, <code>$raw</code>, <code>disabled</code>, <code>required</code>, etc.</p>
 <h2>@style block</h2>
 <p>The <code>@style</code> block defines component-scoped styles with reactive capabilities.</p>
-<ul>
-<li><code>$reactive</code> — marks a CSS property as driven by a signal.</li>
-<li><code>$media</code> — a responsive breakpoint block.</li>
-<li><code>$when</code> — conditional style application.</li>
-</ul>
+<h3><code>$reactive(signal)</code></h3>
+<p>Binds a CSS custom property value to a signal. Updates reactively without JavaScript in the template:</p>
 <pre><code>@style {
-  :host {
-    color: $reactive(textColor);
+  $global {
+    :root {
+      --color-primary:    $reactive(primary);
+      --color-on-primary: $reactive(onPrimary);
+      --color-surface:    $reactive(surface);
+    }
   }
-  $media (max-width: 600px) {
-    :host { font-size: 14px; }
-  }
-  $when (isDark) {
-    :host { background: #111; }
+  .host { color: $reactive(textColor); }
+}
+</code></pre>
+<p><code>$global { ... }</code> hoists styles out of the shadow root to the document root.</p>
+<h3><code>$media(query)</code></h3>
+<p>A responsive breakpoint block. Compiles to a standard <code>@media</code> rule but participates in the reactive style system:</p>
+<pre><code>@style {
+  $media(max-width: 480px) {
+    label { grid-template-columns: 1fr; }
   }
 }
 </code></pre>
+<h3>Standard CSS</h3>
+<p>All standard CSS is valid inside <code>@style</code>. Styles are scoped to the component shadow root by default (unless <code>$global</code> is used).</p>
 <h2>@agent block</h2>
-<p>The <code>@agent</code> block exposes the component as an MCP agent. See <a href="authoring-agents.md">Authoring Agents</a> for full details.</p>
+<p>The <code>@agent</code> block is a vestigial cross-cutting block. Per-name agent metadata (<code>describe:</code>, <code>expose:</code>) lives on <code>@state</code> collection entries, not here.</p>
+<p><code>@agent</code> now holds only two cross-cutting declarations:</p>
 <pre><code>@agent {
-  $describe: &quot;Greeting agent for the home page&quot;
-  $action: {
-    greet: { expose: true, describe: &quot;Greet a user by name&quot; }
-  }
+  $scope &quot;user:read&quot;     // agent permission scope
+  $rate-limit 100        // requests per minute
 }
 </code></pre>
+<p>Both are optional. The entire block may be omitted. For full agent authoring details — tool exposure, MCP compliance, and the agent capability contract — see <a href="authoring-agents.md">Authoring Agents</a>.</p>
 `,
   },
   'authoring-plugins': {
     title: 'Authoring Plugins',
     html: `<h1>Authoring Plugins</h1>
 <p>aihu plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.</p>
+<hr>
 <h2>Defining a plugin</h2>
 <p>Use <code>definePlugin</code> from <code>@aihu/plugin</code>:</p>
 <pre><code class="language-typescript">import { definePlugin } from &#39;@aihu/plugin&#39;
 
-export const myPlugin = definePlugin({
-  name: &#39;my-plugin&#39;,
-  version: &#39;1.0.0&#39;,
-  namespace: &#39;my&#39;,
+export default definePlugin({
+  name: &#39;forms&#39;,
+  version: &#39;0.1.0&#39;,
+  namespace: &#39;forms&#39;,
+  aihuVersion: &#39;^0.2.0&#39;,
   contributes: {
-    blocks: [&#39;my-block&#39;],
-    macros: [&#39;$my-macro&#39;],
-    components: [&#39;&lt;$my-element&gt;&#39;],
-    transforms: [myTransform],
+    blocks: [&#39;fields&#39;],
+    macros: [
+      {
+        name: &#39;$field&#39;,
+        validIn: [&#39;@forms.fields&#39;],
+        lowering: lowerField,
+        validation: validateField,
+      },
+    ],
+    components: [&#39;&lt;$forms-input&gt;&#39;],
+    transforms: [
+      { stage: &#39;after-parse&#39;, fn: normalizeFieldDefaults },
+    ],
   },
 })
 </code></pre>
-<h3><code>contributes</code> fields</h3>
+<p><code>definePlugin</code> brands the config with <code>__aihu_plugin: true</code> and returns it as a <code>Plugin</code>. It does NOT validate — validation happens at registration (see below).</p>
+<h3>Required fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Plugin identifier. Non-empty.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>string</code></td>
+<td>Semver version string. Non-empty.</td>
+</tr>
+<tr>
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>Unique namespace — alphanumeric, underscores, hyphens; must start with a letter or underscore.</td>
+</tr>
+</tbody></table>
+<h3>Optional fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>aihuVersion</code></td>
+<td><code>string</code></td>
+<td>Semver range of compatible aihu versions. Checked at registration. Supports <code>*</code>, <code>^</code>, <code>~</code>, and exact versions.</td>
+</tr>
+<tr>
+<td><code>configSchema</code></td>
+<td><code>ConfigSchema</code></td>
+<td>Declared configuration schema (per spec §3.1).</td>
+</tr>
+<tr>
+<td><code>contributes</code></td>
+<td><code>Contributes</code></td>
+<td>Block parsers, macros, component names, transforms, server runtime, middleware.</td>
+</tr>
+<tr>
+<td><code>hooks</code></td>
+<td><code>Hooks</code></td>
+<td>Build and compilation lifecycle hooks.</td>
+</tr>
+<tr>
+<td><code>parsers</code></td>
+<td><code>Record&lt;string, BlockParser&gt;</code></td>
+<td>Custom block parser functions.</td>
+</tr>
+<tr>
+<td><code>dependencies</code></td>
+<td><code>string[]</code></td>
+<td>Other plugin namespaces this plugin requires.</td>
+</tr>
+<tr>
+<td><code>serverOnly</code></td>
+<td><code>boolean</code></td>
+<td>When true, all contributions target the server bundle only.</td>
+</tr>
+</tbody></table>
+<h3>Reserved namespaces</h3>
+<p>These namespace values are reserved by aihu and MUST NOT be used: <code>aihu</code>, <code>core</code>, <code>state</code>, <code>template</code>, <code>style</code>, <code>agent</code>, <code>route</code>.</p>
+<hr>
+<h2><code>contributes</code> fields</h2>
+<h3><code>blocks</code></h3>
+<p>Declare additional <code>@blockname { }</code> block types this plugin handles. The compiler routes these block names to the plugin&#39;s parsers.</p>
+<pre><code class="language-typescript">contributes: {
+  blocks: [&#39;fields&#39;, &#39;validation&#39;],
+}
+</code></pre>
+<h3><code>macros</code></h3>
+<p>Declare <code>$macro</code> names this plugin contributes to specific blocks. Each macro definition requires:</p>
 <ul>
-<li><strong><code>blocks</code></strong> — additional <code>@blockname { }</code> block types this plugin handles. The compiler routes these to the plugin&#39;s parser.</li>
-<li><strong><code>macros</code></strong> — <code>$macro</code> names this plugin contributes to <code>@state</code> blocks.</li>
-<li><strong><code>components</code></strong> — special template elements (e.g. <code>&lt;$my-element&gt;</code>) this plugin provides.</li>
-<li><strong><code>transforms</code></strong> — build-time AST transform functions applied after parsing.</li>
+<li><code>name</code> — must start with <code>$</code></li>
+<li><code>validIn</code> — array of block selectors where the macro is permitted (e.g. <code>[&#39;@state&#39;, &#39;@forms.fields&#39;]</code>)</li>
+<li><code>lowering</code> — required; transforms the macro into emitted code</li>
+<li><code>validation</code> — optional; runs at parse time, calls <code>ctx.error(msg)</code> on failure</li>
 </ul>
-<h3><code>serverOnly</code></h3>
-<p>Set <code>Plugin.serverOnly: true</code> to mark a plugin as server-build only. The client build pipeline will skip it entirely:</p>
+<pre><code class="language-typescript">contributes: {
+  macros: [
+    {
+      name: &#39;$field&#39;,
+      validIn: [&#39;@forms.fields&#39;],
+      lowering: (ctx, args) =&gt; \`registerField(\${JSON.stringify(args)})\`,
+      validation: (ctx, args) =&gt; {
+        if (!args.name) ctx.error(&#39;$field requires a name&#39;)
+      },
+    },
+  ],
+}
+</code></pre>
+<h3><code>components</code></h3>
+<p>Declare special template elements (e.g. <code>&lt;$forms-input&gt;</code>) this plugin provides.</p>
+<pre><code class="language-typescript">contributes: {
+  components: [&#39;&lt;$forms-input&gt;&#39;, &#39;&lt;$forms-select&gt;&#39;],
+}
+</code></pre>
+<h3><code>transforms</code></h3>
+<p>Build-time AST transform functions. Three stages in order: <code>after-parse</code> → <code>before-lower</code> → <code>after-lower</code>. Within a stage, plugin registration order determines execution order.</p>
+<pre><code class="language-typescript">contributes: {
+  transforms: [
+    { stage: &#39;after-parse&#39;, fn: normalizeDefaults },
+    { stage: &#39;after-lower&#39;, fn: injectValidationRuntime },
+  ],
+}
+</code></pre>
+<p>A transform function receives the current AST node and returns the (optionally modified) AST node.</p>
+<h3><code>serverRuntime</code></h3>
+<p>Server-only runtime helpers. Keys are helper names; values are module paths relative to the plugin root. These are loaded into the server bundle only, never the client.</p>
+<pre><code class="language-typescript">contributes: {
+  serverRuntime: {
+    validateForm: &#39;./runtime/validate-form.ts&#39;,
+    sanitizeInput: &#39;./runtime/sanitize.ts&#39;,
+  },
+}
+</code></pre>
+<h3><code>middleware</code></h3>
+<p>Server middleware contributions (PROVISIONAL in v1.0). Declare middleware to be injected into the aihu server pipeline.</p>
+<pre><code class="language-typescript">contributes: {
+  middleware: [
+    {
+      name: &#39;forms-auth&#39;,
+      stage: &#39;before-handler&#39;,
+      handler: &#39;./middleware/auth.ts&#39;,
+    },
+  ],
+}
+</code></pre>
+<p>Valid stages: <code>before-handler</code>, <code>after-handler</code>, <code>on-error</code>.</p>
+<hr>
+<h2>Macro lowering</h2>
+<p>The <code>lowering</code> function transforms a macro invocation into emitted code. It receives a <code>MacroContext</code> and <code>MacroArgs</code>, and returns either a code string (simple case) or a <code>LoweringResult</code> (complex emission with imports and hoisted declarations).</p>
+<pre><code class="language-typescript">import type { MacroLowering, LoweringResult } from &#39;@aihu/plugin&#39;
+
+const lowerField: MacroLowering = (ctx, args) =&gt; {
+  // Simple: return a code string
+  return \`registerField(\${ctx.sfc.componentName}, \${JSON.stringify(args)})\`
+}
+
+const lowerFieldWithImports: MacroLowering = (ctx, args): LoweringResult =&gt; {
+  const registerField = ctx.imports(&#39;@forms/runtime&#39;)
+  return {
+    code: \`\${registerField}(\${JSON.stringify(args)})\`,
+    imports: [{ from: &#39;@forms/runtime&#39;, names: [&#39;registerField&#39;] }],
+    target: &#39;server&#39;, // emit to server bundle only
+  }
+}
+</code></pre>
+<p><code>ctx.imports(spec)</code> returns the local name to use in emitted code. <code>ctx.runtime(name)</code> requests a runtime helper by name.</p>
+<hr>
+<h2>Plugin lifecycle hooks</h2>
+<p>Hooks let plugins observe and transform the compilation pipeline.</p>
+<pre><code class="language-typescript">import type { Hooks } from &#39;@aihu/plugin&#39;
+
+const hooks: Hooks = {
+  beforeCompile: async (ctx) =&gt; {
+    // Runs once before the full build starts
+    console.log(\`Building in \${ctx.mode} mode\`)
+  },
+
+  afterParse: async (ctx, ast) =&gt; {
+    // Runs after each SFC is parsed; may return a modified AST
+    return transformAst(ast)
+  },
+
+  transformBlock: async (ctx, block) =&gt; {
+    // Runs for each block in each SFC; may return modified block AST
+    if (ctx.blockType === &#39;forms.fields&#39;) {
+      return normalizeFieldBlock(block)
+    }
+  },
+
+  afterCompile: async (ctx, output) =&gt; {
+    // Runs after each SFC is compiled; may return modified output
+    return injectValidationHelpers(output)
+  },
+}
+</code></pre>
+<hr>
+<h2><code>serverOnly</code> plugin</h2>
+<p>Set <code>serverOnly: true</code> to mark a plugin as server-build only. The client build pipeline skips it entirely. Client code that references server-only contributions receives RPC stubs instead of the real implementation.</p>
 <pre><code class="language-typescript">export const loaderPlugin = definePlugin({
   name: &#39;loader-plugin&#39;,
   version: &#39;1.0.0&#39;,
   namespace: &#39;loader&#39;,
   serverOnly: true,
-  contributes: { transforms: [serverLoaderTransform] },
+  contributes: {
+    transforms: [{ stage: &#39;after-lower&#39;, fn: serverLoaderTransform }],
+    serverRuntime: { fetchLoader: &#39;./runtime/fetch-loader.ts&#39; },
+  },
 })
 </code></pre>
+<p>Individual macros may also declare <code>serverOnly: true</code> without making the entire plugin server-only.</p>
+<hr>
 <h2>Validating a plugin</h2>
-<p>Call <code>validatePlugin(plugin)</code> at build time to verify the plugin definition is structurally correct:</p>
+<p>Call <code>validatePlugin(plugin)</code> at build time to verify the plugin definition is structurally correct. <code>validatePlugin</code> does NOT throw — it returns a <code>ValidationResult</code>.</p>
 <pre><code class="language-typescript">import { validatePlugin } from &#39;@aihu/plugin&#39;
 
-validatePlugin(myPlugin) // throws if invalid
+const result = validatePlugin(myPlugin)
+if (!result.ok) {
+  for (const err of result.errors) {
+    console.error(\`[\${err.code}] \${err.message}\`)
+  }
+  process.exit(1)
+}
 </code></pre>
-<p><code>validatePlugin</code> checks:</p>
-<ul>
-<li><code>name</code> and <code>version</code> are non-empty strings.</li>
-<li><code>namespace</code> contains only alphanumeric characters and hyphens.</li>
-<li>All <code>contributes</code> arrays contain valid identifiers.</li>
-<li>No duplicate block or macro names within the namespace.</li>
-</ul>
+<p>Error codes per spec §8.1:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>missing-required-field</code></td>
+<td><code>name</code>, <code>version</code>, or <code>namespace</code> is empty</td>
+</tr>
+<tr>
+<td><code>invalid-namespace</code></td>
+<td>Namespace contains illegal characters or starts with a digit</td>
+</tr>
+<tr>
+<td><code>reserved-namespace</code></td>
+<td>Namespace is one of the reserved values</td>
+</tr>
+<tr>
+<td><code>duplicate-namespace</code></td>
+<td>Two plugins share the same namespace in one registration pass</td>
+</tr>
+<tr>
+<td><code>aihu-version-mismatch</code></td>
+<td>Declared <code>aihuVersion</code> range is incompatible with the running framework</td>
+</tr>
+</tbody></table>
+<p>The compiler calls <code>validatePlugin</code> for each plugin in <code>defineAihuConfig.plugins</code> at registration time.</p>
+<hr>
 <h2>Registering a plugin</h2>
 <p>Plugins are registered in <code>defineAihuConfig</code> in your app&#39;s config file:</p>
-<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
-import { myPlugin } from &#39;./plugins/my-plugin.ts&#39;
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineAihuConfig } from &#39;@aihu/server&#39;
+import { formsPlugin } from &#39;./plugins/forms.ts&#39;
+import { analyticsPlugin } from &#39;./plugins/analytics.ts&#39;
 
 export default defineAihuConfig({
-  plugins: [myPlugin],
+  plugins: [formsPlugin, analyticsPlugin],
   build: {
     target: &#39;universal&#39;,
   },
 })
 </code></pre>
 <p>Per Plugin Contract Spec §7.2, plugins <strong>must</strong> be listed in the explicit <code>plugins</code> array. There is no filesystem scanning, package.json detection, or magic import resolution. This keeps build behavior deterministic and auditable.</p>
-<h2>Plugin lifecycle</h2>
+<hr>
+<h2>Plugin lifecycle (full sequence)</h2>
 <ol>
 <li><code>defineAihuConfig</code> collects all plugins.</li>
-<li>At build start, <code>validatePlugin</code> is called for each registered plugin.</li>
-<li>The Rust compiler receives the plugin manifest and routes block/macro names to the appropriate handlers.</li>
-<li><code>contributes.transforms</code> are applied as post-parse AST passes.</li>
+<li>At build start, <code>validatePlugin</code> is called for each registered plugin. Any error aborts the build.</li>
+<li><code>beforeCompile</code> hooks run once (parallel, then resolved in order).</li>
+<li>For each <code>.aihu</code> file:
+a. The Rust compiler parses blocks. Plugin-declared block names are routed to plugin parsers.
+b. <code>afterParse</code> hooks run (sequential, each receives the previous hook&#39;s return value).
+c. Macro lowering runs (plugin macros call their <code>lowering</code> function).
+d. <code>transformBlock</code> hooks run for each block.
+e. <code>afterCompile</code> hooks run.</li>
 <li>Server-only plugins are filtered out before the client build pipeline.</li>
+<li><code>contributes.transforms</code> are applied as post-parse AST passes in stage order.</li>
 </ol>
+<hr>
+<h2>Scaffolding a plugin</h2>
+<p>Use the CLI to scaffold a new plugin package:</p>
+<pre><code class="language-bash">aihu plugin my-plugin
+</code></pre>
+<p>This creates:</p>
+<pre><code>packages/my-plugin/
+  package.json               name: &quot;@myorg/aihu-plugin-my-plugin&quot;
+                             peerDependencies: { &quot;@aihu/plugin&quot;: &quot;^0.2.0&quot; }
+  src/
+    index.ts                 definePlugin(...) export
+    lowering/                macro lowering functions
+    transforms/              AST transform functions
+  tests/
+    plugin.test.ts           validatePlugin smoke test
+</code></pre>
+<hr>
+<h2>Publishing a plugin</h2>
+<p>A published aihu plugin package must:</p>
+<ol>
+<li><p>List <code>@aihu/plugin</code> as a <code>peerDependency</code> (not <code>dependency</code>):</p>
+<pre><code class="language-json">{
+  &quot;peerDependencies&quot;: {
+    &quot;@aihu/plugin&quot;: &quot;^0.2.0&quot;
+  }
+}
+</code></pre>
+</li>
+<li><p>Export a named <code>Plugin</code> instance as the default or named export:</p>
+<pre><code class="language-typescript">// src/index.ts
+import { definePlugin } from &#39;@aihu/plugin&#39;
+export default definePlugin({ ... })
+</code></pre>
+</li>
+<li><p>Include only the plugin definition, lowering functions, and transforms. Do not bundle <code>@aihu/plugin</code> itself — it is the host&#39;s responsibility.</p>
+</li>
+<li><p>Name the package <code>aihu-plugin-&lt;name&gt;</code> or <code>@scope/aihu-plugin-&lt;name&gt;</code> for discoverability.</p>
+</li>
+</ol>
+<p>Consumers install and register the plugin explicitly:</p>
+<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
+import formsPlugin from &#39;aihu-plugin-forms&#39;
+
+export default defineAihuConfig({
+  plugins: [formsPlugin],
+})
+</code></pre>
+<p>No magic imports. No auto-discovery. Explicit registration is the contract.</p>
 `,
   },
   'data-fetching': {
@@ -676,121 +2092,39 @@ export default defineAihuConfig({
     html: `<h1>Data Fetching</h1>
 <p>aihu provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.</p>
 <h2><code>$resource</code> macro</h2>
-<p>In a <code>@state</code> block, <code>$resource</code> binds an async fetcher to a reactive signal:</p>
+<p>In a <code>@state</code> block, <code>$resource</code> binds an async fetcher to a reactive signal. It uses the v2 collection-form: bare (no metadata) or wrapped (with metadata).</p>
 <pre><code>@state {
   $prop: {
     userId: { default: 1, type: &quot;number&quot; }
   }
 
   $resource: {
-    user: { source: () =&gt; fetchUser(userId()) }
-  }
-}
-</code></pre>
-<p>The <code>user</code> variable is a 3-state loader object:</p>
-<ul>
-<li><code>user.pending</code> — <code>true</code> while the fetch is in-flight.</li>
-<li><code>user.value</code> — the resolved value (or <code>undefined</code> if pending/error).</li>
-<li><code>user.error</code> — the error (or <code>undefined</code> if pending/success).</li>
-</ul>
-<p>When <code>userId</code> changes, the resource re-fetches automatically.</p>
-<h2><code>createResource</code> from <code>@aihu/runtime</code></h2>
-<p>Use <code>createResource</code> directly in TypeScript outside of SFCs:</p>
-<pre><code class="language-typescript">import { createResource } from &#39;@aihu/runtime&#39;
-import { signal } from &#39;@aihu/signals&#39;
+    // bare — just the fetcher thunk
+    user: () =&gt; fetchUser(userId),
 
-const userId = signal(1)
-const user = createResource(() =&gt; fetch(\`/api/users/\${userId()}\`).then(r =&gt; r.json()))
-</code></pre>
-<p>The resource is automatically re-fetched when any signals read inside the fetcher change.</p>
-<h2>Server loaders</h2>
-<p>Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with <code>defineLoader</code> from <code>@aihu/server</code>:</p>
-<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
-
-export const loader = defineLoader(async (ctx) =&gt; {
-  const users = await db.users.findMany()
-  return { users }
-})
-</code></pre>
-<p>The loader receives a <code>LoaderContext</code> with the request, params, and URL. Return value is serialized and sent to the client as part of the SSR payload.</p>
-<h2>Server loaders → SFC handoff</h2>
-<p>A loader runs server-side per matched route, but the SFC author still has to consume its result. There are two documented handoff patterns; pick whichever matches your component&#39;s data flow.</p>
-<h3>Pattern A — <code>route.data</code> prop (default)</h3>
-<p>The loader payload is delivered as the <code>data</code> field on the SFC&#39;s <code>route</code> prop. This is the most common pattern and what every page route gets for free.</p>
-<p><code>src/pages/posts/[slug].loader.ts</code>:</p>
-<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
-
-export const loader = defineLoader(async (ctx) =&gt; {
-  return await db.posts.findOne({ slug: ctx.params.slug })
-})
-</code></pre>
-<p><code>src/pages/posts/[slug].aihu</code>:</p>
-<pre><code>@route { path: &quot;/posts/[slug]&quot;, ssr: true }
-
-@state {
-  $prop: {
-    route: { type: &quot;{ params: { slug: string }; data: { title: string; body: string } }&quot; }
+    // wrapped — add describe/expose to surface to agents
+    recentPosts: {
+      describe: &#39;Posts by the current user&#39;,
+      expose: { read: true },
+      value: () =&gt; fetchPosts(userId)
+    }
   }
 }
 
 @template {
-  &lt;article&gt;
-    &lt;h1&gt;{route().data.title}&lt;/h1&gt;
-    &lt;p&gt;{route().data.body}&lt;/p&gt;
-  &lt;/article&gt;
-}
-</code></pre>
-<p>The runtime injects the resolved loader payload as <code>route.data</code> before mount. During streaming SSR or client-side re-validation, wrap the consumer in <code>&lt;$suspense&gt;</code> to declaratively handle the pending state — see <a href="#the-3-state-loader-pattern">the 3-state loader pattern</a> below.</p>
-<p>A worked end-to-end example lives at <a href="https://github.com/fellwork/aihu/tree/main/examples/blog-loader"><code>examples/blog-loader/</code></a>.</p>
-<h3>Pattern B — <code>$resource</code> + <code>createServerCall</code></h3>
-<p>If the data needs to be fetched <em>on demand</em> (e.g. on a button click or when a search box changes), skip the loader and use a typed client stub instead. <code>createServerCall</code> returns a function that posts to a server-registered action.</p>
-<pre><code class="language-typescript">// shared/api.ts
-import { createServerCall } from &#39;@aihu/server&#39;
-import type { Post } from &#39;./types&#39;
-
-export const getPost = createServerCall&lt;[slug: string], Post&gt;(&#39;posts/getPost&#39;)
-</code></pre>
-<pre><code>@state {
-  $prop: {
-    searchTerm: { default: &quot;&#39;&#39;&quot;, type: &quot;string&quot; }
-  }
-
-  $resource: {
-    // refetches when searchTerm changes
-    matches: { source: () =&gt; getPost(searchTerm()) }
-  }
-}
-
-@template {
-  &lt;input $bind:value=&quot;searchTerm&quot; /&gt;
-
-  &lt;$suspense source=&quot;matches&quot;&gt;
-    &lt;$slot name=&quot;fallback&quot;&gt;&lt;span&gt;Searching...&lt;/span&gt;&lt;/$slot&gt;
-    &lt;ul&gt;
-      &lt;li $each=&quot;matches.value as p&quot; $key=&quot;p.slug&quot;&gt;{p.title}&lt;/li&gt;
-    &lt;/ul&gt;
+  &lt;$suspense fallback=&quot;Spinner&quot;&gt;
+    &lt;div&gt;{user.value.name}&lt;/div&gt;
   &lt;/$suspense&gt;
 }
 </code></pre>
-<p>Use Pattern A when the data is route-bound and known at request time. Use Pattern B when the data depends on UI state that the user changes after the page loads.</p>
-<h2><code>$server</code> macro</h2>
-<p>In <code>@state</code> blocks, <code>$server</code> gates code to server-only execution:</p>
-<pre><code>@state {
-  const data = $server.fetchSecretData()
-}
-</code></pre>
-<p>When compiling with <code>BuildTarget.Client</code>, any <code>$server</code> references are elided from the output and replaced with a <code>// [client build] $server macro reference elided</code> comment.</p>
-<h2><code>createServerCall</code></h2>
-<p><code>createServerCall</code> creates a typed fetch stub that calls a server action from client-side code:</p>
-<pre><code class="language-typescript">import { createServerCall } from &#39;@aihu/server&#39;
-
-const getUser = createServerCall&lt;[id: number], User&gt;(&#39;users/getUser&#39;)
-
-// In an effect or event handler:
-const user = await getUser(42)
-</code></pre>
-<p>The stub sends a <code>POST</code> request to <code>/_aihu/call/&lt;endpoint&gt;</code> with the args serialized as JSON. The server routes it to the registered action and returns the typed response.</p>
-<h2>The 3-state loader pattern</h2>
+<p>The resource variable is a 3-state loader object:</p>
+<ul>
+<li><code>resource.pending</code> — <code>true</code> while the fetch is in-flight.</li>
+<li><code>resource.value</code> — the resolved value (or <code>undefined</code> if pending/error).</li>
+<li><code>resource.error</code> — the error (or <code>undefined</code> if pending/success).</li>
+</ul>
+<p>When any signal read inside the fetcher changes (e.g. <code>userId</code>), the resource re-fetches automatically.</p>
+<h3>The 3-state loader pattern</h3>
 <p>All async data in aihu follows the 3-state pattern:</p>
 <table>
 <thead>
@@ -821,34 +2155,168 @@ const user = await getUser(42)
 </tr>
 </tbody></table>
 <p>Use <code>&lt;$suspense&gt;</code> in templates to handle the pending state declaratively:</p>
-<pre><code class="language-html">&lt;$suspense source={user} fallback={&lt;span&gt;Loading user...&lt;/span&gt;}&gt;
-  &lt;div&gt;{{ user.value.name }}&lt;/div&gt;
+<pre><code class="language-html">&lt;$suspense fallback=&quot;Spinner&quot;&gt;
+  &lt;div&gt;{user.value.name}&lt;/div&gt;
 &lt;/$suspense&gt;
+</code></pre>
+<h2><code>createResource</code> from <code>@aihu/data</code></h2>
+<p>Use <code>createResource</code> directly in TypeScript outside of SFCs:</p>
+<pre><code class="language-typescript">import { createResource } from &#39;@aihu/data&#39;
+import { signal } from &#39;@aihu/signals&#39;
+
+const userId = signal(1)
+const user = createResource(
+  () =&gt; userId(),                              // key — reactive; changes trigger refetch
+  (id) =&gt; fetch(\`/api/users/\${id}\`).then(r =&gt; r.json())  // fetcher
+)
+</code></pre>
+<p>The resource is automatically re-fetched when any signals read inside the key function change.</p>
+<h3>Resource store and SSR dehydration</h3>
+<p>For SSR, use a resource store to cache and dehydrate resources:</p>
+<pre><code class="language-typescript">import { createResource, createResourceStore, createResourceSerializer, data } from &#39;@aihu/data&#39;
+
+// Register the data plugin in aihu.config.ts:
+import { defineAihuConfig } from &#39;@aihu/server&#39;
+export default defineAihuConfig({
+  plugins: [data()],
+})
+</code></pre>
+<h2>Server loaders</h2>
+<p>Server loaders run on the server and provide data to SSR-rendered pages. Define a loader with <code>defineLoader</code> from <code>@aihu/server</code>:</p>
+<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
+
+export const loader = defineLoader(async (ctx) =&gt; {
+  const users = await db.users.findMany()
+  return { users }
+})
+</code></pre>
+<p>The loader receives a <code>LoaderContext</code> with the request, params, and URL. The return value is serialized and sent to the client as part of the SSR payload.</p>
+<h2>Server loaders → SFC handoff</h2>
+<p>A loader runs server-side per matched route, but the SFC author still has to consume its result. There are two documented handoff patterns.</p>
+<h3>Pattern A — <code>route.data</code> prop (default)</h3>
+<p>The loader payload is delivered as the <code>data</code> field on the SFC&#39;s <code>route</code> prop:</p>
+<p><code>src/pages/posts/[slug].loader.ts</code>:</p>
+<pre><code class="language-typescript">import { defineLoader } from &#39;@aihu/server&#39;
+
+export const loader = defineLoader(async (ctx) =&gt; {
+  return await db.posts.findOne({ slug: ctx.params.slug })
+})
+</code></pre>
+<p><code>src/pages/posts/[slug].aihu</code>:</p>
+<pre><code>@route { path: &quot;/posts/[slug]&quot;, ssr: true }
+
+@state {
+  $prop: {
+    route: { type: &quot;{ params: { slug: string }; data: { title: string; body: string } }&quot; }
+  }
+}
+
+@template {
+  &lt;article&gt;
+    &lt;h1&gt;{route.data.title}&lt;/h1&gt;
+    &lt;p&gt;{route.data.body}&lt;/p&gt;
+  &lt;/article&gt;
+}
+</code></pre>
+<p>The runtime injects the resolved loader payload as <code>route.data</code> before mount. During streaming SSR or client-side re-validation, wrap the consumer in <code>&lt;$suspense&gt;</code> to declaratively handle the pending state.</p>
+<h3>Pattern B — <code>$resource</code> + <code>createServerCall</code></h3>
+<p>If the data needs to be fetched on demand (e.g. on a button click or when a search box changes), use a typed client stub instead:</p>
+<pre><code class="language-typescript">// shared/api.ts
+import { createServerCall } from &#39;@aihu/server&#39;
+import type { Post } from &#39;./types&#39;
+
+export const searchPosts = createServerCall&lt;[query: string], Post[]&gt;(&#39;posts/search&#39;)
+</code></pre>
+<pre><code>@state {
+  $prop: {
+    searchTerm: { default: &#39;&#39;, type: &quot;string&quot; }
+  }
+
+  $resource: {
+    // refetches automatically when searchTerm changes
+    matches: () =&gt; searchPosts(searchTerm)
+  }
+}
+
+@template {
+  &lt;input $bind:value=&quot;searchTerm&quot; /&gt;
+
+  &lt;$suspense fallback=&quot;Spinner&quot;&gt;
+    &lt;ul&gt;
+      &lt;li $each=&quot;matches.value as p&quot; $key=&quot;p.slug&quot;&gt;{p.title}&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/$suspense&gt;
+}
+</code></pre>
+<p>Use Pattern A when the data is route-bound and known at request time. Use Pattern B when the data depends on UI state that the user changes after the page loads.</p>
+<h2><code>$server</code> macro</h2>
+<p>In <code>@state</code> blocks, <code>$server</code> gates code to server-only execution:</p>
+<pre><code>@state {
+  const data = $server.fetchSecretData()
+}
+</code></pre>
+<p>When compiling with <code>BuildTarget.Client</code>, any <code>$server</code> references are elided from the output.</p>
+<h2><code>createServerCall</code></h2>
+<p><code>createServerCall</code> creates a typed fetch stub that calls a server action from client-side code:</p>
+<pre><code class="language-typescript">import { createServerCall } from &#39;@aihu/server&#39;
+
+const getUser = createServerCall&lt;[id: number], User&gt;(&#39;users/getUser&#39;)
+
+// In an effect or event handler:
+const user = await getUser(42)
+</code></pre>
+<p>The stub sends a <code>POST</code> request to <code>/_aihu/call/&lt;endpoint&gt;</code> with the args serialized as JSON.</p>
+<h2>Server response helpers</h2>
+<p>From <code>@aihu/server</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Helper</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>json(data, status?)</code></td>
+<td>Return a JSON response</td>
+</tr>
+<tr>
+<td><code>notFound(msg?)</code></td>
+<td>Return a 404 response</td>
+</tr>
+<tr>
+<td><code>badRequest(msg?)</code></td>
+<td>Return a 400 response</td>
+</tr>
+<tr>
+<td><code>serverError(msg?)</code></td>
+<td>Return a 500 response</td>
+</tr>
+<tr>
+<td><code>methodNotAllowed(msg?)</code></td>
+<td>Return a 405 response</td>
+</tr>
+</tbody></table>
+<h2>Streaming routes</h2>
+<p>For streaming HTTP responses (e.g. server-sent events), use <code>defineStreamRoute</code> from <code>@aihu/server</code>:</p>
+<pre><code class="language-typescript">import { defineStreamRoute } from &#39;@aihu/server&#39;
+
+export const events = defineStreamRoute(async (ctx, stream) =&gt; {
+  stream.write({ event: &#39;connected&#39; })
+  // ...
+})
 </code></pre>
 `,
   },
   deployment: {
     title: 'Deployment',
     html: `<h1>Deployment</h1>
-<h2>Bun (recommended)</h2>
+<h2>Build for production</h2>
 <pre><code class="language-bash">bun run build
 bun run preview
 </code></pre>
-<p><code>bun run build</code> compiles all <code>.aihu</code> SFCs, bundles with Vite/Rolldown, and validates size budgets. <code>bun run preview</code> serves the production build locally using Bun&#39;s built-in HTTP server.</p>
-<h2>Node.js</h2>
-<p>aihu output is standard ESM. Any Node.js ≥20.18.0 runtime can serve a aihu application:</p>
-<pre><code class="language-bash">npm run build
-node dist/server/entry.js
-</code></pre>
-<p>The server entry is generated by the universal build and uses <code>@aihu/server</code>&#39;s request router.</p>
-<h2>Cloudflare Workers and Vercel Edge</h2>
-<p>aihu uses only Web Standard APIs (Fetch, ReadableStream, URL) in its server runtime, making it compatible with edge environments.</p>
-<p>Set the <code>AIHU_NATIVE_SKIP</code> environment variable to disable any Node.js-specific compatibility shims:</p>
-<pre><code class="language-bash">AIHU_NATIVE_SKIP=1 bun run build
-</code></pre>
-<p>Deploy the <code>dist/server/</code> output as a Worker or Edge Function. The <code>@aihu/server</code> request router handles incoming <code>Request</code> objects and returns <code>Response</code> objects natively — no adapter layer needed.</p>
+<p><code>bun run build</code> compiles all <code>.aihu</code> SFCs through the Rust compiler, bundles with Vite/Rolldown, and validates against the per-package size budgets in <code>.size-limit.json</code>. <code>bun run preview</code> serves the production build locally to verify output before deploying.</p>
 <h2><code>defineAihuConfig</code></h2>
-<p>The app configuration lives in <code>aihu.config.ts</code> (or exported from <code>vite.config.ts</code>):</p>
+<p>The app configuration lives in <code>aihu.config.ts</code>:</p>
 <pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
 
 export default defineAihuConfig({
@@ -860,19 +2328,154 @@ export default defineAihuConfig({
   plugins: [],
 })
 </code></pre>
-<h2><code>@aihu/server</code> request router</h2>
-<p>The <code>createRequestRouter</code> handles edge function dispatch:</p>
-<pre><code class="language-typescript">import { createRequestRouter } from &#39;@aihu/server&#39;
-import routes from &#39;virtual:aihu-routes&#39;
+<p>Build target options: <code>&#39;client&#39;</code> (browser bundle only), <code>&#39;server&#39;</code> (server bundle only), <code>&#39;universal&#39;</code> (both, default).</p>
+<h2>Cloudflare Workers</h2>
+<p>Use <code>@aihu/adapter-cloudflare</code> to deploy to Cloudflare Workers or Pages:</p>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { cloudflare } from &#39;@aihu/adapter-cloudflare&#39;
 
-const router = createRequestRouter({ routes })
-
-export default {
-  fetch(request: Request): Response | Promise&lt;Response&gt; {
-    return router.handle(request)
-  },
-}
+export default defineConfig({
+  adapter: cloudflare({ name: &#39;my-worker&#39; }),
+})
 </code></pre>
+<p>The adapter:</p>
+<ul>
+<li>Writes <code>_worker.js</code> to the Vite output directory (SPA mode — all page requests served from Cloudflare CDN via the <code>ASSETS</code> binding).</li>
+<li>Optionally creates <code>wrangler.toml</code> in the project root if absent (never overwrites an existing one).</li>
+</ul>
+<p>Adapter options:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>from <code>package.json</code></td>
+<td>Cloudflare Worker name in <code>wrangler.toml</code></td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>&#39;workers&#39; | &#39;pages&#39;</code></td>
+<td><code>&#39;workers&#39;</code></td>
+<td>Deployment target</td>
+</tr>
+<tr>
+<td><code>generateWrangler</code></td>
+<td><code>boolean</code></td>
+<td><code>true</code></td>
+<td>Write <code>wrangler.toml</code> if absent</td>
+</tr>
+</tbody></table>
+<p>Deploy after build:</p>
+<pre><code class="language-bash">wrangler deploy --config wrangler.toml
+</code></pre>
+<p>For a manual Worker without the adapter, use <code>@aihu/server</code>&#39;s request router directly:</p>
+<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+  ],
+})
+
+// Cloudflare Worker
+export default { fetch: router }
+</code></pre>
+<h2>Vercel</h2>
+<p>Use <code>@aihu/adapter-vercel</code> to deploy using the Vercel Build Output API v3:</p>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { vercel } from &#39;@aihu/adapter-vercel&#39;
+
+export default defineConfig({
+  adapter: vercel(),
+})
+</code></pre>
+<p>The adapter:</p>
+<ul>
+<li>Copies static assets to <code>.vercel/output/static/</code>.</li>
+<li>Writes an Edge Function entry (default) or Serverless Function entry.</li>
+<li>Emits <code>config.json</code> with the Build Output API v3 routes manifest.</li>
+</ul>
+<p>Adapter options:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>runtime</code></td>
+<td><code>&#39;edge&#39; | &#39;serverless&#39;</code></td>
+<td><code>&#39;edge&#39;</code></td>
+<td>Vercel function runtime</td>
+</tr>
+<tr>
+<td><code>outputDir</code></td>
+<td><code>string</code></td>
+<td><code>&#39;.vercel/output&#39;</code></td>
+<td>Build Output API output directory</td>
+</tr>
+<tr>
+<td><code>nodeVersion</code></td>
+<td><code>string</code></td>
+<td><code>&#39;nodejs18.x&#39;</code></td>
+<td>Node.js version for serverless runtime</td>
+</tr>
+</tbody></table>
+<p>Deploy after build:</p>
+<pre><code class="language-bash">vercel deploy --prebuilt
+</code></pre>
+<h2>Bun server</h2>
+<p>Run aihu server-side on Bun using <code>@aihu/server</code>&#39;s fetch-API router:</p>
+<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
+import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.example.com/mcp&#39;,
+  summary: &#39;An aihu-powered app.&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+  ],
+})
+
+Bun.serve({ fetch: router })
+</code></pre>
+<h2>Deno</h2>
+<p>The same router works on Deno Deploy — aihu uses only Web Standard APIs (Fetch, ReadableStream, URL):</p>
+<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+  ],
+})
+
+Deno.serve(router)
+</code></pre>
+<h2>Node.js</h2>
+<p>aihu output is standard ESM. Any Node.js ≥20.18.0 runtime can serve an aihu application:</p>
+<pre><code class="language-bash">npm run build
+node dist/server/entry.js
+</code></pre>
+<p>The server entry is generated by the universal build and uses <code>@aihu/server</code>&#39;s request router.</p>
 <h2><code>viteRouterIntegration()</code> at build time</h2>
 <p>The Vite plugin performs these steps at build time:</p>
 <ol>
@@ -881,20 +2484,17 @@ export default {
 <li>Assembles the route manifest into the <code>virtual:aihu-routes</code> module.</li>
 <li>Emits <code>dist/routes.json</code> for runtime consumption.</li>
 </ol>
-<p>This means route manifests are fully static after build — no filesystem scanning at runtime.</p>
-<h2>Size budgets</h2>
-<p>The browser bundle has a hard ceiling at 3.46 kB gz. Every build validates against the size limits in <code>.size-limit.ts</code>. Exceeding the limit fails the build.</p>
-<p>Run <code>bun run size</code> to check current bundle sizes without running a full build.</p>
+<p>Route manifests are fully static after build — no filesystem scanning at runtime.</p>
 `,
   },
   'getting-started': {
     title: 'Getting Started',
     html: `<h1>Getting Started</h1>
 <h2>Hello World walkthrough</h2>
-<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The v0.8 template looks like this:</p>
+<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The scaffolded template uses the v2 macro vocabulary:</p>
 <pre><code>@state {
   $prop: {
-    name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; }
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
   }
 }
 
@@ -908,32 +2508,68 @@ export default {
 }
 </code></pre>
 <h3>The <code>@state</code> block</h3>
-<p><code>@state</code> declares the reactive state for the component:</p>
-<ul>
-<li><code>$prop: { name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; } }</code> — declares a component property named <code>name</code> with a default value of <code>&#39;world&#39;</code>. Props are reactive and can be set from outside the component as HTML attributes.</li>
-</ul>
-<p>You can add computed values and effects in the same block:</p>
+<p><code>@state</code> declares the reactive state for the component using the v2 collection-form macro vocabulary. Each macro keyword takes an object whose keys are entry names.</p>
+<p><strong>Props</strong> — declared with <code>$prop</code>. Every entry must have at least a <code>default</code> or <code>type</code> key:</p>
 <pre><code>@state {
   $prop: {
-    name: { default: &quot;&#39;world&#39;&quot;, type: &quot;string&quot; }
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
+  }
+}
+</code></pre>
+<p>Props are reactive and can be set from outside the component as HTML attributes. Add <code>expose: { read: true, write: true }</code> to expose a prop to the agent surface.</p>
+<p><strong>Computed values</strong> — declared with <code>$computed</code>. The bare form uses a thunk:</p>
+<pre><code>@state {
+  $prop: {
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
   }
 
   $computed: {
-    greeting: { value: () =&gt; \`Hello, \${name()}!\` }
+    greeting: () =&gt; \`Hello, \${name()}!\`
   }
+}
+</code></pre>
+<p><strong>Actions</strong> — declared with <code>$action</code>. Bare form is a handler function; the wrapped form adds <code>describe</code> and <code>expose</code> metadata:</p>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
 
-  $effect { console.log(&#39;name changed to&#39;, name()) }
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+  }
+}
+</code></pre>
+<p><strong>Effects</strong> — anonymous effects use the bare function form:</p>
+<pre><code>@state {
+  $effect: () =&gt; { console.log(&#39;count changed&#39;) }
+}
+</code></pre>
+<p>Named effects (with optional dependency pinning) use the collection form:</p>
+<pre><code>@state {
+  $effect: {
+    logCount: () =&gt; { console.log(count()) },
+  }
 }
 </code></pre>
 <h3>The <code>@template</code> block</h3>
 <p><code>@template</code> defines the component&#39;s DOM structure using aihu&#39;s template DSL:</p>
 <ul>
 <li><code>{{ expr }}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
-<li><code>$attr:foo=&quot;val&quot;</code> — binds an attribute reactively.</li>
-<li><code>$on:click=&quot;handler&quot;</code> — attaches an event listener.</li>
+<li><code>$attr.foo=&quot;val&quot;</code> — binds an attribute reactively.</li>
+<li><code>$on.click=&quot;handler&quot;</code> — attaches an event listener.</li>
 <li><code>$show</code> — toggles visibility based on a boolean signal.</li>
 <li><code>$each</code> — renders a list of items.</li>
 </ul>
+<h3>The <code>@agent</code> block</h3>
+<p><code>@agent</code> declares the component&#39;s cross-cutting agent metadata. In v2, per-property <code>describe</code> and <code>expose</code> keys live on the <code>@state</code> entries directly. The <code>@agent</code> block holds only scope and rate-limit constraints:</p>
+<pre><code>@agent {
+  $scope &#39;counter&#39;
+  $rate-limit 60
+}
+</code></pre>
 <h3>The <code>@route</code> block</h3>
 <p><code>@route</code> registers the component as a page route:</p>
 <pre><code>@route {
@@ -941,14 +2577,56 @@ export default {
   name: home
 }
 </code></pre>
-<p>During build, the Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled SFC. <code>viteRouterIntegration()</code> in <code>vite.config.ts</code> reads these sidecars at build time and assembles the route manifest.</p>
+<p>During build, the Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled SFC. <code>viteRouterIntegration()</code> in <code>vite.config.ts</code> reads these sidecars at build time and assembles the route manifest into <code>virtual:aihu-routes</code> — route manifests are fully static after build with no filesystem scanning at runtime.</p>
 <h3>HMR in development</h3>
-<p>In dev mode, Vite watches <code>.aihu</code> files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the <code>name</code> default value or the template expression and the browser updates immediately.</p>
+<p>Edit <code>src/pages/index.aihu</code> and the browser updates live — no full reload. Vite watches <code>.aihu</code> files; when you save, only the affected reactive subtree is re-evaluated.</p>
+<h2>A complete example: live counter</h2>
+<p>The canonical minimal SFC (from <code>examples/live-counter/live-counter.aihu</code>):</p>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+    decrement: {
+      describe: &#39;Subtract 1 from the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() - 1),
+    },
+    reset: {
+      describe: &#39;Reset the counter to 0&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(0),
+    },
+  }
+}
+
+@template {
+  &lt;section class=&quot;counter&quot;&gt;
+    &lt;h1&gt;Count: {count}&lt;/h1&gt;
+    &lt;div class=&quot;controls&quot;&gt;
+      &lt;button $on.click=&quot;decrement&quot;&gt;-&lt;/button&gt;
+      &lt;button $on.click=&quot;reset&quot;&gt;Reset&lt;/button&gt;
+      &lt;button $on.click=&quot;increment&quot;&gt;+&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+}
+
+@style {
+  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; }
+  button   { flex: 1; padding: 0.5rem 0.75rem; cursor: pointer; }
+}
+</code></pre>
+<p>This is ~40 LOC, has an agent surface (all three actions are agent-callable), and uses only signals from <code>@aihu/signals</code> directly in <code>@state</code>.</p>
 <h2>Next steps</h2>
 <ul>
-<li><a href="authoring-components.md">Authoring Components</a> — full reference for <code>@state</code>, <code>@template</code>, and <code>@style</code> blocks.</li>
-<li><a href="routing-layouts.md">Routing and Layouts</a> — file-based routing, layouts, and middleware.</li>
-<li><a href="reactivity.md">Reactivity</a> — the signals, computed, and effect primitives.</li>
+<li><a href="authoring-components.md">Authoring Components</a> — full reference for <code>@state</code>, <code>@template</code>, <code>@style</code>, and <code>@agent</code> blocks.</li>
+<li><a href="reactivity.md">Reactivity</a> — the <code>signal</code>, <code>computed</code>, and <code>effect</code> primitives from <code>@aihu/signals</code>.</li>
+<li><a href="authoring-agents.md">Authoring Agents</a> — how to expose component state and actions to AI agents via MCP.</li>
 </ul>
 `,
   },
@@ -956,57 +2634,69 @@ export default {
     title: 'Installation',
     html: `<h1>Installation</h1>
 <h2>Prerequisites</h2>
-<p>aihu requires one of the following runtimes:</p>
+<p>aihu requires <strong>one</strong> of the following runtimes:</p>
 <ul>
 <li><strong>Bun</strong> ≥1.3.0 (recommended — faster installs, native TypeScript, built-in test runner)</li>
 <li><strong>Node.js</strong> ≥20.18.0 with a package manager of your choice (npm, pnpm, or yarn)</li>
 </ul>
 <h2>Scaffold a new application</h2>
-<p>Use the <code>npx aihu</code> CLI to generate a new project from the Hello World template:</p>
-<pre><code class="language-bash">npx aihu app my-app
+<p>Use the <code>@aihu/cli</code> to generate a new project:</p>
+<pre><code class="language-bash"># Bun (recommended)
+bunx @aihu/cli app my-app
+
+# Node.js
+npx @aihu/cli app my-app
 </code></pre>
-<p>The scaffolder generates six files:</p>
+<p>The scaffolder generates the following files:</p>
 <pre><code>my-app/
   package.json
-  tsconfig.json
+  aihu.config.ts
   vite.config.ts
   src/
-    main.ts
     pages/
       index.aihu
+    layouts/
+      default.aihu
 </code></pre>
 <ul>
-<li><strong><code>package.json</code></strong> — workspace manifest with <code>@aihu/runtime</code>, <code>@aihu/signals</code>, <code>@aihu/arbor</code>, and <code>@aihu/router</code> as dependencies, plus Vite and the aihu Vite plugin as devDependencies.</li>
-<li><strong><code>tsconfig.json</code></strong> — extends the aihu base TypeScript config with <code>moduleResolution: bundler</code>.</li>
-<li><strong><code>vite.config.ts</code></strong> — Vite config with <code>viteRouterIntegration()</code> wired in.</li>
-<li><strong><code>src/main.ts</code></strong> — entry point that calls <code>mount()</code> on <code>document.body</code>.</li>
+<li><strong><code>package.json</code></strong> — workspace manifest with <code>@aihu/runtime</code>, <code>@aihu/signals</code>, <code>@aihu/arbor</code>, <code>@aihu/router</code>, <code>@aihu/server</code>, and <code>@aihu/agent</code> as dependencies, plus Vite and <code>@aihu/cli</code> as devDependencies.</li>
+<li><strong><code>aihu.config.ts</code></strong> — framework config via <code>defineAihuConfig</code> (build target, plugins, adapters).</li>
+<li><strong><code>vite.config.ts</code></strong> — Vite config with <code>viteRouterIntegration()</code> and <code>viteAgentReadinessIntegration()</code> wired in.</li>
 <li><strong><code>src/pages/index.aihu</code></strong> — the Hello World SFC with <code>@state</code>, <code>@template</code>, and <code>@route</code> blocks.</li>
+<li><strong><code>src/layouts/default.aihu</code></strong> — the default layout shell (<code>&lt;slot /&gt;</code>).</li>
 </ul>
 <h2>Install and run</h2>
 <pre><code class="language-bash">cd my-app
 bun install
 bun run dev
 </code></pre>
-<p>The dev server starts at <code>http://localhost:5173</code> with HMR enabled. Edit <code>src/pages/index.aihu</code> and the browser updates automatically.</p>
+<p>The dev server starts at <code>http://localhost:5173</code> with HMR enabled. Edit <code>src/pages/index.aihu</code> and the browser updates automatically — no full reload needed.</p>
 <h2>Build for production</h2>
 <pre><code class="language-bash">bun run build
 bun run preview
 </code></pre>
-<p><code>bun run build</code> compiles all <code>.aihu</code> files through the Rust SFC compiler, bundles with Vite/Rolldown, and validates against the size budgets defined in <code>.size-limit.ts</code>.</p>
+<p><code>bun run build</code> compiles all <code>.aihu</code> files through the Rust SFC compiler, bundles with Vite/Rolldown, and validates against the size budgets defined in <code>.size-limit.json</code>.</p>
+<p><code>bun run preview</code> serves the production build locally so you can verify the output before deploying.</p>
 `,
   },
   introduction: {
     title: 'Introduction',
     html: `<h1>Introduction</h1>
-<p>aihu is a JavaScript/TypeScript meta-framework for building Web Components with runtime-first reactivity. Applications are authored as <code>.aihu</code> Single File Components (SFCs), compiled to vanilla custom elements, and mounted with sub-2 kB reactive primitives.</p>
-<h2>Why aihu</h2>
+<p>aihu is a complete meta-framework for the agentic web. You write <code>.aihu</code> Single-File Components (SFCs) — block-structured (<code>@state</code>, <code>@template</code>, <code>@style</code>, <code>@agent</code>, <code>@route</code>) — and a Rust compiler emits standards-compliant Web Components AND machine-readable agent manifests. The runtime is sub-2 kB. Every component shipped by every aihu app is discoverable by AI agents and callable as a tool.</p>
+<blockquote>
+<p><strong>Status:</strong> v1 shipped 2026-05-03. npm publish at <code>0.1.x</code> rolling out.</p>
+</blockquote>
+<h2>What makes aihu different</h2>
 <ul>
-<li><strong>No framework lock-in</strong> — output is vanilla custom elements; any consumer can use them without knowing about aihu.</li>
-<li><strong>v3 dep-free thesis</strong> — zero non-<code>@aihu/*</code> runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.</li>
-<li><strong>Sub-2 kB reactive core</strong> — <code>@aihu/signals</code> (≤1.97 kB) + <code>@aihu/arbor</code> (≤2.2 kB) together cover signals, computeds, effects, and DOM diffing in a tight envelope.</li>
+<li><strong>Agentic-first</strong> — every component is agent-callable by construction. The <code>@agent</code> block on each SFC declares its exposed state and actions; the compiler emits a matching MCP tool schema alongside the Web Component. No separate API gateway required.</li>
+<li><strong>Sub-2 kB runtime</strong> — <code>@aihu/signals</code> (<del>1.71 kB gz) and <code>@aihu/arbor</code> (</del>2.72 kB gz) together cover signals, computeds, effects, and direct DOM diffing.</li>
+<li><strong>Vanilla custom elements output</strong> — no framework lock-in at the consumer boundary, no global context, no hydration step.</li>
+<li><strong>Dep-free thesis</strong> — zero non-<code>@aihu/*</code> runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.</li>
 <li><strong>Targeted updates</strong> — aihu uses <code>nodeValue</code> rather than <code>textContent</code> for reactive text nodes, which is 122× faster on targeted updates.</li>
 <li><strong>MCP + agent-first</strong> — <code>@aihu/agent</code> and <code>@aihu/agent-readiness</code> are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.</li>
 </ul>
+<h2>Why &quot;meta-framework&quot;?</h2>
+<p>Aihu lets you build whole apps, not just components. <code>@aihu/signals</code> (reactive primitive) → <code>@aihu/arbor</code> (DOM mounting) → <code>@aihu/runtime</code> (custom-element wiring) → <code>@aihu/router</code> (file-based routing) → <code>@aihu/server</code> (SSR + edge) → <code>@aihu/app</code> (the integrated framework). Each layer is usable on its own; stacked they form a complete meta-framework. File-based routing, SSR, loaders, cookies, auth, and data are first-class — not bolt-ons. Cloud adapters are in-tree, not third-party.</p>
 <h2>Package overview</h2>
 <table>
 <thead>
@@ -1019,62 +2709,112 @@ bun run preview
 <tbody><tr>
 <td><code>@aihu/signals</code></td>
 <td>Push-based signals, computeds, effects</td>
-<td>≤1.97 kB</td>
+<td>1.71 kB gz</td>
 </tr>
 <tr>
 <td><code>@aihu/arbor</code></td>
-<td>DOM tree primitives: branch/leaf/mount</td>
-<td>≤2.2 kB</td>
+<td>DOM tree primitives: branch/leaf/mount/hydrate</td>
+<td>2.72 kB gz</td>
 </tr>
 <tr>
 <td><code>@aihu/runtime</code></td>
-<td>onMount/onCleanup lifecycle</td>
-<td>≤1.17 kB</td>
+<td>Custom element registration, onMount/onCleanup lifecycle</td>
+<td>3.27 kB gz</td>
 </tr>
 <tr>
-<td><code>@aihu/router</code></td>
-<td>File-based router, middleware</td>
-<td>≤1.54 kB</td>
-</tr>
-<tr>
-<td><code>@aihu/server</code></td>
-<td>Request router, SSR, loaders</td>
-<td>server-only</td>
+<td><code>@aihu/context</code></td>
+<td>Async-context-friendly request/SSR context primitives</td>
+<td>248 B gz</td>
 </tr>
 <tr>
 <td><code>@aihu/agent</code></td>
-<td>Agent/MCP registration</td>
-<td>≤200 B</td>
+<td>Agent/MCP registration primitives</td>
+<td>142 B gz</td>
 </tr>
 <tr>
 <td><code>@aihu/agent-service</code></td>
-<td>Agent service adapter</td>
-<td>≤600 B</td>
+<td>Server-side agent runtime (live signal bindings)</td>
+<td>1.06 kB gz</td>
+</tr>
+<tr>
+<td><code>@aihu/agent-a2a</code></td>
+<td>A2A (Agent-to-Agent) protocol bindings</td>
+<td>721 B gz</td>
+</tr>
+<tr>
+<td><code>@aihu/agent-acp</code></td>
+<td>ACP (Agent Control Protocol) bindings</td>
+<td>591 B gz</td>
 </tr>
 <tr>
 <td><code>@aihu/agent-readiness</code></td>
-<td>Vite integration for MCP</td>
+<td>llms.txt, MCP Server Card, robots.txt emitter</td>
 <td>build-time</td>
 </tr>
 <tr>
 <td><code>@aihu/data</code></td>
-<td>Data plugin adapter</td>
-<td>≤800 B</td>
+<td>Reactive resource and loader protocol</td>
+<td>774 B gz</td>
+</tr>
+<tr>
+<td><code>@aihu/router</code></td>
+<td>File-based router with Vite plugin</td>
+<td>2.02 kB gz</td>
+</tr>
+<tr>
+<td><code>@aihu/server</code></td>
+<td>Request router, SSR, streaming, loaders, cookies</td>
+<td>server-only</td>
+</tr>
+<tr>
+<td><code>@aihu/app</code></td>
+<td>Top-level integration — wires runtime, router, adapters</td>
+<td>764 B gz</td>
 </tr>
 <tr>
 <td><code>@aihu/plugin</code></td>
-<td>Plugin contract types</td>
+<td>Plugin contract types shared by server and meta-framework</td>
+<td>build-time</td>
+</tr>
+<tr>
+<td><code>@aihu/auth</code></td>
+<td>JWT scope checks, ScopeSignal, server middleware</td>
+<td>server-only</td>
+</tr>
+<tr>
+<td><code>@aihu/adapter-cloudflare</code></td>
+<td>Cloudflare Workers/Pages deployment adapter</td>
+<td>build-time</td>
+</tr>
+<tr>
+<td><code>@aihu/adapter-vercel</code></td>
+<td>Vercel deployment adapter (Edge + Serverless)</td>
 <td>build-time</td>
 </tr>
 <tr>
 <td><code>@aihu/cli</code></td>
-<td>Scaffold CLI</td>
+<td>Scaffold CLI — <code>aihu app</code>, <code>page</code>, <code>component</code>, <code>dev</code>, <code>build</code></td>
 <td>build-time</td>
 </tr>
 <tr>
-<td><code>@aihu/context</code></td>
-<td>Shared context primitives</td>
-<td>≤300 B</td>
+<td><code>@aihu/compiler</code></td>
+<td>Rust SFC compiler — per-platform binary + WASM</td>
+<td>build-time</td>
+</tr>
+<tr>
+<td><code>@aihu/mcp</code></td>
+<td>MCP server exposing <code>aihu_example</code> + <code>aihu_validate</code> tools</td>
+<td>server-only</td>
+</tr>
+<tr>
+<td><code>@aihu/scraping</code></td>
+<td>Rate limiter and bot-detection middleware for agent services</td>
+<td>server-only</td>
+</tr>
+<tr>
+<td><code>vscode-aihu</code></td>
+<td>VSCode syntax highlighting, snippets, language support</td>
+<td>editor</td>
 </tr>
 </tbody></table>
 `,
@@ -1121,6 +2861,12 @@ name(&#39;aihu&#39;)
 dispose() // stops the effect
 </code></pre>
 <p>Effects run synchronously after each signal write. They auto-track all signals read during their execution.</p>
+<p>To clean up resources when an effect re-runs, return a cleanup function:</p>
+<pre><code class="language-typescript">const dispose = effect(() =&gt; {
+  const id = setInterval(() =&gt; tick(), 1000)
+  return () =&gt; clearInterval(id)  // called before next run or on dispose
+})
+</code></pre>
 <h2><code>batch(fn)</code></h2>
 <p>Defers effect flushes until the batch function returns:</p>
 <pre><code class="language-typescript">import { signal, effect, batch } from &#39;@aihu/signals&#39;
@@ -1136,7 +2882,7 @@ batch(() =&gt; {
 })
 // Now effects flush once with a=1, b=2
 </code></pre>
-<p><code>batch</code> is useful when updating multiple signals that drive the same derived computation — it prevents intermediate renders.</p>
+<p><code>batch</code> is useful when updating multiple signals that drive the same derived computation — it prevents intermediate renders. This is the preferred pattern for atomic multi-signal updates.</p>
 <h2><code>untrack(fn)</code></h2>
 <p>Reads signals inside <code>fn</code> without subscribing to them. Re-entrancy safe:</p>
 <pre><code class="language-typescript">import { signal, effect, untrack } from &#39;@aihu/signals&#39;
@@ -1150,7 +2896,7 @@ effect(() =&gt; {
   console.log(count() * m)
 })
 </code></pre>
-<p>Per Learning #46, <code>untrack</code> is re-entrancy safe — calling it from inside an <code>effect</code> or another <code>untrack</code> works correctly.</p>
+<p><code>untrack</code> is re-entrancy safe — calling it from inside an <code>effect</code> or another <code>untrack</code> works correctly.</p>
 <h2>Lattice signals</h2>
 <p>Lattice signals are merge-monotone reactive cells. They are useful for collaborative state where multiple sources update the same value and the result should be the &quot;join&quot; of all inputs.</p>
 <h3><code>latticeSignal&lt;T&gt;(merge, initial)</code></h3>
@@ -1180,6 +2926,45 @@ highScore(10)  // stays 42 — max merge
 </code></pre>
 <h2><code>$state</code> accessor</h2>
 <p><code>$state</code> is a shorthand accessor for the component state bag in SFCs. Inside <code>@state</code> blocks, all declared props and computeds are available on <code>$state</code> without qualification.</p>
+<h2>Reactive patterns</h2>
+<h3>Computed chains</h3>
+<p>Computeds can depend on other computeds:</p>
+<pre><code class="language-typescript">const base = signal(10)
+const doubled = computed(() =&gt; base() * 2)
+const quadrupled = computed(() =&gt; doubled() * 2)
+</code></pre>
+<p>Only <code>base</code> is a writable signal; the derived chain updates automatically. Each computed is memoized — intermediate computeds don&#39;t re-run unless their own dependencies change.</p>
+<h3>Effects with cleanup</h3>
+<p>Return a cleanup function from <code>effect</code> to dispose resources before the next run:</p>
+<pre><code class="language-typescript">const url = signal(&#39;/api/data&#39;)
+
+effect(() =&gt; {
+  const controller = new AbortController()
+  fetch(url(), { signal: controller.signal })
+    .then(r =&gt; r.json())
+    .then(setData)
+  return () =&gt; controller.abort()
+})
+</code></pre>
+<p>The cleanup runs when <code>url</code> changes (before the next fetch starts) and when the effect is disposed.</p>
+<h3>The <code>batch</code> pattern for atomic updates</h3>
+<p>When multiple signals feed a single derived value, use <code>batch</code> to prevent intermediate states:</p>
+<pre><code class="language-typescript">const hue = signal(215)
+const saturation = signal(70)
+const lightness = signal(55)
+
+const color = computed(() =&gt;
+  \`hsl(\${hue()} \${saturation()}% \${lightness()}%)\`
+)
+
+// Without batch: color re-computes 3 times
+// With batch: color re-computes once
+batch(() =&gt; {
+  hue(0)
+  saturation(100)
+  lightness(50)
+})
+</code></pre>
 <h2>Push-based semantics</h2>
 <p>aihu signals are push-based: effects run synchronously after each signal write (or after a <code>batch</code> completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.</p>
 `,
@@ -1189,7 +2974,7 @@ highScore(10)  // stays 42 — max merge
     html: `<h1>Routing and Layouts</h1>
 <p>aihu uses file-based routing. Pages live under <code>src/pages/</code> and automatically become routes when compiled.</p>
 <h2>File-based routing</h2>
-<p>Any <code>.aihu</code> file under <code>src/pages/</code> that contains an <code>@route</code> block (or <code>@layout</code> shorthand) is treated as a page route. The file path determines the default URL pattern:</p>
+<p>Any <code>.aihu</code> file under <code>src/pages/</code> that contains an <code>@route</code> block is treated as a page route. The file path determines the default URL pattern:</p>
 <table>
 <thead>
 <tr>
@@ -1210,6 +2995,21 @@ highScore(10)  // stays 42 — max merge
 <td><code>/users/:id</code></td>
 </tr>
 </tbody></table>
+<h3>File-based routing tree example</h3>
+<pre><code>src/
+  pages/
+    index.aihu          →  /
+    about.aihu           →  /about
+    users/
+      index.aihu         →  /users
+      [id].aihu          →  /users/:id
+    admin/
+      index.aihu         →  /admin
+      users.aihu         →  /admin/users
+  layouts/
+    default.aihu         →  wraps all routes without an explicit layout
+    admin.aihu           →  wraps routes with layout: admin
+</code></pre>
 <h2>The <code>@route</code> block</h2>
 <pre><code>@route {
   path: /admin/users
@@ -1228,7 +3028,7 @@ highScore(10)  // stays 42 — max merge
 <li><strong><code>layout</code></strong> — layout name to wrap this route&#39;s content.</li>
 </ul>
 <h2><code>.route.json</code> sidecars</h2>
-<p>The Rust compiler emits a <code>.route.json</code> file alongside each compiled SFC that has an <code>@route</code> block. Example:</p>
+<p>The compiler emits a <code>.route.json</code> file alongside each compiled SFC that has an <code>@route</code> block. Example:</p>
 <pre><code class="language-json">{
   &quot;pattern&quot;: &quot;/admin/users&quot;,
   &quot;name&quot;: &quot;admin-users&quot;,
@@ -1239,7 +3039,7 @@ highScore(10)  // stays 42 — max merge
 </code></pre>
 <p>Read a sidecar programmatically with <code>readRouteSidecar(path)</code> from <code>@aihu/router/plugin</code>.</p>
 <h2><code>viteRouterIntegration()</code></h2>
-<p><code>viteRouterIntegration()</code> is a Vite plugin that scans <code>src/pages/</code> at build time, reads all <code>.route.json</code> sidecars, and assembles a virtual route manifest module:</p>
+<p><code>viteRouterIntegration()</code> is a Vite plugin (from <code>@aihu/router/plugin</code>) that scans <code>src/pages/</code> at build time, reads all <code>.route.json</code> sidecars, and assembles a virtual route manifest module:</p>
 <pre><code class="language-typescript">// vite.config.ts
 import { defineConfig } from &#39;vite&#39;
 import { viteRouterIntegration } from &#39;@aihu/router/plugin&#39;
@@ -1248,7 +3048,15 @@ export default defineConfig({
   plugins: [viteRouterIntegration()],
 })
 </code></pre>
-<p>The virtual module <code>virtual:aihu-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRequestRouter</code> consumes it to handle navigation.</p>
+<p>The virtual module <code>virtual:aihu-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRouter</code> consumes it to handle navigation.</p>
+<p><code>viteRouterPlugin</code> is a deprecated alias removed at v1.0.</p>
+<h2><code>createRouter(routes)</code></h2>
+<p>Creates a router instance from an array of route definitions. Typically you pass the virtual module directly:</p>
+<pre><code class="language-typescript">import { createRouter } from &#39;@aihu/router&#39;
+import routes from &#39;virtual:aihu-routes&#39;
+
+const router = createRouter(routes)
+</code></pre>
 <h2>Layouts</h2>
 <p>Layouts live under <code>src/layouts/</code>. The default layout is <code>src/layouts/default.aihu</code>. A layout wraps the page&#39;s rendered output via <code>&lt;$slot&gt;</code>:</p>
 <pre><code>@template {
@@ -1287,6 +3095,44 @@ export const composed = composeRouterMiddleware(loggingMiddleware, authMiddlewar
 <li>Redirect rules</li>
 <li>Render</li>
 </ol>
+<h2>Reactive routing primitives</h2>
+<p>The router exposes reactive primitives for use in SFCs and TypeScript:</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>useRoute()</code></td>
+<td>Reactive accessor returning the current route match</td>
+</tr>
+<tr>
+<td><code>useRouter()</code></td>
+<td>Access the router instance</td>
+</tr>
+<tr>
+<td><code>navigate(path, opts?)</code></td>
+<td>Programmatic navigation</td>
+</tr>
+<tr>
+<td><code>createRouteSignal(router)</code></td>
+<td>Signal bound to the current route</td>
+</tr>
+<tr>
+<td><code>createPrefetcher(router)</code></td>
+<td>Create a route prefetcher</td>
+</tr>
+<tr>
+<td><code>provideRouteContext(router)</code></td>
+<td>Provide route context to the component tree</td>
+</tr>
+<tr>
+<td><code>RouteContext</code></td>
+<td>Context token for the current route</td>
+</tr>
+</tbody></table>
 `,
   },
   'ssr-hydration': {
@@ -1294,7 +3140,7 @@ export const composed = composeRouterMiddleware(loggingMiddleware, authMiddlewar
     html: `<h1>SSR and Hydration</h1>
 <p>aihu supports server-side rendering via <code>@aihu/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.</p>
 <h2>Build targets</h2>
-<p>Set the build target in <code>defineAihuConfig</code>:</p>
+<p>Set the build target in <code>aihu.config.ts</code>:</p>
 <pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
 
 export default defineAihuConfig({
@@ -1303,8 +3149,6 @@ export default defineAihuConfig({
   },
 })
 </code></pre>
-<p>Or via the compiler CLI flag: <code>--target client|server|universal</code>.</p>
-<h3><code>BuildTarget</code> values</h3>
 <table>
 <thead>
 <tr>
@@ -1325,7 +3169,49 @@ export default defineAihuConfig({
 <td>Both client and server outputs. Default.</td>
 </tr>
 </tbody></table>
-<h2><code>renderToStream</code></h2>
+<h2>The <code>@route</code> block and route sidecars</h2>
+<p>The Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled <code>.aihu</code> file. This sidecar encodes the route path, name, SSR mode, and loader reference. At build time, <code>viteRouterIntegration()</code> reads every <code>.route.json</code> in <code>src/pages/</code> and assembles the route manifest into the <code>virtual:aihu-routes</code> virtual module. The result is a fully static manifest — no filesystem scanning at runtime.</p>
+<pre><code>@route {
+  path: /users
+  name: users
+  ssr: true
+}
+</code></pre>
+<p>Setting <code>ssr: true</code> enables server-side rendering for that route.</p>
+<h2><code>createRequestRouter</code>, <code>defineRoute</code>, and <code>json()</code></h2>
+<p><code>@aihu/server</code> provides a fetch-API-native router. These three exports are the core building blocks:</p>
+<ul>
+<li><strong><code>createRequestRouter(options)</code></strong> — builds a fetch-API request handler from an explicit route manifest. The returned <code>router</code> function is a standard <code>(request: Request) =&gt; Response | Promise&lt;Response&gt;</code> and can be passed directly to <code>Bun.serve</code>, <code>Deno.serve</code>, or exported as a Cloudflare Worker&#39;s <code>fetch</code> handler.</li>
+<li><strong><code>defineRoute(path, handler)</code></strong> — declares a single route. The handler receives a <code>RouteContext</code> and must return a <code>Response</code>.</li>
+<li><strong><code>json(data, init?)</code></strong> — constructs a <code>Response</code> with <code>Content-Type: application/json</code> and the given data serialized. A thin convenience wrapper over <code>new Response(JSON.stringify(data), ...)</code>.</li>
+</ul>
+<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
+import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  summary: &#39;An aihu-powered app.&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+  ],
+})
+
+// Cloudflare Worker
+export default { fetch: router }
+// Bun
+// Bun.serve({ fetch: router })
+// Deno
+// Deno.serve(router)
+</code></pre>
+<p>Additional server utilities from <code>@aihu/server</code>: <code>badRequest()</code>, <code>notFound()</code>, <code>serverError()</code>, <code>methodNotAllowed()</code>, <code>defineApiRoute()</code>, <code>composeMiddleware()</code>, <code>defineMiddleware()</code>.</p>
+<h2><code>renderToStream</code> and <code>renderToString</code></h2>
 <p>Stream-render a component to an HTML response:</p>
 <pre><code class="language-typescript">import { renderToStream } from &#39;@aihu/server&#39;
 
@@ -1335,30 +3221,12 @@ const response = renderToStream(MyComponent, {
 })
 </code></pre>
 <p>Returns a <code>ReadableStream&lt;string&gt;</code> that emits HTML chunks as the component tree resolves. Suitable for edge runtimes and Node.js streaming responses.</p>
-<h2><code>renderToString</code></h2>
-<p>Render a server component to a complete HTML string:</p>
+<p>For a complete HTML string (e.g. for pre-rendering):</p>
 <pre><code class="language-typescript">import { renderToString } from &#39;@aihu/server&#39;
 
 const html = await renderToString(async () =&gt; {
   const data = await myLoader(ctx)
   return renderMyComponent(data)
-})
-</code></pre>
-<h2>Client-build elision</h2>
-<p>When target is <code>client</code>:</p>
-<ul>
-<li><code>@agent</code> blocks are removed from the output. The JS contains: <code>// [client build] @agent block elided</code>.</li>
-<li><code>$server</code> macro references are removed. The JS contains: <code>// [client build] $server macro reference elided</code>.</li>
-<li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
-</ul>
-<p>This ensures zero server-only code reaches the browser bundle.</p>
-<h2><code>defineAihuConfig</code> build options</h2>
-<pre><code class="language-typescript">defineAihuConfig({
-  build: {
-    target: &#39;universal&#39;,    // &#39;client&#39; | &#39;server&#39; | &#39;universal&#39;
-    outDir: &#39;dist&#39;,         // output directory
-    sourcemap: true,        // emit sourcemaps
-  },
 })
 </code></pre>
 <h2>SSR with loaders</h2>
@@ -1369,11 +3237,40 @@ const html = await renderToString(async () =&gt; {
 }
 </code></pre>
 <pre><code class="language-typescript">// users.loader.ts
+import { defineLoader } from &#39;@aihu/server&#39;
+
 export const loader = defineLoader(async (ctx) =&gt; {
   return { users: await db.users.findMany() }
 })
 </code></pre>
 <p>The loader result is serialized into the SSR payload and dehydrated on the client — no second fetch needed.</p>
+<h2>Islands</h2>
+<p>In aihu, &quot;islands&quot; means interactive components embedded in an otherwise static or server-rendered page. The SSR output is inert HTML; each island component re-attaches its reactive signal graph on the client using <code>hydrate()</code> rather than <code>mount()</code>.</p>
+<p>The island pattern gives you SSR performance for the outer shell while preserving full reactivity for interactive regions — without downloading or executing JavaScript for the static parts.</p>
+<h2><code>hydrate()</code> vs <code>mount()</code> — the distinction</h2>
+<p>Both functions come from <code>@aihu/arbor</code> and return a <code>MountScope</code> (with <code>.dispose()</code> and <code>.serialize()</code> methods). They differ in what happens to the DOM:</p>
+<ul>
+<li><strong><code>mount(component, host)</code></strong> — creates DOM elements from scratch and appends them to <code>host</code>. Used for pure client-side rendering (no prior SSR output).</li>
+<li><strong><code>hydrate(component, host, snapshot)</code></strong> — attaches reactive effects to <em>existing</em> DOM nodes under <code>host</code> without re-creating elements. It walks the arbor node tree and uses <code>data-aihu-path</code> attributes on pre-rendered elements as anchors to wire signal bindings. If a path anchor is missing (DOM mismatch), that subtree falls back to full <code>_materialize()</code>.</li>
+</ul>
+<p><code>hydrate()</code> is the right choice when the server has already emitted HTML for a component. The <code>snapshot</code> parameter is the pre-parsed JSON state previously emitted by <code>MountScope.serialize()</code> (typically injected as <code>window.__aihu_state__[tag]</code> by the SSR renderer).</p>
+<pre><code class="language-typescript">import { hydrate } from &#39;@aihu/arbor&#39;
+
+// In the browser, for an SSR-rendered island:
+const scope = hydrate(
+  () =&gt; buildCounterTree(),
+  document.querySelector(&#39;live-counter&#39;),
+  window.__aihu_state__[&#39;live-counter&#39;] ?? {},
+)
+</code></pre>
+<h2>Client-build elision</h2>
+<p>When target is <code>client</code>:</p>
+<ul>
+<li><code>@agent</code> blocks are removed from the output. The JS contains: <code>// [client build] @agent block elided</code>.</li>
+<li><code>$server</code> macro references are removed. The JS contains: <code>// [client build] $server macro reference elided</code>.</li>
+<li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
+</ul>
+<p>This ensures zero server-only code reaches the browser bundle.</p>
 `,
   },
 }
