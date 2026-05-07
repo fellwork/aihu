@@ -32,55 +32,96 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "aihu",
-    "description": "A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.",
-    "url": "https://aihu.dev",
-    "version": "0.4",
-    "applicationCategory": "DeveloperApplication",
-    "applicationSubCategory": "Web Framework",
-    "operatingSystem": "Web",
-    "programmingLanguage": { "@type": "ComputerLanguage", "name": "TypeScript" },
-    "codeRepository": "https://github.com/fellwork/aihu",
-    "license": "https://github.com/fellwork/aihu/blob/main/LICENSE",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "author": { "@type": "Organization", "name": "Fellwork", "url": "https://github.com/fellwork" },
-    "dateModified": "2026-05-07",
-    "keywords": "web components, custom elements, TypeScript, reactive, MCP, AI agents",
-    "sameAs": ["https://github.com/fellwork/aihu"]
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://aihu.dev/#organization",
+        "name": "Fellwork",
+        "url": "https://aihu.dev",
+        "logo": { "@type": "ImageObject", "url": "https://aihu.dev/favicon.svg" },
+        "sameAs": ["https://github.com/fellwork/aihu"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://aihu.dev/#website",
+        "name": "aihu",
+        "url": "https://aihu.dev",
+        "description": "Documentation for the aihu Web Components framework",
+        "publisher": { "@id": "https://aihu.dev/#organization" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": { "@type": "EntryPoint", "urlTemplate": "https://aihu.dev/#search?q={search_term_string}" },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://aihu.dev/#software",
+        "name": "aihu",
+        "description": "A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.",
+        "url": "https://aihu.dev",
+        "version": "0.4",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Web Framework",
+        "operatingSystem": "Web",
+        "programmingLanguage": { "@type": "ComputerLanguage", "name": "TypeScript" },
+        "codeRepository": "https://github.com/fellwork/aihu",
+        "license": "https://github.com/fellwork/aihu/blob/main/LICENSE",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@id": "https://aihu.dev/#organization" },
+        "dateModified": "2026-05-07",
+        "keywords": "web components, custom elements, TypeScript, reactive, MCP, AI agents",
+        "sameAs": ["https://github.com/fellwork/aihu"]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aihu.dev/#breadcrumb",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aihu.dev/" },
+          { "@type": "ListItem", "position": 2, "name": "Documentation", "item": "https://aihu.dev/#introduction" }
+        ]
+      }
+    ]
   }
   </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Fellwork",
-    "url": "https://aihu.dev",
-    "logo": { "@type": "ImageObject", "url": "https://aihu.dev/favicon.svg" },
-    "sameAs": ["https://github.com/fellwork/aihu"]
-  }
-  </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "aihu",
-    "url": "https://aihu.dev",
-    "description": "Documentation for the aihu Web Components framework",
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": { "@type": "EntryPoint", "urlTemplate": "https://aihu.dev/#search?q={search_term_string}" },
-      "query-input": "required name=search_term_string"
-    }
-  }
-  </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aihu.dev/" },
-      { "@type": "ListItem", "position": 2, "name": "Documentation", "item": "https://aihu.dev/#introduction" }
+    "@type": "FAQPage",
+    "@id": "https://aihu.dev/#faq",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is aihu?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "aihu is a zero-dependency Web Components meta-framework for modern TypeScript. You write .aihu Single-File Components with @state, @template, @style, and @agent blocks, and a compiler emits standards-compliant custom elements with sub-2 kB reactive primitives."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I install aihu?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install aihu with: npm install @aihu/runtime or bun add @aihu/runtime. The CLI is available via npx aihu or bun x aihu to scaffold new projects."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does aihu support AI agents and MCP?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Every aihu component is agent-discoverable and callable as an MCP (Model Context Protocol) tool out of the box via the @agent block. The @aihu/agent and @aihu/agent-readiness packages provide first-class MCP and A2A protocol support."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the runtime bundle size of aihu?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The aihu runtime is under 2 kB gzipped, covering signals, computed values, effects, and DOM diffing. The combined browser bundle across all browser-eligible packages is approximately 5.5 kB gzipped."
+        }
+      }
     ]
   }
   </script>
