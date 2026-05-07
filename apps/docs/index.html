@@ -21,6 +21,8 @@
   <link rel="alternate" type="application/json" href="/.well-known/mcp/server-card.json" title="MCP Server">
   <link rel="alternate" type="application/json" href="/.well-known/agent.json" title="A2A Agent Card">
   <meta name="robots" content="index, follow">
+  <meta name="llms-txt" content="/llms.txt">
+  <meta name="ai-content-discovery" content="/llms.txt">
   <meta property="article:modified_time" content="2026-05-07T00:00:00Z">
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -126,6 +128,46 @@
           "@type": "Answer",
           "text": "The aihu runtime is under 2 kB gzipped, covering signals, computed values, effects, and DOM diffing. The combined browser bundle across all browser-eligible packages is approximately 5.5 kB gzipped."
         }
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "@id": "https://aihu.dev/#howto-getting-started",
+    "name": "How to get started with aihu",
+    "description": "Build your first aihu Web Component in minutes using .aihu Single-File Components.",
+    "totalTime": "PT10M",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "position": 1,
+        "name": "Install aihu",
+        "text": "Run: npm install @aihu/runtime or bun add @aihu/runtime to add the aihu runtime to your project.",
+        "url": "https://aihu.dev/#installation"
+      },
+      {
+        "@type": "HowToStep",
+        "position": 2,
+        "name": "Create a component",
+        "text": "Create a .aihu file with @state, @template, and optionally @style and @agent blocks to define a reactive Web Component.",
+        "url": "https://aihu.dev/#authoring-components"
+      },
+      {
+        "@type": "HowToStep",
+        "position": 3,
+        "name": "Mount the component",
+        "text": "Use the mount() function or place your custom element tag in HTML. The component is a standard custom element — no runtime adapter needed.",
+        "url": "https://aihu.dev/#getting-started"
+      },
+      {
+        "@type": "HowToStep",
+        "position": 4,
+        "name": "Expose as an MCP tool",
+        "text": "Add an @agent block to make the component's state and actions callable by AI agents via the Model Context Protocol.",
+        "url": "https://aihu.dev/#authoring-agents"
       }
     ]
   }
