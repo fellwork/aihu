@@ -217,7 +217,15 @@ export default {
 
     // 1. Agent-readiness and API routes
     const routeResponse = await router(request)
-    if (routeResponse.status !== 404) return routeResponse
+    if (routeResponse.status !== 404) {
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      }
+      const merged = new Response(routeResponse.body, routeResponse)
+      for (const [k, v] of Object.entries(corsHeaders)) merged.headers.set(k, v)
+      return merged
+    }
 
     // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …)
     try {
