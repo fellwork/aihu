@@ -2,14 +2,19 @@
  * Mount-lifecycle telemetry slot per `.team/phase-3/spec-arbor.md` §2.8.
  *
  * `_observeMount` is a no-op in production; the dev plugin overrides it via
- * `_setMountObserver` to stream events to a profile recorder. Rolldown
- * inlines the no-op default so call sites collapse to ~0 B in production
- * (verify via `bun run size`; if not, switch to a `__DEV__` constant).
+ * `_setMountObserver` to stream events to a profile recorder. Hot-path call
+ * sites in `mount.ts` are gated behind `if (__DEV__)` — Rolldown replaces
+ * `__DEV__` with `false` in production builds (rolldown.config.ts define),
+ * DCE-eliminating the three `_observeMount(...)` calls in `_mountEffect`.
  *
  * Extracted from `mount.ts` per Phase 3 Verifier Finding 1 + Learning #13
  * (module sizing): single-concern modules read more cleanly for agentic
  * navigation.
  */
+
+// Injected by Rolldown (production: false) or vitest define (tests: true).
+// `declare` only — no runtime value here; bundler/test-runner provides it.
+declare const __DEV__: boolean
 
 /**
  * Telemetry event emitted at reactivity-relevant boundaries inside

@@ -4,6 +4,10 @@ import { dts } from 'rolldown-plugin-dts'
 export default defineConfig({
   input: 'src/index.ts',
   checks: { circularDependency: true },
+  // __DEV__ = false in production: Rolldown DCEs all `if (__DEV__)` branches,
+  // eliminating the three _observeMount call sites in _mountEffect.
+  // (see investigation-bench-gaps.md §Gap C + telemetry.ts §2.8 comment)
+  transform: { define: { __DEV__: 'false' } },
   output: {
     dir: 'dist',
     format: 'esm',

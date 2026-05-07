@@ -159,11 +159,11 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 | Workload | @aihu/arbor | lit-html | solid-js | @vue/runtime-dom | preact | vanilla |
 |---|---:|---:|---:|---:|---:|---:|
-| `mount-10k-leaves` | 37.43 ms | 5.46 s | — | — | 65.53 ms | 91.06 ms |
-| `mount-deep-100x10` | 3.15 ms | 61.25 ms | — | — | 8.79 ms | 23.48 ms |
-| `mount-wide-1000` | 8.06 ms | 52.33 ms | — | — | 9.79 ms | 12.51 ms |
-| `update-1-of-10k-leaves` | 25.00 ns | 635.80 µs | — | — | 1.64 ms | 3.14 µs |
-| `krausest-1k-cycle` | 22.27 ms | 79.42 ms | — | — | 19.71 ms | 16.46 ms |
+| `mount-10k-leaves` | 36.17 ms | 5.30 s | — | — | 61.66 ms | 91.17 ms |
+| `mount-deep-100x10` | 3.11 ms | 59.82 ms | — | — | 8.72 ms | 23.32 ms |
+| `mount-wide-1000` | 8.53 ms | 53.05 ms | — | — | 9.15 ms | 11.89 ms |
+| `update-1-of-10k-leaves` | 25.32 ns | 618.00 µs | — | — | 1.60 ms | 3.17 µs |
+| `krausest-1k-cycle` | 21.48 ms | 73.19 ms | — | — | 18.88 ms | 16.71 ms |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

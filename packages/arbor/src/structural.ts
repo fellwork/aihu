@@ -120,8 +120,9 @@ function _reconcileEach(
       _teardownChildScope(s)
       sc.delete(k)
     }
-  keys.forEach((k, i) => {
-    if (sc.has(k)) return
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i]
+    if (sc.has(k)) continue
     const cd: Dispose[] = []
     const ca = document.createComment('e')
     par.appendChild(ca)
@@ -139,7 +140,7 @@ function _reconcileEach(
         null,
       ),
     })
-  })
+  }
   let ref: globalThis.Node | null = anc.nextSibling
   for (const k of keys) {
     const s = sc.get(k)

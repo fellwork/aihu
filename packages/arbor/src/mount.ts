@@ -3,6 +3,9 @@ import { _materialize } from './materialize.ts'
 import { _observeMount } from './telemetry.ts'
 import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
+// Injected by Rolldown (production: false) or vitest define (tests: true).
+declare const __DEV__: boolean
+
 /**
  * `mount()`, `MountScope`, scope-collector, and disposal protocol per
  * `.team/phase-3/spec-arbor.md` §1.4 + §1.5 + §2.2 + §2.7 + §5
@@ -206,7 +209,7 @@ export function _mountEffect(
   path: string,
   errorHandler?: ErrorHandler,
 ): void {
-  _observeMount({ kind: 'effect-create', path, timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-create', path, timestamp: Date.now() })
   // R6a-arbor (investigation-arbor-restructure.md §Q3 Finding 2): the prior
   // `disposeRef = { fn: null }` ref-object exists to thread `dispose` into
   // the effect body so self-dispose works on the first synchronous run.
@@ -223,7 +226,7 @@ export function _mountEffect(
   let selfDisposeNeeded = false
   let savedDispose: Dispose | null = null
   const dispose = effect(() => {
-    _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
+    if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
     if (errorHandler) {
       try {
         fn()
@@ -247,7 +250,7 @@ export function _mountEffect(
     return
   }
   disposers.push(() => {
-    _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
+    if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
     dispose()
   })
 }
