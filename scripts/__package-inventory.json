@@ -102,6 +102,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/scraping",
+    "version": "0.1.0",
+    "dir": "packages/scraping",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/server",
     "version": "0.1.0",
     "dir": "packages/server",

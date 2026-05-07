@@ -357,6 +357,10 @@
         "@aihu/signals": "workspace:*",
       },
     },
+    "packages/scraping": {
+      "name": "@aihu/scraping",
+      "version": "0.1.0",
+    },
     "packages/server": {
       "name": "@aihu/server",
       "version": "0.1.0",
@@ -451,6 +455,8 @@
     "@aihu/router": ["@aihu/router@workspace:packages/router"],
 
     "@aihu/runtime": ["@aihu/runtime@workspace:packages/runtime"],
+
+    "@aihu/scraping": ["@aihu/scraping@workspace:packages/scraping"],
 
     "@aihu/server": ["@aihu/server@workspace:packages/server"],
 
