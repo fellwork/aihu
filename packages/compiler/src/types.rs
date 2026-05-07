@@ -199,6 +199,12 @@ pub enum CollectionKind {
     /// participate in `$emit.<name>(payload)` resolution and `<Tag $on.<name>=>`
     /// listener typing.
     Event,
+    /// B4 — `$aria: { role, label, pressed, ... }` — declarative ARIA via
+    /// `ElementInternals` (Baseline 2023). Emits `attachInternals()` once per
+    /// SFC (lazy-attach: only when `$aria` is declared) then per-key
+    /// `mountEffect` wiring for reactive properties. Includes auto-keyboard-
+    /// promotion and default-tabindex injection per spec §3.2 (R5).
+    Aria,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.

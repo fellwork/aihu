@@ -1,0 +1,22 @@
+<!-- Recipe: html-unsafe — {@html sanitizedContent} with explicit comment about XSS risk -->
+
+@state {
+  $prop: {
+    // WARNING: Always sanitize HTML before passing to this component.
+    // {@html} renders raw HTML — never pass unsanitized user input.
+    // Use a sanitizer like DOMPurify: content = DOMPurify.sanitize(rawHtml)
+    content: { type: String, default: '<em>Hello</em> <strong>world</strong>' },
+  }
+}
+
+@template {
+  <article class="html-content">
+    {@html content}
+  </article>
+}
+
+@style {
+  .html-content { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; line-height: 1.6; }
+  .html-content em { font-style: italic; }
+  .html-content strong { font-weight: bold; }
+}

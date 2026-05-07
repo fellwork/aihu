@@ -178,6 +178,7 @@ fn check_prop_attribute_collisions(macros: &[StateMacro]) -> Option<CompileError
                     "see docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md §3.6"
                         .to_string(),
                 ),
+                ..Default::default()
             });
         }
     }
@@ -453,10 +454,10 @@ fn try_parse_macro(
     Ok(None)
 }
 
-/// Match the leading keyword for the 6 collection-form macros. Returns
+/// Match the leading keyword for the collection-form macros. Returns
 /// `Some(kind)` when `rest` (line content after `$`) starts with one of
-/// `prop`, `computed`, `action`, `resource`, `effect`, `lifecycle`
-/// followed by `:` or whitespace. `effect.on` and `lifecycle.mount` /
+/// `prop`, `computed`, `action`, `resource`, `effect`, `lifecycle`, `event`,
+/// `aria` followed by `:` or whitespace. `effect.on` and `lifecycle.mount` /
 /// `lifecycle.dispose` (with a `.`) do NOT match here — those are either
 /// preserved v1 forms (`$effect.on`) or v1 forms rejected via C440 (when
 /// reached through the next-character check).
@@ -471,6 +472,8 @@ fn match_collection_keyword(rest: &str) -> Option<CollectionKind> {
         ("effect", CollectionKind::Effect),
         ("event", CollectionKind::Event),
         ("prop", CollectionKind::Prop),
+        // B4 — R5: `$aria` collection (declarative ARIA via ElementInternals).
+        ("aria", CollectionKind::Aria),
     ];
     for (kw, kind) in keywords {
         if let Some(after) = rest.strip_prefix(kw) {
@@ -496,6 +499,7 @@ fn collection_keyword_len(kind: CollectionKind) -> usize {
         CollectionKind::Effect => 6,
         CollectionKind::Lifecycle => 9,
         CollectionKind::Event => 5,
+        CollectionKind::Aria => 4,
     }
 }
 
@@ -508,6 +512,7 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
         CollectionKind::Effect => "effect",
         CollectionKind::Lifecycle => "lifecycle",
         CollectionKind::Event => "event",
+        CollectionKind::Aria => "aria",
     }
 }
 
@@ -556,6 +561,18 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
              Example: `$lifecycle.mount { init() }` → `$lifecycle: { mount: () => { init() } }`",
             format!("$lifecycle.{}", got.trim_start_matches("lifecycle.").split_at(got.trim_start_matches("lifecycle.").find(|c: char| c.is_whitespace() || c == '{').unwrap_or(got.trim_start_matches("lifecycle.").len())).0.to_string()),
             "$lifecycle: { mount: () => { <body> } }".to_string(),
+        ),
+        CollectionKind::Event => (
+            "Replace `$event name: Type` with `$event: { name: { payload: Type } }`. \
+             Example: `$event click: MouseEvent` → `$event: { click: { payload: MouseEvent } }`",
+            format!("$event {}", got.trim_start_matches("event").trim_start()),
+            "$event: { <name>: { payload: <Type> } }".to_string(),
+        ),
+        CollectionKind::Aria => (
+            "Use `$aria: { role: 'button', label: () => '...' }` to declare ARIA properties. \
+             Example: `$aria: { role: 'button', label: () => myLabel() }`",
+            format!("$aria {}", got.trim_start_matches("aria").trim_start()),
+            "$aria: { role: '<role>', label: () => <expr> }".to_string(),
         ),
     };
 
@@ -1277,6 +1294,13 @@ fn emit_collection_entry(
             // contribute to (a) `$emit.<name>` resolution at the call site, and
             // (b) the per-SFC `.aihu.ts` sidecar's typed-payload interface.
             // No runtime code is emitted here.
+            None
+        }
+        CollectionKind::Aria => {
+            // B4 — `$aria` ARIA wiring is emitted by codegen/emit.rs (emit_aria_wiring)
+            // at the SFC level (not per entry), because the pattern requires
+            // `attachInternals()` once + per-key mountEffect calls in the setup body.
+            // Individual entry lowering is handled there; nothing to emit here.
             None
         }
         CollectionKind::Lifecycle => {

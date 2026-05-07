@@ -162,19 +162,40 @@ const [text, setText] = signal('')
 }
 
 #[test]
-fn b3_ac6_v1_colon_form_still_compiles_during_transition() {
-    // Director r7 §3.A.B3.2: v1 colon-form must still parse with W202.
+fn b3_ac16_phase2_colon_form_is_hard_error() {
+    // B3c Phase 2 (AC16): v1 colon-form is now a hard C500 compile error.
+    // The corpus was fully migrated in B3b; this validates the promotion.
     let src = r#"<script setup>
 const [text, setText] = signal('')
 </script>
 <template>
   <input $bind:value={text} />
 </template>"#;
-    let js = compile_fixture(src, "x-b3-colon-compat");
+    let parsed = aihu_compiler::sfc::parse(src).unwrap();
+    let err = aihu_compiler::compile_full(&parsed)
+        .expect_err("colon-form must produce a compile error");
+    assert_eq!(
+        err.code.as_deref(),
+        Some("C500"),
+        "expected C500 error code for colon-form; got: {:?}",
+        err.code
+    );
+}
+
+#[test]
+fn b3_ac16_phase2_colon_form_error_message_cites_codemod() {
+    // Companion test: the C500 error message must guide users to the migration
+    // tool via the codemod:template-syntax script alias (AC6/B3c.2).
+    let src = r#"@template {
+  <button $on:click={handle}>x</button>
+}"#;
+    let parsed = aihu_compiler::sfc::parse(src).unwrap();
+    let err = aihu_compiler::compile_full(&parsed)
+        .expect_err("colon-form must produce a compile error");
     assert!(
-        js.contains("value: [text, setText]"),
-        "v1 colon-form must still emit: {}",
-        js
+        err.message.contains("codemod:template-syntax"),
+        "C500 error message must cite codemod:template-syntax migration tool; got: {}",
+        err.message
     );
 }
 
@@ -554,26 +575,23 @@ fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
     );
 }
 
-// ─── AC6 W202 stderr-capture test (V3 NEEDS_FIX item) ────────────────────────
+// ─── AC16-Ph2 binary C500 error test ────────────────────────────────────────
 //
-// Verify that compiling a colon-form `$on:click` SFC emits the W202 deprecation
-// warning to stderr. We use `aihu-compile --stdin --tag x` and capture stderr.
-// Prefer the prebuilt binary at `bin/aihu-compile{.exe}` (vendored in repo)
-// or `target/{release,debug}/aihu-compile` so the test stays fast in CI;
-// falls back to `cargo run` when none exists.
+// B3c Phase 2: colon-form `$on:click` must now cause the compiler binary to
+// exit non-zero and emit a C500 error to stderr. Previously this was a soft
+// W202 deprecation warning; the corpus is now migrated and the transition
+// window is closed.
 
 #[test]
-fn b3b_ac6_w202_fires_on_colon_form_stderr_capture() {
+fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
     use std::io::Write;
     use std::path::Path;
     use std::process::{Command, Stdio};
 
     let pkg_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
 
-    // Prefer freshly-built target/{debug,release}/ binaries over the
-    // vendored bin/ binary so this test runs against the latest compiler
-    // (which emits W202). The vendored bin/aihu-compile{.exe} is a
-    // last-resort fallback for environments where target/ isn't populated.
+    // Prefer freshly-built target/{debug,release}/ binaries; fall back to
+    // `cargo run` when no pre-built binary exists.
     let candidates = [
         pkg_dir.join("target/debug/aihu-compile.exe"),
         pkg_dir.join("target/debug/aihu-compile"),
@@ -592,7 +610,7 @@ fn b3b_ac6_w202_fires_on_colon_form_stderr_capture() {
 
     let mut cmd = if let Some(b) = bin {
         let mut c = Command::new(b);
-        c.args(["--stdin", "--tag", "x-w202-test"]);
+        c.args(["--stdin", "--tag", "x-c500-test"]);
         c
     } else {
         let mut c = Command::new("cargo");
@@ -604,7 +622,7 @@ fn b3b_ac6_w202_fires_on_colon_form_stderr_capture() {
             "--",
             "--stdin",
             "--tag",
-            "x-w202-test",
+            "x-c500-test",
         ]);
         c.current_dir(pkg_dir);
         c
@@ -625,17 +643,18 @@ fn b3b_ac6_w202_fires_on_colon_form_stderr_capture() {
         .write_all(src)
         .expect("write source");
     let output = child.wait_with_output().expect("wait child");
+    // B3c: colon-form is a hard compile error; binary must exit non-zero.
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit for C500 colon-form; exit code: {:?}",
+        output.status.code()
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("W202"),
-        "expected W202 deprecation warning in stderr; got: {}\n(stdout: {})",
+        stderr.contains("C500") || stderr.contains("codemod:template-syntax"),
+        "expected C500 or codemod hint in stderr; got: {}\n(stdout: {})",
         stderr,
         String::from_utf8_lossy(&output.stdout),
-    );
-    assert!(
-        stderr.contains("on:click") || stderr.contains("$on:click"),
-        "expected colon-form `$on:click` cited in W202 message; got: {}",
-        stderr
     );
 }
 

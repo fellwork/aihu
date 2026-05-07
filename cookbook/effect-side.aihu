@@ -1,0 +1,40 @@
+<!-- Recipe: effect-side — $effect for a side-effect (localStorage sync) + cleanup -->
+
+@state {
+  $prop: {
+    storageKey: { type: String, default: 'aihu-theme' },
+  }
+
+  theme: string = localStorage.getItem(storageKey) ?? 'light'
+
+  $action: {
+    toggle: () => {
+      theme = theme === 'light' ? 'dark' : 'light'
+    },
+  }
+
+  // $effect runs once immediately, then re-runs whenever reactive deps change.
+  // The cleanup return is called before the next run and on dispose.
+  $effect: () => {
+    localStorage.setItem(storageKey, theme)
+    document.documentElement.setAttribute('data-theme', theme)
+  }
+}
+
+@template {
+  <div class="theme-toggle">
+    <span>Current theme: <strong>{theme}</strong></span>
+    <button $on.click={toggle}>
+      {#if theme === 'light'}
+        Switch to dark
+      {:else}
+        Switch to light
+      {/if}
+    </button>
+  </div>
+}
+
+@style {
+  .theme-toggle { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; }
+  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }
+}
