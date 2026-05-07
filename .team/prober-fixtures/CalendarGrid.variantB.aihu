@@ -50,7 +50,7 @@
         {#each monthCells as day (day.toISOString())}
           <div
             class={['month-cell', day.getMonth() !== currentDate.getMonth() && 'other-month']}
-            $on:click={() => $emit('dayjump', day)}
+            $on.click={() => $emit('dayjump', day)}
           >
             <span class="day-number">{day.getDate()}</span>
           </div>

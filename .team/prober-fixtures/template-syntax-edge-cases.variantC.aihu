@@ -1,7 +1,7 @@
 // Edge-case fixture transformed for Variant C (structural component pattern).
 // Refinements applied:
 // - $if/$each -> <$if cond={...}>/<$for each={...} as="..." key={...}>
-// - $on:event / $bind:prop preserved (binding directives stay attribute-form)
+// - $on.event / $bind.prop (dot-form; colon-form now a hard error)
 // - Inline class ternary -> array-form sugar (cross-variant invariant)
 // - Deprecated `:value=` removed in pre-pass
 // - $ref dropped: refused (codemod must warn)
@@ -39,18 +39,18 @@
 
 @template {
   <div class="search">
-    <!-- Pre-pass dropped `:value="query"` -> `$bind:value="query"` -->
-    <input $bind:value="query" $on:input={(e) => setQuery(e.target.value)} />
+    <!-- Pre-pass dropped `:value="query"` -> `$bind.value="query"` -->
+    <input $bind.value="query" $on.input={(e) => setQuery(e.target.value)} />
 
-    <!-- Drift fixed: was $bind:value={query} curly, codemod re-quotes -->
-    <input $bind:value="query" placeholder="curly-bind drift" />
+    <!-- Drift fixed: was $bind.value={query} curly, codemod re-quotes -->
+    <input $bind.value="query" placeholder="curly-bind drift" />
 
     <$if cond={filtered.length > 0}>
       <ul>
         <$for each={filtered} as="item" index="idx" key={item.id}>
           <li
             class={['row', item.id === selected && 'selected']}
-            $on:click={() => select(item.id)}
+            $on.click={() => select(item.id)}
           >
             <span>{idx}: {item.title}</span>
           </li>

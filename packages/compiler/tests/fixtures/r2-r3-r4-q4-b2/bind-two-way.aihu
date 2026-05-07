@@ -13,9 +13,9 @@ const [done, setDone] = signal(false)
 </script>
 <template>
   <fieldset>
-    <input $bind:value="text" placeholder="Type here">
+    <input $bind.value="text" placeholder="Type here">
     <p>You typed: {text()}</p>
-    <input type="checkbox" $bind:checked="done">
+    <input type="checkbox" $bind.checked="done">
     <p>Done? {done() ? 'yes' : 'no'}</p>
   </fieldset>
 </template>

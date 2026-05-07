@@ -23,11 +23,11 @@
 
 @template {
   <div class="search">
-    <!-- Deprecated alias: should be rewritten to $bind:value -->
-    <input :value="query" $on:input={(e) => setQuery(e.target.value)} />
+    <!-- Deprecated alias: should be rewritten to $bind.value -->
+    <input :value="query" $on.input={(e) => setQuery(e.target.value)} />
 
     <!-- Drift: $bind:* with curly form (parser accepts but spec forbids) -->
-    <input $bind:value={query} placeholder="curly-bind drift" />
+    <input $bind.value={query} placeholder="curly-bind drift" />
 
     <!-- Lambda LHS landmine: filter().map() chain inside $each quoted form -->
     <ul $if={filtered.length > 0}>
@@ -35,7 +35,7 @@
         $each="posts.filter(p => p && p.title.includes(query)).map(m => ({ id: m.id, title: m.title })) as item, idx"
         $key={item.id}
         class={'row' + (item.id === selected ? ' selected' : '')}
-        $on:click={() => select(item.id)}
+        $on.click={() => select(item.id)}
       >
         <span>{idx}: {item.title}</span>
       </li>

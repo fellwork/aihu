@@ -96,8 +96,8 @@
       <input
         class="new-todo"
         placeholder="What needs to be done?"
-        $bind:value="draft"
-        $on:keydown={(e) => e.key === 'Enter' && addTodo()}
+        $bind.value="draft"
+        $on.keydown={(e) => e.key === 'Enter' && addTodo()}
         autofocus
       />
     </header>
@@ -108,10 +108,10 @@
           <input
             type="checkbox"
             checked={todo.done}
-            $on:change={() => toggle(todo.id)}
+            $on.change={() => toggle(todo.id)}
           />
           <label>{todo.text}</label>
-          <button class="destroy" $on:click={() => remove(todo.id)}>×</button>
+          <button class="destroy" $on.click={() => remove(todo.id)}>×</button>
         </li>
       {/each}
     </ul>
@@ -122,14 +122,14 @@
           <strong>{remaining}</strong> item{remaining === 1 ? '' : 's'} left
         </span>
         <ul class="filters">
-          <li><button $on:click={() => setFilter('all')}       class={filter === 'all' ? 'selected' : ''}>All</button></li>
-          <li><button $on:click={() => setFilter('active')}    class={filter === 'active' ? 'selected' : ''}>Active</button></li>
-          <li><button $on:click={() => setFilter('completed')} class={filter === 'completed' ? 'selected' : ''}>Completed</button></li>
+          <li><button $on.click={() => setFilter('all')}       class={filter === 'all' ? 'selected' : ''}>All</button></li>
+          <li><button $on.click={() => setFilter('active')}    class={filter === 'active' ? 'selected' : ''}>Active</button></li>
+          <li><button $on.click={() => setFilter('completed')} class={filter === 'completed' ? 'selected' : ''}>Completed</button></li>
         </ul>
         {#if todos.length - remaining > 0}
           <button
             class="clear-completed"
-            $on:click="clearCompleted"
+            $on.click="clearCompleted"
           >
             Clear completed
           </button>
