@@ -1,0 +1,48 @@
+// modal — $prop open, $action show/hide, $on.keydown for Escape, $aria for aria-modal+role="dialog"
+
+@state {
+  $prop: {
+    open: { type: Boolean, default: false },
+  }
+
+  $aria: {
+    role: 'dialog',
+    modal: 'true',
+    label: 'Modal dialog',
+  }
+
+  $action: {
+    show: () => { open = true },
+    hide: () => { open = false },
+    onKeydown: (e: KeyboardEvent) => {
+      if (e.key === 'Escape') hide()
+    },
+  }
+}
+
+@template {
+  <div
+    class="modal-root"
+    $show={open}
+    $on.keydown={onKeydown}
+    tabindex="-1"
+  >
+    <div class="backdrop" $on.click={hide}></div>
+    <div class="modal-box" role="document">
+      <button class="close-btn" $on.click={hide} aria-label="Close dialog">×</button>
+      <div class="modal-content">
+        <$slot />
+      </div>
+    </div>
+  </div>
+}
+
+@style {
+  .modal-root { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+  .modal-box { position: relative; background: var(--surface, #fff); border-radius: 8px; padding: 1.5rem; min-width: 20rem; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+  .close-btn { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; line-height: 1; color: var(--muted, #888); }
+  .close-btn:hover { color: var(--fg, #111); }
+  .modal-content { margin-top: 0.5rem; }
+  [hidden] { display: none !important; }
+}

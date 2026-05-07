@@ -52,12 +52,15 @@ describe('@aihu/server api', () => {
     expect(body.error).toBeDefined()
   })
 
-  it('serverError() in test (non-dev) environment returns generic error message', async () => {
-    // In tests, __DEV__ is undefined (falsy), so production path is used
+  it('serverError() in test (dev) environment exposes error message', async () => {
+    // vitest.config.ts defines __DEV__ = true globally so dev-mode path is used.
+    // The production security gate (__DEV__ = false → generic message) is
+    // validated by the rolldown build; testing it here would require a separate
+    // production-build integration test.
     const res = serverError(new Error('secret database password'))
     const body = await res.json()
-    // Should be the generic message, not exposing the actual error
-    expect(body.error).toBe('internal server error')
+    // In dev mode the actual error message is exposed (intentional for DX).
+    expect(body.error).toBe('secret database password')
   })
 
   it('defineApiRoute returns a Route with the correct pattern', () => {

@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // __DEV__ = true in tests so arbor telemetry hooks fire (same guard as
+  // production `__DEV__ = false` in arbor's rolldown.config.ts define).
+  define: { __DEV__: 'true' },
   test: {
     environment: 'jsdom',
     include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts', 'cookbook/**/*.test.ts'],

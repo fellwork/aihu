@@ -1,0 +1,28 @@
+// guard-ui — $guard scope-gated UI: shows content only when scope 'admin' verified
+
+@state {
+  label: string = 'admin-only content'
+}
+
+@template {
+  <div class="guard-wrapper">
+    <$guard scope="admin">
+      <section class="admin-panel">
+        <h2>Admin Panel</h2>
+        <p>This {label} is only visible to users with the "admin" scope.</p>
+        <button class="action-btn">Perform admin action</button>
+      </section>
+    </$guard>
+    <p class="fallback-note">
+      Content outside the guard is always visible.
+    </p>
+  </div>
+}
+
+@style {
+  .guard-wrapper { padding: 1rem; }
+  .admin-panel { padding: 1rem; background: var(--admin-bg, #fff3cd); border: 1px solid var(--admin-border, #ffc107); border-radius: 4px; margin-bottom: 0.75rem; }
+  .admin-panel h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+  .action-btn { margin-top: 0.5rem; padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }
+  .fallback-note { font-size: 0.85rem; color: var(--muted, #666); }
+}

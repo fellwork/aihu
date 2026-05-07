@@ -1,0 +1,35 @@
+// ssr-hydration — SSR-safe component: $lifecycle.mount hydrates from dataset
+
+@state {
+  $prop: {
+    greeting: { type: String, default: 'Hello' },
+    name: { type: String, default: 'World' },
+  }
+
+  hydratedFrom: string = 'client'
+
+  $lifecycle: {
+    mount: () => {
+      const el = _host as HTMLElement
+      if (el.dataset.ssrGreeting) greeting = el.dataset.ssrGreeting
+      if (el.dataset.ssrName) name = el.dataset.ssrName
+      hydratedFrom = el.dataset.ssrGreeting ? 'server' : 'client'
+    },
+  }
+}
+
+@template {
+  <div class="ssr-component">
+    <p class="greeting">{greeting}, {name}!</p>
+    <p class="hydration-source">
+      Hydrated from: <code>{hydratedFrom}</code>
+    </p>
+  </div>
+}
+
+@style {
+  .ssr-component { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; max-width: 24rem; }
+  .greeting { font-size: 1.2rem; margin: 0 0 0.5rem; }
+  .hydration-source { font-size: 0.8rem; color: var(--muted, #666); margin: 0; }
+  code { background: var(--code-bg, #f5f5f5); padding: 0.1em 0.4em; border-radius: 3px; }
+}

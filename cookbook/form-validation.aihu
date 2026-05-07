@@ -1,0 +1,59 @@
+// form-validation — $form with value+validity for form-associated custom element
+
+@state {
+  value: string = ''
+  touched: boolean = false
+
+  $form: {
+    value: () => value,
+    validity: () => ({ valueMissing: !value.trim(), tooShort: value.trim().length < 2 }),
+  }
+
+  $computed: {
+    errorMessage: () => {
+      if (!touched) return ''
+      if (!value.trim()) return 'This field is required.'
+      if (value.trim().length < 2) return 'Must be at least 2 characters.'
+      return ''
+    },
+    isValid: () => value.trim().length >= 2,
+  }
+
+  $action: {
+    onInput: (e: Event) => {
+      value = (e.target as HTMLInputElement).value
+      touched = true
+    },
+    onBlur: () => { touched = true },
+  }
+}
+
+@template {
+  <label class="form-field">
+    <span class="field-label">Name <span aria-hidden="true">*</span></span>
+    <input
+      type="text"
+      class={['field-input', touched && !isValid && 'invalid']}
+      value={value}
+      $on.input={onInput}
+      $on.blur={onBlur}
+      required
+      minlength="2"
+    />
+    {#if errorMessage}
+      <span class="error-msg" role="alert">{errorMessage}</span>
+    {/if}
+    {#if isValid}
+      <span class="valid-msg">Looks good!</span>
+    {/if}
+  </label>
+}
+
+@style {
+  .form-field { display: flex; flex-direction: column; gap: 0.3rem; max-width: 20rem; }
+  .field-label { font-size: 0.9rem; font-weight: 600; }
+  .field-input { padding: 0.5rem; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 1rem; }
+  .field-input.invalid { border-color: var(--error, #c00); }
+  .error-msg { font-size: 0.8rem; color: var(--error, #c00); }
+  .valid-msg { font-size: 0.8rem; color: var(--success, #080); }
+}

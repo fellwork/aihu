@@ -1,0 +1,40 @@
+// theme-toggle — dark/light toggle: $context provide for theme + $effect for documentElement class
+
+@state {
+  $context: {
+    provide: {
+      theme: { value: 'light', type: 'string' },
+    },
+  }
+
+  $effect: () => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.classList.toggle('light', theme === 'light')
+  }
+
+  $action: {
+    toggle: () => { theme = theme === 'light' ? 'dark' : 'light' },
+    setTheme: (t: 'light' | 'dark') => { theme = t },
+  }
+}
+
+@template {
+  <div class="theme-toggle">
+    <button
+      class={['toggle-btn', theme]}
+      $on.click={toggle}
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+    >
+      {theme === 'light' ? '☀ Light' : '☾ Dark'}
+    </button>
+    <span class="current">Current: {theme}</span>
+  </div>
+}
+
+@style {
+  .theme-toggle { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; }
+  .toggle-btn { padding: 0.4rem 0.9rem; border: 1px solid var(--border, #ccc); border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+  .toggle-btn.light { background: #fff; color: #333; }
+  .toggle-btn.dark { background: #111; color: #eee; border-color: #555; }
+  .current { font-size: 0.8rem; color: var(--muted, #888); }
+}

@@ -1,0 +1,47 @@
+// clock — real-time clock: $lifecycle.mount starts setInterval, unmount clears it
+
+@state {
+  hours: string = '00'
+  minutes: string = '00'
+  seconds: string = '00'
+  _timerId: number | null = null
+
+  $action: {
+    tick: () => {
+      const now = new Date()
+      hours = String(now.getHours()).padStart(2, '0')
+      minutes = String(now.getMinutes()).padStart(2, '0')
+      seconds = String(now.getSeconds()).padStart(2, '0')
+    },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      tick()
+      _timerId = setInterval(() => tick(), 1000) as unknown as number
+    },
+    dispose: () => {
+      if (_timerId !== null) {
+        clearInterval(_timerId)
+        _timerId = null
+      }
+    },
+  }
+}
+
+@template {
+  <div class="clock" role="timer" aria-live="off">
+    <span class="digit">{hours}</span>
+    <span class="sep">:</span>
+    <span class="digit">{minutes}</span>
+    <span class="sep">:</span>
+    <span class="digit seconds">{seconds}</span>
+  </div>
+}
+
+@style {
+  .clock { display: flex; align-items: center; gap: 0.1rem; font-size: 3rem; font-variant-numeric: tabular-nums; font-family: monospace; padding: 1rem; }
+  .digit { background: var(--digit-bg, #111); color: var(--digit-fg, #0f0); padding: 0.1em 0.2em; border-radius: 4px; min-width: 1.5ch; text-align: center; }
+  .sep { color: var(--muted, #888); padding: 0 0.05em; }
+  .seconds { color: var(--seconds-fg, #0af); }
+}
