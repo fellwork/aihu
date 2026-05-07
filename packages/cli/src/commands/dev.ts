@@ -2,18 +2,18 @@
  * `aihu dev [options]` — start development server.
  *
  * Reads `aihu.config.ts` from CWD to detect bundler. Default: 'vite'.
- * Bundlers loaded via dynamic import() so the CLI binary loads instantly
- * regardless of which bundler is installed in the user's project.
- *
- * Zero new runtime deps. Bundlers (vite, rolldown) are peer deps in
- * the user's project. arch-4 §3.
+ * Vite is spawned as a node subprocess so that @cloudflare/vite-plugin's
+ * Environment API works correctly (programmatic createServer() does not
+ * support it). stdio: 'inherit' preserves native ANSI rendering in the
+ * caller's terminal without buffering.
  *
  * Flags: --port <n>  --host <h>  --open  --help
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 
 interface DevAihuConfig {
   build?: { bundler?: string }
@@ -89,36 +89,47 @@ async function loadConfig(cwd: string): Promise<DevAihuConfig | null> {
   }
 }
 
-async function runVite(flags: DevFlags): Promise<void> {
-  type ViteServer = {
-    listen: (port?: number) => Promise<{ printUrls: () => void }>
-    close: () => Promise<void>
-  }
-  type ViteModule = {
-    createServer: (opts: Record<string, unknown>) => Promise<ViteServer>
-  }
-
-  let vite: ViteModule
+function runVite(flags: DevFlags): void {
+  let viteBin: string
   try {
-    vite = (await import(/* @vite-ignore */ 'vite')) as unknown as ViteModule
+    const req = createRequire(join(process.cwd(), 'package.json'))
+    const pkgJsonPath = req.resolve('vite/package.json')
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) as {
+      bin?: Record<string, string> | string
+    }
+    const pkgRoot = dirname(pkgJsonPath)
+    const binEntry = typeof pkgJson.bin === 'object' ? pkgJson.bin.vite : pkgJson.bin
+    viteBin = join(pkgRoot, binEntry ?? 'bin/vite.js')
   } catch {
     process.stderr.write('vite not installed; run: bun add -d vite\n')
     process.exit(1)
   }
 
-  const serverOptions: Record<string, unknown> = { open: flags.open }
-  if (flags.port !== undefined) serverOptions.port = flags.port
-  if (flags.host !== undefined) serverOptions.host = flags.host
+  const args: string[] = []
+  if (flags.port !== undefined) args.push('--port', String(flags.port))
+  if (flags.host !== undefined) args.push('--host', flags.host)
+  if (flags.open) args.push('--open')
 
-  const server = await vite.createServer({ server: serverOptions })
-  const listening = await server.listen(flags.port)
-  listening.printUrls()
+  // --no-deprecation suppresses Node runtime warnings (e.g. punycode DEP0040).
+  // stdio: 'inherit' lets the child write directly to the caller's console
+  // handle so ANSI escape codes render natively without buffering.
+  const child = spawn('node', ['--no-deprecation', viteBin, ...args], {
+    stdio: 'inherit',
+    shell: false,
+  })
 
   const cleanup = (): void => {
-    void server.close().then(() => process.exit(0))
+    child.kill('SIGTERM')
+    process.exit(0)
   }
   process.on('SIGINT', cleanup)
   process.on('SIGTERM', cleanup)
+
+  child.on('error', (err: Error) => {
+    process.stderr.write(`vite failed to start: ${err.message}\n`)
+    process.exit(1)
+  })
+  child.on('exit', (code: number | null) => process.exit(code ?? 0))
 }
 
 function runRolldown(flags: DevFlags): void {
@@ -166,7 +177,7 @@ export default async function dev(args: readonly string[]): Promise<void> {
 
   const bundler = config.build?.bundler ?? 'vite'
   if (bundler === 'vite') {
-    await runVite(flags)
+    runVite(flags)
   } else if (bundler === 'rolldown') {
     runRolldown(flags)
   } else {
