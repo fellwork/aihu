@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./style.css">
   <link rel="canonical" href="https://aihu.dev/">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+  <meta name="robots" content="index, follow">
   <meta property="article:modified_time" content="2026-05-07T00:00:00Z">
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -51,6 +52,16 @@
     "url": "https://aihu.dev",
     "logo": "https://aihu.dev/favicon.svg",
     "sameAs": ["https://github.com/fellwork/aihu"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aihu.dev/" },
+      { "@type": "ListItem", "position": 2, "name": "Documentation", "item": "https://aihu.dev/#introduction" }
+    ]
   }
   </script>
 </head>
@@ -106,6 +117,12 @@
       </div>
     </div>
   </section>
+
+  <!-- WebMCP: declarative tool context for AI agents (WICG WebMCP proposal) -->
+  <form role="search" class="docs-search-form" tool-name="documentation-search" tool-description="Search the aihu Web Components framework documentation by topic, API, or concept" hidden>
+    <input type="search" name="q" aria-label="Search documentation" placeholder="Search documentation…">
+    <button type="submit">Search</button>
+  </form>
 
   <!-- ── Docs shell ──────────────────────────────────────────────── -->
   <main>
@@ -190,6 +207,15 @@
         closeDrawer();
       }
     });
+
+    // WebMCP programmatic context for AI agents that support navigator.modelContext
+    if (typeof navigator !== 'undefined' && 'modelContext' in navigator) {
+      navigator.modelContext.provideContext({
+        name: 'aihu-documentation',
+        description: 'aihu Web Components framework — docs, API reference, and interactive examples',
+        capabilities: ['search', 'navigation'],
+      });
+    }
 
     // Inject version: try window.__AIHU_VERSION__ (set by build pipeline),
     // then fall back to fetching package.json, then static fallback.

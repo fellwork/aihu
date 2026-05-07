@@ -176,6 +176,7 @@ const router = createRequestRouter({
     defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
     defineRoute('/robots.txt', ar.robotsTxt),
     defineRoute('/.well-known/agent.json', a2aCardHandler),
+    defineRoute('/.well-known/agents.json', a2aCardHandler),
     defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
     defineRoute('/sitemap.xml', sitemapHandler),
   ],

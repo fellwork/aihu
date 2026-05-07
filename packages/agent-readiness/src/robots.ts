@@ -8,6 +8,10 @@ export const AI_BOT_LIST: ReadonlyArray<string> = [
   'Google-Extended',
   'Bytespider',
   'cohere-ai',
+  'OAI-SearchBot',
+  'ChatGPT-User',
+  'DuckAssistBot',
+  'Applebot',
 ]
 
 export interface RobotsRule {
