@@ -34,9 +34,9 @@
     <div class="grid">
       <label>
         <span>Source</span>
-        <textarea $bind:value="source" rows="12"></textarea>
+        <textarea $bind.value="source" rows="12"></textarea>
       </label>
-      <article class="output" $html={rendered}></article>
+      <article class="output">{@html rendered}</article>
     </div>
   </section>
 }

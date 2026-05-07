@@ -7,6 +7,8 @@
 export { _ensureA11yStyles, announce, createFocusTrap } from './a11y.ts'
 export {
   _hmrReplace,
+  _onAdopt as onAdopt,
+  _onAttributeChange as onAttributeChange,
   _onCleanup as onCleanup,
   _onMount as onMount,
   _setMount,
@@ -17,4 +19,13 @@ export {
 export { _setHydrate, defineElement } from './define-element.ts'
 /** @internal */
 export { _hydrateOnVisible } from './hydrate-on-visible.ts'
-export type { ComponentOptions, DefineOptions, Setup, SetupContext, ShadowMode } from './types.ts'
+export type {
+  ComponentOptions,
+  DefineOptions,
+  PropDef,
+  PropSignal,
+  PropsConfig,
+  Setup,
+  SetupContext,
+  ShadowMode,
+} from './types.ts'

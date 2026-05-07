@@ -63,6 +63,23 @@ pub enum TemplateNode {
     },
     Text(String),
     Interpolation(String),
+    /// B3 — Variant B block-tag conditional: `{#if cond}...{:else if cond}...{:else}...{/if}`.
+    /// `branches` is a non-empty list of `(cond_expr, body)`; the last entry's
+    /// `cond_expr` may be empty to indicate the `{:else}` branch.
+    IfBlock {
+        branches: Vec<(String, Vec<TemplateNode>)>,
+    },
+    /// B3 — Variant B block-tag iteration: `{#each list as item[, idx] [(key)]}...{:empty}...{/each}`.
+    EachBlock {
+        list_expr: String,
+        item_alias: String,
+        idx_alias: Option<String>,
+        key_expr: Option<String>,
+        body: Vec<TemplateNode>,
+        empty_body: Option<Vec<TemplateNode>>,
+    },
+    /// B3 — Svelte-style raw HTML: `{@html expr}`.
+    HtmlBlock { expr: String },
 }
 
 /// The value form of a `$macro` attribute (v0.4.1–v0.4.4).
@@ -171,6 +188,11 @@ pub enum CollectionKind {
     Resource,
     Effect,
     Lifecycle,
+    /// B3b — `$event: { name: { payload: T, describe?, bubbles?, composed? } }`
+    /// per Architect spec §5.a. Per-component custom-event declarations that
+    /// participate in `$emit.<name>(payload)` resolution and `<Tag $on.<name>=>`
+    /// listener typing.
+    Event,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.

@@ -8,6 +8,6 @@
 @template {
   <div class="counter">
     <span>{{ count }}</span>
-    <button $on:click={increment}>+</button>
+    <button $on.click={increment}>+</button>
   </div>
 }

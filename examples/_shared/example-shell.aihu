@@ -47,7 +47,7 @@
         <nav class="shell-nav">
           <a class="shell-nav-link" $if={!!sourceUrl} href={sourceUrl} target="_blank" rel="noopener">Source</a>
           <a class="shell-nav-link" $if={!!liveUrl} href={liveUrl} target="_blank" rel="noopener">Live</a>
-          <button class="theme-toggle" $on:click={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
+          <button class="theme-toggle" $on.click={toggle} title="Toggle dark mode" aria-label="Toggle dark mode">
             <span class="icon-sun" aria-hidden="true">☀</span>
             <span class="icon-moon" aria-hidden="true">☾</span>
           </button>

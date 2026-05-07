@@ -46,11 +46,11 @@
     <div class="row">
       <label>
         <span>Amount</span>
-        <input type="number" $bind:value="amount" min="0" step="0.01" />
+        <input type="number" $bind.value="amount" min="0" step="0.01" />
       </label>
       <label>
         <span>From</span>
-        <select $bind:value="from">
+        <select $bind.value="from">
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
@@ -59,7 +59,7 @@
       </label>
       <label>
         <span>To</span>
-        <select $bind:value="to">
+        <select $bind.value="to">
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>

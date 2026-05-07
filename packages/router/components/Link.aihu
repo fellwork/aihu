@@ -54,7 +54,7 @@
 }
 
 @template {
-  <a href={href} aria-current={ariaCurrent} $on:click={onClick}>
+  <a href={href} aria-current={ariaCurrent} $on.click={onClick}>
     <$slot />
   </a>
 }
