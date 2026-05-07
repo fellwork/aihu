@@ -103,23 +103,59 @@ pub fn parse_agent_macros(body: &str) -> Result<Vec<AgentMacroDecl>, CompileErro
 }
 
 fn c440(line_no: usize, form: &str, replacement: &str) -> CompileError {
+    // Build a concrete from/to example per removed form for machine-readable output.
+    let (from_text, to_text) = match form {
+        "expose" => (
+            "$expose <name>".to_string(),
+            "expose: { read: true } on the @state $prop/$computed/$action entry".to_string(),
+        ),
+        "expose.write" => (
+            "$expose.write <name>".to_string(),
+            "expose: { read: true, write: true } on the @state $prop/$computed/$action entry".to_string(),
+        ),
+        "action" => (
+            "$action <name>".to_string(),
+            "expose: { read: true, write: true } on the @state $action: { <name>: ... } entry".to_string(),
+        ),
+        "describe" => (
+            "$describe <name> \"<text>\"".to_string(),
+            "describe: '<text>' on the @state collection entry for <name>".to_string(),
+        ),
+        _ => (
+            format!("${} ...", form),
+            replacement.to_string(),
+        ),
+    };
+
+    // Provide a concrete before/after example in the human message.
+    let example = match form {
+        "expose" => " Example: `$expose count` → add `expose: { read: true }` to `$computed: { count: { expose: { read: true }, value: () => count } }`.",
+        "expose.write" => " Example: `$expose.write label` → add `expose: { read: true, write: true }` to `$prop: { label: { ..., expose: { read: true, write: true } } }`.",
+        "action" => " Example: `$action addTodo` in @agent → add `expose: { read: true, write: true }` to `$action: { addTodo: { ..., expose: { read: true, write: true } } }` in @state.",
+        "describe" => " Example: `$describe addTodo \"Adds a todo\"` → add `describe: 'Adds a todo'` to `$action: { addTodo: { describe: 'Adds a todo', handler: ... } }` in @state.",
+        _ => "",
+    };
+
     CompileError {
         message: format!(
-            "C440 — old-spec macro form rejected on line {}: `${}` is removed from the v2 `@agent` block. \
-             Replace with {}. \
-             Run `packages/compiler/codemods/macro-simplification/migrate.ts` to upgrade.",
-            line_no, form, replacement
+            "C440: `${}` is removed from the v2 `@agent` block (line {}). \
+             Replace with {}.{} \
+             Run the migration codemod: packages/compiler/js/codemods/macro-simplification/migrate.ts",
+            form, line_no, replacement, example
         ),
         line: line_no,
         col: 0,
         code: Some("C440".to_string()),
         hint: Some(
-            "v2 `@agent` block holds only `$scope` and `$rate-limit`; per-name metadata moves into `@state`'s collection-form entries"
+            "v2 `@agent` block holds only `$scope` and `$rate-limit`; \
+             per-name metadata (expose, describe) moves into `@state` collection-form entries"
                 .to_string(),
         ),
         fix: Some(
             "see docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md §4".to_string(),
         ),
+        from: Some(from_text),
+        to: Some(to_text),
     }
 }
 

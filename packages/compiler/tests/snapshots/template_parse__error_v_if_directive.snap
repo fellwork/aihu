@@ -11,5 +11,7 @@ Err(
         code: None,
         hint: None,
         fix: None,
+        from: None,
+        to: None,
     },
 )
