@@ -20,4 +20,7 @@ export { createRequestRouter, defineRoute } from './router.ts'
 export type { ComponentDescription, HeadConfig, LinkTag, MetaTag, SsrOptions } from './ssr.ts'
 export { _setContextFns, renderToStream } from './ssr.ts'
 export type { DataSource, StreamOptions } from './stream-types.ts'
+// v0.4.0 — defineStreamRoute for streaming HTTP responses.
+export { defineStreamRoute } from './stream-route.ts'
+export type { StreamRouteHandler } from './stream-route.ts'
 export type { HttpMethod, Middleware, Next, RouteContext, RouteHandler } from './types.ts'

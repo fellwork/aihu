@@ -42,6 +42,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/ai",
+    "version": "0.1.0",
+    "dir": "packages/ai",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/app",
     "version": "0.1.2",
     "dir": "packages/app",

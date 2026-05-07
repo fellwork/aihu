@@ -40,6 +40,15 @@ pub fn parse_agent_macros(body: &str) -> Result<Vec<AgentMacroDecl>, CompileErro
             continue;
         }
 
+        // ─── v0.4.0: $stream <name> — wire agent results → $stream entry ────
+        if let Some(decl) = rest.strip_prefix("stream ").or_else(|| rest.strip_prefix("stream:").map(|s| s.trim_start())) {
+            let val = decl.trim().trim_matches(|c| c == '\'' || c == '"').to_string();
+            if !val.is_empty() {
+                result.push(AgentMacroDecl::Stream(val));
+                continue;
+            }
+        }
+
         // ─── v2 retained: $rate-limit N ──────────────────────────────────────
         if let Some(decl) = rest.strip_prefix("rate-limit ") {
             let n: u32 = decl.trim().parse().map_err(|_| CompileError {

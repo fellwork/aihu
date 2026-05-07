@@ -40,6 +40,8 @@ pub struct AihuSource<'a> {
     pub agent: Option<AgentBlock>,
     /// v0.6.1: parsed @route block, if present.
     pub route: Option<RouteBlock>,
+    /// v0.4.0: parsed @stream block, if present.
+    pub stream: Option<StreamBlock>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -216,6 +218,11 @@ pub enum CollectionKind {
     /// can both provide context values (dispatched on mount) and consume context
     /// values (listened for on mount). Lowered to DOM custom-event patterns.
     Context,
+    /// v0.4.0 — `$stream: { name: { source: () => Promise<ReadableStream<string>>, describe?: '...' } }`
+    /// Reactive streaming primitive parallel to `$resource` but for ReadableStream<string>.
+    /// Lowered to `createStream(factory)` call in `@aihu/runtime`. Bare form is
+    /// rejected with C553; missing `source:` key is rejected with C554.
+    Stream,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.
@@ -297,4 +304,19 @@ pub enum AgentMacroDecl {
     Scope(String),
     /// `$rate-limit N`
     RateLimit(u32),
+    /// `$stream <name>` — wire agent tool-call results → a `$stream` entry.
+    Stream(String),
+}
+
+// ─── v0.4.0 — @stream block ──────────────────────────────────────────────────
+
+/// Parsed `@stream { }` block. One per SFC at most (C552 if multiple).
+#[derive(Debug, PartialEq, Clone)]
+pub struct StreamBlock {
+    /// From `$output: <name>` — required (C551 if absent).
+    pub output: String,
+    /// From `$scope: <value>` — optional.
+    pub scope: Option<String>,
+    /// From `$mime: <value>` — optional.
+    pub mime: Option<String>,
 }

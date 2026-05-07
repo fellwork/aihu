@@ -264,6 +264,20 @@
         "@aihu/agent": "workspace:*",
       },
     },
+    "packages/ai": {
+      "name": "@aihu/ai",
+      "version": "0.1.0",
+      "peerDependencies": {
+        "@anthropic-ai/sdk": ">=0.20.0",
+        "@google/generative-ai": ">=0.3.0",
+        "openai": ">=4.0.0",
+      },
+      "optionalPeers": [
+        "@anthropic-ai/sdk",
+        "@google/generative-ai",
+        "openai",
+      ],
+    },
     "packages/app": {
       "name": "@aihu/app",
       "version": "0.1.2",
@@ -411,6 +425,8 @@
     "@aihu/agent-readiness": ["@aihu/agent-readiness@workspace:packages/agent-readiness"],
 
     "@aihu/agent-service": ["@aihu/agent-service@workspace:packages/agent-service"],
+
+    "@aihu/ai": ["@aihu/ai@workspace:packages/ai"],
 
     "@aihu/app": ["@aihu/app@workspace:packages/app"],
 

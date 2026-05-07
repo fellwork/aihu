@@ -1,6 +1,5 @@
 ---
 source: tests/sfc_split.rs
-assertion_line: 24
 expression: result
 ---
 AihuSource {
@@ -14,4 +13,5 @@ AihuSource {
     },
     agent: None,
     route: None,
+    stream: None,
 }
