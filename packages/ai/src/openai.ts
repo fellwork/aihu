@@ -7,9 +7,7 @@
 
 import type { ChatCompletionChunk } from 'openai/resources'
 
-export function fromOpenAI(
-  stream: AsyncIterable<ChatCompletionChunk>,
-): ReadableStream<string> {
+export function fromOpenAI(stream: AsyncIterable<ChatCompletionChunk>): ReadableStream<string> {
   return new ReadableStream<string>({
     async start(controller) {
       try {

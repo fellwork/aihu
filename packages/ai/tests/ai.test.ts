@@ -113,7 +113,11 @@ describe('fromAnthropic extraction', () => {
   it('skips non-text events', async () => {
     const mockEvents = [
       { type: 'message_start' },
-      { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{}' } },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'input_json_delta', partial_json: '{}' },
+      },
     ]
 
     async function* makeAsyncIterable(items: typeof mockEvents) {

@@ -19,9 +19,9 @@ export {
 export { _setHydrate, defineElement } from './define-element.ts'
 /** @internal */
 export { _hydrateOnVisible } from './hydrate-on-visible.ts'
+export type { StreamHandle, StreamStatus } from './stream.ts'
 // v0.4.0 — createStream: lazy-attach streaming primitive for $stream collection.
 export { createStream } from './stream.ts'
-export type { StreamHandle, StreamStatus } from './stream.ts'
 export type {
   ComponentOptions,
   DefineOptions,

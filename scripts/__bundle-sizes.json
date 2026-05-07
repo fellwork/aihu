@@ -1,22 +1,22 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": 248,
+    "bytes": -1,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": 1709,
+    "bytes": -1,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2756,
+    "bytes": -1,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 2865,
+    "bytes": -1,
     "limit": "2900 B"
   },
   {
@@ -37,7 +37,7 @@
   {
     "name": "@aihu/agent-service",
     "bytes": -1,
-    "limit": "600 B"
+    "limit": "1100 B"
   },
   {
     "name": "@aihu/agent-acp",

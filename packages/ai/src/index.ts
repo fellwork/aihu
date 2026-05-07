@@ -5,7 +5,7 @@
  * Per spec docs/specs/stream-impl.md §6.
  */
 
-export { fromOpenAI } from './openai.ts'
 export { fromAnthropic } from './anthropic.ts'
 export { fromGemini } from './gemini.ts'
+export { fromOpenAI } from './openai.ts'
 export { fromResponse } from './response.ts'

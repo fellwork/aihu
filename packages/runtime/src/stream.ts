@@ -26,7 +26,9 @@ export interface StreamHandle {
   readonly delta: string
   readonly status: StreamStatus
   readonly error: Error | null
-  start(source?: ReadableStream<string> | (() => Promise<ReadableStream<string> | null>)): Promise<void>
+  start(
+    source?: ReadableStream<string> | (() => Promise<ReadableStream<string> | null>),
+  ): Promise<void>
   stop(): void
 }
 
@@ -41,9 +43,7 @@ export interface StreamHandle {
  *
  * OQ5: A `null`-returning factory is a no-op — `status` stays `'idle'`.
  */
-export function createStream(
-  factory: () => Promise<ReadableStream<string> | null>,
-): StreamHandle {
+export function createStream(factory: () => Promise<ReadableStream<string> | null>): StreamHandle {
   const [getValue, setValue] = signal<string>('')
   const [getDelta, setDelta] = signal<string>('')
   const [getStatus, setStatus] = signal<StreamStatus>('idle')
@@ -52,10 +52,18 @@ export function createStream(
   let _reader: ReadableStreamDefaultReader<unknown> | null = null
 
   const handle: StreamHandle = {
-    get value() { return getValue() },
-    get delta() { return getDelta() },
-    get status() { return getStatus() },
-    get error() { return getError() },
+    get value() {
+      return getValue()
+    },
+    get delta() {
+      return getDelta()
+    },
+    get status() {
+      return getStatus()
+    },
+    get error() {
+      return getError()
+    },
 
     async start(source?) {
       // Abort any in-progress stream.
@@ -97,7 +105,11 @@ export function createStream(
               if (abortSignal.aborted) {
                 resolve({ done: true, value: undefined })
               } else {
-                abortSignal.addEventListener('abort', () => resolve({ done: true, value: undefined }), { once: true })
+                abortSignal.addEventListener(
+                  'abort',
+                  () => resolve({ done: true, value: undefined }),
+                  { once: true },
+                )
               }
             })
             const { done, value } = await Promise.race([readPromise, abortPromise])
@@ -109,11 +121,12 @@ export function createStream(
               break
             }
             // Handle both string and Uint8Array chunks.
-            const text = typeof value === 'string'
-              ? value
-              : value instanceof Uint8Array
-                ? decoder.decode(value, { stream: true })
-                : String(value ?? '')
+            const text =
+              typeof value === 'string'
+                ? value
+                : value instanceof Uint8Array
+                  ? decoder.decode(value, { stream: true })
+                  : String(value ?? '')
             if (text) {
               setDelta(text)
               setValue(getValue() + text)
@@ -129,7 +142,11 @@ export function createStream(
           }
         } finally {
           _reader = null
-          try { rawReader.releaseLock() } catch { /* already released by cancel */ }
+          try {
+            rawReader.releaseLock()
+          } catch {
+            /* already released by cancel */
+          }
         }
 
         setStatus(abortSignal.aborted ? 'idle' : 'done')

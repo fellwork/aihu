@@ -7,17 +7,12 @@
 
 import type { MessageStreamEvent } from '@anthropic-ai/sdk/resources/messages'
 
-export function fromAnthropic(
-  stream: AsyncIterable<MessageStreamEvent>,
-): ReadableStream<string> {
+export function fromAnthropic(stream: AsyncIterable<MessageStreamEvent>): ReadableStream<string> {
   return new ReadableStream<string>({
     async start(controller) {
       try {
         for await (const event of stream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
             const text = event.delta.text
             if (text) controller.enqueue(text)
           }

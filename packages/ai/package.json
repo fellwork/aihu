@@ -30,9 +30,15 @@
     "@google/generative-ai": ">=0.3.0"
   },
   "peerDependenciesMeta": {
-    "openai": { "optional": true },
-    "@anthropic-ai/sdk": { "optional": true },
-    "@google/generative-ai": { "optional": true }
+    "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
+      "optional": true
+    }
   },
   "description": "Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections.",
   "repository": {
