@@ -51,7 +51,11 @@ jobs:
       - name: Stage aihu impl into harness
         run: |
           mkdir -p /tmp/jsb/frameworks/keyed/aihu
-          cp -r bench/js-framework-benchmark/keyed/aihu/dist /tmp/jsb/frameworks/keyed/aihu/
+          # Copy dist contents (index.html + assets/) directly into the framework
+          # root — krausest serves /frameworks/keyed/<name>/index.html, not
+          # /frameworks/keyed/<name>/dist/index.html. The trailing /. on the
+          # source copies contents instead of the dist/ directory itself.
+          cp -r bench/js-framework-benchmark/keyed/aihu/dist/. /tmp/jsb/frameworks/keyed/aihu/
           cat > /tmp/jsb/frameworks/keyed/aihu/package.json <<'EOF'
           {
             "name": "js-framework-benchmark-aihu",
