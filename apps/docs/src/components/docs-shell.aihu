@@ -61,7 +61,7 @@
     </nav>
     <main class="docs-content">
       <div class="doc-page-wrapper" $class:is-active={activePage() !== 'playground'}>
-        <article $html={activeHtml()}></article>
+        <article>{@html activeHtml()}</article>
       </div>
       <div class="playground-page" $class:is-active={activePage() === 'playground'}>
         <h1>Playground</h1>

@@ -144,7 +144,10 @@ function skipStr(s: string, i: number): number {
   let j = i + 1
   while (j < s.length) {
     const c = s[j]
-    if (c === '\\') { j += 2; continue }
+    if (c === '\\') {
+      j += 2
+      continue
+    }
     if (q === '`' && c === '$' && s[j + 1] === '{') {
       const close = matchBrace(s, j + 1)
       j = close < 0 ? s.length : close + 1
@@ -319,7 +322,12 @@ function passHtmlDirective(template: string, warnings: string[]): string {
 
   while (i < template.length) {
     // Look for `<tagname` starts
-    if (template[i] === '<' && template[i + 1] !== '/' && template[i + 1] !== '!' && template[i + 1] !== '?') {
+    if (
+      template[i] === '<' &&
+      template[i + 1] !== '/' &&
+      template[i + 1] !== '!' &&
+      template[i + 1] !== '?'
+    ) {
       // Find the end of the opening tag (> or />)
       const tagStart = i
       // Read tag name
@@ -460,7 +468,7 @@ function passDispatchEventToEmit(
   })
 
   if (count > 0) {
-    warnings.push(`P6: replaced ${count} dispatchEvent call(s) → \$emit`)
+    warnings.push(`P6: replaced ${count} dispatchEvent call(s) → $emit`)
   }
 
   return result

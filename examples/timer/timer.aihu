@@ -57,10 +57,10 @@
         min="1000"
         max="30000"
         step="500"
-        $bind:value="duration"
+        $bind.value="duration"
       >
     </label>
-    <button $on:click="reset">Reset</button>
+    <button $on.click="reset">Reset</button>
     <p class="status" $if={done}>Done.</p>
   </section>
 }
