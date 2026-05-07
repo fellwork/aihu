@@ -14,7 +14,7 @@ import { migrate } from '../../js/codemods/template-syntax/migrate.ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const PROBER = resolve(__dirname, '../../../../.team/prober-fixtures')
+const PROBER = resolve(__dirname, 'fixtures/prober')
 
 function readProber(name: string): string {
   return readFileSync(resolve(PROBER, name), 'utf8')
