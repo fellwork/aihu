@@ -15,13 +15,19 @@ name: Deploy aihu-docs
       - main
     paths:
       - 'apps/docs/**'
+      - 'packages/arbor/**'
       - 'packages/compiler/**'
+      - 'packages/agent-readiness/**'
+      - 'packages/server/**'
       - 'docs/site/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     paths:
       - 'apps/docs/**'
+      - 'packages/arbor/**'
       - 'packages/compiler/**'
+      - 'packages/agent-readiness/**'
+      - 'packages/server/**'
       - 'docs/site/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:

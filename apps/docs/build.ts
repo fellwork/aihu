@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { copyFile, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
@@ -114,16 +114,31 @@ ${entries}
 await writeFile(contentOut, contentTs, 'utf8')
 console.log(`\nWrote src/content.ts (${pages.length} pages)`)
 
-// ── 4. Bundle with rolldown ──────────────────────────────────────
+// ── 4. Bundle client with rolldown ───────────────────────────────
 
-console.log('\nBundling with rolldown…')
+console.log('\nBundling client with rolldown…')
 // Use execFileSync with array args (no shell) to avoid injection risk
 execFileSync(
   process.execPath, // bun
   ['x', 'rolldown', '-c', 'rolldown.config.ts'],
   { cwd: __dir, stdio: 'inherit' },
 )
-console.log('\n✓ Build complete → dist/')
+console.log('\n✓ Client build complete → dist/docs.js')
+
+// ── 4b. Bundle Worker with rolldown ─────────────────────────────
+//
+// The Worker entry (`src/worker.ts`) imports from @aihu/agent-readiness
+// and @aihu/server. Rolldown inlines all workspace deps so the output is a
+// single self-contained ESM file Cloudflare Pages can load as `_worker.js`.
+
+console.log('\nBundling Worker with rolldown…')
+await mkdir(join(__dir, 'dist'), { recursive: true })
+execFileSync(
+  process.execPath,
+  ['x', 'rolldown', '--input', 'src/worker.ts', '--format', 'esm', '--file', 'dist/_worker.js'],
+  { cwd: __dir, stdio: 'inherit' },
+)
+console.log('✓ Worker build complete → dist/_worker.js')
 
 // ── 5. Copy static assets into dist/ ────────────────────────────
 

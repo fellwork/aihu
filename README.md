@@ -192,7 +192,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/agent-service` | 1.06 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 591 B | 600 B | pass |
 | `@aihu/agent-a2a` | 721 B | 750 B | pass |
-| `@aihu/app` | 764 B | 800 B | pass |
+| `@aihu/app` | 782 B | 800 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

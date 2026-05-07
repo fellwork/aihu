@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@aihu/adapter-cloudflare": "workspace:*",
+    "@aihu/agent-readiness": "workspace:*",
     "@aihu/server": "workspace:*",
     "@codemirror/commands": "^6.6.0",
     "@codemirror/lang-javascript": "^6.2.2",

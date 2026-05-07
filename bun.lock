@@ -28,6 +28,7 @@
       "name": "aihu-docs",
       "dependencies": {
         "@aihu/adapter-cloudflare": "workspace:*",
+        "@aihu/agent-readiness": "workspace:*",
         "@aihu/server": "workspace:*",
         "@codemirror/commands": "^6.6.0",
         "@codemirror/lang-javascript": "^6.2.2",
@@ -59,7 +60,7 @@
     },
     "bench/js-framework-benchmark/keyed/aihu": {
       "name": "js-framework-benchmark-aihu",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/runtime": "workspace:*",
@@ -224,7 +225,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -232,7 +233,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -287,7 +288,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "devDependencies": {
         "@aihu/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -302,7 +303,7 @@
     },
     "packages/arbor": {
       "name": "@aihu/arbor",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
@@ -365,16 +366,6 @@
         "@modelcontextprotocol/sdk": "^1.0.0",
       },
     },
-    "packages/mcp-server": {
-      "name": "@aihu/mcp-server",
-      "version": "0.1.0",
-      "bin": {
-        "aihu-mcp-server": "./dist/server.js",
-      },
-      "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.0.0",
-      },
-    },
     "packages/plugin": {
       "name": "@aihu/plugin",
       "version": "0.1.0",
@@ -390,7 +381,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -494,8 +485,6 @@
     "@aihu/example-todo-mvc": ["@aihu/example-todo-mvc@workspace:examples/todo-mvc"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
-
-    "@aihu/mcp-server": ["@aihu/mcp-server@workspace:packages/mcp-server"],
 
     "@aihu/plugin": ["@aihu/plugin@workspace:packages/plugin"],
 

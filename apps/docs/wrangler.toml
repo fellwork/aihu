@@ -1,3 +1,5 @@
 name = "aihu-docs"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "dist"
+# _worker.js in dist/ is auto-detected by Cloudflare Pages for SSR routing.
+# Routes: agent-readiness endpoints → Worker; everything else → ASSETS (CDN).
