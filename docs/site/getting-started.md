@@ -2,12 +2,12 @@
 
 ## Hello World walkthrough
 
-After scaffolding (see [Installation](installation.md)), open `src/pages/index.aihu`. The v0.8 template looks like this:
+After scaffolding (see [Installation](installation.md)), open `src/pages/index.aihu`. The scaffolded template uses the v2 macro vocabulary:
 
 ```
 @state {
   $prop: {
-    name: { default: "'world'", type: "string" }
+    name: { default: 'world', type: 'string' }
   }
 }
 
@@ -23,23 +23,66 @@ After scaffolding (see [Installation](installation.md)), open `src/pages/index.a
 
 ### The `@state` block
 
-`@state` declares the reactive state for the component:
+`@state` declares the reactive state for the component using the v2 collection-form macro vocabulary. Each macro keyword takes an object whose keys are entry names.
 
-- `$prop: { name: { default: "'world'", type: "string" } }` — declares a component property named `name` with a default value of `'world'`. Props are reactive and can be set from outside the component as HTML attributes.
-
-You can add computed values and effects in the same block:
+**Props** — declared with `$prop`. Every entry must have at least a `default` or `type` key:
 
 ```
 @state {
   $prop: {
-    name: { default: "'world'", type: "string" }
+    name: { default: 'world', type: 'string' }
+  }
+}
+```
+
+Props are reactive and can be set from outside the component as HTML attributes. Add `expose: { read: true, write: true }` to expose a prop to the agent surface.
+
+**Computed values** — declared with `$computed`. The bare form uses a thunk:
+
+```
+@state {
+  $prop: {
+    name: { default: 'world', type: 'string' }
   }
 
   $computed: {
-    greeting: { value: () => `Hello, ${name()}!` }
+    greeting: () => `Hello, ${name()}!`
   }
+}
+```
 
-  $effect { console.log('name changed to', name()) }
+**Actions** — declared with `$action`. Bare form is a handler function; the wrapped form adds `describe` and `expose` metadata:
+
+```
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: 'Add 1 to the counter',
+      expose: { read: true, write: true },
+      handler: () => setCount(count() + 1),
+    },
+  }
+}
+```
+
+**Effects** — anonymous effects use the bare function form:
+
+```
+@state {
+  $effect: () => { console.log('count changed') }
+}
+```
+
+Named effects (with optional dependency pinning) use the collection form:
+
+```
+@state {
+  $effect: {
+    logCount: () => { console.log(count()) },
+  }
 }
 ```
 
@@ -48,10 +91,21 @@ You can add computed values and effects in the same block:
 `@template` defines the component's DOM structure using aihu's template DSL:
 
 - `{{ expr }}` — interpolates a reactive expression. Updates use `nodeValue` for 122× faster targeted writes.
-- `$attr:foo="val"` — binds an attribute reactively.
-- `$on:click="handler"` — attaches an event listener.
+- `$attr.foo="val"` — binds an attribute reactively.
+- `$on.click="handler"` — attaches an event listener.
 - `$show` — toggles visibility based on a boolean signal.
 - `$each` — renders a list of items.
+
+### The `@agent` block
+
+`@agent` declares the component's cross-cutting agent metadata. In v2, per-property `describe` and `expose` keys live on the `@state` entries directly. The `@agent` block holds only scope and rate-limit constraints:
+
+```
+@agent {
+  $scope 'counter'
+  $rate-limit 60
+}
+```
 
 ### The `@route` block
 
@@ -64,14 +118,61 @@ You can add computed values and effects in the same block:
 }
 ```
 
-During build, the Rust compiler emits a `.route.json` sidecar alongside each compiled SFC. `viteRouterIntegration()` in `vite.config.ts` reads these sidecars at build time and assembles the route manifest.
+During build, the Rust compiler emits a `.route.json` sidecar alongside each compiled SFC. `viteRouterIntegration()` in `vite.config.ts` reads these sidecars at build time and assembles the route manifest into `virtual:aihu-routes` — route manifests are fully static after build with no filesystem scanning at runtime.
 
 ### HMR in development
 
-In dev mode, Vite watches `.aihu` files. When you save a change, only the affected reactive subtree is re-evaluated — no full page reload needed. Edit the `name` default value or the template expression and the browser updates immediately.
+Edit `src/pages/index.aihu` and the browser updates live — no full reload. Vite watches `.aihu` files; when you save, only the affected reactive subtree is re-evaluated.
+
+## A complete example: live counter
+
+The canonical minimal SFC (from `examples/live-counter/live-counter.aihu`):
+
+```
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: 'Add 1 to the counter',
+      expose: { read: true, write: true },
+      handler: () => setCount(count() + 1),
+    },
+    decrement: {
+      describe: 'Subtract 1 from the counter',
+      expose: { read: true, write: true },
+      handler: () => setCount(count() - 1),
+    },
+    reset: {
+      describe: 'Reset the counter to 0',
+      expose: { read: true, write: true },
+      handler: () => setCount(0),
+    },
+  }
+}
+
+@template {
+  <section class="counter">
+    <h1>Count: {count}</h1>
+    <div class="controls">
+      <button $on.click="decrement">-</button>
+      <button $on.click="reset">Reset</button>
+      <button $on.click="increment">+</button>
+    </div>
+  </section>
+}
+
+@style {
+  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; }
+  button   { flex: 1; padding: 0.5rem 0.75rem; cursor: pointer; }
+}
+```
+
+This is ~40 LOC, has an agent surface (all three actions are agent-callable), and uses only signals from `@aihu/signals` directly in `@state`.
 
 ## Next steps
 
-- [Authoring Components](authoring-components.md) — full reference for `@state`, `@template`, and `@style` blocks.
-- [Routing and Layouts](routing-layouts.md) — file-based routing, layouts, and middleware.
-- [Reactivity](reactivity.md) — the signals, computed, and effect primitives.
+- [Authoring Components](authoring-components.md) — full reference for `@state`, `@template`, `@style`, and `@agent` blocks.
+- [Reactivity](reactivity.md) — the `signal`, `computed`, and `effect` primitives from `@aihu/signals`.
+- [Authoring Agents](authoring-agents.md) — how to expose component state and actions to AI agents via MCP.

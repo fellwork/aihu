@@ -1,3 +1,4 @@
+#!/usr/bin/env sh
 # Pre-push: full CI replay so we don't burn cycles on remote
 # Skip with `git push --no-verify` when you know what you're doing
 bun run check:ci

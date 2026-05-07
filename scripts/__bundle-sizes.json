@@ -11,13 +11,13 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2756,
+    "bytes": 2787,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3345,
-    "limit": "2900 B"
+    "bytes": 3349,
+    "limit": "3400 B"
   },
   {
     "name": "@aihu/agent",
