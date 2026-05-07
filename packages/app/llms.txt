@@ -1,0 +1,104 @@
+# @aihu/app
+
+`@aihu/app` is the SPA bootstrap package for aihu applications. It provides `createApp()` — a single function that wires the aihu runtime (`@aihu/arbor`, `@aihu/signals`), creates the file-system router from the `virtual:aihu-routes` virtual module emitted by the Vite plugin, renders the initial route, and installs SPA navigation listeners.
+
+The client bundle ships as ≤ 800 B gzipped (excluding `@aihu/router`, `@aihu/arbor`, `@aihu/signals`, and `@aihu/runtime` which are separate budget rows). This is the only file you need in `src/main.ts` for a standard aihu SPA.
+
+## Right idioms
+
+### 1. Call `createApp()` once in `src/main.ts`
+
+```ts
+// src/main.ts
+import { createApp } from '@aihu/app/client'
+
+createApp()
+```
+
+That single call handles everything: runtime wiring, router creation, initial render into `#outlet`, and popstate listeners for back/forward navigation.
+
+### 2. Use `outletId` to match your `index.html` outlet element
+
+```html
+<!-- index.html -->
+<div id="root"></div>
+```
+
+```ts
+createApp({ outletId: 'root' })
+```
+
+The default is `'outlet'`. If the element is not found, `createApp()` throws immediately with a clear error.
+
+### 3. Use `provide` to inject app-level singletons before any component setup runs
+
+```ts
+import { createApp } from '@aihu/app/client'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+
+createApp({
+  provide: { supabase },  // available as bare `supabase` in all @state blocks
+})
+```
+
+Provided values are hoisted into `globalThis` before component setup runs.
+
+### 4. Import from `@aihu/app/client` — not from `@aihu/app` directly
+
+The package has separate client and server entry points. The `client` entry is what you import in browser code; the server entry handles SSR bootstrap.
+
+```ts
+// Correct — browser entry point
+import { createApp } from '@aihu/app/client'
+
+// Avoid — root import may pull in server-only code depending on bundler
+import { createApp } from '@aihu/app'
+```
+
+### 5. Let the Vite plugin generate `virtual:aihu-routes` — do not write it manually
+
+The `@aihu/plugin` Vite plugin scans your `src/pages/` directory and emits the `virtual:aihu-routes` module. `createApp()` imports it at runtime. Never write or import the virtual module yourself.
+
+## Anti-patterns
+
+### 1. Do not call `createApp()` more than once
+
+`createApp()` installs global event listeners and registers the router. A second call replaces the first, causing duplicate listeners and rendering bugs.
+
+### 2. Do not use `provide` to pass reactive values — only stable singletons
+
+```ts
+// WRONG — signal read is evaluated once at app start; not reactive in globalThis
+createApp({ provide: { user: userSignal() } })
+
+// CORRECT — provide the signal itself for reactive access
+createApp({ provide: { userSignal } })
+// In @state: const u = computed(() => userSignal())
+```
+
+### 3. Do not import `@aihu/app/client` in SSR entry points
+
+The client entry references `document`, `window`, and other browser APIs. Import the server entry for SSR:
+
+```ts
+// SSR entry
+import { createSsrApp } from '@aihu/app/server'
+```
+
+### 4. Do not add a `<router-outlet>` or any framework-specific mount point in `index.html`
+
+aihu renders directly into the element matched by `outletId`. No wrapper element or framework scaffold is needed.
+
+### 5. Do not call `_setMount` / `_setSignal` manually when using `createApp()`
+
+`createApp()` wires the runtime internally. Calling these again after `createApp()` overwrites the runtime references and can break reactive updates.
+
+## Canonical example files
+
+- `packages/app/src/client.ts` — `createApp()` implementation
+- `packages/cli/tests/legacy-snapshot.golden/src/pages/index.aihu` — default scaffolded page
+- `examples/blog-router/src/pages/index.aihu` — typical SPA page using file-system routing
+- `examples/hacker-news/src/pages/index.aihu` — SSR-enabled route with loader data
+- `packages/templates/cf-team/template/apps/web/src/app.aihu` — app-level component in a team template

@@ -1,0 +1,146 @@
+# @aihu/router
+
+`@aihu/router` is aihu's isomorphic client-side router. It provides pattern-based route matching, reactive route signals, programmatic navigation, link prefetching, and navigation guards. The browser bundle ships as ≤ 2.4 kB gzipped (excluding peer dependencies). SSR routing is handled by the server adapter and shares the same `Router` type.
+
+In `.aihu` SFCs the router integrates via `@route` block declarations and `$route`, `$beforeNavigate`, `$afterNavigate` macros inside `@state`. The built-in `<$link>`, `<$outlet>`, `<$router>`, and `<$navigate>` macro elements handle routing UI.
+
+## Right idioms
+
+### 1. Declare the route for a page component in the `@route` block
+
+```ts
+@route {
+  path: "/posts/:slug",
+  name: "post-detail",
+  ssr: true
+}
+```
+
+The compiler registers this route with the file-system router. Multiple `@route` blocks are allowed for alias routes.
+
+### 2. Access reactive route data via `$route` or `useRoute()` from `@aihu/router`
+
+```ts
+@state {
+  import { useRoute } from '@aihu/router'
+  import { computed } from '@aihu/signals'
+
+  // $route is available as a macro that the compiler lowers to useRoute()
+  const slug = computed(() => useRoute()?.params.slug ?? '')
+}
+```
+
+### 3. Use `<$link>` for SPA navigation — not bare `<a>` tags
+
+```html
+@template {
+  <nav>
+    <$link href="/" prefetch="hover">Home</$link>
+    <$link href="/posts" prefetch="visible">Posts</$link>
+    <$link href="/about">About</$link>
+  </nav>
+}
+```
+
+`<$link>` intercepts left-click, calls `navigate()`, respects modifier keys (Cmd/Ctrl → open in new tab), and sets `aria-current="page"` on the active route.
+
+### 4. Register navigation guards with `$beforeNavigate` / `$afterNavigate`
+
+```ts
+@state {
+  import { signal } from '@aihu/signals'
+  const [isDirty, setDirty] = signal(false)
+
+  $beforeNavigate((to, from, next) => {
+    if (isDirty()) {
+      if (!confirm('You have unsaved changes. Leave?')) return next(false)
+    }
+    next()
+  })
+}
+```
+
+### 5. Use `navigate()` for programmatic navigation after async operations
+
+```ts
+@state {
+  import { navigate } from '@aihu/router'
+
+  $action: {
+    submit: {
+      describe: 'Submit form and redirect to confirmation',
+      expose: { read: true, write: true },
+      handler: async () => {
+        await saveData()
+        void navigate('/confirmation')
+      },
+    },
+  }
+}
+```
+
+## Anti-patterns
+
+### 1. Never import router primitives from anywhere other than `@aihu/router`
+
+```ts
+// WRONG — internal implementation path; not part of the public API
+import { useRoute } from '@aihu/router/src/runtime'
+
+// CORRECT
+import { useRoute, navigate, createRouter } from '@aihu/router'
+```
+
+### 2. Do not call `useRoute()` outside a reactive context — it returns `null` during SSR without context
+
+```ts
+// WRONG — calling outside an effect or computed; result is stale
+const route = useRoute()
+const slug = route?.params.slug  // captured once; never updates
+
+// CORRECT — wrap in computed to track reactively
+const route = computed(() => useRoute())
+const slug = computed(() => route()?.params.slug ?? '')
+```
+
+### 3. Do not use `$beforeNavigate` / `$afterNavigate` as method calls — they are statement macros
+
+```ts
+// WRONG — these are not imported functions in v2
+import { $beforeNavigate } from '@aihu/router'
+
+// CORRECT — use as statement macros inside @state
+$beforeNavigate((to, from, next) => { next() })
+```
+
+### 4. Do not make required route params optional unless the route is a true catch-all
+
+```ts
+// WRONG — makes /posts work but slug is undefined; breaks data loading
+@route { path: "/posts/:slug?" }
+
+// CORRECT — required param; a separate route for /posts if needed
+@route { path: "/posts/:slug" }
+```
+
+### 5. Do not use bare `<a href>` for internal SPA links — navigation bypasses the router
+
+```html
+<!-- WRONG — full page reload; router state is lost -->
+<a href="/posts">Posts</a>
+
+<!-- CORRECT — SPA navigation via <$link> -->
+<$link href="/posts">Posts</$link>
+```
+
+## Canonical example files
+
+- `packages/router/src/index.ts` — public API exports
+- `packages/router/src/runtime.ts` — `useRoute()`, `navigate()`, `createRouteSignal()`, `RouteContext`
+- `packages/router/src/router.ts` — `createRouter()`, `RouteDefinition`, pattern matching
+- `packages/router/components/Link.aihu` — `<$link>` implementation
+- `packages/router/components/Router.aihu` — `<$router>` implementation
+- `packages/router/components/Outlet.aihu` — `<$outlet>` implementation
+- `examples/blog-router/src/pages/index.aihu` — basic routing with `$each` list
+- `examples/blog-router/src/pages/posts/[slug].aihu` — dynamic route param access
+- `examples/hacker-news/src/pages/index.aihu` — SSR route with loader data
