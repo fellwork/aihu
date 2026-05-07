@@ -54,7 +54,11 @@ export const config = {
     { path: 'apps/web/src/auth/supabase.ts', when: 'auth === "supabase"' },
     // F-5b: rename provider-specific .env.example files to .env.example so
     // .gitignore patterns work and developer expectations are met.
-    { path: 'apps/web/.env.example.better-auth', when: 'auth === "better-auth"', rename: '.env.example' },
+    {
+      path: 'apps/web/.env.example.better-auth',
+      when: 'auth === "better-auth"',
+      rename: '.env.example',
+    },
     { path: 'apps/web/.env.example.kinde', when: 'auth === "kinde"', rename: '.env.example' },
     { path: 'apps/web/.env.example.supabase', when: 'auth === "supabase"', rename: '.env.example' },
   ],

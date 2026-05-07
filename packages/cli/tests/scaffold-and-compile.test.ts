@@ -121,7 +121,9 @@ describe('scaffold-and-compile · cf-team · 3-auth-provider matrix', () => {
     // The raw provider-suffixed filenames must NOT appear on disk (rename applied).
     for (const p of PROVIDERS) {
       const suffixed = join(appRoot, 'apps', 'web', `.env.example.${p}`)
-      expect(existsSync(suffixed), `expected .env.example.${p} to be absent (F-5b rename)`).toBe(false)
+      expect(existsSync(suffixed), `expected .env.example.${p} to be absent (F-5b rename)`).toBe(
+        false,
+      )
     }
 
     // ── Default-on conditionals (agentSurface=minimal, starter=live-counter). ──
