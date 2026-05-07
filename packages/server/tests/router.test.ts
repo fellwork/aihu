@@ -175,11 +175,17 @@ describe('defineRoutes — batch registration', () => {
 
   it('passes options through (per-route middleware)', async () => {
     const order: string[] = []
-    const mw: Middleware = async (_req, next) => { order.push('mw'); return next() }
+    const mw: Middleware = async (_req, next) => {
+      order.push('mw')
+      return next()
+    }
     const routes = defineRoutes([
       {
         pattern: '/mw-test',
-        handler: async () => { order.push('handler'); return new Response('ok') },
+        handler: async () => {
+          order.push('handler')
+          return new Response('ok')
+        },
         options: { middleware: [mw] },
       },
     ])
@@ -226,11 +232,21 @@ describe('defineRoute — prefix group', () => {
 
   it('subroute options (middleware) are preserved', async () => {
     const order: string[] = []
-    const mw: Middleware = async (_req, next) => { order.push('mw'); return next() }
+    const mw: Middleware = async (_req, next) => {
+      order.push('mw')
+      return next()
+    }
     const fetch = createRequestRouter({
       routes: [
         defineRoute('/v1', [
-          ['/ping', async () => { order.push('handler'); return new Response('pong') }, { middleware: [mw] }],
+          [
+            '/ping',
+            async () => {
+              order.push('handler')
+              return new Response('pong')
+            },
+            { middleware: [mw] },
+          ],
         ]),
       ],
     })
