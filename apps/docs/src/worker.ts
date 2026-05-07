@@ -11,116 +11,195 @@
  * unstyled content waiting for `docs.js` to evaluate.
  */
 
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
-import { createRequestRouter, defineRoute } from '@aihu/server'
+import {
+  createAgentReadinessRoutes,
+  createContentNegotiationHandler,
+  generateLlmsFullTxt,
+} from '@aihu/agent-readiness'
+import type { RouteHandler } from '@aihu/server'
+import { createRequestRouter, defineRoute, json } from '@aihu/server'
+import { generateA2aCard } from '../../packages/agent-readiness/src/a2a-card.ts'
+import { generateMcpDiscovery } from '../../packages/agent-readiness/src/mcp-discovery.ts'
+import { generateSitemapXml } from '../../packages/agent-readiness/src/sitemap.ts'
+
+const summary =
+  'A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements ' +
+  'with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.'
+
+const llmsSections = [
+  {
+    title: 'Getting Started',
+    links: [
+      {
+        title: 'Introduction',
+        url: 'https://aihu.dev/#introduction',
+        description: 'What aihu is and why it exists',
+      },
+      {
+        title: 'Installation',
+        url: 'https://aihu.dev/#installation',
+        description: 'Install aihu into a new or existing project',
+      },
+      {
+        title: 'Getting Started',
+        url: 'https://aihu.dev/#getting-started',
+        description: 'Your first .aihu component',
+      },
+    ],
+  },
+  {
+    title: 'Core Concepts',
+    links: [
+      {
+        title: 'Authoring Components',
+        url: 'https://aihu.dev/#authoring-components',
+        description: 'SFC anatomy, @state, @template, @style blocks',
+      },
+      {
+        title: 'Reactivity',
+        url: 'https://aihu.dev/#reactivity',
+        description: 'Signals, computed values, and effects',
+      },
+      {
+        title: 'Authoring Agents',
+        url: 'https://aihu.dev/#authoring-agents',
+        description: '@agent block — expose state and actions as MCP tools',
+      },
+    ],
+  },
+  {
+    title: 'Advanced',
+    links: [
+      {
+        title: 'Routing & Layouts',
+        url: 'https://aihu.dev/#routing-layouts',
+        description: 'defineRoutes, layouts, and nested routes',
+      },
+      {
+        title: 'Data Fetching',
+        url: 'https://aihu.dev/#data-fetching',
+        description: 'defineLoader and DataSource for async data',
+      },
+      {
+        title: 'SSR & Hydration',
+        url: 'https://aihu.dev/#ssr-hydration',
+        description: 'Server-side rendering and client hydration',
+      },
+      {
+        title: 'Agent Discovery',
+        url: 'https://aihu.dev/#agent-discovery',
+        description: 'llms.txt, MCP server cards, and robots.txt',
+      },
+      {
+        title: 'Authoring Plugins',
+        url: 'https://aihu.dev/#authoring-plugins',
+        description: 'Extending aihu with custom compiler transforms',
+      },
+    ],
+  },
+  {
+    title: 'Reference',
+    links: [
+      {
+        title: 'API Reference',
+        url: 'https://aihu.dev/#api-reference',
+        description: 'Complete API surface for all @aihu/* packages',
+      },
+      {
+        title: 'Deployment',
+        url: 'https://aihu.dev/#deployment',
+        description: 'Cloudflare Workers, Vercel, and Node.js adapters',
+      },
+    ],
+  },
+]
 
 const ar = createAgentReadinessRoutes({
   name: 'aihu',
   version: '0.4',
-  summary:
-    'A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements ' +
-    'with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.',
+  summary,
+  siteUrl: 'https://aihu.dev',
   endpoint: 'https://aihu.dev/.well-known/mcp/server-card.json',
-  llmsSections: [
-    {
-      title: 'Getting Started',
-      links: [
-        {
-          title: 'Introduction',
-          url: 'https://aihu.dev/#introduction',
-          description: 'What aihu is and why it exists',
-        },
-        {
-          title: 'Installation',
-          url: 'https://aihu.dev/#installation',
-          description: 'Install aihu into a new or existing project',
-        },
-        {
-          title: 'Getting Started',
-          url: 'https://aihu.dev/#getting-started',
-          description: 'Your first .aihu component',
-        },
-      ],
-    },
-    {
-      title: 'Core Concepts',
-      links: [
-        {
-          title: 'Authoring Components',
-          url: 'https://aihu.dev/#authoring-components',
-          description: 'SFC anatomy, @state, @template, @style blocks',
-        },
-        {
-          title: 'Reactivity',
-          url: 'https://aihu.dev/#reactivity',
-          description: 'Signals, computed values, and effects',
-        },
-        {
-          title: 'Authoring Agents',
-          url: 'https://aihu.dev/#authoring-agents',
-          description: '@agent block — expose state and actions as MCP tools',
-        },
-      ],
-    },
-    {
-      title: 'Advanced',
-      links: [
-        {
-          title: 'Routing & Layouts',
-          url: 'https://aihu.dev/#routing-layouts',
-          description: 'defineRoutes, layouts, and nested routes',
-        },
-        {
-          title: 'Data Fetching',
-          url: 'https://aihu.dev/#data-fetching',
-          description: 'defineLoader and DataSource for async data',
-        },
-        {
-          title: 'SSR & Hydration',
-          url: 'https://aihu.dev/#ssr-hydration',
-          description: 'Server-side rendering and client hydration',
-        },
-        {
-          title: 'Agent Discovery',
-          url: 'https://aihu.dev/#agent-discovery',
-          description: 'llms.txt, MCP server cards, and robots.txt',
-        },
-        {
-          title: 'Authoring Plugins',
-          url: 'https://aihu.dev/#authoring-plugins',
-          description: 'Extending aihu with custom compiler transforms',
-        },
-      ],
-    },
-    {
-      title: 'Reference',
-      links: [
-        {
-          title: 'API Reference',
-          url: 'https://aihu.dev/#api-reference',
-          description: 'Complete API surface for all @aihu/* packages',
-        },
-        {
-          title: 'Deployment',
-          url: 'https://aihu.dev/#deployment',
-          description: 'Cloudflare Workers, Vercel, and Node.js adapters',
-        },
-      ],
-    },
-  ],
+  llmsSections,
   llmsOptional: [{ title: 'Full docs (LLM-optimised)', url: 'https://aihu.dev/llms-full.txt' }],
   aiAgents: 'allow-all',
   sitemap: 'https://aihu.dev/sitemap.xml',
 })
 
-const router = createRequestRouter({
-  routes: [
-    defineRoute('/llms.txt', ar.llmsTxt),
-    defineRoute('/llms-full.txt', ar.llmsFullTxt),
-    defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
-    defineRoute('/robots.txt', ar.robotsTxt),
-  ],
+const sitemapPages = [
+  { url: 'https://aihu.dev/', lastmod: '2026-05-07', changefreq: 'weekly' as const, priority: 1.0 },
+  { url: 'https://aihu.dev/#introduction', changefreq: 'weekly' as const, priority: 0.9 },
+  { url: 'https://aihu.dev/#installation', changefreq: 'weekly' as const, priority: 0.9 },
+  { url: 'https://aihu.dev/#getting-started', changefreq: 'weekly' as const, priority: 0.9 },
+  { url: 'https://aihu.dev/#authoring-components', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly' as const, priority: 0.7 },
+  { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly' as const, priority: 0.7 },
+  { url: 'https://aihu.dev/#ssr-hydration', changefreq: 'monthly' as const, priority: 0.7 },
+  { url: 'https://aihu.dev/#agent-discovery', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#api-reference', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#deployment', changefreq: 'monthly' as const, priority: 0.7 },
+]
+
+const a2aCardHandler: RouteHandler = (_req) => {
+  const card = generateA2aCard({
+    name: 'aihu',
+    description: summary,
+    url: 'https://aihu.dev',
+    version: '0.4',
+    capabilities: { streaming: false, pushNotifications: false },
+  })
+  return json(card)
+}
+
+const mcpDiscoveryHandler: RouteHandler = (_req) => {
+  const discovery = generateMcpDiscovery({
+    name: 'aihu',
+    url: 'https://aihu.dev/.well-known/mcp/server-card.json',
+    description: summary,
+  })
+  return json(discovery)
+}
+
+const sitemapHandler: RouteHandler = (_req) => {
+  const xml = generateSitemapXml({ pages: sitemapPages })
+  return new Response(xml, {
+    status: 200,
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+  })
+}
+
+const cnMw = createContentNegotiationHandler({
+  resolver: {
+    resolve: async (path: string): Promise<string | null> => {
+      if (path === '/' || path === '/index.html') {
+        return generateLlmsFullTxt({
+          name: 'aihu',
+          summary,
+          sections: llmsSections,
+          optional: [{ title: 'Full docs (LLM-optimised)', url: 'https://aihu.dev/llms-full.txt' }],
+        })
+      }
+      return null
+    },
+  },
 })
+
+const router = createRequestRouter(
+  {
+    routes: [
+      defineRoute('/llms.txt', ar.llmsTxt),
+      defineRoute('/llms-full.txt', ar.llmsFullTxt),
+      defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
+      defineRoute('/robots.txt', ar.robotsTxt),
+      defineRoute('/.well-known/agent.json', a2aCardHandler),
+      defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
+      defineRoute('/sitemap.xml', sitemapHandler),
+    ],
+  },
+  { middleware: [cnMw] },
+)
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> }

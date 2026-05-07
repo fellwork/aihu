@@ -13,7 +13,34 @@
   <!-- Highlight.js — CSS first, then script at end of body -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/solarized-dark.min.css" id="hljs-theme">
   <link rel="stylesheet" href="./style.css">
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+  <meta property="article:modified_time" content="2026-05-07T00:00:00Z">
   <script type="module" src="./dist/docs.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "aihu",
+    "description": "A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.",
+    "url": "https://aihu.dev",
+    "version": "0.4",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Organization", "name": "Fellwork", "url": "https://github.com/fellwork" },
+    "dateModified": "2026-05-07"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Fellwork",
+    "url": "https://aihu.dev",
+    "logo": "https://aihu.dev/favicon.svg",
+    "sameAs": ["https://github.com/fellwork/aihu"]
+  }
+  </script>
 </head>
 <body>
   <!-- ── Header ─────────────────────────────────────────────────── -->
@@ -69,7 +96,13 @@
   </section>
 
   <!-- ── Docs shell ──────────────────────────────────────────────── -->
-  <docs-shell></docs-shell>
+  <main>
+    <docs-shell></docs-shell>
+  </main>
+
+  <footer class="site-footer" aria-label="Site footer">
+    <p>&copy; 2026 Fellwork. aihu is open-source software.</p>
+  </footer>
 
   <!-- ── Highlight.js (must come after content is in DOM) ──────── -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>

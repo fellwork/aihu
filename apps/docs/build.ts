@@ -19,6 +19,7 @@ import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promi
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
+import { generateSitemapXml } from '../../packages/agent-readiness/src/sitemap.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, '../../docs/site')
@@ -162,3 +163,28 @@ for (const file of publicFiles) {
 }
 
 console.log('✓ Static assets copied → dist/')
+
+// ── 6. Emit sitemap.xml ──────────────────────────────────────────
+//
+// Also served by the Worker route, but emitting it as a static asset
+// means it's served from the CDN edge without a Worker invocation.
+
+const sitemapXml = generateSitemapXml({
+  pages: [
+    { url: 'https://aihu.dev/', lastmod: '2026-05-07', changefreq: 'weekly', priority: 1.0 },
+    { url: 'https://aihu.dev/#introduction', changefreq: 'weekly', priority: 0.9 },
+    { url: 'https://aihu.dev/#installation', changefreq: 'weekly', priority: 0.9 },
+    { url: 'https://aihu.dev/#getting-started', changefreq: 'weekly', priority: 0.9 },
+    { url: 'https://aihu.dev/#authoring-components', changefreq: 'monthly', priority: 0.8 },
+    { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly', priority: 0.8 },
+    { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly', priority: 0.8 },
+    { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly', priority: 0.7 },
+    { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly', priority: 0.7 },
+    { url: 'https://aihu.dev/#ssr-hydration', changefreq: 'monthly', priority: 0.7 },
+    { url: 'https://aihu.dev/#agent-discovery', changefreq: 'monthly', priority: 0.8 },
+    { url: 'https://aihu.dev/#api-reference', changefreq: 'monthly', priority: 0.8 },
+    { url: 'https://aihu.dev/#deployment', changefreq: 'monthly', priority: 0.7 },
+  ],
+})
+await writeFile(join(__dir, 'dist', 'sitemap.xml'), sitemapXml, 'utf8')
+console.log('✓ sitemap.xml → dist/sitemap.xml')

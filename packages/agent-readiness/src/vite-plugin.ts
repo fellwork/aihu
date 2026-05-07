@@ -1,8 +1,11 @@
 import type { RouteHandler } from '@aihu/server'
 import { json, notFound } from '@aihu/server'
+import { generateA2aCard } from './a2a-card.ts'
 import { generateLlmsFullTxt, generateLlmsTxt } from './llms-txt.ts'
+import { generateMcpDiscovery } from './mcp-discovery.ts'
 import { generateMcpServerCard } from './mcp-server-card.ts'
 import { generateRobotsTxt } from './robots.ts'
+import { generateSitemapXml } from './sitemap.ts'
 import type { AgentReadinessConfig } from './types.ts'
 
 /**
@@ -18,6 +21,7 @@ interface VitePlugin {
     }
   }) => void
   generateBundle?: (options: any, bundle: any) => Promise<void>
+  transformIndexHtml?: (html: string) => string
 }
 
 /**
@@ -41,6 +45,9 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   readonly llmsFullTxt: RouteHandler
   readonly mcpServerCard: RouteHandler
   readonly robotsTxt: RouteHandler
+  readonly a2aCard: RouteHandler
+  readonly mcpDiscovery: RouteHandler
+  readonly sitemapXml: RouteHandler
 } {
   const llmsTxt: RouteHandler = (_req) => {
     const txt = generateLlmsTxt({
@@ -94,7 +101,45 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
     })
   }
 
-  return { llmsTxt, llmsFullTxt, mcpServerCard, robotsTxt }
+  const a2aCard: RouteHandler = (_req) => {
+    if (!config.a2aCard) return notFound()
+    if (!config.siteUrl) return notFound()
+    const a2aConfig = config.a2aCard === true ? {} : config.a2aCard
+    const card = generateA2aCard({
+      name: config.name,
+      url: config.siteUrl,
+      ...(config.summary !== undefined ? { description: config.summary } : {}),
+      ...(config.version !== undefined ? { version: config.version } : {}),
+      ...(a2aConfig.capabilities !== undefined ? { capabilities: a2aConfig.capabilities } : {}),
+      ...(a2aConfig.skills !== undefined ? { skills: a2aConfig.skills } : {}),
+    })
+    return json(card)
+  }
+
+  const mcpDiscovery: RouteHandler = (_req) => {
+    if (!config.mcpDiscovery) return notFound()
+    const mcpUrl =
+      config.endpoint ??
+      (config.siteUrl ? config.siteUrl + '/.well-known/mcp/server-card.json' : undefined)
+    if (!mcpUrl) return notFound()
+    const discovery = generateMcpDiscovery({
+      name: config.name,
+      url: mcpUrl,
+      ...(config.summary !== undefined ? { description: config.summary } : {}),
+    })
+    return json(discovery)
+  }
+
+  const sitemapXml: RouteHandler = (_req) => {
+    if (!config.sitemapPages) return notFound()
+    const xml = generateSitemapXml({ pages: config.sitemapPages })
+    return new Response(xml, {
+      status: 200,
+      headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    })
+  }
+
+  return { llmsTxt, llmsFullTxt, mcpServerCard, robotsTxt, a2aCard, mcpDiscovery, sitemapXml }
 }
 
 /**
@@ -123,6 +168,30 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
     return true
   }
 
+  function buildJsonLdTags(): string {
+    if (config.jsonLd === false) return ''
+    if (Array.isArray(config.jsonLd)) {
+      return config.jsonLd
+        .map((obj) => `<script type="application/ld+json">${JSON.stringify(obj)}</script>`)
+        .join('\n')
+    }
+    if (config.siteUrl) {
+      const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: config.name,
+        url: config.siteUrl,
+        applicationCategory: 'DeveloperApplication',
+        operatingSystem: 'Web',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      }
+      if (config.summary !== undefined) schema['description'] = config.summary
+      if (config.version !== undefined) schema['version'] = config.version
+      return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`
+    }
+    return ''
+  }
+
   return {
     name: 'aihu-agent-readiness',
     configureServer(server) {
@@ -133,6 +202,9 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
           ['/llms-full.txt', routes.llmsFullTxt],
           ['/.well-known/mcp/server-card.json', routes.mcpServerCard],
           ['/robots.txt', routes.robotsTxt],
+          ['/.well-known/agent.json', routes.a2aCard],
+          ['/.well-known/mcp.json', routes.mcpDiscovery],
+          ['/sitemap.xml', routes.sitemapXml],
         ]
         for (const [path, handler] of pathMap) {
           if (url === path || url.startsWith(`${path}?`)) {
@@ -149,6 +221,9 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
         ['llms-full.txt', routes.llmsFullTxt],
         ['.well-known/mcp/server-card.json', routes.mcpServerCard],
         ['robots.txt', routes.robotsTxt],
+        ['.well-known/agent.json', routes.a2aCard],
+        ['.well-known/mcp.json', routes.mcpDiscovery],
+        ['sitemap.xml', routes.sitemapXml],
       ]
       for (const [name, handler] of files) {
         const req = new Request(`http://localhost/${name}`)
@@ -161,6 +236,11 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
           ;(this as any).emitFile({ type: 'asset', fileName: name, source: body })
         }
       }
+    },
+    transformIndexHtml(html: string): string {
+      const tags = buildJsonLdTags()
+      if (!tags) return html
+      return html.replace('</head>', `${tags}\n</head>`)
     },
   }
 }

@@ -11,7 +11,7 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2787,
+    "bytes": 2793,
     "limit": "2800 B"
   },
   {
@@ -51,7 +51,7 @@
   },
   {
     "name": "@aihu/app",
-    "bytes": 764,
+    "bytes": 800,
     "limit": "800 B"
   }
 ]
