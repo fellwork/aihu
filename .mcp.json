@@ -3,6 +3,13 @@
     "agentsdb": {
       "command": "bash",
       "args": [".claude/scripts/agentsdb-mcp.sh"]
+    },
+    "aihu": {
+      "command": "node",
+      "args": ["packages/mcp-server/dist/server.js"],
+      "env": {
+        "AIHU_COOKBOOK_PATH": "./cookbook"
+      }
     }
   }
 }
