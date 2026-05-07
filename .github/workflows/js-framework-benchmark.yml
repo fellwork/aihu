@@ -1,0 +1,152 @@
+name: js-framework-benchmark
+
+# Krausest js-framework-benchmark run for keyed/aihu vs the vanilla floor.
+# workflow_dispatch only — CI runners are too noisy for headline numbers; this
+# is for regression detection and "did we ship something that runs at all".
+# Trustworthy absolute numbers come from local runs on a quiet machine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Iterations per benchmark (krausest default is 10)'
+        required: false
+        default: '10'
+      compare-with:
+        description: 'Space-separated krausest framework dirs under frameworks/ (e.g. "vanillajs-1-keyed solid-1.x.x-keyed")'
+        required: false
+        default: 'vanillajs-1-keyed'
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install workspace deps
+        run: bun install --frozen-lockfile
+
+      - name: Build aihu runtime packages
+        run: |
+          bun run --filter @aihu/signals build
+          bun run --filter @aihu/arbor build
+          bun run --filter @aihu/runtime build
+
+      - name: Build keyed/aihu impl
+        working-directory: bench/js-framework-benchmark/keyed/aihu
+        run: |
+          bun install
+          bun run build-prod
+          ls -la dist/
+
+      - name: Clone krausest js-framework-benchmark
+        run: git clone --depth 1 https://github.com/krausest/js-framework-benchmark.git /tmp/jsb
+
+      - name: Stage aihu impl into harness
+        run: |
+          mkdir -p /tmp/jsb/frameworks/keyed/aihu
+          cp -r bench/js-framework-benchmark/keyed/aihu/dist /tmp/jsb/frameworks/keyed/aihu/
+          cat > /tmp/jsb/frameworks/keyed/aihu/package.json <<'EOF'
+          {
+            "name": "js-framework-benchmark-aihu",
+            "version": "0.1.0",
+            "js-framework-benchmark": {
+              "frameworkVersion": "0.1.0",
+              "frameworkHomeURL": "https://aihu.dev",
+              "issues": []
+            },
+            "scripts": {
+              "build-prod": "echo prebuilt"
+            }
+          }
+          EOF
+          ls -la /tmp/jsb/frameworks/keyed/aihu/
+
+      - name: Resolve framework arg list
+        id: fws
+        run: |
+          ARGS="keyed/aihu"
+          for fw in ${{ inputs.compare-with }}; do
+            target="/tmp/jsb/frameworks/keyed/${fw}"
+            if [ -d "$target" ]; then
+              ARGS="$ARGS keyed/${fw}"
+            else
+              echo "::warning::framework not found in krausest: keyed/${fw} (skipping)"
+            fi
+          done
+          echo "list=$ARGS" >> "$GITHUB_OUTPUT"
+          echo "Will run: $ARGS"
+
+      - name: Build comparison frameworks
+        run: |
+          for fw_path in ${{ steps.fws.outputs.list }}; do
+            if [ "$fw_path" = "keyed/aihu" ]; then continue; fi
+            target="/tmp/jsb/frameworks/${fw_path}"
+            echo "::group::Building ${fw_path}"
+            (cd "$target" && npm install --prefer-offline --no-audit --no-fund && npm run build-prod)
+            echo "::endgroup::"
+          done
+
+      - name: Install harness top-level
+        working-directory: /tmp/jsb
+        run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Build webdriver-ts
+        working-directory: /tmp/jsb/webdriver-ts
+        run: |
+          npm install --prefer-offline --no-audit --no-fund
+          npm run compile
+
+      - name: Start static server
+        working-directory: /tmp/jsb
+        run: |
+          npm start > /tmp/server.log 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://localhost:8080 > /dev/null 2>&1; then
+              echo "Server up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/frameworks/keyed/aihu/index.html > /dev/null \
+            || (echo "::error::aihu impl not reachable from harness server"; cat /tmp/server.log; exit 1)
+
+      - name: Run benchmark
+        working-directory: /tmp/jsb/webdriver-ts
+        run: |
+          npm run bench -- \
+            --headless true \
+            --count ${{ inputs.iterations }} \
+            --framework ${{ steps.fws.outputs.list }}
+
+      - name: Generate results table
+        if: always()
+        working-directory: /tmp/jsb/webdriver-ts
+        run: npm run results || echo "::warning::results page generation failed (raw JSON still uploaded)"
+
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsb-raw-results
+          path: /tmp/jsb/webdriver-ts/results/
+
+      - name: Upload rendered results pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsb-results-pages
+          path: /tmp/jsb/webdriver-ts-results/
+
+      - name: Upload server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsb-server-log
+          path: /tmp/server.log
