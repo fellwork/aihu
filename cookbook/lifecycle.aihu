@@ -1,0 +1,36 @@
+<!-- Recipe: lifecycle — $lifecycle: { mount, dispose } cleanup pattern -->
+
+@state {
+  status: string = 'idle'
+  ticks: number = 0
+  _timerId: number | null = null
+
+  $lifecycle: {
+    mount: () => {
+      status = 'running'
+      _timerId = setInterval(() => { ticks++ }, 1000) as unknown as number
+    },
+    dispose: () => {
+      if (_timerId !== null) {
+        clearInterval(_timerId)
+        _timerId = null
+      }
+      status = 'disposed'
+    },
+  }
+}
+
+@template {
+  <div class="lifecycle-demo">
+    <p class={['status', status]}>Status: {status}</p>
+    <p class="ticks">Ticks since mount: {ticks}</p>
+  </div>
+}
+
+@style {
+  .lifecycle-demo { padding: 1rem; font-family: monospace; }
+  .status { font-weight: bold; }
+  .status.running { color: var(--success, #080); }
+  .status.disposed { color: var(--muted, #888); }
+  .ticks { color: var(--fg, #333); }
+}

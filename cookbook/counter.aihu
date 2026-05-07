@@ -1,0 +1,40 @@
+<!-- Recipe: counter — signal(0) + increment/decrement with $on.click, {#if} for disable state -->
+
+@state {
+  count: number = 0
+
+  $action: {
+    increment: () => { count++ },
+    decrement: () => { count-- },
+    reset: () => { count = 0 },
+  }
+}
+
+@template {
+  <section class="counter">
+    <output class="count">{count}</output>
+    <div class="controls">
+      <button
+        $on.click={decrement}
+        class={['btn', count <= 0 && 'disabled']}
+      >
+        {#if count <= 0}
+          —
+        {:else}
+          −
+        {/if}
+      </button>
+      <button $on.click={reset} class="btn btn-ghost">Reset</button>
+      <button $on.click={increment} class="btn">+</button>
+    </div>
+  </section>
+}
+
+@style {
+  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; max-width: 14rem; }
+  .count { font-size: 2.5rem; font-variant-numeric: tabular-nums; text-align: center; }
+  .controls { display: flex; gap: 0.5rem; }
+  .btn { flex: 1; padding: 0.5rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }
+  .btn.disabled { opacity: 0.4; }
+  .btn-ghost { background: transparent; }
+}
