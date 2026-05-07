@@ -17,8 +17,8 @@
  * Architect spec §7 path (i); §11.c.
  */
 
-import { execFileSync, execFile } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { execFile, execFileSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,8 +52,8 @@ function runTsc(sidecarPath: string): { code: number; stderr: string; stdout: st
     return { code: 0, stdout, stderr: '' }
   } catch (e) {
     const err = e as { status?: number; stdout?: Buffer | string; stderr?: Buffer | string }
-    const stdout = typeof err.stdout === 'string' ? err.stdout : err.stdout?.toString() ?? ''
-    const stderr = typeof err.stderr === 'string' ? err.stderr : err.stderr?.toString() ?? ''
+    const stdout = typeof err.stdout === 'string' ? err.stdout : (err.stdout?.toString() ?? '')
+    const stderr = typeof err.stderr === 'string' ? err.stderr : (err.stderr?.toString() ?? '')
     return { code: err.status ?? 1, stdout, stderr }
   }
 }
