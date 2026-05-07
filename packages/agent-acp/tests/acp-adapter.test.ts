@@ -27,7 +27,7 @@ const WIDGET_META = {
   describes: 'A test widget',
   actions: {
     doThing: { returns: {} },
-    doOther: { returns: { value: { type: 'string' } } },
+    doOther: { returns: { value: { type: 'string' as const } } },
   },
 }
 
