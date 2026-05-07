@@ -457,17 +457,19 @@ fn try_parse_macro(
 /// Match the leading keyword for the collection-form macros. Returns
 /// `Some(kind)` when `rest` (line content after `$`) starts with one of
 /// `prop`, `computed`, `action`, `resource`, `effect`, `lifecycle`, `event`,
-/// `aria` followed by `:` or whitespace. `effect.on` and `lifecycle.mount` /
-/// `lifecycle.dispose` (with a `.`) do NOT match here — those are either
-/// preserved v1 forms (`$effect.on`) or v1 forms rejected via C440 (when
-/// reached through the next-character check).
+/// `aria`, `controller`, `context` followed by `:` or whitespace. `effect.on`
+/// and `lifecycle.mount` / `lifecycle.dispose` (with a `.`) do NOT match here
+/// — those are either preserved v1 forms (`$effect.on`) or v1 forms rejected
+/// via C440 (when reached through the next-character check).
 fn match_collection_keyword(rest: &str) -> Option<CollectionKind> {
     // Order matters: longer prefixes first so `lifecycle` wins over a
     // hypothetical shorter prefix.
     let keywords = [
         ("lifecycle", CollectionKind::Lifecycle),
+        ("controller", CollectionKind::Controller),
         ("computed", CollectionKind::Computed),
         ("resource", CollectionKind::Resource),
+        ("context", CollectionKind::Context),
         ("action", CollectionKind::Action),
         ("effect", CollectionKind::Effect),
         ("event", CollectionKind::Event),
@@ -500,6 +502,9 @@ fn collection_keyword_len(kind: CollectionKind) -> usize {
         CollectionKind::Lifecycle => 9,
         CollectionKind::Event => 5,
         CollectionKind::Aria => 4,
+        // B5
+        CollectionKind::Controller => 10,
+        CollectionKind::Context => 7,
     }
 }
 
@@ -513,6 +518,9 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
         CollectionKind::Lifecycle => "lifecycle",
         CollectionKind::Event => "event",
         CollectionKind::Aria => "aria",
+        // B5
+        CollectionKind::Controller => "controller",
+        CollectionKind::Context => "context",
     }
 }
 
@@ -573,6 +581,17 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
              Example: `$aria: { role: 'button', label: () => myLabel() }`",
             format!("$aria {}", got.trim_start_matches("aria").trim_start()),
             "$aria: { role: '<role>', label: () => <expr> }".to_string(),
+        ),
+        // B5 — $controller and $context are new in v2; no v1 migration path.
+        CollectionKind::Controller => (
+            "Use `$controller: { name: { value: () => new MyController() } }` to declare a Reactive Controller.",
+            format!("$controller {}", got.trim_start_matches("controller").trim_start()),
+            "$controller: { <name>: { value: () => new <Controller>() } }".to_string(),
+        ),
+        CollectionKind::Context => (
+            "Use `$context: { provide: { key: { value: () => signal } }, consume: { key: { type: 'T' } } }` to declare context.",
+            format!("$context {}", got.trim_start_matches("context").trim_start()),
+            "$context: { provide: { <key>: { value: () => <expr> } }, consume: { <key>: { type: '<T>' } } }".to_string(),
         ),
     };
 
@@ -647,9 +666,39 @@ fn parse_object_collection(
         let is_wrapped = value.starts_with('{');
 
         // Per-kind rules per spec §2.4:
-        //   $prop     — always wrapped (no running code to imply)
-        //   $lifecycle — always bare (no metadata-bag form, per D.3)
-        //   $event    — always wrapped (per spec §5.a; required: payload)
+        //   $prop       — always wrapped (no running code to imply)
+        //   $lifecycle  — always bare (no metadata-bag form, per D.3)
+        //   $event      — always wrapped (per spec §5.a; required: payload)
+        //   $controller — always wrapped (requires `value:` factory key)
+        //   $context    — keys must be `provide` or `consume`, values are wrapped
+        if matches!(kind, CollectionKind::Controller) && !is_wrapped {
+            return Err(CompileError {
+                message: format!(
+                    "C444: `$controller` entry `{}` must use the wrapped object form with a `value:` factory. \
+                     Replace `{}: <expr>` with `{}: {{ value: () => new MyController() }}`.",
+                    name, name, name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C444".to_string()),
+                from: Some(format!("{}: {}", name, value)),
+                to: Some(format!("{}: {{ value: () => new Controller() }}", name)),
+                ..Default::default()
+            });
+        }
+        if matches!(kind, CollectionKind::Context) && name != "provide" && name != "consume" {
+            return Err(CompileError {
+                message: format!(
+                    "C444: `$context` only accepts `provide` and `consume` keys, got `{}`. \
+                     Use `$context: {{ provide: {{ ... }}, consume: {{ ... }} }}`.",
+                    name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C444".to_string()),
+                ..Default::default()
+            });
+        }
         if matches!(kind, CollectionKind::Prop) && !is_wrapped {
             return Err(CompileError {
                 message: format!(
@@ -792,6 +841,18 @@ fn strip_outer_braces(s: &str) -> Option<&str> {
     let s = s.trim();
     let inner = s.strip_prefix('{')?.strip_suffix('}')?;
     Some(inner)
+}
+
+/// Public wrapper for `strip_outer_braces` — used by `codegen/emit.rs` for
+/// B5 `$context` sub-object parsing.
+pub fn strip_outer_braces_pub(s: &str) -> Option<String> {
+    strip_outer_braces(s).map(|s| s.to_string())
+}
+
+/// Public wrapper for `parse_meta_pairs` — used by `codegen/emit.rs` for
+/// B5 `$context` sub-object parsing.
+pub fn parse_meta_pairs_pub(body: &str) -> Result<Vec<(String, String)>, crate::types::CompileError> {
+    parse_meta_pairs(body)
 }
 
 /// Split a metadata-bag body into `(key, raw-value)` pairs. The body is
@@ -1302,6 +1363,65 @@ fn emit_collection_entry(
             // `attachInternals()` once + per-key mountEffect calls in the setup body.
             // Individual entry lowering is handled there; nothing to emit here.
             None
+        }
+        CollectionKind::Controller => {
+            // B5 — `$controller` entries: each entry's `value:` factory is called
+            // once; if the result has `hostConnected`/`hostDisconnected` they are
+            // wired into onMount/onCleanup respectively.
+            let factory = meta_get(entry, "value")?;
+            let name = &entry.name;
+            Some(format!(
+                "{indent}const {name} = (() => {{\n\
+                 {indent}  const _ctrl = ({factory})()\n\
+                 {indent}  if (typeof _ctrl.hostConnected === 'function') onMount(() => _ctrl.hostConnected())\n\
+                 {indent}  if (typeof _ctrl.hostDisconnected === 'function') onCleanup(() => _ctrl.hostDisconnected())\n\
+                 {indent}  return _ctrl\n\
+                 {indent}}})()",
+                indent = indent,
+                name = name,
+                factory = factory.trim(),
+            ))
+        }
+        CollectionKind::Context => {
+            // B5 — `$context` entries are either `provide` or `consume`.
+            // The entry is always wrapped: `meta` holds the context keys and their
+            // sub-metadata bag strings (parsed by `parse_object_collection`).
+            //
+            // Example: provide entry → meta: [("theme", "{ value: () => themeSignal }")]
+            //          consume entry → meta: [("locale", "{ type: 'Locale' }")]
+            let mut lines: Vec<String> = Vec::new();
+            for (ctx_key, ctx_val) in &entry.meta {
+                let v_trimmed = ctx_val.trim();
+                if entry.name == "provide" {
+                    // provide: ctx_key → { value: () => factory_expr }
+                    let inner2 = strip_outer_braces(v_trimmed)?;
+                    let meta2 = parse_meta_pairs(inner2).ok()?;
+                    let val_factory = meta2.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim())?;
+                    lines.push(format!(
+                        "{indent}onMount(() => {{\n\
+                         {indent}  this.dispatchEvent(new CustomEvent('__aihu_ctx_provide', {{ bubbles: true, composed: true, detail: {{ key: '{key}', value: ({factory})() }} }}))\n\
+                         {indent}}})",
+                        indent = indent,
+                        key = ctx_key,
+                        factory = val_factory,
+                    ));
+                } else {
+                    // consume: ctx_key → { type: 'T' }
+                    lines.push(format!(
+                        "{indent}let {key} = undefined\n\
+                         {indent}onMount(() => {{\n\
+                         {indent}  this.addEventListener('__aihu_ctx_provide', (e) => {{\n\
+                         {indent}    if (e.detail?.key === '{key}') {key} = e.detail.value\n\
+                         {indent}  }})\n\
+                         {indent}  this.dispatchEvent(new Event('__aihu_ctx_request', {{ bubbles: true, composed: true }}))\n\
+                         {indent}}})",
+                        indent = indent,
+                        key = ctx_key,
+                    ));
+                    let _ = v_trimmed;
+                }
+            }
+            if lines.is_empty() { None } else { Some(lines.join("\n")) }
         }
         CollectionKind::Lifecycle => {
             // R2 (Director r6 §3): four-callback extension. `mount` → onMount,
