@@ -277,6 +277,34 @@ svg {
   stroke: currentColor;
 }
 
+/* ── Static intro (SSR fallback for AI crawlers) ─────────────── */
+
+.static-intro {
+  max-width: 800px;
+  margin: var(--space-8) auto;
+  padding: var(--space-6);
+  color: var(--color-text);
+  line-height: 1.7;
+}
+
+.static-intro h2 {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-4);
+}
+.static-intro h3 {
+  font-size: 1.1rem;
+  margin: var(--space-4) 0 var(--space-2);
+}
+.static-intro ul {
+  padding-left: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+.static-intro li {
+  margin-bottom: var(--space-2);
+}
+
+/* Hidden by JavaScript once docs-shell mounts — see inline script */
+
 /* ── Accessibility utilities ──────────────────────────────────── */
 
 .sr-only {

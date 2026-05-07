@@ -140,14 +140,35 @@
   </section>
 
   <!-- WebMCP: declarative tool context for AI agents (WICG WebMCP proposal) -->
-  <form role="search" class="docs-search-form" tool-name="documentation-search" tool-description="Search the aihu Web Components framework documentation by topic, API, or concept" hidden>
-    <input type="search" name="q" aria-label="Search documentation" placeholder="Search documentation…">
+  <form role="search" class="docs-search-form" tool-name="documentation_search" tool-description="Search the aihu Web Components framework documentation by topic, API, or concept" hidden>
+    <label for="docs-search-input">Search documentation</label>
+    <input id="docs-search-input" type="search" name="q" placeholder="Search documentation…" tool-param-description="Search keywords or topic name to find in the aihu documentation">
     <button type="submit">Search</button>
   </form>
 
   <!-- ── Docs shell ──────────────────────────────────────────────── -->
   <main>
     <docs-shell></docs-shell>
+    <!-- Static intro for AI crawlers that don't execute JavaScript.
+         Removed by script once docs-shell mounts. -->
+    <section id="static-intro" class="static-intro" aria-label="Introduction">
+      <h2>What is aihu?</h2>
+      <p>aihu is a complete meta-framework for the agentic web. You write <code>.aihu</code> Single-File Components
+      (SFCs) — block-structured with <code>@state</code>, <code>@template</code>, <code>@style</code>, and
+      <code>@agent</code> blocks — and a Rust compiler emits standards-compliant Web Components and machine-readable
+      agent manifests. The runtime is sub-2 kB. Every component is discoverable by AI agents and callable as an
+      MCP tool out of the box.</p>
+      <h3>Key features</h3>
+      <ul>
+        <li><strong>Agentic-first</strong> — every component is agent-callable by construction via the <code>@agent</code> block.</li>
+        <li><strong>Sub-2 kB runtime</strong> — signals, computeds, effects, and DOM diffing in under 2 kB gzipped.</li>
+        <li><strong>Vanilla custom elements</strong> — no framework lock-in at the consumer boundary.</li>
+        <li><strong>Zero dependencies</strong> — no non-@aihu/* runtime dependencies across all packages.</li>
+        <li><strong>MCP + agent-first</strong> — @aihu/agent and @aihu/agent-readiness are first-class packages.</li>
+      </ul>
+      <p>Get started with <a href="#installation">installation</a>, read the <a href="#introduction">introduction</a>,
+      or explore the <a href="#api-reference">API reference</a>.</p>
+    </section>
   </main>
 
   <footer class="site-footer" aria-label="Site footer">
@@ -227,6 +248,12 @@
       if (isNavLink && window.innerWidth <= 768) {
         closeDrawer();
       }
+    });
+
+    // Remove static intro once docs-shell registers (JS-capable agents see the component)
+    customElements.whenDefined('docs-shell').then(() => {
+      var intro = document.getElementById('static-intro');
+      if (intro) intro.remove();
     });
 
     // WebMCP programmatic context for AI agents that support navigator.modelContext

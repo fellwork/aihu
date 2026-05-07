@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "aihu Agent Readiness API",
+    "description": "Agent-readiness and discovery endpoints for aihu.dev. Provides MCP server cards, A2A agent cards, llms.txt content discovery, and sitemap resources for AI agents.",
+    "version": "0.4.0",
+    "contact": {
+      "name": "Fellwork",
+      "url": "https://github.com/fellwork/aihu"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/fellwork/aihu/blob/main/LICENSE"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://aihu.dev",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/llms.txt": {
+      "get": {
+        "operationId": "getLlmsTxt",
+        "summary": "AI content discovery index",
+        "description": "Returns the llms.txt content discovery document listing curated entry points for AI agents.",
+        "responses": {
+          "200": {
+            "description": "llms.txt content",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llms-full.txt": {
+      "get": {
+        "operationId": "getLlmsFullTxt",
+        "summary": "Full LLM-optimised documentation",
+        "description": "Returns the complete aihu documentation in Markdown format, optimised for LLM consumption.",
+        "responses": {
+          "200": {
+            "description": "Full documentation in Markdown",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/mcp/server-card.json": {
+      "get": {
+        "operationId": "getMcpServerCard",
+        "summary": "MCP server card",
+        "description": "Returns the MCP (Model Context Protocol) server card describing available tools and capabilities.",
+        "responses": {
+          "200": {
+            "description": "MCP server card",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "version": { "type": "string" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "operationId": "getA2aAgentCard",
+        "summary": "A2A agent card",
+        "description": "Returns the Google Agent-to-Agent (A2A) protocol agent card for aihu.dev.",
+        "responses": {
+          "200": {
+            "description": "A2A agent card",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "url": { "type": "string", "format": "uri" },
+                    "version": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/mcp.json": {
+      "get": {
+        "operationId": "getMcpDiscovery",
+        "summary": "MCP discovery document",
+        "description": "Returns the MCP server discovery document listing available MCP server endpoints.",
+        "responses": {
+          "200": {
+            "description": "MCP discovery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mcpServers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "url": { "type": "string", "format": "uri" },
+                          "name": { "type": "string" },
+                          "description": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sitemap.xml": {
+      "get": {
+        "operationId": "getSitemap",
+        "summary": "XML sitemap",
+        "description": "Returns the XML sitemap listing all discoverable pages on aihu.dev.",
+        "responses": {
+          "200": {
+            "description": "XML sitemap",
+            "content": {
+              "application/xml": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
