@@ -1,8 +1,8 @@
 import routes from 'virtual:aihu-routes'
-import { mount } from '@aihu/arbor'
+import { hydrate, mount } from '@aihu/arbor'
 import type { MatchResult, RouteDefinition } from '@aihu/router'
 import { createRouter } from '@aihu/router'
-import { _setMount, _setSignal } from '@aihu/runtime'
+import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
 import { signal } from '@aihu/signals'
 
 /** Inline runtime configuration accepted by createApp(). All fields optional. */
@@ -43,6 +43,7 @@ export function createApp(config?: AppConfig): void {
   // Wire runtime — null-guarded in @aihu/runtime, safe to call multiple times
   _setMount(mount)
   _setSignal(signal as Parameters<typeof _setSignal>[0])
+  _setHydrate(hydrate as Parameters<typeof _setHydrate>[0])
 
   const outletId = config?.outletId ?? 'outlet'
   const outletEl = document.getElementById(outletId)

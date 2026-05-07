@@ -211,7 +211,18 @@ export function hydrate(
   snapshot: Snapshot,
   options?: MountOptions,
 ): ReturnType<typeof mount> {
-  void snapshot // currently used for type safety; future: signal pre-seeding
+  // Signal pre-seeding design note (deferred):
+  // `snapshot` maps path keys (e.g. `hydrate.0.text`) to their last-known
+  // signal values. Pre-seeding would initialize signal state before wiring
+  // effects so the first reactive run reflects SSR values instead of defaults.
+  //
+  // Implementation requires storing both getter AND setter in `signalRegistry`
+  // (currently only getters are stored). Changing the map shape from
+  // `Map<string, () => unknown>` to `Map<string, [() => unknown, (v: unknown) => void]>`
+  // affects `_applyAttrs` (attrs.ts), the hydration walker, and mount.ts —
+  // a design-level change with multiple call sites. Deferred to a dedicated
+  // signal pre-seeding task.
+  void snapshot
   const errorHandler = options?.onError
   // Build path→element map inline (per spec §5: `data-aihu-path` anchors).
   const pathMap = new Map<string, Element>()

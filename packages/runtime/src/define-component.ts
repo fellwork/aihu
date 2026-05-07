@@ -79,18 +79,25 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     class C extends HTMLElement {
       private [S]: _ScopeRef | null = null
       private [LC_SYM]: _LC | null = null
-      connectedCallback(): void {
-        if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+      /** @internal — hydration entry point. Runs setup and returns the node
+       * tree without calling _mount. Called by define-element's hydration
+       * branch via the `_build?()` check. */
+      _build(): ReturnType<Setup> {
         const lc: _LC = { m: [], c: [], a: [], ac: [] }
         this[LC_SYM] = lc
         const host = this.shadowRoot ?? this
         _cur = lc
-        let tree: ReturnType<Setup>
         try {
-          tree = setup({ host, element: this } as SetupContext)
+          return setup({ host, element: this } as SetupContext)
         } finally {
           _cur = null
         }
+      }
+      connectedCallback(): void {
+        if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+        const tree = this._build()
+        const lc = this[LC_SYM]!
+        const host = this.shadowRoot ?? this
         const scope = _mount(tree!, host)
         this[S] = scope
         _scopes.set(this, scope)
@@ -183,8 +190,10 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     // precedent).
     _isInternalAttrChange: boolean = false
 
-    connectedCallback(): void {
-      if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+    /** @internal — hydration entry point. Runs the signal/prop preamble
+     * and setup, returning the node tree without calling _mount. Called by
+     * define-element's hydration branch via the `_build?()` check. */
+    _build(): ReturnType<typeof setup> {
       if (_signal === null && (attrs.length > 0 || propEntries.length > 0)) {
         throw new RuntimeError('SCR-R0003', 'no signal')
       }
@@ -238,9 +247,8 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       this[LC_SYM] = lc
       const host = this.shadowRoot ?? this
       _cur = lc
-      let tree: ReturnType<typeof setup>
       try {
-        tree = setup({
+        return setup({
           host,
           element: this,
           attrs: attrSignals,
@@ -249,6 +257,13 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       } finally {
         _cur = null
       }
+    }
+
+    connectedCallback(): void {
+      if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+      const tree = this._build()
+      const lc = this[LC_SYM]!
+      const host = this.shadowRoot ?? this
       const scope = _mount?.(tree!, host)
       this[S] = scope
       _scopes.set(this, scope)
