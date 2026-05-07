@@ -477,6 +477,8 @@ fn match_collection_keyword(rest: &str) -> Option<CollectionKind> {
         ("prop", CollectionKind::Prop),
         // B4 — R5: `$aria` collection (declarative ARIA via ElementInternals).
         ("aria", CollectionKind::Aria),
+        // D5 — `$form` collection (form-associated custom element APIs).
+        ("form", CollectionKind::Form),
     ];
     for (kw, kind) in keywords {
         if let Some(after) = rest.strip_prefix(kw) {
@@ -508,6 +510,8 @@ fn collection_keyword_len(kind: CollectionKind) -> usize {
         CollectionKind::Context => 7,
         // v0.4.0
         CollectionKind::Stream => 6,
+        // D5
+        CollectionKind::Form => 4,
     }
 }
 
@@ -526,6 +530,8 @@ fn keyword_name(kind: CollectionKind) -> &'static str {
         CollectionKind::Context => "context",
         // v0.4.0
         CollectionKind::Stream => "stream",
+        // D5
+        CollectionKind::Form => "form",
     }
 }
 
@@ -603,6 +609,13 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
             "$stream: { <name>: { source: () => ..., describe?: '...' } }",
             format!("$stream {}", got.trim_start_matches("stream").trim_start()),
             "$stream name = ...".to_string(),
+        ),
+        // D5 — $form: no v1 migration path; new in this release.
+        CollectionKind::Form => (
+            "Use `$form: { value: <expr>, validity: () => ({ valueMissing: !<expr> }) }` to declare form-associated APIs. \
+             Example: `$form: { value: name, validity: () => ({ valueMissing: !name.trim() }) }`",
+            format!("$form {}", got.trim_start_matches("form").trim_start()),
+            "$form: { value: <expr>, validity: () => (<validity-object>) }".to_string(),
         ),
     };
 
@@ -799,6 +812,26 @@ fn parse_object_collection(
                 code: Some("C444".to_string()),
                 from: Some(format!("{}: ...", name)),
                 to: Some("mount: () => { ... }".to_string()),
+                ..Default::default()
+            });
+        }
+        // D5 — $form: only `value` and `validity` keys are valid.
+        if matches!(kind, CollectionKind::Form)
+            && name != "value"
+            && name != "validity"
+        {
+            return Err(CompileError {
+                message: format!(
+                    "C444: `$form` key `{}` is not valid. \
+                     Only `value` and `validity` are allowed. \
+                     Use `$form: {{ value: <expr>, validity: () => ({{ valueMissing: !<expr> }}) }}`.",
+                    name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C444".to_string()),
+                from: Some(format!("{}: ...", name)),
+                to: Some("value: <expr>".to_string()),
                 ..Default::default()
             });
         }
@@ -1416,6 +1449,11 @@ fn emit_collection_entry(
             // at the SFC level (not per entry), because the pattern requires
             // `attachInternals()` once + per-key mountEffect calls in the setup body.
             // Individual entry lowering is handled there; nothing to emit here.
+            None
+        }
+        CollectionKind::Form => {
+            // D5 — `$form` wiring is emitted by codegen/emit.rs (emit_form_wiring)
+            // at the SFC level. Individual entry lowering is handled there.
             None
         }
         CollectionKind::Controller => {

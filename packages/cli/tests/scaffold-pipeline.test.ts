@@ -453,3 +453,128 @@ describe('printNextSteps', () => {
     expect(buf).toContain('bun run dev')
   })
 })
+
+// ─── F-3b: appPeerDepsConditional substitution ───────────────────────────────
+
+describe('F-3b: __APP_CONDITIONAL_DEPS__ substitution', () => {
+  function manifestWithConditionalDeps(): TemplateManifest {
+    return {
+      ...manifestFixture(),
+      appPeerDepsConditional: {
+        'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },
+        '@kinde-oss/kinde-typescript-sdk': { version: '^2.0.0', when: 'auth === "kinde"' },
+        '@supabase/supabase-js': { version: '^2.0.0', when: 'auth === "supabase"' },
+      },
+    }
+  }
+
+  it('expands __APP_CONDITIONAL_DEPS__ with better-auth dep when auth=better-auth', () => {
+    const m = manifestWithConditionalDeps()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'better-auth' } })
+    const tmplContent = '{"dependencies":{"@aihu/runtime":"^0.2.0"__APP_CONDITIONAL_DEPS__}}'
+    const fs = fakeFs({ 'tpl-root/package.json.tmpl': tmplContent })
+    readSubstituteWrite(
+      [{ sourcePath: 'package.json.tmpl', targetRelPath: 'package.json', isTemplate: true }],
+      { templateRoot: 'tpl-root', targetDir: 'demo', manifest: m, options: o, fs },
+    )
+    const out = [...fs.writes.values()][0]!
+    expect(out).toContain('"better-auth"')
+    expect(out).toContain('^1.0.0')
+    expect(out).not.toContain('@kinde-oss')
+    expect(out).not.toContain('@supabase')
+  })
+
+  it('expands __APP_CONDITIONAL_DEPS__ with kinde dep when auth=kinde', () => {
+    const m = manifestWithConditionalDeps()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'kinde' } })
+    const tmplContent = '{"dependencies":{"@aihu/runtime":"^0.2.0"__APP_CONDITIONAL_DEPS__}}'
+    const fs = fakeFs({ 'tpl-root/package.json.tmpl': tmplContent })
+    readSubstituteWrite(
+      [{ sourcePath: 'package.json.tmpl', targetRelPath: 'package.json', isTemplate: true }],
+      { templateRoot: 'tpl-root', targetDir: 'demo', manifest: m, options: o, fs },
+    )
+    const out = [...fs.writes.values()][0]!
+    expect(out).toContain('@kinde-oss/kinde-typescript-sdk')
+    expect(out).toContain('^2.0.0')
+    expect(out).not.toContain('better-auth')
+    expect(out).not.toContain('@supabase')
+  })
+
+  it('__APP_CONDITIONAL_DEPS__ is empty string when no conditional deps match', () => {
+    const m: TemplateManifest = {
+      ...manifestFixture(),
+      // No appPeerDepsConditional field.
+    }
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: {} })
+    const tmplContent = '"last":"dep"__APP_CONDITIONAL_DEPS__}'
+    const fs = fakeFs({ 'tpl-root/pkg.json.tmpl': tmplContent })
+    readSubstituteWrite(
+      [{ sourcePath: 'pkg.json.tmpl', targetRelPath: 'pkg.json', isTemplate: true }],
+      { templateRoot: 'tpl-root', targetDir: 'demo', manifest: m, options: o, fs },
+    )
+    const out = [...fs.writes.values()][0]!
+    // The placeholder expands to '' leaving the JSON intact.
+    expect(out).toBe('"last":"dep"}')
+  })
+})
+
+// ─── F-5b: conditionalFiles rename field ─────────────────────────────────────
+
+describe('F-5b: conditionalFiles rename field', () => {
+  function manifestWithRename(): TemplateManifest {
+    return {
+      ...manifestFixture(),
+      conditionalFiles: [
+        ...manifestFixture().conditionalFiles,
+        {
+          path: 'apps/web/.env.example.better-auth',
+          when: 'auth === "better-auth"',
+          rename: '.env.example',
+        },
+        {
+          path: 'apps/web/.env.example.kinde',
+          when: 'auth === "kinde"',
+          rename: '.env.example',
+        },
+      ],
+    }
+  }
+
+  it('renames .env.example.better-auth → apps/web/.env.example when auth=better-auth', () => {
+    const m = manifestWithRename()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'better-auth' } })
+    const tuples = enumerateFiles(m, o, {
+      templateFiles: ['apps/web/.env.example.better-auth', 'apps/web/.env.example.kinde'],
+    })
+    const targets = tuples.map((t) => t.targetRelPath)
+    // better-auth file included and renamed.
+    expect(targets).toContain('apps/web/.env.example')
+    // kinde file excluded (wrong auth).
+    expect(targets).not.toContain('apps/web/.env.example.kinde')
+    expect(targets).not.toContain('apps/web/.env.example.better-auth')
+  })
+
+  it('excludes .env.example.better-auth entirely when auth=kinde', () => {
+    const m = manifestWithRename()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'kinde' } })
+    const tuples = enumerateFiles(m, o, {
+      templateFiles: ['apps/web/.env.example.better-auth', 'apps/web/.env.example.kinde'],
+    })
+    const targets = tuples.map((t) => t.targetRelPath)
+    // kinde file included and renamed.
+    expect(targets).toContain('apps/web/.env.example')
+    // better-auth file excluded.
+    expect(targets).not.toContain('apps/web/.env.example.better-auth')
+  })
+
+  it('preserves original filename when no rename is set', () => {
+    const m = manifestFixture()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: { auth: 'better-auth' } })
+    const tuples = enumerateFiles(m, o, {
+      templateFiles: ['src/auth/better-auth.ts'],
+    })
+    const targets = tuples.map((t) => t.targetRelPath)
+    // No rename → filename unchanged.
+    expect(targets).toContain('src/auth/better-auth.ts')
+  })
+})

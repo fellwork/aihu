@@ -264,20 +264,6 @@
         "@aihu/agent": "workspace:*",
       },
     },
-    "packages/ai": {
-      "name": "@aihu/ai",
-      "version": "0.1.0",
-      "peerDependencies": {
-        "@anthropic-ai/sdk": ">=0.20.0",
-        "@google/generative-ai": ">=0.3.0",
-        "openai": ">=4.0.0",
-      },
-      "optionalPeers": [
-        "@anthropic-ai/sdk",
-        "@google/generative-ai",
-        "openai",
-      ],
-    },
     "packages/app": {
       "name": "@aihu/app",
       "version": "0.1.2",
@@ -297,6 +283,14 @@
       "name": "@aihu/arbor",
       "version": "0.1.0",
       "dependencies": {
+        "@aihu/signals": "workspace:*",
+      },
+    },
+    "packages/auth": {
+      "name": "@aihu/auth",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/agent-service": "workspace:*",
         "@aihu/signals": "workspace:*",
       },
     },
@@ -371,6 +365,10 @@
         "@aihu/signals": "workspace:*",
       },
     },
+    "packages/scraping": {
+      "name": "@aihu/scraping",
+      "version": "0.1.0",
+    },
     "packages/server": {
       "name": "@aihu/server",
       "version": "0.1.0",
@@ -426,11 +424,11 @@
 
     "@aihu/agent-service": ["@aihu/agent-service@workspace:packages/agent-service"],
 
-    "@aihu/ai": ["@aihu/ai@workspace:packages/ai"],
-
     "@aihu/app": ["@aihu/app@workspace:packages/app"],
 
     "@aihu/arbor": ["@aihu/arbor@workspace:packages/arbor"],
+
+    "@aihu/auth": ["@aihu/auth@workspace:packages/auth"],
 
     "@aihu/bench-arbor": ["@aihu/bench-arbor@workspace:bench/arbor"],
 
@@ -467,6 +465,8 @@
     "@aihu/router": ["@aihu/router@workspace:packages/router"],
 
     "@aihu/runtime": ["@aihu/runtime@workspace:packages/runtime"],
+
+    "@aihu/scraping": ["@aihu/scraping@workspace:packages/scraping"],
 
     "@aihu/server": ["@aihu/server@workspace:packages/server"],
 

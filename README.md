@@ -231,6 +231,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
 | [`@aihu/app`](./packages/app) | `0.1.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
+| [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.3.1` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.1.9` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
@@ -239,6 +240,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/router`](./packages/router) | `0.1.0` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
 | [`@aihu/server`](./packages/server) | `0.1.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `1.0.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |

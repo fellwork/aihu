@@ -223,6 +223,11 @@ pub enum CollectionKind {
     /// Lowered to `createStream(factory)` call in `@aihu/runtime`. Bare form is
     /// rejected with C553; missing `source:` key is rejected with C554.
     Stream,
+    /// D5 — `$form: { value: <expr>, validity: <expr|thunk> }` — form-associated
+    /// custom element APIs via `ElementInternals`. Emits `static formAssociated = true`
+    /// as a class field and wires reactive `setFormValue` / `setValidity` effects.
+    /// Shares the `attachInternals()` singleton guard with `$aria`.
+    Form,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.
