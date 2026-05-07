@@ -92,55 +92,31 @@
   "If block": {
     "prefix": "if",
     "description": "{#if condition}...{/if} conditional block (v2 block-tag form)",
-    "body": [
-      "{#if ${1:condition}}",
-      "  $0",
-      "{/if}"
-    ]
+    "body": ["{#if ${1:condition}}", "  $0", "{/if}"]
   },
 
   "If-else block": {
     "prefix": "if-else",
     "description": "{#if condition}...{:else}...{/if} conditional block (v2 block-tag form)",
-    "body": [
-      "{#if ${1:condition}}",
-      "  $2",
-      "{:else}",
-      "  $3",
-      "{/if}"
-    ]
+    "body": ["{#if ${1:condition}}", "  $2", "{:else}", "  $3", "{/if}"]
   },
 
   "Each block": {
     "prefix": "each",
     "description": "{#each items as item}...{/each} iteration block (v2 block-tag form)",
-    "body": [
-      "{#each ${1:items} as ${2:item}}",
-      "  $0",
-      "{/each}"
-    ]
+    "body": ["{#each ${1:items} as ${2:item}}", "  $0", "{/each}"]
   },
 
   "Each block with key": {
     "prefix": "each-key",
     "description": "{#each items as item, idx (key)}...{/each} iteration block with key (v2 block-tag form)",
-    "body": [
-      "{#each ${1:items} as ${2:item}, ${3:idx} (${3:idx})}",
-      "  $0",
-      "{/each}"
-    ]
+    "body": ["{#each ${1:items} as ${2:item}, ${3:idx} (${3:idx})}", "  $0", "{/each}"]
   },
 
   "Action declaration ($action)": {
     "prefix": "action",
     "description": "$action collection in @state block — callable from template (v2 collection form)",
-    "body": [
-      "\\$action: {",
-      "  ${1:name}: (${2:arg}: ${3:type}) => {",
-      "    $0",
-      "  },",
-      "}"
-    ]
+    "body": ["\\$action: {", "  ${1:name}: (${2:arg}: ${3:type}) => {", "    $0", "  },", "}"]
   },
 
   "HTML injection ({@html})": {
