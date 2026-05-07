@@ -114,3 +114,64 @@ describe('@aihu/adapter-cloudflare', () => {
     expect(toml).toContain('name = "my-aihu-app"')
   })
 })
+
+describe('@aihu/adapter-cloudflare — SSR hybrid mode (ssr: true)', () => {
+  let tmpRoot: string
+  let tmpOut: string
+
+  beforeEach(async () => {
+    tmpRoot = await mkdtemp(join(tmpdir(), 'aihu-cf-ssr-'))
+    tmpOut = join(tmpRoot, 'dist')
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(tmpOut, { recursive: true })
+  })
+
+  afterEach(async () => {
+    await rm(tmpRoot, { recursive: true, force: true })
+  })
+
+  it('emits SSR hybrid _worker.js when ssr: true', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut)
+    await adapter.adapt(ctx)
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    expect(worker).toContain('SSR + static hybrid')
+    expect(worker).toContain('handler(request')
+    expect(worker).toContain('env.ASSETS.fetch')
+    expect(worker).toContain('index.html')
+  })
+
+  it('inlines createHandlerSource() output in SSR worker', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut)
+    await adapter.adapt(ctx)
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    expect(worker).toContain('// handler source')
+  })
+
+  it('SSR worker checks handler response status before ASSETS fallback', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut)
+    await adapter.adapt(ctx)
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    expect(worker).toContain('response.status !== 404')
+  })
+
+  it('SPA mode (default) does not contain handler() call', async () => {
+    const adapter = cloudflare({ generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut)
+    await adapter.adapt(ctx)
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    expect(worker).not.toContain('handler(request')
+    expect(worker).toContain('SPA mode')
+  })
+
+  it('ssr: true still generates wrangler.toml when absent', async () => {
+    const adapter = cloudflare({ ssr: true, name: 'ssr-worker' })
+    const ctx = makeContext(tmpRoot, tmpOut)
+    await adapter.adapt(ctx)
+    const toml = await readFile(join(tmpRoot, 'wrangler.toml'), 'utf8')
+    expect(toml).toContain('name = "ssr-worker"')
+    expect(toml).toContain('[assets]')
+  })
+})
