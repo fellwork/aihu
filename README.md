@@ -182,17 +182,17 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 248 B | 300 B | pass |
-| `@aihu/signals` | 1.67 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.69 kB | 2800 B | pass |
-| `@aihu/runtime` | 2.80 kB | 2900 B | pass |
-| `@aihu/agent` | 142 B | 200 B | pass |
-| `@aihu/data` | 774 B | 800 B | pass |
-| `@aihu/router` | 2.02 kB | 2400 B | pass |
-| `@aihu/agent-service` | 1.06 kB | 1100 B | pass |
-| `@aihu/agent-acp` | 591 B | 600 B | pass |
-| `@aihu/agent-a2a` | 721 B | 750 B | pass |
-| `@aihu/app` | 764 B | 800 B | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2800 B | _no dist_ |
+| `@aihu/runtime` | — | 2900 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu/data` | — | 800 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 1100 B | _no dist_ |
+| `@aihu/agent-acp` | — | 600 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
+| `@aihu/app` | — | 800 B | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -238,6 +238,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/router`](./packages/router) | `0.1.0` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
 | [`@aihu/server`](./packages/server) | `0.1.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `1.0.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
