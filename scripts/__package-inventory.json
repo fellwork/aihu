@@ -96,12 +96,6 @@
     "isPlatform": false
   },
   {
-    "name": "@aihu/mcp-server",
-    "version": "0.1.0",
-    "dir": "packages/mcp-server",
-    "isPlatform": false
-  },
-  {
     "name": "@aihu/plugin",
     "version": "0.1.0",
     "dir": "packages/plugin",

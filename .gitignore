@@ -79,3 +79,19 @@ docs/site/dist/
 
 # WASM build artifacts (Directive 1 + arch-4 §4.6)
 packages/compiler/pkg-wasm/
+
+# Agent team session artifacts — director notes, retros, build manifests, state files
+# (consolidate ratified specs into docs/specs/ and plans into docs/plans/ instead)
+.team/
+state-*.md
+docs/superpowers/
+docs/topic-director-notes/
+docs/topic-summaries/
+docs/build-manifest-*.md
+docs/investigation-*.md
+docs/retro-*.md
+docs/tthw-log.md
+docs/spec-headless.md
+
+# Stray session log files
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
