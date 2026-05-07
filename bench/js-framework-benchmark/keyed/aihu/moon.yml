@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+id: jsb-keyed-aihu
+language: typescript
+layer: application
+
+# This is a krausest js-framework-benchmark integration, not a published
+# package. It imports @aihu/signals + @aihu/arbor and bundles via Vite into
+# dist/, which the GitHub Action stages into a fresh krausest checkout.
+dependsOn:
+  - 'signals'
+  - 'arbor'
+  - 'runtime'
+
+tasks:
+  # Bundling lives outside Moon's build graph — Vite is invoked by the GH
+  # Action (or `bun run build-prod` locally) directly. Override the inherited
+  # build to noop so Moon doesn't try to rolldown a Vite project.
+  build:
+    command: noop
+    outputs: []
+    options:
+      runFromWorkspaceRoot: false
+      mergeOutputs: replace

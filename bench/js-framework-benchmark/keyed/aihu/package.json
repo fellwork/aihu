@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build-prod": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@aihu/signals": "workspace:*",
