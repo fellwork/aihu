@@ -1,22 +1,22 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": -1,
+    "bytes": 248,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 1709,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": -1,
+    "bytes": 2756,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": -1,
+    "bytes": 2865,
     "limit": "2900 B"
   },
   {
