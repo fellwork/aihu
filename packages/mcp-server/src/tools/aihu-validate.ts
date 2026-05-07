@@ -72,19 +72,19 @@ function normalizeDiagnostic(raw: unknown): AihuDiagnostic {
     return { code: 'UNKNOWN', message: String(raw), line: 0, col: 0 }
   }
   const r = raw as Record<string, unknown>
-  const code = typeof r['code'] === 'string' ? r['code'] : 'UNKNOWN'
-  const message = typeof r['message'] === 'string' ? r['message'] : ''
+  const code = typeof r.code === 'string' ? r.code : 'UNKNOWN'
+  const message = typeof r.message === 'string' ? r.message : ''
 
   // Support both { line, col } and { from: { line, character } } shapes
   let line = 0
   let col = 0
-  if (typeof r['line'] === 'number') {
-    line = r['line']
-    col = typeof r['col'] === 'number' ? r['col'] : 0
-  } else if (typeof r['from'] === 'object' && r['from'] !== null) {
-    const from = r['from'] as Record<string, unknown>
-    line = typeof from['line'] === 'number' ? from['line'] : 0
-    col = typeof from['character'] === 'number' ? from['character'] : 0
+  if (typeof r.line === 'number') {
+    line = r.line
+    col = typeof r.col === 'number' ? r.col : 0
+  } else if (typeof r.from === 'object' && r.from !== null) {
+    const from = r.from as Record<string, unknown>
+    line = typeof from.line === 'number' ? from.line : 0
+    col = typeof from.character === 'number' ? from.character : 0
   }
 
   return { code, message, line, col }
@@ -96,10 +96,7 @@ function normalizeDiagnostic(raw: unknown): AihuDiagnostic {
  *
  * Uses execFileSync so stdin piping is reliable on all platforms.
  */
-export function handleValidate(input: {
-  source: string
-  filename?: string
-}): ValidateResult {
+export function handleValidate(input: { source: string; filename?: string }): ValidateResult {
   const { source, filename = 'component.aihu' } = input
   const stem = basename(filename, '.aihu')
 
@@ -156,10 +153,10 @@ export function handleValidate(input: {
       const parsed: unknown = JSON.parse(stderr)
       if (Array.isArray(parsed)) {
         const errors = parsed
-          .filter((d) => (d as Record<string, unknown>)['severity'] !== 'warning')
+          .filter((d) => (d as Record<string, unknown>).severity !== 'warning')
           .map(normalizeDiagnostic)
         const warnings = parsed
-          .filter((d) => (d as Record<string, unknown>)['severity'] === 'warning')
+          .filter((d) => (d as Record<string, unknown>).severity === 'warning')
           .map(normalizeDiagnostic)
         return { ok: false, errors, warnings }
       }
