@@ -114,14 +114,16 @@ describe('scaffold-and-compile · cf-team · 3-auth-provider matrix', () => {
       }
     }
 
-    // ── .env.example.<provider>: only the chosen suffix is present. ──
+    // ── F-5b: .env.example (renamed from .env.example.<provider>) is present;
+    //    the provider-suffixed filenames are never written to disk. ──
+    const envExample = join(appRoot, 'apps', 'web', '.env.example')
+    expect(existsSync(envExample), 'expected apps/web/.env.example to be present').toBe(true)
+    // The raw provider-suffixed filenames must NOT appear on disk (rename applied).
     for (const p of PROVIDERS) {
-      const envFile = join(appRoot, 'apps', 'web', `.env.example.${p}`)
-      if (p === auth) {
-        expect(existsSync(envFile), `expected .env.example.${p} to be present`).toBe(true)
-      } else {
-        expect(existsSync(envFile), `expected .env.example.${p} to be absent`).toBe(false)
-      }
+      const suffixed = join(appRoot, 'apps', 'web', `.env.example.${p}`)
+      expect(existsSync(suffixed), `expected .env.example.${p} to be absent (F-5b rename)`).toBe(
+        false,
+      )
     }
 
     // ── Default-on conditionals (agentSurface=minimal, starter=live-counter). ──

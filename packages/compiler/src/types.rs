@@ -216,6 +216,11 @@ pub enum CollectionKind {
     /// can both provide context values (dispatched on mount) and consume context
     /// values (listened for on mount). Lowered to DOM custom-event patterns.
     Context,
+    /// D5 — `$form: { value: <expr>, validity: <expr|thunk> }` — form-associated
+    /// custom element APIs via `ElementInternals`. Emits `static formAssociated = true`
+    /// as a class field and wires reactive `setFormValue` / `setValidity` effects.
+    /// Shares the `attachInternals()` singleton guard with `$aria`.
+    Form,
 }
 
 /// A single entry inside a collection-form macro body — `name: <value>`.

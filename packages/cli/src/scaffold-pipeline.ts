@@ -275,9 +275,10 @@ export function enumerateFiles(
   options: ResolvedOptions,
   input: EnumerateFilesInput,
 ): FileTuple[] {
-  const conditional = new Map<string, string>()
+  // F-5b: track both `when` and optional `rename` per conditional file.
+  const conditional = new Map<string, { when: string; rename?: string }>()
   for (const c of manifest.conditionalFiles) {
-    conditional.set(normalize(c.path), c.when)
+    conditional.set(normalize(c.path), { when: c.when, rename: c.rename })
   }
 
   const ctx: Record<string, unknown> = {
@@ -288,11 +289,20 @@ export function enumerateFiles(
   const out: FileTuple[] = []
   for (const raw of input.templateFiles) {
     const sourcePath = normalize(raw)
-    const when = conditional.get(sourcePath)
-    if (when !== undefined && !evalWhen(when, ctx)) continue
+    const entry = conditional.get(sourcePath)
+    if (entry !== undefined && !evalWhen(entry.when, ctx)) continue
 
     const isTemplate = sourcePath.endsWith('.tmpl')
-    const targetRelPath = isTemplate ? sourcePath.slice(0, -5) : sourcePath
+    let targetRelPath = isTemplate ? sourcePath.slice(0, -5) : sourcePath
+
+    // F-5b: when a conditional file declares `rename`, replace the filename
+    // portion of the target path with the rename value.
+    if (entry?.rename) {
+      const lastSlash = sourcePath.lastIndexOf('/')
+      const dir = lastSlash >= 0 ? sourcePath.slice(0, lastSlash) : ''
+      targetRelPath = dir ? `${dir}/${entry.rename}` : entry.rename
+    }
+
     out.push({ sourcePath, targetRelPath, isTemplate })
   }
   return out
@@ -311,6 +321,8 @@ const PLACEHOLDER_TOKENS = [
   '__AIHU_VERSION__',
   '__TEMPLATE_NAME__',
   '__SCAFFOLD_DATE__',
+  // F-3b: expands to conditional dep lines (with leading comma) or '' when none match.
+  '__APP_CONDITIONAL_DEPS__',
 ] as const
 
 export interface ReadSubstituteWriteInput {
@@ -357,12 +369,37 @@ function sepFor(targetDir: string): string {
   return targetDir.includes('\\') ? '\\' : '/'
 }
 
+/**
+ * F-3b: evaluate `appPeerDepsConditional` and return a JSON-fragment string
+ * that can be substituted for `__APP_CONDITIONAL_DEPS__` in `.tmpl` files.
+ *
+ * When one or more conditional deps match, returns:
+ *   `,\n    "<pkg>": "<version>"[,\n    "<pkg>": "<version>"]`
+ * (leading comma so it appends cleanly to the last unconditional dep line).
+ * Returns `''` when no deps match.
+ */
+function buildConditionalDepLines(
+  manifest: TemplateManifest,
+  ctx: Record<string, unknown>,
+): string {
+  const cond = manifest.appPeerDepsConditional
+  if (!cond) return ''
+  const entries: string[] = []
+  for (const [pkg, dep] of Object.entries(cond)) {
+    if (evalWhen(dep.when, ctx)) {
+      entries.push(`    "${pkg}": "${dep.version}"`)
+    }
+  }
+  return entries.length > 0 ? `,\n${entries.join(',\n')}` : ''
+}
+
 function buildSubstitutions(
   manifest: TemplateManifest,
   options: ResolvedOptions,
   now: (() => string) | undefined,
 ): Record<string, string> {
   const aihuVersion = manifest.appPeerDeps['@aihu/runtime'] ?? '^1.0.0'
+  const ctx: Record<string, unknown> = { ...manifest.fixed, ...options.overrides }
   return {
     __APP_NAME__: options.appName,
     __APP_DESCRIPTION__: options.appDescription ?? manifest.displayName,
@@ -370,6 +407,8 @@ function buildSubstitutions(
     __AIHU_VERSION__: aihuVersion,
     __TEMPLATE_NAME__: manifest.name,
     __SCAFFOLD_DATE__: (now ?? (() => new Date().toISOString().slice(0, 10)))(),
+    // F-3b: conditional auth deps (leading comma + newline when non-empty).
+    __APP_CONDITIONAL_DEPS__: buildConditionalDepLines(manifest, ctx),
   }
 }
 
