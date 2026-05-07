@@ -3,7 +3,7 @@
  *
  * Compiles a .aihu source string using the aihu Rust compiler and returns
  * either compiled TypeScript output (on success) or structured diagnostics
- * (on error).
+ * (on error), with errors and warnings separated.
  */
 
 import type { AihuDiagnostic, ValidateResult } from '../compiler.js'
@@ -19,7 +19,7 @@ export type { AihuDiagnostic, ValidateResult }
 /**
  * Handle the aihu_validate tool call.
  */
-export async function handleValidate(input: ValidateInput): Promise<ValidateResult> {
+export function handleValidate(input: ValidateInput): ValidateResult {
   const { source, filename = 'component.aihu' } = input
   return compileSource(source, filename)
 }

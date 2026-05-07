@@ -135,7 +135,7 @@ export function createServer(): Server {
         }
       }
 
-      const result = await handleValidate({
+      const result = handleValidate({
         source: input.source,
         ...(input.filename !== undefined ? { filename: input.filename } : {}),
       })

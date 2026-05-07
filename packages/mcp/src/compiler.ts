@@ -1,19 +1,16 @@
 /**
  * Compiler invocation and error parsing for aihu_validate.
  *
- * Shells out to aihu-compile --machine-errors using execFile (async, non-blocking).
+ * Shells out to aihu-compile --machine-errors using execFileSync (stdin piping).
  * Returns structured ValidateResult — either compiled TS on success or
- * an array of AihuDiagnostic objects on failure.
+ * an array of AihuDiagnostic objects on failure, with errors and warnings split.
  */
 
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Binary path resolution:
-// 1. SCRIBE_COMPILE_BIN env override (matches convention in packages/compiler/js/index.ts)
-// 2. Workspace-relative: packages/compiler/bin/aihu-compile[.exe]
-// 3. node_modules/.bin/aihu-compile (published install)
 const ext = process.platform === 'win32' ? '.exe' : ''
 
 function resolveBinPath(): string {
@@ -21,119 +18,126 @@ function resolveBinPath(): string {
     return process.env.SCRIBE_COMPILE_BIN
   }
 
-  // Workspace sibling: packages/mcp/ is adjacent to packages/compiler/
   const here = dirname(fileURLToPath(import.meta.url))
-  // In dist/: here = packages/mcp/dist, so ../../../compiler/bin/
-  // In src/: here = packages/mcp/src, so ../../../compiler/bin/
-  const workspaceAttempts = [
+  const candidates = [
     resolve(here, '../../../compiler/bin', `aihu-compile${ext}`),
     resolve(here, '../../compiler/bin', `aihu-compile${ext}`),
   ]
 
-  for (const p of workspaceAttempts) {
-    // We return the best guess; if it doesn't exist, execFileAsync will throw
-    // and we handle it gracefully via the UNKNOWN fallback.
-    if (p) return p
+  for (const p of candidates) {
+    if (existsSync(p)) return p
   }
 
-  // Published install fallback: installed by @aihu/compiler's bin field
   return `aihu-compile${ext}`
 }
 
 const binPath = resolveBinPath()
 
-// Timeout: configurable via env var, default 10 seconds
 const TIMEOUT_MS = parseInt(process.env.AIHU_MCP_COMPILE_TIMEOUT_MS ?? '10000', 10)
 
 export interface AihuDiagnostic {
   code: string
   message: string
-  hint?: string
-  fix?: string
-  from: { line: number; character: number }
-  to: { line: number; character: number }
-  range: {
-    start: { line: number; character: number }
-    end: { line: number; character: number }
-  }
+  line: number
+  col: number
 }
 
-export type ValidateResult =
-  | { valid: true; code: string }
-  | { valid: false; errors: AihuDiagnostic[] }
+export interface ValidateResult {
+  ok: boolean
+  errors: AihuDiagnostic[]
+  warnings: AihuDiagnostic[]
+  output?: string
+}
+
+/**
+ * Normalize a raw diagnostic from --machine-errors JSON into { code, message, line, col }.
+ * Handles both { line, col } and { from: { line, character } } shapes.
+ */
+function normalizeDiagnostic(raw: unknown): AihuDiagnostic {
+  if (typeof raw !== 'object' || raw === null) {
+    return { code: 'UNKNOWN', message: String(raw), line: 0, col: 0 }
+  }
+  const r = raw as Record<string, unknown>
+  const code = typeof r.code === 'string' ? r.code : 'UNKNOWN'
+  const message = typeof r.message === 'string' ? r.message : ''
+  let line = 0
+  let col = 0
+  if (typeof r.line === 'number') {
+    line = r.line
+    col = typeof r.col === 'number' ? r.col : 0
+  } else if (typeof r.from === 'object' && r.from !== null) {
+    const from = r.from as Record<string, unknown>
+    line = typeof from.line === 'number' ? from.line : 0
+    col = typeof from.character === 'number' ? from.character : 0
+  }
+  return { code, message, line, col }
+}
 
 /**
  * Compile a .aihu source string and return structured results.
  *
- * On success (exit 0): returns { valid: true, code: compiledTypeScript }
- * On failure (exit 1): returns { valid: false, errors: AihuDiagnostic[] }
+ * On success (exit 0): returns { ok: true, errors: [], warnings: [], output: string }
+ * On failure (exit 1): returns { ok: false, errors: AihuDiagnostic[], warnings: AihuDiagnostic[] }
  * On non-JSON stderr: wraps in a synthetic UNKNOWN diagnostic
  * On timeout: returns a synthetic TIMEOUT diagnostic
  */
-export async function compileSource(source: string, filename: string): Promise<ValidateResult> {
+export function compileSource(source: string, filename: string): ValidateResult {
   const stem = basename(filename, '.aihu')
 
   try {
     const stdout = execFileSync(
       binPath,
       ['--stdin', '--tag', stem, '--path', filename, '--machine-errors'],
-      {
-        input: source,
-        encoding: 'utf8',
-        timeout: TIMEOUT_MS,
-      },
+      { input: source, encoding: 'utf8', timeout: TIMEOUT_MS },
     )
-    return { valid: true, code: stdout }
+    return { ok: true, errors: [], warnings: [], output: stdout }
   } catch (err: unknown) {
-    const e = err as { stderr?: string; killed?: boolean; signal?: string; code?: unknown }
+    const e = err as { stderr?: string | Buffer; killed?: boolean; signal?: string }
 
-    // Timeout detection: Node sets killed=true and signal='SIGTERM' on timeout
     if (e.killed === true || (typeof e.signal === 'string' && e.signal !== null)) {
       return {
-        valid: false,
+        ok: false,
         errors: [
-          {
-            code: 'TIMEOUT',
-            message: `Compiler timed out after ${TIMEOUT_MS}ms`,
-            from: { line: 0, character: 0 },
-            to: { line: 0, character: 0 },
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 0 },
-            },
-          },
+          { code: 'TIMEOUT', message: `Compiler timed out after ${TIMEOUT_MS}ms`, line: 0, col: 0 },
         ],
+        warnings: [],
       }
     }
 
-    const stderr = e.stderr ?? ''
+    const rawStderr = e.stderr
+    const stderr =
+      rawStderr instanceof Buffer
+        ? rawStderr.toString('utf-8')
+        : typeof rawStderr === 'string'
+          ? rawStderr
+          : ''
 
-    // Try to parse as JSON array of diagnostics (--machine-errors format)
     try {
-      const errors: AihuDiagnostic[] = JSON.parse(stderr)
-      if (Array.isArray(errors)) {
-        return { valid: false, errors }
+      const parsed: unknown = JSON.parse(stderr)
+      if (Array.isArray(parsed)) {
+        const errors = parsed
+          .filter((d) => (d as Record<string, unknown>).severity !== 'warning')
+          .map(normalizeDiagnostic)
+        const warnings = parsed
+          .filter((d) => (d as Record<string, unknown>).severity === 'warning')
+          .map(normalizeDiagnostic)
+        return { ok: false, errors, warnings }
       }
-      // JSON but not an array — fall through to UNKNOWN
     } catch {
-      // Not JSON
+      // not JSON
     }
 
-    // Fallback: wrap plain-text error as a synthetic diagnostic
     return {
-      valid: false,
+      ok: false,
       errors: [
         {
           code: 'UNKNOWN',
           message: stderr.trim() || 'Compilation failed (no stderr)',
-          from: { line: 0, character: 0 },
-          to: { line: 0, character: 0 },
-          range: {
-            start: { line: 0, character: 0 },
-            end: { line: 0, character: 0 },
-          },
+          line: 0,
+          col: 0,
         },
       ],
+      warnings: [],
     }
   }
 }

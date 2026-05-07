@@ -24,13 +24,14 @@ let _index: CookbookEntry[] | null = null
 function loadIndex(): CookbookEntry[] {
   if (_index !== null) return _index
 
-  // Resolve relative to this file's location (works in both src/ and dist/)
   const here = dirname(fileURLToPath(import.meta.url))
 
-  // Try the index file adjacent to this module
   const candidates = [
+    // AIHU_COOKBOOK_PATH env override (path to cookbook-index.json)
+    ...(process.env.AIHU_COOKBOOK_PATH ? [resolve(process.env.AIHU_COOKBOOK_PATH)] : []),
     join(here, 'cookbook-index.json'),
     join(here, '..', 'src', 'cookbook-index.json'),
+    resolve('packages/mcp/src/cookbook-index.json'),
   ]
 
   for (const candidate of candidates) {
@@ -39,14 +40,6 @@ function loadIndex(): CookbookEntry[] {
       _index = JSON.parse(raw) as CookbookEntry[]
       return _index
     }
-  }
-
-  // Final fallback: try resolving relative to cwd (dev environment)
-  const cwdFallback = resolve('packages/mcp/src/cookbook-index.json')
-  if (existsSync(cwdFallback)) {
-    const raw = readFileSync(cwdFallback, 'utf-8')
-    _index = JSON.parse(raw) as CookbookEntry[]
-    return _index
   }
 
   _index = []

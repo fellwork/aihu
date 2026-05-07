@@ -5,10 +5,10 @@
       "args": [".claude/scripts/agentsdb-mcp.sh"]
     },
     "aihu": {
-      "command": "node",
-      "args": ["packages/mcp-server/dist/server.js"],
+      "command": "bun",
+      "args": ["run", "--filter", "@aihu/mcp", "serve"],
       "env": {
-        "AIHU_COOKBOOK_PATH": "./cookbook"
+        "AIHU_COOKBOOK_PATH": "./packages/mcp/src/cookbook-index.json"
       }
     }
   }

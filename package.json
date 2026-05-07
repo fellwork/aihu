@@ -35,7 +35,6 @@
     "check:deps": "bun scripts/dep-check.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
     "test:cookbook": "bun run --cwd cookbook test",
-    "mcp-server": "bun run --filter @aihu/mcp-server",
     "release": "bun run build && changeset publish",
     "prepare": "husky"
   },
