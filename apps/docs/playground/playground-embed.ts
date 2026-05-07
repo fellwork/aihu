@@ -290,7 +290,7 @@ export class PlaygroundEmbed extends HTMLElement {
     const previewHeader = document.createElement('header')
     const previewLabel = document.createElement('span')
     previewLabel.className = 'label'
-    previewLabel.textContent = 'live preview'
+    previewLabel.textContent = 'compiled output'
     previewHeader.appendChild(previewLabel)
     previewPane.appendChild(previewHeader)
 
