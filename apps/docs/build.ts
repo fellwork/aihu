@@ -155,12 +155,23 @@ for (const file of staticFiles) {
   await copyFile(join(__dir, file), join(__dir, 'dist', file))
 }
 
-// Copy public/ (_headers, _redirects, etc.)
+// Copy public/ recursively (_headers, _redirects, .well-known/*, ai.txt, etc.)
 const publicDir = join(__dir, 'public')
-const publicFiles = await readdir(publicDir).catch(() => [])
-for (const file of publicFiles) {
-  await copyFile(join(publicDir, file), join(__dir, 'dist', file))
+const distDir = join(__dir, 'dist')
+async function copyDirRecursive(src: string, dest: string): Promise<void> {
+  const entries = await readdir(src, { withFileTypes: true }).catch(() => [])
+  for (const entry of entries) {
+    const srcPath = join(src, entry.name)
+    const destPath = join(dest, entry.name)
+    if (entry.isDirectory()) {
+      await mkdir(destPath, { recursive: true })
+      await copyDirRecursive(srcPath, destPath)
+    } else {
+      await copyFile(srcPath, destPath)
+    }
+  }
 }
+await copyDirRecursive(publicDir, distDir)
 
 console.log('✓ Static assets copied → dist/')
 

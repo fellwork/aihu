@@ -13,7 +13,6 @@
 
 import {
   createAgentReadinessRoutes,
-  createContentNegotiationHandler,
   generateA2aCard,
   generateLlmsFullTxt,
   generateMcpDiscovery,
@@ -170,36 +169,17 @@ const sitemapHandler: RouteHandler = (_req) => {
   })
 }
 
-const cnMw = createContentNegotiationHandler({
-  resolver: {
-    resolve: async (path: string): Promise<string | null> => {
-      if (path === '/' || path === '/index.html') {
-        return generateLlmsFullTxt({
-          name: 'aihu',
-          summary,
-          sections: llmsSections,
-          optional: [{ title: 'Full docs (LLM-optimised)', url: 'https://aihu.dev/llms-full.txt' }],
-        })
-      }
-      return null
-    },
-  },
+const router = createRequestRouter({
+  routes: [
+    defineRoute('/llms.txt', ar.llmsTxt),
+    defineRoute('/llms-full.txt', ar.llmsFullTxt),
+    defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
+    defineRoute('/robots.txt', ar.robotsTxt),
+    defineRoute('/.well-known/agent.json', a2aCardHandler),
+    defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
+    defineRoute('/sitemap.xml', sitemapHandler),
+  ],
 })
-
-const router = createRequestRouter(
-  {
-    routes: [
-      defineRoute('/llms.txt', ar.llmsTxt),
-      defineRoute('/llms-full.txt', ar.llmsFullTxt),
-      defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
-      defineRoute('/robots.txt', ar.robotsTxt),
-      defineRoute('/.well-known/agent.json', a2aCardHandler),
-      defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
-      defineRoute('/sitemap.xml', sitemapHandler),
-    ],
-  },
-  { middleware: [cnMw] },
-)
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> }
@@ -207,12 +187,38 @@ interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+
+    // 0. Content negotiation: serve markdown when agents request it.
+    // Must run before static-asset lookup so the CDN doesn't cache HTML
+    // for markdown-accepting agents. Vary: Accept tells the CDN to keep
+    // format-appropriate cache entries separate.
+    const accept = request.headers.get('Accept') ?? ''
+    if (accept.includes('text/markdown')) {
+      const p = url.pathname
+      if (p === '/' || p === '/index.html') {
+        const md = generateLlmsFullTxt({
+          name: 'aihu',
+          summary,
+          sections: llmsSections,
+          optional: [{ title: 'Full docs (LLM-optimised)', url: 'https://aihu.dev/llms-full.txt' }],
+        })
+        return new Response(md, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/markdown; charset=utf-8',
+            'Vary': 'Accept',
+            'x-markdown-tokens': String(Math.ceil(md.length / 4)),
+          },
+        })
+      }
+    }
+
     // 1. Agent-readiness and API routes
     const routeResponse = await router(request)
     if (routeResponse.status !== 404) return routeResponse
 
     // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …)
-    const url = new URL(request.url)
     try {
       return await env.ASSETS.fetch(request)
     } catch {
