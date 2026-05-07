@@ -9,8 +9,8 @@
  */
 
 import type { AgentMetadata } from '@aihu/agent'
-import { createAgentService } from '@aihu/agent-service'
 import type { LiveBinding } from '@aihu/agent-service'
+import { createAgentService } from '@aihu/agent-service'
 import { describe, expect, it } from 'vitest'
 import { mountA2aAdapter } from '../src/index.ts'
 
@@ -23,10 +23,7 @@ function makeService(metas: AgentMetadata[] = []) {
 }
 
 /** Create a service with a live registry for tests that need live dispatch. */
-function makeServiceWithRegistry(
-  metas: AgentMetadata[],
-  registry: Map<string, LiveBinding[]>,
-) {
+function makeServiceWithRegistry(metas: AgentMetadata[], registry: Map<string, LiveBinding[]>) {
   return createAgentService({ manifests: metas, getRegistry: () => registry })
 }
 

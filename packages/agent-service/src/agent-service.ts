@@ -43,7 +43,17 @@ function jsonrpcError(
   message: string,
 ): { error: string; code: number; jsonrpc?: { code: number; message: string } } {
   const rpcCode =
-    code === 404 ? -32601 : code === 400 ? -32602 : code === 401 ? -32001 : code === 403 ? -32002 : code === 429 ? -32003 : -32603
+    code === 404
+      ? -32601
+      : code === 400
+        ? -32602
+        : code === 401
+          ? -32001
+          : code === 403
+            ? -32002
+            : code === 429
+              ? -32003
+              : -32603
   return {
     error: message,
     code,
@@ -172,7 +182,11 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       // ── Step 5: dispatch ──────────────────────────────────────────────────
       // Try callAction first, then getSignal for read-only signals.
       try {
-        const args = Array.isArray(params) ? params : params !== null && params !== undefined ? [params] : []
+        const args = Array.isArray(params)
+          ? params
+          : params !== null && params !== undefined
+            ? [params]
+            : []
         const result = await binding.callAction(action, args)
         return { result }
       } catch (err: unknown) {

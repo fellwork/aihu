@@ -151,7 +151,11 @@ export interface AgentService {
    * @param params - Action arguments or signal write value.
    * @param requestContext - Auth context (userId, jwt). Required for scoped components.
    */
-  handleToolCall(toolName: string, params: unknown, requestContext?: RequestContext): Promise<unknown>
+  handleToolCall(
+    toolName: string,
+    params: unknown,
+    requestContext?: RequestContext,
+  ): Promise<unknown>
   /**
    * Returns a fetch-compatible middleware function.
    * Handles `POST /__aihu/tools/call` with `{ tool, params }` JSON body.

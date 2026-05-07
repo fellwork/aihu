@@ -3,9 +3,7 @@
     "target": "ES2020",
     "module": "Node16",
     "moduleResolution": "Node16",
-    "lib": [
-      "ES2020"
-    ],
+    "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": ".",
     "strict": true,
@@ -15,13 +13,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": [
-    "client/**/*.ts",
-    "server/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts"
-  ]
+  "include": ["client/**/*.ts", "server/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

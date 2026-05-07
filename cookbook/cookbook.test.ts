@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { transform } from '../packages/compiler/js/index.ts'
 
 const cookbookDir = resolve(import.meta.dirname, '.')
-const sfcFiles = readdirSync(cookbookDir).filter(f => f.endsWith('.aihu'))
+const sfcFiles = readdirSync(cookbookDir).filter((f) => f.endsWith('.aihu'))
 
 describe('cookbook compile test', () => {
   it('finds at least 20 .aihu SFCs', () => {
