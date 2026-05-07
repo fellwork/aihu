@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Custom event emission with $event collection, $emit, and $on consumer pattern
+tags: event, emit, $event, $emit, $on, custom-event, selection, list, prop
+-->
 <!-- Recipe: emit-event — $event collection + $emit.selected({ id }) + $on.selected consumer pattern -->
 
 @state {

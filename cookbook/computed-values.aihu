@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Computed values derived from multiple signals with template binding for an order summary
+tags: computed, signal, derived, binding, calculation, reactive, price, quantity
+-->
 <!-- Recipe: computed-values — $computed derived from multiple signals + template binding -->
 
 @state {

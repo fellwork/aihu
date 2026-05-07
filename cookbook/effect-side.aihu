@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Side-effect with $effect for localStorage sync and theme toggling with cleanup
+tags: effect, side-effect, localStorage, theme, toggle, cleanup, prop, reactive
+-->
 <!-- Recipe: effect-side — $effect for a side-effect (localStorage sync) + cleanup -->
 
 @state {

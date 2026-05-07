@@ -1,12 +1,8 @@
 {
-  "name": "@aihu/cli",
-  "version": "0.3.1",
+  "name": "@aihu/mcp",
+  "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "aihu": "./dist/bin.js",
-    "create-aihu": "./dist/create.js"
-  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,6 +12,9 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "serve": "./dist/bin/serve.js"
+  },
   "files": [
     "dist",
     "README.md",
@@ -23,20 +22,21 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "rolldown -c",
+    "build": "bun scripts/build-cookbook-index.ts && rolldown -c",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@aihu/mcp": "workspace:*"
+    "@modelcontextprotocol/sdk": "^1.0.0"
   },
-  "description": "Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands.",
+  "description": "MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
-    "directory": "packages/cli"
+    "directory": "packages/mcp"
   },
-  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/cli#readme",
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/mcp#readme",
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"

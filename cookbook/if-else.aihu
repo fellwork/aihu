@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Conditional rendering with if/else-if/else chain and reactive computed condition
+tags: if, else, conditional, computed, reactive, template, grade, branch
+-->
 <!-- Recipe: if-else — {#if} / {:else if} / {:else} chain + reactive condition -->
 
 @state {

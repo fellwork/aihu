@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Agent-surface counter with described actions and exposed computed state for agent introspection
+tags: agent, action, computed, expose, describe, mcp, surface, counter, agent-surface
+-->
 <!-- Recipe: agent-surface — $action with describe/expose for agent visibility + $computed exposed state -->
 
 @state {

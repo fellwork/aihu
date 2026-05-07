@@ -1,25 +1,15 @@
-# @aihu/cli
+# @aihu/mcp
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.
+MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.
 
-Part of the **compiler + toolchain** layer of Aihu. Build-time only — does not ship to the client. The compiler reads `.aihu` SFC source (per the [Block Structure spec](../../docs/superpowers/specs/2026-05-02-spec-block-structure.md)) and emits standards-compliant Web Components.
+Held-private workspace package. Not yet published to npm.
+
+> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-# or
-bun add @aihu/cli
-```
-
-# Scaffold a new aihu app
-bun create aihu my-app
-# or
-npm create aihu my-app
-
-# Inside the project
-aihu dev      # start dev server
-aihu build    # build for production
-```
+_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install
@@ -28,13 +18,12 @@ aihu build    # build for production
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-# Scaffold a new app
-bunx @aihu/cli app my-app
-# Or install globally
-bun add -g @aihu/cli
+npm install @aihu/mcp
+# or
+bun add @aihu/mcp
 ```
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -45,12 +34,12 @@ bun add -g @aihu/cli
 
 | | |
 |---|---|
-| **Version** | `0.3.1` |
-| **Tier** | D — Toolchain — `aihu` / `create-aihu` CLI |
+| **Version** | `0.1.0` |
+| **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -63,7 +52,7 @@ bun add -g @aihu/cli
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -74,9 +63,9 @@ bun add -g @aihu/cli
 
 **Dependencies:**
 
-- `@aihu/mcp` — `workspace:*`
+- `@modelcontextprotocol/sdk` — `^1.0.0`
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -85,11 +74,10 @@ bun add -g @aihu/cli
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [docs/cli.md](../../docs/cli.md)
-- [@aihu/compiler](../compiler)
 - [Aihu framework root](../../README.md)
+- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -100,6 +88,6 @@ bun add -g @aihu/cli
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

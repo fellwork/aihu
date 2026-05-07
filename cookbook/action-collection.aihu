@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Action collection with multiple named actions, undo history, and step counter
+tags: action, $action, collection, undo, history, counter, step, signal, increment, decrement
+-->
 <!-- Recipe: action-collection — $action collection form with multiple named actions -->
 
 @state {

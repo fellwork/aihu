@@ -22,6 +22,10 @@ struct StateImports {
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
     // calls into `@aihu/router`. When set, the namespace import is emitted.
     needs_aihu_router: bool,
+    // B5 — `$controller` requires onMount+onCleanup for lifecycle wiring.
+    needs_controller: bool,
+    // B5 — `$context` requires onMount for provide/consume wiring.
+    needs_context: bool,
 }
 
 #[derive(Debug, Default, serde::Serialize)]
@@ -671,6 +675,23 @@ fn process_state_body(
                     // B4 — $aria declarations are handled by emit_aria_wiring()
                     // at SFC-body level. No signal/binding side-effects here.
                 }
+                CollectionKind::Controller => {
+                    // B5 — $controller entries lower to IIFE-factories with
+                    // onMount/onCleanup lifecycle wiring. Mark needs_controller
+                    // so the runtime imports are included.
+                    si.needs_controller = true;
+                    si.needs_on_mount = true;
+                    si.needs_on_cleanup = true;
+                    for e in entries {
+                        state_names.insert(&e.name);
+                    }
+                }
+                CollectionKind::Context => {
+                    // B5 — $context provide/consume entries lower to DOM event
+                    // patterns inside onMount. Mark needs_context.
+                    si.needs_context = true;
+                    si.needs_on_mount = true;
+                }
             },
             StateMacro::EffectAnon { .. }
             | StateMacro::EffectOn { .. }
@@ -751,6 +772,9 @@ fn process_state_body(
                     | Some("lifecycle")
                     | Some("event")
                     | Some("aria")
+                    // B5
+                    | Some("controller")
+                    | Some("context")
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
@@ -1150,6 +1174,82 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // B4 — $aria wiring is emitted by emit_aria_wiring()
                             // at the SFC-body level (called from emit_function_form).
                             // Individual entries are not lowered here.
+                        }
+                        CollectionKind::Controller => {
+                            // B5 — $controller: each entry's `value:` factory is
+                            // called once; if the returned object has
+                            // `hostConnected`/`hostDisconnected` methods they are
+                            // wired into onMount/onCleanup respectively.
+                            let factory = match crate::parser::state_macros::meta_get(entry, "value") {
+                                Some(f) => f.trim(),
+                                None => continue,
+                            };
+                            let name = &entry.name;
+                            lines.push(format!(
+                                "{indent}const {name} = (() => {{\n\
+                                 {indent}  const _ctrl = ({factory})()\n\
+                                 {indent}  if (typeof _ctrl.hostConnected === 'function') onMount(() => _ctrl.hostConnected())\n\
+                                 {indent}  if (typeof _ctrl.hostDisconnected === 'function') onCleanup(() => _ctrl.hostDisconnected())\n\
+                                 {indent}  return _ctrl\n\
+                                 {indent}}})()",
+                                indent = indent,
+                                name = name,
+                                factory = factory,
+                            ));
+                        }
+                        CollectionKind::Context => {
+                            // B5 — $context entries are `provide` or `consume`.
+                            // Each is a wrapped entry whose `meta` pairs hold
+                            // the context keys and their sub-metadata objects.
+                            //
+                            // Example:
+                            //   provide entry → meta: [("theme", "{ value: () => themeSignal }")]
+                            //   consume entry → meta: [("locale", "{ type: 'Locale' }")]
+                            //
+                            // For provide: emit onMount dispatching __aihu_ctx_provide event.
+                            // For consume: emit let binding + onMount listener pattern.
+                            for (ctx_key, ctx_val) in &entry.meta {
+                                let v_trimmed = ctx_val.trim();
+                                if entry.name == "provide" {
+                                    // Parse the sub-object { value: () => expr } to extract factory.
+                                    let inner = match crate::parser::state_macros::strip_outer_braces_pub(v_trimmed) {
+                                        Some(s) => s,
+                                        None => continue,
+                                    };
+                                    let sub_meta = match crate::parser::state_macros::parse_meta_pairs_pub(&inner) {
+                                        Ok(p) => p,
+                                        Err(_) => continue,
+                                    };
+                                    let val_factory = match sub_meta.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim().to_string()) {
+                                        Some(f) => f,
+                                        None => continue,
+                                    };
+                                    lines.push(format!(
+                                        concat!(
+                                            "{indent}onMount(() => {{\n",
+                                            "{indent}  this.dispatchEvent(new CustomEvent('__aihu_ctx_provide', {{ bubbles: true, composed: true, detail: {{ key: '{key}', value: ({factory})() }} }}))\n",
+                                            "{indent}}})"),
+                                        indent = indent,
+                                        key = ctx_key,
+                                        factory = val_factory,
+                                    ));
+                                } else {
+                                    // consume: ctx_key -> { type: 'T' }
+                                    // Emit a `let` binding and an onMount listener.
+                                    lines.push(format!(
+                                        concat!(
+                                            "{indent}let {key}\n",
+                                            "{indent}onMount(() => {{\n",
+                                            "{indent}  this.addEventListener('__aihu_ctx_provide', (e) => {{\n",
+                                            "{indent}    if (e.detail?.key === '{key}') {key} = e.detail.value\n",
+                                            "{indent}  }})\n",
+                                            "{indent}  this.dispatchEvent(new Event('__aihu_ctx_request', {{ bubbles: true, composed: true }}))\n",
+                                            "{indent}}})"),
+                                        indent = indent,
+                                        key = ctx_key,
+                                    ));
+                                }
+                            }
                         }
                     }
                 }

@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Route guard auth gate pattern that redirects to login when unauthenticated
+tags: route, guard, auth, authentication, redirect, lifecycle, prop, navigation, if
+-->
 <!-- Recipe: route-guard — auth gate pattern; redirects to /login when unauthenticated -->
 <!-- TODO: requires @route block / $beforeNavigate when the router macro ships -->
 
