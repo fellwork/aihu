@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Show/hide with $show attribute vs if-block, demonstrating DOM presence trade-offs
+tags: show, hide, $show, if, toggle, visibility, dom, attribute, action
+-->
 <!-- Recipe: show-hide — $show={isVisible()} attribute vs {#if} trade-off -->
 <!--
   When to use $show vs #if:

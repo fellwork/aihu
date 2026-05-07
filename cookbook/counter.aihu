@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Minimal counter with signal and increment/decrement/reset actions
+tags: counter, signal, action, minimal, 7guis, increment, decrement, button, if
+-->
 <!-- Recipe: counter — signal(0) + increment/decrement with $on.click, {#if} for disable state -->
 
 @state {

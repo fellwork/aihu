@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: DOM element reference with $ref and canvas drawing in lifecycle mount
+tags: ref, $ref, dom, canvas, lifecycle, mount, element, access
+-->
 <!-- Recipe: ref-dom — $ref={myRef} + accessing DOM element in $lifecycle.mount -->
 
 @state {

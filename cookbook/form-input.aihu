@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Form with two-way binding, submit handler, and validation using signals
+tags: form, input, bind, validation, submit, email, signal, action, two-way
+-->
 <!-- Recipe: form-input — $bind.value two-way binding + $on.submit + form validation signal -->
 
 @state {

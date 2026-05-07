@@ -1,3 +1,7 @@
+<!-- @cookbook
+description: Lifecycle hooks with mount and dispose for interval timer setup and cleanup
+tags: lifecycle, mount, dispose, cleanup, timer, interval, $lifecycle, side-effect
+-->
 <!-- Recipe: lifecycle — $lifecycle: { mount, dispose } cleanup pattern -->
 
 @state {

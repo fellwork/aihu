@@ -64,6 +64,7 @@ function usage(): never {
       '  aihu plugin <name>      Scaffold a plugin package',
       '  aihu dev [options]      Start dev server',
       '  aihu build [options]    Production build',
+      '  aihu mcp serve          Start the MCP stdio server',
       '',
     ].join('\n'),
   )
@@ -392,6 +393,18 @@ async function main(): Promise<void> {
     const { default: build } = await import('./commands/build.js')
     await build(rest)
     return
+  }
+  if (cmd === 'mcp') {
+    const subCmd = rest[0]
+    if (subCmd === 'serve') {
+      const { default: mcpServe } = await import('./commands/mcp-serve.js')
+      await mcpServe(rest.slice(1))
+      return
+    }
+    process.stderr.write(
+      ['Usage:', '  aihu mcp serve    Start the MCP stdio server', ''].join('\n'),
+    )
+    process.exit(1)
   }
 
   // Scaffold commands (synchronous)
