@@ -1,5 +1,7 @@
 import { SignalCircularError } from './errors.ts'
 
+const __DEV__ = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+
 /** @internal — node in the doubly-linked dep graph (Phase 2 / parent §9.4).
  * Each Link records one (dep, sub) edge. The same Link object is threaded
  * into two doubly-linked lists: dep.subsHead..subsTail (forward edges)
@@ -448,7 +450,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     if (obs !== null) linkAdd(host, obs)
     return value
   }
-  read[__HOST] = host
+  if (__DEV__) read[__HOST] = host
 
   const write: Write<T> = (next) => {
     const resolved = typeof next === 'function' ? (next as (prev: T) => T)(value) : (next as T)

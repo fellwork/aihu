@@ -28,6 +28,9 @@ import { _makeScope, _mountDisposersStack, _mountEffect, type mount } from './mo
 import { _observeMount } from './telemetry.ts'
 import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
+// Injected by Rolldown (production: false) or vitest define (tests: true).
+declare const __DEV__: boolean
+
 // ---------------------------------------------------------------------------
 // Internal recursive hydration walker
 // ---------------------------------------------------------------------------
@@ -234,7 +237,7 @@ export function hydrate(
   const hp = root.getAttribute?.('data-aihu-path')
   if (hp != null) pathMap.set(hp, root)
 
-  _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
 
   const disposers: Dispose[] = []
   const signalRegistry = new Map<string, () => unknown>()
@@ -245,7 +248,7 @@ export function hydrate(
   } catch (err) {
     if (errorHandler) {
       errorHandler(err, 'hydrate')
-      _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
+      if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
       return _makeScope(disposers, signalRegistry)
     }
     throw err
@@ -256,7 +259,7 @@ export function hydrate(
 
   _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler)
 
-  _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
 
   return _makeScope(disposers, signalRegistry)
 }

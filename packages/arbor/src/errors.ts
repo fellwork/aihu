@@ -8,14 +8,3 @@
 export class ArborError extends Error {
   override name = 'ArborError'
 }
-
-/**
- * Thrown by `when()`, `each()`, and `MountScope.serialize()` v0 stubs.
- * Subclass of `ArborError` so `catch (e: ArborError)` catches both.
- */
-export class ArborNotImplementedError extends ArborError {
-  override name = 'ArborNotImplementedError'
-  constructor(feature: string) {
-    super(`${feature} is not implemented in v0 — see v1 roadmap`)
-  }
-}

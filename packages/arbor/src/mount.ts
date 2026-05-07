@@ -110,7 +110,7 @@ function registerLiveBinding(binding: LiveBinding): void {
       const selfOrigin = window.location.origin
       const parentOrigin = window.parent.location.origin
       if (selfOrigin !== parentOrigin) {
-        console.warn(
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(
           `[aihu/arbor] LiveBinding registration skipped for <${binding.tag}>: ` +
             `cross-origin iframe context (self=${selfOrigin}, parent=${parentOrigin}). ` +
             `Amendment 1 §6.7 — cross-origin iframes are not permitted to register live bindings.`,
@@ -119,7 +119,7 @@ function registerLiveBinding(binding: LiveBinding): void {
       }
     } catch {
       // SecurityError reading window.parent.location.origin means cross-origin.
-      console.warn(
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(
         `[aihu/arbor] LiveBinding registration skipped for <${binding.tag}>: ` +
           `cross-origin iframe context (SecurityError reading parent origin). ` +
           `Amendment 1 §6.7 — cross-origin iframes are not permitted to register live bindings.`,
@@ -132,7 +132,7 @@ function registerLiveBinding(binding: LiveBinding): void {
   const bindings = componentInstanceRegistry.get(binding.tag)
   if (bindings !== undefined) {
     if (bindings.length >= MAX_BINDINGS_PER_TAG) {
-      console.warn(
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(
         `[aihu/arbor] LiveBinding capacity cap (${MAX_BINDINGS_PER_TAG}) reached for <${binding.tag}>. ` +
           `The ${MAX_BINDINGS_PER_TAG + 1}th mount is rejected; existing bindings are unaffected. ` +
           `See agent.registry.maxBindingsPerTag for future configuration.`,
@@ -337,7 +337,7 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   const pathBase = `${rootId}.0`
   const errorHandler = options?.onError
 
-  _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-start', path: pathBase, timestamp: Date.now() })
 
   const disposers: Dispose[] = []
   // Plan 3.2 — signal registry: maps path key → signal getter for serialize().
@@ -366,7 +366,7 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
     _mountDisposersStack.pop()
   }
 
-  _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'mount-end', path: pathBase, timestamp: Date.now() })
 
   // v0.3.0 — Live-binding wiring (RFC §2.3, AC2/AC3).
   // When the component has a `__agentBinding` export, register a LiveBinding.
