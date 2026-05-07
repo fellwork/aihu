@@ -370,10 +370,22 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
 /**
  * Compile a .aihu source string to TypeScript.
  * map is null — source maps are deferred to v1 (OQ-C8)
+ *
+ * B3b — when `sidecarOut` is provided, also writes the per-SFC `.aihu.ts`
+ * sidecar at that path. Callers (e.g. the Vite plugin) typically pass
+ * `<source-id>.ts` so `tsc --noEmit` discovers per-SFC template expressions.
  */
-export function transform(source: string, id: string): { code: string; map: null } {
+export function transform(
+  source: string,
+  id: string,
+  options?: { sidecarOut?: string },
+): { code: string; map: null } {
   const stem = basename(id, '.aihu')
-  const code = execFileSync(binPath, ['--stdin', '--tag', stem, '--path', id], {
+  const args = ['--stdin', '--tag', stem, '--path', id]
+  if (options?.sidecarOut) {
+    args.push('--sidecar-out', options.sidecarOut)
+  }
+  const code = execFileSync(binPath, args, {
     input: source,
     encoding: 'utf8',
   })
@@ -533,7 +545,11 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
       const rawId = id.split('?')[0]!
       if (!rawId.endsWith('.aihu')) return
       return (async () => {
-        const result = transform(code, rawId)
+        // B3b — write per-SFC `.aihu.ts` sidecar adjacent to source so
+        // `tsc --noEmit` over `**/*.aihu.ts` type-checks template
+        // expressions end-to-end (Architect spec §7 path (i)).
+        const sidecarOut = `${rawId}.ts`
+        const result = transform(code, rawId, { sidecarOut })
         const compiled =
           shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
         const elementTag = _extractElementTag(compiled)

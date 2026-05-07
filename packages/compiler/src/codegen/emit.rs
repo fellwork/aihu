@@ -248,10 +248,17 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
         })
         .collect();
     let body = body_exprs.join("\n");
-    let user_script = if script.is_empty() { String::new() } else { format!("// user @state script (verbatim):\n{}\n\n", script) };
+    // B3b — DO NOT embed the user @state script verbatim. The script body
+    // contains aihu macros (`$prop`, `$computed`, `$event` etc.) which
+    // surface as labeled-statement-shaped lines and are NOT valid TypeScript
+    // — they would emit noisy `TS1128 Declaration or statement expected`
+    // errors that mask real template type errors. The framework globals are
+    // already permissively re-declared in the preamble; that's enough for
+    // tsc to type-check the template expressions in `__aihu_template`.
+    let _ = script;
     let out = format!(
-        "{}{}{}\nfunction __aihu_template(): void {{\n{}\n}}\n",
-        header, preamble, user_script, body
+        "{}{}\nfunction __aihu_template(): void {{\n{}\n}}\n",
+        header, preamble, body
     );
     Some(out)
 }

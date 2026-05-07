@@ -123,6 +123,33 @@ fn main() {
 
     let result = aihu_compiler::emit(&unit, &tag_name);
 
+    // B3b — optional `--sidecar-out <path>` writes the per-SFC `.aihu.ts`
+    // sidecar to that exact path. Used by the Vite plugin to write the
+    // sidecar adjacent to the .aihu source so `tsc --noEmit` over
+    // `**/*.aihu.ts` can type-check template expressions.
+    let sidecar_out_pos = args.iter().position(|a| a == "--sidecar-out");
+    let sidecar_out: Option<String> = match sidecar_out_pos {
+        Some(i) if i + 1 < args.len() => Some(args[i + 1].clone()),
+        _ => None,
+    };
+
+    if let Some(ref path) = sidecar_out {
+        if let Some(ref ts) = result.sidecar_ts {
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent).unwrap_or_else(|e| {
+                        eprintln!("error creating sidecar parent '{}': {}", parent.display(), e);
+                        process::exit(1);
+                    });
+                }
+            }
+            std::fs::write(path, ts).unwrap_or_else(|e| {
+                eprintln!("error writing sidecar '{}': {}", path, e);
+                process::exit(1);
+            });
+        }
+    }
+
     match out_dir {
         Some(ref dir) => {
             let out_file = format!("{}/{}.ts", dir, tag_name);
@@ -148,6 +175,17 @@ fn main() {
                     eprintln!("error writing '{}': {}", route_path, e);
                     process::exit(1);
                 });
+            }
+            // B3b — also write `<tag>.aihu.ts` next to the JS output when no
+            // explicit --sidecar-out was passed.
+            if sidecar_out.is_none() {
+                if let Some(ref ts) = result.sidecar_ts {
+                    let sidecar_path = format!("{}/{}.aihu.ts", dir, tag_name);
+                    std::fs::write(&sidecar_path, ts).unwrap_or_else(|e| {
+                        eprintln!("error writing sidecar '{}': {}", sidecar_path, e);
+                        process::exit(1);
+                    });
+                }
             }
         }
         None => {

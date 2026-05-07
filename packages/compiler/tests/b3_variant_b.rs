@@ -554,6 +554,91 @@ fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
     );
 }
 
+// ─── AC6 W202 stderr-capture test (V3 NEEDS_FIX item) ────────────────────────
+//
+// Verify that compiling a colon-form `$on:click` SFC emits the W202 deprecation
+// warning to stderr. We use `aihu-compile --stdin --tag x` and capture stderr.
+// Prefer the prebuilt binary at `bin/aihu-compile{.exe}` (vendored in repo)
+// or `target/{release,debug}/aihu-compile` so the test stays fast in CI;
+// falls back to `cargo run` when none exists.
+
+#[test]
+fn b3b_ac6_w202_fires_on_colon_form_stderr_capture() {
+    use std::io::Write;
+    use std::path::Path;
+    use std::process::{Command, Stdio};
+
+    let pkg_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    // Prefer freshly-built target/{debug,release}/ binaries over the
+    // vendored bin/ binary so this test runs against the latest compiler
+    // (which emits W202). The vendored bin/aihu-compile{.exe} is a
+    // last-resort fallback for environments where target/ isn't populated.
+    let candidates = [
+        pkg_dir.join("target/debug/aihu-compile.exe"),
+        pkg_dir.join("target/debug/aihu-compile"),
+        pkg_dir.join("target/release/aihu-compile.exe"),
+        pkg_dir.join("target/release/aihu-compile"),
+        pkg_dir.join("bin/aihu-compile.exe"),
+        pkg_dir.join("bin/aihu-compile"),
+    ];
+    let mut bin: Option<std::path::PathBuf> = None;
+    for c in candidates.iter() {
+        if c.exists() {
+            bin = Some(c.clone());
+            break;
+        }
+    }
+
+    let mut cmd = if let Some(b) = bin {
+        let mut c = Command::new(b);
+        c.args(["--stdin", "--tag", "x-w202-test"]);
+        c
+    } else {
+        let mut c = Command::new("cargo");
+        c.args([
+            "run",
+            "--quiet",
+            "--bin",
+            "aihu-compile",
+            "--",
+            "--stdin",
+            "--tag",
+            "x-w202-test",
+        ]);
+        c.current_dir(pkg_dir);
+        c
+    };
+
+    let mut child = cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("aihu-compile spawn failed");
+
+    let src = b"@template { <button $on:click={fn}>x</button> }\n";
+    child
+        .stdin
+        .as_mut()
+        .expect("stdin pipe")
+        .write_all(src)
+        .expect("write source");
+    let output = child.wait_with_output().expect("wait child");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("W202"),
+        "expected W202 deprecation warning in stderr; got: {}\n(stdout: {})",
+        stderr,
+        String::from_utf8_lossy(&output.stdout),
+    );
+    assert!(
+        stderr.contains("on:click") || stderr.contains("$on:click"),
+        "expected colon-form `$on:click` cited in W202 message; got: {}",
+        stderr
+    );
+}
+
 // ─── AC10 — Listener `$on.<custom-event>` with payload typing surface ────────
 //
 // At the lowering level a custom-event listener (e.g. `$on.dayjump={…}`) is
