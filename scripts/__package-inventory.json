@@ -37,7 +37,7 @@
   },
   {
     "name": "@aihu/agent-service",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/agent-service",
     "isPlatform": false
   },
@@ -55,7 +55,7 @@
   },
   {
     "name": "@aihu/arbor",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/arbor",
     "isPlatform": false
   },
@@ -73,7 +73,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.1.9",
+    "version": "0.2.0",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -109,7 +109,7 @@
   },
   {
     "name": "@aihu/runtime",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/runtime",
     "isPlatform": false
   },
