@@ -1,0 +1,92 @@
+# Aihu
+
+> A complete meta-framework for the agentic web. Write .aihu SFCs — the Rust compiler emits Web Components + MCP tool schemas. Sub-2 kB reactive runtime.
+
+## Getting Started
+
+- [Quickstart](https://aihu.dev/#getting-started): Install the CLI and scaffold a new app in 3 minutes
+- [Installation](https://aihu.dev/#installation): Prerequisites and install instructions
+- [Hello World](https://aihu.dev/#getting-started): The minimal .aihu SFC — state, template, agent surface
+
+## Core Documentation
+
+- [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax and reactive macros
+- [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
+- [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
+- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterPlugin
+- [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders
+- [Authoring Plugins](https://aihu.dev/#authoring-plugins): definePlugin contract and plugin ecosystem
+- [SSR & Hydration](https://aihu.dev/#ssr-hydration): Server rendering and client hydration
+- [Deployment](https://aihu.dev/#deployment): Cloudflare, Vercel, Bun, and Deno adapters
+
+## API Reference
+
+- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu/agent-readiness
+
+## Agent & MCP
+
+- [MCP Server Card](https://aihu.dev/.well-known/mcp/server-card.json): Machine-readable MCP server card (SEP-1649)
+- [llms-full.txt](https://aihu.dev/llms-full.txt): Extended documentation for AI agents
+- [Agent Discovery Guide](https://aihu.dev/#agent-discovery): How AI agents discover and call aihu components as MCP tools
+
+## Packages
+
+- [npm: @aihu/signals](https://www.npmjs.com/package/@aihu/signals): Push-based signals, computeds, and effects — the reactive core (sub-2 kB gz)
+- [npm: @aihu/arbor](https://www.npmjs.com/package/@aihu/arbor): Reactive DOM tree primitives — branch, leaf, mount (122x faster targeted updates)
+- [npm: @aihu/runtime](https://www.npmjs.com/package/@aihu/runtime): Custom element registration — onMount, onCleanup lifecycle hooks
+- [npm: @aihu/router](https://www.npmjs.com/package/@aihu/router): File-based router for aihu apps with viteRouterIntegration
+- [npm: @aihu/server](https://www.npmjs.com/package/@aihu/server): SSR runtime — createRequestRouter, renderToStream, defineLoader
+- [npm: @aihu/agent](https://www.npmjs.com/package/@aihu/agent): Agent primitives — defineAgent, AgentRegistry (sub-200 B)
+- [npm: @aihu/agent-service](https://www.npmjs.com/package/@aihu/agent-service): Server-side agent runtime for MCP tool endpoints
+- [npm: @aihu/agent-readiness](https://www.npmjs.com/package/@aihu/agent-readiness): Discovery manifest emitter — llms.txt, MCP Server Card, robots.txt
+- [npm: @aihu/agent-a2a](https://www.npmjs.com/package/@aihu/agent-a2a): A2A (Agent-to-Agent) protocol bindings
+- [npm: @aihu/agent-acp](https://www.npmjs.com/package/@aihu/agent-acp): ACP (Agent Control Protocol) bindings
+- [npm: @aihu/app](https://www.npmjs.com/package/@aihu/app): Top-level integration — wires runtime, router, and adapters
+- [npm: @aihu/data](https://www.npmjs.com/package/@aihu/data): Reactive data loaders and resource primitives
+- [npm: @aihu/context](https://www.npmjs.com/package/@aihu/context): Async-context-friendly request and SSR context primitives
+- [npm: @aihu/auth](https://www.npmjs.com/package/@aihu/auth): JWT scope checks, ScopeSignal, server middleware
+- [npm: @aihu/cli](https://www.npmjs.com/package/@aihu/cli): Aihu CLI — scaffolding, dev, build commands (aihu app, aihu dev, aihu build)
+- [npm: @aihu/compiler](https://www.npmjs.com/package/@aihu/compiler): Rust SFC compiler — .aihu to vanilla custom elements
+- [npm: @aihu/plugin](https://www.npmjs.com/package/@aihu/plugin): Plugin contract types — definePlugin, validatePlugin
+- [npm: @aihu/adapter-cloudflare](https://www.npmjs.com/package/@aihu/adapter-cloudflare): Cloudflare Workers/Pages deployment adapter
+- [npm: @aihu/adapter-vercel](https://www.npmjs.com/package/@aihu/adapter-vercel): Vercel deployment adapter
+
+## Examples
+
+- [live-counter](https://github.com/fellwork/aihu/tree/main/examples/live-counter): The smallest possible aihu component — state, event handlers, reactive text node, and agent surface
+- [temperature-converter](https://github.com/fellwork/aihu/tree/main/examples/temperature-converter): Two-way binding and computed derivations (7GUIs #2) with agent surface
+- [timer](https://github.com/fellwork/aihu/tree/main/examples/timer): Lifecycle hooks, reactive derivations, and agent surface for AI-controlled resets
+- [todo-mvc](https://github.com/fellwork/aihu/tree/main/examples/todo-mvc): Canonical TodoMVC — list reactivity, filtering, localStorage, full agent surface
+- [color-theme](https://github.com/fellwork/aihu/tree/main/examples/color-theme): $reactive in @style plus $global tokens and $media responsive breakpoints
+- [hacker-news](https://github.com/fellwork/aihu/tree/main/examples/hacker-news): HN reader hitting the live API — dark-mode tokens, @agent block, SSR route
+- [blog-loader](https://github.com/fellwork/aihu/tree/main/examples/blog-loader): Server-rendered post page demonstrating aihu's loader pattern
+- [blog-router](https://github.com/fellwork/aihu/tree/main/examples/blog-router): 3-page blog demonstrating file-based routing
+- [css-pluggability](https://github.com/fellwork/aihu/tree/main/examples/css-pluggability): Tailwind CSS integration with documented swap paths to UnoCSS and Pico CSS
+- [currency-converter](https://github.com/fellwork/aihu/tree/main/examples/currency-converter): Currency conversion with reactive signals
+- [weather-card](https://github.com/fellwork/aihu/tree/main/examples/weather-card): Weather card component with external API data
+
+## Architecture Specs
+
+- [Block Structure Spec](https://github.com/fellwork/aihu/blob/main/docs/superpowers/specs/2026-05-02-spec-block-structure.md): @state, @template, @style, @agent, @route block grammar (Ratified 2026-05-02)
+- [Macro Vocabulary v2 Spec](https://github.com/fellwork/aihu/blob/main/docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md): Object-literal collection-form macros (RATIFIED 2026-05-05)
+- [Template Attribute Syntax Spec](https://github.com/fellwork/aihu/blob/main/docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md): $on:event, $bind:value, $if, $each, $key directives (Ratified 2026-05-02)
+- [Live-Binding Spec](https://github.com/fellwork/aihu/blob/main/docs/superpowers/specs/2026-05-05-spec-live-binding.md): Reactive component-instance registry wiring @agent actions to live signals (APPROVED)
+- [Plugin Contract Spec](https://github.com/fellwork/aihu/blob/main/docs/superpowers/specs/2026-05-02-spec-plugin-contract.md): definePlugin contract and plugin hook surface (Ratified 2026-05-02)
+
+## Compliance Gates
+
+- [llms.txt compliance tests](https://github.com/fellwork/aihu/blob/main/packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts): 9 tests verifying llmstxt.org spec format
+- [MCP Server Card schema tests](https://github.com/fellwork/aihu/blob/main/packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts): 14 tests verifying SEP-1649 schema
+- [robots.txt RFC 9309 tests](https://github.com/fellwork/aihu/blob/main/packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts): 7 tests verifying RFC 9309 compliance
+- [isitagentready.com tests](https://github.com/fellwork/aihu/blob/main/packages/agent-readiness/tests/compliance/isitagentready.test.ts): 7 tests verifying all agent-readiness checklist items
+
+## Source
+
+- [GitHub Repository](https://github.com/fellwork/aihu): Source code, examples, and specs
+- [Roadmap](https://github.com/fellwork/aihu/blob/main/docs/roadmap/SUMMARY.md): v1.1 master plan and milestone schedule
+
+## More
+
+- [Contributing](https://github.com/fellwork/aihu/blob/main/CONTRIBUTING.md): How to contribute to aihu
+- [Changelog](https://github.com/fellwork/aihu/blob/main/packages/signals/CHANGELOG.md): @aihu/signals changelog
+- [CLI Reference](https://github.com/fellwork/aihu/blob/main/docs/cli.md): Full aihu CLI command reference
