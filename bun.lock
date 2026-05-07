@@ -286,6 +286,14 @@
         "@aihu/signals": "workspace:*",
       },
     },
+    "packages/auth": {
+      "name": "@aihu/auth",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/agent-service": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+    },
     "packages/cli": {
       "name": "@aihu/cli",
       "version": "0.3.1",
@@ -419,6 +427,8 @@
     "@aihu/app": ["@aihu/app@workspace:packages/app"],
 
     "@aihu/arbor": ["@aihu/arbor@workspace:packages/arbor"],
+
+    "@aihu/auth": ["@aihu/auth@workspace:packages/auth"],
 
     "@aihu/bench-arbor": ["@aihu/bench-arbor@workspace:bench/arbor"],
 

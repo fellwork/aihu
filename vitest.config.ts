@@ -47,6 +47,7 @@ export default defineConfig({
       '@aihu/agent-a2a': new URL('./packages/agent-a2a/src/index.ts', import.meta.url).pathname,
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
+      '@aihu/auth': new URL('./packages/auth/src/index.ts', import.meta.url).pathname,
     },
   },
 })
