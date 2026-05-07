@@ -23,6 +23,48 @@ export interface BuildConfig {
   target?: BuildTarget
 }
 
+// ---------------------------------------------------------------------------
+// Rendering mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Runtime rendering strategy for the application.
+ *
+ * - 'ssr'     — every page request renders HTML on the server and ships
+ *               hydration markers to the client. Required for streaming,
+ *               agentic access, SEO, and the fastest LCP. This is the
+ *               aihu default because it enables the full agent-ready surface.
+ *
+ * - 'spa'     — the server returns a bare HTML shell; all rendering happens
+ *               in the browser. No server compute per page request. Suitable
+ *               for: auth-gated dashboards, internal tools, apps deployed to
+ *               fully-static hosts (S3, GitHub Pages, Cloudflare Pages in
+ *               direct-upload mode). Limitations: no streaming, no agent
+ *               content access without JS execution, weaker SEO.
+ *
+ * - 'hybrid'  — some routes are SSR'd (dynamic server rendering + hydration),
+ *               others are pre-rendered to static HTML at build time, and the
+ *               remainder fall back to a SPA shell. Use when you need static
+ *               marketing pages (fast, cacheable) alongside dynamic user-specific
+ *               routes (SSR) and app sections (SPA). The per-route mode is
+ *               controlled via route-level options; this field sets the fallback.
+ */
+export type RenderingMode = 'ssr' | 'spa' | 'hybrid'
+
+export interface RenderingConfig {
+  /**
+   * Default rendering mode for all routes.
+   * Default: 'ssr' — server-renders every page with hydration markers enabled.
+   */
+  readonly mode?: RenderingMode
+  /**
+   * Emit `data-aihu-path` hydration markers on SSR output by default.
+   * Only applies when mode is 'ssr' or 'hybrid'.
+   * Default: true — enabling client-side takeover after first paint.
+   */
+  readonly hydratable?: boolean
+}
+
 export interface CorsConfig {
   readonly origin: string | ReadonlyArray<string> | '*'
   readonly methods?: ReadonlyArray<import('./types.ts').HttpMethod>
@@ -65,22 +107,49 @@ export interface AihuConfig {
    * This field is read by the compiler/build tooling; it has no runtime effect.
    */
   readonly build?: BuildConfig
+  /**
+   * Runtime rendering strategy. Defaults to SSR with hydration enabled —
+   * the agent-ready posture that gives LLMs, crawlers, and the aihu MCP
+   * server access to content without JavaScript execution.
+   */
+  readonly rendering?: RenderingConfig
 }
+
+const RENDERING_DEFAULTS: Required<RenderingConfig> = { mode: 'ssr', hydratable: true }
 
 /**
  * Define the aihu application configuration.
+ *
+ * Applies opinionated defaults before returning so callers always receive
+ * a fully-resolved config object:
+ *   - `rendering.mode`       defaults to `'ssr'`
+ *   - `rendering.hydratable` defaults to `true`
+ *
+ * Both can be overridden per-field; omitting `rendering` entirely still
+ * yields the SSR-with-hydration posture.
  *
  * IMPORTANT: BUILD-TIME ONLY. Not bundled into or available at edge
  * execution time. For runtime-dynamic configuration, call individual
  * generator functions directly in route handlers.
  *
  * @example
- * // aihu.config.ts
+ * // aihu.config.ts — SSR default (no rendering field needed)
  * export default defineAihuConfig({
  *   server: { cors: { origin: '*' } },
  *   agent: { name: 'My App', version: '1.0.0', endpoint: 'https://myapp.workers.dev/mcp' },
  * })
+ *
+ * @example
+ * // aihu.config.ts — opt into SPA mode
+ * export default defineAihuConfig({ rendering: { mode: 'spa' } })
+ *
+ * @example
+ * // aihu.config.ts — hybrid: SSR default, hydratable markers on
+ * export default defineAihuConfig({ rendering: { mode: 'hybrid', hydratable: true } })
  */
 export function defineAihuConfig(config: AihuConfig): AihuConfig {
-  return config
+  return {
+    ...config,
+    rendering: { ...RENDERING_DEFAULTS, ...config.rendering },
+  }
 }

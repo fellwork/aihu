@@ -7,6 +7,8 @@ export type {
   BuildConfig,
   BuildTarget,
   CorsConfig,
+  RenderingConfig,
+  RenderingMode,
   RouteConfig,
   ServerConfig,
 } from './config.ts'
