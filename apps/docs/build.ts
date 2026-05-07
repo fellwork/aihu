@@ -199,3 +199,52 @@ const sitemapXml = generateSitemapXml({
 })
 await writeFile(join(__dir, 'dist', 'sitemap.xml'), sitemapXml, 'utf8')
 console.log('✓ sitemap.xml → dist/sitemap.xml')
+
+// ── 7. Emit llms-full.txt — full docs concatenated for LLM consumption ──
+//
+// Concatenate every docs/site/*.md in logical reading order with H1 headers
+// so the file is a self-contained LLM-optimised copy of the documentation.
+
+const docOrder = [
+  'introduction',
+  'installation',
+  'getting-started',
+  'authoring-components',
+  'reactivity',
+  'authoring-agents',
+  'routing-layouts',
+  'data-fetching',
+  'ssr-hydration',
+  'agent-discovery',
+  'authoring-plugins',
+  'api-reference',
+  'deployment',
+]
+
+const repoRoot = join(__dir, '../../')
+const siteDir = join(repoRoot, 'docs/site')
+
+const llmsFullParts: string[] = [
+  '# aihu — Full Documentation',
+  '',
+  '> A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements',
+  '> with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.',
+  '',
+  '> Source: https://aihu.dev | GitHub: https://github.com/fellwork/aihu',
+  '',
+  '---',
+  '',
+]
+
+for (const id of docOrder) {
+  const mdPath = join(siteDir, `${id}.md`)
+  try {
+    const content = await readFile(mdPath, 'utf8')
+    llmsFullParts.push(content.trim(), '', '---', '')
+  } catch {
+    // skip missing files silently
+  }
+}
+
+await writeFile(join(__dir, 'dist', 'llms-full.txt'), llmsFullParts.join('\n'), 'utf8')
+console.log('✓ llms-full.txt → dist/llms-full.txt')

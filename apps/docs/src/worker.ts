@@ -172,7 +172,7 @@ const sitemapHandler: RouteHandler = (_req) => {
 const router = createRequestRouter({
   routes: [
     defineRoute('/llms.txt', ar.llmsTxt),
-    defineRoute('/llms-full.txt', ar.llmsFullTxt),
+    // /llms-full.txt is served as a static asset built by build.ts (full docs concatenation)
     defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
     defineRoute('/robots.txt', ar.robotsTxt),
     defineRoute('/.well-known/agent.json', a2aCardHandler),
@@ -241,7 +241,9 @@ export default {
       return assetRes
     } catch {
       // 3. SPA shell fallback — any unmatched path gets index.html
-      const fallback = await env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request))
+      const fallback = await env.ASSETS.fetch(
+        new Request(new URL('/index.html', url.origin), request),
+      )
       const enriched = new Response(fallback.body, fallback)
       enriched.headers.set('Link', discoveryLink)
       return enriched
