@@ -15,10 +15,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { handleExample } from './tools/example.js'
 import { handleValidate } from './tools/validate.js'
 
@@ -72,10 +69,7 @@ const TOOL_DEFINITIONS = [
  * Exported for programmatic use and testing.
  */
 export function createServer(): Server {
-  const server = new Server(
-    { name: 'aihu', version: '0.1.0' },
-    { capabilities: { tools: {} } },
-  )
+  const server = new Server({ name: 'aihu', version: '0.1.0' }, { capabilities: { tools: {} } })
 
   // List tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

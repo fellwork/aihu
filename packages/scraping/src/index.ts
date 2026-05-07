@@ -9,8 +9,8 @@
  *   `RateLimiterOptions`, `RateLimitPlugin` — rate-limiter types
  *   `BotDetectionOptions` — bot-detection types
  */
-export { createRateLimiter, createRateLimitPlugin } from './rate-limiter.ts'
-export type { RateLimiterOptions, RateLimitPlugin } from './rate-limiter.ts'
 
-export { createBotDetectionMiddleware } from './bot-detection.ts'
 export type { BotDetectionOptions } from './bot-detection.ts'
+export { createBotDetectionMiddleware } from './bot-detection.ts'
+export type { RateLimiterOptions, RateLimitPlugin } from './rate-limiter.ts'
+export { createRateLimiter, createRateLimitPlugin } from './rate-limiter.ts'

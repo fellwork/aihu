@@ -6,15 +6,15 @@
  * (on error).
  */
 
-import { compileSource } from '../compiler.js'
 import type { AihuDiagnostic, ValidateResult } from '../compiler.js'
+import { compileSource } from '../compiler.js'
 
 export interface ValidateInput {
   source: string
   filename?: string
 }
 
-export type { ValidateResult, AihuDiagnostic }
+export type { AihuDiagnostic, ValidateResult }
 
 /**
  * Handle the aihu_validate tool call.

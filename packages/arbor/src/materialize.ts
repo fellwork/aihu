@@ -99,7 +99,7 @@ export function _materialize(
         errorHandler,
         registry,
       )
-      for (let j = 0; j < nodes.length; j++) appended.push(nodes[j])
+      for (let j = 0; j < nodes.length; j++) appended.push(nodes[j]!)
     }
     return appended
   }

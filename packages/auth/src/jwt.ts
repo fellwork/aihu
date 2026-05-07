@@ -44,7 +44,9 @@ export function decodeJwt(jwt: string): JwtClaims | null {
       decoded = Buffer.from(payload, 'base64url').toString('utf8')
     } else {
       // Browser — atob only supports standard base64; add padding + replace URL chars
-      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (payload.length % 4)) % 4)
+      const base64 =
+        payload.replace(/-/g, '+').replace(/_/g, '/') +
+        '=='.slice(0, (4 - (payload.length % 4)) % 4)
       decoded = atob(base64)
     }
 

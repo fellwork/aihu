@@ -18,8 +18,7 @@ import {
 
 /** @internal — true in dev/test; false in production (DCE'd by rolldown via
  * the `define` map: `'process.env.NODE_ENV': '"production"'`). */
-const __DEV__ =
-  typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+const __DEV__ = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
 
 export interface ComputedOptions<T> {
   /**

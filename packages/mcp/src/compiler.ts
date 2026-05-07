@@ -73,10 +73,7 @@ export type ValidateResult =
  * On non-JSON stderr: wraps in a synthetic UNKNOWN diagnostic
  * On timeout: returns a synthetic TIMEOUT diagnostic
  */
-export async function compileSource(
-  source: string,
-  filename: string,
-): Promise<ValidateResult> {
+export async function compileSource(source: string, filename: string): Promise<ValidateResult> {
   const stem = basename(filename, '.aihu')
 
   try {

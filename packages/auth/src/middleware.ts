@@ -48,10 +48,13 @@ export function requireAuth(options?: AuthMiddlewareOptions): Middleware {
   return (req: Request, next: Next): Response | Promise<Response> => {
     const token = getToken(req, options)
     if (!token) {
-      return new Response(JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
     return next()
   }
@@ -69,10 +72,13 @@ export function requireScope(scope: string, options?: AuthMiddlewareOptions): Mi
   return (req: Request, next: Next): Response | Promise<Response> => {
     const token = getToken(req, options)
     if (!token) {
-      return new Response(JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
 
     const claims = decodeJwt(token)

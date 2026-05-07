@@ -6,7 +6,7 @@
  */
 
 import type { AuthPlugin } from '@aihu/agent-service'
-import { type JwtClaims, decodeJwt, hasScope } from './jwt.ts'
+import { decodeJwt, hasScope, type JwtClaims } from './jwt.ts'
 
 export type { JwtClaims }
 

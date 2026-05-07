@@ -60,7 +60,7 @@ function loadIndex(): CookbookEntry[] {
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .split(/[\s,.\-_/\\:;!?'"()\[\]{}]+/)
+    .split(/[\s,.\-_/\\:;!?'"()[\]{}]+/)
     .filter((t) => t.length > 0)
 }
 

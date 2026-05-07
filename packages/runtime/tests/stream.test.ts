@@ -4,8 +4,7 @@
  * Per spec docs/specs/stream-impl.md §2 and the Builder brief.
  */
 
-import { signal } from '@aihu/signals'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createStream } from '../src/stream.ts'
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -23,7 +22,7 @@ function makeStream(chunks: string[]): ReadableStream<string> {
 }
 
 /** Create an infinite ReadableStream that never closes. */
-function makeInfiniteStream(): ReadableStream<string> {
+function _makeInfiniteStream(): ReadableStream<string> {
   return new ReadableStream<string>({
     start(_controller) {
       // Never enqueues or closes — stays open.
