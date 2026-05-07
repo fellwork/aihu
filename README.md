@@ -147,11 +147,11 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 | Workload | @aihu/signals | alien-signals | @preact/signals-core | @vue/reactivity | solid-js | s-js |
 |---|---:|---:|---:|---:|---:|---:|
-| `cellx` | 415.89 ns | 716.09 ns | 572.12 ns | 954.10 ns | 1.52 µs | 653.78 ns |
-| `batched-writes-100` | 2.69 µs | 3.64 µs | 4.47 µs | 8.34 µs | 6.76 µs | 2.66 µs |
-| `dynamic-deps` | 585.94 ns | 1.35 µs | 952.44 ns | 3.93 µs | 1.10 µs | 649.54 ns |
-| `creation-1to1000` | 87.63 µs | 96.43 µs | 57.70 µs | 89.86 µs | 72.50 µs | 72.16 µs |
-| `deep-propagation-100` | 2.88 µs | 2.25 µs | 3.48 µs | 4.86 µs | 6.89 µs | 2.63 µs |
+| `cellx` | 371.22 ns | 681.23 ns | 540.82 ns | 890.87 ns | 1.43 µs | 664.67 ns |
+| `batched-writes-100` | 2.56 µs | 3.37 µs | 4.01 µs | 7.51 µs | 6.47 µs | 2.52 µs |
+| `dynamic-deps` | 554.93 ns | 1.24 µs | 904.93 ns | 3.86 µs | 1.09 µs | 633.11 ns |
+| `creation-1to1000` | 74.61 µs | 91.32 µs | 56.90 µs | 80.49 µs | 64.40 µs | 64.82 µs |
+| `deep-propagation-100` | 2.75 µs | 2.11 µs | 3.08 µs | 4.67 µs | 6.14 µs | 2.00 µs |
 
 ### `@aihu/arbor` vs SOTA DOM-binding libraries
 

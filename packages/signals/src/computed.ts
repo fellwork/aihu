@@ -16,6 +16,11 @@ import {
   shallowClear,
 } from './signal.ts'
 
+/** @internal — true in dev/test; false in production (DCE'd by rolldown via
+ * the `define` map: `'process.env.NODE_ENV': '"production"'`). */
+const __DEV__ =
+  typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+
 export interface ComputedOptions<T> {
   /**
    * Equality comparator applied to recomputed values. When the recomputed
@@ -130,7 +135,7 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     }
     return node.cached as T
   }
-  read[__HOST] = node
+  if (__DEV__) read[__HOST] = node
 
   return read
 }
