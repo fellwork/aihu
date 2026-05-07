@@ -14,13 +14,13 @@
 import {
   createAgentReadinessRoutes,
   createContentNegotiationHandler,
+  generateA2aCard,
   generateLlmsFullTxt,
+  generateMcpDiscovery,
+  generateSitemapXml,
 } from '@aihu/agent-readiness'
 import type { RouteHandler } from '@aihu/server'
 import { createRequestRouter, defineRoute, json } from '@aihu/server'
-import { generateA2aCard } from '../../packages/agent-readiness/src/a2a-card.ts'
-import { generateMcpDiscovery } from '../../packages/agent-readiness/src/mcp-discovery.ts'
-import { generateSitemapXml } from '../../packages/agent-readiness/src/sitemap.ts'
 
 const summary =
   'A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements ' +
