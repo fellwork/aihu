@@ -29,7 +29,14 @@ import { fileURLToPath } from 'node:url'
  * Server-side packages — run on Node/Bun, budgeted by SSR-bytes-served and
  * dep-tree audit, not browser-bundle bytes.
  */
-const SERVER_SIDE = new Set<string>(['@aihu/server', '@aihu/agent-readiness'])
+const SERVER_SIDE = new Set<string>([
+  '@aihu/server',
+  '@aihu/agent-readiness',
+  '@aihu/ai',
+  '@aihu/auth',
+  '@aihu/mcp',
+  '@aihu/scraping',
+])
 
 /**
  * Build/dev-time-only packages — run in the build toolchain or dev tooling,
