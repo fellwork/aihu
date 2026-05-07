@@ -1,5 +1,12 @@
 # @aihu/adapter-cloudflare
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @aihu/app@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes
