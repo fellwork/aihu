@@ -230,7 +230,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/app`](./packages/app) | `0.1.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
-| [`@aihu/cli`](./packages/cli) | `0.3.0` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `0.3.1` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.1.9` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |

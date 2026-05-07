@@ -8,6 +8,7 @@
     "packages/*",
     "packages/templates/*",
     "bench/*",
+    "bench/js-framework-benchmark/*/*",
     "examples/*",
     "apps/*"
   ],
