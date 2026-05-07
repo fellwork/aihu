@@ -2,10 +2,12 @@
  * `aihu dev [options]` — start development server.
  *
  * Reads `aihu.config.ts` from CWD to detect bundler. Default: 'vite'.
- * Vite is spawned as a node subprocess so that @cloudflare/vite-plugin's
- * Environment API works correctly (programmatic createServer() does not
- * support it). stdio: 'inherit' preserves native ANSI rendering in the
- * caller's terminal without buffering.
+ * Vite is spawned as a node subprocess (not programmatic createServer) so
+ * that @cloudflare/vite-plugin's Environment API works correctly.
+ *
+ * TTY detection controls output handling:
+ *   - TTY (direct terminal): stdio:inherit — ANSI renders natively.
+ *   - Non-TTY (piped via moon/CI): pipe + strip ANSI — clean plain text.
  *
  * Flags: --port <n>  --host <h>  --open  --help
  */
@@ -14,6 +16,52 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+
+// ANSI pattern built via constructor to satisfy biome noControlCharactersInRegex.
+const ANSI_RE = new RegExp(`${String.fromCharCode(0x1b)}\\[[\\d;]*[A-Za-z]`, 'g')
+function stripAnsi(s: string): string {
+  return s.replace(ANSI_RE, '')
+}
+
+const NOISE: RegExp[] = [
+  /Re-optimizing dependencies/,
+  /Default inspector port \d+ not available/,
+  /^\s*$/,
+]
+
+function isNoise(plain: string): boolean {
+  return NOISE.some((r) => r.test(plain))
+}
+
+function pipePlainText(child: ReturnType<typeof spawn>): void {
+  let outBuf = ''
+  let errBuf = ''
+
+  const flush = (buf: string, dest: NodeJS.WriteStream): string => {
+    const lines = buf.split('\n')
+    const partial = lines.pop() ?? ''
+    for (const line of lines) {
+      const plain = stripAnsi(line)
+      if (!isNoise(plain)) dest.write(`${plain}\n`)
+    }
+    return partial
+  }
+
+  child.stdout?.on('data', (chunk: Buffer) => {
+    outBuf = flush(outBuf + chunk.toString(), process.stdout)
+  })
+  child.stdout?.on('end', () => {
+    const plain = stripAnsi(outBuf)
+    if (plain && !isNoise(plain)) process.stdout.write(`${plain}\n`)
+  })
+  child.stderr?.on('data', (chunk: Buffer) => {
+    errBuf = flush(errBuf + chunk.toString(), process.stderr)
+  })
+  child.stderr?.on('end', () => {
+    const plain = stripAnsi(errBuf)
+    if (plain && !isNoise(plain)) process.stderr.write(`${plain}\n`)
+  })
+}
 
 interface DevAihuConfig {
   build?: { bundler?: string }
@@ -105,18 +153,21 @@ function runVite(flags: DevFlags): void {
     process.exit(1)
   }
 
-  const args: string[] = []
-  if (flags.port !== undefined) args.push('--port', String(flags.port))
-  if (flags.host !== undefined) args.push('--host', flags.host)
-  if (flags.open) args.push('--open')
+  const viteArgs: string[] = []
+  if (flags.port !== undefined) viteArgs.push('--port', String(flags.port))
+  if (flags.host !== undefined) viteArgs.push('--host', flags.host)
+  if (flags.open) viteArgs.push('--open')
 
-  // --no-deprecation suppresses Node runtime warnings (e.g. punycode DEP0040).
-  // stdio: 'inherit' lets the child write directly to the caller's console
-  // handle so ANSI escape codes render natively without buffering.
-  const child = spawn('node', ['--no-deprecation', viteBin, ...args], {
-    stdio: 'inherit',
+  const isTTY = process.stdout.isTTY === true
+
+  const child = spawn('node', ['--no-deprecation', viteBin, ...viteArgs], {
+    stdio: isTTY ? 'inherit' : ['inherit', 'pipe', 'pipe'],
     shell: false,
+    // Strip NO_COLOR so vite emits ANSI when piped (we strip it ourselves).
+    env: isTTY ? process.env : { ...process.env, NO_COLOR: undefined, FORCE_COLOR: '1' },
   })
+
+  if (!isTTY) pipePlainText(child)
 
   const cleanup = (): void => {
     child.kill('SIGTERM')
