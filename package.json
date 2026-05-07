@@ -10,7 +10,8 @@
     "bench/*",
     "bench/js-framework-benchmark/*/*",
     "examples/*",
-    "apps/*"
+    "apps/*",
+    "cookbook"
   ],
   "engines": {
     "bun": ">=1.3.0",
@@ -33,6 +34,7 @@
     "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
+    "test:cookbook": "bun run --cwd cookbook test",
     "release": "bun run build && changeset publish",
     "prepare": "husky"
   },

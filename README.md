@@ -184,12 +184,12 @@ Per-package gates enforced by `bun run size`:
 |---|---:|---:|:---:|
 | `@aihu/context` | 248 B | 300 B | pass |
 | `@aihu/signals` | 1.67 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.05 kB | 2800 B | pass |
-| `@aihu/runtime` | 2.80 kB | 2900 B | pass |
+| `@aihu/arbor` | 2.69 kB | 2800 B | pass |
+| `@aihu/runtime` | 3.27 kB | 2900 B | OVER |
 | `@aihu/agent` | 142 B | 200 B | pass |
 | `@aihu/data` | 774 B | 800 B | pass |
 | `@aihu/router` | 2.02 kB | 2400 B | pass |
-| `@aihu/agent-service` | 579 B | 1100 B | pass |
+| `@aihu/agent-service` | 1.06 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 591 B | 600 B | pass |
 | `@aihu/agent-a2a` | 721 B | 750 B | pass |
 | `@aihu/app` | 764 B | 800 B | pass |

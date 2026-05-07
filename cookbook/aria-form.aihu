@@ -1,0 +1,47 @@
+// aria-form — $aria collection for role/aria-label/aria-describedby, $form with value+validity
+
+@state {
+  $aria: {
+    role: 'form',
+    label: 'Contact form',
+    describedby: 'aria-form-hint',
+  }
+
+  name: string = ''
+  email: string = ''
+
+  $form: {
+    value: () => JSON.stringify({ name, email }),
+    validity: () => ({ valueMissing: !name || !email }),
+  }
+
+  $action: {
+    onSubmit: (e: Event) => {
+      e.preventDefault()
+      console.log('submitted', { name, email })
+    },
+  }
+}
+
+@template {
+  <form $on.submit={onSubmit} class="aria-form">
+    <p id="aria-form-hint" class="hint">All fields are required.</p>
+    <label class="field">
+      Name
+      <input $bind.value={name} placeholder="Your name" required />
+    </label>
+    <label class="field">
+      Email
+      <input type="email" $bind.value={email} placeholder="you@example.com" required />
+    </label>
+    <button type="submit" class="submit-btn">Submit</button>
+  </form>
+}
+
+@style {
+  .aria-form { display: grid; gap: 0.75rem; max-width: 24rem; padding: 1.5rem; }
+  .hint { font-size: 0.85rem; color: var(--muted, #666); margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; font-weight: 500; }
+  .field input { padding: 0.4rem 0.6rem; border: 1px solid var(--border, #ccc); border-radius: 4px; font-size: 1rem; }
+  .submit-btn { padding: 0.5rem 1rem; background: var(--accent, #0066cc); color: white; border: none; border-radius: 4px; cursor: pointer; }
+}

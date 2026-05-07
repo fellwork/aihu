@@ -1,0 +1,28 @@
+// context-consumer — $context consume: reads theme from ancestor provider
+
+@state {
+  $context: {
+    consume: {
+      theme: { type: 'string', default: 'light' },
+    },
+  }
+}
+
+@template {
+  <div class={['consumer', theme]}>
+    <p class="theme-label">
+      Active theme: <strong>{theme}</strong>
+    </p>
+    <div class={['swatch', theme === 'dark' ? 'swatch-dark' : 'swatch-light']}></div>
+  </div>
+}
+
+@style {
+  .consumer { padding: 1rem; border-radius: 4px; transition: background 0.2s; }
+  .consumer.light { background: #fff; color: #111; }
+  .consumer.dark { background: #111; color: #f0f0f0; }
+  .theme-label { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .swatch { width: 2rem; height: 2rem; border-radius: 50%; border: 2px solid currentColor; }
+  .swatch-light { background: #fff; }
+  .swatch-dark { background: #111; }
+}

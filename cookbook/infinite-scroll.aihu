@@ -1,0 +1,73 @@
+// infinite-scroll — $prop page + $action loadMore, IntersectionObserver in $controller
+
+@state {
+  $prop: {
+    page: { type: Number, default: 1 },
+  }
+
+  $controller: {
+    sentinel: {
+      mount: (host) => {
+        const sentinel = host.querySelector('.scroll-sentinel')
+        if (!sentinel) return () => {}
+        const observer = new IntersectionObserver((entries) => {
+          if (entries[0]?.isIntersecting && !loading) {
+            loadMore()
+          }
+        }, { threshold: 0.1 })
+        observer.observe(sentinel)
+        return () => observer.disconnect()
+      },
+    },
+  }
+
+  loading: boolean = false
+  items: Array<{ id: number; text: string }> = []
+
+  $action: {
+    loadMore: async () => {
+      if (loading) return
+      loading = true
+      await new Promise(resolve => setTimeout(resolve, 400))
+      const start = items.length
+      items = [
+        ...items,
+        ...Array.from({ length: 10 }, (_, i) => ({
+          id: start + i + 1,
+          text: `Item ${start + i + 1}`,
+        })),
+      ]
+      loading = false
+    },
+  }
+
+  $lifecycle: {
+    mount: () => { loadMore() },
+  }
+}
+
+@template {
+  <div class="infinite-scroll">
+    <ul class="item-list">
+      {#each items as item (item.id)}
+        <li class="scroll-item">{item.text}</li>
+      {:empty}
+        <li class="scroll-item empty">Loading initial items…</li>
+      {/each}
+    </ul>
+    {#if loading}
+      <p class="loading-indicator">Loading more…</p>
+    {/if}
+    <div class="scroll-sentinel" aria-hidden="true"></div>
+  </div>
+}
+
+@style {
+  .infinite-scroll { max-width: 24rem; max-height: 400px; overflow-y: auto; border: 1px solid var(--border, #ccc); border-radius: 6px; }
+  .item-list { list-style: none; padding: 0; margin: 0; }
+  .scroll-item { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border, #eee); font-size: 0.9rem; }
+  .scroll-item:last-child { border-bottom: none; }
+  .scroll-item.empty { color: var(--muted, #888); font-style: italic; }
+  .loading-indicator { padding: 0.5rem 0.75rem; font-size: 0.85rem; color: var(--muted, #888); text-align: center; }
+  .scroll-sentinel { height: 1px; }
+}

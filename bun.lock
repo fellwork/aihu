@@ -89,6 +89,13 @@
         "typescript": "^5.6.2",
       },
     },
+    "cookbook": {
+      "name": "@aihu/cookbook",
+      "version": "0.5.0",
+      "dependencies": {
+        "@aihu/compiler": "workspace:*",
+      },
+    },
     "examples/blog-loader": {
       "name": "@aihu/example-blog-loader",
       "version": "0.0.0",
@@ -259,10 +266,24 @@
     },
     "packages/agent-service": {
       "name": "@aihu/agent-service",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/agent": "workspace:*",
       },
+    },
+    "packages/ai": {
+      "name": "@aihu/ai",
+      "version": "0.1.0",
+      "peerDependencies": {
+        "@anthropic-ai/sdk": ">=0.20.0",
+        "@google/generative-ai": ">=0.3.0",
+        "openai": ">=4.0.0",
+      },
+      "optionalPeers": [
+        "@anthropic-ai/sdk",
+        "@google/generative-ai",
+        "openai",
+      ],
     },
     "packages/app": {
       "name": "@aihu/app",
@@ -281,7 +302,7 @@
     },
     "packages/arbor": {
       "name": "@aihu/arbor",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
@@ -307,7 +328,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.1.9",
+      "version": "0.2.0",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -359,7 +380,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -424,6 +445,8 @@
 
     "@aihu/agent-service": ["@aihu/agent-service@workspace:packages/agent-service"],
 
+    "@aihu/ai": ["@aihu/ai@workspace:packages/ai"],
+
     "@aihu/app": ["@aihu/app@workspace:packages/app"],
 
     "@aihu/arbor": ["@aihu/arbor@workspace:packages/arbor"],
@@ -439,6 +462,8 @@
     "@aihu/compiler": ["@aihu/compiler@workspace:packages/compiler"],
 
     "@aihu/context": ["@aihu/context@workspace:packages/context"],
+
+    "@aihu/cookbook": ["@aihu/cookbook@workspace:cookbook"],
 
     "@aihu/data": ["@aihu/data@workspace:packages/data"],
 

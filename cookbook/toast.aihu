@@ -1,0 +1,48 @@
+// toast — $prop message + $action dismiss, auto-dismiss via $lifecycle.mount setTimeout
+
+@state {
+  $prop: {
+    message: { type: String, default: 'Something happened.' },
+    duration: { type: Number, default: 3000 },
+  }
+
+  visible: boolean = false
+  _timerId: number | null = null
+
+  $action: {
+    dismiss: () => {
+      visible = false
+      if (_timerId !== null) { clearTimeout(_timerId); _timerId = null }
+    },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      visible = true
+      _timerId = setTimeout(() => { visible = false }, duration) as unknown as number
+    },
+    dispose: () => {
+      if (_timerId !== null) { clearTimeout(_timerId); _timerId = null }
+    },
+  }
+}
+
+@template {
+  <div
+    class={['toast', visible && 'toast-visible']}
+    role="status"
+    aria-live="polite"
+    $show={visible}
+  >
+    <span class="toast-msg">{message}</span>
+    <button class="toast-close" $on.click={dismiss} aria-label="Dismiss">×</button>
+  </div>
+}
+
+@style {
+  .toast { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; background: var(--toast-bg, #333); color: var(--toast-fg, #fff); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); min-width: 16rem; max-width: 90vw; }
+  .toast-msg { flex: 1; font-size: 0.9rem; }
+  .toast-close { background: none; border: none; color: inherit; font-size: 1.2rem; cursor: pointer; opacity: 0.7; line-height: 1; padding: 0; }
+  .toast-close:hover { opacity: 1; }
+  [hidden] { display: none; }
+}
