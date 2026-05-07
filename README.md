@@ -186,13 +186,13 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/signals` | 1.67 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.69 kB | 2800 B | pass |
 | `@aihu/runtime` | 2.80 kB | 2900 B | pass |
-| `@aihu/agent` | — | 200 B | _no dist_ |
-| `@aihu/data` | — | 800 B | _no dist_ |
-| `@aihu/router` | — | 2400 B | _no dist_ |
-| `@aihu/agent-service` | — | 600 B | _no dist_ |
-| `@aihu/agent-acp` | — | 600 B | _no dist_ |
-| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
-| `@aihu/app` | — | 800 B | _no dist_ |
+| `@aihu/agent` | 142 B | 200 B | pass |
+| `@aihu/data` | 774 B | 800 B | pass |
+| `@aihu/router` | 2.02 kB | 2400 B | pass |
+| `@aihu/agent-service` | 1.06 kB | 1100 B | pass |
+| `@aihu/agent-acp` | 591 B | 600 B | pass |
+| `@aihu/agent-a2a` | 721 B | 750 B | pass |
+| `@aihu/app` | 764 B | 800 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
