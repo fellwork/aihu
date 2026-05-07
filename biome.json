@@ -73,6 +73,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["packages/vscode-aihu/server/completion.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noTemplateCurlyInString": "off"
+          }
+        }
+      }
     }
   ]
 }
