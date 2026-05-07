@@ -365,6 +365,16 @@
         "@modelcontextprotocol/sdk": "^1.0.0",
       },
     },
+    "packages/mcp-server": {
+      "name": "@aihu/mcp-server",
+      "version": "0.1.0",
+      "bin": {
+        "aihu-mcp-server": "./dist/server.js",
+      },
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.0.0",
+      },
+    },
     "packages/plugin": {
       "name": "@aihu/plugin",
       "version": "0.1.0",
@@ -484,6 +494,8 @@
     "@aihu/example-todo-mvc": ["@aihu/example-todo-mvc@workspace:examples/todo-mvc"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
+
+    "@aihu/mcp-server": ["@aihu/mcp-server@workspace:packages/mcp-server"],
 
     "@aihu/plugin": ["@aihu/plugin@workspace:packages/plugin"],
 

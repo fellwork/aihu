@@ -11,9 +11,9 @@ import { existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  type CookbookEntry,
   _resetIndex,
   _setIndex,
+  type CookbookEntry,
   getCookbookIndex,
 } from '../src/cookbook-index.js'
 import { handleExample } from '../src/tools/aihu-example.js'
@@ -60,9 +60,9 @@ describe('cookbook index (disk)', () => {
     expect(index.size).toBe(aihuFiles.length)
   })
 
-  it('counter pattern is present', () => {
+  it('aihu-counter pattern is present', () => {
     const index = getCookbookIndex()
-    expect(index.has('counter')).toBe(true)
+    expect(index.has('aihu-counter')).toBe(true)
   })
 
   it('all patterns have non-empty source', () => {
@@ -92,8 +92,7 @@ const FIXTURE_INDEX = new Map<string, CookbookEntry>([
     {
       pattern: 'fetch-resource',
       filename: 'fetch-resource.aihu',
-      source:
-        '@state { $prop: { url: { type: String } } }\n@template { <div>{url}</div> }',
+      source: '@state { $prop: { url: { type: String } } }\n@template { <div>{url}</div> }',
     },
   ],
   [

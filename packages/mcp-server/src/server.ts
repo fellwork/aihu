@@ -17,10 +17,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { getCookbookIndex } from './cookbook-index.js'
 import { handleExample } from './tools/aihu-example.js'
 import { handleValidate } from './tools/aihu-validate.js'
@@ -71,10 +68,7 @@ const TOOL_DEFINITIONS = [
  * Create and configure the MCP server instance.
  */
 export function createServer(): Server {
-  const server = new Server(
-    { name: 'aihu', version: '0.1.0' },
-    { capabilities: { tools: {} } },
-  )
+  const server = new Server({ name: 'aihu', version: '0.1.0' }, { capabilities: { tools: {} } })
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: TOOL_DEFINITIONS,

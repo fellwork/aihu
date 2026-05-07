@@ -34,7 +34,12 @@ interface ValidateResult {
   output?: string
 }
 
-function normalizeDiagnostic(raw: RawDiagnostic): { code: string; message: string; line: number; col: number } {
+function normalizeDiagnostic(raw: RawDiagnostic): {
+  code: string
+  message: string
+  line: number
+  col: number
+} {
   const code = raw.code ?? 'UNKNOWN'
   const message = raw.message ?? ''
   let line = 0
@@ -56,12 +61,11 @@ function makeValidate(
     opts: { input: string; encoding: string; timeout: number },
   ) => { toString(): string },
 ) {
-  const { basename } = { basename: (p: string, ext: string) => p.endsWith(ext) ? p.slice(0, -ext.length) : p }
+  const { basename } = {
+    basename: (p: string, ext: string) => (p.endsWith(ext) ? p.slice(0, -ext.length) : p),
+  }
 
-  return function validate(
-    source: string,
-    filename = 'component.aihu',
-  ): ValidateResult {
+  return function validate(source: string, filename = 'component.aihu'): ValidateResult {
     const stem = basename(filename, '.aihu')
     try {
       const stdout = execFn(
@@ -76,15 +80,20 @@ function makeValidate(
       if (e.killed === true || (typeof e.signal === 'string' && e.signal !== null)) {
         return {
           ok: false,
-          errors: [{ code: 'TIMEOUT', message: 'Compiler timed out after 10000ms', line: 0, col: 0 }],
+          errors: [
+            { code: 'TIMEOUT', message: 'Compiler timed out after 10000ms', line: 0, col: 0 },
+          ],
           warnings: [],
         }
       }
 
       const rawStderr = e.stderr
-      const stderr = rawStderr instanceof Buffer
-        ? rawStderr.toString('utf-8')
-        : typeof rawStderr === 'string' ? rawStderr : ''
+      const stderr =
+        rawStderr instanceof Buffer
+          ? rawStderr.toString('utf-8')
+          : typeof rawStderr === 'string'
+            ? rawStderr
+            : ''
       try {
         const parsed: unknown = JSON.parse(stderr)
         if (Array.isArray(parsed)) {
@@ -104,7 +113,12 @@ function makeValidate(
       return {
         ok: false,
         errors: [
-          { code: 'UNKNOWN', message: stderr.trim() || 'Compilation failed (no stderr)', line: 0, col: 0 },
+          {
+            code: 'UNKNOWN',
+            message: stderr.trim() || 'Compilation failed (no stderr)',
+            line: 0,
+            col: 0,
+          },
         ],
         warnings: [],
       }
@@ -121,7 +135,10 @@ describe('aihu_validate (injectable exec)', () => {
     const compiledCode = `import { defineComponent, defineElement } from '@aihu/runtime'\ndefineElement('my-counter', defineComponent((_ctx) => null))`
 
     const validate = makeValidate(() => ({ toString: () => compiledCode }))
-    const result = validate('@state { count: number = 0 }\n@template { <p>{count}</p> }', 'my-counter.aihu')
+    const result = validate(
+      '@state { count: number = 0 }\n@template { <p>{count}</p> }',
+      'my-counter.aihu',
+    )
 
     expect(result.ok).toBe(true)
     expect(result.errors).toHaveLength(0)
@@ -190,8 +207,18 @@ describe('aihu_validate (injectable exec)', () => {
 
   it('warning-severity diagnostics are placed in warnings not errors', () => {
     const diagnostics: RawDiagnostic[] = [
-      { code: 'W202', message: 'unused variable', severity: 'warning', from: { line: 2, character: 4 } },
-      { code: 'C100', message: 'fatal parse error', severity: 'error', from: { line: 1, character: 0 } },
+      {
+        code: 'W202',
+        message: 'unused variable',
+        severity: 'warning',
+        from: { line: 2, character: 4 },
+      },
+      {
+        code: 'C100',
+        message: 'fatal parse error',
+        severity: 'error',
+        from: { line: 1, character: 0 },
+      },
     ]
 
     const validate = makeValidate(() => {
