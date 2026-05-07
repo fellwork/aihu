@@ -178,6 +178,7 @@ fn check_prop_attribute_collisions(macros: &[StateMacro]) -> Option<CompileError
                     "see docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md §3.6"
                         .to_string(),
                 ),
+                ..Default::default()
             });
         }
     }
@@ -556,6 +557,12 @@ fn c440(rest: &str, kind: CollectionKind) -> CompileError {
              Example: `$lifecycle.mount { init() }` → `$lifecycle: { mount: () => { init() } }`",
             format!("$lifecycle.{}", got.trim_start_matches("lifecycle.").split_at(got.trim_start_matches("lifecycle.").find(|c: char| c.is_whitespace() || c == '{').unwrap_or(got.trim_start_matches("lifecycle.").len())).0.to_string()),
             "$lifecycle: { mount: () => { <body> } }".to_string(),
+        ),
+        CollectionKind::Event => (
+            "Replace `$event name: Type` with `$event: { name: { payload: Type } }`. \
+             Example: `$event click: MouseEvent` → `$event: { click: { payload: MouseEvent } }`",
+            format!("$event {}", got.trim_start_matches("event").trim_start()),
+            "$event: { <name>: { payload: <Type> } }".to_string(),
         ),
     };
 
