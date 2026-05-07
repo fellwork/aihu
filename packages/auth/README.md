@@ -1,10 +1,12 @@
-# @aihu/app
+# @aihu/auth
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Top-level app integration — wires runtime, router, and adapters into a Vite app.
+JWT scope checks, ScopeSignal, and server middleware for aihu auth.
 
-Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+Held-private workspace package. Not yet published to npm.
+
+> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 _(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
@@ -16,12 +18,12 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-npm install @aihu/app
+npm install @aihu/auth
 # or
-bun add @aihu/app
+bun add @aihu/auth
 ```
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,12 +34,12 @@ bun add @aihu/app
 
 | | |
 |---|---|
-| **Version** | `0.1.2` |
-| **Tier** | B — Meta-framework — top-level integration of runtime, router, adapter |
+| **Version** | `0.1.0` |
+| **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -49,9 +51,8 @@ bun add @aihu/app
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
-| `./client` | `./dist/client.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -60,15 +61,12 @@ bun add @aihu/app
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-**Peer dependencies:**
+**Dependencies:**
 
-- `@aihu/arbor` — `workspace:*`
-- `@aihu/router` — `workspace:*`
-- `@aihu/runtime` — `workspace:*`
+- `@aihu/agent-service` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
-- `vite` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,12 +75,10 @@ bun add @aihu/app
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [arch-1 (website)](../../docs/roadmap/arch-1-website.md)
-- [@aihu/router](../router)
-- [@aihu/adapter-cloudflare](../adapter-cloudflare)
 - [Aihu framework root](../../README.md)
+- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -93,6 +89,6 @@ bun add @aihu/app
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/app@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

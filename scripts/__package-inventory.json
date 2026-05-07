@@ -54,6 +54,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/auth",
+    "version": "0.1.0",
+    "dir": "packages/auth",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/cli",
     "version": "0.3.1",
     "dir": "packages/cli",

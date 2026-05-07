@@ -1,0 +1,41 @@
+{
+  "name": "@aihu/auth",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/agent-service": "workspace:*",
+    "@aihu/signals": "workspace:*"
+  },
+  "description": "JWT scope checks, ScopeSignal, and server middleware for aihu auth.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/auth"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/auth#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}
