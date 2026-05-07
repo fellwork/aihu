@@ -8,7 +8,7 @@ describe('generateMcpDiscovery', () => {
       url: 'https://aihu.dev/.well-known/mcp/server-card.json',
     })
     expect(discovery).toHaveProperty('mcpServers')
-    const server = discovery.mcpServers['aihu']
+    const server = discovery.mcpServers.aihu
     expect(server).toBeDefined()
     expect(server.url).toBe('https://aihu.dev/.well-known/mcp/server-card.json')
     expect(server.name).toBe('aihu')
@@ -28,7 +28,7 @@ describe('generateMcpDiscovery', () => {
       name: 'aihu',
       url: 'https://aihu.dev/mcp',
     })
-    expect(discovery.mcpServers['aihu']).toBeDefined()
+    expect(discovery.mcpServers.aihu).toBeDefined()
   })
 
   it('includes description when provided', () => {

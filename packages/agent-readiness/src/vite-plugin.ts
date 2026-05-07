@@ -120,7 +120,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
     if (!config.mcpDiscovery) return notFound()
     const mcpUrl =
       config.endpoint ??
-      (config.siteUrl ? config.siteUrl + '/.well-known/mcp/server-card.json' : undefined)
+      (config.siteUrl ? `${config.siteUrl}/.well-known/mcp/server-card.json` : undefined)
     if (!mcpUrl) return notFound()
     const discovery = generateMcpDiscovery({
       name: config.name,
@@ -185,8 +185,8 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
         operatingSystem: 'Web',
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       }
-      if (config.summary !== undefined) schema['description'] = config.summary
-      if (config.version !== undefined) schema['version'] = config.version
+      if (config.summary !== undefined) schema.description = config.summary
+      if (config.version !== undefined) schema.version = config.version
       return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`
     }
     return ''
