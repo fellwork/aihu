@@ -209,7 +209,8 @@ export function _mountEffect(
   path: string,
   errorHandler?: ErrorHandler,
 ): void {
-  if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-create', path, timestamp: Date.now() })
+  if (typeof __DEV__ !== 'undefined' && __DEV__)
+    _observeMount({ kind: 'effect-create', path, timestamp: Date.now() })
   // R6a-arbor (investigation-arbor-restructure.md §Q3 Finding 2): the prior
   // `disposeRef = { fn: null }` ref-object exists to thread `dispose` into
   // the effect body so self-dispose works on the first synchronous run.
@@ -226,7 +227,8 @@ export function _mountEffect(
   let selfDisposeNeeded = false
   let savedDispose: Dispose | null = null
   const dispose = effect(() => {
-    if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
+    if (typeof __DEV__ !== 'undefined' && __DEV__)
+      _observeMount({ kind: 'effect-fire', path, timestamp: Date.now() })
     if (errorHandler) {
       try {
         fn()
@@ -250,7 +252,8 @@ export function _mountEffect(
     return
   }
   disposers.push(() => {
-    if (typeof __DEV__ !== 'undefined' && __DEV__) _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
+    if (typeof __DEV__ !== 'undefined' && __DEV__)
+      _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
     dispose()
   })
 }

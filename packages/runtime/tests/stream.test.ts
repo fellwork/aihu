@@ -93,12 +93,9 @@ describe('AC4 — stop() aborts mid-stream', () => {
   it('stop() sets status to idle and preserves partial value', async () => {
     // Create a stream that yields one chunk then hangs.
     let enqueueChunk!: (s: string) => void
-    let resolveRead!: () => void
-
     const stream = new ReadableStream<string>({
       start(controller) {
         enqueueChunk = (s: string) => controller.enqueue(s)
-        resolveRead = () => {} // no-op; we'll stop externally
       },
     })
 

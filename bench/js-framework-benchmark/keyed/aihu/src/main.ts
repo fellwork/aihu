@@ -163,7 +163,7 @@ on('update', () => {
   const arr = data[0]()
   for (let i = 0; i < arr.length; i += 10) {
     const r = arr[i]
-    if (r) r.label[1](r.label[0]() + ' !!!')
+    if (r) r.label[1](`${r.label[0]()} !!!`)
   }
 })
 

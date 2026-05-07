@@ -1,12 +1,113 @@
 # State — Compiler Track
 
 **Track:** `compiler`
-**Last updated:** 2026-05-03
+**Last updated:** 2026-05-07
 
 > **Session 7 (post-v0.9 cleanup) — COMPLETE** at commit `daac021` (2026-05-03).
 > Committed untracked `route.rs` parser + 7 integration tests; deleted 6 orphaned
 > bench-conformance files; restored `docs/site/`. Rust tests: **221 passing** (was 214).
 > TS tests: **570 passing** (unchanged). Compiler track remains CLOSED.
+
+---
+
+# Director Note — v0.5.0 Session (2026-05-07)
+
+**Author:** Director  
+**Dispatch:** Bench Investigator + Cookbook Builder  
+**Read by:** Team Lead before next round dispatch
+
+---
+
+## 1. Session priorities (ordered)
+
+1. **Cookbook Builder starts now** — `feat/cookbook` branch, 20 SFCs, CI harness. No blockers; v0.4.0 is fully published.
+2. **Signals Investigator** — read-only profile of `packages/signals/` internals on `deep-propagation-100` and `creation-1to1000`. No writes until root cause is confirmed and Director approves.
+3. **Arbor/Krausest Investigator** — read-only profile of `bench/js-framework-benchmark/keyed/aihu/src/main.ts` and the `each()` implementation. No writes until Chrome baseline run is documented (see §4).
+4. MCP server (`feat/mcp-server`) begins only after cookbook branch has at least 10 SFCs committed — server integration tests need the cookbook index.
+
+---
+
+## 2. Cookbook: complete ordered list of 20 SFCs
+
+The roadmap names: counter, fetch+$resource, $aria form, $context provider/consumer, $controller, live-binding @agent block, $guard-gated UI, $form validation, SSR+DSD hydration, Tailwind 4 + @style coexistence. The 10 unnamed slots are assigned here:
+
+| # | Name | Pattern |
+|---|------|---------|
+| 01 | `counter` | signal + button — simplest reactive unit |
+| 02 | `fetch-resource` | $resource + loading/error states |
+| 03 | `aria-form` | $aria + ElementInternals a11y |
+| 04 | `context-provider` | $context provider root |
+| 05 | `context-consumer` | $context consumer leaf (pairs with 04) |
+| 06 | `controller` | $controller lifecycle hooks |
+| 07 | `agent-block` | @agent + live-binding handleToolCall |
+| 08 | `guard-gated` | $guard + JWT scope enforcement |
+| 09 | `form-validation` | $form setFormValue + checkValidity |
+| 10 | `ssr-dsd` | SSR + Declarative Shadow DOM hydration |
+| 11 | `tailwind-style` | Tailwind 4 @layer + @style coexistence |
+| 12 | `computed-derived` | computed() chains + memoization pattern |
+| 13 | `event-bus` | $emit/$on cross-component messaging |
+| 14 | `each-keyed` | each() keyed list + partial update |
+| 15 | `batch-update` | batch() write + effect ordering |
+| 16 | `effect-cleanup` | $effect with onCleanup disposer |
+| 17 | `action-optimistic` | $action + optimistic UI rollback |
+| 18 | `prop-reactive` | $prop + parent→child reactive binding |
+| 19 | `slot-composition` | slot projection + named slots |
+| 20 | `trusted-types` | defineAihuSanitizer + {@html} chokepoint |
+
+Each SFC must: compile clean (zero C-series errors), have a CI test asserting expected output shape, and be indexed by `aihu_example` name.
+
+---
+
+## 3. Signals bench targets
+
+**Actual gaps (p50, from RESULTS.md 2026-05-02):**
+- `deep-propagation-100`: aihu 2.88 µs vs s-js 2.63 µs — aihu is 9.5% slower
+- `creation-1to1000`: aihu 87.63 µs vs s-js 72.16 µs — aihu is 21.4% slower
+
+**Acceptance bars:**
+- `deep-propagation-100`: close the gap to within 3% of s-js p50 (target ≤ 2.71 µs). "Beat" is not required — match is the bar.
+- `creation-1to1000`: close the gap to within 10% of s-js p50 (target ≤ 79.4 µs). The 21% gap suggests allocation overhead in computed wiring; profile before writing a fix. A 10-point improvement (21% → ≤10%) is the v0.5.0 bar; beating s-js here requires structural change and is a stretch goal.
+
+---
+
+## 4. Krausest / vanilla target
+
+**Current JSDOM gap:** aihu p50 = 22.27 ms, vanilla p50 = 16.46 ms — 35% slower.
+
+**Chrome baseline run required first.** JSDOM's DOM mutation cost does not match Chrome V8. The 35% JSDOM gap may compress or invert in a real browser because aihu's `nodeValue` targeting avoids subtree reflow. The Investigator must run the js-framework-benchmark harness in Chrome (or Playwright-driven headless Chrome) and record aihu vs. vanillajs-1-keyed p50 before any fix attempt.
+
+**Acceptance bar:** beat `vanillajs-1-keyed` p50 in the Chrome krausest run, OR if Chrome shows aihu already within 5% of vanilla, declare the JSDOM gap a measurement artifact and close with a note in `bench/arbor/RESULTS.md`. Do not optimize for JSDOM if Chrome parity already holds.
+
+---
+
+## 5. Sequencing: bench fixes vs. v0.5.0 tag
+
+Bench fixes land **after** v0.5.0 tag if they touch `packages/signals/` or `packages/arbor/`. Both packages are published at v0.4.0; a perf-only fix ships as a patch (v0.4.1 / v0.5.1) with a bench diff in the release notes. Do not hold the v0.5.0 cookbook+MCP tag for bench work. Exception: if the Investigator finds a correctness bug (not perf-only) in the gap path, it escalates to Director for re-sequencing.
+
+---
+
+## 6. Do-not-break list
+
+**Signals** — any fix must not regress these leads (p50):
+- `cellx`: aihu 415.89 ns vs s-js 653.78 ns (+57% lead)
+- `wide-fanout-100`: aihu 3.13 µs vs s-js 4.01 µs (+28% lead)
+- `dynamic-deps`: aihu 585.94 ns vs s-js 649.54 ns (+10.9% lead)
+- `batched-writes-100`: aihu 2.69 µs vs s-js 2.66 µs (tied — must not fall behind by more than 3%)
+
+**Arbor** — any fix must not regress (p50):
+- `mount-wide-1000`: 8.06 ms
+- `mount-deep-100x10`: 3.15 ms
+- `update-1-of-10k-leaves`: 25.00 ns
+
+Regression is defined as p50 degradation > 5% vs. the values above. Verifier must re-run the full bench suite and confirm no regressions before any perf fix merges.
+
+---
+
+*Director, 2026-05-07*
+
+---
+
+# Historical state (sessions 1–7, compiler track — CLOSED)
 
 **HEAD at session start:** `8b5ba32` (docs(plans): Round N+2 test-quality track + compiler track plans)
 **HEAD after session 1:** `3919bdb` on `feat/compiler-c0` — "feat(compiler): Phase C-0 — scaffold + SFC block splitter"
@@ -17,21 +118,11 @@
 **HEAD after session 6:** `808f1c0` on `main` — PR #14 merged: "chore(compiler): session-6 cleanup — BTreeMap + Vite limitation + topic summary"
 **HEAD after session 7:** `daac021` on `main` — "fix(compiler): commit untracked route parser + tests; delete orphaned bench files"
 **Active branch:** `main`
-**Mode:** CLOSED
+**Mode:** CLOSED (compiler track); OPEN (v0.5.0 session)
 
 ---
 
-## Current phase
-
-**Session 6 — Merge + cleanup** — **COMPLETE** (PR #14, `808f1c0`, 2026-05-01)
-
-Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3 (**COMPLETE**) → C-4 (**COMPLETE**) → Session-6 cleanup (**COMPLETE**)
-
-**Compiler track FULLY CLOSED.** All sessions complete. No further compiler sessions planned. Next compiler session scope (if any): Phase C-5 (watch mode) or consumer integration test — pending Director decision.
-
----
-
-## Round summary
+## Round summary (compiler track — sessions 1–7)
 
 | Round | Phase | Builder | Verifier | Director | Status |
 |-------|-------|---------|----------|----------|--------|
@@ -44,9 +135,7 @@ Phases: C-0 (**COMPLETE**) → C-1 (**COMPLETE**) → C-2 (**COMPLETE**) → C-3
 
 ---
 
-## Open questions
-
-All original OQs (C1–C8) resolved in Round 1. All carry-forward items resolved in sessions 2-4.
+## Open questions (compiler track — all closed)
 
 | OQ | Resolution | Status |
 |----|-----------|--------|
@@ -66,8 +155,6 @@ All original OQs (C1–C8) resolved in Round 1. All carry-forward items resolved
 | OQ-C14: `TemplateNode` lifetime | Use owned `String` fields | CLOSED |
 | OQ-C15: `parse_template()` wiring timing | Wire in C-2 via `compile_full()` | CLOSED |
 | OQ-C16: `SignalMap` concrete type | `HashMap<String, String>` newtype | CLOSED |
-
-All OQs closed. No new open questions.
 
 **C3-2 open gate:** CLOSED. `bun tsc --noEmit` check ran at session 5 start — caught real bug (`"null"` → `"undefined"` in `emit_attrs()`). Fixed in commit `ffcbc3b`. 8 snapshots re-accepted. Gate resolved.
 
@@ -242,7 +329,7 @@ defineElement('counter', defineComponent((_ctx) => {
 
 ---
 
-## Do-not-break list
+## Do-not-break list (compiler track)
 
 - All packages except `packages/compiler/` are read-only for the compiler track
 - No changes to `packages/arbor/`, `packages/runtime/`, `packages/signals/`, `packages/server/`, `packages/agent-readiness/`
