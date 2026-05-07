@@ -1,11 +1,15 @@
 /**
- * `@aihu/agent-a2a` — A2A adapter tests (Plan 5.3).
+ * `@aihu/agent-a2a` — A2A adapter tests (Plan 5.3 / v0.3.0 live-dispatch).
  *
  * 14 tests covering agent card, task routing, SSE streaming, error paths,
  * prefix support, and pass-through (null) behaviour.
+ *
+ * v0.3.0: `handleToolCall` is a live-dispatch (no longer stub). Tests that
+ * exercise a valid tool call must now inject a live registry via `getRegistry`.
  */
 
 import type { AgentMetadata } from '@aihu/agent'
+import type { LiveBinding } from '@aihu/agent-service'
 import { createAgentService } from '@aihu/agent-service'
 import { describe, expect, it } from 'vitest'
 import { mountA2aAdapter } from '../src/index.ts'
@@ -16,6 +20,27 @@ import { mountA2aAdapter } from '../src/index.ts'
 
 function makeService(metas: AgentMetadata[] = []) {
   return createAgentService({ manifests: metas })
+}
+
+/** Create a service with a live registry for tests that need live dispatch. */
+function makeServiceWithRegistry(metas: AgentMetadata[], registry: Map<string, LiveBinding[]>) {
+  return createAgentService({ manifests: metas, getRegistry: () => registry })
+}
+
+/** Minimal LiveBinding for a2a/acp test injection. */
+function makeLiveBinding(tag: string): LiveBinding {
+  return {
+    rootId: 1,
+    tag,
+    getSignal: () => undefined,
+    setSignal: () => {},
+    async callAction(_name: string, _args: unknown[]) {
+      return { message: 'hello from live binding' }
+    },
+    scope: () => null,
+    rateLimit: () => null,
+    dispose$: () => true,
+  }
 }
 
 function makeRequest(method: string, url: string, body?: unknown): Request {
@@ -89,7 +114,9 @@ describe('@aihu/agent-a2a — POST /a2a/tasks/send', () => {
   }
 
   it('5. Valid tool call returns 200 with taskId, status completed, result', async () => {
-    const adapter = mountA2aAdapter(makeService([meta]))
+    // v0.3.0: must inject a live registry for live dispatch to succeed.
+    const registry = new Map([['x-greeter', [makeLiveBinding('x-greeter')]]])
+    const adapter = mountA2aAdapter(makeServiceWithRegistry([meta], registry))
     const mw = adapter.asMiddleware()
     const res = await mw(
       makeRequest('POST', `${BASE}/a2a/tasks/send`, {

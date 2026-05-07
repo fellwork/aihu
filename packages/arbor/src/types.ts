@@ -110,6 +110,24 @@ export type Node = Branch | Leaf | StructuralNode
  */
 export type ErrorHandler = (error: unknown, path: string) => Node | undefined
 
+// ─── v0.3.0 — AgentBinding (compiler-emitted shape) ─────────────────────────
+
+/**
+ * Shape of the `__agentBinding` named export emitted by the compiler into
+ * server artifacts for components with an `@agent` block (RFC §3).
+ *
+ * Passed to `mount()` via `MountOptions.agentBinding` to wire up the
+ * `componentInstanceRegistry` entry for this component instance.
+ */
+export interface AgentBindingSpec {
+  readonly tag: string
+  readonly actions: Record<string, (args: unknown) => unknown>
+  readonly reads: Record<string, () => unknown>
+  readonly writes: Record<string, (v: unknown) => void>
+  readonly scope: string | undefined
+  readonly rateLimit: string | undefined
+}
+
 /**
  * Options for mount(). All fields are optional; omitting options is
  * identical to passing {}.
@@ -117,15 +135,37 @@ export type ErrorHandler = (error: unknown, path: string) => Node | undefined
 export interface MountOptions {
   /** Error boundary handler. See ErrorHandler. */
   onError?: ErrorHandler
+  /**
+   * v0.3.0 — the `__agentBinding` export from the component's server artifact.
+   * When present, `mount()` registers a `LiveBinding` in the
+   * `componentInstanceRegistry`. Components without an `@agent` block
+   * never pass this option (zero overhead on the non-agent path).
+   */
+  agentBinding?: AgentBindingSpec
 }
 
 /**
- * Sub-project #7 stub — agent live-binding lands later. The empty/branded
- * stub type signals "don't use this in v0" through the type system.
- * `MountScope.agent` returns a frozen `{ _brand: 'AgentContext' }`.
+ * Agent context attached to a `MountScope`. v0.3.0 evolves this from a frozen
+ * sentinel to a live-binding context for components with `__agentBinding`.
+ *
+ * Backward compat: `_brand === 'AgentContext'` is preserved. Check
+ * `'rootId' in scope.agent` to distinguish live vs. sentinel context.
+ *
+ * Sentinel (no @agent block): `{ _brand: 'AgentContext' }` — frozen.
+ * Live context (@agent block present): all fields populated.
  */
 export interface AgentContext {
   readonly _brand: 'AgentContext'
+  /** Root ID from the mount scope (only present on live contexts). */
+  readonly rootId?: number
+  /** Tag name (only present on live contexts). */
+  readonly tag?: string
+  /** Read the current value of a named signal (live context only). */
+  readonly readSignal?: (name: string) => unknown
+  /** Write a value to a named writable signal (live context only). */
+  readonly writeSignal?: (name: string, value: unknown) => void
+  /** Invoke a named action (live context only). */
+  readonly callAction?: (name: string, args: unknown[]) => Promise<unknown>
 }
 
 /**

@@ -220,3 +220,107 @@ const theme = { primary: '#ff0000' }
         "global $reactive must use document.adoptedStyleSheets"
     );
 }
+
+// ─── v0.3.0 AC1 — __agentBinding emission ────────────────────────────────────
+
+/// AC1a: Server artifact contains __agentBinding export with correct shape.
+/// SFC with @agent block containing $scope and $rate-limit.
+#[test]
+fn agent_binding_export_server_artifact() {
+    let source = r#"<agent>
+input location: string
+$scope authenticated
+$rate-limit 100
+</agent>
+<script setup lang="ts" name="weather-card">
+@state {
+  $prop: {
+    location: { default: 'NYC', expose: { read: true, write: true } },
+  }
+  $computed: {
+    forecast: { expose: { read: true }, value: () => 'sunny' },
+  }
+  $action: {
+    fetchForecast: { expose: { read: true }, handler: () => fetch('/api/weather') },
+  }
+}
+</script>
+<template><div>{{ location }}</div></template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "weather-card");
+
+    // Must contain __agentBinding export
+    assert!(
+        result.js.contains("export const __agentBinding"),
+        "server artifact must contain __agentBinding export, got:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("tag: 'weather-card'"),
+        "tag must be 'weather-card'"
+    );
+    assert!(
+        result.js.contains("scope: 'authenticated'"),
+        "scope must be 'authenticated'"
+    );
+    assert!(
+        result.js.contains("rateLimit: '100/min'"),
+        "rateLimit must be '100/min'"
+    );
+}
+
+/// AC1b: Client artifact has ZERO __agentBinding references.
+#[test]
+fn agent_binding_absent_from_client_artifact() {
+    use aihu_compiler::types::BuildTarget;
+    let source = r#"<agent>
+input location: string
+$scope authenticated
+$rate-limit 100
+</agent>
+<script setup lang="ts" name="weather-card">
+</script>
+<template><div>client</div></template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "weather-card");
+    assert!(
+        !result.js.contains("__agentBinding"),
+        "client artifact must NOT contain __agentBinding, got:\n{}",
+        result.js
+    );
+}
+
+/// AC1c: __agentBinding absent when no @agent block.
+#[test]
+fn no_agent_binding_without_agent_block() {
+    let source = r#"<script setup lang="ts" name="plain-card">
+</script>
+<template><div>no agent</div></template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "plain-card");
+    assert!(
+        !result.js.contains("__agentBinding"),
+        "no-agent-block component must not have __agentBinding"
+    );
+}
+
+/// AC1d: reads/writes/actions are empty objects when no @state expose entries.
+#[test]
+fn agent_binding_empty_reads_writes_actions() {
+    let source = r#"<agent>
+input name: string
+</agent>
+<script setup lang="ts" name="x-bare">
+</script>
+<template><div>bare</div></template>"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-bare");
+    assert!(result.js.contains("export const __agentBinding"), "has export");
+    assert!(result.js.contains("scope: undefined"), "no scope");
+    assert!(result.js.contains("rateLimit: undefined"), "no rateLimit");
+}

@@ -6,7 +6,7 @@
  */
 
 const HOVER_TABLE: Record<string, string> = {
-  '$prop': [
+  $prop: [
     '**aihu macro: `$prop`**',
     '',
     'Declares reactive prop signals from parent attributes.',
@@ -19,7 +19,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$computed': [
+  $computed: [
     '**aihu macro: `$computed`**',
     '',
     'Declares a derived signal.',
@@ -32,7 +32,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$action': [
+  $action: [
     '**aihu macro: `$action`**',
     '',
     'Declares a callable action in component scope.',
@@ -45,7 +45,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$resource': [
+  $resource: [
     '**aihu macro: `$resource`**',
     '',
     'Declares an async data resource signal.',
@@ -58,7 +58,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$effect': [
+  $effect: [
     '**aihu macro: `$effect`**',
     '',
     'Declares a reactive side effect.',
@@ -71,7 +71,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$lifecycle': [
+  $lifecycle: [
     '**aihu macro: `$lifecycle`**',
     '',
     'Declares lifecycle hooks (mount, dispose, adopt, attributeChange).',
@@ -85,7 +85,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$if': [
+  $if: [
     '**aihu template directive: `$if` / `{#if}`**',
     '',
     'Conditional rendering.',
@@ -98,7 +98,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$each': [
+  $each: [
     '**aihu template directive: `$each` / `{#each}`**',
     '',
     'List rendering.',
@@ -111,7 +111,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$html': [
+  $html: [
     '**aihu template directive: `$html` / `{@html}`**',
     '',
     'Raw HTML injection. Use with trusted content only.',
@@ -124,7 +124,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$show': [
+  $show: [
     '**aihu template directive: `$show`**',
     '',
     'Toggles element visibility without removing it from the DOM.',
@@ -137,7 +137,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$on': [
+  $on: [
     '**aihu template directive: `$on`**',
     '',
     'Attaches an event listener to a DOM element.',
@@ -152,7 +152,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$bind': [
+  $bind: [
     '**aihu template directive: `$bind`**',
     '',
     'Two-way binding between a signal and an element attribute.',
@@ -168,7 +168,7 @@ const HOVER_TABLE: Record<string, string> = {
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
-  '$emit': [
+  $emit: [
     '**aihu macro: `$emit`**',
     '',
     'Declares and dispatches typed custom events.',

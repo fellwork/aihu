@@ -97,10 +97,20 @@ describe('getManifest()', () => {
 // ── AC-3: handleToolCall ─────────────────────────────────────────────────────
 
 describe('handleToolCall()', () => {
-  it('returns a stub result for a valid tag/action', async () => {
+  // v0.3.0: the stub is replaced with live-dispatch. When no registry is
+  // configured (no `getRegistry` option), handleToolCall returns 404 for
+  // metadata-only entries (no live instance). The old stub behavior is
+  // superseded by the live-dispatch tests in live-dispatch.test.ts.
+  it('returns 404 for valid tag/action when no live registry (v0.3.0 behavior)', async () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
-    const res = await svc.handleToolCall('x-counter/increment', { amount: 1 })
-    expect(res).toMatchObject({ tag: 'x-counter', action: 'increment', stub: true })
+    const res = (await svc.handleToolCall('x-counter/increment', { amount: 1 })) as Record<
+      string,
+      unknown
+    >
+    // v0.3.0: returns 404 (no live instance) rather than the Plan 5.2 stub
+    expect(typeof res.error).toBe('string')
+    expect(typeof res.code).toBe('number')
+    expect(res.code).toBe(404)
   })
 
   it('returns error for missing tag', async () => {
@@ -120,14 +130,19 @@ describe('handleToolCall()', () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
     const res = (await svc.handleToolCall('x-counter/fly', {})) as Record<string, unknown>
     expect(typeof res.error).toBe('string')
-    expect(res.error).toContain('fly')
+    // v0.3.0: 404 for no live instance (not no-action, since no live binding)
+    expect(typeof res.error).toBe('string')
   })
 
-  it('params are echoed back in stub result', async () => {
+  // v0.3.0: params are not echoed back (stub removed); live dispatch returns { result }
+  // The old 'params are echoed back in stub result' test is superseded by live-dispatch.test.ts
+  it('no stub flag in response (stub removed in v0.3.0)', async () => {
     const svc = createAgentService({ manifests: [sampleMeta] })
-    const params = { delta: 5 }
-    const res = (await svc.handleToolCall('x-counter/increment', params)) as Record<string, unknown>
-    expect(res.params).toEqual(params)
+    const res = (await svc.handleToolCall('x-counter/increment', { delta: 5 })) as Record<
+      string,
+      unknown
+    >
+    expect(res.stub).toBeUndefined()
   })
 })
 

@@ -358,6 +358,9 @@ struct NeededHelpers {
     suspense_boundary: bool,
     shield_boundary: bool,
     guard_boundary: bool,
+    /// v0.3.0 — true when `<$guard scope="...">` (scope form) is used.
+    /// Triggers `when()` import (from arbor) and `getScopeSignal` call.
+    guard_scope_boundary: bool,
     warp_boundary: bool,
     /// True when $html or $show directives are used (they emit `effect()` calls).
     needs_effect: bool,
@@ -396,12 +399,24 @@ fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
 fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
     for node in nodes {
         match node {
-            TemplateNode::MacroElement { name, children, .. } => {
+            TemplateNode::MacroElement { name, attrs, children, .. } => {
                 match name.as_str() {
                     "slot" => h.slot_boundary = true,
                     "suspense" => h.suspense_boundary = true,
                     "shield" => h.shield_boundary = true,
-                    "guard" => h.guard_boundary = true,
+                    "guard" => {
+                        // v0.3.0: detect scope-form vs check-form.
+                        let has_scope = attrs.iter().any(|a| matches!(
+                            a,
+                            Attr::Static { name, .. } if name == "scope"
+                        ));
+                        if has_scope {
+                            h.guard_scope_boundary = true;
+                            h.if_boundary = true; // needs `when()` from arbor
+                        } else {
+                            h.guard_boundary = true;
+                        }
+                    }
                     "warp" => h.warp_boundary = true,
                     // arch-5 M1 a11y primitives — RFC-A5-017..020.
                     // <$liveRegion> lowers to a plain branch + ARIA attrs and needs no
@@ -2153,9 +2168,146 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     }
     setup_body.push_str(&format!("    return {}\n", return_expr));
 
+    // v0.3.0 — `__agentBinding` export (server artifact only; client builds
+    // are gated by `elide_agent` before this function is called).
+    // [SECURITY] Amendment 7 §6.11: emit warning when $scope is declared —
+    // @aihu/auth absence cannot be detected at compile time in v0.3.0, so we
+    // always warn when $scope is non-null (resolution: always-warn, option c).
+    let agent_binding_export = {
+        let raw = unit.source.script.unwrap_or("");
+        emit_agent_binding_export(tag_name, agent, raw)
+    };
+
     format!(
-        "{}\n\n{}{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n",
-        imports, module_decl, helpers_decl, tag_name, attrs_str, setup_body
+        "{}\n\n{}{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n{}\n",
+        imports, module_decl, helpers_decl, tag_name, attrs_str, setup_body, agent_binding_export
+    )
+}
+
+/// v0.3.0 — Emit the `__agentBinding` named export for server artifacts.
+///
+/// This export is appended to the component setup code and enables the
+/// `@aihu/agent-service` runtime to wire up a `LiveBinding` for each mounted
+/// instance. The shape is specified in RFC §3 and must be kept in sync with
+/// the `LiveBinding` interface in `packages/arbor/src/mount.ts`.
+///
+/// Security: the `elide_agent` gate in `emit()` ensures this export is NEVER
+/// included in client artifacts. [SECURITY] Amendment 7 §6.11 requires a
+/// `[SECURITY]` compiler warning when `$scope` is declared and `@aihu/auth`
+/// is absent (always-warn in v0.3.0).
+fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+    use crate::parser::state_macros::{meta_get, parse_state_macros};
+    use crate::types::{CollectionKind, StateMacro};
+
+    let macros = parse_state_macros(raw_script).unwrap_or_default();
+
+    let mut action_entries: Vec<String> = Vec::new();
+    let mut read_entries: Vec<String> = Vec::new();
+    let mut write_entries: Vec<String> = Vec::new();
+
+    for mac in &macros {
+        if let StateMacro::Collection { kind, entries } = mac {
+            for entry in entries {
+                let expose_raw = meta_get(entry, "expose").unwrap_or("");
+                let has_read = expose_raw.contains("read: true");
+                let has_write = expose_raw.contains("write: true");
+
+                match kind {
+                    CollectionKind::Action => {
+                        if has_read {
+                            // actions: { name: (args) => name(args) }
+                            action_entries.push(format!(
+                                "    {}: (args) => {}(args)",
+                                entry.name, entry.name
+                            ));
+                        }
+                    }
+                    CollectionKind::Prop => {
+                        if has_read {
+                            // reads: { name: () => name() }  (prop is a signal getter)
+                            read_entries.push(format!(
+                                "    {}: () => {}()",
+                                entry.name, entry.name
+                            ));
+                        }
+                        if has_write {
+                            // writes: { name: (v) => { name = v } }
+                            // For prop signals, the setter is ctx.props.<name>[1]
+                            write_entries.push(format!(
+                                "    {}: (v) => {{ {} = v }}",
+                                entry.name, entry.name
+                            ));
+                        }
+                    }
+                    CollectionKind::Computed => {
+                        if has_read {
+                            // reads: { name: () => name() }  (computed is a callable)
+                            read_entries.push(format!(
+                                "    {}: () => {}()",
+                                entry.name, entry.name
+                            ));
+                        }
+                        // Computed entries are read-only; write: true on computed is ignored.
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // $scope and $rate-limit from the @agent block agent_macros.
+    let mut scope_val: Option<String> = None;
+    let mut rate_limit_val: Option<u32> = None;
+    for mac in &agent.agent_macros {
+        match mac {
+            AgentMacroDecl::Scope(s) => {
+                scope_val = Some(s.clone());
+            }
+            AgentMacroDecl::RateLimit(n) => {
+                rate_limit_val = Some(*n);
+            }
+        }
+    }
+
+    // [SECURITY] Amendment 7 §6.11: always warn when $scope is declared in v0.3.0
+    // (option c — always-warn until @aihu/auth build-graph detection lands).
+    if let Some(ref scope) = scope_val {
+        eprintln!(
+            "[SECURITY] {}: @agent $scope '{}' declared but @aihu/auth cannot be \
+             verified at compile time (v0.3.0). Ensure @aihu/auth is installed and \
+             configured before deploying to production. Third-party templates with \
+             @agent blocks should be audited before use.",
+            tag_name, scope
+        );
+    }
+
+    let actions_str = if action_entries.is_empty() {
+        "{}".to_string()
+    } else {
+        format!("{{\n{}\n  }}", action_entries.join(",\n"))
+    };
+    let reads_str = if read_entries.is_empty() {
+        "{}".to_string()
+    } else {
+        format!("{{\n{}\n  }}", read_entries.join(",\n"))
+    };
+    let writes_str = if write_entries.is_empty() {
+        "{}".to_string()
+    } else {
+        format!("{{\n{}\n  }}", write_entries.join(",\n"))
+    };
+    let scope_str = match &scope_val {
+        Some(s) => format!("'{}'", s),
+        None => "undefined".to_string(),
+    };
+    let rate_limit_str = match rate_limit_val {
+        Some(n) => format!("'{}/min'", n),
+        None => "undefined".to_string(),
+    };
+
+    format!(
+        "export const __agentBinding = {{\n  tag: '{}',\n  actions: {},\n  reads: {},\n  writes: {},\n  scope: {},\n  rateLimit: {},\n}}",
+        tag_name, actions_str, reads_str, writes_str, scope_str, rate_limit_str
     )
 }
 
@@ -2879,19 +3031,52 @@ fn emit_macro_element(
         }
 
         // ── <$guard> ─────────────────────────────────────────────────────────
+        // v0.3.0: `scope="..."` attribute lowers to `when(getScopeSignal(scope), ...)`
+        // per RFC §3 / Layer 3. `getScopeSignal` is imported from `@aihu/auth`.
+        //
+        // [SECURITY] Amendment 7 §6.11: always emit a [SECURITY] warning when
+        // `scope` is used on `<$guard>` in v0.3.0 (option c — always-warn until
+        // @aihu/auth build-graph detection lands in a future release). The warning
+        // is at compile time; the runtime is fail-closed (no auth → no render).
+        //
+        // If `scope` attribute is absent, falls back to `check` attribute (legacy).
         "guard" => {
-            let check_expr = find_static_or_binding_attr(attrs, "check")
-                .unwrap_or_else(|| "undefined".to_string());
+            // v0.3.0: detect `scope="..."` attribute (must be a string literal).
+            let scope_attr = find_static_attr(attrs, "scope");
 
-            let (fallback_children, main_children) = split_slot_fallback(children);
+            if let Some(scope_name) = scope_attr {
+                // [SECURITY] Amendment 7 §6.11 — always warn in v0.3.0.
+                eprintln!(
+                    "[SECURITY] <$guard scope=\"{}\">: @aihu/auth cannot be verified at compile \
+                     time (v0.3.0). Ensure @aihu/auth is installed and configured before \
+                     deploying to production. Runtime is fail-closed: if getScopeSignal returns \
+                     falsy, nothing renders.",
+                    scope_name
+                );
 
-            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+                // Lower to: when(getScopeSignal('scope'), () => branch(...children...))
+                // `getScopeSignal` is imported from `@aihu/auth` at consumer build time.
+                // The guard_boundary helper is not used for scope-form; when() is used directly.
+                format!(
+                    "when(getScopeSignal('{}'), () => {{ return {} }})",
+                    scope_name, main_subtree
+                )
+            } else {
+                // Legacy `check` attribute form.
+                let check_expr = find_static_or_binding_attr(attrs, "check")
+                    .unwrap_or_else(|| "undefined".to_string());
 
-            format!(
-                "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
-                check_expr, main_subtree, fallback_subtree
-            )
+                let (fallback_children, main_children) = split_slot_fallback(children);
+
+                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
+                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+
+                format!(
+                    "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
+                    check_expr, main_subtree, fallback_subtree
+                )
+            }
         }
 
         // ── <$warp> ──────────────────────────────────────────────────────────
