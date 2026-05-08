@@ -157,7 +157,8 @@ const agentsDirectoryHandler: RouteHandler = (_req) =>
     agents: [
       {
         name: 'aihu Documentation Agent',
-        description: 'Browse and search the aihu Web Components framework documentation, API reference, and examples',
+        description:
+          'Browse and search the aihu Web Components framework documentation, API reference, and examples',
         url: 'https://aihu.dev/.well-known/agent.json',
         protocol: 'a2a',
       },
@@ -179,6 +180,23 @@ const mcpDiscoveryHandler: RouteHandler = (_req) => {
   return json(discovery)
 }
 
+const webmcpManifest = {
+  spec: 'webmcp/0.1',
+  name: 'aihu documentation',
+  description: 'aihu Web Components framework — documentation search and navigation tools for AI agents',
+  tools: [
+    {
+      name: 'documentation_search',
+      description: 'Search the aihu Web Components framework documentation by topic, API, or concept',
+      url: 'https://aihu.dev/',
+      method: 'GET',
+      parameters: [{ name: 'q', type: 'string', description: 'Search keywords or topic name to find in the aihu documentation' }],
+    },
+  ],
+}
+
+const webmcpHandler: RouteHandler = (_req) => json(webmcpManifest)
+
 const sitemapHandler: RouteHandler = (_req) => {
   const xml = generateSitemapXml({ pages: sitemapPages })
   return new Response(xml, {
@@ -196,6 +214,8 @@ const router = createRequestRouter({
     defineRoute('/.well-known/agent.json', a2aCardHandler),
     defineRoute('/.well-known/agents.json', agentsDirectoryHandler),
     defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
+    defineRoute('/.well-known/webmcp', webmcpHandler),
+    defineRoute('/.well-known/webmcp.json', webmcpHandler),
     defineRoute('/sitemap.xml', sitemapHandler),
   ],
 })
