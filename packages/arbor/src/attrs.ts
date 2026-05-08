@@ -122,7 +122,7 @@ export function _setAttrOrProp(el: Element, key: string, value: unknown): void {
   if (el.namespaceURI === SVG_NS) {
     el.setAttribute(key, String(value))
   } else if (key in el) {
-    (el as unknown as Record<string, unknown>)[key] = value
+    ;(el as unknown as Record<string, unknown>)[key] = value
   } else {
     el.setAttribute(key, String(value))
   }

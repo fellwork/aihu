@@ -1,16 +1,45 @@
 import type { Dispose } from '@aihu/signals'
-import { SVG_NS, _applyAttrs, type MountEffectFn } from './attrs.ts'
+import { _applyAttrs, type MountEffectFn, SVG_NS } from './attrs.ts'
 import { _materializeStructural } from './structural.ts'
 import type { ErrorHandler, Node } from './types.ts'
 
 // SVG element tags that must be created in the SVG namespace.
 // Without createElementNS these become HTMLUnknownElement and never paint.
 const SVG_TAGS = new Set([
-  'svg', 'path', 'circle', 'ellipse', 'line', 'rect', 'polyline', 'polygon',
-  'g', 'defs', 'use', 'symbol', 'text', 'tspan', 'textPath', 'image',
-  'filter', 'clipPath', 'mask', 'marker', 'linearGradient', 'radialGradient',
-  'stop', 'pattern', 'animate', 'animateTransform', 'animateMotion', 'set',
-  'foreignObject', 'desc', 'title', 'metadata', 'switch', 'view',
+  'svg',
+  'path',
+  'circle',
+  'ellipse',
+  'line',
+  'rect',
+  'polyline',
+  'polygon',
+  'g',
+  'defs',
+  'use',
+  'symbol',
+  'text',
+  'tspan',
+  'textPath',
+  'image',
+  'filter',
+  'clipPath',
+  'mask',
+  'marker',
+  'linearGradient',
+  'radialGradient',
+  'stop',
+  'pattern',
+  'animate',
+  'animateTransform',
+  'animateMotion',
+  'set',
+  'foreignObject',
+  'desc',
+  'title',
+  'metadata',
+  'switch',
+  'view',
 ])
 
 /**
@@ -117,9 +146,7 @@ export function _materialize(
   // Cases 2+3: element leaf or branch with tag — create wrapper, apply attrs,
   // recurse into wrapper (no-op for leaf since its children list is empty).
   const tag = node.tag as string
-  const el = SVG_TAGS.has(tag)
-    ? document.createElementNS(SVG_NS, tag)
-    : document.createElement(tag)
+  const el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
   // Set back-reference so compiler-emitted _onMount callbacks can reach the
   // live DOM element via `_n.el` for $class: and @html bindings.
   if (node.kind === 'branch') node.el = el
