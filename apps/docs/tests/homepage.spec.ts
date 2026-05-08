@@ -8,8 +8,7 @@ test('page title contains aihu', async ({ page }) => {
 
 test('docs-shell custom element upgrades', async ({ page }) => {
   await page.goto('/')
-  await page.waitForFunction(
-    () => document.querySelector('docs-shell')?.shadowRoot != null,
-    { timeout: 10_000 },
-  )
+  await page.waitForFunction(() => document.querySelector('docs-shell')?.shadowRoot != null, {
+    timeout: 10_000,
+  })
 })

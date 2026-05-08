@@ -60,12 +60,8 @@ async function main(): Promise<void> {
   const head = process.argv[3] ?? 'unlabeled'
   console.log(`# arbor repeat (N=${N}) — ${head}`)
   console.log(``)
-  console.log(
-    `| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`,
-  )
-  console.log(
-    `| --- | ---: | ---: | ---: | ---: | ---: |`,
-  )
+  console.log(`| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`)
+  console.log(`| --- | ---: | ---: | ---: | ---: | ---: |`)
   for (const wl of workloads) {
     process.stderr.write(`  ${wl.name} … `)
     const samples: Sample[] = []

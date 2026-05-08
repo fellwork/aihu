@@ -54,12 +54,8 @@ function median(xs: number[]): number {
 async function main(): Promise<void> {
   console.log(`# signals repeat (N=${N}) — ${label}`)
   console.log(``)
-  console.log(
-    `| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`,
-  )
-  console.log(
-    `| --- | ---: | ---: | ---: | ---: | ---: |`,
-  )
+  console.log(`| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`)
+  console.log(`| --- | ---: | ---: | ---: | ---: | ---: |`)
   for (const wl of workloads) {
     process.stderr.write(`  ${wl.name} … `)
     const samples: Sample[] = []
