@@ -161,7 +161,7 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   // Idempotent — re-setting on an already-Merge sub is a no-op. Must run
   // BEFORE append (depsHead non-null means a 2nd or later edge).
   if (sub.depsHead !== null) sub.flags |= MERGE
-  const link = _linkPool.pop() ?? ({} as Link)
+  const link = _linkPool.length > 0 ? _linkPool.pop()! : ({} as Link)
   link.dep = dep
   link.sub = sub
   link.prevSub = dep.subsTail
@@ -338,7 +338,7 @@ function drainEffectQueue(): void {
     // it. Optional-chain is a defensive guard (signal-host literals
     // have no `notify` but never reach drainEffectQueue — only EFFECT-
     // flagged subs are pushed at markOne).
-    sub.notify?.()  // throws immediately on error
+    sub.notify?.() // throws immediately on error
   }
   effectQueue.length = 0
 }

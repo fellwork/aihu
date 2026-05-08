@@ -3,10 +3,10 @@ import {
   DISPOSED,
   EFFECT,
   type Link,
+  linkRecycle,
   MERGE,
   RUNNING,
   type Subscriber,
-  linkRecycle,
   setCurrentObserver,
 } from './signal.ts'
 

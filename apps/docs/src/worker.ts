@@ -183,14 +183,22 @@ const mcpDiscoveryHandler: RouteHandler = (_req) => {
 const webmcpManifest = {
   spec: 'webmcp/0.1',
   name: 'aihu documentation',
-  description: 'aihu Web Components framework — documentation search and navigation tools for AI agents',
+  description:
+    'aihu Web Components framework — documentation search and navigation tools for AI agents',
   tools: [
     {
       name: 'documentation_search',
-      description: 'Search the aihu Web Components framework documentation by topic, API, or concept',
+      description:
+        'Search the aihu Web Components framework documentation by topic, API, or concept',
       url: 'https://aihu.dev/',
       method: 'GET',
-      parameters: [{ name: 'q', type: 'string', description: 'Search keywords or topic name to find in the aihu documentation' }],
+      parameters: [
+        {
+          name: 'q',
+          type: 'string',
+          description: 'Search keywords or topic name to find in the aihu documentation',
+        },
+      ],
     },
   ],
 }
