@@ -6,6 +6,8 @@ import {
   EFFECT,
   type Link,
   linkAdd,
+  linkRecycle,
+  linkUnlink,
   MARKED,
   PENDING,
   type Read,
@@ -117,11 +119,20 @@ class Computed<T> implements Subscriber {
   }
 }
 
-export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> {
+/**
+ * Create a lazy derived value that recomputes only when its reactive
+ * dependencies change.
+ *
+ * The returned read function has an optional `.dispose()` method. Call it
+ * to unlink the computed from its source signals and downstream subscribers,
+ * allowing it (and its `fn` closure) to be garbage-collected even if source
+ * signals remain live.
+ */
+export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> & { dispose(): void } {
   const equals: ((a: T, b: T) => boolean) | false = options?.equals ?? Object.is
   const node = new Computed<T>(fn, equals)
 
-  const read: Read<T> & { [__HOST]?: Subscriber } = () => {
+  const read: Read<T> & { [__HOST]?: Subscriber; dispose?: () => void } = () => {
     if (node.flags & RUNNING) throw new SignalCircularError()
     const observer = currentObserver
     if (observer !== null) {
@@ -134,7 +145,34 @@ export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> 
     }
     return node.cached as T
   }
+
+  read.dispose = () => {
+    if (node.flags & DISPOSED) return
+    node.flags |= DISPOSED
+    // Unlink from all source signals (remove this computed from their subs lists)
+    for (let l = node.depsHead; l !== null; ) {
+      const next = l.nextDep
+      // Splice out of dep.subs list
+      if (l.prevSub) l.prevSub.nextSub = l.nextSub
+      else l.dep.subsHead = l.nextSub
+      if (l.nextSub) l.nextSub.prevSub = l.prevSub
+      else l.dep.subsTail = l.prevSub
+      linkRecycle(l)
+      l = next
+    }
+    node.depsHead = null
+    node.depsTail = null
+    // Unlink downstream subscribers (computeds/effects that read this computed)
+    for (let l = node.subsHead; l !== null; ) {
+      const next = l.nextSub
+      linkUnlink(l)
+      l = next
+    }
+    node.subsHead = null
+    node.subsTail = null
+  }
+
   if (__DEV__) read[__HOST] = node
 
-  return read
+  return read as Read<T> & { dispose(): void }
 }

@@ -131,12 +131,13 @@ export function exitBatch(): void {
 
 /** @internal — recycled Link nodes to reduce allocator pressure */
 const _linkPool: Link[] = []
+const _MAX_LINK_POOL = 256
 
 /** @internal — recycle a Link node back to the pool, nulling out live refs. */
 export function linkRecycle(link: Link): void {
   link.dep = null!
   link.sub = null!
-  _linkPool.push(link)
+  if (_linkPool.length < _MAX_LINK_POOL) _linkPool.push(link)
 }
 
 /** @internal — append an edge dep→sub to the graph if not already present.

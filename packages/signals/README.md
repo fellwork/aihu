@@ -152,7 +152,7 @@ bun add @aihu/signals
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | A — Reactive runtime core — signals/computeds/effects |
-| **Bundle size** | 1.66 kB (gz) — limit 1970 B |
+| **Bundle size** | 1.75 kB (gz) — limit 1970 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -183,6 +183,18 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <sub><i>Auto-generated against `@aihu/signals@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
+
+## Server-Side Rendering (SSR)
+
+`@aihu/signals` uses module-level reactive state (`currentObserver`, `batchQueue`, `effectQueue`, `wave`, and the link pool) that is **shared across all concurrent requests** in the same Node.js worker thread — it is not request-isolated by default.
+
+If you use `@aihu/signals` in server-side code (via `@aihu/data`'s `resource()` or directly):
+
+- Wrap all async operations inside effects with `untrack()` to prevent `currentObserver` from leaking across request boundaries during event-loop yields.
+- Do not hold live reactive graphs between requests — dispose effects when the request completes.
+- For true request isolation, instantiate signals within a request-scoped context rather than at module level.
+
+Client-side usage (browser custom elements, arbor mounts) is unaffected — each tab is an isolated JS environment.
 
 ## See also
 

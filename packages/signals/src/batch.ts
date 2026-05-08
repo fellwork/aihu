@@ -8,8 +8,12 @@ import { drainBatch, enterBatch, exitBatch, getBatchDepth } from './signal.ts'
  * identity) instead of firing synchronously. When the outermost `batch` call
  * returns, the queue is drained — each queued subscriber's `notify()` runs
  * once, in insertion order. Nested `batch(() => batch(...))` calls flush only
- * at the outermost return. If `fn` throws, the queue is still drained (and
- * any drain-time error propagates after `fn`'s).
+ * at the outermost return.
+ *
+ * **Non-atomic on error:** If `fn` throws, any signal writes that occurred
+ * before the throw are still propagated to subscribers — `batch` does not
+ * roll back on exception. Callers that need atomic semantics must implement
+ * snapshot-restore manually.
  *
  * `batch` returns `void`; capture results via closures.
  */
