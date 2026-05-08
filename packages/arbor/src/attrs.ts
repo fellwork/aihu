@@ -1,6 +1,8 @@
 import type { Dispose } from '@aihu/signals'
 import type { AttrMap, ErrorHandler, EventHandler } from './types.ts'
 
+export const SVG_NS = 'http://www.w3.org/2000/svg'
+
 /**
  * Internal AttrMap binding per `.team/phase-3/spec-arbor.md` §1.2 + §2.4
  * + §2.7 (Task 15).
@@ -115,6 +117,13 @@ export function _applyAttrs(
  * @internal
  */
 export function _setAttrOrProp(el: Element, key: string, value: unknown): void {
-  if (key in el) (el as unknown as Record<string, unknown>)[key] = value
-  else el.setAttribute(key, String(value))
+  // SVG elements expose properties like viewBox as SVGAnimated* objects which
+  // are read-only. Always use setAttribute for SVG namespace elements.
+  if (el.namespaceURI === SVG_NS) {
+    el.setAttribute(key, String(value))
+  } else if (key in el) {
+    (el as unknown as Record<string, unknown>)[key] = value
+  } else {
+    el.setAttribute(key, String(value))
+  }
 }

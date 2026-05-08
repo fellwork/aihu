@@ -1,7 +1,17 @@
 import type { Dispose } from '@aihu/signals'
-import { _applyAttrs, type MountEffectFn } from './attrs.ts'
+import { SVG_NS, _applyAttrs, type MountEffectFn } from './attrs.ts'
 import { _materializeStructural } from './structural.ts'
 import type { ErrorHandler, Node } from './types.ts'
+
+// SVG element tags that must be created in the SVG namespace.
+// Without createElementNS these become HTMLUnknownElement and never paint.
+const SVG_TAGS = new Set([
+  'svg', 'path', 'circle', 'ellipse', 'line', 'rect', 'polyline', 'polygon',
+  'g', 'defs', 'use', 'symbol', 'text', 'tspan', 'textPath', 'image',
+  'filter', 'clipPath', 'mask', 'marker', 'linearGradient', 'radialGradient',
+  'stop', 'pattern', 'animate', 'animateTransform', 'animateMotion', 'set',
+  'foreignObject', 'desc', 'title', 'metadata', 'switch', 'view',
+])
 
 /**
  * Recursive DOM materialization per `.team/phase-3/spec-arbor.md` §2.3.
@@ -106,7 +116,10 @@ export function _materialize(
 
   // Cases 2+3: element leaf or branch with tag — create wrapper, apply attrs,
   // recurse into wrapper (no-op for leaf since its children list is empty).
-  const el = document.createElement(node.tag as string)
+  const tag = node.tag as string
+  const el = SVG_TAGS.has(tag)
+    ? document.createElementNS(SVG_NS, tag)
+    : document.createElement(tag)
   // Set back-reference so compiler-emitted _onMount callbacks can reach the
   // live DOM element via `_n.el` for $class: and @html bindings.
   if (node.kind === 'branch') node.el = el

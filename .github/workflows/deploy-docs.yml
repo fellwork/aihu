@@ -88,6 +88,11 @@ jobs:
         run: bun run build
         working-directory: apps/docs
 
+      - name: Check docs content is up to date
+        run: |
+          git diff --exit-code apps/docs/src/content.ts || \
+            (echo "ERROR: apps/docs/src/content.ts is stale. Run 'bun run build' in apps/docs and commit the updated file." && exit 1)
+
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: apps/docs
