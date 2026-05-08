@@ -17,6 +17,6 @@ export default defineConfig({
     command: 'bunx wrangler pages dev dist/ --port 8788',
     url: 'http://localhost:8788',
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
+    timeout: 60_000,
   },
 })
