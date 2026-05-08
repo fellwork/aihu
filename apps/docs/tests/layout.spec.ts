@@ -1,12 +1,22 @@
 // apps/docs/tests/layout.spec.ts
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test('article is horizontally centered within docs-content at 1280px', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/')
-  await page.waitForFunction(() =>
-    document.querySelector('docs-shell')?.shadowRoot != null
-  , { timeout: 10_000 })
+  await page.waitForFunction(() => document.querySelector('docs-shell')?.shadowRoot != null, {
+    timeout: 10_000,
+  })
+  // Wait until article is rendered and visible (non-zero width guards against
+  // a display:none ancestor returning zero rects before reactive class binds)
+  await page.waitForFunction(
+    () => {
+      const shell = document.querySelector('docs-shell')
+      const article = shell?.shadowRoot?.querySelector('article')
+      return article != null && article.getBoundingClientRect().width > 0
+    },
+    { timeout: 10_000 },
+  )
 
   const margins = await page.evaluate(() => {
     const shell = document.querySelector('docs-shell')
