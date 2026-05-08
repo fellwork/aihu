@@ -38,7 +38,7 @@ const DEFAULT_SOURCE = `@state {
 @template {
   <div class="demo">
     <h1>Hello from aihu</h1>
-    <p>Count: {count()}</p>
+    <p>Count: {{ count }}</p>
     <button $on.click={() => setCount(count() + 1)}>+</button>
   </div>
 }
@@ -222,7 +222,9 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
     '.pe-error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;margin:0}',
     '</style></head><body>',
     '<div id="root"></div>',
-    '<script>', safeBundle, '</script>',
+    '<script>',
+    safeBundle,
+    '</script>',
     '<script>',
     '(function(){',
     'try{',
