@@ -39,7 +39,7 @@ const DEFAULT_SOURCE = `@state {
 @template {
   <div class="demo">
     <h1>Hello from aihu</h1>
-    <p>Count: {{ count }}</p>
+    <p>Count: {count()}</p>
     <button $on.click={() => setCount(count() + 1)}>+</button>
   </div>
 }
