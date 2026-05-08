@@ -129,6 +129,16 @@ export function exitBatch(): void {
 
 // ───────── Linked-list dep graph (Phase 2 / parent §9.4) ─────────
 
+/** @internal — recycled Link nodes to reduce allocator pressure */
+const _linkPool: Link[] = []
+
+/** @internal — recycle a Link node back to the pool, nulling out live refs. */
+export function linkRecycle(link: Link): void {
+  link.dep = null!
+  link.sub = null!
+  _linkPool.push(link)
+}
+
 /** @internal — append an edge dep→sub to the graph if not already present.
  * O(D) dedup walk over sub's deps list (D ≤ 4 in cellx; ≤ 1 in
  * wide-fanout). Returns true if a fresh Link was added, false if an
@@ -142,22 +152,22 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   // The "last linked" optimisation (spec §2 Phase 2) keeps the most
   // recent dep at depsTail; many computeds re-read the same dep
   // consecutively, so walking from tail catches the common case at
-  // O(1) most of the time.
-  for (let l = sub.depsTail; l !== null; l = l.prevDep) {
+  // O(1) most of the time. Start from prevDep — the tail was already
+  // checked by the fast-path above.
+  for (let l = sub.depsTail?.prevDep ?? null; l !== null; l = l.prevDep) {
     if (l.dep === dep) return false
   }
   // H5 MERGE-1: promote sub from Linear to Merge on its 2nd inbound dep.
   // Idempotent — re-setting on an already-Merge sub is a no-op. Must run
   // BEFORE append (depsHead non-null means a 2nd or later edge).
   if (sub.depsHead !== null) sub.flags |= MERGE
-  const link: Link = {
-    dep,
-    sub,
-    prevSub: dep.subsTail,
-    nextSub: null,
-    prevDep: sub.depsTail,
-    nextDep: null,
-  }
+  const link = _linkPool.pop() ?? ({} as Link)
+  link.dep = dep
+  link.sub = sub
+  link.prevSub = dep.subsTail
+  link.nextSub = null
+  link.prevDep = sub.depsTail
+  link.nextDep = null
   // Splice into dep.subs list (tail-append).
   if (dep.subsTail) dep.subsTail.nextSub = link
   else dep.subsHead = link
@@ -181,6 +191,7 @@ export function linkUnlink(link: Link): void {
   else link.sub.depsHead = link.nextDep
   if (link.nextDep) link.nextDep.prevDep = link.prevDep
   else link.sub.depsTail = link.prevDep
+  linkRecycle(link)
 }
 
 // ───────── Mark / settle / drain pipeline ─────────
@@ -303,12 +314,10 @@ export function shallowClear(head: Link | null): void {
 }
 
 /**
- * @internal — drain effectQueue, isolating user-thrown errors. Each
- * effect's `notify()` is wrapped in try/catch so a single thrown effect
- * does not strand its siblings; thrown errors accumulate in `errors` and
- * are surfaced by `_throwEffectErrors` after the wave completes.
+ * @internal — drain effectQueue. Errors propagate immediately (fail-fast);
+ * a thrown effect aborts the drain and re-throws to the caller.
  */
-function drainEffectQueue(errors: unknown[]): void {
+function drainEffectQueue(): void {
   for (const sub of effectQueue) {
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
@@ -325,28 +334,13 @@ function drainEffectQueue(errors: unknown[]): void {
       if (!(sub.flags & MARKED)) continue // shallowClear suppressed cascade
     }
     sub.flags &= ~MARKED
-    try {
-      // K1c+: `notify` lives on Effect.prototype; effects always carry
-      // it. Optional-chain is a defensive guard (signal-host literals
-      // have no `notify` but never reach drainEffectQueue — only EFFECT-
-      // flagged subs are pushed at markOne).
-      sub.notify?.()
-    } catch (e) {
-      errors.push(e)
-    }
+    // K1c+: `notify` lives on Effect.prototype; effects always carry
+    // it. Optional-chain is a defensive guard (signal-host literals
+    // have no `notify` but never reach drainEffectQueue — only EFFECT-
+    // flagged subs are pushed at markOne).
+    sub.notify?.()  // throws immediately on error
   }
   effectQueue.length = 0
-}
-
-/**
- * @internal — surface accumulated effect errors. Single error throws
- * directly (preserving stack); multiple errors throw as AggregateError.
- * Computed-body throws bypass this path entirely (they fail fast).
- */
-function throwEffectErrors(errors: unknown[]): void {
-  if (errors.length === 0) return
-  if (errors.length === 1) throw errors[0]
-  throw new AggregateError(errors, 'multiple effects threw during drain')
 }
 
 /** @internal — clear MARKED+PENDING residue on the effectQueue after a wave
@@ -367,28 +361,22 @@ function clearEffectQueue(): void {
  */
 export function drainBatch(): void {
   let iterations = 0
-  const errors: unknown[] = []
   try {
     while (batchQueue.length > 0) {
-      if (++iterations > MAX_BATCH_ITERATIONS) {
-        for (const sub of batchQueue) sub.flags &= ~QUEUED
-        batchQueue.length = 0
-        throw new SignalCircularError()
-      }
+      if (++iterations > MAX_BATCH_ITERATIONS) throw new SignalCircularError()
       wave++
       const drainList = batchQueue.splice(0)
       for (const sub of drainList) {
         sub.flags &= ~QUEUED
         markOne(sub)
       }
-      drainEffectQueue(errors)
+      drainEffectQueue()
     }
   } finally {
     clearEffectQueue()
     for (const sub of batchQueue) sub.flags &= ~QUEUED
     batchQueue.length = 0
   }
-  throwEffectErrors(errors)
 }
 
 export type Read<T> = () => T
@@ -473,14 +461,12 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     }
     wave++
     host.lastWave = wave // record write wave for checkDirty signal-source detection
-    const errors: unknown[] = []
     try {
       propagateMark(head)
-      drainEffectQueue(errors)
+      drainEffectQueue()
     } finally {
       clearEffectQueue()
     }
-    throwEffectErrors(errors)
   }
 
   return [read, write] as const

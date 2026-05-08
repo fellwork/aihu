@@ -6,6 +6,7 @@ import {
   MERGE,
   RUNNING,
   type Subscriber,
+  linkRecycle,
   setCurrentObserver,
 } from './signal.ts'
 
@@ -115,6 +116,7 @@ export function effect(fn: EffectFn): Dispose {
       else l.dep.subsHead = l.nextSub
       if (l.nextSub) l.nextSub.prevSub = l.prevSub
       else l.dep.subsTail = l.prevSub
+      linkRecycle(l)
       l = next
     }
     node.depsHead = null

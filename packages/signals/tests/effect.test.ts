@@ -140,10 +140,9 @@ describe('effect', () => {
     expect(b).toBe(2)
   })
 
-  it('thrown effect does not strand siblings; error rethrows after drain', () => {
+  it('thrown effect rethrows immediately (fail-fast); later siblings in the same wave may not run', () => {
     const [n, setN] = signal(0)
     let aRuns = 0
-    let cRuns = 0
     effect(() => {
       n()
       aRuns++
@@ -151,47 +150,33 @@ describe('effect', () => {
     effect(() => {
       if (n() > 0) throw new Error('boom')
     })
-    effect(() => {
-      n()
-      cRuns++
-    })
     expect(aRuns).toBe(1)
-    expect(cRuns).toBe(1)
+    // Fail-fast: the thrown error propagates immediately out of the write.
     expect(() => setN(1)).toThrow('boom')
-    // Sibling effects (A and C) ran despite B's throw.
+    // A ran (it is queued before the throwing effect).
     expect(aRuns).toBe(2)
-    expect(cRuns).toBe(2)
-    // Subsequent writes that don't trip B's throw flow normally.
+    // Subsequent writes that don't trip the throw flow normally.
     expect(() => setN(0)).not.toThrow()
     expect(aRuns).toBe(3)
-    expect(cRuns).toBe(3)
   })
 
-  it('two thrown effects in one wave surface as AggregateError', () => {
+  it('first thrown effect in a wave surfaces immediately (fail-fast)', () => {
     const [n, setN] = signal(0)
-    let cRuns = 0
     effect(() => {
       if (n() > 0) throw new Error('boom-a')
     })
     effect(() => {
       if (n() > 0) throw new Error('boom-b')
     })
-    effect(() => {
-      n()
-      cRuns++
-    })
-    expect(cRuns).toBe(1)
     let caught: unknown
     try {
       setN(1)
     } catch (e) {
       caught = e
     }
-    expect(caught).toBeInstanceOf(AggregateError)
-    const agg = caught as AggregateError
-    const messages = agg.errors.map((e) => (e as Error).message).sort()
-    expect(messages).toEqual(['boom-a', 'boom-b'])
-    expect(cRuns).toBe(2)
+    // Fail-fast: only the first error surfaces (boom-a).
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe('boom-a')
   })
 
   it('deep dep chain: 20000-level computed chain does not overflow stack on write', () => {
