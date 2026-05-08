@@ -24,7 +24,7 @@ import {
 } from '@aihu/runtime'
 import type { Signal } from '@aihu/signals'
 import { signal } from '@aihu/signals'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RuntimeError } from '../../runtime/src/types.ts'
 
 // Wire real runtime once — same approach used in packages/runtime/tests/*.
