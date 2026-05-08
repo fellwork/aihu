@@ -128,7 +128,10 @@ class Computed<T> implements Subscriber {
  * allowing it (and its `fn` closure) to be garbage-collected even if source
  * signals remain live.
  */
-export function computed<T>(fn: () => T, options?: ComputedOptions<T>): Read<T> & { dispose(): void } {
+export function computed<T>(
+  fn: () => T,
+  options?: ComputedOptions<T>,
+): Read<T> & { dispose(): void } {
   const equals: ((a: T, b: T) => boolean) | false = options?.equals ?? Object.is
   const node = new Computed<T>(fn, equals)
 

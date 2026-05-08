@@ -1,6 +1,6 @@
 # `@aihu/arbor` Bench Results
 
-**Generated:** 2026-05-07
+**Generated:** 2026-05-08
 **Runner:** mitata 1.0.34 · Bun 1.3.8 · JSDOM 25.0.1
 **Track:** A — @aihu/arbor vs. SOTA DOM-binding libs (Round N+1)
 **Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.
@@ -13,12 +13,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 36.32 ms | 36.17 ms | 38.67 ms | 27.54 |
-| lit-html | 5.40 s | 5.30 s | 5.73 s | 0.19 |
+| @aihu/arbor | 36.83 ms | 36.63 ms | 39.68 ms | 27.15 |
+| lit-html | 5.50 s | 5.40 s | 5.94 s | 0.18 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 62.65 ms | 61.66 ms | 68.61 ms | 15.96 |
-| vanilla | 93.41 ms | 91.17 ms | 101.47 ms | 10.71 |
+| preact | 72.95 ms | 72.36 ms | 75.60 ms | 13.71 |
+| vanilla | 93.98 ms | 92.36 ms | 103.05 ms | 10.64 |
 
 ## Workload: `mount-deep-100x10`
 
@@ -26,12 +26,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 3.33 ms | 3.11 ms | 6.15 ms | 299.87 |
-| lit-html | 60.17 ms | 59.82 ms | 63.24 ms | 16.62 |
+| @aihu/arbor | 3.52 ms | 3.28 ms | 6.25 ms | 284.07 |
+| lit-html | 63.31 ms | 63.46 ms | 65.86 ms | 15.79 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 9.21 ms | 8.72 ms | 12.76 ms | 108.61 |
-| vanilla | 24.00 ms | 23.32 ms | 27.24 ms | 41.66 |
+| preact | 10.01 ms | 9.12 ms | 14.81 ms | 99.85 |
+| vanilla | 25.15 ms | 24.60 ms | 28.94 ms | 39.76 |
 
 ## Workload: `mount-wide-1000`
 
@@ -39,12 +39,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 9.04 ms | 8.53 ms | 11.71 ms | 110.62 |
-| lit-html | 53.75 ms | 53.05 ms | 58.08 ms | 18.60 |
+| @aihu/arbor | 9.19 ms | 8.60 ms | 12.01 ms | 108.84 |
+| lit-html | 59.02 ms | 57.49 ms | 63.53 ms | 16.94 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 9.93 ms | 9.15 ms | 14.17 ms | 100.70 |
-| vanilla | 12.88 ms | 11.89 ms | 17.35 ms | 77.64 |
+| preact | 10.62 ms | 9.82 ms | 15.09 ms | 94.14 |
+| vanilla | 12.73 ms | 12.24 ms | 17.02 ms | 78.58 |
 
 ## Workload: `update-1-of-10k-leaves`
 
@@ -52,12 +52,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 26.09 ns | 25.32 ns | 40.65 ns | 38.32M |
-| lit-html | 688.87 µs | 618.00 µs | 1.45 ms | 1.45K |
+| @aihu/arbor | 26.61 ns | 25.34 ns | 42.63 ns | 37.59M |
+| lit-html | 603.58 µs | 570.30 µs | 967.80 µs | 1.66K |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 1.80 ms | 1.60 ms | 4.39 ms | 556.95 |
-| vanilla | 3.24 µs | 3.17 µs | 3.83 µs | 309.00K |
+| preact | 2.06 ms | 1.90 ms | 4.67 ms | 485.40 |
+| vanilla | 3.33 µs | 3.32 µs | 4.04 µs | 300.02K |
 
 ## Workload: `attr-thrash-100x100`
 
@@ -65,12 +65,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 40.12 µs | 37.40 µs | 70.00 µs | 24.93K |
+| @aihu/arbor | 44.45 µs | 43.40 µs | 48.19 µs | 22.50K |
 | lit-html | ERROR | ERROR | ERROR | `Attempted to assign to readonly property.` |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 10.54 ms | 10.04 ms | 12.87 ms | 94.84 |
-| vanilla | 6.72 ms | 6.36 ms | 9.23 ms | 148.77 |
+| preact | 10.69 ms | 10.35 ms | 13.00 ms | 93.55 |
+| vanilla | 6.64 ms | 6.45 ms | 8.07 ms | 150.57 |
 
 ## Workload: `krausest-1k-cycle`
 
@@ -78,12 +78,12 @@
 
 | Competitor | mean | p50 | p99 | ops/s |
 | --- | ---: | ---: | ---: | ---: |
-| @aihu/arbor | 21.18 ms | 21.48 ms | 24.60 ms | 47.22 |
-| lit-html | 74.79 ms | 73.19 ms | 78.23 ms | 13.37 |
+| @aihu/arbor | 22.18 ms | 21.94 ms | 27.61 ms | 45.08 |
+| lit-html | 77.63 ms | 77.43 ms | 81.14 ms | 12.88 |
 | solid-js | ERROR | ERROR | ERROR | `Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.` |
 | @vue/runtime-dom | ERROR | ERROR | ERROR | `SVGElement is not defined` |
-| preact | 19.24 ms | 18.88 ms | 22.26 ms | 51.96 |
-| vanilla | 17.39 ms | 16.71 ms | 23.77 ms | 57.52 |
+| preact | 19.83 ms | 19.40 ms | 23.88 ms | 50.44 |
+| vanilla | 16.95 ms | 16.46 ms | 21.23 ms | 58.99 |
 
 ---
 
@@ -95,78 +95,78 @@ each competitor holds itself to?"
 
 ### vs. lit-html
 *lit-html benchmarks focus on render-update-clear on row tables (krausest).*
-- `krausest-1k-cycle`: p50 = 21.48 ms, 47.22 ops/s
+- `krausest-1k-cycle`: p50 = 21.94 ms, 45.08 ops/s
 
 ### vs. solid-js
 *Solid's headline claim is granular reactive updates without diffing.*
-- `update-1-of-10k-leaves`: p50 = 25.32 ns, 38.32M ops/s
+- `update-1-of-10k-leaves`: p50 = 25.34 ns, 37.59M ops/s
 
 ### vs. @vue/runtime-dom
 *Vue's perf claim is patch flags reducing reactive diffs.*
-- `attr-thrash-100x100`: p50 = 37.40 µs, 24.93K ops/s
-- `update-1-of-10k-leaves`: p50 = 25.32 ns, 38.32M ops/s
+- `attr-thrash-100x100`: p50 = 43.40 µs, 22.50K ops/s
+- `update-1-of-10k-leaves`: p50 = 25.34 ns, 37.59M ops/s
 
 ### vs. preact
 *Preact's claim is minimal VDOM runtime cost.*
-- `krausest-1k-cycle`: p50 = 21.48 ms, 47.22 ops/s
+- `krausest-1k-cycle`: p50 = 21.94 ms, 45.08 ops/s
 
 ### vs. vanilla DOM
 *Vanilla is the floor. If we are more than 2-3x slower than vanilla on update, investigate.*
-- `update-1-of-10k-leaves`: p50 = 25.32 ns, 38.32M ops/s
+- `update-1-of-10k-leaves`: p50 = 25.34 ns, 37.59M ops/s
 
 ---
 
 <!-- bench-data:start
 {
-  "date": "2026-05-07",
+  "date": "2026-05-08",
   "cells": [
     {
       "workload": "mount-10k-leaves",
       "competitor": "@aihu/arbor",
-      "p50": 36167800,
-      "opsPerSec": 27.535140288671528
+      "p50": 36628800,
+      "opsPerSec": 27.149858735891268
     },
     {
       "workload": "mount-10k-leaves",
       "competitor": "lit-html",
-      "p50": 5298803600,
-      "opsPerSec": 0.18506525347631314
+      "p50": 5402825400,
+      "opsPerSec": 0.18175506379225598
     },
     {
       "workload": "mount-10k-leaves",
       "competitor": "solid-js",
-      "error": true,
-      "p50": null
-    },
-    {
-      "workload": "mount-10k-leaves",
-      "competitor": "@vue/runtime-dom",
       "error": true,
       "p50": null
     },
     {
       "workload": "mount-10k-leaves",
+      "competitor": "@vue/runtime-dom",
+      "error": true,
+      "p50": null
+    },
+    {
+      "workload": "mount-10k-leaves",
       "competitor": "preact",
-      "p50": 61661800,
-      "opsPerSec": 15.961942472627264
+      "p50": 72364600,
+      "opsPerSec": 13.707949664957148
     },
     {
       "workload": "mount-10k-leaves",
       "competitor": "vanilla",
-      "p50": 91166500,
-      "opsPerSec": 10.705490962290712
+      "p50": 92361900,
+      "opsPerSec": 10.639997630827194
     },
     {
       "workload": "mount-deep-100x10",
       "competitor": "@aihu/arbor",
-      "p50": 3111700,
-      "opsPerSec": 299.8695567428169
+      "p50": 3276400,
+      "opsPerSec": 284.06609148883007
     },
     {
       "workload": "mount-deep-100x10",
       "competitor": "lit-html",
-      "p50": 59820400,
-      "opsPerSec": 16.62065727795569
+      "p50": 63460200,
+      "opsPerSec": 15.794542485410778
     },
     {
       "workload": "mount-deep-100x10",
@@ -183,26 +183,26 @@ each competitor holds itself to?"
     {
       "workload": "mount-deep-100x10",
       "competitor": "preact",
-      "p50": 8716500,
-      "opsPerSec": 108.61033494174099
+      "p50": 9121600,
+      "opsPerSec": 99.85471139492039
     },
     {
       "workload": "mount-deep-100x10",
       "competitor": "vanilla",
-      "p50": 23315200,
-      "opsPerSec": 41.6639347551553
+      "p50": 24597700,
+      "opsPerSec": 39.75608756808368
     },
     {
       "workload": "mount-wide-1000",
       "competitor": "@aihu/arbor",
-      "p50": 8526300,
-      "opsPerSec": 110.62464099173113
+      "p50": 8597800,
+      "opsPerSec": 108.83876500964313
     },
     {
       "workload": "mount-wide-1000",
       "competitor": "lit-html",
-      "p50": 53048200,
-      "opsPerSec": 18.603296727419657
+      "p50": 57487400,
+      "opsPerSec": 16.942010643939202
     },
     {
       "workload": "mount-wide-1000",
@@ -219,26 +219,26 @@ each competitor holds itself to?"
     {
       "workload": "mount-wide-1000",
       "competitor": "preact",
-      "p50": 9153300,
-      "opsPerSec": 100.69799444210007
+      "p50": 9818800,
+      "opsPerSec": 94.14455394153434
     },
     {
       "workload": "mount-wide-1000",
       "competitor": "vanilla",
-      "p50": 11885900,
-      "opsPerSec": 77.6352227228645
+      "p50": 12239700,
+      "opsPerSec": 78.58470414744922
     },
     {
       "workload": "update-1-of-10k-leaves",
       "competitor": "@aihu/arbor",
-      "p50": 25.3173828125,
-      "opsPerSec": 38322805.56945072
+      "p50": 25.341796875,
+      "opsPerSec": 37585269.95659458
     },
     {
       "workload": "update-1-of-10k-leaves",
       "competitor": "lit-html",
-      "p50": 618000,
-      "opsPerSec": 1451.6436712118884
+      "p50": 570300,
+      "opsPerSec": 1656.7699195687937
     },
     {
       "workload": "update-1-of-10k-leaves",
@@ -255,20 +255,20 @@ each competitor holds itself to?"
     {
       "workload": "update-1-of-10k-leaves",
       "competitor": "preact",
-      "p50": 1599200,
-      "opsPerSec": 556.9518732823097
+      "p50": 1900200,
+      "opsPerSec": 485.4014746476533
     },
     {
       "workload": "update-1-of-10k-leaves",
       "competitor": "vanilla",
-      "p50": 3172.65625,
-      "opsPerSec": 309000.2159455855
+      "p50": 3318.4814453125,
+      "opsPerSec": 300015.7956685899
     },
     {
       "workload": "attr-thrash-100x100",
       "competitor": "@aihu/arbor",
-      "p50": 37400,
-      "opsPerSec": 24926.64587655542
+      "p50": 43403.076171875,
+      "opsPerSec": 22496.534004152832
     },
     {
       "workload": "attr-thrash-100x100",
@@ -291,26 +291,26 @@ each competitor holds itself to?"
     {
       "workload": "attr-thrash-100x100",
       "competitor": "preact",
-      "p50": 10042500,
-      "opsPerSec": 94.8442064051732
+      "p50": 10348300,
+      "opsPerSec": 93.5493658444405
     },
     {
       "workload": "attr-thrash-100x100",
       "competitor": "vanilla",
-      "p50": 6361400,
-      "opsPerSec": 148.76969005322775
+      "p50": 6446400,
+      "opsPerSec": 150.5735045704731
     },
     {
       "workload": "krausest-1k-cycle",
       "competitor": "@aihu/arbor",
-      "p50": 21482000,
-      "opsPerSec": 47.22428023488928
+      "p50": 21935600,
+      "opsPerSec": 45.08028413773236
     },
     {
       "workload": "krausest-1k-cycle",
       "competitor": "lit-html",
-      "p50": 73190100,
-      "opsPerSec": 13.370950273435932
+      "p50": 77427600,
+      "opsPerSec": 12.88216369966581
     },
     {
       "workload": "krausest-1k-cycle",
@@ -327,14 +327,14 @@ each competitor holds itself to?"
     {
       "workload": "krausest-1k-cycle",
       "competitor": "preact",
-      "p50": 18884300,
-      "opsPerSec": 51.9616778295867
+      "p50": 19397300,
+      "opsPerSec": 50.439808298679225
     },
     {
       "workload": "krausest-1k-cycle",
       "competitor": "vanilla",
-      "p50": 16711700,
-      "opsPerSec": 57.517242657471286
+      "p50": 16457500,
+      "opsPerSec": 58.992057416647704
     }
   ]
 }
