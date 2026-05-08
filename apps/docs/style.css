@@ -241,6 +241,9 @@ svg {
 }
 
 .header-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--color-text-secondary);
   text-decoration: none;
   font-size: var(--font-size-sm);
