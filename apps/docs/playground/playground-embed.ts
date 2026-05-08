@@ -39,8 +39,8 @@ const DEFAULT_SOURCE = `@state {
 @template {
   <div class="demo">
     <h1>Hello from aihu</h1>
-    <p>Count: {{ count() }}</p>
-    <button $on:click={() => setCount(count() + 1)}>+</button>
+    <p>Count: {{ count }}</p>
+    <button $on.click={() => setCount(count() + 1)}>+</button>
   </div>
 }
 
@@ -153,7 +153,9 @@ interface CompileResult {
 }
 
 interface WasmModule {
-  default: (input?: string | URL | Request | { module_or_path: string | URL | Request }) => Promise<unknown>
+  default: (
+    input?: string | URL | Request | { module_or_path: string | URL | Request },
+  ) => Promise<unknown>
   wasm_compile: (source: string) => CompileResult
   wasm_version: () => string
 }
