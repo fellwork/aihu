@@ -138,9 +138,9 @@
   margin: 0 auto;
 }
 
-.docs-content article h1 { margin-top: 0; font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
-.docs-content article h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
-.docs-content article h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; }
+.docs-content article h1 { margin-top: 0; font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; text-wrap: balance; }
+.docs-content article h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 3rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); text-wrap: balance; }
+.docs-content article h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; text-wrap: balance; }
 .docs-content article p  { margin: 0 0 1rem; line-height: 1.75; }
 
 .docs-content article pre {

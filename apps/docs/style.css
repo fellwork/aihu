@@ -580,6 +580,7 @@ docs-shell:defined ~ #static-intro {
   letter-spacing: -0.03em;
   line-height: 1.2;
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 .docs-content article h2 {
@@ -591,6 +592,7 @@ docs-shell:defined ~ #static-intro {
   color: var(--color-text-primary);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
+  text-wrap: balance;
 }
 
 .docs-content article h3 {
@@ -600,6 +602,7 @@ docs-shell:defined ~ #static-intro {
   margin-top: var(--space-8);
   margin-bottom: var(--space-3);
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 .docs-content article h4 {
@@ -607,6 +610,7 @@ docs-shell:defined ~ #static-intro {
   font-weight: 600;
   margin-top: var(--space-6);
   margin-bottom: var(--space-2);
+  text-wrap: balance;
 }
 
 .docs-content article p {
