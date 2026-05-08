@@ -93,6 +93,11 @@ jobs:
           git diff --exit-code apps/docs/src/content.ts || \
             (echo "ERROR: apps/docs/src/content.ts is stale. Run 'bun run build' in apps/docs and commit the updated file." && exit 1)
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: apps/docs
