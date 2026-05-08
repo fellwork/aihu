@@ -153,7 +153,7 @@ interface CompileResult {
 }
 
 interface WasmModule {
-  default: (input?: string | URL | Request) => Promise<unknown>
+  default: (input?: string | URL | Request | { module_or_path: string | URL | Request }) => Promise<unknown>
   wasm_compile: (source: string) => CompileResult
   wasm_version: () => string
 }
@@ -193,7 +193,7 @@ async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
     try {
       // Use a runtime import so bundlers don't try to resolve at build.
       const mod = (await import(/* @vite-ignore */ `${base}aihu_compiler.js`)) as WasmModule
-      await mod.default(`${base}aihu_compiler_bg.wasm`)
+      await mod.default({ module_or_path: `${base}aihu_compiler_bg.wasm` })
       return mod
     } catch (err) {
       console.warn('[playground-embed] WASM load failed:', err)
