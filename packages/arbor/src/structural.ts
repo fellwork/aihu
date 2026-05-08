@@ -63,10 +63,10 @@ function _mc(
   eh: ErrorHandler | undefined,
   bef: globalThis.Node | null,
 ): globalThis.Node[] {
-  const tmp = document.createElement('i')
+  const tmp = document.createDocumentFragment()
   _mountDisposersStack.push(cd)
   try {
-    _materialize(tree, tmp, cd, path, mfn, eh)
+    _materialize(tree, tmp as unknown as Element, cd, path, mfn, eh)
   } finally {
     _mountDisposersStack.pop()
   }
@@ -112,16 +112,16 @@ function _reconcileEach(
   sc: Map<string | number, ChildScope>,
 ): void {
   const items = list[0]()
-  const keys: Array<string | number> = items.map(kfn)
-  const ks = new Set(keys)
+  const ks = new Set<string | number>()
+  for (let i = 0; i < items.length; i++) ks.add(kfn(items[i]))
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc)
     if (!ks.has(k)) {
       _teardownChildScope(s)
       sc.delete(k)
     }
-  for (let i = 0; i < keys.length; i++) {
-    const k = keys[i]!
+  for (let i = 0; i < items.length; i++) {
+    const k = kfn(items[i])
     if (sc.has(k)) continue
     const cd: Dispose[] = []
     const ca = document.createComment('e')
@@ -142,7 +142,8 @@ function _reconcileEach(
     })
   }
   let ref: globalThis.Node | null = anc.nextSibling
-  for (const k of keys) {
+  for (let i = 0; i < items.length; i++) {
+    const k = kfn(items[i])
     const s = sc.get(k)
     if (!s) continue
     const nl = s.appendedNodes

@@ -71,9 +71,10 @@ function _hydrateNode(
       const get = value[0] as () => unknown
       // Find the first text node in host (SSR renders text inline).
       let textNode: Text | null = null
-      for (const cn of host.childNodes) {
-        if (cn.nodeType === 3 /* Node.TEXT_NODE */) {
-          textNode = cn as Text
+      const cns0 = host.childNodes
+      for (let i = 0; i < cns0.length; i++) {
+        if (cns0[i]!.nodeType === 3 /* Node.TEXT_NODE */) {
+          textNode = cns0[i] as Text
           break
         }
       }
@@ -107,9 +108,10 @@ function _hydrateNode(
   if (node.kind === 'leaf' && node.leafKind === 'element') {
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
-    for (const cn of host.childNodes) {
-      if ((cn as Element).tagName === tag) {
-        found = cn as Element
+    const cns1 = host.childNodes
+    for (let i = 0; i < cns1.length; i++) {
+      if ((cns1[i] as Element).tagName === tag) {
+        found = cns1[i] as Element
         break
       }
     }
@@ -170,9 +172,10 @@ function _hydrateNode(
   }
 
   // Recurse into children.
-  branchNode.children.forEach((c, i) => {
+  const ch = branchNode.children
+  for (let i = 0; i < ch.length; i++) {
     _hydrateNode(
-      c as Node,
+      ch[i] as Node,
       existingEl,
       `${pathBase}.${i}`,
       disposers,
@@ -180,7 +183,7 @@ function _hydrateNode(
       pathMap,
       errorHandler,
     )
-  })
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -254,11 +254,14 @@ export function _mountEffect(
     dispose()
     return
   }
-  disposers.push(() => {
-    if (typeof __DEV__ !== 'undefined' && __DEV__)
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    disposers.push(() => {
       _observeMount({ kind: 'effect-dispose', path, timestamp: Date.now() })
-    dispose()
-  })
+      dispose()
+    })
+  } else {
+    disposers.push(dispose)
+  }
 }
 
 // ---------------------------------------------------------------------------
