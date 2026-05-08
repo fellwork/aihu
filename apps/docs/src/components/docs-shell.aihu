@@ -76,6 +76,8 @@
 :host {
   display: block;
   width: 100%;
+  max-width: var(--page-max, 1280px);
+  margin: 0 auto;
 }
 
 .docs-shell {
