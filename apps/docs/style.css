@@ -567,6 +567,7 @@ docs-shell:defined ~ #static-intro {
 /* Prose styles */
 .docs-content article {
   max-width: var(--content-max);
+  margin: 0 auto;
 }
 
 .docs-content article h1 {
