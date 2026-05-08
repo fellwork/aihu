@@ -99,14 +99,14 @@ describe('createApp — outlet', () => {
 describe('createApp — provide', () => {
   afterEach(() => {
     document.body.replaceChildren()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: test cleanup needs dynamic globalThis access
     delete (globalThis as any).testProvided
   })
 
   it('hoists provided values into globalThis before any component runs', () => {
     makeOutlet()
     createApp({ provide: { testProvided: 42 } })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: test assertion needs dynamic globalThis access
     expect((globalThis as any).testProvided).toBe(42)
   })
 })
