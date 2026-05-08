@@ -4,8 +4,8 @@
  * Implements Directive 1 (homepage interactive playground per
  * `docs/roadmap/_user-directives.md`). The element splits a CodeMirror
  * source editor on the left from a sandboxed live-preview iframe on
- * the right; the WASM-built `aihu-compile` runs the user's source on
- * every (debounced) edit and posts the compiled JS into the iframe.
+ * the right; the WASM-built `aihu-compile` compiles the user's source on
+ * every (debounced) edit and executes the compiled component in the iframe.
  *
  * Acceptance criteria (Directive 1 §2-§3):
  *   - Compile latency < 200ms p50 for a 50-line `.aihu` fixture.
@@ -16,15 +16,14 @@
  *
  * The WASM bundle is fetched at build time by
  * `scripts/fetch-wasm-bundle.ts` and lives at `./wasm/` relative to
- * the docs root. If the bundle is unavailable (no v0.1.0 release yet),
- * an `UNAVAILABLE` marker is written there and the playground renders
- * a clear fallback message — it never silently fails.
+ * the docs root. If the bundle is unavailable (no release yet),
+ * the playground renders a clear fallback message.
  *
- * Iframe sandboxing: the preview iframe runs with `sandbox="allow-scripts"`
- * only — no `allow-same-origin`. It cannot reach the parent's cookies,
- * storage, or DOM; it can only receive `postMessage` payloads from the
- * parent. Compiled JS rendered inside the sandbox is treated as trusted
- * (the user authored it) but quarantined from the host page regardless.
+ * The preview iframe uses `sandbox="allow-scripts"` (no allow-same-origin).
+ * Each compile resets `iframe.srcdoc` to a fresh HTML document containing:
+ *   1. The aihu runtime IIFE (window.__aihu = { branch, leaf, … })
+ *   2. The compiled component JS (with @aihu imports stripped and types erased)
+ *   3. An <aihu-component> element mounted into a #root div
  *
  * Spec: docs/roadmap/_user-directives.md §Directive 1.
  */
@@ -49,40 +48,6 @@ const DEFAULT_SOURCE = `@state {
   button { padding: .25rem .75rem; cursor: pointer; }
 }
 `
-
-/**
- * Static HTML document loaded into the preview iframe via `srcdoc`.
- * Built from text fragments (no inline `innerHTML` assignment) so the
- * compiled JS payload from `wasm_compile` can be displayed in the
- * sandbox without ever being assigned via `innerHTML`. The iframe runs
- * with `sandbox="allow-scripts"` only.
- */
-const PREVIEW_DOC = [
-  '<!DOCTYPE html>',
-  '<html><head><meta charset="utf-8"><style>',
-  'html,body{margin:0;padding:0;font-family:system-ui,sans-serif}',
-  'body{padding:1rem}',
-  '.pe-error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap}',
-  '.pe-empty{color:#888;font-style:italic;padding:12px}',
-  '.pe-output{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;margin:0}',
-  '</style></head><body>',
-  '<div id="root"></div>',
-  '<script>',
-  '(function(){',
-  '  var root=document.getElementById("root");',
-  '  function clearRoot(){while(root.firstChild)root.removeChild(root.firstChild);}',
-  '  function showEmpty(){clearRoot();var p=document.createElement("p");p.className="pe-empty";p.textContent="Waiting for compile…";root.appendChild(p);}',
-  '  function showOutput(js){clearRoot();var pre=document.createElement("pre");pre.className="pe-output";pre.textContent=js||"";root.appendChild(pre);}',
-  '  function showError(msg){clearRoot();var d=document.createElement("div");d.className="pe-error";d.textContent="Render error: "+msg;root.appendChild(d);}',
-  '  showEmpty();',
-  '  window.addEventListener("message",function(event){',
-  '    var msg=event&&event.data;if(!msg||msg.type!=="aihu-render")return;',
-  '    try{showOutput(msg.js);}catch(err){showError(err&&err.message?err.message:String(err));}',
-  '  });',
-  '  if(window.parent)window.parent.postMessage({type:"aihu-preview-ready"},"*");',
-  '})();',
-  '</script></body></html>',
-].join('\n')
 
 const HOST_STYLES = `
 :host {
@@ -161,30 +126,23 @@ interface WasmModule {
 }
 
 let wasmPromise: Promise<WasmModule | null> | null = null
+let bundlePromise: Promise<string | null> | null = null
 
-/**
- * Resolve the URL of the bundled WASM glue module, relative to this
- * compiled JS file. Build pipelines (rolldown/vite) that fingerprint
- * dist/ paths can override via the `data-wasm-base` attribute.
- */
 function wasmBaseUrl(host: PlaygroundEmbed): string {
   const override = host.getAttribute('data-wasm-base')
   if (override) return override.replace(/\/?$/, '/')
-  // The docs site is served from `/`; the prebuild script extracts the
-  // tarball into `apps/docs/dist/wasm/`. From the rendered HTML at `/`
-  // this is reachable as `./wasm/`.
   return './wasm/'
+}
+
+function bundleUrl(host: PlaygroundEmbed): string {
+  // Bundle lives at the docs root, one level above the wasm/ subdir.
+  return wasmBaseUrl(host).replace(/wasm\/$/, '') + 'aihu-preview-bundle.js'
 }
 
 async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
   if (wasmPromise) return wasmPromise
   wasmPromise = (async () => {
     const base = wasmBaseUrl(host)
-    // Probe for the JS glue file. We check content-type because Cloudflare
-    // Pages serves index.html (200, text/html) for every unknown path in SPA
-    // mode — a plain `probe.ok` check would always be true, making the
-    // UNAVAILABLE marker probe unreliable. If the server returns HTML instead
-    // of JS, the bundle hasn't been deployed yet.
     try {
       const probe = await fetch(`${base}aihu_compiler.js`, { method: 'HEAD' })
       const ct = probe.headers.get('content-type') ?? ''
@@ -193,7 +151,6 @@ async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
       return null
     }
     try {
-      // Use a runtime import so bundlers don't try to resolve at build.
       const mod = (await import(/* @vite-ignore */ `${base}aihu_compiler.js`)) as WasmModule
       await mod.default({ module_or_path: `${base}aihu_compiler_bg.wasm` })
       return mod
@@ -203,6 +160,92 @@ async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
     }
   })()
   return wasmPromise
+}
+
+async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
+  if (bundlePromise) return bundlePromise
+  bundlePromise = (async () => {
+    try {
+      const res = await fetch(bundleUrl(host))
+      if (!res.ok) return null
+      const ct = res.headers.get('content-type') ?? ''
+      // Cloudflare Pages serves index.html for unknown paths in SPA mode.
+      if (ct.includes('text/html')) return null
+      return await res.text()
+    } catch {
+      return null
+    }
+  })()
+  return bundlePromise
+}
+
+/**
+ * Strip TypeScript-specific syntax from WASM compiler output so the JS is
+ * valid for `eval`/script execution in a browser context.
+ *
+ * The compiler emits exactly two TS-specific constructs:
+ *   - `import type { Signal }` lines (type-only imports)
+ *   - ` as unknown as Signal<string>` casts inside leaf() calls
+ *   - ` as ShadowRoot` cast in the style-injection setup line
+ * All `import … from '@aihu/*'` lines are stripped because those packages
+ * are already available via window.__aihu in the preview iframe.
+ */
+function stripTs(js: string): string {
+  return js
+    .replace(/^import type .+$/gm, '')
+    .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
+    .replace(/ as unknown as Signal<string>/g, '')
+    .replace(/ as ShadowRoot/g, '')
+}
+
+/**
+ * Build the full srcdoc HTML for the preview iframe.
+ *
+ * Structure:
+ *   1. IIFE bundle sets window.__aihu = { branch, leaf, signal, … }
+ *   2. Wrapper script: destructs __aihu, wires _setMount/_setSignal,
+ *      executes the compiled user code, then appends <aihu-component>.
+ *   3. Errors are caught and rendered as a styled pre inside #root.
+ *
+ * The `</script>` sequence is escaped in both bundle and user code to
+ * prevent premature HTML tag closure.
+ */
+function buildPreviewDoc(bundle: string, userJs: string): string {
+  const safeBundle = bundle.replace(/<\/script>/gi, '<\\/script>')
+  const safeUserJs = userJs.replace(/<\/script>/gi, '<\\/script>')
+  return [
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="utf-8">',
+    '<style>',
+    'html,body{margin:0;padding:0;font-family:system-ui,sans-serif}',
+    'body{padding:1rem}',
+    '.pe-error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;margin:0}',
+    '</style></head><body>',
+    '<div id="root"></div>',
+    '<script>', safeBundle, '</script>',
+    '<script>',
+    '(function(){',
+    'try{',
+    'var _a=window.__aihu;',
+    'var branch=_a.branch,leaf=_a.leaf,mount=_a.mount,slot=_a.slot,when=_a.when,each=_a.each;',
+    'var signal=_a.signal,computed=_a.computed,effect=_a.effect,batch=_a.batch;',
+    'var defineComponent=_a.defineComponent,defineElement=_a.defineElement;',
+    'var _setMount=_a._setMount,_setSignal=_a._setSignal;',
+    'var onMount=_a.onMount,onCleanup=_a.onCleanup,onAdopt=_a.onAdopt,onAttributeChange=_a.onAttributeChange;',
+    '_setMount(mount);_setSignal(signal);',
+    safeUserJs,
+    'var c=document.createElement("aihu-component");',
+    'document.getElementById("root").appendChild(c);',
+    '}catch(e){',
+    'var p=document.createElement("pre");',
+    'p.className="pe-error";',
+    'p.textContent=String(e);',
+    'document.getElementById("root").appendChild(p);',
+    '}',
+    '})();',
+    '</script>',
+    '</body></html>',
+  ].join('')
 }
 
 export class PlaygroundEmbed extends HTMLElement {
@@ -216,9 +259,8 @@ export class PlaygroundEmbed extends HTMLElement {
   private latencyEl!: HTMLSpanElement
   private errorEl!: HTMLPreElement
   private wasm: WasmModule | null = null
+  private bundle: string | null = null
   private wasmReady = false
-  private previewReady = false
-  private pendingJs: string | null = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private source = DEFAULT_SOURCE
 
@@ -231,7 +273,6 @@ export class PlaygroundEmbed extends HTMLElement {
     if (this.hasAttribute('initial-source')) {
       this.source = this.getAttribute('initial-source') ?? DEFAULT_SOURCE
     } else if (this.hasAttribute('initialSource')) {
-      // Tolerate camelCase per spec.
       this.source = this.getAttribute('initialSource') ?? DEFAULT_SOURCE
     }
     this.render()
@@ -292,38 +333,21 @@ export class PlaygroundEmbed extends HTMLElement {
     const previewHeader = document.createElement('header')
     const previewLabel = document.createElement('span')
     previewLabel.className = 'label'
-    previewLabel.textContent = 'compiled output'
+    previewLabel.textContent = 'preview'
     previewHeader.appendChild(previewLabel)
     previewPane.appendChild(previewHeader)
 
     this.iframe = document.createElement('iframe')
     this.iframe.setAttribute('sandbox', 'allow-scripts')
     this.iframe.setAttribute('title', 'aihu playground preview')
-    this.iframe.srcdoc = PREVIEW_DOC
     previewPane.appendChild(this.iframe)
 
     playground.appendChild(previewPane)
     this.root.appendChild(playground)
-
-    window.addEventListener('message', this.onMessage)
-  }
-
-  private onMessage = (event: MessageEvent): void => {
-    if (
-      event.source === this.iframe.contentWindow &&
-      event.data &&
-      event.data.type === 'aihu-preview-ready'
-    ) {
-      this.previewReady = true
-      if (this.pendingJs !== null) {
-        this.postRender(this.pendingJs)
-        this.pendingJs = null
-      }
-    }
   }
 
   private async boot(): Promise<void> {
-    const mod = await loadWasm(this)
+    const [mod, bundle] = await Promise.all([loadWasm(this), loadBundle(this)])
     if (mod === null) {
       this.setError(
         'WASM bundle unavailable. Tag a v* release (or run release.yml) to populate ./wasm/.',
@@ -331,6 +355,7 @@ export class PlaygroundEmbed extends HTMLElement {
       return
     }
     this.wasm = mod
+    this.bundle = bundle
     this.wasmReady = true
     this.compile(this.source)
   }
@@ -356,11 +381,14 @@ export class PlaygroundEmbed extends HTMLElement {
   }
 
   private postRender(js: string): void {
-    if (!this.previewReady) {
-      this.pendingJs = js
+    if (!this.bundle) {
+      // Bundle not available: show compiled JS as text fallback.
+      const safeJs = js.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      this.iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{margin:0;padding:8px;font-family:monospace;font-size:12px;white-space:pre-wrap}</style></head><body><pre>${safeJs}</pre></body></html>`
       return
     }
-    this.iframe.contentWindow?.postMessage({ type: 'aihu-render', js }, '*')
+    const processed = stripTs(js)
+    this.iframe.srcdoc = buildPreviewDoc(this.bundle, processed)
   }
 
   private setLatency(ms: number): void {
@@ -380,7 +408,6 @@ export class PlaygroundEmbed extends HTMLElement {
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener('message', this.onMessage)
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
   }
 }

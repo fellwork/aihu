@@ -141,6 +141,19 @@ execFileSync(
 )
 console.log('✓ Worker build complete → dist/_worker.js')
 
+// ── 4c. Bundle playground preview runtime as IIFE ────────────────
+//
+// Packages @aihu/arbor + @aihu/signals + @aihu/runtime as window.__aihu so
+// the preview iframe can execute compiled component code without a bundler.
+
+console.log('\nBundling playground preview runtime…')
+execFileSync(
+  process.execPath,
+  ['x', 'rolldown', '-c', 'rolldown.preview.config.ts'],
+  { cwd: __dir, stdio: 'inherit' },
+)
+console.log('✓ Preview runtime build complete → dist/aihu-preview-bundle.js')
+
 // ── 5. Copy static assets into dist/ ────────────────────────────
 
 // index.html references ./dist/docs.js at development time (so the dev
