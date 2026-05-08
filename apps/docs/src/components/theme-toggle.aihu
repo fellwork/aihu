@@ -51,7 +51,7 @@
   border-radius: 6px;
   cursor: pointer;
   padding: 0;
-  color: var(--muted);
+  color: var(--fg);
   display: flex;
   align-items: center;
   justify-content: center;

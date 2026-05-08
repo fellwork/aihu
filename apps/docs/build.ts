@@ -147,7 +147,13 @@ console.log('✓ Worker build complete → dist/_worker.js')
 // server at apps/docs/ root can find the bundle). When deployed, dist/ IS
 // the root, so rewrite the path to ./docs.js in the copied file.
 const indexSrc = await readFile(join(__dir, 'index.html'), 'utf8')
-const indexDist = indexSrc.replace('./dist/docs.js', './docs.js')
+const runtimePkgJson = JSON.parse(
+  await readFile(join(__dir, '../../packages/runtime/package.json'), 'utf8'),
+)
+const runtimeVersion: string = runtimePkgJson.version ?? '0'
+const indexDist = indexSrc
+  .replace('./dist/docs.js', './docs.js')
+  .replace('>v0<', `>v${runtimeVersion}<`)
 await writeFile(join(__dir, 'dist', 'index.html'), indexDist, 'utf8')
 
 const staticFiles = ['style.css', 'favicon.svg', 'aihu-wordmark.svg']
