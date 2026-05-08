@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
+  forbidOnly: !!process.env.CI,
   retries: 1,
   use: {
     baseURL: 'http://localhost:8788',
