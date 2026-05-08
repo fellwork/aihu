@@ -1,12 +1,20 @@
 // apps/docs/tests/mobile.spec.ts
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 test('docs content fills viewport width at 375px (single-column layout)', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/')
-  await page.waitForFunction(() =>
-    document.querySelector('docs-shell')?.shadowRoot != null
-  , { timeout: 10_000 })
+  await page.waitForFunction(() => document.querySelector('docs-shell')?.shadowRoot != null, {
+    timeout: 10_000,
+  })
+  await page.waitForFunction(
+    () => {
+      const shell = document.querySelector('docs-shell')
+      const content = shell?.shadowRoot?.querySelector('.docs-content')
+      return content != null && content.getBoundingClientRect().width > 0
+    },
+    { timeout: 10_000 },
+  )
 
   const contentWidth = await page.evaluate(() => {
     const shell = document.querySelector('docs-shell')
