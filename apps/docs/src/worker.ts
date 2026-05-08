@@ -152,6 +152,24 @@ const a2aCardHandler: RouteHandler = (_req) => {
   return json(card)
 }
 
+const agentsDirectoryHandler: RouteHandler = (_req) =>
+  json({
+    agents: [
+      {
+        name: 'aihu Documentation Agent',
+        description: 'Browse and search the aihu Web Components framework documentation, API reference, and examples',
+        url: 'https://aihu.dev/.well-known/agent.json',
+        protocol: 'a2a',
+      },
+      {
+        name: 'aihu MCP Server',
+        description: 'Access aihu framework documentation and tools via the Model Context Protocol',
+        url: 'https://aihu.dev/.well-known/mcp/server-card.json',
+        protocol: 'mcp',
+      },
+    ],
+  })
+
 const mcpDiscoveryHandler: RouteHandler = (_req) => {
   const discovery = generateMcpDiscovery({
     name: 'aihu',
@@ -176,7 +194,7 @@ const router = createRequestRouter({
     defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
     defineRoute('/robots.txt', ar.robotsTxt),
     defineRoute('/.well-known/agent.json', a2aCardHandler),
-    defineRoute('/.well-known/agents.json', a2aCardHandler),
+    defineRoute('/.well-known/agents.json', agentsDirectoryHandler),
     defineRoute('/.well-known/mcp.json', mcpDiscoveryHandler),
     defineRoute('/sitemap.xml', sitemapHandler),
   ],
