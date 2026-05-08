@@ -96,6 +96,12 @@ jobs:
         run: bunx playwright test --reporter=line
         working-directory: apps/docs
 
+      - name: Upload compiler binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: aihu-compile-linux-x64
+          path: packages/compiler/bin/aihu-compile
+
   deploy:
     name: Build & deploy
     needs: test
@@ -104,31 +110,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
+      - name: Download compiler binary
+        uses: actions/download-artifact@v4
         with:
-          toolchain: "1.88"
+          name: aihu-compile-linux-x64
+          path: packages/compiler/bin
 
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/compiler/target
-          key: rust-${{ runner.os }}-${{ hashFiles('packages/compiler/Cargo.lock', 'packages/compiler/src/**') }}
-          restore-keys: rust-${{ runner.os }}-
-
-      - name: Build compiler binary
-        run: cargo build --release --manifest-path packages/compiler/Cargo.toml
-        env:
-          CARGO_TERM_COLOR: always
-
-      - name: Stage compiler binary
-        run: |
-          mkdir -p packages/compiler/bin
-          cp packages/compiler/target/release/aihu-compile packages/compiler/bin/aihu-compile
-          chmod 0755 packages/compiler/bin/aihu-compile
+      - run: chmod 0755 packages/compiler/bin/aihu-compile
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
