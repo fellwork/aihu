@@ -1,5 +1,13 @@
 # @aihu/cli
 
+## 0.3.5
+
+### Patch Changes
+
+- [#161](https://github.com/fellwork/aihu/pull/161) [`025e7c7`](https://github.com/fellwork/aihu/commit/025e7c79fd859b5d214db6cbdd5b5dc66642c0b6) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Update `scaffoldApp` JSDoc to list the two `.vscode/` files it now emits.
+  Doc-only; no behavior change. (Smoke release for npm OIDC trusted publishing
+  - `--provenance`.)
+
 ## 0.3.4
 
 ### Patch Changes
