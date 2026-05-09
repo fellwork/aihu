@@ -1,5 +1,21 @@
 # @aihu/cli
 
+## 0.3.4
+
+### Patch Changes
+
+- [#157](https://github.com/fellwork/aihu/pull/157) [`94425d7`](https://github.com/fellwork/aihu/commit/94425d70e94d07dd8b1401efe0cd0810a2920466) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix two scaffold-output bugs surfaced by the e2e harness:
+
+  - `rolldown.config.ts`: quote the input key so kebab-case app names (`my-app`)
+    don't produce a JS parse error. Was emitting `input: { my-app: 'src/main.ts' }`
+    which fails at config load with "Expected , or } but found -".
+  - `rolldown.config.ts`: import `aihuCompilerPlugin` from `@aihu/compiler` (the
+    package's main export) instead of `@aihu/compiler/plugin` — the latter
+    subpath doesn't exist in the published `exports` map.
+
+  After this release, `bunx @aihu/cli app <name>` followed by `bun install` and
+  `bun run build` succeeds end-to-end against fresh npm.
+
 ## 0.3.3
 
 ### Patch Changes
