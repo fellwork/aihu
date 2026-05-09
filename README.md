@@ -221,15 +221,15 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.5` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.5` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.6` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.6` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.0` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/agent-readiness) | `0.1.1` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.2` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.1.5` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `0.1.6` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.3.3` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |

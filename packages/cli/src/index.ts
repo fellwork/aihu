@@ -86,10 +86,10 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
 /** rolldown.config.ts for a new application (replaces vite.config.ts). */
 export function appRolldownConfig(name: string): string {
   return `import { defineConfig } from 'rolldown'
-import { aihuCompilerPlugin } from '@aihu/compiler/plugin'
+import { aihuCompilerPlugin } from '@aihu/compiler'
 
 export default defineConfig({
-  input: { ${toSafe(name)}: 'src/main.ts' },
+  input: { '${toSafe(name)}': 'src/main.ts' },
   plugins: [aihuCompilerPlugin()],
   moduleTypes: {
     '.aihu': 'ts',
