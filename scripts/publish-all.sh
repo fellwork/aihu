@@ -55,6 +55,14 @@ DRY_RUN="${1:-}"
 NPM_FLAGS="--access public"
 [ "$DRY_RUN" = "--dry-run" ] && NPM_FLAGS="$NPM_FLAGS --dry-run"
 
+# Provenance allowlist — pass --provenance only for packages whose npmjs.com
+# trusted-publisher config is in place. Setting NPM_PROVENANCE=1 enables it
+# for ALL packages (use once every package's OIDC config is done).
+# NPM_PROVENANCE_PKGS is a comma-separated list of short names (e.g.
+# "signals,arbor,runtime"). Grow it tier-by-tier as you finish npmjs.com config.
+PROVENANCE_PKGS=",${NPM_PROVENANCE_PKGS:-},"
+PROVENANCE_ALL="${NPM_PROVENANCE:-}"
+
 for pkg in "${PKGS[@]}"; do
   PKG_DIR="$ROOT/packages/$pkg"
   if [ ! -d "$PKG_DIR/dist" ]; then
@@ -76,12 +84,21 @@ for pkg in "${PKGS[@]}"; do
     fi
   fi
 
+  # Per-package provenance opt-in: pass --provenance only when the package
+  # is in the allowlist (or NPM_PROVENANCE=1 is set globally). Skipping the
+  # flag for unconfigured packages keeps mid-rollout publishes from failing.
+  PROVENANCE_FLAG=""
+  if [ "$PROVENANCE_ALL" = "1" ] || [[ "$PROVENANCE_PKGS" == *",$pkg,"* ]]; then
+    PROVENANCE_FLAG="--provenance"
+    echo "   (with --provenance via OIDC trusted publisher)"
+  fi
+
   # bun pm pack rewrites workspace:* → real version range; npm publish
   # then uploads the tarball using npm's auth (which works in CI).
   PACK_DIR="$(mktemp -d)"
   (cd "$PKG_DIR" && bun pm pack --ignore-scripts --destination "$PACK_DIR" >/dev/null)
   TARBALL="$(ls "$PACK_DIR"/*.tgz | head -1)"
-  npm publish "$TARBALL" $NPM_FLAGS
+  npm publish "$TARBALL" $NPM_FLAGS $PROVENANCE_FLAG
   rm -rf "$PACK_DIR"
   echo "✔  ${PKG_NAME}@${PKG_VERSION} published"
 done

@@ -425,4 +425,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # OIDC trusted-publisher allowlist (Settings → Secrets and variables
+          # → Actions → Variables). Comma-separated short names:
+          # "signals,arbor,runtime,context,data". publish-all.sh adds
+          # --provenance only for listed packages so unconfigured tiers don't
+          # fail mid-rollout. Set NPM_PROVENANCE=1 once every package has the
+          # npmjs.com trusted-publisher config done.
+          NPM_PROVENANCE_PKGS: ${{ vars.NPM_PROVENANCE_PKGS }}
+          NPM_PROVENANCE: ${{ vars.NPM_PROVENANCE }}
         run: bun run release
