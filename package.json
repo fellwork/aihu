@@ -35,7 +35,7 @@
     "check:deps": "bun scripts/dep-check.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
     "test:cookbook": "bun run --cwd cookbook test",
-    "release": "bun run build && changeset publish",
+    "release": "bun run build && bash scripts/publish-all.sh",
     "prepare": "husky"
   },
   "devDependencies": {
