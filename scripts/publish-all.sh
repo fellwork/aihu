@@ -15,6 +15,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# bun publish does not interpolate ${NODE_AUTH_TOKEN} placeholders that
+# actions/setup-node writes into ~/.npmrc. In CI, resolve the token here so
+# bun's auth read succeeds. No-op locally where NODE_AUTH_TOKEN is unset.
+if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+  echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" > "$HOME/.npmrc"
+fi
+
 # Topological order: dependencies before dependents.
 PKGS=(
   "signals"
