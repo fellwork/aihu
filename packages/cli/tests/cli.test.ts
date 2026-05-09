@@ -203,10 +203,20 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates all 6 expected files', () => {
+  it('creates all 8 expected files', () => {
     const result = scaffoldApp('demo', tmpDir)
-    expect(result.created).toHaveLength(6)
+    expect(result.created).toHaveLength(8)
     expect(result.skipped).toHaveLength(0)
+  })
+
+  it('writes .vscode/extensions.json', () => {
+    scaffoldApp('demo', tmpDir)
+    expect(existsSync(join(tmpDir, 'demo', '.vscode', 'extensions.json'))).toBe(true)
+  })
+
+  it('writes .vscode/settings.json', () => {
+    scaffoldApp('demo', tmpDir)
+    expect(existsSync(join(tmpDir, 'demo', '.vscode', 'settings.json'))).toBe(true)
   })
 
   it('writes package.json with the correct name', () => {
@@ -240,7 +250,7 @@ describe('scaffoldApp', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(6)
+    expect(second.skipped).toHaveLength(8)
   })
 })
 

@@ -2,15 +2,15 @@
 // Exported as an IIFE (window.__aihu) so compiled component code can run
 // without a bundler. _setMount/_setSignal are included so the iframe can
 // wire the runtime before executing each compiled component.
-export { branch, leaf, mount, slot, when, each } from '@aihu/arbor'
-export { signal, computed, effect, batch } from '@aihu/signals'
+export { branch, each, leaf, mount, slot, when } from '@aihu/arbor'
 export {
-  defineComponent,
-  defineElement,
   _setMount,
   _setSignal,
-  onMount,
-  onCleanup,
+  defineComponent,
+  defineElement,
   onAdopt,
   onAttributeChange,
+  onCleanup,
+  onMount,
 } from '@aihu/runtime'
+export { batch, computed, effect, signal } from '@aihu/signals'

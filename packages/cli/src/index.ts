@@ -45,14 +45,14 @@ export type AppTemplate = 'minimal' | 'full' | 'docs'
 
 /** package.json for a new aihu application. */
 export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
-  const _installCmd: Record<PkgManager, string> = {
-    bun: 'bun install',
-    pnpm: 'pnpm install',
-    npm: 'npm install',
-    yarn: 'yarn',
-  }
-  const devCmd = pm === 'bun' ? 'bun run dev' : `${pm} run dev`
-  void devCmd // used in README generation
+  // bun version detection: Bun.version when running under bun, process.versions.bun
+  // when bunx routes through node (the published cli's shebang is `#!/usr/bin/env node`,
+  // so process.versions.bun is undefined there). When neither is set, drop the field
+  // entirely rather than emit a malformed `bun@1` string.
+  const bunVersion =
+    (globalThis as { Bun?: { version: string } }).Bun?.version ?? process.versions.bun
+  const packageManager = pm === 'bun' && bunVersion ? `bun@${bunVersion}` : undefined
+
   return JSON.stringify(
     {
       name,
@@ -65,16 +65,18 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
         typecheck: 'tsc --noEmit',
       },
       dependencies: {
-        '@aihu/arbor': '^1.0.0',
-        '@aihu/runtime': '^1.0.0',
-        '@aihu/signals': '^1.0.0',
+        '@aihu/app': 'latest',
+        '@aihu/arbor': 'latest',
+        '@aihu/runtime': 'latest',
+        '@aihu/signals': 'latest',
       },
       devDependencies: {
-        '@aihu/cli': '^1.0.0',
-        rolldown: '^1.0.0',
+        '@aihu/cli': 'latest',
+        '@aihu/compiler': 'latest',
+        rolldown: 'latest',
         typescript: '^5.0.0',
       },
-      packageManager: pm === 'bun' ? `bun@${process.versions.bun ?? '1'}` : undefined,
+      ...(packageManager ? { packageManager } : {}),
     },
     null,
     2,
@@ -139,6 +141,31 @@ export function appIndexHtml(name: string): string {
 </body>
 </html>
 `
+}
+
+/** .vscode/extensions.json — recommends the aihu language extension. */
+export function appVscodeExtensions(): string {
+  return `${JSON.stringify(
+    {
+      recommendations: ['fellwork.vscode-aihu'],
+    },
+    null,
+    2,
+  )}\n`
+}
+
+/** .vscode/settings.json — file associations and editor wiring for .aihu. */
+export function appVscodeSettings(): string {
+  return `${JSON.stringify(
+    {
+      'files.associations': {
+        '*.aihu': 'aihu',
+      },
+      'editor.formatOnSave': false,
+    },
+    null,
+    2,
+  )}\n`
 }
 
 /** aihu.config.ts — kept for server/SSR config; optional for client-only apps. */
@@ -258,6 +285,8 @@ export function scaffoldApp(
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],
     ['src/pages/index.aihu', appIndexAihu(name)],
+    ['.vscode/extensions.json', appVscodeExtensions()],
+    ['.vscode/settings.json', appVscodeSettings()],
   ])
 }
 
