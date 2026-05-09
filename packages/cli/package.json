@@ -30,7 +30,7 @@
   "dependencies": {
     "@aihu/mcp": "workspace:*"
   },
-  "description": "Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands.",
+  "description": "Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
