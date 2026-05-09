@@ -268,8 +268,9 @@ export function pluginIndex(name: string): string {
  * Scaffold a new aihu application at `<outDir>/<name>/`.
  *
  * v1.0: Uses rolldown (not Vite), v1 @state/{@template}/{@style} syntax.
- * Produces: package.json, rolldown.config.ts, tsconfig.json,
- *   index.html, src/main.ts, src/pages/index.aihu
+ * Produces: package.json, rolldown.config.ts, tsconfig.json, index.html,
+ *   src/main.ts, src/pages/index.aihu, .vscode/extensions.json,
+ *   .vscode/settings.json
  */
 export function scaffoldApp(
   name: string,
