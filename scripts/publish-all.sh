@@ -21,6 +21,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Refresh bun.lock to match current package.json versions BEFORE packing.
+# changesets/action bumps package.json files in the Release-PR but does not
+# update bun.lock — so without this step, `bun pm pack` rewrites workspace:*
+# peer deps using stale lock-resolved versions and bakes old version pins
+# into the published artifact (observed: @aihu/app@0.1.5 shipped with
+# `@aihu/router: 0.1.1` peer despite local router being at 0.1.2).
+(cd "$ROOT" && bun install --ignore-scripts >/dev/null 2>&1)
+
 # Topological order: dependencies before dependents.
 PKGS=(
   "signals"

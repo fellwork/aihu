@@ -186,13 +186,13 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/signals` | 1.71 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
 | `@aihu/runtime` | 3.20 kB | 3400 B | pass |
-| `@aihu/agent` | — | 200 B | _no dist_ |
-| `@aihu/data` | — | 800 B | _no dist_ |
-| `@aihu/router` | — | 2400 B | _no dist_ |
-| `@aihu/agent-service` | — | 1100 B | _no dist_ |
-| `@aihu/agent-acp` | — | 600 B | _no dist_ |
-| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
-| `@aihu/app` | — | 800 B | _no dist_ |
+| `@aihu/agent` | 141 B | 200 B | pass |
+| `@aihu/data` | 756 B | 800 B | pass |
+| `@aihu/router` | 1.95 kB | 2400 B | pass |
+| `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
+| `@aihu/agent-acp` | 586 B | 600 B | pass |
+| `@aihu/agent-a2a` | 718 B | 750 B | pass |
+| `@aihu/app` | 789 B | 800 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -221,24 +221,24 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.4` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.4` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.5` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.5` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.0` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/agent-readiness) | `0.1.1` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.2` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.1.4` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `0.1.5` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
-| [`@aihu/cli`](./packages/cli) | `0.3.2` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `0.3.3` | Aihu CLI (`aihu`, `create-aihu`) â€” scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.2.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/router`](./packages/router) | `0.1.1` | File-based router for the aihu meta-framework. |
+| [`@aihu/router`](./packages/router) | `0.1.2` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.4` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
 | [`@aihu/server`](./packages/server) | `0.1.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
