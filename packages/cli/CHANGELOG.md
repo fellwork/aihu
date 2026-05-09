@@ -1,5 +1,17 @@
 # @aihu/cli
 
+## 0.3.6
+
+### Patch Changes
+
+- [#163](https://github.com/fellwork/aihu/pull/163) [`38d3171`](https://github.com/fellwork/aihu/commit/38d3171f33a402fa3be954d2452677f9be026da8) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix mojibake in `package.json` description: `â€"` → `—` (em dash). The
+  character was double-encoded somewhere in the original write; npm shows the
+  mangled string on the package page. Doc-only.
+
+  (This bump also serves as the verification release for npm OIDC trusted
+  publishing — the previous smoke shipped before `NPM_PROVENANCE=1` was in repo
+  variables, so its tarball lacks attestations.)
+
 ## 0.3.5
 
 ### Patch Changes
