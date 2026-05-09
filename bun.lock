@@ -64,7 +64,7 @@
     },
     "bench/js-framework-benchmark/keyed/aihu": {
       "name": "js-framework-benchmark-aihu",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/runtime": "workspace:*",
@@ -229,7 +229,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -237,7 +237,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -263,7 +263,7 @@
     },
     "packages/agent-readiness": {
       "name": "@aihu/agent-readiness",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -292,7 +292,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "devDependencies": {
         "@aihu/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -307,7 +307,7 @@
     },
     "packages/arbor": {
       "name": "@aihu/arbor",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
@@ -322,7 +322,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -376,7 +376,7 @@
     },
     "packages/router": {
       "name": "@aihu/router",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -385,7 +385,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -397,7 +397,7 @@
     },
     "packages/server": {
       "name": "@aihu/server",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/plugin": "workspace:*",

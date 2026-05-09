@@ -147,11 +147,10 @@ console.log('✓ Worker build complete → dist/_worker.js')
 // the preview iframe can execute compiled component code without a bundler.
 
 console.log('\nBundling playground preview runtime…')
-execFileSync(
-  process.execPath,
-  ['x', 'rolldown', '-c', 'rolldown.preview.config.ts'],
-  { cwd: __dir, stdio: 'inherit' },
-)
+execFileSync(process.execPath, ['x', 'rolldown', '-c', 'rolldown.preview.config.ts'], {
+  cwd: __dir,
+  stdio: 'inherit',
+})
 console.log('✓ Preview runtime build complete → dist/aihu-preview-bundle.js')
 
 // ── 5. Copy static assets into dist/ ────────────────────────────
