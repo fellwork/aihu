@@ -1,5 +1,12 @@
 # @aihu/adapter-cloudflare
 
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [[`2aedc11`](https://github.com/fellwork/aihu/commit/2aedc113385896a0c9deefd6bd9e17d0f71fff4b)]:
+  - @aihu/app@0.1.6
+
 ## 0.1.5
 
 ### Patch Changes

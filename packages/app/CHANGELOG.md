@@ -1,5 +1,16 @@
 # @aihu/app
 
+## 0.1.6
+
+### Patch Changes
+
+- [#155](https://github.com/fellwork/aihu/pull/155) [`2aedc11`](https://github.com/fellwork/aihu/commit/2aedc113385896a0c9deefd6bd9e17d0f71fff4b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Republish so peerDependencies pin `@aihu/router@0.1.2` (clean) instead of the
+  stale `0.1.1` that the previous build emitted. Root cause: `bun pm pack`
+  resolves `workspace:*` peer-dep ranges from `bun.lock`, not from the local
+  workspace `package.json`. The Release-PR flow updates package versions but
+  not the lockfile, so pack saw stale resolutions. Fixed in
+  `scripts/publish-all.sh` by refreshing the lock before packing.
+
 ## 0.1.5
 
 ### Patch Changes
