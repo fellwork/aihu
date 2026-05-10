@@ -1,0 +1,6 @@
+<agent>
+description: Hello
+</agent>
+@template {
+  <div>hi</div>
+}

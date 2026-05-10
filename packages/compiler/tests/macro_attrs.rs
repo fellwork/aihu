@@ -362,12 +362,12 @@ fn r4_ac1_bind_value_to_signal_emits_oninput_writeback() {
     // R4: when `$bind.value` references a registered signal (with a setter),
     // the emit MUST also wire `oninput` to write the signal back. Without
     // this, $bind is read-only and userland edits in the input vanish.
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [name, setName] = signal('')
-</script>
-<template>
+}
+@template {
   <input $bind.value="name">
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
@@ -390,12 +390,12 @@ const [name, setName] = signal('')
 fn r4_ac1_bind_checked_emits_onchange_writeback() {
     // `$bind.checked` for checkbox/radio uses `change` (not `input`), and
     // reads `e.target.checked`.
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [done, setDone] = signal(false)
-</script>
-<template>
+}
+@template {
   <input type="checkbox" $bind.checked="done">
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
@@ -417,12 +417,12 @@ fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
     // NOT clobber it. Userland intent wins; bind silently skips the
     // auto-emit. (Authors who want both behaviors compose them in the
     // explicit handler.)
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [name, setName] = signal('')
-</script>
-<template>
+}
+@template {
   <input $bind.value="name" $on.input="customHandler">
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
@@ -525,15 +525,15 @@ fn r2_attr_static_literal_passes_through_unchanged() {
 
 #[test]
 fn r2_attr_local_const_outside_state_does_not_wrap() {
-    // A `const` declared in `<script setup>` (not `@state`) is not part of
-    // reactive state and the binding `value={localConst}` should pass
-    // through as a plain identifier. Wrapping these would change runtime
-    // semantics for closed-over locals that the author did not intend to
-    // make reactive.
-    let src = r#"<script setup>
+    // A `const` declared in `@state` (not part of `$prop` / `$computed`) is
+    // not registered in the reactive signal map. The binding `value={localConst}`
+    // should pass through as a plain identifier. Wrapping these would change
+    // runtime semantics for closed-over locals that the author did not intend
+    // to make reactive.
+    let src = r#"@state {
 const localConst = 'hello'
-</script>
-<template><h1>{{ localConst }}</h1></template>"#;
+}
+@template { <h1>{{ localConst }}</h1> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");

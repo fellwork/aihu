@@ -1,4 +1,3 @@
-<script setup lang="ts">
 // R1 — exercise every optional key on $prop. Spec source:
 //   docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md §3.6
 //   .team/director-notes/template-syntax-005.md §5 (Builder B1 brief)
@@ -28,12 +27,11 @@
     },
   }
 }
-</script>
-<template>
+@template {
   <div class="r1-demo">
     <h1>{name}</h1>
     <p>Count: {count}</p>
     <p>Theme: {themeMode}</p>
     <time>{when}</time>
   </div>
-</template>
+}

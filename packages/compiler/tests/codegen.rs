@@ -2,7 +2,7 @@ use aihu_compiler::{compile_full, emit, sfc};
 
 fn counter_source() -> &'static str {
     concat!(
-        "<script setup>
+        "@state {
 ",
         "import { signal } from '@aihu/signals'
 ",
@@ -12,21 +12,23 @@ fn counter_source() -> &'static str {
 ",
         "const increment = () => setCount(c => c + 1)
 ",
-        "</script>
+        "}
 ",
         "
 ",
-        "<template>
+        "@template {
 ",
         "  <div class=\"counter\">
 ",
         "    <span>{{ count }}</span>
 ",
+        // TODO(R5.2b): legacy `@click=` event-binding alias is deprecated and will
+        // become a C304 hard error in v1.0.8. Migrate to `$on.click=` then.
         "    <button @click=\"increment\">+</button>
 ",
         "  </div>
 ",
-        "</template>"
+        "}"
     )
 }
 
@@ -41,13 +43,13 @@ fn counter_full() {
 #[test]
 fn no_signals_plain_leaf() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const message = 'hello'
 ",
-        "</script>
+        "}
 ",
-        "<template><p>{{ message }}</p></template>"
+        "@template { <p>{{ message }}</p> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -58,13 +60,14 @@ fn no_signals_plain_leaf() {
 #[test]
 fn event_attr_onclick() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const handler = () => {}
 ",
-        "</script>
+        "}
 ",
-        "<template><button @click=\"handler\">click</button></template>"
+        // TODO(R5.2b): legacy `@click=` event-binding alias deprecated; becomes C304 in v1.0.8.
+        "@template { <button @click=\"handler\">click</button> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -75,13 +78,13 @@ fn event_attr_onclick() {
 #[test]
 fn signal_leaf_cast() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const [val, setVal] = signal(0)
 ",
-        "</script>
+        "}
 ",
-        "<template><span>{{ val }}</span></template>"
+        "@template { <span>{{ val }}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -92,13 +95,13 @@ fn signal_leaf_cast() {
 #[test]
 fn plain_var_no_cast() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const title = 'hello'
 ",
-        "</script>
+        "}
 ",
-        "<template><h1>{{ title }}</h1></template>"
+        "@template { <h1>{{ title }}</h1> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -109,19 +112,19 @@ fn plain_var_no_cast() {
 #[test]
 fn style_scoped_emits_css_in_function_form() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const [count, setCount] = signal(0)
 ",
-        "</script>
+        "}
 ",
-        "<template><span>{{ count }}</span></template>
+        "@template { <span>{{ count }}</span> }
 ",
-        "<style>
+        "@style {
 ",
         "span { color: red; }
 ",
-        "</style>"
+        "}"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -132,13 +135,13 @@ fn style_scoped_emits_css_in_function_form() {
 #[test]
 fn ctx_param_present() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const [val, setVal] = signal(0)
 ",
-        "</script>
+        "}
 ",
-        "<template><span>{{ val }}</span></template>"
+        "@template { <span>{{ val }}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -153,13 +156,13 @@ fn ctx_param_present() {
 #[test]
 fn import_type_signal_present() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const [val, setVal] = signal(0)
 ",
-        "</script>
+        "}
 ",
-        "<template><span>{{ val }}</span></template>"
+        "@template { <span>{{ val }}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -174,13 +177,13 @@ fn import_type_signal_present() {
 #[test]
 fn no_export_default() {
     let src = concat!(
-        "<script setup>
+        "@state {
 ",
         "const [val, setVal] = signal(0)
 ",
-        "</script>
+        "}
 ",
-        "<template><span>{{ val }}</span></template>"
+        "@template { <span>{{ val }}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -194,7 +197,7 @@ fn no_export_default() {
 
 #[test]
 fn static_attr_passthrough() {
-    let src = "<template><div class=\"counter\"></div></template>";
+    let src = "@template { <div class=\"counter\"></div> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-div");
@@ -208,7 +211,7 @@ fn static_attr_passthrough() {
 #[test]
 fn slot_default_codegen() {
     // <slot></slot> → createSlotBoundary({ expose: [] }, ...) [DEPRECATED HTML form]
-    let src = "<template><div><slot></slot></div></template>";
+    let src = "@template { <div><slot></slot></div> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-slot");
@@ -227,7 +230,7 @@ fn slot_default_codegen() {
 #[test]
 fn slot_named_codegen() {
     // <slot name="header"></slot> → createSlotBoundary({ name: 'header', ... }) [DEPRECATED]
-    let src = "<template><div><slot name=\"header\"></slot></div></template>";
+    let src = "@template { <div><slot name=\"header\"></slot></div> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-named-slot");
@@ -251,16 +254,16 @@ fn multiline_import_lifted_to_module_scope() {
     // Multiline user imports inside @state / <script setup> are lifted to
     // module scope (alongside the auto-emitted framework imports), not stripped
     // and not leaked into the setup function body.
-    let source = r#"<script setup lang="ts" name="x-test">
+    let source = r#"@state {
 import {
   computed
 } from '@aihu/signals'
 
 const fee = computed(() => 5)
-</script>
-<template>
+}
+@template {
   <div>{{ fee }}</div>
-</template>"#;
+}"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-test");
@@ -292,13 +295,13 @@ const fee = computed(() => 5)
 fn side_effect_import_does_not_eat_following_lines() {
     // Bare side-effect import (no `from`, no `;`) must not falsely open a
     // multiline import span — it has no `{`, so should be skipped as single-line.
-    let source = r#"<script setup lang="ts" name="x-test">
+    let source = r#"@state {
 import '@aihu/polyfill'
 const fee = 5
-</script>
-<template>
+}
+@template {
   <div>{{ fee }}</div>
-</template>"#;
+}"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-test");
@@ -313,17 +316,17 @@ fn export_keyword_stripped_from_script_body() {
     // When the user writes `export function ...` in <script setup>, the
     // emitter must strip `export ` because the body is injected inside
     // setup(ctx) where module-level exports are syntax errors.
-    let source = r#"<agent>
+    let source = r#"@agent {
 action ping() -> { ok: boolean }
-</agent>
-<script setup lang="ts" name="x-export">
+}
+@state {
 export function ping() {
   return { ok: true }
 }
-</script>
-<template>
+}
+@template {
   <div></div>
-</template>"#;
+}"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-export");
@@ -340,25 +343,25 @@ export function ping() {
 // ─── A-4c: options-form emission ──────────────────────────────────────────
 
 fn airtime_quote_source() -> &'static str {
-    r#"<agent>
+    r#"@agent {
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</agent>
-<script setup lang="ts" name="airtime-quote">
+}
+@state {
 import { computed } from '@aihu/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
 const total = computed(() => amount() + fee())
 export function quote() {
   return { plan: plan(), amount: amount(), fee: fee(), total: total() }
 }
-</script>
-<template>
+}
+@template {
   <div class="airtime-quote">
     <span>{{ total }}</span>
   </div>
-</template>"#
+}"#
 }
 
 #[test]
@@ -415,10 +418,10 @@ fn leaf_signal_interpolation_cast() {
     // with Read<string>, so `unknown` is the required bridge — a single `as`
     // would produce a TypeScript compile error.
     let src = concat!(
-        "<script setup>\n",
+        "@state {\n",
         "const [score, setScore] = signal(0)\n",
-        "</script>\n",
-        "<template><span>{{ score }}</span></template>"
+        "}\n",
+        "@template { <span>{{ score }}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();

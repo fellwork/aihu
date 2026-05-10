@@ -142,12 +142,12 @@ fn b3_ac6_dot_form_on_click_lowers_to_onclick_attr() {
 
 #[test]
 fn b3_ac6_dot_form_bind_value_lowers_with_writeback() {
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [text, setText] = signal('')
-</script>
-<template>
+}
+@template {
   <input $bind.value={text} />
-</template>"#;
+}"#;
     let js = compile_fixture(src, "x-b3-dot-bind");
     assert!(
         js.contains("value: [text, setText]"),
@@ -165,12 +165,12 @@ const [text, setText] = signal('')
 fn b3_ac16_phase2_colon_form_is_hard_error() {
     // B3c Phase 2 (AC16): v1 colon-form is now a hard C500 compile error.
     // The corpus was fully migrated in B3b; this validates the promotion.
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [text, setText] = signal('')
-</script>
-<template>
+}
+@template {
   <input $bind:value={text} />
-</template>"#;
+}"#;
     let parsed = aihu_compiler::sfc::parse(src).unwrap();
     let err = aihu_compiler::compile_full(&parsed)
         .expect_err("colon-form must produce a compile error");
@@ -258,12 +258,12 @@ fn b3_ac8_html_block_lowers_with_effect() {
 
 #[test]
 fn b3_ac11_typed_conv_helper_emitted_for_value_bind() {
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [count, setCount] = signal(0)
-</script>
-<template>
+}
+@template {
   <input type="number" $bind.value={count} />
-</template>"#;
+}"#;
     let js = compile_fixture(src, "x-b3-typed-conv");
     assert!(
         js.contains("const __aihu_conv ="),
@@ -286,12 +286,12 @@ const [count, setCount] = signal(0)
 fn b3_ac11_typed_conv_skipped_for_checked_bind() {
     // `$bind.checked` reads `e.target.checked` (boolean by platform contract);
     // typed-conv helper not needed at the write site.
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [done, setDone] = signal(false)
-</script>
-<template>
+}
+@template {
   <input type="checkbox" $bind.checked={done} />
-</template>"#;
+}"#;
     let js = compile_fixture(src, "x-b3-bind-checked");
     assert!(
         js.contains("setDone(e.target.checked)"),
@@ -309,12 +309,12 @@ const [done, setDone] = signal(false)
 
 #[test]
 fn b3_ref_signal_lowers_to_setter_call_at_mount() {
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [myEl, setMyEl] = signal(null)
-</script>
-<template>
+}
+@template {
   <div $ref={myEl}>x</div>
-</template>"#;
+}"#;
     let js = compile_fixture(src, "x-b3-ref");
     // Either signal-setter call (registered signal) or plain assignment.
     assert!(
@@ -386,17 +386,17 @@ fn b3_fixture_dot_form_bind() {
 fn b3_ac12_sidecar_ts_contains_template_expressions() {
     // The sidecar should pick up every curly expression in @template so tsc
     // can flag type errors at the lang-server level.
-    let src = r#"<script setup>
+    let src = r#"@state {
 const [count, setCount] = signal(0)
 const [view, setView] = signal('list')
-</script>
-<template>
+}
+@template {
   {#if view === 'list'}
     <div>{count}</div>
   {:else}
     <div>none</div>
   {/if}
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3-sidecar");
@@ -422,9 +422,9 @@ const [view, setView] = signal('list')
 fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
     // Sidecar preamble must declare $emit and $event so tsc doesn't flag them
     // as undefined at the call site (until the typed-payload generation lands).
-    let src = r#"<template>
+    let src = r#"@template {
   <div></div>
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3-sidecar-decls");
@@ -490,14 +490,12 @@ fn b3b_parse_event_bare_form_rejected() {
 
 #[test]
 fn b3b_sidecar_typed_emit_decl_per_event() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $event: { dayjump: { payload: { day: Date } } }
 }
-</script>
-<template>
+@template {
   <button>x</button>
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3b-typed-sidecar");
@@ -519,15 +517,13 @@ fn b3b_sidecar_typed_emit_decl_per_event() {
 
 #[test]
 fn b3b_ac9_emit_lowers_to_dispatch_custom_event() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $event: { dayjump: { payload: { day: Date } } }
-}
 const day = new Date()
-</script>
-<template>
+}
+@template {
   <button $on.click={() => $emit.dayjump({ day })}>x</button>
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3b-emit-dispatch");
@@ -556,9 +552,9 @@ const day = new Date()
 
 #[test]
 fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
-    let src = r#"<template>
+    let src = r#"@template {
   <button $on.click={() => $emit.ping()}>x</button>
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3b-emit-ping");
@@ -670,9 +666,9 @@ fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
 
 #[test]
 fn b3b_ac10_listener_dot_form_custom_event_lowers_attribute() {
-    let src = r#"<template>
+    let src = r#"@template {
   <calendar-grid $on.dayjump={(e) => focusDate(e.detail.day)}></calendar-grid>
-</template>"#;
+}"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-b3b-listener");

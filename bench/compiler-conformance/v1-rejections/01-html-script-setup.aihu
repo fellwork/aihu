@@ -1,0 +1,6 @@
+<script setup>
+const x = 1
+</script>
+<template>
+  <div>{{ x }}</div>
+</template>

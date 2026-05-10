@@ -208,7 +208,7 @@ fn c401_normal_curly_attr_is_ok() {
 
 #[test]
 fn slot_emit_default_slot() {
-    let src = "<template><$slot></$slot></template>";
+    let src = "@template { <$slot></$slot> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-slot-test");
@@ -226,7 +226,7 @@ fn slot_emit_default_slot() {
 
 #[test]
 fn slot_emit_expose_list() {
-    let src = r#"<template><$slot expose="user, index"></$slot></template>"#;
+    let src = r#"@template { <$slot expose="user, index"></$slot> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-slot-expose");
@@ -249,7 +249,7 @@ fn slot_emit_expose_list() {
 
 #[test]
 fn slot_emit_named_slot() {
-    let src = r#"<template><$slot name="header"></$slot></template>"#;
+    let src = r#"@template { <$slot name="header"></$slot> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-named-slot-v2");
@@ -269,7 +269,7 @@ fn slot_emit_named_slot() {
 
 #[test]
 fn suspense_emit_basic() {
-    let src = r#"<template><$suspense source="dataPromise"><$slot name="fallback"><span></span></$slot><p></p></$suspense></template>"#;
+    let src = r#"@template { <$suspense source="dataPromise"><$slot name="fallback"><span></span></$slot><p></p></$suspense> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-suspense-test");
@@ -289,7 +289,7 @@ fn suspense_emit_basic() {
 
 #[test]
 fn shield_emit_basic() {
-    let src = r#"<template><$shield><p></p><$slot name="fallback"><span></span></$slot></$shield></template>"#;
+    let src = r#"@template { <$shield><p></p><$slot name="fallback"><span></span></$slot></$shield> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-shield-test");
@@ -309,7 +309,7 @@ fn shield_emit_basic() {
 
 #[test]
 fn guard_emit_basic() {
-    let src = r#"<template><$guard check="isAuthed"><p></p><$slot name="fallback"><span></span></$slot></$guard></template>"#;
+    let src = r#"@template { <$guard check="isAuthed"><p></p><$slot name="fallback"><span></span></$slot></$guard> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-guard-test");
@@ -334,7 +334,7 @@ fn guard_emit_basic() {
 
 #[test]
 fn warp_emit_basic() {
-    let src = r##"<template><$warp target="#portal"><p></p></$warp></template>"##;
+    let src = r##"@template { <$warp target="#portal"><p></p></$warp> }"##;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-warp-test");
@@ -359,7 +359,7 @@ fn warp_emit_basic() {
 
 #[test]
 fn deprecated_slot_html_form_emits_create_slot_boundary() {
-    let src = "<template><slot></slot></template>";
+    let src = "@template { <slot></slot> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-deprecated-slot");

@@ -1,25 +1,25 @@
 use aihu_compiler::{compile_full, emit, sfc};
 
 fn airtime_quote_source() -> &'static str {
-    r#"<agent>
+    r#"@agent {
 input plan: enum(daily, weekly, monthly) = daily
 input amount: number = 100
 state total: number   # Final quoted total
 action quote() -> { plan: string, amount: number, fee: number, total: number }
-</agent>
-<script setup lang="ts" name="airtime-quote">
+}
+@state {
 import { computed } from '@aihu/signals'
 const fee = computed(() => plan() === 'daily' ? 5 : plan() === 'weekly' ? 10 : 20)
 const total = computed(() => amount() + fee())
 export function quote() {
   return { plan: plan(), amount: amount(), fee: fee(), total: total() }
 }
-</script>
-<template>
+}
+@template {
   <div class="airtime-quote">
     <span>{{ total }}</span>
   </div>
-</template>"#
+}"#
 }
 
 #[test]
@@ -89,12 +89,12 @@ fn agent_airtime_quote_manifest_keys() {
 
 #[test]
 fn agent_block_parse_error_propagates() {
-    let source = r#"<agent>
+    let source = r#"@agent {
 input x: uuid = 5
-</agent>
-<script setup lang="ts" name="x-err">
-</script>
-<template><div></div></template>"#;
+}
+@state {
+}
+@template { <div></div> }"#;
     let parsed = sfc::parse(source);
     assert!(parsed.is_err(), "sfc::parse should fail on bad agent block");
     let err = parsed.unwrap_err();
@@ -116,13 +116,13 @@ fn no_agent_block_manifest_empty_integration() {
 
 #[test]
 fn style_scoped_emits_css_stylesheet() {
-    let source = r#"<script setup lang="ts" name="styled-counter">
+    let source = r#"@state {
 export default function() { return []; }
-</script>
-<template><div></div></template>
-<style>
+}
+@template { <div></div> }
+@style {
 .card { color: red; }
-</style>"#;
+}"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "styled-counter");
@@ -134,13 +134,14 @@ export default function() { return []; }
 
 #[test]
 fn style_global_emits_document_adopted() {
-    let source = r#"<script setup lang="ts" name="global-styled">
+    let source = r#"@state {
 export default function() { return []; }
-</script>
-<template><div></div></template>
-<style global>
+}
+@template { <div></div> }
+@style {
+$global
 body { margin: 0; }
-</style>"#;
+}"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "global-styled");
@@ -227,12 +228,11 @@ const theme = { primary: '#ff0000' }
 /// SFC with @agent block containing $scope and $rate-limit.
 #[test]
 fn agent_binding_export_server_artifact() {
-    let source = r#"<agent>
+    let source = r#"@agent {
 input location: string
 $scope authenticated
 $rate-limit 100
-</agent>
-<script setup lang="ts" name="weather-card">
+}
 @state {
   $prop: {
     location: { default: 'NYC', expose: { read: true, write: true } },
@@ -244,8 +244,7 @@ $rate-limit 100
     fetchForecast: { expose: { read: true }, handler: () => fetch('/api/weather') },
   }
 }
-</script>
-<template><div>{{ location }}</div></template>"#;
+@template { <div>{{ location }}</div> }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "weather-card");
@@ -274,14 +273,14 @@ $rate-limit 100
 #[test]
 fn agent_binding_absent_from_client_artifact() {
     use aihu_compiler::types::BuildTarget;
-    let source = r#"<agent>
+    let source = r#"@agent {
 input location: string
 $scope authenticated
 $rate-limit 100
-</agent>
-<script setup lang="ts" name="weather-card">
-</script>
-<template><div>client</div></template>"#;
+}
+@state {
+}
+@template { <div>client</div> }"#;
     let parsed = sfc::parse(source).unwrap();
     let mut unit = compile_full(&parsed).unwrap();
     unit.target = BuildTarget::Client;
@@ -296,9 +295,9 @@ $rate-limit 100
 /// AC1c: __agentBinding absent when no @agent block.
 #[test]
 fn no_agent_binding_without_agent_block() {
-    let source = r#"<script setup lang="ts" name="plain-card">
-</script>
-<template><div>no agent</div></template>"#;
+    let source = r#"@state {
+}
+@template { <div>no agent</div> }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "plain-card");
@@ -311,12 +310,12 @@ fn no_agent_binding_without_agent_block() {
 /// AC1d: reads/writes/actions are empty objects when no @state expose entries.
 #[test]
 fn agent_binding_empty_reads_writes_actions() {
-    let source = r#"<agent>
+    let source = r#"@agent {
 input name: string
-</agent>
-<script setup lang="ts" name="x-bare">
-</script>
-<template><div>bare</div></template>"#;
+}
+@state {
+}
+@template { <div>bare</div> }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-bare");
