@@ -1,7 +1,7 @@
 /**
  * Unit tests for `@aihu/ai` adapters — AC13, AC14.
  *
- * Per spec docs/specs/stream-impl.md §6.
+ * Per spec docs/superpowers/specs/stream-impl.md §6.
  * Tests use mock iterables — no actual SDK installation required.
  */
 

@@ -83,10 +83,11 @@ docs/site/dist/
 packages/compiler/pkg-wasm/
 
 # Agent team session artifacts — director notes, retros, build manifests, state files
-# (consolidate ratified specs into docs/specs/ and plans into docs/plans/ instead)
+# (consolidate ratified specs into docs/superpowers/specs/ and plans into docs/plans/ instead)
 .team/
 state-*.md
-docs/superpowers/
+# docs/superpowers/specs/ is a tracked home for ratified specs (v1.0.6 migration);
+# other docs/superpowers/ subdirectories below that may appear are session artifacts and stay ignored.
 docs/topic-director-notes/
 docs/topic-summaries/
 docs/build-manifest-*.md

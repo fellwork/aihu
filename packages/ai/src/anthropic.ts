@@ -2,7 +2,7 @@
  * `fromAnthropic` — adapter from Anthropic SDK stream to `ReadableStream<string>`.
  *
  * Uses `import type` for all SDK types so missing peers don't cause runtime errors.
- * v0.4.0: Per spec docs/specs/stream-impl.md §6.3.
+ * v0.4.0: Per spec docs/superpowers/specs/stream-impl.md §6.3.
  */
 
 import type { MessageStreamEvent } from '@anthropic-ai/sdk/resources/messages'

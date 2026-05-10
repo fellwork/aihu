@@ -1,7 +1,7 @@
 # Plugin Contract — `@aihu/compiler`
 
 **Status:** Ratified 2026-05-02 (v1 reconciliation session)
-**Spec version:** 0.1.1-draft (Amendment 03 applied inline; Option A provisional middleware locked)
+**Spec version:** 1.0 (Amendment 03 applied inline; Option A provisional middleware locked; Q8 collapse ratified at v1.0.6)
 **Phase:** N+M (assigned at scoping pass)
 **Author:** Architect
 **Depends on:** `@aihu/compiler` (parser infrastructure), `@aihu/runtime` (lifecycle hooks)

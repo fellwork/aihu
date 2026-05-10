@@ -1,7 +1,7 @@
 /**
  * Unit tests for `defineStreamRoute` — AC12.
  *
- * Per spec docs/specs/stream-impl.md §5.
+ * Per spec docs/superpowers/specs/stream-impl.md §5.
  */
 
 import { describe, expect, it } from 'vitest'

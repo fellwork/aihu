@@ -169,7 +169,7 @@ Compiles a `.aihu` source string using the aihu Rust compiler and returns either
 
 Rationale for each option:
 
-- **Option A (import `transform()` from `@aihu/compiler`):** `transform()` calls `execFileSync` internally — it is synchronous and blocking. More critically, it throws a plain `Error` on compilation failure where `.message` is the raw stderr string from the Rust process. There are no structured fields on the error object. Extracting `{code, line, col}` via regex is fragile and duplicates parsing that the `--machine-errors` flag handles canonically. The LSP spec (`docs/specs/lsp-language-server.md`) explicitly rejected this option for the same reasons.
+- **Option A (import `transform()` from `@aihu/compiler`):** `transform()` calls `execFileSync` internally — it is synchronous and blocking. More critically, it throws a plain `Error` on compilation failure where `.message` is the raw stderr string from the Rust process. There are no structured fields on the error object. Extracting `{code, line, col}` via regex is fragile and duplicates parsing that the `--machine-errors` flag handles canonically. The LSP spec (`docs/superpowers/specs/lsp-language-server.md`) explicitly rejected this option for the same reasons.
 
 - **Option B (recommended — shell out to `aihu-compile --machine-errors`):** Spawn the compiler binary directly using `execFile` (async, non-blocking). Pass `--stdin`, `--tag <stem>`, `--path <filename>`, and `--machine-errors`. On success (exit 0), stdout contains the compiled TypeScript. On failure (exit 1), stderr contains a JSON array of diagnostic objects matching the `--machine-errors` schema defined in the LSP spec. The MCP server catches the process error, parses stderr as JSON, and returns the structured array. This is consistent with the LSP server's `compileWithDiagnostics()` pattern.
 
@@ -281,7 +281,7 @@ export async function compileSource(
 }
 ```
 
-The `AihuDiagnostic` shape is identical to the `--machine-errors` JSON schema defined in `docs/specs/lsp-language-server.md` § "Compiler integration". The MCP server and LSP server share this type definition; it should be extracted to `packages/compiler/js/types.ts` and re-exported from both downstream consumers (tracked as an open question below).
+The `AihuDiagnostic` shape is identical to the `--machine-errors` JSON schema defined in `docs/superpowers/specs/lsp-language-server.md` § "Compiler integration". The MCP server and LSP server share this type definition; it should be extracted to `packages/compiler/js/types.ts` and re-exported from both downstream consumers (tracked as an open question below).
 
 ## Server entry point
 
@@ -370,11 +370,11 @@ await server.connect(transport)
 
 ## Open questions
 
-1. **`AihuDiagnostic` type sharing:** The `--machine-errors` JSON schema is defined in prose in `docs/specs/lsp-language-server.md` and will be re-implemented independently in both `packages/vscode-aihu/` (LSP server) and `packages/mcp/`. Should `AihuDiagnostic` be extracted to `packages/compiler/js/types.ts` and re-exported from `@aihu/compiler`? This would create a single source of truth but adds a runtime type dep for consumers that only need the interface. Team Lead decision needed before the Builder starts.
+1. **`AihuDiagnostic` type sharing:** The `--machine-errors` JSON schema is defined in prose in `docs/superpowers/specs/lsp-language-server.md` and will be re-implemented independently in both `packages/vscode-aihu/` (LSP server) and `packages/mcp/`. Should `AihuDiagnostic` be extracted to `packages/compiler/js/types.ts` and re-exported from `@aihu/compiler`? This would create a single source of truth but adds a runtime type dep for consumers that only need the interface. Team Lead decision needed before the Builder starts.
 
 2. **Cookbook directory location at runtime:** The cookbook will live at `cookbook/` in the repo root (parallel builder task). When `@aihu/mcp` is installed globally (e.g., `bun install -g @aihu/mcp` for use outside the monorepo), the cookbook directory is absent. The fallback (Option C — embed source strings in the index) must be implemented from day one rather than deferred. Confirm with Team Lead that the build step that embeds source strings into `cookbook-index.json` is in scope for the initial Builder task.
 
-3. **`--machine-errors` flag availability:** The flag was added in `feat/agent-dx-compiler-diag` (now merged per the spec instructions). The Builder should verify the flag is present in the binary on the current branch before implementing the fallback-free path. If `--machine-errors` is not yet in the binary, the fallback regex parser (as described in `docs/specs/lsp-language-server.md`) must remain until the Rust change lands.
+3. **`--machine-errors` flag availability:** The flag was added in `feat/agent-dx-compiler-diag` (now merged per the spec instructions). The Builder should verify the flag is present in the binary on the current branch before implementing the fallback-free path. If `--machine-errors` is not yet in the binary, the fallback regex parser (as described in `docs/superpowers/specs/lsp-language-server.md`) must remain until the Rust change lands.
 
 4. **`aihu mcp serve` CLI subcommand ownership:** The `.mcp.json` template already calls `aihu mcp serve`, but `packages/cli/src/commands/` does not yet have a `serve.ts` (or equivalent) that routes this subcommand to `@aihu/mcp`. This is an implicit dependency of this spec on the CLI package. Clarify whether the Builder for this spec owns the CLI subcommand stub, or whether that is a separate task.
 
