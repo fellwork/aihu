@@ -40,6 +40,7 @@ jobs:
         with:
           auto-install: true
       - run: bun install --frozen-lockfile
+      - run: bun run check:deps
       - run: bunx biome ci .
       # README autogen sync — fails CI if README.md or any per-package README
       # is out of sync with its canonical sources. Author runs
