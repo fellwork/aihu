@@ -1,7 +1,7 @@
 /**
  * Unit tests for `createStream` — AC3, AC4, AC5, AC6.
  *
- * Per spec docs/specs/stream-impl.md §2 and the Builder brief.
+ * Per spec docs/superpowers/specs/stream-impl.md §2 and the Builder brief.
  */
 
 import { describe, expect, it } from 'vitest'

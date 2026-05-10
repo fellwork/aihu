@@ -2,7 +2,7 @@
  * `fromGemini` — adapter from Google Generative AI SDK stream to `ReadableStream<string>`.
  *
  * Uses `import type` for all SDK types so missing peers don't cause runtime errors.
- * v0.4.0: Per spec docs/specs/stream-impl.md §6.4.
+ * v0.4.0: Per spec docs/superpowers/specs/stream-impl.md §6.4.
  */
 
 import type { GenerateContentStreamResult } from '@google/generative-ai'

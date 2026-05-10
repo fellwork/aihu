@@ -3,7 +3,7 @@
 **Status:** DRAFT — for Builder dispatch
 **Date:** 2026-05-07
 **Author:** Stream Architect (read-only research; no source files modified)
-**Symmetric with:** `docs/specs/live-binding-impl.md` (`$live` / `@agent` block)
+**Symmetric with:** `docs/superpowers/specs/live-binding-impl.md` (`$live` / `@agent` block)
 **Feeds into:** fellwork agentic communication keystone
 
 ---
@@ -109,7 +109,7 @@ And `c440` (v1-rejection diagnostic for `$stream name = ...` bare form):
 CollectionKind::Stream => (
     "$stream: { <name>: { source: () => ..., describe?: '...' } }",
     "$stream name = ...",
-    "see docs/specs/stream-impl.md §1.2",
+    "see docs/superpowers/specs/stream-impl.md §1.2",
 ),
 ```
 

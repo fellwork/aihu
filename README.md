@@ -399,6 +399,21 @@ Run all compliance checks: `bun run test && bun run test:quality`
 
 #### Specs (ratified + RFC)
 
+- [`docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md`](./docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md) — aihu v0 — Vertical Slice Design _(Draft)_
+- [`docs/superpowers/specs/2026-05-02-spec-block-structure.md`](./docs/superpowers/specs/2026-05-02-spec-block-structure.md) — Block Structure — `@aihu/compiler` _(Ratified 2026-05-02)_
+- [`docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md`](./docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md) — Macro Vocabulary — `@aihu/compiler` _(Ratified 2026-05-02)_
+- [`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`](./docs/superpowers/specs/2026-05-02-spec-plugin-contract.md) — Plugin Contract — `@aihu/compiler` _(Ratified 2026-05-02)_
+- [`docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](./docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md) — Template Attribute Syntax — `@aihu/compiler` _(Ratified 2026-05-02)_
+- [`docs/superpowers/specs/2026-05-05-spec-live-binding.md`](./docs/superpowers/specs/2026-05-05-spec-live-binding.md) — Live-Binding Architecture — `@aihu/arbor` + `@aihu/agent-service` _(APPROVED per Directive 3)_
+- [`docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md`](./docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md) — Macro Vocabulary v2 — Object-literal Collection-Form _(RATIFIED 2026-05-05)_
+- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md) — Template Syntax v2 — Platform Audit (Round 3)
+- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md) — Template Syntax v2 — Corpus Samples (Variant B) _(Variant B per Director r2 reconciliation)_
+- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md) — Template Syntax v2 — `@template` redesign _(PROPOSED — not RATIFIED until user approves)_
+- [`docs/superpowers/specs/live-binding-impl.md`](./docs/superpowers/specs/live-binding-impl.md) — Spec: $live binding — Implementation Design (v0.3.0) _(DRAFT — for Builder dispatch)_
+- [`docs/superpowers/specs/lsp-language-server.md`](./docs/superpowers/specs/lsp-language-server.md) — Spec: vscode-aihu LSP Language Server
+- [`docs/superpowers/specs/mcp-server.md`](./docs/superpowers/specs/mcp-server.md) — Spec: @aihu/mcp — aihu MCP Server
+- [`docs/superpowers/specs/stream-impl.md`](./docs/superpowers/specs/stream-impl.md) — Spec: Streaming Text I/O — Implementation Design (v0.4.0) _(DRAFT — for Builder dispatch)_
+
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
 <!-- END_AUTOGEN: reference -->

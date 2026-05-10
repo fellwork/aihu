@@ -1,7 +1,7 @@
 /// Tests for `$stream` collection (AC1, AC2, AC7, AC8) and
 /// compile errors C550, C551, C552, C553, C554.
 ///
-/// Per spec docs/specs/stream-impl.md §1.2 and §3.2.
+/// Per spec docs/superpowers/specs/stream-impl.md §1.2 and §3.2.
 
 use aihu_compiler::{compile_full, emit, sfc, BuildTarget, CollectionKind, StateMacro};
 

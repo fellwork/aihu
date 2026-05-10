@@ -1,7 +1,7 @@
 /**
  * `defineStreamRoute` — first-class route handler for streaming HTTP responses.
  *
- * v0.4.0: Per spec docs/specs/stream-impl.md §5.
+ * v0.4.0: Per spec docs/superpowers/specs/stream-impl.md §5.
  * Usage:
  *   export default defineStreamRoute(async (req) => {
  *     return fromOpenAI(await openai.chat.completions.create({ stream: true, ... }))
