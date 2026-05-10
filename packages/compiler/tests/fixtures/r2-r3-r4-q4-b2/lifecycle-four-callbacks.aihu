@@ -1,4 +1,4 @@
-<script setup lang="ts">
+@state {
 // R2 (Director r6 §3.R2) — exercise all four $lifecycle callbacks.
 // `mount` and `dispose` are pre-R2 v1 surface; `adopt` and `attributeChange`
 // were added in R2. Compiler lowers each to its platform callback:
@@ -10,7 +10,6 @@
 // Order contract (Director r6 §3.R2): R1's $prop signal-update runs FIRST,
 // userland's `attributeChange` runs AFTER. Authors observe the post-converted
 // signal value rather than the raw attribute string.
-@state {
   $prop: {
     name: { default: 'World' },
   }
@@ -29,9 +28,8 @@
     },
   }
 }
-</script>
-<template>
+@template {
   <div class="r2-demo">
     <h1>{name}</h1>
   </div>
-</template>
+}

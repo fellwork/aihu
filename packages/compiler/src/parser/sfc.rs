@@ -1,82 +1,9 @@
 use crate::types::{CompileError, RouteBlock, AihuSource, ScriptMeta, StyleBlock, StyleScope};
 use crate::codegen::signals::resolve_signals;
 
-/// Extract the `name="..."` attribute from a `<script setup ...>` tag.
-fn extract_script_meta(tag_text: &str) -> ScriptMeta {
-    let name = find_attr_value(tag_text, "name");
-    ScriptMeta { name }
-}
-
-/// Find an attribute value in a tag string (handles double or single quotes).
-fn find_attr_value(tag_text: &str, attr: &str) -> Option<String> {
-    let dq_needle = format!("{}=\"", attr);
-    let sq_needle = format!("{}='", attr);
-
-    if let Some(start) = tag_text.find(&dq_needle) {
-        let after = &tag_text[start + dq_needle.len()..];
-        if let Some(end) = after.find('"') {
-            return Some(after[..end].to_string());
-        }
-    }
-    if let Some(start) = tag_text.find(&sq_needle) {
-        let after = &tag_text[start + sq_needle.len()..];
-        if let Some(end) = after.find('\'') {
-            return Some(after[..end].to_string());
-        }
-    }
-    None
-}
-
 /// Count newlines before `pos` to derive a 1-based line number.
 fn line_at(source: &str, pos: usize) -> usize {
     source[..pos].bytes().filter(|&b| b == b'\n').count() + 1
-}
-
-/// Find the closing tag with depth tracking for nested same-name tags.
-/// `open_prefix` is the start of the opening tag (e.g. `<template`).
-/// `close_tag` is the exact closing tag string (e.g. `</template>`).
-/// `search_from` is the position in `source` right after the opening tag's `>`.
-/// Returns the byte offset of the `<` in the matching closing tag, or `None` if unclosed.
-fn find_closing_with_depth(
-    source: &str,
-    search_from: usize,
-    open_prefix: &str,
-    close_tag: &str,
-) -> Option<usize> {
-    let mut depth = 1usize;
-    let mut pos = search_from;
-
-    loop {
-        let slice = &source[pos..];
-        let next_close = slice.find(close_tag);
-        let next_open = slice.find(open_prefix);
-
-        match (next_open, next_close) {
-            (_, None) => return None, // no closing tag found
-            (None, Some(c)) => {
-                let close_abs = pos + c;
-                depth -= 1;
-                if depth == 0 {
-                    return Some(close_abs);
-                }
-                pos = close_abs + close_tag.len();
-            }
-            (Some(o), Some(c)) => {
-                if o < c {
-                    // Opening tag comes before closing tag — increase depth.
-                    depth += 1;
-                    pos += o + open_prefix.len();
-                } else {
-                    let close_abs = pos + c;
-                    depth -= 1;
-                    if depth == 0 {
-                        return Some(close_abs);
-                    }
-                    pos = close_abs + close_tag.len();
-                }
-            }
-        }
-    }
 }
 
 /// The kind of block found at a given position.
@@ -90,29 +17,6 @@ enum BlockKind {
     Route,
     /// v0.6.1: `@layout 'name'` shorthand — deprecated alias for @route { layout: '...' }.
     Layout,
-}
-
-/// The grammar used for a given block opener.
-///
-/// Per Block Structure Spec §2.1, two grammars are accepted at v0.2:
-/// - `Html`  → `<script setup>`, `<template>`, `<style>`, `<agent>` (legacy)
-/// - `At`    → `@state {`, `@template {`, `@style {`, `@agent {` (Block Structure Spec §2)
-///
-/// Both grammars lower to the same emitted JS shape. The first form detected in
-/// a file wins; mixing forms in the same file is a compile error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Grammar {
-    Html,
-    At,
-}
-
-impl Grammar {
-    fn label(self) -> &'static str {
-        match self {
-            Grammar::Html => "<tag>",
-            Grammar::At => "@blockname { }",
-        }
-    }
 }
 
 /// Match an `@blockname {` opener starting at byte position `pos` in `source`.
@@ -303,23 +207,27 @@ fn find_at_block_close(source: &str, body_start: usize, kind: BlockKind) -> Opti
 }
 
 /// Find the next recognized block opener starting from `pos` in `source`.
-/// Returns `(kind, grammar, opener_offset, body_start_offset)` for the earliest
-/// match. `body_start_offset` is the byte just past the opener (after `>` for
-/// HTML form, after `{` for `@`-form). `None` if no opener found.
-fn next_block(source: &str, pos: usize) -> Option<(BlockKind, Grammar, usize, usize)> {
-    // HTML-form scan — same as v0.2.1 behavior.
+/// Returns `(kind, opener_offset, body_start_offset)` for the earliest match
+/// (body_start is the byte just past the `{`). Returns `Ok(None)` when no
+/// opener is found.
+///
+/// v1.0.7: any HTML-tag block form (`<script setup>`, `<template>`, `<style>`,
+/// `<agent>`) encountered at top level is a hard error (C107). The HTML-tag
+/// grammar was deprecated in v0.3 and removed in v1.0. Use `npx aihu migrate`
+/// to convert legacy files.
+fn next_block(source: &str, pos: usize) -> Result<Option<(BlockKind, usize, usize)>, CompileError> {
+    // v1.0.7: reject HTML-tag block form with C107 if seen before any @-form
+    // opener. Walk the slice in parallel to the @-scan so we can compare offsets
+    // and surface the FIRST opener (regardless of grammar) — this gives the
+    // user a precise diagnostic for the offending form.
     let slice = &source[pos..];
-    let html_candidates = [
-        slice
-            .find("<script setup")
-            .map(|i| (BlockKind::Script, pos + i)),
-        slice
-            .find("<template>")
-            .map(|i| (BlockKind::Template, pos + i)),
-        slice.find("<style").map(|i| (BlockKind::Style, pos + i)),
-        slice.find("<agent>").map(|i| (BlockKind::Agent, pos + i)),
+    let html_candidates: [Option<(&str, usize)>; 4] = [
+        slice.find("<script setup").map(|i| ("<script setup>", pos + i)),
+        slice.find("<template>").map(|i| ("<template>", pos + i)),
+        slice.find("<style").map(|i| ("<style>", pos + i)),
+        slice.find("<agent>").map(|i| ("<agent>", pos + i)),
     ];
-    let html_min = html_candidates
+    let html_min: Option<(&str, usize)> = html_candidates
         .into_iter()
         .flatten()
         .min_by_key(|&(_, off)| off);
@@ -334,7 +242,6 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, Grammar, usize, us
             break;
         }
         if let Some(m) = match_layout_shorthand(source, abs) {
-            // Use layout shorthand only if no @-form opener was found earlier.
             at_min = Some(m);
             break;
         }
@@ -344,23 +251,30 @@ fn next_block(source: &str, pos: usize) -> Option<(BlockKind, Grammar, usize, us
         }
     }
 
-    match (html_min, at_min) {
-        (None, None) => None,
-        (Some((k, off)), None) => {
-            // body starts after the opening tag's `>` for HTML form. The caller
-            // re-derives this; we pass `off` for body_start as a placeholder
-            // and let the per-kind branch compute the precise body_start.
-            Some((k, Grammar::Html, off, off))
-        }
-        (None, Some((k, opener, body))) => Some((k, Grammar::At, opener, body)),
-        (Some((kh, off_h)), Some((ka, off_a, body_a))) => {
-            if off_h <= off_a {
-                Some((kh, Grammar::Html, off_h, off_h))
-            } else {
-                Some((ka, Grammar::At, off_a, body_a))
-            }
+    // If an HTML-tag literal precedes the next @-form opener (or no @-form
+    // opener exists at all), reject with C107 at the HTML-tag position.
+    if let Some((form_label, html_off)) = html_min {
+        let html_wins = match at_min {
+            Some((_, at_off, _)) => html_off <= at_off,
+            None => true,
+        };
+        if html_wins {
+            return Err(CompileError {
+                message: format!(
+                    "C107: HTML-tag block form `{}` was removed in v1.0. \
+                     Use `@state {{ … }}`, `@template {{ … }}`, `@style {{ … }}`, or `@agent {{ … }}` instead. \
+                     Run: npx aihu migrate <file>",
+                    form_label
+                ),
+                line: line_at(source, html_off),
+                col: 0,
+                code: Some("C107".to_string()),
+                ..Default::default()
+            });
         }
     }
+
+    Ok(at_min.map(|(k, opener, body)| (k, opener, body)))
 }
 
 /// Check the inter-block region (content between/before/after blocks) for
@@ -619,79 +533,162 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
     let mut style: Option<StyleBlock> = None;
-    let mut meta = ScriptMeta { name: None };
+    let meta = ScriptMeta { name: None };
     let mut agent_raw: Option<&str> = None;
     let mut route: Option<RouteBlock> = None;
 
-    // Per Block Structure Spec §2 + plan §v0.2.2: dual-grammar acceptance.
-    // First detected form wins; a subsequent opener using the other form is an
-    // error citing both spans.
-    let mut detected_grammar: Option<(Grammar, usize)> = None;
-
-    // v0.3.4: emit the HTML-form deprecation warning at most once per file.
-    let mut warned_deprecation = false;
+    // v1.0.7: HTML-tag block grammar (`<script setup>` / `<template>` / `<style>` /
+    // `<agent>`) was removed. Only the `@blockname { … }` grammar (Block Structure
+    // Spec §2) is accepted. HTML-tag literals at top level are now a C107 hard
+    // error, raised by `next_block` at the first offending tag.
 
     // Track block end positions for inter-block reserved-token checks (v0.3.6).
-    // Each entry is (block_end_byte, block_end_line) — we'll scan the gaps after parsing.
     let mut block_regions: Vec<(usize, usize)> = Vec::new(); // (start_byte, end_byte)
 
     let mut pos = 0usize;
 
-    while let Some((kind, grammar, open_start, body_start_at)) = next_block(source, pos) {
-        // Mixed-grammar check: the first opener locks the grammar for the file;
-        // any later opener using the *other* form is rejected with a span
-        // citing both forms.
-        match detected_grammar {
-            None => {
-                detected_grammar = Some((grammar, open_start));
-            }
-            Some((first_g, first_off)) if first_g != grammar => {
-                return Err(CompileError {
-                    message: format!(
-                        "mixed block grammars in same file: first opener was {} form (line {}), but found {} form opener at line {}. Choose one form per file.",
-                        first_g.label(),
-                        line_at(source, first_off),
-                        grammar.label(),
-                        line_at(source, open_start),
-                    ),
-                    line: line_at(source, open_start),
-                    col: 0,
-                    code: Some("C100".to_string()),
-                    ..Default::default()
-                });
-            }
-            _ => {}
-        }
-
-        // v0.3.4: emit deprecation warning when HTML-tag form is detected.
-        if grammar == Grammar::Html && !warned_deprecation {
-            eprintln!(
-                "warning: HTML-tag form (`<script setup>`, `<template>`, etc.) is deprecated in v0.3. \
-                 Use `@state {{ }}`, `@template {{ }}`, `@style {{ }}`, `@agent {{ }}` instead. \
-                 Run `npx aihu migrate` to convert (ships in v0.8)."
-            );
-            warned_deprecation = true;
-        }
-
+    while let Some((kind, open_start, body_start_at)) = next_block(source, pos)? {
         // Record the inter-block region before this block for reserved-token checking.
         let region_before = &source[pos..open_start];
         let region_start_line = line_at(source, pos);
         check_reserved_tokens(region_before, region_start_line)?;
 
-        if grammar == Grammar::At {
-            // v0.6.1: @layout shorthand is a single-line block — handle separately.
-            if kind == BlockKind::Layout {
-                // body_start_at is end_of_line for layout shorthand.
-                let line_content = &source[open_start..body_start_at];
-                // Parse: @layout 'name'
-                // Extract the quoted value after `@layout`.
-                let after_layout = line_content.trim_start_matches(|c: char| c.is_whitespace());
-                let after_keyword = after_layout.strip_prefix("@layout").unwrap_or(after_layout).trim();
-                let layout_val = read_quoted_string(after_keyword, 0)
-                    .map(|(v, _)| v)
-                    .unwrap_or_else(|| after_keyword.trim_matches('\'').trim_matches('"').to_string());
+        // v0.6.1: @layout shorthand is a single-line block — handle separately.
+        if kind == BlockKind::Layout {
+            // body_start_at is end_of_line for layout shorthand.
+            let line_content = &source[open_start..body_start_at];
+            // Parse: @layout 'name'
+            // Extract the quoted value after `@layout`.
+            let after_layout = line_content.trim_start_matches(|c: char| c.is_whitespace());
+            let after_keyword = after_layout.strip_prefix("@layout").unwrap_or(after_layout).trim();
+            let layout_val = read_quoted_string(after_keyword, 0)
+                .map(|(v, _)| v)
+                .unwrap_or_else(|| after_keyword.trim_matches('\'').trim_matches('"').to_string());
 
-                // C500: @layout is also only valid in pages/ files.
+            // C500: @layout is also only valid in pages/ files.
+            if !is_pages_path(file_path) {
+                return Err(CompileError {
+                    message: "C500: @route block is only valid in src/pages/ files".to_string(),
+                    line: line_at(source, open_start),
+                    col: 0,
+                    code: Some("C500".to_string()),
+                    ..Default::default()
+                });
+            }
+
+            eprintln!(
+                "warning: @layout shorthand is deprecated (use `@route {{ layout: '{}' }}` instead); will be removed in v1.1.",
+                layout_val
+            );
+
+            if route.is_some() {
+                return Err(CompileError {
+                    message: "duplicate @route / @layout block".to_string(),
+                    line: line_at(source, open_start),
+                    col: 0,
+                    ..Default::default()
+                });
+            }
+            route = Some(RouteBlock {
+                layout: Some(layout_val),
+                ..Default::default()
+            });
+            let block_end = body_start_at;
+            block_regions.push((open_start, block_end));
+            pos = block_end;
+            continue;
+        }
+
+        // Unified `@blockname { … }` handler — body delimited by brace
+        // depth per Block Structure Spec §2.4.
+        let body_start = body_start_at;
+        let close_pos = find_at_block_close(source, body_start, kind).ok_or_else(|| {
+            let (label, code) = match kind {
+                BlockKind::Script => ("@state", "C101"),
+                BlockKind::Template => ("@template", "C102"),
+                BlockKind::Style => ("@style", "C103"),
+                BlockKind::Agent => ("@agent", "C104"),
+                BlockKind::Route => ("@route", "C105"),
+                BlockKind::Layout => ("@layout", "C106"),
+            };
+            CompileError {
+                message: format!("unclosed {} block opened at line {}", label, line_at(source, open_start)),
+                line: line_at(source, open_start),
+                col: 0,
+                code: Some(code.to_string()),
+                ..Default::default()
+            }
+        })?;
+        let body = source[body_start..close_pos].trim();
+        match kind {
+            BlockKind::Script => {
+                if script.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate @state block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                script = Some(body);
+            }
+            BlockKind::Template => {
+                if template.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate @template block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                template = Some(body);
+            }
+            BlockKind::Style => {
+                if style.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate @style block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                // v0.3.3: `@style { $global }` scope recognition.
+                // If the body begins with `$global` (after stripping leading whitespace),
+                // set StyleScope::Global and remove the `$global` token from the body.
+                // v0.x Amendment 02: if `$global { ... }` uses a braced block form,
+                // strip the outer braces so the inner content is stored as the style body.
+                let (style_scope, style_content) = if body.starts_with("$global") {
+                    let rest = body["$global".len()..].trim();
+                    // If the rest starts with `{`, strip the outer braces (block form).
+                    let inner = if rest.starts_with('{') {
+                        let close = crate::parser::state_macros::find_brace_close(rest, 1)
+                            .unwrap_or(rest.len());
+                        rest[1..close].trim()
+                    } else {
+                        rest
+                    };
+                    (StyleScope::Global, inner)
+                } else {
+                    (StyleScope::Scoped, body)
+                };
+                style = Some(StyleBlock {
+                    content: style_content,
+                    scope: style_scope,
+                });
+            }
+            BlockKind::Agent => {
+                if agent_raw.is_some() {
+                    return Err(CompileError {
+                        message: "duplicate @agent block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        ..Default::default()
+                    });
+                }
+                agent_raw = Some(&source[body_start..close_pos]);
+            }
+            BlockKind::Route => {
+                // v0.6.1: C500 — @route only valid in pages/ files.
                 if !is_pages_path(file_path) {
                     return Err(CompileError {
                         message: "C500: @route block is only valid in src/pages/ files".to_string(),
@@ -701,292 +698,24 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                         ..Default::default()
                     });
                 }
-
-                eprintln!(
-                    "warning: @layout shorthand is deprecated (use `@route {{ layout: '{}' }}` instead); will be removed in v1.1.",
-                    layout_val
-                );
-
                 if route.is_some() {
                     return Err(CompileError {
-                        message: "duplicate @route / @layout block".to_string(),
+                        message: "duplicate @route block".to_string(),
                         line: line_at(source, open_start),
                         col: 0,
                         ..Default::default()
                     });
                 }
-                route = Some(RouteBlock {
-                    layout: Some(layout_val),
-                    ..Default::default()
-                });
-                let block_end = body_start_at;
-                block_regions.push((open_start, block_end));
-                pos = block_end;
-                continue;
+                route = Some(parse_route_body(body));
             }
-
-            // Unified `@blockname { … }` handler — body delimited by brace
-            // depth per Block Structure Spec §2.4.
-            let body_start = body_start_at;
-            let close_pos = find_at_block_close(source, body_start, kind).ok_or_else(|| {
-                let (label, code) = match kind {
-                    BlockKind::Script => ("@state", "C101"),
-                    BlockKind::Template => ("@template", "C102"),
-                    BlockKind::Style => ("@style", "C103"),
-                    BlockKind::Agent => ("@agent", "C104"),
-                    BlockKind::Route => ("@route", "C105"),
-                    BlockKind::Layout => ("@layout", "C106"),
-                };
-                CompileError {
-                    message: format!("unclosed {} block opened at line {}", label, line_at(source, open_start)),
-                    line: line_at(source, open_start),
-                    col: 0,
-                    code: Some(code.to_string()),
-                    ..Default::default()
-                }
-            })?;
-            let body = source[body_start..close_pos].trim();
-            match kind {
-                BlockKind::Script => {
-                    if script.is_some() {
-                        return Err(CompileError {
-                            message: "duplicate @state block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        });
-                    }
-                    script = Some(body);
-                }
-                BlockKind::Template => {
-                    if template.is_some() {
-                        return Err(CompileError {
-                            message: "duplicate @template block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        });
-                    }
-                    template = Some(body);
-                }
-                BlockKind::Style => {
-                    if style.is_some() {
-                        return Err(CompileError {
-                            message: "duplicate @style block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        });
-                    }
-                    // v0.3.3: `@style { $global }` scope recognition.
-                    // If the body begins with `$global` (after stripping leading whitespace),
-                    // set StyleScope::Global and remove the `$global` token from the body.
-                    // v0.x Amendment 02: if `$global { ... }` uses a braced block form,
-                    // strip the outer braces so the inner content is stored as the style body.
-                    let (style_scope, style_content) = if body.starts_with("$global") {
-                        let rest = body["$global".len()..].trim();
-                        // If the rest starts with `{`, strip the outer braces (block form).
-                        let inner = if rest.starts_with('{') {
-                            let close = crate::parser::state_macros::find_brace_close(rest, 1)
-                                .unwrap_or(rest.len());
-                            rest[1..close].trim()
-                        } else {
-                            rest
-                        };
-                        (StyleScope::Global, inner)
-                    } else {
-                        (StyleScope::Scoped, body)
-                    };
-                    style = Some(StyleBlock {
-                        content: style_content,
-                        scope: style_scope,
-                    });
-                }
-                BlockKind::Agent => {
-                    if agent_raw.is_some() {
-                        return Err(CompileError {
-                            message: "duplicate @agent block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        });
-                    }
-                    agent_raw = Some(&source[body_start..close_pos]);
-                }
-                BlockKind::Route => {
-                    // v0.6.1: C500 — @route only valid in pages/ files.
-                    if !is_pages_path(file_path) {
-                        return Err(CompileError {
-                            message: "C500: @route block is only valid in src/pages/ files".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            code: Some("C500".to_string()),
-                            ..Default::default()
-                        });
-                    }
-                    if route.is_some() {
-                        return Err(CompileError {
-                            message: "duplicate @route block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        });
-                    }
-                    route = Some(parse_route_body(body));
-                }
-                BlockKind::Layout => {
-                    // Layout is handled above in the shorthand branch; this arm won't be reached.
-                    unreachable!("@layout shorthand handled before brace-body match");
-                }
-            }
-            let block_end = close_pos + 1; // past the `}`
-            block_regions.push((open_start, block_end));
-            pos = block_end;
-            continue;
-        }
-
-        match kind {
-            BlockKind::Script => {
-                // Find the end of the opening tag.
-                let tag_close_rel = source[open_start..].find('>').ok_or_else(|| CompileError {
-                    message: "unclosed <script setup> block".to_string(),
-                    line: line_at(source, open_start),
-                    col: 0,
-                    ..Default::default()
-                })?;
-                let open_tag_end = open_start + tag_close_rel + 1; // byte after '>'
-                let tag_text = &source[open_start..open_tag_end];
-
-                // Compute meta (not yet in public API; spec says compute it internally).
-                meta = extract_script_meta(tag_text);
-
-                // Find closing </script> — no depth tracking required for script per spec.
-                let content_start = open_tag_end;
-                let close_rel =
-                    source[content_start..]
-                        .find("</script>")
-                        .ok_or_else(|| CompileError {
-                            message: "unclosed <script setup> block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        })?;
-                let content_end = content_start + close_rel;
-
-                if script.is_some() {
-                    return Err(CompileError {
-                        message: "duplicate <script setup> block".to_string(),
-                        line: line_at(source, open_start),
-                        col: 0,
-                        ..Default::default()
-                    });
-                }
-                script = Some(source[content_start..content_end].trim());
-                let block_end = content_end + "</script>".len();
-                block_regions.push((open_start, block_end));
-                pos = block_end;
-            }
-
-            BlockKind::Template => {
-                let open_tag_end = open_start + "<template>".len();
-
-                let close_pos =
-                    find_closing_with_depth(source, open_tag_end, "<template", "</template>")
-                        .ok_or_else(|| CompileError {
-                            message: "unclosed <template> block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        })?;
-
-                if template.is_some() {
-                    return Err(CompileError {
-                        message: "duplicate <template> block".to_string(),
-                        line: line_at(source, open_start),
-                        col: 0,
-                        ..Default::default()
-                    });
-                }
-                template = Some(source[open_tag_end..close_pos].trim());
-                let block_end = close_pos + "</template>".len();
-                block_regions.push((open_start, block_end));
-                pos = block_end;
-            }
-
-            BlockKind::Style => {
-                let tag_close_rel = source[open_start..].find('>').ok_or_else(|| CompileError {
-                    message: "unclosed <style> block".to_string(),
-                    line: line_at(source, open_start),
-                    col: 0,
-                    ..Default::default()
-                })?;
-                let open_tag_end = open_start + tag_close_rel + 1;
-                let tag_text = &source[open_start..open_tag_end];
-                let scope = if tag_text.contains(" global") {
-                    StyleScope::Global
-                } else {
-                    StyleScope::Scoped
-                };
-                let content_start = open_tag_end;
-
-                let close_pos =
-                    find_closing_with_depth(source, content_start, "<style", "</style>")
-                        .ok_or_else(|| CompileError {
-                            message: "unclosed <style> block".to_string(),
-                            line: line_at(source, open_start),
-                            col: 0,
-                            ..Default::default()
-                        })?;
-
-                if style.is_some() {
-                    return Err(CompileError {
-                        message: "duplicate <style> block".to_string(),
-                        line: line_at(source, open_start),
-                        col: 0,
-                        ..Default::default()
-                    });
-                }
-                style = Some(StyleBlock {
-                    content: source[content_start..close_pos].trim(),
-                    scope,
-                });
-                let block_end = close_pos + "</style>".len();
-                block_regions.push((open_start, block_end));
-                pos = block_end;
-            }
-
-            BlockKind::Agent => {
-                let open_tag_end = open_start + "<agent>".len();
-
-                let close_pos = source[open_tag_end..]
-                    .find("</agent>")
-                    .map(|i| open_tag_end + i)
-                    .ok_or_else(|| CompileError {
-                        message: "unclosed <agent> block".to_string(),
-                        line: line_at(source, open_start),
-                        col: 0,
-                        ..Default::default()
-                    })?;
-
-                if agent_raw.is_some() {
-                    return Err(CompileError {
-                        message: "duplicate <agent> block".to_string(),
-                        line: line_at(source, open_start),
-                        col: 0,
-                        ..Default::default()
-                    });
-                }
-                agent_raw = Some(&source[open_tag_end..close_pos]);
-                let block_end = close_pos + "</agent>".len();
-                block_regions.push((open_start, block_end));
-                pos = block_end;
-            }
-
-            // Route/Layout never appear in HTML form — handled in At branch above.
-            BlockKind::Route | BlockKind::Layout => {
-                unreachable!("Route/Layout blocks are only valid in @-form grammar");
+            BlockKind::Layout => {
+                // Layout is handled above in the shorthand branch; this arm won't be reached.
+                unreachable!("@layout shorthand handled before brace-body match");
             }
         }
+        let block_end = close_pos + 1; // past the `}`
+        block_regions.push((open_start, block_end));
+        pos = block_end;
     }
 
     // v0.3.6: Check the trailing inter-block region (after last block) for reserved tokens.

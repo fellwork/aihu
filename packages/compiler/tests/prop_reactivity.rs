@@ -31,16 +31,14 @@ fn compile_to_js(source: &str, tag: &str) -> String {
 // AC1 — $prop SFC switches to options-form.
 #[test]
 fn r1_ac1_prop_sfc_emits_options_form() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     name: { default: 'World', type: string },
   }
 }
-</script>
-<template>
+@template {
   <div>{name}</div>
-</template>"#;
+}"#;
     let js = compile_to_js(src, "x-r1-ac1");
     assert!(
         js.contains("defineComponent({"),
@@ -54,11 +52,11 @@ fn r1_ac1_prop_sfc_emits_options_form() {
 // AC1 — non-$prop SFC stays in arrow function-form.
 #[test]
 fn r1_ac1_no_prop_sfc_stays_function_form() {
-    let src = r#"<script setup>
+    let src = r#"@state {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
-</script>
-<template><span>{{ count }}</span></template>"#;
+}
+@template { <span>{{ count }}</span> }"#;
     let js = compile_to_js(src, "x-r1-noprop");
     assert!(
         js.contains("defineComponent((_ctx)") || js.contains("defineComponent((ctx)"),
@@ -71,14 +69,12 @@ const [count, setCount] = signal(0)
 // AC2 + AC3 — props config + body declaration shape.
 #[test]
 fn r1_ac2_ac3_prop_config_and_body() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     title: { default: 'Hello' },
   }
 }
-</script>
-<template><h1>{title}</h1></template>"#;
+@template { <h1>{title}</h1> }"#;
     let js = compile_to_js(src, "x-r1-ac2");
     assert!(
         js.contains("title: { value: 'Hello' }"),
@@ -95,14 +91,12 @@ fn r1_ac2_ac3_prop_config_and_body() {
 // AC5 — template binding lowers through reactive signal path.
 #[test]
 fn r1_ac5_template_binding_reactive() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     label: { default: '' },
   }
 }
-</script>
-<template><span>{label}</span></template>"#;
+@template { <span>{label}</span> }"#;
     let js = compile_to_js(src, "x-r1-ac5");
     // `{label}` should lower as a callable-signal leaf, not a static string.
     // The exact emission shape uses the signal-tuple lowering — verify it
@@ -121,14 +115,12 @@ fn r1_ac5_template_binding_reactive() {
 // AC6 — attribute: false flows through verbatim.
 #[test]
 fn r1_ac6_attribute_false_forwarded() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     user: { default: null, attribute: false },
   }
 }
-</script>
-<template><div /></template>"#;
+@template { <div /> }"#;
     let js = compile_to_js(src, "x-r1-ac6");
     assert!(
         js.contains("attribute: false"),
@@ -140,14 +132,12 @@ fn r1_ac6_attribute_false_forwarded() {
 // AC7 — reflect: true flows through verbatim.
 #[test]
 fn r1_ac7_reflect_true_forwarded() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     count: { default: 0, reflect: true },
   }
 }
-</script>
-<template><span>{count}</span></template>"#;
+@template { <span>{count}</span> }"#;
     let js = compile_to_js(src, "x-r1-ac7");
     assert!(
         js.contains("reflect: true"),
@@ -159,8 +149,7 @@ fn r1_ac7_reflect_true_forwarded() {
 // AC8 — converter flows through verbatim (full closure preserved).
 #[test]
 fn r1_ac8_converter_forwarded() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     when: {
       default: null,
@@ -169,8 +158,7 @@ fn r1_ac8_converter_forwarded() {
     },
   }
 }
-</script>
-<template><time>{when}</time></template>"#;
+@template { <time>{when}</time> }"#;
     let js = compile_to_js(src, "x-r1-ac8");
     assert!(
         js.contains("converter: (s) => s ? new Date(s) : null"),
@@ -182,14 +170,12 @@ fn r1_ac8_converter_forwarded() {
 // AC11 — `attribute: false + reflect: true` rejected at compile time (C445).
 #[test]
 fn r1_ac11_attribute_false_plus_reflect_true_rejected() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     x: { default: 5, attribute: false, reflect: true },
   }
 }
-</script>
-<template><div /></template>"#;
+@template { <div /> }"#;
     let parsed = sfc::parse(src).unwrap();
     let res = compile_full(&parsed);
     let err = res.expect_err("compile should fail with C445");
@@ -231,14 +217,12 @@ fn r1_ac9_existing_weather_card_compiles() {
 // Negative — bare $prop entries still rejected (existing behavior preserved).
 #[test]
 fn r1_negative_bare_prop_still_c444() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     name: () => 'wrong',
   }
 }
-</script>
-<template><div>{name}</div></template>"#;
+@template { <div>{name}</div> }"#;
     let parsed = sfc::parse(src).unwrap();
     let err = compile_full(&parsed).expect_err("bare $prop entry must error");
     assert_eq!(err.code.as_deref(), Some("C444"));
@@ -270,16 +254,14 @@ fn r1_fixture_all_keys() {
 // Multiple prop entries — each gets a separate config row + body declaration.
 #[test]
 fn r1_multi_prop_each_emitted() {
-    let src = r#"<script setup>
-@state {
+    let src = r#"@state {
   $prop: {
     a: { default: 'a' },
     b: { default: 0 },
     c: { default: false, reflect: true },
   }
 }
-</script>
-<template><div>{a}{b}{c}</div></template>"#;
+@template { <div>{a}{b}{c}</div> }"#;
     let js = compile_to_js(src, "x-r1-multi");
     for name in ["a", "b", "c"] {
         assert!(

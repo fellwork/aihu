@@ -1,172 +1,23 @@
-/// v0.3 Conformance tests for block grammar migration.
+/// v0.3 / v1.0.7 Conformance tests for the @-form block grammar.
 ///
 /// Covers:
-///   v0.3.1 — `@state {}` and `<script setup>` emit identical JS
-///   v0.3.2 — `@template {}` and `<template>` emit identical JS (signals + events + text)
 ///   v0.3.3 — `@style { $global }` scope recognition
-///   v0.3.4 — HTML-tag form emits deprecation warning to stderr
 ///   v0.3.5 — Undeclared template references emit a warning (not an error)
 ///   v0.3.6 — Reserved tokens at top level → compile errors
 ///   v0.3.8 — Conformance fixture files compile + match golden output
-use aihu_compiler::{compile, compile_full, emit, sfc};
+///
+/// v1.0.7: the v0.3.1 (`@state` ↔ `<script setup>` equivalence), v0.3.2
+/// (`@template` ↔ `<template>` equivalence), and v0.3.4 (HTML-tag deprecation
+/// warning) test sections were deleted. The HTML-tag block grammar is removed
+/// in v1.0; equivalence is no longer testable. Rejection tests for the removed
+/// grammar live in `packages/compiler/tests/v1_rejections.rs`.
+use aihu_compiler::{compile_full, emit, sfc};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /// Normalize emitted JS for comparison: collapse all whitespace to single spaces.
 fn normalize_ws(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-// ─── v0.3.1 — @state {} lowering confirmation ────────────────────────────────
-
-/// HTML-form and @-form script blocks must lower to byte-identical JS
-/// (modulo whitespace) when they contain the same signal declarations.
-#[test]
-fn v031_state_at_form_emits_identical_js_to_script_setup() {
-    let html_form = "\
-<script setup>
-import { signal } from '@aihu/signals'
-const [count, setCount] = signal(0)
-</script>
-
-<template>
-  <div>{{ count }}</div>
-</template>
-";
-
-    let at_form = "\
-@state {
-import { signal } from '@aihu/signals'
-const [count, setCount] = signal(0)
-}
-
-@template {
-  <div>{{ count }}</div>
-}
-";
-
-    let parsed_html = sfc::parse(html_form).unwrap();
-    let parsed_at = sfc::parse(at_form).unwrap();
-
-    // Scripts must be identical after trim.
-    assert_eq!(
-        parsed_html.script.unwrap().trim(),
-        parsed_at.script.unwrap().trim(),
-        "script bodies should be identical after trim"
-    );
-
-    let unit_html = compile_full(&parsed_html).unwrap();
-    let unit_at = compile_full(&parsed_at).unwrap();
-
-    let js_html = emit(&unit_html, "test-counter").js;
-    let js_at = emit(&unit_at, "test-counter").js;
-
-    assert_eq!(
-        normalize_ws(&js_html),
-        normalize_ws(&js_at),
-        "HTML <script setup> and @state {{}} must emit identical JS modulo whitespace.\n\
-         HTML form output:\n{}\n\n@-form output:\n{}",
-        js_html,
-        js_at,
-    );
-}
-
-/// Verify that @state {} without any script still compiles and emits
-/// the same shape as <script setup> with an empty body.
-#[test]
-fn v031_state_empty_block_emits_identical_to_empty_script_setup() {
-    let html_form = "<script setup>\n</script>\n<template>\n  <span>hello</span>\n</template>\n";
-    let at_form = "@state {\n}\n@template {\n  <span>hello</span>\n}\n";
-
-    let parsed_html = sfc::parse(html_form).unwrap();
-    let parsed_at = sfc::parse(at_form).unwrap();
-
-    let unit_html = compile_full(&parsed_html).unwrap();
-    let unit_at = compile_full(&parsed_at).unwrap();
-
-    let js_html = emit(&unit_html, "test-empty").js;
-    let js_at = emit(&unit_at, "test-empty").js;
-
-    assert_eq!(
-        normalize_ws(&js_html),
-        normalize_ws(&js_at),
-        "Empty @state and empty <script setup> must emit identical JS modulo whitespace"
-    );
-}
-
-// ─── v0.3.2 — @template {} lowering confirmation ─────────────────────────────
-
-/// @template {} with signals, event handlers, and static text must emit
-/// identical JS to the equivalent <template> block.
-#[test]
-fn v032_template_at_form_emits_identical_js_with_signals_and_events() {
-    let html_form = "\
-<script setup>
-import { signal } from '@aihu/signals'
-const [name, setName] = signal('world')
-</script>
-
-<template>
-  <div class=\"greeting\">
-    <span>Hello {{ name }}</span>
-    <button onclick=\"doSomething\">Click me</button>
-  </div>
-</template>
-";
-
-    let at_form = "\
-@state {
-import { signal } from '@aihu/signals'
-const [name, setName] = signal('world')
-}
-
-@template {
-  <div class=\"greeting\">
-    <span>Hello {{ name }}</span>
-    <button onclick=\"doSomething\">Click me</button>
-  </div>
-}
-";
-
-    let parsed_html = sfc::parse(html_form).unwrap();
-    let parsed_at = sfc::parse(at_form).unwrap();
-
-    let unit_html = compile_full(&parsed_html).unwrap();
-    let unit_at = compile_full(&parsed_at).unwrap();
-
-    let js_html = emit(&unit_html, "test-greeting").js;
-    let js_at = emit(&unit_at, "test-greeting").js;
-
-    assert_eq!(
-        normalize_ws(&js_html),
-        normalize_ws(&js_at),
-        "HTML <template> and @template {{}} must emit identical JS modulo whitespace.\n\
-         HTML form output:\n{}\n\n@-form output:\n{}",
-        js_html,
-        js_at,
-    );
-}
-
-/// Static text in @template {} must be emitted identically to <template>.
-#[test]
-fn v032_template_static_text_emits_identically() {
-    let html_form = "<template>\n  <h1>Static content</h1>\n</template>\n";
-    let at_form = "@template {\n  <h1>Static content</h1>\n}\n";
-
-    let parsed_html = sfc::parse(html_form).unwrap();
-    let parsed_at = sfc::parse(at_form).unwrap();
-
-    let unit_html = compile_full(&parsed_html).unwrap();
-    let unit_at = compile_full(&parsed_at).unwrap();
-
-    let js_html = emit(&unit_html, "test-static").js;
-    let js_at = emit(&unit_at, "test-static").js;
-
-    assert_eq!(
-        normalize_ws(&js_html),
-        normalize_ws(&js_at),
-        "Static @template must emit identical JS to static <template>"
-    );
 }
 
 // ─── v0.3.3 — @style { $global } scope recognition ───────────────────────────
@@ -265,51 +116,11 @@ fn v033_style_global_only_token_no_css() {
     );
 }
 
-// ─── v0.3.4 — Deprecation warning for HTML-tag form ──────────────────────────
+// ─── v0.3.4 — HTML-tag form deprecation removed in v1.0.7 ───────────────────
 //
-// Capturing stderr in Rust tests requires a custom capture mechanism. We verify
-// that the deprecation code path exists by checking the compile succeeds AND the
-// block is recognized (the warning goes to stderr which we cannot easily capture
-// in unit tests without OS-level redirection). We document the known limitation.
-
-/// HTML-tag form parses successfully (deprecation is a warning, not an error).
-#[test]
-fn v034_html_form_still_parses_without_error() {
-    let src = "\
-<script setup>
-const x = 1
-</script>
-<template>
-  <div>{{ x }}</div>
-</template>
-";
-    // Must parse without error — the deprecation is a warning to stderr only.
-    let parsed = sfc::parse(src).unwrap();
-    assert!(parsed.script.is_some());
-    assert!(parsed.template.is_some());
-}
-
-/// Verify deprecation logic fires only once per file even with multiple HTML blocks.
-/// We check the structure (parse succeeds) rather than capturing stderr.
-#[test]
-fn v034_html_form_multiple_blocks_no_double_warning() {
-    let src = "\
-<script setup>
-const y = 2
-</script>
-<template>
-  <p>hi</p>
-</template>
-<style>
-p { color: blue; }
-</style>
-";
-    // Must parse without error.
-    let parsed = sfc::parse(src).unwrap();
-    assert!(parsed.script.is_some());
-    assert!(parsed.template.is_some());
-    assert!(parsed.style.is_some());
-}
+// The v0.3.4 deprecation-warning tests are gone. The HTML-tag block grammar is
+// a hard error (C107) in v1.0. See `packages/compiler/tests/v1_rejections.rs`
+// for the rejection coverage.
 
 // ─── v0.3.5 — Undeclared template references ─────────────────────────────────
 //
