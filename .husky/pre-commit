@@ -8,6 +8,7 @@ bunx biome check --write --staged --no-errors-on-unmatched
 # regenerated. CI also runs `bun scripts/sync-readme.ts --check`, so author
 # does not need to remember.
 bun scripts/sync-readme.ts
+git add scripts/__bundle-sizes.json
 git add README.md scripts/__package-inventory.json
 # Stage every regenerated package README, including platform binaries at
 # packages/server/npm/<plat>/. `git ls-files -mo` enumerates modified +

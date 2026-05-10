@@ -326,7 +326,7 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 
 **Items:**
 
-- **v1.0.1 — Re-enable CI on `main`.** GitHub Actions workflow runs `bun run test`, `bun run typecheck`, `bun run size`, `bun run bench` on every PR. (Per Decision 7 from session-start director note: "names the gate; *when* to flip it is a separate cutover-session decision" — the user's locked 1.0 milestone shape *is* that decision; v1.0 = CI on.)
+- **v1.0.1 — Re-enable CI on `main`.** GitHub Actions workflow runs `bun run test`, `bun run typecheck`, and `bun run size` on every PR. `bun run bench` is path-gated: it runs only when `packages/signals/`, `packages/arbor/`, the bench harness, or `.github/workflows/plan-a.yml` change (per `needs.changes.outputs.bench` in `plan-a.yml:96`). Rationale: CI runner variability caused false 80–118% bench regressions on infra-only commits, so the gate suppresses variance-driven false failures (commit `a30ec7a`). (Per Decision 7 from session-start director note: "names the gate; *when* to flip it is a separate cutover-session decision" — the user's locked 1.0 milestone shape *is* that decision; v1.0 = CI on.)
 - **v1.0.2 — Branch protection on `main`.** Require checks; require PR review; require linear history.
 - **v1.0.3 — Release pipeline gate.** npm publish gate via `bun run release` orchestrator; version-bump policy (independent SemVer per package); changeset format. Dry-run publish completes without manual override.
 - **v1.0.4 — Final dep-free audit.** v3 thesis hard gate: every `npm ls --production` shows `@aihu/*` only. Any drift fails CI.
