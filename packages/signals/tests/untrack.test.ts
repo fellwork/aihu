@@ -31,4 +31,23 @@ describe('untrack', () => {
     setB(1)
     expect(runs).toBe(2) // b write re-triggers; a write would not
   })
+
+  it('restores the outer observer when fn throws (Learning #46)', () => {
+    // try/finally guard at packages/signals/src/untrack.ts:17-24 must restore
+    // the previous tracking state even when fn throws.
+    const [b, setB] = signal(0)
+    let runs = 0
+    effect(() => {
+      try {
+        untrack(() => {
+          throw new Error('boom')
+        })
+      } catch {}
+      b() // observer restored after throw → b is tracked
+      runs++
+    })
+    expect(runs).toBe(1)
+    setB(1)
+    expect(runs).toBe(2)
+  })
 })
