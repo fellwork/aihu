@@ -1,5 +1,12 @@
 # @aihu/templates-cf-team
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`7577bd1`](https://github.com/fellwork/aihu/commit/7577bd10f391b9f3996048371706c9be34b08e2e)]:
+  - @aihu/cli@0.4.0
+
 ## 1.0.0
 
 ### Minor Changes
