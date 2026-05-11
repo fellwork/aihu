@@ -1,5 +1,5 @@
 /**
- * @aihu/data — signal-native, backend-agnostic data fetching primitive.
+ * @aihu-plugin/data — signal-native, backend-agnostic data fetching primitive.
  *
  * Primary API:
  *   createResource(key, fetcher, options?) → Resource<T>
@@ -12,7 +12,7 @@
  *   createResourceSerializer(store) → () => Record<string, unknown>
  *
  * Plugin registration (Plugin Contract Spec §3, §7.1):
- *   data() → Plugin — register @aihu/data in defineAihuConfig({ plugins: [data()] })
+ *   data() → Plugin — register @aihu-plugin/data in defineAihuConfig({ plugins: [data()] })
  *
  * Dependencies: @aihu/signals, @aihu/context only (runtime).
  * @aihu/plugin is build/dev-time only and not bundled into the runtime output.
@@ -32,13 +32,13 @@ import type { Plugin } from '@aihu/plugin'
 import { dataPlugin } from './plugin.ts'
 
 /**
- * Plugin factory for `@aihu/data`. Accepts optional configuration (reserved
+ * Plugin factory for `@aihu-plugin/data`. Accepts optional configuration (reserved
  * for v0.4+ when `$resource` macro lowering is wired) and returns a configured
  * plugin instance for use in `defineAihuConfig({ plugins: [data()] })`.
  *
  * @example
  * // aihu.config.ts
- * import { data } from '@aihu/data'
+ * import { data } from '@aihu-plugin/data'
  * import { defineAihuConfig } from '@aihu/server'
  *
  * export default defineAihuConfig({

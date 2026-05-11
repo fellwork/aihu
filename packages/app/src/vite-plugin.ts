@@ -129,12 +129,12 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   let agentPlugin: Plugin
   const ar = config?.agentReadiness
   if (ar) {
-    // Dynamic import to avoid pulling @aihu/agent-readiness into the bundle
+    // Dynamic import to avoid pulling @aihu-plugin/agent-readiness into the bundle
     // when it is not configured. The `require` below is evaluated at runtime
     // in Node.js (vite.config.ts execution context), not in the browser.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { viteAgentReadinessIntegration } =
-      require('@aihu/agent-readiness') as typeof import('@aihu/agent-readiness')
+      require('@aihu-plugin/agent-readiness') as typeof import('@aihu-plugin/agent-readiness')
     agentPlugin = viteAgentReadinessIntegration(ar) as unknown as Plugin
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry

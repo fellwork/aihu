@@ -19,7 +19,7 @@ import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promi
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
-import { generateSitemapXml } from '../../packages/agent-readiness/src/sitemap.ts'
+import { generateSitemapXml } from '../../packages/plugin-agent-readiness/src/sitemap.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, '../../docs/site')
@@ -128,7 +128,7 @@ console.log('\n✓ Client build complete → dist/docs.js')
 
 // ── 4b. Bundle Worker with rolldown ─────────────────────────────
 //
-// The Worker entry (`src/worker.ts`) imports from @aihu/agent-readiness
+// The Worker entry (`src/worker.ts`) imports from @aihu-plugin/agent-readiness
 // and @aihu/server. Rolldown inlines all workspace deps so the output is a
 // single self-contained ESM file Cloudflare Pages can load as `_worker.js`.
 

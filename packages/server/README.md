@@ -83,7 +83,7 @@ bun add @aihu/server
 - [arch-1 (website)](../../docs/roadmap/arch-1-website.md)
 - [docs/site/ssr-hydration.md](../../docs/site/ssr-hydration.md)
 - [@aihu/router](../router)
-- [@aihu/agent-readiness](../agent-readiness)
+- [@aihu-plugin/agent-readiness](../plugin-agent-readiness)
 - [Aihu framework root](../../README.md)
 
 <sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>

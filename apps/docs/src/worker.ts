@@ -11,15 +11,15 @@
  * unstyled content waiting for `docs.js` to evaluate.
  */
 
+import type { RouteHandler } from '@aihu/server'
+import { createRequestRouter, defineRoute, json } from '@aihu/server'
 import {
   createAgentReadinessRoutes,
   generateA2aCard,
   generateLlmsFullTxt,
   generateMcpDiscovery,
   generateSitemapXml,
-} from '@aihu/agent-readiness'
-import type { RouteHandler } from '@aihu/server'
-import { createRequestRouter, defineRoute, json } from '@aihu/server'
+} from '@aihu-plugin/agent-readiness'
 
 const summary =
   'A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements ' +

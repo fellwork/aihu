@@ -1,4 +1,4 @@
-// Mirror of @aihu/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
+// Mirror of @aihu-plugin/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
 
 export interface AgentReadinessConfig {
   // ── Identity ─────────────────────────────────────────────────────────

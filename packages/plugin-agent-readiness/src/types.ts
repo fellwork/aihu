@@ -1,4 +1,4 @@
-// Mirror of @aihu/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
+// Mirror of @aihu-plugin/agent-readiness/src/types.ts AgentReadinessConfig — keep in sync.
 import type { A2aCapabilities, A2aSkill } from './a2a-card.ts'
 import type { LlmsTxtLink, LlmsTxtSection } from './llms-txt.ts'
 import type { AgentSkill } from './mcp-server-card.ts'

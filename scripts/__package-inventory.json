@@ -1,5 +1,17 @@
 [
   {
+    "name": "@aihu-plugin/agent-readiness",
+    "version": "1.0.0",
+    "dir": "packages/plugin-agent-readiness",
+    "isPlatform": false
+  },
+  {
+    "name": "@aihu-plugin/data",
+    "version": "1.0.0",
+    "dir": "packages/plugin-data",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/adapter-cloudflare",
     "version": "0.1.6",
     "dir": "packages/adapter-cloudflare",
@@ -31,8 +43,8 @@
   },
   {
     "name": "@aihu/agent-readiness",
-    "version": "0.1.1",
-    "dir": "packages/agent-readiness",
+    "version": "1.0.0",
+    "dir": "packages/_moved/agent-readiness",
     "isPlatform": false
   },
   {
@@ -85,8 +97,8 @@
   },
   {
     "name": "@aihu/data",
-    "version": "0.1.0",
-    "dir": "packages/data",
+    "version": "1.0.0",
+    "dir": "packages/_moved/data",
     "isPlatform": false
   },
   {

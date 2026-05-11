@@ -102,7 +102,7 @@ Build-time Vite plugin. Import from `@aihu/router/plugin` in `vite.config.ts` â€
 
 **Types:** `AihuConfig`, `BuildConfig`, `BuildTarget`, `CorsConfig`, `RouteConfig`, `ServerConfig`, `DefinedLoader`, `LoadedRouteContext`, `LoaderFn`, `LoaderResult`, `Route`, `RouteManifest`, `RouteOptions`, `RouterOptions`, `HttpMethod`, `Middleware`, `Next`, `RouteContext`, `RouteHandler`, `ApiHandler`, `ComponentDescription`, `HeadConfig`, `LinkTag`, `MetaTag`, `SsrOptions`, `StreamRouteHandler`, `DataSource`, `StreamOptions`, `AgentReadinessConfig`
 
-## @aihu/data
+## @aihu-plugin/data
 
 | Export | Description |
 |--------|-------------|
@@ -110,7 +110,7 @@ Build-time Vite plugin. Import from `@aihu/router/plugin` in `vite.config.ts` â€
 | `createResourceStore()` | Create a resource cache store |
 | `createResourceSerializer(store)` | Create an SSR dehydration serializer for a resource store |
 | `ResourceStoreToken` | Context token for store injection |
-| `data(config?)` | Plugin factory â€” register `@aihu/data` in `defineAihuConfig({ plugins: [data()] })` |
+| `data(config?)` | Plugin factory â€” register `@aihu-plugin/data` in `defineAihuConfig({ plugins: [data()] })` |
 
 **Types:** `Resource<T>`, `ResourceOptions`, `DataState`, `ResourceStore`, `ResourceStoreWithMeta`
 
@@ -127,7 +127,7 @@ Build-time Vite plugin. Import from `@aihu/router/plugin` in `vite.config.ts` â€
 
 **Types:** `ContextToken<T>`
 
-## @aihu/agent-readiness
+## @aihu-plugin/agent-readiness
 
 | Export | Description |
 |--------|-------------|

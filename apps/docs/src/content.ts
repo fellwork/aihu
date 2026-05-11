@@ -40,8 +40,8 @@ window.__DOCS__ = {
 <td>Agent-friendly crawl directives (RFC 9309)</td>
 </tr>
 </tbody></table>
-<p>All four are generated automatically by <code>@aihu/agent-readiness</code> from a single config object. The minimum viable setup is:</p>
-<pre><code class="language-ts">import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+<p>All four are generated automatically by <code>@aihu-plugin/agent-readiness</code> from a single config object. The minimum viable setup is:</p>
+<pre><code class="language-ts">import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
 import { createRequestRouter, defineRoute } from &#39;@aihu/server&#39;
 
 const ar = createAgentReadinessRoutes({
@@ -76,7 +76,7 @@ const router = createRequestRouter({
   ]
 }
 </code></pre>
-<p>The <code>skills</code> array is auto-populated from the <code>@agent</code> blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and <code>@aihu/agent-readiness</code> aggregates them at build time.</p>
+<p>The <code>skills</code> array is auto-populated from the <code>@agent</code> blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and <code>@aihu-plugin/agent-readiness</code> aggregates them at build time.</p>
 <p>To configure the server card, pass <code>AgentReadinessConfig</code> to <code>createAgentReadinessRoutes</code>:</p>
 <pre><code class="language-ts">const ar = createAgentReadinessRoutes({
   name: &#39;My App&#39;,
@@ -115,7 +115,7 @@ const router = createRequestRouter({
 </ul>
 <p>The <code>llms-full.txt</code> variant follows the same format but uses <code>## More</code> instead of <code>## Optional</code> for the trailing section, and typically includes more links (all packages, examples, spec files).</p>
 <h3>LlmsTxtConfig type</h3>
-<p><code>@aihu/agent-readiness</code> generates both files from <code>LlmsTxtConfig</code>:</p>
+<p><code>@aihu-plugin/agent-readiness</code> generates both files from <code>LlmsTxtConfig</code>:</p>
 <pre><code class="language-ts">interface LlmsTxtLink {
   readonly title: string
   readonly url: string
@@ -135,7 +135,7 @@ interface LlmsTxtConfig {
 }
 </code></pre>
 <p>To generate the files programmatically:</p>
-<pre><code class="language-ts">import { generateLlmsTxt, generateLlmsFullTxt } from &#39;@aihu/agent-readiness&#39;
+<pre><code class="language-ts">import { generateLlmsTxt, generateLlmsFullTxt } from &#39;@aihu-plugin/agent-readiness&#39;
 
 const config: LlmsTxtConfig = {
   name: &#39;My App&#39;,
@@ -240,22 +240,22 @@ Allow: /
 </thead>
 <tbody><tr>
 <td>llms.txt format</td>
-<td><code>packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts</code></td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts</code></td>
 <td>9</td>
 </tr>
 <tr>
 <td>MCP Server Card (SEP-1649)</td>
-<td><code>packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts</code></td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts</code></td>
 <td>14</td>
 </tr>
 <tr>
 <td>robots.txt (RFC 9309)</td>
-<td><code>packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts</code></td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts</code></td>
 <td>7</td>
 </tr>
 <tr>
 <td>isitagentready.com checklist</td>
-<td><code>packages/agent-readiness/tests/compliance/isitagentready.test.ts</code></td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code></td>
 <td>7</td>
 </tr>
 <tr>
@@ -269,7 +269,7 @@ Allow: /
 bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo)
 </code></pre>
 <h2>isitagentready.com</h2>
-<p>Aihu passes all 7 checks on <a href="https://isitagentready.com">isitagentready.com</a>. The checks are exercised by the compliance test suite at <code>packages/agent-readiness/tests/compliance/isitagentready.test.ts</code>. The seven gates are:</p>
+<p>Aihu passes all 7 checks on <a href="https://isitagentready.com">isitagentready.com</a>. The checks are exercised by the compliance test suite at <code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code>. The seven gates are:</p>
 <ol>
 <li><code>llms.txt</code> present at root</li>
 <li><code>llms.txt</code> first line is <code># &lt;Name&gt;</code></li>
@@ -577,7 +577,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>AihuConfig</code>, <code>BuildConfig</code>, <code>BuildTarget</code>, <code>CorsConfig</code>, <code>RouteConfig</code>, <code>ServerConfig</code>, <code>DefinedLoader</code>, <code>LoadedRouteContext</code>, <code>LoaderFn</code>, <code>LoaderResult</code>, <code>Route</code>, <code>RouteManifest</code>, <code>RouteOptions</code>, <code>RouterOptions</code>, <code>HttpMethod</code>, <code>Middleware</code>, <code>Next</code>, <code>RouteContext</code>, <code>RouteHandler</code>, <code>ApiHandler</code>, <code>ComponentDescription</code>, <code>HeadConfig</code>, <code>LinkTag</code>, <code>MetaTag</code>, <code>SsrOptions</code>, <code>StreamRouteHandler</code>, <code>DataSource</code>, <code>StreamOptions</code>, <code>AgentReadinessConfig</code></p>
-<h2>@aihu/data</h2>
+<h2>@aihu-plugin/data</h2>
 <table>
 <thead>
 <tr>
@@ -603,7 +603,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 <tr>
 <td><code>data(config?)</code></td>
-<td>Plugin factory — register <code>@aihu/data</code> in <code>defineAihuConfig({ plugins: [data()] })</code></td>
+<td>Plugin factory — register <code>@aihu-plugin/data</code> in <code>defineAihuConfig({ plugins: [data()] })</code></td>
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>Resource&lt;T&gt;</code>, <code>ResourceOptions</code>, <code>DataState</code>, <code>ResourceStore</code>, <code>ResourceStoreWithMeta</code></p>
@@ -641,7 +641,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>ContextToken&lt;T&gt;</code></p>
-<h2>@aihu/agent-readiness</h2>
+<h2>@aihu-plugin/agent-readiness</h2>
 <table>
 <thead>
 <tr>
@@ -1063,10 +1063,10 @@ const router = createRouter({
 <li><strong><code>__agentBinding</code> is elided from client bundles.</strong> This is a compiler guarantee enforced by the split-bundle compilation (Block Structure Spec §11.5).</li>
 </ul>
 <hr>
-<h2>6. <code>@aihu/agent-readiness</code> — discovery and MCP compliance</h2>
-<p><code>@aihu/agent-readiness</code> generates the four standard agent-discovery endpoints: <code>llms.txt</code>, <code>llms-full.txt</code>, <code>/.well-known/mcp/server-card.json</code>, and <code>robots.txt</code>.</p>
+<h2>6. <code>@aihu-plugin/agent-readiness</code> — discovery and MCP compliance</h2>
+<p><code>@aihu-plugin/agent-readiness</code> generates the four standard agent-discovery endpoints: <code>llms.txt</code>, <code>llms-full.txt</code>, <code>/.well-known/mcp/server-card.json</code>, and <code>robots.txt</code>.</p>
 <h3>Router wiring (server/edge)</h3>
-<pre><code class="language-typescript">import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+<pre><code class="language-typescript">import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
 import { createRouter, defineRoute } from &#39;@aihu/server&#39;
 
 const ar = createAgentReadinessRoutes({
@@ -1174,7 +1174,7 @@ export default { fetch: router }
 <p>Use <code>viteAgentReadinessIntegration()</code> for Vite-based apps. In dev, it serves all four endpoints as Vite middleware. In build, it emits them as static assets.</p>
 <pre><code class="language-typescript">// vite.config.ts
 import { defineConfig } from &#39;vite&#39;
-import { viteAgentReadinessIntegration } from &#39;@aihu/agent-readiness&#39;
+import { viteAgentReadinessIntegration } from &#39;@aihu-plugin/agent-readiness&#39;
 
 export default defineConfig({
   plugins: [
@@ -2159,9 +2159,9 @@ export default defineAihuConfig({
   &lt;div&gt;{user.value.name}&lt;/div&gt;
 &lt;/$suspense&gt;
 </code></pre>
-<h2><code>createResource</code> from <code>@aihu/data</code></h2>
+<h2><code>createResource</code> from <code>@aihu-plugin/data</code></h2>
 <p>Use <code>createResource</code> directly in TypeScript outside of SFCs:</p>
-<pre><code class="language-typescript">import { createResource } from &#39;@aihu/data&#39;
+<pre><code class="language-typescript">import { createResource } from &#39;@aihu-plugin/data&#39;
 import { signal } from &#39;@aihu/signals&#39;
 
 const userId = signal(1)
@@ -2173,7 +2173,7 @@ const user = createResource(
 <p>The resource is automatically re-fetched when any signals read inside the key function change.</p>
 <h3>Resource store and SSR dehydration</h3>
 <p>For SSR, use a resource store to cache and dehydrate resources:</p>
-<pre><code class="language-typescript">import { createResource, createResourceStore, createResourceSerializer, data } from &#39;@aihu/data&#39;
+<pre><code class="language-typescript">import { createResource, createResourceStore, createResourceSerializer, data } from &#39;@aihu-plugin/data&#39;
 
 // Register the data plugin in aihu.config.ts:
 import { defineAihuConfig } from &#39;@aihu/server&#39;
@@ -2439,7 +2439,7 @@ export default defineConfig({
 <h2>Bun server</h2>
 <p>Run aihu server-side on Bun using <code>@aihu/server</code>&#39;s fetch-API router:</p>
 <pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
-import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
 
 const ar = createAgentReadinessRoutes({
   name: &#39;My App&#39;,
@@ -2693,7 +2693,7 @@ bun run preview
 <li><strong>Vanilla custom elements output</strong> — no framework lock-in at the consumer boundary, no global context, no hydration step.</li>
 <li><strong>Dep-free thesis</strong> — zero non-<code>@aihu/*</code> runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.</li>
 <li><strong>Targeted updates</strong> — aihu uses <code>nodeValue</code> rather than <code>textContent</code> for reactive text nodes, which is 122× faster on targeted updates.</li>
-<li><strong>MCP + agent-first</strong> — <code>@aihu/agent</code> and <code>@aihu/agent-readiness</code> are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.</li>
+<li><strong>MCP + agent-first</strong> — <code>@aihu/agent</code> and <code>@aihu-plugin/agent-readiness</code> are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.</li>
 </ul>
 <h2>Why &quot;meta-framework&quot;?</h2>
 <p>Aihu lets you build whole apps, not just components. <code>@aihu/signals</code> (reactive primitive) → <code>@aihu/arbor</code> (DOM mounting) → <code>@aihu/runtime</code> (custom-element wiring) → <code>@aihu/router</code> (file-based routing) → <code>@aihu/server</code> (SSR + edge) → <code>@aihu/app</code> (the integrated framework). Each layer is usable on its own; stacked they form a complete meta-framework. File-based routing, SSR, loaders, cookies, auth, and data are first-class — not bolt-ons. Cloud adapters are in-tree, not third-party.</p>
@@ -2747,12 +2747,12 @@ bun run preview
 <td>591 B gz</td>
 </tr>
 <tr>
-<td><code>@aihu/agent-readiness</code></td>
+<td><code>@aihu-plugin/agent-readiness</code></td>
 <td>llms.txt, MCP Server Card, robots.txt emitter</td>
 <td>build-time</td>
 </tr>
 <tr>
-<td><code>@aihu/data</code></td>
+<td><code>@aihu-plugin/data</code></td>
 <td>Reactive resource and loader protocol</td>
 <td>774 B gz</td>
 </tr>
@@ -3186,7 +3186,7 @@ export default defineAihuConfig({
 <li><strong><code>json(data, init?)</code></strong> — constructs a <code>Response</code> with <code>Content-Type: application/json</code> and the given data serialized. A thin convenience wrapper over <code>new Response(JSON.stringify(data), ...)</code>.</li>
 </ul>
 <pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
-import { createAgentReadinessRoutes } from &#39;@aihu/agent-readiness&#39;
+import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
 
 const ar = createAgentReadinessRoutes({
   name: &#39;My App&#39;,

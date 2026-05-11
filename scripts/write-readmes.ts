@@ -59,9 +59,9 @@ const ThemeContext = createContext<'light' | 'dark'>('light');
   },
   {
     name: 'data',
-    pkg: '@aihu/data',
+    pkg: '@aihu-plugin/data',
     purpose: 'Reactive data loaders and resource primitives for aihu.',
-    usage: `import { resource } from '@aihu/data';
+    usage: `import { resource } from '@aihu-plugin/data';
 
 const user = resource(async (id: string) => {
   const res = await fetch(\`/api/users/\${id}\`);
@@ -144,9 +144,9 @@ const service = createAgentService({ agents: [myAgent] });
   },
   {
     name: 'agent-readiness',
-    pkg: '@aihu/agent-readiness',
+    pkg: '@aihu-plugin/agent-readiness',
     purpose: 'Discovery + readiness manifest emitter so agents can introspect aihu apps.',
-    usage: `import { readinessHandler } from '@aihu/agent-readiness';
+    usage: `import { readinessHandler } from '@aihu-plugin/agent-readiness';
 
 // Mount at /.well-known/agent-readiness
 app.get('/.well-known/agent-readiness', readinessHandler());`,

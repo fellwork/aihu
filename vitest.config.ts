@@ -41,9 +41,11 @@ export default defineConfig({
       '@aihu/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@aihu/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
       '@aihu/server': new URL('./packages/server/src/index.ts', import.meta.url).pathname,
-      '@aihu/agent-readiness': new URL('./packages/agent-readiness/src/index.ts', import.meta.url)
-        .pathname,
-      '@aihu/data': new URL('./packages/data/src/index.ts', import.meta.url).pathname,
+      '@aihu-plugin/agent-readiness': new URL(
+        './packages/plugin-agent-readiness/src/index.ts',
+        import.meta.url,
+      ).pathname,
+      '@aihu-plugin/data': new URL('./packages/plugin-data/src/index.ts', import.meta.url).pathname,
       '@aihu/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url)
         .pathname,

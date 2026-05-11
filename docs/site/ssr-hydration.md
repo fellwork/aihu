@@ -46,7 +46,7 @@ Setting `ssr: true` enables server-side rendering for that route.
 
 ```typescript
 import { createRequestRouter, defineRoute, json } from '@aihu/server'
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 
 const ar = createAgentReadinessRoutes({
   name: 'My App',

@@ -27,8 +27,8 @@
     "apps/docs": {
       "name": "aihu-docs",
       "dependencies": {
+        "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/adapter-cloudflare": "workspace:*",
-        "@aihu/agent-readiness": "workspace:*",
         "@aihu/server": "workspace:*",
         "@codemirror/commands": "^6.6.0",
         "@codemirror/lang-javascript": "^6.2.2",
@@ -227,9 +227,23 @@
         "vitest": "^2.1.1",
       },
     },
+    "packages/_moved/agent-readiness": {
+      "name": "@aihu/agent-readiness",
+      "version": "1.0.0",
+      "dependencies": {
+        "@aihu-plugin/agent-readiness": "1.0.0",
+      },
+    },
+    "packages/_moved/data": {
+      "name": "@aihu/data",
+      "version": "1.0.0",
+      "dependencies": {
+        "@aihu-plugin/data": "1.0.0",
+      },
+    },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -237,7 +251,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -259,14 +273,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@aihu/agent-service": "workspace:*",
-      },
-    },
-    "packages/agent-readiness": {
-      "name": "@aihu/agent-readiness",
-      "version": "0.1.1",
-      "dependencies": {
-        "@aihu/agent": "workspace:*",
-        "@aihu/server": "workspace:*",
       },
     },
     "packages/agent-service": {
@@ -292,9 +298,9 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "devDependencies": {
-        "@aihu/agent-readiness": "workspace:*",
+        "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
       },
       "peerDependencies": {
@@ -322,7 +328,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.3.2",
+      "version": "0.3.6",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -348,18 +354,6 @@
       "name": "@aihu/context",
       "version": "0.1.0",
     },
-    "packages/data": {
-      "name": "@aihu/data",
-      "version": "0.1.0",
-      "dependencies": {
-        "@aihu/context": "workspace:*",
-        "@aihu/signals": "workspace:*",
-      },
-      "devDependencies": {
-        "@aihu/plugin": "workspace:*",
-        "@aihu/server": "workspace:*",
-      },
-    },
     "packages/mcp": {
       "name": "@aihu/mcp",
       "version": "0.1.0",
@@ -374,9 +368,29 @@
       "name": "@aihu/plugin",
       "version": "0.1.0",
     },
+    "packages/plugin-agent-readiness": {
+      "name": "@aihu-plugin/agent-readiness",
+      "version": "1.0.0",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/server": "workspace:*",
+      },
+    },
+    "packages/plugin-data": {
+      "name": "@aihu-plugin/data",
+      "version": "1.0.0",
+      "dependencies": {
+        "@aihu/context": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu/plugin": "workspace:*",
+        "@aihu/server": "workspace:*",
+      },
+    },
     "packages/router": {
       "name": "@aihu/router",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -436,6 +450,10 @@
     },
   },
   "packages": {
+    "@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@workspace:packages/plugin-agent-readiness"],
+
+    "@aihu-plugin/data": ["@aihu-plugin/data@workspace:packages/plugin-data"],
+
     "@aihu/adapter-cloudflare": ["@aihu/adapter-cloudflare@workspace:packages/adapter-cloudflare"],
 
     "@aihu/adapter-vercel": ["@aihu/adapter-vercel@workspace:packages/adapter-vercel"],
@@ -446,7 +464,7 @@
 
     "@aihu/agent-acp": ["@aihu/agent-acp@workspace:packages/agent-acp"],
 
-    "@aihu/agent-readiness": ["@aihu/agent-readiness@workspace:packages/agent-readiness"],
+    "@aihu/agent-readiness": ["@aihu/agent-readiness@workspace:packages/_moved/agent-readiness"],
 
     "@aihu/agent-service": ["@aihu/agent-service@workspace:packages/agent-service"],
 
@@ -470,7 +488,7 @@
 
     "@aihu/cookbook": ["@aihu/cookbook@workspace:cookbook"],
 
-    "@aihu/data": ["@aihu/data@workspace:packages/data"],
+    "@aihu/data": ["@aihu/data@workspace:packages/_moved/data"],
 
     "@aihu/example-blog-loader": ["@aihu/example-blog-loader@workspace:examples/blog-loader"],
 

@@ -3,6 +3,7 @@
 # or both values.
 projects:
   - "packages/*"
+  - "!packages/_moved"
   - "bench/arbor"
   - "bench/baselines"
   - "bench/compiler-conformance"

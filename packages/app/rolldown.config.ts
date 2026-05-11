@@ -7,7 +7,7 @@ const external = [
   '@aihu/arbor',
   '@aihu/signals',
   '@aihu/runtime',
-  '@aihu/agent-readiness',
+  '@aihu-plugin/agent-readiness',
   '@aihu/compiler',
   'vite',
   'node:fs',

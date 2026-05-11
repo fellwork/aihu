@@ -30,17 +30,27 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 (cd "$ROOT" && bun install --ignore-scripts >/dev/null 2>&1)
 
 # Topological order: dependencies before dependents.
+#
+# v1.0.9 (Naming Scheme A) note:
+#   - `plugin-data` and `plugin-agent-readiness` are the new homes of the two
+#     plugin-contract packages (now published as `@aihu-plugin/data` and
+#     `@aihu-plugin/agent-readiness`).
+#   - `_moved/data` and `_moved/agent-readiness` are the moved-stub packages
+#     that still publish under the legacy `@aihu/data` / `@aihu/agent-readiness`
+#     names at v1.0.0 with a single dependency on the new home; they MUST be
+#     listed AFTER their new-home counterparts so the dep ref resolves at
+#     publish time.
 PKGS=(
   "signals"
   "arbor"
   "runtime"
   "agent"
-  "agent-readiness"
+  "plugin-agent-readiness"
   "agent-service"
   "agent-a2a"
   "agent-acp"
   "context"
-  "data"
+  "plugin-data"
   "plugin"
   "router"
   "server"
@@ -49,6 +59,8 @@ PKGS=(
   "app"
   "cli"
   "compiler"
+  "_moved/data"
+  "_moved/agent-readiness"
 )
 
 DRY_RUN="${1:-}"
@@ -65,17 +77,21 @@ PROVENANCE_ALL="${NPM_PROVENANCE:-}"
 
 for pkg in "${PKGS[@]}"; do
   PKG_DIR="$ROOT/packages/$pkg"
-  if [ ! -d "$PKG_DIR/dist" ]; then
-    echo "⚠  @aihu/$pkg: missing dist — run 'moon run :build'. Skipping."
+  # Resolve the real package name once for logging + idempotency checks.
+  PKG_NAME="$(node -p "require('$PKG_DIR/package.json').name")"
+  PKG_VERSION="$(node -p "require('$PKG_DIR/package.json').version")"
+
+  # Most packages produce dist/index.js via rolldown; the moved-stub packages
+  # ship a root-level index.js (no dist). Allow either layout.
+  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ]; then
+    echo "⚠  ${PKG_NAME}: missing dist and no root index.js — run 'moon run :build'. Skipping."
     continue
   fi
   echo ""
-  echo "▶  publishing @aihu/$pkg ..."
+  echo "▶  publishing ${PKG_NAME} ..."
 
   # Idempotency: skip if the version already exists on npm. Mirrors the
   # publish-native pattern in release.yml so workflow re-runs are safe.
-  PKG_NAME="$(node -p "require('$PKG_DIR/package.json').name")"
-  PKG_VERSION="$(node -p "require('$PKG_DIR/package.json').version")"
   if [ "$DRY_RUN" != "--dry-run" ]; then
     EXISTING=$(npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null || true)
     if [ -n "$EXISTING" ]; then

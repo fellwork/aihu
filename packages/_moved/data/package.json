@@ -1,0 +1,36 @@
+{
+  "name": "@aihu/data",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@aihu-plugin/data": "1.0.0"
+  },
+  "description": "[MOVED] This package has moved to @aihu-plugin/data.",
+  "deprecated": "Moved to @aihu-plugin/data — install that instead.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/_moved/data"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/plugin-data#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

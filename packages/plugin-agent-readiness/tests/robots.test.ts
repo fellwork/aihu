@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AI_BOT_LIST, generateRobotsTxt } from '../src/index.ts'
 
-describe('@aihu/agent-readiness robots', () => {
+describe('@aihu-plugin/agent-readiness robots', () => {
   it('AC-5: deny-all emits named bot Disallow entries and ends with wildcard Allow', () => {
     const output = generateRobotsTxt({ aiAgents: 'deny-all' })
     for (const bot of AI_BOT_LIST) {

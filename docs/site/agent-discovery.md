@@ -13,10 +13,10 @@ Aihu apps expose four discovery endpoints that agents and crawlers check:
 | `/.well-known/mcp/server-card.json` | Machine-readable MCP server card (SEP-1649) |
 | `/robots.txt` | Agent-friendly crawl directives (RFC 9309) |
 
-All four are generated automatically by `@aihu/agent-readiness` from a single config object. The minimum viable setup is:
+All four are generated automatically by `@aihu-plugin/agent-readiness` from a single config object. The minimum viable setup is:
 
 ```ts
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 import { createRequestRouter, defineRoute } from '@aihu/server'
 
 const ar = createAgentReadinessRoutes({
@@ -58,7 +58,7 @@ A minimal server card looks like:
 }
 ```
 
-The `skills` array is auto-populated from the `@agent` blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and `@aihu/agent-readiness` aggregates them at build time.
+The `skills` array is auto-populated from the `@agent` blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and `@aihu-plugin/agent-readiness` aggregates them at build time.
 
 To configure the server card, pass `AgentReadinessConfig` to `createAgentReadinessRoutes`:
 
@@ -110,7 +110,7 @@ The `llms-full.txt` variant follows the same format but uses `## More` instead o
 
 ### LlmsTxtConfig type
 
-`@aihu/agent-readiness` generates both files from `LlmsTxtConfig`:
+`@aihu-plugin/agent-readiness` generates both files from `LlmsTxtConfig`:
 
 ```ts
 interface LlmsTxtLink {
@@ -135,7 +135,7 @@ interface LlmsTxtConfig {
 To generate the files programmatically:
 
 ```ts
-import { generateLlmsTxt, generateLlmsFullTxt } from '@aihu/agent-readiness'
+import { generateLlmsTxt, generateLlmsFullTxt } from '@aihu-plugin/agent-readiness'
 
 const config: LlmsTxtConfig = {
   name: 'My App',
@@ -261,10 +261,10 @@ All compliance checks are backed by vitest test suites that run as part of `bun 
 
 | Suite | File | Tests |
 |---|---|---|
-| llms.txt format | `packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts` | 9 |
-| MCP Server Card (SEP-1649) | `packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | 14 |
-| robots.txt (RFC 9309) | `packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts` | 7 |
-| isitagentready.com checklist | `packages/agent-readiness/tests/compliance/isitagentready.test.ts` | 7 |
+| llms.txt format | `packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts` | 9 |
+| MCP Server Card (SEP-1649) | `packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | 14 |
+| robots.txt (RFC 9309) | `packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts` | 7 |
+| isitagentready.com checklist | `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts` | 7 |
 | SSR output structure | `packages/server/tests/compliance/ssr-output.test.ts` | 12 |
 
 Run all compliance checks:
@@ -276,7 +276,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 
 ## isitagentready.com
 
-Aihu passes all 7 checks on [isitagentready.com](https://isitagentready.com). The checks are exercised by the compliance test suite at `packages/agent-readiness/tests/compliance/isitagentready.test.ts`. The seven gates are:
+Aihu passes all 7 checks on [isitagentready.com](https://isitagentready.com). The checks are exercised by the compliance test suite at `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts`. The seven gates are:
 
 1. `llms.txt` present at root
 2. `llms.txt` first line is `# <Name>`

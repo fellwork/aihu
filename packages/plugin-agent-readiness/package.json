@@ -1,6 +1,6 @@
 {
-  "name": "@aihu/data",
-  "version": "0.1.0",
+  "name": "@aihu-plugin/agent-readiness",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,8 +8,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
@@ -24,20 +24,16 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@aihu/signals": "workspace:*",
-    "@aihu/context": "workspace:*"
+    "@aihu/server": "workspace:*",
+    "@aihu/agent": "workspace:*"
   },
-  "devDependencies": {
-    "@aihu/plugin": "workspace:*",
-    "@aihu/server": "workspace:*"
-  },
-  "description": "Reactive data loaders and resource primitives for aihu.",
+  "description": "Discovery + readiness manifest emitter so agents can introspect aihu apps.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
-    "directory": "packages/data"
+    "directory": "packages/plugin-agent-readiness"
   },
-  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/data#readme",
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/plugin-agent-readiness#readme",
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"

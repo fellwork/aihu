@@ -17,6 +17,16 @@
  * capitalized component names are NOT rewritten. SVG/XML namespace prefixes
  * (`xmlns:`, `xlink:`) are also preserved via a leading-whitespace guard.
  *
+ * Package-name conversions (v1.0.9 / Naming Scheme A — applied third):
+ *   @aihu/data              =>  @aihu-plugin/data
+ *   @aihu/agent-readiness   =>  @aihu-plugin/agent-readiness
+ *
+ * The v1.0.9 pass rewrites package.json `dependencies` / `devDependencies`
+ * blocks, static `import` statements, dynamic `import()` calls, and JSDoc
+ * URL references. It is bounded to whole-word boundaries so already-renamed
+ * literals (`@aihu-plugin/data`) and unrelated names (`@aihu/data-store`)
+ * are not double-rewritten or false-positively matched.
+ *
  * Zero external dependencies -- uses only Node/Bun builtins (fs).
  */
 
@@ -379,12 +389,70 @@ function findBalancedCurlyClose(s: string, openIdx: number): number {
 }
 
 /**
+ * Package-name conversions for v1.0.9 / Naming Scheme A.
+ *
+ * Two plugin-contract packages move from the `@aihu/*` scope to the
+ * `@aihu-plugin/*` scope so that framework-core and plugin-contract surfaces
+ * can evolve at independent cadences:
+ *
+ *   - `@aihu/data`             → `@aihu-plugin/data`
+ *   - `@aihu/agent-readiness`  → `@aihu-plugin/agent-readiness`
+ *
+ * Each row covers four call-sites:
+ *   1. package.json `dependencies` / `devDependencies` / `peerDependencies` keys.
+ *   2. Static `import … from '<pkg>'` and `export … from '<pkg>'` statements.
+ *   3. Dynamic `import('<pkg>')` calls.
+ *   4. JSDoc / Markdown URL references (e.g. tree links, npm URLs).
+ *
+ * Implementation: a single whole-word regex per row catches all four surfaces
+ * because we anchor on the literal package name and require a non-`-` boundary
+ * after it (so `@aihu/data-store` would not match — there is no such package
+ * today, but the guard makes the rewrite safe for the future).
+ */
+type PackageRename = {
+  readonly from: string
+  readonly to: string
+}
+
+export const V1_0_9_PACKAGE_RENAMES: ReadonlyArray<PackageRename> = [
+  { from: '@aihu/data', to: '@aihu-plugin/data' },
+  { from: '@aihu/agent-readiness', to: '@aihu-plugin/agent-readiness' },
+]
+
+/**
+ * Rewrite v1.0.9 package-name references in `content`.
+ *
+ * Idempotent: a file that already uses the new names is left unchanged.
+ *
+ * The regex requires a non-identifier boundary after the package name so:
+ *   - `@aihu/data` matches (followed by a quote, slash, space, etc.)
+ *   - `@aihu/data-store` does NOT match (followed by `-`, an identifier char)
+ *   - `@aihu-plugin/data` does NOT match the `@aihu/data` rule (different prefix)
+ *
+ * Preserves the surrounding quote style — single, double, or backtick — and
+ * any path suffix after the package name (e.g. `@aihu/data/internal` → `@aihu-plugin/data/internal`).
+ */
+export function migratePackageNames(content: string): string {
+  let result = content
+  for (const { from, to } of V1_0_9_PACKAGE_RENAMES) {
+    // Escape the `/` in the package name for regex use.
+    const escaped = from.replace(/[/\\]/g, '\\$&')
+    // Negative-lookahead for a `-` or word char immediately after the package
+    // name — this prevents matching `@aihu/data-store` and similar siblings.
+    const re = new RegExp(`${escaped}(?![-\\w])`, 'g')
+    result = result.replace(re, to)
+  }
+  return result
+}
+
+/**
  * Convert a single SFC file content from legacy syntax to v1.0+ canonical form.
  * Pure function -- does not perform any I/O.
  *
- * Runs in two passes:
+ * Runs in three passes:
  *   1. Block-tag conversions (v1.0.7).
  *   2. Inline attribute conversions (v1.0.8 / Amendment 04).
+ *   3. Package-name conversions (v1.0.9 / Naming Scheme A).
  *
  * Idempotent — running twice produces the same output as running once.
  */
@@ -408,6 +476,7 @@ export function migrateFile(content: string): string {
   }
 
   result = migrateInlineAttrs(result)
+  result = migratePackageNames(result)
 
   return result
 }

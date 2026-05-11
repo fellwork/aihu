@@ -22,7 +22,7 @@
 | 10 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
 | 11 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 12 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |
-| 13 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu/data`, `$shared`, dummy Stripe |
+| 13 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
 
 ### Archived
 

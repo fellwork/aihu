@@ -271,14 +271,14 @@ A server-rendered `LiveBinding` is ephemeral — it lives only for the duration 
 
 ---
 
-## 6. `@aihu/agent-readiness` — discovery and MCP compliance
+## 6. `@aihu-plugin/agent-readiness` — discovery and MCP compliance
 
-`@aihu/agent-readiness` generates the four standard agent-discovery endpoints: `llms.txt`, `llms-full.txt`, `/.well-known/mcp/server-card.json`, and `robots.txt`.
+`@aihu-plugin/agent-readiness` generates the four standard agent-discovery endpoints: `llms.txt`, `llms-full.txt`, `/.well-known/mcp/server-card.json`, and `robots.txt`.
 
 ### Router wiring (server/edge)
 
 ```typescript
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 import { createRouter, defineRoute } from '@aihu/server'
 
 const ar = createAgentReadinessRoutes({
@@ -350,7 +350,7 @@ Use `viteAgentReadinessIntegration()` for Vite-based apps. In dev, it serves all
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { viteAgentReadinessIntegration } from '@aihu/agent-readiness'
+import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 
 export default defineConfig({
   plugins: [

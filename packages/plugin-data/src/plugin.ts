@@ -1,7 +1,7 @@
 import type { Plugin } from '@aihu/plugin'
 
 /**
- * `@aihu/data` plugin — registration shim.
+ * `@aihu-plugin/data` plugin — registration shim.
  *
  * Registers the data package under the Plugin Contract (Plugin Contract Spec
  * §1.1, §3, §7.1). v0.2.6 ships registration plumbing only; no macro
@@ -14,7 +14,7 @@ import type { Plugin } from '@aihu/plugin'
  * (v3 dep-free thesis) and the spec's intent that plugin registration is
  * build-time only.
  *
- * The `data()` factory exported from `@aihu/data` calls through to this
+ * The `data()` factory exported from `@aihu-plugin/data` calls through to this
  * instance. Consumers register it via:
  *   defineAihuConfig({ plugins: [data()] })
  */

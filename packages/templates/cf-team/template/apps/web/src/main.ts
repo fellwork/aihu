@@ -7,8 +7,8 @@
  * Cloudflare adapter wires up at build time.
  */
 
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
 import { createRequestRouter, defineRoute, defineRoutes, json } from '@aihu/server'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 import './app.aihu'
 
 // Agent-readiness endpoints — served automatically on every aihu app.

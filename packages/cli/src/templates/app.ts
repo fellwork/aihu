@@ -27,7 +27,7 @@ export const APP_DEFAULT_LAYOUT_SCRIBE = `@template {
  * Wires agent-readiness routes (llms.txt, MCP card, robots.txt) by default.
  */
 export function appServerEntry(appName: string): string {
-  return `import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
+  return `import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 import { createRequestRouter, defineRoute, defineRoutes, json } from '@aihu/server'
 
 // Agent-readiness endpoints — configure further in aihu.config.ts under \`agent:\`

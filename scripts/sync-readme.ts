@@ -485,7 +485,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'A',
     label: 'Reactive runtime core — async-context request primitives',
     seeAlso: [
-      { label: '@aihu/data', href: '../data' },
+      { label: '@aihu-plugin/data', href: '../plugin-data' },
       { label: '@aihu/server', href: '../server' },
     ],
   },
@@ -506,10 +506,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: 'arch-1 (website)', href: '../../docs/roadmap/arch-1-website.md' },
       { label: 'docs/site/ssr-hydration.md', href: '../../docs/site/ssr-hydration.md' },
       { label: '@aihu/router', href: '../router' },
-      { label: '@aihu/agent-readiness', href: '../agent-readiness' },
+      { label: '@aihu-plugin/agent-readiness', href: '../plugin-agent-readiness' },
     ],
   },
-  '@aihu/data': {
+  '@aihu-plugin/data': {
     tier: 'B',
     label: 'Meta-framework — reactive resources + loader protocol',
     seeAlso: [
@@ -584,7 +584,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/agent', href: '../agent' },
     ],
   },
-  '@aihu/agent-readiness': {
+  '@aihu-plugin/agent-readiness': {
     tier: 'C',
     label: 'Agent surface — discovery manifests (llms.txt, MCP Server Card, robots)',
     seeAlso: [

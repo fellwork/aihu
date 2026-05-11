@@ -3,7 +3,7 @@ import type { SsrOptions } from './ssr.ts'
 /**
  * Describes an async data boundary that renderToStream can suspend on.
  * Used internally by @aihu/server — this is the SSR streaming-suspension
- * contract, not the same as @aihu/data's Resource<T> (the createResource
+ * contract, not the same as @aihu-plugin/data's Resource<T> (the createResource
  * return type). The two types are unrelated; they have different shapes and
  * different names.
  */

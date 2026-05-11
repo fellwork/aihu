@@ -21,7 +21,7 @@
 
 ## API Reference
 
-- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu/agent-readiness
+- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu-plugin/agent-readiness
 
 ## Agent & MCP
 
