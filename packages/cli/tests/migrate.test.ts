@@ -307,7 +307,9 @@ describe('migrateInlineAttrs — combined / cross-cutting cases (v1.0.8)', () =>
     // C306 rewrite is opener-scoped (won't see e.g. inline JS expressions).
     const input = `@state {\nconst obj = { foo: 1 }\n}\n@template {\n  <div class={obj.foo}></div>\n}`
     const result = migrateInlineAttrs(input)
-    expect(result).toBe(`@state {\nconst obj = { foo: 1 }\n}\n@template {\n  <div $class={obj.foo}></div>\n}`)
+    expect(result).toBe(
+      `@state {\nconst obj = { foo: 1 }\n}\n@template {\n  <div $class={obj.foo}></div>\n}`,
+    )
   })
 })
 

@@ -111,17 +111,76 @@ function rewritePlainCurlyAttrsInHtmlTags(content: string): string {
 
 const C306_ATTR_ALLOWLIST = new Set<string>([
   // Common HTML attributes that frequently take reactive bindings.
-  'class', 'href', 'id', 'src', 'alt', 'placeholder', 'value', 'checked',
-  'disabled', 'readonly', 'required', 'selected', 'hidden', 'open',
-  'min', 'max', 'step', 'name', 'title', 'type', 'role', 'tabindex',
-  'action', 'method', 'target', 'rel', 'for', 'form', 'lang', 'dir',
-  'autocomplete', 'autofocus', 'multiple', 'pattern', 'size', 'maxlength',
-  'minlength', 'cols', 'rows', 'wrap', 'accept', 'enctype', 'novalidate',
-  'spellcheck', 'translate', 'draggable', 'contenteditable',
-  'srcset', 'sizes', 'loading', 'decoding', 'crossorigin',
-  'controls', 'autoplay', 'loop', 'muted', 'preload', 'poster',
-  'colspan', 'rowspan', 'headers', 'scope', 'span', 'start', 'reversed',
-  'datetime', 'cite', 'download', 'media', 'as',
+  'class',
+  'href',
+  'id',
+  'src',
+  'alt',
+  'placeholder',
+  'value',
+  'checked',
+  'disabled',
+  'readonly',
+  'required',
+  'selected',
+  'hidden',
+  'open',
+  'min',
+  'max',
+  'step',
+  'name',
+  'title',
+  'type',
+  'role',
+  'tabindex',
+  'action',
+  'method',
+  'target',
+  'rel',
+  'for',
+  'form',
+  'lang',
+  'dir',
+  'autocomplete',
+  'autofocus',
+  'multiple',
+  'pattern',
+  'size',
+  'maxlength',
+  'minlength',
+  'cols',
+  'rows',
+  'wrap',
+  'accept',
+  'enctype',
+  'novalidate',
+  'spellcheck',
+  'translate',
+  'draggable',
+  'contenteditable',
+  'srcset',
+  'sizes',
+  'loading',
+  'decoding',
+  'crossorigin',
+  'controls',
+  'autoplay',
+  'loop',
+  'muted',
+  'preload',
+  'poster',
+  'colspan',
+  'rowspan',
+  'headers',
+  'scope',
+  'span',
+  'start',
+  'reversed',
+  'datetime',
+  'cite',
+  'download',
+  'media',
+  'as',
 ])
 
 /**
@@ -175,9 +234,8 @@ function rewriteAttrsInRegion(attrsRegion: string): string {
         continue
       }
       const expr = attrsRegion.slice(afterName + 2, closeIdx)
-      const isAllowed = C306_ATTR_ALLOWLIST.has(name)
-        || /^aria-[a-z]+/.test(name)
-        || /^data-[a-z]+/.test(name)
+      const isAllowed =
+        C306_ATTR_ALLOWLIST.has(name) || /^aria-[a-z]+/.test(name) || /^data-[a-z]+/.test(name)
       if (isAllowed) {
         result += `$${name}={${expr}}`
       } else {
@@ -202,8 +260,8 @@ function rewriteAttrsInRegion(attrsRegion: string): string {
           result += attrsRegion[i]
           i++
         }
-      } else if (c === '\'') {
-        while (i < attrsRegion.length && attrsRegion[i] !== '\'') {
+      } else if (c === "'") {
+        while (i < attrsRegion.length && attrsRegion[i] !== "'") {
           result += attrsRegion[i]
           i++
         }
