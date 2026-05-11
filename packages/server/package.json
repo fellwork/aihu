@@ -31,10 +31,10 @@
     "@aihu/plugin": "workspace:*"
   },
   "optionalDependencies": {
-    "@aihu/server-darwin-arm64": "0.1.0",
-    "@aihu/server-darwin-x64": "0.1.0",
-    "@aihu/server-linux-x64-gnu": "0.1.0",
-    "@aihu/server-win32-x64-msvc": "0.1.0"
+    "@aihu/server-darwin-arm64": "0.1.2",
+    "@aihu/server-darwin-x64": "0.1.2",
+    "@aihu/server-linux-x64-gnu": "0.1.2",
+    "@aihu/server-win32-x64-msvc": "0.1.2"
   },
   "description": "Server runtime + native renderer (napi-rs) for aihu SSR.",
   "repository": {

@@ -127,25 +127,25 @@
   },
   {
     "name": "@aihu/server-darwin-arm64",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/server/npm/darwin-arm64",
     "isPlatform": true
   },
   {
     "name": "@aihu/server-darwin-x64",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/server/npm/darwin-x64",
     "isPlatform": true
   },
   {
     "name": "@aihu/server-linux-x64-gnu",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/server/npm/linux-x64-gnu",
     "isPlatform": true
   },
   {
     "name": "@aihu/server-win32-x64-msvc",
-    "version": "0.1.0",
+    "version": "0.1.2",
     "dir": "packages/server/npm/win32-x64-msvc",
     "isPlatform": true
   },

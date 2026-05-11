@@ -66,10 +66,10 @@ bun add @aihu/server
 
 **Optional dependencies (platform-specific):**
 
-- `@aihu/server-darwin-arm64` — `0.1.0`
-- `@aihu/server-darwin-x64` — `0.1.0`
-- `@aihu/server-linux-x64-gnu` — `0.1.0`
-- `@aihu/server-win32-x64-msvc` — `0.1.0`
+- `@aihu/server-darwin-arm64` — `0.1.2`
+- `@aihu/server-darwin-x64` — `0.1.2`
+- `@aihu/server-linux-x64-gnu` — `0.1.2`
+- `@aihu/server-win32-x64-msvc` — `0.1.2`
 
 <sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
 
