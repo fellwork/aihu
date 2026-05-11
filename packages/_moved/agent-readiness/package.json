@@ -1,6 +1,6 @@
 {
   "name": "@aihu/agent-readiness",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@aihu-plugin/agent-readiness": "1.0.0"
+    "@aihu-plugin/agent-readiness": "2.0.0"
   },
   "description": "[MOVED] This package has moved to @aihu-plugin/agent-readiness.",
   "deprecated": "Moved to @aihu-plugin/agent-readiness — install that instead.",
