@@ -411,7 +411,6 @@ Run all compliance checks: `bun run test && bun run test:quality`
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md) — Template Syntax v2 — Platform Audit (Round 3)
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md) — Template Syntax v2 — Corpus Samples (Variant B) _(Variant B per Director r2 reconciliation)_
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md) — Template Syntax v2 — `@template` redesign _(PROPOSED — not RATIFIED until user approves)_
-- [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md) — aihu CSS Engine + Primitives + UI — Design _(Draft)_
 - [`docs/superpowers/specs/live-binding-impl.md`](./docs/superpowers/specs/live-binding-impl.md) — Spec: $live binding — Implementation Design (v0.3.0) _(DRAFT — for Builder dispatch)_
 - [`docs/superpowers/specs/lsp-language-server.md`](./docs/superpowers/specs/lsp-language-server.md) — Spec: vscode-aihu LSP Language Server
 - [`docs/superpowers/specs/mcp-server.md`](./docs/superpowers/specs/mcp-server.md) — Spec: @aihu/mcp — aihu MCP Server
