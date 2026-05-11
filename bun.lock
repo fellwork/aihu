@@ -229,7 +229,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -237,7 +237,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -292,7 +292,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "devDependencies": {
         "@aihu/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -322,7 +322,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.3.2",
+      "version": "0.3.6",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -376,7 +376,7 @@
     },
     "packages/router": {
       "name": "@aihu/router",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -403,10 +403,10 @@
         "@aihu/plugin": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/server-darwin-arm64": "0.1.0",
-        "@aihu/server-darwin-x64": "0.1.0",
-        "@aihu/server-linux-x64-gnu": "0.1.0",
-        "@aihu/server-win32-x64-msvc": "0.1.0",
+        "@aihu/server-darwin-arm64": "0.1.2",
+        "@aihu/server-darwin-x64": "0.1.2",
+        "@aihu/server-linux-x64-gnu": "0.1.2",
+        "@aihu/server-win32-x64-msvc": "0.1.2",
       },
     },
     "packages/signals": {
@@ -499,14 +499,6 @@
     "@aihu/scraping": ["@aihu/scraping@workspace:packages/scraping"],
 
     "@aihu/server": ["@aihu/server@workspace:packages/server"],
-
-    "@aihu/server-darwin-arm64": ["@aihu/server-darwin-arm64@0.1.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-9FL30jG7XPpdcn3JA9sEtg+ZUkrIyC3xs0qGtXtQrh5yBg9V3oiZWZtFiBpNggZZ79k4Vt+IRjUbK8lRIh3LQw=="],
-
-    "@aihu/server-darwin-x64": ["@aihu/server-darwin-x64@0.1.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-K8FlKrnHiS8MSwdBQpuVEmGffdIN2xhEGQTIK4Txty02ufsbe+p6jxfhMeqfy393I/eLw+OYGlKiNAW8UGBhhQ=="],
-
-    "@aihu/server-linux-x64-gnu": ["@aihu/server-linux-x64-gnu@0.1.0", "", { "os": "linux", "cpu": "x64" }, "sha512-wXmx0QMOEOwNNZ/yQfOprqt+pvpGOUCeySjyDyCsKv10ce3rWY2zzRNLSr7RLRco8xu/JS1Bjk9tiMgr2lKGmg=="],
-
-    "@aihu/server-win32-x64-msvc": ["@aihu/server-win32-x64-msvc@0.1.0", "", { "os": "win32", "cpu": "x64" }, "sha512-oneX/KaS+g8jDCS+vCjIFoWKg2zm57NAX5hWRlBXLPmsl+IhD3gasyu41lXcnzmIsgfshnPZ/mAHAdgtI3fcUA=="],
 
     "@aihu/signals": ["@aihu/signals@workspace:packages/signals"],
 
