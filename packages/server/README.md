@@ -21,7 +21,7 @@ npm install @aihu/server
 bun add @aihu/server
 ```
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,12 +32,12 @@ bun add @aihu/server
 
 | | |
 |---|---|
-| **Version** | `0.1.1` |
+| **Version** | `0.1.2` |
 | **Tier** | B — Meta-framework — SSR + native renderer (napi-rs) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/server
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -66,12 +66,12 @@ bun add @aihu/server
 
 **Optional dependencies (platform-specific):**
 
-- `@aihu/server-darwin-arm64` — `0.1.0`
-- `@aihu/server-darwin-x64` — `0.1.0`
-- `@aihu/server-linux-x64-gnu` — `0.1.0`
-- `@aihu/server-win32-x64-msvc` — `0.1.0`
+- `@aihu/server-darwin-arm64` — `0.1.2`
+- `@aihu/server-darwin-x64` — `0.1.2`
+- `@aihu/server-linux-x64-gnu` — `0.1.2`
+- `@aihu/server-win32-x64-msvc` — `0.1.2`
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -86,7 +86,7 @@ bun add @aihu/server
 - [@aihu-plugin/agent-readiness](../plugin-agent-readiness)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -97,6 +97,6 @@ bun add @aihu/server
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/server@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/server@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

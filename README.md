@@ -187,7 +187,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
 | `@aihu/runtime` | 3.20 kB | 3400 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 756 B | 800 B | pass |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
 | `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 586 B | 600 B | pass |
@@ -223,15 +223,15 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 |---|---|---|
 | [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `1.0.0` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu-plugin/data`](./packages/plugin-data) | `1.0.0` | Reactive data loaders and resource primitives for aihu. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.6` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.6` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.7` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.7` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.0` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `1.0.0` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.2` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.1.6` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `0.1.7` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.3.6` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
@@ -240,10 +240,10 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/data`](./packages/_moved/data) | `1.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/router`](./packages/router) | `0.1.2` | File-based router for the aihu meta-framework. |
+| [`@aihu/router`](./packages/router) | `0.1.3` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.4` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
-| [`@aihu/server`](./packages/server) | `0.1.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
+| [`@aihu/server`](./packages/server) | `0.1.2` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `1.0.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
@@ -411,6 +411,7 @@ Run all compliance checks: `bun run test && bun run test:quality`
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md) — Template Syntax v2 — Platform Audit (Round 3)
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md) — Template Syntax v2 — Corpus Samples (Variant B) _(Variant B per Director r2 reconciliation)_
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md) — Template Syntax v2 — `@template` redesign _(PROPOSED — not RATIFIED until user approves)_
+- [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md) — aihu CSS Engine + Primitives + UI — Design _(Draft)_
 - [`docs/superpowers/specs/live-binding-impl.md`](./docs/superpowers/specs/live-binding-impl.md) — Spec: $live binding — Implementation Design (v0.3.0) _(DRAFT — for Builder dispatch)_
 - [`docs/superpowers/specs/lsp-language-server.md`](./docs/superpowers/specs/lsp-language-server.md) — Spec: vscode-aihu LSP Language Server
 - [`docs/superpowers/specs/mcp-server.md`](./docs/superpowers/specs/mcp-server.md) — Spec: @aihu/mcp — aihu MCP Server
