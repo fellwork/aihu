@@ -29,7 +29,7 @@
 
 @template {
   <div
-    class={['toast', visible && 'toast-visible']}
+    $class={['toast', visible && 'toast-visible']}
     role="status"
     aria-live="polite"
     $show={visible}

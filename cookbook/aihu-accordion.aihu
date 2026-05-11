@@ -26,9 +26,9 @@
     {#each items as item (item.id)}
       <div class="accordion-item" role="listitem">
         <button
-          class={['accordion-header', openId === item.id && 'open']}
+          $class={['accordion-header', openId === item.id && 'open']}
           $on.click={() => toggle(item.id)}
-          aria-expanded={openId === item.id}
+          $aria-expanded={openId === item.id}
         >
           <span>{item.title}</span>
           <span class="chevron">{openId === item.id ? '▲' : '▼'}</span>

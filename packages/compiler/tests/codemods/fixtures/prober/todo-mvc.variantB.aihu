@@ -27,7 +27,7 @@
     />
     <ul>
       <li $each={todos as t} $key={t.id}>
-        <input type="checkbox" checked={t.done} $on:change={() => toggle(t.id)} />
+        <input type="checkbox" $checked={t.done} $on:change={() => toggle(t.id)} />
         <span>{t.text}</span>
         <button $on:click={() => remove(t.id)}>×</button>
       </li>

@@ -25,5 +25,5 @@
 }
 
 @template {
-  <span hidden aria-hidden="true" data-aihu-navigate={to} />
+  <span hidden aria-hidden="true" $data-aihu-navigate={to} />
 }

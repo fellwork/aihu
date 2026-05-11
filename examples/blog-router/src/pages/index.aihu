@@ -26,7 +26,7 @@
     <h1>The aihu blog</h1>
     <ul>
       <li $each="posts as item" $key={item.slug}>
-        <a href={`/posts/${item.slug}`}>{item.title}</a>
+        <a $href={`/posts/${item.slug}`}>{item.title}</a>
       </li>
     </ul>
     <p><a href="/about">About this blog</a></p>

@@ -38,7 +38,7 @@
       <span>Fahrenheit</span>
       <input
         type="number"
-        value={fahrenheit}
+        $value={fahrenheit}
         $on.input={(e) => setFromF(Number((e.target as HTMLInputElement).value))}
       >
     </label>

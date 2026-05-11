@@ -10,7 +10,7 @@
     <button $on:click={() => setActive(!active())}>toggle</button>
     <input $bind:value={value} $on:input={() => {}} />
     <div $html={html()}></div>
-    <span class={active() ? 'on' : 'off'}>{value()}</span>
+    <span $class={active() ? 'on' : 'off'}>{value()}</span>
   </div>
 }
 

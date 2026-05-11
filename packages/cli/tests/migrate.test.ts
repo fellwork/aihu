@@ -278,6 +278,42 @@ describe('migrateInlineAttrs — C306 plain-curly rewrite (v1.0.8 / Amendment 04
     const result = migrateInlineAttrs(input)
     expect(result).toBe(`<input type="text" $value={v} $on.input={onInput} $disabled={d}>`)
   })
+
+  it('rewrites multi-line tags whose curly-form attrs contain `>` (e.g. arrow functions)', () => {
+    // R5.2b-3 regression: the original C306 TAG_OPENER regex matched the
+    // FIRST `>` (the `=>` arrow inside `$on.click={() => fn()}`), truncating
+    // the attrs region and missing later bindings like `aria-expanded={…}`.
+    // The fixed scanner respects balanced `{…}` regions when finding the
+    // tag's true closing `>`.
+    const input = `<button
+  $class={['btn', open && 'open']}
+  $on.click={() => toggle()}
+  aria-expanded={open}
+>`
+    const result = migrateInlineAttrs(input)
+    expect(result).toBe(`<button
+  $class={['btn', open && 'open']}
+  $on.click={() => toggle()}
+  $aria-expanded={open}
+>`)
+  })
+
+  it('rewrites attrs after a $-prefixed attr whose quoted value contains spaces', () => {
+    // R5.2b-3 regression: `$each="visible as todo"` quoted value contains
+    // internal whitespace; the prefixed-attr skip path now respects balanced
+    // quotes so later plain-curly attrs are correctly detected and rewritten.
+    const input = `<li
+  $each="visible as todo"
+  $key="todo.id"
+  class={todo.done ? 'completed' : ''}
+>`
+    const result = migrateInlineAttrs(input)
+    expect(result).toBe(`<li
+  $each="visible as todo"
+  $key="todo.id"
+  $class={todo.done ? 'completed' : ''}
+>`)
+  })
 })
 
 describe('migrateInlineAttrs — combined / cross-cutting cases (v1.0.8)', () => {

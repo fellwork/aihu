@@ -46,7 +46,7 @@
 
     <article class="story">
       <h1>
-        <a href={route.data.story.url ?? `/item/${route.data.story.id}`}>{route.data.story.title}</a>
+        <a $href={route.data.story.url ?? `/item/${route.data.story.id}`}>{route.data.story.title}</a>
         <span class="host" $if={!!route.data.story.url}> ({hostname(route.data.story.url)})</span>
       </h1>
       <div class="meta">

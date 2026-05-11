@@ -21,9 +21,9 @@
 @template {
   <div class="theme-toggle">
     <button
-      class={['toggle-btn', theme]}
+      $class={['toggle-btn', theme]}
       $on.click={toggle}
-      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+      $aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
     >
       {theme === 'light' ? '☀ Light' : '☾ Dark'}
     </button>

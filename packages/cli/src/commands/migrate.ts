@@ -97,16 +97,68 @@ export function migrateInlineAttrs(content: string): string {
  *   no leading `$`).
  */
 function rewritePlainCurlyAttrsInHtmlTags(content: string): string {
-  // Pattern: `<` + lowercase-letter + tag-name-chars + attributes + `>` (or `/>`).
-  // We use a non-greedy match for the attribute region and only act on
-  // openers — not closing tags.
-  const TAG_OPENER = /<([a-z][\w-]*)\b([^>]*)>/g
-
-  return content.replace(TAG_OPENER, (match, tagName, attrsRegion) => {
+  // Scan for `<lowercase-tag-name` openers and then walk forward to find
+  // the *true* end of the opener — i.e. the `>` that is NOT inside a
+  // balanced `{…}` attr-value or a quoted attr-value. A naive regex
+  // (`<…([^>]*)>`) breaks on arrow functions and comparison operators
+  // inside curly-form attr values (e.g. `$on.click={() => x()}`).
+  let result = ''
+  let i = 0
+  while (i < content.length) {
+    const ch = content[i]
+    if (ch !== '<') {
+      result += ch
+      i++
+      continue
+    }
+    // `<` — check next char to decide if this is a lowercase-tag opener.
+    const next = content[i + 1]
+    if (!next || !/[a-z]/.test(next)) {
+      // Not a lowercase tag opener — copy verbatim.
+      result += ch
+      i++
+      continue
+    }
+    // Walk forward to capture tag-name chars.
+    let j = i + 1
+    while (j < content.length && /[\w-]/.test(content[j] ?? '')) {
+      j++
+    }
+    const tagName = content.slice(i + 1, j)
+    // Now scan forward from `j` to find the matching `>` for THIS tag opener,
+    // respecting balanced `{…}`, `"…"`, `'…'` regions.
+    let k = j
+    let curlyDepth = 0
+    let inDouble = false
+    let inSingle = false
+    while (k < content.length) {
+      const c = content[k]
+      if (!inDouble && !inSingle) {
+        if (c === '{') curlyDepth++
+        else if (c === '}') curlyDepth--
+        else if (c === '"') inDouble = true
+        else if (c === "'") inSingle = true
+        else if (c === '>' && curlyDepth === 0) break
+      } else if (inDouble) {
+        if (c === '"') inDouble = false
+      } else if (inSingle) {
+        if (c === "'") inSingle = false
+      }
+      k++
+    }
+    if (k >= content.length) {
+      // Malformed — copy what's left verbatim.
+      result += content.slice(i)
+      i = content.length
+      continue
+    }
+    // `k` is at the matching `>`. Attrs region is content[j..k].
+    const attrsRegion = content.slice(j, k)
     const rewritten = rewriteAttrsInRegion(attrsRegion)
-    if (rewritten === attrsRegion) return match
-    return `<${tagName}${rewritten}>`
-  })
+    result += `<${tagName}${rewritten}>`
+    i = k + 1
+  }
+  return result
 }
 
 const C306_ATTR_ALLOWLIST = new Set<string>([
@@ -202,13 +254,46 @@ function rewriteAttrsInRegion(attrsRegion: string): string {
     }
     if (i >= attrsRegion.length) break
 
-    // Check for already-prefixed attrs (skip): `$`, `:`, `@` start
+    // Check for already-prefixed attrs (skip): `$`, `:`, `@` start.
+    // Copy verbatim until next whitespace OUTSIDE any balanced quote/curly
+    // region — quoted attr values (e.g. `$each="visible as todo"`) and
+    // curly-form attr values may contain internal spaces or newlines.
     const ch = attrsRegion[i]
     if (ch === '$' || ch === ':' || ch === '@' || ch === '/') {
-      // Copy until next whitespace
       while (i < attrsRegion.length && !/\s/.test(attrsRegion[i] ?? '')) {
-        result += attrsRegion[i]
+        const c = attrsRegion[i]
+        result += c
         i++
+        if (c === '"') {
+          while (i < attrsRegion.length && attrsRegion[i] !== '"') {
+            result += attrsRegion[i]
+            i++
+          }
+          if (i < attrsRegion.length) {
+            result += attrsRegion[i]
+            i++
+          }
+        } else if (c === "'") {
+          while (i < attrsRegion.length && attrsRegion[i] !== "'") {
+            result += attrsRegion[i]
+            i++
+          }
+          if (i < attrsRegion.length) {
+            result += attrsRegion[i]
+            i++
+          }
+        } else if (c === '{') {
+          // Skip balanced curly region (so `$on.click={() => x()}` is
+          // copied intact even with internal spaces).
+          let depth = 1
+          while (i < attrsRegion.length && depth > 0) {
+            const cc = attrsRegion[i]
+            result += cc
+            i++
+            if (cc === '{') depth++
+            else if (cc === '}') depth--
+          }
+        }
       }
       continue
     }

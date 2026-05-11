@@ -24,7 +24,7 @@
 
 @template {
   <aside class="agent-panel" role="complementary" aria-label="Agent metadata panel">
-    <button class="agent-panel-toggle" $on.click={toggle} aria-expanded={open}>
+    <button class="agent-panel-toggle" $on.click={toggle} $aria-expanded={open}>
       <span class="panel-icon" aria-hidden="true">&#x2713;</span>
       Agent surface
       <span class="panel-count" $if={hasEntries}>({count})</span>

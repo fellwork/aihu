@@ -7,9 +7,9 @@
 @template {
   <div>
     <nav>
-      <button $on:click={() => setTab('a')} class={tab() === 'a' ? 'active' : ''}>A</button>
-      <button $on:click={() => setTab('b')} class={tab() === 'b' ? 'active' : ''}>B</button>
-      <button $on:click={() => setTab('c')} class={tab() === 'c' ? 'active' : ''}>C</button>
+      <button $on:click={() => setTab('a')} $class={tab() === 'a' ? 'active' : ''}>A</button>
+      <button $on:click={() => setTab('b')} $class={tab() === 'b' ? 'active' : ''}>B</button>
+      <button $on:click={() => setTab('c')} $class={tab() === 'c' ? 'active' : ''}>C</button>
     </nav>
     <section>
       <div $if={tab() === 'a'} $html={htmlContent()}></div>

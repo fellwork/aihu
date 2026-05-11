@@ -15,7 +15,7 @@
 }
 
 @template {
-  <div class="provider" data-theme={theme}>
+  <div class="provider" $data-theme={theme}>
     <div class="controls">
       <span class="label">Theme: <strong>{theme}</strong></span>
       <button $on.click={toggleTheme} class="toggle-btn">

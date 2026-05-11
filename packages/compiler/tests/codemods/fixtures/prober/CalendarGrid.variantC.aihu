@@ -32,7 +32,7 @@
         $each={days as d}
         $key={String(d ?? 'x')}
         $on:click={() => select(d)}
-        class={d === selected ? 'selected' : ''}
+        $class={d === selected ? 'selected' : ''}
       >
         {d ?? ''}
       </span>

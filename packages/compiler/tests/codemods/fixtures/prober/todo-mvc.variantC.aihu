@@ -35,16 +35,16 @@
     />
     <ul>
       <li $each={visible as t} $key={t.id}>
-        <input type="checkbox" checked={t.done} $on:change={() => toggle(t.id)} />
+        <input type="checkbox" $checked={t.done} $on:change={() => toggle(t.id)} />
         <span>{t.text}</span>
         <button $on:click={() => remove(t.id)}>×</button>
       </li>
     </ul>
     <footer>
       <span>{remaining} left</span>
-      <button $on:click={() => setFilter('all')}   class={filter === 'all' ? 'sel' : ''}>All</button>
-      <button $on:click={() => setFilter('active')} class={filter === 'active' ? 'sel' : ''}>Active</button>
-      <button $on:click={() => setFilter('completed')} class={filter === 'completed' ? 'sel' : ''}>Done</button>
+      <button $on:click={() => setFilter('all')}   $class={filter === 'all' ? 'sel' : ''}>All</button>
+      <button $on:click={() => setFilter('active')} $class={filter === 'active' ? 'sel' : ''}>Active</button>
+      <button $on:click={() => setFilter('completed')} $class={filter === 'completed' ? 'sel' : ''}>Done</button>
     </footer>
   </div>
 }
