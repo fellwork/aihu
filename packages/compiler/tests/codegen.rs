@@ -22,9 +22,9 @@ fn counter_source() -> &'static str {
 ",
         "    <span>{{ count }}</span>
 ",
-        // TODO(R5.2b): legacy `@click=` event-binding alias is deprecated and will
-        // become a C304 hard error in v1.0.8. Migrate to `$on.click=` then.
-        "    <button @click=\"increment\">+</button>
+        // v1.0.8 — Amendment 04: `$on.click={fn}` canonical form. Legacy
+        // `@click="fn"` is now C305.
+        "    <button $on.click={increment}>+</button>
 ",
         "  </div>
 ",
@@ -66,8 +66,9 @@ fn event_attr_onclick() {
 ",
         "}
 ",
-        // TODO(R5.2b): legacy `@click=` event-binding alias deprecated; becomes C304 in v1.0.8.
-        "@template { <button @click=\"handler\">click</button> }"
+        // v1.0.8 — Amendment 04: canonical event handler form is `$on.click={fn}`.
+        // Legacy `@click="fn"` is now C305.
+        "@template { <button $on.click={handler}>click</button> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();

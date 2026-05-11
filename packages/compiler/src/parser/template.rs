@@ -385,7 +385,17 @@ impl<'a> Parser<'a> {
             return Err(self.error("expected tag name".to_string()));
         }
 
-        let attrs = self.parse_attrs()?;
+        // Amendment 04 (v1.0.8) — element-kind discriminator. The C306
+        // plain-curly rejection applies ONLY to standard HTML elements
+        // (lowercase-letter first character). Capitalized tag names
+        // (`<UserCard …>`) are component prop-passing — plain curly is
+        // preserved. `<$focusTrap …>` structural macro elements are also
+        // exempt (the `$` was already consumed above; `is_macro == true`).
+        let first_char = tag.chars().next();
+        let is_html_element = !is_macro
+            && first_char.is_some_and(|c| c.is_ascii_lowercase());
+
+        let attrs = self.parse_attrs(is_html_element)?;
 
         // C401: reject inline JSX in attribute curly values
         if let Some(err) = check_c401(&attrs) {
@@ -457,7 +467,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_attrs(&mut self) -> Result<Vec<crate::types::Attr>, CompileError> {
+    fn parse_attrs(&mut self, is_html_element: bool) -> Result<Vec<crate::types::Attr>, CompileError> {
         let mut attrs = Vec::new();
 
         loop {
@@ -469,7 +479,7 @@ impl<'a> Parser<'a> {
 
             let attr_start = self.pos;
             let attr = self.read_attr_token()?;
-            let parsed = parse_attr(&attr).map_err(|mut err| {
+            let parsed = parse_attr(&attr, is_html_element).map_err(|mut err| {
                 err.line = self.line_at(attr_start);
                 err.col = self.col_at(attr_start);
                 err

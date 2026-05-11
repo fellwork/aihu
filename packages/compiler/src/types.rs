@@ -99,7 +99,6 @@ pub enum MacroValue {
 pub enum Attr {
     Static { name: String, value: String },
     Binding { name: String, expr: String },
-    Event { name: String, handler: String },
     /// `$macro_name[.sub]="value"` / `$macro_name={expr}` / `$macro_name` (boolean).
     Macro { name: String, value: MacroValue },
 }

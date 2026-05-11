@@ -1,6 +1,5 @@
 ---
 source: tests/template_parse.rs
-assertion_line: 36
 expression: result
 ---
 Ok(

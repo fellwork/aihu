@@ -1567,7 +1567,6 @@ fn emit_aria_wiring(
                     _ => false,
                 });
                 let has_click = attrs.iter().any(|a| match a {
-                    Attr::Event { name, .. } => name == "click",
                     Attr::Macro { name, .. } => {
                         // $on.click={fn} is normalized to Macro { name: "on:click" } by the parser.
                         name == "on:click" || name.starts_with("on:click")
@@ -3616,10 +3615,6 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                 };
                 Some(format!("{}: {}", format_attr_key(name), lowered))
             }
-            Attr::Event { name, handler } => {
-                // deprecated @event alias — emit as onX attr
-                Some(format!("on{}: {}", name, handler))
-            }
             Attr::Macro { name, value } => {
                 // $bind:prop and $on:event emit as direct attrs in the attrs object;
                 // other macros ($if, $show, $each, etc.) are emitted as effects outside.
@@ -4065,11 +4060,6 @@ fn apply_emit_lowering_attr(
         Attr::Binding { expr, .. } => {
             if expr.contains("$emit.") {
                 *expr = lower_emit_calls(expr, event_names);
-            }
-        }
-        Attr::Event { handler, .. } => {
-            if handler.contains("$emit.") {
-                *handler = lower_emit_calls(handler, event_names);
             }
         }
         Attr::Macro { value, .. } => {
