@@ -203,11 +203,13 @@ fn b3_ac16_phase2_colon_form_error_message_cites_codemod() {
 
 #[test]
 fn b3_ac7_class_array_form_lowers_with_helper() {
+    // v1.0.8 — Amendment 04: canonical form is `$class={…}`.
+    // Plain `class={…}` is C306.
     let src = r#"@state {
   active: boolean = false
 }
 @template {
-  <div class={['box', active && 'on']}></div>
+  <div $class={['box', active && 'on']}></div>
 }"#;
     let js = compile_fixture(src, "x-b3-class-array");
     assert!(
@@ -224,14 +226,15 @@ fn b3_ac7_class_array_form_lowers_with_helper() {
 
 #[test]
 fn b3_ac7_class_string_unchanged() {
-    // Regression: when `class={…}` is NOT an array, the new helper is not invoked.
+    // Regression: when `$class={…}` is NOT an array, the new helper is not invoked.
+    // v1.0.8 — Amendment 04: canonical form is `$class={…}`.
     let src = r#"@template {
-  <div class={cond ? 'a' : 'b'}></div>
+  <div $class={cond ? 'a' : 'b'}></div>
 }"#;
     let js = compile_fixture(src, "x-b3-class-string");
     assert!(
         !js.contains("__aihu_cls(["),
-        "non-array class={{}} should not invoke __aihu_cls: {}",
+        "non-array $class={{}} should not invoke __aihu_cls: {}",
         js
     );
 }

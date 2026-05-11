@@ -1,5 +1,6 @@
 ---
 source: tests/codegen.rs
+assertion_line: 76
 expression: output.js
 ---
 import { branch, leaf, slot } from '@aihu/arbor'
@@ -8,5 +9,5 @@ import { defineComponent, defineElement } from '@aihu/runtime'
 defineElement('x-btn', defineComponent((_ctx) => {
   const handler = () => {}
 
-  return branch('button', { onclick: handler }, [leaf('click')])
+  return branch('button', { onClick: handler }, [leaf('click')])
 }))

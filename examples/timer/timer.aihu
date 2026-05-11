@@ -47,7 +47,7 @@
     <h1>Timer</h1>
     <label>
       <span>Elapsed</span>
-      <progress value={progress} max="1"></progress>
+      <progress $value={progress} max="1"></progress>
     </label>
     <p class="readout">{seconds}s / {maxSecs}s</p>
     <label>

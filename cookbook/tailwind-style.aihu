@@ -15,7 +15,7 @@
     <h2 class="text-xl font-semibold mb-4">Tailwind + Scoped Style</h2>
     <div class="flex gap-3 mb-4">
       <button
-        class={['px-4 py-2 rounded font-medium transition-colors', active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700']}
+        $class={['px-4 py-2 rounded font-medium transition-colors', active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700']}
         $on.click={toggle}
       >
         {active ? 'Active' : 'Inactive'}

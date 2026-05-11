@@ -47,7 +47,7 @@
     {:else}
       <p class="prompt">Press Refresh to load forecast.</p>
     {/if}
-    <button $on.click={fetchForecast} class="refresh-btn" disabled={loading}>
+    <button $on.click={fetchForecast} class="refresh-btn" $disabled={loading}>
       Refresh
     </button>
   </div>

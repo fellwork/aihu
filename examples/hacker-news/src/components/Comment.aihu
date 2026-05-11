@@ -18,7 +18,7 @@
 @template {
   <div class="comment">
     <div class="meta">
-      <a href={`/user/${comment.by}`}>{comment.by}</a>
+      <a $href={`/user/${comment.by}`}>{comment.by}</a>
       {ago(comment.time)}
     </div>
     <div class="text" $html="comment.text"></div>

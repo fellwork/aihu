@@ -13,7 +13,7 @@
         $each={items() as item}
         $key={item}
         $on:click={() => setSelected(item)}
-        class={item === selected() ? 'selected' : ''}
+        $class={item === selected() ? 'selected' : ''}
       >
         {item}
       </li>

@@ -8,7 +8,47 @@ const VOID_ATTRS: &[&str] = &[
     "open", "reversed", "scoped", "seamless", "selected",
 ];
 
-pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
+/// Reserved macro-name prefixes (and bare names) that MUST construct
+/// `Attr::Macro` from `$<name>={expr}` / `$<name>="value"`.
+///
+/// Per Amendment 04 (v1.0.8) and Director r5-sup-2 §3.2 implementation
+/// note: `$<plain-attr-name>={expr}` on an HTML attribute that is NOT
+/// in this registry routes to `Attr::Binding { name, expr }` instead.
+/// That preserves the existing emit.rs codegen at the 9 `Attr::Binding`
+/// consumer sites and matches the spec posture that e.g. `$class={cls}`
+/// IS the binding for the HTML `class` attribute, not a separate macro.
+///
+/// Entries are matched as either an exact bare name (e.g. `if`, `class`)
+/// OR a namespaced prefix (e.g. `on:`, `bind:`, `class:`, `emit:`).
+/// The colon-form here is the *internal-AST* form after parser
+/// normalization at directives.rs (`$on.click` → `on:click`).
+///
+/// Note: bare `class` is NOT reserved — `$class={x}` (scalar) and
+/// `$class={[a, b]}` (array) both route to `Attr::Binding`. The
+/// `__aihu_cls` array-wrapping lives in emit.rs:3608 on the
+/// `Attr::Binding` path (`expr.trim_start().starts_with('[')`).
+/// The namespaced `$class:active={cond}` form IS reserved (via the
+/// `class:` prefix) and routes to `Attr::Macro`.
+const RESERVED_MACRO_NAMES: &[&str] = &[
+    // Bare macro names — exact match.
+    "if", "each", "key", "show", "once", "memo", "html", "raw", "ref",
+];
+
+const RESERVED_MACRO_PREFIXES: &[&str] = &[
+    // Namespaced macros — `name` starts with `<prefix>:`.
+    "on:", "bind:", "class:", "emit:",
+];
+
+/// Returns `true` when `name` (an internal-AST macro name, post colon-normalization)
+/// is a reserved macro and therefore MUST route to `Attr::Macro`.
+fn is_reserved_macro_name(name: &str) -> bool {
+    if RESERVED_MACRO_NAMES.contains(&name) {
+        return true;
+    }
+    RESERVED_MACRO_PREFIXES.iter().any(|p| name.starts_with(p))
+}
+
+pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError> {
     // Macro attributes: $name, $name="value", $name={expr}
     if let Some(macro_part) = raw.strip_prefix('$') {
         return parse_macro_attr(macro_part);
@@ -16,29 +56,38 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
 
     let (name, raw_value) = split_attr(raw);
 
-    // Event binding: @event="handler" (deprecated alias for $on:event)
+    // Event binding: @event="handler" — REMOVED in v1.0 (C305).
+    // Migration: `$on.event=` (dot-form macro). This applies to BOTH
+    // HTML elements and components — `@event=` is never valid v1 surface.
     if let Some(event_name) = name.strip_prefix('@') {
-        eprintln!(
-            "DEPRECATED: use $on:{} instead of @{}",
-            event_name, event_name
-        );
-        let value = strip_quotes(raw_value);
-        return Ok(Attr::Event {
-            name: event_name.to_string(),
-            handler: value.to_string(),
+        return Err(CompileError {
+            message: format!(
+                "C305: `@{}=` event-binding alias is removed in v1.0. \
+                 Use `$on.{}={{fn}}` for event handlers. \
+                 Run: npx aihu migrate <file>",
+                event_name, event_name
+            ),
+            line: 0,
+            col: 0,
+            code: Some("C305".to_string()),
+            ..Default::default()
         });
     }
 
-    // Property binding: :prop="expr" (deprecated alias for $bind:prop)
+    // Property binding: :prop="expr" — REMOVED in v1.0 (C304).
+    // Migration: `$attr={expr}` (one-way) or `$bind.attr=` (two-way).
     if let Some(binding_name) = name.strip_prefix(':') {
-        eprintln!(
-            "DEPRECATED: use $bind:{} instead of :{}",
-            binding_name, binding_name
-        );
-        let value = strip_quotes(raw_value);
-        return Ok(Attr::Binding {
-            name: binding_name.to_string(),
-            expr: value.to_string(),
+        return Err(CompileError {
+            message: format!(
+                "C304: `:{}=` binding alias is removed in v1.0. \
+                 Use `${}={{expr}}` for reactive bindings. \
+                 Run: npx aihu migrate <file>",
+                binding_name, binding_name
+            ),
+            line: 0,
+            col: 0,
+            code: Some("C304".to_string()),
+            ..Default::default()
         });
     }
 
@@ -63,9 +112,31 @@ pub fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
         });
     }
 
-    // Expression binding: attr={expr} — treat `{...}` as a JS expression binding.
-    // This supports e.g. `href={`/posts/${item.slug}`}`, `value={count()}`, etc.
+    // Plain curly form: `attr={expr}`.
+    // - On standard HTML elements (`is_html_element = true`): REMOVED in v1.0
+    //   (C306). Reactive HTML attribute bindings MUST be `$`-prefixed:
+    //   `$attr={expr}`.
+    // - On components (`<UserCard user={u} />`) and structural macro elements
+    //   (`<$focusTrap active={isOpen}>`): plain curly stays valid — it's
+    //   JSX-style prop-passing, NOT reactive HTML attribute binding.
+    //   Per Amendment 04 §11.2: component prop-passing is unaffected.
     if raw_value.starts_with('{') {
+        if is_html_element {
+            return Err(CompileError {
+                message: format!(
+                    "C306: `{}={{expr}}` plain-curly form is not permitted in v1.0; \
+                     reactive HTML attribute bindings must be `$`-prefixed. \
+                     Use `${}={{expr}}` (always prefix). \
+                     Run: npx aihu migrate <file>",
+                    name, name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C306".to_string()),
+                ..Default::default()
+            });
+        }
+        // Component / structural-macro prop-pass: build Attr::Binding as before.
         let inner = extract_balanced_braces(raw_value).ok_or_else(|| CompileError {
             message: format!("unclosed '{{' in attribute value for '{}'", name),
             line: 0,
@@ -198,6 +269,17 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
             code: Some("C301".to_string()),
             ..Default::default()
         })?;
+        // Amendment 04 (v1.0.8): when `$<plain-attr-name>={expr}` is NOT a
+        // reserved macro, route to `Attr::Binding { name, expr }` so the
+        // 9 existing `Attr::Binding` consumer sites in emit.rs codegen fire
+        // unchanged. `$class={[a, b]}`, `$on.click={fn}`, `$bind.value={x}`,
+        // `$if={cond}`, etc. remain `Attr::Macro` per the reserved registry.
+        if !is_reserved_macro_name(&name) {
+            return Ok(Attr::Binding {
+                name,
+                expr: inner.to_string(),
+            });
+        }
         return Ok(Attr::Macro {
             name,
             value: MacroValue::Curly(inner.to_string()),
@@ -393,6 +475,20 @@ mod tests {
     use super::*;
     use crate::types::MacroValue;
 
+    /// Test helper: invoke `parse_attr` in HTML-element context (the
+    /// default for these unit tests, since they exercise both HTML-only
+    /// rejection paths and `$macro` paths which are kind-agnostic).
+    fn parse_attr(raw: &str) -> Result<Attr, CompileError> {
+        super::parse_attr(raw, true)
+    }
+
+    /// Test helper: invoke `parse_attr` in component-element context
+    /// (capitalized tag-name or `<$...>` structural macro). C306 must
+    /// NOT fire on plain curly bindings in this mode.
+    fn parse_attr_component(raw: &str) -> Result<Attr, CompileError> {
+        super::parse_attr(raw, false)
+    }
+
     #[test]
     fn macro_boolean_once() {
         let attr = parse_attr("$once").unwrap();
@@ -522,27 +618,187 @@ mod tests {
     }
 
     #[test]
-    fn deprecated_event_binding() {
-        // @event is still parsed correctly (DEPRECATED warning to stderr)
-        let attr = parse_attr("@click=\"handleClick\"").unwrap();
+    fn rejects_legacy_event_binding_alias_c305() {
+        // v1.0.8 — Amendment 04: `@event=` is removed (C305). Use `$on.event=`.
+        let err = parse_attr("@click=\"handleClick\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C305"));
+        assert!(
+            err.message.contains("$on.click"),
+            "C305 message should suggest `$on.click`, got: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("npx aihu migrate"),
+            "C305 message should reference `npx aihu migrate`, got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn rejects_legacy_colon_binding_alias_c304() {
+        // v1.0.8 — Amendment 04: `:attr=` is removed (C304). Use `$attr={expr}`.
+        let err = parse_attr(":value=\"count\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C304"));
+        assert!(
+            err.message.contains("$value"),
+            "C304 message should suggest `$value`, got: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("npx aihu migrate"),
+            "C304 message should reference `npx aihu migrate`, got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn rejects_plain_curly_html_binding_c306() {
+        // v1.0.8 — Amendment 04: plain `attr={expr}` on HTML attrs is removed
+        // (C306). Use `$attr={expr}` (always-prefix).
+        let err = parse_attr("class={dynamic}").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C306"));
+        assert!(
+            err.message.contains("$class"),
+            "C306 message should suggest `$class`, got: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("npx aihu migrate"),
+            "C306 message should reference `npx aihu migrate`, got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn accepts_plain_curly_on_component_element() {
+        // Per Amendment 04 §11.2: component prop-passing is unaffected.
+        // `<UserCard user={u}>` keeps plain curly form. Same for `<$focusTrap>`.
+        let attr = parse_attr_component("user={u}").unwrap();
         assert_eq!(
             attr,
-            Attr::Event {
-                name: "click".to_string(),
-                handler: "handleClick".to_string()
+            Attr::Binding {
+                name: "user".to_string(),
+                expr: "u".to_string(),
             }
         );
     }
 
     #[test]
-    fn deprecated_colon_binding() {
-        // :prop is still parsed correctly (DEPRECATED warning to stderr)
-        let attr = parse_attr(":value=\"count\"").unwrap();
+    fn accepts_plain_curly_active_on_structural_macro() {
+        // `<$focusTrap active={isOpen}>` — `active` is a prop on the
+        // structural macro element, NOT an HTML attribute. C306 must
+        // not fire.
+        let attr = parse_attr_component("active={isOpen}").unwrap();
         assert_eq!(
             attr,
             Attr::Binding {
-                name: "value".to_string(),
-                expr: "count".to_string()
+                name: "active".to_string(),
+                expr: "isOpen".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_plain_attr_routes_to_binding() {
+        // Amendment 04 — `$<plain-attr>={expr}` (not in reserved-macro registry)
+        // routes to `Attr::Binding { name, expr }`. This preserves the existing
+        // emit.rs codegen at the 9 `Attr::Binding` consumer sites.
+        let attr = parse_attr("$class={dynamic}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "class".to_string(),
+                expr: "dynamic".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_href_routes_to_binding() {
+        let attr = parse_attr("$href={url}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "href".to_string(),
+                expr: "url".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_aria_routes_to_binding() {
+        let attr = parse_attr("$aria-label={label}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "aria-label".to_string(),
+                expr: "label".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_data_attr_routes_to_binding() {
+        let attr = parse_attr("$data-id={id}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "data-id".to_string(),
+                expr: "id".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_class_array_routes_to_binding() {
+        // `$class={[a, b]}` array form also routes to `Attr::Binding`. The
+        // `__aihu_cls` wrapping lives in emit.rs:3608 on the `Attr::Binding`
+        // path (detected via `expr.trim_start().starts_with('[')`).
+        let attr = parse_attr("$class={[a, b]}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "class".to_string(),
+                expr: "[a, b]".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_reserved_if_stays_macro() {
+        // Reserved bare macro names (if/each/key/show/once/memo/html/raw/ref)
+        // remain `Attr::Macro` for curly form.
+        let attr = parse_attr("$if={isVisible}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "if".to_string(),
+                value: MacroValue::Curly("isVisible".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_reserved_on_namespace_stays_macro() {
+        // Namespaced macros (`on:`, `bind:`, `class:`, `emit:`) stay `Attr::Macro`.
+        let attr = parse_attr("$on.click={handler}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "on:click".to_string(),
+                value: MacroValue::Curly("handler".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn dollar_prefix_reserved_bind_namespace_stays_macro() {
+        let attr = parse_attr("$bind.value={count}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "bind:value".to_string(),
+                value: MacroValue::Curly("count".to_string())
             }
         );
     }

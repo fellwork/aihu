@@ -1,5 +1,6 @@
 ---
 source: tests/codegen.rs
+assertion_line: 40
 expression: output.js
 ---
 import { branch, leaf, slot } from '@aihu/arbor'
@@ -13,6 +14,6 @@ defineElement('counter', defineComponent((_ctx) => {
 
   return branch('div', { class: 'counter' }, [
     branch('span', undefined, [leaf([count, setCount] as unknown as Signal<string>)]),
-    branch('button', { onclick: increment }, [leaf('+')])
+    branch('button', { onClick: increment }, [leaf('+')])
   ])
 }))

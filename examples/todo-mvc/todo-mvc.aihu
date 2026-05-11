@@ -96,11 +96,11 @@
       <li
         $each="visible as todo"
         $key="todo.id"
-        class={todo.done ? 'completed' : ''}
+        $class={todo.done ? 'completed' : ''}
       >
         <input
           type="checkbox"
-          checked={todo.done}
+          $checked={todo.done}
           $on.change={() => toggle(todo.id)}
         >
         <label>{todo.text}</label>
@@ -113,9 +113,9 @@
         <strong>{remaining}</strong> item{remaining() === 1 ? '' : 's'} left
       </span>
       <ul class="filters">
-        <li><button $on.click={() => setFilter('all')}       class={filter() === 'all' ? 'selected' : ''}>All</button></li>
-        <li><button $on.click={() => setFilter('active')}    class={filter() === 'active' ? 'selected' : ''}>Active</button></li>
-        <li><button $on.click={() => setFilter('completed')} class={filter() === 'completed' ? 'selected' : ''}>Completed</button></li>
+        <li><button $on.click={() => setFilter('all')}       $class={filter() === 'all' ? 'selected' : ''}>All</button></li>
+        <li><button $on.click={() => setFilter('active')}    $class={filter() === 'active' ? 'selected' : ''}>Active</button></li>
+        <li><button $on.click={() => setFilter('completed')} $class={filter() === 'completed' ? 'selected' : ''}>Completed</button></li>
       </ul>
       <button
         class="clear-completed"

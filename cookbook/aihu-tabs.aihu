@@ -35,8 +35,8 @@
       {#each tabs as tab (tab.id)}
         <button
           role="tab"
-          class={['tab-btn', activeId === tab.id && 'active']}
-          aria-selected={activeId === tab.id}
+          $class={['tab-btn', activeId === tab.id && 'active']}
+          $aria-selected={activeId === tab.id}
           $on.click={() => selectTab(tab.id)}
         >
           {tab.label}

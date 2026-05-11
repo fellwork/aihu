@@ -41,9 +41,9 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th $on.click={() => sort('name')} class={['col-hdr', sortCol === 'name' && 'sorted']}>Name {sortCol === 'name' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
-          <th $on.click={() => sort('role')} class={['col-hdr', sortCol === 'role' && 'sorted']}>Role {sortCol === 'role' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
-          <th $on.click={() => sort('score')} class={['col-hdr', sortCol === 'score' && 'sorted']}>Score {sortCol === 'score' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
+          <th $on.click={() => sort('name')} $class={['col-hdr', sortCol === 'name' && 'sorted']}>Name {sortCol === 'name' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
+          <th $on.click={() => sort('role')} $class={['col-hdr', sortCol === 'role' && 'sorted']}>Role {sortCol === 'role' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
+          <th $on.click={() => sort('score')} $class={['col-hdr', sortCol === 'score' && 'sorted']}>Score {sortCol === 'score' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
         </tr>
       </thead>
       <tbody>

@@ -1,6 +1,5 @@
 ---
 source: tests/template_parse.rs
-assertion_line: 30
 expression: result
 ---
 Ok(
@@ -8,9 +7,11 @@ Ok(
         Element {
             tag: "button",
             attrs: [
-                Event {
-                    name: "click",
-                    handler: "increment",
+                Macro {
+                    name: "on:click",
+                    value: Curly(
+                        "increment",
+                    ),
                 },
             ],
             children: [],

@@ -304,29 +304,31 @@ fn macro_memo_emits_create_memo_boundary() {
 }
 
 #[test]
-fn deprecated_event_binding_emits_correct_js() {
+fn rejects_legacy_event_binding_in_template_c305() {
+    // v1.0.8 — Amendment 04: `@event=` is removed (C305). Use `$on.event=`.
     let src = r#"
 @template {
   <button @click="handleClick"></button>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
-    let unit = compile_full(&parsed).unwrap();
-    let result = emit(&unit, "my-comp");
-    assert!(result.js.contains("handleClick"), "Expected handleClick in: {}", result.js);
+    let err = compile_full(&parsed).expect_err("legacy @event must reject with C305");
+    assert_eq!(err.code.as_deref(), Some("C305"), "expected C305, got: {:?} (message: {})", err.code, err.message);
+    assert!(err.message.contains("npx aihu migrate"), "C305 must reference migrate tool, got: {}", err.message);
 }
 
 #[test]
-fn deprecated_colon_binding_emits_correct_js() {
+fn rejects_legacy_colon_binding_in_template_c304() {
+    // v1.0.8 — Amendment 04: `:attr=` is removed (C304). Use `$attr={expr}`.
     let src = r#"
 @template {
   <div :value="count"></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
-    let unit = compile_full(&parsed).unwrap();
-    let result = emit(&unit, "my-comp");
-    assert!(result.js.contains("count"), "Expected count in: {}", result.js);
+    let err = compile_full(&parsed).expect_err("legacy :attr must reject with C304");
+    assert_eq!(err.code.as_deref(), Some("C304"), "expected C304, got: {:?} (message: {})", err.code, err.message);
+    assert!(err.message.contains("npx aihu migrate"), "C304 must reference migrate tool, got: {}", err.message);
 }
 
 #[test]
@@ -477,16 +479,24 @@ fn r4_ac1_bind_to_non_signal_skips_writeback() {
 #[test]
 fn r2_attr_referencing_state_class_property_wraps_in_thunk() {
     // Plain class-property declaration `events = []` declares state. The
-    // template binding `events={events}` MUST lower to `events: [() => (events)]`
+    // template binding `$events={events}` MUST lower to `events: [() => (events)]`
     // — otherwise arbor's `_applyAttrs` sees the raw `[]` value, treats
     // `Array.isArray` as a Signal tuple, and throws
     // `TypeError: c is not a function` when it invokes `value[0]()`.
+    //
+    // NOTE: `<CalendarGrid>` is a capitalized component name. Per Amendment 04
+    // §11.2, component prop-passing is unaffected by C306 in the parser, BUT
+    // the parser does not yet distinguish element-kind — both lower-cased HTML
+    // and capitalized components go through `parse_attr`. The carve-out lives
+    // in the migrate tool (lowercase-tag-name lookbehind). For this test we use
+    // the canonical `$`-prefix form so it parses cleanly on both HTML and
+    // component elements.
     let src = r#"
 @state {
   events: any[] = []
 }
 @template {
-  <CalendarGrid events={events}></CalendarGrid>
+  <CalendarGrid $events={events}></CalendarGrid>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -546,15 +556,18 @@ const localConst = 'hello'
 
 #[test]
 fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
-    // `class={view === 'week' ? 'active' : ''}` has a ternary expression
+    // `$class={view === 'week' ? 'active' : ''}` has a ternary expression
     // referencing state (`view`). It MUST wrap as a single thunk — the
     // wrap is at the expression boundary, not per-identifier.
+    //
+    // v1.0.8 — Amendment 04: canonical reactive HTML attribute form is
+    // `$attr={expr}`. Plain `class={…}` is now C306.
     let src = r#"
 @state {
   view: 'week' | 'month' = 'week'
 }
 @template {
-  <button class={view === 'week' ? 'active' : ''}>Week</button>
+  <button $class={view === 'week' ? 'active' : ''}>Week</button>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();

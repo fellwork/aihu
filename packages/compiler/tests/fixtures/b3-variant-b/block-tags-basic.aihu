@@ -19,7 +19,7 @@
   {#if view === 'list'}
     <ul class="items">
       {#each items as item, idx (idx)}
-        <li class={['row', idx === selected && 'sel']} $on.click={() => select(idx)}>
+        <li $class={['row', idx === selected && 'sel']} $on.click={() => select(idx)}>
           {item}
         </li>
       {:empty}
