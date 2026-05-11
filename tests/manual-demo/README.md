@@ -2,7 +2,7 @@
 
 This directory is **not a user-facing example**. It's a manual QA fixture
 used internally for Lighthouse / compliance testing of the aihu SSR
-runtime. It exercises the @aihu/server + @aihu/router + @aihu/data
+runtime. It exercises the @aihu/server + @aihu/router + @aihu-plugin/data
 integration end-to-end.
 
 ## What this is for

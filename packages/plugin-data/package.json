@@ -1,6 +1,6 @@
 {
-  "name": "@aihu/data",
-  "version": "0.1.0",
+  "name": "@aihu-plugin/data",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,9 +35,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
-    "directory": "packages/data"
+    "directory": "packages/plugin-data"
   },
-  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/data#readme",
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/plugin-data#readme",
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"

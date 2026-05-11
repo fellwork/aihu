@@ -72,7 +72,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [@aihu/data](../data)
+- [@aihu-plugin/data](../plugin-data)
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 

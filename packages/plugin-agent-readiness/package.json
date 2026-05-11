@@ -1,6 +1,6 @@
 {
-  "name": "@aihu/agent-readiness",
-  "version": "0.1.2",
+  "name": "@aihu-plugin/agent-readiness",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -31,9 +31,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
-    "directory": "packages/agent-readiness"
+    "directory": "packages/plugin-agent-readiness"
   },
-  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/agent-readiness#readme",
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/plugin-agent-readiness#readme",
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"

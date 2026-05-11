@@ -17,7 +17,7 @@ import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
  *     serializer: createResourceSerializer(store),
  *   })
  *
- * NOTE: Client-side rehydration is NOT a @aihu/data concern. The application
+ * NOTE: Client-side rehydration is NOT a @aihu-plugin/data concern. The application
  * entry point reads the dehydrated JSON from <script id="__aihu_state__"> and
  * pre-populates a ResourceStore before providing it via ResourceStoreToken. See
  * spec §6.5 for the client rehydration pattern.

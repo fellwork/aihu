@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url'
  */
 export const SERVER_SIDE = new Set<string>([
   '@aihu/server',
-  '@aihu/agent-readiness',
+  '@aihu-plugin/agent-readiness',
   '@aihu/ai',
   '@aihu/auth',
   '@aihu/mcp',

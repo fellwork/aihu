@@ -170,7 +170,7 @@ export function appVscodeSettings(): string {
 
 /** aihu.config.ts — kept for server/SSR config; optional for client-only apps. */
 export function appAihuConfig(): string {
-  return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
+  return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu-plugin/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
 }
 
 /** @deprecated Use appRolldownConfig instead. Kept for backward compat. */

@@ -1,6 +1,6 @@
-# @aihu/data
+# @aihu-plugin/data
 
-`@aihu/data` is aihu's signal-native, backend-agnostic data fetching primitive. It provides `createResource()` — a reactive async data container that integrates with `@aihu/signals` — plus a shared cache store, SSR dehydration helpers, and a plugin factory for registering the package with the build pipeline.
+`@aihu-plugin/data` is aihu's signal-native, backend-agnostic data fetching primitive. It provides `createResource()` — a reactive async data container that integrates with `@aihu/signals` — plus a shared cache store, SSR dehydration helpers, and a plugin factory for registering the package with the build pipeline.
 
 The package ships as ≤ 800 B gzipped (excluding `@aihu/signals` and `@aihu/context` which are peer dependencies). It is backend-agnostic: the `fetcher` can call any async source — `fetch()`, a database client, or a local mock.
 
@@ -9,7 +9,7 @@ The package ships as ≤ 800 B gzipped (excluding `@aihu/signals` and `@aihu/con
 ### 1. Create a resource with `createResource()` and a signal-based key
 
 ```ts
-import { createResource } from '@aihu/data'
+import { createResource } from '@aihu-plugin/data'
 import { signal } from '@aihu/signals'
 
 const [userId, setUserId] = signal<string | null>(null)
@@ -34,7 +34,7 @@ const userResource = createResource(
 
 ```ts
 // aihu.config.ts
-import { data } from '@aihu/data'
+import { data } from '@aihu-plugin/data'
 import { defineAihuConfig } from '@aihu/server'
 
 export default defineAihuConfig({
@@ -55,7 +55,7 @@ Then use `$resource` in `.aihu` `@state` blocks:
 ### 3. Use a shared `ResourceStore` for cross-component cache sharing
 
 ```ts
-import { createResourceStore, ResourceStoreToken } from '@aihu/data'
+import { createResourceStore, ResourceStoreToken } from '@aihu-plugin/data'
 import { provide } from '@aihu/context'
 
 // At the app root
@@ -72,7 +72,7 @@ const postsResource = createResource(
 ### 4. Dehydrate the resource store for SSR transfer
 
 ```ts
-import { createResourceSerializer } from '@aihu/data'
+import { createResourceSerializer } from '@aihu-plugin/data'
 
 const serialize = createResourceSerializer(store)
 const payload = serialize()  // Record<string, unknown>
@@ -119,19 +119,19 @@ const title = posts.data()?.[0]?.title ?? 'Loading...'
 
 Creating a store per component defeats caching and will cause redundant network requests.
 
-### 4. Do not use `@aihu/data` without registering the plugin when using the `$resource` macro
+### 4. Do not use `@aihu-plugin/data` without registering the plugin when using the `$resource` macro
 
 The `$resource` macro lowering requires the plugin to be registered. Without `data()` in `defineAihuConfig`, the build will fail or the macro will not be processed.
 
 ### 5. Do not import `@aihu/plugin` in browser code — it is build-time only
 
-`@aihu/data` exports the plugin factory (`data()`) which internally imports `@aihu/plugin`. That import is build-time only and is excluded from the browser bundle. Never import `@aihu/plugin` directly in SFC state blocks or client-side code.
+`@aihu-plugin/data` exports the plugin factory (`data()`) which internally imports `@aihu/plugin`. That import is build-time only and is excluded from the browser bundle. Never import `@aihu/plugin` directly in SFC state blocks or client-side code.
 
 ## Canonical example files
 
-- `packages/data/src/index.ts` — public API exports
-- `packages/data/src/resource.ts` — `createResource()` implementation
-- `packages/data/src/store.ts` — `createResourceStore()` and `ResourceStoreToken`
-- `packages/data/src/serializer.ts` — SSR dehydration helper
+- `packages/plugin-data/src/index.ts` — public API exports
+- `packages/plugin-data/src/resource.ts` — `createResource()` implementation
+- `packages/plugin-data/src/store.ts` — `createResourceStore()` and `ResourceStoreToken`
+- `packages/plugin-data/src/serializer.ts` — SSR dehydration helper
 - `examples/hacker-news/src/pages/index.aihu` — route with loader data (SSR pattern)
 - `examples/blog-loader/src/pages/posts/[slug].aihu` — data loading with route params

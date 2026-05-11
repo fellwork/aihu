@@ -2,7 +2,7 @@ import { createContext } from '@aihu/context'
 import type { DataState } from './types.ts'
 
 /**
- * Cache store interface for @aihu/data resources.
+ * Cache store interface for @aihu-plugin/data resources.
  *
  * The public interface is intentionally minimal — it covers cache I/O and
  * iteration. Staleness tracking is an internal createResource concern.

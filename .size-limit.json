@@ -31,8 +31,8 @@
     "gzip": true
   },
   {
-    "name": "@aihu/data",
-    "path": "packages/data/dist/index.js",
+    "name": "@aihu-plugin/data",
+    "path": "packages/plugin-data/dist/index.js",
     "limit": "800 B",
     "gzip": true,
     "ignore": ["@aihu/signals", "@aihu/context"]

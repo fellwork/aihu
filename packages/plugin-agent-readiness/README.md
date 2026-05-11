@@ -1,10 +1,10 @@
-# @aihu/data
+# @aihu-plugin/agent-readiness
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Reactive data loaders and resource primitives for aihu.
+Discovery + readiness manifest emitter so agents can introspect aihu apps.
 
-Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+Part of the **agent surface** layer of Aihu. Every Aihu component exposes its agent surface via the `@agent` block; this package implements one slice of the dispatch + protocol surface that connects `@agent` actions to live runtime signals (per the [Live-Binding RFC](../../docs/superpowers/specs/2026-05-05-spec-live-binding.md)).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 _(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
@@ -16,12 +16,12 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-npm install @aihu/data
+npm install @aihu-plugin/agent-readiness
 # or
-bun add @aihu/data
+bun add @aihu-plugin/agent-readiness
 ```
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,13 +32,12 @@ bun add @aihu/data
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
-| **Tier** | B — Meta-framework — reactive resources + loader protocol |
-| **Bundle size** | 756 B (gz) — limit 800 B |
+| **Version** | `1.0.0` |
+| **Tier** | C — Agent surface — discovery manifests (llms.txt, MCP Server Card, robots) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +50,7 @@ bun add @aihu/data
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -62,10 +61,10 @@ bun add @aihu/data
 
 **Dependencies:**
 
-- `@aihu/signals` — `workspace:*`
-- `@aihu/context` — `workspace:*`
+- `@aihu/server` — `workspace:*`
+- `@aihu/agent` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -74,11 +73,11 @@ bun add @aihu/data
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [docs/site/data-fetching.md](../../docs/site/data-fetching.md)
-- [@aihu/context](../context)
+- [Agent-Readiness spec](../../.team/agent-readiness/spec-agent-readiness.md)
+- [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -89,6 +88,6 @@ bun add @aihu/data
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/data@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/agent-readiness@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

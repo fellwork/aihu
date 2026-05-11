@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MarkdownResolver } from '../src/content-negotiation.ts'
 import { createContentNegotiationHandler } from '../src/content-negotiation.ts'
 
-describe('@aihu/agent-readiness content-negotiation', () => {
+describe('@aihu-plugin/agent-readiness content-negotiation', () => {
   it('AC-3: returns text/markdown when Accept includes text/markdown', async () => {
     const resolver: MarkdownResolver = {
       async resolve(path) {

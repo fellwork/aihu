@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { agentMetadataToSkills, generateMcpServerCard } from '../src/mcp-server-card.ts'
 
-describe('@aihu/agent-readiness mcp-server-card', () => {
+describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
   it('AC-2: generateMcpServerCard produces valid MCP Server Card', () => {
     const card = generateMcpServerCard({
       name: 'Test MCP',

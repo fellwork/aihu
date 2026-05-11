@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { createResourceSerializer, createResourceStore } from '@aihu/data'
+import { createResourceSerializer, createResourceStore } from '@aihu-plugin/data'
 import { describe, expect, it } from 'vitest'
 
 // ---------------------------------------------------------------------------

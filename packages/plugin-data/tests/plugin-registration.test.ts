@@ -1,8 +1,8 @@
 // @vitest-environment node
 
-import { data } from '@aihu/data'
 import { resetValidationState } from '@aihu/plugin'
 import { defineAihuConfig } from '@aihu/server'
+import { data } from '@aihu-plugin/data'
 import { beforeEach, expect, test } from 'vitest'
 
 beforeEach(() => {

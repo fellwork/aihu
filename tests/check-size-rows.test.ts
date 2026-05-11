@@ -17,14 +17,14 @@ describe('check-size-rows policy lint', () => {
     expect(classify('@aihu/signals')).toBe('browser-eligible')
     expect(classify('@aihu/arbor')).toBe('browser-eligible')
     expect(classify('@aihu/runtime')).toBe('browser-eligible')
-    expect(classify('@aihu/data')).toBe('browser-eligible')
+    expect(classify('@aihu-plugin/data')).toBe('browser-eligible')
     expect(classify('@aihu/router')).toBe('browser-eligible')
     expect(classify('@aihu/context')).toBe('browser-eligible')
     expect(classify('@aihu/agent')).toBe('browser-eligible')
     expect(classify('@aihu/agent-service')).toBe('browser-eligible')
 
     expect(classify('@aihu/server')).toBe('server-side')
-    expect(classify('@aihu/agent-readiness')).toBe('server-side')
+    expect(classify('@aihu-plugin/agent-readiness')).toBe('server-side')
 
     expect(classify('@aihu/plugin')).toBe('build-dev-only')
     expect(classify('@aihu/compiler')).toBe('build-dev-only')
@@ -51,7 +51,7 @@ describe('check-size-rows policy lint', () => {
         classification: 'browser-eligible' as const,
       },
       {
-        name: '@aihu/data',
+        name: '@aihu-plugin/data',
         dir: '/p/data',
         hasIndexTs: true,
         classification: 'browser-eligible' as const,
@@ -87,7 +87,7 @@ describe('check-size-rows policy lint', () => {
         classification: 'server-side' as const,
       },
       {
-        name: '@aihu/agent-readiness',
+        name: '@aihu-plugin/agent-readiness',
         dir: '/p/agent-readiness',
         hasIndexTs: true,
         classification: 'server-side' as const,
@@ -109,7 +109,7 @@ describe('check-size-rows policy lint', () => {
       { name: '@aihu/signals', path: 'x', limit: '1970 B' },
       { name: '@aihu/arbor', path: 'x', limit: '2200 B' },
       { name: '@aihu/runtime', path: 'x', limit: '1170 B' },
-      { name: '@aihu/data', path: 'x', limit: '750 B' },
+      { name: '@aihu-plugin/data', path: 'x', limit: '750 B' },
       { name: '@aihu/router', path: 'x', limit: '1536 B' },
       { name: '@aihu/context', path: 'x', limit: '300 B' },
       { name: '@aihu/agent', path: 'x', limit: '200 B' },

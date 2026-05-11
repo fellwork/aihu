@@ -65,7 +65,7 @@
   },
   "overrides": [
     {
-      "includes": ["bench/arbor/src/**", "packages/agent-readiness/src/vite-plugin.ts"],
+      "includes": ["bench/arbor/src/**", "packages/plugin-agent-readiness/src/vite-plugin.ts"],
       "linter": {
         "rules": {
           "suspicious": {

@@ -1,4 +1,4 @@
-import { createAgentReadinessRoutes } from '../../packages/agent-readiness/src/index.ts'
+import { createAgentReadinessRoutes } from '../../packages/plugin-agent-readiness/src/index.ts'
 import {
   createRequestRouter,
   defineRoute,

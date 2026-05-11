@@ -11,7 +11,7 @@ aihu is a complete meta-framework for the agentic web. You write `.aihu` Single-
 - **Vanilla custom elements output** — no framework lock-in at the consumer boundary, no global context, no hydration step.
 - **Dep-free thesis** — zero non-`@aihu/*` runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.
 - **Targeted updates** — aihu uses `nodeValue` rather than `textContent` for reactive text nodes, which is 122× faster on targeted updates.
-- **MCP + agent-first** — `@aihu/agent` and `@aihu/agent-readiness` are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.
+- **MCP + agent-first** — `@aihu/agent` and `@aihu-plugin/agent-readiness` are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.
 
 ## Why "meta-framework"?
 
@@ -29,8 +29,8 @@ Aihu lets you build whole apps, not just components. `@aihu/signals` (reactive p
 | `@aihu/agent-service` | Server-side agent runtime (live signal bindings) | 1.06 kB gz |
 | `@aihu/agent-a2a` | A2A (Agent-to-Agent) protocol bindings | 721 B gz |
 | `@aihu/agent-acp` | ACP (Agent Control Protocol) bindings | 591 B gz |
-| `@aihu/agent-readiness` | llms.txt, MCP Server Card, robots.txt emitter | build-time |
-| `@aihu/data` | Reactive resource and loader protocol | 774 B gz |
+| `@aihu-plugin/agent-readiness` | llms.txt, MCP Server Card, robots.txt emitter | build-time |
+| `@aihu-plugin/data` | Reactive resource and loader protocol | 774 B gz |
 | `@aihu/router` | File-based router with Vite plugin | 2.02 kB gz |
 | `@aihu/server` | Request router, SSR, streaming, loaders, cookies | server-only |
 | `@aihu/app` | Top-level integration — wires runtime, router, adapters | 764 B gz |

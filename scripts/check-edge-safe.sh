@@ -4,7 +4,7 @@ set -euo pipefail
 FORBIDDEN=("process\." "require(" "fs\." "path\.join" "http\.createServer")
 FAIL=0
 
-for f in packages/server/dist/index.js packages/agent-readiness/dist/index.js; do
+for f in packages/server/dist/index.js packages/plugin-agent-readiness/dist/index.js; do
   if [ ! -f "$f" ]; then
     echo "SKIP: $f not built yet"
     continue

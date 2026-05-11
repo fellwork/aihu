@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { migrateFile, migrateInlineAttrs } from '../src/commands/migrate.ts'
+import { migrateFile, migrateInlineAttrs, migratePackageNames } from '../src/commands/migrate.ts'
 
 describe('migrateFile — HTML block conversions (v1.0.7)', () => {
   it('converts <script setup> to @state', () => {
@@ -377,5 +377,108 @@ const x = 1
     const once = migrateFile(input)
     const twice = migrateFile(once)
     expect(twice).toBe(once)
+  })
+})
+
+describe('migratePackageNames — v1.0.9 / Naming Scheme A', () => {
+  it('rewrites package.json dependencies (double-quoted JSON keys)', () => {
+    const input = `{
+  "dependencies": {
+    "@aihu/data": "workspace:*",
+    "@aihu/agent-readiness": "^0.1.1"
+  }
+}`
+    const result = migratePackageNames(input)
+    expect(result).toBe(`{
+  "dependencies": {
+    "@aihu-plugin/data": "workspace:*",
+    "@aihu-plugin/agent-readiness": "^0.1.1"
+  }
+}`)
+  })
+
+  it('rewrites static import statements (single-quoted)', () => {
+    const input = `import { createResource } from '@aihu/data'
+import { viteAgentReadinessIntegration } from '@aihu/agent-readiness'`
+    const result = migratePackageNames(input)
+    expect(result).toBe(`import { createResource } from '@aihu-plugin/data'
+import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'`)
+  })
+
+  it('rewrites dynamic import() calls and preserves quote style', () => {
+    const input = `const mod = await import('@aihu/data')
+const mod2 = await import("@aihu/agent-readiness")`
+    const result = migratePackageNames(input)
+    expect(result).toBe(`const mod = await import('@aihu-plugin/data')
+const mod2 = await import("@aihu-plugin/agent-readiness")`)
+  })
+
+  it('rewrites JSDoc URL references and Markdown links', () => {
+    const input = `/**
+ * See https://github.com/fellwork/aihu/tree/main/packages/data#readme
+ * Migration: install \`@aihu/data\` instead of the legacy name.
+ */`
+    const result = migratePackageNames(input)
+    expect(result).toContain('install `@aihu-plugin/data` instead')
+    expect(result).not.toContain('install `@aihu/data` instead')
+  })
+
+  it('does NOT rewrite the already-renamed @aihu-plugin/data literal (idempotent)', () => {
+    const input = `import { createResource } from '@aihu-plugin/data'`
+    const result = migratePackageNames(input)
+    expect(result).toBe(input)
+  })
+
+  it('does NOT match neighbor package names with shared prefix (false-positive guard)', () => {
+    // `@aihu/data-store` is hypothetical, but the regex must require a
+    // non-`-`/non-`\w` boundary so future sibling names are safe.
+    const input = `import { x } from '@aihu/data-store'
+import { y } from '@aihu/agent-readiness-extra'`
+    const result = migratePackageNames(input)
+    expect(result).toBe(input)
+  })
+
+  it('preserves quote style across multi-line statements', () => {
+    const input = `import {
+  createResource,
+  createResourceStore,
+} from "@aihu/data"
+import {
+  viteAgentReadinessIntegration,
+} from "@aihu/agent-readiness"`
+    const result = migratePackageNames(input)
+    expect(result).toBe(`import {
+  createResource,
+  createResourceStore,
+} from "@aihu-plugin/data"
+import {
+  viteAgentReadinessIntegration,
+} from "@aihu-plugin/agent-readiness"`)
+  })
+
+  it('preserves subpath imports like "@aihu/data/internal" → "@aihu-plugin/data/internal"', () => {
+    // The boundary is `(?![-\w])`, which allows `/` (a non-word, non-dash
+    // char), so subpaths still match correctly.
+    const input = `import { internal } from '@aihu/data/internal'`
+    const result = migratePackageNames(input)
+    expect(result).toBe(`import { internal } from '@aihu-plugin/data/internal'`)
+  })
+})
+
+describe('migrateFile — full integration with v1.0.9 (block + inline + package-name)', () => {
+  it('rewrites package names in a state block import alongside block + inline conversions', () => {
+    const input = `<script setup>
+import { createResource } from '@aihu/data'
+const cls = 'btn'
+</script>
+<template>
+  <button :class="cls">click</button>
+</template>`
+    const result = migrateFile(input)
+    expect(result).toContain("import { createResource } from '@aihu-plugin/data'")
+    expect(result).toContain('@state {')
+    expect(result).toContain('@template {')
+    expect(result).toContain('$class={cls}')
+    expect(result).not.toContain('@aihu/data')
   })
 })

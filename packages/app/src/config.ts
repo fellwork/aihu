@@ -40,7 +40,7 @@ export type VitePassthrough = Omit<UserConfig, 'plugins'>
 export type AihuPlugin = Plugin
 
 /** Type-only import — not bundled when agentReadiness is absent. */
-export type AgentReadinessConfig = import('@aihu/agent-readiness').AgentReadinessConfig
+export type AgentReadinessConfig = import('@aihu-plugin/agent-readiness').AgentReadinessConfig
 
 /** Router-related app config (arch-5 M1, RFC-A5-012). */
 export interface RouterConfig {

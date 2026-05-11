@@ -60,7 +60,7 @@ export default defineAihuConfig({
   // vite.config.ts
   const viteConfig = `import { defineConfig } from 'vite'
 import { viteRouterIntegration } from '@aihu/router'
-import { viteAgentReadinessIntegration } from '@aihu/agent-readiness'
+import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 
 export default defineConfig({
   plugins: [

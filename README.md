@@ -81,13 +81,13 @@ Aihu is to Lit what Next.js is to React — a complete app framework that uses t
 - `@agent` block on every SFC declares exposed state + actions; compiler emits a matching MCP tool schema alongside the Web Component
 - A2A + ACP protocol implementations in-tree (`@aihu/agent-a2a`, `@aihu/agent-acp`)
 - `@aihu/agent-service` is the server-side execution surface; live-binding (RFC, APPROVED) wires `@agent` actions to the actual runtime signal graph
-- `@aihu/agent-readiness` emits `llms.txt`, MCP Server Card (SEP-1649), and `robots.txt` from any Aihu app — no manual config
+- `@aihu-plugin/agent-readiness` emits `llms.txt`, MCP Server Card (SEP-1649), and `robots.txt` from any Aihu app — no manual config
 
 ### Meta-framework capabilities
 - File-based routing with nested routes, layouts, route plugins (`@aihu/router`)
 - Server-side rendering, streaming, loaders, cookies, full hydration, islands (`@aihu/server`)
 - Async-context request primitives (`@aihu/context`)
-- Reactive resource + loader protocol (`@aihu/data`)
+- Reactive resource + loader protocol (`@aihu-plugin/data`)
 - SFC primitives shipping in v1.1 M1: `<$guard>`, `$user`, `$resource`, `<$liveRegion>`, `<$focusTrap>`, `<$router>`, `<$link>`, `<$outlet>`, `$beforeNavigate`, `$afterNavigate` (arch-5 §6)
 - Cloud adapters: `@aihu/adapter-cloudflare`, `@aihu/adapter-vercel`
 
@@ -187,7 +187,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
 | `@aihu/runtime` | 3.20 kB | 3400 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu/data` | 756 B | 800 B | pass |
+| `@aihu-plugin/data` | 756 B | 800 B | pass |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
 | `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 586 B | 600 B | pass |
@@ -209,7 +209,7 @@ Per-package gates enforced by `bun run size`:
 See [`packages/`](./packages) for all packages on disk. By tier:
 
 - **Browser runtime (sized, ships to client):** `@aihu/signals`, `@aihu/arbor`, `@aihu/runtime`, `@aihu/context`, `@aihu/agent`.
-- **Server / edge / data (sized):** `@aihu/router`, `@aihu/data`, `@aihu/agent-service`, `@aihu/agent-acp`, `@aihu/agent-a2a`. Plus `@aihu/server` (SSR + back-compat router alias), `@aihu/agent-readiness` (`llms.txt`, MCP Server Card, robots, Vite plugin), `@aihu/app` (top-level integration).
+- **Server / edge / data (sized):** `@aihu/router`, `@aihu-plugin/data`, `@aihu/agent-service`, `@aihu/agent-acp`, `@aihu/agent-a2a`. Plus `@aihu/server` (SSR + back-compat router alias), `@aihu-plugin/agent-readiness` (`llms.txt`, MCP Server Card, robots, Vite plugin), `@aihu/app` (top-level integration).
 - **Cloud adapters (in-tree):** `@aihu/adapter-cloudflare`, `@aihu/adapter-vercel`.
 - **Build-time only (not shipped):** `@aihu/compiler` (Rust SFC compiler), `@aihu/cli` (`aihu app`, `aihu dev`, `aihu build`), `@aihu/plugin` (plugin contract types).
 - **Editor:** `vscode-aihu` (TextMate grammar + snippets; Volar LSP in M2).
@@ -221,27 +221,29 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.6` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.6` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `1.0.0` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
+| [`@aihu-plugin/data`](./packages/plugin-data) | `1.0.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.7` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.7` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.0` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.0` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
-| [`@aihu/agent-readiness`](./packages/agent-readiness) | `0.1.1` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
+| [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `1.0.0` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.2` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.1.6` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `0.1.7` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.3.6` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.2.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
-| [`@aihu/data`](./packages/data) | `0.1.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu/data`](./packages/_moved/data) | `1.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/router`](./packages/router) | `0.1.2` | File-based router for the aihu meta-framework. |
+| [`@aihu/router`](./packages/router) | `0.1.3` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `0.1.4` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
-| [`@aihu/server`](./packages/server) | `0.1.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
+| [`@aihu/server`](./packages/server) | `0.1.2` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `1.0.0` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
@@ -336,7 +338,7 @@ Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-ro
 
 ```ts
 import { createRequestRouter, defineRoute, json } from '@aihu/server'
-import { createAgentReadinessRoutes } from '@aihu/agent-readiness'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 
 const ar = createAgentReadinessRoutes({
   name: 'My App',
@@ -367,10 +369,10 @@ The agent-protocol badges are backed by real test gates in `bun run test`.
 
 | Gate | Tests | Status |
 |---|---|---|
-| `llms.txt` format (llmstxt.org spec) | 9 tests in `packages/agent-readiness/tests/compliance/llms-txt-spec.test.ts` | passing |
-| MCP Server Card schema (SEP-1649) | 14 tests in `packages/agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | passing |
-| `robots.txt` RFC 9309 | 7 tests in `packages/agent-readiness/tests/compliance/robots-rfc9309.test.ts` | passing |
-| isitagentready.com endpoint checklist | 7 tests in `packages/agent-readiness/tests/compliance/isitagentready.test.ts` | passing |
+| `llms.txt` format (llmstxt.org spec) | 9 tests in `packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts` | passing |
+| MCP Server Card schema (SEP-1649) | 14 tests in `packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | passing |
+| `robots.txt` RFC 9309 | 7 tests in `packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts` | passing |
+| isitagentready.com endpoint checklist | 7 tests in `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts` | passing |
 | SSR output structural checks | 12 tests in `packages/server/tests/compliance/ssr-output.test.ts` | passing |
 | Lighthouse quality gate (≥ 90 all categories) | `bun run test:quality` via `scripts/lighthouse.ts` | passing |
 

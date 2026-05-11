@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generateLlmsFullTxt, generateLlmsTxt } from '../src/index.ts'
 import { agentMetadataToLlmsTxtLink } from '../src/llms-txt.ts'
 
-describe('@aihu/agent-readiness llms txt', () => {
+describe('@aihu-plugin/agent-readiness llms txt', () => {
   it('AC-1: formats llms.txt with name, summary, sections, and optional links', () => {
     expect(
       generateLlmsTxt({

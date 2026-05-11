@@ -58,12 +58,12 @@ Use `<$suspense>` in templates to handle the pending state declaratively:
 </$suspense>
 ```
 
-## `createResource` from `@aihu/data`
+## `createResource` from `@aihu-plugin/data`
 
 Use `createResource` directly in TypeScript outside of SFCs:
 
 ```typescript
-import { createResource } from '@aihu/data'
+import { createResource } from '@aihu-plugin/data'
 import { signal } from '@aihu/signals'
 
 const userId = signal(1)
@@ -80,7 +80,7 @@ The resource is automatically re-fetched when any signals read inside the key fu
 For SSR, use a resource store to cache and dehydrate resources:
 
 ```typescript
-import { createResource, createResourceStore, createResourceSerializer, data } from '@aihu/data'
+import { createResource, createResourceStore, createResourceSerializer, data } from '@aihu-plugin/data'
 
 // Register the data plugin in aihu.config.ts:
 import { defineAihuConfig } from '@aihu/server'

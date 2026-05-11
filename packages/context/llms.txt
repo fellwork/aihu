@@ -2,7 +2,7 @@
 
 `@aihu/context` is a zero-dependency, DOM-free context system for the aihu framework. It provides React-style context tokens that work isomorphically: client-side via a module-level active map and server-side via `runWithContext()` which scopes each request to its own `Map` to prevent context leakage between concurrent requests.
 
-The package ships as ≤ 300 B gzipped. It is a foundational primitive used by `@aihu/router` (to pass `RouteContext`) and `@aihu/data` (to inject the resource store).
+The package ships as ≤ 300 B gzipped. It is a foundational primitive used by `@aihu/router` (to pass `RouteContext`) and `@aihu-plugin/data` (to inject the resource store).
 
 ## Right idioms
 
@@ -129,4 +129,4 @@ import { inject, provide, createContext } from '@aihu/context'
 
 - `packages/context/src/index.ts` — full public API (createContext, provide, inject, runWithContext)
 - `packages/router/src/runtime.ts` — RouteContext token and usage pattern
-- `packages/data/src/store.ts` — ResourceStoreToken usage with inject()
+- `packages/plugin-data/src/store.ts` — ResourceStoreToken usage with inject()

@@ -6,6 +6,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
+    "packages/_moved/*",
     "packages/templates/*",
     "bench/*",
     "bench/js-framework-benchmark/*/*",
