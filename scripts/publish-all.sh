@@ -49,6 +49,10 @@ PKGS=(
   "agent-service"
   "agent-a2a"
   "agent-acp"
+  "auth"              # depends on agent-service + signals
+  "scraping"          # leaf — middleware for agent services
+  "mcp"               # leaf — MCP server, only external sdk dep
+  "ai"                # leaf — peer deps only on external sdks
   "context"
   "plugin-data"
   "plugin"
