@@ -31,13 +31,13 @@
   },
   {
     "name": "@aihu/agent-a2a",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/agent-a2a",
     "isPlatform": false
   },
   {
     "name": "@aihu/agent-acp",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/agent-acp",
     "isPlatform": false
   },
@@ -49,7 +49,7 @@
   },
   {
     "name": "@aihu/agent-service",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "dir": "packages/agent-service",
     "isPlatform": false
   },
@@ -73,7 +73,7 @@
   },
   {
     "name": "@aihu/auth",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/auth",
     "isPlatform": false
   },
