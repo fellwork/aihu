@@ -34,7 +34,7 @@ bunx @aihu/cli app my-app
 bun add -g @aihu/cli
 ```
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -45,12 +45,12 @@ bun add -g @aihu/cli
 
 | | |
 |---|---|
-| **Version** | `0.3.6` |
+| **Version** | `0.4.0` |
 | **Tier** | D — Toolchain — `aihu` / `create-aihu` CLI |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -63,7 +63,7 @@ bun add -g @aihu/cli
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -76,7 +76,7 @@ bun add -g @aihu/cli
 
 - `@aihu/mcp` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -89,7 +89,7 @@ bun add -g @aihu/cli
 - [@aihu/compiler](../compiler)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -100,6 +100,6 @@ bun add -g @aihu/cli
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/cli@0.3.6`.</i></sub>
+<sub><i>Auto-generated against `@aihu/cli@0.4.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

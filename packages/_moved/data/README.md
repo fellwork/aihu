@@ -57,7 +57,7 @@ npm install @aihu/data
 bun add @aihu/data
 ```
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -68,12 +68,12 @@ bun add @aihu/data
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -86,7 +86,7 @@ bun add @aihu/data
 |---|---|---|
 | `.` | `./index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -97,9 +97,9 @@ bun add @aihu/data
 
 **Dependencies:**
 
-- `@aihu-plugin/data` — `1.0.0`
+- `@aihu-plugin/data` — `2.0.0`
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -111,7 +111,7 @@ bun add @aihu/data
 - [Aihu framework root](../../../README.md)
 - [v1.1 roadmap](../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -122,6 +122,6 @@ bun add @aihu/data
 
 MIT — see [LICENSE](../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/data@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/data@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

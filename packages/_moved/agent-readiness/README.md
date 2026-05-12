@@ -57,7 +57,7 @@ npm install @aihu/agent-readiness
 bun add @aihu/agent-readiness
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -68,12 +68,12 @@ bun add @aihu/agent-readiness
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -86,7 +86,7 @@ bun add @aihu/agent-readiness
 |---|---|---|
 | `.` | `./index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -97,9 +97,9 @@ bun add @aihu/agent-readiness
 
 **Dependencies:**
 
-- `@aihu-plugin/agent-readiness` — `1.0.0`
+- `@aihu-plugin/agent-readiness` — `2.0.0`
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -111,7 +111,7 @@ bun add @aihu/agent-readiness
 - [Aihu framework root](../../../README.md)
 - [v1.1 roadmap](../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -122,6 +122,6 @@ bun add @aihu/agent-readiness
 
 MIT — see [LICENSE](../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-readiness@1.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-readiness@2.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

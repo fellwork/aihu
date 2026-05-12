@@ -1,13 +1,13 @@
 [
   {
     "name": "@aihu-plugin/agent-readiness",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "dir": "packages/plugin-agent-readiness",
     "isPlatform": false
   },
   {
     "name": "@aihu-plugin/data",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "dir": "packages/plugin-data",
     "isPlatform": false
   },
@@ -43,7 +43,7 @@
   },
   {
     "name": "@aihu/agent-readiness",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "dir": "packages/_moved/agent-readiness",
     "isPlatform": false
   },
@@ -79,7 +79,7 @@
   },
   {
     "name": "@aihu/cli",
-    "version": "0.3.6",
+    "version": "0.4.0",
     "dir": "packages/cli",
     "isPlatform": false
   },
@@ -97,7 +97,7 @@
   },
   {
     "name": "@aihu/data",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "dir": "packages/_moved/data",
     "isPlatform": false
   },
@@ -169,7 +169,7 @@
   },
   {
     "name": "@aihu/templates-cf-team",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "dir": "packages/templates/cf-team",
     "isPlatform": false
   },
