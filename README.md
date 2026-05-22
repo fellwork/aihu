@@ -235,7 +235,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.1` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.4.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.2.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.3.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |

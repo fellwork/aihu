@@ -35,7 +35,22 @@ jobs:
       - name: Open / update Release PR
         uses: changesets/action@v1
         with:
-          version: bun changeset version
+          # Compound version step:
+          #   1. changeset version  — bump package.json + write CHANGELOGs
+          #   2. bun install        — refresh bun.lock for the bumped versions
+          #                            (avoids CI's --frozen-lockfile mismatch on
+          #                             the release tag's downstream workflow)
+          #   3. sync-readme.ts     — regenerate autogen sections of root README,
+          #                            per-package READMEs, and the package
+          #                            inventory cache. Without this, every
+          #                            Release-PR ships drift that downstream
+          #                            CI's sync-readme --check would flag.
+          # changesets/action commits whatever is in the working tree after
+          # the version step.
+          version: |
+            bun changeset version
+            bun install
+            bun scripts/sync-readme.ts
           # No `publish` script here — actual publishing happens on tag push
           # via release.yml, gated on the binary builds completing first.
           commit: 'chore(release): version packages'
