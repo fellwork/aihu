@@ -5,7 +5,12 @@
 //! of utility classes (see tokens.rs); Plan 2 wires the AST scanner; Plan 3
 //! adds variants and progressive features.
 
+pub mod ast;
+pub mod scanner;
 pub mod tokens;
+
+pub use ast::{parse_ast, AstError, SfcAst, SfcAttr, SfcNode, SfcStyleScope};
+pub use scanner::{scan, scan_ast, ScanResult};
 
 /// Compile a list of utility class names into CSS rules.
 /// Each known class becomes `.class-name { <body> }`. Unknown classes are skipped.
@@ -29,4 +34,14 @@ pub fn compile_classes(classes: &[String]) -> String {
         }
     }
     output
+}
+
+/// Compile a parsed `.aihu` SFC AST into CSS by scanning its template for
+/// utility classes and emitting one rule per known utility.
+///
+/// This is the Plan 2 flat-mode entry; [`compile_sfc_scoped`] (Task 4) wraps
+/// the output in shadow-DOM scope. `compile_classes` stays for back-compat.
+pub fn compile_sfc(ast: &SfcAst) -> String {
+    let classes = scan_ast(ast);
+    compile_classes(&classes.into_iter().collect::<Vec<_>>())
 }
