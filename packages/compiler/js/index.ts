@@ -395,6 +395,92 @@ export function transform(
   }
 }
 
+// ─── v1.0.10a — compiler AST-export hook ─────────────────────────────────────
+//
+// Thin TS wrapper over the `aihu-compile --ast-json` flag. Returns the parsed
+// `.aihu` SFC AST in a stable, serializable shape consumed by the CSS engine's
+// AST scanner (`css-2-ast-scanner`). Mirrors the typed contract in
+// `docs/superpowers/specs/compiler-ast-export-hook.md` §4.
+
+/** Top-level AST export — one per .aihu SFC. */
+export interface SfcAst {
+  /** Resolved custom-element tag name (meta.name → route.name → file stem). */
+  tag: string
+  /** AST schema version — bumped on any breaking shape change (semver-tied). */
+  astVersion: 1
+  /** The @style block, if the SFC declared one. */
+  style: SfcStyleBlock | null
+  /** Parsed template tree. null when the SFC has no @template block. */
+  template: SfcNode[] | null
+  /** SFC-level metadata. */
+  meta: SfcMeta
+}
+
+export interface SfcStyleBlock {
+  /** Verbatim CSS body of the @style block (braces stripped, $global token removed). */
+  content: string
+  /** 'scoped' (default) or 'global' (@style { $global ... }). */
+  scope: 'scoped' | 'global'
+}
+
+export interface SfcMeta {
+  /** From @meta { name } / @route { name } / file stem — never null after resolution. */
+  name: string
+}
+
+/** Discriminated union mirroring Rust `TemplateNode`. */
+export type SfcNode =
+  | { kind: 'element'; tag: string; attrs: SfcAttr[]; children: SfcNode[] }
+  | { kind: 'macroElement'; name: string; attrs: SfcAttr[]; children: SfcNode[] }
+  | { kind: 'text'; value: string }
+  | { kind: 'interpolation'; expr: string }
+  | { kind: 'ifBlock'; branches: Array<{ cond: string; body: SfcNode[] }> }
+  | {
+      kind: 'eachBlock'
+      list: string
+      item: string
+      idx: string | null
+      key: string | null
+      body: SfcNode[]
+      emptyBody: SfcNode[] | null
+    }
+  | { kind: 'htmlBlock'; expr: string }
+
+/** Discriminated union mirroring Rust `Attr` — the three class-forms key on `kind`. */
+export type SfcAttr =
+  | { kind: 'static'; name: string; value: string } // Form A
+  | { kind: 'binding'; name: string; expr: string } // Form B
+  | { kind: 'macro'; name: string; value: SfcMacroValue } // Form C (and on:/bind:/emit:/if/each/…)
+
+export type SfcMacroValue =
+  | { form: 'quoted'; value: string }
+  | { form: 'curly'; expr: string }
+  | { form: 'boolean' }
+
+/**
+ * Parse a .aihu source string to its structured AST.
+ *
+ * Thin wrapper over the Rust binary (mirrors `transform()`): spawns
+ * `aihu-compile --stdin --tag <stem> --ast-json`, feeds `source` on stdin, and
+ * `JSON.parse`s stdout. `id` is optional and only used to derive the tag stem
+ * and the `--path` arg (for `@route` C500 checks), identical to `transform()`.
+ *
+ * Throws on parse failure — the Rust binary exits non-zero and `execFileSync`
+ * surfaces the diagnostic (same error path as `transform()`).
+ */
+export function compileToAst(source: string, id?: string): SfcAst {
+  const stem = id ? basename(id, '.aihu') : 'Component'
+  const args = ['--stdin', '--tag', stem, '--ast-json']
+  if (id) {
+    args.push('--path', id)
+  }
+  const json = execFileSync(binPath, args, {
+    input: source,
+    encoding: 'utf8',
+  })
+  return JSON.parse(json) as SfcAst
+}
+
 /**
  * Inject `_setMount(mount)` + `_setSignal(signal)` auto-wiring into a compiled
  * `.aihu` module. Adds the necessary symbols to existing imports and inserts
