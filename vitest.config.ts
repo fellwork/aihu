@@ -36,6 +36,7 @@ export default defineConfig({
     alias: {
       '@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
       '@aihu/context/ssr': new URL('./packages/context/src/ssr.ts', import.meta.url).pathname,
+      '@aihu/compiler': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       '@aihu/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
