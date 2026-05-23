@@ -17,11 +17,12 @@ tasks:
     options:
       mergeArgs: "replace"
 
-  typecheck:
-    command: "tsc --noEmit"
-    inputs:
-      - "src/**/*.ts"
-      - "tsconfig.json"
+  # typecheck is inherited from .moon/tasks/tasks.yml ("bunx tsc --noEmit" with
+  # deps: ["^:build"]). Do NOT override the command here: without
+  # options.mergeArgs: replace, Moon merges the inherited args into
+  # `tsc --noEmit --noEmit tsc` and the stray `tsc` is read as a file (TS6231).
+  # Inheriting also keeps the `^:build` dep css-engine needs once it depends on
+  # @aihu/compiler (Plan 2), so typecheck never races the upstream build.
 
   test:
     command: "vitest run"
