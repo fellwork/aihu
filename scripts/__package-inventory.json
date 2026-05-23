@@ -96,6 +96,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/css-engine",
+    "version": "0.0.0",
+    "dir": "packages/css-engine",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/data",
     "version": "2.0.0",
     "dir": "packages/_moved/data",

@@ -1,0 +1,8 @@
+---
+source: tests/snapshot.rs
+expression: output
+---
+.bg-primary { background-color: var(--color-primary); }
+.text-primary-foreground { color: var(--color-primary-foreground); }
+.rounded-md { border-radius: 0.375rem; }
+.p-4 { padding: 1rem; }

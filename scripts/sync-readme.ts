@@ -622,6 +622,17 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/compiler', href: '../compiler' },
     ],
   },
+  '@aihu/css-engine': {
+    tier: 'D',
+    label: 'Compiler — CSS engine (Tailwind v4 hard fork, WC-native scoped output)',
+    seeAlso: [
+      {
+        label: 'CSS Engine + Primitives design spec',
+        href: '../../docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md',
+      },
+      { label: '@aihu/compiler', href: '../compiler' },
+    ],
+  },
   // Tier E — held private
   '@aihu/plugin': {
     tier: 'E',

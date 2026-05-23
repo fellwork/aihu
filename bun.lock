@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -229,14 +229,14 @@
     },
     "packages/_moved/agent-readiness": {
       "name": "@aihu/agent-readiness",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
         "@aihu-plugin/agent-readiness": "1.0.0",
       },
     },
     "packages/_moved/data": {
       "name": "@aihu/data",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
         "@aihu-plugin/data": "1.0.0",
       },
@@ -263,21 +263,21 @@
     },
     "packages/agent-a2a": {
       "name": "@aihu/agent-a2a",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/agent-service": "workspace:*",
       },
     },
     "packages/agent-acp": {
       "name": "@aihu/agent-acp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/agent-service": "workspace:*",
       },
     },
     "packages/agent-service": {
       "name": "@aihu/agent-service",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@aihu/agent": "workspace:*",
       },
@@ -320,7 +320,7 @@
     },
     "packages/auth": {
       "name": "@aihu/auth",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/agent-service": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -328,7 +328,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.3.6",
+      "version": "0.4.0",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -339,7 +339,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -353,6 +353,10 @@
     "packages/context": {
       "name": "@aihu/context",
       "version": "0.1.0",
+    },
+    "packages/css-engine": {
+      "name": "@aihu/css-engine",
+      "version": "0.0.0",
     },
     "packages/mcp": {
       "name": "@aihu/mcp",
@@ -370,7 +374,7 @@
     },
     "packages/plugin-agent-readiness": {
       "name": "@aihu-plugin/agent-readiness",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -378,7 +382,7 @@
     },
     "packages/plugin-data": {
       "name": "@aihu-plugin/data",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -429,7 +433,7 @@
     },
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "peerDependencies": {
         "@aihu/cli": "^0.3.0",
       },
@@ -487,6 +491,8 @@
     "@aihu/context": ["@aihu/context@workspace:packages/context"],
 
     "@aihu/cookbook": ["@aihu/cookbook@workspace:cookbook"],
+
+    "@aihu/css-engine": ["@aihu/css-engine@workspace:packages/css-engine"],
 
     "@aihu/data": ["@aihu/data@workspace:packages/_moved/data"],
 

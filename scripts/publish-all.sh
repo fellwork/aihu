@@ -63,6 +63,7 @@ PKGS=(
   "app"
   "cli"
   "compiler"
+  "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "_moved/data"
   "_moved/agent-readiness"
 )

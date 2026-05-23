@@ -39,7 +39,38 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
+      # css-engine e2e suites (tests/e2e.test.ts spawns aihu-css-compile;
+      # tests/sfc-e2e.test.ts spawns aihu-compile --ast-json via compileToAst)
+      # depend on locally-built Rust binaries that are gitignored. On a clean
+      # CI checkout the postinstall download fetches the published release
+      # aihu-compile, which predates the --ast-json hook and makes those e2e
+      # tests fail. Build BOTH binaries from source at the workspace root and
+      # stage them where the TS resolvers look, before `bun run test`.
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-check-${{ hashFiles('Cargo.lock') }}
+      - name: Build Rust binaries (aihu-compile + aihu-css-compile)
+        # Workspace build emits both binaries into the workspace-root
+        # target/release/ — aihu-css-compile is resolved there directly by
+        # packages/css-engine/src/index.ts resolveBinary().
+        run: cargo build --release
+      - name: Stage compiler binary
+        # compileToAst (packages/compiler/js/index.ts) resolves aihu-compile
+        # from packages/compiler/bin/ (the postinstall location).
+        run: |
+          mkdir -p packages/compiler/bin
+          cp target/release/aihu-compile packages/compiler/bin/aihu-compile
+          chmod 0755 packages/compiler/bin/aihu-compile
       - run: bun install --frozen-lockfile
+        env:
+          # Do NOT clobber the freshly-built aihu-compile with the stale
+          # release download — it predates the --ast-json hook.
+          SCRIBE_SKIP_POSTINSTALL: "1"
       - run: bun run check:deps
       - run: bunx biome ci .
       # README autogen sync — fails CI if README.md or any per-package README
