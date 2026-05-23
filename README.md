@@ -11,8 +11,8 @@ A complete meta-framework for the agentic web. You write `.aihu` Single-File Com
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
 [![@aihu/signals on npm](https://img.shields.io/npm/v/@aihu/signals.svg?label=@aihu/signals)](https://www.npmjs.com/package/@aihu/signals)
-[![tests](https://img.shields.io/badge/tests-607%20TS%20%7C%20222%20Rust%20passing-brightgreen)](#)
-[![packages](https://img.shields.io/badge/packages-19-blue)](#packages)
+[![tests](https://img.shields.io/badge/tests-1281%20TS%20%7C%20492%20Rust%20passing-brightgreen)](#)
+[![packages](https://img.shields.io/badge/packages-20-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
@@ -128,7 +128,7 @@ Each cutover ships a mechanical migration via `npx aihu migrate <file>`. See
 
 Before the `v1.0.0` tag, three arcs are absorbed into the v1.0 line:
 
-- **CSS engine** (`@aihu/css-engine`) — a build-time, compile-time styling engine (hard-fork of Tailwind v4, scoped shadow-DOM output, custom-property cascade for dark mode). It adds **zero** to the browser bundle because it runs at build time, not as CSS-in-JS. The bootstrap plan is landed at [`docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md`](./docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md); the design spec is [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md).
+- **CSS engine** (`@aihu/css-engine`) — a build-time, compile-time styling engine (hard-fork of Tailwind v4, scoped shadow-DOM output, custom-property cascade for dark mode). It adds **zero** to the browser bundle because it runs at build time, not as CSS-in-JS. **Foundation landed:** the `aihu-css-core` crate, the compiler AST-export hook (`compileToAst` / `--ast-json`, `v1.0.10a`), and the AST-consuming scanner (full Tailwind v4 utility table, scoped shadow-DOM emitter, WC-native + standard variants, `@theme` registry, incremental cache) are implemented; the `@aihu/ui` registry, primitives, and Storybook remain. Plans: [bootstrap](./docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md), [AST scanner](./docs/superpowers/plans/2026-05-22-css-engine-plan-2-ast-scanner.md), [style packs](./docs/superpowers/plans/2026-05-22-css-engine-plan-3-style-packs.md); specs: [design](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md), [AST-export hook](./docs/superpowers/specs/compiler-ast-export-hook.md).
 - **UI primitives** — a registry of accessible SFC primitives built on top of the CSS engine.
 - **kindly-note** — markdown + code-highlight integration absorbed as an `@aihu-plugin/*` adapter (keeps its own `@kindly-note/*` scope).
 
