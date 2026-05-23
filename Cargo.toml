@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+    "packages/compiler",
+    "packages/css-engine/crates/aihu-css-core",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/fellwork/aihu"

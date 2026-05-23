@@ -1,0 +1,22 @@
+[package]
+name = "aihu-css-core"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "aihu CSS engine core — utility compilation and CSS emission."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "aihu-css-compile"
+path = "src/bin/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+insta = { version = "1", features = ["yaml"] }

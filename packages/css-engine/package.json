@@ -1,0 +1,41 @@
+{
+  "name": "@aihu/css-engine",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "crates",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "build:rust": "cargo build --release -p aihu-css-core",
+    "test": "vitest run",
+    "test:rust": "cargo test -p aihu-css-core",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build:rust && bun run build"
+  },
+  "description": "aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/css-engine"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/css-engine#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,4 @@
+bg-primary
+text-primary-foreground
+rounded-md
+p-4

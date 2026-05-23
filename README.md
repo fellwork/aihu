@@ -182,17 +182,17 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 242 B | 300 B | pass |
-| `@aihu/signals` | 1.71 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.61 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.20 kB | 3400 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 756 B | 800 B | pass |
-| `@aihu/router` | 1.95 kB | 2400 B | pass |
-| `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
-| `@aihu/agent-acp` | 586 B | 600 B | pass |
-| `@aihu/agent-a2a` | 718 B | 750 B | pass |
-| `@aihu/app` | 789 B | 800 B | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2800 B | _no dist_ |
+| `@aihu/runtime` | — | 3400 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 1100 B | _no dist_ |
+| `@aihu/agent-acp` | — | 600 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
+| `@aihu/app` | — | 800 B | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -237,6 +237,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/cli`](./packages/cli) | `0.4.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.3.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
+| [`@aihu/css-engine`](./packages/css-engine) | `0.0.0` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |

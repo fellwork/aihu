@@ -48,6 +48,7 @@ export const BUILD_DEV_ONLY = new Set<string>([
   '@aihu/cli',
   '@aihu/adapter-cloudflare',
   '@aihu/adapter-vercel',
+  '@aihu/css-engine',
 ])
 
 type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only'

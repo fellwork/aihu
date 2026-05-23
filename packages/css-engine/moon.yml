@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+language: typescript
+layer: library
+
+# NOTE: The Rust crate (aihu-css-core) is NOT built automatically by any Moon task.
+# Run `cargo build --release -p aihu-css-core` manually before running integration
+# tests or using the engine from the CLI. Mirrors the @aihu/compiler convention.
+
+tasks:
+  build:
+    command: "rolldown -c"
+    inputs:
+      - "src/**/*.ts"
+      - "rolldown.config.ts"
+    outputs:
+      - "dist"
+    options:
+      mergeArgs: "replace"
+
+  typecheck:
+    command: "tsc --noEmit"
+    inputs:
+      - "src/**/*.ts"
+      - "tsconfig.json"
+
+  test:
+    command: "vitest run"
+    inputs:
+      - "src/**/*.ts"
+      - "tests/**/*"
+    deps:
+      - "~:build"

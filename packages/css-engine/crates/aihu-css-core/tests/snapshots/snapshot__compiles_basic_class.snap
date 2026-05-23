@@ -1,0 +1,5 @@
+---
+source: tests/snapshot.rs
+expression: output
+---
+.bg-primary { background-color: var(--color-primary); }
