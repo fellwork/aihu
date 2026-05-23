@@ -9,6 +9,7 @@ dependencies = [
  "insta",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
 ]
 
