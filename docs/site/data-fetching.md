@@ -168,7 +168,7 @@ export const searchPosts = createServerCall<[query: string], Post[]>('posts/sear
 }
 
 @template {
-  <input $bind:value="searchTerm" />
+  <input $bind.value="searchTerm" />
 
   <$suspense fallback="Spinner">
     <ul>

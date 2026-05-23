@@ -6,7 +6,7 @@
 
 A complete meta-framework for the agentic web. You write `.aihu` Single-File Components — block-structured (`@state`, `@template`, `@style`, `@agent`, `@route`) — and a Rust compiler emits standards-compliant Web Components AND machine-readable agent manifests. The runtime is sub-2 kB. Every component shipped by every Aihu app is discoverable by AI agents and callable as a tool — in service of whatever a human is building.
 
-> **Status:** v1 shipped 2026-05-03 (17 plans complete). v1.1 in progress — release pipeline, examples portfolio, SFC primitive roadmap landed; npm publish at `0.1.x` rolling out. See [`docs/roadmap/SUMMARY.md`](./docs/roadmap/SUMMARY.md) for the full plan.
+> **Status:** v1 grammar cutover in progress — **Path B**. v1.0.1–v1.0.9 have shipped (HTML-tag rejection, Amendment 04 `$attr={expr}` canonical, Naming Scheme A `@aihu-plugin/*` renames); the `v1.0.0` git tag is intentionally held until the CSS engine, UI primitives, and kindly-note are absorbed. See [Path B v1.0 cutover](#path-b--v10-cutover) below and [`docs/roadmap/SUMMARY.md`](./docs/roadmap/SUMMARY.md) for the full plan.
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
@@ -106,21 +106,35 @@ Aihu is to Lit what Next.js is to React — a complete app framework that uses t
 
 ---
 
-## v1.1 progress
+## Path B — v1.0 cutover
 
-After v1 cutover (2026-05-03), v1.1 development is in flight. Three PRs already landed; two more are in-flight builders.
+The v1 grammar cutover is shipping incrementally as `v1.0.x` releases. Nine
+patch lines have landed; the `v1.0.0` git tag is **intentionally held** until the
+CSS engine, UI primitives, and kindly-note are absorbed — this is **Path B**.
+v1.0.0 is a release-narrative tag event, not a synchronous bump-everything-to-`1.0.0`
+(per-package size-limit rows are the contract, so packages version independently).
 
-| Track | PR | What | Status |
-|---|---|---|---|
-| Release pipeline | [#61](https://github.com/fellwork/aihu/pull/61) | aarch64-linux build target + WASM bundle for browser playground + SHA256 sidecars + verified install | merged |
-| Examples polish | [#62](https://github.com/fellwork/aihu/pull/62) | 6 examples polished (EX-01..05 + EX-08) with `@agent` blocks, dark-mode tokens, mobile-responsive CSS, smoke tests, parallel dev launcher | merged |
-| SFC primitives roadmap | [#63](https://github.com/fellwork/aihu/pull/63) | [arch-5](./docs/roadmap/arch-5-sfc-primitives.md) — 27 new primitives across design, styles, data, auth, i18n, a11y, routing; 25 RFC stubs; new `@aihu/i18n` plugin proposed | merged |
-| npm publish pipeline | (in flight) | Changesets-based versioning + `publish-packages` job + tier A/B/C/D at `0.1.0` early-access | building |
-| Release-workflow hardening | (in flight) | commitlint via Husky + branch protection + `RELEASING.md` runbook | building |
+| Release | What shipped |
+|---|---|
+| v1.0.1–v1.0.6 | v1 grammar groundwork, conformance fixtures, workspace `.aihu` corpus rewrite |
+| v1.0.7 | HTML-tag SFC framing rejected (error **C107**); `<script setup>`/`<template>`/`<style>`/`<agent>` → `@block {}` |
+| v1.0.8 | Amendment 04 — `$attr={expr}` is canonical; legacy `:attr=` (**C304**), `@event=` (**C305**), and plain-curly `attr={}` (**C306**) rejected as hard errors |
+| v1.0.9 | Naming Scheme A — Plugin Contract packages renamed: `@aihu/data` → `@aihu-plugin/data`, `@aihu/agent-readiness` → `@aihu-plugin/agent-readiness` (core packages keep their names) |
+
+Each cutover ships a mechanical migration via `npx aihu migrate <file>`. See
+[`docs/cli.md`](./docs/cli.md) for the full error-code → migration-target table.
+
+### Held until v1.0.0 (Path B absorption)
+
+Before the `v1.0.0` tag, three arcs are absorbed into the v1.0 line:
+
+- **CSS engine** (`@aihu/css-engine`) — a build-time, compile-time styling engine (hard-fork of Tailwind v4, scoped shadow-DOM output, custom-property cascade for dark mode). It adds **zero** to the browser bundle because it runs at build time, not as CSS-in-JS. The bootstrap plan is landed at [`docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md`](./docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md); the design spec is [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md).
+- **UI primitives** — a registry of accessible SFC primitives built on top of the CSS engine.
+- **kindly-note** — markdown + code-highlight integration absorbed as an `@aihu-plugin/*` adapter (keeps its own `@kindly-note/*` scope).
 
 ### Held pending RFC
 - **Live-binding** (RFC #56) — reactive component-instance registry connecting `@agent` actions to live signals. APPROVED in design; security review of §9 in progress per Directive 3.
-- **`<playground-embed>` custom element** — interactive `.aihu` playground on the homepage. Gates on the WASM bundle published in `releases/latest` (i.e. on the first `v1.1.0` tag push).
+- **`<playground-embed>` custom element** — interactive `.aihu` playground on the homepage. Gates on the WASM bundle published in `releases/latest`.
 
 ---
 
@@ -128,9 +142,9 @@ After v1 cutover (2026-05-03), v1.1 development is in flight. Three PRs already 
 
 This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
 
-All 17 v1 plans shipped 2026-05-03. Packages are at `1.0.0` as of the v1 cutover (Plan 7.1).
+The v1 grammar cutover is shipping as `v1.0.x` releases (v1.0.1–v1.0.9 landed). Packages version independently at `0.1.x`/`2.0.0` early-access; the `v1.0.0` git tag is held under Path B until the CSS engine, UI primitives, and kindly-note are absorbed.
 
-> **Dep-free thesis (v1 contract).** Aihu is dep-free at runtime — every package's `dependencies` list is empty (Learning #49). This is a v1 contract.
+> **Dep-free thesis (v1 contract).** Aihu is dep-free at runtime — every browser-eligible package's `dependencies` list is empty (Learning #49). This is a v1 contract.
 
 ---
 
@@ -204,7 +218,7 @@ Per-package gates enforced by `bun run size`:
 
 ## Layout
 
-> **Publish status:** Tier A/B/C/D packages publishing at `0.1.x` early-access via the [v1.1 publish pipeline](#v11-progress). Tier E (held) stays private until live-binding RATIFIES.
+> **Publish status:** Tier A/B/C/D packages publishing at `0.1.x` early-access via the [Path B v1.0 cutover](#path-b--v10-cutover) line. Tier E (held) stays private until live-binding RATIFIES.
 
 See [`packages/`](./packages) for all packages on disk. By tier:
 
@@ -412,6 +426,7 @@ Run all compliance checks: `bun run test && bun run test:quality`
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md) — Template Syntax v2 — Corpus Samples (Variant B) _(Variant B per Director r2 reconciliation)_
 - [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md) — Template Syntax v2 — `@template` redesign _(PROPOSED — not RATIFIED until user approves)_
 - [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md) — aihu CSS Engine + Primitives + UI — Design _(Draft)_
+- [`docs/superpowers/specs/compiler-ast-export-hook.md`](./docs/superpowers/specs/compiler-ast-export-hook.md) — Compiler AST-Export Hook — Co-Design Note _(preparatory design)_
 - [`docs/superpowers/specs/live-binding-impl.md`](./docs/superpowers/specs/live-binding-impl.md) — Spec: $live binding — Implementation Design (v0.3.0) _(DRAFT — for Builder dispatch)_
 - [`docs/superpowers/specs/lsp-language-server.md`](./docs/superpowers/specs/lsp-language-server.md) — Spec: vscode-aihu LSP Language Server
 - [`docs/superpowers/specs/mcp-server.md`](./docs/superpowers/specs/mcp-server.md) — Spec: @aihu/mcp — aihu MCP Server

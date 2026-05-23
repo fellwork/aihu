@@ -13,7 +13,7 @@
 - [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax and reactive macros
 - [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
 - [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
-- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterPlugin
+- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterIntegration
 - [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders
 - [Authoring Plugins](https://aihu.dev/#authoring-plugins): definePlugin contract and plugin ecosystem
 - [SSR & Hydration](https://aihu.dev/#ssr-hydration): Server rendering and client hydration
@@ -21,7 +21,7 @@
 
 ## API Reference
 
-- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu/agent-readiness
+- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu-plugin/agent-readiness
 
 ## Agent & MCP
 
@@ -38,11 +38,11 @@
 - [npm: @aihu/server](https://www.npmjs.com/package/@aihu/server): SSR runtime — createRequestRouter, renderToStream, defineLoader
 - [npm: @aihu/agent](https://www.npmjs.com/package/@aihu/agent): Agent primitives — defineAgent, AgentRegistry (sub-200 B)
 - [npm: @aihu/agent-service](https://www.npmjs.com/package/@aihu/agent-service): Server-side agent runtime for MCP tool endpoints
-- [npm: @aihu/agent-readiness](https://www.npmjs.com/package/@aihu/agent-readiness): Discovery manifest emitter — llms.txt, MCP Server Card, robots.txt
+- [npm: @aihu-plugin/agent-readiness](https://www.npmjs.com/package/@aihu-plugin/agent-readiness): Discovery manifest emitter — llms.txt, MCP Server Card, robots.txt
 - [npm: @aihu/agent-a2a](https://www.npmjs.com/package/@aihu/agent-a2a): A2A (Agent-to-Agent) protocol bindings
 - [npm: @aihu/agent-acp](https://www.npmjs.com/package/@aihu/agent-acp): ACP (Agent Control Protocol) bindings
 - [npm: @aihu/app](https://www.npmjs.com/package/@aihu/app): Top-level integration — wires runtime, router, and adapters
-- [npm: @aihu/data](https://www.npmjs.com/package/@aihu/data): Reactive data loaders and resource primitives
+- [npm: @aihu-plugin/data](https://www.npmjs.com/package/@aihu-plugin/data): Reactive data loaders and resource primitives
 - [npm: @aihu/context](https://www.npmjs.com/package/@aihu/context): Async-context-friendly request and SSR context primitives
 - [npm: @aihu/auth](https://www.npmjs.com/package/@aihu/auth): JWT scope checks, ScopeSignal, server middleware
 - [npm: @aihu/cli](https://www.npmjs.com/package/@aihu/cli): Aihu CLI — scaffolding, dev, build commands (aihu app, aihu dev, aihu build)

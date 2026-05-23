@@ -7,19 +7,27 @@ Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.
 Part of the **compiler + toolchain** layer of Aihu. Build-time only — does not ship to the client. The compiler reads `.aihu` SFC source (per the [Block Structure spec](../../docs/superpowers/specs/2026-05-02-spec-block-structure.md)) and emits standards-compliant Web Components.
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-# or
-bun add @aihu/cli
-```
+The `aihu` CLI is the entry point to an Aihu project. It scaffolds new apps,
+pages, components, and plugins, then runs the dev and build cycle — all from a
+single binary with zero external npm dependencies (Node/Bun builtins only).
 
-# Scaffold a new aihu app
-bun create aihu my-app
-# or
-npm create aihu my-app
+```bash
+# Scaffold a new app
+bunx @aihu/cli app my-app
+cd my-app
 
 # Inside the project
-aihu dev      # start dev server
-aihu build    # build for production
+aihu page about         # add a page
+aihu component Button   # add a component
+aihu dev                # start the dev server
+aihu build              # build for production
 ```
+
+The CLI also ships `aihu migrate`, the mechanical codemod that rewrites legacy
+v0.1.x `.aihu` source to the v1.0 canonical grammar (HTML-tag framing →
+`@block {}`, Vue-shape and plain-curly attributes → `$`-prefixed bindings, and
+the `@aihu/data` / `@aihu/agent-readiness` → `@aihu-plugin/*` renames). See
+[docs/cli.md](../../docs/cli.md) for the full command reference.
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install

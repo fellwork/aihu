@@ -108,23 +108,68 @@ my-forms/
 
 ### `aihu migrate [files...]`
 
-Convert HTML-tag SFCs (v0.1.x syntax) to `@blockname {}` syntax.
+Mechanically rewrite legacy v0.1.x SFC syntax to the v1.0 canonical forms. The
+command runs three passes in order — block framing (v1.0.7), inline attribute
+bindings (v1.0.8 / Amendment 04), and package-name renames (v1.0.9 / Naming
+Scheme A) — and is idempotent (running it twice produces the same output as
+running it once).
 
 ```bash
 aihu migrate src/components/Counter.aihu
 aihu migrate --dry-run src/**/*.aihu
 ```
 
-Conversion table:
-
-| HTML-tag syntax       | @blockname syntax  |
-|-----------------------|--------------------|
-| `<script setup>`      | `@state {`         |
-| `<template>`          | `@template {`      |
-| `<style>`             | `@style {`         |
-| `<agent>`             | `@agent {`         |
-
 Use `--dry-run` to preview changes without writing files.
+
+#### Pass 1 — block framing (v1.0.7)
+
+Convert HTML-tag SFC framing to `@blockname {}` syntax.
+
+| v0.1.x HTML-tag syntax | v1.0 `@blockname` syntax |
+|------------------------|--------------------------|
+| `<script setup>`       | `@state {`               |
+| `<template>`           | `@template {`            |
+| `<style>`              | `@style {`               |
+| `<agent>`              | `@agent {`               |
+
+#### Pass 2 — inline attribute bindings (v1.0.8 / Amendment 04)
+
+Rewrite the legacy Vue-shape and plain-curly attribute bindings to the
+always-`$`-prefixed canonical form. Component prop-passing on capitalized
+component tags (`<UserCard user={u} />`) and XML namespace prefixes (`xmlns:`,
+`xlink:`) are preserved untouched.
+
+| Legacy form        | v1.0 canonical form                       |
+|--------------------|-------------------------------------------|
+| `:attr="expr"`     | `$attr={expr}` (or `$bind.attr=` two-way) |
+| `@event="fn"`      | `$on.event="fn"` (dot-form per B3c)       |
+| `attr={expr}`      | `$attr={expr}`                            |
+
+#### Pass 3 — package-name renames (v1.0.9 / Naming Scheme A)
+
+The two Plugin Contract packages moved out of the framework-core `@aihu/*`
+scope into the `@aihu-plugin/*` scope. The migrate tool rewrites `package.json`
+dependency keys, static `import`/`export` statements, dynamic `import()` calls,
+and JSDoc/Markdown URL references. Core packages (`@aihu/signals`,
+`@aihu/arbor`, `@aihu/runtime`, `@aihu/router`, etc.) are NOT renamed.
+
+| Legacy import           | v1.0.9 import                  |
+|-------------------------|--------------------------------|
+| `@aihu/data`            | `@aihu-plugin/data`            |
+| `@aihu/agent-readiness` | `@aihu-plugin/agent-readiness` |
+
+#### Error codes
+
+The v1.0 cutover rejects each legacy form as a hard parse error (no
+deprecation-with-warning period). When the compiler reports one of these codes,
+run `npx aihu migrate <file>` to obtain the mechanical rewrite.
+
+| Code | Rejected form                                                              | Removed in | Canonical migration target                              |
+|------|----------------------------------------------------------------------------|------------|---------------------------------------------------------|
+| C107 | `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag SFC framing | v1.0.7     | `@state { … }` / `@template { … }` / `@style { … }` / `@agent { … }` |
+| C304 | `:attr="expr"` Vue-shape one-way binding alias                              | v1.0.8     | `$attr={expr}` (or `$bind.attr=` for two-way)           |
+| C305 | `@event="fn"` Vue-shape event alias                                         | v1.0.8     | `$on.event="fn"` (dot-form)                             |
+| C306 | `attr={expr}` plain-curly HTML attribute binding (no `$`)                   | v1.0.8     | `$attr={expr}`                                          |
 
 ## Dev → build → preview cycle
 

@@ -1596,19 +1596,22 @@ $effect: {
 </ul>
 <h2>@template block</h2>
 <p>The <code>@template</code> block defines the DOM output using aihu&#39;s template DSL.</p>
+<blockquote>
+<p><strong>Amendment 04 (v1.0.8) — <code>$</code>-prefixed reactive bindings.</strong> Every reactive HTML attribute binding is <code>$</code>-prefixed: <code>$class={…}</code>, <code>$href={…}</code>, <code>$on.click=…</code>, <code>$bind.value=…</code>. The legacy colon-form event/bind aliases (<code>$on</code> + colon + event, error <strong>C305</strong>), the Vue-shape <code>:attr=</code> alias (<strong>C304</strong>), and plain-curly attribute bindings (<code>class={…}</code> without <code>$</code>, <strong>C306</strong>) are hard parse errors in v1.0. Component prop-passing (<code>&lt;UserCard user={u} /&gt;</code>) keeps the plain-curly form and is unaffected. Run <code>npx aihu migrate &lt;file&gt;</code> to mechanically rewrite pre-v1.0.8 sources.</p>
+</blockquote>
 <h3>Text interpolation</h3>
 <ul>
 <li><code>{expr}</code> — reactive text node. Uses <code>nodeValue</code> for targeted updates (122x faster than <code>textContent</code> on targeted nodes).</li>
 </ul>
 <h3>Event handlers</h3>
 <ul>
-<li><code>$on:click=&quot;handlerName&quot;</code> — attach an event listener (quoted identifier reference).</li>
-<li><code>$on:click={() =&gt; expr}</code> — attach an inline handler (curly expression).</li>
+<li><code>$on.click=&quot;handlerName&quot;</code> — attach an event listener (quoted identifier reference).</li>
+<li><code>$on.click={() =&gt; expr}</code> — attach an inline handler (curly expression).</li>
 </ul>
-<p>Colon separates the directive from the event name: <code>$on:&lt;event&gt;</code>.</p>
+<p>A dot separates the directive from the event name: <code>$on.&lt;event&gt;</code>.</p>
 <h3>Two-way binding</h3>
 <ul>
-<li><code>$bind:value=&quot;signalName&quot;</code> — two-way bind a writable signal to a form element. The value after the colon is the attribute name: <code>$bind:value</code>, <code>$bind:checked</code>, etc.</li>
+<li><code>$bind.value=&quot;signalName&quot;</code> — two-way bind a writable signal to a form element. The name after the dot is the attribute: <code>$bind.value</code>, <code>$bind.checked</code>, etc.</li>
 </ul>
 <p>Signal name must be a quoted identifier reference (not curly form).</p>
 <h3>Conditional rendering</h3>
@@ -1637,7 +1640,7 @@ $effect: {
 </ul>
 <h3>Class bindings</h3>
 <ul>
-<li><code>class={cond ? &#39;active&#39; : &#39;&#39;}</code> — standard curly expression for dynamic classes.</li>
+<li><code>$class={cond ? &#39;active&#39; : &#39;&#39;}</code> — <code>$</code>-prefixed curly expression for dynamic classes. Plain <code>class={…}</code> (no <code>$</code>) is a hard parse error (C306) in v1.0.</li>
 </ul>
 <h3>Special elements</h3>
 <p><strong><code>&lt;$slot&gt;</code></strong> — inserts slotted children provided by the parent:</p>
@@ -1686,9 +1689,9 @@ $effect: {
 </code></pre>
 <h3>Attribute value forms</h3>
 <p>Every attribute value must be in one of two forms — bare unquoted values are forbidden:</p>
-<pre><code>✗ &lt;button $on:click=save&gt;            ← parse error
-✓ &lt;button $on:click=&quot;save&quot;&gt;          ← quoted identifier reference
-✓ &lt;button $on:click={() =&gt; save()}&gt;  ← curly expression
+<pre><code>✗ &lt;button $on.click=save&gt;            ← parse error
+✓ &lt;button $on.click=&quot;save&quot;&gt;          ← quoted identifier reference
+✓ &lt;button $on.click={() =&gt; save()}&gt;  ← curly expression
 </code></pre>
 <p>Some attributes are boolean-only (present-or-absent): <code>$once</code>, <code>$raw</code>, <code>disabled</code>, <code>required</code>, etc.</p>
 <h2>@style block</h2>
@@ -2239,7 +2242,7 @@ export const searchPosts = createServerCall&lt;[query: string], Post[]&gt;(&#39;
 }
 
 @template {
-  &lt;input $bind:value=&quot;searchTerm&quot; /&gt;
+  &lt;input $bind.value=&quot;searchTerm&quot; /&gt;
 
   &lt;$suspense fallback=&quot;Spinner&quot;&gt;
     &lt;ul&gt;
@@ -2499,7 +2502,7 @@ node dist/server/entry.js
 }
 
 @template {
-  &lt;div&gt;Hello {{ name }}&lt;/div&gt;
+  &lt;div&gt;Hello {name}&lt;/div&gt;
 }
 
 @route {
@@ -2557,12 +2560,15 @@ node dist/server/entry.js
 <h3>The <code>@template</code> block</h3>
 <p><code>@template</code> defines the component&#39;s DOM structure using aihu&#39;s template DSL:</p>
 <ul>
-<li><code>{{ expr }}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
-<li><code>$attr.foo=&quot;val&quot;</code> — binds an attribute reactively.</li>
+<li><code>{expr}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
+<li><code>$href={expr}</code> — binds an HTML attribute reactively (<code>$</code>-prefixed curly; one per attribute).</li>
 <li><code>$on.click=&quot;handler&quot;</code> — attaches an event listener.</li>
 <li><code>$show</code> — toggles visibility based on a boolean signal.</li>
 <li><code>$each</code> — renders a list of items.</li>
 </ul>
+<blockquote>
+<p><strong>Amendment 04 (v1.0.8).</strong> Reactive HTML attribute bindings must be <code>$</code>-prefixed (<code>$class={…}</code>, <code>$href={…}</code>). Plain-curly attributes (<code>class={…}</code>, error <strong>C306</strong>), the colon-form event/bind aliases (<strong>C305</strong>), and the Vue-shape <code>:attr=</code> alias (<strong>C304</strong>) are hard parse errors in v1.0. HTML-tag SFC framing (<code>&lt;template&gt;</code>, <code>&lt;script setup&gt;</code>) is rejected as <strong>C107</strong>. Run <code>npx aihu migrate &lt;file&gt;</code> to upgrade older sources.</p>
+</blockquote>
 <h3>The <code>@agent</code> block</h3>
 <p><code>@agent</code> declares the component&#39;s cross-cutting agent metadata. In v2, per-property <code>describe</code> and <code>expose</code> keys live on the <code>@state</code> entries directly. The <code>@agent</code> block holds only scope and rate-limit constraints:</p>
 <pre><code>@agent {

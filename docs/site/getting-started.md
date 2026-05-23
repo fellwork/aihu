@@ -12,7 +12,7 @@ After scaffolding (see [Installation](installation.md)), open `src/pages/index.a
 }
 
 @template {
-  <div>Hello {{ name }}</div>
+  <div>Hello {name}</div>
 }
 
 @route {
@@ -90,11 +90,13 @@ Named effects (with optional dependency pinning) use the collection form:
 
 `@template` defines the component's DOM structure using aihu's template DSL:
 
-- `{{ expr }}` — interpolates a reactive expression. Updates use `nodeValue` for 122× faster targeted writes.
-- `$attr.foo="val"` — binds an attribute reactively.
+- `{expr}` — interpolates a reactive expression. Updates use `nodeValue` for 122× faster targeted writes.
+- `$href={expr}` — binds an HTML attribute reactively (`$`-prefixed curly; one per attribute).
 - `$on.click="handler"` — attaches an event listener.
 - `$show` — toggles visibility based on a boolean signal.
 - `$each` — renders a list of items.
+
+> **Amendment 04 (v1.0.8).** Reactive HTML attribute bindings must be `$`-prefixed (`$class={…}`, `$href={…}`). Plain-curly attributes (`class={…}`, error **C306**), the colon-form event/bind aliases (**C305**), and the Vue-shape `:attr=` alias (**C304**) are hard parse errors in v1.0. HTML-tag SFC framing (`<template>`, `<script setup>`) is rejected as **C107**. Run `npx aihu migrate <file>` to upgrade older sources.
 
 ### The `@agent` block
 
