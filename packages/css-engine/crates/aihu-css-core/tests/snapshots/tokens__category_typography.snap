@@ -1,0 +1,11 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"text-lg\", \"text-center\", \"font-bold\", \"italic\", \"underline\",\n\"uppercase\", \"truncate\",])"
+---
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-center { text-align: center; }
+.font-bold { font-weight: 700; }
+.italic { font-style: italic; }
+.underline { text-decoration-line: underline; }
+.uppercase { text-transform: uppercase; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
