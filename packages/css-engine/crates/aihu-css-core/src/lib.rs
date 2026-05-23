@@ -6,6 +6,7 @@
 //! adds variants and progressive features.
 
 pub mod ast;
+pub mod cache;
 pub mod emit;
 pub mod scanner;
 pub mod theme;
@@ -13,6 +14,7 @@ pub mod tokens;
 pub mod variants;
 
 pub use ast::{parse_ast, AstError, SfcAst, SfcAttr, SfcNode, SfcStyleScope};
+pub use cache::{hash_ast, CssCache};
 pub use emit::{emit, emit_sfc_scoped, OutputMode};
 pub use scanner::{scan, scan_ast, ScanResult};
 pub use theme::ThemeRegistry;
