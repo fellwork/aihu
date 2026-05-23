@@ -141,20 +141,22 @@ Only `mount` and `dispose` are valid keys. `describe`, `expose`, `value`, and `h
 
 The `@template` block defines the DOM output using aihu's template DSL.
 
+> **Amendment 04 (v1.0.8) — `$`-prefixed reactive bindings.** Every reactive HTML attribute binding is `$`-prefixed: `$class={…}`, `$href={…}`, `$on.click=…`, `$bind.value=…`. The legacy colon-form event/bind aliases (`$on` + colon + event, error **C305**), the Vue-shape `:attr=` alias (**C304**), and plain-curly attribute bindings (`class={…}` without `$`, **C306**) are hard parse errors in v1.0. Component prop-passing (`<UserCard user={u} />`) keeps the plain-curly form and is unaffected. Run `npx aihu migrate <file>` to mechanically rewrite pre-v1.0.8 sources.
+
 ### Text interpolation
 
 - `{expr}` — reactive text node. Uses `nodeValue` for targeted updates (122x faster than `textContent` on targeted nodes).
 
 ### Event handlers
 
-- `$on:click="handlerName"` — attach an event listener (quoted identifier reference).
-- `$on:click={() => expr}` — attach an inline handler (curly expression).
+- `$on.click="handlerName"` — attach an event listener (quoted identifier reference).
+- `$on.click={() => expr}` — attach an inline handler (curly expression).
 
-Colon separates the directive from the event name: `$on:<event>`.
+A dot separates the directive from the event name: `$on.<event>`.
 
 ### Two-way binding
 
-- `$bind:value="signalName"` — two-way bind a writable signal to a form element. The value after the colon is the attribute name: `$bind:value`, `$bind:checked`, etc.
+- `$bind.value="signalName"` — two-way bind a writable signal to a form element. The name after the dot is the attribute: `$bind.value`, `$bind.checked`, etc.
 
 Signal name must be a quoted identifier reference (not curly form).
 
@@ -186,7 +188,7 @@ Signal name must be a quoted identifier reference (not curly form).
 
 ### Class bindings
 
-- `class={cond ? 'active' : ''}` — standard curly expression for dynamic classes.
+- `$class={cond ? 'active' : ''}` — `$`-prefixed curly expression for dynamic classes. Plain `class={…}` (no `$`) is a hard parse error (C306) in v1.0.
 
 ### Special elements
 
@@ -260,9 +262,9 @@ Attributes: `scope` (scope-name), `permissions`, `rateLimit`, `fallback` (compon
 Every attribute value must be in one of two forms — bare unquoted values are forbidden:
 
 ```
-✗ <button $on:click=save>            ← parse error
-✓ <button $on:click="save">          ← quoted identifier reference
-✓ <button $on:click={() => save()}>  ← curly expression
+✗ <button $on.click=save>            ← parse error
+✓ <button $on.click="save">          ← quoted identifier reference
+✓ <button $on.click={() => save()}>  ← curly expression
 ```
 
 Some attributes are boolean-only (present-or-absent): `$once`, `$raw`, `disabled`, `required`, etc.

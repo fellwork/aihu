@@ -47,8 +47,12 @@ desktop.ini
 
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
+# Claude Code scheduled-task lock (transient, machine-local)
+.claude/scheduled_tasks.lock
 # Claude Code subagent worktrees (transient agent workspaces)
 .claude/worktrees/
+# team CLI per-developer focus pin (not shared)
+.team-context
 # Top-level worktrees (transient feature-branch worktrees)
 .worktrees/
 

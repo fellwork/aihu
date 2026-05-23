@@ -13,7 +13,7 @@
 - [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax and reactive macros
 - [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
 - [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
-- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterPlugin
+- [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterIntegration
 - [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders
 - [Authoring Plugins](https://aihu.dev/#authoring-plugins): definePlugin contract and plugin ecosystem
 - [SSR & Hydration](https://aihu.dev/#ssr-hydration): Server rendering and client hydration
