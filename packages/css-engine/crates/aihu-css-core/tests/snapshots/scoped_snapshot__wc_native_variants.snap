@@ -1,0 +1,28 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
+expression: "compile_sfc_scoped(&sfc(\"host:bg-primary slotted:p-4 slotted-img:rounded-lg part-thumb:bg-accent host-context-dark:bg-surface\"))"
+---
+:host {
+  --color-accent: #c8543a;
+  --color-accent-foreground: #faf8f4;
+  --color-background: #faf8f4;
+  --color-border: #ddd9d2;
+  --color-destructive: #a8432b;
+  --color-destructive-foreground: #faf8f4;
+  --color-foreground: #1a1d24;
+  --color-muted: #5a5a55;
+  --color-muted-foreground: #8a8880;
+  --color-primary: #1a1d24;
+  --color-primary-foreground: #faf8f4;
+  --color-ring: #c8543a;
+  --color-secondary: #5a5a55;
+  --color-secondary-foreground: #faf8f4;
+  --color-surface: #faf8f4;
+  --color-surface-foreground: #1a1d24;
+}
+/* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */
+:host([data-theme="dark"]) .host-context-dark\:bg-surface, :root.dark .host-context-dark\:bg-surface { background-color: var(--color-surface); }
+:host(.host\:bg-primary) { background-color: var(--color-primary); }
+::part(thumb) { background-color: var(--color-accent); }
+::slotted(img.slotted-img\:rounded-lg) { border-radius: 0.5rem; }
+::slotted(.slotted\:p-4) { padding: 1rem; }
