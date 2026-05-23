@@ -357,6 +357,9 @@
     "packages/css-engine": {
       "name": "@aihu/css-engine",
       "version": "0.0.0",
+      "dependencies": {
+        "@aihu/compiler": "workspace:*",
+      },
     },
     "packages/mcp": {
       "name": "@aihu/mcp",

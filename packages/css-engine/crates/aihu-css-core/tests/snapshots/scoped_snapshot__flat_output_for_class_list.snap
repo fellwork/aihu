@@ -1,0 +1,6 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
+expression: "compile_classes(&[\"bg-primary\".to_string(), \"p-4\".to_string()])"
+---
+.bg-primary { background-color: var(--color-primary); }
+.p-4 { padding: 1rem; }

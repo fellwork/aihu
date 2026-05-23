@@ -110,10 +110,15 @@ jobs:
         id: filter
         with:
           filters: |
+            # Source-scoped: docs/README regeneration (e.g. sync-readme touching
+            # packages/arbor/README.md from an unrelated PR) must NOT trigger the
+            # perf gate on a noisy runner. Watch source + manifests + the harness.
             bench:
-              - 'packages/signals/**'
+              - 'packages/signals/src/**'
+              - 'packages/signals/package.json'
               - 'bench/signals/**'
-              - 'packages/arbor/**'
+              - 'packages/arbor/src/**'
+              - 'packages/arbor/package.json'
               - 'bench/arbor/**'
               - '.github/workflows/plan-a.yml'
 

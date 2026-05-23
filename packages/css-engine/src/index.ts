@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { compileToAst } from '@aihu/compiler'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -46,4 +47,27 @@ export function compile(classes: string[]): string {
     stdio: ['pipe', 'pipe', 'inherit'],
   })
   return result
+}
+
+/**
+ * Compile a `.aihu` SFC source string to scoped, shadow-DOM-embedded CSS.
+ *
+ * Pipeline (Plan 2 Task 9): `compileToAst(source)` (from `@aihu/compiler`)
+ * → AST JSON → `aihu-css-compile --ast-json` → scoped CSS. The output is the
+ * per-SFC stylesheet the compiler folds into the component's shadow `<style>`:
+ * `:host`-level theme tokens, variant-resolved utility rules, and the folded
+ * authored `@style` block. There is NO global utility stylesheet.
+ *
+ * @param source - the `.aihu` SFC source text
+ * @param id - optional file path/id (used to derive the tag stem + `@route` checks)
+ * @returns the scoped CSS string for the SFC
+ */
+export function compileSfc(source: string, id?: string): string {
+  const ast = compileToAst(source, id)
+  const bin = resolveBinary()
+  return execFileSync(bin, ['--ast-json'], {
+    input: JSON.stringify(ast),
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'inherit'],
+  })
 }

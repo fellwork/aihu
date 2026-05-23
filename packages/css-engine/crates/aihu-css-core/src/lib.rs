@@ -5,7 +5,20 @@
 //! of utility classes (see tokens.rs); Plan 2 wires the AST scanner; Plan 3
 //! adds variants and progressive features.
 
+pub mod ast;
+pub mod cache;
+pub mod emit;
+pub mod scanner;
+pub mod theme;
 pub mod tokens;
+pub mod variants;
+
+pub use ast::{parse_ast, AstError, SfcAst, SfcAttr, SfcNode, SfcStyleScope};
+pub use cache::{hash_ast, CssCache};
+pub use emit::{emit, emit_sfc_scoped, OutputMode};
+pub use scanner::{scan, scan_ast, ScanResult};
+pub use theme::ThemeRegistry;
+pub use variants::{split_variants, Variant};
 
 /// Compile a list of utility class names into CSS rules.
 /// Each known class becomes `.class-name { <body> }`. Unknown classes are skipped.
@@ -29,4 +42,23 @@ pub fn compile_classes(classes: &[String]) -> String {
         }
     }
     output
+}
+
+/// Compile a parsed `.aihu` SFC AST into CSS by scanning its template for
+/// utility classes and emitting one rule per known utility.
+///
+/// This is the Plan 2 flat-mode entry; [`compile_sfc_scoped`] wraps the output
+/// in shadow-DOM scope (the new default). `compile_classes` stays for
+/// back-compat.
+pub fn compile_sfc(ast: &SfcAst) -> String {
+    let classes = scan_ast(ast);
+    compile_classes(&classes.into_iter().collect::<Vec<_>>())
+}
+
+/// Compile a parsed `.aihu` SFC AST into scoped, shadow-DOM-embedded CSS:
+/// `:host`-level theme tokens, variant-resolved utility rules, and the folded
+/// authored `@style` block. This is the production entry consumed by the TS
+/// bridge / `aihu-css-compile --ast-json`.
+pub fn compile_sfc_scoped(ast: &SfcAst) -> String {
+    emit_sfc_scoped(ast)
 }

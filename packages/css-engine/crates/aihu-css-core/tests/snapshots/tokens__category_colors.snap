@@ -1,0 +1,10 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"bg-primary\", \"text-accent\", \"border-muted\", \"bg-red-500\",\n\"text-slate-700\", \"bg-white\",])"
+---
+.bg-primary { background-color: var(--color-primary); }
+.text-accent { color: var(--color-accent); }
+.border-muted { border-color: var(--color-muted); }
+.bg-red-500 { background-color: var(--color-red-500); }
+.text-slate-700 { color: var(--color-slate-700); }
+.bg-white { background-color: #fff; }

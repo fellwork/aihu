@@ -1,0 +1,12 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"flex\", \"grid\", \"hidden\", \"items-center\", \"justify-between\", \"absolute\",\n\"w-full\", \"w-1/2\",])"
+---
+.flex { display: flex; }
+.grid { display: grid; }
+.hidden { display: none; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.absolute { position: absolute; }
+.w-full { width: 100%; }
+.w-1/2 { width: 50%; }

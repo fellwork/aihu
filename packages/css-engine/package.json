@@ -19,6 +19,9 @@
     "LICENSE"
   ],
   "sideEffects": false,
+  "dependencies": {
+    "@aihu/compiler": "workspace:*"
+  },
   "scripts": {
     "build": "rolldown -c",
     "build:rust": "cargo build --release -p aihu-css-core",

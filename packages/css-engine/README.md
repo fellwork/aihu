@@ -87,7 +87,9 @@ bun add @aihu/css-engine
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
+**Dependencies:**
+
+- `@aihu/compiler` — `workspace:*`
 
 <sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
 

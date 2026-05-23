@@ -1,0 +1,11 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"p-4\", \"px-2\", \"py-8\", \"m-0\", \"mt-1\", \"gap-2\", \"p-0.5\"])"
+---
+.p-4 { padding: 1rem; }
+.px-2 { padding-inline: 0.5rem; }
+.py-8 { padding-block: 2rem; }
+.m-0 { margin: 0; }
+.mt-1 { margin-top: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.p-0.5 { padding: 0.125rem; }

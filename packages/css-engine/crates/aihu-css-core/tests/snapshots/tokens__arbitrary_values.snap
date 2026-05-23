@@ -1,0 +1,9 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"bg-[#1a1d24]\", \"w-[34ch]\", \"text-[14px]\", \"p-[2.5rem]\",\n\"leading-[1.4]\",])"
+---
+.bg-[#1a1d24] { background-color: #1a1d24; }
+.w-[34ch] { width: 34ch; }
+.text-[14px] { color: 14px; }
+.p-[2.5rem] { padding: 2.5rem; }
+.leading-[1.4] { line-height: 1.4; }

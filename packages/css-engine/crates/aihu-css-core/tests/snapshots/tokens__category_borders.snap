@@ -1,0 +1,8 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+expression: "css(&[\"border\", \"rounded\", \"rounded-lg\", \"rounded-full\",])"
+---
+.border { border-width: 1px; }
+.rounded { border-radius: 0.25rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-full { border-radius: 9999px; }
