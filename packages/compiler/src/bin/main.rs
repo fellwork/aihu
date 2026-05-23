@@ -147,6 +147,49 @@ fn main() {
         (src, stem, label, Some(path_copy))
     };
 
+    // v1.0.10a — `--ast-json`: parse → owned AST → emit JSON to stdout, then
+    // short-circuit BEFORE codegen (no TS produced). Purely additive: existing
+    // flags/behavior below are untouched. Respects the same `--machine-errors`
+    // diagnostic path on parse failure.
+    if args.contains(&"--ast-json".to_string()) {
+        let on_err = |e: &aihu_compiler::CompileError| -> ! {
+            if machine_errors {
+                emit_machine_error(e);
+            }
+            eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            process::exit(1);
+        };
+        let parsed_ast = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
+            .unwrap_or_else(|e| on_err(&e));
+        let unit = aihu_compiler::compile_full_with_target(&parsed_ast, target)
+            .unwrap_or_else(|e| on_err(&e));
+        let mut ast = aihu_compiler::build_owned_ast(&unit, file_path_opt.as_deref());
+        // Apply the CLI's authoritative stem resolution (OQ-C6):
+        // @meta { name } → @route { name } → file_stem (the `--tag` value in
+        // stdin mode, basename in file mode). build_owned_ast already honors
+        // meta/route, so only override the file-stem fallback to the
+        // CLI-supplied stem.
+        let stem_fallback = unit
+            .source
+            .meta
+            .name
+            .clone()
+            .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+            .unwrap_or_else(|| file_stem.clone());
+        ast.tag = stem_fallback.clone();
+        ast.meta.name = stem_fallback;
+        match serde_json::to_string(&ast) {
+            Ok(json) => {
+                println!("{}", json);
+                process::exit(0);
+            }
+            Err(e) => {
+                eprintln!("error serializing AST: {}", e);
+                process::exit(1);
+            }
+        }
+    }
+
     let parsed = aihu_compiler::sfc::parse_with_path(
         &source,
         file_path_opt.as_deref(),

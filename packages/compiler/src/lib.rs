@@ -1,3 +1,4 @@
+pub mod ast_export;
 pub mod codegen;
 pub mod parser;
 pub mod types;
@@ -7,6 +8,10 @@ pub mod types;
 // item-level `#[cfg]` gates the actual exports.
 pub mod wasm;
 
+pub use ast_export::{
+    build_owned_ast, compile_to_ast, SfcAstOwned, SfcAttrOwned, SfcIfBranch, SfcMacroValueOwned,
+    SfcMetaOwned, SfcNodeOwned, SfcStyleBlockOwned, SfcStyleScope, AST_VERSION,
+};
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use parser::sfc;
 pub use parser::stream_macros;
