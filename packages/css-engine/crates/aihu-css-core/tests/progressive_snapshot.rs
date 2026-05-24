@@ -38,3 +38,24 @@ fn view_transition_is_supports_gated_css_only() {
 fn view_transition_snapshot() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc("view-transition:hero")));
 }
+
+// ── Task 6: anchor: (@supports gate + JS fallback marker) ────────────────────
+
+#[test]
+fn anchor_is_supports_gated_with_js_marker() {
+    let css = compile_sfc_scoped(&sfc("anchor:tooltip"));
+    assert!(
+        css.contains("@supports (anchor-name: --a)"),
+        "anchor gated behind @supports (anchor-name): {css}"
+    );
+    assert!(css.contains("anchor-name: --tooltip"));
+    assert!(
+        css.contains("aihu:progressive-fallback anchorFallback"),
+        "anchor emits a runtime-fallback marker: {css}"
+    );
+}
+
+#[test]
+fn anchor_snapshot() {
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("anchor:tooltip")));
+}

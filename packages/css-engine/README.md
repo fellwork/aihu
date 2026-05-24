@@ -77,6 +77,7 @@ bun add @aihu/css-engine
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./runtime/progressive` | `./dist/runtime/progressive.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
 
