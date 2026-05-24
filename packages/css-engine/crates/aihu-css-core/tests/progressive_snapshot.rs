@@ -79,3 +79,24 @@ fn popover_is_supports_gated_with_js_marker() {
 fn popover_snapshot() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc("popover:menu")));
 }
+
+// ── Task 8: text-balance: (no gate, no JS) ───────────────────────────────────
+
+#[test]
+fn text_balance_no_gate_no_js() {
+    let css = compile_sfc_scoped(&sfc("text-balance:"));
+    assert!(css.contains("text-wrap: balance"), "emits text-wrap: balance: {css}");
+    assert!(
+        !css.contains("@supports"),
+        "text-balance has NO @supports gate (silently ignored if unsupported): {css}"
+    );
+    assert!(
+        !css.contains("aihu:progressive-fallback"),
+        "text-balance is CSS-only — NO JS fallback marker: {css}"
+    );
+}
+
+#[test]
+fn text_balance_snapshot() {
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("text-balance:")));
+}
