@@ -13,8 +13,13 @@
 
 use crate::progressive::ProgressiveRegistry;
 
+pub mod view_transition;
+
+pub use view_transition::ViewTransition;
+
 /// Register every built-in progressive feature into `registry`. Called by
 /// [`ProgressiveRegistry::with_builtins`](crate::progressive::ProgressiveRegistry::with_builtins).
-pub fn register_builtins(_registry: &mut ProgressiveRegistry) {
-    // Features are registered here as they land (Tasks 5–8).
+pub fn register_builtins(registry: &mut ProgressiveRegistry) {
+    registry.register(Box::new(ViewTransition));
+    // anchor:, popover:, text-balance: registered here as they land (Tasks 6–8).
 }
