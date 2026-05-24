@@ -12,6 +12,17 @@ use std::io::{self, Read, Write};
 
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
+
+    // Build-time mode: dump the conflict-group map (Plan 3 Task 9). The TS build
+    // step (`scripts/gen-cn-conflict-map.ts`) reads this to generate the `cn()`
+    // conflict map, so the runtime merge map never drifts from the utility table.
+    if argv.iter().any(|a| a == "--dump-conflict-groups") {
+        let groups = aihu_css_core::tokens::conflict_groups();
+        let json = serde_json::to_string(&groups).expect("serialize conflict groups");
+        println!("{json}");
+        return;
+    }
+
     let ast_mode = argv.iter().any(|a| a == "--ast-json");
 
     // Positional file arg = first non-flag argument after argv[0].

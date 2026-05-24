@@ -87,6 +87,12 @@
     ]
   },
   {
+    "name": "@aihu/css-engine/runtime/cn",
+    "path": "packages/css-engine/dist/runtime/cn.js",
+    "limit": "1 KB",
+    "gzip": true
+  },
+  {
     "name": "@aihu/css-engine/runtime/progressive",
     "path": "packages/css-engine/dist/runtime/progressive.js",
     "limit": "3 KB",

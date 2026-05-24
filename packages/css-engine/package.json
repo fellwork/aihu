@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./runtime/cn": {
+      "types": "./dist/runtime/cn.d.ts",
+      "import": "./dist/runtime/cn.js"
+    },
     "./runtime/progressive": {
       "types": "./dist/runtime/progressive.d.ts",
       "import": "./dist/runtime/progressive.js"
@@ -30,10 +34,11 @@
   "scripts": {
     "build": "rolldown -c",
     "build:rust": "cargo build --release -p aihu-css-core",
+    "gen:cn-map": "bun scripts/gen-cn-conflict-map.ts",
     "test": "vitest run",
     "test:rust": "cargo test -p aihu-css-core",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build:rust && bun run build"
+    "prepublishOnly": "bun run build:rust && bun run gen:cn-map && bun run build"
   },
   "description": "aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output.",
   "repository": {

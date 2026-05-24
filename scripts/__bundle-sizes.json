@@ -55,6 +55,11 @@
     "limit": "800 B"
   },
   {
+    "name": "@aihu/css-engine/runtime/cn",
+    "bytes": 579,
+    "limit": "1 KB"
+  },
+  {
     "name": "@aihu/css-engine/runtime/progressive",
     "bytes": 718,
     "limit": "3 KB"

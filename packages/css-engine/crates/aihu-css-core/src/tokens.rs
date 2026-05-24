@@ -16,6 +16,56 @@
 //! `var(--color-*)` custom properties registered by the `@theme` registry
 //! (`theme.rs`) so authored `@theme` overrides cascade through.
 
+/// Emit the **conflict-group map**: `(class-prefix, group-key)` pairs derived
+/// directly from the utility registry's own property maps (`spacing_prop`,
+/// `sizing_prop`, `color_prop`, `arbitrary_prop`). Two utilities conflict (last
+/// wins) when they share a group key — the group key is the CSS property the
+/// prefix controls, so `p-2`/`p-4` (both `padding`) conflict, while `p-2`/`mx-4`
+/// (`padding` vs `margin-inline`) do not.
+///
+/// This is the single source of truth the engine's build step serializes into
+/// the TS `cn()` conflict map (Plan 3 Task 9) — so the runtime merge map NEVER
+/// drifts from the compile-time utility table. Plus a few fixed-utility groups
+/// (display, position) whose whole-class names share a property.
+pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
+    let mut out: Vec<(&'static str, &'static str)> = Vec::new();
+
+    // Prefix-based utilities: prefix → its controlled CSS property (the group).
+    const SPACING_PREFIXES: &[&str] = &[
+        "p", "px", "py", "pt", "pr", "pb", "pl", "m", "mx", "my", "mt", "mr",
+        "mb", "ml", "gap", "gap-x", "gap-y",
+    ];
+    for p in SPACING_PREFIXES {
+        if let Some(group) = spacing_prop(p) {
+            out.push((p, group));
+        }
+    }
+
+    const SIZING_PREFIXES: &[&str] = &["w", "h", "min-w", "max-w", "min-h", "max-h"];
+    for p in SIZING_PREFIXES {
+        if let Some(group) = sizing_prop(p) {
+            out.push((p, group));
+        }
+    }
+
+    const COLOR_PREFIXES: &[&str] =
+        &["bg", "text", "border", "fill", "stroke", "ring", "outline"];
+    for p in COLOR_PREFIXES {
+        if let Some(group) = color_prop(p) {
+            out.push((p, group));
+        }
+    }
+
+    // A handful of non-color/spacing parameterized prefixes with their own group.
+    out.push(("z", "z-index"));
+    out.push(("opacity", "opacity"));
+    out.push(("rounded", "border-radius"));
+    out.push(("shadow", "box-shadow"));
+    out.push(("font", "font-weight"));
+
+    out
+}
+
 /// Map a single (already variant-stripped) utility class name to its CSS body
 /// (declarations only, no selector). Returns `None` for unknown utilities.
 pub fn utility_to_css(class_name: &str) -> Option<String> {

@@ -7,6 +7,7 @@ export default defineConfig({
     // Browser runtime sub-exports (Plan 3). Kept as SEPARATE entries so each
     // has its own `dist/runtime/*.js` for an independent `.size-limit.json`
     // row — merging them would blow the 1 KB `cn` budget (Risk #4 size-split).
+    'runtime/cn': 'src/runtime/cn.ts',
     'runtime/progressive': 'src/runtime/progressive.ts',
   },
   output: {
