@@ -207,6 +207,98 @@ fn rejects_inline_plain_curly_html_binding_c306() {
     assert_rejects_with(src, "C306", "inline `href={url}`");
 }
 
+// ─── Unknown top-level block rejection (C204) ───────────────────────────────
+//
+// fix #1 for the 0.3.0 blank-page defect (investigation
+// 17f5394b-6dd8-4504-a2db-88cb5c4050e1): an `@<name> { … }` header that matches
+// none of the five recognized blocks was previously SILENTLY DROPPED, so any
+// identifiers it "declared" (e.g. `@props { activeNav: string }`) leaked through
+// as bare free variables -> ReferenceError -> blank page. It is now a hard error.
+
+#[test]
+fn rejects_unknown_props_block_with_prop_hint() {
+    // The exact defect shape: a consumer-authored `@props { … }` top-level block.
+    let src = "@props { foo: String }\n@template {\n  <div>{foo}</div>\n}\n";
+    let err = sfc::parse(src).expect_err("`@props { … }` must be a C204 parse error");
+    assert_eq!(
+        err.code.as_deref(),
+        Some("C204"),
+        "expected C204 for `@props` block, got: {:?} (message: {})",
+        err.code,
+        err.message
+    );
+    // (a) names the unknown block …
+    assert!(
+        err.message.contains("@props"),
+        "C204 message must name the unknown `@props` block, got: {}",
+        err.message
+    );
+    // … and (b) points the author at the real mechanism (`$prop:` inside `@state`).
+    assert!(
+        err.message.contains("$prop") && err.message.contains("@state"),
+        "C204 message for `@props` must point at `$prop:` inside `@state`, got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_unknown_generic_block() {
+    // A non-`props` unknown block header still errors (generic guidance).
+    let src = "@widget {\n  count: 1\n}\n@template {\n  <div>hi</div>\n}\n";
+    let err = sfc::parse(src).expect_err("`@widget { … }` must be a C204 parse error");
+    assert_eq!(err.code.as_deref(), Some("C204"), "expected C204, message: {}", err.message);
+    assert!(
+        err.message.contains("@widget"),
+        "C204 message must name the unknown `@widget` block, got: {}",
+        err.message
+    );
+    // Generic hint lists the recognized blocks.
+    assert!(
+        err.message.contains("@state") && err.message.contains("@template"),
+        "generic C204 message must list the recognized blocks, got: {}",
+        err.message
+    );
+}
+
+#[test]
+fn unknown_block_after_valid_blocks_still_errors() {
+    // Trailing-region path: an unknown block after a valid `@template` must still
+    // be caught (this region is the trailing inter-block scan, not region_before).
+    let src = "@template {\n  <div>hi</div>\n}\n@props { foo: String }\n";
+    let err = sfc::parse(src).expect_err("trailing `@props` must error");
+    assert_eq!(err.code.as_deref(), Some("C204"), "expected C204, message: {}", err.message);
+    assert!(err.message.contains("@props"));
+}
+
+#[test]
+fn at_media_inside_style_is_not_an_unknown_block() {
+    // `@media` / `@supports` live INSIDE the `@style` body — that body is never
+    // scanned for top-level block headers, so CSS at-rules must NOT trip C204.
+    let src = "@style {\n  @media (min-width: 600px) {\n    div { color: red; }\n  }\n}\n@template {\n  <div>hi</div>\n}\n";
+    let parsed = sfc::parse(src).expect("`@media` inside `@style` must parse cleanly");
+    assert!(parsed.style.is_some());
+    assert!(parsed.template.is_some());
+}
+
+#[test]
+fn all_five_recognized_blocks_still_parse() {
+    // Regression guard: a `.aihu` exercising the five legitimate block forms must
+    // still parse exactly as before (no regression from the C204 unknown-block fix).
+    // `@route` requires a pages/ path (C500), so it is exercised via parse_with_path.
+    let src = "@state {\n  const greeting = 'hi'\n}\n\
+               @template {\n  <div>{greeting}</div>\n}\n\
+               @style {\n  div { color: blue; }\n}\n\
+               @agent {\n  input plan: string\n}\n\
+               @route {\n  path: '/demo'\n}\n";
+    let parsed = sfc::parse_with_path(src, Some("src/pages/demo.aihu"))
+        .expect("all five recognized blocks must parse cleanly");
+    assert!(parsed.script.is_some(), "@state must parse");
+    assert!(parsed.template.is_some(), "@template must parse");
+    assert!(parsed.style.is_some(), "@style must parse");
+    assert!(parsed.agent.is_some(), "@agent must parse");
+    assert!(parsed.route.is_some(), "@route must parse");
+}
+
 // ─── Positive sanity tests — canonical v1.0.8 forms must parse cleanly ──────
 
 #[test]

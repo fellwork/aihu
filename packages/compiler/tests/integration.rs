@@ -156,7 +156,7 @@ body { margin: 0; }
 /// `document.documentElement`, not the component root element.
 #[test]
 fn global_reactive_targets_document_element() {
-    let source = r#"@script {
+    let source = r#"@state {
 const theme = { primary: '#ff0000' }
 }
 @style {
@@ -190,7 +190,7 @@ const theme = { primary: '#ff0000' }
 /// (no component prefix) and contains a `:root` custom property declaration.
 #[test]
 fn global_reactive_css_is_unscoped() {
-    let source = r#"@script {
+    let source = r#"@state {
 const theme = { primary: '#ff0000' }
 }
 @style {
