@@ -17,6 +17,7 @@
 //! `:host-context()` (Firefox workaround, `decision-firefox-host-context-workaround`).
 
 use crate::ast::{SfcAst, SfcStyleScope};
+use crate::progressive::ProgressiveRegistry;
 use crate::scanner::{scan, ScanResult};
 use crate::theme::{extract_theme_blocks, ThemeRegistry};
 use crate::tokens::utility_to_css;
@@ -40,9 +41,30 @@ fn escape_class(class: &str) -> String {
     out
 }
 
+/// If `token`'s leading prefix names a registered progressive feature, return
+/// its `(prefix, base)` split. `view-transition:slide` → `("view-transition",
+/// "slide")`; `text-balance:` → `("text-balance", "")`.
+fn progressive_split<'a>(token: &'a str, prog: &ProgressiveRegistry) -> Option<(&'a str, &'a str)> {
+    let colon = token.find(':')?;
+    let prefix = &token[..colon];
+    if prog.is_feature(prefix) {
+        Some((prefix, &token[colon + 1..]))
+    } else {
+        None
+    }
+}
+
 /// Compile a single scanned token (which may carry variant prefixes) into a CSS
 /// rule string, or `None` if the base utility is unknown.
-fn emit_token(token: &str, theme: &ThemeRegistry) -> Option<String> {
+///
+/// Progressive-feature prefixes (`view-transition:`, `anchor:`, `popover:`,
+/// `text-balance:`) are routed to the [`ProgressiveRegistry`] emitter (Plan 3
+/// Task 4) instead of the standard selector path.
+fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) -> Option<String> {
+    if let Some((prefix, base)) = progressive_split(token, prog) {
+        return prog.emit(prefix, base);
+    }
+
     let (variants, base) = split_variants(token);
     let body = utility_to_css(&base)?;
     let class_sel = format!(".{}", escape_class(token));
@@ -98,6 +120,17 @@ fn emit_token(token: &str, theme: &ThemeRegistry) -> Option<String> {
 
 /// Emit CSS for a scanned utility set in the given mode.
 pub fn emit(result: &ScanResult, theme: &ThemeRegistry, mode: OutputMode) -> String {
+    emit_with_progressive(result, theme, &ProgressiveRegistry::with_builtins(), mode)
+}
+
+/// As [`emit`], but with an explicit [`ProgressiveRegistry`] (so callers can
+/// share one registry across an SFC compile).
+pub fn emit_with_progressive(
+    result: &ScanResult,
+    theme: &ThemeRegistry,
+    prog: &ProgressiveRegistry,
+    mode: OutputMode,
+) -> String {
     let mut out = String::new();
     for token in &result.utilities {
         match mode {
@@ -108,7 +141,7 @@ pub fn emit(result: &ScanResult, theme: &ThemeRegistry, mode: OutputMode) -> Str
                 }
             }
             OutputMode::Scoped => {
-                if let Some(rule) = emit_token(token, theme) {
+                if let Some(rule) = emit_token(token, theme, prog) {
                     out.push_str(&rule);
                 }
             }
@@ -132,13 +165,14 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
     }
 
     let result = scan(ast);
+    let prog = ProgressiveRegistry::with_builtins();
     let mut out = String::new();
 
     // 1. Theme tokens at :host so var(--color-*) resolves inside the shadow.
     out.push_str(&theme.emit_host_tokens());
 
-    // 2. Scanned utility rules (scoped).
-    out.push_str(&emit(&result, &theme, OutputMode::Scoped));
+    // 2. Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
+    out.push_str(&emit_with_progressive(&result, &theme, &prog, OutputMode::Scoped));
 
     // 3. Fold the authored @style block (minus @theme directives).
     if let Some(style) = &ast.style {
