@@ -69,3 +69,39 @@ describe('@aihu/css-engine — aihu-default style pack', () => {
     expect(declaredTokens(css).has('--color-primary')).toBe(true)
   })
 })
+
+describe('@aihu/css-engine — style packs are interchangeable', () => {
+  const defaultCss = readPack('aihu-default.css')
+  const graphiteCss = readPack('aihu-graphite.css')
+
+  /** Map `--token: value` → value, scoped to the :root block of a pack. */
+  function rootDeclarations(css: string): Map<string, string> {
+    const rootStart = css.indexOf(':root {')
+    const rootEnd = css.indexOf('}', rootStart)
+    const block = css.slice(rootStart, rootEnd)
+    const decls = new Map<string, string>()
+    for (const m of block.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+      decls.set(m[1], m[2].trim())
+    }
+    return decls
+  }
+
+  it('aihu-graphite declares the SAME token names as aihu-default', () => {
+    const defaultNames = declaredTokens(defaultCss)
+    const graphiteNames = declaredTokens(graphiteCss)
+    expect([...graphiteNames].sort()).toEqual([...defaultNames].sort())
+  })
+
+  it('graphite uses DISTINCT (monochrome) values for the color tokens', () => {
+    const def = rootDeclarations(defaultCss)
+    const gra = rootDeclarations(graphiteCss)
+    // At least the core color tokens must differ — proving distinct packs.
+    for (const name of ['--color-primary', '--color-accent', '--color-surface']) {
+      expect(gra.get(name)).toBeDefined()
+      expect(def.get(name)).toBeDefined()
+      expect(gra.get(name), `${name} must differ between packs`).not.toBe(def.get(name))
+    }
+    // Graphite color tokens are monochrome oklch (chroma 0).
+    expect(gra.get('--color-primary')).toContain('oklch')
+  })
+})
