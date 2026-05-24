@@ -14,9 +14,11 @@
 use crate::progressive::ProgressiveRegistry;
 
 pub mod anchor;
+pub mod popover;
 pub mod view_transition;
 
 pub use anchor::Anchor;
+pub use popover::Popover;
 pub use view_transition::ViewTransition;
 
 /// Register every built-in progressive feature into `registry`. Called by
@@ -24,5 +26,6 @@ pub use view_transition::ViewTransition;
 pub fn register_builtins(registry: &mut ProgressiveRegistry) {
     registry.register(Box::new(ViewTransition));
     registry.register(Box::new(Anchor));
-    // popover:, text-balance: registered here as they land (Tasks 7–8).
+    registry.register(Box::new(Popover));
+    // text-balance: registered here as it lands (Task 8).
 }

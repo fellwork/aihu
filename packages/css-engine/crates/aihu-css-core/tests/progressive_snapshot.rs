@@ -59,3 +59,23 @@ fn anchor_is_supports_gated_with_js_marker() {
 fn anchor_snapshot() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc("anchor:tooltip")));
 }
+
+// ── Task 7: popover: (@supports gate + portal JS fallback marker) ────────────
+
+#[test]
+fn popover_is_supports_gated_with_js_marker() {
+    let css = compile_sfc_scoped(&sfc("popover:menu"));
+    assert!(
+        css.contains("@supports (selector(:popover-open))"),
+        "popover gated behind @supports selector(:popover-open): {css}"
+    );
+    assert!(
+        css.contains("aihu:progressive-fallback popoverFallback"),
+        "popover emits a runtime-fallback marker: {css}"
+    );
+}
+
+#[test]
+fn popover_snapshot() {
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("popover:menu")));
+}

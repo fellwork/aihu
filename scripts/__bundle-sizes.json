@@ -56,7 +56,7 @@
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": 543,
+    "bytes": 718,
     "limit": "3 KB"
   }
 ]

@@ -128,3 +128,54 @@ export function anchorFallback(
     window.removeEventListener('resize', update)
   }
 }
+
+/**
+ * Portal `el` to a top-layer-emulating container appended to `<body>` with a
+ * high z-index. Returns a restore function that moves `el` back to its original
+ * parent and removes the container. Used by `popoverFallback` when the native
+ * Popover API (and its real top layer) is unavailable.
+ */
+export function portal(el: HTMLElement): () => void {
+  const originalParent = el.parentNode
+  const originalNext = el.nextSibling
+  const layer = document.createElement('div')
+  layer.style.position = 'fixed'
+  layer.style.left = '0'
+  layer.style.top = '0'
+  layer.style.zIndex = '2147483647'
+  document.body.appendChild(layer)
+  layer.appendChild(el)
+  return () => {
+    if (originalParent) {
+      originalParent.insertBefore(el, originalNext)
+    } else {
+      el.remove()
+    }
+    layer.remove()
+  }
+}
+
+/**
+ * Fallback for the `popover:` feature: emulate the Popover API's top layer by
+ * portaling `panel` out of the normal flow and positioning it against `anchor`
+ * with the SHARED positioning shim (`position`, also used by `anchorFallback`).
+ * Returns a cleanup function that tears down the portal + listeners.
+ */
+export function popoverFallback(
+  anchor: Element,
+  panel: HTMLElement,
+  opts: PositionOptions = {},
+): () => void {
+  const restore = portal(panel)
+  const update = () => {
+    position(anchor, panel, opts)
+  }
+  update()
+  window.addEventListener('scroll', update, { passive: true, capture: true })
+  window.addEventListener('resize', update, { passive: true })
+  return () => {
+    window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions)
+    window.removeEventListener('resize', update)
+    restore()
+  }
+}
