@@ -15,6 +15,7 @@
   "files": [
     "dist",
     "crates",
+    "styles",
     "README.md",
     "LICENSE"
   ],
