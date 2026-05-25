@@ -77,6 +77,14 @@ pub fn compile_full_with_target<'a>(
                 line: 0,
                 col: 0,
                 code: Some("C205".to_string()),
+                hint: Some(format!(
+                    "a plain `@state` const is emitted before the prop binding, so reading \
+                     '{prop_name}' there throws (TDZ) at runtime"
+                )),
+                fix: Some(format!(
+                    "move the derivation into `$computed` so the prop is read inside a thunk: \
+                     `$computed: {{ {decl_name}: () => {prop_name}() }}`"
+                )),
                 from: Some(format!("const {decl_name} = ...{prop_name}...")),
                 to: Some(format!("$computed: {{ {decl_name}: () => {prop_name}() }}")),
                 ..Default::default()

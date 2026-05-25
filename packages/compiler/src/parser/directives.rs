@@ -121,17 +121,34 @@ fn is_suspicious_event_name(event: &str) -> bool {
 /// which is the real raw-innerHTML directive (the dead `$on.html` was the
 /// exact failure mode in the bug report cb666cc2).
 fn warn_unknown_event(event: &str) {
-    let redirect = if event == "html" || event == "innerhtml" {
-        " If you meant to set raw innerHTML, use `$html={…}` instead."
+    // Rich-diagnostic warning (r2 dx-tooling): message + hint + fix on
+    // separate lines, mirroring the human-error renderer in `bin/main.rs`.
+    // W210 is a non-fatal warning emitted during parse, so it does not flow
+    // through the `CompileError` Result path — we format it inline here so it
+    // shares the same visual shape as the rich errors.
+    let (hint, fix) = if event == "html" || event == "innerhtml" {
+        (
+            format!(
+                "`$on.{}` compiles to a dead `on{}` attribute that never fires",
+                event, event
+            ),
+            "If you meant to set raw innerHTML, use `$html={…}` instead.".to_string(),
+        )
     } else {
-        ""
+        (
+            format!(
+                "`$on.{}` compiles to a dead `on{}` handler that never fires",
+                event, event
+            ),
+            "Did you mean a real DOM event (e.g. `$on.click`)?".to_string(),
+        )
     };
     eprintln!(
-        "warning: W210: `$on.{}` references '{}', which is not a known DOM event. \
-         This compiles to a dead `on{}` handler that never fires. \
-         Did you mean a real event (e.g. `$on.click`)?{}",
-        event, event, event, redirect
+        "warning: W210: `$on.{}` references '{}', which is not a known DOM event.",
+        event, event
     );
+    eprintln!("  hint: {}", hint);
+    eprintln!("  fix:  {}", fix);
 }
 
 /// Returns `true` when `name` (an internal-AST macro name, post colon-normalization)
@@ -161,19 +178,35 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
         // aliases at `$html={…}` (the real raw-HTML directive); keep genuine
         // event aliases (e.g. `@click=`) pointed at `$on.<event>`.
         let lower = event_name.to_ascii_lowercase();
-        let message = if lower == "html" || lower == "innerhtml" {
-            format!(
-                "C305: `@{}=` is removed in v1.0. For setting raw innerHTML, \
-                 use `$html={{expr}}`. \
-                 Run: npx aihu migrate <file>",
-                event_name
+        let (message, hint, to_form) = if lower == "html" || lower == "innerhtml" {
+            (
+                format!(
+                    "C305: `@{}=` is removed in v1.0. For setting raw innerHTML, \
+                     use `$html={{expr}}`. \
+                     Run: npx aihu migrate <file>",
+                    event_name
+                ),
+                format!(
+                    "`@{}=` is innerHTML intent, not an event handler — \
+                     the v1 raw-HTML directive is `$html`",
+                    event_name
+                ),
+                "$html={expr}".to_string(),
             )
         } else {
-            format!(
-                "C305: `@{}=` event-binding alias is removed in v1.0. \
-                 Use `$on.{}={{fn}}` for event handlers. \
-                 Run: npx aihu migrate <file>",
-                event_name, event_name
+            (
+                format!(
+                    "C305: `@{}=` event-binding alias is removed in v1.0. \
+                     Use `$on.{}={{fn}}` for event handlers. \
+                     Run: npx aihu migrate <file>",
+                    event_name, event_name
+                ),
+                format!(
+                    "v1 event handlers use the dot-form macro `$on.{}`, \
+                     not the legacy `@{}=` alias",
+                    event_name, event_name
+                ),
+                format!("$on.{}={{fn}}", event_name),
             )
         };
         return Err(CompileError {
@@ -181,6 +214,10 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
             line: 0,
             col: 0,
             code: Some("C305".to_string()),
+            hint: Some(hint),
+            fix: Some("Run: npx aihu migrate <file>".to_string()),
+            from: Some(format!("@{}=", event_name)),
+            to: Some(to_form),
             ..Default::default()
         });
     }
@@ -198,6 +235,14 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
             line: 0,
             col: 0,
             code: Some("C304".to_string()),
+            hint: Some(format!(
+                "v1 reactive bindings use the `$`-prefixed macro `${}`, \
+                 not the legacy `:{}=` alias",
+                binding_name, binding_name
+            )),
+            fix: Some("Run: npx aihu migrate <file>".to_string()),
+            from: Some(format!(":{}=", binding_name)),
+            to: Some(format!("${}={{expr}}", binding_name)),
             ..Default::default()
         });
     }
@@ -244,6 +289,14 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
                 line: 0,
                 col: 0,
                 code: Some("C306".to_string()),
+                hint: Some(format!(
+                    "plain-curly `{}={{…}}` on an HTML element is ambiguous in v1 — \
+                     reactive HTML attribute bindings must be `$`-prefixed (`${}`)",
+                    name, name
+                )),
+                fix: Some("Run: npx aihu migrate <file>".to_string()),
+                from: Some(format!("{}={{expr}}", name)),
+                to: Some(format!("${}={{expr}}", name)),
                 ..Default::default()
             });
         }
