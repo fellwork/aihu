@@ -7,11 +7,5 @@
     "declarationMap": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "tests/**/*",
-    "src/**/*.test.ts",
-    "src/**/*.stories.ts",
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["tests/**/*", "src/**/*.test.ts", "src/**/*.stories.ts", "dist", "node_modules"]
 }
