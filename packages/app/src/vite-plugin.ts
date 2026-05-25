@@ -8,6 +8,7 @@ import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
 import type { Plugin, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
+import { applyHeadConfig } from './head.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
 function fileToRouteDefinition(filePath: string, _root: string, pagesDir: string): RouteDefinition {
@@ -99,7 +100,8 @@ function buildAdapterContext(
  *   [0] aihuCompilerPlugin (enforce:'pre') — transforms .aihu SFCs
  *   [1] viteRouterIntegration — serves virtual:aihu-routes + virtual:aihu-layouts
  *   [2] aihu-agent-readiness (opt-in) or no-op
- *   [3..n] user plugins from config.plugins
+ *   [3] aihu-head (injects config.app.head into index.html <head>)
+ *   [4..n] user plugins from config.plugins
  *   [n+1] aihu-vite-passthrough (merges config.vite into Vite's resolved config)
  *   [n+2] aihu-adapter (adapter.adapt() on closeBundle, build mode only)
  *
@@ -139,6 +141,21 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry
     agentPlugin = { name: 'aihu-agent-readiness-disabled' }
+  }
+
+  // Head injection — applies config.app.head into the built index.html <head>.
+  // Without this hook the configured global head (title/charset/viewport/meta)
+  // is silently dropped from SPA/static output, hurting SEO and non-JS agents.
+  const headPlugin: Plugin = {
+    name: 'aihu-head',
+    transformIndexHtml: {
+      // Run after Vite's core HTML processing so our config wins over the
+      // scaffold defaults present in the source index.html.
+      order: 'post',
+      handler(html: string): string {
+        return applyHeadConfig(html, config?.app?.head)
+      },
+    },
   }
 
   // Vite config passthrough — deep-merged by Vite via the config() hook return value.
@@ -188,6 +205,7 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     aihuCompilerPlugin({ islands: false }) as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,
     agentPlugin,
+    headPlugin,
     ...((config?.plugins ?? []) as Plugin[]),
     passthroughPlugin,
     adapterPlugin,
