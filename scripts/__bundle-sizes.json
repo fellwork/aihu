@@ -1,67 +1,67 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": 242,
+    "bytes": -1,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": 1746,
+    "bytes": -1,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2674,
+    "bytes": -1,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3281,
+    "bytes": -1,
     "limit": "3400 B"
   },
   {
     "name": "@aihu/agent",
-    "bytes": 141,
+    "bytes": -1,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 756,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": 2001,
+    "bytes": -1,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 1077,
+    "bytes": -1,
     "limit": "1100 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 586,
+    "bytes": -1,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 718,
+    "bytes": -1,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 789,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": 579,
+    "bytes": -1,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": 718,
+    "bytes": -1,
     "limit": "3 KB"
   }
 ]

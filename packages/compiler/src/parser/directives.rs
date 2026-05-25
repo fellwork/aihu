@@ -39,6 +39,101 @@ const RESERVED_MACRO_PREFIXES: &[&str] = &[
     "on:", "bind:", "class:", "emit:",
 ];
 
+/// Standard DOM event names (sans the `on` prefix) used by the Bug 9a
+/// `$on.<name>` validation. This is a recognition allowlist, NOT an
+/// exhaustive registry — its only purpose is to let the unknown-event
+/// heuristic (see `is_suspicious_event_name`) AVOID false-positives on
+/// real built-in events. Custom events that look intentional (hyphenated
+/// or camelCase, e.g. `user-login`, `valueChanged`) are accepted without
+/// being listed here.
+const KNOWN_DOM_EVENTS: &[&str] = &[
+    // Mouse / pointer
+    "click", "dblclick", "mousedown", "mouseup", "mousemove", "mouseover",
+    "mouseout", "mouseenter", "mouseleave", "contextmenu", "wheel",
+    "pointerdown", "pointerup", "pointermove", "pointerover", "pointerout",
+    "pointerenter", "pointerleave", "pointercancel", "gotpointercapture",
+    "lostpointercapture", "auxclick",
+    // Keyboard
+    "keydown", "keyup", "keypress",
+    // Form / input
+    "input", "change", "submit", "reset", "invalid", "select", "beforeinput",
+    "search", "formdata",
+    // Focus
+    "focus", "blur", "focusin", "focusout",
+    // Clipboard
+    "copy", "cut", "paste",
+    // Drag & drop
+    "drag", "dragstart", "dragend", "dragenter", "dragleave", "dragover",
+    "drop",
+    // Touch
+    "touchstart", "touchend", "touchmove", "touchcancel",
+    // Media
+    "play", "playing", "pause", "ended", "volumechange", "timeupdate",
+    "durationchange", "loadeddata", "loadedmetadata", "loadstart", "progress",
+    "ratechange", "seeked", "seeking", "stalled", "suspend", "waiting",
+    "canplay", "canplaythrough", "emptied",
+    // Window / document / loading
+    "load", "unload", "beforeunload", "error", "abort", "scroll", "scrollend",
+    "resize", "hashchange", "popstate", "pageshow", "pagehide",
+    "visibilitychange", "online", "offline", "message", "messageerror",
+    "storage", "DOMContentLoaded",
+    // Animation / transition
+    "animationstart", "animationend", "animationiteration", "animationcancel",
+    "transitionstart", "transitionend", "transitionrun", "transitioncancel",
+    // Misc UI
+    "toggle", "close", "cancel", "show", "open", "slotchange", "cuechange",
+    "fullscreenchange", "fullscreenerror", "selectionchange", "selectstart",
+    "beforematch",
+];
+
+/// Bug 9a — heuristic for "this `$on.<name>` almost certainly is NOT an
+/// event handler." Returns `true` only for clearly-wrong names so we don't
+/// false-positive on legitimate custom events.
+///
+/// Conservative by design (Director note 06cb46b1 §9a; lessons #1/#6):
+/// - A name in `KNOWN_DOM_EVENTS` is fine (real built-in event).
+/// - A name that contains a `-` (hyphenated, e.g. `user-login`) or an
+///   uppercase letter (camelCase, e.g. `valueChanged`) is treated as an
+///   intentional custom event and accepted — these are the dominant
+///   custom-event naming conventions in the wild.
+/// - That leaves all-lowercase single-word names that are NOT known DOM
+///   events as suspicious (`html`, `innerhtml`, `text`, `raw`, `foo`).
+///   These are the cases that silently compile to a dead `on<name>`
+///   attribute. We flag those.
+fn is_suspicious_event_name(event: &str) -> bool {
+    if event.is_empty() {
+        return false;
+    }
+    if KNOWN_DOM_EVENTS.contains(&event) {
+        return false;
+    }
+    // Intentional-looking custom events: hyphenated or containing any
+    // uppercase character. Accept without warning.
+    if event.contains('-') || event.chars().any(|c| c.is_ascii_uppercase()) {
+        return false;
+    }
+    // All-lowercase, single-word, not a known DOM event → suspicious.
+    true
+}
+
+/// Bug 9a — emit the unknown-event warning for a suspicious `$on.<event>`.
+/// The `html`/`innerhtml` cases additionally redirect to `$html={…}`,
+/// which is the real raw-innerHTML directive (the dead `$on.html` was the
+/// exact failure mode in the bug report cb666cc2).
+fn warn_unknown_event(event: &str) {
+    let redirect = if event == "html" || event == "innerhtml" {
+        " If you meant to set raw innerHTML, use `$html={…}` instead."
+    } else {
+        ""
+    };
+    eprintln!(
+        "warning: W210: `$on.{}` references '{}', which is not a known DOM event. \
+         This compiles to a dead `on{}` handler that never fires. \
+         Did you mean a real event (e.g. `$on.click`)?{}",
+        event, event, event, redirect
+    );
+}
+
 /// Returns `true` when `name` (an internal-AST macro name, post colon-normalization)
 /// is a reserved macro and therefore MUST route to `Attr::Macro`.
 fn is_reserved_macro_name(name: &str) -> bool {
@@ -60,13 +155,29 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
     // Migration: `$on.event=` (dot-form macro). This applies to BOTH
     // HTML elements and components — `@event=` is never valid v1 surface.
     if let Some(event_name) = name.strip_prefix('@') {
-        return Err(CompileError {
-            message: format!(
+        // Bug 9b — the `@html=`/`@innerHTML=` aliases are innerHTML intent,
+        // NOT event handlers. Steering them to `$on.html` (a no-op for HTML)
+        // was the misdirection in the bug report. Point innerHTML-intent
+        // aliases at `$html={…}` (the real raw-HTML directive); keep genuine
+        // event aliases (e.g. `@click=`) pointed at `$on.<event>`.
+        let lower = event_name.to_ascii_lowercase();
+        let message = if lower == "html" || lower == "innerhtml" {
+            format!(
+                "C305: `@{}=` is removed in v1.0. For setting raw innerHTML, \
+                 use `$html={{expr}}`. \
+                 Run: npx aihu migrate <file>",
+                event_name
+            )
+        } else {
+            format!(
                 "C305: `@{}=` event-binding alias is removed in v1.0. \
                  Use `$on.{}={{fn}}` for event handlers. \
                  Run: npx aihu migrate <file>",
                 event_name, event_name
-            ),
+            )
+        };
+        return Err(CompileError {
+            message,
             line: 0,
             col: 0,
             code: Some("C305".to_string()),
@@ -249,6 +360,17 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
         (raw_name.to_string(), false)
     };
     let _ = dot_normalized;
+
+    // Bug 9a — `$on.<non-event>` silently compiles to a dead `on<name>`
+    // handler attribute that never fires (the bug report's `$on.html`).
+    // Warn when the event name is clearly not a real DOM event, while
+    // staying conservative about legitimate custom events. See
+    // `is_suspicious_event_name` for the heuristic.
+    if let Some(event) = name.strip_prefix("on:") {
+        if is_suspicious_event_name(event) {
+            warn_unknown_event(event);
+        }
+    }
 
     // Boolean macros: no `=`, or explicit boolean void attrs
     if value_part.is_empty() {
@@ -631,6 +753,82 @@ mod tests {
             err.message.contains("npx aihu migrate"),
             "C305 message should reference `npx aihu migrate`, got: {}",
             err.message
+        );
+    }
+
+    #[test]
+    fn c305_html_alias_redirects_to_dollar_html() {
+        // Bug 9b — `@html=` is innerHTML intent, NOT an event. C305 must
+        // point at `$html={…}`, not `$on.html` (a no-op for raw HTML).
+        let err = parse_attr("@html=\"raw\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C305"));
+        assert!(
+            err.message.contains("$html"),
+            "C305 for @html should suggest `$html`, got: {}",
+            err.message
+        );
+        assert!(
+            !err.message.contains("$on.html"),
+            "C305 for @html must NOT steer to `$on.html`, got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn c305_event_alias_still_points_to_on_event() {
+        // Bug 9b regression guard — genuine event aliases keep the
+        // `$on.<event>` guidance.
+        let err = parse_attr("@click=\"handleClick\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C305"));
+        assert!(
+            err.message.contains("$on.click"),
+            "C305 for @click should suggest `$on.click`, got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn on_html_is_suspicious_event() {
+        // Bug 9a — `$on.html` is the canonical wrong case (dead handler).
+        assert!(is_suspicious_event_name("html"));
+        assert!(is_suspicious_event_name("innerhtml"));
+        assert!(is_suspicious_event_name("foo"));
+        assert!(is_suspicious_event_name("text"));
+    }
+
+    #[test]
+    fn real_events_are_not_suspicious() {
+        // Bug 9a — real DOM events must never warn.
+        assert!(!is_suspicious_event_name("click"));
+        assert!(!is_suspicious_event_name("input"));
+        assert!(!is_suspicious_event_name("submit"));
+        assert!(!is_suspicious_event_name("pointerdown"));
+        assert!(!is_suspicious_event_name("DOMContentLoaded"));
+    }
+
+    #[test]
+    fn custom_events_are_not_suspicious() {
+        // Bug 9a — conservative heuristic: hyphenated or camelCase names
+        // look intentional and must NOT warn (avoid false-positives on
+        // legit custom events).
+        assert!(!is_suspicious_event_name("user-login"));
+        assert!(!is_suspicious_event_name("valueChanged"));
+        assert!(!is_suspicious_event_name("my-custom-event"));
+        assert!(!is_suspicious_event_name("itemSelected"));
+    }
+
+    #[test]
+    fn on_html_parses_as_binding_still_warns_separately() {
+        // Bug 9a — `$on.html={x}` still parses (warning is emitted to
+        // stderr as a side-effect, not a hard error). The parse result is
+        // unchanged; we only added the diagnostic.
+        let attr = parse_attr("$on.html={html}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Macro {
+                name: "on:html".to_string(),
+                value: MacroValue::Curly("html".to_string())
+            }
         );
     }
 
