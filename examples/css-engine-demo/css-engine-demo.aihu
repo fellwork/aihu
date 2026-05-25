@@ -1,0 +1,94 @@
+// @aihu/css-engine showcase — the first-party styling story.
+// Demonstrates three pieces of the REAL published @aihu/css-engine v0.1.x:
+//   1. Utility output  — classes compiled by the engine (gen-css.ts -> utilities.generated.css)
+//   2. cn() runtime     — @aihu/css-engine/runtime/cn merges base + variant + override
+//                         classes with Tailwind-style last-wins conflict resolution.
+//   3. progressive shim — @aihu/css-engine/runtime/progressive anchorFallback() positions
+//                         a floating "Popular" badge against its anchor with zero deps.
+//
+// cardClass below uses cn() to merge a static base with reactive variant classes.
+// The two padding classes (p-4 / p-6) share a conflict group, so cn() keeps only
+// the last one applied — last-wins resolution from the engine runtime.
+//
+// Rendered with shadowMode: 'none' (set in vite.config.ts) so the engine global
+// utility cascade applies — the documented mode for utility-class frameworks.
+
+@state {
+  import { signal } from '@aihu/signals'
+  import { cn } from '@aihu/css-engine/runtime/cn'
+  import { anchorFallback } from '@aihu/css-engine/runtime/progressive'
+
+  const [accent, setAccent] = signal(false)
+  const [roomy, setRoomy]   = signal(false)
+
+  let cleanup: (() => void) | null = null
+
+  $computed: {
+    cardClass: {
+      describe: 'The merged className for the card, produced by css-engine cn()',
+      expose: { read: true },
+      value: () => cn('card flex flex-col gap-3 rounded-lg border border-border p-4 shadow', accent() ? 'bg-accent text-accent-foreground' : 'bg-surface text-foreground', roomy() && 'p-6'),
+    },
+  }
+
+  $action: {
+    toggleAccent: {
+      describe: 'Toggle the card between the surface and accent style packs',
+      expose: { read: true, write: true },
+      handler: () => setAccent(a => !a),
+    },
+    toggleRoomy: {
+      describe: 'Toggle roomy padding to prove cn() last-wins conflict resolution',
+      expose: { read: true, write: true },
+      handler: () => setRoomy(r => !r),
+    },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      const anchor = document.querySelector('[data-anchor]')
+      const badge  = document.querySelector('[data-floating]')
+      if (anchor && badge instanceof HTMLElement) {
+        cleanup = anchorFallback(anchor, badge, { placement: 'top', offset: 8 })
+      }
+    },
+    dispose: () => {
+      cleanup?.()
+      cleanup = null
+    },
+  }
+}
+
+@template {
+  <section class="demo flex flex-col gap-4 p-6">
+    <h1 class="text-xl font-bold m-0">CSS engine demo</h1>
+    <p class="text-sm text-muted m-0">
+      Utility classes are compiled by <code>@aihu/css-engine</code>; the merged
+      <code>className</code> below is produced at runtime by <code>cn()</code>.
+    </p>
+
+    <div class="relative" data-anchor>
+      <article $class={cardClass}>
+        <h2 class="text-lg font-semibold m-0">Pro plan</h2>
+        <p class="text-sm m-0">Everything in Starter, plus agent surfaces.</p>
+        <code class="text-sm">{cardClass}</code>
+      </article>
+      <span class="badge rounded-full bg-accent text-accent-foreground px-3 py-2 text-sm font-semibold" data-floating>Popular</span>
+    </div>
+
+    <div class="controls flex gap-2">
+      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" $on.click="toggleAccent">Toggle accent</button>
+      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" $on.click="toggleRoomy">Toggle roomy padding</button>
+    </div>
+  </section>
+}
+
+@style {
+  /* Interaction states the Plan-1 engine token table does not yet emit
+     (hover, cursor, transition) — kept minimal and hand-written. */
+  .demo  { max-width: 32rem; }
+  .btn   { cursor: pointer; transition: background 0.1s, border-color 0.1s; }
+  .btn:hover { border-color: var(--color-ring); }
+  .card  { transition: background 0.15s, padding 0.15s; }
+  .badge { box-shadow: var(--shadow, 0 4px 6px -1px rgb(0 0 0 / 0.2)); }
+}
