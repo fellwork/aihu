@@ -10,5 +10,12 @@
  * budgets.
  */
 
-/** Package version sentinel — replaced by the real surface as primitives land. */
-export const PRIMITIVES_PACKAGE = '@aihu/primitives'
+// Shared DOM-walk context (Option C — self-contained, does NOT import
+// @aihu/context).
+export {
+  createDomContext,
+  injectContext,
+  MissingContextError,
+  provideContext,
+} from './dom-context.ts'
+export type { DomContext } from './dom-context.ts'

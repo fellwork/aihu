@@ -9,6 +9,7 @@ export default defineConfig({
   // under-4-KB budget is the contract — NOT one bundled row.
   input: {
     index: 'src/index.ts',
+    'dom-context': 'src/dom-context.ts',
   },
   output: {
     dir: 'dist',
