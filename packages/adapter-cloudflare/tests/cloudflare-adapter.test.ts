@@ -1,16 +1,63 @@
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve as resolvePath } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { AdapterContext } from '@aihu/app'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cloudflare } from '../src/index.ts'
 
-function makeContext(root: string, outDir: string): AdapterContext {
+/**
+ * Evaluate the emitted routes-manifest.js in a real child Node process and
+ * return its default export, augmented with each handler's resolved status.
+ *
+ * Vitest intercepts a bare `import()` of an out-of-project temp path and runs
+ * it through Vite's transform pipeline, which fails. A child `node --input-type
+ * =module` evaluation is the faithful equivalent of what the Cloudflare worker
+ * runtime does at load time, and proves the module is valid ESM with a working
+ * default export and callable handlers.
+ */
+async function importManifestDefault(
+  manifestPath: string,
+): Promise<Array<{ pattern: string; handlerStatus: number }>> {
+  const { execFileSync } = await import('node:child_process')
+  const url = pathToFileURL(manifestPath).href
+  const script = [
+    `const mod = await import(${JSON.stringify(url)})`,
+    'const routes = mod.default',
+    'const out = routes.map((r) => ({ pattern: r.pattern, handlerStatus: r.handler().status }))',
+    'process.stdout.write(JSON.stringify(out))',
+  ].join('\n')
+  const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    encoding: 'utf8',
+  })
+  return JSON.parse(stdout)
+}
+
+type ContextRoute = AdapterContext['routes'][number]
+
+/** Sample routes mirroring the shape produced by buildAdapterContext(). */
+const SAMPLE_ROUTES: ContextRoute[] = [
+  {
+    pattern: '/',
+    segments: [],
+    module: () => Promise.resolve({ default: null }),
+  },
+  {
+    pattern: '/posts/:slug',
+    segments: [
+      { kind: 'static', path: 'posts' },
+      { kind: 'param', name: 'slug' },
+    ],
+    module: () => Promise.resolve({ default: null }),
+  },
+]
+
+function makeContext(root: string, outDir: string, routes: ContextRoute[] = []): AdapterContext {
   return {
     outDir,
     root,
-    routes: [],
+    routes,
     config: {},
     async emitFile(path, content) {
       const abs = join(outDir, path)
@@ -31,8 +78,20 @@ function makeContext(root: string, outDir: string): AdapterContext {
       await mkdir(dirname(absolutePath), { recursive: true })
       await wf(absolutePath, content, 'utf8')
     },
-    createHandlerSource() {
-      return '// handler source'
+    // Real handler-source shape (matches @aihu/app's buildAdapterContext).
+    // Honors routesSpecifier so the SSR worker import points at the file the
+    // adapter actually emits.
+    createHandlerSource(opts) {
+      const routesSpec = opts?.routesSpecifier ?? './routes-manifest.js'
+      const serverSpec = opts?.serverSpecifier ?? '@aihu/server'
+      return [
+        '// AUTO-GENERATED — do not edit',
+        `import { createRequestRouter } from '${serverSpec}'`,
+        `import routes from '${routesSpec}'`,
+        'const _manifest = { routes }',
+        'const _handler = createRequestRouter(_manifest)',
+        'export { _handler as handler }',
+      ].join('\n')
     },
   }
 }
@@ -141,12 +200,77 @@ describe('@aihu/adapter-cloudflare — SSR hybrid mode (ssr: true)', () => {
     expect(worker).toContain('index.html')
   })
 
-  it('inlines createHandlerSource() output in SSR worker', async () => {
+  it('inlines the real createHandlerSource() output in SSR worker', async () => {
     const adapter = cloudflare({ ssr: true, generateWrangler: false })
-    const ctx = makeContext(tmpRoot, tmpOut)
+    const ctx = makeContext(tmpRoot, tmpOut, SAMPLE_ROUTES)
     await adapter.adapt(ctx)
     const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
-    expect(worker).toContain('// handler source')
+    // Real handler wiring is inlined (not a stub string).
+    expect(worker).toContain('createRequestRouter')
+    expect(worker).toContain("import routes from './routes-manifest.js'")
+    expect(worker).toContain('const _manifest = { routes }')
+  })
+
+  it('emits routes-manifest.js alongside _worker.js (R4.2 regression)', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut, SAMPLE_ROUTES)
+    await adapter.adapt(ctx)
+    // Both files must exist in outDir — the import target and the importer.
+    expect(existsSync(join(tmpOut, '_worker.js'))).toBe(true)
+    expect(existsSync(join(tmpOut, 'routes-manifest.js'))).toBe(true)
+  })
+
+  it('routes-manifest.js default-exports the serialized routes', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut, SAMPLE_ROUTES)
+    await adapter.adapt(ctx)
+
+    const manifestPath = join(tmpOut, 'routes-manifest.js')
+    // Evaluate the emitted module in a real Node import — proves it is valid
+    // JS with a working default export and callable handlers. Vitest routes
+    // bare `import()` through Vite (which rejects out-of-root temp paths), so
+    // evaluate in a child Node process and round-trip the result as JSON.
+    const routes = await importManifestDefault(manifestPath)
+
+    expect(Array.isArray(routes)).toBe(true)
+    expect(routes.map((r) => r.pattern)).toEqual(['/', '/posts/:slug'])
+    // Each route carries a callable handler — required by createRequestRouter.
+    for (const r of routes) {
+      expect(r.handlerStatus).toBe(404)
+    }
+  })
+
+  it("_worker.js's manifest import resolves to an existing file", async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut, SAMPLE_ROUTES)
+    await adapter.adapt(ctx)
+
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    // Extract the specifier the worker actually imports and resolve it against
+    // outDir (where _worker.js lives). The resolved path must exist on disk —
+    // this is the exact check `wrangler pages dev` performs at bundle time.
+    const match = worker.match(/import\s+routes\s+from\s+'([^']+)'/)
+    expect(match).not.toBeNull()
+    const specifier = match?.[1] as string
+    const resolved = resolvePath(tmpOut, specifier)
+    expect(existsSync(resolved)).toBe(true)
+  })
+
+  it('emits routes-manifest.js even with zero routes', async () => {
+    const adapter = cloudflare({ ssr: true, generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut, [])
+    await adapter.adapt(ctx)
+    const manifestPath = join(tmpOut, 'routes-manifest.js')
+    expect(existsSync(manifestPath)).toBe(true)
+    const routes = await importManifestDefault(manifestPath)
+    expect(routes).toEqual([])
+  })
+
+  it('SPA mode does NOT emit routes-manifest.js', async () => {
+    const adapter = cloudflare({ generateWrangler: false })
+    const ctx = makeContext(tmpRoot, tmpOut, SAMPLE_ROUTES)
+    await adapter.adapt(ctx)
+    expect(existsSync(join(tmpOut, 'routes-manifest.js'))).toBe(false)
   })
 
   it('SSR worker checks handler response status before ASSETS fallback', async () => {
