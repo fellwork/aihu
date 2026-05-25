@@ -1,0 +1,14 @@
+{
+  "name": "@aihu/css-engine-win32-x64-msvc",
+  "version": "0.1.2",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "aihu-css-compile.exe"
+  ]
+}

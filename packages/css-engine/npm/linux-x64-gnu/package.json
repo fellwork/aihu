@@ -1,0 +1,17 @@
+{
+  "name": "@aihu/css-engine-linux-x64-gnu",
+  "version": "0.1.2",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "aihu-css-compile"
+  ]
+}

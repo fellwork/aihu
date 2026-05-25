@@ -1,0 +1,14 @@
+{
+  "name": "@aihu/css-engine-darwin-x64",
+  "version": "0.1.2",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "aihu-css-compile"
+  ]
+}
