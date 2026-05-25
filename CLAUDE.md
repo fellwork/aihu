@@ -35,8 +35,11 @@ bun run typecheck           # tsc --noEmit across packages
 ## Multi-agent orchestration
 
 This repo is the home of the `fw-agent-skill` (under `.claude/skills/`) and
-runs Mode 2 build sessions via AGENTS.db. State files live at
-`state-<track>.md` in the repo root.
+runs Mode 2 build sessions backed by [GBrain](https://github.com/garrytan/gbrain)
+(Supabase + pgvector) as the storage and recall middleware. State files
+live at `state-<track>.md` in the repo root. Install GBrain via gstack's
+`/setup-gbrain` skill — see `.claude/skills/fw-agent-skill/INSTALL.md`
+and `.claude/CLOUD-SETUP.md` for the cloud-sandbox bootstrap.
 
 ## gstack
 

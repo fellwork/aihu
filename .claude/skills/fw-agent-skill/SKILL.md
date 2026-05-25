@@ -1,6 +1,6 @@
 ---
 name: fw-agent-skill
-description: Multi-agent team orchestration playbook for non-trivial coding work, with AGENTS.db as the storage and recall middleware. Use when acting as Team Lead in a Claude Code session that warrants subagent orchestration — starting or resuming a multi-round build or refactor, running an investigate-then-fix defect loop, executing a hypothesis-sweep experiment loop, dispatching specialized subagents (Topic Director, Synthesizer, Scout, Architect, Builder, Verifier, Investigator, Historian), picking an operating mode (Mode 1 experiment loop, Mode 2 build/refactor, Mode 3 defect fix), briefing an agent, deciding what to do after a Verifier round, handling cross-repo branch coordination, judging whether to surface to the user, writing session retros, or managing the AGENTS.db layered context store (base/user/delta/local) that backs the team's durable knowledge. Trigger on phrases like "team lead", "dispatch", "spawn", "subagent", "Builder/Verifier/Director/Scout/Architect/Investigator/Synthesizer/Historian", "next round", "scope shift", "iteration budget", "topic director", "synthesizer", "historian", "paired branches", "ping-pong loop", "another iteration", "agents_search", "AGENTS.db", "delta layer", "promote findings", or "context store". Also use proactively when the user asks for a complex build or fix that should be decomposed into Architect → Builder → Verifier cycles, or whenever a workflow involves dispatching multiple subagents in sequence rather than one-shot help.
+description: Multi-agent team orchestration playbook for non-trivial coding work, with GBrain (Supabase + pgvector) as the storage and recall middleware. Use when acting as Team Lead in a Claude Code session that warrants subagent orchestration — starting or resuming a multi-round build or refactor, running an investigate-then-fix defect loop, executing a hypothesis-sweep experiment loop, dispatching specialized subagents (Topic Director, Synthesizer, Scout, Architect, Builder, Verifier, Investigator, Historian), picking an operating mode (Mode 1 experiment loop, Mode 2 build/refactor, Mode 3 defect fix), briefing an agent, deciding what to do after a Verifier round, handling cross-repo branch coordination, judging whether to surface to the user, writing session retros, or managing the GBrain layered context store (base/user/delta/local mapped to slug prefixes + tags) that backs the team's durable knowledge. Trigger on phrases like "team lead", "dispatch", "spawn", "subagent", "Builder/Verifier/Director/Scout/Architect/Investigator/Synthesizer/Historian", "next round", "scope shift", "iteration budget", "topic director", "synthesizer", "historian", "paired branches", "ping-pong loop", "another iteration", "gbrain", "GBrain", "mcp__gbrain__search", "mcp__gbrain__put_page", "delta layer", "promote findings", or "context store". Also use proactively when the user asks for a complex build or fix that should be decomposed into Architect → Builder → Verifier cycles, or whenever a workflow involves dispatching multiple subagents in sequence rather than one-shot help.
 ---
 
 # Agent Team Orchestration
@@ -28,28 +28,33 @@ This split is the single most important rule in the playbook. Lesson #11 in `ref
 
 ---
 
-## Storage substrate: AGENTS.db middleware
+## Storage substrate: GBrain middleware
 
-The team's durable knowledge — director-notes, topic summaries, retros, investigations, build-manifests — lives in **[AGENTS.db](https://github.com/krazyjakee/AGENTS.db)**, a vectorized flatfile context store with four precedence-ordered layers (`local > user > delta > base`). Agents query it via `agents_search` mid-dispatch and write outputs via `agents_context_write` at handoff.
+The team's durable knowledge — director-notes, topic summaries, retros, investigations, build-manifests — lives in **[GBrain](https://github.com/garrytan/gbrain)**, a Supabase + pgvector wiki-style brain that exposes ~74 MCP tools over stdio. Agents query it mid-dispatch via `mcp__gbrain__search` and write outputs via `mcp__gbrain__put_page` at handoff.
 
-This is **middleware, not a methodology change** — the roster, modes, spine, and lessons all stand. AGENTS.db just gives the durable artifacts a queryable home, which:
+This is **middleware, not a methodology change** — the roster, modes, spine, and lessons all stand. GBrain just gives the durable artifacts a queryable home, which:
 
 - Cuts brief size by ~10× (search guidance vs inlined context)
 - Reduces rework when a defect class has been investigated before
 - Lets parallel agents see each other's findings without Team Lead shuttling
+- Survives ephemeral cloud containers — Supabase persists between sessions
 
-**Layer mapping at a glance:**
+**The layer model maps onto slug prefixes + a `layer:` tag.** GBrain's primitive is the *page* (slug, content, tags, links). To preserve the playbook's promotion discipline, every page lives under one of four slug prefixes:
 
-| Layer | Holds | Mutability |
+| Layer | Slug prefix | Mutability |
 |---|---|---|
-| `base` | Project thesis, ratified specs, this playbook | Immutable from automated work |
-| `user` | User-confirmed domain hints, approved scope-shifts, promoted findings | Append-only, durable |
-| `delta` | Director-notes, summaries, Verifier reports, investigations — proposed/reviewable | Append-only, reviewable |
-| `local` | In-flight scratch, iteration counters, transient observations | Append-only, gitignored |
+| `base` | `<project>/base/...` | Immutable from automated work; human-curated only |
+| `user` | `<project>/user/<topic>/...` | Historian-promoted; durable team knowledge |
+| `delta` | `<project>/delta/<topic>/<round>/<kind>` | Per-round agent writes; reviewable, proposed |
+| `local` | `wiki/agents/<subagent-id>/...` | Subagent scratch — matches GBrain's enforced subagent namespace |
 
-**The Historian is the sole automated authority for `delta → user` promotion** at end-of-session. This is the formal "earned learning" mechanism — a finding becomes durable team knowledge only when the Historian promotes it.
+The `wiki/agents/<subagent-id>/` prefix is **enforced by GBrain** for subagent `put_page` calls (default schema). Project-scoped writes to `<project>/delta/...` and `<project>/user/...` require the agent to operate without the subagent namespace wrap — Builders, Verifiers, etc. write to these explicitly when producing durable artifacts. See `references/middleware.md` for the exact slug + tag conventions.
 
-**Setup, per-role permissions, search conventions, promotion discipline, anti-patterns, and a worked example** are in `references/middleware.md`. Read it before your first dispatch in a project that uses AGENTS.db.
+**Every page is tagged** with `topic:<id>`, `track:<id>`, `kind:<record-kind>`, `layer:<base|user|delta|local>`, and `round:<N>` where applicable. Tags are how cross-layer searches scope.
+
+**The Historian is the sole automated authority for `delta → user` promotion** at end-of-session. A finding becomes durable team knowledge only when the Historian promotes it — by writing a new page under `<project>/user/...` referencing the delta page it promotes.
+
+**Setup, per-role permissions, search conventions, promotion discipline, anti-patterns, and a worked example** are in `references/middleware.md`. Read it before your first dispatch in a project that uses GBrain.
 
 ---
 
@@ -65,7 +70,7 @@ This is **middleware, not a methodology change** — the roster, modes, spine, a
 | **Builder** | Research — implementation | Mid-session | Build-manifest: files changed, investigation docs. Commits + pushes. |
 | **Verifier** | Research — validation | After Builder | Verification-report: pass/fail per concrete acceptance criterion. **Bidirectional + sample-based.** |
 | **Investigator** | Research — root-cause | On-demand for crashes/blocks | Investigation-report: root cause; Iron Law applies (no fix without investigation). |
-| **Historian** | Substance — retrospective | End of session | Retro + updated state file |
+| **Historian** | Substance — retrospective | End of session | Retro + updated state file + delta→user promotions |
 
 Detailed role descriptions in `references/roles.md`.
 
@@ -125,27 +130,27 @@ Every research action exists to update *durable understanding* of where the topi
 
 ```
 Researcher (Builder, Verifier, Investigator, Architect, Scout)
-        ↓ raw findings
+        ↓ raw findings (put_page to delta or local)
 Topic Director  ←── governance: which findings advance the topic, which
         ↓             are noise, which signal scope-shift, what priority,
         ↓             what to surface to user, how to refine the next brief
-        ↓ director-note (routing decisions)
+        ↓ director-note page (delta)
 Synthesizer  ←── continuous: writes/updates topic summary from
         ↓             routed findings + prior summary
-        ↓ topic summary (living document)
+        ↓ topic_summary page (delta, supersedes prior)
 Team Lead briefs next Researcher *from the topic summary*, not from
 raw prior findings. Loops back to top.
 
 End of session:
-Historian  ←── reads all in-session artifacts, writes retro.md and
-                updates state-<track>.md
+Historian  ←── reads all in-session delta pages, writes retro page,
+                promotes earned findings delta → user, updates state-<track>.md
 ```
 
 **Per-round protocol (Modes 2 and 3):**
 
-1. **Researcher** ships findings; reports `STATUS: DONE | PARTIAL | BLOCKED` with concrete numbers per acceptance item.
-2. **You (Team Lead)** verify the STATUS report against the artifact. **Don't trust self-reports** — run a quick automated check (does the file exist, does the test pass, does git log show the commit). Then dispatch Topic Director.
-3. **Topic Director** reads findings + latest topic summary + prior director-notes. Outputs a director-note covering: on-thesis assessment, routing for synthesis, priority, scope signal (continue/switch/surface), refined brief for next Researcher, surface-to-user triggers, continuity check.
+1. **Researcher** ships findings; reports `STATUS: DONE | PARTIAL | BLOCKED` with concrete numbers per acceptance item, plus the slug of any page they wrote.
+2. **You (Team Lead)** verify the STATUS report against the artifact. **Don't trust self-reports** — run a quick automated check (does the file exist, does the test pass, does git log show the commit, does `mcp__gbrain__get_page` return the claimed page). Then dispatch Topic Director.
+3. **Topic Director** reads findings + latest topic summary + prior director-notes (via `mcp__gbrain__search`). Outputs a director-note covering: on-thesis assessment, routing for synthesis, priority, scope signal (continue/switch/surface), refined brief for next Researcher, surface-to-user triggers, continuity check.
 4. **You** dispatch Synthesizer if Director routed for synthesis.
 5. **Synthesizer** updates the topic summary. Synthesizer doesn't make priority calls — Director already did.
 6. **You** brief the next Researcher *from the updated summary*, incorporating Director's refined-brief content. You handle logistics around it.
@@ -175,7 +180,7 @@ Spawn templates for Director, Synthesizer, and each mode are in `references/temp
 - 5 iterations on the same defect class fail to converge
 - Cross-repo conflict requiring user judgment
 - Token-spend ceiling reached
-- Safety-mode breach (write to a frozen path)
+- Safety-mode breach (write to a frozen path or layer outside permission)
 - License/legal question outside prior guidance
 
 The Topic Director is the substance-surface authority. You are the logistical-surface authority. **Both can trigger surface; both should.**
@@ -186,11 +191,15 @@ The Topic Director is the substance-surface authority. You are the logistical-su
 
 When starting or resuming a session:
 
-1. **Read** the project state file (e.g., `state-<track>.md`) and the active topic summary (e.g., `docs/topic-summaries/<active-topic>-summary.md`).
-2. **Dispatch Topic Director** with the summary as primary input. Director sets direction for this session.
-3. **Dispatch Researchers** per Director's direction.
-4. **Loop the spine** (Researcher → Director → Synthesizer → next-Researcher).
-5. **End of session:** dispatch Historian.
+1. **Read** the project state file (e.g., `state-<track>.md`) for the orientation pointer.
+2. **Pull recent durable context** via `mcp__gbrain__search`:
+   - `mcp__gbrain__search` query: `"kind:topic_summary topic:<active-topic> layer:delta"` — latest summary
+   - `mcp__gbrain__search` query: `"kind:director_note topic:<active-topic>"` — last 3 notes
+   - `mcp__gbrain__search` query: `"kind:retro topic:<active-topic>"` — last retro
+3. **Dispatch Topic Director** with search-guidance brief. Director sets direction for this session.
+4. **Dispatch Researchers** per Director's direction.
+5. **Loop the spine** (Researcher → Director → Synthesizer → next-Researcher).
+6. **End of session:** dispatch Historian.
 
 **Session granularity (Mode 1):** One session = one research direction. End-of-session triggers: Director recommends rotation (3 consecutive misses + synthesis says hypothesis space exhausted) | ≥4 hours wall-clock (M-scope ceiling) | hard-stop fires | user pause.
 
@@ -200,11 +209,12 @@ When starting or resuming a session:
 
 This skill is methodology-only. Per project, you also need:
 
-- **AGENTS.db installed and registered as MCP** (see `references/middleware.md` for setup). The base layer should be compiled from this skill's files plus any project-specific specs.
+- **GBrain installed and registered as MCP** (see `references/middleware.md` for setup; gstack's `/setup-gbrain` is the canonical install path). Supabase credentials (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) must be in the environment.
+- **A project slug prefix** — typically the repo name (e.g., `aihu`). All durable team pages live under `<project>/{base,user,delta}/...`.
 - **Linked repositories** with branch conventions (e.g., `feat/<topic>`, `fix/<topic>`, `verify/<topic>`). When work spans multiple repos, use **paired branch names** and cross-reference PR descriptions. See `references/operations.md` for full cross-repo branch hygiene.
-- **State files**: typically `state-<track>.md` at repo root, one per parallel track. (These persist alongside AGENTS.db; the file is the human-reviewable single-pointer state, the DB is the queryable history.)
-- **Topic identifiers and track identifiers** — string conventions agents tag records with. Use `topic:<id>` and `track:<id>` in record content so searches scope correctly.
-- **Safety mode**: a writability matrix per mode (which files are writable, read-only, or frozen) AND the AGENTS.db layer-write matrix per role. Both worked examples in `references/operations.md` and `references/middleware.md`.
+- **State files**: typically `state-<track>.md` at repo root, one per parallel track. (These persist alongside GBrain; the file is the human-reviewable single-pointer state, GBrain is the queryable history.)
+- **Topic identifiers and track identifiers** — string conventions agents tag pages with. Use `topic:<id>` and `track:<id>` tags so searches scope correctly.
+- **Safety mode**: a writability matrix per mode (which files are writable, read-only, or frozen) AND the GBrain layer-write matrix per role. Both worked examples in `references/operations.md` and `references/middleware.md`.
 - **Success criteria**: explicit "done" definition, ideally a runnable acceptance check.
 
 If the project doesn't have these yet, the first session creates them. Treat that itself as a Mode 2 build.
@@ -216,11 +226,11 @@ If the project doesn't have these yet, the first session creates them. Treat tha
 These are summarized from `references/lessons.md` — read it for the full account. The most common Team Lead mistakes:
 
 - **Don't make substance decisions inline.** When you find yourself deciding which defect to fix next, what acceptance bar applies, or whether to scope-shift — stop. Dispatch the Topic Director.
-- **Don't trust self-reported STATUS.** Verify against the artifact before moving on.
+- **Don't trust self-reported STATUS.** Verify against the artifact (git log, test run, `mcp__gbrain__get_page` on the claimed slug) before moving on.
 - **Don't accept "PASS conditional" with deferrals.** Either it passes or it doesn't. Deferrals become the actual blockers.
 - **Don't let Builders revise targets.** Compare reported numbers to the original spec.
-- **Don't ship Builders without explicit deliverable framing.** "Implement X" is not enough — say "produce artifact Y on branch Z, committed and pushed."
-- **Don't skip the investigation step on ambiguous defects.** Iron Law: investigation `.md` before any fix code.
+- **Don't ship Builders without explicit deliverable framing.** "Implement X" is not enough — say "produce artifact Y on branch Z, committed and pushed; write build_manifest page to `<project>/delta/<topic>/<round>/build-manifest`."
+- **Don't skip the investigation step on ambiguous defects.** Iron Law: investigation page (kind:investigation_report) before any fix code.
 - **Don't put two concurrent agents on the same branch.** Use paired branch names for cross-repo.
 
 ---
@@ -229,9 +239,9 @@ These are summarized from `references/lessons.md` — read it for the full accou
 
 Read these on demand based on what you're doing:
 
-- **`references/roles.md`** — Full roster: per-role concern, output schema, when to spawn, gotchas, plus per-role AGENTS.db read/write permissions.
+- **`references/roles.md`** — Full roster: per-role concern, output schema, when to spawn, gotchas, plus per-role GBrain slug/layer write permissions.
 - **`references/modes.md`** — The three operating modes in detail: when to use, researchers, substance cadence, iteration discipline.
-- **`references/templates.md`** — Spawn prompt templates: T-DIR (Topic Director), T-SYN (Synthesizer), Mode 1/2/3 templates, Verifier-only audit dispatch. All updated to use `agents_search` for context retrieval.
-- **`references/operations.md`** — Operational reference: file safety-mode writability matrices, AGENTS.db layer-write matrices, cross-repo branch hygiene, checkpoint state mediums.
-- **`references/middleware.md`** — AGENTS.db storage and recall middleware: layer model, per-role permissions, search conventions, promotion discipline, setup instructions, worked example, anti-patterns, and how each lesson is partly addressed by the middleware. **Read before your first dispatch.**
+- **`references/templates.md`** — Spawn prompt templates: T-DIR (Topic Director), T-SYN (Synthesizer), Mode 1/2/3 templates, Verifier-only audit dispatch. All updated to use `mcp__gbrain__search` for context retrieval and `mcp__gbrain__put_page` for output.
+- **`references/operations.md`** — Operational reference: file safety-mode writability matrices, GBrain layer-write matrices, cross-repo branch hygiene, checkpoint state mediums.
+- **`references/middleware.md`** — GBrain storage and recall middleware: slug/tag conventions, layer model, per-role permissions, search conventions, promotion discipline, setup instructions, worked example, anti-patterns, and how each lesson is partly addressed by the middleware. **Read before your first dispatch.**
 - **`references/lessons.md`** — 11 observed failure patterns from real sessions. Each one has a mitigation tied to a universal principle. Read this before your first dispatch in any new session.
