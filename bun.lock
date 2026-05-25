@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -328,7 +328,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -339,7 +339,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -356,7 +356,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -397,7 +397,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -445,7 +445,7 @@
     },
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "peerDependencies": {
         "@aihu/cli": "^0.3.0",
       },
