@@ -26,6 +26,21 @@ export {
   type Direction,
   defineConfigProvider,
 } from './config-provider/index.ts'
+// Phase 1 primitives.
+export {
+  AihuDialogBackdrop,
+  AihuDialogClose,
+  AihuDialogContent,
+  AihuDialogDescription,
+  AihuDialogRoot,
+  AihuDialogTitle,
+  AihuDialogTrigger,
+  createFocusTrap,
+  type DialogContextValue,
+  defineDialog,
+  dialogContext,
+  type FocusTrap,
+} from './dialog/index.ts'
 export type { DomContext } from './dom-context.ts'
 // Shared DOM-walk context (Option C — self-contained, does NOT import
 // @aihu/context).

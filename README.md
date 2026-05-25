@@ -215,7 +215,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/config-provider` | 756 B | 4 KB | pass |
 | `@aihu/primitives/roving-focus` | 1.40 kB | 4 KB | pass |
 | `@aihu/primitives/collection` | 516 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
 | `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/button` | — | 4 KB | _no dist_ |
 

@@ -15,6 +15,7 @@ export default defineConfig({
     'config-provider': 'src/config-provider/index.ts',
     collection: 'src/collection/index.ts',
     'roving-focus': 'src/roving-focus/index.ts',
+    dialog: 'src/dialog/index.ts',
   },
   output: {
     dir: 'dist',
