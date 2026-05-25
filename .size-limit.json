@@ -38,6 +38,18 @@
     "ignore": ["@aihu/signals", "@aihu/context"]
   },
   {
+    "name": "@aihu-plugin/kindly-note",
+    "path": "packages/plugin-kindly-note/dist/index.js",
+    "limit": "1500 B",
+    "gzip": true,
+    "ignore": [
+      "@aihu/signals",
+      "@kindly-note/core",
+      "@kindly-note/emitters-html",
+      "@kindly-note/loader-dynamic-import"
+    ]
+  },
+  {
     "name": "@aihu/router",
     "path": "packages/router/dist/index.js",
     "limit": "2400 B",

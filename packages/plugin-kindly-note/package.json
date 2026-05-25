@@ -1,0 +1,67 @@
+{
+  "name": "@aihu-plugin/kindly-note",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "./dist/element.js"
+  ],
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "peerDependencies": {
+    "@kindly-note/core": "^0.1.0",
+    "@kindly-note/emitters-html": "^0.1.0",
+    "@kindly-note/loader-dynamic-import": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@kindly-note/core": {
+      "optional": true
+    },
+    "@kindly-note/emitters-html": {
+      "optional": true
+    },
+    "@kindly-note/loader-dynamic-import": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@aihu/signals": "workspace:*"
+  },
+  "devDependencies": {
+    "@aihu/plugin": "workspace:*",
+    "@aihu/server": "workspace:*",
+    "@kindly-note/core": "^0.1.0",
+    "@kindly-note/emitters-html": "^0.1.0",
+    "@kindly-note/loader-dynamic-import": "^0.1.0",
+    "@kindly-note/lang-json": "^0.1.0",
+    "@kindly-note/lang-typescript": "^0.1.0"
+  },
+  "description": "Runtime syntax highlighting for aihu — <aihu-code> custom element + signal-aware highlight() helper, powered by published @kindly-note/* packages with lazy language loading.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/plugin-kindly-note"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/plugin-kindly-note#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

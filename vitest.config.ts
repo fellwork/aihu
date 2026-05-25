@@ -54,6 +54,10 @@ export default defineConfig({
         import.meta.url,
       ).pathname,
       '@aihu-plugin/data': new URL('./packages/plugin-data/src/index.ts', import.meta.url).pathname,
+      '@aihu-plugin/kindly-note': new URL(
+        './packages/plugin-kindly-note/src/index.ts',
+        import.meta.url,
+      ).pathname,
       '@aihu-plugin/drizzle': new URL('./packages/plugin-drizzle/src/index.ts', import.meta.url)
         .pathname,
       '@aihu/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,

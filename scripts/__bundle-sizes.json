@@ -30,6 +30,11 @@
     "limit": "800 B"
   },
   {
+    "name": "@aihu-plugin/kindly-note",
+    "bytes": 1370,
+    "limit": "1500 B"
+  },
+  {
     "name": "@aihu/router",
     "bytes": 2001,
     "limit": "2400 B"
