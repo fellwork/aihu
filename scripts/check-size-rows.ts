@@ -124,6 +124,13 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
   const errors: string[] = []
   const warnings: string[] = []
 
+  // A browser-eligible package is satisfied either by a row named exactly for
+  // the package, OR by one-or-more sub-entry rows (`<pkg>/<entry>`). The latter
+  // is how `@aihu/primitives` budgets PER-PRIMITIVE (one row per export entry,
+  // each under its own limit) rather than one bundled row.
+  const hasRowFor = (pkgName: string): boolean =>
+    rowNames.has(pkgName) || rows.some((r) => r.name.startsWith(`${pkgName}/`))
+
   let browserEligibleChecked = 0
   let serverSideChecked = 0
   let buildDevOnlyChecked = 0
@@ -135,12 +142,18 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
       continue
     }
 
-    const hasRow = rowNames.has(pkg.name)
+    // Exact-name match drives the server-side / build-dev-only forbidden-row
+    // checks (preserving the original semantics — e.g. @aihu/css-engine is
+    // build-dev-only and its `runtime/*` sub-rows must NOT make it look like it
+    // owns a forbidden top-level row).
+    const hasExactRow = rowNames.has(pkg.name)
 
     switch (pkg.classification) {
       case 'browser-eligible':
         browserEligibleChecked++
-        if (!hasRow) {
+        // Browser-eligible packages may satisfy the row requirement with
+        // PER-ENTRY sub-rows (`<pkg>/<entry>`) — how @aihu/primitives budgets.
+        if (!hasRowFor(pkg.name)) {
           errors.push(
             `${pkg.name}: browser-eligible package has src/index.ts but no row in .size-limit.json. ` +
               `Add a row, or classify as server-side / build-dev-only in scripts/check-size-rows.ts.`,
@@ -149,7 +162,7 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
         break
       case 'server-side':
         serverSideChecked++
-        if (hasRow) {
+        if (hasExactRow) {
           errors.push(
             `${pkg.name}: server-side package MUST NOT have a row in .size-limit.json. ` +
               `Server-side packages are budgeted by SSR-bytes-served, not browser bytes. ` +
@@ -159,7 +172,7 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
         break
       case 'build-dev-only':
         buildDevOnlyChecked++
-        if (hasRow) {
+        if (hasExactRow) {
           errors.push(
             `${pkg.name}: build/dev-time-only package MUST NOT have a row in .size-limit.json. ` +
               `These packages never reach a browser bundle. ` +
@@ -174,8 +187,10 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
   // deleted packages, etc.). Not fatal — could be intentional during a
   // rename — but worth surfacing.
   const knownNames = new Set(packages.map((p) => p.name))
+  const matchesKnownPackage = (rowName: string): boolean =>
+    knownNames.has(rowName) || [...knownNames].some((n) => rowName.startsWith(`${n}/`))
   for (const row of rows) {
-    if (!knownNames.has(row.name)) {
+    if (!matchesKnownPackage(row.name)) {
       warnings.push(
         `${row.name}: row in .size-limit.json but no matching package found under packages/`,
       )

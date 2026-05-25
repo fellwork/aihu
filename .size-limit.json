@@ -97,5 +97,68 @@
     "path": "packages/css-engine/dist/runtime/progressive.js",
     "limit": "3 KB",
     "gzip": true
+  },
+  {
+    "name": "@aihu/primitives/context",
+    "path": "packages/primitives/dist/dom-context.js",
+    "limit": "1 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/primitives/presence-gate",
+    "path": "packages/primitives/dist/presence-gate.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/form-control",
+    "path": "packages/primitives/dist/form-control.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/config-provider",
+    "path": "packages/primitives/dist/config-provider.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/roving-focus",
+    "path": "packages/primitives/dist/roving-focus.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/collection",
+    "path": "packages/primitives/dist/collection.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/dialog",
+    "path": "packages/primitives/dist/dialog.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/tooltip",
+    "path": "packages/primitives/dist/tooltip.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/button",
+    "path": "packages/primitives/dist/button.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
   }
 ]
