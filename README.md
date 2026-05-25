@@ -218,6 +218,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 |---|---|---|
 | [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.0.2` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.0` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.9` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
 | [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.9` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
