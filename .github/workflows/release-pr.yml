@@ -35,7 +35,7 @@ jobs:
       - name: Open / update Release PR
         uses: changesets/action@v1
         with:
-          # Compound version step:
+          # Compound version step, run via the `release:version` package script:
           #   1. changeset version  — bump package.json + write CHANGELOGs
           #   2. bun install        — refresh bun.lock for the bumped versions
           #                            (avoids CI's --frozen-lockfile mismatch on
@@ -45,12 +45,13 @@ jobs:
           #                            inventory cache. Without this, every
           #                            Release-PR ships drift that downstream
           #                            CI's sync-readme --check would flag.
-          # changesets/action commits whatever is in the working tree after
-          # the version step.
-          version: |
-            bun changeset version
-            bun install
-            bun scripts/sync-readme.ts
+          # MUST be a single command: changesets/action runs the `version` input
+          # as one command (it does NOT shell-chain a multi-line block — a `|`
+          # block collapses to space-joined args and `changeset version` then
+          # rejects them as "too many arguments"). So the chaining lives inside
+          # the `release:version` npm script (`&&`-separated), invoked here.
+          # changesets/action commits whatever is in the working tree after it.
+          version: bun run release:version
           # No `publish` script here — actual publishing happens on tag push
           # via release.yml, gated on the binary builds completing first.
           commit: 'chore(release): version packages'
