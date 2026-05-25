@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>css-engine-demo — aihu example</title>
+    <!-- Page chrome + dark-mode tokens -->
+    <link rel="stylesheet" href="../_shared/tokens.css" />
+    <!-- css-engine style pack: defines the --color-* brand tokens (.dark aware)
+         that the generated utility classes reference. -->
+    <link rel="stylesheet" href="./node_modules/@aihu/css-engine/styles/aihu-default.css" />
+    <!-- Utility classes compiled by @aihu/css-engine (see gen-css.ts) -->
+    <link rel="stylesheet" href="./utilities.generated.css" />
+  </head>
+  <body>
+    <example-shell title="css-engine-demo" sourceUrl="https://github.com/fellwork/aihu/tree/main/examples/css-engine-demo">
+      <css-engine-demo></css-engine-demo>
+    </example-shell>
+    <script type="module" src="../_shared/example-shell.aihu"></script>
+    <script type="module" src="./css-engine-demo.aihu"></script>
+  </body>
+</html>

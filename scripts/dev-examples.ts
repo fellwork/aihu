@@ -12,8 +12,12 @@
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = new URL('..', import.meta.url).pathname
+// fileURLToPath (not `.pathname`) so the repo root is a valid OS path on
+// Windows too — `.pathname` yields a leading-slash drive path (`/C:/…`) that
+// Bun.Glob.scanSync and child `cwd` cannot open.
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 const configs = Array.from(new Bun.Glob('examples/*/vite.config.ts').scanSync(ROOT))
 

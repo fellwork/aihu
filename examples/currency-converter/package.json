@@ -1,0 +1,22 @@
+{
+  "name": "@aihu/example-currency-converter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5116",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/compiler": "workspace:*",
+    "@aihu/signals": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0",
+    "vitest": "^2.1.1"
+  }
+}

@@ -75,11 +75,18 @@
 }
 
 @style {
-  .converter { display: grid; gap: 0.75rem; padding: 1rem; max-width: 28rem; font-family: system-ui, sans-serif; }
-  h1         { margin: 0; }
+  .converter { display: grid; gap: 0.75rem; padding: 1.5rem; max-width: 28rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); color: var(--fg); }
+  h1         { margin: 0; color: var(--fg); }
   .row       { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
-  label      { display: grid; gap: 0.25rem; }
+  label      { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.875rem; }
   input,
-  select     { padding: 0.4rem; }
-  .result    { font-size: 1.1rem; padding: 0.5rem; background: #f7f7f7; border-radius: 4px; margin: 0; font-variant-numeric: tabular-nums; }
+  select     { padding: 0.4rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); }
+  input:focus,
+  select:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .result    { font-size: 1.1rem; padding: 0.5rem 0.75rem; background: var(--code-bg); border-radius: var(--radius); margin: 0; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .result strong { color: var(--accent); }
+
+  @media (max-width: 480px) {
+    .row { grid-template-columns: 1fr; }
+  }
 }
