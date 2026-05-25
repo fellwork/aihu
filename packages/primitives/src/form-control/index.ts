@@ -142,7 +142,7 @@ export class AihuFormControl extends HTMLElement {
     }
 
     // Associate a slotted label.
-    const label = this.querySelector<HTMLLabelElement>('label, [data-fc-label]')
+    const label = this.querySelector<HTMLElement>('label, [data-fc-label]')
     if (label && control) {
       if (label instanceof HTMLLabelElement) label.htmlFor = control.id
       else label.setAttribute('for', control.id)

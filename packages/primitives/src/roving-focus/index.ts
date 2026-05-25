@@ -20,7 +20,7 @@
 import { computed, effect, type Read, signal } from '@aihu/signals'
 import { collectionContext, createCollection } from '../collection/index.ts'
 import { configContext, type Direction } from '../config-provider/index.ts'
-import { injectContext, provideContext } from '../dom-context.ts'
+import { injectValue, provideContext } from '../dom-context.ts'
 
 export type Orientation = 'horizontal' | 'vertical' | 'both'
 
@@ -116,7 +116,7 @@ export class AihuRovingFocus extends HTMLElement {
     const own = this._dirAttr[0]()
     if (own) return own
     try {
-      return injectContext(this, configContext).dir()
+      return injectValue(this, configContext).dir()
     } catch {
       return 'ltr'
     }

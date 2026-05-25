@@ -209,15 +209,15 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/app` | 789 B | 800 B | pass |
 | `@aihu/css-engine/runtime/cn` | 579 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 718 B | 3 KB | pass |
-| `@aihu/primitives/context` | 416 B | 1 KB | pass |
+| `@aihu/primitives/context` | 430 B | 1 KB | pass |
 | `@aihu/primitives/presence-gate` | 801 B | 4 KB | pass |
 | `@aihu/primitives/form-control` | 1.00 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 756 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.40 kB | 4 KB | pass |
+| `@aihu/primitives/config-provider` | 758 B | 4 KB | pass |
+| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
 | `@aihu/primitives/collection` | 516 B | 4 KB | pass |
 | `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.79 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
+| `@aihu/primitives/tooltip` | 1.80 kB | 4 KB | pass |
+| `@aihu/primitives/button` | 1.11 kB | 4 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

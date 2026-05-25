@@ -10,7 +10,7 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
-import { createDomContext, injectContext, provideContext } from '../dom-context.ts'
+import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
 import { createFocusTrap, type FocusTrap } from './focus-trap.ts'
 
 export interface DialogContextValue {
@@ -97,7 +97,7 @@ abstract class DialogPiece extends HTMLElement {
   protected disposers: Array<() => void> = []
 
   connectedCallback(): void {
-    this.ctx = injectContext(this, dialogContext)
+    this.ctx = injectValue(this, dialogContext)
     this.onConnect()
   }
 
@@ -162,7 +162,7 @@ export class AihuDialogContent extends DialogPiece {
     )
   }
 
-  disconnectedCallback(): void {
+  override disconnectedCallback(): void {
     this._deactivateTrap()
     this.removeEventListener('keydown', this._onKeydown)
     super.disconnectedCallback()

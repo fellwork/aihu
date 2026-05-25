@@ -16,7 +16,7 @@
 
 import { type Placement, position } from '@aihu/css-engine/runtime/progressive'
 import { effect, type Read, signal } from '@aihu/signals'
-import { createDomContext, injectContext, provideContext } from '../dom-context.ts'
+import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
 
 export interface TooltipCoords {
   x: number
@@ -159,7 +159,7 @@ export class AihuTooltipTrigger extends HTMLElement {
   private disposers: Array<() => void> = []
 
   connectedCallback(): void {
-    this.ctx = injectContext(this, tooltipContext)
+    this.ctx = injectValue(this, tooltipContext)
     this.ctx.registerTrigger(this)
     this.addEventListener('mouseenter', this._onEnter)
     this.addEventListener('mouseleave', this._onLeave)
@@ -196,7 +196,7 @@ export class AihuTooltipContent extends HTMLElement {
   private disposers: Array<() => void> = []
 
   connectedCallback(): void {
-    this.ctx = injectContext(this, tooltipContext)
+    this.ctx = injectValue(this, tooltipContext)
     // APG: tooltip content is not focusable.
     this.setAttribute('role', 'tooltip')
     this.id = this.ctx.contentId()

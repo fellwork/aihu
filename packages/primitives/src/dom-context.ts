@@ -93,3 +93,13 @@ export function injectContext<T>(from: Element, ctx: DomContext<T>): T | Read<T>
   if (ctx._default !== undefined) return ctx._default
   throw new MissingContextError(ctx._name)
 }
+
+/**
+ * Like `injectContext`, but for the common case where a context carries a raw
+ * (non-signal) value — typically an object whose fields are themselves signals.
+ * Narrows the `T | Read<T>` union to `T` so call sites read fields directly.
+ * Use `injectContext` when a provider may store a bare `Read<T>` signal.
+ */
+export function injectValue<T>(from: Element, ctx: DomContext<T>): T {
+  return injectContext(from, ctx) as T
+}

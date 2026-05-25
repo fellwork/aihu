@@ -16,7 +16,7 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
-import { injectContext } from '../dom-context.ts'
+import { injectValue } from '../dom-context.ts'
 import { formControlContext } from '../form-control/index.ts'
 
 export type ButtonType = 'button' | 'submit' | 'reset'
@@ -57,7 +57,7 @@ export class AihuButton extends HTMLElement {
 
     // Inherit disabled from a FormControlContext ancestor, if any.
     try {
-      this._inheritedDisabled = injectContext(this, formControlContext).disabled
+      this._inheritedDisabled = injectValue(this, formControlContext).disabled
     } catch {
       this._inheritedDisabled = null
     }

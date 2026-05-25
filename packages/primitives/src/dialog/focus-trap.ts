@@ -33,12 +33,12 @@ export function createFocusTrap(container: Element): FocusTrap {
   const onKeydown = (ev: KeyboardEvent): void => {
     if (!active || ev.key !== 'Tab') return
     const items = focusables(container)
-    if (items.length === 0) {
+    const first = items[0]
+    const last = items[items.length - 1]
+    if (!first || !last) {
       ev.preventDefault()
       return
     }
-    const first = items[0]
-    const last = items[items.length - 1]
     const current = (container.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement
 
     if (ev.shiftKey && (current === first || !container.contains(current))) {

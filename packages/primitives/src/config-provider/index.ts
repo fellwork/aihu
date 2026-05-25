@@ -44,7 +44,9 @@ export class AihuConfigProvider extends HTMLElement {
   get density(): Read<Density> {
     return this._density[0]
   }
-  get dir(): Read<Direction> {
+  /** The direction signal. Named `dirSignal` to avoid clobbering the native
+   * `HTMLElement.dir` string property (which this element still reflects). */
+  get dirSignal(): Read<Direction> {
     return this._dir[0]
   }
 

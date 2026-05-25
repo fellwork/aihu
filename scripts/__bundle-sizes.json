@@ -66,7 +66,7 @@
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": 416,
+    "bytes": 430,
     "limit": "1 KB"
   },
   {
@@ -81,12 +81,12 @@
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": 756,
+    "bytes": 758,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": 1436,
+    "bytes": 1442,
     "limit": "4 KB"
   },
   {
@@ -96,17 +96,17 @@
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2014,
+    "bytes": 2018,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": 1829,
+    "bytes": 1841,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": 1126,
+    "bytes": 1133,
     "limit": "4 KB"
   }
 ]
