@@ -270,26 +270,30 @@ Every M1 template emits this exact `.mcp.json` at the scaffolded app's root (or 
 
 Source: arch-4 §6.6. This is identical across all 5 templates — there is no per-template `.mcp.json` variation in M1. Future variations (e.g. cloud-hosted MCP server) defer to v0.3.
 
-### §2.6 The locked `@expose` example block (Q3 lock)
+### §2.6 The locked agent-surface example (Q3 lock)
 
-Every M1 template that has `agentSurface !== 'none'` ships at minimum **one** `.aihu` SFC with an `@expose` block. For templates with the `<live-counter>` starter, that's `src/components/live-counter.aihu`'s existing `@expose count` line (already shipped in `examples/live-counter/`). For templates with `starter === 'empty'`, the CLI emits a tiny `src/agent/expose.aihu` shim:
+> **v2 agent surface (compiler@0.4.0 / AMD-04).** The per-name agent surface is expressed via `describe:`/`expose:` keys on `@state` collection entries. The old `@agent { $expose / $describe }` macros are **C440 errors** in v2; the `@agent` block now holds only `$scope` / `$rate-limit`. The Q3 lock is therefore re-expressed as "at least one `@state` entry carries `expose:`".
+
+Every M1 template that has `agentSurface !== 'none'` ships at minimum **one** `.aihu` SFC with an exposed `@state` entry. For templates with the `<live-counter>` starter, that's `src/components/live-counter.aihu`'s exposed `count` prop (already shipped in `examples/live-counter/`). For templates with `starter === 'empty'`, the CLI emits a tiny `src/agent/expose.aihu` shim:
 
 ```aihu
 @state {
-  appName: string = '__APP_NAME__'
+  $prop: {
+    appName: {
+      default: '__APP_NAME__',
+      type: "string",
+      describe: "The scaffolded application's display name",
+      expose: { read: true },
+    }
+  }
 }
 
 @template {
-  <span class="aihu-expose-stub">{{ appName }}</span>
-}
-
-@agent {
-  $expose appName as readonly
-  $describe appName "The scaffolded application's display name"
+  <span class="aihu-expose-stub">{appName}</span>
 }
 ```
 
-This guarantees the Q3 lock ("at least one `@expose` block") even when the user picked the empty starter.
+This guarantees the Q3 lock ("at least one exposed `@state` entry") even when the user picked the empty starter.
 
 ---
 
@@ -511,7 +515,7 @@ bun run build                  # exit 0
 bun run typecheck              # exit 0
 bun run test                   # exit 0 (Vitest exits 0 even with zero tests)
 test -f .mcp.json              # Q3 lock
-grep -r '@expose' src/ > /dev/null  # Q3 lock — at least one @expose block exists
+grep -rE 'expose:' src/ > /dev/null  # Q3 lock — at least one exposed @state entry (v2 agent surface)
 ```
 
 The Vitest harness wraps this in a `it.each(cases)` block with structured assertions (so failures report per-case, not as a single shell-script-died).
@@ -662,10 +666,15 @@ test -f .mcp.json || test -f apps/web/.mcp.json
 jq -e '.mcpServers.aihu.command == "aihu"' .mcp.json apps/web/.mcp.json 2>/dev/null
 ```
 
-### §8.4 Q3 lock — at least one `@expose` block per default scaffold
+### §8.4 Q3 lock — at least one exposed `@state` entry per default scaffold
+
+> v2 agent surface: the Q3 lock is satisfied by a per-name `expose:` on a
+> `@state` collection entry (e.g. `live-counter.aihu`'s `count` prop or the
+> `expose.aihu` stub's `appName`). The legacy `@agent { $expose }` macro is a
+> C440 error and is no longer emitted by any template.
 
 ```bash
-grep -r '@expose\|^\s*\$expose' src/ apps/web/src/ 2>/dev/null | head -1 | grep -q .
+grep -rE 'expose:' src/ apps/web/src/ 2>/dev/null | head -1 | grep -q .
 # exit 0 if at least one match; exit 1 if zero
 ```
 
@@ -678,7 +687,7 @@ bunx --bun "@aihu/cli@workspace:*" app "smoke-noagent" \
   --options-json <(echo '{"appName":"smoke-noagent","template":"cf-team","overrides":{"agentSurface":"none"}}')
 cd smoke-noagent
 test ! -f .mcp.json && test ! -f apps/web/.mcp.json  # neither location
-! grep -rq '@expose' src/ apps/web/src/ 2>/dev/null   # no @expose anywhere
+! grep -rqE 'expose:' src/ apps/web/src/ 2>/dev/null   # no exposed @state entry anywhere (v2 agent surface)
 bun install --frozen-lockfile && bun run build         # still compiles
 ```
 

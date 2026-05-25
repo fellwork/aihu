@@ -73,11 +73,13 @@ export default defineConfig({
 
   // src/pages/index.aihu
   const indexAihu = `@state {
-  $prop name: string = 'world'
+  $prop: {
+    name: { default: 'world', type: "string" }
+  }
 }
 
 @template {
-  <div>Hello {{ name }}</div>
+  <div>Hello {name}</div>
 }
 
 @route {

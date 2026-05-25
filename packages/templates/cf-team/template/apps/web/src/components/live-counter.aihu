@@ -1,13 +1,34 @@
 // 7GUIs #1 — minimum viable aihu SFC.
-// State + event + reactive text update in 25 LOC.
-// M1 polish: @agent block + dark-mode tokens.
+// State + event + reactive text update.
+// v2 agent surface: per-entry `describe:`/`expose:` on @state macros.
 
 @state {
-  count: number = 0
+  $prop: {
+    count: {
+      default: 0,
+      type: "number",
+      describe: "Current counter value",
+      expose: { read: true, write: true },
+    }
+  }
 
-  $action increment() { count++ }
-  $action decrement() { count-- }
-  $action reset()     { count = 0 }
+  $action: {
+    increment: {
+      describe: "Add 1 to the counter",
+      expose: { read: true, write: true },
+      handler: () => { count++ },
+    },
+    decrement: {
+      describe: "Subtract 1 from the counter",
+      expose: { read: true, write: true },
+      handler: () => { count-- },
+    },
+    reset: {
+      describe: "Reset the counter to 0",
+      expose: { read: true, write: true },
+      handler: () => { count = 0 },
+    },
+  }
 }
 
 @template {
@@ -30,14 +51,5 @@
 }
 
 @agent {
-  $expose count
-
-  $action increment
-  $action decrement
-  $action reset
-
-  $describe count      "Current counter value"
-  $describe increment  "Add 1 to the counter"
-  $describe decrement  "Subtract 1 from the counter"
-  $describe reset      "Reset the counter to 0"
+  $rate-limit 100
 }

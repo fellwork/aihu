@@ -191,8 +191,8 @@ const increment = () => setCount(c => c + 1)
 @template {
   <div class="home">
     <h1>Hello from aihu</h1>
-    <p>Count: {{ count }}</p>
-    <button $on:click={increment}>+1</button>
+    <p>Count: {count}</p>
+    <button $on.click={increment}>+1</button>
   </div>
 }
 
@@ -225,7 +225,10 @@ export function pageAihu(routePath: string): string {
 /** A component file for a given component name. */
 export function componentAihu(name: string): string {
   const kebab = toKebab(name)
-  return `@template {\n  <div class="${kebab}">\n    <!-- ${name} component -->\n  </div>\n}\n`
+  // Emit a real element (not a bare HTML comment): the v1 template parser
+  // rejects comment-only element bodies ("expected tag name"). A heading
+  // keeps the starter compiler-clean while still naming the component.
+  return `@template {\n  <div class="${kebab}">\n    <h2>${name}</h2>\n  </div>\n}\n`
 }
 
 /** package.json for a new aihu plugin. */
