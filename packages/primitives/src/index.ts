@@ -10,6 +10,15 @@
  * budgets.
  */
 
+export {
+  AihuConfigProvider,
+  type ColorScheme,
+  type ConfigContextValue,
+  configContext,
+  type Density,
+  type Direction,
+  defineConfigProvider,
+} from './config-provider/index.ts'
 export type { DomContext } from './dom-context.ts'
 // Shared DOM-walk context (Option C — self-contained, does NOT import
 // @aihu/context).
