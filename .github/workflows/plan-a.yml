@@ -96,6 +96,13 @@ jobs:
       # parent workflow runs on workflow_dispatch only; push triggers re-enable
       # at v1.0.1 per state-plan-a.md "Open follow-ups".
       - run: bun run check:size-rows
+      # Runtime portability purity (Bug-4 client-leak regression). Asserts the
+      # runtime-agnostic / browser / edge entries (server main, app main + app
+      # client) carry NO node: builtin import. The only node:module-bearing
+      # artifact allowed is @aihu/server's dist/native.js (the explicit
+      # @aihu/server/native boundary). Blocks the @aihu/app@0.1.8-class leak
+      # before publish. See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
+      - run: bun run check:runtime-purity
 
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
