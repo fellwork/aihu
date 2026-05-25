@@ -419,6 +419,105 @@ fn v069_fixture_route_with_layout_json() {
     assert_eq!(actual, expected, "route_json should match golden for layout fixture");
 }
 
+// ─── B1 (SEO arc) — per-route head metadata ──────────────────────────────────
+
+/// Full head block round-trips into route_json with title/description/canonical,
+/// nested og/twitter objects, and verbatim jsonld.
+#[test]
+fn b1_route_head_round_trips_into_route_json() {
+    let src = r#"
+@route {
+  path: '/about',
+  name: 'about',
+  head: {
+    title: 'About Us',
+    description: 'Who we are',
+    canonical: '/about',
+    og: { title: 'About', image: '/og.png', type: 'website', url: '/about' },
+    twitter: { card: 'summary_large_image', title: 'About', site: '@acme' },
+    jsonld: { "@context": "https://schema.org", "@type": "Organization", "name": "Acme" }
+  }
+}
+
+@template {
+  <div>About</div>
+}
+"#;
+    let parsed = sfc::parse_with_path(src, Some("src/pages/about.aihu")).unwrap();
+
+    // Parser: head present with typed sub-objects.
+    let head = parsed.route.as_ref().unwrap().head.as_ref().expect("head parsed");
+    assert_eq!(head.title.as_deref(), Some("About Us"));
+    assert_eq!(head.description.as_deref(), Some("Who we are"));
+    assert_eq!(head.canonical.as_deref(), Some("/about"));
+    assert_eq!(head.og.as_ref().unwrap().image.as_deref(), Some("/og.png"));
+    assert_eq!(head.og.as_ref().unwrap().r#type.as_deref(), Some("website"));
+    assert_eq!(head.twitter.as_ref().unwrap().site.as_deref(), Some("@acme"));
+    assert!(head.jsonld.as_ref().unwrap().contains(r#""@context": "https://schema.org""#));
+
+    // Codegen: head member emitted into the sidecar, jsonld verbatim, valid JSON.
+    let unit = compile_full(&parsed).unwrap();
+    let route_json = emit(&unit, "about").route_json.expect("route_json");
+    assert!(route_json.contains(r#""head": {"#));
+    assert!(route_json.contains(r#""title": "About Us""#));
+    assert!(route_json.contains(r#""og": {"#));
+    assert!(route_json.contains(r#""type": "website""#));
+    assert!(route_json.contains(r#""twitter": {"#));
+    assert!(route_json.contains(r#""card": "summary_large_image""#));
+    assert!(route_json.contains(r#""jsonld": {"#));
+    assert!(route_json.contains(r#""@type": "Organization""#));
+
+    // The whole sidecar must be valid, parseable JSON.
+    let parsed_json: serde_json::Value =
+        serde_json::from_str(&route_json).expect("emitted route_json must be valid JSON");
+    assert_eq!(parsed_json["head"]["title"], "About Us");
+    assert_eq!(parsed_json["head"]["og"]["url"], "/about");
+    assert_eq!(parsed_json["head"]["twitter"]["card"], "summary_large_image");
+    assert_eq!(parsed_json["head"]["jsonld"]["@type"], "Organization");
+    assert_eq!(parsed_json["head"]["jsonld"]["@context"], "https://schema.org");
+}
+
+/// A route WITHOUT a head key emits a valid route_json with no head member
+/// (backward compatible).
+#[test]
+fn b1_route_without_head_omits_head_member() {
+    let src = r#"
+@route {
+  path: '/plain',
+  name: 'plain'
+}
+
+@template {
+  <div>Plain</div>
+}
+"#;
+    let parsed = sfc::parse_with_path(src, Some("src/pages/plain.aihu")).unwrap();
+    assert!(parsed.route.as_ref().unwrap().head.is_none());
+    let unit = compile_full(&parsed).unwrap();
+    let route_json = emit(&unit, "plain").route_json.expect("route_json");
+    assert!(!route_json.contains("head"), "no head member when head absent");
+    let v: serde_json::Value =
+        serde_json::from_str(&route_json).expect("route_json must be valid JSON");
+    assert!(v.get("head").is_none());
+}
+
+/// Conformance fixture 03-route-with-head.aihu route_json matches golden.
+#[test]
+fn b1_fixture_route_with_head_json() {
+    let src = include_str!("../../../bench/compiler-conformance/route/03-route-with-head.aihu");
+    let golden_json =
+        include_str!("../../../bench/compiler-conformance/route/03-route-with-head.route.json");
+
+    let parsed = sfc::parse_with_path(src, Some("src/pages/about.aihu")).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "03-route-with-head");
+
+    let route_json = result.route_json.as_ref().expect("route_json should be Some");
+    let actual = route_json.split_whitespace().collect::<Vec<_>>().join(" ");
+    let expected = golden_json.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert_eq!(actual, expected, "route_json should match golden for head fixture");
+}
+
 /// bench/compiler-conformance/build-target/01-client-elides-agent.aihu
 /// — client build produces elision comment.
 #[test]

@@ -1,0 +1,8 @@
+{
+  "pattern": "/about",
+  "name": "about",
+  "middleware": [],
+  "ssr": true,
+  "layout": "",
+  "head": {"title": "About Us", "description": "Who we are", "canonical": "/about", "og": {"title": "About", "description": "The about page", "image": "/og.png", "type": "website", "url": "/about"}, "twitter": {"card": "summary_large_image", "title": "About", "description": "The about page", "image": "/og.png", "site": "@acme"}, "jsonld": { "@context": "https://schema.org", "@type": "Organization", "name": "Acme" }}
+}

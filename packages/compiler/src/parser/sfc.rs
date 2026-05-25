@@ -617,6 +617,16 @@ fn parse_route_body(body: &str) -> RouteBlock {
                     pos += 1;
                 }
             }
+            "head" => {
+                // B1 (SEO arc) — capture the balanced `{...}` head literal and
+                // delegate to the SHARED head parser in `route.rs` so this
+                // production parser cannot drift from the unit-test parser.
+                if let Some(literal) =
+                    crate::parser::route::capture_balanced_literal(text, bytes, &mut pos)
+                {
+                    route.head = Some(crate::parser::route::parse_head_literal(&literal));
+                }
+            }
             _ => {
                 // Unknown key — skip to end of value (next comma or `}`).
                 while pos < bytes.len() && !matches!(bytes[pos], b',' | b'}' | b'\n') {

@@ -17,6 +17,55 @@ pub struct RouteBlock {
     pub middleware: Vec<String>,
     pub ssr: Option<bool>,
     pub layout: Option<String>,
+    /// B1 (SEO arc) — optional per-route `head:` metadata. Emitted into the
+    /// `.route.json` sidecar as a `head` object. Downstream Builders (router
+    /// threading, head-lowering, SSG prerender) consume this exact shape.
+    pub head: Option<RouteHead>,
+}
+
+// ─── B1 (SEO arc) — per-route <head> metadata ────────────────────────────────
+
+/// A nested object of head metadata, declared via `head: { ... }` inside an
+/// `@route` block. All fields optional. `og`/`twitter` are parsed into typed
+/// sub-objects; `jsonld` is captured verbatim as a raw JSON literal (the SFC
+/// author writes valid JSON with quoted keys — see spec example).
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct RouteHead {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub canonical: Option<String>,
+    /// Open Graph metadata: `og: { title, description, image, type, url }`.
+    pub og: Option<OpenGraph>,
+    /// Twitter card metadata: `twitter: { card, title, description, image, site }`.
+    pub twitter: Option<TwitterCard>,
+    /// JSON-LD structured data. Captured VERBATIM as the balanced `{...}`
+    /// literal source text (a raw JSON object), not deep-parsed. Stored as the
+    /// trimmed literal string so codegen can splice it into `.route.json`
+    /// without re-serialization.
+    pub jsonld: Option<String>,
+}
+
+/// Open Graph sub-object. All string fields, all optional.
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct OpenGraph {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub image: Option<String>,
+    /// `og:type` — e.g. `"website"`, `"article"`.
+    pub r#type: Option<String>,
+    pub url: Option<String>,
+}
+
+/// Twitter card sub-object. All string fields, all optional.
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct TwitterCard {
+    /// `twitter:card` — e.g. `"summary_large_image"`.
+    pub card: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub image: Option<String>,
+    /// `twitter:site` — e.g. `"@acme"`.
+    pub site: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
