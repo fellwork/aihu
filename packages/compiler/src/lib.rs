@@ -52,6 +52,36 @@ pub fn compile_full_with_target<'a>(
     // any error short-circuits the pipeline at compile_full boundary.
     if let Some(script) = source.script {
         let _ = parser::state_macros::parse_state_macros(script)?;
+
+        // Bug 8 (06cb46b1 / 17f5394b, defect #3): a plain `@state` const/let
+        // whose initializer reads a `$prop:` name TDZ-throws at runtime (the
+        // prop shadow `const <name> = ctx.props.<name>` is emitted AFTER the
+        // plain @state body, guarded by the documented effect-capture invariant
+        // in emit.rs). Per user decision we do NOT hoist / re-order codegen —
+        // we surface a clear C205 diagnostic steering to `$computed`, which is
+        // the supported path. The `$computed: { x: () => prop() }` form reads
+        // the prop inside a thunk (no eager TDZ) and compiles clean.
+        let decls = codegen::signals::collect_state_decls(script);
+        if let Some((decl_name, prop_name)) =
+            codegen::signals::find_plain_const_prop_read(script, &decls.props)
+        {
+            return Err(CompileError {
+                message: format!(
+                    "C205: prop '{prop}' read in a plain @state const/let ('{decl}') — \
+                     a plain `@state` const is emitted BEFORE the prop binding, so reading \
+                     a prop there throws (TDZ) at runtime. Read props in `$computed` \
+                     (e.g. `$computed: {{ {decl}: () => {prop}() }}`), not a plain const.",
+                    prop = prop_name,
+                    decl = decl_name,
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C205".to_string()),
+                from: Some(format!("const {decl_name} = ...{prop_name}...")),
+                to: Some(format!("$computed: {{ {decl_name}: () => {prop_name}() }}")),
+                ..Default::default()
+            });
+        }
     }
 
     Ok(CompileUnit {
