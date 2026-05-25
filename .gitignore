@@ -99,3 +99,8 @@ docs/spec-headless.md
 
 # Stray session log files
 [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
+
+# Stray mis-pathed SSG/worktree output copies dropped at repo root by a
+# misresolved output path (e.g. gitfellwork-wt*, gitfellworkaihu-head). Plain
+# file copies, never tracked — ignored so biome/CI do not scan them.
+/gitfellwork*/
