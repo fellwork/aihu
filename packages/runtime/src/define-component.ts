@@ -68,6 +68,20 @@ const ATTR_SYM = Symbol()
 const LC_SYM = Symbol()
 const _E0002 = 'no mount'
 
+/** Bug 6: safe tag-name lookup for the connectedCallback error path. A real
+ * upgraded custom element always has a valid `tagName`, but the error handler
+ * must NEVER itself throw (and thereby mask the original error) — e.g. if
+ * invoked on a detached/non-Element receiver the `tagName` getter throws a
+ * TypeError. Fall back to a sentinel so the attributable console.error always
+ * fires and the original error is what re-throws. */
+function _tagOf(el: HTMLElement): string {
+  try {
+    return el.tagName.toLowerCase()
+  } catch {
+    return 'unknown-element'
+  }
+}
+
 export function defineComponent(setup: Setup): typeof HTMLElement
 export function defineComponent<A extends ReadonlyArray<string>>(
   options: ComponentOptions<A>,
@@ -95,13 +109,25 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       }
       connectedCallback(): void {
         if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-        const tree = this._build()
-        const lc = this[LC_SYM]!
-        const host = this.shadowRoot ?? this
-        const scope = _mount(tree!, host)
-        this[S] = scope
-        _scopes.set(this, scope)
-        _runMounts(lc)
+        // Bug 6: a throw from setup()/_build()/_mount() escapes into the
+        // platform custom-element-reactions queue, which surfaces it only as a
+        // bare anonymous "Uncaught" with no component-tag attribution (and the
+        // shadow root is left empty because the throw aborts before mount runs).
+        // Catch-log-rethrow: console.error WITH the tag for a greppable,
+        // attributable signal, then re-throw to preserve fail-loud behavior
+        // (so SCR-R0002/0003 invariants and any other throw still propagate).
+        try {
+          const tree = this._build()
+          const lc = this[LC_SYM]!
+          const host = this.shadowRoot ?? this
+          const scope = _mount(tree!, host)
+          this[S] = scope
+          _scopes.set(this, scope)
+          _runMounts(lc)
+        } catch (err) {
+          console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
+          throw err
+        }
       }
       disconnectedCallback(): void {
         const lc = this[LC_SYM]
@@ -261,13 +287,22 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
 
     connectedCallback(): void {
       if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-      const tree = this._build()
-      const lc = this[LC_SYM]!
-      const host = this.shadowRoot ?? this
-      const scope = _mount?.(tree!, host)
-      this[S] = scope
-      _scopes.set(this, scope)
-      _runMounts(lc)
+      // Bug 6 (options/props-form): same catch-log-rethrow as the function-form
+      // connectedCallback above. A setup/build/mount throw — incl. the
+      // SCR-R0003 "no signal" invariant from _build() — is logged WITH the tag
+      // for attribution, then re-thrown to preserve fail-loud propagation.
+      try {
+        const tree = this._build()
+        const lc = this[LC_SYM]!
+        const host = this.shadowRoot ?? this
+        const scope = _mount?.(tree!, host)
+        this[S] = scope
+        _scopes.set(this, scope)
+        _runMounts(lc)
+      } catch (err) {
+        console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
+        throw err
+      }
     }
 
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
