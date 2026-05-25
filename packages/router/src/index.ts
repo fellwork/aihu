@@ -10,6 +10,7 @@ export type {
   MatchResult,
   NextFn,
   RouteDefinition,
+  RouteHead,
   RouteModule,
   Router,
   RouteSegment,

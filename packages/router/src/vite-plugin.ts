@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import type { RouteSegment } from './router.ts'
+import type { RouteHead, RouteSegment } from './router.ts'
 
 /** @internal */
 interface VitePlugin {
@@ -33,6 +33,12 @@ export interface RouteSidecar {
   layout?: string
   /** Declared route param names, e.g. ["slug"]. Emitted by the Rust compiler from $prop declarations. */
   params?: string[]
+  /**
+   * B2: per-route `<head>` metadata (compiler `head:` block). Omitted entirely
+   * when a route declares no `head:`. Threaded through to RouteDefinition.head
+   * and the generated `virtual:aihu-routes` module.
+   */
+  head?: RouteHead
 }
 
 /** Layout name → absolute file path (v0.6.8). */
@@ -106,7 +112,7 @@ export function scanLayouts(d: string): LayoutMap {
   return m
 }
 
-const SK = ['name', 'middleware', 'ssr', 'layout', 'params'] as const
+const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head'] as const
 
 function genR(files: string[], pd: string, middlewareByDir: Record<string, string> = {}): string {
   return `// AUTO-GENERATED\nexport default [\n${files

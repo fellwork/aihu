@@ -14,6 +14,32 @@ export type RouteModule = {
   loader?: (params: Record<string, string>) => Promise<unknown>
 }
 
+/**
+ * Per-route `<head>` metadata, threaded from the compiler's `.route.json`
+ * sidecar (`head:` block). All fields optional. Consumed by the SSG prerender
+ * and the client-nav head updater. `jsonld` is a raw JSON-LD object.
+ */
+export type RouteHead = {
+  title?: string
+  description?: string
+  canonical?: string
+  og?: {
+    title?: string
+    description?: string
+    image?: string
+    type?: string
+    url?: string
+  }
+  twitter?: {
+    card?: string
+    title?: string
+    description?: string
+    image?: string
+    site?: string
+  }
+  jsonld?: unknown
+}
+
 export type RouteDefinition = {
   pattern: string
   segments: RouteSegment[]
@@ -23,6 +49,8 @@ export type RouteDefinition = {
   middleware?: string[]
   ssr?: boolean
   layout?: string
+  // B2: per-route <head> metadata from the .route.json `head:` block
+  head?: RouteHead
 }
 
 export type MatchResult = {
