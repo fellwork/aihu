@@ -11,6 +11,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'dom-context': 'src/dom-context.ts',
     'presence-gate': 'src/presence-gate/index.ts',
+    'form-control': 'src/form-control/index.ts',
   },
   output: {
     dir: 'dist',

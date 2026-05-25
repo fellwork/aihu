@@ -19,6 +19,11 @@ export {
   MissingContextError,
   provideContext,
 } from './dom-context.ts'
-
+export {
+  AihuFormControl,
+  defineFormControl,
+  type FormControlContextValue,
+  formControlContext,
+} from './form-control/index.ts'
 // Phase 0 primitives.
 export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
