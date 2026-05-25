@@ -44,6 +44,122 @@ fn emit_machine_error(e: &aihu_compiler::CompileError) {
     let _ = writeln!(std::io::stderr(), "{}", json);
 }
 
+/// Render a `CompileError` as a rich, human-readable diagnostic to stderr.
+///
+/// r2 dx-tooling — the binary previously emitted a single
+/// `file:LINE: message` line and discarded `hint`/`fix`/`from`/`to` plus the
+/// source codeframe. This renders, when present:
+///   - `file:line:col: message` header (degrades to `file: message` when no
+///     position is known — ~142 call-sites still emit `line:0/col:0`)
+///   - a codeframe: the offending source line(s) with a caret underline
+///     spanning the `from` text where it can be located on that line
+///   - `hint:` — why this is wrong
+///   - `fix:` — the suggested remedy
+///   - `replace:` / `with:` — the machine `from`→`to` rewrite (handy for AIs)
+///
+/// Output shape is intentionally additive: the first line is still the
+/// familiar `file:line: message` (line omitted/0 preserved), so existing
+/// log-scraping that only reads line 1 keeps working. The `--machine-errors`
+/// JSON path (`emit_machine_error`) is untouched.
+fn render_human_error(e: &aihu_compiler::CompileError, file_label: &str, source: &str) {
+    use std::io::Write;
+    let mut w = std::io::stderr();
+
+    // ── Locate a trustworthy codeframe line ──────────────────────────────────
+    //
+    // Position handling is deliberately conservative (r2 dx-tooling scope: do
+    // NOT chase the ~142 `line:0`/block-relative position sites in this pass).
+    // We render a codeframe ONLY when we can anchor it to a real file line:
+    //
+    //   1. `from` literal located verbatim in the source — the most reliable
+    //      anchor. Correct even for codes whose `e.line` is block-relative
+    //      (e.g. C305's `@click=`), because we search the WHOLE source for the
+    //      exact offending text. We require a UNIQUE match to avoid pointing at
+    //      the wrong occurrence.
+    //   2. else `e.line > 0` AND that line plausibly file-relative — used by
+    //      block-parser codes like C204 whose `line` IS the file line.
+    //
+    // When neither holds we degrade gracefully to message + hint + fix + the
+    // machine `from`→`to` rewrite, with no (potentially misleading) codeframe.
+    let from_literal = e.from.as_deref().filter(|f| {
+        // A literal source anchor must (a) occur exactly once and (b) not be a
+        // placeholder pattern (our `from` strings sometimes embed `...`/`{expr}`
+        // which are illustrative, not verbatim source).
+        !f.is_empty()
+            && !f.contains("...")
+            && !f.contains("{expr}")
+            && !f.contains("{fn}")
+            && source.matches(*f).count() == 1
+    });
+
+    let anchor: Option<(usize, usize, usize)> = if let Some(from) = from_literal {
+        // Byte offset of the unique `from` match → (line, col, len).
+        let byte_idx = source.find(from).unwrap();
+        let line = source[..byte_idx].bytes().filter(|b| *b == b'\n').count() + 1;
+        let line_start = source[..byte_idx].rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let col = source[line_start..byte_idx].chars().count();
+        Some((line, col, from.chars().count().max(1)))
+    } else if e.line > 0 {
+        // Block-parser codes (C204) carry a real file line; col may be 0.
+        let col = if e.col > 0 { e.col - 1 } else { 0 };
+        let len = e
+            .from
+            .as_deref()
+            .filter(|f| !f.is_empty() && !f.contains("..."))
+            .map(|f| f.chars().count())
+            .unwrap_or(0);
+        Some((e.line, col, len))
+    } else {
+        None
+    };
+
+    // ── Header — `file:line:col: message`, degrading to `file: message`. ──────
+    match anchor {
+        Some((line, col, _)) if col > 0 => {
+            let _ = writeln!(w, "{}:{}:{}: {}", file_label, line, col + 1, e.message);
+        }
+        Some((line, _, _)) => {
+            let _ = writeln!(w, "{}:{}: {}", file_label, line, e.message);
+        }
+        None => {
+            // No trustworthy position. Keep the historical `file: message`
+            // shape (no bogus line number).
+            let _ = writeln!(w, "{}: {}", file_label, e.message);
+        }
+    }
+
+    // ── Codeframe ─────────────────────────────────────────────────────────────
+    if let Some((line, col, len)) = anchor {
+        if let Some(src_line) = source.lines().nth(line - 1) {
+            let gutter = format!("{} | ", line);
+            let _ = writeln!(w, "{}{}", gutter, src_line);
+
+            let underline_len = if len > 0 {
+                len
+            } else {
+                // Whole (trimmed) line when we have no span.
+                src_line.trim_end().chars().count().max(1)
+            };
+            let pad: String = std::iter::repeat(' ').take(gutter.len() + col).collect();
+            let carets: String = std::iter::repeat('^').take(underline_len).collect();
+            let _ = writeln!(w, "{}{}", pad, carets);
+        }
+    }
+
+    if let Some(hint) = e.hint.as_deref() {
+        let _ = writeln!(w, "  hint: {}", hint);
+    }
+    if let Some(fix) = e.fix.as_deref() {
+        let _ = writeln!(w, "  fix:  {}", fix);
+    }
+    // Surface the machine rewrite for humans/AIs too (the LSP reads the JSON
+    // form, but the plain-text form is useful in stderr/dev-overlay).
+    if let (Some(from), Some(to)) = (e.from.as_deref(), e.to.as_deref()) {
+        let _ = writeln!(w, "  replace: {}", from);
+        let _ = writeln!(w, "  with:    {}", to);
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -154,9 +270,13 @@ fn main() {
     if args.contains(&"--ast-json".to_string()) {
         let on_err = |e: &aihu_compiler::CompileError| -> ! {
             if machine_errors {
+                // Machine mode is preserved byte-for-byte: JSON line followed
+                // by the legacy `file:line: message` human line (unchanged).
                 emit_machine_error(e);
+                eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            } else {
+                render_human_error(e, &file_label, &source);
             }
-            eprintln!("{}:{}: {}", file_label, e.line, e.message);
             process::exit(1);
         };
         let parsed_ast = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
@@ -196,16 +316,20 @@ fn main() {
     ).unwrap_or_else(|e| {
         if machine_errors {
             emit_machine_error(&e);
+            eprintln!("{}:{}: {}", file_label, e.line, e.message);
+        } else {
+            render_human_error(&e, &file_label, &source);
         }
-        eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
 
     let unit = aihu_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
         if machine_errors {
             emit_machine_error(&e);
+            eprintln!("{}:{}: {}", file_label, e.line, e.message);
+        } else {
+            render_human_error(&e, &file_label, &source);
         }
-        eprintln!("{}:{}: {}", file_label, e.line, e.message);
         process::exit(1);
     });
 
