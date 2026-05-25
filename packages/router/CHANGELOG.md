@@ -1,5 +1,12 @@
 # @aihu/router
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [[`ec9f59b`](https://github.com/fellwork/aihu/commit/ec9f59b345116576b58f85298501d43d9ac33d61)]:
+  - @aihu/server@0.1.4
+
 ## 0.1.4
 
 ### Patch Changes
