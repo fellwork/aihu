@@ -16,6 +16,7 @@ export default defineConfig({
     collection: 'src/collection/index.ts',
     'roving-focus': 'src/roving-focus/index.ts',
     dialog: 'src/dialog/index.ts',
+    tooltip: 'src/tooltip/index.ts',
   },
   output: {
     dir: 'dist',

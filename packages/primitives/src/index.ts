@@ -59,3 +59,12 @@ export {
 // Phase 0 primitives.
 export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
 export { AihuRovingFocus, defineRovingFocus, type Orientation } from './roving-focus/index.ts'
+export {
+  AihuTooltipContent,
+  AihuTooltipRoot,
+  AihuTooltipTrigger,
+  defineTooltip,
+  type TooltipContextValue,
+  type TooltipCoords,
+  tooltipContext,
+} from './tooltip/index.ts'
