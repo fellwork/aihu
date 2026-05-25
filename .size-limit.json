@@ -21,7 +21,7 @@
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "3400 B",
+    "limit": "3450 B",
     "gzip": true
   },
   {

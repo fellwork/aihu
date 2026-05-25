@@ -160,6 +160,15 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
   const { attrs = [] as unknown as ReadonlyArray<string>, setup, props: propsCfg } = setupOrOptions
   const S = Symbol()
   const PROPS_SYM = Symbol()
+  // Bug (pre-connect prop binding): per-instance buffer for prop writes that
+  // arrive BEFORE _build() runs (i.e. before connectedCallback). At pre-connect
+  // PROPS_SYM is null, so the prop setter has no signal to write to — arbor's
+  // _materialize applies reactive `$prop` bindings via `el.prop = v` the moment
+  // the element is created, before it is appended/connected. Without this buffer
+  // the first bound value is silently dropped and the prop reverts to its
+  // attribute/default at connect. Lazily allocated in the setter, drained in
+  // _build() (where it takes precedence over the getAttribute/default fallback).
+  const PENDING_SYM = Symbol()
   const REFLECT_SYM = Symbol()
 
   // R1: derive the (propName → attributeName) mapping once at class-build time.
@@ -206,6 +215,12 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     private [ATTR_SYM]: Record<string, ReturnType<typeof SignalFactory>> | null = null
     // R1 — per-instance prop signal map (callable getter + .set writer).
     private [PROPS_SYM]: Record<string, PropSignal> | null = null
+    // Bug (pre-connect prop binding): pending writes keyed by prop name. `.has()`
+    // distinguishes a buffered `undefined`/`null` from "never written". A Map
+    // (gzips well against the file's existing Map use). Declared (no initializer)
+    // → `undefined` until the first pre-connect write, so it adds no constructor
+    // bytes.
+    private [PENDING_SYM]: Map<string, unknown> | undefined = undefined
     // R1 — re-entrancy guard for reflect: true. Set during setAttribute writes
     // triggered by signal updates so attributeChangedCallback skips dispatch.
     private [REFLECT_SYM] = new Set<string>()
@@ -228,8 +243,12 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       this[ATTR_SYM] = attrSignals
 
       // R1 — allocate per-prop signal at connect time. Initial value priority:
-      // (1) raw attribute string passed through converter (when attribute is
-      // observed AND already set on the element); (2) `def.value` default.
+      // (0) a value buffered by a pre-connect property write (Bug: pre-connect
+      // prop binding) — wins over everything, kept as-is with NO stringification
+      // so objects/functions/arrays survive intact; (1) raw attribute string
+      // passed through converter (when attribute is observed AND already set on
+      // the element); (2) `def.value` default.
+      const pending = this[PENDING_SYM]
       const propSignals: Record<string, PropSignal> = {}
       for (const [name, def, attrName] of propEntries) {
         let initial: unknown = def.value
@@ -239,6 +258,9 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
             initial = _convert(raw, def, def.value)
           }
         }
+        // (0) Pre-connect buffered write takes precedence. `.has()` so a
+        // deliberately-buffered `undefined`/`null` still wins over the default.
+        if (pending?.has(name)) initial = pending.get(name)
         const sig = _signal!(initial as string)
         // The signal here stores `unknown` — the runtime signal type is
         // generic; we cast at the boundary. (`_signal` is typed as
@@ -268,6 +290,10 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         propSignals[name] = ps
       }
       this[PROPS_SYM] = propSignals
+      // Buffer fully drained — drop it so a later disconnect→reconnect rebuilds
+      // from attribute/default (live signals carry forward via the writes
+      // themselves) and we don't replay a stale pre-connect value.
+      this[PENDING_SYM] = undefined
 
       const lc: _LC = { m: [], c: [], a: [], ac: [] }
       this[LC_SYM] = lc
@@ -363,7 +389,13 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         return this[PROPS_SYM]?.[name]?.()
       },
       set(this: InstanceType<typeof C>, v: unknown) {
-        this[PROPS_SYM]?.[name]?.set(v)
+        const props = this[PROPS_SYM]
+        // Pre-connect: signals not built yet (PROPS_SYM null). Buffer the write
+        // per prop (exact value/type, no stringification) so _build() can seed
+        // it — otherwise the write is silently dropped and the prop reverts to
+        // its default. Post-connect: write straight through to the signal.
+        if (props !== null) props[name]?.set(v)
+        else (this[PENDING_SYM] ??= new Map()).set(name, v)
       },
     })
   }
