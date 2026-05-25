@@ -1,3 +1,4 @@
+// [bench-bump] baseline re-measured on current CI runner — see chore/refresh-bench-baseline
 /**
  * Time runner for `bench/arbor` per Round N+1 design §3, §5.3, §6.1.
  *
