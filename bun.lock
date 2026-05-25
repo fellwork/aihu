@@ -361,6 +361,18 @@
         "@aihu/compiler": "workspace:*",
       },
     },
+    "packages/language-server": {
+      "name": "@aihu/language-server",
+      "version": "0.1.0",
+      "bin": {
+        "aihu-language-server": "./dist/bin.js",
+      },
+      "dependencies": {
+        "@aihu/compiler": "workspace:*",
+        "vscode-languageserver": "^9.0.1",
+        "vscode-languageserver-textdocument": "^1.0.11",
+      },
+    },
     "packages/mcp": {
       "name": "@aihu/mcp",
       "version": "0.1.0",
@@ -471,9 +483,8 @@
       "name": "vscode-aihu",
       "version": "1.0.0",
       "dependencies": {
+        "@aihu/language-server": "workspace:*",
         "vscode-languageclient": "^9.0.1",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.11",
       },
       "devDependencies": {
         "@types/vscode": "^1.85.0",
@@ -542,6 +553,8 @@
     "@aihu/example-timer": ["@aihu/example-timer@workspace:examples/timer"],
 
     "@aihu/example-todo-mvc": ["@aihu/example-todo-mvc@workspace:examples/todo-mvc"],
+
+    "@aihu/language-server": ["@aihu/language-server@workspace:packages/language-server"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
 

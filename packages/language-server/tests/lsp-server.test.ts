@@ -1,14 +1,15 @@
 /**
- * packages/vscode-aihu/tests/lsp-server.test.ts
+ * packages/language-server/tests/lsp-server.test.ts
  *
- * Unit tests for the Aihu LSP language server (AC12).
+ * Unit tests for the @aihu/language-server core (ported from vscode-aihu/tests).
  * Covers: diagnostic extraction, code action wiring, hover table lookup,
  * completion item generation, and block context detection.
  */
 import { describe, expect, it } from 'vitest'
-import { migrate } from '../../compiler/js/codemods/macro-simplification/migrate.ts'
-import { BLOCK_COMPLETIONS, STATE_MACRO_COMPLETIONS } from '../server/completion.ts'
-import { getBlockContext, getHoverContent, getMacroAtPosition } from '../server/hover.ts'
+import { buildMigrateFix, MIGRATE_CODES } from '../src/core/code-action.ts'
+import { BLOCK_COMPLETIONS, STATE_MACRO_COMPLETIONS } from '../src/core/completion.ts'
+import { parseMachineErrors } from '../src/core/diagnostics.ts'
+import { getBlockContext, getHoverContent, getMacroAtPosition } from '../src/core/hover.ts'
 
 // ---------------------------------------------------------------------------
 // 1. Hover table - all 13 macro tokens must have content
@@ -188,36 +189,44 @@ describe('BLOCK_COMPLETIONS', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 5. Code action wiring - migrate() integration
+// 5. Code action wiring - buildMigrateFix / migrate() integration
 // ---------------------------------------------------------------------------
 
-describe('migrate() integration (code action backing)', () => {
+describe('buildMigrateFix (code action backing)', () => {
+  it('exposes the C440-C444 migrate-code set', () => {
+    expect(MIGRATE_CODES.has('C440')).toBe(true)
+    expect(MIGRATE_CODES.has('C444')).toBe(true)
+    expect(MIGRATE_CODES.has('C500')).toBe(false)
+  })
+
   it('rewrites v1 $prop to v2 collection form', () => {
     const source = '@state {\n  $prop label: String\n}\n'
-    const { rewritten, warnings } = migrate(source)
-    expect(rewritten).toContain('$prop:')
-    expect(rewritten).toContain('label:')
-    expect(warnings.length).toBe(0)
+    const fix = buildMigrateFix(source)
+    expect(fix).not.toBeNull()
+    expect(fix!.rewritten).toContain('$prop:')
+    expect(fix!.rewritten).toContain('label:')
+    expect(fix!.warnings.length).toBe(0)
+    expect(fix!.title).toContain('Migrate to v2 macro syntax')
   })
 
   it('is idempotent on v2 input', () => {
     const source = '@state {\n  $prop: {\n    label: { default: undefined },\n  }\n}\n'
-    const { rewritten } = migrate(source)
-    expect(rewritten).toContain('$prop: {')
-    expect(rewritten).toContain('label:')
+    const fix = buildMigrateFix(source)
+    expect(fix!.rewritten).toContain('$prop: {')
+    expect(fix!.rewritten).toContain('label:')
   })
 
   it('does not crash on minimal valid source', () => {
     const source = '@state {\n}\n@template {\n  <div>hello</div>\n}\n'
-    expect(() => migrate(source)).not.toThrow()
+    expect(() => buildMigrateFix(source)).not.toThrow()
   })
 
   it('does not crash on malformed source (unclosed brace)', () => {
     const source = '@state {\n  $prop label: String\n'
-    expect(() => migrate(source)).not.toThrow()
+    expect(() => buildMigrateFix(source)).not.toThrow()
   })
 
-  it('returns warnings when @agent references unknown @state name', () => {
+  it('returns warnings (and a warning-tagged title) when @agent references unknown @state name', () => {
     const source = [
       '@state {',
       '  $prop name: String',
@@ -226,48 +235,20 @@ describe('migrate() integration (code action backing)', () => {
       '  $expose unknownName',
       '}',
     ].join('\n')
-    const { warnings } = migrate(source)
-    expect(warnings.length).toBeGreaterThan(0)
+    const fix = buildMigrateFix(source)
+    expect(fix!.warnings.length).toBeGreaterThan(0)
+    expect(fix!.title).toContain('warning')
   })
 })
 
 // ---------------------------------------------------------------------------
-// 6. Diagnostic extraction - JSON parsing (pure unit, no binary invocation)
+// 6. Diagnostic extraction - JSON parsing via parseMachineErrors
 // ---------------------------------------------------------------------------
 
 describe('machine-errors JSON parsing', () => {
-  function parseJsonDiagnostics(stderr: string) {
-    const diagnostics: Array<{
-      code: string
-      message: string
-      range: {
-        start: { line: number; character: number }
-        end: { line: number; character: number }
-      } | null
-    }> = []
-    for (const line of stderr.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed?.startsWith('{')) continue
-      try {
-        const raw = JSON.parse(trimmed) as {
-          code: string
-          message: string
-          range: { line: number; col: number; end_line: number; end_col: number } | null
-        }
-        const lspRange =
-          raw.range && raw.range.line > 0
-            ? {
-                start: { line: raw.range.line - 1, character: raw.range.col },
-                end: { line: raw.range.end_line - 1, character: raw.range.end_col },
-              }
-            : null
-        diagnostics.push({ code: raw.code, message: raw.message, range: lspRange })
-      } catch {
-        // not JSON
-      }
-    }
-    return diagnostics
-  }
+  // The real core mapper. parseMachineErrors falls back to a synthetic C000
+  // plain-text diagnostic when no JSON line is present, so these cases assert
+  // both the JSON path and the fallback path explicitly.
 
   it('parses a single C440 machine-error JSON line', () => {
     const stderr = JSON.stringify({
@@ -277,7 +258,7 @@ describe('machine-errors JSON parsing', () => {
       to: null,
       range: { line: 4, col: 2, end_line: 4, end_col: 20 },
     })
-    const diags = parseJsonDiagnostics(stderr)
+    const diags = parseMachineErrors(stderr, 'X.aihu')
     expect(diags).toHaveLength(1)
     expect(diags[0]!.code).toBe('C440')
     expect(diags[0]!.range?.start.line).toBe(3)
@@ -299,7 +280,7 @@ describe('machine-errors JSON parsing', () => {
       to: null,
       range: { line: 5, col: 4, end_line: 5, end_col: 8 },
     })
-    const diags = parseJsonDiagnostics(`${line1}\n${line2}`)
+    const diags = parseMachineErrors(`${line1}\n${line2}`, 'X.aihu')
     expect(diags).toHaveLength(2)
     expect(diags[0]!.code).toBe('C440')
     expect(diags[1]!.code).toBe('C441')
@@ -314,12 +295,12 @@ describe('machine-errors JSON parsing', () => {
       to: null,
       range: null,
     })
-    const diags = parseJsonDiagnostics(stderr)
+    const diags = parseMachineErrors(stderr, 'X.aihu')
     expect(diags).toHaveLength(1)
     expect(diags[0]!.range).toBeNull()
   })
 
-  it('ignores non-JSON stderr lines', () => {
+  it('ignores non-JSON stderr lines but keeps the JSON one', () => {
     const json = JSON.stringify({
       code: 'C440',
       message: 'test',
@@ -327,13 +308,14 @@ describe('machine-errors JSON parsing', () => {
       to: null,
       range: null,
     })
-    const diags = parseJsonDiagnostics(`error: compilation failed\n${json}\n`)
+    const diags = parseMachineErrors(`error: compilation failed\n${json}\n`, 'X.aihu')
     expect(diags).toHaveLength(1)
     expect(diags[0]!.code).toBe('C440')
   })
 
-  it('returns empty array for completely non-JSON stderr', () => {
-    const diags = parseJsonDiagnostics('error: file not found\nsome other text\n')
-    expect(diags).toHaveLength(0)
+  it('falls back to a synthetic C000 diagnostic for completely non-JSON stderr', () => {
+    const diags = parseMachineErrors('error: file not found\nsome other text\n', 'X.aihu')
+    expect(diags).toHaveLength(1)
+    expect(diags[0]!.code).toBe('C000')
   })
 })

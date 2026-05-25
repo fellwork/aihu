@@ -56,9 +56,8 @@ _No `exports` field in `package.json`. Main entry: `./dist/client/index.js`._
 
 **Dependencies:**
 
+- `@aihu/language-server` — `workspace:*`
 - `vscode-languageclient` — `^9.0.1`
-- `vscode-languageserver` — `^9.0.1`
-- `vscode-languageserver-textdocument` — `^1.0.11`
 
 <sub><i>Auto-generated against `vscode-aihu@1.0.0`.</i></sub>
 
