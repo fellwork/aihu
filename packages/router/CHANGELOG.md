@@ -1,5 +1,27 @@
 # @aihu/router
 
+## 0.1.6
+
+### Patch Changes
+
+- [#218](https://github.com/fellwork/aihu/pull/218) [`41c5e35`](https://github.com/fellwork/aihu/commit/41c5e355a55ca91872ac66ffb7375d1dd20570cc) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Thread per-route `<head>` metadata from the compiler's `.route.json` sidecar
+  through to `RouteDefinition` and the generated `virtual:aihu-routes` module
+  (B2 of the SEO `<head>` arc).
+
+  Adds and exports a new `RouteHead` type (`title`, `description`, `canonical`,
+  `og`, `twitter`, `jsonld`) and an optional `head?: RouteHead` field on
+  `RouteDefinition` and the build-time `RouteSidecar`. `head` is added to the
+  `SK` sidecar-key allowlist so it survives into `virtual:aihu-routes` — without
+  it the key would be silently dropped. Routes with no `head:` stay backward
+  compatible (`head` is `undefined`).
+
+  Type-only addition; the runtime/browser bundle size is unchanged. Downstream
+  consumers (SSG prerender, client-nav head updater) import `RouteHead` from
+  `@aihu/router`.
+
+- Updated dependencies [[`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced), [`90d3174`](https://github.com/fellwork/aihu/commit/90d3174896ee03cf1756f5b92d125be45d13983f)]:
+  - @aihu/server@0.2.0
+
 ## 0.1.5
 
 ### Patch Changes

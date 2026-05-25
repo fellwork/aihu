@@ -49,7 +49,7 @@ npm install @aihu-plugin/drizzle
 bun add @aihu-plugin/drizzle
 ```
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -60,12 +60,12 @@ bun add @aihu-plugin/drizzle
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -78,7 +78,7 @@ bun add @aihu-plugin/drizzle
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -95,7 +95,7 @@ bun add @aihu-plugin/drizzle
 
 - `drizzle-orm` — `>=0.29.0`
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -107,7 +107,7 @@ bun add @aihu-plugin/drizzle
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -118,6 +118,6 @@ bun add @aihu-plugin/drizzle
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/drizzle@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

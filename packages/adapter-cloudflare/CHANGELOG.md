@@ -1,5 +1,23 @@
 # @aihu/adapter-cloudflare
 
+## 1.0.0
+
+### Patch Changes
+
+- [#215](https://github.com/fellwork/aihu/pull/215) [`c171aab`](https://github.com/fellwork/aihu/commit/c171aab4c1fc1b07b6ad35d7a3198d5bf5465f42) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix SSR mode emitting an unresolvable `_worker.js`. When `cloudflare({ ssr:
+true })` ran, the generated worker did `import routes from
+'./routes-manifest.js'` but the adapter never wrote that file, so `wrangler
+pages dev` failed with `Could not resolve "./routes-manifest.js"` and CI fell
+  back to an empty SPA shell (bad for SEO + agents). The adapter now serializes
+  `AdapterContext.routes` into a `routes-manifest.js` (default-exporting the
+  routes array consumed by `createRequestRouter`) and writes it to `outDir`
+  before `_worker.js`, keeping the filename in sync with the handler's import
+  specifier. The SSR test now exercises the real handler-source + manifest
+  emission (replacing the stub that masked the gap) and asserts the worker's
+  import resolves.
+- Updated dependencies [[`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced), [`0628885`](https://github.com/fellwork/aihu/commit/0628885ae3948bf6432a44102f92a00ce60f040b), [`e1a6cfc`](https://github.com/fellwork/aihu/commit/e1a6cfcc9e50688592d580cd515b60c8faa50839)]:
+  - @aihu/app@1.0.0
+
 ## 0.1.9
 
 ### Patch Changes

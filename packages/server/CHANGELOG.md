@@ -1,5 +1,44 @@
 # @aihu/server
 
+## 0.2.0
+
+### Minor Changes
+
+- [#221](https://github.com/fellwork/aihu/pull/221) [`90d3174`](https://github.com/fellwork/aihu/commit/90d3174896ee03cf1756f5b92d125be45d13983f) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add `routeHeadToSsrHead()` — a pure mapper that lowers a route's head metadata
+  into the server's renderable `HeadConfig` (B3 of the per-route-`<head>` SEO
+  arc). It maps `title` → `<title>`, `description` → `<meta name=description>`,
+  `canonical` → `<link rel=canonical>` (resolved absolute against an optional
+  `siteUrl`), `og.*` → `og:*` property meta (image/url resolved absolute),
+  `twitter.*` → `twitter:*` name meta, and `jsonld` → a
+  `<script type="application/ld+json">` block. Route fields override an optional
+  `globalHead` per field, with `meta`/`links`/`scripts` arrays key-merged (route
+  wins on conflicts); an `undefined` route head returns `globalHead` unchanged.
+  The function is self-contained and side-effect free so the SSG-prerender and
+  client-nav head Builders can both import it.
+
+  To support the lowering, `HeadConfig` gains an optional `scripts` array (new
+  `ScriptTag` type) and `buildHead()` now emits inline `<script>` elements
+  (neutralizing any literal `</` in the body so injected JSON-LD cannot break out
+  of the element). Both additions are backward compatible: omitting `scripts`
+  reproduces the prior `buildHead`/`renderToString` output exactly. New exports:
+  `routeHeadToSsrHead`, `RouteHead`, `RouteHeadLowerOptions`, `ScriptTag`.
+
+### Patch Changes
+
+- [#225](https://github.com/fellwork/aihu/pull/225) [`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Update `document.head` on client-side SPA navigation to reflect each route's
+  per-route `<head>` (B5, SEO arc). `createApp()` now lowers the active route's
+  `head` (merged with optional global `app.head` defaults and resolved against
+  `site.url`) and applies it to the live `document.head` — setting `<title>`,
+  upserting `<meta>`/`<link rel=canonical>` by key, and injecting the JSON-LD
+  `<script>`. Per-page tags are tracked and cleaned up on every navigation so
+  stale title/canonical/OG/JSON-LD never accumulate; global defaults persist.
+
+  The HeadConfig→tag application core is now shared (`head-apply.ts`) between the
+  SSG prerender (string transform) and the client (live-DOM) paths so they can
+  never diverge. To keep the browser client bundle `node:`-free, `@aihu/server`
+  gains a pure `@aihu/server/head-lowering` subpath export for `routeHeadToSsrHead`
+  (the barrel reaches the native loader and must not enter a browser bundle).
+
 ## 0.1.4
 
 ### Patch Changes

@@ -64,7 +64,7 @@
     },
     "bench/js-framework-benchmark/keyed/aihu": {
       "name": "js-framework-benchmark-aihu",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/runtime": "workspace:*",
@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -288,7 +288,7 @@
     },
     "packages/_moved/agent-readiness": {
       "name": "@aihu/agent-readiness",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "dependencies": {
         "@aihu-plugin/agent-readiness": "1.0.0",
       },
@@ -302,7 +302,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.9",
+      "version": "1.0.0",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -310,7 +310,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "0.1.9",
+      "version": "1.0.0",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -357,7 +357,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.9",
+      "version": "1.0.0",
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -399,7 +399,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.4.1",
+      "version": "1.0.0",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -407,7 +407,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.1.0",
+        "@aihu/css-engine": ">=0.2.0",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -421,7 +421,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -434,7 +434,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
@@ -460,7 +460,7 @@
     },
     "packages/plugin-agent-readiness": {
       "name": "@aihu-plugin/agent-readiness",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -480,7 +480,7 @@
     },
     "packages/plugin-drizzle": {
       "name": "@aihu-plugin/drizzle",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu/server": "workspace:*",
       },
@@ -497,7 +497,7 @@
     },
     "packages/plugin-kindly-note": {
       "name": "@aihu-plugin/kindly-note",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
@@ -526,7 +526,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -535,7 +535,7 @@
     },
     "packages/router": {
       "name": "@aihu/router",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -544,7 +544,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -556,7 +556,7 @@
     },
     "packages/server": {
       "name": "@aihu/server",
-      "version": "0.1.4",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/plugin": "workspace:*",

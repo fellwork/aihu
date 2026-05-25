@@ -50,7 +50,7 @@ npm install @aihu/language-server
 bun add @aihu/language-server
 ```
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -61,12 +61,12 @@ bun add @aihu/language-server
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -80,7 +80,7 @@ bun add @aihu/language-server
 | `.` | `./dist/server.js` | `—` |
 | `./core` | `./dist/core/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -95,7 +95,7 @@ bun add @aihu/language-server
 - `vscode-languageserver` — `^9.0.1`
 - `vscode-languageserver-textdocument` — `^1.0.11`
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -107,7 +107,7 @@ bun add @aihu/language-server
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -118,6 +118,6 @@ bun add @aihu/language-server
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/language-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/language-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
