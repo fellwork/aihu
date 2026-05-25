@@ -4,6 +4,13 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { compileToAst } from '@aihu/compiler'
 
+export {
+  defineStylePack,
+  type StylePack,
+  type StylePackInput,
+  type TokenMap,
+} from './define-style-pack.ts'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /**

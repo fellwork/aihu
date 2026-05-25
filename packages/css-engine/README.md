@@ -62,7 +62,7 @@ bun add @aihu/css-engine
 |---|---|
 | **Version** | `0.0.0` |
 | **Tier** | D — Compiler — CSS engine (Tailwind v4 hard fork, WC-native scoped output) |
-| **Published files** | 4 entries |
+| **Published files** | 5 entries |
 | **License** | MIT |
 
 <sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
@@ -77,6 +77,8 @@ bun add @aihu/css-engine
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./runtime/cn` | `./dist/runtime/cn.js` | `—` |
+| `./runtime/progressive` | `./dist/runtime/progressive.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
 
