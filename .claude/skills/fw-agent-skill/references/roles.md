@@ -203,24 +203,26 @@ The Historian's job is to make tomorrow's resume cheap. If the Historian writes 
 
 ---
 
-## AGENTS.db layer-write permissions (cross-role reference)
+## GBrain layer-write permissions (cross-role reference)
 
-Every role above has both a **file-output convention** (the `.md` artifact described per-role) and an **AGENTS.db layer-write permission**. Same discipline, two substrates.
+Every role above has both a **file-output convention** (the `.md` artifact described per-role) and a **GBrain layer-write permission**. Same discipline, two substrates. Layers map onto slug prefixes: `local` = `wiki/agents/<subagent-id>/...` (GBrain's enforced subagent namespace), `delta` = `<project>/delta/<topic>/<round>/...`, `user` = `<project>/user/<topic>/...`, `base` = `<project>/base/...`.
 
 | Role | local | delta | user |
 |---|:---:|:---:|:---:|
-| Team Lead | ✓ (dispatch records) | — | ✓ only `domain_hint` records sourced directly from user |
-| Topic Director | — | ✓ (`director_note`) | — |
-| Synthesizer | — | ✓ (`topic_summary`) | — |
-| Scout | ✓ (`scout_report`) | — | — |
-| Architect | — | ✓ (`architecture_spec`) | — |
-| Builder | ✓ (scratch) | ✓ (`build_manifest`, `investigation_report`) | — |
-| Verifier | — | ✓ (`verification_report`) | — |
-| Investigator | ✓ (probes) | ✓ (`investigation_report`) | — |
+| Team Lead | ✓ (dispatch records, on subagent's behalf) | ✓ (commits subagent STATUS payloads as pages) | ✓ only `domain_hint` pages sourced directly from user |
+| Topic Director | — | ✓ (`director_note` content via Team Lead) | — |
+| Synthesizer | — | ✓ (`topic_summary` content via Team Lead) | — |
+| Scout | ✓ (`scout_report` in own namespace) | — | — |
+| Architect | — | ✓ (`architecture_spec` content via Team Lead) | — |
+| Builder | ✓ (scratch in own namespace) | ✓ (`build_manifest`, `investigation_report` content via Team Lead) | — |
+| Verifier | — | ✓ (`verification_report` content via Team Lead) | — |
+| Investigator | ✓ (probe traces in own namespace) | ✓ (`investigation_report` content via Team Lead) | — |
 | Historian | read all | ✓ (`retro`) | **promotion authority (delta → user)** |
 
 The base layer is **never** written from automated work. Promotion to base requires human review.
 
-**The Historian's promotion authority is the formal "earned learning" gate.** A finding becomes durable team knowledge only when the Historian decides it has earned promotion at end-of-session — survived a Director routing pass, been Verifier-PASSed (for specs), or affirmed by the user (for domain hints).
+**Why most subagent writes go "via Team Lead":** GBrain enforces a `wiki/agents/<subagent-id>/.+` slug prefix on subagent `put_page` calls by default. Project-scoped writes (`<project>/delta/...`, `<project>/user/...`) must originate from a non-subagent caller — so subagents return content in their STATUS payload and the Team Lead, having verified STATUS against the artifact, calls `mcp__gbrain__put_page` with the project-scoped slug.
 
-Full layer model, search conventions, promotion criteria, and setup are in `references/middleware.md`.
+**The Historian's promotion authority is the formal "earned learning" gate.** A finding becomes durable team knowledge only when the Historian decides it has earned promotion at end-of-session — survived a Director routing pass, been Verifier-PASSed (for specs), or affirmed by the user (for domain hints). Promotion is implemented as writing a new page under `<project>/user/<topic>/...` and linking back to the originating delta page via `mcp__gbrain__add_link`.
+
+Full layer model, slug/tag conventions, search conventions, promotion criteria, and setup are in `references/middleware.md`.

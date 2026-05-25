@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "agentsdb": {
+    "gbrain": {
       "command": "bash",
-      "args": [".claude/scripts/agentsdb-mcp.sh"]
+      "args": [".claude/scripts/gbrain-mcp.sh"]
     },
     "aihu": {
       "command": "bun",

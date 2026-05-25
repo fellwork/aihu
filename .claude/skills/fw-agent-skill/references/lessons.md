@@ -2,7 +2,7 @@
 
 These are 11 specific failure patterns observed in actual sessions while developing this orchestration methodology. They are not theoretical. Future sessions treat them as known anti-patterns.
 
-Each lesson includes its mitigation, tied to a universal principle in `SKILL.md` or a role behavior in `roles.md`. Several lessons are also partly addressed by the AGENTS.db middleware — see the failure-mode coverage map in `references/middleware.md` for which ones and how.
+Each lesson includes its mitigation, tied to a universal principle in `SKILL.md` or a role behavior in `roles.md`. Several lessons are also partly addressed by the GBrain middleware — see the failure-mode coverage map in `references/middleware.md` for which ones and how.
 
 **Read this list before your first dispatch in any new session.** The cost of ignoring these has already been paid; you don't need to re-pay it.
 

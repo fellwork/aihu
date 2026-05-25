@@ -865,7 +865,7 @@ When this spec PR lands:
 
 1. **Topic Director re-fires (round 002)** — blesses the §1 curation cut, the §13 surface-to-user answers, and the Builder map in §10. State file updates in place to reflect "Architect spec landed, Builder Round B1 dispatched."
 2. **Builder Round B1 dispatch** — branch `feat/cli-templates-builder-001`, scope per §10 B1, verifier acceptance per the §10 B1 line.
-3. **Synthesizer (after B1 + Verifier)** — updates `state-cli-templates.md` to absorb concrete decisions: lock the placeholder syntax, lock the prompts library choice, register cf-team's published version. Adds AGENTS.db entry under topic=cli-templates with the post-B1 surface.
+3. **Synthesizer (after B1 + Verifier)** — updates `state-cli-templates.md` to absorb concrete decisions: lock the placeholder syntax, lock the prompts library choice, register cf-team's published version. Adds a GBrain page under `aihu/delta/cli-templates/` with the post-B1 surface (tagged `topic:cli-templates`, `layer:delta`).
 4. **Builder Round B2 + B3** dispatch sequentially per §10. Final Verifier round before publish-tag.
 5. **Coordination with PR #75** — sync-readme.ts must land before B3's README autogen task starts. If #75 stalls, B3's autogen sub-task slides to v0.2.1; the templates ship with hand-written READMEs in v0.2.0.
 

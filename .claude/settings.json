@@ -8,7 +8,13 @@
       "Bash(bun run size)",
       "Bash(bunx biome ci .)",
       "mcp__github__pull_request_read",
-      "mcp__agentsdb__agents_search"
+      "mcp__gbrain__search",
+      "mcp__gbrain__get_page",
+      "mcp__gbrain__list_pages",
+      "mcp__gbrain__get_backlinks",
+      "mcp__gbrain__put_page",
+      "mcp__gbrain__add_tag",
+      "mcp__gbrain__add_link"
     ]
   }
 }
