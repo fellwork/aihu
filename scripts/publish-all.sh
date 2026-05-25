@@ -65,6 +65,9 @@ PKGS=(
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
+  "language-server"   # @aihu/language-server LSP; depends on @aihu/compiler (must follow it)
+  "plugin-drizzle"    # @aihu-plugin/drizzle; depends on @aihu/server + @aihu-plugin/data (must follow them)
+  "plugin-kindly-note" # @aihu-plugin/kindly-note; depends on @aihu/signals (must follow it)
   "_moved/data"
   "_moved/agent-readiness"
 )
