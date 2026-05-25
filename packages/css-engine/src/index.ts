@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { accessSync, constants, existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -74,6 +74,36 @@ function detectPlatform(): PlatformDescriptor | null {
 let _binPath: string | null = null
 
 /**
+ * Whether `candidate` is a usable `aihu-css-compile` executable — NOT merely a
+ * present file.
+ *
+ * The per-platform packages (`@aihu/css-engine-<platform>`) carry a placeholder
+ * `aihu-css-compile` in source; the real prebuilt binary is only injected by
+ * the release CI. Once those packages become resolvable in the workspace (e.g.
+ * after a `bun.lock` refresh that pins them as optionalDependencies), a bare
+ * `existsSync` would happily return the non-executable placeholder, which then
+ * blows up with EACCES inside `spawnSync`/`execFileSync`. So we must verify the
+ * candidate is actually runnable before accepting it.
+ *
+ * POSIX: require the execute bit (X_OK). A zero-byte/text placeholder without
+ * +x fails here and we fall through to the dev `target/` fallback.
+ *
+ * Windows: there is no execute bit — `accessSync(_, X_OK)` is effectively
+ * always true — so we additionally require a non-empty regular file, which
+ * still rejects a zero-byte placeholder.
+ */
+export function isUsableExecutable(candidate: string): boolean {
+  try {
+    const st = statSync(candidate)
+    if (!st.isFile() || st.size === 0) return false
+    accessSync(candidate, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Resolve the absolute path to the `aihu-css-compile` executable.
  *
  * Resolution order:
@@ -96,12 +126,18 @@ function resolveBinary(): string {
   const descriptor = detectPlatform()
 
   // 1. Per-platform optionalDependency package (the published-consumer path).
+  //
+  // Accept the candidate ONLY if it is a usable executable. A present-but-
+  // non-executable placeholder (the in-source stub that becomes resolvable once
+  // the per-platform packages are pinned in the lockfile) must NOT be returned —
+  // doing so spawns a non-executable file and fails with EACCES. In that case we
+  // deliberately fall THROUGH to the dev `target/` fallback below.
   if (descriptor) {
     const requireFn = createRequire(import.meta.url)
     try {
       const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
       const candidate = join(dirname(pkgJson), descriptor.binFile)
-      if (existsSync(candidate)) {
+      if (isUsableExecutable(candidate)) {
         _binPath = candidate
         return _binPath
       }
