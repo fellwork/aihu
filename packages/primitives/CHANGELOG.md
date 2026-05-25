@@ -1,5 +1,12 @@
 # @aihu/primitives
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @aihu/css-engine@0.1.1
+
 ## 0.0.1
 
 ### Patch Changes
