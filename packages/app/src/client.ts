@@ -1,9 +1,16 @@
 import routes from 'virtual:aihu-routes'
 import { hydrate, mount } from '@aihu/arbor'
-import type { MatchResult, RouteDefinition } from '@aihu/router'
+import type { MatchResult, RouteDefinition, RouteHead } from '@aihu/router'
 import { createRouter } from '@aihu/router'
 import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
+// Pure subpath — NOT the @aihu/server barrel. The barrel reaches loader.ts +
+// the lazy native loader; importing it would risk dragging node:-bearing code
+// into the browser client bundle and trip check:runtime-purity. head-lowering.ts
+// is side-effect free (only the web-standard URL), so this stays node:-free.
+import type { HeadConfig } from '@aihu/server/head-lowering'
+import { routeHeadToSsrHead } from '@aihu/server/head-lowering'
 import { signal } from '@aihu/signals'
+import { applyHeadToDocument, clearManagedHead } from './head-apply.ts'
 
 /**
  * Rendering mode passed from the server config into the client bootstrap.
@@ -37,6 +44,21 @@ export interface AppConfig {
    * Default: 'ssr' (hydration wired).
    */
   rendering?: { mode?: AppRenderingMode }
+  /**
+   * Site-level config. `site.url` is the absolute base URL used to resolve
+   * relative per-route `canonical` / `og:*` / `twitter:*` values into absolute
+   * URLs as the head is applied on client navigation (mirrors the SSG path's
+   * `AihuConfig.site.url`). When absent, relative values are emitted unchanged.
+   */
+  site?: { url?: string }
+  /**
+   * Global `<head>` defaults (typically `aihu.config.ts`'s `app.head`). On every
+   * navigation these defaults are folded under the active route's head
+   * (`routeHeadToSsrHead`'s `globalHead`) and re-applied — so a route that omits
+   * a field falls back to the global default, and global tags persist across
+   * navigations while route-only tags are cleaned up.
+   */
+  head?: HeadConfig
 }
 
 /**
@@ -77,6 +99,33 @@ export function createApp(config?: AppConfig): void {
 
   const router = createRouter(routes)
 
+  // Per-route <head> wiring (B5, SEO arc). `siteUrl` resolves relative
+  // canonical/OG/Twitter URLs to absolute; `globalHead` (app.head) is folded
+  // under each route's head so defaults persist across navigations.
+  const siteUrl = config?.site?.url
+  const globalHead = config?.head
+
+  /**
+   * Update the live `document.head` for the active route. Lowers the route's
+   * head (merged with the global defaults) into a renderable HeadConfig and
+   * applies it — `applyHeadToDocument` first removes the prior route's managed
+   * tags, so stale title/canonical/OG/JSON-LD never accumulate across nav.
+   *
+   * When there is no route head AND no global defaults, the previously-managed
+   * per-page tags are simply cleared (nothing to re-apply).
+   */
+  function updateHead(head: RouteHead | undefined): void {
+    if (head === undefined && globalHead === undefined) {
+      clearManagedHead()
+      return
+    }
+    const lowered = routeHeadToSsrHead(head, {
+      ...(siteUrl !== undefined ? { siteUrl } : {}),
+      ...(globalHead !== undefined ? { globalHead } : {}),
+    })
+    applyHeadToDocument(lowered)
+  }
+
   async function render(match: MatchResult | null): Promise<void> {
     if (!match) {
       // Check for a 404/not-found route by convention before falling back inline
@@ -87,17 +136,23 @@ export function createApp(config?: AppConfig): void {
         await notFoundRoute.module()
         const tag = notFoundRoute.name
         if (tag?.includes('-')) {
+          updateHead(notFoundRoute.head)
           outlet.replaceChildren(document.createElement(tag))
           return
         }
       }
-      // Inline fallback 404
+      // Inline fallback 404 — drop the prior route's head, fall back to globals.
+      updateHead(undefined)
       const p = document.createElement('p')
       p.style.cssText = 'font-family:system-ui;padding:2rem;color:#888'
       p.textContent = '404 — page not found'
       outlet.replaceChildren(p)
       return
     }
+
+    // Reflect the active route's <head> on the live document before rendering
+    // its element, so title/meta/canonical/JSON-LD match the page being shown.
+    updateHead(match.route.head)
 
     // Import the page module — registers its custom element + auto-wires runtime
     await match.route.module()

@@ -50,6 +50,7 @@ bun add @aihu/server
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 | `./native` | `./dist/native.js` | `—` |
+| `./head-lowering` | `./dist/head-lowering.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/server@0.1.4`.</i></sub>
 

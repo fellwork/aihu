@@ -56,8 +56,8 @@
   },
   {
     "name": "@aihu/app",
-    "bytes": 789,
-    "limit": "800 B"
+    "bytes": 1418,
+    "limit": "1500 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",

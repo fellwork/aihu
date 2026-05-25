@@ -5,6 +5,7 @@ const external = [
   '@aihu/router',
   '@aihu/router/plugin',
   '@aihu/server',
+  '@aihu/server/head-lowering',
   '@aihu/arbor',
   '@aihu/signals',
   '@aihu/runtime',

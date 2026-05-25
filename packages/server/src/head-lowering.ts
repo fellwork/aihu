@@ -23,6 +23,12 @@
 
 import type { HeadConfig, LinkTag, MetaTag, ScriptTag } from './ssr.ts'
 
+// Re-export the renderable head types so consumers of the pure
+// `@aihu/server/head-lowering` subpath (e.g. @aihu/app's browser client) can
+// type their lowered configs WITHOUT importing the `@aihu/server` barrel —
+// which would drag the native-loader graph into a browser bundle.
+export type { HeadConfig, LinkTag, MetaTag, ScriptTag } from './ssr.ts'
+
 /**
  * Per-route head metadata, as emitted by the compiler into `.route.json` and
  * (post-B2) re-exported from `@aihu/router`. Restated structurally here — see

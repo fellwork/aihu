@@ -48,6 +48,10 @@ export default defineConfig({
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       '@aihu/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@aihu/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
+      '@aihu/server/head-lowering': new URL(
+        './packages/server/src/head-lowering.ts',
+        import.meta.url,
+      ).pathname,
       '@aihu/server': new URL('./packages/server/src/index.ts', import.meta.url).pathname,
       '@aihu-plugin/agent-readiness': new URL(
         './packages/plugin-agent-readiness/src/index.ts',

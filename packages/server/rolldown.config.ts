@@ -90,4 +90,28 @@ export default defineConfig([
     },
     plugins: [dts({ outFile: 'dist/native.d.ts' })],
   },
+
+  // ---------------------------------------------------------------------------
+  // HEAD-LOWERING entry — @aihu/server/head-lowering. Pure, browser-safe.
+  // ---------------------------------------------------------------------------
+  //
+  // The SEO `routeHeadToSsrHead` mapper is dependency-free and side-effect free
+  // (only uses the web-standard `URL`). It is reachable from the BROWSER via
+  // @aihu/app's client bundle (B5 client-nav head updater) — importing it from
+  // the main barrel would drag loader.ts and re-introduce the lazy-native graph.
+  // This dedicated entry keeps the client import node:-free (check:runtime-purity).
+  {
+    input: { 'head-lowering': 'src/head-lowering.ts' },
+    external: ['@aihu/agent', '@aihu/plugin', ...nativeAddonExternals],
+    checks: { circularDependency: true },
+    transform: { define: { __DEV__: 'false' } },
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      sourcemap: true,
+      minify: true,
+      entryFileNames: '[name].js',
+    },
+    plugins: [dts({ outFile: 'dist/head-lowering.d.ts' })],
+  },
 ])
