@@ -199,7 +199,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/context` | 242 B | 300 B | pass |
 | `@aihu/signals` | 1.71 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.20 kB | 3400 B | pass |
+| `@aihu/runtime` | 3.27 kB | 3400 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 756 B | 800 B | pass |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
@@ -209,15 +209,15 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/app` | 789 B | 800 B | pass |
 | `@aihu/css-engine/runtime/cn` | 579 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 718 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 801 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.00 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 758 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 516 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.80 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.11 kB | 4 KB | pass |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

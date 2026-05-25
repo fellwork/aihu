@@ -25,6 +25,17 @@ describe('aihu build command', () => {
   })
 })
 
+describe('aihu migrate command', () => {
+  it('exports the migrateFiles file-driving entry', async () => {
+    // Bug 9c — the migrate command must expose its CLI-facing entry so the
+    // dispatcher can call it. (migrate.ts is not rewritten; we only connect.)
+    const mod = (await import('../src/commands/migrate.ts')) as {
+      migrateFiles: unknown
+    }
+    expect(typeof mod.migrateFiles).toBe('function')
+  })
+})
+
 describe('bin.ts dispatcher', () => {
   it('is parseable and async-compatible', async () => {
     // Smoke import only — bin.ts has top-level `process.argv` access so
@@ -36,5 +47,21 @@ describe('bin.ts dispatcher', () => {
     expect(src).toContain("if (cmd === 'build')")
     expect(src).toContain("await import('./commands/dev.js')")
     expect(src).toContain("await import('./commands/build.js')")
+  })
+
+  it('registers the migrate subcommand and dispatches to migrateFiles (bug 9c)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const src = readFileSync(join(__dirname, '..', 'src', 'bin.ts'), 'utf8')
+    expect(src).toContain("if (cmd === 'migrate')")
+    expect(src).toContain("await import('./commands/migrate.js')")
+    expect(src).toContain('migrateFiles(files, dryRun, process.cwd())')
+  })
+
+  it('lists migrate in the top-level usage text (bug 9c)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const src = readFileSync(join(__dirname, '..', 'src', 'bin.ts'), 'utf8')
+    expect(src).toContain('aihu migrate <files...>')
   })
 })
