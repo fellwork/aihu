@@ -13,6 +13,7 @@ export default defineConfig({
     'presence-gate': 'src/presence-gate/index.ts',
     'form-control': 'src/form-control/index.ts',
     'config-provider': 'src/config-provider/index.ts',
+    collection: 'src/collection/index.ts',
   },
   output: {
     dir: 'dist',

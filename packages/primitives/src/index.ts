@@ -11,6 +11,13 @@
  */
 
 export {
+  AihuCollection,
+  type CollectionContextValue,
+  collectionContext,
+  createCollection,
+  defineCollection,
+} from './collection/index.ts'
+export {
   AihuConfigProvider,
   type ColorScheme,
   type ConfigContextValue,
