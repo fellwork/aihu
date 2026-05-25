@@ -16,7 +16,7 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3281,
+    "bytes": 3353,
     "limit": "3400 B"
   },
   {
@@ -66,47 +66,47 @@
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": -1,
+    "bytes": 430,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": -1,
+    "bytes": 801,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": -1,
+    "bytes": 1026,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": -1,
+    "bytes": 758,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": -1,
+    "bytes": 1442,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": -1,
+    "bytes": 516,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": -1,
+    "bytes": 2018,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": -1,
+    "bytes": 1841,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": -1,
+    "bytes": 1133,
     "limit": "4 KB"
   }
 ]

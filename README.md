@@ -4,9 +4,13 @@
 >
 > Say *EYE-hoo* · 爱护 (*àihù*) · *"to cherish and protect."*
 
-A complete meta-framework for the agentic web. You write `.aihu` Single-File Components — block-structured (`@state`, `@template`, `@style`, `@agent`, `@route`) — and a Rust compiler emits standards-compliant Web Components AND machine-readable agent manifests. The runtime is sub-2 kB. Every component shipped by every Aihu app is discoverable by AI agents and callable as a tool — in service of whatever a human is building.
+Aihu is a full framework for building web apps as **single-file components**. A Rust compiler turns them into standards-based **Web Components** — no virtual DOM, no hydration step, no runtime lock-in — with a reactive core under **2 kB** and **zero runtime dependencies**.
 
-> **Status:** v1 grammar cutover in progress — **Path B**. v1.0.1–v1.0.9 have shipped (HTML-tag rejection, Amendment 04 `$attr={expr}` canonical, Naming Scheme A `@aihu-plugin/*` renames); the `v1.0.0` git tag is intentionally held until the CSS engine, UI primitives, and kindly-note are absorbed. See [Path B v1.0 cutover](#path-b--v10-cutover) below and [`docs/roadmap/SUMMARY.md`](./docs/roadmap/SUMMARY.md) for the full plan.
+What makes it different: **every component is also an AI tool.** The same component that renders your UI is automatically discoverable and callable by AI agents (MCP, llms.txt) — with no separate API layer to build.
+
+Routing, server-side rendering, auth, data loading, and cloud adapters are all included — and it's fast (122× faster than vanilla DOM on targeted updates; [benchmarks below](#performance)).
+
+> **Status:** actively developed, shipping in `v1.0.x` releases. The `v1.0.0` milestone tag is held until the styling engine and UI components land — see [Project status](#project-status).
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
@@ -40,111 +44,77 @@ For an SFC tour, see [`examples/live-counter/`](./examples/live-counter) (~40 LO
 
 ## What it is
 
-Aihu is a **complete meta-framework for the agentic web**. You write `.aihu` Single-File Components — block-structured (`@state`, `@template`, `@style`, `@agent`, `@route`) — and the Rust compiler emits standards-compliant Web Components AND machine-readable agent manifests. The runtime is sub-2 kB. The framework includes:
+You write a component in a single `.aihu` file — markup, state, styles, and (optionally) its agent interface, all in one place. The compiler turns it into a plain custom element that runs anywhere Web Components run. What you get:
 
-- **Reactive runtime core** — push-based signals, computeds, effects, batched writes (`@aihu/signals` + `@aihu/arbor`). 122× faster than vanilla DOM on targeted reactive updates.
-- **Compiler with WASM build** — Rust-native CLI binary published per platform, plus a WASM bundle for browser playgrounds (Directive 1).
-- **Agentic discovery** — every component declares its agent surface in a co-located `@agent` block. The compiler emits an MCP tool schema. Plugins for A2A and ACP protocols ship in-tree.
-- **File-based routing + SSR** — `@aihu/router` + `@aihu/server` give you full meta-framework capability: nested routes, loaders, hydration, cookies, server actions.
-- **Auth, data, context, plugin system** — zero-dep `@aihu/*` packages compose into the meta-framework. SFC primitives for `<$guard>`, `$user`, `$resource`, `<$liveRegion>`, `<$focusTrap>`, `<$router>`, `<$link>`, `<$outlet>`, `$beforeNavigate`/`$afterNavigate` (arch-5 §6 v1.1 M1).
-- **Cloud adapters** — `@aihu/adapter-cloudflare`, `@aihu/adapter-vercel` ship in-tree.
-- **DX toolchain** — `@aihu/cli` (`aihu app`/`page`/`component`/`plugin`/`dev`/`build`), VSCode extension (Volar-style language server, in flight).
+- **A tiny reactive core** — signals, computeds, and effects in under 2 kB, with direct DOM updates and no virtual DOM (`@aihu/signals` + `@aihu/arbor`).
+- **A real Rust compiler** — pre-built per platform, plus a WebAssembly build for in-browser playgrounds.
+- **Agent-callable by default** — declare a component's `@agent` interface and the compiler emits a matching AI tool schema (MCP), alongside A2A and ACP protocol support.
+- **A complete app framework** — file-based routing, server-side rendering, loaders, cookies, and server actions (`@aihu/router` + `@aihu/server`).
+- **Batteries included** — auth, data loading, context, a plugin system, and accessible UI primitives — all dependency-free.
+- **Deploy anywhere** — first-party Cloudflare and Vercel adapters.
+- **A real toolchain** — a CLI for scaffolding and builds (`aihu app`/`page`/`component`/`plugin`/`dev`/`build`) and a VS Code extension.
 
-The output is **vanilla custom elements**: no framework lock-in at the consumer boundary, no global context, no hydration step — and every component is, by construction, agent-callable.
+The output is **plain custom elements**: nothing locks you in at the consumer boundary, there's no global runtime and no hydration step — and every component is, by construction, callable by an AI agent.
 
-## Why "meta-framework"?
+## How it compares
 
-Aihu lets you build **whole apps**, not just components. The "meta" word is doing two jobs:
+Most component libraries give you a way to build *components*. Aihu gives you a way to build *apps* — routing, server-side rendering, data, and deployment are first-class, not add-ons.
 
-- **It is meta in the layer sense.** `@aihu/signals` (reactive primitive) → `@aihu/arbor` (DOM mounting) → `@aihu/runtime` (custom-element wiring) → `@aihu/router` (file-based routing) → `@aihu/server` (SSR + edge) → `@aihu/app` (the integrated framework). Each layer is usable on its own; stacked they are a meta-framework.
-- **It is meta in the Next.js / Nuxt / SvelteKit sense.** File-based routing replaces the boilerplate other meta-frameworks impose. SSR, loaders, cookies, auth, and data are first-class — not bolt-ons. The agent surface is woven into the SFC, not exposed via a separate API gateway. Cloud adapters are in-tree, not third-party.
-
-Aihu is to Lit what Next.js is to React — a complete app framework that uses the underlying runtime as one layer of many. Compare to: Solid (single-package), Lit (templating + base class only), Vue (proxy-based, ships its own scheduler). Only Aihu makes the agent surface a first-class block of the SFC.
+**Aihu is to Lit what Next.js is to React:** a full app framework built on a small Web Components runtime. Solid is a single reactive package; Lit is templating plus a base class; Vue ships its own scheduler and virtual DOM. Aihu layers cleanly — use just the signals, just the runtime, or the whole framework — and it's the only one where every component is also an AI-callable tool, built into the file format itself.
 
 ---
 
 ## Features
 
 ### Reactive runtime
-- Push-based signals + computeds + effects with batched writes (`@aihu/signals`, ~1.8 kB gz)
-- Direct DOM patching with no virtual DOM (`@aihu/arbor`, ~2.1 kB gz; **122× faster than vanilla** on targeted reactive updates)
-- Synchronous mount + LIFO teardown via `branch` / `leaf` / `mount` primitives
-- `defineComponent` runtime that registers compiled SFCs as custom elements (`@aihu/runtime`)
+- Push-based signals, computeds, and effects with batched writes (`@aihu/signals`, ~1.8 kB gz)
+- Direct DOM updates, no virtual DOM (`@aihu/arbor`, ~2.1 kB gz — **122× faster than vanilla** on targeted updates)
+- Synchronous mount with predictable teardown
+- Compiled components register as standard custom elements (`@aihu/runtime`)
 
 ### Compiler & toolchain
-- Rust-native compiler reads `.aihu` SFCs and emits `class extends HTMLElement` calling `mount(buildTree(), this.shadowRoot)`
-- Per-platform pre-built binaries via `npm install @aihu/compiler` (M1: Linux, macOS, Windows, aarch64-Linux; SHA256-verified)
-- WASM build for browser playgrounds (compile latency target: <200ms for a 50-line SFC, bundle <1 MB initial JS)
-- Scoped styles, slots, reconciler (`when`/`each`), TS template-typed templates, error boundaries, HMR, islands, full hydration
+- Rust-native compiler — reads `.aihu` files and emits standard custom-element classes
+- Pre-built binaries for Linux, macOS, Windows, and ARM64 Linux (SHA256-verified), via `npm install @aihu/compiler`
+- WebAssembly build for in-browser playgrounds (target: under 200 ms to compile a 50-line component)
+- Scoped styles, slots, list/conditional rendering, type-checked templates, error boundaries, hot reload, islands, and full hydration
 
-### Agent surface (built-in)
-- `@agent` block on every SFC declares exposed state + actions; compiler emits a matching MCP tool schema alongside the Web Component
-- A2A + ACP protocol implementations in-tree (`@aihu/agent-a2a`, `@aihu/agent-acp`)
-- `@aihu/agent-service` is the server-side execution surface; live-binding (RFC, APPROVED) wires `@agent` actions to the actual runtime signal graph
-- `@aihu-plugin/agent-readiness` emits `llms.txt`, MCP Server Card (SEP-1649), and `robots.txt` from any Aihu app — no manual config
+### AI-agent surface (built in)
+- An `@agent` block declares a component's exposed state and actions; the compiler emits a matching MCP tool schema next to the Web Component
+- A2A and ACP agent protocols included (`@aihu/agent-a2a`, `@aihu/agent-acp`)
+- Auto-generates `llms.txt`, an MCP Server Card, and `robots.txt` for any app — no manual config (`@aihu-plugin/agent-readiness`)
 
-### Meta-framework capabilities
-- File-based routing with nested routes, layouts, route plugins (`@aihu/router`)
-- Server-side rendering, streaming, loaders, cookies, full hydration, islands (`@aihu/server`)
-- Async-context request primitives (`@aihu/context`)
-- Reactive resource + loader protocol (`@aihu-plugin/data`)
-- SFC primitives shipping in v1.1 M1: `<$guard>`, `$user`, `$resource`, `<$liveRegion>`, `<$focusTrap>`, `<$router>`, `<$link>`, `<$outlet>`, `$beforeNavigate`, `$afterNavigate` (arch-5 §6)
-- Cloud adapters: `@aihu/adapter-cloudflare`, `@aihu/adapter-vercel`
+### Full-stack capabilities
+- File-based routing with nested routes and layouts (`@aihu/router`)
+- Server-side rendering, streaming, loaders, cookies, and hydration (`@aihu/server`)
+- Request-scoped context plus a reactive data/loader layer (`@aihu/context`, `@aihu-plugin/data`)
+- Accessible UI primitives — guards, live regions, focus traps, links, and outlets
+- Cloud adapters for Cloudflare and Vercel
 
-### DX
-- `aihu` CLI: scaffolding (`app` / `page` / `component` / `plugin`), `dev`, `build` (`@aihu/cli`)
-- VSCode extension with TextMate grammar today, Volar-style language server in flight (`packages/vscode-aihu`, `packages/language-server` M2)
-- 13-example portfolio with parallel `bun run dev:examples` launcher
-- Shared design system in `examples/_shared/`
-- Bun + Moon + Rolldown + Biome + Vitest + size-limit toolchain
+### Developer experience
+- `aihu` CLI for scaffolding and builds (`app` / `page` / `component` / `plugin` / `dev` / `build`)
+- VS Code extension — syntax highlighting today, full language server in progress
+- A 13-example portfolio you can run in parallel with `bun run dev:examples`
+- Built on Bun, Rolldown, Biome, and Vitest
 
-### Compliance
-- **llms.txt** — every Aihu app is discoverable by AI tools out of the box
-- **MCP** — Anthropic Model Context Protocol compatible (Server Card, tool schemas, resources)
-- **Agent-Ready** — every component shipped by every Aihu app has an agent surface
-- **WCAG 2.1** a11y — `<$liveRegion>`, `<$focusTrap>`, `<$skipLink>` core primitives (arch-5 §5)
+### Standards & compliance
+- **llms.txt** — every app is discoverable by AI tools out of the box
+- **MCP** — Model Context Protocol compatible (Server Card, tool schemas, resources)
+- **Agent-ready** — every component an app ships has an agent interface
+- **Accessibility** — WCAG-oriented primitives (live regions, focus traps, skip links)
 
 ---
 
-## Path B — v1.0 cutover
+## Project status
 
-The v1 grammar cutover is shipping incrementally as `v1.0.x` releases. Nine
-patch lines have landed; the `v1.0.0` git tag is **intentionally held** until the
-CSS engine, UI primitives, and kindly-note are absorbed — this is **Path B**.
-v1.0.0 is a release-narrative tag event, not a synchronous bump-everything-to-`1.0.0`
-(per-package size-limit rows are the contract, so packages version independently).
+Aihu is under active development and ships in `v1.0.x` releases. The reactive runtime, compiler, router, server, agent surface, and CLI all work today. The `v1.0.0` milestone tag is intentionally held until three additions land:
 
-| Release | What shipped |
-|---|---|
-| v1.0.1–v1.0.6 | v1 grammar groundwork, conformance fixtures, workspace `.aihu` corpus rewrite |
-| v1.0.7 | HTML-tag SFC framing rejected (error **C107**); `<script setup>`/`<template>`/`<style>`/`<agent>` → `@block {}` |
-| v1.0.8 | Amendment 04 — `$attr={expr}` is canonical; legacy `:attr=` (**C304**), `@event=` (**C305**), and plain-curly `attr={}` (**C306**) rejected as hard errors |
-| v1.0.9 | Naming Scheme A — Plugin Contract packages renamed: `@aihu/data` → `@aihu-plugin/data`, `@aihu/agent-readiness` → `@aihu-plugin/agent-readiness` (core packages keep their names) |
+- **A styling engine** (`@aihu/css-engine`) — build-time CSS: a Tailwind v4-style utility engine with scoped, per-component output that adds **zero** bytes to the browser bundle. The engine, compiler integration, style packs, and a `cn()` helper have landed; a copy-paste UI registry is next.
+- **UI components** (`@aihu/primitives`) — accessible, headless primitives (dialog, tooltip, button, and more) built on the engine. Landed.
+- **Rich-text / markdown** support, shipping as a plugin.
 
-Each cutover ships a mechanical migration via `npx aihu migrate <file>`. See
-[`docs/cli.md`](./docs/cli.md) for the full error-code → migration-target table.
+Packages version independently (most are in the `0.x` range during early access), so you can adopt any piece on its own. **Aihu is dependency-free at runtime** — every browser-shipped package has an empty `dependencies` list. It's a research-driven codebase: each layer is pinned by a written spec before code lands, and performance regressions block merges.
 
-### Held until v1.0.0 (Path B absorption)
-
-Before the `v1.0.0` tag, three arcs are absorbed into the v1.0 line:
-
-- **CSS engine** (`@aihu/css-engine`) — a build-time, compile-time styling engine (hard-fork of Tailwind v4, scoped shadow-DOM output, custom-property cascade for dark mode). It adds **zero** to the browser bundle because it runs at build time, not as CSS-in-JS. **Foundation landed:** the `aihu-css-core` crate, the compiler AST-export hook (`compileToAst` / `--ast-json`, `v1.0.10a`), and the AST-consuming scanner (full Tailwind v4 utility table, scoped shadow-DOM emitter, WC-native + standard variants, `@theme` registry, incremental cache) are implemented; the `@aihu/ui` registry, primitives, and Storybook remain. Plans: [bootstrap](./docs/superpowers/plans/2026-05-11-css-engine-bootstrap.md), [AST scanner](./docs/superpowers/plans/2026-05-22-css-engine-plan-2-ast-scanner.md), [style packs](./docs/superpowers/plans/2026-05-22-css-engine-plan-3-style-packs.md); specs: [design](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md), [AST-export hook](./docs/superpowers/specs/compiler-ast-export-hook.md).
-- **UI primitives** — a registry of accessible SFC primitives built on top of the CSS engine.
-- **kindly-note** — markdown + code-highlight integration absorbed as an `@aihu-plugin/*` adapter (keeps its own `@kindly-note/*` scope).
-
-### Held pending RFC
-- **Live-binding** (RFC #56) — reactive component-instance registry connecting `@agent` actions to live signals. APPROVED in design; security review of §9 in progress per Directive 3.
-- **`<playground-embed>` custom element** — interactive `.aihu` playground on the homepage. Gates on the WASM bundle published in `releases/latest`.
-
----
-
-## Project posture
-
-This is a **research codebase**. The phases are sequenced so each layer's design decisions are pinned by a binding spec before code lands; performance regressions block merge; bench receipts are mandatory on every runtime PR. See `.team/phase-3/spec-arbor.md` §0.5 for the full posture statement.
-
-The v1 grammar cutover is shipping as `v1.0.x` releases (v1.0.1–v1.0.9 landed). Packages version independently at `0.1.x`/`2.0.0` early-access; the `v1.0.0` git tag is held under Path B until the CSS engine, UI primitives, and kindly-note are absorbed.
-
-> **Dep-free thesis (v1 contract).** Aihu is dep-free at runtime — every browser-eligible package's `dependencies` list is empty (Learning #49). This is a v1 contract.
+Migrating between grammar versions is mechanical — run `npx aihu migrate <file>`, and compiler errors point you at the exact fix. See [`docs/cli.md`](./docs/cli.md) for the migration reference.
 
 ---
 
@@ -199,7 +169,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/context` | 242 B | 300 B | pass |
 | `@aihu/signals` | 1.71 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.20 kB | 3400 B | pass |
+| `@aihu/runtime` | 3.27 kB | 3400 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 756 B | 800 B | pass |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
@@ -209,15 +179,15 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/app` | 789 B | 800 B | pass |
 | `@aihu/css-engine/runtime/cn` | 579 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 718 B | 3 KB | pass |
-| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
-| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/context` | 430 B | 1 KB | pass |
+| `@aihu/primitives/presence-gate` | 801 B | 4 KB | pass |
+| `@aihu/primitives/form-control` | 1.00 kB | 4 KB | pass |
+| `@aihu/primitives/config-provider` | 758 B | 4 KB | pass |
+| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
+| `@aihu/primitives/collection` | 516 B | 4 KB | pass |
+| `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
+| `@aihu/primitives/tooltip` | 1.80 kB | 4 KB | pass |
+| `@aihu/primitives/button` | 1.11 kB | 4 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -229,7 +199,7 @@ Per-package gates enforced by `bun run size`:
 
 ## Layout
 
-> **Publish status:** Tier A/B/C/D packages publishing at `0.1.x` early-access via the [Path B v1.0 cutover](#path-b--v10-cutover) line. Tier E (held) stays private until live-binding RATIFIES.
+> **Publish status:** packages publish independently at `0.x` early-access (see [Project status](#project-status)). A few internal packages stay private until their designs settle.
 
 See [`packages/`](./packages) for all packages on disk. By tier:
 
