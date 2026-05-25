@@ -131,11 +131,11 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 | Workload | @aihu/signals | alien-signals | @preact/signals-core | @vue/reactivity | solid-js | s-js |
 |---|---:|---:|---:|---:|---:|---:|
-| `cellx` | 428.66 ns | 679.49 ns | 558.47 ns | 905.74 ns | 1.48 µs | 627.00 ns |
-| `batched-writes-100` | 2.52 µs | 3.76 µs | 3.98 µs | 7.58 µs | 6.43 µs | 2.61 µs |
-| `dynamic-deps` | 548.29 ns | 1.24 µs | 866.94 ns | 3.72 µs | 1.02 µs | 623.49 ns |
-| `creation-1to1000` | 68.73 µs | 87.86 µs | 53.05 µs | 78.93 µs | 66.90 µs | 66.39 µs |
-| `deep-propagation-100` | 2.71 µs | 2.16 µs | 3.08 µs | 4.53 µs | 6.36 µs | 2.03 µs |
+| `cellx` | 807.33 ns | 1.21 µs | 1.14 µs | 1.69 µs | 2.97 µs | 1.40 µs |
+| `batched-writes-100` | 5.07 µs | 8.10 µs | 7.20 µs | 15.43 µs | 12.80 µs | 5.75 µs |
+| `dynamic-deps` | 1.09 µs | 2.78 µs | 1.78 µs | 7.08 µs | 1.93 µs | 1.33 µs |
+| `creation-1to1000` | 69.02 µs | 90.01 µs | 64.53 µs | 92.97 µs | 139.98 µs | 107.53 µs |
+| `deep-propagation-100` | 3.25 µs | 3.97 µs | 3.87 µs | 7.34 µs | 11.86 µs | 4.12 µs |
 
 ### `@aihu/arbor` vs SOTA DOM-binding libraries
 
@@ -143,11 +143,11 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 | Workload | @aihu/arbor | lit-html | solid-js | @vue/runtime-dom | preact | vanilla |
 |---|---:|---:|---:|---:|---:|---:|
-| `mount-10k-leaves` | 36.63 ms | 5.40 s | — | — | 72.36 ms | 92.36 ms |
-| `mount-deep-100x10` | 3.28 ms | 63.46 ms | — | — | 9.12 ms | 24.60 ms |
-| `mount-wide-1000` | 8.60 ms | 57.49 ms | — | — | 9.82 ms | 12.24 ms |
-| `update-1-of-10k-leaves` | 25.34 ns | 570.30 µs | — | — | 1.90 ms | 3.32 µs |
-| `krausest-1k-cycle` | 21.94 ms | 77.43 ms | — | — | 19.40 ms | 16.46 ms |
+| `mount-10k-leaves` | 49.04 ms | 8.21 s | — | — | 107.10 ms | 139.42 ms |
+| `mount-deep-100x10` | 4.32 ms | 82.33 ms | — | — | 12.32 ms | 28.92 ms |
+| `mount-wide-1000` | 12.69 ms | 92.01 ms | — | — | 14.78 ms | 17.38 ms |
+| `update-1-of-10k-leaves` | 28.63 ns | 743.62 µs | — | — | 2.33 ms | 4.36 µs |
+| `krausest-1k-cycle` | 31.16 ms | 114.20 ms | — | — | 30.71 ms | 25.17 ms |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
