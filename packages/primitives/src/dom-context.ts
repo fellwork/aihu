@@ -35,7 +35,9 @@ export interface DomContext<T> {
 /** Thrown by `injectContext` when no provider is found and the token has no default. */
 export class MissingContextError extends Error {
   constructor(name: string) {
-    super(`[@aihu/primitives] no provider found for context "${name}" (and it has no default value)`)
+    super(
+      `[@aihu/primitives] no provider found for context "${name}" (and it has no default value)`,
+    )
     this.name = 'MissingContextError'
   }
 }
@@ -76,7 +78,7 @@ export function injectContext<T>(from: Element, ctx: DomContext<T>): T | Read<T>
   while (node !== null) {
     if (node instanceof Element) {
       const slots = REGISTRY.get(node)
-      if (slots !== undefined && slots.has(ctx._key)) {
+      if (slots?.has(ctx._key)) {
         return slots.get(ctx._key) as T | Read<T>
       }
       node = node.parentNode

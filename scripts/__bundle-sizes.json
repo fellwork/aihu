@@ -66,12 +66,12 @@
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": 417,
+    "bytes": 416,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": -1,
+    "bytes": 801,
     "limit": "4 KB"
   },
   {

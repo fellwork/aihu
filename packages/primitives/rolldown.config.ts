@@ -10,6 +10,7 @@ export default defineConfig({
   input: {
     index: 'src/index.ts',
     'dom-context': 'src/dom-context.ts',
+    'presence-gate': 'src/presence-gate/index.ts',
   },
   output: {
     dir: 'dist',

@@ -6,7 +6,14 @@ export default defineConfig({
   define: { __DEV__: 'true' },
   test: {
     environment: 'jsdom',
-    include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts', 'cookbook/**/*.test.ts'],
+    include: [
+      'packages/*/tests/**/*.test.ts',
+      // @aihu/primitives colocates keyboard/apg conformance tests next to each
+      // primitive's source (src/<primitive>/*.test.ts), per the Plan 4 layout.
+      'packages/*/src/**/*.test.ts',
+      'tests/**/*.test.ts',
+      'cookbook/**/*.test.ts',
+    ],
     // B3b sidecar-tsc tests require a separately compiled tsc binary pass — excluded until B3b lands.
     // legacy-snapshot freeze is tracked separately (regeneration required after template changes).
     exclude: [

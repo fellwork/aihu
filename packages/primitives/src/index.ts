@@ -10,6 +10,7 @@
  * budgets.
  */
 
+export type { DomContext } from './dom-context.ts'
 // Shared DOM-walk context (Option C — self-contained, does NOT import
 // @aihu/context).
 export {
@@ -18,4 +19,6 @@ export {
   MissingContextError,
   provideContext,
 } from './dom-context.ts'
-export type { DomContext } from './dom-context.ts'
+
+// Phase 0 primitives.
+export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
