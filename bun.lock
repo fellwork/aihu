@@ -395,6 +395,15 @@
         "@aihu/server": "workspace:*",
       },
     },
+    "packages/primitives": {
+      "name": "@aihu/primitives",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu/arbor": "workspace:*",
+        "@aihu/css-engine": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+    },
     "packages/router": {
       "name": "@aihu/router",
       "version": "0.1.3",
@@ -518,6 +527,8 @@
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
 
     "@aihu/plugin": ["@aihu/plugin@workspace:packages/plugin"],
+
+    "@aihu/primitives": ["@aihu/primitives@workspace:packages/primitives"],
 
     "@aihu/router": ["@aihu/router@workspace:packages/router"],
 
