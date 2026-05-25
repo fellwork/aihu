@@ -1,5 +1,12 @@
 # @aihu/agent-readiness
 
+## 2.0.1
+
+### Patch Changes
+
+- Updated dependencies [[`afead86`](https://github.com/fellwork/aihu/commit/afead86a982ca8df290f2970e3a16f5f003c0c03)]:
+  - @aihu/server@0.1.3
+
 ## 2.0.0
 
 ### Major Changes

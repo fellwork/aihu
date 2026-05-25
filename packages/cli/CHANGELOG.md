@@ -1,5 +1,15 @@
 # @aihu/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- [#196](https://github.com/fellwork/aihu/pull/196) [`faca280`](https://github.com/fellwork/aihu/commit/faca2804cf62c05ffc90ef867faa2058b5e267ad) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Wire up the `aihu migrate <files...>` command. The v0→v1 grammar codemod was
+  fully implemented but never registered in the CLI entrypoint; it is now
+  available and listed in `aihu --help`, which makes the `C304`/`C305`/`C306`
+  compiler errors' "Run: npx aihu migrate" guidance accurate. Fixes upstream
+  Bug 9c.
+
 ## 0.4.0
 
 ### Minor Changes

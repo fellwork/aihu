@@ -1,5 +1,12 @@
 # @aihu/templates-cf-team
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`faca280`](https://github.com/fellwork/aihu/commit/faca2804cf62c05ffc90ef867faa2058b5e267ad)]:
+  - @aihu/cli@0.5.0
+
 ## 2.0.0
 
 ### Patch Changes
