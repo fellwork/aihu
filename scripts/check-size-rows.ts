@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url'
 export const SERVER_SIDE = new Set<string>([
   '@aihu/server',
   '@aihu-plugin/agent-readiness',
+  '@aihu-plugin/drizzle',
   '@aihu/ai',
   '@aihu/auth',
   '@aihu/mcp',
@@ -49,6 +50,7 @@ export const BUILD_DEV_ONLY = new Set<string>([
   '@aihu/adapter-cloudflare',
   '@aihu/adapter-vercel',
   '@aihu/css-engine',
+  '@aihu/language-server',
 ])
 
 type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only'

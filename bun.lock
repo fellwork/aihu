@@ -143,6 +143,21 @@
         "vitest": "^2.1.1",
       },
     },
+    "examples/css-engine-demo": {
+      "name": "@aihu/example-css-engine-demo",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/compiler": "workspace:*",
+        "@aihu/css-engine": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vite": "^8.0.0",
+        "vitest": "^2.1.1",
+      },
+    },
     "examples/css-pluggability": {
       "name": "aihu-example-css-pluggability",
       "version": "0.0.0",
@@ -154,6 +169,20 @@
       },
       "devDependencies": {
         "tailwindcss": "^3.4.0",
+      },
+    },
+    "examples/currency-converter": {
+      "name": "@aihu/example-currency-converter",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/compiler": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vite": "^8.0.0",
+        "vitest": "^2.1.1",
       },
     },
     "examples/hacker-news": {
@@ -177,6 +206,22 @@
         "@aihu/agent": "workspace:*",
         "@aihu/arbor": "workspace:*",
         "@aihu/compiler": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vite": "^8.0.0",
+        "vitest": "^2.1.1",
+      },
+    },
+    "examples/primitives-showcase": {
+      "name": "@aihu/example-primitives-showcase",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/compiler": "workspace:*",
+        "@aihu/css-engine": "workspace:*",
+        "@aihu/primitives": "workspace:*",
         "@aihu/runtime": "workspace:*",
         "@aihu/signals": "workspace:*",
       },
@@ -215,6 +260,20 @@
     },
     "examples/todo-mvc": {
       "name": "@aihu/example-todo-mvc",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/compiler": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vite": "^8.0.0",
+        "vitest": "^2.1.1",
+      },
+    },
+    "examples/weather-card": {
+      "name": "@aihu/example-weather-card",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/arbor": "workspace:*",
@@ -361,6 +420,18 @@
         "@aihu/compiler": "workspace:*",
       },
     },
+    "packages/language-server": {
+      "name": "@aihu/language-server",
+      "version": "0.1.0",
+      "bin": {
+        "aihu-language-server": "./dist/bin.js",
+      },
+      "dependencies": {
+        "@aihu/compiler": "workspace:*",
+        "vscode-languageserver": "^9.0.1",
+        "vscode-languageserver-textdocument": "^1.0.11",
+      },
+    },
     "packages/mcp": {
       "name": "@aihu/mcp",
       "version": "0.1.0",
@@ -395,6 +466,23 @@
         "@aihu/server": "workspace:*",
       },
     },
+    "packages/plugin-drizzle": {
+      "name": "@aihu-plugin/drizzle",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/server": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu-plugin/data": "workspace:*",
+        "@aihu/plugin": "workspace:*",
+      },
+      "peerDependencies": {
+        "drizzle-orm": ">=0.29.0",
+      },
+      "optionalPeers": [
+        "drizzle-orm",
+      ],
+    },
     "packages/plugin-kindly-note": {
       "name": "@aihu-plugin/kindly-note",
       "version": "0.1.0",
@@ -415,6 +503,11 @@
         "@kindly-note/emitters-html": "^0.1.0",
         "@kindly-note/loader-dynamic-import": "^0.1.0",
       },
+      "optionalPeers": [
+        "@kindly-note/core",
+        "@kindly-note/emitters-html",
+        "@kindly-note/loader-dynamic-import",
+      ],
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
@@ -475,9 +568,8 @@
       "name": "vscode-aihu",
       "version": "1.0.0",
       "dependencies": {
+        "@aihu/language-server": "workspace:*",
         "vscode-languageclient": "^9.0.1",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.11",
       },
       "devDependencies": {
         "@types/vscode": "^1.85.0",
@@ -490,6 +582,8 @@
     "@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@workspace:packages/plugin-agent-readiness"],
 
     "@aihu-plugin/data": ["@aihu-plugin/data@workspace:packages/plugin-data"],
+
+    "@aihu-plugin/drizzle": ["@aihu-plugin/drizzle@workspace:packages/plugin-drizzle"],
 
     "@aihu-plugin/kindly-note": ["@aihu-plugin/kindly-note@workspace:packages/plugin-kindly-note"],
 
@@ -537,15 +631,25 @@
 
     "@aihu/example-color-theme": ["@aihu/example-color-theme@workspace:examples/color-theme"],
 
+    "@aihu/example-css-engine-demo": ["@aihu/example-css-engine-demo@workspace:examples/css-engine-demo"],
+
+    "@aihu/example-currency-converter": ["@aihu/example-currency-converter@workspace:examples/currency-converter"],
+
     "@aihu/example-hacker-news": ["@aihu/example-hacker-news@workspace:examples/hacker-news"],
 
     "@aihu/example-live-counter": ["@aihu/example-live-counter@workspace:examples/live-counter"],
+
+    "@aihu/example-primitives-showcase": ["@aihu/example-primitives-showcase@workspace:examples/primitives-showcase"],
 
     "@aihu/example-temperature-converter": ["@aihu/example-temperature-converter@workspace:examples/temperature-converter"],
 
     "@aihu/example-timer": ["@aihu/example-timer@workspace:examples/timer"],
 
     "@aihu/example-todo-mvc": ["@aihu/example-todo-mvc@workspace:examples/todo-mvc"],
+
+    "@aihu/example-weather-card": ["@aihu/example-weather-card@workspace:examples/weather-card"],
+
+    "@aihu/language-server": ["@aihu/language-server@workspace:packages/language-server"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
 

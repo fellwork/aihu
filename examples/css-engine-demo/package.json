@@ -1,0 +1,26 @@
+{
+  "name": "@aihu/example-css-engine-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen:css": "bun gen-css.ts",
+    "predev": "bun run gen:css",
+    "dev": "vite --port 5114",
+    "prebuild": "bun run gen:css",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/compiler": "workspace:*",
+    "@aihu/signals": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/agent": "workspace:*",
+    "@aihu/css-engine": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0",
+    "vitest": "^2.1.1"
+  }
+}

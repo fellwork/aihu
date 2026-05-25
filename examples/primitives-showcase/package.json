@@ -1,0 +1,24 @@
+{
+  "name": "@aihu/example-primitives-showcase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5115",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/compiler": "workspace:*",
+    "@aihu/signals": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/agent": "workspace:*",
+    "@aihu/css-engine": "workspace:*",
+    "@aihu/primitives": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0",
+    "vitest": "^2.1.1"
+  }
+}

@@ -3,33 +3,21 @@
 // No network: keeps the example self-contained and offline-runnable.
 
 @state {
-  // Standalone signal so the example is interactive in isolation.
-  // Swap to `$prop location: string = 'San Francisco'` for a parent-driven variant
-  // (and remove $bind:value="location" from the input below).
-  $prop: {
-    location: {
-      default: 'San Francisco',
-      describe: 'City name to query forecasts for',
-      expose: { read: true },
-    },
-    forecast: {
-      type: { high: number; low: number; conditions: string } | null,
-      default: null,
-      describe: 'Most recent forecast: high, low, conditions',
-      expose: { read: true },
-    },
-    status: {
-      type: 'idle' | 'loading' | 'ready' | 'error',
-      default: 'idle',
-      describe: 'One of: idle | loading | ready | error',
-      expose: { read: true },
-    },
-  }
+  // Standalone signals so the example is interactive in isolation, matching the
+  // clean basics examples (live-counter, temperature-converter). The agent
+  // surface comes from the inline `expose:` on the computeds + action below.
+  import { signal } from '@aihu/signals'
 
-  errorMessage: string = ''
+  type Forecast = { high: number; low: number; conditions: string }
+  type Status = 'idle' | 'loading' | 'ready' | 'error'
+
+  const [location, setLocation] = signal('San Francisco')
+  const [forecastValue, setForecastValue] = signal<Forecast | null>(null)
+  const [statusValue, setStatusValue] = signal<Status>('idle')
+  const [errorMessage, setErrorMessage] = signal('')
 
   // Inline mock table standing in for a real forecast API.
-  mockForecasts: Record<string, { high: number; low: number; conditions: string }> = {
+  const mockForecasts: Record<string, Forecast> = {
     'San Francisco': { high: 64, low: 52, conditions: 'Partly cloudy' },
     'New York':      { high: 72, low: 58, conditions: 'Sunny' },
     'London':        { high: 60, low: 48, conditions: 'Rain showers' },
@@ -37,21 +25,34 @@
     'Sydney':        { high: 78, low: 64, conditions: 'Sunny' },
   }
 
+  $computed: {
+    forecast: {
+      describe: 'Most recent forecast: high, low, conditions (null until fetched)',
+      expose: { read: true },
+      value: () => forecastValue(),
+    },
+    status: {
+      describe: 'Request status: one of idle | loading | ready | error',
+      expose: { read: true },
+      value: () => statusValue(),
+    },
+  }
+
   $action: {
     fetchForecast: {
       describe: 'Look up the forecast for the current location signal',
       expose: { read: true, write: true },
       handler: () => {
-        status = 'loading'
-        const data = mockForecasts[location]
+        setStatusValue('loading')
+        const data = mockForecasts[location()]
         if (data) {
-          forecast = data
-          status = 'ready'
-          errorMessage = ''
+          setForecastValue(data)
+          setStatusValue('ready')
+          setErrorMessage('')
         } else {
-          forecast = null
-          status = 'error'
-          errorMessage = `No forecast available for "${location}".`
+          setForecastValue(null)
+          setStatusValue('error')
+          setErrorMessage(`No forecast available for "${location()}".`)
         }
       },
     },
@@ -93,17 +94,25 @@
 }
 
 @style {
-  .weather-card { display: grid; gap: 0.75rem; padding: 1rem; max-width: 24rem; font-family: system-ui, sans-serif; border: 1px solid #ddd; border-radius: 6px; }
+  .weather-card { display: grid; gap: 0.75rem; padding: 1.5rem; max-width: 24rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); color: var(--fg); }
   header        { display: flex; justify-content: space-between; align-items: baseline; }
-  h1            { margin: 0; }
-  .location     { margin: 0; color: #666; }
+  h1            { margin: 0; color: var(--fg); }
+  .location     { margin: 0; color: var(--muted); }
   .row          { display: flex; gap: 0.5rem; }
-  input         { flex: 1; padding: 0.4rem; }
-  button        { padding: 0.4rem 0.75rem; cursor: pointer; }
-  .result       { padding: 0.5rem; border-radius: 4px; background: #f7f7f7; }
-  .result.error { background: #fee; color: #a00; }
+  input         { flex: 1; padding: 0.4rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); }
+  input:focus   { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  button        { padding: 0.4rem 0.75rem; cursor: pointer; background: var(--btn-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); transition: background 0.1s; }
+  button:hover  { background: var(--hover-bg); }
+  .result       { padding: 0.5rem 0.75rem; border-radius: var(--radius); background: var(--code-bg); color: var(--fg); }
+  .result.ready { background: var(--success-bg); }
+  .result.error { background: var(--error-bg); color: var(--error); }
   .conditions   { font-size: 1.1rem; margin: 0 0 0.5rem 0; }
   dl            { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; margin: 0; }
-  dt            { font-weight: 600; }
+  dt            { font-weight: 600; color: var(--muted); }
   dd            { margin: 0; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 480px) {
+    .row { flex-direction: column; }
+    button { width: 100%; }
+  }
 }

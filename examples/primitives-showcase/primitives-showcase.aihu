@@ -1,0 +1,126 @@
+// aihu/primitives showcase — headless behavior from the published package, styled here.
+// Wires defineButton (APG Button), defineDialog (APG Dialog Modal), and defineTooltip
+// (APG Tooltip). The primitives emit zero CSS; all styling targets their data-state attr.
+// See README.md for the full breakdown. shadowMode none is set in vite.config.ts.
+
+@state {
+  import { signal } from '@aihu/signals'
+  import { defineButton } from '@aihu/primitives/button'
+  import { defineDialog } from '@aihu/primitives/dialog'
+  import { defineTooltip } from '@aihu/primitives/tooltip'
+
+  // Register the headless custom elements once (idempotent).
+  defineButton('showcase-button')
+  defineDialog()
+  defineTooltip()
+
+  const [primitives, _setPrimitives] = signal(['button', 'dialog', 'tooltip'])
+
+  $computed: {
+    wired: {
+      describe: 'The headless @aihu/primitives wired in this showcase',
+      expose: { read: true },
+      value: () => primitives().join(', '),
+    },
+  }
+
+  $action: {
+    closeAll: {
+      describe: 'Imperatively close the dialog and dismiss the tooltip (open primitives)',
+      expose: { read: true, write: true },
+      handler: () => {
+        document.querySelector('aihu-dialog-root[open]')?.removeAttribute('open')
+        document.querySelector('aihu-tooltip-root[open]')?.removeAttribute('open')
+      },
+    },
+  }
+}
+
+@template {
+  <section class="showcase">
+    <h1>Primitives showcase</h1>
+    <p class="lead">
+      Three WAI-ARIA APG patterns from <code>@aihu/primitives</code> ({wired}),
+      wired headless and styled here. Keyboard + screen-reader semantics come free.
+    </p>
+
+    <div class="row">
+      <showcase-button class="btn" pressed="false">Toggle me (Button)</showcase-button>
+
+      <aihu-tooltip-root placement="top">
+        <aihu-tooltip-trigger class="btn" tabindex="0" role="button">Hover for hint (Tooltip)</aihu-tooltip-trigger>
+        <aihu-tooltip-content class="tooltip">Headless tooltip — positioned by the css-engine shim.</aihu-tooltip-content>
+      </aihu-tooltip-root>
+    </div>
+
+    <aihu-dialog-root modal>
+      <aihu-dialog-trigger class="btn">Open dialog</aihu-dialog-trigger>
+      <aihu-dialog-backdrop class="backdrop"></aihu-dialog-backdrop>
+      <aihu-dialog-content class="dialog">
+        <aihu-dialog-title class="dialog-title">Confirm action</aihu-dialog-title>
+        <aihu-dialog-description class="dialog-desc">
+          This dialog traps focus, restores it on close, and closes on Escape or backdrop click — all from the headless primitive.
+        </aihu-dialog-description>
+        <div class="dialog-actions">
+          <aihu-dialog-close class="btn">Cancel</aihu-dialog-close>
+          <aihu-dialog-close class="btn btn-accent">Confirm</aihu-dialog-close>
+        </div>
+      </aihu-dialog-content>
+    </aihu-dialog-root>
+  </section>
+}
+
+@style {
+  .showcase { display: grid; gap: 1rem; padding: 1.5rem; max-width: 32rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); color: var(--fg); }
+  h1   { margin: 0; color: var(--fg); }
+  .lead { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  code { font: 0.9em ui-monospace, monospace; color: var(--accent); }
+  .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.5rem 0.85rem; cursor: pointer; font-size: 0.9rem;
+    background: var(--btn-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--fg); transition: background 0.1s;
+    user-select: none;
+  }
+  .btn:hover { background: var(--hover-bg); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Button primitive reflects aria-pressed via data-state="on"|"off". */
+  .btn[data-state="on"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Tooltip primitive: hidden until data-state="open"; the shim sets fixed pos. */
+  .tooltip {
+    position: fixed; z-index: 50; max-width: 16rem;
+    padding: 0.4rem 0.6rem; font-size: 0.8rem;
+    background: var(--fg); color: var(--bg);
+    border-radius: var(--radius); box-shadow: var(--card-shadow);
+    opacity: 0; visibility: hidden; transition: opacity 0.12s;
+  }
+  .tooltip[data-state="open"] { opacity: 1; visibility: visible; }
+
+  /* Dialog primitive: backdrop + centered panel, gated on data-state. */
+  .backdrop {
+    position: fixed; inset: 0; background: rgb(0 0 0 / 0.5);
+    display: none;
+  }
+  .backdrop[data-state="open"] { display: block; }
+
+  .dialog {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 60; width: min(28rem, calc(100vw - 2rem));
+    display: none; flex-direction: column; gap: 0.75rem;
+    padding: 1.5rem; background: var(--panel-bg);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--card-shadow); color: var(--fg);
+  }
+  .dialog[data-state="open"] { display: flex; }
+  .dialog-title { margin: 0; font-size: 1.15rem; }
+  .dialog-desc  { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+  @media (max-width: 480px) {
+    .row { flex-direction: column; align-items: stretch; }
+  }
+}
