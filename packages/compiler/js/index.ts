@@ -748,6 +748,17 @@ interface CssEngineModule {
 // process — repeated absence does not re-pay the resolution cost.
 let _cssEngine: CssEngineModule | null | undefined
 
+// The optional-peer module specifier, held in a VARIABLE so TypeScript never
+// statically resolves `@aihu/css-engine`'s declarations at typecheck time.
+// css-engine depends on @aihu/compiler for its AST, so the two form a
+// circular package relationship; under CI's frozen install + moon build
+// ordering, css-engine's `dist`/`.d.ts` are not guaranteed to exist when
+// `compiler:typecheck` runs. A literal `import('@aihu/css-engine')` makes the
+// compiler emit TS2307 in that window (the `as` cast affects the RESULT type
+// only, not whether TS attempts module resolution). Resolving through this
+// variable keeps the import fully dynamic — no compile-time edge on the peer.
+const _CSS_ENGINE_SPECIFIER = '@aihu/css-engine'
+
 /**
  * Lazily resolve `@aihu/css-engine` and compile a `.aihu` source's utility
  * classes to scoped CSS. Returns `''` when css-engine is not installed
@@ -768,7 +779,11 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
   if (_cssEngine === undefined) {
     try {
       // Guarded, lazy, OPTIONAL — see the plugin transform for the rationale.
-      _cssEngine = (await import('@aihu/css-engine')) as unknown as CssEngineModule
+      // Importing via the `_CSS_ENGINE_SPECIFIER` variable (not a string
+      // literal) keeps this fully dynamic: TS does NOT resolve the peer's
+      // `.d.ts` at typecheck time, so `compiler:typecheck` passes even when
+      // css-engine's `dist` has not been built (the CI build-order window).
+      _cssEngine = (await import(_CSS_ENGINE_SPECIFIER)) as unknown as CssEngineModule
     } catch {
       _cssEngine = null
       return ''
