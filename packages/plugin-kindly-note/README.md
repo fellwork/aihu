@@ -9,7 +9,17 @@ Held-private workspace package. Not yet published to npm.
 > **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-# peer deps (the kindly-note engine + emitter + lazy loader):
+Runtime syntax highlighting for [aihu](../../README.md), powered by the
+published [`@kindly-note/*`](https://www.npmjs.com/org/kindly-note) packages.
+Ships an `<aihu-code>` custom element and a signal-aware `highlight()` helper
+that render scoped-span HTML **in the browser, at runtime**, with
+**lazy-loaded** per-language tokenizers (~1.5 kB gz each).
+
+## Peer dependencies
+
+The kindly-note engine + emitter + lazy loader are peer dependencies:
+
+```bash
 bun add @kindly-note/core @kindly-note/emitters-html @kindly-note/loader-dynamic-import
 ```
 
@@ -24,6 +34,55 @@ Pair with a theme for the `kn-*` classes:
 
 ```ts
 import '@kindly-note/themes-default/dark.css'
+```
+
+## Usage
+
+### `<aihu-code>` element
+
+```ts
+import { defineCodeElement } from '@aihu-plugin/kindly-note'
+defineCodeElement() // registers <aihu-code> (idempotent, SSR-safe)
+```
+
+```html
+<aihu-code lang="typescript">const x: number = 1</aihu-code>
+```
+
+Signal-driven (re-highlights automatically when the signal changes):
+
+```ts
+import { signal } from '@aihu/signals'
+const [code, setCode] = signal('const a = 1')
+
+const el = document.createElement('aihu-code')
+el.language = 'typescript' // JS property is `language` (native `lang` is reserved)
+el.code = code // pass the signal reader → element subscribes
+document.body.append(el)
+
+setCode('let b = 2') // <aihu-code> re-highlights
+```
+
+### `highlight()` helper
+
+```ts
+import { highlight } from '@aihu-plugin/kindly-note'
+
+const { html, language, fallback } = await highlight('{"a": 1}', 'json')
+// html === '<span class="kn-punctuation">{</span>…'
+```
+
+`highlight()` never throws: an unknown language returns the HTML-escaped source
+with `fallback: true`.
+
+### Plugin registration
+
+```ts
+// aihu.config.ts
+import { kindlyNote } from '@aihu-plugin/kindly-note'
+import { defineAihuConfig } from '@aihu/server'
+
+export default defineAihuConfig({ plugins: [kindlyNote()] })
 ```
 
 ## Scope
