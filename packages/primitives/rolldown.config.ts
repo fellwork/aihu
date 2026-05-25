@@ -14,6 +14,7 @@ export default defineConfig({
     'form-control': 'src/form-control/index.ts',
     'config-provider': 'src/config-provider/index.ts',
     collection: 'src/collection/index.ts',
+    'roving-focus': 'src/roving-focus/index.ts',
   },
   output: {
     dir: 'dist',

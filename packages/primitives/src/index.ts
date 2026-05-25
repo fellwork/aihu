@@ -43,3 +43,4 @@ export {
 } from './form-control/index.ts'
 // Phase 0 primitives.
 export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
+export { AihuRovingFocus, defineRovingFocus, type Orientation } from './roving-focus/index.ts'
