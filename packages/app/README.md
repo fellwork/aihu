@@ -66,6 +66,7 @@ bun add @aihu/app
 - `@aihu/arbor` — `workspace:*`
 - `@aihu/router` — `workspace:*`
 - `@aihu/runtime` — `workspace:*`
+- `@aihu/server` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
 - `vite` — `>=5.0.0`
 

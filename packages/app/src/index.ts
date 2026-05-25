@@ -7,7 +7,9 @@ export type {
   DirConfig,
   HeadConfig,
   OutputMode,
+  RouterConfig,
   RuntimeConfig,
+  SiteConfig,
   VitePassthrough,
 } from './config.ts'
 export { AihuConfigError, defineConfig } from './config.ts'

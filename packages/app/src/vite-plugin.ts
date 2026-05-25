@@ -9,6 +9,7 @@ import type { Plugin, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { applyHeadConfig } from './head.ts'
+import { prerenderClose } from './prerender.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
 function fileToRouteDefinition(filePath: string, _root: string, pagesDir: string): RouteDefinition {
@@ -193,6 +194,31 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     },
   }
 
+  // SSG prerender — active only when `output: 'static'`. Runs after Vite writes
+  // the SPA build and before the adapter (so an adapter, if present, sees the
+  // per-route HTML). Prerenders every static route to a content-ful
+  // `<pattern>/index.html` that hydrates into the SPA. `output: 'spa'` is a
+  // no-op here, preserving the existing empty-shell behavior.
+  let ssgResolvedConfig: ResolvedConfig | null = null
+  const ssgPlugin: Plugin = {
+    name: 'aihu-ssg',
+    apply: 'build',
+    configResolved(rc) {
+      ssgResolvedConfig = rc
+    },
+    // Run before the adapter's closeBundle (plugin order in the array is honored
+    // for sequential closeBundle hooks).
+    async closeBundle() {
+      if (config?.output !== 'static' || !ssgResolvedConfig) return
+      try {
+        await prerenderClose(ssgResolvedConfig, config, (msg) => this.warn(msg))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        this.error(`[@aihu/app] static (SSG) prerender failed: ${msg}`)
+      }
+    },
+  }
+
   return [
     // SPA mode: route components are top-level mounts that frequently use
     // lifecycle hooks (onMount/onCleanup) and rely on the runtime/signals
@@ -208,6 +234,7 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     headPlugin,
     ...((config?.plugins ?? []) as Plugin[]),
     passthroughPlugin,
+    ssgPlugin,
     adapterPlugin,
   ]
 }
