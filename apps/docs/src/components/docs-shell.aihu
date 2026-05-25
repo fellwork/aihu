@@ -42,6 +42,8 @@
         <li><a class="nav-link" href="#authoring-components" $class:active={activePage() === 'authoring-components'}>Authoring Components</a></li>
         <li><a class="nav-link" href="#reactivity" $class:active={activePage() === 'reactivity'}>Reactivity</a></li>
         <li><a class="nav-link" href="#authoring-agents" $class:active={activePage() === 'authoring-agents'}>Authoring Agents</a></li>
+        <li><a class="nav-link" href="#styling" $class:active={activePage() === 'styling'}>Styling</a></li>
+        <li><a class="nav-link" href="#primitives" $class:active={activePage() === 'primitives'}>Primitives</a></li>
       </ul>
 
       <span class="nav-group-label">Advanced</span>
@@ -54,6 +56,7 @@
 
       <span class="nav-group-label">Reference</span>
       <ul>
+        <li><a class="nav-link" href="#migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
         <li><a class="nav-link" href="#deployment" $class:active={activePage() === 'deployment'}>Deployment</a></li>
         <li><a class="nav-link" href="#api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
       </ul>

@@ -322,3 +322,57 @@ The `@agent` block is a vestigial cross-cutting block. Per-name agent metadata (
 ```
 
 Both are optional. The entire block may be omitted. For full agent authoring details — tool exposure, MCP compliance, and the agent capability contract — see [Authoring Agents](authoring-agents.md).
+
+## Common diagnostics
+
+The compiler enforces the v1 grammar with named diagnostics. The hard errors `C304` (Vue-shape `:attr=`), `C305` (colon-form event/bind alias), `C306` (plain-curly attribute binding), and `C107` (HTML-tag SFC framing) are covered by the Amendment 04 callout under [@template](#authoring-components). Three more are easy to hit and worth calling out:
+
+### C205 — reading a `$prop` in a bare `@state` const (the common one)
+
+A plain `@state` `const`/`let` is emitted *before* the prop bindings, so reading a prop there throws at runtime (temporal dead zone). The compiler rejects it with **C205** and steers you to `$computed`, where the read happens inside a thunk:
+
+```
+// ✗ C205 — prop read in a plain const
+@state {
+  $prop: { name: { default: 'world', type: 'string' } }
+  const greeting = `Hello, ${name()}!`
+}
+
+// ✓ read the prop inside $computed
+@state {
+  $prop: { name: { default: 'world', type: 'string' } }
+  $computed: {
+    greeting: () => `Hello, ${name()}!`
+  }
+}
+```
+
+aihu does not re-order codegen to hide this — `$computed` is the supported path for any value derived from a prop.
+
+### C204 — unknown `@block`
+
+The only recognized top-level blocks are `@state`, `@template`, `@style`, `@agent`, `@route` (plus the deprecated `@layout` shorthand). Any other `@<name>` header is an unknown block (**C204**). The most common offender is a v0 `@props` block — the hint steers you to declare props via `$prop:` inside `@state`:
+
+```
+// ✗ C204 — there is no @props block
+@props { name: { default: 'world' } }
+
+// ✓ declare props via $prop: inside @state
+@state {
+  $prop: { name: { default: 'world', type: 'string' } }
+}
+```
+
+### W210 — `$on.<non-event>` (use `$html` for innerHTML)
+
+`$on.<name>` referencing anything that is not a real DOM event compiles to a dead `on<name>` handler that never fires; the compiler warns with **W210**. To set raw HTML reactively, use `$html`, not an `$on` binding:
+
+```
+// ✗ W210 — $on.innerHTML is not a DOM event → dead handler
+<div $on.innerHTML="markup"></div>
+
+// ✓ use $html
+<div $html="markup"></div>
+```
+
+For the full v0 → v1 mapping of every diagnostic, see the [Migration guide](migration.md).

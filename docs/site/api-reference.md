@@ -178,6 +178,63 @@ Build-time Vite plugin. Import from `@aihu/router/plugin` in `vite.config.ts` â€
 | `migrateFile(content)` | Convert HTML-tag SFC content to `@blockname{}` form |
 | `migrateFiles(files, dryRun, cwd)` | Migrate files in-place or dry-run |
 
+## @aihu/css-engine
+
+Tailwind v4 hard fork with WC-native scoped output. The main export is the build-time engine; the `runtime/*` subpaths are the tiny client helpers. See [Styling](styling.md) for concepts.
+
+**`@aihu/css-engine`** (main â€” build-time)
+
+| Export | Description |
+|--------|-------------|
+| `compile(classes)` | Compile a list of utility class names to CSS |
+| `compileSfc(source, id?)` | Compile a `.aihu` SFC source string to scoped, shadow-DOM-embedded CSS (via the compiler AST) |
+| `defineStylePack(input)` | Define a custom style pack (token bundle) against the built-in token contract |
+
+**Types:** `StylePack`, `StylePackInput`, `TokenMap`
+
+**`@aihu/css-engine/runtime/cn`** (client, < 1 kB gz)
+
+| Export | Description |
+|--------|-------------|
+| `cn(...inputs)` | Merge class values, last-wins per Tailwind property group; flattens arrays, drops falsy |
+
+**Types:** `ClassValue`
+
+**`@aihu/css-engine/runtime/progressive`** (client)
+
+| Export | Description |
+|--------|-------------|
+| `position(anchor, floating, opts?)` | Position a floating element against an anchor; returns the resolved placement |
+| `anchorFallback(anchor, floating, opts?)` | JS fallback for the `anchor:` feature; returns a cleanup function |
+| `popoverFallback(anchor, panel, opts?)` | JS fallback for the `popover:` feature (portal + position); returns a cleanup function |
+| `portal(el)` | Portal an element to a top-layer-emulating container; returns a restore function |
+
+**Types:** `Placement`, `PositionOptions`
+
+**Built-in style packs:** `@aihu/css-engine/styles/aihu-default.css`, `@aihu/css-engine/styles/aihu-graphite.css`
+
+## @aihu/primitives
+
+Headless WAI-ARIA APG behaviors as vanilla custom elements; zero CSS. Each behavior has a `define*()` registrar and a tree-shakeable subpath. See [Primitives](primitives.md) for usage.
+
+| Subpath | Key exports |
+|---------|-------------|
+| `@aihu/primitives/dialog` | `defineDialog()`, `AihuDialogRoot` + pieces (`AihuDialogTrigger`, `AihuDialogContent`, `AihuDialogBackdrop`, `AihuDialogClose`, `AihuDialogTitle`, `AihuDialogDescription`), `dialogContext`, `createFocusTrap` |
+| `@aihu/primitives/tooltip` | `defineTooltip()`, `AihuTooltipRoot`, `AihuTooltipTrigger`, `AihuTooltipContent`, `tooltipContext` |
+| `@aihu/primitives/button` | `AihuButton` (base class), `defineButton(tag)` |
+| `@aihu/primitives/context` | `createDomContext()`, `provideContext()`, `injectContext()`, `MissingContextError` |
+| `@aihu/primitives/presence-gate` | `definePresenceGate()`, `AihuPresenceGate`, `presenceContext` |
+| `@aihu/primitives/roving-focus` | `defineRovingFocus()`, `AihuRovingFocus` |
+| `@aihu/primitives/collection` | `createCollection()`, `defineCollection()`, `AihuCollection`, `collectionContext` |
+| `@aihu/primitives/config-provider` | `defineConfigProvider()`, `AihuConfigProvider`, `configContext` |
+| `@aihu/primitives/form-control` | `defineFormControl()`, `AihuFormControl`, `formControlContext` |
+
+The package root (`@aihu/primitives`) re-exports every primitive's public surface.
+
+**Types:** `DomContext<T>`, `DialogContextValue`, `FocusTrap`, `TooltipContextValue`, `TooltipCoords`, `ButtonType`, `Orientation`, `ColorScheme`, `Density`, `Direction`, `ConfigContextValue`, `CollectionContextValue`, `FormControlContextValue`
+
+> **Roadmap:** the styled component registry (`@aihu/ui`, distributed via the `aihu add` CLI command) is built on these primitives + the css-engine but is **not yet published**. Treat it as coming-soon, not available.
+
 ## @state macro collection forms (v2)
 
 The v2 collection-form syntax for `@state` macros. v1 forms produce error C440.
