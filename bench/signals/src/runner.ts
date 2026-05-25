@@ -1,3 +1,4 @@
+// [bench-bump] baseline re-measured on current CI runner — see chore/refresh-bench-baseline
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
