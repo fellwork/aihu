@@ -34,7 +34,6 @@ bun add @aihu/agent-acp
 |---|---|
 | **Version** | `0.1.1` |
 | **Tier** | C — Agent surface — ACP (Agent Control Protocol) protocol |
-| **Bundle size** | 586 B (gz) — limit 600 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
