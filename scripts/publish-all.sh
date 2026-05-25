@@ -64,6 +64,7 @@ PKGS=(
   "cli"
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
+  "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
   "_moved/data"
   "_moved/agent-readiness"
 )
