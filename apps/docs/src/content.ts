@@ -769,6 +769,122 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 <td>Migrate files in-place or dry-run</td>
 </tr>
 </tbody></table>
+<h2>@aihu/css-engine</h2>
+<p>Tailwind v4 hard fork with WC-native scoped output. The main export is the build-time engine; the <code>runtime/*</code> subpaths are the tiny client helpers. See <a href="styling.md">Styling</a> for concepts.</p>
+<p><strong><code>@aihu/css-engine</code></strong> (main — build-time)</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>compile(classes)</code></td>
+<td>Compile a list of utility class names to CSS</td>
+</tr>
+<tr>
+<td><code>compileSfc(source, id?)</code></td>
+<td>Compile a <code>.aihu</code> SFC source string to scoped, shadow-DOM-embedded CSS (via the compiler AST)</td>
+</tr>
+<tr>
+<td><code>defineStylePack(input)</code></td>
+<td>Define a custom style pack (token bundle) against the built-in token contract</td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>StylePack</code>, <code>StylePackInput</code>, <code>TokenMap</code></p>
+<p><strong><code>@aihu/css-engine/runtime/cn</code></strong> (client, &lt; 1 kB gz)</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cn(...inputs)</code></td>
+<td>Merge class values, last-wins per Tailwind property group; flattens arrays, drops falsy</td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>ClassValue</code></p>
+<p><strong><code>@aihu/css-engine/runtime/progressive</code></strong> (client)</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>position(anchor, floating, opts?)</code></td>
+<td>Position a floating element against an anchor; returns the resolved placement</td>
+</tr>
+<tr>
+<td><code>anchorFallback(anchor, floating, opts?)</code></td>
+<td>JS fallback for the <code>anchor:</code> feature; returns a cleanup function</td>
+</tr>
+<tr>
+<td><code>popoverFallback(anchor, panel, opts?)</code></td>
+<td>JS fallback for the <code>popover:</code> feature (portal + position); returns a cleanup function</td>
+</tr>
+<tr>
+<td><code>portal(el)</code></td>
+<td>Portal an element to a top-layer-emulating container; returns a restore function</td>
+</tr>
+</tbody></table>
+<p><strong>Types:</strong> <code>Placement</code>, <code>PositionOptions</code></p>
+<p><strong>Built-in style packs:</strong> <code>@aihu/css-engine/styles/aihu-default.css</code>, <code>@aihu/css-engine/styles/aihu-graphite.css</code></p>
+<h2>@aihu/primitives</h2>
+<p>Headless WAI-ARIA APG behaviors as vanilla custom elements; zero CSS. Each behavior has a <code>define*()</code> registrar and a tree-shakeable subpath. See <a href="primitives.md">Primitives</a> for usage.</p>
+<table>
+<thead>
+<tr>
+<th>Subpath</th>
+<th>Key exports</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@aihu/primitives/dialog</code></td>
+<td><code>defineDialog()</code>, <code>AihuDialogRoot</code> + pieces (<code>AihuDialogTrigger</code>, <code>AihuDialogContent</code>, <code>AihuDialogBackdrop</code>, <code>AihuDialogClose</code>, <code>AihuDialogTitle</code>, <code>AihuDialogDescription</code>), <code>dialogContext</code>, <code>createFocusTrap</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/tooltip</code></td>
+<td><code>defineTooltip()</code>, <code>AihuTooltipRoot</code>, <code>AihuTooltipTrigger</code>, <code>AihuTooltipContent</code>, <code>tooltipContext</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/button</code></td>
+<td><code>AihuButton</code> (base class), <code>defineButton(tag)</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/context</code></td>
+<td><code>createDomContext()</code>, <code>provideContext()</code>, <code>injectContext()</code>, <code>MissingContextError</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/presence-gate</code></td>
+<td><code>definePresenceGate()</code>, <code>AihuPresenceGate</code>, <code>presenceContext</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/roving-focus</code></td>
+<td><code>defineRovingFocus()</code>, <code>AihuRovingFocus</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/collection</code></td>
+<td><code>createCollection()</code>, <code>defineCollection()</code>, <code>AihuCollection</code>, <code>collectionContext</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/config-provider</code></td>
+<td><code>defineConfigProvider()</code>, <code>AihuConfigProvider</code>, <code>configContext</code></td>
+</tr>
+<tr>
+<td><code>@aihu/primitives/form-control</code></td>
+<td><code>defineFormControl()</code>, <code>AihuFormControl</code>, <code>formControlContext</code></td>
+</tr>
+</tbody></table>
+<p>The package root (<code>@aihu/primitives</code>) re-exports every primitive&#39;s public surface.</p>
+<p><strong>Types:</strong> <code>DomContext&lt;T&gt;</code>, <code>DialogContextValue</code>, <code>FocusTrap</code>, <code>TooltipContextValue</code>, <code>TooltipCoords</code>, <code>ButtonType</code>, <code>Orientation</code>, <code>ColorScheme</code>, <code>Density</code>, <code>Direction</code>, <code>ConfigContextValue</code>, <code>CollectionContextValue</code>, <code>FormControlContextValue</code></p>
+<blockquote>
+<p><strong>Roadmap:</strong> the styled component registry (<code>@aihu/ui</code>, distributed via the <code>aihu add</code> CLI command) is built on these primitives + the css-engine but is <strong>not yet published</strong>. Treat it as coming-soon, not available.</p>
+</blockquote>
 <h2>@state macro collection forms (v2)</h2>
 <p>The v2 collection-form syntax for <code>@state</code> macros. v1 forms produce error C440.</p>
 <table>
@@ -1729,6 +1845,44 @@ $effect: {
 }
 </code></pre>
 <p>Both are optional. The entire block may be omitted. For full agent authoring details — tool exposure, MCP compliance, and the agent capability contract — see <a href="authoring-agents.md">Authoring Agents</a>.</p>
+<h2>Common diagnostics</h2>
+<p>The compiler enforces the v1 grammar with named diagnostics. The hard errors <code>C304</code> (Vue-shape <code>:attr=</code>), <code>C305</code> (colon-form event/bind alias), <code>C306</code> (plain-curly attribute binding), and <code>C107</code> (HTML-tag SFC framing) are covered by the Amendment 04 callout under <a href="#authoring-components">@template</a>. Three more are easy to hit and worth calling out:</p>
+<h3>C205 — reading a <code>$prop</code> in a bare <code>@state</code> const (the common one)</h3>
+<p>A plain <code>@state</code> <code>const</code>/<code>let</code> is emitted <em>before</em> the prop bindings, so reading a prop there throws at runtime (temporal dead zone). The compiler rejects it with <strong>C205</strong> and steers you to <code>$computed</code>, where the read happens inside a thunk:</p>
+<pre><code>// ✗ C205 — prop read in a plain const
+@state {
+  $prop: { name: { default: &#39;world&#39;, type: &#39;string&#39; } }
+  const greeting = \`Hello, \${name()}!\`
+}
+
+// ✓ read the prop inside $computed
+@state {
+  $prop: { name: { default: &#39;world&#39;, type: &#39;string&#39; } }
+  $computed: {
+    greeting: () =&gt; \`Hello, \${name()}!\`
+  }
+}
+</code></pre>
+<p>aihu does not re-order codegen to hide this — <code>$computed</code> is the supported path for any value derived from a prop.</p>
+<h3>C204 — unknown <code>@block</code></h3>
+<p>The only recognized top-level blocks are <code>@state</code>, <code>@template</code>, <code>@style</code>, <code>@agent</code>, <code>@route</code> (plus the deprecated <code>@layout</code> shorthand). Any other <code>@&lt;name&gt;</code> header is an unknown block (<strong>C204</strong>). The most common offender is a v0 <code>@props</code> block — the hint steers you to declare props via <code>$prop:</code> inside <code>@state</code>:</p>
+<pre><code>// ✗ C204 — there is no @props block
+@props { name: { default: &#39;world&#39; } }
+
+// ✓ declare props via $prop: inside @state
+@state {
+  $prop: { name: { default: &#39;world&#39;, type: &#39;string&#39; } }
+}
+</code></pre>
+<h3>W210 — <code>$on.&lt;non-event&gt;</code> (use <code>$html</code> for innerHTML)</h3>
+<p><code>$on.&lt;name&gt;</code> referencing anything that is not a real DOM event compiles to a dead <code>on&lt;name&gt;</code> handler that never fires; the compiler warns with <strong>W210</strong>. To set raw HTML reactively, use <code>$html</code>, not an <code>$on</code> binding:</p>
+<pre><code>// ✗ W210 — $on.innerHTML is not a DOM event → dead handler
+&lt;div $on.innerHTML=&quot;markup&quot;&gt;&lt;/div&gt;
+
+// ✓ use $html
+&lt;div $html=&quot;markup&quot;&gt;&lt;/div&gt;
+</code></pre>
+<p>For the full v0 → v1 mapping of every diagnostic, see the <a href="migration.md">Migration guide</a>.</p>
 `,
   },
   'authoring-plugins': {
@@ -2808,6 +2962,16 @@ bun run preview
 <td>build-time</td>
 </tr>
 <tr>
+<td><code>@aihu/css-engine</code></td>
+<td>CSS engine — Tailwind v4 hard fork, WC-native scoped output, <code>cn()</code> + style packs</td>
+<td>build-time + tiny runtime</td>
+</tr>
+<tr>
+<td><code>@aihu/primitives</code></td>
+<td>Headless WAI-ARIA APG behaviors (dialog, tooltip, button, …) as vanilla custom elements, zero CSS</td>
+<td>runtime</td>
+</tr>
+<tr>
 <td><code>@aihu/mcp</code></td>
 <td>MCP server exposing <code>aihu_example</code> + <code>aihu_validate</code> tools</td>
 <td>server-only</td>
@@ -2823,6 +2987,264 @@ bun run preview
 <td>editor</td>
 </tr>
 </tbody></table>
+`,
+  },
+  migration: {
+    title: 'Migration (v0 → v1)',
+    html: `<h1>Migration (v0 → v1)</h1>
+<p>aihu v1 (shipped 2026-05-03, grammar Amendment 04 at v1.0.8) finalized the <code>.aihu</code> SFC grammar. Pre-v1 sources written against the older HTML-tag framing or the v0 macro forms will not compile against the current <code>@aihu/compiler</code>. This page consolidates every breaking change and maps each old form to its v1 replacement.</p>
+<blockquote>
+<p><strong>Codemod first.</strong> Most of these are mechanical. Run <code>npx aihu migrate &lt;file&gt;</code> (or point it at a directory) to rewrite pre-v1.0.8 sources automatically, then read the rest of this page for the cases the codemod flags but cannot resolve. Under the hood this is <code>migrateFile</code> / <code>migrateFiles</code> from <code>@aihu/cli</code>.</p>
+</blockquote>
+<h2>1. Block framing — no HTML tags (C107)</h2>
+<p>v0 SFCs used HTML-tag framing (<code>&lt;template&gt;</code>, <code>&lt;script setup&gt;</code>, <code>&lt;style&gt;</code>). v1 uses <code>@blockname { … }</code> blocks. HTML-tag framing is rejected as <strong>C107</strong>.</p>
+<pre><code>// before (v0)
+&lt;script setup&gt;
+  const [count, setCount] = signal(0)
+&lt;/script&gt;
+&lt;template&gt;
+  &lt;button&gt;{count}&lt;/button&gt;
+&lt;/template&gt;
+
+// after (v1)
+@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+}
+@template {
+  &lt;button&gt;{count}&lt;/button&gt;
+}
+</code></pre>
+<p>The only recognized top-level blocks are <code>@state</code>, <code>@template</code>, <code>@style</code>, <code>@agent</code>, <code>@route</code> (plus the deprecated-but-valid <code>@layout</code> shorthand). Any other <code>@&lt;name&gt;</code> block is an unknown-block error (<strong>C204</strong>) — including <code>@props</code>, whose hint steers you to declare props via <code>$prop:</code> inside <code>@state</code>.</p>
+<h2>2. Props — <code>@props</code> → <code>$prop:</code> inside <code>@state</code> (C204)</h2>
+<p>There is no <code>@props</code> block. Declare props with the <code>$prop:</code> collection form inside <code>@state</code>:</p>
+<pre><code>// before (v0)
+@props {
+  name: { default: &#39;world&#39;, type: &#39;string&#39; }
+}
+
+// after (v1)
+@state {
+  $prop: {
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
+  }
+}
+</code></pre>
+<h2>3. Reading a prop — use <code>$computed</code>, not a bare const (C205)</h2>
+<p>This is the migration trap most likely to bite. A prop read inside a plain <code>@state</code> <code>const</code>/<code>let</code> throws at runtime (the prop binding is emitted <em>after</em> the plain <code>@state</code> body, so the read hits a temporal-dead-zone error). The compiler surfaces this as <strong>C205</strong> and steers you to <code>$computed</code>, where the read happens inside a thunk:</p>
+<pre><code>// before (throws at runtime → C205)
+@state {
+  $prop: { name: { default: &#39;world&#39;, type: &#39;string&#39; } }
+  const greeting = \`Hello, \${name()}!\`   // reads a prop in a bare const
+}
+
+// after (v1)
+@state {
+  $prop: { name: { default: &#39;world&#39;, type: &#39;string&#39; } }
+  $computed: {
+    greeting: () =&gt; \`Hello, \${name()}!\`   // reads the prop inside a thunk
+  }
+}
+</code></pre>
+<p>aihu deliberately does NOT re-order codegen to paper over this — the supported path is <code>$computed</code>.</p>
+<h2>4. Reactive attribute bindings — <code>$</code>-prefixed (C304 / C305 / C306)</h2>
+<p>Amendment 04 requires every reactive HTML attribute binding to be <code>$</code>-prefixed. The old aliases are hard parse errors:</p>
+<table>
+<thead>
+<tr>
+<th>Old form</th>
+<th>v1 form</th>
+<th>Error if left unmigrated</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>:href=&quot;expr&quot;</code> (Vue-shape colon attr)</td>
+<td><code>$href={expr}</code></td>
+<td><strong>C304</strong></td>
+</tr>
+<tr>
+<td><code>:on</code> + colon-form event/bind aliases</td>
+<td><code>$on.click=…</code>, <code>$bind.value=…</code></td>
+<td><strong>C305</strong></td>
+</tr>
+<tr>
+<td><code>class={cond ? &#39;a&#39; : &#39;&#39;}</code> (plain curly attr)</td>
+<td><code>$class={cond ? &#39;a&#39; : &#39;&#39;}</code></td>
+<td><strong>C306</strong></td>
+</tr>
+</tbody></table>
+<p>Component prop-passing keeps the plain-curly form (<code>&lt;UserCard user={u} /&gt;</code>) and is unaffected.</p>
+<h2>5. Raw HTML — <code>$html</code> (W210)</h2>
+<p>To set element innerHTML reactively, use the <code>$html</code> binding — not an <code>$on.&lt;name&gt;</code> handler against a non-event:</p>
+<pre><code>// wrong — $on.innerHTML is not a DOM event → W210 (dead handler)
+&lt;div $on.innerHTML=&quot;markup&quot;&gt;&lt;/div&gt;
+
+// right
+&lt;div $html=&quot;markup&quot;&gt;&lt;/div&gt;     // or $html={expr}
+</code></pre>
+<p><code>$on.&lt;name&gt;</code> referencing anything that is not a real DOM event compiles to a dead <code>on&lt;name&gt;</code> handler that never fires; the compiler warns with <strong>W210</strong>.</p>
+<h2>6. Agent surface — per-name <code>describe:</code> / <code>expose:</code> (C440)</h2>
+<p>The v0 <code>@agent</code>-level macros are removed. <code>$expose</code>, <code>$expose.write</code>, agent-bare <code>$action</code>, and <code>$describe</code> are rejected with <strong>C440</strong>. Agent metadata now lives as per-name keys on the <code>$prop</code> / <code>$computed</code> / <code>$action</code> / <code>$resource</code> collection entries:</p>
+<pre><code>// before (v0 → C440)
+@agent {
+  $expose count
+  $describe &quot;the counter&quot;
+}
+
+// after (v1)
+@state {
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+  }
+}
+</code></pre>
+<p><code>@agent</code> now holds only cross-cutting declarations (<code>$scope</code>, <code>$rate-limit</code>).</p>
+<h2>Diagnostic quick reference</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C107</td>
+<td>HTML-tag SFC framing (<code>&lt;template&gt;</code>, <code>&lt;script setup&gt;</code>)</td>
+<td>use <code>@state</code> / <code>@template</code> / <code>@style</code> blocks</td>
+</tr>
+<tr>
+<td>C204</td>
+<td>unknown <code>@block</code> (e.g. <code>@props</code>)</td>
+<td>use a recognized block; declare props via <code>$prop:</code> in <code>@state</code></td>
+</tr>
+<tr>
+<td>C205</td>
+<td>prop read in a plain <code>@state</code> const/let (TDZ)</td>
+<td>read the prop in <code>$computed: { x: () =&gt; prop() }</code></td>
+</tr>
+<tr>
+<td>C304</td>
+<td>Vue-shape <code>:attr=</code> alias</td>
+<td><code>$attr={expr}</code></td>
+</tr>
+<tr>
+<td>C305</td>
+<td>colon-form event/bind alias</td>
+<td><code>$on.click=…</code>, <code>$bind.value=…</code></td>
+</tr>
+<tr>
+<td>C306</td>
+<td>plain-curly attribute binding (<code>class={…}</code>)</td>
+<td><code>$class={…}</code></td>
+</tr>
+<tr>
+<td>C440</td>
+<td>removed v1 agent macros (<code>$expose</code>, <code>$describe</code>, …)</td>
+<td>per-name <code>describe:</code> / <code>expose:</code> on collection entries</td>
+</tr>
+<tr>
+<td>W210</td>
+<td><code>$on.&lt;non-event&gt;</code> → dead handler</td>
+<td>use <code>$html</code> for innerHTML, or a real event</td>
+</tr>
+</tbody></table>
+<h2>See also</h2>
+<ul>
+<li><a href="#authoring-components">Authoring Components</a> — the full v1 block + binding grammar, with a Common diagnostics section</li>
+<li><a href="#authoring-agents">Authoring Agents</a> — the v1 <code>@agent</code> surface</li>
+<li><a href="#getting-started">Getting Started</a> — a from-scratch v1 SFC</li>
+</ul>
+`,
+  },
+  primitives: {
+    title: 'Primitives',
+    html: `<h1>Primitives</h1>
+<p><strong><code>@aihu/primitives</code></strong> is a set of headless behavior primitives — WAI-ARIA APG patterns implemented as vanilla custom elements. Each primitive emits DOM structure, ARIA wiring, and <code>data-state</code> attributes, and owns its state on <code>@aihu/signals</code>. It ships <strong>zero CSS</strong>: you style every part yourself, typically with the <a href="#styling">css-engine</a>&#39;s <code>cn()</code> + style packs.</p>
+<blockquote>
+<p><strong>Status:</strong> <code>@aihu/primitives@0.0.1</code> is published. Behaviors below are available today. The styled component registry built on top of them (<code>@aihu/ui</code> / <code>aihu add</code>) is roadmap-only — see <a href="#styling">the registry note</a>.</p>
+</blockquote>
+<h2>Why headless</h2>
+<p>A headless primitive gives you the hard part — focus management, keyboard interaction, ARIA roles/relationships, open/close state — without imposing any look. Each piece reflects <code>data-state=&quot;open&quot;|&quot;closed&quot;</code> (and friends), so your CSS selectors drive the appearance while the primitive guarantees the accessibility contract. This mirrors the Radix/Ark &quot;root ↔ piece&quot; model: a root element owns the state and provides it via a DOM-walk context; the pieces inject it by walking up the real DOM (across shadow boundaries), nearest-provider-wins.</p>
+<h2>Phase-1 components</h2>
+<h3>Dialog</h3>
+<p>The WAI-ARIA APG <strong>Modal Dialog</strong> pattern. Pieces: <code>&lt;aihu-dialog-root&gt;</code> (state owner), <code>&lt;aihu-dialog-trigger&gt;</code>, <code>&lt;aihu-dialog-content&gt;</code>, <code>&lt;aihu-dialog-backdrop&gt;</code>, <code>&lt;aihu-dialog-close&gt;</code>, <code>&lt;aihu-dialog-title&gt;</code>, <code>&lt;aihu-dialog-description&gt;</code>. Provides focus-trap + return-focus, Escape-to-close, outside-click-to-close (when modal), and <code>role=&quot;dialog&quot;</code> / <code>aria-modal</code> / <code>aria-labelledby</code> / <code>aria-describedby</code> plus the trigger&#39;s <code>aria-haspopup</code> / <code>aria-expanded</code> / <code>aria-controls</code>. Register with <code>defineDialog()</code>.</p>
+<h3>Tooltip</h3>
+<p>The WAI-ARIA APG <strong>Tooltip</strong> pattern. Pieces: <code>&lt;aihu-tooltip-root&gt;</code>, <code>&lt;aihu-tooltip-trigger&gt;</code>, <code>&lt;aihu-tooltip-content&gt;</code>. The trigger is <code>aria-describedby</code> the content (not labelled-by), the content has <code>role=&quot;tooltip&quot;</code> and is not focusable, and Escape dismisses. Open/close honors configurable <code>open-delay</code> / <code>close-delay</code> (default 700 / 300 ms). Placement reuses the css-engine&#39;s <code>position()</code> shim — the tooltip carries no positioning math and adds no floating-ui dependency. Register with <code>defineTooltip()</code>.</p>
+<h3>Button</h3>
+<p><code>AihuButton</code> — a headless button base class implementing the APG <strong>Button</strong> pattern. When the host is not a native <code>&lt;button&gt;</code>, it sets <code>role=&quot;button&quot;</code> + <code>tabindex=&quot;0&quot;</code> and handles Enter / Space to fire a synthetic click; native <code>&lt;button&gt;</code> defers to native semantics. Reflects <code>aria-pressed</code> (toggle), <code>aria-disabled</code>, and <code>data-state</code>, and inherits <code>disabled</code> from an ancestor <code>form-control</code>. It is a base class, not a pre-registered tag — extend it or register a concrete element with <code>defineButton(tag)</code>.</p>
+<h2>Phase-0 substrates</h2>
+<p>The lower-level building blocks the Phase-1 components compose on. Use them directly when building your own primitives.</p>
+<table>
+<thead>
+<tr>
+<th>Primitive</th>
+<th>Subpath</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DOM context</td>
+<td><code>@aihu/primitives/context</code></td>
+<td>Live ancestor-traversal context (<code>createDomContext</code> / <code>provideContext</code> / <code>injectContext</code>) — the root↔piece coordination mechanism. Self-contained; does NOT import <code>@aihu/context</code>.</td>
+</tr>
+<tr>
+<td>Presence gate</td>
+<td><code>@aihu/primitives/presence-gate</code></td>
+<td>Mount/unmount gate that holds children through an exit transition (the Radix <code>Presence</code> pattern). <code>definePresenceGate()</code>.</td>
+</tr>
+<tr>
+<td>Roving focus</td>
+<td><code>@aihu/primitives/roving-focus</code></td>
+<td>Roving-<code>tabindex</code> focus management for composite widgets, configurable <code>Orientation</code>. <code>defineRovingFocus()</code>.</td>
+</tr>
+<tr>
+<td>Collection</td>
+<td><code>@aihu/primitives/collection</code></td>
+<td>Ordered registration of descendant items (for lists, menus, etc.). <code>createCollection()</code> / <code>defineCollection()</code>.</td>
+</tr>
+<tr>
+<td>Config provider</td>
+<td><code>@aihu/primitives/config-provider</code></td>
+<td>Propagates <code>colorScheme</code> / <code>density</code> / <code>direction</code> to descendants via context. <code>defineConfigProvider()</code>.</td>
+</tr>
+<tr>
+<td>Form control</td>
+<td><code>@aihu/primitives/form-control</code></td>
+<td>Shared label/description/validity wiring + a <code>disabled</code> context that descendants (e.g. button) inherit. <code>defineFormControl()</code>.</td>
+</tr>
+</tbody></table>
+<h2>Consumer pattern — <code>cn()</code> + a style pack</h2>
+<p>Primitives are unstyled, so you bring the CSS. The intended pairing is the css-engine: style each <code>data-state</code> with utility classes, and merge any runtime overrides with <code>cn()</code>.</p>
+<pre><code class="language-ts">import { defineDialog } from &#39;@aihu/primitives/dialog&#39;
+import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
+
+defineDialog()
+
+// merge a base recipe string with a caller-provided override (last-wins)
+const contentClass = cn(&#39;rounded-lg p-6 bg-surface shadow-lg&#39;, userClassName)
+contentEl.className = contentClass
+</code></pre>
+<pre><code class="language-html">&lt;aihu-dialog-root&gt;
+  &lt;aihu-dialog-trigger&gt;Open&lt;/aihu-dialog-trigger&gt;
+  &lt;aihu-dialog-backdrop class=&quot;fixed inset-0 bg-black/40 data-[state=closed]:opacity-0&quot;&gt;&lt;/aihu-dialog-backdrop&gt;
+  &lt;aihu-dialog-content class=&quot;rounded-lg p-6 bg-surface shadow-lg&quot;&gt;
+    &lt;aihu-dialog-title&gt;Title&lt;/aihu-dialog-title&gt;
+    &lt;aihu-dialog-description&gt;Body copy.&lt;/aihu-dialog-description&gt;
+    &lt;aihu-dialog-close&gt;Close&lt;/aihu-dialog-close&gt;
+  &lt;/aihu-dialog-content&gt;
+&lt;/aihu-dialog-root&gt;
+</code></pre>
+<p>The primitive guarantees focus trap, Escape, ARIA, and <code>data-state</code>; your utility classes (resolved by the css-engine at build time, or merged at runtime with <code>cn()</code>) supply the look.</p>
+<h2>See also</h2>
+<ul>
+<li><a href="#styling">Styling</a> — the css-engine, <code>cn()</code>, style packs, scoped output</li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/primitives</code> export tables</li>
+</ul>
 `,
   },
   reactivity: {
@@ -3277,6 +3699,94 @@ const scope = hydrate(
 <li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
 </ul>
 <p>This ensures zero server-only code reaches the browser bundle.</p>
+`,
+  },
+  styling: {
+    title: 'Styling',
+    html: `<h1>Styling</h1>
+<p>aihu styles components with <strong><code>@aihu/css-engine</code></strong> — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your <code>.aihu</code> SFCs at build time and folds the utility classes each component actually uses into that component&#39;s shadow <code>&lt;style&gt;</code>. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.</p>
+<blockquote>
+<p><strong>Status:</strong> <code>@aihu/css-engine@0.1.0</code> is published. The build-time engine (<code>compile</code>, <code>compileSfc</code>) currently depends on the <code>aihu-css-compile</code> Rust binary built from the workspace (<code>cargo build --release -p aihu-css-core</code>); a prebuilt binary ships with the package in a later plan. The runtime helpers (<code>cn</code>, <code>progressive</code>) are stable and tiny.</p>
+</blockquote>
+<h2>How it works</h2>
+<ul>
+<li><strong>Build-time scanning.</strong> The engine reads <code>.aihu</code> SFC source, walks the compiler AST (via <code>@aihu/compiler</code>), collects the utility classes referenced in each component, and emits a per-SFC stylesheet.</li>
+<li><strong>Scoped output, not global.</strong> The emitted CSS is embedded into the component&#39;s shadow root: <code>:host</code>-level theme tokens, the variant-resolved utility rules for that component, and the authored <code>@style</code> block — all folded into one shadow <code>&lt;style&gt;</code>. Two components on the same page never share or leak utility rules.</li>
+<li><strong>Zero-bundle for the static case.</strong> Because utilities resolve to plain CSS at compile time, the static styling path adds no JavaScript to the client. The only runtime code is the optional <code>cn()</code> helper and the progressive-feature fallbacks, and only when you import them.</li>
+</ul>
+<h2>WC-native variants</h2>
+<p>On top of the standard Tailwind variant set, the engine adds variants that only make sense inside a shadow root:</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Targets</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>host:</code></td>
+<td>the component&#39;s <code>:host</code></td>
+<td><code>host:block</code></td>
+</tr>
+<tr>
+<td><code>slotted:</code></td>
+<td><code>::slotted(...)</code> projected children</td>
+<td><code>slotted:text-sm</code></td>
+</tr>
+<tr>
+<td><code>part-*:</code></td>
+<td>a named <code>::part(...)</code> exposed by the component</td>
+<td><code>part-label:font-bold</code></td>
+</tr>
+</tbody></table>
+<p>These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.</p>
+<h2>Style packs</h2>
+<p>A <strong>style pack</strong> is a named bundle of design tokens (CSS custom properties) emitted as <code>:root { … }</code> (light) plus an optional <code>.dark { … }</code> block. Two packs ship with the engine:</p>
+<ul>
+<li><code>aihu-default</code></li>
+<li><code>aihu-graphite</code></li>
+</ul>
+<p>Their token bundles live at <code>@aihu/css-engine/styles/aihu-default.css</code> and <code>.../aihu-graphite.css</code>.</p>
+<p>External orgs declare their own pack against the same token-name contract with <code>defineStylePack()</code>:</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+
+const acme = defineStylePack({
+  name: &#39;acme&#39;,
+  tokens: { &#39;color-primary&#39;: &#39;#0a7&#39;, &#39;radius-md&#39;: &#39;6px&#39; },
+  dark: { &#39;color-primary&#39;: &#39;#3fc&#39; },
+})
+
+acme.toCss()
+// :root { --color-primary: #0a7; --radius-md: 6px; }
+// .dark { --color-primary: #3fc; }
+</code></pre>
+<p>Token names are given without the leading <code>--</code>; the pack adds it. A custom pack slots into the engine exactly like the built-ins — the built-in packs are themselves expressible through this same API.</p>
+<h2><code>cn()</code> — runtime class merge</h2>
+<p>For the cases where a class string is decided at runtime (consumer overrides, conditional classes), import <code>cn()</code> from the dedicated sub-export. It is a separate sub-1 kB gz module so it never pulls in the rest of the engine:</p>
+<pre><code class="language-ts">import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
+
+cn(&#39;p-2&#39;, &#39;p-4&#39;)                 // &#39;p-4&#39;        (last-wins per property group)
+cn(&#39;a&#39;, false &amp;&amp; &#39;b&#39;, [&#39;c&#39;])     // &#39;a c&#39;        (falsy dropped, arrays flattened)
+cn(&#39;bg-red-500&#39;, &#39;bg-blue-500&#39;)  // &#39;bg-blue-500&#39;
+</code></pre>
+<p><code>cn()</code> resolves Tailwind-style conflicts last-wins per property group. The conflict map is <strong>generated at engine build time</strong> from the utility registry (not hand-maintained), so it never drifts from the utility table. Variant prefixes are respected: <code>hover:p-2</code> and <code>hover:p-4</code> conflict, but <code>p-2</code> and <code>hover:p-4</code> do not.</p>
+<blockquote>
+<p>Recipes use static utility strings resolved at compile time. Reach for <code>cn()</code> only for the runtime-override case — not as a general styling mechanism.</p>
+</blockquote>
+<h2>Progressive features</h2>
+<p>Some utilities target modern CSS features (CSS anchor positioning, the Popover API). The engine emits these <code>@supports</code>-gated, and ships a tiny optional fallback shim under a separate sub-export:</p>
+<pre><code class="language-ts">import { anchorFallback, popoverFallback, position } from &#39;@aihu/css-engine/runtime/progressive&#39;
+</code></pre>
+<p>This is a hand-written ~2 kB floating-ui-style positioning shim (NOT the npm <code>@floating-ui/dom</code> package — aihu&#39;s thesis is dependency-free). <code>anchorFallback(anchor, floating, opts)</code> and <code>popoverFallback(anchor, panel, opts)</code> position a floating element with JS only when the native feature is unsupported, and return a cleanup function. It is kept in its own sub-export from <code>cn</code> so the lighter merge helper stays under its size budget.</p>
+<h2>The component registry (<code>@aihu/ui</code> / <code>aihu add</code>)</h2>
+<p>A shadcn-style component registry — copy-in styled components distributed via an <code>aihu add &lt;component&gt;</code> CLI command, built on <code>@aihu/primitives</code> + the css-engine — is <strong>on the roadmap, not yet published</strong>. It is part of the in-progress SFC-primitives arc; do not depend on <code>@aihu/ui</code> or <code>aihu add</code> yet. See <a href="#primitives">Primitives</a> for the headless behaviors that registry will be built on.</p>
+<h2>See also</h2>
+<ul>
+<li><a href="#primitives">Primitives</a> — headless WAI-ARIA behaviors that consume <code>cn()</code> + style packs</li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
+<li><a href="#authoring-components">Authoring Components</a> — the <code>@style</code> block</li>
+</ul>
 `,
   },
 }

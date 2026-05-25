@@ -64,6 +64,16 @@ const llmsSections = [
         url: 'https://aihu.dev/#authoring-agents',
         description: '@agent block — expose state and actions as MCP tools',
       },
+      {
+        title: 'Styling',
+        url: 'https://aihu.dev/#styling',
+        description: '@aihu/css-engine — scoped utilities, cn(), style packs',
+      },
+      {
+        title: 'Primitives',
+        url: 'https://aihu.dev/#primitives',
+        description: '@aihu/primitives — headless WAI-ARIA dialog, tooltip, button',
+      },
     ],
   },
   {
@@ -100,6 +110,11 @@ const llmsSections = [
     title: 'Reference',
     links: [
       {
+        title: 'Migration (v0 → v1)',
+        url: 'https://aihu.dev/#migration',
+        description: 'Upgrade pre-v1 SFCs — @props→$prop:, $computed prop reads, $html, $-bindings',
+      },
+      {
         title: 'API Reference',
         url: 'https://aihu.dev/#api-reference',
         description: 'Complete API surface for all @aihu/* packages',
@@ -133,10 +148,13 @@ const sitemapPages = [
   { url: 'https://aihu.dev/#authoring-components', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#styling', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#primitives', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#ssr-hydration', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#agent-discovery', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#migration', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#api-reference', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#deployment', changefreq: 'monthly' as const, priority: 0.7 },
 ]

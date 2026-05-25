@@ -40,6 +40,8 @@ Aihu lets you build whole apps, not just components. `@aihu/signals` (reactive p
 | `@aihu/adapter-vercel` | Vercel deployment adapter (Edge + Serverless) | build-time |
 | `@aihu/cli` | Scaffold CLI — `aihu app`, `page`, `component`, `dev`, `build` | build-time |
 | `@aihu/compiler` | Rust SFC compiler — per-platform binary + WASM | build-time |
+| `@aihu/css-engine` | CSS engine — Tailwind v4 hard fork, WC-native scoped output, `cn()` + style packs | build-time + tiny runtime |
+| `@aihu/primitives` | Headless WAI-ARIA APG behaviors (dialog, tooltip, button, …) as vanilla custom elements, zero CSS | runtime |
 | `@aihu/mcp` | MCP server exposing `aihu_example` + `aihu_validate` tools | server-only |
 | `@aihu/scraping` | Rate limiter and bot-detection middleware for agent services | server-only |
 | `vscode-aihu` | VSCode syntax highlighting, snippets, language support | editor |

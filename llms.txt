@@ -10,18 +10,21 @@
 
 ## Core Documentation
 
-- [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax and reactive macros
+- [Authoring Components](https://aihu.dev/#authoring-components): @state, @template, @style block syntax, reactive macros, and common diagnostics (C204, C205, W210)
 - [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
 - [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
+- [Styling](https://aihu.dev/#styling): @aihu/css-engine — Tailwind v4 hard fork, WC-native scoped output, cn(), style packs, build-time/zero-bundle
+- [Primitives](https://aihu.dev/#primitives): @aihu/primitives — headless WAI-ARIA APG behaviors (dialog, tooltip, button) as vanilla custom elements, zero CSS
 - [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterIntegration
 - [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders
 - [Authoring Plugins](https://aihu.dev/#authoring-plugins): definePlugin contract and plugin ecosystem
 - [SSR & Hydration](https://aihu.dev/#ssr-hydration): Server rendering and client hydration
+- [Migration (v0 → v1)](https://aihu.dev/#migration): Upgrade pre-v1 SFCs — @props→$prop:, read props via $computed, $html, $-prefixed bindings, npx aihu migrate
 - [Deployment](https://aihu.dev/#deployment): Cloudflare, Vercel, Bun, and Deno adapters
 
 ## API Reference
 
-- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu-plugin/agent-readiness
+- [API Reference](https://aihu.dev/#api-reference): @aihu/signals, @aihu/arbor, @aihu/runtime, @aihu/router, @aihu/server, @aihu/agent, @aihu-plugin/agent-readiness, @aihu/css-engine, @aihu/primitives
 
 ## Agent & MCP
 
