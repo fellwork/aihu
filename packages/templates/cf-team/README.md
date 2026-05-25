@@ -33,7 +33,7 @@ Overridable cells (prompted at scaffold time):
 
 - **`auth`** — `better-auth` (default) | `kinde` | `supabase`
 - **`starter`** — `live-counter` (default) | `empty`
-- **`agentSurface`** — `minimal` (default; emits `.mcp.json` + `@expose`) | `none`
+- **`agentSurface`** — `minimal` (default; emits `.mcp.json` + an exposed `@state` entry) | `none`
 - **`css`** — `style-block` (Tailwind defers to v0.2.1)
 - **`initGit`** — `true` (default) | `false`
 

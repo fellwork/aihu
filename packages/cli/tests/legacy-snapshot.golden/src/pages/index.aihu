@@ -8,7 +8,7 @@ const increment = () => setCount(c => c + 1)
 @template {
   <div class="home">
     <h1>Hello from aihu</h1>
-    <p>Count: {{ count }}</p>
+    <p>Count: {count}</p>
     <button $on.click={increment}>+1</button>
   </div>
 }

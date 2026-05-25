@@ -4,11 +4,13 @@
  */
 
 export const APP_INDEX_SCRIBE = `@state {
-  $prop name: string = 'world'
+  $prop: {
+    name: { default: 'world', type: "string" }
+  }
 }
 
 @template {
-  <div>Hello {{ name }}</div>
+  <div>Hello {name}</div>
 }
 
 @route {

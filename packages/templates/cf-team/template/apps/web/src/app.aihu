@@ -2,7 +2,9 @@
 // Scaffolded by @aihu/templates-cf-team. Edit freely; this is your app shell.
 
 @state {
-  appName: string = '__APP_NAME__'
+  $prop: {
+    appName: { default: '__APP_NAME__', type: "string" }
+  }
 }
 
 @template {
