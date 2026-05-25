@@ -1,8 +1,32 @@
 import type { Plugin, UserConfig } from 'vite'
 import type { AihuAdapter } from './adapter.ts'
 
-/** V0: SPA output only. More modes (ssr, static, hybrid) in V1+. */
-export type OutputMode = 'spa'
+/**
+ * Build output mode.
+ *
+ * - `'spa'` (default): a single empty-shell `index.html` that boots the client
+ *   SPA. No per-route HTML, no prerendered content.
+ * - `'static'` (SSG): prerenders every static route to a content-ful
+ *   `<pattern>/index.html` with a per-page `<head>`, then hydrates into the SPA
+ *   on load (progressive enhancement). Ideal for content sites on static hosts
+ *   (e.g. Cloudflare Pages) — crawlers and non-JS agents see real content.
+ *
+ * Other rendering modes (`ssr`, `hybrid`) are tracked separately under
+ * @aihu/server's RenderingMode and are not part of the app build OutputMode.
+ */
+export type OutputMode = 'spa' | 'static'
+
+/** Site-level configuration. */
+export interface SiteConfig {
+  /**
+   * Absolute base URL of the deployed site (e.g. `https://example.com`).
+   * Used by the `'static'` (SSG) output mode to resolve relative per-route
+   * `canonical` / `og:*` / `twitter:*` URLs into absolute URLs (passed as
+   * `siteUrl` to @aihu/server's `routeHeadToSsrHead`). When absent, relative
+   * URLs are emitted unchanged.
+   */
+  readonly url?: string
+}
 
 export interface DirConfig {
   /** Directory to scan for page routes. Default: 'pages' */
@@ -59,10 +83,15 @@ export interface AihuConfig {
   /** Directory layout overrides. */
   readonly dir?: DirConfig
   /**
-   * Output mode. V0 supports 'spa' only.
+   * Output mode. Supports `'spa'` (default) and `'static'` (SSG prerender).
    * defineConfig throws AihuConfigError for any other value.
    */
   readonly output?: OutputMode
+  /**
+   * Site-level configuration. `site.url` is the absolute base URL used by the
+   * `'static'` output mode to resolve relative canonical/OG/Twitter URLs.
+   */
+  readonly site?: SiteConfig
   /**
    * Aihu plugins. Order is preserved.
    * Appended after the three framework plugins (compiler, router, agent-readiness).
@@ -128,9 +157,9 @@ export class AihuConfigError extends Error {
  * })
  */
 export function defineConfig(config: AihuConfig): AihuConfig {
-  if (config.output && config.output !== 'spa') {
+  if (config.output && config.output !== 'spa' && config.output !== 'static') {
     throw new AihuConfigError(
-      `output mode '${config.output}' is not supported in V0 (only 'spa')`,
+      `output mode '${config.output}' is not supported (use 'spa' or 'static')`,
       'INVALID_OUTPUT_MODE',
       'output',
     )

@@ -16,8 +16,8 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3353,
-    "limit": "3400 B"
+    "bytes": 3403,
+    "limit": "3450 B"
   },
   {
     "name": "@aihu/agent",

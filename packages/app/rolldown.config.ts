@@ -4,6 +4,7 @@ import { dts } from 'rolldown-plugin-dts'
 const external = [
   '@aihu/router',
   '@aihu/router/plugin',
+  '@aihu/server',
   '@aihu/arbor',
   '@aihu/signals',
   '@aihu/runtime',
