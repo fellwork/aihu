@@ -355,10 +355,100 @@ fn emit_route_json(route: &RouteBlock) -> String {
         format!("[{}]", items.join(", "))
     };
 
+    // B1 (SEO arc) — optional `head` member. Absent entirely when no `head:` key,
+    // keeping the sidecar backward-compatible with existing consumers.
+    let head_member = match route.head.as_ref() {
+        Some(head) => format!(",\n  \"head\": {}", emit_head_json(head)),
+        None => String::new(),
+    };
+
     format!(
-        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"\n}}",
-        pattern, name, middleware_json, ssr, layout
+        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}\n}}",
+        pattern, name, middleware_json, ssr, layout, head_member
     )
+}
+
+// ─── B1 (SEO arc) — head JSON serialization ──────────────────────────────────
+
+/// Serialize a `RouteHead` to a JSON object. Only present fields are emitted;
+/// `og`/`twitter` become nested objects; `jsonld` is spliced VERBATIM (it is a
+/// raw JSON literal captured from source). Downstream Builders (B2/B3) align to
+/// this exact shape.
+fn emit_head_json(head: &crate::types::RouteHead) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(v) = &head.title {
+        parts.push(format!("\"title\": {}", json_string(v)));
+    }
+    if let Some(v) = &head.description {
+        parts.push(format!("\"description\": {}", json_string(v)));
+    }
+    if let Some(v) = &head.canonical {
+        parts.push(format!("\"canonical\": {}", json_string(v)));
+    }
+    if let Some(og) = &head.og {
+        let mut og_parts: Vec<String> = Vec::new();
+        if let Some(v) = &og.title {
+            og_parts.push(format!("\"title\": {}", json_string(v)));
+        }
+        if let Some(v) = &og.description {
+            og_parts.push(format!("\"description\": {}", json_string(v)));
+        }
+        if let Some(v) = &og.image {
+            og_parts.push(format!("\"image\": {}", json_string(v)));
+        }
+        if let Some(v) = &og.r#type {
+            og_parts.push(format!("\"type\": {}", json_string(v)));
+        }
+        if let Some(v) = &og.url {
+            og_parts.push(format!("\"url\": {}", json_string(v)));
+        }
+        parts.push(format!("\"og\": {{{}}}", og_parts.join(", ")));
+    }
+    if let Some(tw) = &head.twitter {
+        let mut tw_parts: Vec<String> = Vec::new();
+        if let Some(v) = &tw.card {
+            tw_parts.push(format!("\"card\": {}", json_string(v)));
+        }
+        if let Some(v) = &tw.title {
+            tw_parts.push(format!("\"title\": {}", json_string(v)));
+        }
+        if let Some(v) = &tw.description {
+            tw_parts.push(format!("\"description\": {}", json_string(v)));
+        }
+        if let Some(v) = &tw.image {
+            tw_parts.push(format!("\"image\": {}", json_string(v)));
+        }
+        if let Some(v) = &tw.site {
+            tw_parts.push(format!("\"site\": {}", json_string(v)));
+        }
+        parts.push(format!("\"twitter\": {{{}}}", tw_parts.join(", ")));
+    }
+    if let Some(jsonld) = &head.jsonld {
+        // Verbatim raw JSON object literal. The SFC author writes valid JSON
+        // (quoted keys per spec). We splice it as-is rather than re-serializing.
+        parts.push(format!("\"jsonld\": {}", jsonld));
+    }
+    format!("{{{}}}", parts.join(", "))
+}
+
+/// Minimal JSON string escaper for scalar head values (quotes/backslashes/
+/// control chars). Sufficient for the title/description/url/etc. value space.
+fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 // ─── v0.4.0 — @stream block binding export ───────────────────────────────────
