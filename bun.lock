@@ -395,6 +395,27 @@
         "@aihu/server": "workspace:*",
       },
     },
+    "packages/plugin-kindly-note": {
+      "name": "@aihu-plugin/kindly-note",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu/plugin": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "@kindly-note/core": "^0.1.0",
+        "@kindly-note/emitters-html": "^0.1.0",
+        "@kindly-note/lang-json": "^0.1.0",
+        "@kindly-note/lang-typescript": "^0.1.0",
+        "@kindly-note/loader-dynamic-import": "^0.1.0",
+      },
+      "peerDependencies": {
+        "@kindly-note/core": "^0.1.0",
+        "@kindly-note/emitters-html": "^0.1.0",
+        "@kindly-note/loader-dynamic-import": "^0.1.0",
+      },
+    },
     "packages/primitives": {
       "name": "@aihu/primitives",
       "version": "0.0.2",
@@ -469,6 +490,8 @@
     "@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@workspace:packages/plugin-agent-readiness"],
 
     "@aihu-plugin/data": ["@aihu-plugin/data@workspace:packages/plugin-data"],
+
+    "@aihu-plugin/kindly-note": ["@aihu-plugin/kindly-note@workspace:packages/plugin-kindly-note"],
 
     "@aihu/adapter-cloudflare": ["@aihu/adapter-cloudflare@workspace:packages/adapter-cloudflare"],
 
@@ -799,6 +822,22 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@kindly-note/core": ["@kindly-note/core@0.1.0", "", {}, "sha512-J19tBBuRR9r2j5nIrrO4x71IXQGGQLyEjftW4k7cz9sVrEO97eqOcFfJlKb6mIsIvz9CLjxwgTCuo/oqtBUDkQ=="],
+
+    "@kindly-note/emitters-html": ["@kindly-note/emitters-html@0.1.0", "", { "peerDependencies": { "@kindly-note/core": "^0.1.0" } }, "sha512-S/FIWf97eKnjTsmrOOrz86Of7XdPBt9uVk0ERzkfmYIsYOcRnqFeQvHgFdDNQp4pRaDZJ0FSBv8iEk7X5JTMtQ=="],
+
+    "@kindly-note/lang-helpers": ["@kindly-note/lang-helpers@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0" } }, "sha512-2T5hJKBULPErGrBWOlvjapGLRa947AKOshsIWGKV4Q55LnCUxOuTqk/IfLzSbDDb5JXZGEHFKwW9Z3wotI73ew=="],
+
+    "@kindly-note/lang-javascript": ["@kindly-note/lang-javascript@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0", "@kindly-note/lang-helpers": "^0.1.0", "@kindly-note/lang-pack-ecmascript": "^0.1.0" } }, "sha512-oRGhqAg5tYC12r6GQYZAaFE+NEp9xMUnyQtMVb4qcTarWQOrcCZ5+45WV41D+JvLt22NEvL7DrYSxRrX7AdqcA=="],
+
+    "@kindly-note/lang-json": ["@kindly-note/lang-json@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0", "@kindly-note/lang-helpers": "^0.1.0", "@kindly-note/lang-pack-ecmascript": "^0.1.0" } }, "sha512-wid9yl+dDC70f1dj9c0/rgA/kX5+zOU4VJf1XDhA0H4ynkDxUScwRYw6KKvYXjZNIL7NdMFEJnS9XzIcYef7Xg=="],
+
+    "@kindly-note/lang-pack-ecmascript": ["@kindly-note/lang-pack-ecmascript@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0", "@kindly-note/lang-helpers": "^0.1.0" } }, "sha512-Wpc0Lhwv8WnwfhYoN6d5ZbYV0yisyjEUYBwa8jf4GgQmrtoJPuqHG553F6KusOK1XUTYhYnwoJpKkddKuVwnhw=="],
+
+    "@kindly-note/lang-typescript": ["@kindly-note/lang-typescript@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0", "@kindly-note/lang-helpers": "^0.1.0", "@kindly-note/lang-javascript": "^0.1.0", "@kindly-note/lang-pack-ecmascript": "^0.1.0" } }, "sha512-L3HQzO75FxZRstu9/Csyh+ABs8QFGJH0yWYK/zhO36/jnrReXM8gqzT6rqGZzToPqZS24+FmnLeHdW47+dBWVg=="],
+
+    "@kindly-note/loader-dynamic-import": ["@kindly-note/loader-dynamic-import@0.1.0", "", { "dependencies": { "@kindly-note/core": "^0.1.0" } }, "sha512-JxgKuvK9/mNTZkpj6ixPGx/t37N6gL6r4WfDj5xwYiQ4BPBsqDnavVZlYsG1JrMW6AIXwu7wqFq1bHKK9aEiAw=="],
 
     "@lezer/common": ["@lezer/common@1.5.2", "", {}, "sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ=="],
 
