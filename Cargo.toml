@@ -4,6 +4,13 @@ members = [
     "packages/compiler",
     "packages/css-engine/crates/aihu-css-core",
 ]
+# napi-rs native renderer for @aihu/server — built standalone, per-platform, in
+# release.yml (its own target dir). It is NOT part of this JS-toolchain
+# workspace; without this exclude it would be swept in as a non-member and
+# break `cargo build` for the native binaries.
+exclude = [
+    "packages/server/src-native",
+]
 
 [workspace.package]
 edition = "2021"
