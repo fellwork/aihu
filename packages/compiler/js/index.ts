@@ -395,6 +395,116 @@ export function transform(
   }
 }
 
+/**
+ * Escape a CSS string for safe interpolation inside a JS template literal.
+ * The Rust codegen places the authored `@style` body raw inside a backtick
+ * literal, so it already assumes no backticks in `@style`. css-engine output
+ * (theme tokens + utility rules) likewise never contains backticks, but we
+ * escape `\`, `` ` `` and `${` defensively so a future token value can't
+ * break out of the literal.
+ *
+ * @internal
+ */
+function _escapeForTemplateLiteral(css: string): string {
+  return css.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
+}
+
+/**
+ * Fold css-engine-produced scoped CSS into a compiled `.aihu` module.
+ *
+ * The Rust codegen emits the authored `@style` block (when present) as:
+ *
+ *   const __style__ = new CSSStyleSheet();
+ *   __style__.replaceSync(`<authored css>`);
+ *   defineElement('tag', defineComponent((ctx) => {
+ *     (ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];
+ *     return ...
+ *   }))
+ *
+ * css-engine's `compileSfc` output is the COMPLETE per-SFC stylesheet:
+ * `:host` theme tokens, the variant-resolved utility-class rules, AND the
+ * folded authored `@style` block (under an `authored @style` CSS comment).
+ * So it is authoritative — we adopt it as the single shadow `<style>` and
+ * the authored `@style` keeps emitting through it (acceptance: "@style still
+ * emits correctly alongside").
+ *
+ * Two shapes are handled:
+ *
+ *  1. **SFC has an `@style` block** — the Rust codegen already declared
+ *     `__style__` with the raw `@style` body. We REPLACE that body with the
+ *     css-engine output (which already CONTAINS the `@style` block) so the
+ *     `@style` rules are not duplicated. The existing `adoptedStyleSheets`
+ *     assignment is reused unchanged.
+ *
+ *  2. **SFC has NO `@style` block** — there is no `__style__`. We inject a
+ *     fresh `__style__` declaration after the last import and an
+ *     `adoptedStyleSheets` assignment as the first statement of the setup
+ *     function. The compiler emits the setup param as `_ctx` in this case;
+ *     we rename it to `ctx` so the injected `ctx.host` reference resolves.
+ *
+ * Runs on the RAW compiled output BEFORE the island / HMR / auto-wiring
+ * transforms so those passes operate on the folded module uniformly:
+ *   - The static-island shim calls `__aihu_setup__({ host: root, ... })`
+ *     where `root` is the shadow root, so `ctx.host` is valid there too.
+ *   - The HMR / defer passes only touch the `defineElement(...)` wrapper and
+ *     the runtime import; they do not disturb `__style__` or the setup body.
+ *
+ * No-ops (returns input unchanged) when `css` is empty/whitespace.
+ *
+ * @internal
+ */
+export function _foldCssEngineStyles(compiledCode: string, css: string): string {
+  if (!css.trim()) return compiledCode
+  const escaped = _escapeForTemplateLiteral(css)
+
+  // Shape 1 — an authored @style block already declared __style__. css-engine
+  // output already includes that @style block, so REPLACE the replaceSync body
+  // (between the backticks) wholesale to avoid duplicating the @style rules.
+  // The codegen emits `__style__.replaceSync(`<body>`);` as a single statement;
+  // match the body non-greedily up to the closing backtick + paren.
+  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
+  const styleBodyRe = /(__style__\.replaceSync\(`)[^]*?(`\);)/
+  if (styleBodyRe.test(compiledCode)) {
+    // Use a function replacer so any `$` in the CSS isn't read as a
+    // replacement-pattern backreference.
+    return compiledCode.replace(styleBodyRe, (_m, open: string, close: string) => {
+      return `${open}${escaped}${close}`
+    })
+  }
+
+  // Shape 2 — no @style block. Inject a fresh stylesheet + adoption.
+  // Bail (no-op) if the expected defineComponent setup shape is absent.
+  const setupRe = /defineComponent\(\s*\((_ctx|ctx)\)\s*=>\s*\{/
+  const m = setupRe.exec(compiledCode)
+  if (m == null) return compiledCode
+
+  // Inject the module-level stylesheet declaration after the last import line.
+  const lines = compiledCode.split('\n')
+  let lastImportIdx = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const t = (lines[i] ?? '').trim()
+    if (t.startsWith('import ') || t.startsWith('import{')) {
+      lastImportIdx = i
+      break
+    }
+  }
+  const decl = `const __style__ = new CSSStyleSheet();\n__style__.replaceSync(\`${escaped}\`);`
+  if (lastImportIdx !== -1) {
+    lines.splice(lastImportIdx + 1, 0, decl)
+  } else {
+    lines.unshift(decl)
+  }
+  let withDecl = lines.join('\n')
+
+  // Rename the setup param to `ctx` (codegen emits `_ctx` when no @style/ctx
+  // usage) and inject the adoption as the first statement of the setup body.
+  withDecl = withDecl.replace(
+    /defineComponent\(\s*\((?:_ctx|ctx)\)\s*=>\s*\{/,
+    'defineComponent((ctx) => {\n  (ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];',
+  )
+  return withDecl
+}
+
 // ─── v1.0.10a — compiler AST-export hook ─────────────────────────────────────
 //
 // Thin TS wrapper over the `aihu-compile --ast-json` flag. Returns the parsed
@@ -620,6 +730,79 @@ export function _injectAutoWiring(code: string): string {
  * strategy so the Rust binary is bundled with the npm package and does not
  * require a separate `cargo build --release` step.
  */
+/**
+ * Minimal structural type for the `@aihu/css-engine` module surface this
+ * plugin uses. Declared locally so the compiler never type-imports the
+ * css-engine package (which would create a compile-time edge against an
+ * optional peer that may be absent).
+ *
+ * @internal
+ */
+interface CssEngineModule {
+  compileSfc(source: string, id?: string): string
+}
+
+// Memoised resolution of the optional `@aihu/css-engine` peer. `undefined`
+// = not yet attempted; `null` = attempted and unavailable (no-op path);
+// a module object = available. The dynamic import is attempted once per
+// process — repeated absence does not re-pay the resolution cost.
+let _cssEngine: CssEngineModule | null | undefined
+
+// The optional-peer module specifier, held in a VARIABLE so TypeScript never
+// statically resolves `@aihu/css-engine`'s declarations at typecheck time.
+// css-engine depends on @aihu/compiler for its AST, so the two form a
+// circular package relationship; under CI's frozen install + moon build
+// ordering, css-engine's `dist`/`.d.ts` are not guaranteed to exist when
+// `compiler:typecheck` runs. A literal `import('@aihu/css-engine')` makes the
+// compiler emit TS2307 in that window (the `as` cast affects the RESULT type
+// only, not whether TS attempts module resolution). Resolving through this
+// variable keeps the import fully dynamic — no compile-time edge on the peer.
+const _CSS_ENGINE_SPECIFIER = '@aihu/css-engine'
+
+/**
+ * Lazily resolve `@aihu/css-engine` and compile a `.aihu` source's utility
+ * classes to scoped CSS. Returns `''` when css-engine is not installed
+ * (the optional-peer no-op path) or when compilation fails for any reason —
+ * a CSS-engine failure MUST NOT break an otherwise-valid `.aihu` build.
+ *
+ * Sets `process.env.SCRIBE_COMPILE_BIN` to this plugin's resolved compiler
+ * binary before calling `compileSfc`: css-engine re-derives the SFC AST via
+ * its own bundled copy of `compileToAst`, whose binary path is resolved
+ * relative to the css-engine package — which does NOT ship the compiler
+ * binary. Pointing it at our `binPath` guarantees the AST css-engine parses
+ * is produced by the exact same compiler this build uses.
+ *
+ * @internal
+ */
+async function _maybeCompileUtilityCss(source: string, id: string): Promise<string> {
+  if (_cssEngine === null) return ''
+  if (_cssEngine === undefined) {
+    try {
+      // Guarded, lazy, OPTIONAL — see the plugin transform for the rationale.
+      // Importing via the `_CSS_ENGINE_SPECIFIER` variable (not a string
+      // literal) keeps this fully dynamic: TS does NOT resolve the peer's
+      // `.d.ts` at typecheck time, so `compiler:typecheck` passes even when
+      // css-engine's `dist` has not been built (the CI build-order window).
+      _cssEngine = (await import(_CSS_ENGINE_SPECIFIER)) as unknown as CssEngineModule
+    } catch {
+      _cssEngine = null
+      return ''
+    }
+  }
+  try {
+    // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
+    // binary this plugin uses (it has no compiler binary of its own).
+    if (process.env.SCRIBE_COMPILE_BIN == null) {
+      process.env.SCRIBE_COMPILE_BIN = binPath
+    }
+    return _cssEngine.compileSfc(source, id)
+  } catch {
+    // A css-engine compile failure is non-fatal: fall back to the no-op
+    // path (utility classes don't emit) rather than aborting the build.
+    return ''
+  }
+}
+
 export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
@@ -636,8 +819,22 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // expressions end-to-end (Architect spec §7 path (i)).
         const sidecarOut = `${rawId}.ts`
         const result = transform(code, rawId, { sidecarOut })
-        const compiled =
-          shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+        let compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+
+        // ── css-engine hook (optional, lazy, no circular dep) ──────────────
+        // @aihu/css-engine depends on @aihu/compiler (for its AST), so the
+        // compiler MUST NOT hard-depend on it. It is declared an OPTIONAL
+        // peerDependency and pulled in ONLY via this guarded dynamic import:
+        // when present, we compile the SFC's utility classes to scoped CSS
+        // and fold it into the component's shadow `<style>`; when absent the
+        // import throws and we no-op (utility classes simply don't emit —
+        // the pre-hook behaviour). This keeps css-engine an opt-in enhancement
+        // with zero dependency cycle.
+        const utilityCss = await _maybeCompileUtilityCss(code, rawId)
+        if (utilityCss) {
+          compiled = _foldCssEngineStyles(compiled, utilityCss)
+        }
+
         const elementTag = _extractElementTag(compiled)
 
         let out: string

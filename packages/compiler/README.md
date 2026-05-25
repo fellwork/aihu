@@ -62,6 +62,7 @@ bun add @aihu/compiler
 **Peer dependencies:**
 
 - `vite` — `>=5.0.0`
+- `@aihu/css-engine` — `>=0.1.0`
 
 <sub><i>Auto-generated against `@aihu/compiler@0.4.1`.</i></sub>
 
