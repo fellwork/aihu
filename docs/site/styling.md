@@ -24,30 +24,7 @@ These compile to the corresponding shadow-DOM selectors so you can style the hos
 
 ## Style packs
 
-A **style pack** is a named bundle of design tokens (CSS custom properties) emitted as `:root { … }` (light) plus an optional `.dark { … }` block. Two packs ship with the engine:
-
-- `aihu-default`
-- `aihu-graphite`
-
-Their token bundles live at `@aihu/css-engine/styles/aihu-default.css` and `.../aihu-graphite.css`.
-
-External orgs declare their own pack against the same token-name contract with `defineStylePack()`:
-
-```ts
-import { defineStylePack } from '@aihu/css-engine'
-
-const acme = defineStylePack({
-  name: 'acme',
-  tokens: { 'color-primary': '#0a7', 'radius-md': '6px' },
-  dark: { 'color-primary': '#3fc' },
-})
-
-acme.toCss()
-// :root { --color-primary: #0a7; --radius-md: 6px; }
-// .dark { --color-primary: #3fc; }
-```
-
-Token names are given without the leading `--`; the pack adds it. A custom pack slots into the engine exactly like the built-ins — the built-in packs are themselves expressible through this same API.
+Component styling resolves against **design tokens** (CSS custom properties): a utility like `bg-primary` emits `var(--color-primary)`, and the *value* comes from a **style pack** (`aihu-default`, `aihu-graphite`, or your own via `defineStylePack()`). The token contract, the two shipped packs, `:root` + `.dark` emission, and how a consumer applies a pack are covered in full on the dedicated [Theming](#theming) page.
 
 ## `cn()` — runtime class merge
 
@@ -81,6 +58,7 @@ A shadcn-style component registry — copy-in styled components distributed via 
 
 ## See also
 
+- [Theming](#theming) — design tokens, the `aihu-default` / `aihu-graphite` packs, and `defineStylePack()`
 - [Primitives](#primitives) — headless WAI-ARIA behaviors that consume `cn()` + style packs
 - [API Reference](#api-reference) — full `@aihu/css-engine` export tables
 - [Authoring Components](#authoring-components) — the `@style` block

@@ -833,7 +833,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>Placement</code>, <code>PositionOptions</code></p>
-<p><strong>Built-in style packs:</strong> <code>@aihu/css-engine/styles/aihu-default.css</code>, <code>@aihu/css-engine/styles/aihu-graphite.css</code></p>
+<p><strong>Built-in style packs:</strong> <code>aihu-default</code> and <code>aihu-graphite</code> ship as CSS bundles in the package <code>files</code> list (on disk at <code>node_modules/@aihu/css-engine/styles/*.css</code>). Note they are <strong>not</strong> declared in the package <code>exports</code> map, so a bare <code>import &#39;@aihu/css-engine/styles/aihu-default.css&#39;</code> fails with <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code> — copy the file or reproduce it via <code>defineStylePack()</code>. See <a href="theming.md">Theming</a> for the verified access paths.</p>
 <h2>@aihu/primitives</h2>
 <p>Headless WAI-ARIA APG behaviors as vanilla custom elements; zero CSS. Each behavior has a <code>define*()</code> registrar and a tree-shakeable subpath. See <a href="primitives.md">Primitives</a> for usage.</p>
 <table>
@@ -3742,26 +3742,7 @@ const scope = hydrate(
 </tbody></table>
 <p>These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.</p>
 <h2>Style packs</h2>
-<p>A <strong>style pack</strong> is a named bundle of design tokens (CSS custom properties) emitted as <code>:root { … }</code> (light) plus an optional <code>.dark { … }</code> block. Two packs ship with the engine:</p>
-<ul>
-<li><code>aihu-default</code></li>
-<li><code>aihu-graphite</code></li>
-</ul>
-<p>Their token bundles live at <code>@aihu/css-engine/styles/aihu-default.css</code> and <code>.../aihu-graphite.css</code>.</p>
-<p>External orgs declare their own pack against the same token-name contract with <code>defineStylePack()</code>:</p>
-<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
-
-const acme = defineStylePack({
-  name: &#39;acme&#39;,
-  tokens: { &#39;color-primary&#39;: &#39;#0a7&#39;, &#39;radius-md&#39;: &#39;6px&#39; },
-  dark: { &#39;color-primary&#39;: &#39;#3fc&#39; },
-})
-
-acme.toCss()
-// :root { --color-primary: #0a7; --radius-md: 6px; }
-// .dark { --color-primary: #3fc; }
-</code></pre>
-<p>Token names are given without the leading <code>--</code>; the pack adds it. A custom pack slots into the engine exactly like the built-ins — the built-in packs are themselves expressible through this same API.</p>
+<p>Component styling resolves against <strong>design tokens</strong> (CSS custom properties): a utility like <code>bg-primary</code> emits <code>var(--color-primary)</code>, and the <em>value</em> comes from a <strong>style pack</strong> (<code>aihu-default</code>, <code>aihu-graphite</code>, or your own via <code>defineStylePack()</code>). The token contract, the two shipped packs, <code>:root</code> + <code>.dark</code> emission, and how a consumer applies a pack are covered in full on the dedicated <a href="#theming">Theming</a> page.</p>
 <h2><code>cn()</code> — runtime class merge</h2>
 <p>For the cases where a class string is decided at runtime (consumer overrides, conditional classes), import <code>cn()</code> from the dedicated sub-export. It is a separate sub-1 kB gz module so it never pulls in the rest of the engine:</p>
 <pre><code class="language-ts">import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
@@ -3783,9 +3764,175 @@ cn(&#39;bg-red-500&#39;, &#39;bg-blue-500&#39;)  // &#39;bg-blue-500&#39;
 <p>A shadcn-style component registry — copy-in styled components distributed via an <code>aihu add &lt;component&gt;</code> CLI command, built on <code>@aihu/primitives</code> + the css-engine — is <strong>on the roadmap, not yet published</strong>. It is part of the in-progress SFC-primitives arc; do not depend on <code>@aihu/ui</code> or <code>aihu add</code> yet. See <a href="#primitives">Primitives</a> for the headless behaviors that registry will be built on.</p>
 <h2>See also</h2>
 <ul>
+<li><a href="#theming">Theming</a> — design tokens, the <code>aihu-default</code> / <code>aihu-graphite</code> packs, and <code>defineStylePack()</code></li>
 <li><a href="#primitives">Primitives</a> — headless WAI-ARIA behaviors that consume <code>cn()</code> + style packs</li>
 <li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
 <li><a href="#authoring-components">Authoring Components</a> — the <code>@style</code> block</li>
+</ul>
+`,
+  },
+  theming: {
+    title: 'Theming',
+    html: `<h1>Theming</h1>
+<p>aihu themes components with <strong>design tokens</strong> — CSS custom properties that the
+<code>@aihu/css-engine</code> utility table resolves against. A utility like <code>bg-primary</code>
+compiles to <code>background: var(--color-primary)</code>; the <em>value</em> of that token is
+supplied by a <strong>style pack</strong>. Swap the pack and every component re-themes with
+no markup change, because the token <em>names</em> are the contract and the <em>values</em>
+are interchangeable.</p>
+<p>This page is the single source of truth for theming. For the broader styling
+model (scoped output, WC-native variants, <code>cn()</code>), see <a href="#styling">Styling</a>.</p>
+<blockquote>
+<p><strong>Status:</strong> <code>@aihu/css-engine@0.1.1</code> ships the two built-in packs plus
+<code>defineStylePack()</code>. <code>defineStylePack()</code> is the stable, importable API. The
+built-in pack CSS bundles are shipped <em>files</em> (see <a href="#applying-a-pack">Applying a pack</a>)
+but are <strong>not</strong> subpath-exported — read that section before wiring an import.</p>
+</blockquote>
+<h2>The design-token contract</h2>
+<p>A token is a CSS custom property. Throughout this doc and the
+<code>defineStylePack()</code> API, token <strong>names are given without the leading <code>--</code></strong> —
+the engine adds it. The shipped packs declare these token groups:</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Tokens (names without <code>--</code>)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Color</td>
+<td><code>color-primary</code>, <code>color-primary-foreground</code>, <code>color-secondary</code>, <code>color-secondary-foreground</code>, <code>color-accent</code>, <code>color-accent-foreground</code>, <code>color-surface</code>, <code>color-surface-foreground</code>, <code>color-background</code>, <code>color-foreground</code>, <code>color-muted</code>, <code>color-muted-foreground</code>, <code>color-border</code>, <code>color-ring</code>, <code>color-destructive</code>, <code>color-destructive-foreground</code></td>
+</tr>
+<tr>
+<td>Radius</td>
+<td><code>radius-sm</code>, <code>radius-md</code>, <code>radius-lg</code>, <code>radius-pill</code></td>
+</tr>
+<tr>
+<td>Spacing</td>
+<td><code>space-1</code>, <code>space-2</code>, <code>space-3</code>, <code>space-4</code>, <code>space-6</code>, <code>space-8</code>, <code>space-12</code>, <code>space-16</code></td>
+</tr>
+<tr>
+<td>Typography</td>
+<td><code>font-sans</code>, <code>font-mono</code></td>
+</tr>
+</tbody></table>
+<p>The utility table resolves brand utilities against the color names: <code>bg-primary</code>
+→ <code>var(--color-primary)</code>, <code>text-accent</code> → <code>var(--color-accent)</code>, and so on. Any
+pack that declares this name set works under every recipe with no dangling
+<code>var()</code>.</p>
+<h2>The two shipped packs</h2>
+<p>Two packs ship with the engine. They declare the <strong>same token names</strong> — only
+the values differ — so they are drop-in interchangeable:</p>
+<ul>
+<li><strong><code>aihu-default</code></strong> — the aihu brand palette (warm paper + ink, accent
+<code>#c8543a</code>), light values in <code>:root</code>, dark overrides in <code>.dark</code>.</li>
+<li><strong><code>aihu-graphite</code></strong> — a neutral monochrome ramp expressed in <code>oklch()</code>
+(chroma ≈ 0), same token names, same <code>:root</code> + <code>.dark</code> structure.</li>
+</ul>
+<p>A pack emits a light block under <code>:root { … }</code> and an optional dark block under
+<code>.dark { … }</code>. The consumer toggles dark by putting the <code>.dark</code> class on (or
+above) the themed subtree; the same token names carry the dark values, so
+nothing in component markup changes.</p>
+<pre><code class="language-css">/* shape of a shipped pack (aihu-default) */
+:root {
+  --color-primary: #1a1d24;
+  --color-accent: #c8543a;
+  --color-surface: #faf8f4;
+  --radius-md: 8px;
+  /* …the full token set… */
+}
+.dark {
+  --color-primary: #ede8e0;
+  --color-accent: #e8705a;
+  --color-surface: #1a1d24;
+  /* …dark values, same names… */
+}
+</code></pre>
+<h2>How tokens reach shadow-scoped components</h2>
+<p>The css-engine emits per-component CSS into each component&#39;s <strong>shadow root</strong>
+(see <a href="#styling">Styling</a>). The utility rules inside a shadow root reference the
+tokens as <code>var(--color-primary)</code> etc. CSS custom properties <strong>inherit through
+the shadow boundary</strong>, so a pack declared once on <code>:root</code> (light) flows into
+every component on the page. There is no per-component theme wiring.</p>
+<p>The <code>dark:</code> variant works the same way: a utility like <code>dark:bg-surface</code>
+compiles to a rule gated on the <code>.dark</code> ancestor, and because the <code>.dark</code> block
+re-declares the <em>same</em> token names with dark values, the variant resolves to
+the dark token automatically.</p>
+<h2><code>defineStylePack()</code> — custom packs</h2>
+<p>External orgs declare their own pack against the same token-name contract with
+<code>defineStylePack()</code>. This is the stable, importable API (<code>import { defineStylePack } from &#39;@aihu/css-engine&#39;</code>). The built-in packs are themselves expressible through
+it — <code>defineStylePack()</code> is just the typed, programmatic form of the shipped CSS
+bundles.</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+
+const acme = defineStylePack({
+  name: &#39;acme&#39;,
+  tokens: { &#39;color-primary&#39;: &#39;#0a7&#39;, &#39;radius-md&#39;: &#39;6px&#39; },
+  dark: { &#39;color-primary&#39;: &#39;#3fc&#39; },
+})
+
+acme.toCss()
+// :root {
+//   --color-primary: #0a7;
+//   --radius-md: 6px;
+// }
+// .dark {
+//   --color-primary: #3fc;
+// }
+</code></pre>
+<p><code>defineStylePack({ name, tokens, dark })</code> returns a <code>StylePack</code> descriptor with:</p>
+<ul>
+<li><code>name</code> — the pack name (used for registration / debugging).</li>
+<li><code>tokens</code> — the light-theme <code>TokenMap</code> (the <code>:root</code> block).</li>
+<li><code>dark</code> — the dark-theme <code>TokenMap</code> (the <code>.dark</code> block); empty if you pass none.</li>
+<li><code>toCss()</code> — serialize to a <code>:root { … }</code> (+ <code>.dark { … }</code>) CSS string in the
+same shape as the shipped bundles.</li>
+</ul>
+<p>Token names are normalized whether or not you write the leading <code>--</code>
+(<code>&#39;color-accent&#39;</code> and <code>&#39;--color-accent&#39;</code> both emit <code>--color-accent</code>). An empty
+<code>name</code> or empty <code>tokens</code> map throws. Only declare the tokens you override —
+declare the full contract set (above) if you want a stand-alone pack with no
+dangling utilities.</p>
+<h2>Applying a pack</h2>
+<p>A pack is just a <code>:root { … }</code> (+ <code>.dark { … }</code>) stylesheet. You apply it by
+getting that CSS onto the page&#39;s <code>:root</code>, then toggling <code>.dark</code> for dark mode.
+There are two verified paths:</p>
+<p><strong>1. <code>defineStylePack().toCss()</code> (recommended — fully importable).</strong> Generate
+the CSS at build time or runtime and inject it. This path resolves cleanly
+through the package <code>exports</code>:</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+import { aihuDefaultTokens, aihuDefaultDark } from &#39;./tokens.ts&#39; // your token maps
+
+const pack = defineStylePack({ name: &#39;app&#39;, tokens: aihuDefaultTokens, dark: aihuDefaultDark })
+
+// e.g. emit into a &lt;style&gt; in your document head:
+const style = document.createElement(&#39;style&#39;)
+style.textContent = pack.toCss()
+document.head.appendChild(style)
+
+// dark mode: toggle the class the pack&#39;s \`.dark\` block targets
+document.documentElement.classList.toggle(&#39;dark&#39;)
+</code></pre>
+<p><strong>2. The shipped built-in CSS bundles.</strong> <code>aihu-default.css</code> and
+<code>aihu-graphite.css</code> are published in the package&#39;s <code>files</code> list and land on disk
+at <code>node_modules/@aihu/css-engine/styles/aihu-default.css</code> (and
+<code>…/aihu-graphite.css</code>). They are real, shippable stylesheets you can copy into
+your app or load directly by filesystem path.</p>
+<blockquote>
+<p><strong>Gap to know:</strong> these <code>styles/*.css</code> files are <strong>not</strong> declared in the
+package <code>exports</code> map (which exposes only <code>.</code>, <code>./runtime/cn</code>,
+<code>./runtime/progressive</code>). A bare <code>import &#39;@aihu/css-engine/styles/aihu-default.css&#39;</code>
+therefore fails with <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code>. To use a built-in pack
+today, either copy the file into your own assets, load it by its on-disk path,
+or reproduce its tokens via <code>defineStylePack()</code>. (The built-in packs are
+expressible through <code>defineStylePack()</code>, so path #1 covers every case without
+touching the unexported file.)</p>
+</blockquote>
+<h2>See also</h2>
+<ul>
+<li><a href="#styling">Styling</a> — the scoped-output model, WC-native variants, <code>cn()</code></li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
+<li><a href="#primitives">Primitives</a> — headless behaviors that consume these tokens</li>
 </ul>
 `,
   },

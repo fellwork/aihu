@@ -14,6 +14,7 @@
 - [Reactivity](https://aihu.dev/#reactivity): signal(), computed(), effect() — the push-based reactive core
 - [Authoring Agents](https://aihu.dev/#authoring-agents): @agent block, MCP tool schema generation, live-binding
 - [Styling](https://aihu.dev/#styling): @aihu/css-engine — Tailwind v4 hard fork, WC-native scoped output, cn(), style packs, build-time/zero-bundle
+- [Theming](https://aihu.dev/#theming): @aihu/css-engine design tokens — aihu-default / aihu-graphite style packs, defineStylePack() for custom orgs, :root + .dark emission
 - [Primitives](https://aihu.dev/#primitives): @aihu/primitives — headless WAI-ARIA APG behaviors (dialog, tooltip, button) as vanilla custom elements, zero CSS
 - [Routing & Layouts](https://aihu.dev/#routing-layouts): File-based routing with @route block and viteRouterIntegration
 - [Data Fetching](https://aihu.dev/#data-fetching): $resource macro and server loaders

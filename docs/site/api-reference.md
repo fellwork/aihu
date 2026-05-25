@@ -211,7 +211,7 @@ Tailwind v4 hard fork with WC-native scoped output. The main export is the build
 
 **Types:** `Placement`, `PositionOptions`
 
-**Built-in style packs:** `@aihu/css-engine/styles/aihu-default.css`, `@aihu/css-engine/styles/aihu-graphite.css`
+**Built-in style packs:** `aihu-default` and `aihu-graphite` ship as CSS bundles in the package `files` list (on disk at `node_modules/@aihu/css-engine/styles/*.css`). Note they are **not** declared in the package `exports` map, so a bare `import '@aihu/css-engine/styles/aihu-default.css'` fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` — copy the file or reproduce it via `defineStylePack()`. See [Theming](theming.md) for the verified access paths.
 
 ## @aihu/primitives
 
