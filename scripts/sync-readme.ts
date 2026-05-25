@@ -655,14 +655,27 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
   },
 }
 
+/**
+ * Platform packages live under `packages/<parent>/npm/<platform>/` and are named
+ * `@aihu/<parent>-<platform-triple>`. We ship two families today:
+ *   - `@aihu/server-<triple>`     → native napi `.node` renderer addon.
+ *   - `@aihu/css-engine-<triple>` → prebuilt `aihu-css-compile` CLI executable.
+ * Return the parent package name for a platform package, or null if not one.
+ */
+function platformParent(name: string): string | null {
+  const m = name.match(/^(@aihu\/(?:server|css-engine))-[a-z0-9-]+$/)
+  return m ? m[1] : null
+}
+
 function tierFor(name: string): TierInfo {
   if (PACKAGE_TIERS[name]) return PACKAGE_TIERS[name]
-  if (/^@aihu\/server-[a-z0-9-]+$/.test(name)) {
+  const parent = platformParent(name)
+  if (parent) {
     return {
       tier: 'platform',
-      label: 'Platform-specific native binary distributor for `@aihu/server`',
+      label: `Platform-specific native binary distributor for \`${parent}\``,
       seeAlso: [
-        { label: '@aihu/server', href: '../../README.md' },
+        { label: parent, href: '../../README.md' },
         { label: 'Aihu framework root', href: '../../../../README.md' },
       ],
     }
@@ -677,19 +690,20 @@ function tierFor(name: string): TierInfo {
 function genInstallSection(p: PkgInfo): SectionResult {
   const ti = tierFor(p.name)
   if (ti.tier === 'platform') {
+    const parent = platformParent(p.name) ?? '@aihu/server'
     const lines: string[] = []
     lines.push(
-      `This package is the platform-specific native binary distributor for [\`@aihu/server\`](../../README.md). You almost certainly do **not** need to install it directly — it is wired in as an \`optionalDependencies\` of \`@aihu/server\` and resolved automatically for the platform you are on.`,
+      `This package is the platform-specific native binary distributor for [\`${parent}\`](../../README.md). You almost certainly do **not** need to install it directly — it is wired in as an \`optionalDependencies\` of \`${parent}\` and resolved automatically for the platform you are on.`,
     )
     lines.push('')
     lines.push(`**Current platform support matrix:**`)
     lines.push('')
     lines.push(`| Triple | npm package |`)
     lines.push(`|---|---|`)
-    lines.push(`| \`darwin-arm64\` (Apple Silicon) | \`@aihu/server-darwin-arm64\` |`)
-    lines.push(`| \`darwin-x64\` (Intel macOS) | \`@aihu/server-darwin-x64\` |`)
-    lines.push(`| \`linux-x64-gnu\` (glibc Linux) | \`@aihu/server-linux-x64-gnu\` |`)
-    lines.push(`| \`win32-x64-msvc\` (Windows) | \`@aihu/server-win32-x64-msvc\` |`)
+    lines.push(`| \`darwin-arm64\` (Apple Silicon) | \`${parent}-darwin-arm64\` |`)
+    lines.push(`| \`darwin-x64\` (Intel macOS) | \`${parent}-darwin-x64\` |`)
+    lines.push(`| \`linux-x64-gnu\` (glibc Linux) | \`${parent}-linux-x64-gnu\` |`)
+    lines.push(`| \`win32-x64-msvc\` (Windows) | \`${parent}-win32-x64-msvc\` |`)
     lines.push('')
     lines.push(`If you genuinely need to install only this package (e.g. for an offline mirror):`)
     lines.push('')
@@ -896,8 +910,9 @@ function brandHeader(p: PkgInfo): string {
       `> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for \`@aihu/plugin\` enforcement).`,
     )
   } else if (ti.tier === 'platform') {
+    const parent = platformParent(p.name) ?? '@aihu/server'
     lines.push(
-      `Platform-specific native binary distributor for [\`@aihu/server\`](../../README.md). Installed automatically as an \`optionalDependencies\` of \`@aihu/server\` for users on this platform.`,
+      `Platform-specific native binary distributor for [\`${parent}\`](../../README.md). Installed automatically as an \`optionalDependencies\` of \`${parent}\` for users on this platform.`,
     )
   }
   return lines.join('\n')
@@ -1011,9 +1026,7 @@ function syncPackageReadme(
   // doesn't carry the brand block.
   const tooShort = existing ? existing.split('\n').length < 40 : true
   const hasBrandBlock = existing
-    ? /^# (@aihu\/[a-z-]+|vscode-aihu|@aihu\/server-[a-z0-9-]+)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(
-        existing,
-      )
+    ? /^# (@aihu\/[a-z0-9-]+|vscode-aihu)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(existing)
     : false
 
   let after: string

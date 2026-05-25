@@ -24,5 +24,5 @@ export default defineConfig({
     entryFileNames: '[name].js',
   },
   plugins: [dts()],
-  external: ['node:child_process', 'node:fs', 'node:path', 'node:url'],
+  external: ['node:child_process', 'node:fs', 'node:module', 'node:path', 'node:url'],
 })
