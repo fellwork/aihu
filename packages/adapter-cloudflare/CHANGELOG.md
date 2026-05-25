@@ -1,6 +1,6 @@
 # @aihu/adapter-cloudflare
 
-## 1.0.0
+## 0.1.10
 
 ### Patch Changes
 
@@ -16,7 +16,7 @@ pages dev` failed with `Could not resolve "./routes-manifest.js"` and CI fell
   emission (replacing the stub that masked the gap) and asserts the worker's
   import resolves.
 - Updated dependencies [[`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced), [`0628885`](https://github.com/fellwork/aihu/commit/0628885ae3948bf6432a44102f92a00ce60f040b), [`e1a6cfc`](https://github.com/fellwork/aihu/commit/e1a6cfcc9e50688592d580cd515b60c8faa50839)]:
-  - @aihu/app@1.0.0
+  - @aihu/app@0.2.0
 
 ## 0.1.9
 

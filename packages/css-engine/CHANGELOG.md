@@ -62,7 +62,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`574af6d`](https://github.com/fellwork/aihu/commit/574af6d4214889e9b3f7c407a42aa2e53252fddc), [`55298d5`](https://github.com/fellwork/aihu/commit/55298d51f9c6a3723a441d18a71b458e9f2cd035)]:
-  - @aihu/compiler@1.0.0
+  - @aihu/compiler@0.5.0
 
 ## 0.1.1
 

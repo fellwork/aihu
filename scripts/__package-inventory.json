@@ -13,25 +13,25 @@
   },
   {
     "name": "@aihu-plugin/drizzle",
-    "version": "0.2.0",
+    "version": "0.1.0",
     "dir": "packages/plugin-drizzle",
     "isPlatform": false
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "version": "0.3.0",
+    "version": "0.2.0",
     "dir": "packages/plugin-kindly-note",
     "isPlatform": false
   },
   {
     "name": "@aihu/adapter-cloudflare",
-    "version": "1.0.0",
+    "version": "0.1.10",
     "dir": "packages/adapter-cloudflare",
     "isPlatform": false
   },
   {
     "name": "@aihu/adapter-vercel",
-    "version": "1.0.0",
+    "version": "0.1.9",
     "dir": "packages/adapter-vercel",
     "isPlatform": false
   },
@@ -55,7 +55,7 @@
   },
   {
     "name": "@aihu/agent-readiness",
-    "version": "2.0.3",
+    "version": "2.0.2",
     "dir": "packages/_moved/agent-readiness",
     "isPlatform": false
   },
@@ -73,7 +73,7 @@
   },
   {
     "name": "@aihu/app",
-    "version": "1.0.0",
+    "version": "0.2.0",
     "dir": "packages/app",
     "isPlatform": false
   },
@@ -97,7 +97,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "1.0.0",
+    "version": "0.5.0",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -145,7 +145,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.2.0",
+    "version": "0.1.0",
     "dir": "packages/language-server",
     "isPlatform": false
   },

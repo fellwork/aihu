@@ -167,7 +167,7 @@ npm install @aihu-plugin/kindly-note
 bun add @aihu-plugin/kindly-note
 ```
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -178,12 +178,13 @@ bun add @aihu-plugin/kindly-note
 
 | | |
 |---|---|
-| **Version** | `0.3.0` |
+| **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
+| **Bundle size** | 1.66 kB (gz) — limit 1850 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -196,7 +197,7 @@ bun add @aihu-plugin/kindly-note
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -216,7 +217,7 @@ bun add @aihu-plugin/kindly-note
 - `@kindly-note/loader-dynamic-import` — `^0.1.0`
 - `@kindly-note/render-markdown` — `^0.1.0`
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -228,7 +229,7 @@ bun add @aihu-plugin/kindly-note
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -239,6 +240,6 @@ bun add @aihu-plugin/kindly-note
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.3.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
