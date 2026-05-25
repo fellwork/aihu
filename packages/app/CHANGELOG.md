@@ -1,5 +1,13 @@
 # @aihu/app
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [[`faca280`](https://github.com/fellwork/aihu/commit/faca2804cf62c05ffc90ef867faa2058b5e267ad)]:
+  - @aihu/runtime@0.1.5
+  - @aihu/router@0.1.4
+
 ## 0.1.7
 
 ### Patch Changes

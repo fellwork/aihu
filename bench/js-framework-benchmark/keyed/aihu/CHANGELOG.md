@@ -1,5 +1,12 @@
 # js-framework-benchmark-aihu
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [[`faca280`](https://github.com/fellwork/aihu/commit/faca2804cf62c05ffc90ef867faa2058b5e267ad)]:
+  - @aihu/runtime@0.1.5
+
 ## 0.1.2
 
 ### Patch Changes

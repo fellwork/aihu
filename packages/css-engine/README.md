@@ -49,7 +49,7 @@ npm install @aihu/css-engine
 bun add @aihu/css-engine
 ```
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -60,12 +60,12 @@ bun add @aihu/css-engine
 
 | | |
 |---|---|
-| **Version** | `0.0.0` |
+| **Version** | `0.1.0` |
 | **Tier** | D — Compiler — CSS engine (Tailwind v4 hard fork, WC-native scoped output) |
 | **Published files** | 5 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -80,7 +80,7 @@ bun add @aihu/css-engine
 | `./runtime/cn` | `./dist/runtime/cn.js` | `—` |
 | `./runtime/progressive` | `./dist/runtime/progressive.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -93,7 +93,7 @@ bun add @aihu/css-engine
 
 - `@aihu/compiler` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -106,7 +106,7 @@ bun add @aihu/css-engine
 - [@aihu/compiler](../compiler)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -117,6 +117,6 @@ bun add @aihu/css-engine
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/css-engine@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/css-engine@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
