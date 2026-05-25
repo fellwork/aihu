@@ -77,6 +77,10 @@ bun add @aihu/css-engine
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./packs` | `./dist/packs.js` | `—` |
+| `./styles/aihu-default.css` | `./styles/aihu-default.css` | — |
+| `./styles/aihu-graphite.css` | `./styles/aihu-graphite.css` | — |
+| `./styles/*` | `./styles/*` | — |
 | `./runtime/cn` | `./dist/runtime/cn.js` | `—` |
 | `./runtime/progressive` | `./dist/runtime/progressive.js` | `—` |
 

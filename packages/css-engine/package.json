@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./packs": {
+      "types": "./dist/packs.d.ts",
+      "import": "./dist/packs.js",
+      "default": "./dist/packs.js"
+    },
+    "./styles/aihu-default.css": "./styles/aihu-default.css",
+    "./styles/aihu-graphite.css": "./styles/aihu-graphite.css",
+    "./styles/*": "./styles/*",
     "./runtime/cn": {
       "types": "./dist/runtime/cn.d.ts",
       "import": "./dist/runtime/cn.js"
@@ -32,13 +40,14 @@
     "@aihu/compiler": "workspace:*"
   },
   "scripts": {
-    "build": "rolldown -c",
+    "build": "bun run gen:style-packs && rolldown -c",
     "build:rust": "cargo build --release -p aihu-css-core",
     "gen:cn-map": "bun scripts/gen-cn-conflict-map.ts",
+    "gen:style-packs": "bun scripts/gen-style-packs.ts",
     "test": "vitest run",
     "test:rust": "cargo test -p aihu-css-core",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run build:rust && bun run gen:cn-map && bun run build"
+    "prepublishOnly": "bun run build:rust && bun run gen:cn-map && bun run gen:style-packs && bun run build"
   },
   "description": "aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output.",
   "repository": {

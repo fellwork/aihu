@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { compile } from '../src/index.ts'
+import { aihuDefault, aihuGraphite, builtinPacks } from '../src/packs.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const stylesDir = resolve(__dirname, '../styles')
@@ -103,5 +104,41 @@ describe('@aihu/css-engine — style packs are interchangeable', () => {
     }
     // Graphite color tokens are monochrome oklch (chroma 0).
     expect(gra.get('--color-primary')).toContain('oklch')
+  })
+})
+
+// The shipped `styles/*.css` bundles are GENERATED from the `src/packs.ts`
+// StylePack objects (the source of truth) via `bun run gen:style-packs`. This
+// proves the two consumer access paths — the `./packs` JS object and the
+// `./styles/*.css` import — can never drift: the file is exactly `toCss()`.
+describe('@aihu/css-engine — built-in packs ↔ shipped CSS parity', () => {
+  it('aihuDefault.toCss() byte-equals styles/aihu-default.css', () => {
+    expect(aihuDefault.toCss()).toBe(readPack('aihu-default.css'))
+  })
+
+  it('aihuGraphite.toCss() byte-equals styles/aihu-graphite.css', () => {
+    expect(aihuGraphite.toCss()).toBe(readPack('aihu-graphite.css'))
+  })
+
+  it('built-in packs are the same defineStylePack() shape external orgs use', () => {
+    // `aihuDefault` / `aihuGraphite` are produced by `defineStylePack()`, so the
+    // built-ins carry no privileged shape: tokens map, dark map, toCss().
+    expect(aihuDefault.name).toBe('aihu-default')
+    expect(aihuGraphite.name).toBe('aihu-graphite')
+    expect(aihuDefault.tokens['color-accent']).toBe('#c8543a')
+    expect(aihuGraphite.tokens['color-accent']).toBe('oklch(0.35 0 0)')
+    expect(aihuDefault.toCss()).toContain(':root {')
+    expect(aihuDefault.toCss()).toContain('.dark {')
+  })
+
+  it('exposes both packs via the builtinPacks registry, keyed by name', () => {
+    expect(Object.keys(builtinPacks).sort()).toEqual(['aihu-default', 'aihu-graphite'])
+    expect(builtinPacks['aihu-default']).toBe(aihuDefault)
+    expect(builtinPacks['aihu-graphite']).toBe(aihuGraphite)
+  })
+
+  it('both packs declare the SAME token names (interchangeable)', () => {
+    expect(Object.keys(aihuGraphite.tokens).sort()).toEqual(Object.keys(aihuDefault.tokens).sort())
+    expect(Object.keys(aihuGraphite.dark).sort()).toEqual(Object.keys(aihuDefault.dark).sort())
   })
 })
