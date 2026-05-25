@@ -471,3 +471,87 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
     el.remove()
   })
 })
+
+// Bug 6 (r1): a throw from setup()/render at mount used to escape into the
+// platform custom-element-reactions queue — surfacing only as a bare anonymous
+// "Uncaught" with NO component-tag attribution, and leaving the shadow root
+// empty (the throw aborts before _mount runs). The fix wraps both
+// connectedCallback bodies in catch-log-rethrow: console.error WITH the tag,
+// then re-throw to preserve fail-loud behavior.
+//
+// As with T5 above, these tests instantiate via document.createElement(tag) +
+// a DIRECT connectedCallback() call inside try/catch — jsdom turns synchronous
+// connectedCallback throws into unhandled exceptions rather than propagating
+// them through appendChild, so the direct call is how we observe the throw.
+describe('defineComponent — Bug 6: surface setup throws with component tag', () => {
+  it('B6-1: function-form setup-throws → console.error contains tag, rethrows, empty shadow', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const boom = () => {
+        throw new ReferenceError('active is not defined')
+      }
+      const Cmp = defineComponent(() => boom())
+      defineElement('x-b6-fn', Cmp)
+      const el = document.createElement('x-b6-fn') as HTMLElement & { connectedCallback(): void }
+
+      // The throw must still propagate (fail-loud preserved).
+      expect(() => el.connectedCallback()).toThrow(ReferenceError)
+
+      // console.error fired WITH the offending tag for attribution.
+      expect(errSpy).toHaveBeenCalled()
+      const loggedWithTag = errSpy.mock.calls.some(
+        (args) => typeof args[0] === 'string' && args[0].includes('x-b6-fn'),
+      )
+      expect(loggedWithTag).toBe(true)
+
+      // Shadow root is left empty (unchanged behavior — throw aborts before mount).
+      expect(el.shadowRoot?.childNodes.length ?? 0).toBe(0)
+    } finally {
+      errSpy.mockRestore()
+    }
+  })
+
+  it('B6-2: options/props-form setup-throws → console.error contains tag, rethrows, empty shadow', () => {
+    _setSignal(signal)
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const Cmp = defineComponent({
+        props: { active: { value: '' } },
+        setup: () => {
+          throw new ReferenceError('active is not defined')
+        },
+      })
+      defineElement('x-b6-props', Cmp)
+      const el = document.createElement('x-b6-props') as HTMLElement & { connectedCallback(): void }
+
+      expect(() => el.connectedCallback()).toThrow(ReferenceError)
+
+      expect(errSpy).toHaveBeenCalled()
+      const loggedWithTag = errSpy.mock.calls.some(
+        (args) => typeof args[0] === 'string' && args[0].includes('x-b6-props'),
+      )
+      expect(loggedWithTag).toBe(true)
+
+      expect(el.shadowRoot?.childNodes.length ?? 0).toBe(0)
+    } finally {
+      errSpy.mockRestore()
+    }
+  })
+
+  it('B6-3: regression — SCR-R0002 invariant still propagates (catch does not swallow it)', () => {
+    // SCR-R0002 ("no mount") is thrown BEFORE the try block, so it must still
+    // propagate as a RuntimeError when _mount was never injected.
+    const realMount = mount
+    // Force the "no mount" state by resetting the injected mount to null.
+    _setMount(null as unknown as typeof mount)
+    try {
+      const Cmp = defineComponent(() => leaf('never-mounts'))
+      defineElement('x-b6-r0002', Cmp)
+      const el = document.createElement('x-b6-r0002') as HTMLElement & { connectedCallback(): void }
+      expect(() => el.connectedCallback()).toThrow(RuntimeError)
+    } finally {
+      // Restore mount injection for any subsequent file/test.
+      _setMount(realMount)
+    }
+  })
+})

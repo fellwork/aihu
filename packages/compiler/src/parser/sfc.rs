@@ -1,5 +1,5 @@
 use crate::types::{CompileError, RouteBlock, AihuSource, ScriptMeta, StyleBlock, StyleScope};
-use crate::codegen::signals::resolve_signals;
+use crate::codegen::signals::collect_state_decls;
 
 /// Count newlines before `pos` to derive a 1-based line number.
 fn line_at(source: &str, pos: usize) -> usize {
@@ -409,33 +409,113 @@ const JS_GLOBALS: &[&str] = &[
 ];
 
 /// Emit a warning (to stderr) for template interpolations that reference names
-/// not found in the state signal map and not in the JS globals list.
+/// not declared in `@state` and not in the JS globals list.
 ///
-/// Per v0.3.5: this is a WARNING only (not a compile error). Full errors are v0.4+.
-fn warn_undeclared_template_refs(template: &str, signal_map: &crate::codegen::signals::SignalMap) {
-    // Find all `{{ name }}` interpolations in the template body.
-    let mut pos = 0;
-    while let Some(start) = template[pos..].find("{{") {
-        let abs_start = pos + start;
-        if let Some(end_rel) = template[abs_start + 2..].find("}}") {
-            let inner = template[abs_start + 2..abs_start + 2 + end_rel].trim();
-            // Only flag simple identifiers, not expressions.
-            if inner.chars().all(|c| c.is_alphanumeric() || c == '_') && !inner.is_empty() {
-                let in_signals = signal_map.0.contains_key(inner);
-                let in_globals = JS_GLOBALS.contains(&inner);
-                if !in_signals && !in_globals {
-                    eprintln!(
-                        "warning: '@template' references '{}' which is not declared in '@state'. \
-                         Undeclared cross-block references will become errors in v0.4.",
-                        inner
-                    );
+/// Per v0.3.5: this is a WARNING only (not a compile error). Full errors are
+/// v0.4+ — so correctness matters: a false positive here will reject a valid
+/// app once it becomes a hard error.
+///
+/// Bug 7 (06cb46b1 / 17f5394b): the `declared` set is now the full
+/// `collect_state_decls` symbol set — `$prop:` keys, `$computed:` keys, plain
+/// `@state` const/let bindings, plus `$action`/`$resource`/`$stream`/
+/// `$controller`/`$route` names — so correctly-migrated code does NOT warn.
+/// The scan also covers v1 single-curly `{ expr }` interpolations/bindings, not
+/// only legacy `{{ }}`.
+fn warn_undeclared_template_refs(
+    template: &str,
+    declared: &crate::codegen::signals::StateDecls,
+) {
+    for name in collect_undeclared_template_refs(template, declared) {
+        warn_undeclared(&name);
+    }
+}
+
+/// Pure collector: returns the (in source order) names that `@template`
+/// references but `@state` does not declare. Drives `warn_undeclared_template_refs`
+/// and is exercised directly by unit tests (stderr is awkward to assert on).
+///
+/// Scans BOTH legacy double-curly `{{ name }}` and v1 single-curly `{ expr }`
+/// interpolations/bindings. Only BARE simple identifiers are flagged — any
+/// operator, dot, paren, quote, comma, or colon inside the braces means it's an
+/// expression or object literal (not a cross-block reference) and is left alone,
+/// so the pass cannot misfire on `{count + 1}`, `{ {a:1} }`, `{obj.x}`, etc.
+pub(crate) fn collect_undeclared_template_refs(
+    template: &str,
+    declared: &crate::codegen::signals::StateDecls,
+) -> Vec<String> {
+    let is_declared = |name: &str| -> bool {
+        declared.all.contains(name) || JS_GLOBALS.contains(&name)
+    };
+    let mut out: Vec<String> = Vec::new();
+
+    let bytes = template.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            let next = bytes.get(i + 1).copied();
+            // Double-curly `{{ name }}` — read to the matching `}}`.
+            if next == Some(b'{') {
+                if let Some(end_rel) = template[i + 2..].find("}}") {
+                    let inner = template[i + 2..i + 2 + end_rel].trim();
+                    if is_simple_ident(inner) && !is_declared(inner) {
+                        out.push(inner.to_string());
+                    }
+                    i = i + 2 + end_rel + 2;
+                    continue;
+                } else {
+                    break; // unclosed
                 }
             }
-            pos = abs_start + 2 + end_rel + 2;
-        } else {
-            break;
+            // Block-tag forms `{#`, `{:`, `{/`, `{@` — not interpolations.
+            if matches!(next, Some(b'#') | Some(b':') | Some(b'/') | Some(b'@')) {
+                i += 1;
+                continue;
+            }
+            // Single-curly `{ expr }` — brace-balanced read to the matching `}`
+            // (mirrors the template parser's `parse_expr_interpolation`).
+            let mut depth = 1usize;
+            let mut j = i + 1;
+            while j < bytes.len() {
+                match bytes[j] {
+                    b'{' => depth += 1,
+                    b'}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
+            if depth != 0 {
+                break; // unbalanced — leave the rest alone
+            }
+            let inner = template[i + 1..j].trim();
+            if is_simple_ident(inner) && !is_declared(inner) {
+                out.push(inner.to_string());
+            }
+            i = j + 1;
+            continue;
         }
+        i += 1;
     }
+    out
+}
+
+/// A "simple identifier" worth flagging: non-empty, all `[A-Za-z0-9_]`. Anything
+/// containing operators/dots/parens/braces is an expression (or object literal),
+/// not a bare cross-block reference, and is deliberately not flagged.
+fn is_simple_ident(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+fn warn_undeclared(name: &str) {
+    eprintln!(
+        "warning: '@template' references '{}' which is not declared in '@state'. \
+         Undeclared cross-block references will become errors in v0.4.",
+        name
+    );
 }
 
 /// Parse the body of an `@route { … }` block into a `RouteBlock`.
@@ -794,8 +874,11 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
     // After all blocks are parsed, warn about template references not in @state.
     // This is a simplified implementation — warnings only (full errors are v0.4+).
     if let Some(tmpl) = template {
-        let sig_map = resolve_signals(script.unwrap_or(""));
-        warn_undeclared_template_refs(tmpl, &sig_map);
+        // Bug 7: the declared-symbol set is the full @state symbol table
+        // (collect_state_decls), so $prop/$computed/plain-const all count as
+        // declared. Both `{{ }}` and `{ }` interpolations are scanned.
+        let decls = collect_state_decls(script.unwrap_or(""));
+        warn_undeclared_template_refs(tmpl, &decls);
     }
 
     let agent = if let Some(raw) = agent_raw {
@@ -813,4 +896,88 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
         route,
         stream: None, // v0.4.0: @stream block parsing deferred to stream_macros module
     })
+}
+
+#[cfg(test)]
+mod crossblock_warn_tests {
+    use super::*;
+    use crate::codegen::signals::collect_state_decls;
+
+    fn undeclared(state: &str, template: &str) -> Vec<String> {
+        let decls = collect_state_decls(state);
+        collect_undeclared_template_refs(template, &decls)
+    }
+
+    // ─── Bug 7 — valid migrated code does NOT warn ───────────────────────────
+
+    #[test]
+    fn migrated_prop_plus_computed_single_curly_no_warning() {
+        // The report's exact repro: $prop + $computed, single-curly binding.
+        let state = "\
+$prop: { active: { default: '', type: \"string\" } }
+$computed: { cls: () => active() === 'home' ? 'on' : '' }";
+        let warnings = undeclared(state, "<a $class={cls}>Home</a>");
+        assert!(warnings.is_empty(), "valid migrated code must not warn: {warnings:?}");
+    }
+
+    #[test]
+    fn plain_const_single_curly_no_warning() {
+        let state = "const greeting = 'hello'";
+        let warnings = undeclared(state, "<p>{greeting}</p>");
+        assert!(warnings.is_empty(), "declared plain const must not warn: {warnings:?}");
+    }
+
+    // ─── Bug 7 — genuinely undeclared refs STILL warn (not neutered) ─────────
+
+    #[test]
+    fn genuinely_undeclared_single_curly_still_warns() {
+        let state = "$prop: { active: { default: '' } }";
+        let warnings = undeclared(state, "<a $class={nope}>Home</a>");
+        assert_eq!(warnings, vec!["nope".to_string()]);
+    }
+
+    #[test]
+    fn genuinely_undeclared_double_curly_still_warns() {
+        let state = "const [count, setCount] = signal(0)";
+        // count declared (legacy signal); undeclaredName is not.
+        let warnings = undeclared(state, "<div>{{ count }} {{ undeclaredName }}</div>");
+        assert_eq!(warnings, vec!["undeclaredName".to_string()]);
+    }
+
+    // ─── Bug 7 (b) — single-curly is now SCANNED (was blind before) ──────────
+
+    #[test]
+    fn single_curly_is_scanned_not_ignored() {
+        // Before the fix the pass only looked at `{{ }}`; a bare single-curly
+        // undeclared ref was invisible. Now it is caught.
+        let warnings = undeclared("", "<span>{lonelyRef}</span>");
+        assert_eq!(warnings, vec!["lonelyRef".to_string()]);
+    }
+
+    // ─── Bug 7 — must NOT misfire on non-interpolation braces ────────────────
+
+    #[test]
+    fn expression_and_object_braces_do_not_warn() {
+        // Expressions (operators/dots/parens) and object literals are not bare
+        // cross-block references — they must not be flagged.
+        let state = "const a = 1";
+        assert!(undeclared(state, "<div>{a + 1}</div>").is_empty(), "expr not flagged");
+        assert!(undeclared(state, "<div>{obj.field}</div>").is_empty(), "member not flagged");
+        assert!(undeclared(state, "<div>{ {k: 1} }</div>").is_empty(), "object literal not flagged");
+        assert!(undeclared(state, "<div>{fn(x)}</div>").is_empty(), "call not flagged");
+    }
+
+    #[test]
+    fn block_tag_braces_are_not_interpolations() {
+        // `{#if}` / `{:else}` / `{/if}` / `{@html}` must not be scanned as refs.
+        let state = "const cond = true";
+        let warnings = undeclared(state, "{#if cond}<p>hi</p>{:else}<p>no</p>{/if}");
+        assert!(warnings.is_empty(), "block tags must not warn: {warnings:?}");
+    }
+
+    #[test]
+    fn js_globals_are_not_flagged() {
+        let warnings = undeclared("", "<p>{undefined}</p>");
+        assert!(warnings.is_empty(), "JS globals must not warn: {warnings:?}");
+    }
 }
