@@ -1,117 +1,117 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": 242,
+    "bytes": 248,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": 1746,
+    "bytes": 1787,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2674,
+    "bytes": 2722,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3353,
+    "bytes": 3433,
     "limit": "3400 B"
   },
   {
     "name": "@aihu/agent",
-    "bytes": 141,
+    "bytes": 142,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 756,
+    "bytes": 774,
     "limit": "800 B"
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": 1323,
+    "bytes": 1402,
     "limit": "1500 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": 2001,
+    "bytes": 2067,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 1077,
+    "bytes": 1087,
     "limit": "1100 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 586,
+    "bytes": 591,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 718,
+    "bytes": 721,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 789,
+    "bytes": 800,
     "limit": "800 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": 579,
+    "bytes": 585,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": 718,
+    "bytes": 733,
     "limit": "3 KB"
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": 430,
+    "bytes": 437,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": 801,
+    "bytes": 813,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": 1026,
+    "bytes": 1052,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": 758,
+    "bytes": 770,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": 1442,
+    "bytes": 1482,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": 516,
+    "bytes": 530,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2018,
+    "bytes": 2079,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": 1841,
+    "bytes": 1876,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": 1133,
+    "bytes": 1154,
     "limit": "4 KB"
   }
 ]

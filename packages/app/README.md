@@ -34,7 +34,7 @@ bun add @aihu/app
 |---|---|
 | **Version** | `0.1.9` |
 | **Tier** | B — Meta-framework — top-level integration of runtime, router, adapter |
-| **Bundle size** | 789 B (gz) — limit 800 B |
+| **Bundle size** | 800 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

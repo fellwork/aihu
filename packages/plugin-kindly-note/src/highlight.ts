@@ -17,9 +17,14 @@
  * HTML is not.
  */
 
-import { createHighlighter, type Highlighter, type LanguageDefinition } from '@kindly-note/core'
-import { htmlEmitter } from '@kindly-note/emitters-html'
-import { createDynamicImportLoader } from '@kindly-note/loader-dynamic-import'
+// Type-only imports are erased at compile time, so they add NO runtime import
+// of `@kindly-note/*` to the built dist. The VALUE imports (`createHighlighter`,
+// `htmlEmitter`, `createDynamicImportLoader`) are loaded LAZILY via dynamic
+// `import()` inside the accessor functions below — see the "Lazy peer loading"
+// note. This keeps merely importing `@aihu-plugin/kindly-note` (and defining
+// `<aihu-code>`) free of any hard dependency on the `@kindly-note/*` peers:
+// they are only resolved when `highlight()` actually runs.
+import type { Highlighter, LanguageDefinition } from '@kindly-note/core'
 
 /** Result of a single highlight call. Mirrors the load-bearing fields of
  *  kindly-note's `HighlightResult`, narrowed to the HTML-emitter shape. */
@@ -38,20 +43,42 @@ export interface HighlightOutput {
 // Module-singleton highlighter + lazy language registry
 // ---------------------------------------------------------------------------
 
+// Lazy peer loading: `@kindly-note/core` + `emitters-html` + `loader-dynamic-import`
+// are imported with `await import()` here, NOT at module top level. This is what
+// makes importing the package (and defining <aihu-code>) safe without the
+// `@kindly-note/*` peers installed — they are resolved only on the first
+// highlight() / ensureLanguage() call. Mirrors the lazy `lang-*` strategy.
+
+// The loader factory's return type, derived from the lazily-imported module so
+// we never need a top-level value import of `@kindly-note/loader-dynamic-import`.
+// `import('…')` in type position is erased from the runtime build.
+type CreateDynamicImportLoader =
+  typeof import('@kindly-note/loader-dynamic-import')['createDynamicImportLoader']
+type DynamicImportLoader = ReturnType<CreateDynamicImportLoader>
+
 // One highlighter instance, shared across all highlight() calls and every
 // <aihu-code> element on the page. The htmlEmitter gives `kn-`-prefixed scoped
-// spans matching @kindly-note/themes-default.
+// spans matching @kindly-note/themes-default. Built lazily on first use.
 let _highlighter: Highlighter | undefined
-function highlighter(): Highlighter {
+async function highlighter(): Promise<Highlighter> {
+  if (_highlighter) return _highlighter
+  const [{ createHighlighter }, { htmlEmitter }] = await Promise.all([
+    import('@kindly-note/core'),
+    import('@kindly-note/emitters-html'),
+  ])
   return (_highlighter ??= createHighlighter({ emitter: htmlEmitter }))
 }
 
 // The dynamic-import loader. Default resolution maps `'rust'` →
 // `@kindly-note/lang-rust`, and passes through anything that already looks like
 // a package path. We never statically import a `lang-*` package, so the bundler
-// cannot eagerly pull them in — each is fetched on first use.
-let _loader: ReturnType<typeof createDynamicImportLoader> | undefined
-function loader(): ReturnType<typeof createDynamicImportLoader> {
+// cannot eagerly pull them in — each is fetched on first use. The loader factory
+// itself is now lazy-imported too, so this package no longer hard-requires
+// `@kindly-note/loader-dynamic-import` to be installed at import time.
+let _loader: DynamicImportLoader | undefined
+async function loader(): Promise<DynamicImportLoader> {
+  if (_loader) return _loader
+  const { createDynamicImportLoader } = await import('@kindly-note/loader-dynamic-import')
   return (_loader ??= createDynamicImportLoader())
 }
 
@@ -100,8 +127,9 @@ export async function ensureLanguage(lang: string): Promise<string | null> {
 
   const load = (async (): Promise<string | null> => {
     try {
-      const def: LanguageDefinition<unknown> = await loader().load(slug)
-      const handle = highlighter().registerLanguage(def)
+      const [resolvedLoader, resolvedHighlighter] = await Promise.all([loader(), highlighter()])
+      const def: LanguageDefinition<unknown> = await resolvedLoader.load(slug)
+      const handle = resolvedHighlighter.registerLanguage(def)
       return handle.definition.name
     } catch {
       // Unknown / unresolvable language id. Swallow — highlight() falls back to
@@ -150,7 +178,7 @@ export async function highlight(source: string, lang: string): Promise<Highlight
   if (canonical == null) {
     return { html: escapeHtml(source), language: undefined, fallback: true }
   }
-  const result = highlighter().highlight(source, { language: lang })
+  const result = (await highlighter()).highlight(source, { language: lang })
   return { html: result.value, language: result.language ?? canonical, fallback: false }
 }
 

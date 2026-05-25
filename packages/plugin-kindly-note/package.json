@@ -30,6 +30,17 @@
     "@kindly-note/emitters-html": "^0.1.0",
     "@kindly-note/loader-dynamic-import": "^0.1.0"
   },
+  "peerDependenciesMeta": {
+    "@kindly-note/core": {
+      "optional": true
+    },
+    "@kindly-note/emitters-html": {
+      "optional": true
+    },
+    "@kindly-note/loader-dynamic-import": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@aihu/signals": "workspace:*"
   },

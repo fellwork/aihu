@@ -11,10 +11,22 @@ beforeEach(() => {
   __resetHighlighterState()
 })
 
-/** Wait for the element's async highlight() to land (microtask + lazy import). */
-async function settle(): Promise<void> {
-  for (let i = 0; i < 8; i++) await Promise.resolve()
-  await new Promise((r) => setTimeout(r, 0))
+/**
+ * Wait for the element's async highlight() to land. The render path now has
+ * several async hops: the lazy `import()` of `@kindly-note/core` +
+ * `emitters-html` + `loader-dynamic-import` (peers are dynamically imported so
+ * the package is import-safe without them), the lazy `lang-*` tokenizer load,
+ * and the highlighter call itself. A fixed turn count is brittle against that,
+ * so poll a predicate until it holds (or a generous bound elapses).
+ */
+async function settle(predicate?: () => boolean): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    await Promise.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    if (predicate?.() ?? false) return
+  }
+  // Final drain for predicate-less callers (e.g. the fallback path that paints
+  // plain text and never produces a span).
   for (let i = 0; i < 8; i++) await Promise.resolve()
 }
 
@@ -32,7 +44,7 @@ describe('<aihu-code> custom element', () => {
     el.textContent = '{"a": 1}'
     document.body.appendChild(el)
 
-    await settle()
+    await settle(() => el.querySelector('code')?.querySelector('span') != null)
 
     const code = el.querySelector('code')
     expect(code).not.toBeNull()
@@ -54,13 +66,13 @@ describe('<aihu-code> custom element', () => {
     el.code = getCode // pass the signal reader → element subscribes
     document.body.appendChild(el)
 
-    await settle()
+    await settle(() => el.querySelector('code')?.innerHTML.includes('kn-keyword') ?? false)
     const code = el.querySelector('code')
     expect(code?.innerHTML).toContain('<span class="kn-keyword">const</span>')
 
     // Mutate the signal — the element's effect re-runs and re-highlights.
     setCode('let b = 2')
-    await settle()
+    await settle(() => el.querySelector('code')?.innerHTML.includes('let') ?? false)
     expect(code?.innerHTML).toContain('<span class="kn-keyword">let</span>')
     expect(code?.innerHTML).not.toContain('const')
 
