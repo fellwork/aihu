@@ -6,7 +6,14 @@ export default defineConfig({
   define: { __DEV__: 'true' },
   test: {
     environment: 'jsdom',
-    include: ['packages/*/tests/**/*.test.ts', 'tests/**/*.test.ts', 'cookbook/**/*.test.ts'],
+    include: [
+      'packages/*/tests/**/*.test.ts',
+      // @aihu/primitives colocates keyboard/apg conformance tests next to each
+      // primitive's source (src/<primitive>/*.test.ts), per the Plan 4 layout.
+      'packages/*/src/**/*.test.ts',
+      'tests/**/*.test.ts',
+      'cookbook/**/*.test.ts',
+    ],
     // B3b sidecar-tsc tests require a separately compiled tsc binary pass — excluded until B3b lands.
     // legacy-snapshot freeze is tracked separately (regeneration required after template changes).
     exclude: [
@@ -54,6 +61,14 @@ export default defineConfig({
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
       '@aihu/auth': new URL('./packages/auth/src/index.ts', import.meta.url).pathname,
+      // @aihu/primitives + the css-engine progressive shim it reuses (tooltip's
+      // position() source import). Aliased to src so primitives tests run
+      // without a prior dist build of either package.
+      '@aihu/primitives': new URL('./packages/primitives/src/index.ts', import.meta.url).pathname,
+      '@aihu/css-engine/runtime/progressive': new URL(
+        './packages/css-engine/src/runtime/progressive.ts',
+        import.meta.url,
+      ).pathname,
       'virtual:aihu-routes': new URL(
         './packages/app/tests/__stubs__/aihu-routes.ts',
         import.meta.url,

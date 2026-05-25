@@ -1,0 +1,79 @@
+{
+  "name": "@aihu/primitives",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./context": {
+      "types": "./dist/dom-context.d.ts",
+      "import": "./dist/dom-context.js"
+    },
+    "./presence-gate": {
+      "types": "./dist/presence-gate.d.ts",
+      "import": "./dist/presence-gate.js"
+    },
+    "./form-control": {
+      "types": "./dist/form-control.d.ts",
+      "import": "./dist/form-control.js"
+    },
+    "./config-provider": {
+      "types": "./dist/config-provider.d.ts",
+      "import": "./dist/config-provider.js"
+    },
+    "./roving-focus": {
+      "types": "./dist/roving-focus.d.ts",
+      "import": "./dist/roving-focus.js"
+    },
+    "./collection": {
+      "types": "./dist/collection.d.ts",
+      "import": "./dist/collection.js"
+    },
+    "./dialog": {
+      "types": "./dist/dialog.d.ts",
+      "import": "./dist/dialog.js"
+    },
+    "./tooltip": {
+      "types": "./dist/tooltip.d.ts",
+      "import": "./dist/tooltip.js"
+    },
+    "./button": {
+      "types": "./dist/button.d.ts",
+      "import": "./dist/button.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@aihu/signals": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/css-engine": "workspace:*"
+  },
+  "scripts": {
+    "build": "rolldown -c",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "description": "aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/primitives"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/primitives#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}
