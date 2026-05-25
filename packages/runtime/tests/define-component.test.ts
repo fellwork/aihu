@@ -472,6 +472,252 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
   })
 })
 
+// ─── Bug: pre-connect reactive $prop binding dropped ─────────────────────────
+//
+// Root cause: arbor's _materialize applies reactive `$prop` bindings via
+// `el.prop = v` the instant the element is created — BEFORE it is appended /
+// connected. At that point the prop setter ran `this[PROPS_SYM]?.[name]?.set(v)`
+// but PROPS_SYM is null until _build() (called from connectedCallback), so the
+// optional-chain no-opped and the write was silently dropped. _build() then
+// seeded the signal from getAttribute (never set — property path was taken) →
+// the prop reverted to its declared default. For static content whose source
+// signal never changes after mount, the bound value never arrived.
+//
+// Fix: buffer pre-connect property writes per prop, then drain them in _build()
+// where the buffered value takes precedence over the attribute/default fallback
+// (no stringification — non-string props survive intact).
+//
+// These tests reproduce the arbor pre-connect ordering directly: assign the
+// property to a created-but-not-yet-connected element, THEN append it. They
+// also cover the layout-`<$slot>` shape (the element is a child appended into a
+// wrapper before the wrapper connects) and the nested-direct shape.
+describe('defineComponent — pre-connect reactive $prop binding', () => {
+  it('PC1 (nested-direct): $prop set before connect arrives at first render', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    // Render the prop reactively by wrapping its getter in a Signal tuple so the
+    // shadow DOM reflects the value (leaf() consumes a [read, write] tuple).
+    const Cmp = defineComponent({
+      props: { body: { value: '' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        const render: Signal<string> = [
+          ctx.props.body as () => string,
+          () => {},
+        ] as unknown as Signal<string>
+        return leaf(render)
+      },
+    })
+    defineElement('x-pc1', Cmp)
+    // Pre-connect property write (what arbor's _materialize does via el.prop=v
+    // before host.appendChild).
+    const el = document.createElement('x-pc1') as HTMLElement & { body: string }
+    el.body = '<p>hello</p>'
+    expect(el.isConnected).toBe(false)
+    // Now connect — _build() must seed the signal from the buffered write.
+    document.body.appendChild(el)
+    expect(captured).not.toBeNull()
+    // Prop value present at first render (setup captured it during _build()).
+    expect(captured!()).toBe('<p>hello</p>')
+    // And the rendered shadow DOM reflects it (not the '' default).
+    expect(el.shadowRoot?.textContent).toBe('<p>hello</p>')
+    el.remove()
+  })
+
+  it('PC2 (slotted): child given $prop before its wrapper connects gets the value', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { body: { value: '' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        const render: Signal<string> = [
+          ctx.props.body as () => string,
+          () => {},
+        ] as unknown as Signal<string>
+        return leaf(render)
+      },
+    })
+    defineElement('x-pc2', Cmp)
+    // Build the child detached, write its prop, then nest it inside a wrapper
+    // that is itself detached — mirroring a layout <$slot>: the whole subtree
+    // is assembled before being attached to the document. The child does not
+    // connect until the wrapper is appended to the live document.
+    const child = document.createElement('x-pc2') as HTMLElement & { body: string }
+    child.body = 'slotted-content'
+    const wrapper = document.createElement('div')
+    wrapper.appendChild(child)
+    expect(child.isConnected).toBe(false) // still detached — _build() not run yet
+    document.body.appendChild(wrapper) // NOW child connects → _build() drains buffer
+    expect(captured).not.toBeNull()
+    expect(captured!()).toBe('slotted-content')
+    expect(child.shadowRoot?.textContent).toBe('slotted-content')
+    child.remove()
+  })
+
+  it('PC3 (static-never-changes): bound value persists; default never wins', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { body: { value: 'DEFAULT' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        return leaf('pc3')
+      },
+    })
+    defineElement('x-pc3', Cmp)
+    const el = document.createElement('x-pc3') as HTMLElement & { body: string }
+    el.body = 'static-once'
+    document.body.appendChild(el)
+    // No further writes (static content / signal never re-fires). The prop must
+    // equal the initial bound value permanently — NOT the declared default.
+    expect(captured!()).toBe('static-once')
+    expect(captured!()).not.toBe('DEFAULT')
+    el.remove()
+  })
+
+  it('PC4 (non-string object): pre-connect object prop arrives intact (no stringification)', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const obj = { items: [1, 2, 3], nested: { ok: true } }
+    const Cmp = defineComponent({
+      props: { data: { value: null } },
+      setup: (ctx) => {
+        captured = ctx.props.data as () => unknown
+        return leaf('obj')
+      },
+    })
+    defineElement('x-pc4', Cmp)
+    const el = document.createElement('x-pc4') as HTMLElement & { data: unknown }
+    el.data = obj
+    document.body.appendChild(el)
+    // Same object reference — proves no JSON round-trip / String() coercion.
+    expect(captured!()).toBe(obj)
+    expect((captured!() as typeof obj).items).toEqual([1, 2, 3])
+    el.remove()
+  })
+
+  it('PC5 (non-string function): pre-connect function prop arrives intact', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const fn = (): string => 'callback-result'
+    const Cmp = defineComponent({
+      props: { onpick: { value: null, attribute: false } },
+      setup: (ctx) => {
+        captured = ctx.props.onpick as () => unknown
+        return leaf('fn')
+      },
+    })
+    defineElement('x-pc5', Cmp)
+    const el = document.createElement('x-pc5') as HTMLElement & { onpick: unknown }
+    el.onpick = fn
+    document.body.appendChild(el)
+    expect(captured!()).toBe(fn)
+    expect((captured!() as () => string)()).toBe('callback-result')
+    el.remove()
+  })
+
+  it('PC6 (non-string array): pre-connect array prop arrives intact', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const arr = [{ id: 1 }, { id: 2 }]
+    const Cmp = defineComponent({
+      props: { rows: { value: null, attribute: false } },
+      setup: (ctx) => {
+        captured = ctx.props.rows as () => unknown
+        return leaf('arr')
+      },
+    })
+    defineElement('x-pc6', Cmp)
+    const el = document.createElement('x-pc6') as HTMLElement & { rows: unknown }
+    el.rows = arr
+    document.body.appendChild(el)
+    expect(captured!()).toBe(arr)
+    el.remove()
+  })
+
+  it('PC7: post-mount signal updates still propagate after a pre-connect seed', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { body: { value: '' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        const render: Signal<string> = [
+          ctx.props.body as () => string,
+          () => {},
+        ] as unknown as Signal<string>
+        return leaf(render)
+      },
+    })
+    defineElement('x-pc7', Cmp)
+    const el = document.createElement('x-pc7') as HTMLElement & { body: string }
+    el.body = 'first'
+    document.body.appendChild(el)
+    expect(captured!()).toBe('first')
+    // A later (post-mount) write must still flow through the live signal.
+    el.body = 'second'
+    expect(captured!()).toBe('second')
+    expect(el.shadowRoot?.textContent).toBe('second')
+    el.remove()
+  })
+
+  it('PC8: default still applies when nothing is bound pre-connect', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { body: { value: 'FALLBACK' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        return leaf('pc8')
+      },
+    })
+    defineElement('x-pc8', Cmp)
+    const el = document.createElement('x-pc8')
+    document.body.appendChild(el)
+    expect(captured!()).toBe('FALLBACK')
+    el.remove()
+  })
+
+  it('PC9: attribute set pre-connect still wins when no property write buffered', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { label: { value: 'def' } },
+      setup: (ctx) => {
+        captured = ctx.props.label as () => unknown
+        return leaf('pc9')
+      },
+    })
+    defineElement('x-pc9', Cmp)
+    const el = document.createElement('x-pc9')
+    el.setAttribute('label', 'from-attr')
+    document.body.appendChild(el)
+    expect(captured!()).toBe('from-attr')
+    el.remove()
+  })
+
+  it('PC10: buffered property write takes precedence over a pre-connect attribute', () => {
+    _setSignal(signal)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { label: { value: 'def' } },
+      setup: (ctx) => {
+        captured = ctx.props.label as () => unknown
+        return leaf('pc10')
+      },
+    })
+    defineElement('x-pc10', Cmp)
+    const el = document.createElement('x-pc10') as HTMLElement & { label: string }
+    el.setAttribute('label', 'from-attr')
+    el.label = 'from-prop'
+    document.body.appendChild(el)
+    // The property binding (what the compiler emits for `$label={...}`) wins.
+    expect(captured!()).toBe('from-prop')
+    el.remove()
+  })
+})
+
 // Bug 6 (r1): a throw from setup()/render at mount used to escape into the
 // platform custom-element-reactions queue — surfacing only as a bare anonymous
 // "Uncaught" with NO component-tag attribution, and leaving the shadow root
