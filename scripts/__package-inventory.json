@@ -12,6 +12,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu-plugin/drizzle",
+    "version": "0.1.0",
+    "dir": "packages/plugin-drizzle",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/adapter-cloudflare",
     "version": "0.1.9",
     "dir": "packages/adapter-cloudflare",

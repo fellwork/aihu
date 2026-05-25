@@ -395,6 +395,23 @@
         "@aihu/server": "workspace:*",
       },
     },
+    "packages/plugin-drizzle": {
+      "name": "@aihu-plugin/drizzle",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/server": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu-plugin/data": "workspace:*",
+        "@aihu/plugin": "workspace:*",
+      },
+      "peerDependencies": {
+        "drizzle-orm": ">=0.29.0",
+      },
+      "optionalPeers": [
+        "drizzle-orm",
+      ],
+    },
     "packages/primitives": {
       "name": "@aihu/primitives",
       "version": "0.0.2",
@@ -469,6 +486,8 @@
     "@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@workspace:packages/plugin-agent-readiness"],
 
     "@aihu-plugin/data": ["@aihu-plugin/data@workspace:packages/plugin-data"],
+
+    "@aihu-plugin/drizzle": ["@aihu-plugin/drizzle@workspace:packages/plugin-drizzle"],
 
     "@aihu/adapter-cloudflare": ["@aihu/adapter-cloudflare@workspace:packages/adapter-cloudflare"],
 

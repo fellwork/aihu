@@ -54,6 +54,8 @@ export default defineConfig({
         import.meta.url,
       ).pathname,
       '@aihu-plugin/data': new URL('./packages/plugin-data/src/index.ts', import.meta.url).pathname,
+      '@aihu-plugin/drizzle': new URL('./packages/plugin-drizzle/src/index.ts', import.meta.url)
+        .pathname,
       '@aihu/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url)
         .pathname,
