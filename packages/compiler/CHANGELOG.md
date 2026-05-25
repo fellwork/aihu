@@ -1,5 +1,51 @@
 # @aihu/compiler
 
+## 0.5.0
+
+### Minor Changes
+
+- [#222](https://github.com/fellwork/aihu/pull/222) [`574af6d`](https://github.com/fellwork/aihu/commit/574af6d4214889e9b3f7c407a42aa2e53252fddc) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Wire `@aihu/css-engine` into the `.aihu` SFC compile so utility classes
+  actually scope and emit. Previously `compileSfc()` existed but nothing in the
+  build called it, so Tailwind-style utility classes written in `@template` (e.g.
+  `<div class="flex gap-2 p-4">`) compiled to nothing. `aihuCompilerPlugin`'s
+  `.aihu` transform now folds the scoped utility CSS into each component's shadow
+  `<style>`.
+
+  css-engine is wired in via a GUARDED, LAZY `await import('@aihu/css-engine')`
+  and declared an OPTIONAL `peerDependency` (`peerDependenciesMeta.optional`).
+  This avoids a dependency cycle: css-engine already depends on `@aihu/compiler`
+  (for the SFC AST), so the compiler must not hard-depend on css-engine. When
+  css-engine is present the hook compiles the SFC's utilities to scoped CSS
+  (`:host` theme tokens + utility rules + the folded authored `@style` block) and
+  adopts it as the component's single shadow stylesheet; when css-engine is
+  absent the dynamic import throws, the hook no-ops, and the build still succeeds
+  (utility classes simply don't emit — the prior behaviour). The authored
+  `@style` block continues to emit exactly once in both paths.
+
+- [#217](https://github.com/fellwork/aihu/pull/217) [`55298d5`](https://github.com/fellwork/aihu/commit/55298d51f9c6a3723a441d18a71b458e9f2cd035) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add optional per-route `head:` metadata to the `@route` SFC block and emit it
+  into the `.route.json` sidecar (B1, foundation of the per-route-`<head>` SEO
+  arc). The `@route` block gains an optional `head` key carrying `title`,
+  `description`, `canonical`, nested `og` (`title`/`description`/`image`/`type`/
+  `url`) and `twitter` (`card`/`title`/`description`/`image`/`site`) objects, and
+  a raw `jsonld` JSON-LD object. All fields are optional and the existing
+  `@route` keys (`path`, `name`, `layout`, `ssr`, `middleware`) are unchanged —
+  a route without a `head` key emits a sidecar with no `head` member, so the
+  shape is fully backward-compatible.
+
+  Both route parsers are updated: the production `sfc.rs::parse_route_body` path
+  and the parallel `route.rs::parse_route` path share a single head
+  implementation (a new string/comment-aware balanced-literal capture mode), so
+  the two cannot drift. `og`/`twitter` are parsed into typed sub-objects;
+  `jsonld` is captured VERBATIM as the balanced `{...}` literal and spliced into
+  the sidecar as raw JSON rather than re-serialized. Adds a
+  `03-route-with-head` conformance fixture and round-trip tests asserting the
+  emitted sidecar is valid JSON.
+
+### Patch Changes
+
+- Updated dependencies [[`a866af7`](https://github.com/fellwork/aihu/commit/a866af78d41931e28c5b19084342e566ca47bdee), [`45b393c`](https://github.com/fellwork/aihu/commit/45b393c3f48758bf82c152bbe6088c63edaa68a6)]:
+  - @aihu/css-engine@0.2.0
+
 ## 0.4.1
 
 ### Patch Changes

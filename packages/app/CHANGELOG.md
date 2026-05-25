@@ -1,5 +1,68 @@
 # @aihu/app
 
+## 0.2.0
+
+### Minor Changes
+
+- [#224](https://github.com/fellwork/aihu/pull/224) [`e1a6cfc`](https://github.com/fellwork/aihu/commit/e1a6cfcc9e50688592d580cd515b60c8faa50839) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add a build-time **static / SSG output mode** (`output: 'static'`) that
+  prerenders every route to content-ful HTML (B4 of the SEO arc).
+
+  The default `output: 'spa'` ships an empty shell — crawlers and non-JS agents
+  see no content. `output: 'static'` now prerenders each route at build time:
+  the route's real module is loaded by file path (via a short-lived Vite SSR
+  loader, so `.aihu`/TS compile exactly like the dev pipeline), rendered to
+  content HTML with `@aihu/server`'s `renderToString`, and its per-route
+  `<head>` (from the compiler's `.route.json` sidecar) is folded in via
+  `routeHeadToSsrHead` — resolving relative `canonical`/`og:*`/`twitter:*` URLs
+  to absolute against the new `site.url`, and emitting JSON-LD. The built
+  `index.html` is used as the template so each emitted `<pattern>/index.html`
+  keeps the client bundle `<script>` tags and hydrates into the live SPA
+  (progressive enhancement). Ideal for content sites on static hosts (e.g.
+  Cloudflare Pages).
+
+  - `OutputMode` gains `'static'`; `defineConfig()` accepts it.
+  - New `AihuConfig.site.url` (the absolute base URL) feeds absolute
+    canonical/OG/Twitter resolution.
+  - Dynamic routes (`:param` / `[param]`) are prerendered when their module
+    exports `getStaticPaths()` (one HTML per returned path); without it the
+    route is skipped with a clear build warning.
+  - `output: 'spa'` behavior is unchanged. The SSG code is build-time only — no
+    `.size-limit.json` row and no client-bundle impact.
+
+### Patch Changes
+
+- [#225](https://github.com/fellwork/aihu/pull/225) [`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Update `document.head` on client-side SPA navigation to reflect each route's
+  per-route `<head>` (B5, SEO arc). `createApp()` now lowers the active route's
+  `head` (merged with optional global `app.head` defaults and resolved against
+  `site.url`) and applies it to the live `document.head` — setting `<title>`,
+  upserting `<meta>`/`<link rel=canonical>` by key, and injecting the JSON-LD
+  `<script>`. Per-page tags are tracked and cleaned up on every navigation so
+  stale title/canonical/OG/JSON-LD never accumulate; global defaults persist.
+
+  The HeadConfig→tag application core is now shared (`head-apply.ts`) between the
+  SSG prerender (string transform) and the client (live-DOM) paths so they can
+  never diverge. To keep the browser client bundle `node:`-free, `@aihu/server`
+  gains a pure `@aihu/server/head-lowering` subpath export for `routeHeadToSsrHead`
+  (the barrel reaches the native loader and must not enter a browser bundle).
+
+- [#216](https://github.com/fellwork/aihu/pull/216) [`0628885`](https://github.com/fellwork/aihu/commit/0628885ae3948bf6432a44102f92a00ce60f040b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Inject `app.head` into the built `index.html`. `AihuConfig.app.head`
+  (`title`, `charset`, `viewport`, `meta[]`) was accepted by `defineConfig()`
+  but never read by any plugin, so the configured global head was silently
+  dropped from SPA/static output — bad for SEO and non-JS agents.
+
+  `viteAihuPlugin()` now registers an `aihu-head` plugin whose
+  `transformIndexHtml` hook applies the configured head. Precedence is
+  **config overrides source**: when the source `index.html` already declares a
+  tag that `app.head` also configures (title, charset, viewport, or a meta with
+  a matching `name`/`property`), the configured value replaces the source value
+  in place — no duplicate `<title>`/charset/meta is emitted. Tags present only
+  in config are injected before `</head>`. Values are HTML-escaped.
+
+- Updated dependencies [[`f2005e2`](https://github.com/fellwork/aihu/commit/f2005e222bc720a8cbc69ed81cfafa0cab8d8ced), [`41c5e35`](https://github.com/fellwork/aihu/commit/41c5e355a55ca91872ac66ffb7375d1dd20570cc), [`a4b62f2`](https://github.com/fellwork/aihu/commit/a4b62f2229f43cdb30d117a5d33cb1702153446b), [`90d3174`](https://github.com/fellwork/aihu/commit/90d3174896ee03cf1756f5b92d125be45d13983f)]:
+  - @aihu/server@0.2.0
+  - @aihu/router@0.1.6
+  - @aihu/runtime@0.1.6
+
 ## 0.1.9
 
 ### Patch Changes

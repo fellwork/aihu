@@ -290,7 +290,7 @@
       "name": "@aihu/agent-readiness",
       "version": "2.0.2",
       "dependencies": {
-        "@aihu-plugin/agent-readiness": "1.0.0",
+        "@aihu-plugin/agent-readiness": "2.0.2",
       },
     },
     "packages/_moved/data": {
@@ -302,7 +302,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -357,7 +357,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.1.9",
+      "version": "0.2.0",
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -399,7 +399,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -407,7 +407,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.1.0",
+        "@aihu/css-engine": ">=0.2.0",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -421,7 +421,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -460,7 +460,7 @@
     },
     "packages/plugin-agent-readiness": {
       "name": "@aihu-plugin/agent-readiness",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -526,7 +526,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -535,7 +535,7 @@
     },
     "packages/router": {
       "name": "@aihu/router",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -544,7 +544,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -556,7 +556,7 @@
     },
     "packages/server": {
       "name": "@aihu/server",
-      "version": "0.1.4",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/plugin": "workspace:*",
@@ -2464,6 +2464,8 @@
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.2", "", { "peerDependencies": { "zod": "^3.25.28 || ^4" } }, "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="],
 
+    "@aihu/agent-readiness/@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@2.0.2", "", { "dependencies": { "@aihu/agent": "0.1.0", "@aihu/server": "0.1.4" } }, "sha512-BN4emjBsVp6EJZPgmUFTYpPBS29fSjOKgrIlIpl+iGzAOF2bBdgl0PAER1q9NqJhKf+TuhDC+snYaPMA3H1rgQ=="],
+
     "@aihu/example-blog-loader/vite": ["vite@5.4.21", "", { "dependencies": { "esbuild": "^0.21.3", "postcss": "^8.4.43", "rollup": "^4.20.0" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^18.0.0 || >=20.0.0", "less": "*", "lightningcss": "^1.21.0", "sass": "*", "sass-embedded": "*", "stylus": "*", "sugarss": "*", "terser": "^5.4.0" }, "optionalPeers": ["@types/node", "less", "lightningcss", "sass", "sass-embedded", "stylus", "sugarss", "terser"], "bin": { "vite": "bin/vite.js" } }, "sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw=="],
 
     "@aihu/example-blog-router/vite": ["vite@6.4.2", "", { "dependencies": { "esbuild": "^0.25.0", "fdir": "^6.4.4", "picomatch": "^4.0.2", "postcss": "^8.5.3", "rollup": "^4.34.9", "tinyglobby": "^0.2.13" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": "^18.0.0 || ^20.0.0 || >=22.0.0", "jiti": ">=1.21.0", "less": "*", "lightningcss": "^1.21.0", "sass": "*", "sass-embedded": "*", "stylus": "*", "sugarss": "*", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "jiti", "less", "lightningcss", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, "sha512-2N/55r4JDJ4gdrCvGgINMy+HH3iRpNIz8K6SFwVsA+JbQScLiC+clmAxBgwiSPgcG9U15QmvqCGWzMbqda5zGQ=="],
@@ -2631,6 +2633,8 @@
     "whatwg-encoding/iconv-lite": ["iconv-lite@0.6.3", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw=="],
 
     "wsl-utils/is-wsl": ["is-wsl@3.1.1", "", { "dependencies": { "is-inside-container": "^1.0.0" } }, "sha512-e6rvdUCiQCAuumZslxRJWR/Doq4VpPR82kqclvcS0efgt430SlGIk05vdCN58+VrzgtIcfNODjozVielycD4Sw=="],
+
+    "@aihu/agent-readiness/@aihu-plugin/agent-readiness/@aihu/server": ["@aihu/server@0.1.4", "", { "dependencies": { "@aihu/agent": "0.1.0", "@aihu/plugin": "0.1.0" }, "optionalDependencies": { "@aihu/server-darwin-arm64": "0.1.2", "@aihu/server-darwin-x64": "0.1.2", "@aihu/server-linux-x64-gnu": "0.1.2", "@aihu/server-win32-x64-msvc": "0.1.2" } }, "sha512-bg0i2iFI778LeQ3kYSPMjASYUBjhzPts8ag/wHuleTrJ5lscMjm043fWaAEHynSFOhLsNsG4fy5C8kVmb4T1nA=="],
 
     "@aihu/example-blog-loader/vite/esbuild": ["esbuild@0.21.5", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.21.5", "@esbuild/android-arm": "0.21.5", "@esbuild/android-arm64": "0.21.5", "@esbuild/android-x64": "0.21.5", "@esbuild/darwin-arm64": "0.21.5", "@esbuild/darwin-x64": "0.21.5", "@esbuild/freebsd-arm64": "0.21.5", "@esbuild/freebsd-x64": "0.21.5", "@esbuild/linux-arm": "0.21.5", "@esbuild/linux-arm64": "0.21.5", "@esbuild/linux-ia32": "0.21.5", "@esbuild/linux-loong64": "0.21.5", "@esbuild/linux-mips64el": "0.21.5", "@esbuild/linux-ppc64": "0.21.5", "@esbuild/linux-riscv64": "0.21.5", "@esbuild/linux-s390x": "0.21.5", "@esbuild/linux-x64": "0.21.5", "@esbuild/netbsd-x64": "0.21.5", "@esbuild/openbsd-x64": "0.21.5", "@esbuild/sunos-x64": "0.21.5", "@esbuild/win32-arm64": "0.21.5", "@esbuild/win32-ia32": "0.21.5", "@esbuild/win32-x64": "0.21.5" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw=="],
 

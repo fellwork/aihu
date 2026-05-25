@@ -1,7 +1,7 @@
 [
   {
     "name": "@aihu-plugin/agent-readiness",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "dir": "packages/plugin-agent-readiness",
     "isPlatform": false
   },
@@ -25,7 +25,7 @@
   },
   {
     "name": "@aihu/adapter-cloudflare",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "dir": "packages/adapter-cloudflare",
     "isPlatform": false
   },
@@ -73,7 +73,7 @@
   },
   {
     "name": "@aihu/app",
-    "version": "0.1.9",
+    "version": "0.2.0",
     "dir": "packages/app",
     "isPlatform": false
   },
@@ -97,7 +97,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -109,7 +109,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -163,19 +163,19 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "dir": "packages/primitives",
     "isPlatform": false
   },
   {
     "name": "@aihu/router",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "dir": "packages/router",
     "isPlatform": false
   },
   {
     "name": "@aihu/runtime",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "dir": "packages/runtime",
     "isPlatform": false
   },
@@ -187,7 +187,7 @@
   },
   {
     "name": "@aihu/server",
-    "version": "0.1.4",
+    "version": "0.2.0",
     "dir": "packages/server",
     "isPlatform": false
   },
