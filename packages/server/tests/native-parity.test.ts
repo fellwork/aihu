@@ -37,7 +37,7 @@ import { renderToString as tsImpl } from '../src/ssr.ts'
 
 let nativeLoaded = false
 
-beforeAll(() => {
+beforeAll(async () => {
   // SCRIBE_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) and is
   // set by vitest.config.ts so fresh clones pass without a built addon.
   // When set, we skip every parity test below — there is no native path
@@ -54,9 +54,11 @@ beforeAll(() => {
   }
 
   // Important: the loader caches platform/edge detection. Reset so SKIP env
-  // changes are picked up if tests are re-run in watch mode.
-  _resetLoaderState()
-  const kind = _getLoaderStateKind()
+  // changes are picked up if tests are re-run in watch mode. The loader's
+  // introspection helpers are async because the Node-native loader is now
+  // lazily imported (the @aihu/server/native portability boundary).
+  await _resetLoaderState()
+  const kind = await _getLoaderStateKind()
   nativeLoaded = kind === 'native-loaded'
   if (!nativeLoaded) {
     // Surface the reason in stderr so CI logs make the skip cause obvious.
@@ -256,36 +258,36 @@ describe('native-parity: property test', () => {
 // ---------------------------------------------------------------------------
 
 describe('loader: edge-runtime detection (AC-11)', () => {
-  it('EdgeRuntime global causes EDGE_SKIPPED state', () => {
+  it('EdgeRuntime global causes EDGE_SKIPPED state', async () => {
     // biome-ignore lint/suspicious/noExplicitAny: globalThis mutation for test
     const g = globalThis as any
     const had = 'EdgeRuntime' in g
     const prev = g.EdgeRuntime
     g.EdgeRuntime = 'experimental'
     try {
-      _resetLoaderState()
-      expect(_getLoaderStateKind()).toBe('edge-skipped')
+      await _resetLoaderState()
+      expect(await _getLoaderStateKind()).toBe('edge-skipped')
     } finally {
       if (had) {
         g.EdgeRuntime = prev
       } else {
         delete g.EdgeRuntime
       }
-      _resetLoaderState()
+      await _resetLoaderState()
     }
   })
 
-  it('SCRIBE_NATIVE_SKIP=1 causes EDGE_SKIPPED state', () => {
+  it('SCRIBE_NATIVE_SKIP=1 causes EDGE_SKIPPED state', async () => {
     if (typeof process === 'undefined') return
     const prev = process.env.SCRIBE_NATIVE_SKIP
     process.env.SCRIBE_NATIVE_SKIP = '1'
     try {
-      _resetLoaderState()
-      expect(_getLoaderStateKind()).toBe('edge-skipped')
+      await _resetLoaderState()
+      expect(await _getLoaderStateKind()).toBe('edge-skipped')
     } finally {
       if (prev === undefined) delete process.env.SCRIBE_NATIVE_SKIP
       else process.env.SCRIBE_NATIVE_SKIP = prev
-      _resetLoaderState()
+      await _resetLoaderState()
     }
   })
 })

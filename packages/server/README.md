@@ -49,6 +49,7 @@ bun add @aihu/server
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./native` | `./dist/native.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/server@0.1.3`.</i></sub>
 
