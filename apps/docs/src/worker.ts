@@ -70,6 +70,12 @@ const llmsSections = [
         description: '@aihu/css-engine — scoped utilities, cn(), style packs',
       },
       {
+        title: 'Theming',
+        url: 'https://aihu.dev/#theming',
+        description:
+          '@aihu/css-engine design tokens — aihu-default / aihu-graphite packs, defineStylePack(), :root + .dark emission',
+      },
+      {
         title: 'Primitives',
         url: 'https://aihu.dev/#primitives',
         description: '@aihu/primitives — headless WAI-ARIA dialog, tooltip, button',
@@ -149,6 +155,7 @@ const sitemapPages = [
   { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#styling', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#theming', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#primitives', changefreq: 'monthly' as const, priority: 0.8 },
   { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly' as const, priority: 0.7 },

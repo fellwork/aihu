@@ -43,6 +43,7 @@
         <li><a class="nav-link" href="#reactivity" $class:active={activePage() === 'reactivity'}>Reactivity</a></li>
         <li><a class="nav-link" href="#authoring-agents" $class:active={activePage() === 'authoring-agents'}>Authoring Agents</a></li>
         <li><a class="nav-link" href="#styling" $class:active={activePage() === 'styling'}>Styling</a></li>
+        <li><a class="nav-link" href="#theming" $class:active={activePage() === 'theming'}>Theming</a></li>
         <li><a class="nav-link" href="#primitives" $class:active={activePage() === 'primitives'}>Primitives</a></li>
       </ul>
 
