@@ -8,6 +8,7 @@
  *   aihu plugin <name>         Scaffold a plugin package
  *   aihu dev [options]         Start development server (arch-4 §3)
  *   aihu build [options]       Production build (arch-4 §3)
+ *   aihu migrate <files...>    Migrate legacy SFC syntax to v1.0+ canonical forms
  */
 
 import { readdirSync, statSync } from 'node:fs'
@@ -64,6 +65,7 @@ function usage(): never {
       '  aihu plugin <name>      Scaffold a plugin package',
       '  aihu dev [options]      Start dev server',
       '  aihu build [options]    Production build',
+      '  aihu migrate <files...> Migrate legacy SFC syntax to v1.0+ (--dry-run to preview)',
       '  aihu mcp serve          Start the MCP stdio server',
       '',
     ].join('\n'),
@@ -392,6 +394,28 @@ async function main(): Promise<void> {
   if (cmd === 'build') {
     const { default: build } = await import('./commands/build.js')
     await build(rest)
+    return
+  }
+  if (cmd === 'migrate') {
+    // Bug 9c — wire the existing migrate command into the dispatcher so the
+    // `Run: npx aihu migrate <file>` guidance emitted by C304/C305/C306 is
+    // actually reachable. `migrate.ts` is a complete, tested implementation;
+    // here we only parse argv and call its file-driving entry.
+    const { migrateFiles } = await import('./commands/migrate.js')
+    const dryRun = hasFlag(rest, 'dry-run')
+    const files = rest.filter((a) => !a.startsWith('--'))
+    if (files.length === 0) {
+      process.stderr.write(
+        [
+          'Usage:',
+          '  aihu migrate <files...>   Migrate legacy SFC syntax to v1.0+ canonical forms',
+          '  aihu migrate --dry-run <files...>   Preview changes without writing',
+          '',
+        ].join('\n'),
+      )
+      process.exit(1)
+    }
+    migrateFiles(files, dryRun, process.cwd())
     return
   }
   if (cmd === 'mcp') {
