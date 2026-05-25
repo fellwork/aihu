@@ -325,8 +325,75 @@ fn check_reserved_tokens(region: &str, region_start_line: usize) -> Result<(), C
                 ..Default::default()
             });
         }
+        // v1.0.x (fix #1): an `@<name> {` header at top level that matches none of
+        // the five recognized blocks was previously SILENTLY DROPPED by `next_block`
+        // (it only scans for known openers), so any identifiers the unknown block
+        // "declared" leaked through as bare free variables -> ReferenceError ->
+        // blank page (investigation 17f5394b-6dd8-4504-a2db-88cb5c4050e1, defect #1).
+        // Make it a hard, loud error instead. Only fires for genuine top-level block
+        // *headers* in the inter-block region (this function never sees the body of a
+        // recognized block, so @media/@supports inside @style, markup inside @template,
+        // and @route/@agent internals are unaffected).
+        if let Some(name) = unknown_block_header_name(trimmed) {
+            let hint = if name == "props" {
+                " — props are declared with `$prop:` inside `@state`, not a top-level `@props` block"
+            } else {
+                " — the only recognized blocks are `@state`, `@template`, `@style`, `@agent`, `@route`"
+            };
+            return Err(CompileError {
+                message: format!("unknown block `@{}`{}", name, hint),
+                line: line_no,
+                col: 0,
+                code: Some("C204".to_string()),
+                hint: Some(if name == "props" {
+                    "declare props via `$prop:` inside `@state`".to_string()
+                } else {
+                    "recognized blocks: @state, @template, @style, @agent, @route".to_string()
+                }),
+                ..Default::default()
+            });
+        }
     }
     Ok(())
+}
+
+/// The five recognized `@blockname { … }` block names, plus the deprecated-but-
+/// still-valid `@layout` shorthand. Kept in sync with `match_at_opener` /
+/// `match_layout_shorthand`; any `@<name>` header at top level outside this set
+/// is an unknown block (C204).
+const KNOWN_BLOCK_NAMES: &[&str] = &["state", "template", "style", "agent", "route", "layout"];
+
+/// If `trimmed` (an already-trimmed inter-block source line) is the header of an
+/// unknown top-level block — i.e. it starts with `@<ident>` immediately followed
+/// by whitespace or `{` (the block-header shape per Block Structure Spec §2.1)
+/// and `<ident>` is not a recognized block name — return that identifier.
+///
+/// Returns `None` for recognized block headers and for any other `@`-usage that
+/// is not a block-header opener (so it cannot misfire on unrelated content).
+fn unknown_block_header_name(trimmed: &str) -> Option<&str> {
+    let rest = trimmed.strip_prefix('@')?;
+    // Read the leading ASCII-alphabetic/`_` identifier (block names are ASCII).
+    let name_len = rest
+        .bytes()
+        .take_while(|&b| b.is_ascii_alphanumeric() || b == b'_')
+        .count();
+    if name_len == 0 {
+        return None;
+    }
+    let name = &rest[..name_len];
+    // The character after the identifier must be whitespace or `{` to qualify as a
+    // block header (mirrors the `match_at_opener` boundary check that rejects e.g.
+    // `@states` / `@templates`). Anything else (EOL, `(`, `.`, `'`, etc.) is not a
+    // block header and is left alone.
+    let after = rest.as_bytes().get(name_len).copied();
+    let is_block_header = matches!(after, Some(b' ') | Some(b'\t') | Some(b'\r') | Some(b'{'));
+    if !is_block_header {
+        return None;
+    }
+    if KNOWN_BLOCK_NAMES.contains(&name) {
+        return None;
+    }
+    Some(name)
 }
 
 /// Known JS globals that are always in scope — used by the v0.3.5 symbol-table
