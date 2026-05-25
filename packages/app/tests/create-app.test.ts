@@ -5,7 +5,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // mockRoutes is passed by reference so mutations in tests are visible to the
 // `routes` binding in client.ts (same array object).
 
-type RouteStub = { pattern?: string; name?: string; module: () => Promise<unknown> }
+type RouteHeadStub = {
+  title?: string
+  description?: string
+  canonical?: string
+  og?: Record<string, string>
+  twitter?: Record<string, string>
+  jsonld?: unknown
+}
+type RouteStub = {
+  pattern?: string
+  name?: string
+  module: () => Promise<unknown>
+  head?: RouteHeadStub
+}
 type MatchStub = { route: RouteStub; params?: Record<string, string> } | null
 
 const { mockRoutes, mockMatch } = vi.hoisted(() => ({
@@ -275,5 +288,188 @@ describe('createApp — SPA navigation', () => {
 
     expect(pushStateSpy).not.toHaveBeenCalled()
     pushStateSpy.mockRestore()
+  })
+})
+
+// ─── Per-route <head> on SPA navigation (B5, SEO arc) ────────────────────────
+// These exercise the REAL routeHeadToSsrHead (@aihu/server/head-lowering, not
+// mocked) + the real DOM applier (head-apply.ts), so they prove end-to-end that
+// document.head reflects the current route and cleans up the previous one.
+
+const metaContent = (selector: string): string | null =>
+  document.head.querySelector(selector)?.getAttribute('content') ?? null
+
+const canonicalHref = (): string | null =>
+  document.head.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null
+
+const jsonLd = (): string | null =>
+  document.head.querySelector('script[type="application/ld+json"]')?.textContent ?? null
+
+function resetHead(): void {
+  // Drop everything the applier owns + reset the title so each test starts clean.
+  for (const el of Array.from(document.head.querySelectorAll('[data-aihu-head]'))) {
+    el.remove()
+  }
+  document.title = ''
+}
+
+describe('createApp — per-route <head> on navigation', () => {
+  let outlet: HTMLElement
+
+  const home: RouteStub = {
+    name: 'home-page',
+    module: vi.fn().mockResolvedValue(undefined),
+    head: {
+      title: 'Home — Acme',
+      description: 'The Acme home page',
+      canonical: '/',
+      og: { title: 'Home', image: '/og-home.png' },
+      twitter: { card: 'summary' },
+      jsonld: '{"@type":"WebSite","name":"Acme"}',
+    },
+  }
+  const about: RouteStub = {
+    name: 'about-page',
+    module: vi.fn().mockResolvedValue(undefined),
+    head: {
+      title: 'About — Acme',
+      canonical: '/about',
+      og: { title: 'About Acme' },
+    },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoutes.length = 0
+    mockMatch.mockReturnValue(null)
+    resetHead()
+    outlet = makeOutlet()
+  })
+
+  afterEach(() => {
+    document.body.replaceChildren()
+    resetHead()
+  })
+
+  it('sets title/canonical(absolute)/og/twitter/JSON-LD from the active route', async () => {
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    createApp({ site: { url: 'https://acme.test' } })
+    await flushPromises()
+
+    expect(document.title).toBe('Home — Acme')
+    // canonical resolved to absolute via site.url
+    expect(canonicalHref()).toBe('https://acme.test/')
+    expect(metaContent('meta[name="description"]')).toBe('The Acme home page')
+    expect(metaContent('meta[property="og:title"]')).toBe('Home')
+    // og:image resolved absolute too
+    expect(metaContent('meta[property="og:image"]')).toBe('https://acme.test/og-home.png')
+    expect(metaContent('meta[name="twitter:card"]')).toBe('summary')
+    expect(jsonLd()).toBe('{"@type":"WebSite","name":"Acme"}')
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+  })
+
+  it('updates document.head to the new route on navigation (and drops stale tags)', async () => {
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    createApp({ site: { url: 'https://acme.test' } })
+    await flushPromises()
+    // home applied a description + twitter:card + JSON-LD…
+    expect(metaContent('meta[name="description"]')).toBe('The Acme home page')
+    expect(jsonLd()).toBe('{"@type":"WebSite","name":"Acme"}')
+
+    // Navigate to about (no description / twitter / jsonld in its head).
+    mockMatch.mockReturnValue({ route: about, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    expect(document.title).toBe('About — Acme')
+    expect(canonicalHref()).toBe('https://acme.test/about')
+    expect(metaContent('meta[property="og:title"]')).toBe('About Acme')
+    // Stale per-page tags from home must be GONE — no accumulation.
+    expect(metaContent('meta[name="description"]')).toBeNull()
+    expect(metaContent('meta[name="twitter:card"]')).toBeNull()
+    expect(jsonLd()).toBeNull()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('about-page')
+  })
+
+  it('does not accumulate duplicate tags across repeated navigations (home→about→home)', async () => {
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    createApp({ site: { url: 'https://acme.test' } })
+    await flushPromises()
+
+    mockMatch.mockReturnValue({ route: about, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    // Exactly one canonical, one og:title, one JSON-LD — no duplicates.
+    expect(document.head.querySelectorAll('link[rel="canonical"]').length).toBe(1)
+    expect(document.head.querySelectorAll('meta[property="og:title"]').length).toBe(1)
+    expect(document.head.querySelectorAll('script[type="application/ld+json"]').length).toBe(1)
+    // Back on home — its head is fully restored.
+    expect(document.title).toBe('Home — Acme')
+    expect(canonicalHref()).toBe('https://acme.test/')
+    expect(jsonLd()).toBe('{"@type":"WebSite","name":"Acme"}')
+  })
+
+  it('persists global app.head defaults across navigations; route overrides per field', async () => {
+    const globalHead = {
+      title: 'Acme (default)',
+      meta: [
+        { name: 'theme-color', content: '#0a0a0a' },
+        { name: 'description', content: 'Default description' },
+      ],
+    }
+    mockMatch.mockReturnValue({ route: about, params: undefined })
+    createApp({ site: { url: 'https://acme.test' }, head: globalHead })
+    await flushPromises()
+
+    // Route wins on title; global theme-color persists; route has no description
+    // so the global default shows through.
+    expect(document.title).toBe('About — Acme')
+    expect(metaContent('meta[name="theme-color"]')).toBe('#0a0a0a')
+    expect(metaContent('meta[name="description"]')).toBe('Default description')
+
+    // Navigate to a route with NO head — global defaults must remain.
+    const bare: RouteStub = { name: 'bare-page', module: vi.fn().mockResolvedValue(undefined) }
+    mockMatch.mockReturnValue({ route: bare, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    expect(document.title).toBe('Acme (default)')
+    expect(metaContent('meta[name="theme-color"]')).toBe('#0a0a0a')
+    expect(metaContent('meta[name="description"]')).toBe('Default description')
+    // The route-only canonical/og from `about` are cleaned up.
+    expect(canonicalHref()).toBeNull()
+    expect(metaContent('meta[property="og:title"]')).toBeNull()
+  })
+
+  it('clears the prior route head when navigating to a headless route with no globals', async () => {
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    createApp({ site: { url: 'https://acme.test' } })
+    await flushPromises()
+    expect(canonicalHref()).toBe('https://acme.test/')
+
+    const bare: RouteStub = { name: 'bare-page', module: vi.fn().mockResolvedValue(undefined) }
+    mockMatch.mockReturnValue({ route: bare, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    // No route head + no global defaults → all managed per-page tags removed.
+    expect(canonicalHref()).toBeNull()
+    expect(metaContent('meta[name="description"]')).toBeNull()
+    expect(jsonLd()).toBeNull()
+  })
+
+  it('leaves document.head untouched when a route has no head and no globals exist', async () => {
+    const bare: RouteStub = { name: 'bare-page', module: vi.fn().mockResolvedValue(undefined) }
+    mockMatch.mockReturnValue({ route: bare, params: undefined })
+    createApp()
+    await flushPromises()
+
+    expect(document.head.querySelectorAll('[data-aihu-head]').length).toBe(0)
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('bare-page')
   })
 })

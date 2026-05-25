@@ -90,13 +90,14 @@
   {
     "name": "@aihu/app",
     "path": "packages/app/dist/client.js",
-    "limit": "800 B",
+    "limit": "1500 B",
     "gzip": true,
     "ignore": [
       "@aihu/router",
       "@aihu/arbor",
       "@aihu/signals",
       "@aihu/runtime",
+      "@aihu/server/head-lowering",
       "virtual:aihu-routes"
     ]
   },

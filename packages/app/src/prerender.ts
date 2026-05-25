@@ -34,6 +34,7 @@ import type { HeadConfig } from '@aihu/server'
 import { renderToString, routeHeadToSsrHead } from '@aihu/server'
 import type { ResolvedConfig } from 'vite'
 import type { AihuConfig } from './config.ts'
+import { applyHeadToHtml } from './head-apply.ts'
 
 /**
  * One param set for a dynamic route, as returned by `getStaticPaths()`.
@@ -146,115 +147,11 @@ function normalizeStaticPathEntry(entry: StaticPathEntry): Record<string, string
 
 // ---------------------------------------------------------------------------
 // HTML templating
+//
+// The HeadConfig→template head transform (`applyHeadToHtml`) lives in the
+// shared `./head-apply.ts` module so the SSG path (here) and the client-nav
+// path (client.ts, B5) key/merge/escape tags identically and can never diverge.
 // ---------------------------------------------------------------------------
-
-function escapeAttr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
-
-function escapeText(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-/** Render a lowered HeadConfig to a list of head-tag HTML strings. */
-function headConfigToTags(head: HeadConfig): {
-  title: string | undefined
-  metas: string[]
-  links: string[]
-  scripts: string[]
-} {
-  const metas: string[] = []
-  for (const meta of head.meta ?? []) {
-    const attrs = Object.entries(meta)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}="${escapeAttr(String(v))}"`)
-      .join(' ')
-    metas.push(`<meta ${attrs}>`)
-  }
-  const links: string[] = []
-  for (const link of head.links ?? []) {
-    const attrs = Object.entries(link)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}="${escapeAttr(String(v))}"`)
-      .join(' ')
-    links.push(`<link ${attrs}>`)
-  }
-  const scripts: string[] = []
-  for (const script of head.scripts ?? []) {
-    // Element text — neutralize a literal `</` so injected `</script>` can't
-    // break out (matches @aihu/server's buildHead guard).
-    const body = script.content.replace(/<\//g, '<\\/')
-    scripts.push(`<script type="${escapeAttr(script.type)}">${body}</script>`)
-  }
-  return { title: head.title, metas, links, scripts }
-}
-
-/** Stable key for a meta tag — used to replace a matching tag in the template. */
-function metaKeyAttr(metaHtml: string): { key: string; value: string } | null {
-  const name = metaHtml.match(/\bname="([^"]*)"/i)
-  if (name) return { key: 'name', value: name[1]! }
-  const prop = metaHtml.match(/\bproperty="([^"]*)"/i)
-  if (prop) return { key: 'property', value: prop[1]! }
-  return null
-}
-
-/**
- * Apply a lowered HeadConfig onto a built `index.html` template.
- *
- * - `<title>` is replaced (or injected when absent).
- * - Each meta is replaced in place when a tag with the same name/property
- *   already exists; otherwise injected before `</head>`.
- * - canonical link replaces an existing `rel="canonical"`; other links + all
- *   scripts (JSON-LD) are injected before `</head>`.
- */
-function applyHead(html: string, head: HeadConfig): string {
-  let out = html
-  const inject: string[] = []
-  const { title, metas, links, scripts } = headConfigToTags(head)
-
-  if (title !== undefined) {
-    const tag = `<title>${escapeText(title)}</title>`
-    if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
-      out = out.replace(/<title[^>]*>[\s\S]*?<\/title>/i, tag)
-    } else {
-      inject.push(tag)
-    }
-  }
-
-  for (const metaTag of metas) {
-    const key = metaKeyAttr(metaTag)
-    if (key) {
-      const escaped = key.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const re = new RegExp(`<meta\\s+[^>]*${key.key}="${escaped}"[^>]*>`, 'i')
-      if (re.test(out)) {
-        out = out.replace(re, metaTag)
-        continue
-      }
-    }
-    inject.push(metaTag)
-  }
-
-  for (const linkTag of links) {
-    const rel = linkTag.match(/\brel="([^"]*)"/i)
-    if (rel && rel[1]!.toLowerCase() === 'canonical') {
-      const re = /<link\s+[^>]*rel="canonical"[^>]*>/i
-      if (re.test(out)) {
-        out = out.replace(re, linkTag)
-        continue
-      }
-    }
-    inject.push(linkTag)
-  }
-
-  inject.push(...scripts)
-
-  if (inject.length === 0) return out
-  const block = inject.join('\n    ')
-  if (/<\/head>/i.test(out)) {
-    return out.replace(/<\/head>/i, `    ${block}\n  </head>`)
-  }
-  return `${out}\n${block}`
-}
 
 /** Inject rendered route content into the outlet element of the template. */
 function injectContent(html: string, content: string, outletId: string): string {
@@ -415,7 +312,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         ...(siteUrl !== undefined ? { siteUrl } : {}),
         ...(globalHead !== undefined ? { globalHead } : {}),
       })
-      let html = applyHead(template, lowered)
+      let html = applyHeadToHtml(template, lowered)
       html = injectContent(html, content, outletId)
 
       const relPath = patternToHtmlPath(concretePath)
