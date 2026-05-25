@@ -107,7 +107,9 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifact
-          cp packages/compiler/target/${{ matrix.target }}/release/aihu-compile artifact/${{ matrix.asset }}
+          # Workspace-root target/ — `packages/compiler` is a member of the root
+          # Cargo workspace, so cargo emits to ./target, not packages/compiler/target.
+          cp target/${{ matrix.target }}/release/aihu-compile artifact/${{ matrix.asset }}
           chmod 0755 artifact/${{ matrix.asset }}
           # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
           sha256sum artifact/${{ matrix.asset }} | awk '{print $1}' > artifact/${{ matrix.asset }}.sha256
@@ -118,7 +120,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
-          Copy-Item -Path "packages/compiler/target/${{ matrix.target }}/release/aihu-compile.exe" -Destination "artifact/${{ matrix.asset }}"
+          # Workspace-root target/ — see the Unix stage step above.
+          Copy-Item -Path "target/${{ matrix.target }}/release/aihu-compile.exe" -Destination "artifact/${{ matrix.asset }}"
           # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
           $hash = (Get-FileHash -Algorithm SHA256 "artifact/${{ matrix.asset }}").Hash.ToLower()
           $hash | Out-File -FilePath "artifact/${{ matrix.asset }}.sha256" -Encoding ascii -NoNewline
