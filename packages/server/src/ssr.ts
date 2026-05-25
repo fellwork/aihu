@@ -46,11 +46,29 @@ export interface LinkTag {
   readonly [attr: string]: string | undefined
 }
 
+/**
+ * A `<script>` element in the document head. Used for structured-data blocks
+ * such as JSON-LD (`type="application/ld+json"`). `content` is emitted verbatim
+ * as the script body and is NOT HTML-attribute-escaped (it is element text, not
+ * an attribute); callers are responsible for ensuring it contains no literal
+ * `</script>` sequence (the SEO mapper guards this via `</` escaping).
+ */
+export interface ScriptTag {
+  readonly type: string
+  readonly content: string
+}
+
 export interface HeadConfig {
   readonly title?: string
   readonly meta?: ReadonlyArray<MetaTag>
   readonly links?: ReadonlyArray<LinkTag>
   readonly lang?: string
+  /**
+   * Inline `<script>` elements (e.g. JSON-LD structured data). Backward
+   * compatible: omitted means no script tags are emitted, matching prior
+   * `buildHead` behavior.
+   */
+  readonly scripts?: ReadonlyArray<ScriptTag>
 }
 
 export interface SsrOptions {
@@ -152,6 +170,14 @@ function buildHead(head: HeadConfig): string {
       .map(([k, v]) => `${k}="${escapeAttr(v as string)}"`)
       .join(' ')
     parts.push(`<link ${attrs}>`)
+  }
+  for (const script of head.scripts ?? []) {
+    // The script body is element text (not an attribute), so it is emitted
+    // verbatim. We only neutralize a literal `</` so an injected `</script>`
+    // cannot break out of the element — matching the HTML spec guidance for
+    // inlining JSON in <script>.
+    const body = script.content.replace(/<\//g, '<\\/')
+    parts.push(`<script type="${escapeAttr(script.type)}">${body}</script>`)
   }
   return parts.join('')
 }
