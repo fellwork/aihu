@@ -402,10 +402,15 @@
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
+      "devDependencies": {
+        "@aihu/css-engine": "workspace:*",
+      },
       "peerDependencies": {
+        "@aihu/css-engine": ">=0.1.0",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
+        "@aihu/css-engine",
         "vite",
       ],
     },

@@ -31,12 +31,19 @@
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
   },
   "peerDependencies": {
-    "vite": ">=5.0.0"
+    "vite": ">=5.0.0",
+    "@aihu/css-engine": ">=0.1.0"
   },
   "peerDependenciesMeta": {
     "vite": {
       "optional": true
+    },
+    "@aihu/css-engine": {
+      "optional": true
     }
+  },
+  "devDependencies": {
+    "@aihu/css-engine": "workspace:*"
   },
   "description": "Single File Component (.aihu) compiler — Rust binary + JS glue.",
   "repository": {
