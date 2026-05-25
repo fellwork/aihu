@@ -38,10 +38,30 @@ The resulting `.changeset/<name>.md` file is committed in your PR.
    - Regenerates `CHANGELOG.md` per package
    - Deletes the consumed `.changeset/*.md` files
 2. **Review the Version PR** — confirm the bumps look right. Edit the auto-generated CHANGELOG entries if needed (they're committed to the branch; just commit on top).
-3. **Merge the Version PR** — squash merge, like all other PRs.
-4. **Tag pushes automatically** — the `release-pr.yml` workflow's post-merge step runs `bun changeset publish` which creates `v<version>` tags for each released package.
-5. **`release.yml` fires** — the `v*` tag triggers the build matrix (5 platform binaries + WASM) and the `publish-packages` job (npm publish with workspace dep rewrites).
-6. **Verify on npm** — `npm view @aihu/signals versions --json` shows the new version within ~3 minutes of the tag push.
+3. **Merge the Version PR** — merge it like other PRs. This lands the version
+   bumps + CHANGELOGs on `main`. **It does NOT publish** — `release-pr.yml` has
+   no publish step, so nothing reaches npm yet.
+4. **Push the release tag — MANUAL.** Publishing is gated on a `v*` tag, and
+   nothing creates that tag automatically. Pick the next aggregate tag (a repo
+   release counter, independent of individual package versions — e.g. `v0.4.4`
+   → `v0.4.5`) and push an annotated tag at the merged Version-PR commit:
+   ```bash
+   git checkout main && git pull
+   git tag -a v0.4.5 -m "Release v0.4.5"
+   git push origin v0.4.5
+   ```
+   The tag **name** is only the GitHub Release marker — `release.yml` publishes
+   each package at *its own `package.json` version*, not the tag name.
+5. **`release.yml` fires** — the `v*` tag triggers the build matrix (5 platform
+   binaries + WASM) and the `publish-packages` job (npm publish with workspace
+   dep rewrites).
+6. **Verify on npm** — `npm view @aihu/signals versions --json` shows the new
+   version within ~3 minutes of the tag push.
+
+> **Why manual?** Auto-publishing on every Version-PR merge is deliberately
+> avoided so release timing stays under maintainer control (e.g. batching, or
+> holding the v1.0.0 narrative tag under Path B). To make tagging automatic
+> instead, add a publish/tag step to `release-pr.yml` — tracked as a follow-up.
 
 ## Pre-release channels (alpha / beta / rc)
 

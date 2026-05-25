@@ -1,9 +1,11 @@
 name: Changesets release PR
 
 # Opens / updates a "Release PR" whenever a `.changeset/*.md` lands on main.
-# Merging that Release PR commits the version bumps and creates a `v*` tag,
-# which then triggers `release.yml` to build binaries + WASM and publish all
-# tier A/B/C/D `@aihu/*` packages to npm.
+# Merging that Release PR commits the version bumps + per-package CHANGELOGs.
+# It does NOT tag or publish — this workflow has no publish step. To ship, a
+# maintainer then pushes a `v*` tag manually (see docs/RELEASING.md), which
+# triggers `release.yml` to build binaries + WASM and publish all tier
+# A/B/C/D `@aihu/*` packages to npm.
 #
 # This is the standard Changesets release flow; do not publish from this
 # workflow. Tag-driven publish lives in `release.yml`.
