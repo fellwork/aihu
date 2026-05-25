@@ -1,24 +1,38 @@
 /**
- * packages/vscode-aihu/server/compiler.ts
+ * packages/language-server/src/core/diagnostics.ts
  *
  * Async wrapper around the aihu-compile Rust binary with --machine-errors support.
  * Invoked by the LSP server on every textDocument/didOpen and textDocument/didChange.
  *
  * NOTE: Uses node:child_process execFile (not exec) with argv arrays — safe from
- * shell injection. The LSP server process runs out-of-process for VS Code isolation.
+ * shell injection. The LSP server process runs out-of-process for editor isolation.
+ *
+ * This module is editor-agnostic: it returns plain `AihuDiagnostic` records with
+ * 0-based LSP positions. The transport/connection layer (src/server.ts) maps these
+ * onto protocol `Diagnostic` objects. Keeping the parse logic here is the clean
+ * seam for a future `@volar/language-core` virtual-code adoption (arch-4 §2.7).
  */
-import { execFile } from 'node:child_process'
+import { type ExecFileOptionsWithStringEncoding, execFile } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
+// execFile honours an `input` option at runtime (written to the child's stdin)
+// but the typed overloads omit it. Extend the string-encoding options type so
+// the call site stays type-safe while feeding source on stdin.
+type ExecFileStdinOptions = ExecFileOptionsWithStringEncoding & { input: string }
+
 const ext = process.platform === 'win32' ? '.exe' : ''
-// Resolve binary relative to this file: server/ -> vscode-aihu/ -> compiler/bin/
+// Resolve binary relative to this module. In the built package the layout is
+// dist/core/diagnostics.js → ../../../compiler/bin/aihu-compile (sibling package
+// in the workspace / installed node_modules). In source/test runs (vitest
+// resolves this file at src/core/diagnostics.ts) the same relative climb lands
+// on packages/compiler/bin/. The AIHU_COMPILE_BIN env var overrides both.
 const binPath: string =
   process.env.AIHU_COMPILE_BIN ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../../compiler/bin/aihu-compile${ext}`)
+  resolve(dirname(fileURLToPath(import.meta.url)), `../../../compiler/bin/aihu-compile${ext}`)
 
 /**
  * The raw JSON shape emitted by the Rust binary with --machine-errors.
@@ -41,8 +55,10 @@ interface RawMachineError {
 export interface AihuDiagnostic {
   code: string
   message: string
-  hint?: string
-  fix?: string
+  // `| undefined` is explicit so the raw compiler error's optional hint/fix
+  // (which may be undefined) assign cleanly under exactOptionalPropertyTypes.
+  hint?: string | undefined
+  fix?: string | undefined
   /** Original source text to replace (for code-action text edits). */
   fromText: string | null
   /** Replacement text (for code-action text edits). */
@@ -103,6 +119,34 @@ export interface CompileResult {
 }
 
 /**
+ * Parse the Rust binary's `--machine-errors` stderr stream into structured
+ * diagnostics. Each JSON line is one error; non-JSON lines are skipped. When no
+ * JSON is present at all, falls back to a single synthetic plain-text diagnostic.
+ *
+ * Pure function — no I/O. Exposed so editors/tests can exercise the mapping
+ * without spawning the compiler.
+ */
+export function parseMachineErrors(stderr: string, filePath: string): AihuDiagnostic[] {
+  const diagnostics: AihuDiagnostic[] = []
+  let jsonParsed = false
+  for (const line of stderr.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed?.startsWith('{')) continue
+    try {
+      const raw = JSON.parse(trimmed) as RawMachineError
+      diagnostics.push(toAihuDiagnostic(raw))
+      jsonParsed = true
+    } catch {
+      // not a JSON line — skip
+    }
+  }
+  if (!jsonParsed) {
+    diagnostics.push(parsePlainError(stderr, filePath))
+  }
+  return diagnostics
+}
+
+/**
  * Compile a .aihu source string via stdin, returning structured diagnostics.
  */
 export async function compileWithDiagnostics(
@@ -117,30 +161,19 @@ export async function compileWithDiagnostics(
       ?.replace(/\.aihu$/, '') ?? 'component'
 
   try {
+    const options: ExecFileStdinOptions = {
+      input: source,
+      encoding: 'utf8',
+      maxBuffer: 8 * 1024 * 1024,
+    }
     const { stdout } = await execFileAsync(
       binPath,
       ['--stdin', '--tag', stem, '--path', filePath, '--machine-errors'],
-      { input: source, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+      options,
     )
     return { code: stdout, diagnostics: [] }
   } catch (err: unknown) {
     const stderr: string = (err as { stderr?: string }).stderr ?? ''
-    const diagnostics: AihuDiagnostic[] = []
-    let jsonParsed = false
-    for (const line of stderr.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed?.startsWith('{')) continue
-      try {
-        const raw = JSON.parse(trimmed) as RawMachineError
-        diagnostics.push(toAihuDiagnostic(raw))
-        jsonParsed = true
-      } catch {
-        // not a JSON line — skip
-      }
-    }
-    if (!jsonParsed) {
-      diagnostics.push(parsePlainError(stderr, filePath))
-    }
-    return { code: null, diagnostics }
+    return { code: null, diagnostics: parseMachineErrors(stderr, filePath) }
   }
 }

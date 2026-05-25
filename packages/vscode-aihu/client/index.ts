@@ -1,10 +1,15 @@
 /**
  * packages/vscode-aihu/client/index.ts
  *
- * VS Code extension client — activates on onLanguage:aihu and spawns the
- * Aihu LSP server as an out-of-process Node.js child via stdio transport.
+ * VS Code extension client — activates on onLanguage:aihu and launches the
+ * standalone `aihu-language-server` binary (from @aihu/language-server) as an
+ * out-of-process Node.js child via stdio transport.
+ *
+ * The server itself no longer lives in this extension; it ships as the separate
+ * @aihu/language-server package (arch-4 §2.6). This client is a thin
+ * LanguageClient wrapper that resolves and spawns that binary.
  */
-import * as path from 'node:path'
+import { dirname, join } from 'node:path'
 import { type ExtensionContext, workspace } from 'vscode'
 import {
   LanguageClient,
@@ -15,9 +20,21 @@ import {
 
 let client: LanguageClient | undefined
 
-export function activate(context: ExtensionContext): void {
-  // The server module is compiled to dist/server/index.js
-  const serverModule = context.asAbsolutePath(path.join('dist', 'server', 'index.js'))
+/**
+ * Resolve the @aihu/language-server stdio entry (dist/bin.js). Resolved via
+ * Node module resolution (CommonJS `require.resolve`, available in the VS Code
+ * extension host) so the bundled dependency is used regardless of install
+ * layout. Falls back to the package main if the bin path is not resolvable.
+ */
+function resolveServerModule(): string {
+  // The package's bin maps to ./dist/bin.js — resolve it via the package root
+  // (package.json is always exported, dist/bin.js may not be in `exports`).
+  const pkgJson = require.resolve('@aihu/language-server/package.json')
+  return join(dirname(pkgJson), 'dist', 'bin.js')
+}
+
+export function activate(_context: ExtensionContext): void {
+  const serverModule = resolveServerModule()
 
   const serverOptions: ServerOptions = {
     run: {

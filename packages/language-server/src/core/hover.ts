@@ -1,8 +1,12 @@
 /**
- * packages/vscode-aihu/server/hover.ts
+ * packages/language-server/src/core/hover.ts
  *
  * Static hover lookup table for aihu macro keywords.
  * Used by the LSP server textDocument/hover handler.
+ *
+ * Editor-agnostic: returns Markdown strings + does pure position math. The
+ * connection layer wraps the result in a protocol `Hover`. Clean seam for a
+ * future Volar virtual-code hover provider.
  */
 
 const HOVER_TABLE: Record<string, string> = {

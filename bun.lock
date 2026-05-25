@@ -420,6 +420,18 @@
         "@aihu/compiler": "workspace:*",
       },
     },
+    "packages/language-server": {
+      "name": "@aihu/language-server",
+      "version": "0.1.0",
+      "bin": {
+        "aihu-language-server": "./dist/bin.js",
+      },
+      "dependencies": {
+        "@aihu/compiler": "workspace:*",
+        "vscode-languageserver": "^9.0.1",
+        "vscode-languageserver-textdocument": "^1.0.11",
+      },
+    },
     "packages/mcp": {
       "name": "@aihu/mcp",
       "version": "0.1.0",
@@ -453,6 +465,23 @@
         "@aihu/plugin": "workspace:*",
         "@aihu/server": "workspace:*",
       },
+    },
+    "packages/plugin-drizzle": {
+      "name": "@aihu-plugin/drizzle",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/server": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu-plugin/data": "workspace:*",
+        "@aihu/plugin": "workspace:*",
+      },
+      "peerDependencies": {
+        "drizzle-orm": ">=0.29.0",
+      },
+      "optionalPeers": [
+        "drizzle-orm",
+      ],
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
@@ -513,9 +542,8 @@
       "name": "vscode-aihu",
       "version": "1.0.0",
       "dependencies": {
+        "@aihu/language-server": "workspace:*",
         "vscode-languageclient": "^9.0.1",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.11",
       },
       "devDependencies": {
         "@types/vscode": "^1.85.0",
@@ -528,6 +556,8 @@
     "@aihu-plugin/agent-readiness": ["@aihu-plugin/agent-readiness@workspace:packages/plugin-agent-readiness"],
 
     "@aihu-plugin/data": ["@aihu-plugin/data@workspace:packages/plugin-data"],
+
+    "@aihu-plugin/drizzle": ["@aihu-plugin/drizzle@workspace:packages/plugin-drizzle"],
 
     "@aihu/adapter-cloudflare": ["@aihu/adapter-cloudflare@workspace:packages/adapter-cloudflare"],
 
@@ -590,6 +620,8 @@
     "@aihu/example-todo-mvc": ["@aihu/example-todo-mvc@workspace:examples/todo-mvc"],
 
     "@aihu/example-weather-card": ["@aihu/example-weather-card@workspace:examples/weather-card"],
+
+    "@aihu/language-server": ["@aihu/language-server@workspace:packages/language-server"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
 

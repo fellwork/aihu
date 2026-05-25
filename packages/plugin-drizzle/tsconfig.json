@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "noEmit": true,
+    "paths": {
+      "@aihu-plugin/drizzle": ["./src/index.ts"],
+      "@aihu/server": ["../server/src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu-plugin/data": ["../plugin-data/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

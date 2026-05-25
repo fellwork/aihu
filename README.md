@@ -218,6 +218,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 |---|---|---|
 | [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.0.2` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.0` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.9` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
 | [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.9` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
@@ -234,6 +235,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.1.1` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
+| [`@aihu/language-server`](./packages/language-server) | `0.1.0` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/primitives`](./packages/primitives) | `0.0.2` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
