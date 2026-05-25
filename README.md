@@ -169,10 +169,10 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/context` | 242 B | 300 B | pass |
 | `@aihu/signals` | 1.71 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.61 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.27 kB | 3400 B | pass |
+| `@aihu/runtime` | 3.32 kB | 3450 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 756 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.34 kB | 1500 B | pass |
+| `@aihu-plugin/kindly-note` | 1.66 kB | 1850 B | pass |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
 | `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 586 B | 600 B | pass |
@@ -220,7 +220,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.0.2` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.0` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.0` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
-| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.1.0` | Runtime syntax highlighting for aihu — <aihu-code> custom element + signal-aware highlight() helper, powered by published @kindly-note/* packages with lazy language loading. |
+| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.0` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
 | [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.9` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
 | [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.9` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |

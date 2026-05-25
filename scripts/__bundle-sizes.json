@@ -16,8 +16,8 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3353,
-    "limit": "3400 B"
+    "bytes": 3403,
+    "limit": "3450 B"
   },
   {
     "name": "@aihu/agent",
@@ -31,8 +31,8 @@
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": 1370,
-    "limit": "1500 B"
+    "bytes": 1698,
+    "limit": "1850 B"
   },
   {
     "name": "@aihu/router",

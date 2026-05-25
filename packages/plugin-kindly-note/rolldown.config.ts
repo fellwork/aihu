@@ -22,9 +22,15 @@ export default defineConfig([
       '@kindly-note/core',
       '@kindly-note/emitters-html',
       '@kindly-note/loader-dynamic-import',
+      // The markdown renderer is a separate optional peer, reached only via the
+      // lazy dynamic import() inside renderMarkdown(); externalize it so it is
+      // NOT inlined into this dist (and NOT counted against the size row).
+      '@kindly-note/render-markdown',
+      '@kindly-note/emitters-markdown',
       // Defensive: lang-* are only ever reached via dynamic import() inside the
-      // loader, so they would never be statically inlined — but listing them
-      // keeps the intent explicit if the loader strategy ever changes.
+      // loader (or transitively via render-markdown), so they would never be
+      // statically inlined — but listing them keeps the intent explicit if the
+      // loader strategy ever changes.
       /^@kindly-note\/lang-/,
     ],
   },

@@ -2,25 +2,40 @@
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Runtime syntax highlighting for aihu — <aihu-code> custom element + signal-aware highlight() helper, powered by published @kindly-note/* packages with lazy language loading.
+Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading.
 
 Held-private workspace package. Not yet published to npm.
 
 > **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-Runtime syntax highlighting for [aihu](../../README.md), powered by the
-published [`@kindly-note/*`](https://www.npmjs.com/org/kindly-note) packages.
-Ships an `<aihu-code>` custom element and a signal-aware `highlight()` helper
-that render scoped-span HTML **in the browser, at runtime**, with
-**lazy-loaded** per-language tokenizers (~1.5 kB gz each).
+Runtime syntax highlighting **and** markdown rendering for
+[aihu](../../README.md), powered by the published
+[`@kindly-note/*`](https://www.npmjs.com/org/kindly-note) packages. Ships two
+custom elements and two signal-aware helpers, all rendered **in the browser, at
+runtime**, with **lazy-loaded** peers:
+
+- **Highlighting** — `<aihu-code>` + `highlight()` render scoped-span HTML, with
+  per-language tokenizers fetched on demand (~1.5 kB gz each).
+- **Markdown rendering** — `<aihu-markdown>` + `renderMarkdown()` render
+  CommonMark to **safe** semantic HTML via `@kindly-note/render-markdown` (raw
+  HTML escaped, `javascript:`/unsafe `data:` URLs neutralised, `on*` handlers
+  never emitted — safe for `innerHTML`).
 
 ## Peer dependencies
 
-The kindly-note engine + emitter + lazy loader are peer dependencies:
+The kindly-note engine + emitter + lazy loader are peer dependencies for the
+highlighting half:
 
 ```bash
 bun add @kindly-note/core @kindly-note/emitters-html @kindly-note/loader-dynamic-import
+```
+
+For the markdown half, add the one-call renderer (it pulls in
+`@kindly-note/emitters-markdown` + `@kindly-note/lang-markdown` transitively):
+
+```bash
+bun add @kindly-note/render-markdown
 ```
 
 Language tokenizers are fetched on demand via dynamic `import()`. Install the
@@ -75,6 +90,53 @@ const { html, language, fallback } = await highlight('{"a": 1}', 'json')
 `highlight()` never throws: an unknown language returns the HTML-escaped source
 with `fallback: true`.
 
+### `<aihu-markdown>` element
+
+```ts
+import { defineMarkdownElement } from '@aihu-plugin/kindly-note'
+defineMarkdownElement() // registers <aihu-markdown> (idempotent, SSR-safe)
+```
+
+```html
+<aihu-markdown># Hello
+
+**bold** and a [link](https://example.com).</aihu-markdown>
+```
+
+Rendered markup lands in an open shadow root. Signal-driven (re-renders
+automatically when the signal changes):
+
+```ts
+import { signal } from '@aihu/signals'
+const [md, setMd] = signal('# First')
+
+const el = document.createElement('aihu-markdown')
+el.source = md // pass the signal reader → element subscribes (alias: `el.markdown`)
+document.body.append(el)
+
+setMd('## Second') // <aihu-markdown> re-renders
+```
+
+### `renderMarkdown()` helper
+
+```ts
+import { renderMarkdown } from '@aihu-plugin/kindly-note'
+
+const html = await renderMarkdown('# Hi\n\n**bold**')
+// html === '<h1>Hi</h1>\n<p><strong>bold</strong></p>' — safe for innerHTML
+```
+
+Security-first by default: raw HTML is escaped and dangerous URL schemes are
+neutralised. Highlight code fences by passing language packs:
+
+```ts
+import json from '@kindly-note/lang-json'
+const html = await renderMarkdown('```json\n{"a": 1}\n```', { languages: [json] })
+```
+
+GFM (tables / task-lists / strikethrough / autolinks) is intentionally not
+supported — that lives in `@kindly-note/lang-markdown-gfm`.
+
 ### Plugin registration
 
 ```ts
@@ -87,12 +149,11 @@ export default defineAihuConfig({ plugins: [kindlyNote()] })
 
 ## Scope
 
-This package ships the **highlighting** half only. Markdown **rendering**
-(`<aihu-markdown>` / `renderMarkdown` / GFM) is **out of scope** — that path
-depends on the unbuilt `@kindly-note/emitters-markdown` and is blocked on org
-access to the kindly-note repo. Highlighting markdown *source* via the
-`@kindly-note/lang-markdown` tokenizer is supported (that is highlighting, not
-rendering).
+This package ships **both** halves: syntax **highlighting** (`<aihu-code>` /
+`highlight()`) and markdown **rendering** (`<aihu-markdown>` / `renderMarkdown`),
+the latter via the published `@kindly-note/render-markdown`. CommonMark only —
+GFM (tables / task-lists / strikethrough / autolinks) is out of scope and lives
+in `@kindly-note/lang-markdown-gfm`.
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install
@@ -106,7 +167,7 @@ npm install @aihu-plugin/kindly-note
 bun add @aihu-plugin/kindly-note
 ```
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -117,13 +178,13 @@ bun add @aihu-plugin/kindly-note
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Bundle size** | 1.34 kB (gz) — limit 1500 B |
+| **Bundle size** | 1.66 kB (gz) — limit 1850 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -136,7 +197,7 @@ bun add @aihu-plugin/kindly-note
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -151,11 +212,12 @@ bun add @aihu-plugin/kindly-note
 
 **Peer dependencies:**
 
-- `@kindly-note/core` — `^0.1.0`
+- `@kindly-note/core` — `^0.2.0`
 - `@kindly-note/emitters-html` — `^0.1.0`
 - `@kindly-note/loader-dynamic-import` — `^0.1.0`
+- `@kindly-note/render-markdown` — `^0.1.0`
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -167,7 +229,7 @@ bun add @aihu-plugin/kindly-note
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -178,6 +240,6 @@ bun add @aihu-plugin/kindly-note
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -1,31 +1,40 @@
 /**
- * @aihu-plugin/kindly-note — runtime syntax highlighting for aihu.
+ * @aihu-plugin/kindly-note — runtime syntax highlighting + markdown rendering
+ * for aihu.
  *
- * Renders syntax-highlighted code IN THE BROWSER, at runtime, from the
- * published v0.1.0 `@kindly-note/*` packages (`@kindly-note/core` +
+ * HIGHLIGHTING half — renders syntax-highlighted code IN THE BROWSER, at
+ * runtime, from the published `@kindly-note/*` packages (`@kindly-note/core` +
  * `@kindly-note/emitters-html` + on-demand `@kindly-note/lang-*` tokenizers via
  * `@kindly-note/loader-dynamic-import`). Pair with a theme stylesheet from
  * `@kindly-note/themes-default` (e.g. `@kindly-note/themes-default/dark.css`)
  * for the `kn-*` scoped-span classes.
  *
+ * RENDERING half — renders CommonMark markdown to SAFE semantic HTML via the
+ * published `@kindly-note/render-markdown` package (one-call wrapper over
+ * `@kindly-note/lang-markdown` + `@kindly-note/emitters-markdown`). The emitter
+ * defaults are security-first (raw HTML escaped, `javascript:`/unsafe `data:`
+ * URLs neutralised, `on*` handlers never emitted), so the output is safe for
+ * `innerHTML` / `nodeValue`.
+ *
  * Primary API:
  *   highlight(source, lang) → Promise<HighlightOutput>   — signal-friendly helper
  *   <aihu-code>                                          — custom element
  *   defineCodeElement()                                  — register the element
+ *   renderMarkdown(src, opts?) → Promise<string>         — signal-friendly helper
+ *   <aihu-markdown>                                      — custom element
+ *   defineMarkdownElement()                              — register the element
  *
  * Plugin registration (Plugin Contract Spec §3, §7.1):
  *   kindlyNote() → Plugin — register in defineAihuConfig({ plugins: [kindlyNote()] })
  *
  * Lazy loading: NO `@kindly-note/lang-*` package is statically imported here, so
  * a bundler cannot pull every language in. Each tokenizer is fetched via dynamic
- * `import()` the first time its language is used (~1.5 kB gz/language).
+ * `import()` the first time its language is used (~1.5 kB gz/language). The
+ * markdown renderer is loaded the same way — `@kindly-note/render-markdown` is
+ * an optional peer, resolved only on the first renderMarkdown() call.
  *
- * OUT OF SCOPE (round 1, Shape A): markdown *rendering* —
- * `<aihu-markdown>` / `renderMarkdown` / GFM. That path depends on the unbuilt
- * `@kindly-note/emitters-markdown` and is blocked on org access to
- * `srmcguirt/kindly-note`. This package ships the HIGHLIGHTING half only.
- * (Highlighting markdown *source* via the `lang-markdown` tokenizer IS
- * supported — that is highlighting, not rendering.)
+ * GFM (tables / task-lists / strikethrough / autolinks) is intentionally NOT
+ * supported by the markdown renderer — that is `@kindly-note/lang-markdown-gfm`.
  */
 
 export {
@@ -41,6 +50,14 @@ export {
   highlight,
   isLanguageRequested,
 } from './highlight.ts'
+export {
+  AIHU_MARKDOWN_TAG,
+  type AihuMarkdownElement,
+  type AihuMarkdownElementConstructor,
+  defineMarkdownElement,
+  getAihuMarkdownElement,
+} from './markdown-element.ts'
+export { type RenderMarkdownOptions, renderMarkdown } from './render-markdown.ts'
 
 // ---------------------------------------------------------------------------
 // Plugin factory (Plugin Contract Spec §3) — mirrors @aihu-plugin/data
