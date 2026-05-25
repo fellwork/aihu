@@ -15,6 +15,9 @@ export type {
 export { defineAihuConfig } from './config.ts'
 export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from './data.ts'
 export { defineLoader } from './data.ts'
+// B3 (SEO arc) — pure mapper: route head metadata → renderable HeadConfig.
+export type { RouteHead, RouteHeadLowerOptions } from './head-lowering.ts'
+export { routeHeadToSsrHead } from './head-lowering.ts'
 export { renderToString } from './loader.ts'
 export { composeMiddleware, defineMiddleware } from './middleware.ts'
 export type {
@@ -26,7 +29,14 @@ export type {
   SubrouteTuple,
 } from './router.ts'
 export { createRequestRouter, defineRoute, defineRoutes } from './router.ts'
-export type { ComponentDescription, HeadConfig, LinkTag, MetaTag, SsrOptions } from './ssr.ts'
+export type {
+  ComponentDescription,
+  HeadConfig,
+  LinkTag,
+  MetaTag,
+  ScriptTag,
+  SsrOptions,
+} from './ssr.ts'
 export { _setContextFns, renderToStream } from './ssr.ts'
 export type { StreamRouteHandler } from './stream-route.ts'
 // v0.4.0 — defineStreamRoute for streaming HTTP responses.
