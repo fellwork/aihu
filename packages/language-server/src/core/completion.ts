@@ -1,12 +1,13 @@
 /**
- * packages/vscode-aihu/server/completion.ts
+ * packages/language-server/src/core/completion.ts
  *
  * LSP completion items for aihu v2 macro-kind collection-form snippets.
  * Triggered by '$' inside @state block, '@' at top level.
  *
  * Uses inline numeric constants for CompletionItemKind and InsertTextFormat
  * to avoid importing vscode-languageserver at module load time (enables testing
- * without the vscode-languageserver package installed).
+ * without the vscode-languageserver package installed, and keeps this module
+ * editor-agnostic — the clean seam for a future Volar adoption).
  */
 
 // CompletionItemKind.Snippet = 15, InsertTextFormat.Snippet = 2

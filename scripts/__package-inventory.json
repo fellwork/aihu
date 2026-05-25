@@ -108,6 +108,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/language-server",
+    "version": "0.1.0",
+    "dir": "packages/language-server",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/mcp",
     "version": "0.1.0",
     "dir": "packages/mcp",
