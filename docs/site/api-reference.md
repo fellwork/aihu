@@ -211,7 +211,15 @@ Tailwind v4 hard fork with WC-native scoped output. The main export is the build
 
 **Types:** `Placement`, `PositionOptions`
 
-**Built-in style packs:** `aihu-default` and `aihu-graphite` ship as CSS bundles in the package `files` list (on disk at `node_modules/@aihu/css-engine/styles/*.css`). Note they are **not** declared in the package `exports` map, so a bare `import '@aihu/css-engine/styles/aihu-default.css'` fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` — copy the file or reproduce it via `defineStylePack()`. See [Theming](theming.md) for the verified access paths.
+**`@aihu/css-engine/packs`** (built-in style packs as JS objects)
+
+| Export | Description |
+|--------|-------------|
+| `aihuDefault` | The `aihu-default` `StylePack` (warm brand palette). Read `.tokens` / `.dark`, or `.toCss()` |
+| `aihuGraphite` | The `aihu-graphite` `StylePack` (monochrome `oklch()` ramp) |
+| `builtinPacks` | `Record<string, StylePack>` of all built-in packs, keyed by name |
+
+**Built-in style packs (CSS bundles):** `@aihu/css-engine/styles/aihu-default.css` and `@aihu/css-engine/styles/aihu-graphite.css` are declared in the package `exports`, so a bare `import '@aihu/css-engine/styles/aihu-default.css'` resolves and Vite inlines it. The CSS files are GENERATED from the `@aihu/css-engine/packs` objects (`pack.toCss()`), so the two access paths emit byte-identical CSS and cannot drift. The files also remain in the package `files` list (on disk at `node_modules/@aihu/css-engine/styles/*.css`). See [Theming](theming.md) for the verified access paths.
 
 ## @aihu/primitives
 

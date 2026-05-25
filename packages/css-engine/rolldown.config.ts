@@ -4,6 +4,13 @@ import { dts } from 'rolldown-plugin-dts'
 export default defineConfig({
   input: {
     index: 'src/index.ts',
+    // Built-in style packs as StylePack objects (`@aihu/css-engine/packs`).
+    // A SEPARATE entry so the pack token data is its own `dist/packs.js`,
+    // importable without pulling in the build-time engine (`compile`/`compileSfc`,
+    // which reach for the Rust binary + node: builtins). Pure data + the shared
+    // `defineStylePack` serializer — no node: imports, so no size-limit row
+    // (it rides on the build/dev-time @aihu/css-engine classification).
+    packs: 'src/packs.ts',
     // Browser runtime sub-exports (Plan 3). Kept as SEPARATE entries so each
     // has its own `dist/runtime/*.js` for an independent `.size-limit.json`
     // row — merging them would blow the 1 KB `cn` budget (Risk #4 size-split).

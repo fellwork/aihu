@@ -833,7 +833,28 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>Placement</code>, <code>PositionOptions</code></p>
-<p><strong>Built-in style packs:</strong> <code>aihu-default</code> and <code>aihu-graphite</code> ship as CSS bundles in the package <code>files</code> list (on disk at <code>node_modules/@aihu/css-engine/styles/*.css</code>). Note they are <strong>not</strong> declared in the package <code>exports</code> map, so a bare <code>import &#39;@aihu/css-engine/styles/aihu-default.css&#39;</code> fails with <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code> — copy the file or reproduce it via <code>defineStylePack()</code>. See <a href="theming.md">Theming</a> for the verified access paths.</p>
+<p><strong><code>@aihu/css-engine/packs</code></strong> (built-in style packs as JS objects)</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>aihuDefault</code></td>
+<td>The <code>aihu-default</code> <code>StylePack</code> (warm brand palette). Read <code>.tokens</code> / <code>.dark</code>, or <code>.toCss()</code></td>
+</tr>
+<tr>
+<td><code>aihuGraphite</code></td>
+<td>The <code>aihu-graphite</code> <code>StylePack</code> (monochrome <code>oklch()</code> ramp)</td>
+</tr>
+<tr>
+<td><code>builtinPacks</code></td>
+<td><code>Record&lt;string, StylePack&gt;</code> of all built-in packs, keyed by name</td>
+</tr>
+</tbody></table>
+<p><strong>Built-in style packs (CSS bundles):</strong> <code>@aihu/css-engine/styles/aihu-default.css</code> and <code>@aihu/css-engine/styles/aihu-graphite.css</code> are declared in the package <code>exports</code>, so a bare <code>import &#39;@aihu/css-engine/styles/aihu-default.css&#39;</code> resolves and Vite inlines it. The CSS files are GENERATED from the <code>@aihu/css-engine/packs</code> objects (<code>pack.toCss()</code>), so the two access paths emit byte-identical CSS and cannot drift. The files also remain in the package <code>files</code> list (on disk at <code>node_modules/@aihu/css-engine/styles/*.css</code>). See <a href="theming.md">Theming</a> for the verified access paths.</p>
 <h2>@aihu/primitives</h2>
 <p>Headless WAI-ARIA APG behaviors as vanilla custom elements; zero CSS. Each behavior has a <code>define*()</code> registrar and a tree-shakeable subpath. See <a href="primitives.md">Primitives</a> for usage.</p>
 <table>
@@ -3783,10 +3804,10 @@ are interchangeable.</p>
 <p>This page is the single source of truth for theming. For the broader styling
 model (scoped output, WC-native variants, <code>cn()</code>), see <a href="#styling">Styling</a>.</p>
 <blockquote>
-<p><strong>Status:</strong> <code>@aihu/css-engine@0.1.1</code> ships the two built-in packs plus
-<code>defineStylePack()</code>. <code>defineStylePack()</code> is the stable, importable API. The
-built-in pack CSS bundles are shipped <em>files</em> (see <a href="#applying-a-pack">Applying a pack</a>)
-but are <strong>not</strong> subpath-exported — read that section before wiring an import.</p>
+<p><strong>Status:</strong> <code>@aihu/css-engine</code> ships the two built-in packs three ways, all
+stable and importable: as <code>defineStylePack()</code>, as <code>StylePack</code> objects from
+<code>@aihu/css-engine/packs</code>, and as CSS bundles via <code>@aihu/css-engine/styles/*.css</code>.
+See <a href="#applying-a-pack">Applying a pack</a>.</p>
 </blockquote>
 <h2>The design-token contract</h2>
 <p>A token is a CSS custom property. Throughout this doc and the
@@ -3858,6 +3879,20 @@ every component on the page. There is no per-component theme wiring.</p>
 compiles to a rule gated on the <code>.dark</code> ancestor, and because the <code>.dark</code> block
 re-declares the <em>same</em> token names with dark values, the variant resolves to
 the dark token automatically.</p>
+<h2>The built-in packs as JS objects</h2>
+<p>The two built-in packs are exported as ready-made <code>StylePack</code> objects from
+<code>@aihu/css-engine/packs</code>, so you can read their tokens or emit their CSS without
+re-declaring anything:</p>
+<pre><code class="language-ts">import { aihuDefault, aihuGraphite } from &#39;@aihu/css-engine/packs&#39;
+
+aihuDefault.tokens[&#39;color-accent&#39;] // &#39;#c8543a&#39;
+aihuDefault.toCss()                // &#39;:root { … } .dark { … }&#39;
+aihuGraphite.toCss()               // the monochrome oklch() bundle
+</code></pre>
+<p>These objects are the <strong>source of truth</strong> for the shipped <code>styles/*.css</code>
+bundles below — the CSS files are generated from them (<code>pack.toCss()</code>), so the
+two access paths can never drift. They are produced by <code>defineStylePack()</code>, the
+same API external orgs use, so the built-ins carry no privileged shape.</p>
 <h2><code>defineStylePack()</code> — custom packs</h2>
 <p>External orgs declare their own pack against the same token-name contract with
 <code>defineStylePack()</code>. This is the stable, importable API (<code>import { defineStylePack } from &#39;@aihu/css-engine&#39;</code>). The built-in packs are themselves expressible through
@@ -3896,37 +3931,43 @@ dangling utilities.</p>
 <h2>Applying a pack</h2>
 <p>A pack is just a <code>:root { … }</code> (+ <code>.dark { … }</code>) stylesheet. You apply it by
 getting that CSS onto the page&#39;s <code>:root</code>, then toggling <code>.dark</code> for dark mode.
-There are two verified paths:</p>
-<p><strong>1. <code>defineStylePack().toCss()</code> (recommended — fully importable).</strong> Generate
-the CSS at build time or runtime and inject it. This path resolves cleanly
-through the package <code>exports</code>:</p>
-<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
-import { aihuDefaultTokens, aihuDefaultDark } from &#39;./tokens.ts&#39; // your token maps
-
-const pack = defineStylePack({ name: &#39;app&#39;, tokens: aihuDefaultTokens, dark: aihuDefaultDark })
-
-// e.g. emit into a &lt;style&gt; in your document head:
-const style = document.createElement(&#39;style&#39;)
-style.textContent = pack.toCss()
-document.head.appendChild(style)
+Three subpath-exported, verified paths:</p>
+<p><strong>1. Import a built-in CSS bundle directly.</strong> <code>@aihu/css-engine/styles/aihu-default.css</code>
+and <code>@aihu/css-engine/styles/aihu-graphite.css</code> are declared in the package
+<code>exports</code>, so Vite (and any bundler that handles CSS imports) inlines them into
+your app&#39;s stylesheet:</p>
+<pre><code class="language-ts">// in your app entry — Vite inlines the CSS, no extra config
+import &#39;@aihu/css-engine/styles/aihu-default.css&#39;
 
 // dark mode: toggle the class the pack&#39;s \`.dark\` block targets
 document.documentElement.classList.toggle(&#39;dark&#39;)
 </code></pre>
-<p><strong>2. The shipped built-in CSS bundles.</strong> <code>aihu-default.css</code> and
-<code>aihu-graphite.css</code> are published in the package&#39;s <code>files</code> list and land on disk
-at <code>node_modules/@aihu/css-engine/styles/aihu-default.css</code> (and
-<code>…/aihu-graphite.css</code>). They are real, shippable stylesheets you can copy into
-your app or load directly by filesystem path.</p>
+<p><strong>2. The built-in packs as JS objects.</strong> Import the ready-made <code>StylePack</code>
+objects from <code>@aihu/css-engine/packs</code> and inject <code>toCss()</code> yourself — handy when
+you generate the <code>&lt;style&gt;</code> at runtime or need to read individual tokens:</p>
+<pre><code class="language-ts">import { aihuDefault } from &#39;@aihu/css-engine/packs&#39;
+
+const style = document.createElement(&#39;style&#39;)
+style.textContent = aihuDefault.toCss()
+document.head.appendChild(style)
+</code></pre>
+<p><strong>3. <code>defineStylePack().toCss()</code> for a custom pack.</strong> Declare your own token
+bundle and inject its CSS the same way:</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+import { appTokens, appDark } from &#39;./tokens.ts&#39; // your token maps
+
+const pack = defineStylePack({ name: &#39;app&#39;, tokens: appTokens, dark: appDark })
+
+const style = document.createElement(&#39;style&#39;)
+style.textContent = pack.toCss()
+document.head.appendChild(style)
+</code></pre>
 <blockquote>
-<p><strong>Gap to know:</strong> these <code>styles/*.css</code> files are <strong>not</strong> declared in the
-package <code>exports</code> map (which exposes only <code>.</code>, <code>./runtime/cn</code>,
-<code>./runtime/progressive</code>). A bare <code>import &#39;@aihu/css-engine/styles/aihu-default.css&#39;</code>
-therefore fails with <code>ERR_PACKAGE_PATH_NOT_EXPORTED</code>. To use a built-in pack
-today, either copy the file into your own assets, load it by its on-disk path,
-or reproduce its tokens via <code>defineStylePack()</code>. (The built-in packs are
-expressible through <code>defineStylePack()</code>, so path #1 covers every case without
-touching the unexported file.)</p>
+<p><strong>Source-of-truth note:</strong> the <code>styles/*.css</code> bundles are GENERATED from the
+<code>@aihu/css-engine/packs</code> objects (<code>pack.toCss()</code>), so path #1 and path #2
+emit byte-identical CSS — they cannot drift. The CSS files remain in the
+package <code>files</code> list, so they are also on disk at
+<code>node_modules/@aihu/css-engine/styles/*.css</code> if you prefer to copy them.</p>
 </blockquote>
 <h2>See also</h2>
 <ul>
