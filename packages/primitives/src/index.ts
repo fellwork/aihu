@@ -10,6 +10,7 @@
  * budgets.
  */
 
+export { AihuButton, type ButtonType, defineButton } from './button/index.ts'
 export {
   AihuCollection,
   type CollectionContextValue,
