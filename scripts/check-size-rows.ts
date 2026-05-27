@@ -34,6 +34,7 @@ export const SERVER_SIDE = new Set<string>([
   '@aihu-plugin/agent-readiness',
   '@aihu-plugin/drizzle',
   '@aihu/ai',
+  '@aihu/auth',
   '@aihu/mcp',
   '@aihu/scraping',
   '@aihu/seo',

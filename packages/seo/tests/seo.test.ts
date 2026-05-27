@@ -1,12 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  createSeoRoutes,
-  seo,
-  seoLlmsSections,
-} from '../src/index.js'
 import type { SeoConfig, SeoRoutes } from '../src/index.js'
+import { createSeoRoutes, seo, seoLlmsSections } from '../src/index.js'
 import { generateJsonLd } from '../src/json-ld.js'
 
 const BASE_CONFIG: SeoConfig = {
@@ -231,10 +227,7 @@ describe('SAMPLE-S11 — install-manifest validates', () => {
 // ---------------------------------------------------------------------------
 describe('SAMPLE-S12 — changeset present', () => {
   it('.changeset/a3-seo-greenfield.md exists and references @aihu/seo minor', () => {
-    const changesetPath = resolve(
-      import.meta.dirname,
-      '../../../.changeset/a3-seo-greenfield.md',
-    )
+    const changesetPath = resolve(import.meta.dirname, '../../../.changeset/a3-seo-greenfield.md')
     const content = readFileSync(changesetPath, 'utf-8')
     expect(content).toContain('@aihu/seo')
     expect(content).toContain('minor')

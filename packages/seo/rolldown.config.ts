@@ -5,11 +5,7 @@ export default defineConfig({
   input: 'src/index.ts',
   // All @aihu/* deps are server/build-time; none are bundled.
   // @aihu-plugin/agent-readiness is type-imported only (LlmsTxtSection).
-  external: [
-    '@aihu/plugin',
-    '@aihu/server',
-    '@aihu-plugin/agent-readiness',
-  ],
+  external: ['@aihu/plugin', '@aihu/server', '@aihu-plugin/agent-readiness'],
   checks: { circularDependency: true },
   output: {
     dir: 'dist',

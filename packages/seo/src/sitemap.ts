@@ -4,10 +4,7 @@ import type { SitemapSource } from './types.js'
  * Generate a valid XML sitemap string from an array of SitemapSource entries.
  * Each URL entry derives its <loc> from baseUrl + source.path.
  */
-export function generateSitemap(
-  baseUrl: string,
-  sources: ReadonlyArray<SitemapSource>,
-): string {
+export function generateSitemap(baseUrl: string, sources: ReadonlyArray<SitemapSource>): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

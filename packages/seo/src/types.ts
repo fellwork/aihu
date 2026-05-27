@@ -11,14 +11,7 @@ export interface SeoConfig {
 export interface SitemapSource {
   readonly path: string // e.g., '/about', '/docs/getting-started'
   readonly lastmod?: string // ISO date
-  readonly changefreq?:
-    | 'always'
-    | 'hourly'
-    | 'daily'
-    | 'weekly'
-    | 'monthly'
-    | 'yearly'
-    | 'never'
+  readonly changefreq?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
   readonly priority?: number // 0.0–1.0
 }
 
