@@ -24,8 +24,19 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
+    "@aihu/plugin": "workspace:*"
+  },
+  "peerDependencies": {
     "@aihu/agent-service": "workspace:*",
     "@aihu/signals": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@aihu/agent-service": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@aihu/server": "workspace:*"
   },
   "description": "JWT scope checks, ScopeSignal, and server middleware for aihu auth.",
   "repository": {
