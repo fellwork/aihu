@@ -6,9 +6,9 @@
  *   2. ASSETS binding — pre-built static files (docs.js, style.css, wasm/, …)
  *   3. /index.html fallback for unmatched paths
  *
- * The client bundle is produced by `vite build` (src/main.ts). Docs content
- * is served as markdown modules via the Vite md-loader plugin and loaded
- * lazily by `docs-shell` on navigation.
+ * The HTML shell (`index.html`) is built with `window.__DOCS__` inlined by
+ * build.ts, so `docs-shell` has content immediately on parse — no flash of
+ * unstyled content waiting for `docs.js` to evaluate.
  */
 
 import type { RouteHandler } from '@aihu/server'

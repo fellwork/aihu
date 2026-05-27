@@ -1,59 +1,28 @@
 @state {
   import { signal, effect } from '@aihu/signals'
-
-  // Resolve initial slug from pathname: /docs/introduction → 'introduction'
-  // /docs/guides/authoring-components → 'guides/authoring-components'
-  // / → 'introduction' (default)
-  function slugFromPathname(pathname: string): string {
-    const stripped = pathname.replace(/^\/docs\/?/, '')
-    return stripped || 'introduction'
-  }
-
   const [activePage, setActivePage] = signal(
-    typeof location !== 'undefined'
-      ? slugFromPathname(location.pathname)
-      : 'introduction'
+
+  typeof location !== 'undefined' && location.hash
+
+  ? location.hash.slice(1)
+
+  : 'introduction'
+
   )
 
-  // All markdown modules — static glob so Vite can analyze at build time
-  const mdModules = import.meta.glob('../content/docs/**/*.md')
-
-  const [activeHtml, setActiveHtml] = signal('<p>Loading content&hellip;</p>')
-
-  // Load markdown for the active page
   if (typeof window !== 'undefined') {
-    effect(() => {
-      const slug = activePage()
-      const key = `../content/docs/${slug}.md`
-      const loader = mdModules[key]
-      if (!loader) {
-        setActiveHtml('<p>Page not found.</p>')
-        return
-      }
-      loader().then((mod: { html: string; title: string; slug: string }) => {
-        setActiveHtml(mod.html)
-        document.title = `${mod.title} — aihu`
-      }).catch(() => {
-        setActiveHtml('<p>Failed to load page.</p>')
-      })
-    })
 
-    // Listen for popstate (back/forward, and our programmatic dispatches)
-    window.addEventListener('popstate', () => {
-      setActivePage(slugFromPathname(location.pathname))
-    })
+  window.addEventListener('hashchange', () => {
 
-    // Intercept <a> clicks for in-docs navigation
-    document.addEventListener('click', (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest('a')
-      if (!target) return
-      const href = target.getAttribute('href')
-      if (!href || !href.startsWith('/docs/')) return
-      e.preventDefault()
-      history.pushState(null, '', href)
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    })
+  setActivePage(location.hash ? location.hash.slice(1) : 'introduction')
+
+  })
+
   }
+
+  const activeHtml = () =>
+
+  window.__DOCS__?.[activePage()]?.html ?? '<p>Loading content&hellip;</p>'
 }
 
 @template {
@@ -62,42 +31,35 @@
 
       <span class="nav-group-label">Getting Started</span>
       <ul>
-        <li><a class="nav-link" href="/docs/introduction" $class:active={activePage() === 'introduction'}>Introduction</a></li>
-        <li><a class="nav-link" href="/docs/installation" $class:active={activePage() === 'installation'}>Installation</a></li>
-        <li><a class="nav-link" href="/docs/getting-started" $class:active={activePage() === 'getting-started'}>Getting Started</a></li>
-        <li><a class="nav-link" href="/docs/playground" $class:active={activePage() === 'playground'}>Playground</a></li>
+        <li><a class="nav-link" href="#introduction" $class:active={activePage() === 'introduction'}>Introduction</a></li>
+        <li><a class="nav-link" href="#installation" $class:active={activePage() === 'installation'}>Installation</a></li>
+        <li><a class="nav-link" href="#getting-started" $class:active={activePage() === 'getting-started'}>Getting Started</a></li>
+        <li><a class="nav-link" href="#playground" $class:active={activePage() === 'playground'}>Playground</a></li>
       </ul>
 
       <span class="nav-group-label">Core</span>
       <ul>
-        <li><a class="nav-link" href="/docs/guides/authoring-components" $class:active={activePage() === 'guides/authoring-components'}>Authoring Components</a></li>
-        <li><a class="nav-link" href="/docs/guides/reactivity" $class:active={activePage() === 'guides/reactivity'}>Reactivity</a></li>
-        <li><a class="nav-link" href="/docs/guides/authoring-agents" $class:active={activePage() === 'guides/authoring-agents'}>Authoring Agents</a></li>
-        <li><a class="nav-link" href="/docs/guides/styling" $class:active={activePage() === 'guides/styling'}>Styling</a></li>
-        <li><a class="nav-link" href="/docs/guides/theming" $class:active={activePage() === 'guides/theming'}>Theming</a></li>
-        <li><a class="nav-link" href="/docs/guides/primitives" $class:active={activePage() === 'guides/primitives'}>Primitives</a></li>
+        <li><a class="nav-link" href="#authoring-components" $class:active={activePage() === 'authoring-components'}>Authoring Components</a></li>
+        <li><a class="nav-link" href="#reactivity" $class:active={activePage() === 'reactivity'}>Reactivity</a></li>
+        <li><a class="nav-link" href="#authoring-agents" $class:active={activePage() === 'authoring-agents'}>Authoring Agents</a></li>
+        <li><a class="nav-link" href="#styling" $class:active={activePage() === 'styling'}>Styling</a></li>
+        <li><a class="nav-link" href="#theming" $class:active={activePage() === 'theming'}>Theming</a></li>
+        <li><a class="nav-link" href="#primitives" $class:active={activePage() === 'primitives'}>Primitives</a></li>
       </ul>
 
       <span class="nav-group-label">Advanced</span>
       <ul>
-        <li><a class="nav-link" href="/docs/guides/routing-layouts" $class:active={activePage() === 'guides/routing-layouts'}>Routing &amp; Layouts</a></li>
-        <li><a class="nav-link" href="/docs/guides/data-fetching" $class:active={activePage() === 'guides/data-fetching'}>Data Fetching</a></li>
-        <li><a class="nav-link" href="/docs/guides/authoring-plugins" $class:active={activePage() === 'guides/authoring-plugins'}>Authoring Plugins</a></li>
-        <li><a class="nav-link" href="/docs/guides/ssr-hydration" $class:active={activePage() === 'guides/ssr-hydration'}>SSR &amp; Hydration</a></li>
+        <li><a class="nav-link" href="#routing-layouts" $class:active={activePage() === 'routing-layouts'}>Routing &amp; Layouts</a></li>
+        <li><a class="nav-link" href="#data-fetching" $class:active={activePage() === 'data-fetching'}>Data Fetching</a></li>
+        <li><a class="nav-link" href="#authoring-plugins" $class:active={activePage() === 'authoring-plugins'}>Authoring Plugins</a></li>
+        <li><a class="nav-link" href="#ssr-hydration" $class:active={activePage() === 'ssr-hydration'}>SSR &amp; Hydration</a></li>
       </ul>
 
       <span class="nav-group-label">Reference</span>
       <ul>
-        <li><a class="nav-link" href="/docs/migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
-        <li><a class="nav-link" href="/docs/guides/deployment" $class:active={activePage() === 'guides/deployment'}>Deployment</a></li>
-        <li><a class="nav-link" href="/docs/api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
-      </ul>
-
-      <span class="nav-group-label">Packages</span>
-      <ul>
-        <li><a class="nav-link" href="/docs/packages/context" $class:active={activePage() === 'packages/context'}>@aihu/context</a></li>
-        <li><a class="nav-link" href="/docs/packages/agent-a2a" $class:active={activePage() === 'packages/agent-a2a'}>@aihu/agent-a2a</a></li>
-        <li><a class="nav-link" href="/docs/packages/agent-acp" $class:active={activePage() === 'packages/agent-acp'}>@aihu/agent-acp</a></li>
+        <li><a class="nav-link" href="#migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
+        <li><a class="nav-link" href="#deployment" $class:active={activePage() === 'deployment'}>Deployment</a></li>
+        <li><a class="nav-link" href="#api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
       </ul>
 
     </nav>
