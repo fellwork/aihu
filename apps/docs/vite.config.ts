@@ -1,8 +1,8 @@
 import { relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { aihuCompilerPlugin } from '../../packages/compiler/js/index.ts'
 import { marked } from 'marked'
 import { defineConfig } from 'vite'
+import { aihuCompilerPlugin } from '../../packages/compiler/js/index.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const contentDocsDir = resolve(__dir, 'src/content/docs')
@@ -30,10 +30,7 @@ const mdLoaderPlugin = {
 }
 
 export default defineConfig({
-  plugins: [
-    mdLoaderPlugin,
-    aihuCompilerPlugin() as import('vite').Plugin,
-  ],
+  plugins: [mdLoaderPlugin, aihuCompilerPlugin() as import('vite').Plugin],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
