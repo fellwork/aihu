@@ -85,7 +85,9 @@ for (const probe of PROBES) {
   const p50 = percentile(samples, 50).toFixed(4)
   const p95 = percentile(samples, 95).toFixed(4)
   const p99 = percentile(samples, 99).toFixed(4)
-  console.log(`  ${probe.label.padEnd(20)}   ${p50.padStart(7)}   ${p95.padStart(7)}   ${p99.padStart(7)}`)
+  console.log(
+    `  ${probe.label.padEnd(20)}   ${p50.padStart(7)}   ${p95.padStart(7)}   ${p99.padStart(7)}`,
+  )
 }
 
 const allSorted = allSamples.sort((a, b) => a - b)
@@ -93,6 +95,8 @@ const totalP50 = percentile(allSorted, 50).toFixed(4)
 const totalP95 = percentile(allSorted, 95).toFixed(4)
 const totalP99 = percentile(allSorted, 99).toFixed(4)
 console.log('  -------------------    -------   -------   -------')
-console.log(`  ${'(all probes)'.padEnd(20)}   ${totalP50.padStart(7)}   ${totalP95.padStart(7)}   ${totalP99.padStart(7)}`)
+console.log(
+  `  ${'(all probes)'.padEnd(20)}   ${totalP50.padStart(7)}   ${totalP95.padStart(7)}   ${totalP99.padStart(7)}`,
+)
 console.log('')
 console.log('  Note: observational only — not a CI gate per director-note §3.5.')
