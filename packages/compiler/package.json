@@ -18,7 +18,6 @@
   "files": [
     "dist",
     "js/postinstall.ts",
-    "bin",
     "README.md",
     "LICENSE"
   ],
