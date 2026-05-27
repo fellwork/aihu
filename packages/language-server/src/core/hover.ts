@@ -184,32 +184,464 @@ const HOVER_TABLE: Record<string, string> = {
     '',
     'Usage: `$emit.name(payload)`',
     '',
-    '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
+    '[Template syntax v2 spec](docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md)',
+  ].join('\n'),
+
+  // ---------------------------------------------------------------------------
+  // @state macros (new in round-0 per director-note §3.1)
+  // ---------------------------------------------------------------------------
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.6 lines 385-431
+  $watch: [
+    '**aihu macro: `$watch`**',
+    '',
+    'Imperative subscription to a value with access to prev and next values.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'let _prev = source',
+    'effect(() => { const _next = source; if (_next !== _prev) { callback(_next, _prev); _prev = _next } })',
+    '```',
+    '',
+    'Does NOT run on mount. Callback runs in an untracked context.',
+    '',
+    '[v1 spec §2.6](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.9 lines 537-575 (@state)
+  //   plus 2026-05-05-spec-macro-vocabulary-v2.md §4 lines 208-216 (C440 — agent-side $expose removed)
+  $expose: [
+    '**aihu macro: `$expose`**',
+    '',
+    'Marks `@state` declarations as accessible from a parent via template ref',
+    '(equivalent to Vue `defineExpose`). By default `@state` entries are private.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'defineExpose({ name1, name2, ... })',
+    '```',
+    '',
+    'Usage: `$expose name1, name2` or `$expose { name1, name2 }`',
+    '',
+    '**Deprecated in v2 (C440)** when used INSIDE `@agent`. The agent-side',
+    '`$expose` (and `$expose.write`) are removed; replace with per-name',
+    '`expose: { read: true }` or `expose: { read: true, write: true }` on the',
+    'corresponding `@state` collection entry.',
+    '',
+    '[v1 spec §2.9](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+    '[v2 spec §4 (C440)](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.10 lines 577-615
+  $shared: [
+    '**aihu macro: `$shared`**',
+    '',
+    'SSR-safe global state shared across components; survives hydration.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    "const name = useSharedState(key ?? 'auto-' + componentId + '-' + name, defaultValue)",
+    '```',
+    '',
+    'Usage: `$shared name: type = defaultValue` or `$shared(key) name: type = default`',
+    '',
+    '[v1 spec §2.10](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.11 lines 617-653
+  $cookie: [
+    '**aihu macro: `$cookie`**',
+    '',
+    'Reactive binding to a cookie value (SSR-safe).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    "const name = useCookie<type>('name', { defaultValue, ...options })",
+    '```',
+    '',
+    'Usage: `$cookie name: string = ""` or `$cookie({ maxAge: 86400 }) sessionId: string = ""`',
+    '',
+    '[v1 spec §2.11](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.12 lines 655-701
+  $server: [
+    '**aihu macro: `$server`**',
+    '',
+    'Declares a function that runs only on the server; client calls via RPC.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    '// Server: actual implementation in _aihu-server/actions/{component-id}/{name}.ts',
+    "const name = createServerCall<Args, Return>('component-id/name')",
+    '```',
+    '',
+    'Function body is never bundled to the client. Args/return must be serializable.',
+    '',
+    '[v1 spec §2.12](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §2.13 lines 703-749
+  $meta: [
+    '**aihu macro: `$meta`**',
+    '',
+    'Declares page metadata (title, description, OG tags).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'useHead({ title, description, og })',
+    '// or dynamic: useHead(() => ({ title: dynamicTitle }))',
+    '```',
+    '',
+    'Multiple `$meta` blocks merge (later overrides earlier). SSR-emitted into `<head>`.',
+    '',
+    '[v1 spec §2.13](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // ---------------------------------------------------------------------------
+  // @template macros (new in round-0 per director-note §3.1)
+  // ---------------------------------------------------------------------------
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.6 lines 947-976
+  $key: [
+    '**aihu template directive: `$key`**',
+    '',
+    'Stable identity for list reconciliation inside `$each`.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createEachBoundary({ key: (item) => keyExpr, ... })',
+    '```',
+    '',
+    'Usage: `<li $each="users as u" $key="u.id">{u.name}</li>`',
+    '',
+    '[v1 spec §3.6](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.8 lines 1006-1028
+  $raw: [
+    '**aihu template directive: `$raw`**',
+    '',
+    'Skip compilation of the element subtree. Boolean-only (no value).',
+    '',
+    'Interpolations like `{x}`, macros, and bindings inside are NOT processed —',
+    'the subtree renders as static content.',
+    '',
+    "Usage: `<pre $raw>{this looks like interpolation but isn't}</pre>`",
+    '',
+    '[v1 spec §3.8](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.9 lines 1030-1061
+  $once: [
+    '**aihu template directive: `$once`**',
+    '',
+    'Render subtree once at mount; never update. Boolean-only.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createOnceBoundary({ build: () => subtree, parent: parentEl })',
+    '```',
+    '',
+    'No reactive subscriptions inside. Subtree never re-renders.',
+    '',
+    '[v1 spec §3.9](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.10 lines 1063-1097
+  $memo: [
+    '**aihu template directive: `$memo`**',
+    '',
+    'Memoize an element subtree by explicit dependencies (curly form only).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createMemoBoundary({ deps: () => [dep1, dep2], build: () => subtree })',
+    '```',
+    '',
+    'Usage: `<ExpensiveChart $memo={[data, settings]} />`',
+    '',
+    '[v1 spec §3.10](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.12 lines 1141-1194
+  '<$slot>': [
+    '**aihu template element: `<$slot>`**',
+    '',
+    'Children passthrough or named slot.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    "const slotN = useSlot('name', defaultContent)",
+    'slotN.render({ exposed: { user, index } })',
+    '```',
+    '',
+    'Usage: `<$slot />`, `<$slot name="header">default</$slot>`,',
+    '`<$slot name="row" expose="user, index" />`',
+    '',
+    '[v1 spec §3.12](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.13 lines 1196-1244
+  '<$suspense>': [
+    '**aihu template element: `<$suspense>`**',
+    '',
+    'Loading boundary for async data (`$resource`).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createSuspenseBoundary({ fallback, fallbackProps, build, parent })',
+    '```',
+    '',
+    'While any tracked resource is loading, renders `fallback`. Once all ready,',
+    'swaps to actual content. Streaming SSR-compatible.',
+    '',
+    '[v1 spec §3.13](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.14 lines 1246-1290
+  '<$shield>': [
+    '**aihu template element: `<$shield>`**',
+    '',
+    'Error boundary.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createShieldBoundary({ fallback, onError, build, parent })',
+    '```',
+    '',
+    'Catches errors during render, in effects, and unhandled `$resource` errors.',
+    'Slot context: `shield.error`, `shield.retry`.',
+    '',
+    '[v1 spec §3.14](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.15 lines 1292-1349
+  '<$guard>': [
+    '**aihu template element: `<$guard>`**',
+    '',
+    'Access-control boundary (scope, permissions, rate limit).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createGuardBoundary({ scope, permissions, rateLimit, fallback, redirect, onDeny, build })',
+    '```',
+    '',
+    'Usage: `<$guard scope="authenticated" fallback="LoginPrompt"><Page /></$guard>`',
+    'Slot context: `guard.user`, `guard.reason`, `guard.path`.',
+    '',
+    '[v1 spec §3.15](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §3.16 lines 1351-1397
+  '<$warp>': [
+    '**aihu template element: `<$warp>`**',
+    '',
+    'Render content into a different DOM location (portal).',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'createWarpBoundary({ target: () => to, condition: () => $if, build })',
+    '```',
+    '',
+    'Usage: `<$warp to="#modal-root"><Dialog /></$warp>`',
+    '',
+    '[v1 spec §3.16](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // ---------------------------------------------------------------------------
+  // @style macros (new in round-0 per director-note §3.1)
+  // ---------------------------------------------------------------------------
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §4.1 lines 1405-1443
+  $reactive: [
+    '**aihu @style macro: `$reactive`**',
+    '',
+    'Bind a CSS property to a reactive expression via a CSS custom property.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    "effect(() => rootEl.style.setProperty('--reactive-N', String(expr)))",
+    '/* CSS: .aihu-component { property: var(--reactive-N) } */',
+    '```',
+    '',
+    'Usage: `h1 { color: $reactive(error ? "red" : "black") }`',
+    '',
+    '[v1 spec §4.1](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §4.2 lines 1445-1479
+  $tokens: [
+    '**aihu @style macro: `$tokens`**',
+    '',
+    'Import design tokens from project config (`aihu.config.ts` `style.tokens`).',
+    '',
+    'Lowering depends on mode:',
+    '- `tokens` mode → CSS custom properties (e.g. `--color-primary`)',
+    '- `tailwind` mode → mapped to Tailwind class equivalents',
+    '- `plain` mode → inlined raw values',
+    '',
+    'Usage: `$tokens(spacing, color, typography)`',
+    '',
+    '[v1 spec §4.2](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §4.3 lines 1481-1516
+  $global: [
+    '**aihu @style macro: `$global`**',
+    '',
+    'Emit unscoped CSS rules (escape from component scoping).',
+    '',
+    'Usage:',
+    '```',
+    '@style {',
+    '  $global { body { margin: 0 } * { box-sizing: border-box } }',
+    '}',
+    '```',
+    '',
+    '`$reactive` inside `$global` targets `document.documentElement`.',
+    '',
+    '[v1 spec §4.3](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §4.4 lines 1518-1556
+  $media: [
+    '**aihu @style macro: `$media`**',
+    '',
+    'CSS media-query block.',
+    '',
+    'Compiles to:',
+    '```css',
+    '@media (query) { rules }',
+    '```',
+    '',
+    'Usage: `$media(min-width: 768px) { h1 { font-size: 2rem } }`',
+    '',
+    '[v1 spec §4.4](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §4.5 lines 1558-1604
+  $when: [
+    '**aihu @style macro: `$when`**',
+    '',
+    'Apply styles conditionally based on a signal value.',
+    '',
+    'Compiles to:',
+    '```typescript',
+    'effect(() => { rootEl.dataset.whenN = String(condition) })',
+    '/* CSS: .aihu-component[data-when-N="true"] { rules } */',
+    '```',
+    '',
+    'Usage: `$when(loading) { root { opacity: 0.5 } }`',
+    '',
+    '[v1 spec §4.5](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+  ].join('\n'),
+
+  // ---------------------------------------------------------------------------
+  // @agent macros (new in round-0 per director-note §3.1)
+  // ---------------------------------------------------------------------------
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §5.4 lines 1730-1766
+  //   plus 2026-05-05-spec-macro-vocabulary-v2.md §4 lines 199-203 (retained in v2)
+  $scope: [
+    '**aihu @agent macro: `$scope`**',
+    '',
+    'Declares the auth scope required to access this component agent surface.',
+    '',
+    'Compiles to scope metadata attached to all MCP resources/tools registered',
+    'for this component. Every agent request is checked against the scope.',
+    '',
+    'Usage: `$scope authenticated`',
+    '',
+    '[v2 spec §4](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §5.5 lines 1768-1807
+  //   plus 2026-05-05-spec-macro-vocabulary-v2.md §4 lines 199-203 (retained in v2)
+  '$rate-limit': [
+    '**aihu @agent macro: `$rate-limit`**',
+    '',
+    'Override the default rate limit for this component agent surface.',
+    '',
+    'Compiles to rate-limit metadata attached to MCP tools. Per-component limit',
+    'composes with scope-level limits (tighter wins). Counted per user per component.',
+    '',
+    'Usage: `$rate-limit "100/min"`, `$rate-limit "unlimited"`',
+    '',
+    '[v2 spec §4](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
+  ].join('\n'),
+
+  // Source: 2026-05-02-spec-macro-vocabulary.md §5.6 lines 1809-1840 (v1 form)
+  //   plus 2026-05-05-spec-macro-vocabulary-v2.md §4 lines 208-216 (C440 — removed in v2)
+  $describe: [
+    '**aihu @agent macro: `$describe`**',
+    '',
+    '**Deprecated in v2 (C440)**. Replace with per-name `describe: "<text>"`',
+    'on the corresponding `@state` collection entry.',
+    '',
+    'v1 form (for migration reference only):',
+    '```',
+    '$describe name "description string"',
+    '$describe { name1: "...", name2: "..." }',
+    '```',
+    '',
+    'v2 replacement:',
+    '```',
+    '@state {',
+    '  $prop: {',
+    "    name: { default: undefined, describe: 'description string' },",
+    '  }',
+    '}',
+    '```',
+    '',
+    '[v1 spec §5.6](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
+    '[v2 spec §4 (C440)](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 }
 
 export function getBlockContext(
   lines: string[],
   lineIndex: number,
-): 'state' | 'template' | 'unknown' {
+): 'state' | 'template' | 'style' | 'agent' | 'route' | 'unknown' {
   for (let i = lineIndex; i >= 0; i--) {
     const trimmed = lines[i]!.trimStart()
     if (/^@state\s*\{/.test(trimmed)) return 'state'
     if (/^@template\s*\{/.test(trimmed)) return 'template'
-    if (/^@(style|agent|route)\s*\{/.test(trimmed)) return 'unknown'
+    if (/^@style\s*\{/.test(trimmed)) return 'style'
+    if (/^@agent\s*\{/.test(trimmed)) return 'agent'
+    if (/^@route\s*\{/.test(trimmed)) return 'route'
   }
   return 'unknown'
 }
 
 export function getMacroAtPosition(lineText: string, character: number): string | null {
   let m: RegExpExecArray | null
-  const namespacedRe = /\$(on|bind)(?:[.:][A-Za-z_$][\w$]*)?/g
+  // Template-element forms: <$slot>, <$suspense>, <$shield>, <$guard>, <$warp>.
+  // Returns the bracketed form (e.g. `<$slot>`) so HOVER_TABLE entries keyed
+  // with the angle-bracketed form (per director-note §3.3) resolve correctly.
+  const elementRe = /<\$(slot|suspense|shield|guard|warp)\b/g
+  while ((m = elementRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      return `<$${m[1]!}>`
+    }
+  }
+  // Namespaced/dotted forms. Returns the bare prefix (`$effect`, `$lifecycle`,
+  // `$expose`, `$emit`, `$on`, `$bind`) for dotted/colon-suffixed forms; the
+  // bare HOVER_TABLE entries cover the family by design (dotted-form folding
+  // per director-note §3.8).
+  // Word-boundary after the captured prefix prevents accidental matches like
+  // `$once` getting absorbed by `$on` or `$effect.on` being absorbed by `$effect`
+  // when the bare regex would otherwise be the better resolver.
+  const namespacedRe = /\$(on|bind|effect|lifecycle|expose|emit)(?:[.:][A-Za-z_$][\w$]*)?\b/g
   while ((m = namespacedRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
     }
   }
-  const bareRe = /\$(prop|computed|action|resource|effect|lifecycle|emit|if|each|html|show)\b/g
+  // Bare-form macros. `rate-limit` includes a hyphen — the regex captures it
+  // as a single token; we still return `$rate-limit` literally.
+  const bareRe =
+    /\$(prop|computed|action|resource|effect|lifecycle|emit|if|each|html|show|watch|shared|cookie|server|meta|key|raw|once|memo|reactive|tokens|global|media|when|scope|rate-limit|describe)\b/g
   while ((m = bareRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
