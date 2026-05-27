@@ -19,11 +19,7 @@
  * @module
  */
 
-// ── Plugin factory (A02) ────────────────────────────────────────────────────
-export { auth } from './auth-plugin.ts'
 // ── Client helpers (A05, A06, A07) ─────────────────────────────────────────
-// setCurrentScopes / clearCurrentScopes are exported from client.ts
-// (which delegates scope updates to scope-signal.ts internally).
 export {
   clearCurrentScopes,
   setCurrentScopes,
@@ -38,14 +34,10 @@ export type { AuthMiddlewareOptions } from './middleware.ts'
 export { requireAuth, requireScope } from './middleware.ts'
 export type { AuthPluginOptions } from './plugin.ts'
 export { createAuthPlugin } from './plugin.ts'
-// ── Route handlers (A03) ────────────────────────────────────────────────────
-export { createAuthRoutes } from './routes.ts'
 export type { ScopeSignalHandle } from './scope-signal.ts'
 export { createScopeSignal, getScopeSignal } from './scope-signal.ts'
-// ── Server-side state reader (A04) ─────────────────────────────────────────
-// NOTE: `getAuthState` uses crypto.subtle — server-only. Do not import this
-// module into a browser-only bundle.
-export { getAuthState } from './server.ts'
 // ── Types (A08) ────────────────────────────────────────────────────────────
 export type { AuthConfig, AuthState, RequestContext, RouteHandlers, User } from './types.ts'
 export { AuthError } from './types.ts'
+// ── Server-side exports (auth factory, createAuthRoutes, getAuthState) ──────
+// Available via '@aihu/auth/server' — crypto.subtle is server-only.
