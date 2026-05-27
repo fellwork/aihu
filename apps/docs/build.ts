@@ -116,7 +116,11 @@ const sitemapXml = generateSitemapXml({
     { url: 'https://aihu.dev/docs/introduction', changefreq: 'weekly', priority: 0.9 },
     { url: 'https://aihu.dev/docs/installation', changefreq: 'weekly', priority: 0.9 },
     { url: 'https://aihu.dev/docs/getting-started', changefreq: 'weekly', priority: 0.9 },
-    { url: 'https://aihu.dev/docs/guides/authoring-components', changefreq: 'monthly', priority: 0.8 },
+    {
+      url: 'https://aihu.dev/docs/guides/authoring-components',
+      changefreq: 'monthly',
+      priority: 0.8,
+    },
     { url: 'https://aihu.dev/docs/guides/reactivity', changefreq: 'monthly', priority: 0.8 },
     { url: 'https://aihu.dev/docs/guides/authoring-agents', changefreq: 'monthly', priority: 0.8 },
     { url: 'https://aihu.dev/docs/guides/styling', changefreq: 'monthly', priority: 0.8 },
