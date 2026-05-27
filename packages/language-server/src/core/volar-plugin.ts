@@ -11,15 +11,16 @@
  */
 import type {
   CodegenContext,
-  CodeMapping,
   IScriptSnapshot,
   LanguagePlugin,
   LanguageServicePlugin,
   VirtualCode,
 } from '@volar/language-server/node'
-import { SourceMap } from '@volar/source-map'
 import type { URI } from 'vscode-uri'
-import { getHoverContent, getMacroAtPosition } from './hover.ts'
+import { buildMigrateFix, MIGRATE_CODES } from './code-action.ts'
+import { BLOCK_COMPLETIONS, STATE_MACRO_COMPLETIONS } from './completion.ts'
+import { compileWithDiagnostics } from './diagnostics.ts'
+import { getBlockContext, getHoverContent, getMacroAtPosition } from './hover.ts'
 import { generateStateVirtualCode } from './state-generator.ts'
 import type { AihuCodeMapping } from './virtual-source-map.ts'
 
@@ -173,6 +174,9 @@ export function createAihuLanguageServicePlugin(): LanguageServicePlugin {
   return {
     capabilities: {
       hoverProvider: true,
+      completionProvider: { triggerCharacters: ['$', '@'] },
+      diagnosticProvider: { interFileDependencies: false, workspaceDiagnostics: false },
+      codeActionProvider: { codeActionKinds: ['quickfix'] },
     },
     create(_context) {
       return {
@@ -193,6 +197,62 @@ export function createAihuLanguageServicePlugin(): LanguageServicePlugin {
           return {
             contents: { kind: 'markdown', value: content },
           }
+        },
+
+        provideCompletionItems(document, position, _context, _token) {
+          const lines = document.getText().split('\n')
+          const ctx = getBlockContext(lines, position.line)
+          if (ctx === 'state') {
+            return { isIncomplete: false, items: STATE_MACRO_COMPLETIONS as any }
+          }
+          if (ctx === 'template') {
+            return { isIncomplete: false, items: [] }
+          }
+          // 'unknown' covers top-level AND @style/@agent/@route blocks
+          return { isIncomplete: false, items: BLOCK_COMPLETIONS as any }
+        },
+
+        async provideDiagnostics(document, _token) {
+          const filePath = document.uri.replace(/^file:\/\//, '')
+          const result = await compileWithDiagnostics(document.getText(), filePath)
+          return result.diagnostics.map((diag) => ({
+            severity: 1 as const,
+            range: diag.range ?? {
+              start: { line: 0, character: 0 },
+              end: { line: 0, character: 0 },
+            },
+            message: diag.message,
+            code: diag.code,
+            source: 'aihu',
+          }))
+        },
+
+        provideCodeActions(document, _range, context, _token) {
+          const matching = context.diagnostics.filter(
+            (d) => typeof d.code === 'string' && MIGRATE_CODES.has(d.code),
+          )
+          if (matching.length === 0) return []
+          const fix = buildMigrateFix(document.getText())
+          if (!fix) return []
+          return [
+            {
+              title: fix.title,
+              kind: 'quickfix',
+              edit: {
+                changes: {
+                  [document.uri]: [
+                    {
+                      range: {
+                        start: { line: 0, character: 0 },
+                        end: { line: Number.MAX_SAFE_INTEGER, character: 0 },
+                      },
+                      newText: fix.rewritten,
+                    },
+                  ],
+                },
+              },
+            },
+          ]
         },
       }
     },

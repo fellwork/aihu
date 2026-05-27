@@ -376,8 +376,6 @@ export function generateStateVirtualCode(input: GeneratorInput): GeneratorOutput
     const macroKeyOffsetInSource = openBracePos + 1 + macroMatch.index
 
     // Extract the full value text for this macro
-    const colonPos = macroKeyOffsetInSource + macroMatch[0].trimStart().length - 1
-    // Actually colonPos is: position of ':' in original source
     const colonAbsPos = openBracePos + 1 + macroMatch.index + macroMatch[0].length - 1
     const valueText = extractMacroValue(source, colonAbsPos)
 
@@ -395,7 +393,7 @@ export function generateStateVirtualCode(input: GeneratorInput): GeneratorOutput
 
   for (const decl of declarations) {
     const generatedOffset = virtualCode.length
-    virtualCode += decl.code + '\n'
+    virtualCode += `${decl.code}\n`
 
     if (decl.mapped && decl.sourceNameOffset >= 0) {
       // Find the identifier in the generated line
@@ -407,8 +405,6 @@ export function generateStateVirtualCode(input: GeneratorInput): GeneratorOutput
       let generatedNameOffset = generatedOffset
       const codeLine = decl.code
 
-      // Find where the name appears in the generated code line
-      const nameIdxInLine = codeLine.indexOf(decl.nameLen > 0 ? '' : '')
       // Use string search for the actual name
       const nameStr = source.slice(decl.sourceNameOffset, decl.sourceNameOffset + decl.nameLen)
       const nameInGenerated = codeLine.indexOf(nameStr)
