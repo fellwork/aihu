@@ -150,12 +150,6 @@
     "isPlatform": false
   },
   {
-    "name": "@aihu/magna",
-    "version": "0.1.0",
-    "dir": "packages/magna",
-    "isPlatform": false
-  },
-  {
     "name": "@aihu/mcp",
     "version": "0.1.0",
     "dir": "packages/mcp",
