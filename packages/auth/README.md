@@ -23,7 +23,7 @@ npm install @aihu/auth
 bun add @aihu/auth
 ```
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,13 +34,13 @@ bun add @aihu/auth
 
 | | |
 |---|---|
-| **Version** | `0.1.1` |
+| **Version** | `0.1.2` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Bundle size** | 1.16 kB (gz) — limit 1.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -54,7 +54,7 @@ bun add @aihu/auth
 | `.` | `./dist/index.js` | `—` |
 | `./server` | `./dist/server.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -72,7 +72,7 @@ bun add @aihu/auth
 - `@aihu/agent-service` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -84,7 +84,7 @@ bun add @aihu/auth
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -95,6 +95,6 @@ bun add @aihu/auth
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/auth@0.1.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/auth@0.1.2`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

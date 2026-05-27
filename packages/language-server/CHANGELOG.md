@@ -1,5 +1,33 @@
 # @aihu/language-server
 
+## 0.2.0
+
+### Minor Changes
+
+- [#239](https://github.com/fellwork/aihu/pull/239) [`60cd922`](https://github.com/fellwork/aihu/commit/60cd92294211596c2091ac7fa27646e553a2f31d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Migrate language server from vscode-languageserver to @volar/language-server
+  (v2.4.28). Adds virtual-file generator for @state block (12 macros), source-map
+  module using @volar/source-map Mapping<CodeInformation>, and Volar plugin layer
+  (AihuLanguagePlugin + AihuLanguageServicePlugin). All 124 prior tests preserved;
+  adds volar-integration.test.ts.
+
+### Patch Changes
+
+- [#248](https://github.com/fellwork/aihu/pull/248) [`950ca3f`](https://github.com/fellwork/aihu/commit/950ca3fa80ae7934dd44075570ac2839a12ae1eb) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Remove unused vscode-languageserver direct deps; add hover-path latency CI gate (p95 < 100ms).
+
+- [#237](https://github.com/fellwork/aihu/pull/237) [`d483902`](https://github.com/fellwork/aihu/commit/d48390269ad858bcd5e09d81ef9c6eec44a9f7d6) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add hover content for 23 additional macros (final coverage: 36 resolver tokens
+  covering all 39 spec forms via dotted-form folding). Extend getMacroAtPosition
+  regex set (4 patterns) and getBlockContext to distinguish @style/@agent/@route.
+  Add observational latency benchmark scaffold (non-gate).
+
+  Note: $emit hover citation re-pointed to template-syntax-v2 §5; macro-vocabulary
+  specs predate template-syntax-v2. Future M3 doc-track item to emit
+  macro-vocabulary-v3 incorporating $emit.
+
+- [#239](https://github.com/fellwork/aihu/pull/239) [`60cd922`](https://github.com/fellwork/aihu/commit/60cd92294211596c2091ac7fa27646e553a2f31d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Wire provideCompletionItems, provideDiagnostics, provideCodeActions into Volar LanguageServicePlugin; add editor configs for Neovim and Helix.
+
+- Updated dependencies [[`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069), [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069)]:
+  - @aihu/compiler@0.5.2
+
 ## 0.1.1
 
 ### Patch Changes

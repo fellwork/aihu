@@ -1,5 +1,16 @@
 # @aihu/compiler
 
+## 0.5.2
+
+### Patch Changes
+
+- [#249](https://github.com/fellwork/aihu/pull/249) [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Tighten `validate_macro_quoted_value` to enforce its documented contract: identifier-start (`[A-Za-z_$]`) followed by `[A-Za-z0-9_$.]`, with no `..` or trailing `.`. Previously the validator rejected only whitespace, brackets, parens, and `?`, quietly allowing `!`, `&`, `|`, comparison and arithmetic operators, leading digits, and dotted-path malformations. Codegen wrapped those non-simple-identifier values in `[() => (…)]`; when the expression referenced a signal getter (e.g. `!loading`), the thunk read the getter as a function value — always truthy — instead of calling it (silent wrong-result). C302 error now carries a structured migration target pointing at the curly form (`$<name>={expr}`).
+
+- [#249](https://github.com/fellwork/aihu/pull/249) [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reject unreserved `$<name>="quoted"` template attributes at parse time with a hard C500 error (Risk-7 closure from spec-template-syntax-v2 §"Codegen hardening — silent-drop fix"). Previously these silently fell through codegen's `emit_macro_effects` default arm — the attribute was dropped and the layout/component rendered without the intended prop. Error now points authors at the curly form (`$<name>={expr}`), which routes to `Attr::Binding` via Amendment 04 and emits as a real prop on a component.
+
+- Updated dependencies []:
+  - @aihu/css-engine@0.2.3
+
 ## 0.5.1
 
 ### Patch Changes
