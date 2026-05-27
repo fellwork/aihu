@@ -113,5 +113,15 @@
     "name": "@aihu/primitives/button",
     "bytes": -1,
     "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/auth",
+    "bytes": -1,
+    "limit": "1.5 KB"
+  },
+  {
+    "name": "@aihu/magna",
+    "bytes": -1,
+    "limit": "1.8 KB"
   }
 ]

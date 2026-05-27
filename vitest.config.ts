@@ -72,6 +72,14 @@ export default defineConfig({
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
       '@aihu/auth': new URL('./packages/auth/src/index.ts', import.meta.url).pathname,
+      '@aihu/magna': new URL('./packages/magna/src/index.ts', import.meta.url).pathname,
+      // @aihu/magna-gqlmin is an optional dep that doesn't exist on npm yet.
+      // Alias to an empty stub so Vite doesn't hard-fail; codegen.ts catches
+      // the missing export and falls back to untyped mode (graceful-skip).
+      '@aihu/magna-gqlmin': new URL(
+        './packages/magna/src/__stubs__/magna-gqlmin.ts',
+        import.meta.url,
+      ).pathname,
       // @aihu/primitives + the css-engine progressive shim it reuses (tooltip's
       // position() source import). Aliased to src so primitives tests run
       // without a prior dist build of either package.

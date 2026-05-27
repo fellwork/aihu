@@ -26,3 +26,23 @@ export {
   parseMachineErrors,
 } from './diagnostics.ts'
 export { getBlockContext, getHoverContent, getMacroAtPosition } from './hover.ts'
+export {
+  type GeneratorInput,
+  type GeneratorOutput,
+  generateStateVirtualCode,
+} from './state-generator.ts'
+export {
+  type AihuCodeMapping,
+  type AihuSourcePosition,
+  type AihuVirtualPosition,
+  mapToOriginal,
+  mapToVirtual,
+  SourceMap,
+} from './virtual-source-map.ts'
+export {
+  type AihuLanguagePlugin,
+  type AihuSource,
+  type AihuVirtualCode,
+  createAihuLanguagePlugin,
+  createAihuLanguageServicePlugin,
+} from './volar-plugin.ts'

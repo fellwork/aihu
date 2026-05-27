@@ -189,6 +189,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -238,6 +240,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/css-engine`](./packages/css-engine) | `0.2.2` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/language-server`](./packages/language-server) | `0.1.1` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/magna`](./packages/magna) | `0.1.0` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/primitives`](./packages/primitives) | `0.0.5` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
