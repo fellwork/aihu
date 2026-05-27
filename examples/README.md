@@ -15,7 +15,7 @@
 | 03 | [`timer/`](./timer) | basics | M1 ready | 5103 | elapsed/progress + reset | `$lifecycle.mount/dispose`, `$effect` |
 | 04 | [`todo-mvc/`](./todo-mvc) | basics | M1 ready | 5104 | todos/remaining/filter + addTodo/clearCompleted | `$each/$key`, localStorage persistence (v1.1 fix) |
 | 05 | [`color-theme/`](./color-theme) | basics | M1 ready | 5105 | HSL signals + setPreset | `$reactive()` in `@style`, `$global`, `$media` macro |
-| 06 | [`weather-card/`](./weather-card) | flagship | ready | 5106 | location/forecast/status + fetchForecast | Signals + `$computed`/`$action` `expose:`, sync action over a mock table |
+| 06 | [`weather-card/`](./weather-card) | flagship | ready | 5106 | location/forecast/status + fetchForecast, A2A+ACP stub indicators | Signals + `$computed`/`$action` `expose:`, async action against Open-Meteo geocoding + forecast |
 | 07 | [`currency-converter/`](./currency-converter) | basics | ready | 5116 | from/to/amount + converted | Enum `$prop` inputs, pure `$computed` conversion |
 | 08 | [`css-engine-demo/`](./css-engine-demo) | styling | ready | 5114 | cardClass + toggleAccent/toggleRoomy | `@aihu/css-engine`: utility `compile()`, `cn()` runtime, progressive `anchor:` shim |
 | 09 | [`primitives-showcase/`](./primitives-showcase) | styling | ready | 5115 | wired + closeAll | `@aihu/primitives`: headless dialog + tooltip + button (APG ARIA/keyboard), BYO styling |
