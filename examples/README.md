@@ -21,7 +21,7 @@
 | 09 | [`primitives-showcase/`](./primitives-showcase) | styling | ready | 5115 | wired + closeAll | `@aihu/primitives`: headless dialog + tooltip + button (APG ARIA/keyboard), BYO styling |
 | 10 | `agent-hub/` (new) | flagship | M2 | 5107 | Multi-component aggregation | `getAllAgentMetadata()`, A2A streaming |
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
-| 12 | `blog-loader/` | meta | M2 | 5109 | posts + loader | `defineLoader`, `<$suspense>`, `@aihu/context` |
+| 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
 | 13 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 15 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |

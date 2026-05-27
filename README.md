@@ -264,7 +264,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | # | Folder | What it teaches | Port |
 |---|---|---|---|
-| 01 | [`blog-loader/`](./examples/blog-loader) | A server-rendered post page demonstrating aihu's loader pattern. | — |
+| 01 | [`blog-loader/`](./examples/blog-loader) | A server-rendered post page demonstrating aihu's loader pattern, `@aihu/context` as a parallel data channel, and an `@agent` block for ag... | — |
 | 02 | [`blog-router/`](./examples/blog-router) | A 3-page blog demonstrating aihu's file-based routing. | — |
 | 03 | [`color-theme/`](./examples/color-theme) | `$reactive(...)` in `@style` plus `$global { }` to propagate tokens beyond component scope — and `$media` macro for responsive breakpoint... | 5105 |
 | 04 | [`css-engine-demo/`](./examples/css-engine-demo) | Demonstrates all three browser-facing surfaces of the published [`@aihu/css-engine`](../../packages/css-engine) package: | 5114 |

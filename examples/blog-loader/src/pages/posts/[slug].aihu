@@ -13,6 +13,14 @@
       type: { params: { slug: string } data: { title: string; body: string; readingTimeMs: number } },
     },
   }
+
+  // Inject ReadingContext — a parallel data channel provided server-side in
+  // [slug].loader.ts via @aihu/context/ssr runWithContext + provide.
+  // This demonstrates @aihu/context alongside route.data; it is NOT a
+  // replacement for route.data but an additive context slot.
+  import { inject } from '@aihu/context'
+  import { ReadingContextToken } from './[slug].loader.ts'
+  const readingCtx = inject(ReadingContextToken)
 }
 
 @template {
@@ -29,6 +37,11 @@
         About {Math.round(route.data.readingTimeMs / 1000)}s to read
       </p>
       <p>{route.data.body}</p>
+
+      <!-- context-badge: sourced from injected ReadingContext (parallel to route.data) -->
+      <p class="context-badge">
+        Context slug: {readingCtx?.slug ?? route.params.slug}
+      </p>
     </$suspense>
   </article>
 }
@@ -40,4 +53,35 @@
   .loading { color: #999; font-style: italic; }
   a       { color: #0070f3; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  .context-badge {
+    display: inline-block;
+    margin-top: 0.75rem;
+    padding: 0.2em 0.6em;
+    background: #f0f4ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 4px;
+    font-size: 0.8em;
+    color: #3730a3;
+    font-family: monospace;
+  }
+}
+
+@agent {
+  // Agent surface for blog-loader-post — exposes the currently rendered post
+  // and a list of known slugs for agent discoverability.
+  // Arch-2 §0: every example demonstrates BOTH a human UX and an agent surface.
+
+  expose: {
+    getPost: {
+      // Returns the current post's title, body, and readingTimeMs
+      // sourced from the route.data prop (the loader handoff).
+      title: route.data.title,
+      body: route.data.body,
+      readingTimeMs: route.data.readingTimeMs,
+    },
+    listPosts: {
+      // Mirrors POSTS keys in [slug].loader.ts — update both if posts change.
+      slugs: ["hello", "meta", "agents"],
+    },
+  }
 }
