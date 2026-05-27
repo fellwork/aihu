@@ -95,8 +95,6 @@ bun add @aihu/language-server
 - `@volar/language-core` — `2.4.28`
 - `@volar/language-server` — `2.4.28`
 - `@volar/source-map` — `2.4.28`
-- `vscode-languageserver` — `^9.0.1`
-- `vscode-languageserver-textdocument` — `^1.0.11`
 - `vscode-uri` — `3.1.0`
 
 <sub><i>Auto-generated against `@aihu/language-server@0.1.1`.</i></sub>
