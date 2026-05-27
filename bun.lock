@@ -448,6 +448,24 @@
         "vscode-uri": "3.1.0",
       },
     },
+    "packages/magna": {
+      "name": "@aihu/magna",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu-plugin/data": "workspace:*",
+        "@aihu/plugin": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "rolldown": "^1.0.0-rc.17",
+        "rolldown-plugin-dts": "^0.23.2",
+        "typescript": "^5.6.2",
+        "vitest": "^2.1.1",
+      },
+      "optionalDependencies": {
+        "@aihu/magna-gqlmin": "^0.2.0",
+      },
+    },
     "packages/mcp": {
       "name": "@aihu/mcp",
       "version": "0.1.0",
@@ -677,6 +695,8 @@
     "@aihu/example-weather-card": ["@aihu/example-weather-card@workspace:examples/weather-card"],
 
     "@aihu/language-server": ["@aihu/language-server@workspace:packages/language-server"],
+
+    "@aihu/magna": ["@aihu/magna@workspace:packages/magna"],
 
     "@aihu/mcp": ["@aihu/mcp@workspace:packages/mcp"],
 

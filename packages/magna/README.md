@@ -1,13 +1,19 @@
-# @aihu-plugin/data
+# @aihu/magna
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Reactive data loaders and resource primitives for aihu.
+aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay
 
-Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
+Held-private workspace package. Not yet published to npm.
+
+> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+# optional, build-time only — graceful-skips if absent
+bun add @aihu/magna-gqlmin
+```
+
+Full documentation: see `apps/docs/src/content/docs/packages/magna.md` (filed as A1 issue).
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install
@@ -16,12 +22,12 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-npm install @aihu-plugin/data
+npm install @aihu/magna
 # or
-bun add @aihu-plugin/data
+bun add @aihu/magna
 ```
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,13 +38,13 @@ bun add @aihu-plugin/data
 
 | | |
 |---|---|
-| **Version** | `2.0.0` |
-| **Tier** | B — Meta-framework — reactive resources + loader protocol |
-| **Bundle size** | 757 B (gz) — limit 800 B |
-| **Published files** | 3 entries |
+| **Version** | `0.1.0` |
+| **Tier** | E — Held private (unmapped tier) |
+| **Bundle size** | 1.61 kB (gz) — limit 1.8 KB |
+| **Published files** | 2 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +57,7 @@ bun add @aihu-plugin/data
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -63,9 +69,14 @@ bun add @aihu-plugin/data
 **Dependencies:**
 
 - `@aihu/signals` — `workspace:*`
-- `@aihu/context` — `workspace:*`
+- `@aihu/plugin` — `workspace:*`
+- `@aihu-plugin/data` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+**Optional dependencies (platform-specific):**
+
+- `@aihu/magna-gqlmin` — `^0.2.0`
+
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -74,11 +85,10 @@ bun add @aihu-plugin/data
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [docs/site/data-fetching.md](../../docs/site/data-fetching.md)
-- [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
+- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -89,6 +99,6 @@ bun add @aihu-plugin/data
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
