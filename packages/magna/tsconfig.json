@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "dist",
+    "noEmit": true,
+    "paths": {
+      "@aihu/magna": ["./src/index.ts"],
+      "@aihu/context": ["../context/src/index.ts"],
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu-plugin/data": ["../plugin-data/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

@@ -43,7 +43,11 @@ describe('hover table', () => {
 
   it('returns null for unknown tokens', () => {
     expect(getHoverContent('$unknown')).toBeNull()
-    expect(getHoverContent('$watch')).toBeNull()
+    // Note: `$watch` was originally a null-sentinel here when HOVER_TABLE
+    // shipped only 13 entries. Round-0 (M2 A4) added `$watch` per
+    // director-note §3.1, so the sentinel was replaced with `$nosuchmacro`.
+    // See .context/m2/a4/round-0/investigation-watch-test-conflict.md.
+    expect(getHoverContent('$nosuchmacro')).toBeNull()
     expect(getHoverContent('')).toBeNull()
   })
 
@@ -118,9 +122,12 @@ describe('getBlockContext', () => {
     expect(getBlockContext(lines, 1)).toBe('template')
   })
 
-  it('returns unknown when inside @style block', () => {
+  it('returns style when inside @style block', () => {
+    // Round-0 (M2 A4) per director-note §3.4 extended getBlockContext to
+    // distinguish style/agent/route from generic unknown. See
+    // .context/m2/a4/round-0/investigation-watch-test-conflict.md.
     const lines = ['@style {', '  color: red;', '}']
-    expect(getBlockContext(lines, 1)).toBe('unknown')
+    expect(getBlockContext(lines, 1)).toBe('style')
   })
 
   it('returns unknown at top level with no enclosing block', () => {
