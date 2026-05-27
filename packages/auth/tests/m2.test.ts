@@ -12,16 +12,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuthConfig } from '../src/index.ts'
-import {
-  auth,
-  clearCurrentScopes,
-  createAuthRoutes,
-  getAuthState,
-  setCurrentScopes,
-  signIn,
-  signOut,
-  useCurrentUser,
-} from '../src/index.ts'
+import { clearCurrentScopes, setCurrentScopes, signIn, signOut, useCurrentUser } from '../src/index.ts'
+import { auth, createAuthRoutes, getAuthState } from '../src/server-index.ts'
 
 // ─── Crypto helpers ───────────────────────────────────────────────────────────
 
