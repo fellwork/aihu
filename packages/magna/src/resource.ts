@@ -11,10 +11,11 @@
  * Variables `{ b: 2, a: 1 }` and `{ a: 1, b: 2 }` produce the same key,
  * preventing spurious cache misses from object-property-ordering differences.
  */
-import { createResource } from '@aihu-plugin/data'
-import type { ResourceOptions } from '@aihu-plugin/data'
+
 import type { Signal } from '@aihu/signals'
 import { signal } from '@aihu/signals'
+import type { ResourceOptions } from '@aihu-plugin/data'
+import { createResource } from '@aihu-plugin/data'
 import type { MagnaFetch, MagnaResource } from './types.js'
 
 /**

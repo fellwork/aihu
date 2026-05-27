@@ -15,8 +15,9 @@
  *   ],
  * })
  */
-import { definePlugin } from '@aihu/plugin'
+
 import type { Plugin } from '@aihu/plugin'
+import { definePlugin } from '@aihu/plugin'
 import { beforeCompile } from './codegen.js'
 import type { MagnaBuildContext, MagnaPluginOptions } from './types.js'
 

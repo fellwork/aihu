@@ -6,8 +6,8 @@
  * and schema generation; they are never instantiated at runtime.
  */
 import type { BuildContext } from '@aihu/plugin'
-import type { Resource } from '@aihu-plugin/data'
 import type { Signal } from '@aihu/signals'
+import type { Resource } from '@aihu-plugin/data'
 
 /** Configuration options for the magna GraphQL plugin. */
 export interface MagnaPluginOptions {

@@ -5,9 +5,9 @@
  * resource composition, graceful gqlmin skip, warn-once coalescing, size-limit
  * rows, subscription shim, install-manifest, and changeset.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const REPO_ROOT = join(import.meta.dirname, '../../..')
@@ -128,10 +128,11 @@ describe('SAMPLE-M06: GraphQL envelope shape', () => {
   it('resolves to { data } on success', async () => {
     const { createMagnaFetch } = await import('../src/index.ts')
 
-    const mockFetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { foo: 1 } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const mockFetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { foo: 1 } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     ) as unknown as typeof globalThis.fetch
 
     const fetch = createMagnaFetch({ url: 'http://x/graphql', fetch: mockFetch })
@@ -158,10 +159,11 @@ describe('SAMPLE-M07: Resource composition over plugin-data', () => {
   it('returns a resource with a status property', async () => {
     const { createMagnaResource, createMagnaFetch } = await import('../src/index.ts')
 
-    const mockFetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: { name: 'test' } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const mockFetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { name: 'test' } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     ) as unknown as typeof globalThis.fetch
 
     const magnaFetch = createMagnaFetch({ url: 'http://x/graphql', fetch: mockFetch })

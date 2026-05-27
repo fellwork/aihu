@@ -7,8 +7,9 @@
  *
  * A warn-once message is emitted on first call via console.warn.
  */
-import { signal } from '@aihu/signals'
+
 import type { Signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
 import type { MagnaSubscriptionHandle } from './types.js'
 
 let _warned = false
@@ -26,9 +27,7 @@ let _warned = false
 export function useMagnaSubscription<T>(): MagnaSubscriptionHandle<T> {
   if (!_warned) {
     _warned = true
-    console.warn(
-      'magna subscriptions require v0.2 streaming; returning degraded handle',
-    )
+    console.warn('magna subscriptions require v0.2 streaming; returning degraded handle')
   }
 
   const [getState] = signal<T | null>(null)

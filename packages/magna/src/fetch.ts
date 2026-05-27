@@ -36,7 +36,7 @@ export function createMagnaFetch(options: MagnaPluginOptions): MagnaFetch {
 
     const token = options.getToken?.() ?? null
     if (token !== null) {
-      headers['authorization'] = `Bearer ${token}`
+      headers.authorization = `Bearer ${token}`
     }
 
     const body = JSON.stringify({

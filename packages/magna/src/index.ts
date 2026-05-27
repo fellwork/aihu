@@ -9,16 +9,15 @@
  * import { magna, createMagnaFetch, createMagnaResource } from '@aihu/magna'
  */
 
-// Plugin factory
-export { magna } from './plugin.js'
+// Build-time pipeline (advanced consumers)
+export { beforeCompile } from './codegen.js'
 
 // Runtime helpers
 export { createMagnaFetch } from './fetch.js'
+// Plugin factory
+export { magna } from './plugin.js'
 export { createMagnaResource } from './resource.js'
 export { useMagnaSubscription } from './subscription.js'
-
-// Build-time pipeline (advanced consumers)
-export { beforeCompile } from './codegen.js'
 
 // Types
 export type {
