@@ -19,7 +19,7 @@
 | 07 | [`currency-converter/`](./currency-converter) | basics | ready | 5116 | from/to/amount + converted | Enum `$prop` inputs, pure `$computed` conversion |
 | 08 | [`css-engine-demo/`](./css-engine-demo) | styling | ready | 5114 | cardClass + toggleAccent/toggleRoomy | `@aihu/css-engine`: utility `compile()`, `cn()` runtime, progressive `anchor:` shim |
 | 09 | [`primitives-showcase/`](./primitives-showcase) | styling | ready | 5115 | wired + closeAll | `@aihu/primitives`: headless dialog + tooltip + button (APG ARIA/keyboard), BYO styling |
-| 10 | `agent-hub/` (new) | flagship | M2 | 5107 | Multi-component aggregation | `getAllAgentMetadata()`, A2A streaming |
+| 10 | [`agent-hub/`](./agent-hub) | flagship | ready | 5107 | AgentService aggregation hub — A2A + ACP adapters, @aihu/context sharing, Bun.serve server | server.ts (Bun.serve), A2A single-shot SSE, ACP live adapter, `@aihu/context` token sharing across SFCs, `$lifecycle.mount` |
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
 | 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
 | 13 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |

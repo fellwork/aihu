@@ -1,12 +1,13 @@
 @state {
   import { getAllAgentMetadata } from '@aihu/agent'
   import { createContext, provide } from '@aihu/context'
+  import { HubServiceContext } from './hub-context'
   import { signal } from '@aihu/signals'
 
-  // Context token — makes the hub service reference available to child components.
+  // Context token — imported from hub-context.ts so panel SFCs can inject the
+  // same token reference. createContext is kept in scope for API-pattern demo.
   // provide() is a no-op when no context map is active (client-side); included
   // here to demonstrate the @aihu/context API pattern.
-  const HubServiceContext = createContext()
   provide(HubServiceContext, null)
 
   $computed: {
@@ -67,17 +68,11 @@
       </div>
 
       <div class="tab-panel" $if={activeTab === 'a2a'} role="tabpanel" aria-label="A2A panel">
-        <div class="placeholder-panel a2a-placeholder">
-          <span class="placeholder-label">a2a-panel (round 5)</span>
-          <span class="protocol-badge a2a-badge">A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)</span>
-        </div>
+        <a2a-panel></a2a-panel>
       </div>
 
       <div class="tab-panel" $if={activeTab === 'acp'} role="tabpanel" aria-label="ACP panel">
-        <div class="placeholder-panel acp-placeholder">
-          <span class="placeholder-label">acp-panel (round 5)</span>
-          <span class="protocol-badge acp-badge">ACP: live</span>
-        </div>
+        <acp-panel></acp-panel>
       </div>
     </section>
 

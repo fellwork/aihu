@@ -1,19 +1,23 @@
 /**
  * EX-07 agent-hub smoke test.
  *
- * Verifies (per m2-a2 round-4 brief):
+ * Verifies (per m2-a2 round-5 brief):
  *   A5-1:  hub-root.aihu source contains `getAllAgentMetadata`
  *   A5-2:  hub-root.aihu source contains `createContext`
  *   A5-3:  hub-root.aihu source contains `provide`
  *   A5-4:  hub-root.aihu source contains `@agent`
  *   A5-5:  hub-root.aihu source contains `$expose`
- *   A5-6:  hub-root.aihu source contains "A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)"
- *   A5-7:  hub-root.aihu source contains "ACP: live"
+ *   A5-6:  a2a-panel.aihu source contains "A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)"
+ *   A5-7:  acp-panel.aihu source contains "ACP: live"
  *   A5-8:  server.ts source contains `mountA2aAdapter`
  *   A5-9:  server.ts source contains `mountAcpAdapter`
  *   A5-10: server.ts source contains `5207`
  *   A5-11: registerAgentMetadata() can be called without throwing
  *          (registry simulation — same pattern as EX-06 weather-card A5-1)
+ *   A5-12: a2a-panel.aihu source contains `inject`
+ *   A5-13: a2a-panel.aihu source contains `/a2a/tasks/sendSubscribe`
+ *   A5-14: acp-panel.aihu source contains `inject`
+ *   A5-15: acp-panel.aihu source contains `/acp/messages`
  *
  * Harness: source-text + registry simulation (same pattern as EX-06 weather-card
  * round-1, EX-09 blog-loader round-2, EX-12 realtime-scores round-3).
@@ -31,6 +35,8 @@ import { __resetRegistryForTesting } from '../../../packages/agent/src/registry.
 
 const HUB_ROOT_PATH = resolve(__dirname, '../src/hub-root.aihu')
 const SERVER_PATH = resolve(__dirname, '../server.ts')
+const A2A_PANEL_PATH = resolve(__dirname, '../src/a2a-panel.aihu')
+const ACP_PANEL_PATH = resolve(__dirname, '../src/acp-panel.aihu')
 
 // ---------------------------------------------------------------------------
 // A5-1 through A5-7: hub-root.aihu source-text checks
@@ -59,14 +65,21 @@ describe('EX-07 agent-hub — hub-root.aihu source-text checks', () => {
     expect(sfcSrc).toContain('$expose')
   })
 
-  it('A5-6: hub-root.aihu contains A2A badge text', () => {
-    expect(sfcSrc).toContain(
-      'A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)',
-    )
+})
+
+// ---------------------------------------------------------------------------
+// A5-6 through A5-7: panel SFC badge text checks (relocated from hub-root)
+// ---------------------------------------------------------------------------
+
+describe('EX-07 agent-hub — panel badge text checks', () => {
+  it('A5-6: a2a-panel.aihu contains A2A badge text', () => {
+    const src = readFileSync(A2A_PANEL_PATH, 'utf8')
+    expect(src).toContain('A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)')
   })
 
-  it('A5-7: hub-root.aihu contains ACP badge text', () => {
-    expect(sfcSrc).toContain('ACP: live')
+  it('A5-7: acp-panel.aihu contains ACP badge text', () => {
+    const src = readFileSync(ACP_PANEL_PATH, 'utf8')
+    expect(src).toContain('ACP: live')
   })
 })
 
@@ -87,6 +100,38 @@ describe('EX-07 agent-hub — server.ts source-text checks', () => {
 
   it('A5-10: server.ts contains 5207 (confirms API server port)', () => {
     expect(serverSrc).toContain('5207')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A5-12 through A5-13: a2a-panel.aihu source-text checks
+// ---------------------------------------------------------------------------
+
+describe('EX-07 agent-hub — a2a-panel.aihu source-text checks', () => {
+  const src = readFileSync(A2A_PANEL_PATH, 'utf8')
+
+  it('A5-12: a2a-panel.aihu contains inject', () => {
+    expect(src).toContain('inject')
+  })
+
+  it('A5-13: a2a-panel.aihu contains /a2a/tasks/sendSubscribe', () => {
+    expect(src).toContain('/a2a/tasks/sendSubscribe')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A5-14 through A5-15: acp-panel.aihu source-text checks
+// ---------------------------------------------------------------------------
+
+describe('EX-07 agent-hub — acp-panel.aihu source-text checks', () => {
+  const src = readFileSync(ACP_PANEL_PATH, 'utf8')
+
+  it('A5-14: acp-panel.aihu contains inject', () => {
+    expect(src).toContain('inject')
+  })
+
+  it('A5-15: acp-panel.aihu contains /acp/messages', () => {
+    expect(src).toContain('/acp/messages')
   })
 })
 
