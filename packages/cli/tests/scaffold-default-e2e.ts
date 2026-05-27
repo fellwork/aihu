@@ -46,7 +46,7 @@ try {
     projectDir = join(parentDir, 'my-app')
     const want = [
       'package.json',
-      'rolldown.config.ts',
+      'vite.config.ts',
       'tsconfig.json',
       'index.html',
       'src/main.ts',

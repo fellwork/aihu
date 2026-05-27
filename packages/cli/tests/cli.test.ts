@@ -7,7 +7,6 @@ import {
   appDefaultLayout,
   appIndexAihu,
   appPackageJson,
-  appRolldownConfig,
   appViteConfig,
   componentAihu,
   pageAihu,
@@ -39,12 +38,35 @@ describe('appPackageJson', () => {
     expect(deps).toHaveProperty('@aihu/signals')
   })
 
-  it('lists @aihu/cli and rolldown as devDependencies', () => {
+  it('lists @aihu/cli and vite as devDependencies', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as {
       devDependencies: Record<string, string>
     }
     expect(pkg.devDependencies).toHaveProperty('@aihu/cli')
-    expect(pkg.devDependencies).toHaveProperty('rolldown')
+    expect(pkg.devDependencies).toHaveProperty('vite')
+    // Regression guard against re-introducing the rolldown scaffold:
+    // `createApp()` consumes `virtual:aihu-routes` from `viteAihuPlugin()`,
+    // which rolldown does not provide.
+    expect(pkg.devDependencies).not.toHaveProperty('rolldown')
+  })
+
+  it('uses vite for dev/build scripts', () => {
+    const pkg = JSON.parse(appPackageJson('demo')) as {
+      scripts: Record<string, string>
+    }
+    expect(pkg.scripts.dev).toBe('vite')
+    expect(pkg.scripts.build).toBe('vite build')
+    expect(pkg.scripts.preview).toBe('vite preview')
+  })
+
+  it('lists @aihu/router as a runtime dependency', () => {
+    // The router is required by `createApp()`. Listing it explicitly here
+    // (alongside the @aihu/app meta-dep) keeps it visible to `bun outdated`
+    // and survives any future surface trimming on @aihu/app's re-exports.
+    const pkg = JSON.parse(appPackageJson('demo')) as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies).toHaveProperty('@aihu/router')
   })
 
   it('sets type to module', () => {
@@ -53,23 +75,24 @@ describe('appPackageJson', () => {
   })
 })
 
-describe('appRolldownConfig', () => {
-  it('references aihuCompilerPlugin', () => {
-    expect(appRolldownConfig('my-app')).toContain('aihuCompilerPlugin')
+describe('appViteConfig', () => {
+  it('imports viteAihuPlugin from @aihu/app', () => {
+    expect(appViteConfig()).toContain("import { viteAihuPlugin } from '@aihu/app'")
   })
 
-  it('sets moduleTypes for .aihu files', () => {
-    expect(appRolldownConfig('my-app')).toContain('.aihu')
+  it('imports defineConfig from vite', () => {
+    expect(appViteConfig()).toContain("from 'vite'")
   })
 
-  it('outputs to dist/', () => {
-    expect(appRolldownConfig('my-app')).toContain("dir: 'dist'")
+  it('wires viteAihuPlugin into the plugins array', () => {
+    expect(appViteConfig()).toContain('viteAihuPlugin(')
   })
-})
 
-describe('appViteConfig (deprecated alias)', () => {
-  it('still returns a rolldown config (backward compat)', () => {
-    expect(appViteConfig()).toContain('rolldown')
+  it('points the router at src/pages', () => {
+    // `viteAihuPlugin({ dir: { pages: 'src/pages' } })` matches the
+    // scaffold's `src/pages/index.aihu` location and the convention used by
+    // `examples/blog-router`.
+    expect(appViteConfig()).toContain("pages: 'src/pages'")
   })
 })
 
@@ -226,9 +249,26 @@ describe('scaffoldApp', () => {
     expect(pkg.name).toBe('my-app')
   })
 
-  it('writes rolldown.config.ts', () => {
+  it('writes vite.config.ts', () => {
     scaffoldApp('demo', tmpDir)
-    expect(existsSync(join(tmpDir, 'demo', 'rolldown.config.ts'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'demo', 'vite.config.ts'))).toBe(true)
+  })
+
+  it('does not write a stale rolldown.config.ts', () => {
+    // Regression guard: the prior scaffold wrote `rolldown.config.ts` and
+    // missed the router plugin entirely, so `bun run dev` could not route.
+    scaffoldApp('demo', tmpDir)
+    expect(existsSync(join(tmpDir, 'demo', 'rolldown.config.ts'))).toBe(false)
+  })
+
+  it('writes index.html with an outlet div (not a custom-element root)', () => {
+    // `createApp()` looks up `document.getElementById('outlet')`; an
+    // index.html with `<demo-root>` instead of `<div id="outlet">` boots to
+    // a hard error.
+    scaffoldApp('demo', tmpDir)
+    const html = readFileSync(join(tmpDir, 'demo', 'index.html'), 'utf8')
+    expect(html).toContain('id="outlet"')
+    expect(html).toContain('./src/main.ts')
   })
 
   it('writes src/pages/index.aihu', () => {
