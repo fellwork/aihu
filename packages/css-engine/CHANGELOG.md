@@ -1,5 +1,12 @@
 # @aihu/css-engine
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [[`e31df0b`](https://github.com/fellwork/aihu/commit/e31df0bbf43cca38d55528bf31d00088897e5579)]:
+  - @aihu/compiler@0.5.1
+
 ## 0.2.1
 
 ### Patch Changes

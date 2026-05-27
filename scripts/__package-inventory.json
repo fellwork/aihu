@@ -97,7 +97,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -109,7 +109,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -145,7 +145,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -163,7 +163,7 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "dir": "packages/primitives",
     "isPlatform": false
   },
