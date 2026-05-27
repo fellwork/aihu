@@ -166,10 +166,10 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | — | 300 B | _no dist_ |
-| `@aihu/signals` | — | 1970 B | _no dist_ |
-| `@aihu/arbor` | — | 2800 B | _no dist_ |
-| `@aihu/runtime` | — | 3450 B | _no dist_ |
+| `@aihu/context` | 242 B | 300 B | pass |
+| `@aihu/signals` | 1.69 kB | 1970 B | pass |
+| `@aihu/arbor` | 2.60 kB | 2800 B | pass |
+| `@aihu/runtime` | 3.30 kB | 3450 B | pass |
 | `@aihu/agent` | — | 200 B | _no dist_ |
 | `@aihu-plugin/data` | — | 800 B | _no dist_ |
 | `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
@@ -178,8 +178,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/agent-acp` | — | 600 B | _no dist_ |
 | `@aihu/agent-a2a` | — | 750 B | _no dist_ |
 | `@aihu/app` | — | 1500 B | _no dist_ |
-| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
-| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | 578 B | 1 KB | pass |
+| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | — | 1 KB | _no dist_ |
 | `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
