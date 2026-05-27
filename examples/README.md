@@ -24,7 +24,7 @@
 | 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
 | 13 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
-| 15 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |
+| 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
 | 16 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
 
 ### Archived

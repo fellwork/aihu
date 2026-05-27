@@ -233,6 +233,20 @@
         "vitest": "^2.1.1",
       },
     },
+    "examples/realtime-scores": {
+      "name": "@aihu/example-realtime-scores",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu-plugin/data": "workspace:*",
+        "@aihu/agent": "workspace:*",
+        "@aihu/compiler": "workspace:*",
+      },
+      "devDependencies": {
+        "vite": "^8.0.0",
+        "vitest": "^2.1.1",
+        "ws": "^8.18.0",
+      },
+    },
     "examples/temperature-converter": {
       "name": "@aihu/example-temperature-converter",
       "dependencies": {
@@ -666,6 +680,8 @@
     "@aihu/example-live-counter": ["@aihu/example-live-counter@workspace:examples/live-counter"],
 
     "@aihu/example-primitives-showcase": ["@aihu/example-primitives-showcase@workspace:examples/primitives-showcase"],
+
+    "@aihu/example-realtime-scores": ["@aihu/example-realtime-scores@workspace:examples/realtime-scores"],
 
     "@aihu/example-temperature-converter": ["@aihu/example-temperature-converter@workspace:examples/temperature-converter"],
 

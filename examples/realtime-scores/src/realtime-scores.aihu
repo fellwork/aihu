@@ -1,0 +1,158 @@
+// EX-12 realtime-scores — WebSocket live data overlay + createResource initial fetch.
+// M2 deliverable: demonstrates $lifecycle.mount/dispose for WS, $effect reactive
+// signal updates, and createResource from @aihu-plugin/data for the initial-scores
+// base layer.
+
+@state {
+  import { signal } from '@aihu/signals'
+  import { createResource } from '@aihu-plugin/data'
+
+  // Score shape: { id: string, team: string, score: number }
+  const [scores, setScores] = signal([])
+  const [connected, setConnected] = signal(false)
+
+  let ws: WebSocket | null = null
+
+  // createResource for initial fetch — base layer before first WS push.
+  // Key is a static signal; fetcher hits the local /api/initial-scores route
+  // served by the Vite configureServer middleware.
+  const [resourceKey] = signal('initial-scores')
+  const initialScores = createResource(
+    resourceKey,
+    async (_key: string) => {
+      const resp = await fetch('/api/initial-scores')
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      return resp.json()
+    },
+  )
+
+  $lifecycle: {
+    mount: () => {
+      ws = new WebSocket('ws://localhost:5172')
+
+      ws.onopen = () => {
+        setConnected(true)
+      }
+
+      ws.onmessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (Array.isArray(data)) {
+            setScores(data)
+          }
+        } catch (_err) {
+          // Malformed message — silently ignore, do not throw.
+        }
+      }
+
+      ws.onclose = () => {
+        setConnected(false)
+      }
+
+      ws.onerror = () => {
+        setConnected(false)
+        // Non-blocking: log to console, do not propagate.
+        console.warn('[realtime-scores] WebSocket error — connection may be unavailable.')
+      }
+    },
+    dispose: () => {
+      if (ws !== null) {
+        ws.close()
+        ws = null
+      }
+    },
+  }
+}
+
+@template {
+  <section class="realtime-scores">
+    <header class="header">
+      <h1>Live Scores</h1>
+      <span class="badge" $class.connected={connected}>
+        {connected ? 'Connected' : 'Connecting...'}
+      </span>
+    </header>
+
+    <!-- Initial fetch loading state -->
+    <div
+      class="loading-bar"
+      $if={initialScores.state().status === 'loading'}
+      aria-live="polite"
+    >
+      Loading initial scores…
+    </div>
+
+    <!-- Non-blocking error from initial fetch -->
+    <div
+      class="error-pill"
+      $if={initialScores.state().status === 'error'}
+      aria-live="polite"
+    >
+      Could not load initial scores — waiting for live data.
+    </div>
+
+    <!-- Score table — renders WS overlay when available, else initial fetch data -->
+    <table class="score-table" aria-label="Live scores">
+      <thead>
+        <tr>
+          <th scope="col">Team</th>
+          <th scope="col">Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Live WS scores take priority when the signal is populated -->
+        <template
+          $if={scores().length > 0}
+          $each={scores()}
+          $key="id"
+          $let="row"
+        >
+          <tr>
+            <td>{row.team}</td>
+            <td class="score">{row.score}</td>
+          </tr>
+        </template>
+
+        <!-- Fallback: show initial fetch data while WS hasn't pushed yet -->
+        <template
+          $if={scores().length === 0 && initialScores.state().status === 'ready'}
+          $each={initialScores.state().data}
+          $key="id"
+          $let="row"
+        >
+          <tr>
+            <td>{row.team}</td>
+            <td class="score">{row.score}</td>
+          </tr>
+        </template>
+
+        <!-- Empty state -->
+        <tr $if={scores().length === 0 && initialScores.state().status !== 'ready' && initialScores.state().status !== 'loading'}>
+          <td colspan="2" class="empty">No scores yet — waiting for live data.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+}
+
+@agent {
+  $expose scores: current scores array
+  $expose connected: WebSocket connection state
+  getScores: { description: "Return current live scores" }
+}
+
+@style {
+  .realtime-scores { display: grid; gap: 1rem; padding: 1.5rem; max-width: 32rem; background: var(--panel-bg, #1e1e2e); border: 1px solid var(--border, #313244); border-radius: var(--radius, 0.5rem); box-shadow: var(--card-shadow, 0 2px 8px rgba(0,0,0,0.4)); color: var(--fg, #cdd6f4); }
+  .header { display: flex; align-items: center; justify-content: space-between; }
+  h1 { margin: 0; font-size: 1.25rem; color: var(--fg, #cdd6f4); }
+  .badge { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: var(--muted-bg, #45475a); color: var(--muted, #a6adc8); border: 1px solid var(--border, #313244); transition: background 0.2s, color 0.2s; }
+  .badge.connected { background: var(--success-bg, #1e3a2f); color: var(--success, #a6e3a1); border-color: var(--success, #a6e3a1); }
+  .loading-bar { font-size: 0.85rem; color: var(--muted, #a6adc8); padding: 0.5rem; border-radius: var(--radius, 0.5rem); background: var(--hover-bg, #313244); }
+  .error-pill { font-size: 0.8rem; color: var(--warning, #f9e2af); padding: 0.4rem 0.75rem; border-radius: 9999px; background: var(--warning-bg, #3a2e1e); border: 1px solid var(--warning, #f9e2af); }
+  .score-table { width: 100%; border-collapse: collapse; }
+  .score-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted, #a6adc8); border-bottom: 1px solid var(--border, #313244); }
+  .score-table td { padding: 0.5rem; border-bottom: 1px solid var(--border, #313244); font-size: 0.95rem; }
+  .score-table tr:last-child td { border-bottom: none; }
+  td.score { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; color: var(--accent, #cba6f7); }
+  .empty { text-align: center; color: var(--muted, #a6adc8); font-size: 0.85rem; padding: 1rem; }
+}
