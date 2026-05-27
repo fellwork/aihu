@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.4",
+      "version": "0.5.5",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -380,7 +380,7 @@
     },
     "packages/auth": {
       "name": "@aihu/auth",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aihu/agent-service": "workspace:*",
         "@aihu/signals": "workspace:*",
@@ -388,7 +388,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -399,7 +399,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -407,7 +407,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.2.2",
+        "@aihu/css-engine": ">=0.2.3",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -421,7 +421,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -434,7 +434,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
@@ -443,14 +443,12 @@
         "@volar/language-core": "2.4.28",
         "@volar/language-server": "2.4.28",
         "@volar/source-map": "2.4.28",
-        "vscode-languageserver": "^9.0.1",
-        "vscode-languageserver-textdocument": "^1.0.11",
         "vscode-uri": "3.1.0",
       },
     },
     "packages/magna": {
       "name": "@aihu/magna",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/plugin": "workspace:*",
@@ -548,7 +546,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -578,7 +576,7 @@
     },
     "packages/seo": {
       "name": "@aihu/seo",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/plugin": "workspace:*",
