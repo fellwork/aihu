@@ -34,7 +34,7 @@ bun add @aihu/compiler
 |---|---|
 | **Version** | `0.5.0` |
 | **Tier** | D — Compiler — Single-File Component (.aihu) → Web Component |
-| **Published files** | 5 entries |
+| **Published files** | 4 entries |
 | **License** | MIT |
 
 <sub><i>Auto-generated against `@aihu/compiler@0.5.0`.</i></sub>

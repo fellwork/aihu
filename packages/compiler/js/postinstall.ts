@@ -4,9 +4,10 @@
  * Resolution order (first match wins):
  *
  *   1. SCRIBE_SKIP_POSTINSTALL=1     → no-op, exit 0.
- *   2. Binary already present at     → no-op, exit 0.
- *      bin/aihu-compile<ext> OR
- *      target/release/aihu-compile<ext>
+ *   2. Binary already present at     → arch-validate it; if compatible no-op
+ *      bin/aihu-compile<ext> OR        exit 0, if incompatible (e.g. a Linux
+ *      target/release/aihu-compile<ext> ELF that leaked into the tarball on a
+ *                                       macOS host) delete it and fall through.
  *   3. SCRIBE_COMPILE_BIN=<path>     → copy that path → bin/, exit 0.
  *   4. GitHub Releases download      → bin/aihu-compile<ext>, verify SHA256,
  *                                       exit 0. (arch-4 §4.3 — sidecar
@@ -42,10 +43,13 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   chmodSync,
+  closeSync,
   copyFileSync,
   existsSync,
   mkdirSync,
+  openSync,
   readFileSync,
+  readSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -194,6 +198,106 @@ async function verifySha256(
   return { ok: true }
 }
 
+/**
+ * Inspect a binary's file-format magic bytes and (where cheaply available) its
+ * architecture field. The point is to catch a wrong-arch binary sitting on disk
+ * BEFORE we hand it to spawn() and ENOEXEC the user (see PR description: a
+ * Linux x86-64 ELF can ship inside the tarball when the publisher's machine
+ * left one in bin/, and arch-blind idempotency then traps it).
+ *
+ * Returns `null` if the file can't be read; format `'unknown'` for headers we
+ * don't recognise (e.g. shell scripts, FAT/universal Mach-O — those callers
+ * conservatively treat as compatible).
+ */
+function inspectBinary(
+  path: string,
+): { format: 'elf' | 'macho' | 'macho-fat' | 'pe' | 'unknown'; arch: string | null } | null {
+  let fd: number | null = null
+  try {
+    fd = openSync(path, 'r')
+    const buf = Buffer.alloc(20)
+    const bytesRead = readSync(fd, buf, 0, 20, 0)
+    if (bytesRead < 20) return null
+
+    // ELF: 0x7F 'E' 'L' 'F'
+    if (buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46) {
+      // e_machine at offset 18 (u16, endianness per EI_DATA at offset 5).
+      const littleEndian = buf[5] === 1
+      const machine = littleEndian ? buf.readUInt16LE(18) : buf.readUInt16BE(18)
+      const arch =
+        machine === 0x3e ? 'x64' : machine === 0xb7 ? 'arm64' : machine === 0x03 ? 'ia32' : null
+      return { format: 'elf', arch }
+    }
+
+    const magic = buf.readUInt32LE(0)
+    // Mach-O 64-bit LE-on-disk magic. cputype at offset 4 (u32 LE).
+    if (magic === 0xfeedfacf) {
+      const cputype = buf.readUInt32LE(4)
+      const arch =
+        cputype === 0x01000007 ? 'x64' : cputype === 0x0100000c ? 'arm64' : null
+      return { format: 'macho', arch }
+    }
+    // Mach-O FAT/universal (multi-arch). On-disk bytes are big-endian per spec;
+    // a little-endian read yields 0xBEBAFECA.
+    if (magic === 0xbebafeca || magic === 0xcafebabe) {
+      return { format: 'macho-fat', arch: null }
+    }
+
+    // PE (Windows): 'MZ' at offset 0. Skip detailed machine parse — Windows
+    // arch mismatches are rare and not the bug we're fixing here.
+    if (buf[0] === 0x4d && buf[1] === 0x5a) {
+      return { format: 'pe', arch: null }
+    }
+
+    return { format: 'unknown', arch: null }
+  } catch {
+    return null
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* swallow */
+      }
+    }
+  }
+}
+
+function expectedFormatFor(platform: NodeJS.Platform): 'elf' | 'macho' | 'pe' | null {
+  if (platform === 'darwin') return 'macho'
+  if (platform === 'win32') return 'pe'
+  if (platform === 'linux') return 'elf'
+  return null
+}
+
+/**
+ * Decide whether an on-disk binary is safe to keep for the current host.
+ * Returns `null` when compatible; otherwise a short reason string suitable for
+ * a warn-level log. `'unknown'` format is treated as compatible (avoid breaking
+ * exotic but legitimate setups — e.g. a shell wrapper a dev placed here).
+ */
+function incompatibilityReason(
+  path: string,
+  platform: NodeJS.Platform,
+  arch: string,
+): string | null {
+  const probe = inspectBinary(path)
+  if (!probe) return null
+  if (probe.format === 'unknown') return null
+  // FAT/universal Mach-O ships multiple slices; trust it on darwin, reject elsewhere.
+  if (probe.format === 'macho-fat') {
+    return platform === 'darwin' ? null : `universal Mach-O on ${platform}`
+  }
+  const expected = expectedFormatFor(platform)
+  if (expected !== null && probe.format !== expected) {
+    return `${probe.format} binary on ${platform} (expected ${expected})`
+  }
+  if (probe.arch !== null && probe.arch !== arch) {
+    return `${probe.arch} binary on ${platform}/${arch}`
+  }
+  return null
+}
+
 function tryLocalBuild(pkgDir: string): boolean {
   // Check for cargo first — quick probe without spawning a build.
   const probe = spawnSync('cargo', ['--version'], {
@@ -247,15 +351,33 @@ async function main(): Promise<void> {
     mkdirSync(binDir, { recursive: true })
   }
 
-  // Idempotency: nothing to do if a binary is already in place at either
-  // the released-asset path (bin/) or the local-build path (target/release).
+  // Idempotency: nothing to do if a usable binary is already in place at
+  // either the released-asset path (bin/) or the local-build path
+  // (target/release). "Usable" means the magic bytes match the host
+  // platform/arch — without that arch probe a wrong-arch binary sitting in
+  // the tarball (e.g. a Linux ELF that leaked from the publisher's machine)
+  // short-circuits the download path and ENOEXECs the user at spawn time.
   if (existsSync(binPath)) {
-    info(`bin already present at ${binPath}, skipping.`)
-    return
+    const reason = incompatibilityReason(binPath, platform, arch)
+    if (reason === null) {
+      info(`bin already present at ${binPath}, skipping.`)
+      return
+    }
+    warn(`existing ${binPath} is incompatible (${reason}); removing and re-acquiring.`)
+    try {
+      unlinkSync(binPath)
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      warn(`could not remove incompatible binary at ${binPath}: ${detail}. Continuing — download will overwrite.`)
+    }
   }
   if (existsSync(targetReleaseBin)) {
-    info(`local cargo build already present at ${targetReleaseBin}, skipping.`)
-    return
+    const reason = incompatibilityReason(targetReleaseBin, platform, arch)
+    if (reason === null) {
+      info(`local cargo build already present at ${targetReleaseBin}, skipping.`)
+      return
+    }
+    warn(`existing ${targetReleaseBin} is incompatible (${reason}); ignoring and acquiring a fresh binary.`)
   }
 
   // Local dev override — copy a locally built binary instead of downloading.
