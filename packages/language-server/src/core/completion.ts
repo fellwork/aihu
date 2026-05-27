@@ -59,6 +59,7 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 collection-form resource declarations',
     sortText: '0_$resource',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$resource: {', '  ${1:name}: () => ${2:fetchExpr()},', '}'].join('\n'),
   },
   {
@@ -67,6 +68,7 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 anonymous effect declaration',
     sortText: '0_$effect',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$effect: () => {', '  ${1:body}', '}'].join('\n'),
   },
   {
