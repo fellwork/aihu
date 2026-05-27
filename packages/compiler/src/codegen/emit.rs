@@ -4368,15 +4368,18 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     indent, subtree, setter_call
                 ));
             }
-            // B3c — C500 reserved error code. Unknown $<name> directives that
-            // reach codegen (not caught by the parser) are logged to stderr.
-            // If this is a v1 colon-form, it will already have been rejected
-            // by the parser with a hard C500 error. This path covers truly
-            // unknown directive names that pass through the AST unchanged.
+            // Risk-7 closure (spec-template-syntax-v2 §"Codegen hardening —
+            // silent-drop fix"): the parser now rejects unreserved
+            // `$<name>="quoted"` with a hard C500 at parse time, and
+            // `$<name>={expr}` routes to `Attr::Binding` via Amendment 04
+            // before reaching this match. This arm is therefore unreachable
+            // for well-formed inputs — kept as a defensive stderr fallback in
+            // case future AST-construction paths (codemods, plugin contracts)
+            // leak an unknown directive name.
             other => {
                 eprintln!(
                     "C500: unknown directive `${}` (template attribute) — ignored. \
-                     Run: bun run --cwd packages/compiler codemod:template-syntax <glob>",
+                     This should have been caught at parse time; please file a bug.",
                     other
                 );
             }

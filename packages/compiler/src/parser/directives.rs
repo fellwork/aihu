@@ -472,6 +472,35 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
                 value: MacroValue::Quoted(inner.to_string()),
             });
         }
+        // Unreserved `$<name>="quoted"` previously fell through to codegen and
+        // hit the `emit_macro_effects` default arm, which logged a C500 warning
+        // to stderr and silently dropped the attribute (Risk-7 from Scout D7;
+        // spec-template-syntax-v2 §"Codegen hardening — silent-drop fix").
+        // The curly form (`$<name>={expr}`) already routes to `Attr::Binding`
+        // via Amendment 04 — so reject the quoted form here with guidance.
+        if !is_reserved_macro_name(&name) {
+            return Err(CompileError {
+                message: format!(
+                    "C500: `${}` is not a recognized macro. \
+                     Quoted-form `$`-prefixed attributes are reserved for built-in macros \
+                     (if/each/key/show/once/memo/html/raw/ref, $on.*, $bind.*, $class:*, $emit:*). \
+                     For component prop-passing, use the curly form: `${}={{expr}}`.",
+                    name, name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C500".to_string()),
+                hint: Some(format!(
+                    "`${}=\"…\"` previously silently dropped — the quoted form is reserved for built-in macros, \
+                     not arbitrary prop names",
+                    name
+                )),
+                fix: Some(format!("Use `${}={{expr}}` (curly form) to pass a prop value", name)),
+                from: Some(format!("${}=\"…\"", name)),
+                to: Some(format!("${}={{expr}}", name)),
+                ..Default::default()
+            });
+        }
         validate_macro_quoted_value(inner, &name)?;
         return Ok(Attr::Macro {
             name,
@@ -778,6 +807,53 @@ mod tests {
     fn macro_quoted_rejects_calls() {
         let err = parse_attr("$if=\"fn()\"").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn unreserved_quoted_macro_rejected_c500() {
+        // Risk-7 closure: `$activeNav="…"` (or any non-reserved name in quoted
+        // form) previously fell through codegen's emit_macro_effects default
+        // arm, which logged C500 to stderr and silently dropped the attribute.
+        // The parser now rejects this at parse time with a hard error that
+        // points authors at the curly form (which routes to Attr::Binding via
+        // Amendment 04 and emits as a real prop).
+        let err = parse_attr("$activeNav=\"/dashboard\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C500"));
+        assert!(
+            err.message.contains("$activeNav={expr}"),
+            "C500 should suggest curly form, got: {}",
+            err.message
+        );
+        // `to:` field carries the structured migration target for diagnostics.
+        assert_eq!(err.to.as_deref(), Some("$activeNav={expr}"));
+    }
+
+    #[test]
+    fn unreserved_curly_macro_still_routes_to_binding() {
+        // Companion to `unreserved_quoted_macro_rejected_c500` — the curly
+        // form is the supported escape hatch (Amendment 04) and must continue
+        // to produce `Attr::Binding`, not error.
+        let attr = parse_attr("$activeNav={location.pathname}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "activeNav".to_string(),
+                expr: "location.pathname".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn reserved_quoted_macro_still_accepted() {
+        // Regression guard: the C500 rejection MUST only target unreserved
+        // names. Built-in macros (`$if`, `$show`, `$html`, `$on.*`, `$bind.*`)
+        // in quoted form continue to parse as `Attr::Macro`.
+        let attr = parse_attr("$if=\"loading\"").unwrap();
+        assert!(
+            matches!(attr, Attr::Macro { ref name, .. } if name == "if"),
+            "$if=\"loading\" must remain Attr::Macro, got: {:?}",
+            attr
+        );
     }
 
     #[test]

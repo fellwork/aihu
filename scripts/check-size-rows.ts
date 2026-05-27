@@ -36,6 +36,7 @@ export const SERVER_SIDE = new Set<string>([
   '@aihu/ai',
   '@aihu/mcp',
   '@aihu/scraping',
+  '@aihu/seo',
 ])
 
 /**
