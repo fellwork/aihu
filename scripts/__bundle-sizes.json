@@ -1,22 +1,22 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": -1,
+    "bytes": 242,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 1727,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": -1,
+    "bytes": 2663,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": -1,
+    "bytes": 3384,
     "limit": "3450 B"
   },
   {
@@ -61,12 +61,12 @@
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": -1,
+    "bytes": 578,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": -1,
+    "bytes": 716,
     "limit": "3 KB"
   },
   {
