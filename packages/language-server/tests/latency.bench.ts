@@ -99,4 +99,14 @@ console.log(
   `  ${'(all probes)'.padEnd(20)}   ${totalP50.padStart(7)}   ${totalP95.padStart(7)}   ${totalP99.padStart(7)}`,
 )
 console.log('')
-console.log('  Note: observational only — not a CI gate per director-note §3.5.')
+// ---------------------------------------------------------------------------
+// CI gate
+// ---------------------------------------------------------------------------
+const GATE_P95_MS = 100
+if (percentile(allSorted, 95) > GATE_P95_MS) {
+  console.error(
+    `\n  FAIL: overall p95 ${percentile(allSorted, 95).toFixed(4)}ms exceeds gate of ${GATE_P95_MS}ms`,
+  )
+  process.exit(1)
+}
+console.log(`  Gate: overall p95 < ${GATE_P95_MS}ms — OK`)
