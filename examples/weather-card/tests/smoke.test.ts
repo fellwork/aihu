@@ -42,7 +42,8 @@ describe('EX-06 weather-card — agent metadata', () => {
       tag: 'weather-card',
       describes: 'Flagship example: async forecast lookup against Open-Meteo',
       state: {
-        forecast: 'Most recent forecast: temperature, weatherCode, conditions, resolvedName (null until fetched)',
+        forecast:
+          'Most recent forecast: temperature, weatherCode, conditions, resolvedName (null until fetched)',
         status: 'Request status: one of idle | loading | ready | error',
       },
       actions: {
@@ -159,7 +160,9 @@ describe('EX-06 weather-card — error branches', () => {
       if (!geoResp.ok) {
         throw new Error(`Geocoding failed (HTTP ${geoResp.status})`)
       }
-      const geoJson = (await geoResp.json()) as { results?: Array<{ latitude: number; longitude: number }> }
+      const geoJson = (await geoResp.json()) as {
+        results?: Array<{ latitude: number; longitude: number }>
+      }
       const hit = geoJson.results && geoJson.results[0]
       if (!hit) {
         status = 'error'
@@ -177,8 +180,12 @@ describe('EX-06 weather-card — error branches', () => {
   it('handles empty geocoding results without throwing (non-blocking error pill)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify({ results: [] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ results: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
       ),
     )
 
