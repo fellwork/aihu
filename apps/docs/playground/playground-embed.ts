@@ -340,7 +340,7 @@ function writeHash(presetId: string, source: string): void {
     params.set('src', source)
   }
   const query = params.toString()
-  const next = location.pathname + (query ? '?' + query : '') + location.hash
+  const next = `${location.pathname}${query ? `?${query}` : ''}${location.hash}`
   history.replaceState(null, '', next)
 }
 
