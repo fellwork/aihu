@@ -42,7 +42,8 @@ export async function beforeCompile(ctx: MagnaBuildContext): Promise<void> {
   let gqlmin: GqlminModule
   try {
     // @ts-expect-error — @aihu/magna-gqlmin is optional; graceful-skip when absent
-    gqlmin = (await import('@aihu/magna-gqlmin')) as GqlminModule
+    // eslint-disable-next-line
+    gqlmin = (await import(/* @vite-ignore */ '@aihu/magna-gqlmin')) as GqlminModule
   } catch {
     writeWarnOnce(
       outputDir,
