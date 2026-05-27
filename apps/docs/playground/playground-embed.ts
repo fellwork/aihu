@@ -179,7 +179,7 @@ function wasmBaseUrl(host: PlaygroundEmbed): string {
 
 function bundleUrl(host: PlaygroundEmbed): string {
   // Bundle lives at the docs root, one level above the wasm/ subdir.
-  return wasmBaseUrl(host).replace(/wasm\/$/, '') + 'aihu-preview-bundle.js'
+  return `${wasmBaseUrl(host).replace(/wasm\/$/, '')}aihu-preview-bundle.js`
 }
 
 async function loadWasm(host: PlaygroundEmbed): Promise<WasmModule | null> {
@@ -340,7 +340,7 @@ function writeHash(presetId: string, source: string): void {
     params.set('src', source)
   }
   const query = params.toString()
-  const next = location.pathname + (query ? '?' + query : '') + location.hash
+  const next = `${location.pathname}${query ? `?${query}` : ''}${location.hash}`
   history.replaceState(null, '', next)
 }
 
