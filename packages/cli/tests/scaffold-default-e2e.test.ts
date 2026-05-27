@@ -2,8 +2,8 @@
  * E2E test for the default `aihu app <name>` scaffold (no --template flag).
  *
  * Calls scaffoldApp() against a tmp dir, then shells out to the real package
- * manager + rolldown to verify the emitted project actually installs and
- * builds. Network-dependent: runs `bun install` against npm.
+ * manager + Vite to verify the emitted project actually installs and builds.
+ * Network-dependent: runs `bun install` against npm.
  *
  * Gated behind AIHU_SCAFFOLD_E2E=1 so it doesn't slow the default `bun test`
  * loop. CI runs it explicitly when validating cli releases.
@@ -35,7 +35,7 @@ describe.skipIf(!RUN_E2E)('default scaffold e2e', () => {
     // Sanity: every expected file landed (this also documents the contract).
     const want = [
       'package.json',
-      'rolldown.config.ts',
+      'vite.config.ts',
       'tsconfig.json',
       'index.html',
       'src/main.ts',
