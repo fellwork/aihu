@@ -32,7 +32,7 @@
   },
   "peerDependencies": {
     "vite": ">=5.0.0",
-    "@aihu/css-engine": ">=0.2.0"
+    "@aihu/css-engine": ">=0.2.1"
   },
   "peerDependenciesMeta": {
     "vite": {
