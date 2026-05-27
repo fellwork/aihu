@@ -85,19 +85,19 @@
   },
   {
     "name": "@aihu/auth",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "dir": "packages/auth",
     "isPlatform": false
   },
   {
     "name": "@aihu/cli",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "dir": "packages/cli",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -109,7 +109,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -145,13 +145,13 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "dir": "packages/language-server",
     "isPlatform": false
   },
   {
     "name": "@aihu/magna",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "dir": "packages/magna",
     "isPlatform": false
   },
@@ -169,7 +169,7 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "dir": "packages/primitives",
     "isPlatform": false
   },
@@ -193,7 +193,7 @@
   },
   {
     "name": "@aihu/seo",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "dir": "packages/seo",
     "isPlatform": false
   },
