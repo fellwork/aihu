@@ -36,6 +36,7 @@ bun add @aihu/auth
 |---|---|
 | **Version** | `0.1.1` |
 | **Tier** | E — Held private (unmapped tier) |
+| **Bundle size** | 830 B (gz) — limit 1.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -62,6 +63,10 @@ bun add @aihu/auth
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 **Dependencies:**
+
+- `@aihu/plugin` — `workspace:*`
+
+**Peer dependencies:**
 
 - `@aihu/agent-service` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
