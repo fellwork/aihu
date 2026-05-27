@@ -576,6 +576,15 @@
       "name": "@aihu/scraping",
       "version": "0.1.0",
     },
+    "packages/seo": {
+      "name": "@aihu/seo",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu-plugin/agent-readiness": "workspace:*",
+        "@aihu/plugin": "workspace:*",
+        "@aihu/server": "workspace:*",
+      },
+    },
     "packages/server": {
       "name": "@aihu/server",
       "version": "0.2.0",
@@ -709,6 +718,8 @@
     "@aihu/runtime": ["@aihu/runtime@workspace:packages/runtime"],
 
     "@aihu/scraping": ["@aihu/scraping@workspace:packages/scraping"],
+
+    "@aihu/seo": ["@aihu/seo@workspace:packages/seo"],
 
     "@aihu/server": ["@aihu/server@workspace:packages/server"],
 
