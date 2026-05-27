@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -399,7 +399,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -407,7 +407,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.2.1",
+        "@aihu/css-engine": ">=0.2.2",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -421,7 +421,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -434,7 +434,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
@@ -526,7 +526,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
