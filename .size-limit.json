@@ -175,5 +175,18 @@
     "limit": "4 KB",
     "gzip": true,
     "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/auth",
+    "path": "packages/auth/dist/index.js",
+    "limit": "1.5 KB",
+    "gzip": true
+  },
+  {
+    "name": "@aihu/magna",
+    "path": "packages/magna/dist/index.js",
+    "limit": "1.8 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/context", "@aihu-plugin/data"]
   }
 ]
