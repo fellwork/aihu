@@ -34,7 +34,7 @@ bun add @aihu-plugin/data
 |---|---|
 | **Version** | `2.0.0` |
 | **Tier** | B — Meta-framework — reactive resources + loader protocol |
-| **Bundle size** | 756 B (gz) — limit 800 B |
+| **Bundle size** | 757 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

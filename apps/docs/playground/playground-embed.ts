@@ -29,25 +29,9 @@
  */
 
 import './code-editor.ts'
+import { DEFAULT_PRESET_ID, getPreset, PRESETS } from './presets.ts'
 
-const DEFAULT_SOURCE = `@state {
-  import { signal } from '@aihu/signals'
-  const [count, setCount] = signal(0)
-}
-
-@template {
-  <div class="demo">
-    <h1>Hello from aihu</h1>
-    <p>Count: {{ count }}</p>
-    <button $on.click={() => setCount(count() + 1)}>+</button>
-  </div>
-}
-
-@style {
-  .demo { padding: 1rem; font-family: system-ui, sans-serif; }
-  button { padding: .25rem .75rem; cursor: pointer; }
-}
-`
+const DEFAULT_SOURCE = getPreset(DEFAULT_PRESET_ID)?.source ?? PRESETS[0].source
 
 const HOST_STYLES = `
 :host {
@@ -70,6 +54,7 @@ const HOST_STYLES = `
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border, #e2e8f0);
   background: var(--code-bg, #f6f8fa);
@@ -83,6 +68,60 @@ const HOST_STYLES = `
   font-weight: 600;
 }
 .latency.over-budget { color: #d97706; }
+.presets {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--bg, #fff);
+  overflow-x: auto;
+}
+.preset-tab {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted, #666);
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+.preset-tab:hover {
+  background: var(--hover-bg, #f1f5f9);
+  color: var(--fg, #1a1a1a);
+}
+.preset-tab[aria-pressed="true"] {
+  background: var(--accent, #7c3aed);
+  color: #fff;
+  border-color: var(--accent, #7c3aed);
+}
+.preset-select {
+  display: none;
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--fg, #1a1a1a);
+  font-family: inherit;
+}
+.reset-btn {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--muted, #666);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.reset-btn:hover { color: var(--fg, #1a1a1a); }
+.reset-btn[hidden] { display: none; }
 .editor-host { flex: 1; min-height: 0; display: flex; }
 code-editor { flex: 1; }
 .error {
@@ -108,6 +147,10 @@ iframe {
     grid-template-columns: 1fr;
   }
   .editor-pane { border-right: 0; border-bottom: 1px solid var(--border, #e2e8f0); }
+}
+@media (max-width: 640px) {
+  .preset-tab { display: none; }
+  .preset-select { display: block; }
 }
 `
 
@@ -250,6 +293,57 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
   ].join('')
 }
 
+/**
+ * Parse `location.search` into a preset id or arbitrary source.
+ *
+ * Supported query forms:
+ *   ?preset=<id>            — load a named preset
+ *   ?src=<encodeURIComponent(source)> — load arbitrary source
+ *
+ * Uses the query string (not the hash) because `docs-shell.aihu` owns
+ * `location.hash` for page routing (`#playground`, `#introduction`, etc.).
+ *
+ * Returns null if no recognized param is present (caller falls back to default).
+ */
+function readHash(): { presetId: string; source: string } | null {
+  if (typeof location === 'undefined') return null
+  const params = new URLSearchParams(location.search)
+  const presetId = params.get('preset')
+  if (presetId) {
+    const preset = getPreset(presetId)
+    if (preset) return { presetId, source: preset.source }
+  }
+  const src = params.get('src')
+  if (src) {
+    // URLSearchParams already decoded once. The raw value is the source.
+    return { presetId: '', source: src }
+  }
+  return null
+}
+
+/**
+ * Write the playground state to `location.search` without triggering navigation.
+ *
+ * Active preset (unmodified) → `?preset=<id>` (omitted when id === default)
+ * Diverged draft            → `?src=<encodeURIComponent(source)>`
+ * Preserves the current hash so docs-shell's page routing keeps working.
+ */
+function writeHash(presetId: string, source: string): void {
+  if (typeof window === 'undefined') return
+  const params = new URLSearchParams(location.search)
+  params.delete('preset')
+  params.delete('src')
+  if (presetId) {
+    if (presetId !== DEFAULT_PRESET_ID) params.set('preset', presetId)
+  } else {
+    // URLSearchParams handles encoding; passing raw source avoids double-encode.
+    params.set('src', source)
+  }
+  const query = params.toString()
+  const next = location.pathname + (query ? '?' + query : '') + location.hash
+  history.replaceState(null, '', next)
+}
+
 export class PlaygroundEmbed extends HTMLElement {
   static get observedAttributes(): readonly string[] {
     return ['initial-source']
@@ -260,11 +354,15 @@ export class PlaygroundEmbed extends HTMLElement {
   private iframe!: HTMLIFrameElement
   private latencyEl!: HTMLSpanElement
   private errorEl!: HTMLPreElement
+  private presetBar!: HTMLDivElement
+  private presetSelect!: HTMLSelectElement
+  private resetBtn!: HTMLButtonElement
   private wasm: WasmModule | null = null
   private bundle: string | null = null
   private wasmReady = false
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private source = DEFAULT_SOURCE
+  private activePresetId: string = DEFAULT_PRESET_ID
 
   constructor() {
     super()
@@ -274,8 +372,16 @@ export class PlaygroundEmbed extends HTMLElement {
   connectedCallback(): void {
     if (this.hasAttribute('initial-source')) {
       this.source = this.getAttribute('initial-source') ?? DEFAULT_SOURCE
+      this.activePresetId = ''
     } else if (this.hasAttribute('initialSource')) {
       this.source = this.getAttribute('initialSource') ?? DEFAULT_SOURCE
+      this.activePresetId = ''
+    } else if (typeof window !== 'undefined') {
+      const fromHash = readHash()
+      if (fromHash) {
+        this.source = fromHash.source
+        this.activePresetId = fromHash.presetId
+      }
     }
     this.render()
     void this.boot()
@@ -284,7 +390,9 @@ export class PlaygroundEmbed extends HTMLElement {
   attributeChangedCallback(name: string, _old: string | null, next: string | null): void {
     if (name === 'initial-source' && next !== null && this.editor) {
       this.source = next
+      this.activePresetId = ''
       this.editor.value = next
+      this.updatePresetUI()
     }
   }
 
@@ -309,6 +417,46 @@ export class PlaygroundEmbed extends HTMLElement {
     this.latencyEl.hidden = true
     editorHeader.append(editorLabel, this.latencyEl)
     editorPane.appendChild(editorHeader)
+
+    // Preset selector bar (segmented control + mobile dropdown + reset)
+    this.presetBar = document.createElement('div')
+    this.presetBar.className = 'presets'
+    this.presetBar.setAttribute('role', 'tablist')
+    this.presetBar.setAttribute('aria-label', 'Preset snippets')
+    for (const preset of PRESETS) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'preset-tab'
+      btn.dataset.presetId = preset.id
+      btn.textContent = preset.label
+      btn.setAttribute('role', 'tab')
+      btn.setAttribute('aria-pressed', String(preset.id === this.activePresetId))
+      btn.addEventListener('click', () => this.selectPreset(preset.id))
+      this.presetBar.appendChild(btn)
+    }
+    this.presetSelect = document.createElement('select')
+    this.presetSelect.className = 'preset-select'
+    this.presetSelect.setAttribute('aria-label', 'Preset snippet')
+    for (const preset of PRESETS) {
+      const opt = document.createElement('option')
+      opt.value = preset.id
+      opt.textContent = preset.label
+      if (preset.id === this.activePresetId) opt.selected = true
+      this.presetSelect.appendChild(opt)
+    }
+    this.presetSelect.addEventListener('change', () => {
+      this.selectPreset(this.presetSelect.value)
+    })
+    this.presetBar.appendChild(this.presetSelect)
+    this.resetBtn = document.createElement('button')
+    this.resetBtn.type = 'button'
+    this.resetBtn.className = 'reset-btn'
+    this.resetBtn.textContent = 'Reset'
+    this.resetBtn.title = 'Restore the active preset source'
+    this.resetBtn.hidden = true
+    this.resetBtn.addEventListener('click', () => this.resetToPreset())
+    this.presetBar.appendChild(this.resetBtn)
+    editorPane.appendChild(this.presetBar)
 
     const editorHost = document.createElement('div')
     editorHost.className = 'editor-host'
@@ -364,8 +512,49 @@ export class PlaygroundEmbed extends HTMLElement {
 
   private onSourceChange(value: string): void {
     this.source = value
+    // If the new value matches the active preset verbatim, stay on the preset.
+    // Otherwise the user has a divergent draft — switch URL to #src= form.
+    const active = this.activePresetId ? getPreset(this.activePresetId) : undefined
+    if (!active || active.source !== value) {
+      this.activePresetId = ''
+      this.updatePresetUI()
+    }
+    writeHash(this.activePresetId, value)
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
     this.debounceTimer = setTimeout(() => this.compile(value), 250)
+  }
+
+  private selectPreset(id: string): void {
+    const preset = getPreset(id)
+    if (!preset) return
+    this.activePresetId = id
+    this.source = preset.source
+    this.editor.value = preset.source
+    this.updatePresetUI()
+    writeHash(id, preset.source)
+    if (this.debounceTimer) clearTimeout(this.debounceTimer)
+    this.compile(preset.source)
+  }
+
+  private resetToPreset(): void {
+    // If no active preset, default back to the canonical first preset.
+    const targetId = this.activePresetId || DEFAULT_PRESET_ID
+    this.selectPreset(targetId)
+  }
+
+  private updatePresetUI(): void {
+    if (!this.presetBar) return
+    const tabs = this.presetBar.querySelectorAll<HTMLButtonElement>('.preset-tab')
+    tabs.forEach((tab) => {
+      const pressed = tab.dataset.presetId === this.activePresetId
+      tab.setAttribute('aria-pressed', String(pressed))
+    })
+    if (this.presetSelect) {
+      this.presetSelect.value = this.activePresetId || ''
+    }
+    if (this.resetBtn) {
+      this.resetBtn.hidden = this.activePresetId !== ''
+    }
   }
 
   private compile(source: string): void {

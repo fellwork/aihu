@@ -11,7 +11,7 @@
  *      app.head (a title + a description meta) appears in the built index.html.
  */
 
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
@@ -117,7 +117,9 @@ describe('end-to-end: vite build emits app.head into dist/index.html', () => {
   it('built index.html contains the configured title + description meta', async () => {
     const { build } = await import('vite')
 
-    dir = await mkdtemp(join(tmpdir(), 'aihu-head-'))
+    // realpath resolves the macOS /var → /private/var symlink that rolldown
+    // would otherwise reject as an absolute-looking path when emitting HTML.
+    dir = await realpath(await mkdtemp(join(tmpdir(), 'aihu-head-')))
     await writeFile(
       join(dir, 'index.html'),
       '<!doctype html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>Scaffold Default</title>\n</head>\n<body>\n<div id="app"></div>\n<script type="module" src="/main.js"></script>\n</body>\n</html>\n',

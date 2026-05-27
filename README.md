@@ -167,28 +167,28 @@ Per-package gates enforced by `bun run size`:
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
 | `@aihu/context` | 242 B | 300 B | pass |
-| `@aihu/signals` | 1.71 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.61 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.32 kB | 3450 B | pass |
+| `@aihu/signals` | 1.69 kB | 1970 B | pass |
+| `@aihu/arbor` | 2.60 kB | 2800 B | pass |
+| `@aihu/runtime` | 3.30 kB | 3450 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 756 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.66 kB | 1850 B | pass |
+| `@aihu-plugin/data` | 757 B | 800 B | pass |
+| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
 | `@aihu/router` | 1.95 kB | 2400 B | pass |
 | `@aihu/agent-service` | 1.05 kB | 1100 B | pass |
 | `@aihu/agent-acp` | 586 B | 600 B | pass |
-| `@aihu/agent-a2a` | 718 B | 750 B | pass |
-| `@aihu/app` | 1.38 kB | 1500 B | pass |
-| `@aihu/css-engine/runtime/cn` | 579 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 718 B | 3 KB | pass |
+| `@aihu/agent-a2a` | 717 B | 750 B | pass |
+| `@aihu/app` | 1.39 kB | 1500 B | pass |
+| `@aihu/css-engine/runtime/cn` | 578 B | 1 KB | pass |
+| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 801 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.00 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 758 B | 4 KB | pass |
+| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
+| `@aihu/primitives/form-control` | 1022 B | 4 KB | pass |
+| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
 | `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 516 B | 4 KB | pass |
+| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
 | `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.80 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.11 kB | 4 KB | pass |
+| `@aihu/primitives/tooltip` | 1.79 kB | 4 KB | pass |
+| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

@@ -180,7 +180,7 @@ bun add @aihu-plugin/kindly-note
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Bundle size** | 1.66 kB (gz) — limit 1850 B |
+| **Bundle size** | 1.65 kB (gz) — limit 1850 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
