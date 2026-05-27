@@ -407,7 +407,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.2.0",
+        "@aihu/css-engine": ">=0.2.1",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -421,7 +421,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -526,7 +526,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
