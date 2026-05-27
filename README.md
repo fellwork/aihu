@@ -189,7 +189,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
 | `@aihu/primitives/tooltip` | 1.79 kB | 4 KB | pass |
 | `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/auth` | 830 B | 1.5 KB | pass |
+| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 1.61 kB | 1.8 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
