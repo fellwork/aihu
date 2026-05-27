@@ -1,0 +1,14 @@
+# aihu-language-server — Helix editor config snippet
+# Prerequisites: aihu-language-server must be on $PATH (npm i -g @aihu/language-server)
+# Merge this into ~/.config/helix/languages.toml — do NOT replace the whole file.
+
+[language-server.aihu-language-server]
+command = "aihu-language-server"
+args = ["--stdio"]
+
+[[language]]
+name = "aihu"
+scope = "source.aihu"
+file-types = ["aihu"]
+language-servers = ["aihu-language-server"]
+indent = { tab-width = 2, unit = "  " }

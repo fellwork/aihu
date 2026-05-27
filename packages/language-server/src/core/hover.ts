@@ -46,6 +46,8 @@ const HOVER_TABLE: Record<string, string> = {
     'function name(args) { return batch(() => { body }) }',
     '```',
     '',
+    '',
+    '> **Agent-side context:** `$action` is primarily for agent/MCP handler scope. In `@state` blocks, prefer `$computed` for derived values or direct function declarations. See macro-vocabulary-v2 §5.',
     '[v2 spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
