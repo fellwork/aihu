@@ -1,7 +1,6 @@
 import { relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { cloudflare } from '@aihu/adapter-cloudflare'
-import { viteAihuPlugin } from '@aihu/app'
+import { aihuCompilerPlugin } from '../../packages/compiler/js/index.ts'
 import { marked } from 'marked'
 import { defineConfig } from 'vite'
 
@@ -33,23 +32,10 @@ const mdLoaderPlugin = {
 export default defineConfig({
   plugins: [
     mdLoaderPlugin,
-    ...viteAihuPlugin({
-      adapter: cloudflare({ ssr: false }),
-      dir: { pages: 'src/pages' },
-      app: {
-        head: {
-          title: 'aihu — Web Components meta-framework',
-          charset: 'UTF-8',
-          viewport: 'width=device-width, initial-scale=1',
-        },
-      },
-    }),
+    aihuCompilerPlugin() as import('vite').Plugin,
   ],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      input: resolve(__dir, 'src/main.ts'),
-    },
   },
 })
