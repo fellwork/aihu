@@ -557,7 +557,6 @@ export class PlaygroundEmbed extends HTMLElement {
     }
   }
 
-
   private compile(source: string): void {
     if (!this.wasmReady || !this.wasm) return
     try {
