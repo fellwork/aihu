@@ -75,7 +75,10 @@
       }
     },
     {
-      "includes": ["packages/vscode-aihu/server/completion.ts"],
+      "includes": [
+        "packages/vscode-aihu/server/completion.ts",
+        "packages/language-server/src/core/completion.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
