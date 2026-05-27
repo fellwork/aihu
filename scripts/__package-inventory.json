@@ -192,6 +192,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/seo",
+    "version": "0.1.0",
+    "dir": "packages/seo",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/server",
     "version": "0.2.0",
     "dir": "packages/server",
