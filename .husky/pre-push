@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
-# Pre-push: full CI replay so we don't burn cycles on remote
-# Skip with `git push --no-verify` when you know what you're doing
-bun run check:ci
+# Pre-push: fast sanity check — lint + typecheck only.
+# Full CI replay (test + build + size + runtime-purity) runs on the remote.
+# For a local full-CI replay before high-stakes pushes, run `bun run check:ci`.
+# Skip the hook entirely with `git push --no-verify` when you know what you're doing.
+bun run check:pre-push
