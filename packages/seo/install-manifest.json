@@ -1,0 +1,15 @@
+{
+  "pluginName": "@aihu/seo",
+  "pluginVersion": "0.1.0",
+  "aihuVersion": "^0.2.0",
+  "installSteps": [
+    {
+      "kind": "register-plugin",
+      "description": "Register seo plugin in aihu.config.ts with { siteName, baseUrl }"
+    },
+    {
+      "kind": "register-routes",
+      "description": "Wire createSeoRoutes(config) handlers for /sitemap.xml, /robots.txt, /llms.txt"
+    }
+  ]
+}
