@@ -54,6 +54,15 @@ fn scoped_space_y_nested_rule() {
 }
 
 #[test]
+fn scoped_divide_y_nested_rule() {
+    // Locks in the nested `& > * + *` sibling-border shape inside component
+    // scope (Round 2: tailwind-support `divide-x/y-*` family). Confirms the
+    // nested rule survives the scoped CSS-nesting emission path, mirroring
+    // `scoped_space_y_nested_rule`.
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("divide-y-2")));
+}
+
+#[test]
 fn wc_native_variants() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc(
         "host:bg-primary slotted:p-4 slotted-img:rounded-lg part-thumb:bg-accent host-context-dark:bg-surface"

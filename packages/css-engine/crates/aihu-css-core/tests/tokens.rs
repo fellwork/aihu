@@ -151,3 +151,68 @@ fn border_directional_n_width() {
 fn z_auto_keyword() {
     assert_eq!(css(&["z-auto"]), ".z-auto { z-index: auto; }\n");
 }
+
+// --- Round 2: divide-x / divide-y sibling borders -------------------------
+//
+// Reuses the proven `space-*` nested `& > * + *` recipe. Exact-string
+// assertions pin every family: bare (1px default), numeric widths, reverse.
+
+#[test]
+fn divide_x_bare_defaults_to_1px() {
+    assert_eq!(
+        css(&["divide-x"]),
+        ".divide-x { & > * + * { border-inline-width: 1px; } }\n"
+    );
+}
+
+#[test]
+fn divide_y_bare_defaults_to_1px() {
+    assert_eq!(
+        css(&["divide-y"]),
+        ".divide-y { & > * + * { border-block-width: 1px; } }\n"
+    );
+}
+
+#[test]
+fn divide_y_2_emits_border_block_width() {
+    assert_eq!(
+        css(&["divide-y-2"]),
+        ".divide-y-2 { & > * + * { border-block-width: 2px; } }\n"
+    );
+}
+
+#[test]
+fn divide_x_4_emits_border_inline_width() {
+    assert_eq!(
+        css(&["divide-x-4"]),
+        ".divide-x-4 { & > * + * { border-inline-width: 4px; } }\n"
+    );
+}
+
+#[test]
+fn divide_x_0_emits_zero_width() {
+    assert_eq!(
+        css(&["divide-x-0"]),
+        ".divide-x-0 { & > * + * { border-inline-width: 0; } }\n"
+    );
+}
+
+#[test]
+fn divide_x_8_emits_border_inline_width() {
+    assert_eq!(
+        css(&["divide-x-8"]),
+        ".divide-x-8 { & > * + * { border-inline-width: 8px; } }\n"
+    );
+}
+
+#[test]
+fn divide_reverse_sets_custom_property() {
+    assert_eq!(
+        css(&["divide-x-reverse"]),
+        ".divide-x-reverse { & > * + * { --tw-divide-x-reverse: 1; } }\n"
+    );
+    assert_eq!(
+        css(&["divide-y-reverse"]),
+        ".divide-y-reverse { & > * + * { --tw-divide-y-reverse: 1; } }\n"
+    );
+}

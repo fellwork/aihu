@@ -48,6 +48,13 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("space-x", "space-x"));
     out.push(("space-y", "space-y"));
 
+    // `divide-x-*` / `divide-y-*` emit nested sibling-border rules (reusing the
+    // proven `space-*` nested path). The group key is the family so `divide-x-2`
+    // and `divide-x-4` collide (last wins), while `divide-x-*` and `divide-y-*`
+    // are independent axes that do not collide.
+    out.push(("divide-x", "divide-x"));
+    out.push(("divide-y", "divide-y"));
+
     // Grid templating prefixes — each maps to a single CSS property so the
     // `cn()` last-wins behaviour works per family.
     out.push(("grid-cols", "grid-template-columns"));
@@ -256,6 +263,15 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "border-y-2" => "border-block-width: 2px;",
         "border-y-4" => "border-block-width: 4px;",
         "border-y-8" => "border-block-width: 8px;",
+
+        // `divide-x` / `divide-y` — sibling borders between adjacent children.
+        // Bare forms default to 1px (Tailwind parity). These reuse the proven
+        // `space-*` nested-rule path: a `& > * + *` block survives the scoped
+        // CSS-nesting emission path and minifies to `.divide-x>*+*{...}`.
+        // Numeric forms (`divide-x-2`, …) and `-reverse` are handled in
+        // `parameterized_utility` (split on the last `-`).
+        "divide-x" => "& > * + * { border-inline-width: 1px; }",
+        "divide-y" => "& > * + * { border-block-width: 1px; }",
         "border-t-0" => "border-top-width: 0;",
         "border-t-2" => "border-top-width: 2px;",
         "border-t-4" => "border-top-width: 4px;",
@@ -342,6 +358,29 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     if prefix == "space-y" {
         if let Some(rem) = spacing_value(value) {
             return Some(format!("& > * + * {{ margin-block-start: {rem}; }}"));
+        }
+    }
+
+    // `divide-x-*` / `divide-y-*` — sibling borders between adjacent children,
+    // reusing the same nested `& > * + *` recipe as `space-*`. Widths are a
+    // closed set (0/2/4/8 px); the `-reverse` token flips which sibling owns
+    // the border via the Tailwind `--tw-divide-{x,y}-reverse` custom property
+    // (kept for API parity even though the simplified `& > * + *` recipe paints
+    // both inline/block edges of the trailing sibling).
+    if prefix == "divide-x" {
+        if value == "reverse" {
+            return Some("& > * + * { --tw-divide-x-reverse: 1; }".to_string());
+        }
+        if let Some(px) = divide_width(value) {
+            return Some(format!("& > * + * {{ border-inline-width: {px}; }}"));
+        }
+    }
+    if prefix == "divide-y" {
+        if value == "reverse" {
+            return Some("& > * + * { --tw-divide-y-reverse: 1; }".to_string());
+        }
+        if let Some(px) = divide_width(value) {
+            return Some(format!("& > * + * {{ border-block-width: {px}; }}"));
         }
     }
 
@@ -541,6 +580,19 @@ fn spacing_value(value: &str) -> Option<String> {
     let n: f32 = value.parse().ok()?;
     let rem = n * 0.25;
     Some(format!("{}rem", trim_float(rem)))
+}
+
+/// Map a `divide-{x,y}-N` width token to its CSS px value. Closed set matching
+/// Tailwind's divide-width scale (`0/2/4/8`); the bare `divide-x`/`divide-y`
+/// (1px default) is handled as a fixed utility.
+fn divide_width(value: &str) -> Option<&'static str> {
+    Some(match value {
+        "0" => "0",
+        "2" => "2px",
+        "4" => "4px",
+        "8" => "8px",
+        _ => return None,
+    })
 }
 
 /// Parse a positive integer (used by grid-cols-N, col-span-N, row-span-N).

@@ -4265,6 +4265,36 @@ Brand-token classes emit <code>var(--color-*)</code>.</p>
 <td><code>border-radius: …;</code></td>
 </tr>
 </tbody></table>
+<h3>Divide (sibling borders)</h3>
+<p>Borders between adjacent children, reusing the same nested <code>&amp; &gt; * + *</code> recipe
+as <code>space-x/y</code>. The bare form defaults to <code>1px</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>divide-x</code> / <code>divide-y</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-inline-width / border-block-width: 1px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-x-{0,2,4,8}</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-inline-width: 0 / 2px / 4px / 8px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-y-{0,2,4,8}</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-block-width: 0 / 2px / 4px / 8px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-x-reverse</code> / <code>divide-y-reverse</code> — NEW</td>
+<td><code>&amp; &gt; * + * { --tw-divide-{x,y}-reverse: 1; }</code></td>
+</tr>
+</tbody></table>
+<p>Set the border <em>color</em> on the same element with the standard color utilities
+(e.g. <code>border-muted</code>). The <code>-reverse</code> tokens keep Tailwind&#39;s API surface via the
+<code>--tw-divide-{x,y}-reverse</code> custom property.</p>
 <h3>Effects</h3>
 <table>
 <thead>
@@ -4346,7 +4376,6 @@ issue if you need one promoted.</p>
 <li>Container queries (<code>@container</code>)</li>
 <li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
 <li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
-<li><code>divide-x</code> / <code>divide-y</code> (use <code>space-x/y</code> for a similar effect)</li>
 <li><code>ring-{n}</code> widths and <code>ring-offset-*</code></li>
 <li><code>top</code> / <code>right</code> / <code>bottom</code> / <code>left</code> / <code>inset</code> named scale (use arbitrary: <code>top-[1rem]</code>)</li>
 <li><code>leading-*</code> / <code>tracking-*</code> named scale (use arbitrary: <code>leading-[1.4]</code>)</li>
@@ -4357,6 +4386,11 @@ issue if you need one promoted.</p>
 <pre><code class="language-html">&lt;ul class=&quot;space-y-4&quot;&gt; … &lt;/ul&gt;
 </code></pre>
 <pre><code class="language-css">.space-y-4 { &amp; &gt; * + * { margin-block-start: 1rem; } }
+</code></pre>
+<h3><code>divide-y-2</code> (Divide — sibling borders)</h3>
+<pre><code class="language-html">&lt;ul class=&quot;divide-y-2 border-muted&quot;&gt; … &lt;/ul&gt;
+</code></pre>
+<pre><code class="language-css">.divide-y-2 { &amp; &gt; * + * { border-block-width: 2px; } }
 </code></pre>
 <h3><code>mx-auto</code> (Margin auto)</h3>
 <pre><code class="language-html">&lt;div class=&quot;mx-auto&quot;&gt; … &lt;/div&gt;
