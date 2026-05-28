@@ -3,12 +3,13 @@
  * Generate the utility stylesheet for this demo using the REAL published
  * `@aihu/css-engine` `compile()` API.
  *
- * The AST scanner (css-engine Plan 2) that auto-discovers classes from `.aihu`
- * SFCs is not yet wired into the Vite plugin, so this demo lists the utility
- * classes it uses and asks the engine to compile them — exercising the exact
- * same Rust-backed token table the scanner will feed. Output is linked from
- * index.html (the component renders with shadowMode: 'none', so the global
- * utility cascade applies).
+ * NOTE: The AST scanner that auto-discovers `.aihu` utility classes IS now
+ * wired through `viteAihuPlugin` → `aihuCompilerPlugin` (the auto-fold path
+ * shipped in css-engine v0.5.x). For the canonical wiring, see
+ * `examples/css-engine-utility/`. This demo intentionally bypasses
+ * `viteAihuPlugin` and lists its classes by hand so it can additionally
+ * showcase the `cn()` runtime helper and the `anchorFallback` progressive
+ * shim against a stable, hand-rolled stylesheet.
  *
  * Run via `bun run gen:css` (also runs as the `predev` / `prebuild` hook).
  */

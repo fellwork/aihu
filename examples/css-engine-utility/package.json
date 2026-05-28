@@ -1,0 +1,24 @@
+{
+  "name": "@aihu/example-css-engine-utility",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5118",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check:utility-css": "bun scripts/check-utility-css.ts"
+  },
+  "dependencies": {
+    "@aihu/app": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/css-engine": "workspace:*",
+    "@aihu/router": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/signals": "workspace:*"
+  },
+  "devDependencies": {
+    "@aihu/compiler": "workspace:*",
+    "vite": "^6.0.0"
+  }
+}

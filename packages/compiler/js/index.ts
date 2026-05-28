@@ -748,6 +748,13 @@ interface CssEngineModule {
 // process — repeated absence does not re-pay the resolution cost.
 let _cssEngine: CssEngineModule | null | undefined
 
+// Whether we've already surfaced a one-shot warning that css-engine resolved
+// but `compileSfc` threw (typically: native css-core binary unresolvable in
+// the consumer's install — e.g. lockfile pins the per-platform placeholder
+// version). The transform stays non-fatal, but going fully silent leaves users
+// chasing "why did my utility classes never emit?". One warn per process.
+let _cssEngineWarned = false
+
 // The optional-peer module specifier, held in a VARIABLE so TypeScript never
 // statically resolves `@aihu/css-engine`'s declarations at typecheck time.
 // css-engine depends on @aihu/compiler for its AST, so the two form a
@@ -796,9 +803,24 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
       process.env.SCRIBE_COMPILE_BIN = binPath
     }
     return _cssEngine.compileSfc(source, id)
-  } catch {
+  } catch (err) {
     // A css-engine compile failure is non-fatal: fall back to the no-op
     // path (utility classes don't emit) rather than aborting the build.
+    // BUT — silently swallowing this means a user who clearly intends
+    // css-engine to be active (the peer resolved) will never know their
+    // utility classes are inert. Surface a one-shot warning with the
+    // underlying error + an install/upgrade hint. Idempotent per process.
+    if (!_cssEngineWarned) {
+      _cssEngineWarned = true
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(
+        `[@aihu/compiler] @aihu/css-engine is installed but compileSfc() failed; ` +
+          `utility classes will not emit. Original error: ${msg}\n` +
+          `Hint: ensure the native css-core binary is installed ` +
+          `(install/upgrade @aihu/css-engine + its per-platform optional dep, ` +
+          `or run \`cargo build --release -p aihu-css-core\` in a dev clone).`,
+      )
+    }
     return ''
   }
 }

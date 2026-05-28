@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>css-engine-utility — aihu example</title>
+    <!-- css-engine style pack: brand tokens the generated utility classes reference. -->
+    <link rel="stylesheet" href="./node_modules/@aihu/css-engine/styles/aihu-default.css" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, sans-serif; padding: 1rem; }
+    </style>
+  </head>
+  <body>
+    <div id="outlet"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

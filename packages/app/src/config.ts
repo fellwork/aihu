@@ -66,6 +66,32 @@ export type AihuPlugin = Plugin
 /** Type-only import — not bundled when agentReadiness is absent. */
 export type AgentReadinessConfig = import('@aihu-plugin/agent-readiness').AgentReadinessConfig
 
+/**
+ * CSS / styling options forwarded to the compiler's Vite plugin.
+ *
+ * Today this surfaces the shadow-DOM mode the compiler injects into every
+ * `defineElement(...)` call. The default (`'open'`) keeps shadow-encapsulated
+ * component styles — but utility-class CSS frameworks (`@aihu/css-engine`,
+ * Tailwind, UnoCSS, Pico) rely on the global cascade and need `'none'`.
+ *
+ * When set, `viteAihuPlugin` forwards this to its internal
+ * `aihuCompilerPlugin({ shadowMode })` call. When absent, behaviour is
+ * unchanged (compiler default applies).
+ */
+export interface CssConfig {
+  /**
+   * Project-wide shadow-DOM mode for every `.aihu` SFC compiled by
+   * `viteAihuPlugin`.
+   *
+   * - `'open'`   — default browser behaviour (shadow root, externally readable).
+   * - `'closed'` — shadow root, externally hidden.
+   * - `'none'`   — **no shadow root.** Use this when consuming
+   *               `@aihu/css-engine`'s utility classes (or any
+   *               cascade-dependent CSS framework).
+   */
+  readonly shadowMode?: 'open' | 'closed' | 'none'
+}
+
 /** Router-related app config (arch-5 M1, RFC-A5-012). */
 export interface RouterConfig {
   /**
@@ -129,13 +155,24 @@ export interface AihuConfig {
    * Currently exposes the `viewTransitions` opt-in for `<$link>`.
    */
   readonly router?: RouterConfig
+  /**
+   * CSS / styling integration. Currently surfaces the project-wide
+   * `shadowMode` forwarded to the compiler. Set to `{ shadowMode: 'none' }`
+   * when using `@aihu/css-engine` utility classes or any other cascade-
+   * dependent CSS framework.
+   */
+  readonly css?: CssConfig
 }
 
 /** Thrown by defineConfig when configuration validation fails. */
 export class AihuConfigError extends Error {
   constructor(
     message: string,
-    readonly code: 'INVALID_OUTPUT_MODE' | 'INVALID_DIR' | 'UNKNOWN_FIELD',
+    readonly code:
+      | 'INVALID_OUTPUT_MODE'
+      | 'INVALID_DIR'
+      | 'UNKNOWN_FIELD'
+      | 'INVALID_CSS_SHADOW_MODE',
     readonly field?: string,
   ) {
     super(message)
@@ -169,6 +206,18 @@ export function defineConfig(config: AihuConfig): AihuConfig {
   }
   if (config.dir?.layouts !== undefined && typeof config.dir.layouts !== 'string') {
     throw new AihuConfigError('dir.layouts must be a string', 'INVALID_DIR', 'dir.layouts')
+  }
+  if (
+    config.css?.shadowMode !== undefined &&
+    config.css.shadowMode !== 'open' &&
+    config.css.shadowMode !== 'closed' &&
+    config.css.shadowMode !== 'none'
+  ) {
+    throw new AihuConfigError(
+      `css.shadowMode '${config.css.shadowMode}' is not supported (use 'open', 'closed', or 'none')`,
+      'INVALID_CSS_SHADOW_MODE',
+      'css.shadowMode',
+    )
   }
   return config
 }

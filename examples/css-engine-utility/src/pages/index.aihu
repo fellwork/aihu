@@ -1,0 +1,17 @@
+@route {
+  path: "/",
+  name: "css-engine-utility-index"
+}
+
+@template {
+  <section class="flex gap-6 max-w-7xl mx-auto px-4 py-6">
+    <h1 class="text-lg font-bold">css-engine utility classes</h1>
+    <p class="text-sm">
+      Utility classes (<code>flex</code>, <code>gap-6</code>, <code>max-w-7xl</code>,
+      <code>mx-auto</code>, <code>px-4</code>) are compiled by
+      <code>@aihu/css-engine</code> via the compiler hook wired into
+      <code>viteAihuPlugin</code>. Because <code>css.shadowMode: 'none'</code>
+      is set, the generated CSS lands in the document cascade.
+    </p>
+  </section>
+}
