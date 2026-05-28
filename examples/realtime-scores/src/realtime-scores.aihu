@@ -142,17 +142,21 @@
 }
 
 @style {
-  .realtime-scores { display: grid; gap: 1rem; padding: 1.5rem; max-width: 32rem; background: var(--panel-bg, #1e1e2e); border: 1px solid var(--border, #313244); border-radius: var(--radius, 0.5rem); box-shadow: var(--card-shadow, 0 2px 8px rgba(0,0,0,0.4)); color: var(--fg, #cdd6f4); }
+  .realtime-scores { display: grid; gap: 1rem; padding: 1.5rem; max-width: 32rem; background: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow); color: var(--fg); }
   .header { display: flex; align-items: center; justify-content: space-between; }
-  h1 { margin: 0; font-size: 1.25rem; color: var(--fg, #cdd6f4); }
-  .badge { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: var(--muted-bg, #45475a); color: var(--muted, #a6adc8); border: 1px solid var(--border, #313244); transition: background 0.2s, color 0.2s; }
-  .badge.connected { background: var(--success-bg, #1e3a2f); color: var(--success, #a6e3a1); border-color: var(--success, #a6e3a1); }
-  .loading-bar { font-size: 0.85rem; color: var(--muted, #a6adc8); padding: 0.5rem; border-radius: var(--radius, 0.5rem); background: var(--hover-bg, #313244); }
-  .error-pill { font-size: 0.8rem; color: var(--warning, #f9e2af); padding: 0.4rem 0.75rem; border-radius: 9999px; background: var(--warning-bg, #3a2e1e); border: 1px solid var(--warning, #f9e2af); }
+  h1 { margin: 0; font-size: 1.25rem; color: var(--fg); }
+  .badge { font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; background: var(--muted-bg); color: var(--muted); border: 1px solid var(--border); transition: background 0.2s, color 0.2s; }
+  .badge.connected { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+  .loading-bar { font-size: 0.85rem; color: var(--muted); padding: 0.5rem; border-radius: var(--radius); background: var(--hover-bg); }
+  .error-pill { font-size: 0.8rem; color: var(--warning); padding: 0.4rem 0.75rem; border-radius: 9999px; background: var(--warning-bg); border: 1px solid var(--warning); }
   .score-table { width: 100%; border-collapse: collapse; }
-  .score-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted, #a6adc8); border-bottom: 1px solid var(--border, #313244); }
-  .score-table td { padding: 0.5rem; border-bottom: 1px solid var(--border, #313244); font-size: 0.95rem; }
+  .score-table th { text-align: left; padding: 0.4rem 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .score-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
   .score-table tr:last-child td { border-bottom: none; }
-  td.score { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; color: var(--accent, #cba6f7); }
-  .empty { text-align: center; color: var(--muted, #a6adc8); font-size: 0.85rem; padding: 1rem; }
+  td.score { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 1rem; }
+  @media (max-width: 480px) {
+    .realtime-scores { padding: 1rem; }
+    .score-table th, .score-table td { padding: 0.35rem 0.4rem; font-size: 0.85rem; }
+  }
 }
