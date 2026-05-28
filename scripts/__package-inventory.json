@@ -25,13 +25,13 @@
   },
   {
     "name": "@aihu/adapter-cloudflare",
-    "version": "0.1.10",
+    "version": "1.0.0",
     "dir": "packages/adapter-cloudflare",
     "isPlatform": false
   },
   {
     "name": "@aihu/adapter-vercel",
-    "version": "0.1.9",
+    "version": "1.0.0",
     "dir": "packages/adapter-vercel",
     "isPlatform": false
   },
@@ -73,13 +73,13 @@
   },
   {
     "name": "@aihu/app",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "dir": "packages/app",
     "isPlatform": false
   },
   {
     "name": "@aihu/arbor",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "dir": "packages/arbor",
     "isPlatform": false
   },
@@ -91,13 +91,13 @@
   },
   {
     "name": "@aihu/cli",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "dir": "packages/cli",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -109,7 +109,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -145,7 +145,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -169,19 +169,19 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "dir": "packages/primitives",
     "isPlatform": false
   },
   {
     "name": "@aihu/router",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "dir": "packages/router",
     "isPlatform": false
   },
   {
     "name": "@aihu/runtime",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "dir": "packages/runtime",
     "isPlatform": false
   },

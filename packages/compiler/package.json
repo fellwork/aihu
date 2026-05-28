@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -31,7 +31,7 @@
   },
   "peerDependencies": {
     "vite": ">=5.0.0",
-    "@aihu/css-engine": ">=0.2.3"
+    "@aihu/css-engine": ">=0.2.4"
   },
   "peerDependenciesMeta": {
     "vite": {

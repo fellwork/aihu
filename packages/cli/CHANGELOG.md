@@ -1,5 +1,13 @@
 # @aihu/cli
 
+## 0.5.3
+
+### Patch Changes
+
+- [#255](https://github.com/fellwork/aihu/pull/255) [`af25c7c`](https://github.com/fellwork/aihu/commit/af25c7cfa47d29112e4f8a017b59a0432031a32d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Surface the `--template=cf-team` option in `aihu app` usage text and clarify in `llms-full.txt` that the no-flag `aihu app <name>` is a client-only Vite + router SPA while `--template=cf-team` scaffolds the deployable Cloudflare monorepo (workspaces, wrangler, auth, agent surface).
+
+  Docs-only patch. The underlying scaffolder fix already shipped in `@aihu/cli@0.5.2` (PR [#247](https://github.com/fellwork/aihu/issues/247)); this addresses follow-up discoverability friction reported by users who expected an SPA-first scaffold and weren't aware of the `--template` flag.
+
 ## 0.5.2
 
 ### Patch Changes
