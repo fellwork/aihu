@@ -444,3 +444,78 @@ fn leaf_signal_interpolation_cast() {
 
     insta::assert_snapshot!(output.js);
 }
+
+// --- bug3: same-line significant whitespace preservation ---
+// Regression for compiler bug where `emit_node` Text arm unconditionally
+// `s.trim()`d, deleting the single space between a text node and an inline
+// element sibling (e.g. `<p>foo <code>bar</code> baz</p>`).
+
+#[test]
+fn text_before_inline_preserves_single_space() {
+    let src = "@template { <p>Text <code>x</code> more.</p> }";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-1");
+    assert!(
+        output.js.contains("leaf('Text ')"),
+        "trailing space before <code> lost; got:\n{}",
+        output.js
+    );
+    assert!(
+        output.js.contains("leaf(' more.')"),
+        "leading space after </code> lost; got:\n{}",
+        output.js
+    );
+}
+
+#[test]
+fn multi_line_surrounding_whitespace_stripped() {
+    // Template body newlines + indentation around a text node should be
+    // stripped entirely (no leading/trailing space injected).
+    let src = "@template {\n  <p>\n    Text\n  </p>\n}";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-2");
+    assert!(
+        output.js.contains("leaf('Text')"),
+        "multi-line surrounding whitespace should be fully stripped; got:\n{}",
+        output.js
+    );
+    assert!(
+        !output.js.contains("leaf(' Text')") && !output.js.contains("leaf('Text ')"),
+        "stray space should not survive newline-only surrounding whitespace; got:\n{}",
+        output.js
+    );
+}
+
+#[test]
+fn same_line_whitespace_on_both_sides_preserved() {
+    let src = "@template { <p>  pre-pre  <span>x</span>  post-post  </p> }";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-3");
+    assert!(
+        output.js.contains("leaf(' pre-pre ')"),
+        "leading + trailing same-line whitespace should collapse to single space; got:\n{}",
+        output.js
+    );
+    assert!(
+        output.js.contains("leaf(' post-post ')"),
+        "leading + trailing same-line whitespace should collapse to single space; got:\n{}",
+        output.js
+    );
+}
+
+#[test]
+fn repro_translation_waves_preserves_trailing_space() {
+    // Verbatim repro from .context/fw-agent/bug3-whitespace/repro.aihu
+    let src = "@template { <p>Active and historical translation waves drained from <code>v_wave_status</code>.</p> }";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-repro");
+    assert!(
+        output.js.contains("leaf('Active and historical translation waves drained from ')"),
+        "trailing space before <code> lost on repro; got:\n{}",
+        output.js
+    );
+}
