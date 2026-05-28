@@ -3816,6 +3816,28 @@ const scope = hydrate(
 &lt;!-- emits: .peer:checked ~ .peer-checked\\:bg-primary { background-color: var(--color-primary) } --&gt;
 </code></pre>
 <p>These stack with the other variants left-to-right, e.g. <code>md:group-hover:bg-primary</code> wraps the relational rule in the <code>md</code> media query.</p>
+<h2>Light DOM vs Shadow DOM (and using css-engine)</h2>
+<p>By default every <code>.aihu</code> component renders into an <strong>open shadow root</strong> (<code>shadowMode: &#39;open&#39;</code>). <code>@aihu/css-engine</code> is built for this: it compiles each SFC&#39;s utility classes to a scoped stylesheet and folds it into that component&#39;s shadow <code>&lt;style&gt;</code>. <strong>css-engine needs no special configuration to work behind a shadow root</strong> — <code>shadowMode: &#39;none&#39;</code> is <em>not</em> required. (That requirement is real only for global-cascade frameworks like Tailwind, UnoCSS, or Pico, which emit one global sheet that a shadow root would block.)</p>
+<p>If you do want your components in the <strong>light DOM</strong> — for example to style external/slotted children, or to emit a single global utility sheet — flip one knob:</p>
+<pre><code class="language-ts">// vite.config.ts
+viteAihuPlugin({
+  dir: { pages: &#39;src/pages&#39; },
+  css: { shadowMode: &#39;none&#39; },   // light DOM — utility CSS lands in dist/assets/*.css
+})
+</code></pre>
+<p>What changes when you cross the shadow boundary:</p>
+<ul>
+<li><strong>Open / closed (default).</strong> Utility CSS folds into each component&#39;s shadow <code>&lt;style&gt;</code> via <code>adoptedStyleSheets</code>. External / global stylesheets do <strong>not</strong> pierce in; theme tokens still cascade in through <code>:host</code> because custom properties inherit across the boundary. To deliberately reach across, use the WC-native variants — <code>host:</code>, <code>slotted:</code>, and <code>part-*:</code>.</li>
+<li><strong>None (light DOM).</strong> There is no shadow root, so the engine routes the per-SFC utility CSS through Vite&#39;s CSS pipeline and it lands in the bundled <code>dist/assets/*.css</code>. Now ordinary descendant selectors and global sheets reach your elements (and external children) normally.</li>
+</ul>
+<p><strong>Verification gotcha.</strong> &quot;I switched to shadow mode and <code>grep dist/assets/*.css</code> finds nothing&quot; is expected — in open/closed mode the utilities are folded into each component&#39;s <code>&lt;style&gt;</code>, not the global CSS asset. Grep the <em>compiled component</em> (the emitted <code>__style__.replaceSync(...)</code> stylesheet) instead. Only in <code>shadowMode: &#39;none&#39;</code> do the utilities appear in <code>dist/assets/*.css</code>.</p>
+<h2>Scaffolding with css-engine</h2>
+<p><code>@aihu/cli</code> can wire <code>@aihu/css-engine</code> into a fresh project out of the box:</p>
+<pre><code class="language-bash">aihu app myapp --css engine                  # css-engine, shadow/open (default, scoped)
+aihu app myapp --css engine --shadow none     # css-engine, light DOM
+aihu app myapp --css engine --shadow closed    # css-engine, closed shadow root
+</code></pre>
+<p><code>--css engine</code> adds <code>@aihu/css-engine</code> to <code>dependencies</code> and emits a starter page that uses utility classes (<code>flex gap-4 max-w-7xl mx-auto p-8</code>, <code>text-3xl font-bold</code>, …) instead of a hand-written <code>@style</code> block. The default shadow mode is <code>open</code> — so the default css-engine scaffold writes <strong>no</strong> <code>css</code> block at all (open is the compiler default); only <code>--shadow closed|none</code> emit an explicit <code>css: { shadowMode }</code>. The interactive <code>create-aihu</code> wizard (<code>npm create aihu@latest</code>) asks the same two questions — <em>&quot;Include @aihu/css-engine?&quot;</em> and, if yes, a shadow-mode select.</p>
 <h2>Style packs</h2>
 <p>Component styling resolves against <strong>design tokens</strong> (CSS custom properties): a utility like <code>bg-primary</code> emits <code>var(--color-primary)</code>, and the <em>value</em> comes from a <strong>style pack</strong> (<code>aihu-default</code>, <code>aihu-graphite</code>, or your own via <code>defineStylePack()</code>). The token contract, the two shipped packs, <code>:root</code> + <code>.dark</code> emission, and how a consumer applies a pack are covered in full on the dedicated <a href="#theming">Theming</a> page.</p>
 <h2><code>cn()</code> — runtime class merge</h2>
