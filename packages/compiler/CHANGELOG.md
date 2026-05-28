@@ -1,5 +1,55 @@
 # @aihu/compiler
 
+## 0.5.3
+
+### Patch Changes
+
+- [#253](https://github.com/fellwork/aihu/pull/253) [`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Forward `shadowMode` through `viteAihuPlugin` for utility-class CSS frameworks.
+
+  - **`@aihu/app`** — new `css.shadowMode` option on `AihuConfig`. When set, it
+    forwards to the compiler's per-plugin `shadowMode` injection
+    (`'open' | 'closed' | 'none'`). Required for consumers of
+    `@aihu/css-engine` (and other cascade-dependent CSS frameworks) so the
+    utility classes the compiler folds in are not trapped inside a shadow root.
+    Default behaviour is unchanged.
+  - **`@aihu/compiler`** — `_maybeCompileUtilityCss` now emits a one-shot
+    `console.warn` when `@aihu/css-engine` resolves but `compileSfc()` throws
+    (typically: the native `aihu-css-core` binary is unresolvable). Build is
+    still non-fatal; previously this case was completely silent and users
+    could not discover why their utility classes never emitted.
+  - **`@aihu/css-engine`** — README now documents the canonical
+    `viteAihuPlugin({ css: { shadowMode: 'none' } })` wiring and points to the
+    new `examples/css-engine-utility/` end-to-end example.
+
+- [#254](https://github.com/fellwork/aihu/pull/254) [`52a7ee6`](https://github.com/fellwork/aihu/commit/52a7ee600c1f94ac741c01d6d9c0a4a203fc0ef3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Preserve same-line significant whitespace between a text node and an inline
+  element sibling in `@template { ... }` blocks.
+
+  Previously, `emit_node` for `TemplateNode::Text` called `s.trim()`
+  unconditionally, deleting the single space required by HTML/JSX rules between
+  a text run and an adjacent inline tag. Templates like
+  `<p>foo <code>bar</code> baz</p>` compiled to
+  `leaf('foo'), branch('code',…), leaf('baz')` — losing both spaces and
+  running the text together at render time.
+
+  Now leading/trailing whitespace on the same line as content is preserved as a
+  single space (per JSX semantics). Multi-line surrounding whitespace
+  (template indentation/newlines) is still stripped as before. Internal
+  whitespace runs are still collapsed to a single space.
+
+- Updated dependencies [[`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4)]:
+  - @aihu/css-engine@0.2.4
+
+## 0.5.2
+
+### Patch Changes
+
+- [#249](https://github.com/fellwork/aihu/pull/249) [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Tighten `validate_macro_quoted_value` to enforce its documented contract: identifier-start (`[A-Za-z_$]`) followed by `[A-Za-z0-9_$.]`, with no `..` or trailing `.`. Previously the validator rejected only whitespace, brackets, parens, and `?`, quietly allowing `!`, `&`, `|`, comparison and arithmetic operators, leading digits, and dotted-path malformations. Codegen wrapped those non-simple-identifier values in `[() => (…)]`; when the expression referenced a signal getter (e.g. `!loading`), the thunk read the getter as a function value — always truthy — instead of calling it (silent wrong-result). C302 error now carries a structured migration target pointing at the curly form (`$<name>={expr}`).
+
+- [#249](https://github.com/fellwork/aihu/pull/249) [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reject unreserved `$<name>="quoted"` template attributes at parse time with a hard C500 error (Risk-7 closure from spec-template-syntax-v2 §"Codegen hardening — silent-drop fix"). Previously these silently fell through codegen's `emit_macro_effects` default arm — the attribute was dropped and the layout/component rendered without the intended prop. Error now points authors at the curly form (`$<name>={expr}`), which routes to `Attr::Binding` via Amendment 04 and emits as a real prop on a component.
+
+- Updated dependencies []:
+  - @aihu/css-engine@0.2.3
+
 ## 0.5.1
 
 ### Patch Changes

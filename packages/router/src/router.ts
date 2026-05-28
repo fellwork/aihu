@@ -1,4 +1,8 @@
-import { renderToString } from '@aihu/server'
+// Browser-eligible router surface — NO server-only imports allowed here.
+// The server-only `handle(req)` SSR path lives in `./server.ts` (exposed via
+// the `@aihu/router/server` subpath) to keep this file's static + dynamic
+// graph free of `@aihu/server`'s `node:module`-bearing native loader.
+// See .context/fw-agent/bug2.5-node-module-leak/investigation.md.
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,7 +85,6 @@ export type AfterGuard = (to: MatchResult, from: MatchResult | null) => void
 
 export type Router = {
   match(pathname: string): MatchResult | null
-  handle(req: Request): Promise<Response>
   /**
    * Register a guard that runs before each navigation. Multiple guards run
    * in registration order. The first `next(false)` cancels navigation; the
@@ -164,7 +167,8 @@ function routeKind(def: RouteDefinition): 0 | 1 | 2 {
 }
 
 // ---------------------------------------------------------------------------
-// createRouter
+// createRouter — browser-safe. Server-side request handling lives in
+// `@aihu/router/server` (`createServerRouter`).
 // ---------------------------------------------------------------------------
 
 export function createRouter(routes: RouteDefinition[]): Router {
@@ -181,29 +185,6 @@ export function createRouter(routes: RouteDefinition[]): Router {
       if (params !== null) return { route, params, pathname }
     }
     return null
-  }
-
-  async function handle(req: Request): Promise<Response> {
-    const url = new URL(req.url)
-    const result = match(url.pathname)
-    if (!result) return new Response('Not Found', { status: 404 })
-
-    const { route, params } = result
-    const mod = await route.module()
-    const loaderData = mod.loader ? await mod.loader(params) : undefined
-
-    const component = mod.default as (() => unknown) | { toHtml(): string }
-    const html = await renderToString(component)
-
-    const body =
-      loaderData !== undefined
-        ? `${html}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
-        : html
-
-    return new Response(body, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    })
   }
 
   // ─── Guard chain (RFC-A5-015 / RFC-A5-016) ────────────────────────────────
@@ -263,7 +244,6 @@ export function createRouter(routes: RouteDefinition[]): Router {
 
   return {
     match,
-    handle,
     registerBeforeGuard,
     registerAfterGuard,
     runBeforeGuards,

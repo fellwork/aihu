@@ -59,7 +59,7 @@ function usage(): never {
   process.stderr.write(
     [
       'Usage:',
-      '  aihu app <name>         Scaffold a new application',
+      '  aihu app <name> [--template=<id>]  Scaffold a new application (default: client-only SPA; e.g. --template=cf-team for the Cloudflare stack)',
       '  aihu page <route>       Scaffold a page file (e.g. /about)',
       '  aihu component <name>   Scaffold a component file',
       '  aihu plugin <name>      Scaffold a plugin package',

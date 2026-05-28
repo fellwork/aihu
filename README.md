@@ -189,6 +189,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
 | `@aihu/primitives/tooltip` | 1.79 kB | 4 KB | pass |
 | `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
+| `@aihu/auth` | 830 B | 1.5 KB | pass |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -221,29 +223,31 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.0` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.0` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.0` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `0.1.10` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `0.1.9` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `1.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `1.0.0` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.1` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.1` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.3` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.2.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
-| [`@aihu/arbor`](./packages/arbor) | `0.1.4` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
-| [`@aihu/auth`](./packages/auth) | `0.1.1` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
-| [`@aihu/cli`](./packages/cli) | `0.5.1` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.5.1` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/app`](./packages/app) | `0.3.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/arbor`](./packages/arbor) | `0.1.5` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
+| [`@aihu/auth`](./packages/auth) | `0.1.2` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
+| [`@aihu/cli`](./packages/cli) | `0.5.3` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
+| [`@aihu/compiler`](./packages/compiler) | `0.5.3` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
-| [`@aihu/css-engine`](./packages/css-engine) | `0.2.2` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
+| [`@aihu/css-engine`](./packages/css-engine) | `0.2.4` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
-| [`@aihu/language-server`](./packages/language-server) | `0.1.1` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/language-server`](./packages/language-server) | `0.2.1` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/magna`](./packages/magna) | `0.2.0` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/primitives`](./packages/primitives) | `0.0.5` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
-| [`@aihu/router`](./packages/router) | `0.1.6` | File-based router for the aihu meta-framework. |
-| [`@aihu/runtime`](./packages/runtime) | `0.1.6` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/primitives`](./packages/primitives) | `0.0.7` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/router`](./packages/router) | `0.1.7` | File-based router for the aihu meta-framework. |
+| [`@aihu/runtime`](./packages/runtime) | `0.1.7` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
+| [`@aihu/seo`](./packages/seo) | `0.2.0` | aihu SEO plugin: sitemap.xml, robots.txt, llms.txt, JSON-LD injection via afterParse hook. |
 | [`@aihu/server`](./packages/server) | `0.2.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
@@ -270,17 +274,18 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | 04 | [`cf-adapter/`](./examples/cf-adapter) | _no README_ | 5110 |
 | 05 | [`color-theme/`](./examples/color-theme) | `$reactive(...)` in `@style` plus `$global { }` to propagate tokens beyond component scope — and `$media` macro for responsive breakpoint... | 5105 |
 | 06 | [`css-engine-demo/`](./examples/css-engine-demo) | Demonstrates all three browser-facing surfaces of the published [`@aihu/css-engine`](../../packages/css-engine) package: | 5114 |
-| 07 | [`css-pluggability/`](./examples/css-pluggability) | A worked example showing how to plug **Tailwind CSS** into a aihu app, plus documented swap paths to **UnoCSS**, **Pico CSS**, and **vani... | — |
-| 08 | [`currency-converter/`](./examples/currency-converter) | the second `@agent` flagship, with enum-typed inputs. Demonstrates how a TypeScript union type (`'USD' | 'EUR' | 'GBP' | 'JPY'`) on a sta... | 5116 |
-| 09 | [`hacker-news/`](./examples/hacker-news) | A aihu port of the canonical Hacker News reader. Hits the live HN API. M1 polish: dark-mode token pass, `@agent` block on the index page,... | 5108 |
-| 10 | [`live-counter/`](./examples/live-counter) | the smallest possible aihu component — state, event handlers, a reactive text node, and an agent surface, in one file. | 5101 |
-| 11 | [`primitives-showcase/`](./examples/primitives-showcase) | Wires three WAI-ARIA APG patterns from the published [`@aihu/primitives`](../../packages/primitives) package — each a vanilla custom elem... | 5115 |
-| 12 | [`realtime-scores/`](./examples/realtime-scores) | Live score board demonstrating WebSocket-driven signal updates, `$lifecycle.mount/dispose`, and `createResource` from `@aihu-plugin/data`... | 5112 |
-| 13 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
-| 14 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
-| 15 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
-| 16 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
-| 17 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
+| 07 | [`css-engine-utility/`](./examples/css-engine-utility) | When `@aihu/css-engine` is installed (as a dependency or peer), the compiler plugin that `viteAihuPlugin` composes will: | 5118 |
+| 08 | [`css-pluggability/`](./examples/css-pluggability) | A worked example showing how to plug **Tailwind CSS** into a aihu app, plus documented swap paths to **UnoCSS**, **Pico CSS**, and **vani... | — |
+| 09 | [`currency-converter/`](./examples/currency-converter) | the second `@agent` flagship, with enum-typed inputs. Demonstrates how a TypeScript union type (`'USD' | 'EUR' | 'GBP' | 'JPY'`) on a sta... | 5116 |
+| 10 | [`hacker-news/`](./examples/hacker-news) | A aihu port of the canonical Hacker News reader. Hits the live HN API. M1 polish: dark-mode token pass, `@agent` block on the index page,... | 5108 |
+| 11 | [`live-counter/`](./examples/live-counter) | the smallest possible aihu component — state, event handlers, a reactive text node, and an agent surface, in one file. | 5101 |
+| 12 | [`primitives-showcase/`](./examples/primitives-showcase) | Wires three WAI-ARIA APG patterns from the published [`@aihu/primitives`](../../packages/primitives) package — each a vanilla custom elem... | 5115 |
+| 13 | [`realtime-scores/`](./examples/realtime-scores) | Live score board demonstrating WebSocket-driven signal updates, `$lifecycle.mount/dispose`, and `createResource` from `@aihu-plugin/data`... | 5112 |
+| 14 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
+| 15 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
+| 16 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
+| 17 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
+| 18 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

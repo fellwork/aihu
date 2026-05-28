@@ -1,5 +1,36 @@
 # @aihu/css-engine
 
+## 0.2.4
+
+### Patch Changes
+
+- [#253](https://github.com/fellwork/aihu/pull/253) [`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Forward `shadowMode` through `viteAihuPlugin` for utility-class CSS frameworks.
+
+  - **`@aihu/app`** — new `css.shadowMode` option on `AihuConfig`. When set, it
+    forwards to the compiler's per-plugin `shadowMode` injection
+    (`'open' | 'closed' | 'none'`). Required for consumers of
+    `@aihu/css-engine` (and other cascade-dependent CSS frameworks) so the
+    utility classes the compiler folds in are not trapped inside a shadow root.
+    Default behaviour is unchanged.
+  - **`@aihu/compiler`** — `_maybeCompileUtilityCss` now emits a one-shot
+    `console.warn` when `@aihu/css-engine` resolves but `compileSfc()` throws
+    (typically: the native `aihu-css-core` binary is unresolvable). Build is
+    still non-fatal; previously this case was completely silent and users
+    could not discover why their utility classes never emitted.
+  - **`@aihu/css-engine`** — README now documents the canonical
+    `viteAihuPlugin({ css: { shadowMode: 'none' } })` wiring and points to the
+    new `examples/css-engine-utility/` end-to-end example.
+
+- Updated dependencies [[`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4), [`52a7ee6`](https://github.com/fellwork/aihu/commit/52a7ee600c1f94ac741c01d6d9c0a4a203fc0ef3)]:
+  - @aihu/compiler@0.5.3
+
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [[`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069), [`6ed33f8`](https://github.com/fellwork/aihu/commit/6ed33f80bfdf193382e9fb1d192c0c1d4e6ef069)]:
+  - @aihu/compiler@0.5.2
+
 ## 0.2.2
 
 ### Patch Changes

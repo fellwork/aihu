@@ -696,8 +696,16 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 </tr>
 </thead>
 <tbody><tr>
-<td><code>defineAgent(opts)</code></td>
-<td>Register an agent definition</td>
+<td><code>registerAgentMetadata(opts)</code></td>
+<td>Register agent metadata for a component</td>
+</tr>
+<tr>
+<td><code>getAgentMetadata(tag)</code></td>
+<td>Look up registered metadata by element tag</td>
+</tr>
+<tr>
+<td><code>getAllAgentMetadata()</code></td>
+<td>Return all registered agent metadata entries</td>
 </tr>
 </tbody></table>
 <p><strong>Types:</strong> <code>AgentRegistry</code></p>
@@ -714,7 +722,7 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 <td>Agent service adapter class</td>
 </tr>
 <tr>
-<td><code>defineAgentService(opts)</code></td>
+<td><code>createAgentService(opts)</code></td>
 <td>Create an agent service instance</td>
 </tr>
 </tbody></table>

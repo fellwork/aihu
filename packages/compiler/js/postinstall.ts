@@ -233,8 +233,7 @@ function inspectBinary(
     // Mach-O 64-bit LE-on-disk magic. cputype at offset 4 (u32 LE).
     if (magic === 0xfeedfacf) {
       const cputype = buf.readUInt32LE(4)
-      const arch =
-        cputype === 0x01000007 ? 'x64' : cputype === 0x0100000c ? 'arm64' : null
+      const arch = cputype === 0x01000007 ? 'x64' : cputype === 0x0100000c ? 'arm64' : null
       return { format: 'macho', arch }
     }
     // Mach-O FAT/universal (multi-arch). On-disk bytes are big-endian per spec;
@@ -368,7 +367,9 @@ async function main(): Promise<void> {
       unlinkSync(binPath)
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
-      warn(`could not remove incompatible binary at ${binPath}: ${detail}. Continuing — download will overwrite.`)
+      warn(
+        `could not remove incompatible binary at ${binPath}: ${detail}. Continuing — download will overwrite.`,
+      )
     }
   }
   if (existsSync(targetReleaseBin)) {
@@ -377,7 +378,9 @@ async function main(): Promise<void> {
       info(`local cargo build already present at ${targetReleaseBin}, skipping.`)
       return
     }
-    warn(`existing ${targetReleaseBin} is incompatible (${reason}); ignoring and acquiring a fresh binary.`)
+    warn(
+      `existing ${targetReleaseBin} is incompatible (${reason}); ignoring and acquiring a fresh binary.`,
+    )
   }
 
   // Local dev override — copy a locally built binary instead of downloading.

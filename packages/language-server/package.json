@@ -1,6 +1,6 @@
 {
   "name": "@aihu/language-server",
-  "version": "0.1.1",
+  "version": "0.2.1",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -31,12 +31,17 @@
   "scripts": {
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "bench": "bun tests/latency.bench.ts",
+    "bench:gate": "bun tests/latency.bench.ts",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@aihu/compiler": "workspace:*",
-    "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.11"
+    "@volar/language-core": "2.4.28",
+    "@volar/language-server": "2.4.28",
+    "@volar/source-map": "2.4.28",
+    "vscode-uri": "3.1.0"
   },
   "description": "Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions.",
   "repository": {

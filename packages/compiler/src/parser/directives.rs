@@ -472,6 +472,35 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
                 value: MacroValue::Quoted(inner.to_string()),
             });
         }
+        // Unreserved `$<name>="quoted"` previously fell through to codegen and
+        // hit the `emit_macro_effects` default arm, which logged a C500 warning
+        // to stderr and silently dropped the attribute (Risk-7 from Scout D7;
+        // spec-template-syntax-v2 §"Codegen hardening — silent-drop fix").
+        // The curly form (`$<name>={expr}`) already routes to `Attr::Binding`
+        // via Amendment 04 — so reject the quoted form here with guidance.
+        if !is_reserved_macro_name(&name) {
+            return Err(CompileError {
+                message: format!(
+                    "C500: `${}` is not a recognized macro. \
+                     Quoted-form `$`-prefixed attributes are reserved for built-in macros \
+                     (if/each/key/show/once/memo/html/raw/ref, $on.*, $bind.*, $class:*, $emit:*). \
+                     For component prop-passing, use the curly form: `${}={{expr}}`.",
+                    name, name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C500".to_string()),
+                hint: Some(format!(
+                    "`${}=\"…\"` previously silently dropped — the quoted form is reserved for built-in macros, \
+                     not arbitrary prop names",
+                    name
+                )),
+                fix: Some(format!("Use `${}={{expr}}` (curly form) to pass a prop value", name)),
+                from: Some(format!("${}=\"…\"", name)),
+                to: Some(format!("${}={{expr}}", name)),
+                ..Default::default()
+            });
+        }
         validate_macro_quoted_value(inner, &name)?;
         return Ok(Attr::Macro {
             name,
@@ -563,6 +592,23 @@ fn parse_each_value(value: &str) -> Result<(String, String, Option<String>), Com
 
 /// Validate that a quoted macro value is a bare identifier or dotted path.
 /// Rejects: whitespace, brackets `[]`, call parens `()`, optional-chains `?.`.
+/// Validate the quoted-form value of a `$<name>="…"` macro attribute.
+///
+/// The quoted form has a deliberately narrow surface: it MUST be a bare
+/// identifier or dotted path (e.g. `"loading"`, `"route.data.story.url"`).
+/// Anything richer — negation, logical/comparison/arithmetic operators,
+/// optional chains, calls, indexing, ternaries, literals — must use the
+/// curly form (`${name}={expr}`), which reaches codegen as a JS expression
+/// and gets the thunk-wrapping needed for reactive tracking.
+///
+/// The previous implementation rejected only whitespace, brackets, parens,
+/// and `?`. That left `!`, `&`, `|`, `=`, `<`, `>`, `+`, `-`, `*`, `/`, `%`,
+/// `,`, `;`, `:`, `~`, `^`, digits-as-first-char, etc. all silently allowed,
+/// then the codegen path for non-simple-identifier `$if` values wrapped them
+/// in `[() => (…)]`. For expressions referencing signals, the wrapped form
+/// reads the getter as a function value (always truthy) instead of calling
+/// it — silent-wrong-result. Tightening here matches the docstring contract
+/// and surfaces the misuse as C302 at parse time with an actionable hint.
 fn validate_macro_quoted_value(value: &str, macro_name: &str) -> Result<(), CompileError> {
     if value.is_empty() {
         return Err(CompileError {
@@ -573,20 +619,68 @@ fn validate_macro_quoted_value(value: &str, macro_name: &str) -> Result<(), Comp
             ..Default::default()
         });
     }
-    for ch in value.chars() {
-        if ch.is_whitespace() || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == '?' {
-            return Err(CompileError {
-                message: format!(
-                    "${} quoted value must be a bare identifier or dotted path (no whitespace, brackets, calls, or optional-chains); got '{}'",
-                    macro_name, value
-                ),
-                line: 0,
-                col: 0,
-                code: Some("C302".to_string()),
-                ..Default::default()
-            });
-        }
+
+    let reject_with = |reason: &str| CompileError {
+        message: format!(
+            "C302: ${} quoted value must be a bare identifier or dotted path (got '{}'). \
+             {} For expressions (negation, comparison, arithmetic, calls, ternaries, \
+             optional chains), use the curly form: `${}={{expr}}`.",
+            macro_name, value, reason, macro_name
+        ),
+        line: 0,
+        col: 0,
+        code: Some("C302".to_string()),
+        hint: Some(format!(
+            "the quoted form is reserved for plain reactive-signal references; \
+             everything else lives in `${}={{…}}`",
+            macro_name
+        )),
+        fix: Some(format!(
+            "rewrite as `${}={{{}}}` (call signal getters explicitly inside the braces)",
+            macro_name, value
+        )),
+        from: Some(format!("${}=\"{}\"", macro_name, value)),
+        to: Some(format!("${}={{…}}", macro_name)),
+        ..Default::default()
+    };
+
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        // value.is_empty() already returned above; unreachable.
+        unreachable!()
+    };
+
+    // First char: ASCII letter, `_`, or `$` (matches JS identifier-start, modulo
+    // unicode — quoted-form identifiers in `.aihu` are ASCII-only by convention).
+    if !(first.is_ascii_alphabetic() || first == '_' || first == '$') {
+        let reason = if first.is_ascii_digit() {
+            format!("'{}' cannot start an identifier", first)
+        } else {
+            format!("'{}' is not a valid identifier-start character", first)
+        };
+        return Err(reject_with(&reason));
     }
+
+    // Subsequent chars: ASCII alphanumeric, `_`, `$`, or `.` (dotted path).
+    // Reject runs of `..` to keep error messages sharp, and reject a trailing
+    // `.` (e.g. `route.`) which would otherwise compile to a malformed path.
+    let mut prev_dot = false;
+    for ch in chars {
+        let allowed =
+            ch.is_ascii_alphanumeric() || ch == '_' || ch == '$' || ch == '.';
+        if !allowed {
+            let reason = format!("'{}' is not allowed in a dotted path", ch);
+            return Err(reject_with(&reason));
+        }
+        if ch == '.' && prev_dot {
+            return Err(reject_with("consecutive '.' separators are not allowed"));
+        }
+        prev_dot = ch == '.';
+    }
+    if prev_dot {
+        return Err(reject_with("dotted path must not end with '.'"));
+    }
+
     Ok(())
 }
 
@@ -778,6 +872,120 @@ mod tests {
     fn macro_quoted_rejects_calls() {
         let err = parse_attr("$if=\"fn()\"").unwrap_err();
         assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_negation() {
+        // Pre-tightening: `!loading` silently passed (no whitespace, no brackets/parens/?)
+        // and reached codegen, where it wrapped to `[() => (!loading)]`. If `loading`
+        // is a signal getter (a function), `!function` is always `false` — silent
+        // wrong-result. Validator now rejects with a pointer to the curly form.
+        let err = parse_attr("$if=\"!loading\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+        assert!(
+            err.message.contains("curly form") && err.message.contains("$if={expr}"),
+            "C302 should point at the curly form, got: {}",
+            err.message
+        );
+        assert_eq!(err.to.as_deref(), Some("$if={…}"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_logical_operators() {
+        // `a&&b` — no whitespace, would have slipped through previously.
+        let err = parse_attr("$if=\"a&&b\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_comparison() {
+        let err = parse_attr("$if=\"count>0\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_leading_digit() {
+        let err = parse_attr("$if=\"1count\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_consecutive_dots() {
+        let err = parse_attr("$if=\"a..b\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_rejects_trailing_dot() {
+        let err = parse_attr("$if=\"route.\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C302"));
+    }
+
+    #[test]
+    fn macro_quoted_accepts_dollar_in_identifier() {
+        // `$`-prefixed signals (e.g. `$loading`) are a common convention; ensure
+        // the strict validator still accepts them.
+        let attr = parse_attr("$if=\"$loading\"").unwrap();
+        assert!(
+            matches!(attr, Attr::Macro { ref value, .. } if matches!(value, MacroValue::Quoted(s) if s == "$loading")),
+            "$if=\"$loading\" must remain Attr::Macro with Quoted value, got: {:?}",
+            attr
+        );
+    }
+
+    #[test]
+    fn macro_quoted_accepts_underscore_start() {
+        let attr = parse_attr("$if=\"_private\"").unwrap();
+        assert!(
+            matches!(attr, Attr::Macro { ref value, .. } if matches!(value, MacroValue::Quoted(s) if s == "_private")),
+        );
+    }
+
+    #[test]
+    fn unreserved_quoted_macro_rejected_c500() {
+        // Risk-7 closure: `$activeNav="…"` (or any non-reserved name in quoted
+        // form) previously fell through codegen's emit_macro_effects default
+        // arm, which logged C500 to stderr and silently dropped the attribute.
+        // The parser now rejects this at parse time with a hard error that
+        // points authors at the curly form (which routes to Attr::Binding via
+        // Amendment 04 and emits as a real prop).
+        let err = parse_attr("$activeNav=\"/dashboard\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C500"));
+        assert!(
+            err.message.contains("$activeNav={expr}"),
+            "C500 should suggest curly form, got: {}",
+            err.message
+        );
+        // `to:` field carries the structured migration target for diagnostics.
+        assert_eq!(err.to.as_deref(), Some("$activeNav={expr}"));
+    }
+
+    #[test]
+    fn unreserved_curly_macro_still_routes_to_binding() {
+        // Companion to `unreserved_quoted_macro_rejected_c500` — the curly
+        // form is the supported escape hatch (Amendment 04) and must continue
+        // to produce `Attr::Binding`, not error.
+        let attr = parse_attr("$activeNav={location.pathname}").unwrap();
+        assert_eq!(
+            attr,
+            Attr::Binding {
+                name: "activeNav".to_string(),
+                expr: "location.pathname".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn reserved_quoted_macro_still_accepted() {
+        // Regression guard: the C500 rejection MUST only target unreserved
+        // names. Built-in macros (`$if`, `$show`, `$html`, `$on.*`, `$bind.*`)
+        // in quoted form continue to parse as `Attr::Macro`.
+        let attr = parse_attr("$if=\"loading\"").unwrap();
+        assert!(
+            matches!(attr, Attr::Macro { ref name, .. } if name == "if"),
+            "$if=\"loading\" must remain Attr::Macro, got: {:?}",
+            attr
+        );
     }
 
     #[test]

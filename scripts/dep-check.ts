@@ -12,8 +12,8 @@ const packages = readdirSync(packagesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .map((d) => d.name)
 
-const ALLOWED_PEER_PATTERNS = ['@aihu/', 'vite']
-const ALLOWED_DEP_PATTERNS = ['@aihu/']
+const ALLOWED_PEER_PATTERNS = ['@aihu/', '@aihu-plugin/', 'vite']
+const ALLOWED_DEP_PATTERNS = ['@aihu/', '@aihu-plugin/']
 
 // Editor extensions (e.g. VSCode language clients) are out of scope for the
 // browser-bundle dep-free thesis. They ship as editor tooling, not user-app

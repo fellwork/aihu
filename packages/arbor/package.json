@@ -1,6 +1,6 @@
 {
   "name": "@aihu/arbor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,8 +23,8 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
-  "dependencies": {
-    "@aihu/signals": "workspace:*"
+  "peerDependencies": {
+    "@aihu/signals": "workspace:^"
   },
   "description": "Reactive component tree (the rendering layer that consumes @aihu/signals).",
   "repository": {

@@ -1,0 +1,51 @@
+{
+  "name": "@aihu/magna",
+  "version": "0.2.0",
+  "description": "aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "install-manifest.json"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/signals": "workspace:*",
+    "@aihu/plugin": "workspace:*",
+    "@aihu-plugin/data": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@aihu/magna-gqlmin": "^0.2.0"
+  },
+  "devDependencies": {
+    "rolldown": "^1.0.0-rc.17",
+    "rolldown-plugin-dts": "^0.23.2",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/magna"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/magna#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

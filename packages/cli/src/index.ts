@@ -4,11 +4,15 @@
  * v0.8.1: `@aihu/cli` package exposing scaffold functions for `aihu app`,
  * `aihu page`, `aihu component`, and `aihu plugin` commands.
  *
- * v0.8.2: Hello World template — `npx aihu app <name>` produces a runnable
- * aihu application with Vite, router, runtime, and agent integrations wired.
- *
  * v0.8.5: Plugin scaffold template — `npx aihu plugin <name>` produces a
  * skeleton plugin package with `definePlugin` wired.
+ *
+ * v0.2.x scaffold: Vite + `viteAihuPlugin()` (compiler + router +
+ * agent-readiness composed). Mirrors `examples/blog-router` — the
+ * documented v1 pattern. The earlier rolldown-based scaffold imported
+ * `virtual:aihu-routes` (a Vite-plugin virtual module) inside
+ * `createApp()` but had no rolldown equivalent for the plugin, so
+ * `npx aihu app NAME && bun run dev` could not actually route.
  *
  * Per Learning #49 (v3 dep-free thesis): zero non-Node built-in dependencies.
  * All templates are embedded as pure string functions — no runtime file reads.
@@ -40,7 +44,7 @@ export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
 export type AppTemplate = 'minimal' | 'full' | 'docs'
 
 // ---------------------------------------------------------------------------
-// App template generators (rolldown-first, v1 syntax)
+// App template generators (Vite + viteAihuPlugin, v1 syntax)
 // ---------------------------------------------------------------------------
 
 /** package.json for a new aihu application. */
@@ -60,21 +64,28 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
       private: true,
       type: 'module',
       scripts: {
-        dev: 'rolldown -c --watch',
-        build: 'rolldown -c',
+        dev: 'vite',
+        build: 'vite build',
+        preview: 'vite preview',
         typecheck: 'tsc --noEmit',
       },
       dependencies: {
+        // `@aihu/app` re-exports `viteAihuPlugin` (the composed compiler +
+        // router + agent-readiness plugin) and ships `createApp()`. Runtime
+        // primitives are listed explicitly because `@state` blocks bare-import
+        // them (e.g. `import { signal } from '@aihu/signals'`); pinning them
+        // here keeps version drift visible at `bun outdated`.
         '@aihu/app': 'latest',
         '@aihu/arbor': 'latest',
+        '@aihu/router': 'latest',
         '@aihu/runtime': 'latest',
         '@aihu/signals': 'latest',
       },
       devDependencies: {
         '@aihu/cli': 'latest',
         '@aihu/compiler': 'latest',
-        rolldown: 'latest',
         typescript: '^5.0.0',
+        vite: '^6.0.0',
       },
       ...(packageManager ? { packageManager } : {}),
     },
@@ -83,21 +94,24 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
   )
 }
 
-/** rolldown.config.ts for a new application (replaces vite.config.ts). */
-export function appRolldownConfig(name: string): string {
-  return `import { defineConfig } from 'rolldown'
-import { aihuCompilerPlugin } from '@aihu/compiler'
+/** vite.config.ts for a new aihu application.
+ *
+ * `viteAihuPlugin()` composes the compiler plugin, the router plugin (which
+ * provides `virtual:aihu-routes` consumed by `createApp()`), the head/SSG
+ * plugins, and an opt-in agent-readiness pass — see `@aihu/app/vite-plugin`.
+ * `dir.pages` tells the router where to scan for `.aihu` page files; this
+ * mirrors `examples/blog-router/vite.config.ts`.
+ */
+export function appViteConfig(): string {
+  return `import { viteAihuPlugin } from '@aihu/app'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
-  input: { '${toSafe(name)}': 'src/main.ts' },
-  plugins: [aihuCompilerPlugin()],
-  moduleTypes: {
-    '.aihu': 'ts',
-  },
-  output: {
-    dir: 'dist',
-    format: 'esm',
-  },
+  plugins: [
+    viteAihuPlugin({
+      dir: { pages: 'src/pages' },
+    }),
+  ],
 })
 `
 }
@@ -126,19 +140,25 @@ export function appMainTs(_name: string): string {
   return `import { createApp } from '@aihu/app/client'\n\ncreateApp()\n`
 }
 
-/** index.html for a new aihu application. */
+/** index.html for a new aihu application.
+ *
+ * Vite serves `./src/main.ts` directly in dev and rewrites the script src
+ * to the hashed build asset on `vite build`. `<div id="outlet"></div>` is
+ * the mount target `createApp()` looks up by default (see
+ * `@aihu/app/client#outletId`); without it `createApp()` throws on boot.
+ */
 export function appIndexHtml(name: string): string {
-  return `<!DOCTYPE html>
+  return `<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${name}</title>
-  <script type="module" src="./dist/${toSafe(name)}.js"></script>
-</head>
-<body>
-  <${toSafe(name)}-root></${toSafe(name)}-root>
-</body>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${name}</title>
+  </head>
+  <body>
+    <div id="outlet"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
 </html>
 `
 }
@@ -171,11 +191,6 @@ export function appVscodeSettings(): string {
 /** aihu.config.ts — kept for server/SSR config; optional for client-only apps. */
 export function appAihuConfig(): string {
   return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu-plugin/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
-}
-
-/** @deprecated Use appRolldownConfig instead. Kept for backward compat. */
-export function appViteConfig(): string {
-  return appRolldownConfig('app')
 }
 
 /** src/pages/index.aihu for Hello World (v1 syntax). */
@@ -270,8 +285,8 @@ export function pluginIndex(name: string): string {
 /**
  * Scaffold a new aihu application at `<outDir>/<name>/`.
  *
- * v1.0: Uses rolldown (not Vite), v1 @state/{@template}/{@style} syntax.
- * Produces: package.json, rolldown.config.ts, tsconfig.json, index.html,
+ * v0.2.x: Vite + `viteAihuPlugin()`, v1 `@state` / `@template` / `@style`
+ * syntax. Produces: package.json, vite.config.ts, tsconfig.json, index.html,
  *   src/main.ts, src/pages/index.aihu, .vscode/extensions.json,
  *   .vscode/settings.json
  */
@@ -284,7 +299,7 @@ export function scaffoldApp(
   const root = resolve(outDir ?? '.', name)
   return writeFiles(root, [
     ['package.json', appPackageJson(name, pm)],
-    ['rolldown.config.ts', appRolldownConfig(name)],
+    ['vite.config.ts', appViteConfig()],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],

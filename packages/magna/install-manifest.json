@@ -1,0 +1,21 @@
+{
+  "pluginName": "@aihu/magna",
+  "pluginVersion": "0.2.0",
+  "aihuVersion": "^0.2.0",
+  "installSteps": [
+    {
+      "kind": "register-plugin",
+      "description": "Register magna plugin in aihu.config.ts"
+    },
+    {
+      "kind": "scaffold-env",
+      "description": "Add MAGNA_GRAPHQL_URL to .env.example"
+    }
+  ],
+  "requiredEnv": [
+    {
+      "name": "MAGNA_GRAPHQL_URL",
+      "description": "Magna GraphQL endpoint (e.g., https://magna.example.com/graphql)"
+    }
+  ]
+}

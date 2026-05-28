@@ -228,7 +228,14 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     // It also saves ~0 B in practice because the runtime already ships in the
     // main bundle. Default islands off; opt back in via the compiler plugin
     // directly if you genuinely have an MPA-style mixed-island layout.
-    aihuCompilerPlugin({ islands: false }) as unknown as Plugin,
+    // `css.shadowMode` (when set) forwards to the compiler's per-plugin
+    // shadowMode injection — required for consumers using `@aihu/css-engine`
+    // utility classes (or any cascade-dependent CSS framework) which need
+    // `'none'` so styles aren't trapped in shadow roots.
+    aihuCompilerPlugin({
+      islands: false,
+      ...(config?.css?.shadowMode != null ? { shadowMode: config.css.shadowMode } : {}),
+    }) as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,
     agentPlugin,
     headPlugin,

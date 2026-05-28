@@ -82,6 +82,51 @@ function _tagOf(el: HTMLElement): string {
   }
 }
 
+/**
+ * Bug D — light-DOM slot projection helper. Under `shadowMode: 'none'` the
+ * browser does not run native <slot> projection, so the compiled-to-DOM
+ * `<slot>` element from `<$slot>` is inert. After the layout template has
+ * been mounted into `host`, find the default <slot> placeholder and replace
+ * it with the carved light-DOM children. If the layout exposes no slot,
+ * append the children back to the host as a graceful fallback — this
+ * preserves prior behavior for components that don't author a slot at all.
+ *
+ * TODO(architect): named slots (`<slot name="foo">`) + default fallback
+ * content (`<slot>fallback</slot>`) are NOT YET HANDLED. Named-slot routing
+ * needs to match children with `slot="foo"` to the corresponding placeholder
+ * (Shadow-DOM semantics). Default fallback should keep the slot's existing
+ * rendered children when there are no projected nodes. Both are out of scope
+ * for the v0 light-DOM fix; track as a follow-up.
+ */
+/** Bug D — safe `is-real-Element` check for the light-DOM slot carve. Some
+ * existing tests invoke `connectedCallback()` directly on an
+ * `Object.create(Cmp.prototype)` non-Element receiver to exercise specific
+ * invariant throws (e.g. SCR-R0003). On such a receiver the `shadowRoot` /
+ * `childNodes` getters throw TypeError. The carve must therefore degrade to
+ * a no-op (preserving the legacy SCR-R0003 path) instead of throwing first. */
+function _isRealElement(el: HTMLElement): boolean {
+  try {
+    // Touch a property that throws on non-Element receivers in jsdom/native.
+    void el.childNodes
+    return true
+  } catch {
+    return false
+  }
+}
+
+function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
+  if (children.length === 0) return
+  const slotEl = host.querySelector('slot:not([name])')
+  if (slotEl !== null) {
+    slotEl.replaceWith(...children)
+    return
+  }
+  // No slot in the layout — reattach the children to the host so they remain
+  // observable (no errors, no data loss). This preserves the prior behavior
+  // of plain custom elements that simply contained children.
+  for (const c of children) host.appendChild(c)
+}
+
 export function defineComponent(setup: Setup): typeof HTMLElement
 export function defineComponent<A extends ReadonlyArray<string>>(
   options: ComponentOptions<A>,
@@ -117,12 +162,26 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         // attributable signal, then re-throw to preserve fail-loud behavior
         // (so SCR-R0002/0003 invariants and any other throw still propagate).
         try {
+          // Bug D — light-DOM slot projection. Under `shadowMode: 'none'` the
+          // host has no shadow root, so the browser's native <slot> projection
+          // does not run. Carve any existing light-DOM children BEFORE _mount
+          // appends the layout template (otherwise the layout's nodes land
+          // after them) and reinsert at the <slot> position after mount.
+          // Shadow-DOM path is untouched (`host !== this`).
+          const isLightDom = _isRealElement(this) && this.shadowRoot === null
+          const lightDomChildren: ChildNode[] | null = isLightDom
+            ? Array.from(this.childNodes)
+            : null
+          if (lightDomChildren !== null) {
+            for (const c of lightDomChildren) this.removeChild(c)
+          }
           const tree = this._build()
           const lc = this[LC_SYM]!
           const host = this.shadowRoot ?? this
           const scope = _mount(tree!, host)
           this[S] = scope
           _scopes.set(this, scope)
+          if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
           _runMounts(lc)
         } catch (err) {
           console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
@@ -318,12 +377,23 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       // SCR-R0003 "no signal" invariant from _build() — is logged WITH the tag
       // for attribution, then re-thrown to preserve fail-loud propagation.
       try {
+        // Bug D — light-DOM slot projection (see function-form for the full
+        // rationale). Mirrored here so options/props-form components behave
+        // identically under `shadowMode: 'none'`.
+        const isLightDom = _isRealElement(this) && this.shadowRoot === null
+        const lightDomChildren: ChildNode[] | null = isLightDom
+          ? Array.from(this.childNodes)
+          : null
+        if (lightDomChildren !== null) {
+          for (const c of lightDomChildren) this.removeChild(c)
+        }
         const tree = this._build()
         const lc = this[LC_SYM]!
         const host = this.shadowRoot ?? this
         const scope = _mount?.(tree!, host)
         this[S] = scope
         _scopes.set(this, scope)
+        if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
         _runMounts(lc)
       } catch (err) {
         console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
