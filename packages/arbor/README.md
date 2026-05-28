@@ -166,9 +166,9 @@ bun add @aihu/arbor
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-**Dependencies:**
+**Peer dependencies:**
 
-- `@aihu/signals` — `workspace:*`
+- `@aihu/signals` — `workspace:^`
 
 <sub><i>Auto-generated against `@aihu/arbor@0.1.4`.</i></sub>
 

@@ -24,8 +24,8 @@
     "prepublishOnly": "bun run build"
   },
   "peerDependencies": {
-    "@aihu/arbor": "workspace:*",
-    "@aihu/signals": "workspace:*"
+    "@aihu/arbor": "workspace:^",
+    "@aihu/signals": "workspace:^"
   },
   "description": "Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler.",
   "repository": {

@@ -36,6 +36,7 @@
     "test:quality": "bun scripts/lighthouse.ts",
     "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
+    "lint:dep-pins": "bun scripts/lint-dep-pins.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
     "test:cookbook": "bun run --cwd cookbook test",
     "release": "bun run build && bash scripts/publish-all.sh",
