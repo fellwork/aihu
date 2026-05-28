@@ -47,6 +47,12 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ['border-2', /border-width\s*:\s*2px/],
   // Round 2: divide-y-2 nested sibling-border rule (minified `>*+*` form).
   ['divide-y-2', /\.divide-y-2\s*>\s*\*\s*\+\s*\*\s*\{\s*border-block-width\s*:\s*2px/],
+  // Round 2: ring width + offset. The composed box-shadow ring at 2px and the
+  // offset-width custom prop must both reach the bundle. `focus:ring-2` lands
+  // under a `:focus` selector; the declaration substring still matches.
+  ['ring-2', /calc\(\s*2px\s*\+\s*var\(--tw-ring-offset-width\)\s*\)/],
+  ['ring-color', /--tw-ring-color\s*:\s*var\(--color-blue-500\)/],
+  ['ring-offset-2', /--tw-ring-offset-width\s*:\s*2px/],
 ]
 
 // Concatenate all emitted CSS so a rule split across files still matches.

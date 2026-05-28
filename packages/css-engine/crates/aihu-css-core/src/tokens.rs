@@ -97,6 +97,15 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
         }
     }
 
+    // Ring WIDTH (`ring-{n}`) and ring-OFFSET width (`ring-offset-{n}`) both
+    // share the `ring` class prefix (the runtime `cn()` `groupKey` splits on the
+    // FIRST dash, so `ring-2`, `ring-blue-500`, and `ring-offset-2` all key to
+    // prefix `ring`). The `ring` → `--tw-ring-color` entry pushed by the color
+    // loop above ALREADY makes every `ring*` utility last-wins as one group, so
+    // we deliberately do NOT push a second `("ring", …)` entry here — a duplicate
+    // prefix key would collide in the generated `cn()` map. `ring-2` then
+    // `ring-4` collapses to `ring-4`, which is the desired last-wins behaviour.
+
     // A handful of non-color/spacing parameterized prefixes with their own group.
     out.push(("z", "z-index"));
     out.push(("opacity", "opacity"));
@@ -353,9 +362,44 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         // z-index keyword (numeric forms handled by `parameterized_utility`).
         "z-auto" => "z-index: auto;",
 
+        // Ring (box-shadow) — default width is 3px (Tailwind v4). The numeric
+        // `ring-{n}` forms are handled by `parameterized_utility`; `ring-inset`
+        // flips the inset slot of the composed shadow. NOTE: the bare `ring`
+        // keyword must be matched HERE (fixed) so it never collides with the
+        // color path — `ring-<color>` still routes through `brand_color_utility`
+        // because its value (`blue-500`, `primary`, …) is not a width.
+        "ring" => RING_3,
+        "ring-inset" => "--tw-ring-inset: inset;",
+
         _ => return None,
     })
 }
+
+/// The Tailwind v4 ring recipe, parameterized on the ring width in pixels.
+///
+/// A ring is a `box-shadow` composed from `--tw-ring-*` custom properties so it
+/// can layer with `--tw-ring-offset-*` (set by `ring-offset-{n}`) and an
+/// inset flag (`ring-inset`), and still coexist with a regular `shadow-*`:
+///
+/// ```text
+/// --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+/// --tw-ring-shadow:        var(--tw-ring-inset) 0 0 0 calc(<n>px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+/// box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+/// ```
+///
+/// The ring spreads by `<n>px + offset-width`; the offset shadow paints the gap
+/// between the element edge and the ring in `--tw-ring-offset-color`.
+fn ring_shadow(width_px: u32) -> String {
+    format!(
+        "--tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); \
+--tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc({width_px}px + var(--tw-ring-offset-width)) var(--tw-ring-color); \
+box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);"
+    )
+}
+
+/// Static body for the default `ring` (3px) so `fixed_utility` can return a
+/// `&'static str`. Kept in sync with [`ring_shadow`]`(3)`.
+const RING_3: &str = "--tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);";
 
 /// Parameterized utilities split on the last `-`: `p-4`, `text-lg`, `gap-2`,
 /// `text-red-500` (handled via [`palette_color`]), `z-10`, etc.
@@ -497,6 +541,26 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     if prefix == "opacity" {
         if let Ok(n) = value.parse::<f32>() {
             return Some(format!("opacity: {};", n / 100.0));
+        }
+    }
+
+    // Ring width: `ring-{0,1,2,4,8}` → the composed `box-shadow` recipe at the
+    // given pixel width. Routed BEFORE the color path so a numeric value never
+    // falls through to a color lookup; `ring-<color>` (e.g. `ring-blue-500`,
+    // `ring-primary`) has a non-numeric value and is handled by
+    // `brand_color_utility`, which still emits `--tw-ring-color`.
+    if prefix == "ring" {
+        if let Some(n) = ring_width(value) {
+            return Some(ring_shadow(n));
+        }
+    }
+
+    // Ring offset width: `ring-offset-{0,1,2,4,8}` → `--tw-ring-offset-width`.
+    // (Color offsets like `ring-offset-blue-500` are out of scope; the width
+    // value here is always numeric.)
+    if prefix == "ring-offset" {
+        if let Some(n) = ring_width(value) {
+            return Some(format!("--tw-ring-offset-width: {n}px;"));
         }
     }
 
@@ -709,6 +773,21 @@ fn tracking_value(value: &str) -> Option<&'static str> {
         "widest" => "0.1em",
         _ => return None,
     })
+}
+
+/// Tailwind ring-width scale: `0`, `1`, `2`, `4`, `8` (px). Used by both
+/// `ring-{n}` (ring spread) and `ring-offset-{n}` (offset width). Returns the
+/// width in pixels, or `None` for any other value so non-width `ring-*` tokens
+/// (colors, `inset`) fall through to their own handlers.
+fn ring_width(value: &str) -> Option<u32> {
+    match value {
+        "0" => Some(0),
+        "1" => Some(1),
+        "2" => Some(2),
+        "4" => Some(4),
+        "8" => Some(8),
+        _ => None,
+    }
 }
 
 fn sizing_prop(prefix: &str) -> Option<&'static str> {

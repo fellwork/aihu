@@ -258,11 +258,60 @@ fn tracking_named_scale() {
     );
 }
 
+// --- New utility families (Round 2: ring widths + ring-offset) -------------
+//
+// `ring-{n}` emits the Tailwind v4 box-shadow ring composed from `--tw-ring-*`
+// custom properties; `ring-offset-{n}` sets `--tw-ring-offset-width`;
+// `ring-inset` flips the inset slot; bare `ring` is the 3px default. CRITICAL
+// regression guard: `ring-<color>` must STILL route to `--tw-ring-color`.
+
+#[test]
+fn ring_n_emits_box_shadow_ring() {
+    assert_eq!(
+        css(&["ring-2"]),
+        ".ring-2 { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 \
+var(--tw-ring-offset-width) var(--tw-ring-offset-color); \
+--tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) \
+var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), \
+var(--tw-shadow, 0 0 #0000); }\n"
+    );
+}
+
 #[test]
 fn divide_y_bare_defaults_to_1px() {
     assert_eq!(
         css(&["divide-y"]),
         ".divide-y { & > * + * { border-block-width: 1px; } }\n"
+    );
+}
+
+#[test]
+fn ring_default_is_3px() {
+    // The bare `ring` keyword is the 3px default and must match BEFORE the
+    // color path (it never collides with `ring-<color>`).
+    assert!(css(&["ring"]).contains("calc(3px + var(--tw-ring-offset-width))"));
+    assert!(css(&["ring"]).starts_with(".ring {"));
+}
+
+#[test]
+fn ring_zero_emits_zero_width_ring() {
+    assert!(css(&["ring-0"]).contains("calc(0px + var(--tw-ring-offset-width))"));
+}
+
+#[test]
+fn ring_inset_flips_inset_slot() {
+    assert_eq!(css(&["ring-inset"]), ".ring-inset { --tw-ring-inset: inset; }\n");
+}
+
+#[test]
+fn ring_offset_n_sets_offset_width() {
+    assert_eq!(
+        css(&["ring-offset-2"]),
+        ".ring-offset-2 { --tw-ring-offset-width: 2px; }\n"
+    );
+    assert_eq!(
+        css(&["ring-offset-8"]),
+        ".ring-offset-8 { --tw-ring-offset-width: 8px; }\n"
     );
 }
 
@@ -315,4 +364,18 @@ fn arbitrary_position_and_leading_still_work() {
     // Regression: arbitrary forms (arbitrary_prop) untouched by the named scale.
     assert_eq!(css(&["top-[1rem]"]), ".top-[1rem] { top: 1rem; }\n");
     assert_eq!(css(&["leading-[2]"]), ".leading-[2] { line-height: 2; }\n");
+}
+
+#[test]
+fn ring_color_still_routes_to_ring_color_var() {
+    // Regression: adding the WIDTH side must NOT break the existing COLOR path.
+    assert_eq!(
+        css(&["ring-blue-500"]),
+        ".ring-blue-500 { --tw-ring-color: var(--color-blue-500); }\n"
+    );
+    // Brand ring token too.
+    assert_eq!(
+        css(&["ring-primary"]),
+        ".ring-primary { --tw-ring-color: var(--color-primary); }\n"
+    );
 }
