@@ -4,8 +4,6 @@
 
 13-example portfolio across 4 tiers. Every example demonstrates both a human UX and an agent surface — even a minimal `$expose` block — because agentic discovery and interaction is core to aihu's identity, not an add-on.
 
-**M1 (this PR): 6 examples polished.** The remaining 7 are flagged M2 in the table below.
-
 ## Portfolio
 
 | # | Folder | Tier | Status | Port | Agent surface | Teaches |
@@ -22,10 +20,10 @@
 | 10 | [`agent-hub/`](./agent-hub) | flagship | ready | 5107 | AgentService aggregation hub — A2A + ACP adapters, @aihu/context sharing, Bun.serve server | server.ts (Bun.serve), A2A single-shot SSE, ACP live adapter, `@aihu/context` token sharing across SFCs, `$lifecycle.mount` |
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
 | 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
-| 13 | [`cf-adapter/`](./cf-adapter) | meta | ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
+| 13 | [`cf-adapter/`](./cf-adapter) | meta | M2 ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
-| 16 | `storefront/` (new) | meta | M2 ready | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
+| 16 | [`storefront/`](./storefront) | meta | M2 ready | 5113 | cart/checkout + `requireAuth` | `createResource` + `createResourceSerializer` (SSR-safe), `@aihu/context` CartContext provide/inject, `@aihu/auth` `requireAuth` on checkout, dummy Stripe |
 
 ### Archived
 
@@ -39,7 +37,7 @@
 bun run dev:examples
 ```
 
-Spawns all 6+ polished examples simultaneously on their assigned ports.
+Spawns all ready examples simultaneously on their assigned ports.
 
 ## Run a single example
 
@@ -62,9 +60,9 @@ Four examples cover the full value proposition in under 250 LOC:
 
 All `.aihu` files are written against the v1 spec quartet at `../docs/superpowers/specs/`. If something drifts from the specs, the specs win.
 
-## Coverage matrix (M1 examples)
+## Coverage matrix (M1 basics + hacker-news)
 
-| Feature | EX-01 | EX-02 | EX-03 | EX-04 | EX-05 | EX-08 |
+| Feature | EX-01 | EX-02 | EX-03 | EX-04 | EX-05 | hacker-news |
 |---|---|---|---|---|---|---|
 | Signals | yes | yes | yes | yes | yes | yes |
 | `$computed` | — | yes | yes | yes | yes | — |
