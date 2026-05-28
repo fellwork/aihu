@@ -62,6 +62,26 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("col-span", "grid-column"));
     out.push(("row-span", "grid-row"));
 
+    // Position-scale prefixes (top/right/bottom/left/inset[-x|-y]) — each maps
+    // to the CSS property it controls so two values of the same family collide
+    // (last wins), e.g. `top-4` vs `top-2`. `inset-x`/`inset-y` map to the
+    // logical inline/block inset shorthands, distinct from the all-sides
+    // `inset`. The negative forms (`-top-4`) share the same group as the
+    // positive forms because they set the same property.
+    const POSITION_PREFIXES: &[&str] =
+        &["top", "right", "bottom", "left", "inset", "inset-x", "inset-y"];
+    for p in POSITION_PREFIXES {
+        if let Some(group) = position_prop(p) {
+            out.push((p, group));
+        }
+    }
+
+    // Named typography scales: `leading-*` (line-height) and `tracking-*`
+    // (letter-spacing). Registering the prefix means `leading-tight` and
+    // `leading-loose` collide last-wins.
+    out.push(("leading", "line-height"));
+    out.push(("tracking", "letter-spacing"));
+
     const SIZING_PREFIXES: &[&str] = &["w", "h", "min-w", "max-w", "min-h", "max-h"];
     for p in SIZING_PREFIXES {
         if let Some(group) = sizing_prop(p) {
@@ -410,6 +430,45 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
         }
     }
 
+    // Position scale: top/right/bottom/left/inset/inset-x/inset-y on the
+    // spacing scale, plus `auto`. A leading `-` on the prefix (e.g. `-left-2`
+    // arrives here as prefix `-left`) negates the spacing value — Tailwind's
+    // negative-position syntax. `auto` is never negated.
+    {
+        let (neg, base_prefix) = match prefix.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, prefix),
+        };
+        if let Some(prop) = position_prop(base_prefix) {
+            if let Some(v) = spacing_value(value) {
+                if neg && v != "auto" && v != "0" {
+                    return Some(format!("{prop}: -{v};"));
+                }
+                return Some(format!("{prop}: {v};"));
+            }
+        }
+    }
+
+    // Named line-height scale: `leading-none|tight|snug|normal|relaxed|loose`
+    // (unitless multipliers) plus the numeric `leading-<n>` step which maps to
+    // the spacing scale (`leading-6` → `1.5rem`), matching Tailwind v4.
+    if prefix == "leading" {
+        if let Some(lh) = leading_value(value) {
+            return Some(format!("line-height: {lh};"));
+        }
+        if let Some(rem) = spacing_value(value) {
+            return Some(format!("line-height: {rem};"));
+        }
+    }
+
+    // Named letter-spacing scale: `tracking-tighter|tight|normal|wide|wider|
+    // widest` in `em` units (Tailwind v4 defaults).
+    if prefix == "tracking" {
+        if let Some(ls) = tracking_value(value) {
+            return Some(format!("letter-spacing: {ls};"));
+        }
+    }
+
     // Sizing: w-/h-/min-w-/max-w- with the spacing scale or fractions.
     if let Some(prop) = sizing_prop(prefix) {
         if let Some(v) = sizing_value(value) {
@@ -605,6 +664,51 @@ fn positive_int(value: &str) -> Option<u32> {
         return None;
     }
     Some(n)
+}
+
+/// Map a position-scale prefix to its CSS property. `inset` is the all-sides
+/// shorthand; `inset-x`/`inset-y` are the logical inline/block shorthands.
+/// (Arbitrary forms `top-[…]` etc. are handled separately by `arbitrary_prop`;
+/// this is only the named/numeric spacing-scale path.)
+fn position_prop(prefix: &str) -> Option<&'static str> {
+    Some(match prefix {
+        "top" => "top",
+        "right" => "right",
+        "bottom" => "bottom",
+        "left" => "left",
+        "inset" => "inset",
+        "inset-x" => "inset-inline",
+        "inset-y" => "inset-block",
+        _ => return None,
+    })
+}
+
+/// Named line-height scale (`leading-*`), Tailwind v4 defaults. Unitless for
+/// `none`, otherwise unitless multipliers.
+fn leading_value(value: &str) -> Option<&'static str> {
+    Some(match value {
+        "none" => "1",
+        "tight" => "1.25",
+        "snug" => "1.375",
+        "normal" => "1.5",
+        "relaxed" => "1.625",
+        "loose" => "2",
+        _ => return None,
+    })
+}
+
+/// Named letter-spacing scale (`tracking-*`) in `em` units, Tailwind v4
+/// defaults.
+fn tracking_value(value: &str) -> Option<&'static str> {
+    Some(match value {
+        "tighter" => "-0.05em",
+        "tight" => "-0.025em",
+        "normal" => "0em",
+        "wide" => "0.025em",
+        "wider" => "0.05em",
+        "widest" => "0.1em",
+        _ => return None,
+    })
 }
 
 fn sizing_prop(prefix: &str) -> Option<&'static str> {
