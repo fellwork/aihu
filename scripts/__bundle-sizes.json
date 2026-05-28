@@ -1,62 +1,62 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": -1,
+    "bytes": 242,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 1727,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": -1,
+    "bytes": 2663,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": -1,
+    "bytes": 3384,
     "limit": "3450 B"
   },
   {
     "name": "@aihu/agent",
-    "bytes": -1,
+    "bytes": 141,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": -1,
+    "bytes": 757,
     "limit": "800 B"
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": -1,
+    "bytes": 1692,
     "limit": "1850 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": -1,
+    "bytes": 1750,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": -1,
+    "bytes": 1076,
     "limit": "1100 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": -1,
+    "bytes": 586,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": -1,
+    "bytes": 717,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": -1,
+    "bytes": 1419,
     "limit": "1500 B"
   },
   {
@@ -71,57 +71,57 @@
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": -1,
+    "bytes": 430,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": -1,
+    "bytes": 798,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": -1,
+    "bytes": 1022,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": -1,
+    "bytes": 757,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": -1,
+    "bytes": 1439,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": -1,
+    "bytes": 515,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": -1,
+    "bytes": 2015,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": -1,
+    "bytes": 1834,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": -1,
+    "bytes": 1131,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/auth",
-    "bytes": -1,
+    "bytes": 1184,
     "limit": "1.5 KB"
   },
   {
     "name": "@aihu/magna",
-    "bytes": -1,
+    "bytes": 1652,
     "limit": "1.8 KB"
   }
 ]
