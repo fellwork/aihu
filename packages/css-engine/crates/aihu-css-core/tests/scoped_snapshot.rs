@@ -47,6 +47,13 @@ fn scoped_with_global_style_block() {
 }
 
 #[test]
+fn scoped_space_y_nested_rule() {
+    // Locks in the nested `& > * + *` sibling-margin shape inside component
+    // scope (Round 1: tailwind-support `space-x/y-*` family).
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("space-y-4")));
+}
+
+#[test]
 fn wc_native_variants() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc(
         "host:bg-primary slotted:p-4 slotted-img:rounded-lg part-thumb:bg-accent host-context-dark:bg-surface"

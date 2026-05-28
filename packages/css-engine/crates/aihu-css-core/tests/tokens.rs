@@ -77,3 +77,72 @@ fn arbitrary_values() {
         "leading-[1.4]",
     ]));
 }
+
+// --- New utility families (Round 1: tailwind-support) ---------------------
+//
+// These use exact-string assertions (not snapshots) so the emitted CSS is
+// pinned per-class. The expected declarations mirror Tailwind v4 defaults.
+
+#[test]
+fn space_x_emits_nested_sibling_margin() {
+    assert_eq!(
+        css(&["space-x-4"]),
+        ".space-x-4 { & > * + * { margin-inline-start: 1rem; } }\n"
+    );
+}
+
+#[test]
+fn space_y_emits_nested_sibling_margin() {
+    assert_eq!(
+        css(&["space-y-2"]),
+        ".space-y-2 { & > * + * { margin-block-start: 0.5rem; } }\n"
+    );
+}
+
+#[test]
+fn mx_auto_emits_margin_inline_auto() {
+    assert_eq!(css(&["mx-auto"]), ".mx-auto { margin-inline: auto; }\n");
+}
+
+#[test]
+fn max_w_named_scale() {
+    assert_eq!(css(&["max-w-7xl"]), ".max-w-7xl { max-width: 80rem; }\n");
+    assert_eq!(css(&["max-w-prose"]), ".max-w-prose { max-width: 65ch; }\n");
+}
+
+#[test]
+fn grid_cols_repeat() {
+    assert_eq!(
+        css(&["grid-cols-3"]),
+        ".grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n"
+    );
+}
+
+#[test]
+fn col_span_n() {
+    assert_eq!(
+        css(&["col-span-2"]),
+        ".col-span-2 { grid-column: span 2 / span 2; }\n"
+    );
+}
+
+#[test]
+fn row_span_full_keyword() {
+    assert_eq!(
+        css(&["row-span-full"]),
+        ".row-span-full { grid-row: 1 / -1; }\n"
+    );
+}
+
+#[test]
+fn border_n_width() {
+    assert_eq!(css(&["border-2"]), ".border-2 { border-width: 2px; }\n");
+}
+
+#[test]
+fn border_directional_n_width() {
+    assert_eq!(
+        css(&["border-t-4"]),
+        ".border-t-4 { border-top-width: 4px; }\n"
+    );
+}
