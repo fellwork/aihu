@@ -47,12 +47,26 @@
       focus me — 2px blue ring with a 2px offset (ring-2 ring-blue-500 ring-offset-2)
     </button>
 
+    <div class="flex gap-6">
+      <button class="transition-transform duration-300 hover:scale-105 border-2 rounded p-4">
+        hover:scale-105 with transition-transform
+      </button>
+      <div class="animate-spin border-2 rounded p-4">animate-spin</div>
+    </div>
+
+    <p class="text-sm">
+      The button above uses <code>transition-transform</code>,
+      <code>duration-300</code>, and <code>hover:scale-105</code> — Round-2
+      motion utilities. The spinner uses <code>animate-spin</code>, which also
+      emits a hoisted <code>@keyframes spin</code> block.
+    </p>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
-      <code>apps/docs/.../reference/utility-classes.md</code> for the full
-      table, including what is <em>not</em> yet supported (e.g.
-      <code>group:</code>/<code>peer:</code> variants, container queries, and
-      motion utilities).
+      <code>docs/site/utility-classes.md</code> for the full table, including
+      what is <em>not</em> yet supported (e.g. <code>group:</code>/<code>peer:</code>
+      variants, container queries, and <code>aria-*</code>/<code>data-*</code>
+      attribute variants).
     </p>
   </section>
 }

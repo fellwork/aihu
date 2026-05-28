@@ -63,6 +63,22 @@ fn scoped_divide_y_nested_rule() {
 }
 
 #[test]
+fn scoped_animate_spin_hoists_keyframes() {
+    // Locks the `animate-*` emission shape: the scoped `.animate-spin` rule
+    // followed by a hoisted top-level `@keyframes spin` sibling (Round 2:
+    // tailwind-support `motion` track).
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("animate-spin")));
+}
+
+#[test]
+fn scoped_transition_and_transform() {
+    // Locks transition shorthand + a transform utility under component scope.
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc(
+        "transition-transform duration-300 hover:scale-105"
+    )));
+}
+
+#[test]
 fn wc_native_variants() {
     insta::assert_snapshot!(compile_sfc_scoped(&sfc(
         "host:bg-primary slotted:p-4 slotted-img:rounded-lg part-thumb:bg-accent host-context-dark:bg-surface"
@@ -85,5 +101,7 @@ fn theme_default_vs_override() {
       "template":[{"kind":"element","tag":"div","attrs":[
         {"kind":"static","name":"class","value":"bg-primary"}],"children":[]}]}"#;
     let overridden = compile_sfc_scoped(&ast(json));
-    insta::assert_snapshot!(format!("--- default ---\n{default}\n--- override ---\n{overridden}"));
+    insta::assert_snapshot!(format!(
+        "--- default ---\n{default}\n--- override ---\n{overridden}"
+    ));
 }

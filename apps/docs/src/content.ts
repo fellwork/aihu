@@ -4458,6 +4458,142 @@ path is unchanged; <code>ring-blue-500</code>, <code>ring-primary</code>, <code>
 <code>--tw-ring-color</code>.</p>
 <h3>Z-index</h3>
 <p><code>z-0</code>, <code>z-10</code>, <code>z-20</code>, <code>z-30</code>, <code>z-40</code>, <code>z-50</code>, <code>z-auto</code> → <code>z-index: …;</code>.</p>
+<h2>Motion — NEW</h2>
+<p>Round-2 motion utilities cover transforms, transitions, and animations. Each
+transform utility (<code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>) emits a <strong>single
+<code>transform:</code> declaration</strong> rather than composing CSS variables — so within one
+element the CSS cascade applies last-wins per family. To combine transforms
+(e.g. translate <em>and</em> rotate) on one element, use an arbitrary value
+(<code>transform-[...]</code> is not yet wired; compose with a custom <code>@style</code> rule).</p>
+<h3>transform / translate</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transform</code></td>
+<td>identity baseline (<code>translate(0,0) rotate(0) … scaleX(1) scaleY(1)</code>)</td>
+</tr>
+<tr>
+<td><code>transform-none</code></td>
+<td><code>transform: none;</code></td>
+</tr>
+<tr>
+<td><code>translate-x-N</code> / <code>translate-y-N</code></td>
+<td><code>transform: translateX/Y(&lt;spacing-scale&gt;);</code></td>
+</tr>
+<tr>
+<td><code>-translate-x-N</code> / <code>-translate-y-N</code></td>
+<td>negative translate (e.g. <code>-0.5rem</code>)</td>
+</tr>
+</tbody></table>
+<p><code>translate-*</code> uses the spacing scale (<code>translate-x-2</code> → <code>0.5rem</code>). The leading
+<code>-</code> produces the negative form.</p>
+<h3>rotate / scale</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rotate-N</code></td>
+<td><code>transform: rotate(Ndeg);</code></td>
+</tr>
+<tr>
+<td><code>-rotate-N</code></td>
+<td><code>transform: rotate(-Ndeg);</code></td>
+</tr>
+<tr>
+<td><code>scale-N</code></td>
+<td><code>transform: scale(N/100);</code> (e.g. <code>scale-105</code> → <code>1.05</code>)</td>
+</tr>
+<tr>
+<td><code>scale-x-N</code> / <code>scale-y-N</code></td>
+<td><code>transform: scaleX/Y(N/100);</code></td>
+</tr>
+</tbody></table>
+<h3>transition / duration / ease</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transition</code></td>
+<td>default property set + <code>150ms</code> + <code>cubic-bezier(0.4, 0, 0.2, 1)</code></td>
+</tr>
+<tr>
+<td><code>transition-none</code></td>
+<td><code>transition-property: none;</code></td>
+</tr>
+<tr>
+<td><code>transition-all</code></td>
+<td><code>transition-property: all;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>transition-colors</code></td>
+<td>color/bg/border/decoration/fill/stroke + default timing</td>
+</tr>
+<tr>
+<td><code>transition-opacity</code></td>
+<td><code>transition-property: opacity;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>transition-transform</code></td>
+<td><code>transition-property: transform;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>duration-N</code></td>
+<td><code>transition-duration: Nms;</code></td>
+</tr>
+<tr>
+<td><code>ease-linear</code></td>
+<td><code>transition-timing-function: linear;</code></td>
+</tr>
+<tr>
+<td><code>ease-in</code> / <code>ease-out</code> / <code>ease-in-out</code></td>
+<td>cubic-bezier easing functions</td>
+</tr>
+</tbody></table>
+<h3>animate</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>animate-none</code></td>
+<td><code>animation: none;</code></td>
+</tr>
+<tr>
+<td><code>animate-spin</code></td>
+<td><code>animation: spin 1s linear infinite;</code> + <code>@keyframes spin</code></td>
+</tr>
+<tr>
+<td><code>animate-ping</code></td>
+<td><code>animation: ping …;</code> + <code>@keyframes ping</code></td>
+</tr>
+<tr>
+<td><code>animate-pulse</code></td>
+<td><code>animation: pulse …;</code> + <code>@keyframes pulse</code></td>
+</tr>
+<tr>
+<td><code>animate-bounce</code></td>
+<td><code>animation: bounce 1s infinite;</code> + <code>@keyframes bounce</code></td>
+</tr>
+</tbody></table>
+<p>Each <code>animate-*</code> (except <code>animate-none</code>) emits its <strong><code>@keyframes</code> block as a
+top-level sibling rule</strong> alongside the class rule — keyframes cannot be nested
+inside a selector body. Re-emitting an identical block is idempotent in CSS.</p>
 <h2>Variants</h2>
 <ul>
 <li><strong>Web-Component-native:</strong> <code>host:</code>, <code>slotted:</code>, <code>slotted-&lt;tag&gt;:</code>, <code>part-&lt;name&gt;:</code>, <code>host-context-&lt;name&gt;:</code></li>
@@ -4519,7 +4655,6 @@ issue if you need one promoted.</p>
 <li><code>group:</code> / <code>peer:</code> variants</li>
 <li>Container queries (<code>@container</code>)</li>
 <li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
-<li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
 </ul>
 <h2>Worked examples</h2>
 <p>One input → output pair per new family.</p>
@@ -4583,6 +4718,19 @@ issue if you need one promoted.</p>
 <pre><code class="language-html">&lt;div class=&quot;ring-2 ring-offset-2&quot;&gt; … &lt;/div&gt;
 </code></pre>
 <pre><code class="language-css">.ring-offset-2 { --tw-ring-offset-width: 2px; }
+</code></pre>
+<h3><code>hover:scale-105</code> + <code>transition-transform</code> (Motion)</h3>
+<pre><code class="language-html">&lt;button class=&quot;transition-transform duration-300 hover:scale-105&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.duration-300 { transition-duration: 300ms; }
+.hover\\:scale-105:hover { transform: scale(1.05); }
+</code></pre>
+<h3><code>animate-spin</code> (Animation with hoisted keyframes)</h3>
+<pre><code class="language-html">&lt;div class=&quot;animate-spin&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.animate-spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </code></pre>
 <h2>See also</h2>
 <ul>

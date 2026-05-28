@@ -203,6 +203,64 @@ path is unchanged; `ring-blue-500`, `ring-primary`, `ring-ring` etc. still emit
 
 `z-0`, `z-10`, `z-20`, `z-30`, `z-40`, `z-50`, `z-auto` → `z-index: …;`.
 
+## Motion — NEW
+
+Round-2 motion utilities cover transforms, transitions, and animations. Each
+transform utility (`translate-*`, `rotate-*`, `scale-*`) emits a **single
+`transform:` declaration** rather than composing CSS variables — so within one
+element the CSS cascade applies last-wins per family. To combine transforms
+(e.g. translate *and* rotate) on one element, use an arbitrary value
+(`transform-[...]` is not yet wired; compose with a custom `@style` rule).
+
+### transform / translate
+
+| Class | Declaration |
+|-------|-------------|
+| `transform` | identity baseline (`translate(0,0) rotate(0) … scaleX(1) scaleY(1)`) |
+| `transform-none` | `transform: none;` |
+| `translate-x-N` / `translate-y-N` | `transform: translateX/Y(<spacing-scale>);` |
+| `-translate-x-N` / `-translate-y-N` | negative translate (e.g. `-0.5rem`) |
+
+`translate-*` uses the spacing scale (`translate-x-2` → `0.5rem`). The leading
+`-` produces the negative form.
+
+### rotate / scale
+
+| Class | Declaration |
+|-------|-------------|
+| `rotate-N` | `transform: rotate(Ndeg);` |
+| `-rotate-N` | `transform: rotate(-Ndeg);` |
+| `scale-N` | `transform: scale(N/100);` (e.g. `scale-105` → `1.05`) |
+| `scale-x-N` / `scale-y-N` | `transform: scaleX/Y(N/100);` |
+
+### transition / duration / ease
+
+| Class | Declaration |
+|-------|-------------|
+| `transition` | default property set + `150ms` + `cubic-bezier(0.4, 0, 0.2, 1)` |
+| `transition-none` | `transition-property: none;` |
+| `transition-all` | `transition-property: all;` + default timing |
+| `transition-colors` | color/bg/border/decoration/fill/stroke + default timing |
+| `transition-opacity` | `transition-property: opacity;` + default timing |
+| `transition-transform` | `transition-property: transform;` + default timing |
+| `duration-N` | `transition-duration: Nms;` |
+| `ease-linear` | `transition-timing-function: linear;` |
+| `ease-in` / `ease-out` / `ease-in-out` | cubic-bezier easing functions |
+
+### animate
+
+| Class | Declaration |
+|-------|-------------|
+| `animate-none` | `animation: none;` |
+| `animate-spin` | `animation: spin 1s linear infinite;` + `@keyframes spin` |
+| `animate-ping` | `animation: ping …;` + `@keyframes ping` |
+| `animate-pulse` | `animation: pulse …;` + `@keyframes pulse` |
+| `animate-bounce` | `animation: bounce 1s infinite;` + `@keyframes bounce` |
+
+Each `animate-*` (except `animate-none`) emits its **`@keyframes` block as a
+top-level sibling rule** alongside the class rule — keyframes cannot be nested
+inside a selector body. Re-emitting an identical block is idempotent in CSS.
+
 ## Variants
 
 - **Web-Component-native:** `host:`, `slotted:`, `slotted-<tag>:`, `part-<name>:`, `host-context-<name>:`
@@ -255,7 +313,6 @@ top-[1rem]     →  top: 1rem;
 - `group:` / `peer:` variants
 - Container queries (`@container`)
 - `aria-*` / `data-*` attribute variants
-- Motion utilities: `transform`, `translate-*`, `rotate-*`, `scale-*`, `transition-*`, `duration-*`, `ease-*`, `animate-*`
 
 ## Worked examples
 
@@ -375,6 +432,29 @@ One input → output pair per new family.
 
 ```css
 .ring-offset-2 { --tw-ring-offset-width: 2px; }
+```
+
+### `hover:scale-105` + `transition-transform` (Motion)
+
+```html
+<button class="transition-transform duration-300 hover:scale-105"> … </button>
+```
+
+```css
+.transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.duration-300 { transition-duration: 300ms; }
+.hover\:scale-105:hover { transform: scale(1.05); }
+```
+
+### `animate-spin` (Animation with hoisted keyframes)
+
+```html
+<div class="animate-spin"> … </div>
+```
+
+```css
+.animate-spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 ```
 
 ## See also
