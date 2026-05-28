@@ -40,6 +40,20 @@ pub enum Variant {
     Breakpoint(String),
     /// `[&>div]:` arbitrary selector → native nesting (`& > div`).
     ArbitrarySelector(String),
+
+    // ── relational (group / peer) ────────────────────────────────────────────
+    /// `group-hover:`, `group-focus:`, `group-focus-visible:`, `group-active:`,
+    /// `group-disabled:` → ancestor-state selector
+    /// (`.group:<state> <base>`). The `Option<String>` is the ancestor state
+    /// pseudo-class. A bare `group` (no state) is NOT a variant prefix — it is a
+    /// marker utility (see `tokens::fixed_utility`) applied directly to the
+    /// ancestor element; this arm only ever carries `Some(state)`.
+    Group(Option<String>),
+    /// `peer-hover:`, `peer-focus:`, `peer-focus-visible:`, `peer-checked:`,
+    /// `peer-disabled:` → previous-sibling-state selector
+    /// (`.peer:<state> ~ <base>`). As with [`Variant::Group`], the bare `peer`
+    /// marker is a utility, not a prefix; this arm only carries `Some(state)`.
+    Peer(Option<String>),
 }
 
 impl Variant {
@@ -116,9 +130,37 @@ fn parse_prefix(prefix: &str) -> Option<Variant> {
                 Variant::SlottedTag(tag.to_string())
             } else if let Some(name) = prefix.strip_prefix("part-") {
                 Variant::Part(name.to_string())
+            } else if let Some(state) = group_state(prefix) {
+                Variant::Group(state)
+            } else if let Some(state) = peer_state(prefix) {
+                Variant::Peer(state)
             } else {
                 return None;
             }
         }
     })
+}
+
+/// States a `group-*:` prefix may carry. Returns `Some(Some(state))` when
+/// `prefix` is a recognized `group-<state>` form. (`group` alone is a marker
+/// utility, not a variant — so it is NOT matched here.)
+fn group_state(prefix: &str) -> Option<Option<String>> {
+    let state = prefix.strip_prefix("group-")?;
+    relational_state(state).map(Some)
+}
+
+/// States a `peer-*:` prefix may carry. See [`group_state`].
+fn peer_state(prefix: &str) -> Option<Option<String>> {
+    let state = prefix.strip_prefix("peer-")?;
+    relational_state(state).map(Some)
+}
+
+/// The closed set of states `group-*:` / `peer-*:` accept. They map 1:1 to a
+/// pseudo-class on the ancestor / previous-sibling marker element.
+fn relational_state(state: &str) -> Option<String> {
+    matches!(
+        state,
+        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "checked"
+    )
+    .then(|| state.to_string())
 }

@@ -11,6 +11,7 @@
         "publish",
         "examples",
         "compiler",
+        "css-engine",
         "cli",
         "router",
         "server",

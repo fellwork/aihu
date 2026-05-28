@@ -367,6 +367,16 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "border-l-4" => "border-left-width: 4px;",
         "border-l-8" => "border-left-width: 8px;",
 
+        // Relational marker classes. `group` / `peer` carry no styles of their
+        // own — they mark an ancestor / previous-sibling so that `group-*:` /
+        // `peer-*:` variant rules on other elements can target their state. We
+        // emit an EMPTY-body rule (`.group {  }`) rather than returning `None`
+        // so the scanner keeps the class in the utility set and the marker
+        // survives into the shadow `<style>` (a dropped class would break the
+        // relational selectors that reference `.group` / `.peer`).
+        "group" => "",
+        "peer" => "",
+
         // Width / height keywords
         "w-full" => "width: 100%;",
         "w-screen" => "width: 100vw;",

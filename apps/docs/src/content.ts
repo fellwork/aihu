@@ -3773,6 +3773,49 @@ const scope = hydrate(
 </tr>
 </tbody></table>
 <p>These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.</p>
+<h3>group / peer relational variants</h3>
+<p><code>group-*:</code> and <code>peer-*:</code> style an element based on the <em>state of a related element</em> — an ancestor (<code>group</code>) or a previous sibling (<code>peer</code>). Mark the related element with the bare <code>group</code> or <code>peer</code> class, then prefix the styled element&#39;s utilities with the matching variant.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Relationship</th>
+<th>Compiles to</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>group-hover:</code></td>
+<td>ancestor marked <code>group</code> is hovered</td>
+<td><code>.group:hover .group-hover\\:&lt;u&gt;</code></td>
+</tr>
+<tr>
+<td><code>group-focus:</code> / <code>group-focus-visible:</code> / <code>group-active:</code> / <code>group-disabled:</code></td>
+<td>ancestor marked <code>group</code> is in that state</td>
+<td><code>.group:&lt;state&gt; .group-&lt;state&gt;\\:&lt;u&gt;</code></td>
+</tr>
+<tr>
+<td><code>peer-checked:</code></td>
+<td>previous sibling marked <code>peer</code> is checked</td>
+<td><code>.peer:checked ~ .peer-checked\\:&lt;u&gt;</code></td>
+</tr>
+<tr>
+<td><code>peer-hover:</code> / <code>peer-focus:</code> / <code>peer-focus-visible:</code> / <code>peer-disabled:</code></td>
+<td>previous sibling marked <code>peer</code> is in that state</td>
+<td><code>.peer:&lt;state&gt; ~ .peer-&lt;state&gt;\\:&lt;u&gt;</code></td>
+</tr>
+</tbody></table>
+<p>The bare <code>group</code> / <code>peer</code> classes are <em>markers</em>: they carry no styles of their own, they just anchor the relationship. Because everything is scoped inside one shadow root, the marker and the styled element must live in the same component tree. <code>peer</code> only looks <strong>backward</strong> to earlier siblings (CSS has no previous-sibling-forward combinator), so the <code>peer</code> element must appear before the styled element in source order.</p>
+<pre><code class="language-html">&lt;!-- input → output --&gt;
+&lt;div class=&quot;group&quot;&gt;
+  &lt;span class=&quot;group-hover:bg-primary&quot;&gt;…&lt;/span&gt;
+&lt;/div&gt;
+&lt;!-- emits: .group:hover .group-hover\\:bg-primary { background-color: var(--color-primary) } --&gt;
+
+&lt;input class=&quot;peer&quot; type=&quot;checkbox&quot; /&gt;
+&lt;span class=&quot;peer-checked:bg-primary&quot;&gt;…&lt;/span&gt;
+&lt;!-- emits: .peer:checked ~ .peer-checked\\:bg-primary { background-color: var(--color-primary) } --&gt;
+</code></pre>
+<p>These stack with the other variants left-to-right, e.g. <code>md:group-hover:bg-primary</code> wraps the relational rule in the <code>md</code> media query.</p>
 <h2>Style packs</h2>
 <p>Component styling resolves against <strong>design tokens</strong> (CSS custom properties): a utility like <code>bg-primary</code> emits <code>var(--color-primary)</code>, and the <em>value</em> comes from a <strong>style pack</strong> (<code>aihu-default</code>, <code>aihu-graphite</code>, or your own via <code>defineStylePack()</code>). The token contract, the two shipped packs, <code>:root</code> + <code>.dark</code> emission, and how a consumer applies a pack are covered in full on the dedicated <a href="#theming">Theming</a> page.</p>
 <h2><code>cn()</code> — runtime class merge</h2>
@@ -4652,7 +4695,6 @@ arbitrary-value workaround; the rest require variant-parser changes. Open an
 issue if you need one promoted.</p>
 </blockquote>
 <ul>
-<li><code>group:</code> / <code>peer:</code> variants</li>
 <li>Container queries (<code>@container</code>)</li>
 <li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
 </ul>
