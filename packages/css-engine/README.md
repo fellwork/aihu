@@ -139,7 +139,7 @@ bun add @aihu/css-engine
 
 **Dependencies:**
 
-- `@aihu/compiler` — `workspace:*`
+- `@aihu/compiler` — `workspace:^`
 
 **Optional dependencies (platform-specific):**
 
