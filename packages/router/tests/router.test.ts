@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { RouteDefinition } from '../src/index.ts'
 import { createRouter } from '../src/index.ts'
 import { viteRouterPlugin } from '../src/plugin.ts'
+import { createServerRouter } from '../src/server.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers to build RouteDefinition fixtures
@@ -138,9 +139,9 @@ describe('@aihu/router — createRouter', () => {
   })
 })
 
-describe('@aihu/router — handle()', () => {
+describe('@aihu/router/server — handle()', () => {
   it('returns 200 HTML response for matched route', async () => {
-    const router = createRouter([staticRoute('/', '<p>home</p>')])
+    const router = createServerRouter([staticRoute('/', '<p>home</p>')])
     const req = new Request('http://localhost/')
     const res = await router.handle(req)
     expect(res.status).toBe(200)
@@ -150,7 +151,7 @@ describe('@aihu/router — handle()', () => {
   })
 
   it('returns 404 for unmatched route', async () => {
-    const router = createRouter([staticRoute('/')])
+    const router = createServerRouter([staticRoute('/')])
     const req = new Request('http://localhost/not-found')
     const res = await router.handle(req)
     expect(res.status).toBe(404)
@@ -169,7 +170,7 @@ describe('@aihu/router — handle()', () => {
           loader: async (params: Record<string, string>) => ({ found: true, id: params.id }),
         }),
     }
-    const router = createRouter([route])
+    const router = createServerRouter([route])
     const req = new Request('http://localhost/api/99')
     const res = await router.handle(req)
     expect(res.status).toBe(200)
