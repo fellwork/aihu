@@ -7,7 +7,7 @@ Demonstrates all three browser-facing surfaces of the published
 
 | Surface | Import | What it does here |
 |---|---|---|
-| Utility output | `@aihu/css-engine` (`compile()`) | `gen-css.ts` compiles the utility classes the component uses into `utilities.generated.css` (the AST scanner that auto-discovers these lands in css-engine Plan 2). |
+| Utility output | `@aihu/css-engine` (`compile()`) | `gen-css.ts` compiles a hand-rolled class list into `utilities.generated.css`. For the auto-fold path (scanner integrated with `viteAihuPlugin`), see [`examples/css-engine-utility/`](../css-engine-utility). |
 | `cn()` runtime | `@aihu/css-engine/runtime/cn` | Merges a static base with reactive variant classes and resolves Tailwind-style conflicts last-wins (`p-4` + `p-6` → `p-6`). |
 | progressive shim | `@aihu/css-engine/runtime/progressive` | `anchorFallback()` positions the floating "Popular" badge against its anchor — a ~2 kB dependency-free `anchor:` polyfill. |
 

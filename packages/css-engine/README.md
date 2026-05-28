@@ -34,6 +34,39 @@ as a per-platform `optionalDependencies` package
 resolved automatically at build time — no Rust toolchain required. In a monorepo
 dev clone the engine falls back to the workspace `target/release` binary.
 
+### Usage with `viteAihuPlugin`
+
+When `@aihu/css-engine` is installed alongside `@aihu/app`, the compiler hook
+inside `viteAihuPlugin` automatically scans every `.aihu` SFC and folds the
+generated utility CSS into the build. **No additional plugin wiring is needed.**
+
+There is one configuration knob you almost certainly want: **`shadowMode: 'none'`**.
+Utility classes rely on the global cascade, so they must escape the per-component
+shadow root. Forward this through `viteAihuPlugin`'s `css` option:
+
+```ts
+// vite.config.ts
+import { viteAihuPlugin } from '@aihu/app'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [
+    viteAihuPlugin({
+      css: { shadowMode: 'none' },
+    }),
+  ],
+})
+```
+
+If `compileSfc()` fails at build time (e.g. the native `aihu-css-core` binary
+is unresolvable in your install), the compiler emits a one-shot warning to the
+console — utility classes will not appear in the output until the binary is
+restored. The build itself still succeeds.
+
+See [`examples/css-engine-utility/`](../../examples/css-engine-utility) for a
+minimal end-to-end demonstration, including an acceptance script that greps
+the built CSS for the expected `.flex { display: flex }` rule.
+
 ### Local development
 
 ```bash

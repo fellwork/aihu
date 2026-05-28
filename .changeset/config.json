@@ -14,6 +14,7 @@
     "@aihu/example-blog-loader",
     "@aihu/example-blog-router",
     "@aihu/example-color-theme",
+    "@aihu/example-css-engine-utility",
     "aihu-example-css-pluggability",
     "@aihu/example-hacker-news",
     "@aihu/example-live-counter",
