@@ -34,6 +34,7 @@ bun add @aihu/router
 |---|---|
 | **Version** | `0.1.6` |
 | **Tier** | B — Meta-framework — file-based router |
+| **Bundle size** | 1.71 kB (gz) — limit 2400 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -49,6 +50,7 @@ bun add @aihu/router
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./server` | `./dist/server.js` | `—` |
 | `./plugin` | `./dist/plugin.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/router@0.1.6`.</i></sub>

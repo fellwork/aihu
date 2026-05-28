@@ -15,6 +15,22 @@ export default defineConfig([
     },
     plugins: [dts()],
   },
+  // Server-only entry — `handle(req)` SSR path. Lives behind the
+  // `@aihu/router/server` subpath so it never enters the browser bundle.
+  // NOT measured by .size-limit.json.
+  {
+    input: { server: 'src/server.ts' },
+    external: ['@aihu/server', '@aihu/signals', '@aihu/context'],
+    checks: { circularDependency: true },
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      sourcemap: true,
+      minify: true,
+      entryFileNames: '[name].js',
+    },
+    plugins: [dts({ outFile: 'dist/server.d.ts' })],
+  },
   // Build-time Vite plugin — NOT measured by .size-limit.json
   {
     input: { plugin: 'src/plugin.ts' },
