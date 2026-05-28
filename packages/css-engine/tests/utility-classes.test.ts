@@ -51,3 +51,37 @@ describe('@aihu/css-engine — new utility families (Round 1)', () => {
     expect(css).toContain('border-top-width: 4px')
   })
 })
+
+// Round 2 (tailwind-support / aria-data-container): aria-*/data-* attribute
+// variants + container queries (@container). Each case drives the public
+// `compileSfc` path so a green case proves the variant actually emits.
+describe('@aihu/css-engine — aria/data variants + container queries (Round 2)', () => {
+  it('aria-expanded: emits an attribute selector ([aria-expanded="true"])', () => {
+    const css = compileSfc(
+      `@template { <button class="aria-expanded:bg-accent">x</button> }`,
+      'AriaExpanded.aihu',
+    )
+    expect(css).toContain('[aria-expanded="true"]')
+    expect(css).toContain('background-color: var(--color-accent)')
+  })
+
+  it('data-[state=open]: emits a data-attribute selector', () => {
+    const css = compileSfc(
+      `@template { <div class="data-[state=open]:underline">x</div> }`,
+      'DataState.aihu',
+    )
+    expect(css).toContain('[data-state="open"]')
+    expect(css).toContain('text-decoration-line: underline')
+  })
+
+  it('@container marker + @md: child wrap in a container query', () => {
+    // The proven user-visible pattern: a @container parent and an @md:flex child.
+    const css = compileSfc(
+      `@template { <div class="@container"><div class="@md:flex">x</div></div> }`,
+      'Container.aihu',
+    )
+    expect(css).toContain('container-type: inline-size')
+    expect(css).toContain('@container (min-width: 28rem)')
+    expect(css).toContain('display: flex')
+  })
+})

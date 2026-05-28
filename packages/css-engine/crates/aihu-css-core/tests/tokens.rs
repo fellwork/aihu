@@ -151,3 +151,25 @@ fn border_directional_n_width() {
 fn z_auto_keyword() {
     assert_eq!(css(&["z-auto"]), ".z-auto { z-index: auto; }\n");
 }
+
+// --- Round 2: container-query marker utilities (aria-data-container) -------
+//
+// The `@container` marker and its named `@container/<name>` form are base
+// utilities (the `@sm:`/`@md:`/`@lg:` query variants live in variants.rs /
+// emit.rs and are exercised in tests/emit.rs).
+
+#[test]
+fn container_marker_emits_inline_size() {
+    assert_eq!(
+        css(&["@container"]),
+        ".@container { container-type: inline-size; }\n"
+    );
+}
+
+#[test]
+fn named_container_marker_emits_type_and_name() {
+    assert_eq!(
+        css(&["@container/sidebar"]),
+        ".@container/sidebar { container-type: inline-size; container-name: sidebar; }\n"
+    );
+}

@@ -70,6 +70,20 @@ impl ThemeRegistry {
         }
     }
 
+    /// Resolve a container-query breakpoint (`@sm`/`@md`/…) to its min-width.
+    /// Mirrors [`breakpoint`] but uses Tailwind's container-query scale (which
+    /// differs from the viewport breakpoint scale): `@sm`=24rem … `@2xl`=42rem.
+    pub fn container_breakpoint(&self, name: &str) -> Option<&'static str> {
+        match name {
+            "sm" => Some("24rem"),
+            "md" => Some("28rem"),
+            "lg" => Some("32rem"),
+            "xl" => Some("36rem"),
+            "2xl" => Some("42rem"),
+            _ => None,
+        }
+    }
+
     /// Merge an `@theme { ... }` block's tokens over the current registry.
     /// Returns the number of tokens registered/overridden.
     pub fn apply_theme_block(&mut self, theme_body: &str) -> usize {

@@ -4293,6 +4293,109 @@ Brand-token classes emit <code>var(--color-*)</code>.</p>
 <li><strong>Arbitrary selectors:</strong> <code>[&amp;&gt;li]:</code>, <code>[&amp;:has(img)]:</code>, etc.</li>
 <li><strong>Stacking:</strong> <code>md:hover:bg-primary</code> — left-to-right composition</li>
 </ul>
+<h3>aria-*/data-* attribute variants</h3>
+<p>Gate a utility on an ARIA state or a <code>data-*</code> attribute. The variant compiles
+to an attribute selector appended to the class.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Selector</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>aria-checked:</code></td>
+<td><code>[aria-checked=&quot;true&quot;]</code></td>
+<td>implicit <code>=&quot;true&quot;</code></td>
+</tr>
+<tr>
+<td><code>aria-disabled:</code></td>
+<td><code>[aria-disabled=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-expanded:</code></td>
+<td><code>[aria-expanded=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-selected:</code></td>
+<td><code>[aria-selected=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-pressed:</code></td>
+<td><code>[aria-pressed=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-[expanded=false]:</code></td>
+<td><code>[aria-expanded=&quot;false&quot;]</code></td>
+<td>arbitrary <code>name=value</code></td>
+</tr>
+<tr>
+<td><code>data-[state=open]:</code></td>
+<td><code>[data-state=&quot;open&quot;]</code></td>
+<td>arbitrary <code>name=value</code></td>
+</tr>
+<tr>
+<td><code>data-active:</code></td>
+<td><code>[data-active]</code></td>
+<td>bare data-* → presence (no <code>=&quot;true&quot;</code>)</td>
+</tr>
+</tbody></table>
+<pre><code>aria-expanded:bg-accent      →  .aria-expanded\\:bg-accent[aria-expanded=&quot;true&quot;] { background-color: var(--color-accent); }
+data-[state=open]:underline  →  .data-\\[state\\=open\\]\\:underline[data-state=&quot;open&quot;] { text-decoration-line: underline; }
+</code></pre>
+<p>Any aria-/data- variant whose base utility is unknown emits nothing — there is
+no spurious empty rule.</p>
+<h3>Container queries (@container)</h3>
+<p>Mark an element as a query container with <code>@container</code> (or the named
+<code>@container/&lt;name&gt;</code> form), then size descendants with the <code>@sm:</code>/<code>@md:</code>/<code>@lg:</code>/
+<code>@xl:</code>/<code>@2xl:</code> container-query variants. These wrap the rule in an <code>@container</code>
+at-rule rather than <code>@media</code>, and use Tailwind&#39;s container-query scale (which
+differs from the viewport breakpoint scale).</p>
+<table>
+<thead>
+<tr>
+<th>Class / variant</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@container</code></td>
+<td><code>container-type: inline-size;</code></td>
+</tr>
+<tr>
+<td><code>@container/sidebar</code></td>
+<td><code>container-type: inline-size; container-name: sidebar;</code></td>
+</tr>
+<tr>
+<td><code>@sm:</code></td>
+<td><code>@container (min-width: 24rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@md:</code></td>
+<td><code>@container (min-width: 28rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@lg:</code></td>
+<td><code>@container (min-width: 32rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@xl:</code></td>
+<td><code>@container (min-width: 36rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@2xl:</code></td>
+<td><code>@container (min-width: 42rem) { … }</code></td>
+</tr>
+</tbody></table>
+<pre><code>&lt;div class=&quot;@container&quot;&gt;
+  &lt;div class=&quot;@md:flex&quot;&gt;…&lt;/div&gt;   →  @container (min-width: 28rem) { .\\@md\\:flex { display: flex; } }
+&lt;/div&gt;
+</code></pre>
 <h2>Brand tokens (16)</h2>
 <p>Override any token in a component&#39;s <code>@style</code> block via
 <code>@theme { --color-primary: oklch(...); }</code>.</p>
@@ -4343,8 +4446,6 @@ issue if you need one promoted.</p>
 </blockquote>
 <ul>
 <li><code>group:</code> / <code>peer:</code> variants</li>
-<li>Container queries (<code>@container</code>)</li>
-<li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
 <li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
 <li><code>divide-x</code> / <code>divide-y</code> (use <code>space-x/y</code> for a similar effect)</li>
 <li><code>ring-{n}</code> widths and <code>ring-offset-*</code></li>
@@ -4377,6 +4478,21 @@ issue if you need one promoted.</p>
 <pre><code class="language-html">&lt;div class=&quot;border-t-4&quot;&gt; … &lt;/div&gt;
 </code></pre>
 <pre><code class="language-css">.border-t-4 { border-top-width: 4px; }
+</code></pre>
+<h3><code>aria-expanded:</code> (attribute variant)</h3>
+<pre><code class="language-html">&lt;button class=&quot;aria-expanded:bg-accent&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.aria-expanded\\:bg-accent[aria-expanded=&quot;true&quot;] { background-color: var(--color-accent); }
+</code></pre>
+<h3><code>@container</code> + <code>@md:</code> (container query)</h3>
+<pre><code class="language-html">&lt;div class=&quot;@container&quot;&gt;
+  &lt;div class=&quot;@md:flex&quot;&gt; … &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.\\@container { container-type: inline-size; }
+@container (min-width: 28rem) {
+  .\\@md\\:flex { display: flex; }
+}
 </code></pre>
 <h2>See also</h2>
 <ul>

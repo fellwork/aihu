@@ -40,6 +40,29 @@ pub enum Variant {
     Breakpoint(String),
     /// `[&>div]:` arbitrary selector → native nesting (`& > div`).
     ArbitrarySelector(String),
+
+    // ── attribute / container (round 2) ───────────────────────────────────────
+    /// `aria-checked:` → `&[aria-checked="true"]` (keyword form, implicit
+    /// `="true"`). `aria-[expanded=false]:` carries an explicit `name=value`
+    /// payload → `&[aria-expanded="false"]`.
+    Aria(AttrMatch),
+    /// `data-[state=open]:` → `&[data-state="open"]` (bracket payload
+    /// `name=value`). `data-active:` (keyword) → `&[data-active]` (presence).
+    Data(AttrMatch),
+    /// Container-query breakpoint variant: `@sm:`/`@md:`/`@lg:`/`@xl:`/`@2xl:`
+    /// → `@container (min-width: …)`. Wraps the rule like `Breakpoint`, but in
+    /// an `@container` at-rule instead of `@media`.
+    Container(String),
+}
+
+/// An attribute-selector match payload for `aria-*` / `data-*` variants.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttrMatch {
+    /// `aria-checked` → `[aria-checked="true"]` (aria) or `[data-active]`
+    /// presence (data). The bool records whether to imply `="true"`.
+    Name { name: String, imply_true: bool },
+    /// Explicit `name=value` → `[<full>-name="value"]`.
+    NameValue { name: String, value: String },
 }
 
 impl Variant {
@@ -111,14 +134,50 @@ fn parse_prefix(prefix: &str) -> Option<Variant> {
         "hover" | "focus" | "focus-visible" | "active" | "disabled" | "visited"
         | "checked" => Variant::Pseudo(prefix.to_string()),
         "sm" | "md" | "lg" | "xl" | "2xl" => Variant::Breakpoint(prefix.to_string()),
+        // Container-query breakpoints: `@sm`/`@md`/`@lg`/`@xl`/`@2xl`.
+        "@sm" | "@md" | "@lg" | "@xl" | "@2xl" => {
+            Variant::Container(prefix[1..].to_string())
+        }
         _ => {
             if let Some(tag) = prefix.strip_prefix("slotted-") {
                 Variant::SlottedTag(tag.to_string())
             } else if let Some(name) = prefix.strip_prefix("part-") {
                 Variant::Part(name.to_string())
+            } else if let Some(payload) = prefix.strip_prefix("aria-") {
+                Variant::Aria(parse_attr_match(payload, true))
+            } else if let Some(payload) = prefix.strip_prefix("data-") {
+                // data-* never implies `="true"`: bare `data-active` is a
+                // presence selector `[data-active]`.
+                Variant::Data(parse_attr_match(payload, false))
             } else {
                 return None;
             }
         }
     })
+}
+
+/// Parse the payload after `aria-`/`data-` into an [`AttrMatch`].
+///
+/// Two shapes:
+/// - `checked` (keyword) → `Name { name: "checked", imply_true }`.
+/// - `[state=open]` (bracket, from `data-[state=open]`) → `NameValue`. The
+///   bracket-aware splitter in [`split_variants`] keeps the `[...]` attached to
+///   the prefix, so the payload arrives here as `[state=open]`.
+fn parse_attr_match(payload: &str, imply_true: bool) -> AttrMatch {
+    // Strip an outer `[...]` if present (arbitrary form).
+    let inner = payload
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(payload);
+    if let Some((name, value)) = inner.split_once('=') {
+        AttrMatch::NameValue {
+            name: name.trim().to_string(),
+            value: value.trim().trim_matches('"').to_string(),
+        }
+    } else {
+        AttrMatch::Name {
+            name: inner.trim().to_string(),
+            imply_true,
+        }
+    }
 }

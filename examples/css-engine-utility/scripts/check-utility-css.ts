@@ -45,6 +45,13 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ],
   ['space-y-4', /margin-block-start\s*:\s*1rem/],
   ['border-2', /border-width\s*:\s*2px/],
+  // Round 2 (aria-data-container): attribute variants + container queries.
+  ['@container', /container-type\s*:\s*inline-size/],
+  ['@md: container query', /@container\s*\(\s*min-width\s*:\s*28rem\s*\)/],
+  // The Lightning/esbuild minifier may strip the quotes around the attribute
+  // value (`[aria-expanded="true"]` → `[aria-expanded=true]`); both are valid.
+  ['aria-expanded:', /\[aria-expanded=("?)true\1\]/],
+  ['data-[state=open]:', /\[data-state=("?)open\1\]/],
 ]
 
 // Concatenate all emitted CSS so a rule split across files still matches.
