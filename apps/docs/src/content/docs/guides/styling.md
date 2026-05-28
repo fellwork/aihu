@@ -2,6 +2,8 @@
 
 aihu styles components with **`@aihu/css-engine`** — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your `.aihu` SFCs at build time and folds the utility classes each component actually uses into that component's shadow `<style>`. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.
 
+> **See also:** the [full utility reference](#utility-classes) — the authoritative index of every supported class, variant, and brand token, plus a "Not yet supported" callout.
+
 > **Status:** `@aihu/css-engine@0.1.0` is published. The build-time engine (`compile`, `compileSfc`) currently depends on the `aihu-css-compile` Rust binary built from the workspace (`cargo build --release -p aihu-css-core`); a prebuilt binary ships with the package in a later plan. The runtime helpers (`cn`, `progressive`) are stable and tiny.
 
 ## How it works

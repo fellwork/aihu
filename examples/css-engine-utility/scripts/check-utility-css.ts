@@ -39,7 +39,10 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ['flex', /\.flex\s*\{\s*display\s*:\s*flex/],
   ['max-w-7xl', /max-width\s*:\s*80rem/],
   ['mx-auto', /margin-inline\s*:\s*auto/],
-  ['grid-cols-3', /grid-template-columns\s*:\s*repeat\(\s*3\s*,\s*minmax\(\s*0\s*,\s*1fr\s*\)\s*\)/],
+  [
+    'grid-cols-3',
+    /grid-template-columns\s*:\s*repeat\(\s*3\s*,\s*minmax\(\s*0\s*,\s*1fr\s*\)\s*\)/,
+  ],
   ['space-y-4', /margin-block-start\s*:\s*1rem/],
   ['border-2', /border-width\s*:\s*2px/],
 ]

@@ -3735,6 +3735,9 @@ const scope = hydrate(
     html: `<h1>Styling</h1>
 <p>aihu styles components with <strong><code>@aihu/css-engine</code></strong> — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your <code>.aihu</code> SFCs at build time and folds the utility classes each component actually uses into that component&#39;s shadow <code>&lt;style&gt;</code>. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.</p>
 <blockquote>
+<p><strong>See also:</strong> the <a href="#utility-classes">full utility reference</a> — the authoritative index of every supported class, variant, and brand token, plus a &quot;Not yet supported&quot; callout.</p>
+</blockquote>
+<blockquote>
 <p><strong>Status:</strong> <code>@aihu/css-engine@0.1.0</code> is published. The build-time engine (<code>compile</code>, <code>compileSfc</code>) currently depends on the <code>aihu-css-compile</code> Rust binary built from the workspace (<code>cargo build --release -p aihu-css-core</code>); a prebuilt binary ships with the package in a later plan. The runtime helpers (<code>cn</code>, <code>progressive</code>) are stable and tiny.</p>
 </blockquote>
 <h2>How it works</h2>
@@ -3982,6 +3985,404 @@ package <code>files</code> list, so they are also on disk at
 <li><a href="#styling">Styling</a> — the scoped-output model, WC-native variants, <code>cn()</code></li>
 <li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
 <li><a href="#primitives">Primitives</a> — headless behaviors that consume these tokens</li>
+</ul>
+`,
+  },
+  'utility-classes': {
+    title: 'Utility Classes',
+    html: `<h1>Utility Classes</h1>
+<blockquote>
+<p>Aihu&#39;s css-engine ships a focused Tailwind-v4 utility subset compiled at
+build time into per-component scoped CSS. This page is the authoritative
+index of every supported class, every variant, every brand token, and a
+&quot;Not yet supported&quot; callout so you know when to drop to arbitrary values
+or open an issue.</p>
+</blockquote>
+<h2>At a glance</h2>
+<ul>
+<li>Compiled by <code>@aihu/css-engine</code> from <code>.aihu</code> SFCs.</li>
+<li>Output is scoped CSS (shadow DOM by default, light DOM via <code>shadowMode: &#39;none&#39;</code>).</li>
+<li>Unknown classes are silently dropped — there is no &quot;JIT&quot; and no global utility sheet.</li>
+<li>Conflict resolution (<code>cn()</code>) is last-wins per property group.</li>
+</ul>
+<h2>Class index by family</h2>
+<h3>Layout (display, position, overflow)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>block</code> / <code>inline-block</code> / <code>inline</code></td>
+<td><code>display: block / inline-block / inline;</code></td>
+</tr>
+<tr>
+<td><code>flex</code> / <code>inline-flex</code></td>
+<td><code>display: flex / inline-flex;</code></td>
+</tr>
+<tr>
+<td><code>grid</code> / <code>inline-grid</code></td>
+<td><code>display: grid / inline-grid;</code></td>
+</tr>
+<tr>
+<td><code>hidden</code></td>
+<td><code>display: none;</code></td>
+</tr>
+<tr>
+<td><code>static</code> / <code>relative</code> / <code>absolute</code> / <code>fixed</code> / <code>sticky</code></td>
+<td><code>position: …;</code></td>
+</tr>
+<tr>
+<td><code>overflow-auto</code> / <code>-hidden</code> / <code>-scroll</code> / <code>-visible</code></td>
+<td><code>overflow: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Flex &amp; Grid alignment</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>flex-row</code> / <code>flex-col</code></td>
+<td><code>flex-direction: row / column;</code></td>
+</tr>
+<tr>
+<td><code>flex-wrap</code> / <code>flex-nowrap</code></td>
+<td><code>flex-wrap: …;</code></td>
+</tr>
+<tr>
+<td><code>items-start</code> / <code>-center</code> / <code>-end</code> / <code>-stretch</code></td>
+<td><code>align-items: …;</code></td>
+</tr>
+<tr>
+<td><code>justify-start</code> / <code>-center</code> / <code>-between</code> / <code>-around</code> / <code>-end</code></td>
+<td><code>justify-content: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Grid templating — NEW</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>grid-cols-N</code></td>
+<td><code>grid-template-columns: repeat(N, minmax(0, 1fr));</code></td>
+</tr>
+<tr>
+<td><code>grid-cols-none</code></td>
+<td><code>grid-template-columns: none;</code></td>
+</tr>
+<tr>
+<td><code>grid-rows-N</code></td>
+<td><code>grid-template-rows: repeat(N, minmax(0, 1fr));</code></td>
+</tr>
+<tr>
+<td><code>grid-rows-none</code></td>
+<td><code>grid-template-rows: none;</code></td>
+</tr>
+<tr>
+<td><code>col-span-N</code></td>
+<td><code>grid-column: span N / span N;</code></td>
+</tr>
+<tr>
+<td><code>col-span-full</code></td>
+<td><code>grid-column: 1 / -1;</code></td>
+</tr>
+<tr>
+<td><code>col-auto</code></td>
+<td><code>grid-column: auto;</code></td>
+</tr>
+<tr>
+<td><code>row-span-N</code></td>
+<td><code>grid-row: span N / span N;</code></td>
+</tr>
+<tr>
+<td><code>row-span-full</code></td>
+<td><code>grid-row: 1 / -1;</code></td>
+</tr>
+<tr>
+<td><code>row-auto</code></td>
+<td><code>grid-row: auto;</code></td>
+</tr>
+</tbody></table>
+<p><code>N</code> is any positive integer.</p>
+<h3>Spacing (padding, margin, gap, space-x/y)</h3>
+<p>Spacing uses the Tailwind scale: each unit is <code>0.25rem</code> (so <code>p-4</code> → <code>1rem</code>),
+plus <code>px</code> → <code>1px</code> and <code>0</code> → <code>0</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>p-*</code> / <code>px-*</code> / <code>py-*</code> / <code>pt-* pr-* pb-* pl-*</code></td>
+<td><code>padding…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>m-*</code> / <code>mx-*</code> / <code>my-*</code> / <code>mt-* mr-* mb-* ml-*</code></td>
+<td><code>margin…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>mx-auto</code> / <code>my-auto</code> / <code>mt-auto</code> … — NEW</td>
+<td><code>margin-inline / margin-block / margin-top: auto;</code></td>
+</tr>
+<tr>
+<td><code>gap-*</code> / <code>gap-x-*</code> / <code>gap-y-*</code></td>
+<td><code>gap…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>space-x-N</code> — NEW</td>
+<td><code>&amp; &gt; * + * { margin-inline-start: &lt;scale&gt;; }</code></td>
+</tr>
+<tr>
+<td><code>space-y-N</code> — NEW</td>
+<td><code>&amp; &gt; * + * { margin-block-start: &lt;scale&gt;; }</code></td>
+</tr>
+</tbody></table>
+<p><code>space-x/y-*</code> emit Tailwind&#39;s standard sibling-margin recipe as a nested rule
+(no margin on the first child; the gap lands on every following sibling).</p>
+<h3>Sizing (width, height, min/max)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>w-*</code> / <code>h-*</code> (scale + fractions)</td>
+<td><code>width / height: …;</code></td>
+</tr>
+<tr>
+<td><code>w-full</code> / <code>w-screen</code> / <code>w-auto</code></td>
+<td><code>width: 100% / 100vw / auto;</code></td>
+</tr>
+<tr>
+<td><code>h-full</code> / <code>h-screen</code> / <code>h-auto</code></td>
+<td><code>height: 100% / 100vh / auto;</code></td>
+</tr>
+<tr>
+<td><code>min-w-*</code> / <code>max-w-*</code> / <code>min-h-*</code> / <code>max-h-*</code></td>
+<td>min/max sizing</td>
+</tr>
+<tr>
+<td><code>max-w-{xs…7xl}</code> — NEW</td>
+<td>named scale: <code>20rem … 80rem</code></td>
+</tr>
+<tr>
+<td><code>max-w-prose</code> — NEW</td>
+<td><code>max-width: 65ch;</code></td>
+</tr>
+<tr>
+<td><code>max-w-screen-{sm…2xl}</code> — NEW</td>
+<td>breakpoint widths (<code>40rem … 96rem</code>)</td>
+</tr>
+<tr>
+<td><code>max-w-{none,full,min,max,fit}</code> — NEW</td>
+<td>keyword max-widths</td>
+</tr>
+</tbody></table>
+<p>Named <code>max-w-*</code> scale: <code>xs</code> 20rem, <code>sm</code> 24rem, <code>md</code> 28rem, <code>lg</code> 32rem,
+<code>xl</code> 36rem, <code>2xl</code> 42rem, <code>3xl</code> 48rem, <code>4xl</code> 56rem, <code>5xl</code> 64rem, <code>6xl</code> 72rem,
+<code>7xl</code> 80rem.</p>
+<h3>Typography</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>text-{xs…3xl}</code></td>
+<td><code>font-size</code> + <code>line-height</code></td>
+</tr>
+<tr>
+<td><code>text-left</code> / <code>-center</code> / <code>-right</code></td>
+<td><code>text-align: …;</code></td>
+</tr>
+<tr>
+<td><code>font-{thin…black}</code></td>
+<td><code>font-weight: …;</code></td>
+</tr>
+<tr>
+<td><code>italic</code> / <code>not-italic</code></td>
+<td><code>font-style: …;</code></td>
+</tr>
+<tr>
+<td><code>underline</code> / <code>line-through</code> / <code>no-underline</code></td>
+<td><code>text-decoration-line: …;</code></td>
+</tr>
+<tr>
+<td><code>uppercase</code> / <code>lowercase</code> / <code>capitalize</code></td>
+<td><code>text-transform: …;</code></td>
+</tr>
+<tr>
+<td><code>truncate</code></td>
+<td>ellipsis overflow recipe</td>
+</tr>
+</tbody></table>
+<h3>Colors (bg, text, border, fill, stroke, ring, outline)</h3>
+<p><code>bg-*</code>, <code>text-*</code>, <code>border-*</code>, <code>fill-*</code>, <code>stroke-*</code> accept both <strong>brand tokens</strong>
+(see below) and the <strong>palette</strong> (<code>bg-red-500</code>, <code>text-slate-700</code>, <code>bg-white</code>).
+Brand-token classes emit <code>var(--color-*)</code>.</p>
+<h3>Borders (width incl. directional, radius, color)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>border</code></td>
+<td><code>border-width: 1px;</code></td>
+</tr>
+<tr>
+<td><code>border-{0,2,4,8}</code> — NEW</td>
+<td><code>border-width: 0 / 2px / 4px / 8px;</code></td>
+</tr>
+<tr>
+<td><code>border-x-{0,2,4,8}</code> / <code>border-y-{…}</code> — NEW</td>
+<td><code>border-inline-width</code> / <code>border-block-width</code></td>
+</tr>
+<tr>
+<td><code>border-t/r/b/l-{0,2,4,8}</code> — NEW</td>
+<td><code>border-top/right/bottom/left-width</code></td>
+</tr>
+<tr>
+<td><code>rounded</code> / <code>-sm</code> / <code>-md</code> / <code>-lg</code> / <code>-full</code></td>
+<td><code>border-radius: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Effects</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>shadow</code> / <code>-md</code> / <code>-lg</code> / <code>-none</code></td>
+<td><code>box-shadow: …;</code></td>
+</tr>
+<tr>
+<td><code>opacity-*</code></td>
+<td><code>opacity: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Z-index</h3>
+<p><code>z-0</code>, <code>z-10</code>, <code>z-20</code>, <code>z-30</code>, <code>z-40</code>, <code>z-50</code>, <code>z-auto</code> → <code>z-index: …;</code>.</p>
+<h2>Variants</h2>
+<ul>
+<li><strong>Web-Component-native:</strong> <code>host:</code>, <code>slotted:</code>, <code>slotted-&lt;tag&gt;:</code>, <code>part-&lt;name&gt;:</code>, <code>host-context-&lt;name&gt;:</code></li>
+<li><strong>Pseudo:</strong> <code>hover:</code>, <code>focus:</code>, <code>focus-visible:</code>, <code>active:</code>, <code>disabled:</code>, <code>visited:</code>, <code>checked:</code></li>
+<li><strong>Responsive (min-width):</strong> <code>sm:</code> 40rem, <code>md:</code> 48rem, <code>lg:</code> 64rem, <code>xl:</code> 80rem, <code>2xl:</code> 96rem (override via <code>@theme</code>)</li>
+<li><strong>Dark mode:</strong> <code>dark:</code> (Firefox-safe <code>[data-theme=&quot;dark&quot;]</code> / <code>.dark</code> cascade)</li>
+<li><strong>Arbitrary selectors:</strong> <code>[&amp;&gt;li]:</code>, <code>[&amp;:has(img)]:</code>, etc.</li>
+<li><strong>Stacking:</strong> <code>md:hover:bg-primary</code> — left-to-right composition</li>
+</ul>
+<h2>Brand tokens (16)</h2>
+<p>Override any token in a component&#39;s <code>@style</code> block via
+<code>@theme { --color-primary: oklch(...); }</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Token</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>primary</code> / <code>primary-foreground</code></td>
+<td><code>secondary</code> / <code>secondary-foreground</code></td>
+</tr>
+<tr>
+<td><code>accent</code> / <code>accent-foreground</code></td>
+<td><code>surface</code> / <code>surface-foreground</code></td>
+</tr>
+<tr>
+<td><code>destructive</code> / <code>destructive-foreground</code></td>
+<td><code>background</code> / <code>foreground</code></td>
+</tr>
+<tr>
+<td><code>muted</code> / <code>muted-foreground</code></td>
+<td><code>border</code> / <code>ring</code></td>
+</tr>
+</tbody></table>
+<p>Use as <code>bg-primary</code>, <code>text-accent</code>, <code>border-muted</code>, <code>ring-ring</code>, etc.</p>
+<h2>Palette</h2>
+<p>22 color families × 11 shades (<code>50</code>–<code>950</code>), matching the Tailwind v4 palette
+(e.g. <code>bg-red-500</code>, <code>text-slate-700</code>, <code>border-zinc-200</code>). See the
+<a href="https://tailwindcss.com/docs/colors">Tailwind v4 color palette</a> for the full
+swatch list.</p>
+<h2>Arbitrary values</h2>
+<p>Use <code>prefix-[value]</code> to bypass the scale for: <code>bg</code>, <code>text</code>, <code>w</code>, <code>h</code>, <code>min-w</code>,
+<code>max-w</code>, <code>min-h</code>, <code>max-h</code>, <code>p</code>, <code>px</code>, <code>py</code>, <code>m</code>, <code>mx</code>, <code>my</code>, <code>gap</code>, <code>rounded</code>,
+<code>border</code>, <code>leading</code>, <code>tracking</code>, <code>z</code>, <code>top</code>, <code>right</code>, <code>bottom</code>, <code>left</code>,
+<code>inset</code>, <code>fill</code>, <code>stroke</code>, <code>shadow</code>.</p>
+<pre><code>bg-[#1a1d24]   →  background-color: #1a1d24;
+w-[34ch]       →  width: 34ch;
+top-[1rem]     →  top: 1rem;
+</code></pre>
+<h2>Not yet supported</h2>
+<blockquote>
+<p>The following are deliberately out of scope today. Most have an
+arbitrary-value workaround; the rest require variant-parser changes. Open an
+issue if you need one promoted.</p>
+</blockquote>
+<ul>
+<li><code>group:</code> / <code>peer:</code> variants</li>
+<li>Container queries (<code>@container</code>)</li>
+<li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
+<li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
+<li><code>divide-x</code> / <code>divide-y</code> (use <code>space-x/y</code> for a similar effect)</li>
+<li><code>ring-{n}</code> widths and <code>ring-offset-*</code></li>
+<li><code>top</code> / <code>right</code> / <code>bottom</code> / <code>left</code> / <code>inset</code> named scale (use arbitrary: <code>top-[1rem]</code>)</li>
+<li><code>leading-*</code> / <code>tracking-*</code> named scale (use arbitrary: <code>leading-[1.4]</code>)</li>
+</ul>
+<h2>Worked examples</h2>
+<p>One input → output pair per new family.</p>
+<h3><code>space-y-4</code> (Spacing)</h3>
+<pre><code class="language-html">&lt;ul class=&quot;space-y-4&quot;&gt; … &lt;/ul&gt;
+</code></pre>
+<pre><code class="language-css">.space-y-4 { &amp; &gt; * + * { margin-block-start: 1rem; } }
+</code></pre>
+<h3><code>mx-auto</code> (Margin auto)</h3>
+<pre><code class="language-html">&lt;div class=&quot;mx-auto&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.mx-auto { margin-inline: auto; }
+</code></pre>
+<h3><code>max-w-7xl</code> (Named max-width)</h3>
+<pre><code class="language-html">&lt;section class=&quot;max-w-7xl&quot;&gt; … &lt;/section&gt;
+</code></pre>
+<pre><code class="language-css">.max-w-7xl { max-width: 80rem; }
+</code></pre>
+<h3><code>grid-cols-3</code> (Grid templating)</h3>
+<pre><code class="language-html">&lt;div class=&quot;grid grid-cols-3 gap-4&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+</code></pre>
+<h3><code>border-t-4</code> (Directional border width)</h3>
+<pre><code class="language-html">&lt;div class=&quot;border-t-4&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.border-t-4 { border-top-width: 4px; }
+</code></pre>
+<h2>See also</h2>
+<ul>
+<li><a href="#styling">Styling</a> — how the engine scans and scopes utilities</li>
+<li><a href="#theming">Theming</a> — design tokens and style packs</li>
+<li><a href="#api-reference">API Reference</a> — <code>@aihu/css-engine</code> export tables</li>
 </ul>
 `,
   },
