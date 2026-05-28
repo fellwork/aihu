@@ -1,5 +1,44 @@
 # @aihu/compiler
 
+## 0.5.3
+
+### Patch Changes
+
+- [#253](https://github.com/fellwork/aihu/pull/253) [`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Forward `shadowMode` through `viteAihuPlugin` for utility-class CSS frameworks.
+
+  - **`@aihu/app`** — new `css.shadowMode` option on `AihuConfig`. When set, it
+    forwards to the compiler's per-plugin `shadowMode` injection
+    (`'open' | 'closed' | 'none'`). Required for consumers of
+    `@aihu/css-engine` (and other cascade-dependent CSS frameworks) so the
+    utility classes the compiler folds in are not trapped inside a shadow root.
+    Default behaviour is unchanged.
+  - **`@aihu/compiler`** — `_maybeCompileUtilityCss` now emits a one-shot
+    `console.warn` when `@aihu/css-engine` resolves but `compileSfc()` throws
+    (typically: the native `aihu-css-core` binary is unresolvable). Build is
+    still non-fatal; previously this case was completely silent and users
+    could not discover why their utility classes never emitted.
+  - **`@aihu/css-engine`** — README now documents the canonical
+    `viteAihuPlugin({ css: { shadowMode: 'none' } })` wiring and points to the
+    new `examples/css-engine-utility/` end-to-end example.
+
+- [#254](https://github.com/fellwork/aihu/pull/254) [`52a7ee6`](https://github.com/fellwork/aihu/commit/52a7ee600c1f94ac741c01d6d9c0a4a203fc0ef3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Preserve same-line significant whitespace between a text node and an inline
+  element sibling in `@template { ... }` blocks.
+
+  Previously, `emit_node` for `TemplateNode::Text` called `s.trim()`
+  unconditionally, deleting the single space required by HTML/JSX rules between
+  a text run and an adjacent inline tag. Templates like
+  `<p>foo <code>bar</code> baz</p>` compiled to
+  `leaf('foo'), branch('code',…), leaf('baz')` — losing both spaces and
+  running the text together at render time.
+
+  Now leading/trailing whitespace on the same line as content is preserved as a
+  single space (per JSX semantics). Multi-line surrounding whitespace
+  (template indentation/newlines) is still stripped as before. Internal
+  whitespace runs are still collapsed to a single space.
+
+- Updated dependencies [[`d42793b`](https://github.com/fellwork/aihu/commit/d42793b8258d723ae7c80179dcc82e2db8d0afc4)]:
+  - @aihu/css-engine@0.2.4
+
 ## 0.5.2
 
 ### Patch Changes
