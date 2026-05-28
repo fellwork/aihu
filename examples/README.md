@@ -25,7 +25,7 @@
 | 13 | [`cf-adapter/`](./cf-adapter) | meta | ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
-| 16 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
+| 16 | `storefront/` (new) | meta | M2 ready | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
 
 ### Archived
 
