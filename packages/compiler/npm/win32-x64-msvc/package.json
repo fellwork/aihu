@@ -1,0 +1,14 @@
+{
+  "name": "@aihu/compiler-win32-x64-msvc",
+  "version": "0.5.4",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "aihu-compile.exe"
+  ]
+}

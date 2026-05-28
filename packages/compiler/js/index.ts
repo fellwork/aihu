@@ -3,18 +3,226 @@
  *
  * Exports:
  *   transform(source, id)    — compile a single .aihu file to TypeScript
- *   aihuCompilerPlugin()   — Vite plugin that wires transform() into the build
+ *   compileToAst(source, id) — return the parsed SFC AST
+ *   resolveBinary()          — resolve the absolute path of the aihu-compile executable
+ *   aihuCompilerPlugin()     — Vite plugin that wires transform() into the build
  */
 import { execFileSync } from 'node:child_process'
-import { basename, dirname, resolve } from 'node:path'
+import { accessSync, constants, existsSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Binary resolution: env var override, fallback to the bin/ directory written
-// by the postinstall hook (packages/compiler/bin/aihu-compile[.exe]).
-const ext = process.platform === 'win32' ? '.exe' : ''
-const binPath: string =
-  process.env.SCRIBE_COMPILE_BIN ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../bin/aihu-compile${ext}`)
+// ---------------------------------------------------------------------------
+// Platform support matrix — Bug E migration (platform-optional-deps pattern)
+// ---------------------------------------------------------------------------
+//
+// Mirrors @aihu/css-engine's resolveBinary() (packages/css-engine/src/index.ts).
+// Each entry maps process.platform + process.arch to the per-platform npm
+// package that ships the prebuilt `aihu-compile` executable, plus the binary's
+// filename inside that package. The packages are declared as
+// `optionalDependencies` of @aihu/compiler so the package manager installs only
+// the matching one per consumer host. There is NO postinstall script — Bun
+// blocks those by default, and css-engine + @aihu/server prove that this
+// pattern works cleanly under Bun / npm / pnpm / yarn alike.
+
+interface PlatformDescriptor {
+  readonly platformId: string
+  readonly packageName: string
+  /** Executable filename inside the platform package. */
+  readonly binFile: string
+}
+
+function detectPlatform(): PlatformDescriptor | null {
+  if (typeof process === 'undefined' || !process.platform || !process.arch) {
+    return null
+  }
+  const key = `${process.platform}-${process.arch}`
+  switch (key) {
+    case 'darwin-arm64':
+      return {
+        platformId: 'darwin-arm64',
+        packageName: '@aihu/compiler-darwin-arm64',
+        binFile: 'aihu-compile',
+      }
+    case 'darwin-x64':
+      return {
+        platformId: 'darwin-x64',
+        packageName: '@aihu/compiler-darwin-x64',
+        binFile: 'aihu-compile',
+      }
+    case 'linux-x64':
+      // We only ship glibc; musl users fall through to the dev/source path.
+      return {
+        platformId: 'linux-x64-gnu',
+        packageName: '@aihu/compiler-linux-x64-gnu',
+        binFile: 'aihu-compile',
+      }
+    case 'linux-arm64':
+      return {
+        platformId: 'linux-arm64-gnu',
+        packageName: '@aihu/compiler-linux-arm64-gnu',
+        binFile: 'aihu-compile',
+      }
+    case 'win32-x64':
+      return {
+        platformId: 'win32-x64-msvc',
+        packageName: '@aihu/compiler-win32-x64-msvc',
+        binFile: 'aihu-compile.exe',
+      }
+    default:
+      return null
+  }
+}
+
+/**
+ * Whether `candidate` is a usable `aihu-compile` executable — NOT merely a
+ * present file.
+ *
+ * The per-platform packages carry a placeholder `aihu-compile` in source; the
+ * real prebuilt binary is only injected by release CI. A bare `existsSync`
+ * would happily return the non-executable placeholder, which then blows up
+ * with EACCES inside `spawnSync`/`execFileSync`. POSIX: require the execute
+ * bit (X_OK). Windows: there is no execute bit, so we additionally require a
+ * non-empty regular file (rejects a zero-byte placeholder).
+ *
+ * @internal
+ */
+function isUsableExecutable(candidate: string): boolean {
+  try {
+    const st = statSync(candidate)
+    if (!st.isFile() || st.size === 0) return false
+    accessSync(candidate, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+let _cachedBinPath: string | null = null
+
+/**
+ * Resolve the absolute path to the `aihu-compile` executable.
+ *
+ * Resolution order:
+ *   1. `SCRIBE_COMPILE_BIN` env var override (dev/test escape hatch).
+ *   2. The per-platform optionalDependency package
+ *      (`@aihu/compiler-<platform>`) shipped to npm consumers — resolved via
+ *      `createRequire(...).resolve('<pkg>/package.json')` so it works in both
+ *      ESM and CJS and respects the consumer's node_modules layout.
+ *   3. Dev fallback: the monorepo workspace `target/release|debug/` — only
+ *      present in a dev clone with a Rust toolchain
+ *      (`cargo build --release -p aihu-compile`).
+ *   4. Legacy fallback: `packages/compiler/bin/aihu-compile` from the
+ *      pre-Bug-E postinstall layout. Kept so a dev clone with a stale
+ *      bin/ directory still works during the transition.
+ *
+ * If neither path yields a usable binary, throws a structured error pointing
+ * at the missing optionalDependency. The first successful resolution is
+ * cached for the lifetime of the process.
+ */
+export function resolveBinary(): string {
+  if (_cachedBinPath !== null) return _cachedBinPath
+
+  // 1. Env-var override — takes precedence over everything else.
+  const override = process.env.SCRIBE_COMPILE_BIN
+  if (override !== undefined && override !== '') {
+    if (!existsSync(override)) {
+      throw new Error(
+        `[@aihu/compiler] SCRIBE_COMPILE_BIN is set to "${override}" but that file does not exist.`,
+      )
+    }
+    _cachedBinPath = override
+    return _cachedBinPath
+  }
+
+  const descriptor = detectPlatform()
+  const __dirname = dirname(fileURLToPath(import.meta.url))
+
+  // 2. Per-platform optionalDependency package (the published-consumer path).
+  //
+  // Accept the candidate ONLY if it is a usable executable. A present-but-
+  // non-executable placeholder (the in-source stub that becomes resolvable
+  // once the per-platform packages are pinned in the lockfile) must NOT be
+  // returned — doing so spawns a non-executable file and fails with EACCES.
+  if (descriptor) {
+    const requireFn = createRequire(import.meta.url)
+    try {
+      const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
+      const candidate = join(dirname(pkgJson), descriptor.binFile)
+      if (isUsableExecutable(candidate)) {
+        _cachedBinPath = candidate
+        return _cachedBinPath
+      }
+    } catch {
+      // Package not installed (optionalDependency skipped for this platform,
+      // or a partial install). Fall through.
+    }
+  }
+
+  // 3. Dev fallback: monorepo workspace target/ release or debug builds.
+  const ext = process.platform === 'win32' ? '.exe' : ''
+  const devCandidates = [
+    // From packages/compiler/dist/index.js → ../../../target/release
+    resolve(__dirname, '../../../target/release', `aihu-compile${ext}`),
+    resolve(__dirname, '../../../target/debug', `aihu-compile${ext}`),
+    // From packages/compiler/js/index.ts (vitest / src run) → ../../../target
+    resolve(__dirname, '../../target/release', `aihu-compile${ext}`),
+    resolve(__dirname, '../../target/debug', `aihu-compile${ext}`),
+    // 4. Legacy postinstall layout (pre-Bug-E dev clones).
+    resolve(__dirname, '../bin', `aihu-compile${ext}`),
+  ]
+  for (const c of devCandidates) {
+    if (isUsableExecutable(c)) {
+      _cachedBinPath = c
+      return _cachedBinPath
+    }
+  }
+
+  throw buildMissingBinaryError(descriptor, devCandidates)
+}
+
+function buildMissingBinaryError(
+  descriptor: PlatformDescriptor | null,
+  devCandidates: string[],
+): Error {
+  if (descriptor === null) {
+    return new Error(
+      `[@aihu/compiler] No prebuilt aihu-compile binary for this platform.\n\n` +
+        `  Platform:        ${typeof process !== 'undefined' ? `${process.platform}-${process.arch}` : 'unknown'}\n\n` +
+        `  @aihu/compiler ships prebuilt binaries for darwin-arm64, darwin-x64,\n` +
+        `  linux-x64-gnu (glibc), linux-arm64-gnu (glibc), and win32-x64-msvc.\n` +
+        `  Your platform is not in that set.\n\n` +
+        `  To build from source you need a Rust toolchain, then run from the repo root:\n` +
+        `    cargo build --release -p aihu-compile\n\n` +
+        `  …and point SCRIBE_COMPILE_BIN at the resulting binary.\n\n` +
+        `  Checked dev fallback paths: ${devCandidates.join(', ')}`,
+    )
+  }
+  return new Error(
+    `[@aihu/compiler] Native compiler binary not found for this platform.\n\n` +
+      `  Platform:         ${descriptor.platformId}\n` +
+      `  Expected package: ${descriptor.packageName}\n` +
+      `  Expected file:    ${descriptor.packageName}/${descriptor.binFile}\n\n` +
+      `  This binary is distributed as an optionalDependency of @aihu/compiler.\n` +
+      `  Your package manager may have skipped it (optionalDependencies are\n` +
+      `  silently dropped on install failure).\n\n` +
+      `  To reinstall:\n` +
+      `    npm install @aihu/compiler\n` +
+      `    # or: pnpm install   or: bun install\n\n` +
+      `  Dev override: set SCRIBE_COMPILE_BIN to an absolute path of a built\n` +
+      `  binary, or in the aihu monorepo build from source:\n` +
+      `    cargo build --release -p aihu-compile\n` +
+      `  Checked dev fallback paths: ${devCandidates.join(', ')}`,
+  )
+}
+
+// Backwards-compatible accessor used by transform() / compileToAst() below.
+// Lazy — never resolves at module load (so importing `aihuCompilerPlugin`
+// in a context that never compiles a `.aihu` file remains a no-op).
+function getBinPath(): string {
+  return resolveBinary()
+}
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
@@ -385,7 +593,7 @@ export function transform(
   if (options?.sidecarOut) {
     args.push('--sidecar-out', options.sidecarOut)
   }
-  const code = execFileSync(binPath, args, {
+  const code = execFileSync(getBinPath(), args, {
     input: source,
     encoding: 'utf8',
   })
@@ -584,7 +792,7 @@ export function compileToAst(source: string, id?: string): SfcAst {
   if (id) {
     args.push('--path', id)
   }
-  const json = execFileSync(binPath, args, {
+  const json = execFileSync(getBinPath(), args, {
     input: source,
     encoding: 'utf8',
   })
@@ -800,7 +1008,7 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
     // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
     // binary this plugin uses (it has no compiler binary of its own).
     if (process.env.SCRIBE_COMPILE_BIN == null) {
-      process.env.SCRIBE_COMPILE_BIN = binPath
+      process.env.SCRIBE_COMPILE_BIN = getBinPath()
     }
     return _cssEngine.compileSfc(source, id)
   } catch (err) {

@@ -7,6 +7,7 @@ import { dts } from 'rolldown-plugin-dts'
 // @aihu/compiler source) IS bundled so the server is self-contained.
 const external = [
   /^node:/,
+  '@aihu/compiler',
   'vscode-languageserver',
   'vscode-languageserver/node.js',
   'vscode-languageserver-textdocument',

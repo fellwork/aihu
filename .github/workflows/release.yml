@@ -469,6 +469,98 @@ jobs:
           done
 
   # ---------------------------------------------------------------------------
+  # @aihu/compiler-* platform packages (Bug E migration — platform-optional-deps).
+  #
+  # Mirrors publish-css-native: takes the freshly built `aihu-compile-<asset>`
+  # artifacts from the `build` matrix above, drops each one into the matching
+  # packages/compiler/npm/<platform>/ directory (renaming to the canonical
+  # `aihu-compile`[`.exe`] filename declared in each platform package.json's
+  # `files`), chmod 0755's it (Bug B's lesson, baked in from day one — without
+  # this the platform tarballs ship -rw-r--r-- and consumers hit EACCES at
+  # spawn), and publishes each. Idempotent — re-runs on retag skip already-
+  # published versions.
+  #
+  # Five platforms (vs css-engine's 4): compiler additionally ships
+  # linux-arm64-gnu so Bun on AWS Graviton / Raspberry Pi 4/5 works.
+  # ---------------------------------------------------------------------------
+  publish-compiler-native:
+    name: Publish @aihu/compiler-* platform packages
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all compiler binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: native-artifacts
+
+      - name: Stage and publish each platform package (idempotent)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Map: <npm-dir-platform> → <release-asset-name> from the build matrix.
+          # build matrix asset names live in this file's `jobs.build.matrix.include`.
+          declare -A asset_for
+          asset_for[darwin-arm64]=aihu-compile-darwin-arm64
+          asset_for[darwin-x64]=aihu-compile-darwin-x64
+          asset_for[linux-x64-gnu]=aihu-compile-linux-x64
+          asset_for[linux-arm64-gnu]=aihu-compile-linux-arm64
+          asset_for[win32-x64-msvc]=aihu-compile-windows-x64.exe
+
+          for dir in packages/compiler/npm/*/; do
+            platform=$(basename "$dir")
+            asset="${asset_for[$platform]:-}"
+            if [ -z "$asset" ]; then
+              echo "no asset mapping for $platform — skipping"
+              continue
+            fi
+            src="native-artifacts/${asset}/${asset}"
+            if [ ! -f "$src" ]; then
+              echo "no compiler binary artifact at ${src} — skipping ${platform}"
+              continue
+            fi
+            # The platform package.json's `files` declares the canonical
+            # filename (`aihu-compile` on Unix, `aihu-compile.exe` on Windows).
+            # Match Windows by suffix so the mapping table stays platform-agnostic.
+            case "$platform" in
+              win32-*)
+                dest="$dir/aihu-compile.exe"
+                cp "$src" "$dest"
+                # No chmod on Windows — there is no execute bit; the .exe
+                # extension is what makes it runnable. css-engine's
+                # publish-css-native skips chmod the same way.
+                ;;
+              *)
+                dest="$dir/aihu-compile"
+                cp "$src" "$dest"
+                # Bug B's lesson, applied from day one: the tarball uploaded
+                # to npm bakes file modes. Without 0755 here every consumer
+                # hits EACCES at spawnSync time. Mirrors publish-css-native.
+                chmod 0755 "$dest"
+                ;;
+            esac
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            # Idempotency: skip if this version is already on npm (re-run / retag).
+            existing=$(npm view "${pkg_name}@${pkg_version}" version 2>/dev/null || true)
+            if [ -n "$existing" ]; then
+              echo "${pkg_name}@${pkg_version} already published — skipping"
+              continue
+            fi
+            ( cd "$dir" && npm publish --access public )
+          done
+
+  # ---------------------------------------------------------------------------
   # Publish all tier A/B/C/D @aihu/* JS packages on `v*` tag.
   #
   # Mirrors the publish-native pattern: triggered only by an actual tag push,
@@ -484,7 +576,16 @@ jobs:
   # ---------------------------------------------------------------------------
   publish-packages:
     name: Publish @aihu/* packages to npm
-    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native]
+    needs:
+      [
+        build,
+        build-wasm,
+        build-native,
+        publish-native,
+        build-css-native,
+        publish-css-native,
+        publish-compiler-native,
+      ]
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -517,29 +618,13 @@ jobs:
       - name: Install workspace
         run: bun install --frozen-lockfile
 
-      - name: Download compiler binaries
-        # Postinstall would normally fetch from GitHub releases at install
-        # time on the consumer machine; in CI we have the freshly-built
-        # artifacts available. Stage the host platform's binary so the
-        # compiler package's prepublishOnly + bin field are coherent.
-        uses: actions/download-artifact@v4
-        with:
-          path: native-artifacts
-
-      - name: Stage compiler bin (linux-x64 host)
-        run: |
-          mkdir -p packages/compiler/bin
-          if [ -f native-artifacts/aihu-compile-linux-x64/aihu-compile-linux-x64 ]; then
-            cp native-artifacts/aihu-compile-linux-x64/aihu-compile-linux-x64 packages/compiler/bin/aihu-compile
-            chmod 0755 packages/compiler/bin/aihu-compile
-          fi
-          # The published tarball does NOT include this bin file — consumer
-          # postinstall fetches the right binary for their platform from the
-          # GitHub Release. The bin/ entry in package.json points to the
-          # postinstall-populated path. Staging here is for prepublishOnly
-          # build steps that exec the binary; not bundled.
-
       - name: Build all packages
+        # Bug E migration: there is no longer a "stage compiler bin" step.
+        # The compiler binary used to be downloaded by the consumer at install
+        # time via js/postinstall.ts (deleted). It now ships inside per-platform
+        # @aihu/compiler-<platform> packages published by the
+        # `publish-compiler-native` job above. `bun run build` over the
+        # compiler is a no-op for the binary — only the JS wrapper is rebuilt.
         run: bun run build
 
       - name: Publish via Changesets

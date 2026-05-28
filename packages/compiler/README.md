@@ -21,7 +21,7 @@ npm install @aihu/compiler
 bun add @aihu/compiler
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,12 +32,12 @@ bun add @aihu/compiler
 
 | | |
 |---|---|
-| **Version** | `0.5.3` |
+| **Version** | `0.5.4` |
 | **Tier** | D — Compiler — Single-File Component (.aihu) → Web Component |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/compiler
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +64,15 @@ bun add @aihu/compiler
 - `vite` — `>=5.0.0`
 - `@aihu/css-engine` — `>=0.2.4`
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+**Optional dependencies (platform-specific):**
+
+- `@aihu/compiler-darwin-arm64` — `workspace:^`
+- `@aihu/compiler-darwin-x64` — `workspace:^`
+- `@aihu/compiler-linux-x64-gnu` — `workspace:^`
+- `@aihu/compiler-linux-arm64-gnu` — `workspace:^`
+- `@aihu/compiler-win32-x64-msvc` — `workspace:^`
+
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -78,7 +86,7 @@ bun add @aihu/compiler
 - [Macro Vocabulary spec](../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -89,6 +97,6 @@ bun add @aihu/compiler
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler@0.5.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -166,8 +166,8 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | — | 300 B | _no dist_ |
-| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/context` | 242 B | 300 B | pass |
+| `@aihu/signals` | 1.69 kB | 1970 B | pass |
 | `@aihu/arbor` | — | 2800 B | _no dist_ |
 | `@aihu/runtime` | — | 3450 B | _no dist_ |
 | `@aihu/agent` | — | 200 B | _no dist_ |
@@ -235,7 +235,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/arbor`](./packages/arbor) | `0.1.5` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `0.1.2` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.5.3` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.5.3` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.5.4` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.2.4` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |

@@ -1,7 +1,11 @@
-# Pre-built aihu-compile binary fetched by js/postinstall.ts at install
-# time. Always platform-specific and never committed — consumers download
-# from GitHub Releases.
-bin/
+# Pre-built aihu-compile binary that used to be written by the
+# (now-removed) js/postinstall.ts. Never committed — platform binaries
+# now ship via per-platform optionalDependency packages
+# (packages/compiler/npm/<platform>/aihu-compile). The thin Node wrapper
+# at bin/aihu-compile-wrapper.js IS committed (it shells through
+# resolveBinary()).
+bin/aihu-compile
+bin/aihu-compile.exe
 
 # Cargo build outputs (native + cross-compiled targets).
 target/

@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,11 +13,11 @@
     }
   },
   "bin": {
-    "aihu-compile": "./bin/aihu-compile"
+    "aihu-compile": "./bin/aihu-compile-wrapper.js"
   },
   "files": [
     "dist",
-    "js/postinstall.ts",
+    "bin/aihu-compile-wrapper.js",
     "README.md",
     "LICENSE"
   ],
@@ -25,9 +25,15 @@
   "scripts": {
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit",
-    "postinstall": "bun run js/postinstall.ts",
     "prepublishOnly": "bun run build",
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
+  },
+  "optionalDependencies": {
+    "@aihu/compiler-darwin-arm64": "workspace:^",
+    "@aihu/compiler-darwin-x64": "workspace:^",
+    "@aihu/compiler-linux-x64-gnu": "workspace:^",
+    "@aihu/compiler-linux-arm64-gnu": "workspace:^",
+    "@aihu/compiler-win32-x64-msvc": "workspace:^"
   },
   "peerDependencies": {
     "vite": ">=5.0.0",

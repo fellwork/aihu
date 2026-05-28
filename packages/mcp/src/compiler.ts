@@ -7,31 +7,16 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { basename, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename } from 'node:path'
+import { resolveBinary } from '@aihu/compiler'
 
-const ext = process.platform === 'win32' ? '.exe' : ''
-
-function resolveBinPath(): string {
-  if (process.env.SCRIBE_COMPILE_BIN) {
-    return process.env.SCRIBE_COMPILE_BIN
-  }
-
-  const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
-    resolve(here, '../../../compiler/bin', `aihu-compile${ext}`),
-    resolve(here, '../../compiler/bin', `aihu-compile${ext}`),
-  ]
-
-  for (const p of candidates) {
-    if (existsSync(p)) return p
-  }
-
-  return `aihu-compile${ext}`
+// Lazy: resolveBinary() does its own caching, and we want to defer the lookup
+// until the first compile (avoids module-load-time failure when @aihu/compiler
+// is installed but the platform package is not — e.g. running tests in an
+// unrelated subpackage).
+function getBinPath(): string {
+  return resolveBinary()
 }
-
-const binPath = resolveBinPath()
 
 const TIMEOUT_MS = parseInt(process.env.AIHU_MCP_COMPILE_TIMEOUT_MS ?? '10000', 10)
 
@@ -86,7 +71,7 @@ export function compileSource(source: string, filename: string): ValidateResult 
 
   try {
     const stdout = execFileSync(
-      binPath,
+      getBinPath(),
       ['--stdin', '--tag', stem, '--path', filename, '--machine-errors'],
       { input: source, encoding: 'utf8', timeout: TIMEOUT_MS },
     )

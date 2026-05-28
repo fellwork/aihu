@@ -1,8 +1,8 @@
-# @aihu/mcp
+# @aihu/compiler-darwin-arm64
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.
+Held private (unmapped tier)
 
 Held-private workspace package. Not yet published to npm.
 
@@ -18,12 +18,12 @@ _(Hand-written prose lives in this block. Replace this placeholder; everything b
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 ```bash
-npm install @aihu/mcp
+npm install @aihu/compiler-darwin-arm64
 # or
-bun add @aihu/mcp
+bun add @aihu/compiler-darwin-arm64
 ```
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,12 +34,12 @@ bun add @aihu/mcp
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.5.4` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Published files** | 3 entries |
+| **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -48,11 +48,9 @@ bun add @aihu/mcp
 <!-- BEGIN_AUTOGEN: exports -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-| Subpath | ESM | CJS |
-|---|---|---|
-| `.` | `./dist/index.js` | `—` |
+_No `exports` field in `package.json`. Main entry: `unset`._
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -61,12 +59,9 @@ bun add @aihu/mcp
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-**Dependencies:**
+_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-- `@aihu/compiler` — `workspace:^`
-- `@modelcontextprotocol/sdk` — `^1.0.0`
-
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -75,10 +70,10 @@ bun add @aihu/mcp
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
+- [Aihu framework root](../../../../README.md)
+- [v1.1 roadmap](../../../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -87,8 +82,8 @@ bun add @aihu/mcp
 <!-- BEGIN_AUTOGEN: license -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-MIT — see [LICENSE](../../LICENSE).
+MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.5.4`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -1,0 +1,17 @@
+{
+  "name": "@aihu/compiler-linux-arm64-gnu",
+  "version": "0.5.4",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "aihu-compile"
+  ]
+}

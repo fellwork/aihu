@@ -9,6 +9,7 @@ const external = [
   'node:fs',
   'node:fs/promises',
   'node:os',
+  '@aihu/compiler',
   '@modelcontextprotocol/sdk',
   '@modelcontextprotocol/sdk/server/index.js',
   '@modelcontextprotocol/sdk/server/stdio.js',

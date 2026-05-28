@@ -13,9 +13,8 @@
  * seam for a future `@volar/language-core` virtual-code adoption (arch-4 §2.7).
  */
 import { type ExecFileOptionsWithStringEncoding, execFile } from 'node:child_process'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { resolveBinary } from '@aihu/compiler'
 
 const execFileAsync = promisify(execFile)
 
@@ -24,15 +23,15 @@ const execFileAsync = promisify(execFile)
 // the call site stays type-safe while feeding source on stdin.
 type ExecFileStdinOptions = ExecFileOptionsWithStringEncoding & { input: string }
 
-const ext = process.platform === 'win32' ? '.exe' : ''
-// Resolve binary relative to this module. In the built package the layout is
-// dist/core/diagnostics.js → ../../../compiler/bin/aihu-compile (sibling package
-// in the workspace / installed node_modules). In source/test runs (vitest
-// resolves this file at src/core/diagnostics.ts) the same relative climb lands
-// on packages/compiler/bin/. The AIHU_COMPILE_BIN env var overrides both.
-const binPath: string =
-  process.env.AIHU_COMPILE_BIN ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../../../compiler/bin/aihu-compile${ext}`)
+// Resolve the compiler binary via @aihu/compiler's public resolver — which
+// walks the per-platform optionalDependency packages (Bug E migration). The
+// AIHU_COMPILE_BIN env var preserves the language-server-specific override
+// (predates the unified resolver); SCRIBE_COMPILE_BIN is honoured by
+// resolveBinary() itself as the framework-wide override.
+function getBinPath(): string {
+  if (process.env.AIHU_COMPILE_BIN) return process.env.AIHU_COMPILE_BIN
+  return resolveBinary()
+}
 
 /**
  * The raw JSON shape emitted by the Rust binary with --machine-errors.
@@ -167,7 +166,7 @@ export async function compileWithDiagnostics(
       maxBuffer: 8 * 1024 * 1024,
     }
     const { stdout } = await execFileAsync(
-      binPath,
+      getBinPath(),
       ['--stdin', '--tag', stem, '--path', filePath, '--machine-errors'],
       options,
     )

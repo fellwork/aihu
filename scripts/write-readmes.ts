@@ -179,7 +179,7 @@ import { aihuCompiler } from '@aihu/compiler';
 
 export default defineConfig({ plugins: [aihuCompiler()] });`,
     extra:
-      '⚠ **Native binary required.** This package downloads a pre-built `aihu-compile` binary at install time via `js/postinstall.ts` (see [WASM.md](https://github.com/fellwork/aihu/blob/main/packages/compiler/WASM.md)). Binaries are published per-platform from the `release.yml` workflow on every `v*` tag. SHA256-verified per arch-4 §4.3.',
+      '⚠ **Native binary required.** This package ships pre-built `aihu-compile` binaries via per-platform `optionalDependencies` (`@aihu/compiler-<platform>`) — mirroring the `@aihu/css-engine` / `@aihu/server` distribution pattern. There is **no** postinstall script; your package manager resolves the right platform package automatically. Bun consumers no longer hit "Blocked 1 postinstall." Binaries are published per-platform from the `release.yml` workflow on every `v*` tag.',
   },
   {
     name: 'cli',
