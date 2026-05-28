@@ -24,5 +24,15 @@ export default defineConfig({
     entryFileNames: '[name].js',
   },
   plugins: [dts()],
-  external: ['node:child_process', 'node:fs', 'node:module', 'node:path', 'node:url'],
+  external: [
+    'node:child_process',
+    'node:fs',
+    'node:module',
+    'node:path',
+    'node:url',
+    // Bug A fix: keep @aihu/compiler external so consumers always resolve
+    // the LIVE compiler module (with its current binary-resolution logic)
+    // instead of a frozen pre-fix copy inlined into our bundle at build time.
+    '@aihu/compiler',
+  ],
 })
