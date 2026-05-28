@@ -4,22 +4,36 @@
 }
 
 @template {
-  <section class="flex flex-col gap-6 px-4 py-6 items-center">
+  <section class="max-w-7xl mx-auto flex flex-col gap-6 px-4 py-6">
     <h1 class="text-lg font-bold">css-engine utility classes</h1>
     <p class="text-sm">
-      Utility classes (<code>flex</code>, <code>flex-col</code>, <code>gap-6</code>,
-      <code>px-4</code>, <code>py-6</code>, <code>items-center</code>,
-      <code>text-lg</code>, <code>font-bold</code>, <code>text-sm</code>)
-      are compiled by <code>@aihu/css-engine</code> via the compiler hook
-      wired into <code>viteAihuPlugin</code>. Because
-      <code>css.shadowMode: 'none'</code> is set, the generated CSS lands in
-      the document cascade.
+      Utility classes (<code>max-w-7xl</code>, <code>mx-auto</code>,
+      <code>flex</code>, <code>flex-col</code>, <code>gap-6</code>,
+      <code>px-4</code>, <code>py-6</code>, <code>text-lg</code>,
+      <code>font-bold</code>, <code>text-sm</code>) are compiled by
+      <code>@aihu/css-engine</code> via the compiler hook wired into
+      <code>viteAihuPlugin</code>. Because <code>css.shadowMode: 'none'</code>
+      is set, the generated CSS lands in the document cascade.
     </p>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div class="border-2 rounded p-4">one</div>
+      <div class="border-2 rounded p-4">two</div>
+      <div class="border-2 rounded p-4">three</div>
+    </div>
+
+    <ul class="space-y-4">
+      <li class="text-sm">space-y-4 keeps siblings evenly stacked</li>
+      <li class="text-sm">no margin on the first child</li>
+      <li class="text-sm">margin-block-start on the rest</li>
+    </ul>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
-      <code>packages/css-engine/README.md</code> for the full table, including
-      what is <em>not</em> supported (e.g. <code>grid-cols-N</code>,
-      <code>mx-auto</code>, <code>max-w-7xl</code>, responsive prefixes).
+      <code>apps/docs/.../reference/utility-classes.md</code> for the full
+      table, including what is <em>not</em> yet supported (e.g.
+      <code>group:</code>/<code>peer:</code> variants, container queries, and
+      motion utilities).
     </p>
   </section>
 }

@@ -60,6 +60,7 @@
         <li><a class="nav-link" href="#migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
         <li><a class="nav-link" href="#deployment" $class:active={activePage() === 'deployment'}>Deployment</a></li>
         <li><a class="nav-link" href="#api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
+        <li><a class="nav-link" href="#utility-classes" $class:active={activePage() === 'utility-classes'}>Utility Classes</a></li>
       </ul>
 
     </nav>

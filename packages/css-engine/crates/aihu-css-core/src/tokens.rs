@@ -41,6 +41,20 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
         }
     }
 
+    // `space-x-*` / `space-y-*` emit nested sibling-margin rules. The group
+    // key is the inner declaration so `space-x-2` and `space-x-4` collide
+    // (last wins), while `space-x-*` and `space-y-*` do not collide with
+    // each other.
+    out.push(("space-x", "space-x"));
+    out.push(("space-y", "space-y"));
+
+    // Grid templating prefixes — each maps to a single CSS property so the
+    // `cn()` last-wins behaviour works per family.
+    out.push(("grid-cols", "grid-template-columns"));
+    out.push(("grid-rows", "grid-template-rows"));
+    out.push(("col-span", "grid-column"));
+    out.push(("row-span", "grid-row"));
+
     const SIZING_PREFIXES: &[&str] = &["w", "h", "min-w", "max-w", "min-h", "max-h"];
     for p in SIZING_PREFIXES {
         if let Some(group) = sizing_prop(p) {
@@ -228,6 +242,37 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "shadow-lg" => "box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);",
         "shadow-none" => "box-shadow: none;",
 
+        // Border widths (fixed N values). Directional + arbitrary `border-N`
+        // arms are also wired via `parameterized_utility` below.
+        "border-0" => "border-width: 0;",
+        "border-2" => "border-width: 2px;",
+        "border-4" => "border-width: 4px;",
+        "border-8" => "border-width: 8px;",
+        "border-x-0" => "border-inline-width: 0;",
+        "border-x-2" => "border-inline-width: 2px;",
+        "border-x-4" => "border-inline-width: 4px;",
+        "border-x-8" => "border-inline-width: 8px;",
+        "border-y-0" => "border-block-width: 0;",
+        "border-y-2" => "border-block-width: 2px;",
+        "border-y-4" => "border-block-width: 4px;",
+        "border-y-8" => "border-block-width: 8px;",
+        "border-t-0" => "border-top-width: 0;",
+        "border-t-2" => "border-top-width: 2px;",
+        "border-t-4" => "border-top-width: 4px;",
+        "border-t-8" => "border-top-width: 8px;",
+        "border-r-0" => "border-right-width: 0;",
+        "border-r-2" => "border-right-width: 2px;",
+        "border-r-4" => "border-right-width: 4px;",
+        "border-r-8" => "border-right-width: 8px;",
+        "border-b-0" => "border-bottom-width: 0;",
+        "border-b-2" => "border-bottom-width: 2px;",
+        "border-b-4" => "border-bottom-width: 4px;",
+        "border-b-8" => "border-bottom-width: 8px;",
+        "border-l-0" => "border-left-width: 0;",
+        "border-l-2" => "border-left-width: 2px;",
+        "border-l-4" => "border-left-width: 4px;",
+        "border-l-8" => "border-left-width: 8px;",
+
         // Width / height keywords
         "w-full" => "width: 100%;",
         "w-screen" => "width: 100vw;",
@@ -235,6 +280,42 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "h-full" => "height: 100%;",
         "h-screen" => "height: 100vh;",
         "h-auto" => "height: auto;",
+
+        // max-width named scale (Tailwind v4 defaults).
+        "max-w-none" => "max-width: none;",
+        "max-w-xs" => "max-width: 20rem;",
+        "max-w-sm" => "max-width: 24rem;",
+        "max-w-md" => "max-width: 28rem;",
+        "max-w-lg" => "max-width: 32rem;",
+        "max-w-xl" => "max-width: 36rem;",
+        "max-w-2xl" => "max-width: 42rem;",
+        "max-w-3xl" => "max-width: 48rem;",
+        "max-w-4xl" => "max-width: 56rem;",
+        "max-w-5xl" => "max-width: 64rem;",
+        "max-w-6xl" => "max-width: 72rem;",
+        "max-w-7xl" => "max-width: 80rem;",
+        "max-w-full" => "max-width: 100%;",
+        "max-w-prose" => "max-width: 65ch;",
+        "max-w-min" => "max-width: min-content;",
+        "max-w-max" => "max-width: max-content;",
+        "max-w-fit" => "max-width: fit-content;",
+        "max-w-screen-sm" => "max-width: 40rem;",
+        "max-w-screen-md" => "max-width: 48rem;",
+        "max-w-screen-lg" => "max-width: 64rem;",
+        "max-w-screen-xl" => "max-width: 80rem;",
+        "max-w-screen-2xl" => "max-width: 96rem;",
+
+        // Grid template keyword forms (numeric forms handled by
+        // `parameterized_utility`).
+        "grid-cols-none" => "grid-template-columns: none;",
+        "grid-rows-none" => "grid-template-rows: none;",
+        "col-span-full" => "grid-column: 1 / -1;",
+        "row-span-full" => "grid-row: 1 / -1;",
+        "col-auto" => "grid-column: auto;",
+        "row-auto" => "grid-row: auto;",
+
+        // z-index keyword (numeric forms handled by `parameterized_utility`).
+        "z-auto" => "z-index: auto;",
 
         _ => return None,
     })
@@ -247,6 +328,46 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     if let Some(prop) = spacing_prop(prefix) {
         if let Some(rem) = spacing_value(value) {
             return Some(format!("{prop}: {rem};"));
+        }
+    }
+
+    // `space-x-*` / `space-y-*` — emit a nested sibling-margin rule (Tailwind's
+    // standard recipe). Modern browsers support native CSS nesting; Vite's
+    // Lightning CSS / esbuild minifier handle this in build output.
+    if prefix == "space-x" {
+        if let Some(rem) = spacing_value(value) {
+            return Some(format!("& > * + * {{ margin-inline-start: {rem}; }}"));
+        }
+    }
+    if prefix == "space-y" {
+        if let Some(rem) = spacing_value(value) {
+            return Some(format!("& > * + * {{ margin-block-start: {rem}; }}"));
+        }
+    }
+
+    // Grid templating: `grid-cols-N` / `grid-rows-N` / `col-span-N` / `row-span-N`.
+    if prefix == "grid-cols" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!(
+                "grid-template-columns: repeat({n}, minmax(0, 1fr));"
+            ));
+        }
+    }
+    if prefix == "grid-rows" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!(
+                "grid-template-rows: repeat({n}, minmax(0, 1fr));"
+            ));
+        }
+    }
+    if prefix == "col-span" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!("grid-column: span {n} / span {n};"));
+        }
+    }
+    if prefix == "row-span" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!("grid-row: span {n} / span {n};"));
         }
     }
 
@@ -404,8 +525,12 @@ fn spacing_prop(prefix: &str) -> Option<&'static str> {
     })
 }
 
-/// Tailwind spacing scale: numeric → `n * 0.25rem`; `px` → `1px`; `0` → `0`.
+/// Tailwind spacing scale: numeric → `n * 0.25rem`; `px` → `1px`; `0` → `0`;
+/// `auto` → `auto` (so `mx-auto`, `my-auto`, `mt-auto`, etc. work).
 fn spacing_value(value: &str) -> Option<String> {
+    if value == "auto" {
+        return Some("auto".to_string());
+    }
     if value == "px" {
         return Some("1px".to_string());
     }
@@ -416,6 +541,18 @@ fn spacing_value(value: &str) -> Option<String> {
     let n: f32 = value.parse().ok()?;
     let rem = n * 0.25;
     Some(format!("{}rem", trim_float(rem)))
+}
+
+/// Parse a positive integer (used by grid-cols-N, col-span-N, row-span-N).
+fn positive_int(value: &str) -> Option<u32> {
+    if value.is_empty() || !value.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let n: u32 = value.parse().ok()?;
+    if n == 0 {
+        return None;
+    }
+    Some(n)
 }
 
 fn sizing_prop(prefix: &str) -> Option<&'static str> {
