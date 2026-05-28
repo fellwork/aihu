@@ -381,9 +381,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         // rationale). Mirrored here so options/props-form components behave
         // identically under `shadowMode: 'none'`.
         const isLightDom = _isRealElement(this) && this.shadowRoot === null
-        const lightDomChildren: ChildNode[] | null = isLightDom
-          ? Array.from(this.childNodes)
-          : null
+        const lightDomChildren: ChildNode[] | null = isLightDom ? Array.from(this.childNodes) : null
         if (lightDomChildren !== null) {
           for (const c of lightDomChildren) this.removeChild(c)
         }
