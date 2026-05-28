@@ -41,6 +41,22 @@ const cssCoreBin =
   existsSync(resolve(__dirname, `../../../target/release/aihu-css-compile${ext}`)) ||
   existsSync(resolve(__dirname, `../../../target/debug/aihu-css-compile${ext}`))
 
+// Bug 6 follow-up — fail loudly in CI when the native binary is missing.
+// Previously this test used `it.runIf(cssCoreBin)` and silently skipped when
+// the binary was absent, which is exactly the false-confidence pattern that
+// let the prior Bug 2 fix ship a non-working feature. In CI (`process.env.CI`
+// is set on all major providers including GitHub Actions), a missing binary
+// is a build setup error, not a "skip me" signal — we want a red bar so the
+// CI lane is fixed, not a silent green. Locally, the soft-skip still applies.
+if (process.env.CI && !cssCoreBin) {
+  throw new Error(
+    'Bug 6 e2e test cannot run in CI without the native aihu-css-compile binary. ' +
+      'Build it with `cargo build --release -p aihu-css-core` in the CI prep step, ' +
+      'or add the platform optional dep (e.g. @aihu/css-engine-linux-x64-gnu) to the workflow install step. ' +
+      'Soft-skipping in CI hides the same class of bug this test exists to catch.',
+  )
+}
+
 // Re-use the example workspace as the build root. It has the right peer
 // dependencies (arbor, runtime, signals) installed by `bun install` at the
 // repo root, the right `viteAihuPlugin` + css-engine wiring, and a known-good
