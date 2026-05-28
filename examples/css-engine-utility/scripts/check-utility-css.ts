@@ -45,6 +45,8 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ],
   ['space-y-4', /margin-block-start\s*:\s*1rem/],
   ['border-2', /border-width\s*:\s*2px/],
+  // Round 2: divide-y-2 nested sibling-border rule (minified `>*+*` form).
+  ['divide-y-2', /\.divide-y-2\s*>\s*\*\s*\+\s*\*\s*\{\s*border-block-width\s*:\s*2px/],
 ]
 
 // Concatenate all emitted CSS so a rule split across files still matches.

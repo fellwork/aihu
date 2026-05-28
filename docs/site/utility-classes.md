@@ -114,6 +114,22 @@ Brand-token classes emit `var(--color-*)`.
 | `border-t/r/b/l-{0,2,4,8}` — NEW | `border-top/right/bottom/left-width` |
 | `rounded` / `-sm` / `-md` / `-lg` / `-full` | `border-radius: …;` |
 
+### Divide (sibling borders)
+
+Borders between adjacent children, reusing the same nested `& > * + *` recipe
+as `space-x/y`. The bare form defaults to `1px`.
+
+| Class | Declaration |
+|-------|-------------|
+| `divide-x` / `divide-y` — NEW | `& > * + * { border-inline-width / border-block-width: 1px; }` |
+| `divide-x-{0,2,4,8}` — NEW | `& > * + * { border-inline-width: 0 / 2px / 4px / 8px; }` |
+| `divide-y-{0,2,4,8}` — NEW | `& > * + * { border-block-width: 0 / 2px / 4px / 8px; }` |
+| `divide-x-reverse` / `divide-y-reverse` — NEW | `& > * + * { --tw-divide-{x,y}-reverse: 1; }` |
+
+Set the border *color* on the same element with the standard color utilities
+(e.g. `border-muted`). The `-reverse` tokens keep Tailwind's API surface via the
+`--tw-divide-{x,y}-reverse` custom property.
+
 ### Effects
 
 | Class | Declaration |
@@ -178,7 +194,6 @@ top-[1rem]     →  top: 1rem;
 - Container queries (`@container`)
 - `aria-*` / `data-*` attribute variants
 - Motion utilities: `transform`, `translate-*`, `rotate-*`, `scale-*`, `transition-*`, `duration-*`, `ease-*`, `animate-*`
-- `divide-x` / `divide-y` (use `space-x/y` for a similar effect)
 - `ring-{n}` widths and `ring-offset-*`
 - `top` / `right` / `bottom` / `left` / `inset` named scale (use arbitrary: `top-[1rem]`)
 - `leading-*` / `tracking-*` named scale (use arbitrary: `leading-[1.4]`)
@@ -195,6 +210,16 @@ One input → output pair per new family.
 
 ```css
 .space-y-4 { & > * + * { margin-block-start: 1rem; } }
+```
+
+### `divide-y-2` (Divide — sibling borders)
+
+```html
+<ul class="divide-y-2 border-muted"> … </ul>
+```
+
+```css
+.divide-y-2 { & > * + * { border-block-width: 2px; } }
 ```
 
 ### `mx-auto` (Margin auto)
