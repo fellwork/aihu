@@ -20,7 +20,7 @@ use crate::ast::{SfcAst, SfcStyleScope};
 use crate::progressive::ProgressiveRegistry;
 use crate::scanner::{scan, ScanResult};
 use crate::theme::{extract_theme_blocks, ThemeRegistry};
-use crate::tokens::utility_to_css;
+use crate::tokens::{animation_keyframes, utility_to_css};
 use crate::variants::{split_variants, Variant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,8 +112,17 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
         format!("{selector} {{ {body} }}\n")
     };
 
-    Some(match media {
+    let rule = match media {
         Some(q) => format!("@media {q} {{\n{rule}}}\n"),
+        None => rule,
+    };
+
+    // Hoist the @keyframes an `animate-*` utility depends on as a top-level
+    // sibling rule (it cannot live nested inside the selector body). Re-emitting
+    // an identical block is idempotent in CSS, so per-occurrence emission is
+    // safe. `base` is the variant-stripped class (e.g. `animate-spin`).
+    Some(match animation_keyframes(&base) {
+        Some(kf) => format!("{rule}{kf}\n"),
         None => rule,
     })
 }
@@ -138,6 +147,10 @@ pub fn emit_with_progressive(
                 // Flat back-compat: only plain utilities, no variant wrapping.
                 if let Some(body) = utility_to_css(token) {
                     out.push_str(&format!(".{token} {{ {body} }}\n"));
+                    if let Some(kf) = animation_keyframes(token) {
+                        out.push_str(kf);
+                        out.push('\n');
+                    }
                 }
             }
             OutputMode::Scoped => {
@@ -172,7 +185,12 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
     out.push_str(&theme.emit_host_tokens());
 
     // 2. Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
-    out.push_str(&emit_with_progressive(&result, &theme, &prog, OutputMode::Scoped));
+    out.push_str(&emit_with_progressive(
+        &result,
+        &theme,
+        &prog,
+        OutputMode::Scoped,
+    ));
 
     // 3. Fold the authored @style block (minus @theme directives).
     if let Some(style) = &ast.style {
