@@ -69,6 +69,26 @@ plus `px` → `1px` and `0` → `0`.
 `space-x/y-*` emit Tailwind's standard sibling-margin recipe as a nested rule
 (no margin on the first child; the gap lands on every following sibling).
 
+### Position scale (top/right/bottom/left/inset) — NEW
+
+Inset utilities use the same Tailwind spacing scale as padding/margin (each
+unit `0.25rem`, `0` → `0`), plus the `auto` keyword. Prefix the class with `-`
+for negative offsets (`-top-4` → `top: -1rem;`). `inset-*` sets all four
+sides; `inset-x-*` / `inset-y-*` set the logical inline / block pairs.
+
+| Class | Declaration |
+|-------|-------------|
+| `top-N` / `right-N` / `bottom-N` / `left-N` | `top / right / bottom / left: <scale>;` |
+| `top-auto` / `right-auto` … | `top: auto;` etc. |
+| `-top-N` / `-left-N` … (negative) | `top: -<scale>;` etc. |
+| `inset-N` | `inset: <scale>;` |
+| `inset-0` | `inset: 0;` |
+| `inset-x-N` | `inset-inline: <scale>;` |
+| `inset-y-N` | `inset-block: <scale>;` |
+
+`N` is any spacing-scale step (e.g. `0`, `2`, `4`, `0.5`). Arbitrary values
+still work for one-offs: `top-[3px]`, `inset-[10%]`.
+
 ### Sizing (width, height, min/max)
 
 | Class | Declaration |
@@ -97,6 +117,29 @@ Named `max-w-*` scale: `xs` 20rem, `sm` 24rem, `md` 28rem, `lg` 32rem,
 | `underline` / `line-through` / `no-underline` | `text-decoration-line: …;` |
 | `uppercase` / `lowercase` / `capitalize` | `text-transform: …;` |
 | `truncate` | ellipsis overflow recipe |
+
+#### Leading & tracking scale — NEW
+
+Named line-height (`leading-*`) and letter-spacing (`tracking-*`) scales,
+matching the Tailwind v4 defaults. `leading-<n>` (numeric) maps to the spacing
+scale (`leading-6` → `1.5rem`); the named steps are unitless multipliers.
+Arbitrary values still work: `leading-[1.4]`, `tracking-[.2em]`.
+
+| Class | Declaration |
+|-------|-------------|
+| `leading-none` | `line-height: 1;` |
+| `leading-tight` | `line-height: 1.25;` |
+| `leading-snug` | `line-height: 1.375;` |
+| `leading-normal` | `line-height: 1.5;` |
+| `leading-relaxed` | `line-height: 1.625;` |
+| `leading-loose` | `line-height: 2;` |
+| `leading-N` | `line-height: <spacing-scale>;` |
+| `tracking-tighter` | `letter-spacing: -0.05em;` |
+| `tracking-tight` | `letter-spacing: -0.025em;` |
+| `tracking-normal` | `letter-spacing: 0em;` |
+| `tracking-wide` | `letter-spacing: 0.025em;` |
+| `tracking-wider` | `letter-spacing: 0.05em;` |
+| `tracking-widest` | `letter-spacing: 0.1em;` |
 
 ### Colors (bg, text, border, fill, stroke, ring, outline)
 
@@ -180,8 +223,6 @@ top-[1rem]     →  top: 1rem;
 - Motion utilities: `transform`, `translate-*`, `rotate-*`, `scale-*`, `transition-*`, `duration-*`, `ease-*`, `animate-*`
 - `divide-x` / `divide-y` (use `space-x/y` for a similar effect)
 - `ring-{n}` widths and `ring-offset-*`
-- `top` / `right` / `bottom` / `left` / `inset` named scale (use arbitrary: `top-[1rem]`)
-- `leading-*` / `tracking-*` named scale (use arbitrary: `leading-[1.4]`)
 
 ## Worked examples
 
@@ -235,6 +276,37 @@ One input → output pair per new family.
 
 ```css
 .border-t-4 { border-top-width: 4px; }
+```
+
+### `absolute top-4 right-4` (Position scale)
+
+```html
+<button class="absolute top-4 right-4"> … </button>
+```
+
+```css
+.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }
+```
+
+### `leading-relaxed` (Line-height scale)
+
+```html
+<p class="leading-relaxed"> … </p>
+```
+
+```css
+.leading-relaxed { line-height: 1.625; }
+```
+
+### `tracking-wide` (Letter-spacing scale)
+
+```html
+<h1 class="tracking-wide"> … </h1>
+```
+
+```css
+.tracking-wide { letter-spacing: 0.025em; }
 ```
 
 ## See also

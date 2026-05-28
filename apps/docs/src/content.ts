@@ -4151,6 +4151,49 @@ plus <code>px</code> → <code>1px</code> and <code>0</code> → <code>0</code>.
 </tbody></table>
 <p><code>space-x/y-*</code> emit Tailwind&#39;s standard sibling-margin recipe as a nested rule
 (no margin on the first child; the gap lands on every following sibling).</p>
+<h3>Position scale (top/right/bottom/left/inset) — NEW</h3>
+<p>Inset utilities use the same Tailwind spacing scale as padding/margin (each
+unit <code>0.25rem</code>, <code>0</code> → <code>0</code>), plus the <code>auto</code> keyword. Prefix the class with <code>-</code>
+for negative offsets (<code>-top-4</code> → <code>top: -1rem;</code>). <code>inset-*</code> sets all four
+sides; <code>inset-x-*</code> / <code>inset-y-*</code> set the logical inline / block pairs.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>top-N</code> / <code>right-N</code> / <code>bottom-N</code> / <code>left-N</code></td>
+<td><code>top / right / bottom / left: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>top-auto</code> / <code>right-auto</code> …</td>
+<td><code>top: auto;</code> etc.</td>
+</tr>
+<tr>
+<td><code>-top-N</code> / <code>-left-N</code> … (negative)</td>
+<td><code>top: -&lt;scale&gt;;</code> etc.</td>
+</tr>
+<tr>
+<td><code>inset-N</code></td>
+<td><code>inset: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>inset-0</code></td>
+<td><code>inset: 0;</code></td>
+</tr>
+<tr>
+<td><code>inset-x-N</code></td>
+<td><code>inset-inline: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>inset-y-N</code></td>
+<td><code>inset-block: &lt;scale&gt;;</code></td>
+</tr>
+</tbody></table>
+<p><code>N</code> is any spacing-scale step (e.g. <code>0</code>, <code>2</code>, <code>4</code>, <code>0.5</code>). Arbitrary values
+still work for one-offs: <code>top-[3px]</code>, <code>inset-[10%]</code>.</p>
 <h3>Sizing (width, height, min/max)</h3>
 <table>
 <thead>
@@ -4230,6 +4273,71 @@ plus <code>px</code> → <code>1px</code> and <code>0</code> → <code>0</code>.
 <tr>
 <td><code>truncate</code></td>
 <td>ellipsis overflow recipe</td>
+</tr>
+</tbody></table>
+<h4>Leading &amp; tracking scale — NEW</h4>
+<p>Named line-height (<code>leading-*</code>) and letter-spacing (<code>tracking-*</code>) scales,
+matching the Tailwind v4 defaults. <code>leading-&lt;n&gt;</code> (numeric) maps to the spacing
+scale (<code>leading-6</code> → <code>1.5rem</code>); the named steps are unitless multipliers.
+Arbitrary values still work: <code>leading-[1.4]</code>, <code>tracking-[.2em]</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>leading-none</code></td>
+<td><code>line-height: 1;</code></td>
+</tr>
+<tr>
+<td><code>leading-tight</code></td>
+<td><code>line-height: 1.25;</code></td>
+</tr>
+<tr>
+<td><code>leading-snug</code></td>
+<td><code>line-height: 1.375;</code></td>
+</tr>
+<tr>
+<td><code>leading-normal</code></td>
+<td><code>line-height: 1.5;</code></td>
+</tr>
+<tr>
+<td><code>leading-relaxed</code></td>
+<td><code>line-height: 1.625;</code></td>
+</tr>
+<tr>
+<td><code>leading-loose</code></td>
+<td><code>line-height: 2;</code></td>
+</tr>
+<tr>
+<td><code>leading-N</code></td>
+<td><code>line-height: &lt;spacing-scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>tracking-tighter</code></td>
+<td><code>letter-spacing: -0.05em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-tight</code></td>
+<td><code>letter-spacing: -0.025em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-normal</code></td>
+<td><code>letter-spacing: 0em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-wide</code></td>
+<td><code>letter-spacing: 0.025em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-wider</code></td>
+<td><code>letter-spacing: 0.05em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-widest</code></td>
+<td><code>letter-spacing: 0.1em;</code></td>
 </tr>
 </tbody></table>
 <h3>Colors (bg, text, border, fill, stroke, ring, outline)</h3>
@@ -4348,8 +4456,6 @@ issue if you need one promoted.</p>
 <li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
 <li><code>divide-x</code> / <code>divide-y</code> (use <code>space-x/y</code> for a similar effect)</li>
 <li><code>ring-{n}</code> widths and <code>ring-offset-*</code></li>
-<li><code>top</code> / <code>right</code> / <code>bottom</code> / <code>left</code> / <code>inset</code> named scale (use arbitrary: <code>top-[1rem]</code>)</li>
-<li><code>leading-*</code> / <code>tracking-*</code> named scale (use arbitrary: <code>leading-[1.4]</code>)</li>
 </ul>
 <h2>Worked examples</h2>
 <p>One input → output pair per new family.</p>
@@ -4377,6 +4483,22 @@ issue if you need one promoted.</p>
 <pre><code class="language-html">&lt;div class=&quot;border-t-4&quot;&gt; … &lt;/div&gt;
 </code></pre>
 <pre><code class="language-css">.border-t-4 { border-top-width: 4px; }
+</code></pre>
+<h3><code>absolute top-4 right-4</code> (Position scale)</h3>
+<pre><code class="language-html">&lt;button class=&quot;absolute top-4 right-4&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }
+</code></pre>
+<h3><code>leading-relaxed</code> (Line-height scale)</h3>
+<pre><code class="language-html">&lt;p class=&quot;leading-relaxed&quot;&gt; … &lt;/p&gt;
+</code></pre>
+<pre><code class="language-css">.leading-relaxed { line-height: 1.625; }
+</code></pre>
+<h3><code>tracking-wide</code> (Letter-spacing scale)</h3>
+<pre><code class="language-html">&lt;h1 class=&quot;tracking-wide&quot;&gt; … &lt;/h1&gt;
+</code></pre>
+<pre><code class="language-css">.tracking-wide { letter-spacing: 0.025em; }
 </code></pre>
 <h2>See also</h2>
 <ul>

@@ -28,6 +28,15 @@
       <li class="text-sm">margin-block-start on the rest</li>
     </ul>
 
+    <div class="relative border-2 rounded p-4">
+      <span class="absolute top-4 right-4 text-sm">badge</span>
+      <p class="leading-relaxed tracking-wide text-sm">
+        Position scale (<code>absolute top-4 right-4</code>) and the named
+        typography scales (<code>leading-relaxed</code>,
+        <code>tracking-wide</code>) are compiled to real declarations.
+      </p>
+    </div>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
       <code>apps/docs/.../reference/utility-classes.md</code> for the full

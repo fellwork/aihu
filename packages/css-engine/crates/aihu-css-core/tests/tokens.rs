@@ -151,3 +151,103 @@ fn border_directional_n_width() {
 fn z_auto_keyword() {
     assert_eq!(css(&["z-auto"]), ".z-auto { z-index: auto; }\n");
 }
+
+// --- New utility families (Round 2: tailwind-support — named scales) -------
+//
+// Position scale (top/right/bottom/left/inset/inset-x/inset-y) on the spacing
+// scale + `auto` + negative forms; named leading-* / numeric leading-<n>;
+// named tracking-*. Exact-string assertions pin the emitted declarations.
+
+#[test]
+fn position_top_scale() {
+    assert_eq!(css(&["top-4"]), ".top-4 { top: 1rem; }\n");
+}
+
+#[test]
+fn position_right_scale() {
+    assert_eq!(css(&["right-4"]), ".right-4 { right: 1rem; }\n");
+}
+
+#[test]
+fn position_bottom_left_scale() {
+    assert_eq!(css(&["bottom-2"]), ".bottom-2 { bottom: 0.5rem; }\n");
+    assert_eq!(css(&["left-8"]), ".left-8 { left: 2rem; }\n");
+}
+
+#[test]
+fn position_inset_all_sides() {
+    assert_eq!(css(&["inset-0"]), ".inset-0 { inset: 0; }\n");
+    assert_eq!(css(&["inset-4"]), ".inset-4 { inset: 1rem; }\n");
+}
+
+#[test]
+fn position_inset_logical_axes() {
+    assert_eq!(css(&["inset-x-2"]), ".inset-x-2 { inset-inline: 0.5rem; }\n");
+    assert_eq!(css(&["inset-y-4"]), ".inset-y-4 { inset-block: 1rem; }\n");
+}
+
+#[test]
+fn position_auto() {
+    assert_eq!(css(&["top-auto"]), ".top-auto { top: auto; }\n");
+}
+
+#[test]
+fn position_negative() {
+    assert_eq!(css(&["-left-2"]), ".-left-2 { left: -0.5rem; }\n");
+    assert_eq!(css(&["-top-4"]), ".-top-4 { top: -1rem; }\n");
+    assert_eq!(css(&["-inset-x-2"]), ".-inset-x-2 { inset-inline: -0.5rem; }\n");
+}
+
+#[test]
+fn leading_named_scale() {
+    assert_eq!(css(&["leading-none"]), ".leading-none { line-height: 1; }\n");
+    assert_eq!(css(&["leading-tight"]), ".leading-tight { line-height: 1.25; }\n");
+    assert_eq!(css(&["leading-snug"]), ".leading-snug { line-height: 1.375; }\n");
+    assert_eq!(css(&["leading-normal"]), ".leading-normal { line-height: 1.5; }\n");
+    assert_eq!(
+        css(&["leading-relaxed"]),
+        ".leading-relaxed { line-height: 1.625; }\n"
+    );
+    assert_eq!(css(&["leading-loose"]), ".leading-loose { line-height: 2; }\n");
+}
+
+#[test]
+fn leading_numeric_step() {
+    // Numeric leading-<n> maps to the spacing scale (Tailwind v4).
+    assert_eq!(css(&["leading-6"]), ".leading-6 { line-height: 1.5rem; }\n");
+}
+
+#[test]
+fn tracking_named_scale() {
+    assert_eq!(
+        css(&["tracking-tighter"]),
+        ".tracking-tighter { letter-spacing: -0.05em; }\n"
+    );
+    assert_eq!(
+        css(&["tracking-tight"]),
+        ".tracking-tight { letter-spacing: -0.025em; }\n"
+    );
+    assert_eq!(
+        css(&["tracking-normal"]),
+        ".tracking-normal { letter-spacing: 0em; }\n"
+    );
+    assert_eq!(
+        css(&["tracking-wide"]),
+        ".tracking-wide { letter-spacing: 0.025em; }\n"
+    );
+    assert_eq!(
+        css(&["tracking-wider"]),
+        ".tracking-wider { letter-spacing: 0.05em; }\n"
+    );
+    assert_eq!(
+        css(&["tracking-widest"]),
+        ".tracking-widest { letter-spacing: 0.1em; }\n"
+    );
+}
+
+#[test]
+fn arbitrary_position_and_leading_still_work() {
+    // Regression: arbitrary forms (arbitrary_prop) untouched by the named scale.
+    assert_eq!(css(&["top-[1rem]"]), ".top-[1rem] { top: 1rem; }\n");
+    assert_eq!(css(&["leading-[2]"]), ".leading-[2] { line-height: 2; }\n");
+}
