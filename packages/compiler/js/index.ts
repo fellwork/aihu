@@ -11,16 +11,33 @@ import { fileURLToPath } from 'node:url'
 
 // Binary resolution: env var override, fallback to the bin/ directory written
 // by the postinstall hook (packages/compiler/bin/aihu-compile[.exe]).
+//
+// Bug 6 fix — resolveBinPath() is CALL-TIME, not module-load-time. The Vite
+// plugin's `_maybeCompileUtilityCss` sets `process.env.SCRIBE_COMPILE_BIN` so
+// that css-engine's bundled copy of `compileToAst` spawns THIS compiler's
+// binary. Prior to this fix `binPath` was a module-scope const captured at
+// import time, so the env-var assignment was always too late and `compileSfc`
+// failed with ENOENT on the (non-existent) `packages/css-engine/bin/aihu-compile`
+// path. Re-reading on every call is essentially free (string concatenation +
+// a single env lookup) and makes the SCRIBE_COMPILE_BIN handshake actually work.
 const ext = process.platform === 'win32' ? '.exe' : ''
-const binPath: string =
-  process.env.SCRIBE_COMPILE_BIN ??
-  resolve(dirname(fileURLToPath(import.meta.url)), `../bin/aihu-compile${ext}`)
+function resolveBinPath(): string {
+  return (
+    process.env.SCRIBE_COMPILE_BIN ??
+    resolve(dirname(fileURLToPath(import.meta.url)), `../bin/aihu-compile${ext}`)
+  )
+}
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
 interface VitePlugin {
   readonly name: string
   enforce?: 'pre' | 'post'
+  resolveId?: (
+    source: string,
+    importer?: string,
+  ) => string | null | undefined | Promise<string | null | undefined>
+  load?: (id: string) => string | null | undefined | Promise<string | null | undefined>
   transform?: (
     code: string,
     id: string,
@@ -385,7 +402,7 @@ export function transform(
   if (options?.sidecarOut) {
     args.push('--sidecar-out', options.sidecarOut)
   }
-  const code = execFileSync(binPath, args, {
+  const code = execFileSync(resolveBinPath(), args, {
     input: source,
     encoding: 'utf8',
   })
@@ -505,6 +522,77 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
   return withDecl
 }
 
+/**
+ * Virtual-module prefix used by the `shadowMode === 'none'` branch to route
+ * per-SFC utility CSS through Vite's built-in CSS pipeline. The plugin
+ * (`aihuCompilerPlugin`) implements `resolveId` + `load` for ids matching
+ * `VIRTUAL_UTILITY_PREFIX + '<hash>.css'`, returning the stored CSS body so
+ * Vite hoists it into the bundle CSS asset (`dist/assets/*.css`) — NOT into
+ * `host.adoptedStyleSheets`, which is a no-op when there is no shadow root.
+ *
+ * The trailing `.css` extension is mandatory: Vite's built-in CSS plugin keys
+ * off the extension to know it should run the CSS pipeline on the module.
+ *
+ * @internal
+ */
+export const VIRTUAL_UTILITY_PREFIX = '\0virtual:aihu-utility/'
+
+/**
+ * Stable short hash for keying the virtual-CSS module per source-SFC id.
+ *
+ * djb2-style; collisions are tolerable here because (a) each entry stores its
+ * own CSS body, so a hash collision would only matter if two distinct SFCs
+ * hashed to the same key AND were processed concurrently; (b) collisions are
+ * recoverable — Vite would simply load the wrong CSS for one SFC; we still
+ * keyed on the unhashed id internally to avoid that. The hash only appears in
+ * the bundled asset URL.
+ *
+ * @internal
+ */
+export function _hashIdForUtilityCss(id: string): string {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) {
+    h = ((h * 33) ^ id.charCodeAt(i)) >>> 0
+  }
+  return h.toString(36)
+}
+
+/**
+ * Bug 6 — `shadowMode === 'none'` branch.
+ *
+ * Routes utility CSS to Vite's CSS pipeline (which folds CSS imports into the
+ * bundled `dist/assets/*.css` asset) instead of to `host.adoptedStyleSheets`
+ * (a no-op on an element with no shadow root). Returns a prelude `import` that
+ * the plugin's `resolveId` + `load` hooks resolve to the stored CSS body.
+ *
+ * The `__style__` shadow path is NOT invoked here — utility CSS for a
+ * cascade-mode component MUST hit the global stylesheet, not a per-element
+ * stylesheet that would be silently dropped by `HTMLElement`'s setter.
+ *
+ * Authored `@style` blocks still emit through the Rust codegen's `<style>`
+ * node and are unaffected. (If a component opts into `shadowMode: 'none'` and
+ * authors an `@style` block, the codegen still wires it through the
+ * non-shadow path — that is the runtime's contract, not this hook's.)
+ *
+ * @internal
+ */
+export function _foldCssEngineStylesGlobal(
+  compiledCode: string,
+  css: string,
+  id: string,
+): { code: string; virtualId: string } | null {
+  if (!css.trim()) return null
+  const hash = _hashIdForUtilityCss(id)
+  const virtualId = `${VIRTUAL_UTILITY_PREFIX}${hash}.css`
+  // Prepend the CSS import as a side-effect-only import so Vite's CSS plugin
+  // hoists it into the bundle. We use the NULL-byte virtual id form
+  // (Rollup/Vite convention for "owned by this plugin"); other plugins will
+  // skip it. The compiler's transform returns this prepended code, which the
+  // downstream esbuild/oxc strip leaves untouched (it's just an import).
+  const prelude = `import ${JSON.stringify(virtualId)};\n`
+  return { code: prelude + compiledCode, virtualId }
+}
+
 // ─── v1.0.10a — compiler AST-export hook ─────────────────────────────────────
 //
 // Thin TS wrapper over the `aihu-compile --ast-json` flag. Returns the parsed
@@ -584,7 +672,7 @@ export function compileToAst(source: string, id?: string): SfcAst {
   if (id) {
     args.push('--path', id)
   }
-  const json = execFileSync(binPath, args, {
+  const json = execFileSync(resolveBinPath(), args, {
     input: source,
     encoding: 'utf8',
   })
@@ -783,6 +871,17 @@ const _CSS_ENGINE_SPECIFIER = '@aihu/css-engine'
  */
 async function _maybeCompileUtilityCss(source: string, id: string): Promise<string> {
   if (_cssEngine === null) return ''
+  // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
+  // binary this plugin uses (it has no compiler binary of its own). Set
+  // this BEFORE the dynamic import so that any module-load-time evaluation
+  // of `process.env.SCRIBE_COMPILE_BIN` in css-engine's bundled dist (older
+  // bundles capture this into a module-scope const at line 8 of
+  // `packages/css-engine/dist/index.js`) sees the correct value. After Bug 6,
+  // the source `compileToAst` resolves the bin lazily on each call, so once
+  // css-engine is rebuilt this set-before-import is belt-and-braces.
+  if (process.env.SCRIBE_COMPILE_BIN == null) {
+    process.env.SCRIBE_COMPILE_BIN = resolveBinPath()
+  }
   if (_cssEngine === undefined) {
     try {
       // Guarded, lazy, OPTIONAL — see the plugin transform for the rationale.
@@ -797,11 +896,6 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
     }
   }
   try {
-    // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
-    // binary this plugin uses (it has no compiler binary of its own).
-    if (process.env.SCRIBE_COMPILE_BIN == null) {
-      process.env.SCRIBE_COMPILE_BIN = binPath
-    }
     return _cssEngine.compileSfc(source, id)
   } catch (err) {
     // A css-engine compile failure is non-fatal: fall back to the no-op
@@ -828,9 +922,32 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
 export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
+
+  // Bug 6 — per-instance store of virtual utility-CSS modules. Keyed by the
+  // full virtual id (NUL-prefixed). Populated by the transform hook when
+  // `shadowMode === 'none'` produces utility CSS; drained by the `load` hook
+  // when Vite's CSS pipeline asks for the module body. Lives on the plugin
+  // instance so multiple `aihuCompilerPlugin()` calls in the same build don't
+  // alias each other's css.
+  const utilityCssStore = new Map<string, string>()
+
   return {
     name: 'aihu-compiler',
     enforce: 'pre',
+    resolveId(source) {
+      // Own all `\0virtual:aihu-utility/<hash>.css` ids so Vite's resolver
+      // doesn't try to find them on disk. Returning the id verbatim is the
+      // Rollup convention for "I'll handle the load."
+      if (source.startsWith(VIRTUAL_UTILITY_PREFIX)) return source
+      return null
+    },
+    load(id) {
+      if (!id.startsWith(VIRTUAL_UTILITY_PREFIX)) return null
+      // Vite's CSS pipeline runs on the returned source because the id ends
+      // in `.css` — it parses, minifies (in build), and hoists into a CSS
+      // asset chunk that lands in `dist/assets/<name>-<hash>.css`.
+      return utilityCssStore.get(id) ?? null
+    },
     transform(code, id) {
       // Strip Vite query strings (e.g. `?import`, `?t=...`) before checking the extension.
       const rawId = id.split('?')[0]!
@@ -854,7 +971,22 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // with zero dependency cycle.
         const utilityCss = await _maybeCompileUtilityCss(code, rawId)
         if (utilityCss) {
-          compiled = _foldCssEngineStyles(compiled, utilityCss)
+          if (shadowMode === 'none') {
+            // Bug 6 — no shadow root → `host.adoptedStyleSheets` is a no-op.
+            // Route utility CSS through Vite's CSS pipeline via a virtual
+            // `.css` import so it lands in `dist/assets/*.css` and reaches the
+            // global cascade. The authored `@style` block (if any) still
+            // emits via the Rust codegen's normal path and is unaffected.
+            const folded = _foldCssEngineStylesGlobal(compiled, utilityCss, rawId)
+            if (folded) {
+              utilityCssStore.set(folded.virtualId, utilityCss)
+              compiled = folded.code
+            }
+          } else {
+            // `shadowMode: 'open' | 'closed'` (default): fold into the
+            // per-component `CSSStyleSheet` adopted by the shadow root.
+            compiled = _foldCssEngineStyles(compiled, utilityCss)
+          }
         }
 
         const elementTag = _extractElementTag(compiled)
