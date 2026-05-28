@@ -51,6 +51,39 @@ The bare `group` / `peer` classes are *markers*: they carry no styles of their o
 
 These stack with the other variants left-to-right, e.g. `md:group-hover:bg-primary` wraps the relational rule in the `md` media query.
 
+## Light DOM vs Shadow DOM (and using css-engine)
+
+By default every `.aihu` component renders into an **open shadow root** (`shadowMode: 'open'`). `@aihu/css-engine` is built for this: it compiles each SFC's utility classes to a scoped stylesheet and folds it into that component's shadow `<style>`. **css-engine needs no special configuration to work behind a shadow root** — `shadowMode: 'none'` is *not* required. (That requirement is real only for global-cascade frameworks like Tailwind, UnoCSS, or Pico, which emit one global sheet that a shadow root would block.)
+
+If you do want your components in the **light DOM** — for example to style external/slotted children, or to emit a single global utility sheet — flip one knob:
+
+```ts
+// vite.config.ts
+viteAihuPlugin({
+  dir: { pages: 'src/pages' },
+  css: { shadowMode: 'none' },   // light DOM — utility CSS lands in dist/assets/*.css
+})
+```
+
+What changes when you cross the shadow boundary:
+
+- **Open / closed (default).** Utility CSS folds into each component's shadow `<style>` via `adoptedStyleSheets`. External / global stylesheets do **not** pierce in; theme tokens still cascade in through `:host` because custom properties inherit across the boundary. To deliberately reach across, use the WC-native variants — `host:`, `slotted:`, and `part-*:`.
+- **None (light DOM).** There is no shadow root, so the engine routes the per-SFC utility CSS through Vite's CSS pipeline and it lands in the bundled `dist/assets/*.css`. Now ordinary descendant selectors and global sheets reach your elements (and external children) normally.
+
+**Verification gotcha.** "I switched to shadow mode and `grep dist/assets/*.css` finds nothing" is expected — in open/closed mode the utilities are folded into each component's `<style>`, not the global CSS asset. Grep the *compiled component* (the emitted `__style__.replaceSync(...)` stylesheet) instead. Only in `shadowMode: 'none'` do the utilities appear in `dist/assets/*.css`.
+
+## Scaffolding with css-engine
+
+`@aihu/cli` can wire `@aihu/css-engine` into a fresh project out of the box:
+
+```bash
+aihu app myapp --css engine                  # css-engine, shadow/open (default, scoped)
+aihu app myapp --css engine --shadow none     # css-engine, light DOM
+aihu app myapp --css engine --shadow closed    # css-engine, closed shadow root
+```
+
+`--css engine` adds `@aihu/css-engine` to `dependencies` and emits a starter page that uses utility classes (`flex gap-4 max-w-7xl mx-auto p-8`, `text-3xl font-bold`, …) instead of a hand-written `@style` block. The default shadow mode is `open` — so the default css-engine scaffold writes **no** `css` block at all (open is the compiler default); only `--shadow closed|none` emit an explicit `css: { shadowMode }`. The interactive `create-aihu` wizard (`npm create aihu@latest`) asks the same two questions — *"Include @aihu/css-engine?"* and, if yes, a shadow-mode select.
+
 ## Style packs
 
 Component styling resolves against **design tokens** (CSS custom properties): a utility like `bg-primary` emits `var(--color-primary)`, and the *value* comes from a **style pack** (`aihu-default`, `aihu-graphite`, or your own via `defineStylePack()`). The token contract, the two shipped packs, `:root` + `.dark` emission, and how a consumer applies a pack are covered in full on the dedicated [Theming](#theming) page.

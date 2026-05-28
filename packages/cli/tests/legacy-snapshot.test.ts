@@ -44,7 +44,17 @@ afterEach(() => {
   if (parentDir !== '') rmSync(parentDir, { recursive: true, force: true })
 })
 
-/** Walk a directory recursively; returns POSIX-style relpaths sorted. */
+/**
+ * Walk a directory recursively; returns POSIX-style relpaths sorted.
+ *
+ * `.vscode/` files are EXCLUDED from the snapshot: the repo `.gitignore`
+ * ignores `.vscode/` globally, so those scaffolded files cannot be committed
+ * into the golden fixture. Including them in the comparison made the golden
+ * unbootstrappable (the produced tree always had two files the committed
+ * golden could not). The legacy scaffold's `.vscode/extensions.json` +
+ * `settings.json` content is editor wiring, not part of the runnable-parity
+ * contract this freeze guards; they are covered by the pure-generator tests.
+ */
 function walkRel(root: string): string[] {
   const out: string[] = []
   const stack: string[] = [root]
@@ -56,7 +66,9 @@ function walkRel(root: string): string[] {
       if (st.isDirectory()) {
         stack.push(abs)
       } else if (st.isFile()) {
-        out.push(relative(root, abs).replace(/\\/g, '/'))
+        const rel = relative(root, abs).replace(/\\/g, '/')
+        if (rel.startsWith('.vscode/')) continue
+        out.push(rel)
       }
     }
   }
