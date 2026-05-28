@@ -51,7 +51,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [
     viteAihuPlugin({
-      css: { shadowMode: 'none' },   // ← REQUIRED for utility classes
+      css: { shadowMode: 'none' },   // ← styles this component + external light-DOM children
     }),
   ],
 })
@@ -70,17 +70,22 @@ bun add @aihu/css-engine
 }
 ```
 
-That's it. After `bun run build`, `dist/assets/index-*.css` contains the
-emitted rules (`.flex{display:flex}`, `.gap-6{gap:1.5rem}`, etc.).
+That's it. With the default `shadowMode: 'open'`, the scoped rules
+(`.flex{display:flex}`, `.gap-6{gap:1.5rem}`, etc.) fold into each component's
+shadow `<style>`. With `shadowMode: 'none'` (the example above) they instead
+land in `dist/assets/index-*.css` after `bun run build`.
 
-#### Why `shadowMode: 'none'`?
+#### When do you need `shadowMode: 'none'`?
 
-Utility classes rely on the global cascade. With the default `shadowMode: 'open'`
-each component lives behind its own shadow root, so global rules can't reach
-template elements. Switching to `'none'` mounts components without a shadow
-root and lets the bundled CSS reach them. Pick `'open'` or `'closed'` only if
-you're authoring components with hand-written `@style { ... }` blocks instead
-of utility classes.
+Scoped utility classes work fine behind a shadow root (the default `'open'`):
+`@aihu/css-engine` compiles each SFC's classes to a per-component stylesheet and
+folds it into that component's shadow `<style>`. It is scoped by design and does
+**not** rely on the global cascade.
+
+Use `'none'` only when you want the utility CSS in the light DOM — for example to
+style external / slotted child elements that live outside your component's shadow
+root, or to emit a single global sheet. (Truly global frameworks like Tailwind,
+UnoCSS, or Pico do require `'none'`, but `@aihu/css-engine` does not.)
 
 #### Style packs vs the utility scanner — they are separate
 
@@ -88,7 +93,7 @@ Two distinct things ship in `@aihu/css-engine`:
 
 | Concern | What you do | Output |
 |---|---|---|
-| **Utility scanner** (this section) | Install package + set `css.shadowMode: 'none'` | Per-class rules folded into the Vite CSS bundle |
+| **Utility scanner** (this section) | Install the package (works in any shadow mode; default `'open'` folds into the shadow style) | Per-component scoped rules (or the Vite CSS bundle under `'none'`) |
 | **Theme packs** (color tokens, fonts) | `import "@aihu/css-engine/styles/aihu-graphite.css"` in your entry | `--color-*` / `--font-*` CSS custom properties at `:root` |
 
 Theme packs are plain CSS imports — they emit token variables, not utility

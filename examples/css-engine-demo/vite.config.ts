@@ -3,9 +3,10 @@ import { aihuCompilerPlugin } from '@aihu/compiler'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // shadowMode: 'none' — utility-class frameworks (the css-engine output) rely
-  // on the global cascade, which a shadow root would block. This is the
-  // documented mode for utility-class styling (see AihuCompilerPluginOptions).
+  // shadowMode: 'none' — emits the utility CSS to the light DOM for this demo.
+  // Not required for css-engine in general: it is scoped and works in any
+  // shadow mode (the default `'open'` folds utilities into each component's
+  // shadow style). Use `'none'` to reach light-DOM / external children.
   plugins: [aihuCompilerPlugin({ shadowMode: 'none' })],
   resolve: {
     alias: {

@@ -71,8 +71,10 @@ export type AgentReadinessConfig = import('@aihu-plugin/agent-readiness').AgentR
  *
  * Today this surfaces the shadow-DOM mode the compiler injects into every
  * `defineElement(...)` call. The default (`'open'`) keeps shadow-encapsulated
- * component styles — but utility-class CSS frameworks (`@aihu/css-engine`,
- * Tailwind, UnoCSS, Pico) rely on the global cascade and need `'none'`.
+ * component styles. `@aihu/css-engine` is scoped by design and works in any
+ * mode — its utilities fold into each component's shadow style. Global-cascade
+ * frameworks (Tailwind, UnoCSS, Pico) — or styling light-DOM / external
+ * (slotted) children — need `'none'`.
  *
  * When set, `viteAihuPlugin` forwards this to its internal
  * `aihuCompilerPlugin({ shadowMode })` call. When absent, behaviour is
@@ -85,9 +87,10 @@ export interface CssConfig {
    *
    * - `'open'`   — default browser behaviour (shadow root, externally readable).
    * - `'closed'` — shadow root, externally hidden.
-   * - `'none'`   — **no shadow root.** Use this when consuming
-   *               `@aihu/css-engine`'s utility classes (or any
-   *               cascade-dependent CSS framework).
+   * - `'none'`   — **no shadow root.** Use for global-cascade CSS frameworks,
+   *               or when you explicitly want light-DOM / global CSS (e.g. to
+   *               style external / slotted child elements). NOT required for
+   *               `@aihu/css-engine`, which is scoped and works in any mode.
    */
   readonly shadowMode?: 'open' | 'closed' | 'none'
 }
