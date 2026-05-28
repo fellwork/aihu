@@ -22,6 +22,33 @@ On top of the standard Tailwind variant set, the engine adds variants that only 
 
 These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.
 
+### group / peer relational variants
+
+`group-*:` and `peer-*:` style an element based on the *state of a related element* — an ancestor (`group`) or a previous sibling (`peer`). Mark the related element with the bare `group` or `peer` class, then prefix the styled element's utilities with the matching variant.
+
+| Variant | Relationship | Compiles to |
+|---------|--------------|-------------|
+| `group-hover:` | ancestor marked `group` is hovered | `.group:hover .group-hover\:<u>` |
+| `group-focus:` / `group-focus-visible:` / `group-active:` / `group-disabled:` | ancestor marked `group` is in that state | `.group:<state> .group-<state>\:<u>` |
+| `peer-checked:` | previous sibling marked `peer` is checked | `.peer:checked ~ .peer-checked\:<u>` |
+| `peer-hover:` / `peer-focus:` / `peer-focus-visible:` / `peer-disabled:` | previous sibling marked `peer` is in that state | `.peer:<state> ~ .peer-<state>\:<u>` |
+
+The bare `group` / `peer` classes are *markers*: they carry no styles of their own, they just anchor the relationship. Because everything is scoped inside one shadow root, the marker and the styled element must live in the same component tree. `peer` only looks **backward** to earlier siblings (CSS has no previous-sibling-forward combinator), so the `peer` element must appear before the styled element in source order.
+
+```html
+<!-- input → output -->
+<div class="group">
+  <span class="group-hover:bg-primary">…</span>
+</div>
+<!-- emits: .group:hover .group-hover\:bg-primary { background-color: var(--color-primary) } -->
+
+<input class="peer" type="checkbox" />
+<span class="peer-checked:bg-primary">…</span>
+<!-- emits: .peer:checked ~ .peer-checked\:bg-primary { background-color: var(--color-primary) } -->
+```
+
+These stack with the other variants left-to-right, e.g. `md:group-hover:bg-primary` wraps the relational rule in the `md` media query.
+
 ## Style packs
 
 Component styling resolves against **design tokens** (CSS custom properties): a utility like `bg-primary` emits `var(--color-primary)`, and the *value* comes from a **style pack** (`aihu-default`, `aihu-graphite`, or your own via `defineStylePack()`). The token contract, the two shipped packs, `:root` + `.dark` emission, and how a consumer applies a pack are covered in full on the dedicated [Theming](#theming) page.

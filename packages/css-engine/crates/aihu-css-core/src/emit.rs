@@ -85,6 +85,27 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
                 // `[&>div]:` → substitute `&` for the base selector.
                 selector = sel.replace('&', &selector);
             }
+            Variant::Group(Some(state)) => {
+                // `group-hover:bg-x` → `.group:hover .group-hover\:bg-x`.
+                // Prepend a descendant-combinator ancestor selector: the rule
+                // applies to the element bearing this class when an ancestor
+                // marked `class="group"` is in `:<state>`. Within a shadow root
+                // both the marker and the styled element live in the same tree,
+                // so the class selectors match per spec §6.3 scoping.
+                selector = format!(".group:{state} {selector}");
+            }
+            Variant::Peer(Some(state)) => {
+                // `peer-checked:bg-x` → `.peer:checked ~ .peer-checked\:bg-x`.
+                // Prepend a subsequent-sibling-combinator selector: the rule
+                // applies when a PRIOR sibling marked `class="peer"` is in
+                // `:<state>`. CSS can only look backward to earlier siblings,
+                // so `peer` must appear before the styled element in source.
+                selector = format!(".peer:{state} ~ {selector}");
+            }
+            // Bare `group`/`peer` never reach here (they are marker utilities,
+            // not variant prefixes); a `None` state is unreachable but handled
+            // defensively as a no-op so the base selector is emitted unchanged.
+            Variant::Group(None) | Variant::Peer(None) => {}
             Variant::Breakpoint(bp) => {
                 if let Some(min) = theme.breakpoint(bp) {
                     media = Some(format!("(min-width: {min})"));

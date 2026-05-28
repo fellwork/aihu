@@ -68,6 +68,17 @@ fn category_effects() {
 }
 
 #[test]
+fn relational_marker_classes() {
+    // `group` / `peer` are marker utilities: they emit an empty-body rule (no
+    // declarations) so the class survives into the sheet for `group-*:` /
+    // `peer-*:` relational selectors to target. (Variant emission itself is
+    // covered in tests/emit.rs, which uses the scoped pipeline.)
+    let out = css(&["group", "peer"]);
+    assert!(out.contains(".group {  }"), "bare group marker: {out}");
+    assert!(out.contains(".peer {  }"), "bare peer marker: {out}");
+}
+
+#[test]
 fn arbitrary_values() {
     insta::assert_snapshot!(css(&[
         "bg-[#1a1d24]",
