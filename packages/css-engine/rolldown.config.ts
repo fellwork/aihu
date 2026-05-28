@@ -24,5 +24,12 @@ export default defineConfig({
     entryFileNames: '[name].js',
   },
   plugins: [dts()],
-  external: ['@aihu/compiler', 'node:child_process', 'node:fs', 'node:module', 'node:path', 'node:url'],
+  external: [
+    '@aihu/compiler',
+    'node:child_process',
+    'node:fs',
+    'node:module',
+    'node:path',
+    'node:url',
+  ],
 })
