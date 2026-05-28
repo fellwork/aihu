@@ -139,6 +139,16 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
         return Some(css);
     }
 
+    // 1b. Named container context: `@container/<name>` declares a *named* query
+    // container so descendant `@<bp>/<name>:` variants can target it. Emits both
+    // the container-type and the container-name. (The bare `@container` form is a
+    // fixed utility below.)
+    if let Some(name) = class_name.strip_prefix("@container/") {
+        if !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+            return Some(format!("container-type: inline-size; container-name: {name};"));
+        }
+    }
+
     // 2. Fixed long-tail utilities (no value parameter).
     if let Some(css) = fixed_utility(class_name) {
         return Some(css.to_string());
@@ -256,6 +266,12 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "inline-grid" => "display: inline-grid;",
         "hidden" => "display: none;",
         "contents" => "display: contents;",
+
+        // Container-query context. `@container` (and the named `@container/<name>`
+        // form, normalized in `utility_to_css`) marks an element as a query
+        // container so descendant `@sm:`/`@md:`/`@lg:` variants resolve against
+        // its inline size. Tailwind's default container-type is `inline-size`.
+        "@container" => "container-type: inline-size;",
 
         // Flexbox / grid alignment
         "flex-row" => "flex-direction: row;",

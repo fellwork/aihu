@@ -60,6 +60,13 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ['hover:scale-105', /transform\s*:\s*scale\(\s*1\.05\s*\)/],
   ['animate-spin', /animation\s*:\s*spin\s+1s\s+linear\s+infinite/],
   ['@keyframes spin', /@keyframes\s+spin/],
+  // Round 2 (aria-data-container): attribute variants + container queries.
+  ['@container', /container-type\s*:\s*inline-size/],
+  ['@md: container query', /@container\s*\(\s*min-width\s*:\s*28rem\s*\)/],
+  // The Lightning/esbuild minifier may strip the quotes around the attribute
+  // value (`[aria-expanded="true"]` → `[aria-expanded=true]`); both are valid.
+  ['aria-expanded:', /\[aria-expanded=("?)true\1\]/],
+  ['data-[state=open]:', /\[data-state=("?)open\1\]/],
 ]
 
 // Concatenate all emitted CSS so a rule split across files still matches.

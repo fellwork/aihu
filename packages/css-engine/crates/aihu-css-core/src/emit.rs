@@ -21,7 +21,7 @@ use crate::progressive::ProgressiveRegistry;
 use crate::scanner::{scan, ScanResult};
 use crate::theme::{extract_theme_blocks, ThemeRegistry};
 use crate::tokens::{animation_keyframes, utility_to_css};
-use crate::variants::{split_variants, Variant};
+use crate::variants::{split_variants, AttrMatch, Variant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
@@ -33,7 +33,10 @@ pub enum OutputMode {
 fn escape_class(class: &str) -> String {
     let mut out = String::with_capacity(class.len() + 4);
     for c in class.chars() {
-        if matches!(c, '[' | ']' | '#' | '(' | ')' | '.' | '%' | '/' | ':' | ',') {
+        if matches!(
+            c,
+            '[' | ']' | '#' | '(' | ')' | '.' | '%' | '/' | ':' | ',' | '@' | '=' | '"'
+        ) {
             out.push('\\');
         }
         out.push(c);
@@ -71,7 +74,11 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 
     // The base (innermost) selector and declaration body.
     let mut selector = class_sel;
-    let mut media: Option<String> = None;
+    // Wrapping at-rule (e.g. `@media (min-width: …)` for breakpoints or
+    // `@container (min-width: …)` for container queries). Generalized from the
+    // old `media: Option<String>` slot so both `@media` and `@container` wrap
+    // the rule uniformly: `<at-rule> { <rule> }`.
+    let mut at_rule: Option<String> = None;
     let mut dark_cascade = false;
 
     for v in &variants {
@@ -106,9 +113,22 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
             // not variant prefixes); a `None` state is unreachable but handled
             // defensively as a no-op so the base selector is emitted unchanged.
             Variant::Group(None) | Variant::Peer(None) => {}
+            // aria-*/data-* attribute variants compile to an attribute selector
+            // appended to the base: `aria-checked:` → `.cls[aria-checked="true"]`,
+            // `data-[state=open]:` → `.cls[data-state="open"]`. A keyword data-*
+            // (`data-active:`) emits a presence selector `[data-active]`.
+            Variant::Aria(m) => selector = format!("{selector}{}", attr_selector("aria", m)),
+            Variant::Data(m) => selector = format!("{selector}{}", attr_selector("data", m)),
             Variant::Breakpoint(bp) => {
                 if let Some(min) = theme.breakpoint(bp) {
-                    media = Some(format!("(min-width: {min})"));
+                    at_rule = Some(format!("@media (min-width: {min})"));
+                }
+            }
+            // Container queries wrap the rule in an `@container` at-rule keyed on
+            // the container breakpoint scale (mirrors `breakpoint()`).
+            Variant::Container(bp) => {
+                if let Some(min) = theme.container_breakpoint(bp) {
+                    at_rule = Some(format!("@container (min-width: {min})"));
                 }
             }
             Variant::Dark | Variant::HostContextDark => {
@@ -133,8 +153,8 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
         format!("{selector} {{ {body} }}\n")
     };
 
-    let rule = match media {
-        Some(q) => format!("@media {q} {{\n{rule}}}\n"),
+    let rule = match at_rule {
+        Some(at) => format!("{at} {{\n{rule}}}\n"),
         None => rule,
     };
 
@@ -146,6 +166,26 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
         Some(kf) => format!("{rule}{kf}\n"),
         None => rule,
     })
+}
+
+/// Build an attribute-selector fragment for an `aria-*`/`data-*` variant.
+///
+/// `attr_selector("aria", Name{checked, true})` → `[aria-checked="true"]`;
+/// `attr_selector("data", NameValue{state, open})` → `[data-state="open"]`;
+/// `attr_selector("data", Name{active, false})` → `[data-active]` (presence).
+fn attr_selector(family: &str, m: &AttrMatch) -> String {
+    match m {
+        AttrMatch::Name { name, imply_true } => {
+            if *imply_true {
+                format!("[{family}-{name}=\"true\"]")
+            } else {
+                format!("[{family}-{name}]")
+            }
+        }
+        AttrMatch::NameValue { name, value } => {
+            format!("[{family}-{name}=\"{value}\"]")
+        }
+    }
 }
 
 /// Emit CSS for a scanned utility set in the given mode.

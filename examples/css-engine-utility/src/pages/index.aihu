@@ -61,12 +61,23 @@
       emits a hoisted <code>@keyframes spin</code> block.
     </p>
 
+    <div class="@container border-2 rounded p-4">
+      <div class="@md:flex gap-4">
+        <span class="text-sm">@container parent</span>
+        <span class="text-sm">@md:flex child (lays out as a row at ≥28rem)</span>
+      </div>
+    </div>
+
+    <button class="aria-expanded:bg-accent data-[state=open]:underline border-2 rounded px-4 py-6">
+      aria-expanded:/data-[state=open]: attribute-variant toggle
+    </button>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
-      <code>docs/site/utility-classes.md</code> for the full table, including
-      what is <em>not</em> yet supported (e.g. <code>group:</code>/<code>peer:</code>
-      variants, container queries, and <code>aria-*</code>/<code>data-*</code>
-      attribute variants).
+      <code>docs/site/utility-classes.md</code> for the full table. Round 2 added
+      <code>group:</code>/<code>peer:</code> variants, motion utilities, container
+      queries (<code>@container</code>, <code>@md:</code>), and
+      <code>aria-*</code>/<code>data-*</code> attribute variants.
     </p>
 
     <div class="group flex flex-col gap-2">

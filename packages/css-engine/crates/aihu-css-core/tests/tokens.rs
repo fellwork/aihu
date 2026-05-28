@@ -299,6 +299,20 @@ fn transform_keyword_and_none() {
     );
 }
 
+// --- Round 2: container-query marker utilities (aria-data-container) -------
+//
+// The `@container` marker and its named `@container/<name>` form are base
+// utilities (the `@sm:`/`@md:`/`@lg:` query variants live in variants.rs /
+// emit.rs and are exercised in tests/emit.rs).
+
+#[test]
+fn container_marker_emits_inline_size() {
+    assert_eq!(
+        css(&["@container"]),
+        ".@container { container-type: inline-size; }\n"
+    );
+}
+
 #[test]
 fn divide_y_bare_defaults_to_1px() {
     assert_eq!(
@@ -521,4 +535,12 @@ fn animate_ping_pulse_bounce_emit_keyframes() {
     assert!(css(&["animate-pulse"]).contains("@keyframes pulse"));
     assert!(css(&["animate-bounce"]).contains("@keyframes bounce"));
     assert!(css(&["animate-bounce"]).contains("animation: bounce 1s infinite;"));
+}
+
+#[test]
+fn named_container_marker_emits_type_and_name() {
+    assert_eq!(
+        css(&["@container/sidebar"]),
+        ".@container/sidebar { container-type: inline-size; container-name: sidebar; }\n"
+    );
 }

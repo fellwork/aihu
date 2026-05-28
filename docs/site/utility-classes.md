@@ -270,6 +270,54 @@ inside a selector body. Re-emitting an identical block is idempotent in CSS.
 - **Arbitrary selectors:** `[&>li]:`, `[&:has(img)]:`, etc.
 - **Stacking:** `md:hover:bg-primary` — left-to-right composition
 
+### aria-\*/data-\* attribute variants
+
+Gate a utility on an ARIA state or a `data-*` attribute. The variant compiles
+to an attribute selector appended to the class.
+
+| Variant | Selector | Notes |
+|---------|----------|-------|
+| `aria-checked:` | `[aria-checked="true"]` | implicit `="true"` |
+| `aria-disabled:` | `[aria-disabled="true"]` | |
+| `aria-expanded:` | `[aria-expanded="true"]` | |
+| `aria-selected:` | `[aria-selected="true"]` | |
+| `aria-pressed:` | `[aria-pressed="true"]` | |
+| `aria-[expanded=false]:` | `[aria-expanded="false"]` | arbitrary `name=value` |
+| `data-[state=open]:` | `[data-state="open"]` | arbitrary `name=value` |
+| `data-active:` | `[data-active]` | bare data-* → presence (no `="true"`) |
+
+```
+aria-expanded:bg-accent      →  .aria-expanded\:bg-accent[aria-expanded="true"] { background-color: var(--color-accent); }
+data-[state=open]:underline  →  .data-\[state\=open\]\:underline[data-state="open"] { text-decoration-line: underline; }
+```
+
+Any aria-/data- variant whose base utility is unknown emits nothing — there is
+no spurious empty rule.
+
+### Container queries (@container)
+
+Mark an element as a query container with `@container` (or the named
+`@container/<name>` form), then size descendants with the `@sm:`/`@md:`/`@lg:`/
+`@xl:`/`@2xl:` container-query variants. These wrap the rule in an `@container`
+at-rule rather than `@media`, and use Tailwind's container-query scale (which
+differs from the viewport breakpoint scale).
+
+| Class / variant | Output |
+|-----------------|--------|
+| `@container` | `container-type: inline-size;` |
+| `@container/sidebar` | `container-type: inline-size; container-name: sidebar;` |
+| `@sm:` | `@container (min-width: 24rem) { … }` |
+| `@md:` | `@container (min-width: 28rem) { … }` |
+| `@lg:` | `@container (min-width: 32rem) { … }` |
+| `@xl:` | `@container (min-width: 36rem) { … }` |
+| `@2xl:` | `@container (min-width: 42rem) { … }` |
+
+```
+<div class="@container">
+  <div class="@md:flex">…</div>   →  @container (min-width: 28rem) { .\@md\:flex { display: flex; } }
+</div>
+```
+
 ## Brand tokens (16)
 
 Override any token in a component's `@style` block via
@@ -310,8 +358,7 @@ top-[1rem]     →  top: 1rem;
 > arbitrary-value workaround; the rest require variant-parser changes. Open an
 > issue if you need one promoted.
 
-- Container queries (`@container`)
-- `aria-*` / `data-*` attribute variants
+- Arbitrary at-rules beyond `@media` / `@container` (e.g. `@supports`)
 
 ## Worked examples
 
@@ -454,6 +501,31 @@ One input → output pair per new family.
 ```css
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+```
+
+### `aria-expanded:` (attribute variant)
+
+```html
+<button class="aria-expanded:bg-accent"> … </button>
+```
+
+```css
+.aria-expanded\:bg-accent[aria-expanded="true"] { background-color: var(--color-accent); }
+```
+
+### `@container` + `@md:` (container query)
+
+```html
+<div class="@container">
+  <div class="@md:flex"> … </div>
+</div>
+```
+
+```css
+.\@container { container-type: inline-size; }
+@container (min-width: 28rem) {
+  .\@md\:flex { display: flex; }
+}
 ```
 
 ## See also
