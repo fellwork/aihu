@@ -64,7 +64,6 @@ describe('EX-07 agent-hub — hub-root.aihu source-text checks', () => {
   it('A5-5: hub-root.aihu contains $expose', () => {
     expect(sfcSrc).toContain('$expose')
   })
-
 })
 
 // ---------------------------------------------------------------------------

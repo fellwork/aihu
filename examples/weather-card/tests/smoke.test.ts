@@ -163,7 +163,7 @@ describe('EX-06 weather-card — error branches', () => {
       const geoJson = (await geoResp.json()) as {
         results?: Array<{ latitude: number; longitude: number }>
       }
-      const hit = geoJson.results && geoJson.results[0]
+      const hit = geoJson.results?.[0]
       if (!hit) {
         status = 'error'
         error = `No matching city found for "${query}".`

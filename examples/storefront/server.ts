@@ -35,10 +35,9 @@ Bun.serve({
     // POST /api/checkout — protected
     if (req.method === 'POST' && url.pathname === '/api/checkout') {
       return checkAuth(req, async () => {
-        return new Response(
-          JSON.stringify({ orderId: 'order-' + Date.now(), status: 'ok' }),
-          { headers: { 'Content-Type': 'application/json' } },
-        )
+        return new Response(JSON.stringify({ orderId: `order-${Date.now()}`, status: 'ok' }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
       })
     }
 

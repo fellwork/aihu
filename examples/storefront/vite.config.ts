@@ -17,23 +17,31 @@ export default defineConfig({
       configureServer(server) {
         // GET /api/products — public mock
         server.middlewares.use('/api/products', (req, res, next) => {
-          if (req.method !== 'GET') { next(); return }
+          if (req.method !== 'GET') {
+            next()
+            return
+          }
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(PRODUCTS))
         })
 
         // POST /api/checkout — checks Authorization header
         server.middlewares.use('/api/checkout', (req, res, next) => {
-          if (req.method !== 'POST') { next(); return }
-          const auth = req.headers['authorization']
+          if (req.method !== 'POST') {
+            next()
+            return
+          }
+          const auth = req.headers.authorization
           if (!auth) {
             res.statusCode = 401
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }))
+            res.end(
+              JSON.stringify({ error: 'UNAUTHORIZED', message: 'Missing authorization token' }),
+            )
             return
           }
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ orderId: 'order-' + Date.now(), status: 'ok' }))
+          res.end(JSON.stringify({ orderId: `order-${Date.now()}`, status: 'ok' }))
         })
       },
     },
