@@ -236,6 +236,59 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "h-screen" => "height: 100vh;",
         "h-auto" => "height: auto;",
 
+        // Auto margins — `auto` is a keyword (not a numeric scale value), so
+        // these live here rather than in `spacing_value()`.
+        "mx-auto" => "margin-inline: auto;",
+        "my-auto" => "margin-block: auto;",
+        "mt-auto" => "margin-top: auto;",
+        "mr-auto" => "margin-right: auto;",
+        "mb-auto" => "margin-bottom: auto;",
+        "ml-auto" => "margin-left: auto;",
+        "ms-auto" => "margin-inline-start: auto;",
+        "me-auto" => "margin-inline-end: auto;",
+
+        // Named max-width scale (Tailwind v4 conventional rem values).
+        "max-w-xs" => "max-width: 20rem;",
+        "max-w-sm" => "max-width: 24rem;",
+        "max-w-md" => "max-width: 28rem;",
+        "max-w-lg" => "max-width: 32rem;",
+        "max-w-xl" => "max-width: 36rem;",
+        "max-w-2xl" => "max-width: 42rem;",
+        "max-w-3xl" => "max-width: 48rem;",
+        "max-w-4xl" => "max-width: 56rem;",
+        "max-w-5xl" => "max-width: 64rem;",
+        "max-w-6xl" => "max-width: 72rem;",
+        "max-w-7xl" => "max-width: 80rem;",
+        "max-w-full" => "max-width: 100%;",
+        "max-w-screen" => "max-width: 100vw;",
+        "max-w-min" => "max-width: min-content;",
+        "max-w-max" => "max-width: max-content;",
+        "max-w-fit" => "max-width: fit-content;",
+        "max-w-none" => "max-width: none;",
+        "max-w-prose" => "max-width: 65ch;",
+
+        // Min-width keyword scale.
+        "min-w-full" => "min-width: 100%;",
+        "min-w-screen" => "min-width: 100vw;",
+        "min-w-min" => "min-width: min-content;",
+        "min-w-max" => "min-width: max-content;",
+        "min-w-fit" => "min-width: fit-content;",
+
+        // Max-height keyword scale.
+        "max-h-full" => "max-height: 100%;",
+        "max-h-screen" => "max-height: 100vh;",
+        "max-h-min" => "max-height: min-content;",
+        "max-h-max" => "max-height: max-content;",
+        "max-h-fit" => "max-height: fit-content;",
+        "max-h-none" => "max-height: none;",
+
+        // Min-height keyword scale.
+        "min-h-full" => "min-height: 100%;",
+        "min-h-screen" => "min-height: 100vh;",
+        "min-h-min" => "min-height: min-content;",
+        "min-h-max" => "min-height: max-content;",
+        "min-h-fit" => "min-height: fit-content;",
+
         _ => return None,
     })
 }

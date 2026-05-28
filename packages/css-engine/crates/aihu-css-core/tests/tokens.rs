@@ -77,3 +77,57 @@ fn arbitrary_values() {
         "leading-[1.4]",
     ]));
 }
+
+/// Auto-margins + named min/max width/height keyword utilities (round 7b).
+/// Spot-check coverage rather than a full snapshot so the long list stays
+/// readable and additions to the table don't churn the test.
+#[test]
+fn sizing_and_auto_margin_keywords() {
+    let out = css(&[
+        "mx-auto",
+        "my-auto",
+        "ms-auto",
+        "max-w-7xl",
+        "max-w-prose",
+        "max-w-full",
+        "min-w-fit",
+        "max-h-screen",
+        "min-h-min",
+    ]);
+    assert!(
+        out.contains(".mx-auto { margin-inline: auto; }"),
+        "mx-auto missing in: {out}"
+    );
+    assert!(
+        out.contains(".my-auto { margin-block: auto; }"),
+        "my-auto missing in: {out}"
+    );
+    assert!(
+        out.contains(".ms-auto { margin-inline-start: auto; }"),
+        "ms-auto missing in: {out}"
+    );
+    assert!(
+        out.contains(".max-w-7xl { max-width: 80rem; }"),
+        "max-w-7xl missing in: {out}"
+    );
+    assert!(
+        out.contains(".max-w-prose { max-width: 65ch; }"),
+        "max-w-prose missing in: {out}"
+    );
+    assert!(
+        out.contains(".max-w-full { max-width: 100%; }"),
+        "max-w-full missing in: {out}"
+    );
+    assert!(
+        out.contains(".min-w-fit { min-width: fit-content; }"),
+        "min-w-fit missing in: {out}"
+    );
+    assert!(
+        out.contains(".max-h-screen { max-height: 100vh; }"),
+        "max-h-screen missing in: {out}"
+    );
+    assert!(
+        out.contains(".min-h-min { min-height: min-content; }"),
+        "min-h-min missing in: {out}"
+    );
+}
