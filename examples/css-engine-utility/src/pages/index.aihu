@@ -68,5 +68,13 @@
       variants, container queries, and <code>aria-*</code>/<code>data-*</code>
       attribute variants).
     </p>
+
+    <div class="group flex flex-col gap-2">
+      <span class="group-hover:bg-primary p-2">group-hover target</span>
+    </div>
+    <label class="flex flex-col gap-2">
+      <input class="peer" type="checkbox" />
+      <span class="peer-checked:bg-primary p-2">peer-checked target</span>
+    </label>
   </section>
 }

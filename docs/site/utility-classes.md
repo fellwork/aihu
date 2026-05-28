@@ -310,7 +310,6 @@ top-[1rem]     →  top: 1rem;
 > arbitrary-value workaround; the rest require variant-parser changes. Open an
 > issue if you need one promoted.
 
-- `group:` / `peer:` variants
 - Container queries (`@container`)
 - `aria-*` / `data-*` attribute variants
 

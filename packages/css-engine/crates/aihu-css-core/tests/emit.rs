@@ -122,6 +122,87 @@ fn stacked_variants_md_hover() {
     assert!(css.contains(":hover"));
 }
 
+// ── Round 2: group / peer relational variants ────────────────────────────────
+
+#[test]
+fn group_hover_emits_ancestor_state_selector() {
+    let css = compile_sfc_scoped(&sfc_with_classes("group-hover:bg-primary"));
+    // Ancestor descendant-combinator: `.group:hover .group-hover\:bg-primary`.
+    assert!(
+        css.contains(".group:hover .group-hover\\:bg-primary"),
+        "group-hover: → `.group:hover <base>` ancestor selector: {css}"
+    );
+    assert!(css.contains("background-color: var(--color-primary)"));
+}
+
+#[test]
+fn group_focus_variants_emit_each_state() {
+    for (cls, sel) in [
+        ("group-focus:bg-primary", ".group:focus "),
+        ("group-focus-visible:bg-primary", ".group:focus-visible "),
+        ("group-active:bg-primary", ".group:active "),
+        ("group-disabled:bg-primary", ".group:disabled "),
+    ] {
+        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        assert!(css.contains(sel), "{cls} → `{sel}` prefix: {css}");
+    }
+}
+
+#[test]
+fn peer_checked_emits_sibling_state_selector() {
+    let css = compile_sfc_scoped(&sfc_with_classes("peer-checked:bg-primary"));
+    // Subsequent-sibling combinator: `.peer:checked ~ .peer-checked\:bg-primary`.
+    assert!(
+        css.contains(".peer:checked ~ .peer-checked\\:bg-primary"),
+        "peer-checked: → `.peer:checked ~ <base>` sibling selector: {css}"
+    );
+    assert!(css.contains("background-color: var(--color-primary)"));
+}
+
+#[test]
+fn peer_state_variants_emit_each_state() {
+    for (cls, sel) in [
+        ("peer-hover:bg-primary", ".peer:hover ~ "),
+        ("peer-focus:bg-primary", ".peer:focus ~ "),
+        ("peer-focus-visible:bg-primary", ".peer:focus-visible ~ "),
+        ("peer-disabled:bg-primary", ".peer:disabled ~ "),
+    ] {
+        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        assert!(css.contains(sel), "{cls} → `{sel}` prefix: {css}");
+    }
+}
+
+#[test]
+fn bare_group_and_peer_markers_emit_empty_rules() {
+    let css = compile_sfc_scoped(&sfc_with_classes("group peer"));
+    // Markers survive as empty-body rules so the relational selectors resolve.
+    assert!(css.contains(".group {"), "bare `group` marker kept: {css}");
+    assert!(css.contains(".peer {"), "bare `peer` marker kept: {css}");
+}
+
+#[test]
+fn group_peer_stack_with_responsive() {
+    // `md:group-hover:bg-primary` — breakpoint wraps the relational rule.
+    let css = compile_sfc_scoped(&sfc_with_classes("md:group-hover:bg-primary"));
+    assert!(css.contains("@media (min-width:"), "breakpoint wrapper: {css}");
+    assert!(css.contains(".group:hover "), "relational selector inside media: {css}");
+}
+
+// ── Over-impl probe: aria-*/data-*/@container belong to P6, must NOT emit ─────
+
+#[test]
+fn out_of_track_variants_still_unsupported() {
+    // These belong to the aria/data/container track (P6). This track must not
+    // accidentally implement them — they should produce no rule.
+    for cls in ["aria-checked:bg-primary", "data-open:bg-primary"] {
+        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        assert!(
+            !css.contains("background-color: var(--color-primary)"),
+            "{cls} must NOT emit (belongs to P6): {css}"
+        );
+    }
+}
+
 // ── Task 7: @theme directive ─────────────────────────────────────────────────
 
 #[test]
