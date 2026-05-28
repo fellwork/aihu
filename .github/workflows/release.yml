@@ -336,6 +336,12 @@ jobs:
               continue
             fi
             cp "$node_file" "$dir/"
+            # NOTE: unlike publish-css-native, we intentionally do NOT chmod 0755
+            # here. .node files are dlopen()'d by Node/Bun, not exec()'d — the
+            # OS loader does not require the exec bit. actions/download-artifact@v4
+            # drops POSIX mode bits, but the resulting -rw-r--r-- is harmless for
+            # napi addons. Do not change this without re-verifying dlopen on all
+            # 4 platforms.
             pkg_name=$(node -p "require('./$dir/package.json').name")
             pkg_version=$(node -p "require('./$dir/package.json').version")
             # Idempotency: 'npm view <pkg>@<ver>' returns the version string when
@@ -457,6 +463,16 @@ jobs:
               continue
             fi
             cp "$bin_file" "$dir/"
+            # Restore +x lost in actions/download-artifact@v4 (does NOT preserve
+            # POSIX mode bits). Without this, the published tarball ships
+            # aihu-css-compile as -rw-r--r--, and Bun consumers cannot fix it
+            # (postinstall is blocked by default for untrusted deps). Skip
+            # win32-x64-msvc — NTFS has no exec bit, and the publish job runs
+            # on Linux anyway so chmod on a .exe is meaningless.
+            case "$platform" in
+              win32-*) ;;
+              *) chmod 0755 "$dir/$(basename "$bin_file")" ;;
+            esac
             pkg_name=$(node -p "require('./$dir/package.json').name")
             pkg_version=$(node -p "require('./$dir/package.json').version")
             # Idempotency: skip if this version is already on npm (re-run / retag).
