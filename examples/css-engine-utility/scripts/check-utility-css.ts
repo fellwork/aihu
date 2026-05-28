@@ -45,6 +45,13 @@ const checks: ReadonlyArray<readonly [string, RegExp]> = [
   ],
   ['space-y-4', /margin-block-start\s*:\s*1rem/],
   ['border-2', /border-width\s*:\s*2px/],
+  // Round 2 (motion track): transition / scale / animate emission.
+  ['transition-transform', /transition-property\s*:\s*transform/],
+  // Lightning CSS minifies `300ms` → `.3s`, so accept either form.
+  ['duration-300', /transition-duration\s*:\s*(?:300ms|\.3s|0\.3s)/],
+  ['hover:scale-105', /transform\s*:\s*scale\(\s*1\.05\s*\)/],
+  ['animate-spin', /animation\s*:\s*spin\s+1s\s+linear\s+infinite/],
+  ['@keyframes spin', /@keyframes\s+spin/],
 ]
 
 // Concatenate all emitted CSS so a rule split across files still matches.
@@ -53,7 +60,7 @@ const matchedFiles: string[] = []
 for (const f of cssFiles) {
   const full = join(distAssets, f)
   if (!statSync(full).isFile()) continue
-  allCss += `\n/* ${f} */\n` + readFileSync(full, 'utf8')
+  allCss += `\n/* ${f} */\n${readFileSync(full, 'utf8')}`
   matchedFiles.push(f)
 }
 

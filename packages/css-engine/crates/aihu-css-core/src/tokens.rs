@@ -32,8 +32,8 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
 
     // Prefix-based utilities: prefix → its controlled CSS property (the group).
     const SPACING_PREFIXES: &[&str] = &[
-        "p", "px", "py", "pt", "pr", "pb", "pl", "m", "mx", "my", "mt", "mr",
-        "mb", "ml", "gap", "gap-x", "gap-y",
+        "p", "px", "py", "pt", "pr", "pb", "pl", "m", "mx", "my", "mt", "mr", "mb", "ml", "gap",
+        "gap-x", "gap-y",
     ];
     for p in SPACING_PREFIXES {
         if let Some(group) = spacing_prop(p) {
@@ -62,8 +62,7 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
         }
     }
 
-    const COLOR_PREFIXES: &[&str] =
-        &["bg", "text", "border", "fill", "stroke", "ring", "outline"];
+    const COLOR_PREFIXES: &[&str] = &["bg", "text", "border", "fill", "stroke", "ring", "outline"];
     for p in COLOR_PREFIXES {
         if let Some(group) = color_prop(p) {
             out.push((p, group));
@@ -76,6 +75,22 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("rounded", "border-radius"));
     out.push(("shadow", "box-shadow"));
     out.push(("font", "font-weight"));
+
+    // Motion families (Round 2: tailwind-support `motion` track). Every motion
+    // transform utility emits a single `transform:` declaration, so the engine
+    // resolves them via the CSS cascade (last declared wins). For `cn()`
+    // last-wins we register one group key per family — translate/rotate/scale
+    // dedupe within a family while leaving sibling families independent
+    // (matching Tailwind's mental model). Combining families on one element
+    // requires an arbitrary value (`transform-[...]`), see the docs note.
+    out.push(("translate-x", "translate"));
+    out.push(("translate-y", "translate"));
+    out.push(("rotate", "rotate"));
+    out.push(("scale", "scale"));
+    out.push(("scale-x", "scale"));
+    out.push(("scale-y", "scale"));
+    // Transition / timing / animation each control a single property.
+    out.push(("duration", "transition-duration"));
 
     out
 }
@@ -93,6 +108,16 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
         return Some(css.to_string());
     }
 
+    // 3a. Negative motion utilities: `-translate-x-2`, `-rotate-45`. The leading
+    // `-` is not part of any prefix, so we strip it, compile the positive form,
+    // and negate the emitted numeric value. Only the negatable motion families
+    // (`translate-*`, `rotate-*`) opt in via `negate_motion`.
+    if let Some(rest) = class_name.strip_prefix('-') {
+        if let Some(css) = negate_motion(rest) {
+            return Some(css);
+        }
+    }
+
     // 3. Parameterized utilities split on the LAST `-` (prefix + value).
     if let Some(idx) = class_name.rfind('-') {
         let (prefix, value) = (&class_name[..idx], &class_name[idx + 1..]);
@@ -106,6 +131,30 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
     }
 
     None
+}
+
+/// Compile the negative form of a motion transform utility. `rest` is the class
+/// name with its leading `-` already stripped (e.g. `translate-x-2`, `rotate-45`).
+/// Returns the same `transform:` declaration with a negated value. Only
+/// `translate-x/y-*` and `rotate-*` are negatable (Tailwind's `-` prefix set).
+fn negate_motion(rest: &str) -> Option<String> {
+    let idx = rest.rfind('-')?;
+    let (prefix, value) = (&rest[..idx], &rest[idx + 1..]);
+    match prefix {
+        "translate-x" => {
+            let len = translate_length(value)?;
+            Some(format!("transform: translateX(-{len});"))
+        }
+        "translate-y" => {
+            let len = translate_length(value)?;
+            Some(format!("transform: translateY(-{len});"))
+        }
+        "rotate" => {
+            let deg = positive_int(value)?;
+            Some(format!("transform: rotate(-{deg}deg);"))
+        }
+        _ => None,
+    }
 }
 
 /// Parse `prefix-[value]` arbitrary-value syntax. The bracket content is
@@ -317,6 +366,40 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         // z-index keyword (numeric forms handled by `parameterized_utility`).
         "z-auto" => "z-index: auto;",
 
+        // --- Motion (Round 2: tailwind-support `motion` track) -------------
+        //
+        // Transform: this engine emits direct `transform:` declarations per
+        // family (no CSS-var composition), so `transform` is the GPU-friendly
+        // identity baseline and `transform-none` disables it.
+        "transform" => "transform: translate(0, 0) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);",
+        "transform-none" => "transform: none;",
+
+        // Transition shorthands. `transition` is Tailwind's default property
+        // set; the property-scoped variants narrow it. All ship the default
+        // 150ms / cubic-bezier timing so a bare `transition` animates.
+        "transition" => "transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;",
+        "transition-none" => "transition-property: none;",
+        "transition-all" => "transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;",
+        "transition-colors" => "transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;",
+        "transition-opacity" => "transition-property: opacity; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;",
+        "transition-transform" => "transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms;",
+
+        // Timing functions (Tailwind v4 defaults).
+        "ease-linear" => "transition-timing-function: linear;",
+        "ease-in" => "transition-timing-function: cubic-bezier(0.4, 0, 1, 1);",
+        "ease-out" => "transition-timing-function: cubic-bezier(0, 0, 0.2, 1);",
+        "ease-in-out" => "transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);",
+
+        // Animations. The `animation:` shorthand is emitted here; the matching
+        // `@keyframes` block is hoisted as a sibling rule by the emitter via
+        // `animation_keyframes()` (see emit.rs / lib.rs). `animate-none` clears
+        // any running animation and needs no keyframes.
+        "animate-none" => "animation: none;",
+        "animate-spin" => "animation: spin 1s linear infinite;",
+        "animate-ping" => "animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;",
+        "animate-pulse" => "animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;",
+        "animate-bounce" => "animation: bounce 1s infinite;",
+
         _ => return None,
     })
 }
@@ -355,9 +438,7 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     }
     if prefix == "grid-rows" {
         if let Some(n) = positive_int(value) {
-            return Some(format!(
-                "grid-template-rows: repeat({n}, minmax(0, 1fr));"
-            ));
+            return Some(format!("grid-template-rows: repeat({n}, minmax(0, 1fr));"));
         }
     }
     if prefix == "col-span" {
@@ -399,6 +480,49 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     if prefix == "opacity" {
         if let Ok(n) = value.parse::<f32>() {
             return Some(format!("opacity: {};", n / 100.0));
+        }
+    }
+
+    // --- Motion (Round 2: tailwind-support `motion` track) -----------------
+    //
+    // Translate uses the spacing scale (`translate-x-2` → 0.5rem); negative
+    // forms are routed through `negate_motion` in `utility_to_css`.
+    if prefix == "translate-x" {
+        if let Some(len) = translate_length(value) {
+            return Some(format!("transform: translateX({len});"));
+        }
+    }
+    if prefix == "translate-y" {
+        if let Some(len) = translate_length(value) {
+            return Some(format!("transform: translateY({len});"));
+        }
+    }
+    // Rotate: integer degrees (`rotate-45` → 45deg).
+    if prefix == "rotate" {
+        if let Some(deg) = positive_int(value) {
+            return Some(format!("transform: rotate({deg}deg);"));
+        }
+    }
+    // Scale: percentage value mapped to a unit multiplier (`scale-105` → 1.05).
+    if prefix == "scale" {
+        if let Some(factor) = scale_factor(value) {
+            return Some(format!("transform: scale({factor});"));
+        }
+    }
+    if prefix == "scale-x" {
+        if let Some(factor) = scale_factor(value) {
+            return Some(format!("transform: scaleX({factor});"));
+        }
+    }
+    if prefix == "scale-y" {
+        if let Some(factor) = scale_factor(value) {
+            return Some(format!("transform: scaleY({factor});"));
+        }
+    }
+    // Transition duration: integer milliseconds (`duration-300` → 300ms).
+    if prefix == "duration" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("transition-duration: {ms}ms;"));
         }
     }
 
@@ -480,9 +604,9 @@ fn is_palette_token(name: &str) -> bool {
         return false;
     };
     const FAMILIES: &[&str] = &[
-        "slate", "gray", "zinc", "neutral", "stone", "red", "orange", "amber",
-        "yellow", "lime", "green", "emerald", "teal", "cyan", "sky", "blue",
-        "indigo", "violet", "purple", "fuchsia", "pink", "rose",
+        "slate", "gray", "zinc", "neutral", "stone", "red", "orange", "amber", "yellow", "lime",
+        "green", "emerald", "teal", "cyan", "sky", "blue", "indigo", "violet", "purple", "fuchsia",
+        "pink", "rose",
     ];
     FAMILIES.contains(&family)
         && matches!(
@@ -553,6 +677,55 @@ fn positive_int(value: &str) -> Option<u32> {
         return None;
     }
     Some(n)
+}
+
+/// Parse a non-negative integer (`duration-0` is valid; `rotate-0` too).
+fn positive_int_or_zero(value: &str) -> Option<u32> {
+    if value.is_empty() || !value.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    value.parse().ok()
+}
+
+/// Translate length on the spacing scale, with `px` and fractional steps. Used
+/// by `translate-x/y-*`. Reuses [`spacing_value`] but rejects the `auto`
+/// keyword (translate has no `auto`).
+fn translate_length(value: &str) -> Option<String> {
+    if value == "auto" {
+        return None;
+    }
+    spacing_value(value)
+}
+
+/// Scale percentage → unit multiplier. `scale-105` → `1.05`, `scale-0` → `0`,
+/// `scale-50` → `0.5`.
+fn scale_factor(value: &str) -> Option<String> {
+    let n = positive_int_or_zero(value)?;
+    let factor = n as f32 / 100.0;
+    Some(trim_float(factor))
+}
+
+/// The `@keyframes` block a given `animate-*` utility depends on, or `None` if
+/// the class is not a keyframe-backed animation (`animate-none`, non-animation
+/// classes). The emitter hoists this as a sibling rule so the `animation:`
+/// shorthand has a definition. Re-emitting an identical `@keyframes` is
+/// idempotent in CSS, so per-occurrence emission is safe.
+pub fn animation_keyframes(class_name: &str) -> Option<&'static str> {
+    Some(match class_name {
+        "animate-spin" => {
+            "@keyframes spin { to { transform: rotate(360deg); } }"
+        }
+        "animate-ping" => {
+            "@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }"
+        }
+        "animate-pulse" => {
+            "@keyframes pulse { 50% { opacity: 0.5; } }"
+        }
+        "animate-bounce" => {
+            "@keyframes bounce { 0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); } 50% { transform: none; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); } }"
+        }
+        _ => return None,
+    })
 }
 
 fn sizing_prop(prefix: &str) -> Option<&'static str> {
