@@ -2883,18 +2883,53 @@ fn emit_node(
 ) -> String {
     match node {
         TemplateNode::Text(s) => {
-            let t = decode_html_entities(s.trim());
-            if t.is_empty() {
+            // Decode entities first so &nbsp; etc. survive whitespace normalization.
+            let raw = decode_html_entities(s);
+            if raw.trim().is_empty() {
                 String::new()
             } else {
-                // Normalize HTML whitespace: collapse newlines + surrounding spaces into
-                // a single space, then escape for a JS single-quoted string literal.
-                let normalized: String = t
+                // JSX-style whitespace handling for text adjacent to inline elements:
+                //  1. Collapse runs of ASCII whitespace (incl. newlines) per-line.
+                //  2. Lines that are only whitespace are dropped.
+                //  3. Same-line leading/trailing whitespace (no `\n` in the leading/
+                //     trailing run) is preserved as a single space — required to
+                //     keep the gap between `<text>` and an inline `<element>` sibling.
+                //  4. Multi-line surrounding whitespace (template body newlines) is
+                //     stripped entirely (existing behavior).
+                let leading_len = raw
+                    .as_bytes()
+                    .iter()
+                    .take_while(|b| b.is_ascii_whitespace())
+                    .count();
+                let trailing_len = raw
+                    .as_bytes()
+                    .iter()
+                    .rev()
+                    .take_while(|b| b.is_ascii_whitespace())
+                    .count();
+                let leading_run = &raw[..leading_len];
+                let trailing_run = &raw[raw.len() - trailing_len..];
+                let has_same_line_leading =
+                    !leading_run.is_empty() && !leading_run.contains('\n');
+                let has_same_line_trailing =
+                    !trailing_run.is_empty() && !trailing_run.contains('\n');
+
+                let core: String = raw
                     .split('\n')
                     .map(|ln| ln.trim())
                     .filter(|ln| !ln.is_empty())
                     .collect::<Vec<_>>()
                     .join(" ");
+
+                let mut normalized = String::with_capacity(core.len() + 2);
+                if has_same_line_leading {
+                    normalized.push(' ');
+                }
+                normalized.push_str(&core);
+                if has_same_line_trailing {
+                    normalized.push(' ');
+                }
+
                 let escaped = normalized.replace('\\', "\\\\").replace('\'', "\\'");
                 format!("leaf('{}')", escaped)
             }
