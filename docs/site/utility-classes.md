@@ -121,6 +121,25 @@ Brand-token classes emit `var(--color-*)`.
 | `shadow` / `-md` / `-lg` / `-none` | `box-shadow: …;` |
 | `opacity-*` | `opacity: …;` |
 
+### Ring
+
+A focus ring drawn as a `box-shadow` composed from `--tw-ring-*` custom
+properties (the Tailwind v4 recipe), so the ring **width**, **color**, and
+**offset** are set independently and layer with a regular `shadow-*`.
+
+| Class | Declaration |
+|-------|-------------|
+| `ring` — NEW | 3px ring (`box-shadow` from `--tw-ring-*`) |
+| `ring-{0,1,2,4,8}` — NEW | ring at that pixel width: `--tw-ring-shadow: … calc({n}px + var(--tw-ring-offset-width)) var(--tw-ring-color);` |
+| `ring-inset` — NEW | `--tw-ring-inset: inset;` (draws the ring inside the edge) |
+| `ring-offset-{0,1,2,4,8}` — NEW | `--tw-ring-offset-width: {n}px;` (gap between the element and the ring) |
+| `ring-<color>` | sets the ring **color**: `--tw-ring-color: var(--color-*);` |
+
+The width side (`ring-{n}`) and the color side (`ring-<color>`) are
+complementary — use them together, e.g. `focus:ring-2 ring-blue-500`. The color
+path is unchanged; `ring-blue-500`, `ring-primary`, `ring-ring` etc. still emit
+`--tw-ring-color`.
+
 ### Z-index
 
 `z-0`, `z-10`, `z-20`, `z-30`, `z-40`, `z-50`, `z-auto` → `z-index: …;`.
@@ -179,7 +198,6 @@ top-[1rem]     →  top: 1rem;
 - `aria-*` / `data-*` attribute variants
 - Motion utilities: `transform`, `translate-*`, `rotate-*`, `scale-*`, `transition-*`, `duration-*`, `ease-*`, `animate-*`
 - `divide-x` / `divide-y` (use `space-x/y` for a similar effect)
-- `ring-{n}` widths and `ring-offset-*`
 - `top` / `right` / `bottom` / `left` / `inset` named scale (use arbitrary: `top-[1rem]`)
 - `leading-*` / `tracking-*` named scale (use arbitrary: `leading-[1.4]`)
 
@@ -235,6 +253,31 @@ One input → output pair per new family.
 
 ```css
 .border-t-4 { border-top-width: 4px; }
+```
+
+### `ring-2 ring-blue-500` (Ring width + color)
+
+```html
+<button class="focus:ring-2 ring-blue-500"> … </button>
+```
+
+```css
+.ring-2 {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+.ring-blue-500 { --tw-ring-color: var(--color-blue-500); }
+```
+
+### `ring-offset-2` (Ring offset width)
+
+```html
+<div class="ring-2 ring-offset-2"> … </div>
+```
+
+```css
+.ring-offset-2 { --tw-ring-offset-width: 2px; }
 ```
 
 ## See also

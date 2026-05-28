@@ -51,3 +51,34 @@ describe('@aihu/css-engine — new utility families (Round 1)', () => {
     expect(css).toContain('border-top-width: 4px')
   })
 })
+
+// Round 2 (tailwind-support): ring widths + ring-offset. `ring-{n}` emits the
+// Tailwind v4 box-shadow ring composed from `--tw-ring-*` custom props;
+// `ring-offset-{n}` sets `--tw-ring-offset-width`. A combined `ring-2
+// ring-blue-500` case proves the WIDTH and COLOR sides coexist on one element.
+describe('@aihu/css-engine — ring widths + offset (Round 2)', () => {
+  it('ring-{n} emits the box-shadow ring from --tw-ring-* props', () => {
+    const css = compileSfc(`@template { <div class="ring-2 ring-blue-500">x</div> }`, 'Ring.aihu')
+    expect(css).toContain('ring-2')
+    // The composed ring shadow at the requested width.
+    expect(css).toContain('calc(2px + var(--tw-ring-offset-width))')
+    expect(css).toContain('box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow)')
+    // Regression: the color side still emits --tw-ring-color on the same render.
+    expect(css).toContain('--tw-ring-color: var(--color-blue-500)')
+  })
+
+  it('bare ring is the 3px default', () => {
+    const css = compileSfc(`@template { <div class="ring">x</div> }`, 'RingDefault.aihu')
+    expect(css).toContain('calc(3px + var(--tw-ring-offset-width))')
+  })
+
+  it('ring-offset-{n} sets --tw-ring-offset-width', () => {
+    const css = compileSfc(`@template { <div class="ring-offset-2">x</div> }`, 'RingOffset.aihu')
+    expect(css).toContain('--tw-ring-offset-width: 2px')
+  })
+
+  it('ring-inset flips the inset slot', () => {
+    const css = compileSfc(`@template { <div class="ring-inset">x</div> }`, 'RingInset.aihu')
+    expect(css).toContain('--tw-ring-inset: inset')
+  })
+})

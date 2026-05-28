@@ -28,6 +28,10 @@
       <li class="text-sm">margin-block-start on the rest</li>
     </ul>
 
+    <button class="focus:ring-2 ring-blue-500 ring-offset-2 rounded border px-4 py-2 text-sm">
+      focus me — 2px blue ring with a 2px offset (ring-2 ring-blue-500 ring-offset-2)
+    </button>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
       <code>apps/docs/.../reference/utility-classes.md</code> for the full

@@ -4282,6 +4282,42 @@ Brand-token classes emit <code>var(--color-*)</code>.</p>
 <td><code>opacity: …;</code></td>
 </tr>
 </tbody></table>
+<h3>Ring</h3>
+<p>A focus ring drawn as a <code>box-shadow</code> composed from <code>--tw-ring-*</code> custom
+properties (the Tailwind v4 recipe), so the ring <strong>width</strong>, <strong>color</strong>, and
+<strong>offset</strong> are set independently and layer with a regular <code>shadow-*</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ring</code> — NEW</td>
+<td>3px ring (<code>box-shadow</code> from <code>--tw-ring-*</code>)</td>
+</tr>
+<tr>
+<td><code>ring-{0,1,2,4,8}</code> — NEW</td>
+<td>ring at that pixel width: <code>--tw-ring-shadow: … calc({n}px + var(--tw-ring-offset-width)) var(--tw-ring-color);</code></td>
+</tr>
+<tr>
+<td><code>ring-inset</code> — NEW</td>
+<td><code>--tw-ring-inset: inset;</code> (draws the ring inside the edge)</td>
+</tr>
+<tr>
+<td><code>ring-offset-{0,1,2,4,8}</code> — NEW</td>
+<td><code>--tw-ring-offset-width: {n}px;</code> (gap between the element and the ring)</td>
+</tr>
+<tr>
+<td><code>ring-&lt;color&gt;</code></td>
+<td>sets the ring <strong>color</strong>: <code>--tw-ring-color: var(--color-*);</code></td>
+</tr>
+</tbody></table>
+<p>The width side (<code>ring-{n}</code>) and the color side (<code>ring-&lt;color&gt;</code>) are
+complementary — use them together, e.g. <code>focus:ring-2 ring-blue-500</code>. The color
+path is unchanged; <code>ring-blue-500</code>, <code>ring-primary</code>, <code>ring-ring</code> etc. still emit
+<code>--tw-ring-color</code>.</p>
 <h3>Z-index</h3>
 <p><code>z-0</code>, <code>z-10</code>, <code>z-20</code>, <code>z-30</code>, <code>z-40</code>, <code>z-50</code>, <code>z-auto</code> → <code>z-index: …;</code>.</p>
 <h2>Variants</h2>
@@ -4347,7 +4383,6 @@ issue if you need one promoted.</p>
 <li><code>aria-*</code> / <code>data-*</code> attribute variants</li>
 <li>Motion utilities: <code>transform</code>, <code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>, <code>transition-*</code>, <code>duration-*</code>, <code>ease-*</code>, <code>animate-*</code></li>
 <li><code>divide-x</code> / <code>divide-y</code> (use <code>space-x/y</code> for a similar effect)</li>
-<li><code>ring-{n}</code> widths and <code>ring-offset-*</code></li>
 <li><code>top</code> / <code>right</code> / <code>bottom</code> / <code>left</code> / <code>inset</code> named scale (use arbitrary: <code>top-[1rem]</code>)</li>
 <li><code>leading-*</code> / <code>tracking-*</code> named scale (use arbitrary: <code>leading-[1.4]</code>)</li>
 </ul>
@@ -4377,6 +4412,21 @@ issue if you need one promoted.</p>
 <pre><code class="language-html">&lt;div class=&quot;border-t-4&quot;&gt; … &lt;/div&gt;
 </code></pre>
 <pre><code class="language-css">.border-t-4 { border-top-width: 4px; }
+</code></pre>
+<h3><code>ring-2 ring-blue-500</code> (Ring width + color)</h3>
+<pre><code class="language-html">&lt;button class=&quot;focus:ring-2 ring-blue-500&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.ring-2 {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+.ring-blue-500 { --tw-ring-color: var(--color-blue-500); }
+</code></pre>
+<h3><code>ring-offset-2</code> (Ring offset width)</h3>
+<pre><code class="language-html">&lt;div class=&quot;ring-2 ring-offset-2&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.ring-offset-2 { --tw-ring-offset-width: 2px; }
 </code></pre>
 <h2>See also</h2>
 <ul>
