@@ -1,5 +1,30 @@
 # @aihu/css-engine
 
+## 0.2.5
+
+### Patch Changes
+
+- [#258](https://github.com/fellwork/aihu/pull/258) [`74273e0`](https://github.com/fellwork/aihu/commit/74273e0a015805f3c878c9b2c7890ed0c80a23fd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix Bug 6: utility CSS from `@aihu/css-engine` now lands in the bundled `dist/assets/*.css` asset when `viteAihuPlugin({ css: { shadowMode: 'none' } })` is set, so utility classes like `.flex`, `.gap-6`, `.text-lg` actually take effect in the document cascade.
+
+  - `@aihu/compiler`: `aihuCompilerPlugin` now branches on `shadowMode === 'none'` and routes utility CSS through Vite's CSS pipeline via a `virtual:aihu-utility/<hash>.css` virtual import (resolved by the plugin's new `resolveId` + `load` hooks). The `'open' | 'closed'` shadow paths still fold into `host.adoptedStyleSheets` as before — only the no-shadow case changes. Also makes the compiler-binary path resolution lazy (call-time) so the `SCRIBE_COMPILE_BIN` handshake with `@aihu/css-engine`'s bundled `compileToAst` actually fires.
+  - `@aihu/css-engine`: rebuild against the deferred compiler-bin resolver so `compileSfc()` no longer ENOENTs against the missing `packages/css-engine/bin/aihu-compile` on the first call (the SCRIBE_COMPILE_BIN env var is now read at every call, not captured at module load).
+
+- [#261](https://github.com/fellwork/aihu/pull/261) [`c6860e0`](https://github.com/fellwork/aihu/commit/c6860e022a374b3c5e35aaf8775cbb6332b1b75d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Externalize `@aihu/compiler` from the rolldown bundle so consumers always use the
+  live compiler module (with its current binary-resolution logic) instead of a
+  frozen embedded copy. Pre-fix the `compileToAst` from `@aihu/compiler` was
+  inlined into `dist/index.js` at build time, freezing a module-scope `binPath`
+  constant that resolved at import time to a non-existent
+  `node_modules/@aihu/css-engine/bin/aihu-compile` path. Marking `@aihu/compiler`
+  external means the bundle now does `import { compileToAst } from "@aihu/compiler"`
+  so the consumer-installed compiler module — including any subsequent binary
+  resolver fixes — is what runs. Also bumps the workspace dep range to
+  `workspace:^` so publish rewrites to a caret range.
+
+- [#259](https://github.com/fellwork/aihu/pull/259) [`5f21125`](https://github.com/fellwork/aihu/commit/5f211252c7500973c6976ca48f29b09ea8aa049b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix publishing pipeline so `@aihu/css-engine-<platform>` tarballs ship `aihu-css-compile` with the executable bit set. `actions/download-artifact@v4` does not preserve POSIX mode bits, so the `chmod 0755` performed in `build-css-native` was lost in transit and the `publish-css-native` job published `-rw-r--r--` binaries. Consumers on Bun could not auto-repair this (postinstall scripts are blocked by default for untrusted deps), surfacing as a "binary not found" error from `resolveBinary()`. The next release will be the first to ship correctly-mode'd tarballs across all 4 platforms; existing releases stay broken and require the documented `chmod +x` workaround.
+
+- Updated dependencies [[`74273e0`](https://github.com/fellwork/aihu/commit/74273e0a015805f3c878c9b2c7890ed0c80a23fd)]:
+  - @aihu/compiler@0.5.4
+
 ## 0.2.4
 
 ### Patch Changes

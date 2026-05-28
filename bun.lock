@@ -64,7 +64,7 @@
     },
     "bench/js-framework-benchmark/keyed/aihu": {
       "name": "js-framework-benchmark-aihu",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/runtime": "workspace:*",
@@ -96,7 +96,7 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.6",
+      "version": "0.5.7",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
@@ -318,7 +318,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -326,7 +326,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -373,7 +373,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -424,7 +424,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -432,7 +432,7 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.2.4",
+        "@aihu/css-engine": ">=0.2.5",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
@@ -446,9 +446,9 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "dependencies": {
-        "@aihu/compiler": "workspace:*",
+        "@aihu/compiler": "workspace:^",
       },
       "optionalDependencies": {
         "@aihu/css-engine-darwin-arm64": "0.1.2",
@@ -459,7 +459,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
@@ -571,7 +571,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -589,7 +589,7 @@
     },
     "packages/runtime": {
       "name": "@aihu/runtime",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/signals": "workspace:*",

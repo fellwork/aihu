@@ -1,5 +1,12 @@
 # @aihu/primitives
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [[`74273e0`](https://github.com/fellwork/aihu/commit/74273e0a015805f3c878c9b2c7890ed0c80a23fd), [`c6860e0`](https://github.com/fellwork/aihu/commit/c6860e022a374b3c5e35aaf8775cbb6332b1b75d), [`5f21125`](https://github.com/fellwork/aihu/commit/5f211252c7500973c6976ca48f29b09ea8aa049b)]:
+  - @aihu/css-engine@0.2.5
+
 ## 0.0.7
 
 ### Patch Changes
