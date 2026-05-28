@@ -62,8 +62,8 @@ bun add @aihu/runtime
 
 **Peer dependencies:**
 
-- `@aihu/arbor` — `workspace:*`
-- `@aihu/signals` — `workspace:*`
+- `@aihu/arbor` — `workspace:^`
+- `@aihu/signals` — `workspace:^`
 
 <sub><i>Auto-generated against `@aihu/runtime@0.1.6`.</i></sub>
 

@@ -73,6 +73,32 @@ describe('when() — conditional rendering', () => {
 
     scope.dispose()
   })
+
+  it('T9: when() driven by compiler-emitted [() => getter()] thunk array reacts to writes (bug1-reactivity regression)', () => {
+    // Acceptance test for bug1-reactivity. The compiler emits
+    // `when([() => loading()], ...)` for `<p $if={loading()}>...`. The
+    // mountEffect must subscribe to the signal read inside the thunk so
+    // the conditional re-evaluates on writes. This test exercises that
+    // exact shape against the single workspace-linked `@aihu/signals`
+    // module — its sister check (`bun run lint:dep-pins`) guards the
+    // dual-module-instance failure mode that bit published 0.1.x.
+    const host = document.createElement('div')
+    const [loading, setLoading] = signal(true)
+    const cond = [() => loading()] as unknown as ReturnType<typeof signal<boolean>>
+    const scope = mount(
+      branch('div', undefined, [when(cond, () => branch('p', undefined, [leaf('Loading')]))]),
+      host,
+    )
+    expect(host.textContent).toBe('Loading')
+
+    setLoading(false)
+    expect(host.textContent).toBe('')
+
+    setLoading(true)
+    expect(host.textContent).toBe('Loading')
+
+    scope.dispose()
+  })
 })
 
 describe('each() — list rendering', () => {

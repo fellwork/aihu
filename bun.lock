@@ -374,17 +374,26 @@
     "packages/arbor": {
       "name": "@aihu/arbor",
       "version": "0.1.4",
-      "dependencies": {
-        "@aihu/signals": "workspace:*",
+      "peerDependencies": {
+        "@aihu/signals": "workspace:^",
       },
     },
     "packages/auth": {
       "name": "@aihu/auth",
       "version": "0.1.2",
       "dependencies": {
+        "@aihu/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu/server": "workspace:*",
+      },
+      "peerDependencies": {
         "@aihu/agent-service": "workspace:*",
         "@aihu/signals": "workspace:*",
       },
+      "optionalPeers": [
+        "@aihu/agent-service",
+      ],
     },
     "packages/cli": {
       "name": "@aihu/cli",
