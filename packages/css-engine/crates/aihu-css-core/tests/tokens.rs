@@ -146,3 +146,8 @@ fn border_directional_n_width() {
         ".border-t-4 { border-top-width: 4px; }\n"
     );
 }
+
+#[test]
+fn z_auto_keyword() {
+    assert_eq!(css(&["z-auto"]), ".z-auto { z-index: auto; }\n");
+}

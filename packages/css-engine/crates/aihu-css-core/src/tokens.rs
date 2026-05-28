@@ -314,6 +314,9 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "col-auto" => "grid-column: auto;",
         "row-auto" => "grid-row: auto;",
 
+        // z-index keyword (numeric forms handled by `parameterized_utility`).
+        "z-auto" => "z-index: auto;",
+
         _ => return None,
     })
 }
