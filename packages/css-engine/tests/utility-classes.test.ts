@@ -51,3 +51,29 @@ describe('@aihu/css-engine — new utility families (Round 1)', () => {
     expect(css).toContain('border-top-width: 4px')
   })
 })
+
+// Round 2 (tailwind-support): divide-x / divide-y sibling borders. Reuse the
+// proven `space-*` nested `& > * + *` recipe, so a green case proves the
+// nested-rule shape survives the public compileSfc emission path end-to-end.
+describe('@aihu/css-engine — divide-x / divide-y (Round 2)', () => {
+  it('divide-y-* emits the nested sibling border-block-width', () => {
+    const css = compileSfc(`@template { <ul class="divide-y-2">x</ul> }`, 'Divide.aihu')
+    expect(css).toContain('divide-y-2')
+    expect(css).toContain('border-block-width: 2px')
+  })
+
+  it('divide-x-* emits border-inline-width on siblings', () => {
+    const css = compileSfc(`@template { <div class="divide-x-4">x</div> }`, 'DivideX.aihu')
+    expect(css).toContain('border-inline-width: 4px')
+  })
+
+  it('bare divide-y defaults to 1px', () => {
+    const css = compileSfc(`@template { <div class="divide-y">x</div> }`, 'DivideBare.aihu')
+    expect(css).toContain('border-block-width: 1px')
+  })
+
+  it('divide-x-reverse sets the reverse custom property', () => {
+    const css = compileSfc(`@template { <div class="divide-x-reverse">x</div> }`, 'DivideRev.aihu')
+    expect(css).toContain('--tw-divide-x-reverse: 1')
+  })
+})

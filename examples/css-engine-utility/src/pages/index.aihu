@@ -28,6 +28,12 @@
       <li class="text-sm">margin-block-start on the rest</li>
     </ul>
 
+    <ul class="divide-y-2 border-muted">
+      <li class="py-2 text-sm">divide-y-2 draws a 2px border between siblings</li>
+      <li class="py-2 text-sm">border-block-width on every child after the first</li>
+      <li class="py-2 text-sm">set the color with a normal border-* utility</li>
+    </ul>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
       <code>apps/docs/.../reference/utility-classes.md</code> for the full
