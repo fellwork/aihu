@@ -21,10 +21,13 @@ const binPath: string =
 interface VitePlugin {
   readonly name: string
   enforce?: 'pre' | 'post'
-  transform?: (
-    code: string,
-    id: string,
-  ) => Promise<{ code: string; map: null }> | { code: string; map: null } | null | undefined
+  configResolved?: (config: { command?: 'build' | 'serve' }) => void
+  resolveId?: (id: string) => string | null
+  load?: (id: string) => string | null
+  // biome-ignore lint/suspicious/noExplicitAny: Rollup plugin context — typed loosely to avoid pulling in Rollup type declarations.
+  transform?: (this: any, code: string, id: string) => any
+  // biome-ignore lint/suspicious/noExplicitAny: Rollup plugin context.
+  generateBundle?: (this: any, ...args: any[]) => any
 }
 
 /**
@@ -410,6 +413,104 @@ function _escapeForTemplateLiteral(css: string): string {
 }
 
 /**
+ * Rewrite `:host { ... }` blocks in scoped CSS to a tag-scoped attribute
+ * selector for light-DOM (shadowMode: 'none') emission. Each SFC's
+ * `defineElement` call sets `data-aihu-tag="<tag>"` on the host element at
+ * runtime (see `packages/runtime/src/define-element.ts`), so the rewrite
+ * preserves per-component theme-token scoping when the CSS lands in the
+ * global cascade instead of an adopted shadow stylesheet.
+ *
+ * Handles `:host { … }` and `:host(.selector) { … }` shapes. Both are
+ * rewritten to `[data-aihu-tag="<tag>"] { … }` — the `:host(...)` modifier
+ * is dropped (the shadow-DOM selector-modifier form has no light-DOM
+ * equivalent and is rare in css-engine output).
+ *
+ * @internal
+ */
+export function _rewriteHostSelector(css: string, tag: string): string {
+  if (!css) return css
+  const attr = `[data-aihu-tag="${tag}"]`
+  // Match `:host` optionally followed by a `(...)` modifier, then whitespace,
+  // before a `{`. Replace just the selector portion.
+  return css.replace(/:host(?:\([^)]*\))?(?=\s*\{)/g, attr)
+}
+
+/**
+ * Build a CSS emitter for one plugin instance. Accumulates utility/theme
+ * CSS produced across every `.aihu` transform in the build, deduplicating
+ * per-tag entries (so re-transforms during HMR don't duplicate rules) and
+ * exposing a flush op for `generateBundle` to render the combined sheet.
+ *
+ * The emitter is intentionally scoped to the plugin instance — a single
+ * Vite/Rollup build pass — so cross-build state can never leak.
+ *
+ * @internal
+ */
+export interface CssEmitterEntry {
+  /** Custom-element tag this CSS belongs to. */
+  tag: string
+  /** Rewritten CSS body (`:host` already mapped to `[data-aihu-tag=…]`). */
+  css: string
+}
+
+export interface CssEmitter {
+  /** Record CSS for one SFC tag. Last write wins (per-tag de-dup). */
+  add(tag: string, css: string): void
+  /** Drain all entries into one CSS string. Returns `''` when empty. */
+  flush(): string
+  /** Inspect — for tests. */
+  entries(): CssEmitterEntry[]
+}
+
+/** @internal */
+export function _createCssEmitter(): CssEmitter {
+  const byTag = new Map<string, string>()
+  return {
+    add(tag, css) {
+      if (!css.trim()) return
+      byTag.set(tag, css)
+    },
+    flush() {
+      if (byTag.size === 0) return ''
+      const parts: string[] = []
+      for (const [tag, css] of byTag) {
+        parts.push(`/* aihu css-engine: ${tag} */\n${css}`)
+      }
+      return parts.join('\n\n')
+    },
+    entries() {
+      return [...byTag.entries()].map(([tag, css]) => ({ tag, css }))
+    },
+  }
+}
+
+/**
+ * Build the dev-server runtime snippet that injects a `<style>` element
+ * into `document.head` on module load. Used in `vite serve` where there's
+ * no Rollup `generateBundle` to emit an asset and Vite serves modules
+ * lazily — the SFC's CSS must travel with the module.
+ *
+ * @internal
+ */
+export function _buildDevCssInject(tag: string, css: string): string {
+  if (!css.trim()) return ''
+  const json = JSON.stringify(css)
+  const tagJson = JSON.stringify(tag)
+  // The injection is idempotent — repeated module evaluation (e.g. HMR) does
+  // not stack duplicate <style> elements; the existing one is replaced.
+  return `\n;(() => {
+  if (typeof document === 'undefined') return
+  const sel = 'style[data-aihu-css=' + JSON.stringify(${tagJson}) + ']'
+  const prev = document.head.querySelector(sel)
+  const el = prev ?? document.createElement('style')
+  el.setAttribute('data-aihu-css', ${tagJson})
+  el.textContent = ${json}
+  if (!prev) document.head.appendChild(el)
+})()
+`
+}
+
+/**
  * Fold css-engine-produced scoped CSS into a compiled `.aihu` module.
  *
  * The Rust codegen emits the authored `@style` block (when present) as:
@@ -453,7 +554,11 @@ function _escapeForTemplateLiteral(css: string): string {
  *
  * @internal
  */
-export function _foldCssEngineStyles(compiledCode: string, css: string): string {
+export function _foldCssEngineStyles(
+  compiledCode: string,
+  css: string,
+  opts?: { shadowMode?: 'open' | 'closed' | 'none' },
+): string {
   if (!css.trim()) return compiledCode
   const escaped = _escapeForTemplateLiteral(css)
 
@@ -472,7 +577,13 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
     })
   }
 
-  // Shape 2 — no @style block. Inject a fresh stylesheet + adoption.
+  // Shape 2 — no @style block. With shadowMode: 'none' the utility/theme CSS
+  // is emitted as a global asset by the plugin's `_emitGlobalCss` path, so
+  // skip the adopted-stylesheet injection entirely. Returning the code
+  // unchanged means no `__style__` declaration, no `adoptedStyleSheets`
+  // line — keeping the light-DOM output clean.
+  if (opts?.shadowMode === 'none') return compiledCode
+
   // Bail (no-op) if the expected defineComponent setup shape is absent.
   const setupRe = /defineComponent\(\s*\((_ctx|ctx)\)\s*=>\s*\{/
   const m = setupRe.exec(compiledCode)
@@ -825,13 +936,46 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
   }
 }
 
+// Virtual-module prefix used by `aihuCompilerPlugin` to emit global utility
+// CSS into the bundle's main CSS chunk. The trailing `.css` extension is
+// load-bearing — Vite's css plugin only treats a module as CSS when the id
+// ends in `.css`. Per-SFC suffix keeps the modules de-duplicated and lets
+// Vite's pipeline merge them into the final bundled stylesheet.
+const _AIHU_CSS_VIRTUAL_PREFIX = '\0virtual:aihu-css-engine/'
+const _AIHU_CSS_VIRTUAL_SUFFIX = '.css'
+
 export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
+  // Per-plugin-instance state — captured by closure so multiple parallel
+  // Vite builds in the same process don't leak CSS across each other.
+  const cssEmitter = _createCssEmitter()
+  let isBuild = true
   return {
     name: 'aihu-compiler',
     enforce: 'pre',
-    transform(code, id) {
+    configResolved(config: { command?: 'build' | 'serve' }) {
+      isBuild = config.command !== 'serve'
+    },
+    // Resolve our virtual CSS module ids so Vite recognises them as owned by
+    // this plugin and routes the `load()` call here. Returning the id
+    // unchanged (it already starts with the rollup-internal `\0` prefix)
+    // tells Rollup to skip filesystem resolution.
+    resolveId(id: string) {
+      if (id.startsWith(_AIHU_CSS_VIRTUAL_PREFIX) && id.endsWith(_AIHU_CSS_VIRTUAL_SUFFIX)) {
+        return id
+      }
+      return null
+    },
+    load(id: string) {
+      if (id.startsWith(_AIHU_CSS_VIRTUAL_PREFIX) && id.endsWith(_AIHU_CSS_VIRTUAL_SUFFIX)) {
+        const tag = id.slice(_AIHU_CSS_VIRTUAL_PREFIX.length, -_AIHU_CSS_VIRTUAL_SUFFIX.length)
+        const entry = cssEmitter.entries().find((e) => e.tag === tag)
+        return entry ? entry.css : ''
+      }
+      return null
+    },
+    transform(code: string, id: string) {
       // Strip Vite query strings (e.g. `?import`, `?t=...`) before checking the extension.
       const rawId = id.split('?')[0]!
       if (!rawId.endsWith('.aihu')) return
@@ -853,11 +997,52 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // the pre-hook behaviour). This keeps css-engine an opt-in enhancement
         // with zero dependency cycle.
         const utilityCss = await _maybeCompileUtilityCss(code, rawId)
+        // Extract the tag once — needed for both the global-CSS emit path
+        // (host-selector rewrite is keyed on the tag) and the existing
+        // island / HMR transforms below.
+        const earlyTag = _extractElementTag(compiled)
+        let globalCssImport = ''
         if (utilityCss) {
-          compiled = _foldCssEngineStyles(compiled, utilityCss)
+          if (shadowMode === 'none' && earlyTag !== null) {
+            // shadowMode: 'none' — emit utility/theme CSS to the global
+            // bundle instead of an adopted stylesheet. Rewrite `:host`
+            // (which has no meaning outside a shadow root) to a tag-scoped
+            // attribute selector so per-component theme tokens still
+            // resolve. The runtime sets `data-aihu-tag` on the host.
+            const rewritten = _rewriteHostSelector(utilityCss, earlyTag)
+            cssEmitter.add(earlyTag, rewritten)
+            if (isBuild) {
+              // Build: register a per-SFC virtual CSS module and import it
+              // from the compiled SFC code. Vite's CSS pipeline picks up
+              // the import, runs `load()` (above) to fetch the body, and
+              // merges it into the bundle's main CSS chunk.
+              const virtualId = `${_AIHU_CSS_VIRTUAL_PREFIX}${earlyTag}${_AIHU_CSS_VIRTUAL_SUFFIX}`
+              globalCssImport = `\nimport ${JSON.stringify(virtualId)}\n`
+            } else {
+              // Dev: append a runtime <style> injection so the styles
+              // appear without round-tripping through a CSS bundle. Vite's
+              // dev server doesn't process arbitrary virtual CSS modules
+              // the same way; injecting on module-load is simpler and
+              // matches HMR semantics.
+              globalCssImport = _buildDevCssInject(earlyTag, rewritten)
+            }
+            // Still fold Shape 1 — if the SFC had an @style block, the
+            // codegen-emitted __style__.replaceSync body is replaced with
+            // the full css-engine output (which includes the @style block).
+            // This is a no-op in light DOM (adoptedStyleSheets has no
+            // effect there), but harmless — keeps the authored-intent
+            // bookkeeping intact. Shape 2 (no @style) is skipped via opts.
+            compiled = _foldCssEngineStyles(compiled, utilityCss, { shadowMode: 'none' })
+          } else {
+            compiled = _foldCssEngineStyles(
+              compiled,
+              utilityCss,
+              shadowMode != null ? { shadowMode } : undefined,
+            )
+          }
         }
 
-        const elementTag = _extractElementTag(compiled)
+        const elementTag = earlyTag
 
         let out: string
 
@@ -881,6 +1066,13 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           out = compiled
           // Inject auto-wiring so consumers don't need a manual main.ts bootstrap.
           out = _injectAutoWiring(out)
+        }
+
+        // Append the global-CSS hook (build: virtual-module import; dev:
+        // runtime <style> injection). Empty string when shadowMode !== 'none'
+        // or no utility CSS was produced for this SFC.
+        if (globalCssImport) {
+          out = out + globalCssImport
         }
 
         // The Rust compiler emits TypeScript (type casts, import type, etc.) and

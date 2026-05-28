@@ -23,7 +23,12 @@ function wrapClass(
   name: string,
   enableHydration: boolean,
 ): typeof HTMLElement {
-  if (mode === 'none' && !enableHydration) return Ctor
+  // Light-DOM components (shadowMode: 'none') need a tag-derived attribute
+  // on the host so global utility/theme CSS produced by `@aihu/css-engine`
+  // can scope rules to a single component (the compiler rewrites the
+  // `:host { … }` selector to `[data-aihu-tag="<tag>"] { … }` when emitting
+  // utility CSS to the global cascade). Wrap so we can mutate the host even
+  // when no shadow root or hydration is requested.
   const isClosed = mode === 'closed'
   const attachMode: ShadowRootMode = isClosed ? 'closed' : 'open'
   const attachShadow = mode !== 'none'
@@ -41,6 +46,15 @@ function wrapClass(
     }
 
     connectedCallback(): void {
+      if (!attachShadow) {
+        // Tag the host for light-DOM-scoped CSS rules. The HTML custom-
+        // element spec forbids `setAttribute` inside the constructor, so
+        // we defer to connectedCallback. The attribute is idempotent —
+        // repeated connect/disconnect cycles do not duplicate it.
+        if (!this.hasAttribute('data-aihu-tag')) {
+          this.setAttribute('data-aihu-tag', name)
+        }
+      }
       if (enableHydration && _hydrateFn !== null) {
         const state = (globalThis as Record<string, unknown>).__aihu_state__ as
           | Record<string, unknown>

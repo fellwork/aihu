@@ -32,7 +32,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  _createCssEmitter,
   _foldCssEngineStyles,
+  _rewriteHostSelector,
   type AihuCompilerPluginOptions,
   aihuCompilerPlugin,
 } from '../js/index.ts'
@@ -231,5 +233,91 @@ defineElement('x-w', defineComponent((ctx) => {
     const out = _foldCssEngineStyles(COMPILED_NO_STYLE, dangerCss)
     expect(out).toContain('\\`')
     expect(out).toContain('\\${')
+  })
+
+  it("skips Shape 2 injection when shadowMode: 'none' (#9 — emit-shape A)", () => {
+    // shadowMode='none' + no @style → utility/theme CSS is emitted as a
+    // global asset by the plugin, not folded into __style__. The compiled
+    // module is returned unchanged so no adopted-stylesheet code ships.
+    const out = _foldCssEngineStyles(COMPILED_NO_STYLE, '.flex { display: flex; }', {
+      shadowMode: 'none',
+    })
+    expect(out).toBe(COMPILED_NO_STYLE)
+    expect(out).not.toContain('__style__')
+    expect(out).not.toContain('adoptedStyleSheets')
+  })
+
+  it("still runs Shape 1 (@style replace) when shadowMode: 'none' (#10)", () => {
+    const compiledWithStyle = `import { branch } from '@aihu/arbor'
+import { defineComponent, defineElement } from '@aihu/runtime'
+
+const __style__ = new CSSStyleSheet();
+__style__.replaceSync(\`.box { color: red; }\`);
+defineElement('x-w', defineComponent((ctx) => {
+  (ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];
+  return branch('div', { class: 'flex' }, [])
+}))`
+    const engineOut = '.flex { display: flex; }\n.box { color: red; }'
+    const out = _foldCssEngineStyles(compiledWithStyle, engineOut, { shadowMode: 'none' })
+    // Shape 1 still fires — the authored @style intent is preserved.
+    expect(out).toContain('.flex { display: flex; }')
+    expect(out.match(/new CSSStyleSheet\(\)/g) ?? []).toHaveLength(1)
+  })
+})
+
+describe('_rewriteHostSelector — unit (emit-shape A)', () => {
+  it('rewrites `:host { … }` to `[data-aihu-tag="<tag>"] { … }` (#11)', () => {
+    expect(_rewriteHostSelector(':host { --x: 1; }', 'x-foo')).toBe(
+      '[data-aihu-tag="x-foo"] { --x: 1; }',
+    )
+  })
+
+  it('handles `:host(...)` modifier — strips the modifier (#12)', () => {
+    expect(_rewriteHostSelector(':host(.dark) { color: red; }', 'x-bar')).toBe(
+      '[data-aihu-tag="x-bar"] { color: red; }',
+    )
+  })
+
+  it('leaves other selectors untouched (#13)', () => {
+    const css = ':host { --x: 1; }\n.flex { display: flex; }\n.dark { color: black; }'
+    const out = _rewriteHostSelector(css, 'x-y')
+    expect(out).toContain('[data-aihu-tag="x-y"] { --x: 1; }')
+    expect(out).toContain('.flex { display: flex; }')
+    expect(out).toContain('.dark { color: black; }')
+  })
+
+  it('no-ops on empty input (#14)', () => {
+    expect(_rewriteHostSelector('', 'x-y')).toBe('')
+  })
+})
+
+describe('_createCssEmitter — unit (emit-shape A)', () => {
+  it('de-dups per-tag entries — last write wins (#15)', () => {
+    const emitter = _createCssEmitter()
+    emitter.add('x-a', '.flex { display: flex; }')
+    emitter.add('x-a', '.flex { display: flex; }') // duplicate
+    const entries = emitter.entries()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]?.tag).toBe('x-a')
+    expect(entries[0]?.css).toBe('.flex { display: flex; }')
+  })
+
+  it('aggregates across multiple tags (#16)', () => {
+    const emitter = _createCssEmitter()
+    emitter.add('x-a', '.a {}')
+    emitter.add('x-b', '.b {}')
+    const flushed = emitter.flush()
+    expect(flushed).toContain('.a {}')
+    expect(flushed).toContain('.b {}')
+    // Per-tag banner comment so the merged output is auditable.
+    expect(flushed).toContain('/* aihu css-engine: x-a */')
+    expect(flushed).toContain('/* aihu css-engine: x-b */')
+  })
+
+  it('flush() returns empty when nothing was added; ignores whitespace-only (#17)', () => {
+    const emitter = _createCssEmitter()
+    expect(emitter.flush()).toBe('')
+    emitter.add('x-a', '   \n  ')
+    expect(emitter.flush()).toBe('')
   })
 })
