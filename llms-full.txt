@@ -45,7 +45,7 @@
 - [npm: @aihu-plugin/data](https://www.npmjs.com/package/@aihu-plugin/data): Reactive data loaders and resource primitives
 - [npm: @aihu/context](https://www.npmjs.com/package/@aihu/context): Async-context-friendly request and SSR context primitives
 - [npm: @aihu/auth](https://www.npmjs.com/package/@aihu/auth): JWT scope checks, ScopeSignal, server middleware
-- [npm: @aihu/cli](https://www.npmjs.com/package/@aihu/cli): Aihu CLI — scaffolding, dev, build commands (aihu app, aihu dev, aihu build)
+- [npm: @aihu/cli](https://www.npmjs.com/package/@aihu/cli): Aihu CLI — scaffolding, dev, build commands. `aihu app <name>` (no flag) scaffolds a client-only Vite + router SPA; `aihu app <name> --template=cf-team` scaffolds the deployable Cloudflare monorepo (workspaces, wrangler, auth, agent surface).
 - [npm: @aihu/compiler](https://www.npmjs.com/package/@aihu/compiler): Rust SFC compiler — .aihu to vanilla custom elements
 - [npm: @aihu/plugin](https://www.npmjs.com/package/@aihu/plugin): Plugin contract types — definePlugin, validatePlugin
 - [npm: @aihu/adapter-cloudflare](https://www.npmjs.com/package/@aihu/adapter-cloudflare): Cloudflare Workers/Pages deployment adapter
