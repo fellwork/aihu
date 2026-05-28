@@ -22,7 +22,7 @@
 | 10 | [`agent-hub/`](./agent-hub) | flagship | ready | 5107 | AgentService aggregation hub — A2A + ACP adapters, @aihu/context sharing, Bun.serve server | server.ts (Bun.serve), A2A single-shot SSE, ACP live adapter, `@aihu/context` token sharing across SFCs, `$lifecycle.mount` |
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
 | 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
-| 13 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
+| 13 | [`cf-adapter/`](./cf-adapter) | meta | ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
 | 16 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
