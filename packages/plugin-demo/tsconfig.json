@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "paths": {
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu/server": ["../server/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

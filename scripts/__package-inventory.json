@@ -168,6 +168,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/plugin-demo",
+    "version": "0.1.0",
+    "dir": "packages/plugin-demo",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/primitives",
     "version": "0.0.7",
     "dir": "packages/primitives",

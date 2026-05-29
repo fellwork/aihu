@@ -1,0 +1,20 @@
+{
+  "pluginName": "@aihu/plugin-demo",
+  "pluginVersion": "0.1.0",
+  "aihuVersion": "^0.2.0",
+  "summary": "Installs the canonical plugin-API proof-of-life: $greeting macro, request-logging middleware, and a pass-through transform. Adds a GET /__demo/ping health route.",
+  "installSteps": [
+    {
+      "kind": "add-plugin-to-config",
+      "factoryName": "demo",
+      "defaultOptions": {}
+    },
+    {
+      "kind": "add-route",
+      "factoryName": "createDemoRoutes",
+      "routes": [
+        { "path": "/__demo/ping", "handlerKey": "demoEndpoint" }
+      ]
+    }
+  ]
+}
