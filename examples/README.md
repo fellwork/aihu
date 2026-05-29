@@ -21,7 +21,7 @@
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
 | 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
 | 13 | [`cf-adapter/`](./cf-adapter) | meta | M2 ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
-| 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
+| 14 | [`plugin-demo/`](./plugin-demo) | meta | M2 ready | 5111 | pluginValid/count/doubled + `$greeting` macro | `definePlugin`: macros + middleware + transforms, `createDemoRoutes`, `createDemoRuntime` signal, `install-manifest.json` |
 | 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
 | 16 | [`storefront/`](./storefront) | meta | M2 ready | 5113 | cart/checkout + `requireAuth` | `createResource` + `createResourceSerializer` (SSR-safe), `@aihu/context` CartContext provide/inject, `@aihu/auth` `requireAuth` on checkout, dummy Stripe |
 
