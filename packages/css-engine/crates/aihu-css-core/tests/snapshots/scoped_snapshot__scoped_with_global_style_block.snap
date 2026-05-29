@@ -1,6 +1,6 @@
 ---
 source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
-expression: compile_sfc_scoped(&ast(json))
+expression: compile_sfc_scoped(&ast(json)).unwrap()
 ---
 :host {
   --color-accent: #c8543a;
@@ -21,4 +21,6 @@ expression: compile_sfc_scoped(&ast(json))
   --color-surface-foreground: #1a1d24;
 }
 /* authored @style ($global — unscoped) */
-body { margin: 0; }
+body {
+  margin: 0;
+}

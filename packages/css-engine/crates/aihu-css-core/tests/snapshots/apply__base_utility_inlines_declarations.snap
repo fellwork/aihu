@@ -1,0 +1,9 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 39
+expression: css
+---
+.btn {
+  display: inline-flex;
+  align-items: center;
+}

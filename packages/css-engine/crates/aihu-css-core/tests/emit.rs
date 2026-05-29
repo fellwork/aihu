@@ -1,6 +1,6 @@
 //! Scoped-output, variant, and @theme emission tests (Plan 2 Tasks 4–7).
 
-use aihu_css_core::{compile_sfc_scoped, parse_ast};
+use aihu_css_core::{compile_sfc_scoped, parse_ast, CompileError};
 
 fn ast(json: &str) -> aihu_css_core::SfcAst {
     parse_ast(json).unwrap()
@@ -21,7 +21,7 @@ fn sfc_with_classes(classes: &str) -> aihu_css_core::SfcAst {
 
 #[test]
 fn scoped_output_has_no_bare_global_utility_sheet() {
-    let css = compile_sfc_scoped(&sfc_with_classes("bg-primary p-4"));
+    let css = compile_sfc_scoped(&sfc_with_classes("bg-primary p-4")).unwrap();
     // The utility rules are class selectors inside the shadow <style>; they are
     // scoped by living in the shadow root. There is no separate global sheet.
     assert!(css.contains(".bg-primary"));
@@ -38,9 +38,13 @@ fn scoped_folds_authored_style_block() {
       "meta":{"name":"X"},
       "template":[{"kind":"element","tag":"div","attrs":[
         {"kind":"static","name":"class","value":"p-4"}],"children":[]}]}"#;
-    let css = compile_sfc_scoped(&ast(json));
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
     assert!(css.contains(".p-4"));
-    assert!(css.contains(".extra { color: red; }"), "authored scoped @style folded in");
+    // Authored @style now flows through the shared parser (R-SHARED-PARSER) so
+    // the verbatim text is re-rendered (whitespace-normalized). Assert the
+    // selector + declaration survive rather than exact single-line formatting.
+    assert!(css.contains(".extra"), "authored scoped @style folded in: {css}");
+    assert!(css.contains("color: red;"), "authored declaration preserved: {css}");
 }
 
 #[test]
@@ -48,8 +52,10 @@ fn global_style_block_passes_through_edge_e6() {
     let json = r#"{"tag":"X","astVersion":1,
       "style":{"content":"body { margin: 0; }","scope":"global"},
       "meta":{"name":"X"},"template":null}"#;
-    let css = compile_sfc_scoped(&ast(json));
-    assert!(css.contains("body { margin: 0; }"));
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
+    // Re-rendered through the shared parser (whitespace-normalized).
+    assert!(css.contains("body"), "global block selector preserved: {css}");
+    assert!(css.contains("margin: 0;"), "global declaration preserved: {css}");
     assert!(css.contains("unscoped"), "global block annotated as unscoped");
 }
 
@@ -57,27 +63,27 @@ fn global_style_block_passes_through_edge_e6() {
 
 #[test]
 fn host_variant_emits_host_rule() {
-    let css = compile_sfc_scoped(&sfc_with_classes("host:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("host:bg-primary")).unwrap();
     assert!(css.contains(":host("), "host: → :host(...) selector: {css}");
     assert!(css.contains("background-color: var(--color-primary)"));
 }
 
 #[test]
 fn slotted_variants() {
-    let css = compile_sfc_scoped(&sfc_with_classes("slotted:p-4 slotted-img:rounded-lg"));
+    let css = compile_sfc_scoped(&sfc_with_classes("slotted:p-4 slotted-img:rounded-lg")).unwrap();
     assert!(css.contains("::slotted("));
     assert!(css.contains("::slotted(img"));
 }
 
 #[test]
 fn part_variant_emits_part_selector() {
-    let css = compile_sfc_scoped(&sfc_with_classes("part-thumb:bg-accent"));
+    let css = compile_sfc_scoped(&sfc_with_classes("part-thumb:bg-accent")).unwrap();
     assert!(css.contains("::part(thumb)"));
 }
 
 #[test]
 fn host_context_dark_uses_cascade_not_host_context() {
-    let css = compile_sfc_scoped(&sfc_with_classes("host-context-dark:bg-surface"));
+    let css = compile_sfc_scoped(&sfc_with_classes("host-context-dark:bg-surface")).unwrap();
     assert!(
         !css.contains(":host-context("),
         "Firefox-safe: must NOT emit :host-context(): {css}"
@@ -90,34 +96,34 @@ fn host_context_dark_uses_cascade_not_host_context() {
 
 #[test]
 fn hover_variant_appends_pseudo_class() {
-    let css = compile_sfc_scoped(&sfc_with_classes("hover:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("hover:bg-primary")).unwrap();
     assert!(css.contains(":hover"), "hover: → :hover pseudo-class: {css}");
 }
 
 #[test]
 fn dark_variant_no_host_context() {
-    let css = compile_sfc_scoped(&sfc_with_classes("dark:bg-surface"));
+    let css = compile_sfc_scoped(&sfc_with_classes("dark:bg-surface")).unwrap();
     assert!(!css.contains(":host-context("), "dark: must NOT emit :host-context()");
     assert!(css.contains("dark cascade"));
 }
 
 #[test]
 fn responsive_md_wraps_media_query() {
-    let css = compile_sfc_scoped(&sfc_with_classes("md:p-8"));
+    let css = compile_sfc_scoped(&sfc_with_classes("md:p-8")).unwrap();
     assert!(css.contains("@media (min-width:"), "md: → @media: {css}");
     assert!(css.contains("padding: 2rem"));
 }
 
 #[test]
 fn arbitrary_selector_variant() {
-    let css = compile_sfc_scoped(&sfc_with_classes("[&>div]:text-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("[&>div]:text-primary")).unwrap();
     assert!(css.contains(">div"), "[&>div]: → child selector: {css}");
     assert!(css.contains("color: var(--color-primary)"));
 }
 
 #[test]
 fn stacked_variants_md_hover() {
-    let css = compile_sfc_scoped(&sfc_with_classes("md:hover:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("md:hover:bg-primary")).unwrap();
     assert!(css.contains("@media (min-width:"));
     assert!(css.contains(":hover"));
 }
@@ -126,7 +132,7 @@ fn stacked_variants_md_hover() {
 
 #[test]
 fn group_hover_emits_ancestor_state_selector() {
-    let css = compile_sfc_scoped(&sfc_with_classes("group-hover:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("group-hover:bg-primary")).unwrap();
     // Ancestor descendant-combinator: `.group:hover .group-hover\:bg-primary`.
     assert!(
         css.contains(".group:hover .group-hover\\:bg-primary"),
@@ -143,14 +149,14 @@ fn group_focus_variants_emit_each_state() {
         ("group-active:bg-primary", ".group:active "),
         ("group-disabled:bg-primary", ".group:disabled "),
     ] {
-        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        let css = compile_sfc_scoped(&sfc_with_classes(cls)).unwrap();
         assert!(css.contains(sel), "{cls} → `{sel}` prefix: {css}");
     }
 }
 
 #[test]
 fn peer_checked_emits_sibling_state_selector() {
-    let css = compile_sfc_scoped(&sfc_with_classes("peer-checked:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("peer-checked:bg-primary")).unwrap();
     // Subsequent-sibling combinator: `.peer:checked ~ .peer-checked\:bg-primary`.
     assert!(
         css.contains(".peer:checked ~ .peer-checked\\:bg-primary"),
@@ -167,14 +173,14 @@ fn peer_state_variants_emit_each_state() {
         ("peer-focus-visible:bg-primary", ".peer:focus-visible ~ "),
         ("peer-disabled:bg-primary", ".peer:disabled ~ "),
     ] {
-        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        let css = compile_sfc_scoped(&sfc_with_classes(cls)).unwrap();
         assert!(css.contains(sel), "{cls} → `{sel}` prefix: {css}");
     }
 }
 
 #[test]
 fn bare_group_and_peer_markers_emit_empty_rules() {
-    let css = compile_sfc_scoped(&sfc_with_classes("group peer"));
+    let css = compile_sfc_scoped(&sfc_with_classes("group peer")).unwrap();
     // Markers survive as empty-body rules so the relational selectors resolve.
     assert!(css.contains(".group {"), "bare `group` marker kept: {css}");
     assert!(css.contains(".peer {"), "bare `peer` marker kept: {css}");
@@ -183,7 +189,7 @@ fn bare_group_and_peer_markers_emit_empty_rules() {
 #[test]
 fn group_peer_stack_with_responsive() {
     // `md:group-hover:bg-primary` — breakpoint wraps the relational rule.
-    let css = compile_sfc_scoped(&sfc_with_classes("md:group-hover:bg-primary"));
+    let css = compile_sfc_scoped(&sfc_with_classes("md:group-hover:bg-primary")).unwrap();
     assert!(css.contains("@media (min-width:"), "breakpoint wrapper: {css}");
     assert!(css.contains(".group:hover "), "relational selector inside media: {css}");
 }
@@ -197,7 +203,7 @@ fn theme_override_registers_token() {
       "meta":{"name":"X"},
       "template":[{"kind":"element","tag":"div","attrs":[
         {"kind":"static","name":"class","value":"bg-primary"}],"children":[]}]}"#;
-    let css = compile_sfc_scoped(&ast(json));
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
     // The override value is registered as a :host token...
     assert!(css.contains("--color-primary: oklch(0.7 0.2 30)"), "@theme override registered: {css}");
     // ...and the utility references it.
@@ -208,7 +214,7 @@ fn theme_override_registers_token() {
 
 #[test]
 fn default_aihu_brand_tokens_present() {
-    let css = compile_sfc_scoped(&sfc_with_classes("bg-accent"));
+    let css = compile_sfc_scoped(&sfc_with_classes("bg-accent")).unwrap();
     // Default accent is the aihu terracotta.
     assert!(css.contains("--color-accent: #c8543a"), "baked aihu brand default present: {css}");
 }
@@ -217,7 +223,7 @@ fn default_aihu_brand_tokens_present() {
 
 #[test]
 fn aria_keyword_variant_emits_true_attr_selector() {
-    let css = compile_sfc_scoped(&sfc_with_classes("aria-checked:bg-accent"));
+    let css = compile_sfc_scoped(&sfc_with_classes("aria-checked:bg-accent")).unwrap();
     assert!(
         css.contains(r#"[aria-checked="true"]"#),
         "aria-checked: → [aria-checked=\"true\"] selector: {css}"
@@ -227,7 +233,7 @@ fn aria_keyword_variant_emits_true_attr_selector() {
 
 #[test]
 fn aria_expanded_variant() {
-    let css = compile_sfc_scoped(&sfc_with_classes("aria-expanded:underline"));
+    let css = compile_sfc_scoped(&sfc_with_classes("aria-expanded:underline")).unwrap();
     assert!(
         css.contains(r#"[aria-expanded="true"]"#),
         "aria-expanded: → [aria-expanded=\"true\"]: {css}"
@@ -242,14 +248,14 @@ fn aria_disabled_selected_pressed_variants() {
         ("aria-selected:bg-primary", r#"[aria-selected="true"]"#),
         ("aria-pressed:bg-accent", r#"[aria-pressed="true"]"#),
     ] {
-        let css = compile_sfc_scoped(&sfc_with_classes(cls));
+        let css = compile_sfc_scoped(&sfc_with_classes(cls)).unwrap();
         assert!(css.contains(attr), "{cls} → {attr}: {css}");
     }
 }
 
 #[test]
 fn aria_arbitrary_value_variant() {
-    let css = compile_sfc_scoped(&sfc_with_classes("aria-[expanded=false]:underline"));
+    let css = compile_sfc_scoped(&sfc_with_classes("aria-[expanded=false]:underline")).unwrap();
     assert!(
         css.contains(r#"[aria-expanded="false"]"#),
         "aria-[expanded=false]: → [aria-expanded=\"false\"]: {css}"
@@ -258,7 +264,7 @@ fn aria_arbitrary_value_variant() {
 
 #[test]
 fn data_state_variant_emits_attr_selector() {
-    let css = compile_sfc_scoped(&sfc_with_classes("data-[state=open]:bg-accent"));
+    let css = compile_sfc_scoped(&sfc_with_classes("data-[state=open]:bg-accent")).unwrap();
     assert!(
         css.contains(r#"[data-state="open"]"#),
         "data-[state=open]: → [data-state=\"open\"] selector: {css}"
@@ -269,7 +275,7 @@ fn data_state_variant_emits_attr_selector() {
 #[test]
 fn data_keyword_variant_is_presence_selector() {
     // Bare `data-active:` is a presence selector (no implicit ="true").
-    let css = compile_sfc_scoped(&sfc_with_classes("data-active:underline"));
+    let css = compile_sfc_scoped(&sfc_with_classes("data-active:underline")).unwrap();
     assert!(
         css.contains("[data-active]"),
         "data-active: → [data-active] presence selector: {css}"
@@ -281,7 +287,7 @@ fn data_keyword_variant_is_presence_selector() {
 
 #[test]
 fn container_marker_sets_container_type() {
-    let css = compile_sfc_scoped(&sfc_with_classes("@container"));
+    let css = compile_sfc_scoped(&sfc_with_classes("@container")).unwrap();
     assert!(
         css.contains("container-type: inline-size"),
         "@container marker → container-type: inline-size: {css}"
@@ -290,7 +296,7 @@ fn container_marker_sets_container_type() {
 
 #[test]
 fn named_container_marker_sets_type_and_name() {
-    let css = compile_sfc_scoped(&sfc_with_classes("@container/sidebar"));
+    let css = compile_sfc_scoped(&sfc_with_classes("@container/sidebar")).unwrap();
     assert!(css.contains("container-type: inline-size"), "{css}");
     assert!(
         css.contains("container-name: sidebar"),
@@ -300,7 +306,7 @@ fn named_container_marker_sets_type_and_name() {
 
 #[test]
 fn container_md_wraps_rule_in_container_at_rule() {
-    let css = compile_sfc_scoped(&sfc_with_classes("@md:flex"));
+    let css = compile_sfc_scoped(&sfc_with_classes("@md:flex")).unwrap();
     assert!(
         css.contains("@container (min-width:"),
         "@md: → @container (min-width: ...): {css}"
@@ -314,9 +320,9 @@ fn container_md_wraps_rule_in_container_at_rule() {
 
 #[test]
 fn container_sm_lg_scale() {
-    let sm = compile_sfc_scoped(&sfc_with_classes("@sm:block"));
+    let sm = compile_sfc_scoped(&sfc_with_classes("@sm:block")).unwrap();
     assert!(sm.contains("@container (min-width: 24rem)"), "@sm = 24rem: {sm}");
-    let lg = compile_sfc_scoped(&sfc_with_classes("@lg:hidden"));
+    let lg = compile_sfc_scoped(&sfc_with_classes("@lg:hidden")).unwrap();
     assert!(lg.contains("@container (min-width: 32rem)"), "@lg = 32rem: {lg}");
 }
 
@@ -328,7 +334,7 @@ fn container_parent_and_child_pair() {
         {"kind":"static","name":"class","value":"@container"}],
         "children":[{"kind":"element","tag":"div","attrs":[
           {"kind":"static","name":"class","value":"@md:flex"}],"children":[]}]}]}"#;
-    let css = compile_sfc_scoped(&ast(json));
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
     assert!(css.contains("container-type: inline-size"), "{css}");
     assert!(css.contains("@container (min-width: 28rem)"), "{css}");
 }
@@ -340,7 +346,7 @@ fn aria_data_without_known_base_emits_nothing() {
     // Unknown base utility behind an aria/data variant must not emit a rule.
     let css = compile_sfc_scoped(&sfc_with_classes(
         "aria-checked:notathing data-[state=open]:alsonope @md:bogus",
-    ));
+    )).unwrap();
     assert!(
         !css.contains("[aria-checked"),
         "no aria selector for unknown base: {css}"
@@ -353,4 +359,38 @@ fn aria_data_without_known_base_emits_nothing() {
         !css.contains("@container"),
         "no container at-rule for unknown base: {css}"
     );
+}
+
+// ── R-RESULT: emit returns Result; an induced emit error propagates ──────────
+
+#[test]
+fn malformed_theme_block_is_a_compile_error() {
+    // An `@theme` opener with no `{` body is malformed; the emit path now
+    // hard-errors (CompileError) instead of silently keeping the broken text.
+    let json = r#"{"tag":"X","astVersion":1,
+      "style":{"content":"@theme --color-primary: red;","scope":"scoped"},
+      "meta":{"name":"X"},"template":null}"#;
+    let err = compile_sfc_scoped(&ast(json)).unwrap_err();
+    assert!(
+        matches!(err, CompileError::MalformedTheme { .. }),
+        "expected MalformedTheme, got {err:?}"
+    );
+    assert!(
+        err.to_string().contains("malformed @theme"),
+        "actionable message: {err}"
+    );
+}
+
+#[test]
+fn well_formed_theme_block_still_succeeds() {
+    // Success path is byte-identical to before the Result conversion.
+    let json = r#"{"tag":"X","astVersion":1,
+      "style":{"content":"@theme { --color-primary: red; }","scope":"scoped"},
+      "meta":{"name":"X"},
+      "template":[{"kind":"element","tag":"div","attrs":[
+        {"kind":"static","name":"class","value":"bg-primary"}],"children":[]}]}"#;
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
+    assert!(css.contains("--color-primary: red"), "{css}");
+    assert!(css.contains("background-color: var(--color-primary)"), "{css}");
+    assert!(!css.contains("@theme"), "directive consumed, not emitted: {css}");
 }

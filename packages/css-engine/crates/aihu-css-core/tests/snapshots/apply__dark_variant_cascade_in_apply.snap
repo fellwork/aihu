@@ -1,0 +1,10 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 143
+expression: css
+---
+.panel {
+  :host([data-theme="dark"]) &, :root.dark & {
+    background-color: var(--color-surface);
+  }
+}

@@ -22,7 +22,7 @@ fn sfc(classes: &str) -> aihu_css_core::SfcAst {
 
 #[test]
 fn view_transition_is_supports_gated_css_only() {
-    let css = compile_sfc_scoped(&sfc("view-transition:hero"));
+    let css = compile_sfc_scoped(&sfc("view-transition:hero")).unwrap();
     assert!(
         css.contains("@supports (view-transition-name: none)"),
         "view-transition gated behind @supports: {css}"
@@ -36,14 +36,14 @@ fn view_transition_is_supports_gated_css_only() {
 
 #[test]
 fn view_transition_snapshot() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc("view-transition:hero")));
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("view-transition:hero")).unwrap());
 }
 
 // ── Task 6: anchor: (@supports gate + JS fallback marker) ────────────────────
 
 #[test]
 fn anchor_is_supports_gated_with_js_marker() {
-    let css = compile_sfc_scoped(&sfc("anchor:tooltip"));
+    let css = compile_sfc_scoped(&sfc("anchor:tooltip")).unwrap();
     assert!(
         css.contains("@supports (anchor-name: --a)"),
         "anchor gated behind @supports (anchor-name): {css}"
@@ -57,14 +57,14 @@ fn anchor_is_supports_gated_with_js_marker() {
 
 #[test]
 fn anchor_snapshot() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc("anchor:tooltip")));
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("anchor:tooltip")).unwrap());
 }
 
 // ── Task 7: popover: (@supports gate + portal JS fallback marker) ────────────
 
 #[test]
 fn popover_is_supports_gated_with_js_marker() {
-    let css = compile_sfc_scoped(&sfc("popover:menu"));
+    let css = compile_sfc_scoped(&sfc("popover:menu")).unwrap();
     assert!(
         css.contains("@supports (selector(:popover-open))"),
         "popover gated behind @supports selector(:popover-open): {css}"
@@ -77,14 +77,14 @@ fn popover_is_supports_gated_with_js_marker() {
 
 #[test]
 fn popover_snapshot() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc("popover:menu")));
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("popover:menu")).unwrap());
 }
 
 // ── Task 8: text-balance: (no gate, no JS) ───────────────────────────────────
 
 #[test]
 fn text_balance_no_gate_no_js() {
-    let css = compile_sfc_scoped(&sfc("text-balance:"));
+    let css = compile_sfc_scoped(&sfc("text-balance:")).unwrap();
     assert!(css.contains("text-wrap: balance"), "emits text-wrap: balance: {css}");
     assert!(
         !css.contains("@supports"),
@@ -98,5 +98,5 @@ fn text_balance_no_gate_no_js() {
 
 #[test]
 fn text_balance_snapshot() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc("text-balance:")));
+    insta::assert_snapshot!(compile_sfc_scoped(&sfc("text-balance:")).unwrap());
 }

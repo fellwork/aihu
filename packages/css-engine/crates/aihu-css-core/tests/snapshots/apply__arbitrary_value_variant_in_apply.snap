@@ -1,0 +1,10 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 111
+expression: css
+---
+.swatch {
+  &:hover {
+    background-color: #fff;
+  }
+}

@@ -1,0 +1,10 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 54
+expression: css
+---
+.btn {
+  &:hover {
+    background-color: var(--color-accent);
+  }
+}

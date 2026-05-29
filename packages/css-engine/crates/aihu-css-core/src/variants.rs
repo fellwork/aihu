@@ -198,6 +198,132 @@ fn relational_state(state: &str) -> Option<String> {
     .then(|| state.to_string())
 }
 
+/// How a (possibly empty) variant list resolves against a base selector for the
+/// `@apply` expansion path (`apply.rs`). This is the SHARED structural resolver
+/// (R-APPLY-PARSE): `@apply hover:bg-accent` inside a `.btn { … }` rule must map
+/// to a nested `&:hover { … }` block on the *recipe's own* selector — NOT to a
+/// `.hover\:bg-accent:hover` class rule (Codex confirmed `emit_token` +
+/// string-strip produces wrong output).
+///
+/// The emitter ([`emit_token`](crate::emit)) starts from a class selector
+/// (`.token`); the `@apply` path starts from `&` (the parent rule). Both walk the
+/// same variant arms, so the per-variant selector transforms live here as
+/// [`apply_variant_to_selector`] and the wrapping/cascade decisions in
+/// [`ResolvedVariants`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedVariants {
+    /// The selector the declarations attach to, with each variant applied
+    /// against the starting base (`&` for `@apply`). E.g. `&:hover`,
+    /// `&[data-state="open"]`, `.group:hover &`.
+    pub selector: String,
+    /// A wrapping at-rule (`@media (min-width: …)` / `@container (…)`) the rule
+    /// nests inside, if a breakpoint/container variant was present.
+    pub at_rule: Option<String>,
+    /// True when a dark-cascade variant (`dark:`/`host-context-dark:`) was
+    /// present — the caller emits the Firefox-safe dark gate instead of a plain
+    /// rule.
+    pub dark_cascade: bool,
+    /// True when any variant implies host/`&`/relational scoping. Used to reject
+    /// such variants inside a `$global` `@apply` (Task 1.4 — variants that imply
+    /// `&`/host scoping are rejected in `$global`; base utilities allowed).
+    pub needs_scope: bool,
+}
+
+/// Apply one [`Variant`] to a running selector, mirroring the emitter's arms but
+/// starting from an arbitrary base (`&` for the `@apply` path). Returns the new
+/// selector, plus optional `(at_rule)` / `dark_cascade` / `needs_scope` signals
+/// via the accumulator the caller threads.
+fn apply_variant_to_selector(
+    v: &Variant,
+    selector: String,
+    theme: &crate::theme::ThemeRegistry,
+    acc: &mut ResolvedVariants,
+) -> String {
+    match v {
+        Variant::Host => {
+            acc.needs_scope = true;
+            format!(":host({selector})")
+        }
+        Variant::Slotted => {
+            acc.needs_scope = true;
+            format!("::slotted({selector})")
+        }
+        Variant::SlottedTag(tag) => {
+            acc.needs_scope = true;
+            format!("::slotted({tag}{selector})")
+        }
+        Variant::Part(name) => {
+            acc.needs_scope = true;
+            format!("::part({name})")
+        }
+        Variant::Pseudo(pc) => {
+            acc.needs_scope = true;
+            format!("{selector}:{pc}")
+        }
+        Variant::ArbitrarySelector(sel) => {
+            acc.needs_scope = true;
+            sel.replace('&', &selector)
+        }
+        Variant::Group(Some(state)) => {
+            acc.needs_scope = true;
+            format!(".group:{state} {selector}")
+        }
+        Variant::Peer(Some(state)) => {
+            acc.needs_scope = true;
+            format!(".peer:{state} ~ {selector}")
+        }
+        Variant::Group(None) | Variant::Peer(None) => selector,
+        Variant::Aria(m) => {
+            acc.needs_scope = true;
+            format!("{selector}{}", crate::emit::attr_selector("aria", m))
+        }
+        Variant::Data(m) => {
+            acc.needs_scope = true;
+            format!("{selector}{}", crate::emit::attr_selector("data", m))
+        }
+        Variant::Breakpoint(bp) => {
+            if let Some(min) = theme.breakpoint(bp) {
+                acc.at_rule = Some(format!("@media (min-width: {min})"));
+            }
+            selector
+        }
+        Variant::Container(bp) => {
+            if let Some(min) = theme.container_breakpoint(bp) {
+                acc.at_rule = Some(format!("@container (min-width: {min})"));
+            }
+            selector
+        }
+        Variant::Dark | Variant::HostContextDark => {
+            // The dark cascade rewrites `&` to a `:host([data-theme])`/`:root.dark`
+            // gate — host/root scope that a `$global` `@apply` cannot express.
+            acc.dark_cascade = true;
+            acc.needs_scope = true;
+            selector
+        }
+    }
+}
+
+/// Resolve a variant list against `base` (`&` for `@apply`) into the structural
+/// selector + wrapping decisions shared by `@apply` expansion.
+pub fn resolve_variants(
+    variants: &[Variant],
+    base: &str,
+    theme: &crate::theme::ThemeRegistry,
+) -> ResolvedVariants {
+    let mut acc = ResolvedVariants {
+        selector: base.to_string(),
+        at_rule: None,
+        dark_cascade: false,
+        needs_scope: false,
+    };
+    let mut selector = base.to_string();
+    for v in variants {
+        selector = apply_variant_to_selector(v, selector, theme, &mut acc);
+    }
+    acc.selector = selector;
+    acc
+}
+
 /// Parse the payload after `aria-`/`data-` into an [`AttrMatch`].
 ///
 /// Two shapes:
