@@ -1,0 +1,8 @@
+{
+  "name": "separator",
+  "type": "ui",
+  "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
+  "variants": {
+    "orientation": ["horizontal", "vertical"]
+  }
+}

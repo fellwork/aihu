@@ -1,0 +1,68 @@
+<!--
+  aihu-badge — presentational styled recipe (Plan 5 Task 5, master spec §9.7).
+
+  Standalone styled custom element — NO primitive import. Inline-flex pill with
+  a variant matrix. `aihu add` rewrites the `aihu-` prefix at copy time.
+
+  variant: default | secondary | destructive | outline
+  (Variant matrix is the registry catalog contract — see meta.json — reflected
+  as `data-variant` and matched in @style below.)
+
+  CSS attachment (R2): shared static Constructable StyleSheet adopted into the
+  shadow root, not a per-instance inline style element.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  const props = $props
+  const variant = props.variant ?? 'default'
+
+  class AihuBadge extends HTMLElement {
+    static sheet = new CSSStyleSheet()
+
+    connectedCallback() {
+      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+      this.shadowRoot.adoptedStyleSheets = [AihuBadge.sheet]
+    }
+  }
+
+  if (!customElements.get('aihu-badge')) {
+    customElements.define('aihu-badge', AihuBadge)
+  }
+}
+
+@template {
+  <span data-slot="badge" $data-variant={variant} $class={cn('aihu-badge', props.class)}>
+    <slot />
+  </span>
+}
+
+@style {
+  .aihu-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding-inline: 0.625rem;
+    padding-block: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1rem;
+  }
+  .aihu-badge[data-variant="default"] {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+  .aihu-badge[data-variant="secondary"] {
+    background-color: var(--color-secondary);
+    color: var(--color-secondary-foreground);
+  }
+  .aihu-badge[data-variant="destructive"] {
+    background-color: var(--color-destructive);
+    color: var(--color-destructive-foreground);
+  }
+  .aihu-badge[data-variant="outline"] {
+    border: 1px solid var(--color-border);
+    color: var(--color-foreground);
+  }
+}

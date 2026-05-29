@@ -1,0 +1,41 @@
+{
+  "name": "@aihu/ui",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "registry",
+    "registry.json",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./registry.json": "./registry.json",
+    "./schema": {
+      "types": "./src/schema.ts"
+    }
+  },
+  "sideEffects": false,
+  "devDependencies": {
+    "@aihu/primitives": "workspace:*",
+    "@aihu/css-engine": "workspace:*"
+  },
+  "scripts": {
+    "gen:registry": "bun scripts/gen-registry.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run gen:registry"
+  },
+  "description": "aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle).",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/ui"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/ui#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

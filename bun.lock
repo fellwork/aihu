@@ -628,6 +628,14 @@
       "name": "@aihu/templates-cf-team",
       "version": "3.0.1",
     },
+    "packages/ui": {
+      "name": "@aihu/ui",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@aihu/css-engine": "workspace:*",
+        "@aihu/primitives": "workspace:*",
+      },
+    },
     "packages/vscode-aihu": {
       "name": "vscode-aihu",
       "version": "1.0.0",
@@ -754,6 +762,8 @@
     "@aihu/signals": ["@aihu/signals@workspace:packages/signals"],
 
     "@aihu/templates-cf-team": ["@aihu/templates-cf-team@workspace:packages/templates/cf-team"],
+
+    "@aihu/ui": ["@aihu/ui@workspace:packages/ui"],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 

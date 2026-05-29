@@ -1,0 +1,8 @@
+{
+  "name": "badge",
+  "type": "ui",
+  "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
+  "variants": {
+    "variant": ["default", "secondary", "destructive", "outline"]
+  }
+}

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+language: typescript
+layer: library
+
+# @aihu/ui ships SOURCE (.aihu recipes + registry.json), not a dist bundle —
+# it is source-distributed via `aihu add` and adds NO `.size-limit.json` row.
+# The recipes import @aihu/primitives (button class-extension) and
+# @aihu/css-engine (cn() + compileSfc) so they typecheck in-repo; declare the
+# project deps so Moon's `^:build` builds those packages' dist + .d.ts BEFORE
+# @aihu/ui typecheck — same rationale as primitives' css-engine dep.
+dependsOn:
+  - 'primitives'
+  - 'css-engine'
+
+# NOTE: NO `build` task — @aihu/ui emits no dist. The published payload is the
+# `registry/**` .aihu sources plus the generated `registry.json` index.
+
+tasks:
+  # Generate the index-only registry.json from registry/**. Not a `build`:
+  # it emits a single index artifact, not a dist bundle.
+  # NOTE: Moon task identifiers forbid colons (colon is the project:task
+  # separator), so this is `gen-registry` even though the package.json script
+  # is `gen:registry` (npm allows colons). Run via `moon run ui:gen-registry`.
+  gen-registry:
+    command: "bun scripts/gen-registry.ts"
+    inputs:
+      - "registry/**/*"
+      - "scripts/gen-registry.ts"
+    outputs:
+      - "registry.json"
+    options:
+      mergeArgs: "replace"
+
+  # typecheck is inherited from .moon/tasks/tasks.yml ("bunx tsc --noEmit" with
+  # deps: ["^:build"]). Do NOT override the command here: without
+  # options.mergeArgs: replace, Moon merges the inherited args into
+  # `tsc --noEmit --noEmit tsc` and the stray `tsc` is read as a file (TS6231).
+  # Inheriting keeps the `^:build` dep so typecheck never races the upstream
+  # build of primitives/css-engine.
+
+  test:
+    command: "vitest run"
+    inputs:
+      - "src/**/*.ts"
+      - "registry/**/*"
+      - "tests/**/*"

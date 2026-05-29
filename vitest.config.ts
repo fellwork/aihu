@@ -88,6 +88,16 @@ export default defineConfig({
         './packages/css-engine/src/runtime/progressive.ts',
         import.meta.url,
       ).pathname,
+      // @aihu/ui recipe-compile + shadow-adoption tests (Plan 5 Task 5) import
+      // compileSfc + cn from source; aliased so they run without a prior dist
+      // build of @aihu/css-engine (same rationale as @aihu/primitives above).
+      // NOTE: order matters — the more-specific runtime/cn alias must precede
+      // the bare '@aihu/css-engine' entry so it wins.
+      '@aihu/css-engine/runtime/cn': new URL(
+        './packages/css-engine/src/runtime/cn.ts',
+        import.meta.url,
+      ).pathname,
+      '@aihu/css-engine': new URL('./packages/css-engine/src/index.ts', import.meta.url).pathname,
       'virtual:aihu-routes': new URL(
         './packages/app/tests/__stubs__/aihu-routes.ts',
         import.meta.url,
