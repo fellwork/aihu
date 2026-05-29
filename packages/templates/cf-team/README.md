@@ -105,9 +105,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-**Peer dependencies:**
-
-- `@aihu/cli` — `^0.5.1`
+_Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
 <sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
 
