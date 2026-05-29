@@ -318,7 +318,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -326,7 +326,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -373,7 +373,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -413,7 +413,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "0.5.3",
+      "version": "0.6.0",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -432,11 +432,9 @@
         "@aihu/css-engine": "workspace:*",
       },
       "peerDependencies": {
-        "@aihu/css-engine": ">=0.2.5",
         "vite": ">=5.0.0",
       },
       "optionalPeers": [
-        "@aihu/css-engine",
         "vite",
       ],
     },
@@ -446,7 +444,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.2.5",
+      "version": "0.3.0",
       "dependencies": {
         "@aihu/compiler": "workspace:^",
       },
@@ -571,7 +569,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -629,9 +627,6 @@
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
       "version": "3.0.1",
-      "peerDependencies": {
-        "@aihu/cli": "^0.3.0",
-      },
     },
     "packages/vscode-aihu": {
       "name": "vscode-aihu",
