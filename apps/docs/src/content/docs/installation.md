@@ -19,6 +19,13 @@ bunx @aihu/cli app my-app
 npx @aihu/cli app my-app
 ```
 
+> **Note (TODO-001):** The ≤5 minute quick start is conditional until pre-built
+> `aihu-compile` binaries ship. Today the scaffolder builds the Rust SFC compiler
+> from source on first run, which adds a one-time toolchain step. Once the
+> [GitHub Actions release workflow](https://github.com/fellwork/aihu/blob/main/.github/workflows/release.yml)
+> publishes platform binaries, the install becomes a single download and this
+> note will be removed.
+
 The scaffolder generates the following files:
 
 ```

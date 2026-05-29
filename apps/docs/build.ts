@@ -5,7 +5,9 @@
  *   0. Fetch the latest aihu-compile-wasm.tar.gz from GitHub Releases
  *      and extract it to `dist/wasm/` (Directive 1 — homepage
  *      playground). Skipped silently if no release is available.
- *   1. Read every `docs/site/*.md` from the repo root
+ *   1. Recursively read every `.md` under `src/content/docs/**`, keying
+ *      each page by its IA slug path (e.g. `introduction`,
+ *      `guides/reactivity`, `packages/context`).
  *   2. Render Markdown → HTML with `marked`
  *   3. Write `src/content.ts` with a `window.__DOCS__` map
  *   4. Run `rolldown -c rolldown.config.ts` to bundle the aihu components
@@ -16,13 +18,13 @@
 
 import { execFileSync } from 'node:child_process'
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { basename, extname, join } from 'node:path'
+import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
 import { generateSitemapXml } from '../../packages/plugin-agent-readiness/src/sitemap.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
-const docsDir = join(__dir, '../../docs/site')
+const docsDir = join(__dir, 'src/content/docs')
 const contentOut = join(__dir, 'src/content.ts')
 const wasmFetcher = join(__dir, '../../scripts/fetch-wasm-bundle.ts')
 const wasmOutDir = join(__dir, 'dist/wasm')
@@ -54,11 +56,30 @@ for (const extra of wasmExtrasToRemove) {
   await rm(join(wasmOutDir, extra), { force: true })
 }
 
-// ── 1. Collect all .md files from docs/site/ ─────────────────────
+// ── 1. Collect all .md files recursively from src/content/docs/ ──
+//
+// Each page is keyed by its IA slug path: the file's location relative
+// to `src/content/docs/`, minus the `.md` extension, with POSIX
+// separators (e.g. `introduction`, `guides/reactivity`,
+// `packages/context`). Consumers resolve pages by this slug.
 
-const files = (await readdir(docsDir)).filter((f) => extname(f) === '.md').sort()
+async function collectMarkdown(dir: string, base = ''): Promise<string[]> {
+  const dirents = await readdir(dir, { withFileTypes: true })
+  const slugs: string[] = []
+  for (const ent of dirents) {
+    const rel = base ? `${base}/${ent.name}` : ent.name
+    if (ent.isDirectory()) {
+      slugs.push(...(await collectMarkdown(join(dir, ent.name), rel)))
+    } else if (extname(ent.name) === '.md') {
+      slugs.push(rel.slice(0, -'.md'.length))
+    }
+  }
+  return slugs
+}
 
-console.log(`Found ${files.length} Markdown files in docs/site/`)
+const slugs = (await collectMarkdown(docsDir)).sort()
+
+console.log(`Found ${slugs.length} Markdown files in src/content/docs/`)
 
 // ── 2. Render each file ──────────────────────────────────────────
 
@@ -70,19 +91,18 @@ interface DocPage {
 
 const pages: DocPage[] = []
 
-for (const file of files) {
-  const id = basename(file, '.md')
-  const source = await readFile(join(docsDir, file), 'utf8')
+for (const slug of slugs) {
+  const source = await readFile(join(docsDir, `${slug}.md`), 'utf8')
   const html = await marked.parse(source, { gfm: true, breaks: false })
 
   // Extract title from first H1
   const titleMatch = source.match(/^#\s+(.+)$/m)
-  const title = titleMatch ? titleMatch[1].trim() : id
+  const title = titleMatch ? titleMatch[1].trim() : slug
 
   // Escape template-literal special chars so the generated TS is valid
   const escaped = html.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\${/g, '\\${')
-  pages.push({ id, title, html: escaped })
-  console.log(`  ✓ ${file} → "${title}"`)
+  pages.push({ id: slug, title, html: escaped })
+  console.log(`  ✓ ${slug}.md → "${title}"`)
 }
 
 // ── 3. Write src/content.ts ──────────────────────────────────────
@@ -198,25 +218,22 @@ console.log('✓ Static assets copied → dist/')
 // Also served by the Worker route, but emitting it as a static asset
 // means it's served from the CDN edge without a Worker invocation.
 
+// Derived from the recursive IA scan (`slugs`) so the sitemap always tracks
+// the content tree — no hand-maintained flat-hash list to drift out of sync.
+// Top-level entry pages rank highest; guides next; everything else default.
+const sitemapPriority = (slug: string): number => {
+  if (slug === 'introduction' || slug === 'installation' || slug === 'getting-started') return 0.9
+  if (slug.startsWith('guides/')) return 0.8
+  return 0.7
+}
 const sitemapXml = generateSitemapXml({
   pages: [
     { url: 'https://aihu.dev/', lastmod: '2026-05-07', changefreq: 'weekly', priority: 1.0 },
-    { url: 'https://aihu.dev/#introduction', changefreq: 'weekly', priority: 0.9 },
-    { url: 'https://aihu.dev/#installation', changefreq: 'weekly', priority: 0.9 },
-    { url: 'https://aihu.dev/#getting-started', changefreq: 'weekly', priority: 0.9 },
-    { url: 'https://aihu.dev/#authoring-components', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#styling', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#theming', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#primitives', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly', priority: 0.7 },
-    { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly', priority: 0.7 },
-    { url: 'https://aihu.dev/#ssr-hydration', changefreq: 'monthly', priority: 0.7 },
-    { url: 'https://aihu.dev/#agent-discovery', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#migration', changefreq: 'monthly', priority: 0.7 },
-    { url: 'https://aihu.dev/#api-reference', changefreq: 'monthly', priority: 0.8 },
-    { url: 'https://aihu.dev/#deployment', changefreq: 'monthly', priority: 0.7 },
+    ...slugs.map((slug) => ({
+      url: `https://aihu.dev/#${slug}`,
+      changefreq: 'monthly' as const,
+      priority: sitemapPriority(slug),
+    })),
   ],
 })
 await writeFile(join(__dir, 'dist', 'sitemap.xml'), sitemapXml, 'utf8')
@@ -224,31 +241,38 @@ console.log('✓ sitemap.xml → dist/sitemap.xml')
 
 // ── 7. Emit llms-full.txt — full docs concatenated for LLM consumption ──
 //
-// Concatenate every docs/site/*.md in logical reading order with H1 headers
-// so the file is a self-contained LLM-optimised copy of the documentation.
+// Concatenate every IA doc in logical reading order with H1 headers so the
+// file is a self-contained LLM-optimised copy of the documentation. Slugs
+// resolve against `src/content/docs/`. Any slug found by the recursive scan
+// but not listed in `docOrder` is appended afterwards so nothing is dropped.
 
 const docOrder = [
   'introduction',
   'installation',
   'getting-started',
-  'authoring-components',
-  'reactivity',
-  'authoring-agents',
-  'styling',
-  'theming',
-  'primitives',
-  'routing-layouts',
-  'data-fetching',
-  'ssr-hydration',
-  'agent-discovery',
-  'authoring-plugins',
+  'guides/authoring-components',
+  'guides/reactivity',
+  'guides/authoring-agents',
+  'guides/styling',
+  'guides/theming',
+  'guides/utility-classes',
+  'guides/primitives',
+  'guides/routing-layouts',
+  'guides/data-fetching',
+  'guides/ssr-hydration',
+  'guides/agent-discovery',
+  'guides/authoring-plugins',
+  'packages/context',
+  'packages/agent-a2a',
+  'packages/agent-acp',
+  'packages/cli',
   'migration',
   'api-reference',
-  'deployment',
+  'guides/deployment',
 ]
 
-const repoRoot = join(__dir, '../../')
-const siteDir = join(repoRoot, 'docs/site')
+// Append any slugs discovered by the scan that aren't in the explicit order.
+const orderedSlugs = [...docOrder, ...slugs.filter((s) => !docOrder.includes(s))]
 
 const llmsFullParts: string[] = [
   '# aihu — Full Documentation',
@@ -262,8 +286,8 @@ const llmsFullParts: string[] = [
   '',
 ]
 
-for (const id of docOrder) {
-  const mdPath = join(siteDir, `${id}.md`)
+for (const id of orderedSlugs) {
+  const mdPath = join(docsDir, `${id}.md`)
   try {
     const content = await readFile(mdPath, 'utf8')
     llmsFullParts.push(content.trim(), '', '---', '')
