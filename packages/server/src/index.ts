@@ -11,6 +11,7 @@ export type {
   RenderingMode,
   RouteConfig,
   ServerConfig,
+  UiConfig,
 } from './config.ts'
 export { defineAihuConfig } from './config.ts'
 export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from './data.ts'

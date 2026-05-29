@@ -85,6 +85,30 @@ export interface RouteConfig {
   readonly manifestPath?: string
 }
 
+// ---------------------------------------------------------------------------
+// v1: @aihu/ui styled-recipe registry (`aihu add`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Configuration for the `@aihu/ui` styled-recipe registry, consumed by the
+ * `aihu add` / `aihu list` CLI subcommands and the css-engine scanner.
+ *
+ * Defaults are NOT applied here — the CLI resolves them at read-time because
+ * `ui` may be omitted from the config entirely (spec §6.6).
+ */
+export interface UiConfig {
+  /** Source registry to pull recipes from. v1: the '@aihu/ui' package specifier. Default: '@aihu/ui'. */
+  readonly registry?: string
+  /** Directory `aihu add` copies recipe sources into. Default: './src/components/ui'. */
+  readonly target?: string
+  /** Active style pack name. Default: 'aihu-default'. */
+  readonly style?: string
+  /** Custom-element tag prefix for copied recipes. Default: 'aihu'. */
+  readonly prefix?: string
+  /** RESERVED for v2 multi-registry support — schema slot only, unimplemented. */
+  readonly registries?: Readonly<Record<string, string>>
+}
+
 export interface AihuConfig {
   readonly server?: ServerConfig
   readonly agent?: import('./agent-readiness-config.ts').AgentReadinessConfig
@@ -113,6 +137,14 @@ export interface AihuConfig {
    * server access to content without JavaScript execution.
    */
   readonly rendering?: RenderingConfig
+  /**
+   * v1: `@aihu/ui` styled-recipe registry configuration.
+   * BUILD-TIME ONLY — consumed by the `aihu add` CLI and the css-engine
+   * scanner; it has no runtime/edge effect (matching the `build`/`plugins`
+   * field posture). Defaults are resolved by the CLI at read-time, so omitting
+   * `ui` entirely is valid.
+   */
+  readonly ui?: UiConfig
 }
 
 const RENDERING_DEFAULTS: Required<RenderingConfig> = { mode: 'ssr', hydratable: true }
