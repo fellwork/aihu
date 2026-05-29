@@ -191,7 +191,12 @@ for (const url of URLS) {
   )
   console.log(`  CWV:  LCP=${best.lcp.toFixed(0)}ms, CLS=${best.cls.toFixed(3)}`)
 
-  allResults.push({ url, scores: best.scores, cwv: { lcp: best.lcp, cls: best.cls }, lhr: best.finalUrl })
+  allResults.push({
+    url,
+    scores: best.scores,
+    cwv: { lcp: best.lcp, cls: best.cls },
+    lhr: best.finalUrl,
+  })
 
   for (const v of violations(best)) failures.push(`${url}: ${v}`)
 }
