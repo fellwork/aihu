@@ -1,0 +1,186 @@
+@state {
+  import { createResource } from '@aihu-plugin/data'
+  import { inject } from '@aihu/context'
+  import { signal } from '@aihu/signals'
+  import { CartContext } from './cart-context'
+
+  const [resourceKey] = signal('products')
+  const products = createResource(
+    resourceKey,
+    async () => {
+      const r = await fetch('/api/products')
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      return r.json()
+    },
+  )
+
+  const cartSignal = inject(CartContext)
+
+  function addToCart(item) {
+    if (cartSignal) {
+      const [get, set] = cartSignal
+      set([...get(), item])
+    }
+  }
+}
+
+@template {
+  <section class="product-list">
+    <h2 class="section-title">Products</h2>
+
+    <div class="loading-state" $if={products.state().status === 'loading'} aria-live="polite">
+      Loading products…
+    </div>
+
+    <div class="error-state" $if={products.state().status === 'error'} aria-live="polite" role="alert">
+      Failed to load products. Please try again.
+    </div>
+
+    <div class="product-grid" $if={products.state().status === 'ready'}>
+      <article
+        class="product-card"
+        $each={products.state().data}
+        $key="id"
+        $let="product"
+      >
+        <div class="product-info">
+          <h3 class="product-name">{product.name}</h3>
+          <p class="product-description">{product.description}</p>
+          <span class="product-price">${product.price.toFixed(2)}</span>
+        </div>
+        <button
+          class="add-btn"
+          $on.click={() => addToCart(product)}
+          aria-label={"Add " + product.name + " to cart"}
+        >
+          Add to cart
+        </button>
+      </article>
+    </div>
+
+    <div class="empty-state" $if={products.state().status === 'idle'}>
+      No products yet.
+    </div>
+  </section>
+}
+
+@agent {
+  $expose products: current products resource state
+  addToCart: { description: "Add a product to the cart by id" }
+}
+
+@style {
+  .product-list {
+    padding: 1.5rem;
+  }
+
+  .section-title {
+    margin: 0 0 1.25rem 0;
+    font-size: 1.25rem;
+    color: var(--fg);
+  }
+
+  .loading-state {
+    padding: 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .error-state {
+    padding: 1rem;
+    color: var(--error);
+    background: var(--error-bg);
+    border: 1px solid var(--error);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    padding: 1rem;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .product-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .product-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .product-name {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  .product-description {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .product-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .add-btn {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--fg);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    min-height: 44px;
+  }
+
+  .add-btn:hover {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  @media (max-width: 480px) {
+    .product-list {
+      padding: 1rem;
+    }
+
+    .product-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .product-card {
+      padding: 1rem;
+    }
+  }
+}

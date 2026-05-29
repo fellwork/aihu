@@ -1,10 +1,24 @@
 import { defineLoader } from '@aihu/server'
+import { runWithContext } from '@aihu/context/ssr'
+import { createContext, provide } from '@aihu/context'
 
 interface PostBody {
   readonly title: string
   readonly body: string
   readonly readingTimeMs: number
 }
+
+/**
+ * Context token carrying per-request reading metadata alongside the
+ * route.data loader handoff. Demonstrates @aihu/context as a parallel
+ * data channel — see [slug].aihu @state block for the inject call.
+ */
+export interface ReadingContext {
+  slug: string
+  estimatedReadingTimeMs: number
+}
+
+export const ReadingContextToken = createContext<ReadingContext>()
 
 // Demo content. In a real app this would be a DB query, file read, or RPC.
 const POSTS: Record<string, { title: string; body: string }> = {
@@ -39,9 +53,21 @@ export const loader = defineLoader(async (ctx): Promise<PostBody> => {
   const start = Date.now()
   await new Promise((resolve) => setTimeout(resolve, 5))
 
-  return {
+  const result: PostBody = {
     title: post.title,
     body: post.body,
     readingTimeMs: Date.now() - start,
   }
+
+  // Provide ReadingContext alongside route.data as a parallel data channel.
+  // runWithContext scopes the provide call to this request's context map so
+  // context values cannot leak across concurrent SSR requests.
+  runWithContext(new Map(), () => {
+    provide(ReadingContextToken, {
+      slug,
+      estimatedReadingTimeMs: result.readingTimeMs,
+    })
+  })
+
+  return result
 })

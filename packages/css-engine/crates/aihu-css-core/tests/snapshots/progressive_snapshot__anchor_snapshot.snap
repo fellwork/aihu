@@ -20,6 +20,7 @@ expression: "compile_sfc_scoped(&sfc(\"anchor:tooltip\"))"
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 @supports (anchor-name: --a) {
   .anchor\:tooltip { anchor-name: --tooltip; position-anchor: --tooltip; }
 }

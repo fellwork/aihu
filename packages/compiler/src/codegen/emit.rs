@@ -1223,14 +1223,13 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // `signal_map` reactive path because we register the prop
                             // name as a "computed" entry in `process_state_body`.
                             //
-                            // Userland body code that needs the value calls `name()`
-                            // (consistent with `$computed` access semantics — see
-                            // Director r5 §2.b). This is a behavior change from the
-                            // pre-R1 read-once-at-mount const; surfaced in build_manifest.
-                            let name = &entry.name;
-                            lines.push(format!(
-                                "{indent}const {name} = ctx.props.{name}"
-                            ));
+                            // NOTE (issue #279): the body-side prop binding is NOT
+                            // emitted here anymore. It is hoisted ahead of `plain_body`
+                            // via `emit_prop_bindings` (see the body-assembly block) so
+                            // a synchronously-running `effect()` / const initializer in
+                            // @state that reads the prop getter does not hit the
+                            // temporal dead zone. Emitting it here (after `plain_body`)
+                            // was the root cause of the TDZ ReferenceError.
                         }
                         CollectionKind::Computed => {
                             let thunk = match running_code(entry) {
@@ -1570,6 +1569,28 @@ fn emit_props_config(prop_entries: &[&crate::types::CollectionEntry], indent: &s
         lines.push(format!("{indent}{name}: {bag_str}"));
     }
     lines.join(",\n")
+}
+
+/// Emit the body-side `$prop` shadow declarations
+/// (`const <name> = ctx.props.<name>`), hoisted out of `macro_code` so they
+/// precede the user's plain @state statements. These are PURE reads of
+/// `ctx.props.<name>` — `ctx` is the setup arrow parameter, always in scope at
+/// the top of the body — so they have no dependency on `plain_body` or any
+/// other `macro_code` line. Hoisting them resolves the temporal-dead-zone
+/// (TDZ) crash where a synchronously-running `effect()` (or a const
+/// initializer) in @state reads a `$prop` getter before its declaration was
+/// emitted. See issue #279 and the Defect-A note at the body-assembly block.
+fn emit_prop_bindings(prop_entries: &[&crate::types::CollectionEntry], indent: &str) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    for entry in prop_entries {
+        let name = &entry.name;
+        lines.push(format!("{indent}const {name} = ctx.props.{name}"));
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    }
 }
 
 // ─── B4 — $aria collection wiring (R5) ───────────────────────────────────────
@@ -2028,15 +2049,30 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         if helpers_needed.a11y_styles {
             b.push_str("  _ensureA11yStyles()\n");
         }
-        // R2 (Defect A): state declarations (plain_body) MUST precede macro_code
-        // because `effect(...)` / `onMount(...)` / `onCleanup(...)` registrations
-        // capture state variables by lexical reference. effect() runs its callback
-        // synchronously once at registration time to track dependencies; if the
-        // referenced state has not been declared yet (whether `const` or `let`),
-        // the access hits the temporal dead zone and throws ReferenceError.
-        // Action functions are also emitted from macro_code; while `function`
-        // declarations are hoisted, calls to them from inside effect/onMount
-        // closures still trip TDZ when reaching the captured state vars.
+        // issue #279: $prop body bindings (`const <name> = ctx.props.<name>`) are
+        // hoisted ABOVE plain_body. They are pure reads of the already-bound
+        // `ctx.props.<name>` (ctx is the setup arrow parameter, always in scope at
+        // the top of the body) and have ZERO dependency on plain_body or any
+        // macro_code line, so hoisting them cannot break the Defect-A capture
+        // invariant below. Hoisting fixes both the raw `effect(() => f(prop()))`
+        // case (#279) and the Bug 8 const-initializer TDZ, because the prop getter
+        // is now declared before any synchronously-running @state statement reads
+        // it. The binding is no longer emitted from emit_state_macro_code.
+        let prop_bindings = emit_prop_bindings(&prop_entries, "  ");
+        if !prop_bindings.is_empty() {
+            b.push_str(&prop_bindings);
+            b.push('\n');
+        }
+        // R2 (Defect A): state declarations (plain_body) MUST precede the rest of
+        // macro_code because `effect(...)` / `onMount(...)` / `onCleanup(...)`
+        // registrations capture state variables by lexical reference. effect()
+        // runs its callback synchronously once at registration time to track
+        // dependencies; if the referenced state has not been declared yet
+        // (whether `const` or `let`), the access hits the temporal dead zone and
+        // throws ReferenceError. Action functions are also emitted from
+        // macro_code; while `function` declarations are hoisted, calls to them
+        // from inside effect/onMount closures still trip TDZ when reaching the
+        // captured state vars. (Prop bindings are exempt — see the hoist above.)
         if !plain_body.is_empty() {
             b.push_str(&plain_body);
             b.push_str("\n\n");

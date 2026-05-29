@@ -4,8 +4,6 @@
 
 13-example portfolio across 4 tiers. Every example demonstrates both a human UX and an agent surface — even a minimal `$expose` block — because agentic discovery and interaction is core to aihu's identity, not an add-on.
 
-**M1 (this PR): 6 examples polished.** The remaining 7 are flagged M2 in the table below.
-
 ## Portfolio
 
 | # | Folder | Tier | Status | Port | Agent surface | Teaches |
@@ -15,17 +13,17 @@
 | 03 | [`timer/`](./timer) | basics | M1 ready | 5103 | elapsed/progress + reset | `$lifecycle.mount/dispose`, `$effect` |
 | 04 | [`todo-mvc/`](./todo-mvc) | basics | M1 ready | 5104 | todos/remaining/filter + addTodo/clearCompleted | `$each/$key`, localStorage persistence (v1.1 fix) |
 | 05 | [`color-theme/`](./color-theme) | basics | M1 ready | 5105 | HSL signals + setPreset | `$reactive()` in `@style`, `$global`, `$media` macro |
-| 06 | [`weather-card/`](./weather-card) | flagship | ready | 5106 | location/forecast/status + fetchForecast | Signals + `$computed`/`$action` `expose:`, sync action over a mock table |
+| 06 | [`weather-card/`](./weather-card) | flagship | ready | 5106 | location/forecast/status + fetchForecast, A2A+ACP stub indicators | Signals + `$computed`/`$action` `expose:`, async action against Open-Meteo geocoding + forecast |
 | 07 | [`currency-converter/`](./currency-converter) | basics | ready | 5116 | from/to/amount + converted | Enum `$prop` inputs, pure `$computed` conversion |
 | 08 | [`css-engine-demo/`](./css-engine-demo) | styling | ready | 5114 | cardClass + toggleAccent/toggleRoomy | `@aihu/css-engine`: utility `compile()`, `cn()` runtime, progressive `anchor:` shim |
 | 09 | [`primitives-showcase/`](./primitives-showcase) | styling | ready | 5115 | wired + closeAll | `@aihu/primitives`: headless dialog + tooltip + button (APG ARIA/keyboard), BYO styling |
-| 10 | `agent-hub/` (new) | flagship | M2 | 5107 | Multi-component aggregation | `getAllAgentMetadata()`, A2A streaming |
+| 10 | [`agent-hub/`](./agent-hub) | flagship | ready | 5107 | AgentService aggregation hub — A2A + ACP adapters, @aihu/context sharing, Bun.serve server | server.ts (Bun.serve), A2A single-shot SSE, ACP live adapter, `@aihu/context` token sharing across SFCs, `$lifecycle.mount` |
 | 11 | [`hacker-news/`](./hacker-news) | meta | M1 ready | 5108 | top stories route data | Multi-page SSR, recursive components |
-| 12 | `blog-loader/` | meta | M2 | 5109 | posts + loader | `defineLoader`, `<$suspense>`, `@aihu/context` |
-| 13 | `cf-adapter/` (new) | meta | M2 | 5110 | agent-readiness | Cloudflare Workers adapter |
-| 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
-| 15 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |
-| 16 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
+| 12 | [`blog-loader/`](./blog-loader) | meta | M2 ready | 5109 | posts + loader + getPost/listPosts agent | `defineLoader`, `<$suspense>`, `@aihu/context` (parallel data channel via `ReadingContext`), `@agent` block |
+| 13 | [`cf-adapter/`](./cf-adapter) | meta | M2 ready | 5110 | workerName/deployMode + getConfig agent | `@aihu/adapter-cloudflare`: wires `cloudflare()` in `aihu.config.ts`, hand-authored `wrangler.toml`, `$expose` agent surface, responsive `@media` |
+| 14 | [`plugin-demo/`](./plugin-demo) | meta | M2 ready | 5111 | pluginValid/count/doubled + `$greeting` macro | `definePlugin`: macros + middleware + transforms, `createDemoRoutes`, `createDemoRuntime` signal, `install-manifest.json` |
+| 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
+| 16 | [`storefront/`](./storefront) | meta | M2 ready | 5113 | cart/checkout + `requireAuth` | `createResource` + `createResourceSerializer` (SSR-safe), `@aihu/context` CartContext provide/inject, `@aihu/auth` `requireAuth` on checkout, dummy Stripe |
 
 ### Archived
 
@@ -39,7 +37,7 @@
 bun run dev:examples
 ```
 
-Spawns all 6+ polished examples simultaneously on their assigned ports.
+Spawns all ready examples simultaneously on their assigned ports.
 
 ## Run a single example
 
@@ -62,9 +60,9 @@ Four examples cover the full value proposition in under 250 LOC:
 
 All `.aihu` files are written against the v1 spec quartet at `../docs/superpowers/specs/`. If something drifts from the specs, the specs win.
 
-## Coverage matrix (M1 examples)
+## Coverage matrix (M1 basics + hacker-news)
 
-| Feature | EX-01 | EX-02 | EX-03 | EX-04 | EX-05 | EX-08 |
+| Feature | EX-01 | EX-02 | EX-03 | EX-04 | EX-05 | hacker-news |
 |---|---|---|---|---|---|---|
 | Signals | yes | yes | yes | yes | yes | yes |
 | `$computed` | — | yes | yes | yes | yes | — |

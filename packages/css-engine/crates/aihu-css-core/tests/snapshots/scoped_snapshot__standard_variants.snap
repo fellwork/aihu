@@ -20,6 +20,7 @@ expression: "compile_sfc_scoped(&sfc(\"hover:bg-primary focus:text-accent dark:b
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 .\[&>div\]\:text-primary>div { color: var(--color-primary); }
 /* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */
 :host([data-theme="dark"]) .dark\:bg-surface, :root.dark .dark\:bg-surface { background-color: var(--color-surface); }

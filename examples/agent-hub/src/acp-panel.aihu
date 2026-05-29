@@ -1,0 +1,207 @@
+@state {
+  import { inject } from '@aihu/context'
+  import { HubServiceContext } from './hub-context'
+  import { signal } from '@aihu/signals'
+
+  const _service = inject(HubServiceContext)
+  const [discoveryCard, setDiscoveryCard] = signal<string | null>(null)
+  const [result, setResult] = signal<string | null>(null)
+  const [loading, setLoading] = signal(false)
+
+  $lifecycle.mount: {
+    fetch('/.well-known/acp-agent')
+      .then(r => r.json())
+      .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
+      .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
+  }
+
+  $action sendAcpMessage: async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/acp/messages', {
+        method: 'POST',
+        body: JSON.stringify({ role: 'user', content: 'ping', parts: [] }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      setResult(JSON.stringify(data, null, 2))
+    } catch (err) {
+      setResult(`Error: ${err}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+}
+
+@template {
+  <div class="acp-panel">
+    <h2 class="panel-heading">ACP Protocol</h2>
+
+    <span class="protocol-badge acp-badge">ACP: live</span>
+
+    <section class="discovery-section" aria-label="ACP Discovery">
+      <h3 class="subsection-heading">ACP Discovery</h3>
+      <pre class="discovery-card">{discoveryCard ?? '(loading...)'}</pre>
+    </section>
+
+    <section class="request-section" aria-label="Send ACP Message">
+      <button
+        class="send-btn"
+        $on.click={sendAcpMessage}
+        $attr.disabled={loading}
+        aria-busy={loading}
+      >
+        {loading ? 'Sending...' : 'Send ACP Message'}
+      </button>
+    </section>
+
+    <section class="result-section" $if={result !== null} aria-label="ACP Result">
+      <h3 class="subsection-heading">Result</h3>
+      <pre class="result-display">{result}</pre>
+    </section>
+
+    <p class="result-placeholder" $if={result === null && !loading}>
+      No result yet — click "Send ACP Message" to make a request.
+    </p>
+  </div>
+}
+
+@agent {
+  $expose result: last ACP message response
+  $expose loading: whether a request is in-progress
+  getDiscoveryCard: { description: "Return the ACP discovery card" }
+}
+
+@style {
+  .acp-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    color: var(--fg);
+  }
+
+  .panel-heading {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--fg);
+  }
+
+  .subsection-heading {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  .protocol-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius);
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+  }
+
+  .acp-badge {
+    background: var(--success-bg);
+    border: 1px solid var(--success);
+    color: var(--success);
+  }
+
+  .discovery-section {
+    padding: 0.75rem 1rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .discovery-card {
+    margin: 0;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .request-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .send-btn {
+    padding: 0.5rem 1.25rem;
+    background: var(--accent);
+    color: var(--tag-bg);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+    transition: opacity 0.1s;
+  }
+
+  .send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .send-btn:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+
+  .result-section {
+    padding: 0.75rem 1rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .result-display {
+    margin: 0;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    color: var(--fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .result-placeholder {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  @media (max-width: 480px) {
+    .acp-panel {
+      gap: 1rem;
+    }
+
+    .panel-heading {
+      font-size: 1.1rem;
+    }
+
+    .protocol-badge {
+      font-size: 0.75rem;
+      display: block;
+    }
+
+    .send-btn {
+      width: 100%;
+    }
+
+    .discovery-card,
+    .result-display {
+      max-height: 120px;
+    }
+  }
+}

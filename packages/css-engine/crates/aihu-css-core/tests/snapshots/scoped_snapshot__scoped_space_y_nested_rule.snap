@@ -20,4 +20,5 @@ expression: "compile_sfc_scoped(&sfc(\"space-y-4\"))"
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 .space-y-4 { & > * + * { margin-block-start: 1rem; } }
