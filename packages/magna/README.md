@@ -40,6 +40,7 @@ bun add @aihu/magna
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
+| **Bundle size** | 711 B (gz) — limit 1.8 KB |
 | **Published files** | 2 entries |
 | **License** | MIT |
 
@@ -55,6 +56,7 @@ bun add @aihu/magna
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./codegen` | `./dist/codegen.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/magna@0.2.0`.</i></sub>
 
