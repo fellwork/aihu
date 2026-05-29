@@ -123,5 +123,10 @@
     "name": "@aihu/magna",
     "bytes": -1,
     "limit": "1.8 KB"
+  },
+  {
+    "name": "@aihu/magna/codegen",
+    "bytes": -1,
+    "limit": "1.2 KB"
   }
 ]

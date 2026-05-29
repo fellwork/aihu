@@ -37,30 +37,37 @@
         <li><a class="nav-link" href="#playground" $class:active={activePage() === 'playground'}>Playground</a></li>
       </ul>
 
-      <span class="nav-group-label">Core</span>
+      <span class="nav-group-label">Guides</span>
       <ul>
-        <li><a class="nav-link" href="#authoring-components" $class:active={activePage() === 'authoring-components'}>Authoring Components</a></li>
-        <li><a class="nav-link" href="#reactivity" $class:active={activePage() === 'reactivity'}>Reactivity</a></li>
-        <li><a class="nav-link" href="#authoring-agents" $class:active={activePage() === 'authoring-agents'}>Authoring Agents</a></li>
-        <li><a class="nav-link" href="#styling" $class:active={activePage() === 'styling'}>Styling</a></li>
-        <li><a class="nav-link" href="#theming" $class:active={activePage() === 'theming'}>Theming</a></li>
-        <li><a class="nav-link" href="#primitives" $class:active={activePage() === 'primitives'}>Primitives</a></li>
+        <li><a class="nav-link" href="#guides/authoring-components" $class:active={activePage() === 'guides/authoring-components'}>Authoring Components</a></li>
+        <li><a class="nav-link" href="#guides/reactivity" $class:active={activePage() === 'guides/reactivity'}>Reactivity</a></li>
+        <li><a class="nav-link" href="#guides/authoring-agents" $class:active={activePage() === 'guides/authoring-agents'}>Authoring Agents</a></li>
+        <li><a class="nav-link" href="#guides/styling" $class:active={activePage() === 'guides/styling'}>Styling</a></li>
+        <li><a class="nav-link" href="#guides/theming" $class:active={activePage() === 'guides/theming'}>Theming</a></li>
+        <li><a class="nav-link" href="#guides/utility-classes" $class:active={activePage() === 'guides/utility-classes'}>Utility Classes</a></li>
+        <li><a class="nav-link" href="#guides/primitives" $class:active={activePage() === 'guides/primitives'}>Primitives</a></li>
+        <li><a class="nav-link" href="#guides/routing-layouts" $class:active={activePage() === 'guides/routing-layouts'}>Routing &amp; Layouts</a></li>
+        <li><a class="nav-link" href="#guides/data-fetching" $class:active={activePage() === 'guides/data-fetching'}>Data Fetching</a></li>
+        <li><a class="nav-link" href="#guides/ssr-hydration" $class:active={activePage() === 'guides/ssr-hydration'}>SSR &amp; Hydration</a></li>
+        <li><a class="nav-link" href="#guides/agent-discovery" $class:active={activePage() === 'guides/agent-discovery'}>Agent Discovery</a></li>
+        <li><a class="nav-link" href="#guides/authoring-plugins" $class:active={activePage() === 'guides/authoring-plugins'}>Authoring Plugins</a></li>
+        <li><a class="nav-link" href="#guides/deployment" $class:active={activePage() === 'guides/deployment'}>Deployment</a></li>
       </ul>
 
-      <span class="nav-group-label">Advanced</span>
+      <span class="nav-group-label">Packages</span>
       <ul>
-        <li><a class="nav-link" href="#routing-layouts" $class:active={activePage() === 'routing-layouts'}>Routing &amp; Layouts</a></li>
-        <li><a class="nav-link" href="#data-fetching" $class:active={activePage() === 'data-fetching'}>Data Fetching</a></li>
-        <li><a class="nav-link" href="#authoring-plugins" $class:active={activePage() === 'authoring-plugins'}>Authoring Plugins</a></li>
-        <li><a class="nav-link" href="#ssr-hydration" $class:active={activePage() === 'ssr-hydration'}>SSR &amp; Hydration</a></li>
+        <li><a class="nav-link" href="#packages/context" $class:active={activePage() === 'packages/context'}>@aihu/context</a></li>
+        <li><a class="nav-link" href="#packages/agent-a2a" $class:active={activePage() === 'packages/agent-a2a'}>@aihu/agent-a2a</a></li>
+        <li><a class="nav-link" href="#packages/agent-acp" $class:active={activePage() === 'packages/agent-acp'}>@aihu/agent-acp</a></li>
+        <li><a class="nav-link" href="#packages/cli" $class:active={activePage() === 'packages/cli'}>@aihu/cli</a></li>
+        <li><a class="nav-link" href="#packages/adapter-cloudflare" $class:active={activePage() === 'packages/adapter-cloudflare'}>@aihu/adapter-cloudflare</a></li>
+        <li><a class="nav-link" href="#packages/adapter-vercel" $class:active={activePage() === 'packages/adapter-vercel'}>@aihu/adapter-vercel</a></li>
       </ul>
 
       <span class="nav-group-label">Reference</span>
       <ul>
         <li><a class="nav-link" href="#migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
-        <li><a class="nav-link" href="#deployment" $class:active={activePage() === 'deployment'}>Deployment</a></li>
         <li><a class="nav-link" href="#api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
-        <li><a class="nav-link" href="#utility-classes" $class:active={activePage() === 'utility-classes'}>Utility Classes</a></li>
       </ul>
 
     </nav>

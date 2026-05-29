@@ -134,6 +134,14 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
 /// Map a single (already variant-stripped) utility class name to its CSS body
 /// (declarations only, no selector). Returns `None` for unknown utilities.
 pub fn utility_to_css(class_name: &str) -> Option<String> {
+    // 0. Opacity modifier: `bg-accent/15`, `text-primary/50`, `border-red-500/30`.
+    //    A trailing `/NN` (0..=100) applies the opacity to a COLOR utility via
+    //    `color-mix(in oklab, <color> NN%, transparent)`. Only color-property
+    //    utilities opt in, so sizing fractions (`w-1/2`) are left untouched.
+    if let Some(css) = parse_color_opacity(class_name) {
+        return Some(css);
+    }
+
     // 1. Arbitrary-value bracket syntax: bg-[#1a1d24], w-[34ch], text-[14px].
     if let Some(css) = parse_arbitrary(class_name) {
         return Some(css);
@@ -203,6 +211,43 @@ fn negate_motion(rest: &str) -> Option<String> {
     }
 }
 
+/// Parse a trailing `/NN` opacity modifier on a color utility. `bg-accent/15`
+/// resolves the base (`bg-accent` → `background-color: var(--color-accent);`)
+/// and rewrites the value into a `color-mix(in oklab, <color> NN%, transparent)`
+/// (Tailwind v4 parity). Returns `None` when there is no `/NN`, when the percent
+/// is out of range, or when the base does not resolve to a single color
+/// declaration (so sizing fractions like `w-1/2` are never touched).
+pub fn parse_color_opacity(class_name: &str) -> Option<String> {
+    let (base, pct) = class_name.rsplit_once('/')?;
+    // The base must not itself contain a `/` (avoid `a/b/c`); pct is 0..=100.
+    if base.contains('/') {
+        return None;
+    }
+    if pct.is_empty() || !pct.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let n: u32 = pct.parse().ok()?;
+    if n > 100 {
+        return None;
+    }
+    // Resolve the base through the color path only. The prefix (split on the
+    // FIRST `-`) must map to a color property, and the resolved body must be a
+    // single `prop: <color>;` declaration.
+    let idx = base.find('-')?;
+    let prefix = &base[..idx];
+    let prop = color_prop(prefix)?;
+    let body = utility_to_css(base)?;
+    let decl = format!("{prop}: ");
+    let value = body.strip_prefix(&decl)?.strip_suffix(';')?;
+    // Bail if the value is itself a multi-declaration body (defensive).
+    if value.contains(';') {
+        return None;
+    }
+    Some(format!(
+        "{prop}: color-mix(in oklab, {value} {n}%, transparent);"
+    ))
+}
+
 /// Parse `prefix-[value]` arbitrary-value syntax. The bracket content is
 /// emitted verbatim into the mapped CSS property (edge E7).
 pub fn parse_arbitrary(class_name: &str) -> Option<String> {
@@ -238,6 +283,10 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         "gap" => "gap",
         "rounded" => "border-radius",
         "border" => "border-width",
+        "grid-cols" => "grid-template-columns",
+        "grid-rows" => "grid-template-rows",
+        "col-span" => "grid-column",
+        "row-span" => "grid-row",
         "leading" => "line-height",
         "tracking" => "letter-spacing",
         "z" => "z-index",
@@ -326,6 +375,11 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "font-semibold" => "font-weight: 600;",
         "font-bold" => "font-weight: 700;",
         "font-black" => "font-weight: 900;",
+        // Font-family families. Resolved as FIXED utilities (not parameterized)
+        // so they don't muddy the `("font","font-weight")` conflict group key.
+        // The `--font-sans`/`--font-mono` tokens are shipped by both packs.
+        "font-sans" => "font-family: var(--font-sans);",
+        "font-mono" => "font-family: var(--font-mono);",
 
         // Borders / effects
         "border" => "border-width: 1px;",
@@ -366,6 +420,15 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         // `parameterized_utility` (split on the last `-`).
         "divide-x" => "& > * + * { border-inline-width: 1px; }",
         "divide-y" => "& > * + * { border-block-width: 1px; }",
+        // Bare directional borders default to 1px (Tailwind parity). The numeric
+        // forms (`border-t-2`, …) follow below. With the Preflight reset
+        // (`*,::before,::after { border-style: solid }`) these render visibly.
+        "border-t" => "border-top-width: 1px;",
+        "border-r" => "border-right-width: 1px;",
+        "border-b" => "border-bottom-width: 1px;",
+        "border-l" => "border-left-width: 1px;",
+        "border-x" => "border-inline-width: 1px;",
+        "border-y" => "border-block-width: 1px;",
         "border-t-0" => "border-top-width: 0;",
         "border-t-2" => "border-top-width: 2px;",
         "border-t-4" => "border-top-width: 4px;",

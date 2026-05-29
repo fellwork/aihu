@@ -51,33 +51,33 @@ const llmsSections = [
     links: [
       {
         title: 'Authoring Components',
-        url: 'https://aihu.dev/#authoring-components',
+        url: 'https://aihu.dev/#guides/authoring-components',
         description: 'SFC anatomy, @state, @template, @style blocks',
       },
       {
         title: 'Reactivity',
-        url: 'https://aihu.dev/#reactivity',
+        url: 'https://aihu.dev/#guides/reactivity',
         description: 'Signals, computed values, and effects',
       },
       {
         title: 'Authoring Agents',
-        url: 'https://aihu.dev/#authoring-agents',
+        url: 'https://aihu.dev/#guides/authoring-agents',
         description: '@agent block — expose state and actions as MCP tools',
       },
       {
         title: 'Styling',
-        url: 'https://aihu.dev/#styling',
+        url: 'https://aihu.dev/#guides/styling',
         description: '@aihu/css-engine — scoped utilities, cn(), style packs',
       },
       {
         title: 'Theming',
-        url: 'https://aihu.dev/#theming',
+        url: 'https://aihu.dev/#guides/theming',
         description:
           '@aihu/css-engine design tokens — aihu-default / aihu-graphite packs, defineStylePack(), :root + .dark emission',
       },
       {
         title: 'Primitives',
-        url: 'https://aihu.dev/#primitives',
+        url: 'https://aihu.dev/#guides/primitives',
         description: '@aihu/primitives — headless WAI-ARIA dialog, tooltip, button',
       },
     ],
@@ -87,27 +87,27 @@ const llmsSections = [
     links: [
       {
         title: 'Routing & Layouts',
-        url: 'https://aihu.dev/#routing-layouts',
+        url: 'https://aihu.dev/#guides/routing-layouts',
         description: 'defineRoutes, layouts, and nested routes',
       },
       {
         title: 'Data Fetching',
-        url: 'https://aihu.dev/#data-fetching',
+        url: 'https://aihu.dev/#guides/data-fetching',
         description: 'defineLoader and DataSource for async data',
       },
       {
         title: 'SSR & Hydration',
-        url: 'https://aihu.dev/#ssr-hydration',
+        url: 'https://aihu.dev/#guides/ssr-hydration',
         description: 'Server-side rendering and client hydration',
       },
       {
         title: 'Agent Discovery',
-        url: 'https://aihu.dev/#agent-discovery',
+        url: 'https://aihu.dev/#guides/agent-discovery',
         description: 'llms.txt, MCP server cards, and robots.txt',
       },
       {
         title: 'Authoring Plugins',
-        url: 'https://aihu.dev/#authoring-plugins',
+        url: 'https://aihu.dev/#guides/authoring-plugins',
         description: 'Extending aihu with custom compiler transforms',
       },
     ],
@@ -127,7 +127,7 @@ const llmsSections = [
       },
       {
         title: 'Deployment',
-        url: 'https://aihu.dev/#deployment',
+        url: 'https://aihu.dev/#guides/deployment',
         description: 'Cloudflare Workers, Vercel, and Node.js adapters',
       },
     ],
@@ -151,19 +151,35 @@ const sitemapPages = [
   { url: 'https://aihu.dev/#introduction', changefreq: 'weekly' as const, priority: 0.9 },
   { url: 'https://aihu.dev/#installation', changefreq: 'weekly' as const, priority: 0.9 },
   { url: 'https://aihu.dev/#getting-started', changefreq: 'weekly' as const, priority: 0.9 },
-  { url: 'https://aihu.dev/#authoring-components', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#reactivity', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#authoring-agents', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#styling', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#theming', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#primitives', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#routing-layouts', changefreq: 'monthly' as const, priority: 0.7 },
-  { url: 'https://aihu.dev/#data-fetching', changefreq: 'monthly' as const, priority: 0.7 },
-  { url: 'https://aihu.dev/#ssr-hydration', changefreq: 'monthly' as const, priority: 0.7 },
-  { url: 'https://aihu.dev/#agent-discovery', changefreq: 'monthly' as const, priority: 0.8 },
+  {
+    url: 'https://aihu.dev/#guides/authoring-components',
+    changefreq: 'monthly' as const,
+    priority: 0.8,
+  },
+  { url: 'https://aihu.dev/#guides/reactivity', changefreq: 'monthly' as const, priority: 0.8 },
+  {
+    url: 'https://aihu.dev/#guides/authoring-agents',
+    changefreq: 'monthly' as const,
+    priority: 0.8,
+  },
+  { url: 'https://aihu.dev/#guides/styling', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#guides/theming', changefreq: 'monthly' as const, priority: 0.8 },
+  { url: 'https://aihu.dev/#guides/primitives', changefreq: 'monthly' as const, priority: 0.8 },
+  {
+    url: 'https://aihu.dev/#guides/routing-layouts',
+    changefreq: 'monthly' as const,
+    priority: 0.7,
+  },
+  { url: 'https://aihu.dev/#guides/data-fetching', changefreq: 'monthly' as const, priority: 0.7 },
+  { url: 'https://aihu.dev/#guides/ssr-hydration', changefreq: 'monthly' as const, priority: 0.7 },
+  {
+    url: 'https://aihu.dev/#guides/agent-discovery',
+    changefreq: 'monthly' as const,
+    priority: 0.8,
+  },
   { url: 'https://aihu.dev/#migration', changefreq: 'monthly' as const, priority: 0.7 },
   { url: 'https://aihu.dev/#api-reference', changefreq: 'monthly' as const, priority: 0.8 },
-  { url: 'https://aihu.dev/#deployment', changefreq: 'monthly' as const, priority: 0.7 },
+  { url: 'https://aihu.dev/#guides/deployment', changefreq: 'monthly' as const, priority: 0.7 },
 ]
 
 const a2aCardHandler: RouteHandler = (_req) => {

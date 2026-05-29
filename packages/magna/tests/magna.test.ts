@@ -29,13 +29,17 @@ describe('SAMPLE-M01: Package builds', () => {
 describe('SAMPLE-M02: Public exports present', () => {
   it('exports all expected symbols', async () => {
     const mod = await import('../src/index.ts')
-    expect(typeof mod.magna).toBe('function')
     expect(typeof mod.createMagnaFetch).toBe('function')
     expect(typeof mod.createMagnaResource).toBe('function')
     expect(typeof mod.useMagnaSubscription).toBe('function')
-    expect(typeof mod.beforeCompile).toBe('function')
     // Type-only exports are erased at runtime; verify runtime values present
     // by checking the module is importable and functions exist.
+
+    // Build-time symbols live on the node-only codegen subpath, NOT the
+    // browser-safe default entry.
+    const codegen = await import('../src/codegen-entry.ts')
+    expect(typeof codegen.magna).toBe('function')
+    expect(typeof codegen.beforeCompile).toBe('function')
   })
 })
 
