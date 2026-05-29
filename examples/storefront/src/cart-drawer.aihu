@@ -1,0 +1,258 @@
+@state {
+  import { inject } from '@aihu/context'
+  import { CartContext } from './cart-context'
+  import { signal } from '@aihu/signals'
+
+  const cartSignal = inject(CartContext)
+  const [getCart, _setCart] = cartSignal ?? [() => [], () => {}]
+
+  $computed: {
+    cartItems: () => getCart(),
+    total: () => cartItems.reduce((s, i) => s + i.price, 0),
+    cartCount: () => cartItems.length,
+  }
+
+  const [checkoutStatus, setCheckoutStatus] = signal('idle')
+
+  async function checkout() {
+    setCheckoutStatus('pending')
+    try {
+      const r = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer demo-token-xyz',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: cartItems }),
+      })
+      setCheckoutStatus(r.ok ? 'ok' : 'error')
+    } catch {
+      setCheckoutStatus('error')
+    }
+  }
+}
+
+@template {
+  <aside class="cart-drawer" aria-label="Shopping cart">
+    <header class="cart-header">
+      <h2 class="cart-title">Cart</h2>
+      <span class="cart-count-badge" $if={cartCount > 0}>{cartCount}</span>
+    </header>
+
+    <div class="stub-badge">
+      live Stripe binding pending arch-3
+    </div>
+
+    <div class="empty-cart" $if={cartCount === 0}>
+      <p>Your cart is empty.</p>
+    </div>
+
+    <ul class="cart-items" $if={cartCount > 0}>
+      <li
+        class="cart-item"
+        $each={cartItems}
+        $key="id"
+        $let="item"
+      >
+        <span class="item-name">{item.name}</span>
+        <span class="item-price">${item.price.toFixed(2)}</span>
+      </li>
+    </ul>
+
+    <div class="cart-subtotal" $if={cartCount > 0}>
+      <span class="subtotal-label">Subtotal</span>
+      <span class="subtotal-amount">${total.toFixed(2)}</span>
+    </div>
+
+    <button
+      class="checkout-btn"
+      $if={cartCount > 0}
+      $on.click={checkout}
+      $attr.disabled={checkoutStatus() === 'pending'}
+      aria-label="Proceed to checkout"
+    >
+      {checkoutStatus() === 'pending' ? 'Processing…' : 'Checkout'}
+    </button>
+
+    <div class="status-ok" $if={checkoutStatus() === 'ok'} aria-live="polite" role="status">
+      Order placed successfully!
+    </div>
+
+    <div class="status-error" $if={checkoutStatus() === 'error'} aria-live="polite" role="alert">
+      Checkout failed. Please try again.
+    </div>
+  </aside>
+}
+
+@agent {
+  $expose cartItems: current cart items
+  $expose cartCount: number of items in cart
+  $expose checkoutStatus: idle | pending | ok | error
+  checkout: { description: "Initiate checkout with current cart items" }
+}
+
+@style {
+  .cart-drawer {
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 240px;
+  }
+
+  .cart-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.75rem;
+  }
+
+  .cart-title {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--fg);
+  }
+
+  .cart-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    background: var(--tag-bg);
+    color: var(--tag-fg);
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .stub-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    background: var(--stub-bg);
+    border: 1px solid var(--stub-border);
+    color: var(--stub-fg);
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-family: ui-monospace, monospace;
+  }
+
+  .empty-cart {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+
+  .empty-cart p {
+    margin: 0;
+  }
+
+  .cart-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+
+  .item-name {
+    color: var(--fg);
+    flex: 1;
+  }
+
+  .item-price {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .cart-subtotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 700;
+    font-size: 1rem;
+    padding-top: 0.5rem;
+    border-top: 2px solid var(--border);
+  }
+
+  .subtotal-label {
+    color: var(--fg);
+  }
+
+  .subtotal-amount {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .checkout-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--fg);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    min-height: 44px;
+  }
+
+  .checkout-btn:hover:not([disabled]) {
+    background: var(--hover-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .checkout-btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .status-ok {
+    padding: 0.75rem;
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .status-error {
+    padding: 0.75rem;
+    background: var(--error-bg);
+    color: var(--error);
+    border: 1px solid var(--error);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  @media (max-width: 480px) {
+    .cart-drawer {
+      border-left: none;
+      border-top: 1px solid var(--border);
+      min-width: unset;
+      width: 100%;
+      padding: 1rem;
+    }
+  }
+}

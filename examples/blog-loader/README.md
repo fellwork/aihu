@@ -1,6 +1,7 @@
 # `examples/blog-loader`
 
-A server-rendered post page demonstrating aihu's loader pattern.
+A server-rendered post page demonstrating aihu's loader pattern, `@aihu/context`
+as a parallel data channel, and an `@agent` block for agentic discoverability.
 
 ## What this teaches
 
@@ -14,6 +15,14 @@ A server-rendered post page demonstrating aihu's loader pattern.
   re-validation).
 - **3-state resource pattern** — `route.data` follows the same
   `pending` / `value` / `error` shape as a `$resource` declaration.
+- **`@aihu/context`** — demonstrates `@aihu/context` as a _parallel data channel_
+  alongside `route.data`. The loader provides a `ReadingContext` value
+  server-side (via `@aihu/context/ssr` `runWithContext` + `provide`); the SFC
+  injects it client-side (via `inject` from `@aihu/context`) and renders a
+  `context-badge` element — visually distinct from the `route.data` display.
+- **`@agent` block** — exposes `getPost` (current post title/body/readingTimeMs)
+  and `listPosts` (known post slugs) so any MCP-compatible agent can read and
+  enumerate content without scraping the rendered HTML.
 
 ## Run
 
@@ -28,9 +37,10 @@ Then navigate to `/posts/hello`, `/posts/meta`, or `/posts/agents`.
 
 | File | Role |
 |---|---|
-| `src/pages/posts/[slug].aihu` | SFC reading `route.data` |
-| `src/pages/posts/[slug].loader.ts` | Server-side `defineLoader` |
+| `src/pages/posts/[slug].aihu` | SFC reading `route.data`, injecting `ReadingContext`, `@agent` block |
+| `src/pages/posts/[slug].loader.ts` | Server-side `defineLoader` + `ReadingContext` provision via `@aihu/context/ssr` |
 | `vite.config.ts` | Wires `viteRouterIntegration()` + SSR target |
+| `tests/smoke.test.ts` | Source-text + registry smoke tests (8 tests, offline-safe) |
 
 ## How the handoff works
 

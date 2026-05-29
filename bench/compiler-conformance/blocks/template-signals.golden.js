@@ -9,6 +9,6 @@ defineElement('template-signals', defineComponent((_ctx) => {
 
   return branch('div', undefined, [
     branch('span', undefined, [leaf([msg, setMsg] as unknown as Signal<string>)]),
-    branch('button', { onclick: 'handleClick' }, [leaf('Count:'), leaf([count, setCount] as unknown as Signal<string>)])
+    branch('button', { onclick: 'handleClick' }, [leaf('Count: '), leaf([count, setCount] as unknown as Signal<string>)])
   ])
 }))
