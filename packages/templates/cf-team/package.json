@@ -18,9 +18,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "peerDependencies": {
-    "@aihu/cli": "^0.5.1"
-  },
   "dependencies": {},
   "devDependencies": {},
   "repository": {
