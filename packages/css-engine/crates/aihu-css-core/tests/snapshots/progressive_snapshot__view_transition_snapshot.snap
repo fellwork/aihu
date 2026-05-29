@@ -20,6 +20,7 @@ expression: "compile_sfc_scoped(&sfc(\"view-transition:hero\"))"
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 @supports (view-transition-name: none) {
   .view-transition\:hero { view-transition-name: hero; }
 }
