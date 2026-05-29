@@ -19,6 +19,11 @@ struct StateImports {
     needs_on_attribute_change: bool,
     needs_effect_for_macros: bool,
     needs_create_resource: bool,
+    // arch-3 M2 (RFC-003) — `$query` and magna-origin `$resource` lower to
+    // `createMagnaResource(inject(MagnaFetchToken), ...)`. When set, the
+    // imports `createMagnaResource`/`MagnaFetchToken` (`@aihu/magna`) and
+    // `inject` (`@aihu/context`) are emitted.
+    needs_create_magna_resource: bool,
     // v0.4.0 — `$stream` lowers to `createStream()` in `@aihu/runtime`.
     needs_create_stream: bool,
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
@@ -768,8 +773,24 @@ fn process_state_body(
                     }
                 }
                 CollectionKind::Resource => {
-                    si.needs_create_resource = true;
+                    use crate::parser::state_macros::{arrow_body, is_magna_origin, running_code};
                     for e in entries {
+                        // arch-3 M2 (RFC-003): a `$resource` whose running-code
+                        // thunk body is a magna client call (`data.X.query(...)`)
+                        // lowers to `createMagnaResource`; any other `$resource`
+                        // keeps the plain `createResource` lowering (no regression).
+                        let is_magna = running_code(e)
+                            .map(|thunk| {
+                                let body =
+                                    arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                                is_magna_origin(&body)
+                            })
+                            .unwrap_or(false);
+                        if is_magna {
+                            si.needs_create_magna_resource = true;
+                        } else {
+                            si.needs_create_resource = true;
+                        }
                         state_names.insert(&e.name);
                     }
                 }
@@ -840,6 +861,12 @@ fn process_state_body(
             }
             StateMacro::BeforeNavigate { .. } | StateMacro::AfterNavigate { .. } => {
                 si.needs_aihu_router = true;
+            }
+            StateMacro::Query { name, .. } => {
+                // arch-3 M2 (RFC-003): `$query` always lowers to
+                // `createMagnaResource(inject(MagnaFetchToken), <expr>)`.
+                si.needs_create_magna_resource = true;
+                state_names.insert(name);
             }
         }
     }
@@ -1224,10 +1251,21 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
-                            lines.push(format!(
-                                "{indent}const {} = createResource(() => {body});",
-                                entry.name
-                            ));
+                            // arch-3 M2 (RFC-003): magna-origin `$resource`
+                            // (body is `data.X.query(...)`) lowers to
+                            // `createMagnaResource`; everything else keeps the
+                            // plain `createResource` lowering (no regression).
+                            if crate::parser::state_macros::is_magna_origin(&body) {
+                                lines.push(format!(
+                                    "{indent}const {} = createMagnaResource(inject(MagnaFetchToken), {body});",
+                                    entry.name
+                                ));
+                            } else {
+                                lines.push(format!(
+                                    "{indent}const {} = createResource(() => {body});",
+                                    entry.name
+                                ));
+                            }
                         }
                         CollectionKind::Stream => {
                             // v0.4.0 — emit `const <name> = createStream(<source_factory>)`
@@ -1454,6 +1492,12 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
             StateMacro::AfterNavigate { expr } => {
                 lines.push(format!(
                     "{indent}__aihuRouter.__router_registerAfterGuard({expr});"
+                ));
+            }
+            // arch-3 M2 (RFC-003) — magna `$query` shorthand.
+            StateMacro::Query { name, expr } => {
+                lines.push(format!(
+                    "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
                 ));
             }
         }
@@ -2300,6 +2344,17 @@ fn build_function_imports(
         lines.push("import * as __aihuRouter from '@aihu/router'".to_string());
     }
 
+    // arch-3 M2 (RFC-003): magna `$query` / magna-origin `$resource` lower to
+    // `createMagnaResource(inject(MagnaFetchToken), ...)`. Emit the magna +
+    // context imports. Bare `@aihu/magna` specifier (G7 entry-split not landed;
+    // forward-compatible with the future browser `.` entry).
+    if si.needs_create_magna_resource {
+        lines.push(
+            "import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string(),
+        );
+        lines.push("import { inject } from '@aihu/context'".to_string());
+    }
+
     lines.join("\n")
 }
 
@@ -2325,6 +2380,139 @@ fn decode_html_entities(s: &str) -> String {
      .replace("&reg;", "®")
 }
 
+// ─── arch-3 M2 (RFC-003) — magna macro lowering for the options form ─────────
+
+/// Lower the magna macros (`$query` and magna-origin `$resource`) from a
+/// parsed `@state` macro list into 4-space-indented `createMagnaResource(...)`
+/// statements for the options-form (`@agent` SFC) `setup()` body. Returns an
+/// empty string when no magna macro is present. Non-magna macros are ignored
+/// here (the options form leaves them in the script body verbatim, as before).
+fn emit_magna_macro_code_options(macros: &[crate::types::StateMacro]) -> String {
+    use crate::parser::state_macros::{arrow_body, is_magna_origin, running_code};
+    use crate::types::{CollectionKind, StateMacro};
+    let indent = "    ";
+    let mut lines: Vec<String> = Vec::new();
+    for mac in macros {
+        match mac {
+            StateMacro::Query { name, expr } => {
+                lines.push(format!(
+                    "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
+                ));
+            }
+            StateMacro::Collection {
+                kind: CollectionKind::Resource,
+                entries,
+            } => {
+                for entry in entries {
+                    let Some(thunk) = running_code(entry) else {
+                        continue;
+                    };
+                    let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                    if is_magna_origin(&body) {
+                        lines.push(format!(
+                            "{indent}const {} = createMagnaResource(inject(MagnaFetchToken), {body});",
+                            entry.name
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    }
+}
+
+/// Whether ANY entry of a `$resource` collection is magna-origin. Used to
+/// decide if the collection-form `$resource` line must be stripped from the
+/// options-form script body (it is lowered separately via
+/// `emit_magna_macro_code_options`).
+fn resource_collection_is_magna(entries: &[crate::types::CollectionEntry]) -> bool {
+    use crate::parser::state_macros::{arrow_body, is_magna_origin, running_code};
+    entries.iter().any(|entry| {
+        running_code(entry)
+            .map(|thunk| {
+                let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                is_magna_origin(&body)
+            })
+            .unwrap_or(false)
+    })
+}
+
+/// Remove magna macro declarations (`$query ...` and magna-origin
+/// `$resource: { ... }`) from the raw `@state` script so the options-form
+/// `extract_script_body` does not emit them verbatim. Magna macros are lowered
+/// separately by `emit_magna_macro_code_options`. Non-magna `$resource` blocks
+/// and all other content pass through untouched.
+fn strip_magna_macros_from_script(
+    raw_script: &str,
+    macros: &[crate::types::StateMacro],
+) -> String {
+    use crate::types::{CollectionKind, StateMacro};
+
+    let strip_resource = macros.iter().any(|m| {
+        matches!(
+            m,
+            StateMacro::Collection { kind: CollectionKind::Resource, entries }
+                if resource_collection_is_magna(entries)
+        )
+    });
+
+    let bytes = raw_script.as_bytes();
+    let mut out = String::with_capacity(raw_script.len());
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
+        let line = raw_script[i..nl].trim_start();
+
+        // `$query name = ...` — single line; drop it.
+        if line.strip_prefix('$').is_some_and(|r| r.starts_with("query ")) {
+            i = nl + 1;
+            continue;
+        }
+
+        // magna-origin `$resource: { ... }` — collection-form spanning a
+        // matching brace; drop the whole block.
+        if strip_resource
+            && line
+                .strip_prefix('$')
+                .and_then(|r| r.strip_prefix("resource"))
+                .map(|r| r.trim_start())
+                .is_some_and(|r| r.starts_with(':'))
+        {
+            if let Some(colon_rel) = raw_script[i..].find(':') {
+                let mut p = i + colon_rel + 1;
+                while p < raw_script.len()
+                    && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r')
+                {
+                    p += 1;
+                }
+                if p < raw_script.len() && bytes[p] == b'{' {
+                    if let Some(close) =
+                        crate::parser::state_macros::find_brace_close(raw_script, p + 1)
+                    {
+                        i = close + 1;
+                        if i < bytes.len() && bytes[i] == b'\n' {
+                            i += 1;
+                        }
+                        continue;
+                    }
+                }
+            }
+        }
+
+        out.push_str(&raw_script[i..nl]);
+        if nl < raw_script.len() {
+            out.push('\n');
+        }
+        i = nl + 1;
+    }
+    out
+}
+
 // ─── Options form (with agent block) ─────────────────────────────────────────
 
 fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> String {
@@ -2337,11 +2525,23 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     });
 
     let raw_script = unit.source.script.unwrap_or("");
-    let script_body = extract_script_body(raw_script);
 
     // B3b — pre-emit `$emit.<name>(...)` lowering pass against the @state
     // $event collection (if any). Mirror function-form path.
     let pre_macros = crate::parser::state_macros::parse_state_macros(raw_script).unwrap_or_default();
+
+    // arch-3 M2 (RFC-003): the options form (`@agent` SFCs) does not run
+    // `process_state_body`, so magna `$query` / magna-origin `$resource`
+    // macros would otherwise leak into the setup body verbatim. Lower them
+    // here (mirroring `emit_state_macro_code`) and remove their source lines
+    // from the script body so the emitted JS is valid.
+    let magna_macro_code = emit_magna_macro_code_options(&pre_macros);
+    let script_body = if magna_macro_code.is_empty() {
+        extract_script_body(raw_script)
+    } else {
+        extract_script_body(&strip_magna_macros_from_script(raw_script, &pre_macros))
+    };
+
     let event_names = collect_event_names(&pre_macros);
     let template_owned: Vec<TemplateNode> = unit
         .template_ast
@@ -2357,7 +2557,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     let script_uses_effect = raw_script.contains("effect(");
     let emit_effect = helpers_needed.needs_effect || script_uses_effect;
 
-    let si = StateImports::default();
+    let mut si = StateImports::default();
+    // arch-3 M2 (RFC-003): flag magna imports when any magna macro was lowered.
+    if !magna_macro_code.is_empty() {
+        si.needs_create_magna_resource = true;
+    }
 
     // R5 (Defect E): import `when`/`each` from arbor — never inline structural
     // node literals, because the published arbor bundle minifies internal
@@ -2407,6 +2611,14 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     }
     import_lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
+    // arch-3 M2 (RFC-003): magna `$query` / magna-origin `$resource` imports.
+    if si.needs_create_magna_resource {
+        import_lines.push(
+            "import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string(),
+        );
+        import_lines.push("import { inject } from '@aihu/context'".to_string());
+    }
+
     let imports = import_lines.join("\n");
 
     // attrs array
@@ -2448,6 +2660,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     }
     if !agent_bindings.is_empty() {
         setup_body.push_str(&agent_bindings);
+    }
+    // arch-3 M2 (RFC-003): magna `$query` / magna-origin `$resource` lowered
+    // statements (4-space indented for setup()).
+    if !magna_macro_code.is_empty() {
+        setup_body.push_str(&magna_macro_code);
     }
     if !script_body.is_empty() {
         // script_body is already 2-space indented; re-indent to 4 spaces for setup()

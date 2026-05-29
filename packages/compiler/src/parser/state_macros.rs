@@ -227,6 +227,55 @@ fn try_parse_macro(
         return Err(c440(rest, CollectionKind::Lifecycle));
     }
 
+    // ─── arch-3 M2 — magna `$query` macro (RFC-003) ──────────────────────────
+    //
+    // `$query name = data.X.query(vars)` — dedicated `=`-shorthand parallel to
+    // `$route`/`$watch`, NOT collection-form (so it is NOT subject to C440).
+    // `query` is NOT in the collection-keyword list, so this branch lives
+    // alongside the other dedicated/preserved forms. Always lowers to
+    // `createMagnaResource(...)` (it is magna-only by definition).
+    if let Some(decl) = rest.strip_prefix("query ") {
+        // Capture the RHS expression verbatim to end-of-line.
+        let nl = full_body[line_offset..]
+            .find('\n')
+            .map(|r| line_offset + r)
+            .unwrap_or(full_body.len());
+        let eq = decl.find('=').ok_or_else(|| CompileError {
+            message: format!(
+                "$query declaration requires `=` — expected '$query name = data.X.query(vars)', got '$query {}'",
+                decl.trim()
+            ),
+            line: 0,
+            col: 0,
+            code: Some("C460".to_string()),
+            ..Default::default()
+        })?;
+        let name = decl[..eq].trim().to_string();
+        let expr = decl[eq + 1..].trim().trim_end_matches(';').trim().to_string();
+        if name.is_empty() {
+            return Err(CompileError {
+                message: "$query declaration has an empty name — expected '$query name = data.X.query(vars)'".to_string(),
+                line: 0,
+                col: 0,
+                code: Some("C460".to_string()),
+                ..Default::default()
+            });
+        }
+        if expr.is_empty() {
+            return Err(CompileError {
+                message: format!(
+                    "$query `{}` has an empty right-hand side — expected '$query {} = data.X.query(vars)'",
+                    name, name
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C460".to_string()),
+                ..Default::default()
+            });
+        }
+        return Ok(Some((StateMacro::Query { name, expr }, nl)));
+    }
+
     if let Some(kind) = match_collection_keyword(rest) {
         let kw_len = collection_keyword_len(kind);
         // Position in full_body just past `$<keyword>`.
@@ -1315,6 +1364,36 @@ pub fn arrow_args(arrow: &str) -> Option<String> {
     Some(trimmed[1..close].trim().to_string())
 }
 
+/// arch-3 M2 (RFC-003) — detect whether a `$resource` running-code thunk
+/// body is a magna-origin query so it can be lowered to `createMagnaResource`
+/// instead of the plain `createResource`.
+///
+/// "Magna origin" is signalled SYNTACTICALLY (the Rust compiler has no
+/// plugin-config passthrough): the expression must reference the magna typed
+/// client `data.<IDENT>.query(`. The matcher is deliberately conservative —
+/// it requires the literal `data.` prefix followed by a single identifier and
+/// `.query(`, so common non-magna code like `db.query(...)` or
+/// `el.querySelector(...)` does NOT match.
+pub fn is_magna_origin(thunk_body: &str) -> bool {
+    let trimmed = thunk_body.trim();
+    let Some(after_data) = trimmed.strip_prefix("data.") else {
+        return false;
+    };
+    // Read the identifier following `data.`.
+    let mut idx = 0usize;
+    let bytes = after_data.as_bytes();
+    while idx < bytes.len() {
+        let c = bytes[idx];
+        let is_ident = c.is_ascii_alphanumeric() || c == b'_' || c == b'$';
+        if !is_ident {
+            break;
+        }
+        idx += 1;
+    }
+    // Require at least one identifier char, then exactly `.query(`.
+    idx != 0 && after_data[idx..].starts_with(".query(")
+}
+
 /// Emit JS for a list of `StateMacro` declarations (no per-line indent).
 /// Used by the simple emit path; the indented variant lives in
 /// `codegen/emit.rs`.
@@ -1356,6 +1435,12 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
                     expr
                 ));
             }
+            StateMacro::Query { name, expr } => {
+                lines.push(format!(
+                    "const {} = createMagnaResource(inject(MagnaFetchToken), {});",
+                    name, expr
+                ));
+            }
         }
     }
     lines.join("\n")
@@ -1392,12 +1477,24 @@ fn emit_collection_entry(
         CollectionKind::Resource => {
             let thunk = running_code(entry)?;
             let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
-            Some(format!(
-                "{indent}const {name} = createResource(() => {body});",
-                indent = indent,
-                name = entry.name,
-                body = body
-            ))
+            // arch-3 M2 (RFC-003): magna-origin `$resource` (body is
+            // `data.X.query(...)`) lowers to `createMagnaResource`; everything
+            // else keeps the plain `createResource` lowering (no regression).
+            if is_magna_origin(&body) {
+                Some(format!(
+                    "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {body});",
+                    indent = indent,
+                    name = entry.name,
+                    body = body
+                ))
+            } else {
+                Some(format!(
+                    "{indent}const {name} = createResource(() => {body});",
+                    indent = indent,
+                    name = entry.name,
+                    body = body
+                ))
+            }
         }
         CollectionKind::Action => {
             let arrow = running_code(entry)?;
@@ -1616,6 +1713,12 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
             StateMacro::AfterNavigate { expr } => {
                 lines.push(format!(
                     "{indent}__aihuRouter.__router_registerAfterGuard({expr});"
+                ));
+            }
+            // arch-3 M2 (RFC-003) — magna `$query` shorthand.
+            StateMacro::Query { name, expr } => {
+                lines.push(format!(
+                    "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
                 ));
             }
         }

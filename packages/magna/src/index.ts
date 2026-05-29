@@ -12,6 +12,8 @@
 // Build-time pipeline (advanced consumers)
 export { beforeCompile } from './codegen.js'
 
+// Injection token (compiler-emitted `inject(MagnaFetchToken)`)
+export { MagnaFetchToken } from './context.js'
 // Runtime helpers
 export { createMagnaFetch } from './fetch.js'
 // Plugin factory
