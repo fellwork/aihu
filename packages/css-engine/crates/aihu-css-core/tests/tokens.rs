@@ -544,3 +544,55 @@ fn named_container_marker_emits_type_and_name() {
         ".@container/sidebar { container-type: inline-size; container-name: sidebar; }\n"
     );
 }
+
+// ── Issue #280: dictionary misses, grid arbitrary, opacity modifiers ─────────
+
+#[test]
+fn font_family_utilities_emit() {
+    assert_eq!(css(&["font-mono"]), ".font-mono { font-family: var(--font-mono); }\n");
+    assert_eq!(css(&["font-sans"]), ".font-sans { font-family: var(--font-sans); }\n");
+}
+
+#[test]
+fn bare_directional_borders_emit_1px() {
+    assert_eq!(css(&["border-t"]), ".border-t { border-top-width: 1px; }\n");
+    assert_eq!(css(&["border-r"]), ".border-r { border-right-width: 1px; }\n");
+    assert_eq!(css(&["border-b"]), ".border-b { border-bottom-width: 1px; }\n");
+    assert_eq!(css(&["border-l"]), ".border-l { border-left-width: 1px; }\n");
+    assert_eq!(css(&["border-x"]), ".border-x { border-inline-width: 1px; }\n");
+    assert_eq!(css(&["border-y"]), ".border-y { border-block-width: 1px; }\n");
+}
+
+#[test]
+fn grid_arbitrary_template_columns_emits() {
+    assert_eq!(
+        css(&["grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr]"]),
+        ".grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr] { grid-template-columns: 2fr 1fr 1fr 1.5fr 1.5fr; }\n"
+    );
+    assert_eq!(
+        css(&["grid-rows-[auto_1fr]"]),
+        ".grid-rows-[auto_1fr] { grid-template-rows: auto 1fr; }\n"
+    );
+}
+
+#[test]
+fn color_opacity_modifier_emits_color_mix() {
+    assert_eq!(
+        css(&["bg-accent/15"]),
+        ".bg-accent/15 { background-color: color-mix(in oklab, var(--color-accent) 15%, transparent); }\n"
+    );
+    assert_eq!(
+        css(&["bg-primary/50"]),
+        ".bg-primary/50 { background-color: color-mix(in oklab, var(--color-primary) 50%, transparent); }\n"
+    );
+    assert_eq!(
+        css(&["text-red-500/30"]),
+        ".text-red-500/30 { color: color-mix(in oklab, var(--color-red-500) 30%, transparent); }\n"
+    );
+}
+
+#[test]
+fn sizing_fraction_not_treated_as_opacity() {
+    // `w-1/2` is a width fraction, not a color opacity — must stay 50%.
+    assert_eq!(css(&["w-1/2"]), ".w-1/2 { width: 50%; }\n");
+}

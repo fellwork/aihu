@@ -245,6 +245,13 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
     // 1. Theme tokens at :host so var(--color-*) resolves inside the shadow.
     out.push_str(&theme.emit_host_tokens());
 
+    // 1b. Preflight border reset (Tailwind v4 parity). Browsers default
+    // `border-style: none`, so a bare `.border { border-width: 1px }` paints
+    // nothing. Emit a single one-time rule so every border utility renders a
+    // visible solid line. This is one rule per sheet (not per token), so the
+    // size impact is negligible; the matching utility wins by specificity.
+    out.push_str("*, ::before, ::after { border-style: solid; border-width: 0; }\n");
+
     // 2. Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
     out.push_str(&emit_with_progressive(
         &result,
