@@ -1,0 +1,22 @@
+{
+  "name": "@aihu/example-realtime-scores",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5112",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/agent": "workspace:*",
+    "@aihu/compiler": "workspace:*",
+    "@aihu-plugin/data": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0",
+    "vitest": "^2.1.1",
+    "ws": "^8.18.0"
+  }
+}

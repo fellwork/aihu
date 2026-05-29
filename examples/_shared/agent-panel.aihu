@@ -36,6 +36,11 @@
         Tool call stubbed — live binding pending RFC #56 ratification.
       </p>
 
+      <div class="protocol-status" role="status" aria-label="Agent protocol support">
+        <span class="protocol-indicator">A2A: stub</span>
+        <span class="protocol-indicator">ACP: stub</span>
+      </div>
+
       <p class="panel-empty" $if={!hasEntries}>
         No @agent blocks registered. Ensure the .aihu component is loaded.
       </p>
@@ -112,6 +117,24 @@
     padding: 4px 10px;
     font-size: 0.8rem;
     margin: 0 0 12px 0;
+  }
+
+  .protocol-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 12px 0;
+  }
+  .protocol-indicator {
+    display: inline-block;
+    background: var(--stub-bg, #fffbeb);
+    border: 1px solid var(--stub-border, #fbbf24);
+    color: var(--stub-fg, #92400e);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0.02em;
   }
 
   .panel-empty { color: var(--muted); font-style: italic; margin: 0; }

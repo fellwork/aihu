@@ -1,0 +1,22 @@
+{
+  "name": "@aihu/example-cf-adapter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5110",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/adapter-cloudflare": "workspace:*",
+    "@aihu/app": "workspace:*",
+    "@aihu/agent": "workspace:*",
+    "@aihu/compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vitest": "^2.1.1"
+  }
+}
