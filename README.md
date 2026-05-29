@@ -166,12 +166,12 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 242 B | 300 B | pass |
-| `@aihu/signals` | 1.69 kB | 1970 B | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
 | `@aihu/arbor` | — | 2800 B | _no dist_ |
 | `@aihu/runtime` | — | 3550 B | _no dist_ |
 | `@aihu/agent` | — | 200 B | _no dist_ |
-| `@aihu-plugin/data` | 757 B | 800 B | pass |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
 | `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
 | `@aihu/router` | — | 2400 B | _no dist_ |
 | `@aihu/agent-service` | — | 1100 B | _no dist_ |
@@ -190,7 +190,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/button` | — | 4 KB | _no dist_ |
 | `@aihu/auth` | — | 1.5 KB | _no dist_ |
-| `@aihu/magna` | 1.66 kB | 1.8 KB | pass |
+| `@aihu/magna` | 758 B | 1.8 KB | pass |
+| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

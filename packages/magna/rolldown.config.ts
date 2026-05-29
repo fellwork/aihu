@@ -3,11 +3,15 @@ import { dts } from 'rolldown-plugin-dts'
 
 export default defineConfig([
   {
-    input: 'src/index.ts',
+    input: {
+      index: 'src/index.ts',
+      codegen: 'src/codegen-entry.ts',
+    },
     checks: { circularDependency: true },
     output: {
       dir: 'dist',
       format: 'esm',
+      entryFileNames: '[name].js',
       sourcemap: true,
       minify: true,
     },

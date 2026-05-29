@@ -1,12 +1,12 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": 242,
+    "bytes": -1,
     "limit": "300 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": 1727,
+    "bytes": -1,
     "limit": "1970 B"
   },
   {
@@ -26,7 +26,7 @@
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 757,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
@@ -121,7 +121,12 @@
   },
   {
     "name": "@aihu/magna",
-    "bytes": 1701,
+    "bytes": 758,
     "limit": "1.8 KB"
+  },
+  {
+    "name": "@aihu/magna/codegen",
+    "bytes": 1064,
+    "limit": "1.2 KB"
   }
 ]
