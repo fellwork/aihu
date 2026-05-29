@@ -93,6 +93,38 @@ fn standard_variants() {
 }
 
 #[test]
+fn style_block_does_not_suppress_scanned_utilities() {
+    // Regression for #278: an `@style` block must NOT make the utility-class
+    // scanner mutually exclusive. Both the scanned template utilities AND the
+    // authored `@style` content must land in the same scoped stylesheet.
+    //
+    // Repro: `<div class="text-3xl gap-4">` + `@style { .__probe__ { ... } }`.
+    // Before the fix the sheet contained ONLY `.__probe__`; the utilities
+    // vanished. Assert all three rules coexist (concatenated).
+    let json = r#"{"tag":"Probe","astVersion":1,
+      "style":{"content":".__probe__ { color: rgb(1,2,3); }","scope":"scoped"},
+      "meta":{"name":"Probe"},
+      "template":[{"kind":"element","tag":"div","attrs":[
+        {"kind":"static","name":"class","value":"text-3xl gap-4"}],"children":[]}]}"#;
+    let css = compile_sfc_scoped(&ast(json));
+
+    // Scanned template utilities survive.
+    assert!(
+        css.contains(".text-3xl"),
+        "scanned utility .text-3xl missing when @style present:\n{css}"
+    );
+    assert!(
+        css.contains(".gap-4"),
+        "scanned utility .gap-4 missing when @style present:\n{css}"
+    );
+    // Authored @style content survives.
+    assert!(
+        css.contains(".__probe__ { color: rgb(1,2,3); }"),
+        "authored @style rule missing:\n{css}"
+    );
+}
+
+#[test]
 fn theme_default_vs_override() {
     let default = compile_sfc_scoped(&sfc("bg-primary"));
     let json = r#"{"tag":"X","astVersion":1,
