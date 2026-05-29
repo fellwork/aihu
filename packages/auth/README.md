@@ -36,7 +36,6 @@ bun add @aihu/auth
 |---|---|
 | **Version** | `0.1.2` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Bundle size** | 830 B (gz) — limit 1.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

@@ -44,7 +44,8 @@ describe('EX-09 blog-loader — agent metadata registry', () => {
     expect(() => {
       registerAgentMetadata({
         tag: 'blog-loader-post',
-        describes: 'Server-rendered blog post page with defineLoader, @aihu/context demo, and @agent block',
+        describes:
+          'Server-rendered blog post page with defineLoader, @aihu/context demo, and @agent block',
         state: {
           getPost: 'Current post: title, body, readingTimeMs sourced from route.data',
           listPosts: 'Known post slugs: hello, meta, agents',

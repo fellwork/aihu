@@ -32,9 +32,7 @@ type RouteHandler = (req: Request, ctx: RouteContext) => Response | Promise<Resp
  *   routes: [defineRoute('/__demo/ping', demoRoutes.demoEndpoint)],
  * })
  */
-export function createDemoRoutes(
-  _config?: DemoOptions,
-): {
+export function createDemoRoutes(_config?: DemoOptions): {
   readonly demoEndpoint: RouteHandler
 } {
   const demoEndpoint: RouteHandler = (_req, _ctx) => {
