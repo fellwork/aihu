@@ -26,6 +26,7 @@
 | 14 | `plugin-demo/` (new) | meta | M2 | 5111 | custom block | `definePlugin`, transform hooks |
 | 15 | `realtime-scores/` (new) | meta | M2 | 5112 | live data | WebSocket + `$lifecycle` + `createResource` |
 | 16 | `storefront/` (new) | meta | M2 | 5113 | cart + checkout | `@aihu-plugin/data`, `$shared`, dummy Stripe |
+| 17 | [`auth-magna-seo/`](./auth-magna-seo) | meta | M2 | 5117 | auth-gated data + SEO metadata | `getAuthState` + `createMagnaFetch`/`createMagnaResource` + `createSeoRoutes` 3-package integration (imperative) |
 
 ### Archived
 

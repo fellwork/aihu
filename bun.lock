@@ -101,6 +101,20 @@
         "@aihu/compiler": "workspace:*",
       },
     },
+    "examples/auth-magna-seo": {
+      "name": "@aihu/example-auth-magna-seo",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu/auth": "workspace:*",
+        "@aihu/magna": "workspace:*",
+        "@aihu/seo": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vitest": "^2.1.1",
+      },
+    },
     "examples/blog-loader": {
       "name": "@aihu/example-blog-loader",
       "version": "0.0.0",
@@ -696,6 +710,8 @@
     "@aihu/css-engine-win32-x64-msvc": ["@aihu/css-engine-win32-x64-msvc@0.1.2", "", { "os": "win32", "cpu": "x64" }, "sha512-DUIOa+On0juisUHvn2whqAnUA7MNKCfnEZFrSmP+QU0F5wUzGxL2N3k6+0cDRSA2v+ubvOi0VJFybV/7GSbfnA=="],
 
     "@aihu/data": ["@aihu/data@workspace:packages/_moved/data"],
+
+    "@aihu/example-auth-magna-seo": ["@aihu/example-auth-magna-seo@workspace:examples/auth-magna-seo"],
 
     "@aihu/example-blog-loader": ["@aihu/example-blog-loader@workspace:examples/blog-loader"],
 
