@@ -201,7 +201,11 @@ fn r1_ac9_existing_example_shell_still_compiles() {
     assert!(js.contains("ctx.props.liveUrl"), "liveUrl prop accessor present");
 }
 
-// AC9 — weather-card.aihu (multi-prop, no `default` on first prop) compiles.
+// AC9 — weather-card.aihu compiles (regression smoke). The example was
+// rebuilt in 578508e to use standalone signals + `$computed`/`$action`
+// instead of `$prop` (the agent surface now comes from inline `expose:` on
+// the computeds/action), so this asserts that computed/action lowering — not
+// prop rebinding — still emits.
 #[test]
 fn r1_ac9_existing_weather_card_compiles() {
     let src = include_str!("../../../examples/weather-card/weather-card.aihu");
@@ -209,8 +213,14 @@ fn r1_ac9_existing_weather_card_compiles() {
     let unit = compile_full(&parsed).expect("weather-card.aihu must still compile");
     let js = emit(&unit, "weather-card").js;
     assert!(
-        js.contains("ctx.props.location") && js.contains("ctx.props.forecast"),
-        "all weather-card props must rebind through ctx.props"
+        js.contains("const forecast = computed(") && js.contains("const status = computed("),
+        "weather-card $computed entries must lower to `computed(...)` bindings:\n{}",
+        js
+    );
+    assert!(
+        js.contains("function fetchForecast("),
+        "weather-card $action must lower to a handler function:\n{}",
+        js
     );
 }
 
@@ -278,4 +288,66 @@ fn r1_multi_prop_each_emitted() {
         );
     }
     assert!(js.contains("reflect: true"), "reflect on `c` preserved");
+}
+
+// issue #279 — a `$prop` read inside a synchronously-running `effect()` must
+// not hit the temporal dead zone. The prop body binding
+// (`const <name> = ctx.props.<name>`) is hoisted ahead of the user's @state
+// statements, so the effect's synchronous initial run can read the getter.
+#[test]
+fn issue_279_prop_binding_precedes_synchronous_effect() {
+    let src = r#"@state {
+  import { signal, effect } from "@aihu/signals"
+  $prop: { item_id: { default: "", type: string } }
+  const [data, setData] = signal(null)
+  const load = (id) => { setData(id) }
+  effect(() => load(item_id()))
+}
+@template { <div>{data()}</div> }"#;
+    let js = compile_to_js(src, "x-issue-279");
+
+    let bind = js
+        .find("const item_id = ctx.props.item_id")
+        .unwrap_or_else(|| panic!("prop binding missing\n{}", js));
+    let eff = js
+        .find("effect(")
+        .unwrap_or_else(|| panic!("effect() call missing\n{}", js));
+    assert!(
+        bind < eff,
+        "prop binding must precede synchronous effect() to avoid TDZ\n{}",
+        js
+    );
+
+    // No duplicate binding (macro_code must not also emit it).
+    assert_eq!(
+        js.matches("const item_id = ctx.props.item_id").count(),
+        1,
+        "prop binding must be emitted exactly once (no duplicate from macro_code)\n{}",
+        js
+    );
+}
+
+// Defect-A guard: a plain signal const read inside an effect must still
+// compile with the signal declared before the effect. The prop hoist must not
+// disturb the plain_body-before-macro_code ordering for reactive macros.
+#[test]
+fn defect_a_plain_signal_decl_precedes_effect() {
+    let src = r#"@state {
+  import { signal, effect } from "@aihu/signals"
+  const [n, setN] = signal(0)
+  effect(() => setN(n() + 1))
+}
+@template { <div>{n()}</div> }"#;
+    let js = compile_to_js(src, "x-defect-a");
+    let decl = js
+        .find("const [n")
+        .unwrap_or_else(|| panic!("signal decl missing\n{}", js));
+    let eff = js
+        .find("effect(")
+        .unwrap_or_else(|| panic!("effect() call missing\n{}", js));
+    assert!(
+        decl < eff,
+        "plain signal decl must precede effect() (Defect-A capture invariant)\n{}",
+        js
+    );
 }

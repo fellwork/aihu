@@ -20,6 +20,7 @@ expression: "compile_sfc_scoped(&sfc(\"host:bg-primary slotted:p-4 slotted-img:r
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 /* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */
 :host([data-theme="dark"]) .host-context-dark\:bg-surface, :root.dark .host-context-dark\:bg-surface { background-color: var(--color-surface); }
 :host(.host\:bg-primary) { background-color: var(--color-primary); }

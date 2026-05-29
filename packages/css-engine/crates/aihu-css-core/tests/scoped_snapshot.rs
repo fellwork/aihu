@@ -93,6 +93,44 @@ fn standard_variants() {
 }
 
 #[test]
+fn style_block_does_not_suppress_scanned_utilities() {
+    // Regression for #278: an `@style` block must NOT make the utility-class
+    // scanner mutually exclusive. Both the scanned template utilities AND the
+    // authored `@style` content must land in the same scoped stylesheet.
+    //
+    // Repro: `<div class="text-3xl gap-4">` + `@style { .__probe__ { ... } }`.
+    // Before the fix the sheet contained ONLY `.__probe__`; the utilities
+    // vanished. Assert all three rules coexist (concatenated).
+    let json = r#"{"tag":"Probe","astVersion":1,
+      "style":{"content":".__probe__ { color: rgb(1,2,3); }","scope":"scoped"},
+      "meta":{"name":"Probe"},
+      "template":[{"kind":"element","tag":"div","attrs":[
+        {"kind":"static","name":"class","value":"text-3xl gap-4"}],"children":[]}]}"#;
+    // `.unwrap()` added in the PR-1 merge: compile_sfc_scoped now returns Result.
+    let css = compile_sfc_scoped(&ast(json)).unwrap();
+
+    // Scanned template utilities survive.
+    assert!(
+        css.contains(".text-3xl"),
+        "scanned utility .text-3xl missing when @style present:\n{css}"
+    );
+    assert!(
+        css.contains(".gap-4"),
+        "scanned utility .gap-4 missing when @style present:\n{css}"
+    );
+    // Authored @style content survives. (PR-1 merge: authored @style is now
+    // re-rendered through the shared @style parser to enable @apply, so it is
+    // whitespace-normalized rather than byte-identical — assert the selector
+    // and declaration are present, not the exact single-line form. The #278
+    // regression intent (scanned utilities AND authored @style coexist) holds.)
+    assert!(css.contains(".__probe__"), "authored @style selector missing:\n{css}");
+    assert!(
+        css.contains("color: rgb(1,2,3)"),
+        "authored @style declaration missing:\n{css}"
+    );
+}
+
+#[test]
 fn theme_default_vs_override() {
     let default = compile_sfc_scoped(&sfc("bg-primary")).unwrap();
     let json = r#"{"tag":"X","astVersion":1,

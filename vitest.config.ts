@@ -72,6 +72,7 @@ export default defineConfig({
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
       '@aihu/auth': new URL('./packages/auth/src/index.ts', import.meta.url).pathname,
+      '@aihu/plugin-demo': new URL('./packages/plugin-demo/src/index.ts', import.meta.url).pathname,
       '@aihu/magna': new URL('./packages/magna/src/index.ts', import.meta.url).pathname,
       // @aihu/magna-gqlmin is an optional dep that doesn't exist on npm yet.
       // Alias to an empty stub so Vite doesn't hard-fail; codegen.ts catches

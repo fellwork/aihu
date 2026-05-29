@@ -20,6 +20,7 @@ expression: compile_sfc_scoped(&ast(json)).unwrap()
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 /* authored @style ($global — unscoped) */
 body {
   margin: 0;

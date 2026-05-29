@@ -55,6 +55,7 @@ bun add @aihu/magna
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./codegen` | `./dist/codegen.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/magna@0.2.0`.</i></sub>
 

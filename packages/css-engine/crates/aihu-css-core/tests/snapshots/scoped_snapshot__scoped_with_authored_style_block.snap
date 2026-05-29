@@ -20,6 +20,7 @@ expression: compile_sfc_scoped(&ast(json)).unwrap()
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 .p-4 { padding: 1rem; }
 .shadow-md { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
 /* authored @style (scoped) */

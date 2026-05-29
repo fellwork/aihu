@@ -394,3 +394,22 @@ fn well_formed_theme_block_still_succeeds() {
     assert!(css.contains("background-color: var(--color-primary)"), "{css}");
     assert!(!css.contains("@theme"), "directive consumed, not emitted: {css}");
 }
+
+// ── Issue #280: Preflight border-style reset ─────────────────────────────────
+
+#[test]
+fn preflight_border_reset_precedes_utilities() {
+    // `.unwrap()` added in the PR-1 merge: compile_sfc_scoped now returns Result.
+    let css = compile_sfc_scoped(&sfc_with_classes("border")).unwrap();
+    // Tailwind v4 Preflight: borders default to solid + zero width.
+    assert!(
+        css.contains("*, ::before, ::after { border-style: solid; border-width: 0; }"),
+        "preflight border reset present: {css}"
+    );
+    // The `.border` utility still wins by specificity.
+    assert!(css.contains(".border { border-width: 1px; }"), "border utility emitted: {css}");
+    // Preflight must come before the utility rule so the utility cascades over it.
+    let pre = css.find("border-style: solid").unwrap();
+    let util = css.find(".border {").unwrap();
+    assert!(pre < util, "preflight precedes utility rules: {css}");
+}

@@ -1,0 +1,12 @@
+# Cloudflare Workers config for cf-adapter-demo.
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+# This file mirrors what @aihu/adapter-cloudflare generates automatically.
+# For real deploys: run `wrangler deploy --config wrangler.toml`
+
+name = "cf-adapter-demo"
+main = "_worker.js"
+compatibility_date = "2024-01-01"
+
+[assets]
+directory = "."
+binding = "ASSETS"
