@@ -1,5 +1,158 @@
 # @aihu/css-engine
 
+## 0.3.0
+
+### Minor Changes
+
+- [#268](https://github.com/fellwork/aihu/pull/268) [`1a3a857`](https://github.com/fellwork/aihu/commit/1a3a85792ef0f21611184ff6ea84a5a2a63d09af) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add five Tailwind-v4 utility families to the css-engine token table:
+
+  - `space-x-*` / `space-y-*` — emit the standard sibling-margin recipe
+    (`& > * + * { margin-inline-start | margin-block-start: <scale>; }`).
+  - `mx-auto` / `my-auto` (and `mt/mr/mb/ml-auto`) — `spacing_value` now
+    accepts `auto`.
+  - `max-w-*` named scale — `max-w-xs`…`max-w-7xl`, `max-w-prose`,
+    `max-w-screen-*`, and the `none/full/min/max/fit` keywords.
+  - Grid templating — `grid-cols-N` / `grid-rows-N` → `repeat(N, minmax(0, 1fr))`,
+    `col-span-N` / `row-span-N` → `span N / span N`, plus the `none`/`full`/`auto`
+    keyword forms.
+  - Border widths — `border-{0,2,4,8}` and directional
+    `border-x/y/t/r/b/l-{0,2,4,8}`.
+
+  All compile at build time into per-component scoped CSS; no runtime cost and no
+  change to browser-bundle size budgets (the new logic lives in the `aihu-css-core`
+  Rust crate, which does not ship to the client).
+
+- [#275](https://github.com/fellwork/aihu/pull/275) [`38a6dc5`](https://github.com/fellwork/aihu/commit/38a6dc5f9531d82b57081562d81a6b6c6d4cae21) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add aria-_/data-_ attribute variants and container-query support.
+
+  - `aria-checked:`, `aria-disabled:`, `aria-expanded:`, `aria-selected:`,
+    `aria-pressed:` and the arbitrary `aria-[name=value]:` form compile to an
+    attribute selector appended to the class (`[aria-expanded="true"]`).
+  - `data-[state=open]:` (arbitrary `name=value`) and bare `data-active:`
+    (presence) compile to `[data-state="open"]` / `[data-active]`.
+  - `@container` (and named `@container/<name>`) mark a query container
+    (`container-type: inline-size`); the `@sm:`/`@md:`/`@lg:`/`@xl:`/`@2xl:`
+    container-query variants wrap the rule in an `@container (min-width: …)`
+    at-rule on Tailwind's container-query scale.
+
+- [#270](https://github.com/fellwork/aihu/pull/270) [`6322593`](https://github.com/fellwork/aihu/commit/63225938452ef14e4e5f86b56a252a2c9d526265) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add the Tailwind-v4 `divide-x-*` / `divide-y-*` sibling-border utilities to the
+  css-engine token table:
+
+  - `divide-x` / `divide-y` — bare forms default to `1px`, emitting the nested
+    sibling-border recipe (`& > * + * { border-inline-width | border-block-width: 1px; }`).
+  - `divide-x-{0,2,4,8}` / `divide-y-{0,2,4,8}` — width scale →
+    `& > * + * { border-inline-width | border-block-width: 0 / 2px / 4px / 8px; }`.
+  - `divide-x-reverse` / `divide-y-reverse` — set the
+    `--tw-divide-{x,y}-reverse` custom property for Tailwind API parity.
+
+  These reuse the proven `space-x/y` nested `& > * + *` emission path, so they
+  minify correctly to `.divide-y-2>*+*{border-block-width:2px}` in the production
+  Vite/Lightning pipeline and survive the scoped CSS-nesting path. `cn()` last-wins
+  conflict groups are registered per axis. All compile at build time into
+  per-component scoped CSS; no runtime cost and no change to browser-bundle size
+  budgets (the logic lives in the `aihu-css-core` Rust crate, which does not ship
+  to the client).
+
+- [#274](https://github.com/fellwork/aihu/pull/274) [`4b90dfa`](https://github.com/fellwork/aihu/commit/4b90dfa1c22243bc5de9c31cb6e406ab83381bfb) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add Tailwind `group:` / `peer:` relational-element variants.
+
+  The engine now recognizes the bare `group` / `peer` marker classes plus the
+  `group-hover:`, `group-focus:`, `group-focus-visible:`, `group-active:`,
+  `group-disabled:`, `peer-hover:`, `peer-focus:`, `peer-focus-visible:`,
+  `peer-checked:`, and `peer-disabled:` variant prefixes. `group-*:` compiles to an
+  ancestor descendant selector (`.group:hover .group-hover\:bg-primary`) and
+  `peer-*:` to a previous-sibling selector (`.peer:checked ~ .peer-checked\:bg-primary`),
+  both scoped inside the component's shadow root. The bare `group` / `peer` classes
+  are emitted as no-op marker rules so they survive scanning and anchor the
+  relationship.
+
+- [#273](https://github.com/fellwork/aihu/pull/273) [`6a84dbb`](https://github.com/fellwork/aihu/commit/6a84dbb5298fd86d715d3ccbf0b88511803980d9) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add the Tailwind-v4 motion utility family to the css-engine token table:
+
+  - Transform: `transform` (identity baseline), `transform-none`.
+  - Translate: `translate-x-N` / `translate-y-N` on the spacing scale, plus the
+    negative forms `-translate-x-N` / `-translate-y-N` (a new leading-`-` parse
+    path negates the emitted value).
+  - Rotate: `rotate-N` / `-rotate-N` → `transform: rotate(±Ndeg)`.
+  - Scale: `scale-N` / `scale-x-N` / `scale-y-N` (percentage → unit factor, e.g.
+    `scale-105` → `1.05`).
+  - Transition: `transition`, `transition-none`, `transition-all`,
+    `transition-colors`, `transition-opacity`, `transition-transform`, each with
+    the default `150ms` / `cubic-bezier(0.4, 0, 0.2, 1)` timing.
+  - Duration: `duration-N` → `transition-duration: Nms`.
+  - Easing: `ease-linear`, `ease-in`, `ease-out`, `ease-in-out`.
+  - Animation: `animate-none`, `animate-spin`, `animate-ping`, `animate-pulse`,
+    `animate-bounce`. Each keyframe-backed animation emits its `@keyframes` block
+    as a hoisted top-level sibling rule alongside the class rule (keyframes
+    cannot nest inside a selector body; re-emitting an identical block is
+    idempotent in CSS).
+
+  Each transform utility emits a single `transform:` declaration (no CSS-var
+  composition), so the engine resolves them via the cascade and `cn()` last-wins
+  groups (`translate`/`rotate`/`scale`). All compile at build time into
+  per-component scoped CSS; no runtime cost and no browser-bundle size impact (the
+  logic lives in the `aihu-css-core` Rust crate, which does not ship to the
+  client).
+
+- [#272](https://github.com/fellwork/aihu/pull/272) [`14f3a3e`](https://github.com/fellwork/aihu/commit/14f3a3e4b12a09d396cbe3a537ee67a5cc512049) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add Tailwind-v4 ring width + ring-offset utilities to the css-engine token table:
+
+  - `ring` (3px default) and `ring-{0,1,2,4,8}` — emit the Tailwind v4 focus-ring
+    recipe: a `box-shadow` composed from `--tw-ring-*` custom properties
+    (`--tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(<n>px + var(--tw-ring-offset-width)) var(--tw-ring-color);`),
+    so width, color, and offset compose independently and layer with `shadow-*`.
+  - `ring-inset` — sets `--tw-ring-inset: inset;`.
+  - `ring-offset-{0,1,2,4,8}` — sets `--tw-ring-offset-width: <n>px;`.
+
+  The existing `ring-<color>` path is unchanged: `ring-blue-500`, `ring-primary`,
+  `ring-ring`, etc. still emit `--tw-ring-color: var(--color-*)`. The bare `ring`
+  keyword (a width) is matched before the color path so it never collides with a
+  color token, and all `ring*` utilities already last-wins under the existing
+  `ring` conflict-group prefix.
+
+  Build-time only — the new logic lives in the `aihu-css-core` Rust crate, which
+  does not ship to the client, so there is no browser-bundle size impact.
+
+- [#271](https://github.com/fellwork/aihu/pull/271) [`3089577`](https://github.com/fellwork/aihu/commit/30895777d91823005805c66a2f06c2afcf443dde) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add named/numeric scales for position and typography utilities to the
+  css-engine token table (round 2 of tailwind-support):
+
+  - Position scale — `top-N` / `right-N` / `bottom-N` / `left-N` / `inset-N` /
+    `inset-x-N` / `inset-y-N` on the Tailwind spacing scale (`top-4` → `top: 1rem;`),
+    plus the `auto` keyword (`top-auto`), `inset-0` → `inset: 0;`, the logical
+    `inset-inline` / `inset-block` shorthands, and negative offsets via a leading
+    `-` (`-left-2` → `left: -0.5rem;`).
+  - Line-height scale — `leading-{none,tight,snug,normal,relaxed,loose}` (unitless
+    multipliers) and numeric `leading-<n>` mapping to the spacing scale.
+  - Letter-spacing scale — `tracking-{tighter,tight,normal,wide,wider,widest}`
+    in `em` units.
+
+  Each family registers a `conflict_groups()` entry so `cn()` resolves last-wins
+  per property. The existing arbitrary-value forms (`top-[1rem]`, `leading-[1.4]`)
+  are untouched. All compile at build time into per-component scoped CSS; the new
+  logic lives in the `aihu-css-core` Rust crate, which does not ship to the
+  client, so there is no browser-bundle size impact.
+
+## 0.2.5
+
+### Patch Changes
+
+- [#258](https://github.com/fellwork/aihu/pull/258) [`74273e0`](https://github.com/fellwork/aihu/commit/74273e0a015805f3c878c9b2c7890ed0c80a23fd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix Bug 6: utility CSS from `@aihu/css-engine` now lands in the bundled `dist/assets/*.css` asset when `viteAihuPlugin({ css: { shadowMode: 'none' } })` is set, so utility classes like `.flex`, `.gap-6`, `.text-lg` actually take effect in the document cascade.
+
+  - `@aihu/compiler`: `aihuCompilerPlugin` now branches on `shadowMode === 'none'` and routes utility CSS through Vite's CSS pipeline via a `virtual:aihu-utility/<hash>.css` virtual import (resolved by the plugin's new `resolveId` + `load` hooks). The `'open' | 'closed'` shadow paths still fold into `host.adoptedStyleSheets` as before — only the no-shadow case changes. Also makes the compiler-binary path resolution lazy (call-time) so the `SCRIBE_COMPILE_BIN` handshake with `@aihu/css-engine`'s bundled `compileToAst` actually fires.
+  - `@aihu/css-engine`: rebuild against the deferred compiler-bin resolver so `compileSfc()` no longer ENOENTs against the missing `packages/css-engine/bin/aihu-compile` on the first call (the SCRIBE_COMPILE_BIN env var is now read at every call, not captured at module load).
+
+- [#261](https://github.com/fellwork/aihu/pull/261) [`c6860e0`](https://github.com/fellwork/aihu/commit/c6860e022a374b3c5e35aaf8775cbb6332b1b75d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Externalize `@aihu/compiler` from the rolldown bundle so consumers always use the
+  live compiler module (with its current binary-resolution logic) instead of a
+  frozen embedded copy. Pre-fix the `compileToAst` from `@aihu/compiler` was
+  inlined into `dist/index.js` at build time, freezing a module-scope `binPath`
+  constant that resolved at import time to a non-existent
+  `node_modules/@aihu/css-engine/bin/aihu-compile` path. Marking `@aihu/compiler`
+  external means the bundle now does `import { compileToAst } from "@aihu/compiler"`
+  so the consumer-installed compiler module — including any subsequent binary
+  resolver fixes — is what runs. Also bumps the workspace dep range to
+  `workspace:^` so publish rewrites to a caret range.
+
+- [#259](https://github.com/fellwork/aihu/pull/259) [`5f21125`](https://github.com/fellwork/aihu/commit/5f211252c7500973c6976ca48f29b09ea8aa049b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix publishing pipeline so `@aihu/css-engine-<platform>` tarballs ship `aihu-css-compile` with the executable bit set. `actions/download-artifact@v4` does not preserve POSIX mode bits, so the `chmod 0755` performed in `build-css-native` was lost in transit and the `publish-css-native` job published `-rw-r--r--` binaries. Consumers on Bun could not auto-repair this (postinstall scripts are blocked by default for untrusted deps), surfacing as a "binary not found" error from `resolveBinary()`. The next release will be the first to ship correctly-mode'd tarballs across all 4 platforms; existing releases stay broken and require the documented `chmod +x` workaround.
+
+- Updated dependencies [[`74273e0`](https://github.com/fellwork/aihu/commit/74273e0a015805f3c878c9b2c7890ed0c80a23fd)]:
+  - @aihu/compiler@0.5.4
+
 ## 0.2.4
 
 ### Patch Changes

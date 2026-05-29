@@ -10,277 +10,6 @@ declare global {
 }
 
 window.__DOCS__ = {
-  'agent-discovery': {
-    title: 'Agent Discovery & MCP Compliance',
-    html: `<h1>Agent Discovery &amp; MCP Compliance</h1>
-<p>aihu is designed from the ground up for the agentic web. Every aihu application automatically exposes standard discovery endpoints that let AI agents find, understand, and call your components as tools — with no manual configuration.</p>
-<h2>How AI agents discover aihu apps</h2>
-<p>Aihu apps expose four discovery endpoints that agents and crawlers check:</p>
-<table>
-<thead>
-<tr>
-<th>Endpoint</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>/llms.txt</code></td>
-<td>Human-readable index of docs and links in llmstxt.org format</td>
-</tr>
-<tr>
-<td><code>/llms-full.txt</code></td>
-<td>Extended index with full package list, examples, and spec links</td>
-</tr>
-<tr>
-<td><code>/.well-known/mcp/server-card.json</code></td>
-<td>Machine-readable MCP server card (SEP-1649)</td>
-</tr>
-<tr>
-<td><code>/robots.txt</code></td>
-<td>Agent-friendly crawl directives (RFC 9309)</td>
-</tr>
-</tbody></table>
-<p>All four are generated automatically by <code>@aihu-plugin/agent-readiness</code> from a single config object. The minimum viable setup is:</p>
-<pre><code class="language-ts">import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
-import { createRequestRouter, defineRoute } from &#39;@aihu/server&#39;
-
-const ar = createAgentReadinessRoutes({
-  name: &#39;My App&#39;,
-  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
-  summary: &#39;A aihu-powered app.&#39;,
-})
-
-const router = createRequestRouter({
-  routes: [
-    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
-    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
-    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
-  ],
-})
-</code></pre>
-<p>This works on Cloudflare Workers, Bun, and Deno — anywhere with a fetch-API request handler.</p>
-<h2>The MCP Server Card</h2>
-<p>The MCP Server Card is a machine-readable JSON document at <code>/.well-known/mcp/server-card.json</code> that describes your application&#39;s agent capabilities per the SEP-1649 schema.</p>
-<p>A minimal server card looks like:</p>
-<pre><code class="language-json">{
-  &quot;schema_version&quot;: &quot;1.0&quot;,
-  &quot;name&quot;: &quot;My App&quot;,
-  &quot;summary&quot;: &quot;A aihu-powered app.&quot;,
-  &quot;mcp_endpoint&quot;: &quot;https://myapp.workers.dev/mcp&quot;,
-  &quot;skills&quot;: [
-    {
-      &quot;id&quot;: &quot;my-counter&quot;,
-      &quot;name&quot;: &quot;Live Counter&quot;,
-      &quot;description&quot;: &quot;Read and increment a counter&quot;
-    }
-  ]
-}
-</code></pre>
-<p>The <code>skills</code> array is auto-populated from the <code>@agent</code> blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and <code>@aihu-plugin/agent-readiness</code> aggregates them at build time.</p>
-<p>To configure the server card, pass <code>AgentReadinessConfig</code> to <code>createAgentReadinessRoutes</code>:</p>
-<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
-  name: &#39;My App&#39;,
-  version: &#39;1.0.0&#39;,
-  summary: &#39;A aihu-powered app.&#39;,
-  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
-  // Optional: declare skills explicitly (merged with auto-derived from @agent blocks)
-  skills: [
-    { id: &#39;counter&#39;, name: &#39;Counter&#39;, description: &#39;Read and set counter value&#39; },
-  ],
-})
-</code></pre>
-<h3>Auth configuration (opt-in)</h3>
-<p>By default the MCP endpoint is public (no-auth, Option A). To require OAuth 2.0 (Option C per RFC 9728):</p>
-<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
-  name: &#39;My App&#39;,
-  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
-  auth: {
-    type: &#39;oauth2&#39;,
-    authorizationUrl: &#39;https://auth.myapp.com/authorize&#39;,
-    tokenUrl: &#39;https://auth.myapp.com/token&#39;,
-    scopes: [&#39;mcp:read&#39;, &#39;mcp:write&#39;],
-  },
-})
-</code></pre>
-<h2>llms.txt</h2>
-<p>The <code>llms.txt</code> file at the app root follows the <a href="https://llmstxt.org">llmstxt.org</a> specification. It gives AI coding assistants a structured map of your app&#39;s documentation and endpoints.</p>
-<h3>Format</h3>
-<p>The file uses a small Markdown subset:</p>
-<ul>
-<li>First line: <code># &lt;Name&gt;</code> (H1 heading — the app name)</li>
-<li>Optional second non-blank line: <code>&gt; &lt;tagline&gt;</code> (blockquote summary)</li>
-<li>Sections: <code>## &lt;Section Title&gt;</code> (H2 headings)</li>
-<li>Links: <code>- [Title](URL)</code> or <code>- [Title](URL): Optional description</code></li>
-<li>An optional <code>## Optional</code> section at the end (for supplementary links)</li>
-</ul>
-<p>The <code>llms-full.txt</code> variant follows the same format but uses <code>## More</code> instead of <code>## Optional</code> for the trailing section, and typically includes more links (all packages, examples, spec files).</p>
-<h3>LlmsTxtConfig type</h3>
-<p><code>@aihu-plugin/agent-readiness</code> generates both files from <code>LlmsTxtConfig</code>:</p>
-<pre><code class="language-ts">interface LlmsTxtLink {
-  readonly title: string
-  readonly url: string
-  readonly description?: string
-}
-
-interface LlmsTxtSection {
-  readonly title: string
-  readonly links: ReadonlyArray&lt;LlmsTxtLink&gt;
-}
-
-interface LlmsTxtConfig {
-  readonly name: string
-  readonly summary?: string
-  readonly sections: ReadonlyArray&lt;LlmsTxtSection&gt;
-  readonly optional?: ReadonlyArray&lt;LlmsTxtLink&gt;
-}
-</code></pre>
-<p>To generate the files programmatically:</p>
-<pre><code class="language-ts">import { generateLlmsTxt, generateLlmsFullTxt } from &#39;@aihu-plugin/agent-readiness&#39;
-
-const config: LlmsTxtConfig = {
-  name: &#39;My App&#39;,
-  summary: &#39;A aihu-powered app.&#39;,
-  sections: [
-    {
-      title: &#39;Getting Started&#39;,
-      links: [
-        { title: &#39;Installation&#39;, url: &#39;https://myapp.com/docs/install&#39; },
-        { title: &#39;Quickstart&#39;, url: &#39;https://myapp.com/docs/quickstart&#39; },
-      ],
-    },
-  ],
-  optional: [
-    { title: &#39;Contributing&#39;, url: &#39;https://github.com/org/myapp/blob/main/CONTRIBUTING.md&#39; },
-  ],
-}
-
-const llmsTxt = generateLlmsTxt(config)      // uses &quot;## Optional&quot;
-const llmsFullTxt = generateLlmsFullTxt(config) // uses &quot;## More&quot;
-</code></pre>
-<p>The <code>llmsSections</code> and <code>llmsOptional</code> fields on <code>AgentReadinessConfig</code> feed directly into these generators, so you can customize the content without calling the generators manually.</p>
-<h2>robots.txt</h2>
-<p>Aihu generates an agent-friendly <code>robots.txt</code> per RFC 9309. The default (<code>aiAgents: &#39;allow-all&#39;</code>) produces directives that permit all compliant AI agents to crawl your app:</p>
-<pre><code>User-agent: *
-Allow: /
-
-User-agent: GPTBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: anthropic-ai
-Allow: /
-</code></pre>
-<p>To restrict AI agent access, set <code>aiAgents: &#39;disallow-all&#39;</code> or <code>aiAgents: &#39;allow-verified&#39;</code>. You can also add custom rules for specific bots via <code>standardBots</code>:</p>
-<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
-  name: &#39;My App&#39;,
-  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
-  aiAgents: &#39;allow-all&#39;,
-  standardBots: [
-    { userAgent: &#39;Googlebot&#39;, allow: [&#39;/&#39;], disallow: [&#39;/admin&#39;] },
-  ],
-  sitemap: &#39;https://myapp.com/sitemap.xml&#39;,
-})
-</code></pre>
-<h2>Calling aihu components as MCP tools</h2>
-<p>Agent-callable components are the core proposition of aihu. Here is the end-to-end flow:</p>
-<p><strong>Step 1 — Declare an agent surface in the SFC</strong></p>
-<p>Add an <code>@agent</code> block and expose actions from <code>@state</code>:</p>
-<pre><code>@state {
-  $prop: {
-    count: { default: 0, type: &quot;number&quot;, expose: { read: true } }
-  }
-
-  $action: {
-    increment: {
-      describe: &quot;Increment the counter by one&quot;,
-      expose: { write: true },
-      handler: () =&gt; setCount(count() + 1),
-    },
-  }
-}
-
-@agent {
-  $describe: &quot;A simple counter component&quot;
-}
-</code></pre>
-<p><strong>Step 2 — Compiler emits <code>.mcp.json</code></strong></p>
-<p>When the Rust SFC compiler processes this file with <code>BuildTarget.Server</code> or <code>BuildTarget.Universal</code>, it emits a <code>.mcp.json</code> sidecar describing the exposed tools:</p>
-<pre><code class="language-json">{
-  &quot;tools&quot;: [
-    {
-      &quot;name&quot;: &quot;increment&quot;,
-      &quot;description&quot;: &quot;Increment the counter by one&quot;,
-      &quot;inputSchema&quot;: { &quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {} }
-    }
-  ],
-  &quot;resources&quot;: [
-    { &quot;name&quot;: &quot;count&quot;, &quot;description&quot;: &quot;Current counter value&quot;, &quot;type&quot;: &quot;number&quot; }
-  ]
-}
-</code></pre>
-<p>Note: with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and no agent code reaches the browser bundle.</p>
-<p><strong>Step 3 — <code>@aihu/agent-service</code> exposes via <code>aihu mcp serve</code></strong></p>
-<p>The <code>@aihu/agent-service</code> package reads the aggregated tool schemas and exposes them over the MCP protocol. Run:</p>
-<pre><code class="language-bash">aihu mcp serve
-</code></pre>
-<p>This starts an MCP-compatible server that AI agents (Claude, GPT, Gemini, etc.) can connect to and call your component actions as tools.</p>
-<p><strong>Step 4 — Live-binding connects tools to the running component</strong></p>
-<p>When an AI agent calls the <code>increment</code> tool, <code>@aihu/agent-service</code> uses the live-binding registry (RFC APPROVED) to find the running component instance and call the action against its actual signal graph — the UI updates in real time.</p>
-<h2>Testing compliance</h2>
-<p>All compliance checks are backed by vitest test suites that run as part of <code>bun run test</code>. The test files serve as the executable specification:</p>
-<table>
-<thead>
-<tr>
-<th>Suite</th>
-<th>File</th>
-<th>Tests</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>llms.txt format</td>
-<td><code>packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts</code></td>
-<td>9</td>
-</tr>
-<tr>
-<td>MCP Server Card (SEP-1649)</td>
-<td><code>packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts</code></td>
-<td>14</td>
-</tr>
-<tr>
-<td>robots.txt (RFC 9309)</td>
-<td><code>packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts</code></td>
-<td>7</td>
-</tr>
-<tr>
-<td>isitagentready.com checklist</td>
-<td><code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code></td>
-<td>7</td>
-</tr>
-<tr>
-<td>SSR output structure</td>
-<td><code>packages/server/tests/compliance/ssr-output.test.ts</code></td>
-<td>12</td>
-</tr>
-</tbody></table>
-<p>Run all compliance checks:</p>
-<pre><code class="language-bash">bun run test       # TS + Rust unit, integration, and compliance suites
-bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo)
-</code></pre>
-<h2>isitagentready.com</h2>
-<p>Aihu passes all 7 checks on <a href="https://isitagentready.com">isitagentready.com</a>. The checks are exercised by the compliance test suite at <code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code>. The seven gates are:</p>
-<ol>
-<li><code>llms.txt</code> present at root</li>
-<li><code>llms.txt</code> first line is <code># &lt;Name&gt;</code></li>
-<li><code>/.well-known/mcp/server-card.json</code> returns valid JSON</li>
-<li>MCP server card contains <code>mcp_endpoint</code></li>
-<li><code>robots.txt</code> present and allows AI agents</li>
-<li>App sets <code>X-Agent-Friendly: true</code> response header</li>
-<li>MCP endpoint responds to <code>POST</code> with a valid tool-list response</li>
-</ol>
-`,
-  },
   'api-reference': {
     title: 'API Reference',
     html: `<h1>API Reference</h1>
@@ -958,7 +687,424 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 <p>Removed in v2 (C440 errors): <code>$expose</code>, <code>$expose.write</code>, <code>$action &lt;bareName&gt;</code>, <code>$describe</code>.</p>
 `,
   },
-  'authoring-agents': {
+  'getting-started': {
+    title: 'Getting Started',
+    html: `<h1>Getting Started</h1>
+<h2>Hello World walkthrough</h2>
+<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The scaffolded template uses the v2 macro vocabulary:</p>
+<pre><code>@state {
+  $prop: {
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
+  }
+}
+
+@template {
+  &lt;div&gt;Hello {name}&lt;/div&gt;
+}
+
+@route {
+  path: /
+  name: home
+}
+</code></pre>
+<h3>The <code>@state</code> block</h3>
+<p><code>@state</code> declares the reactive state for the component using the v2 collection-form macro vocabulary. Each macro keyword takes an object whose keys are entry names.</p>
+<p><strong>Props</strong> — declared with <code>$prop</code>. Every entry must have at least a <code>default</code> or <code>type</code> key:</p>
+<pre><code>@state {
+  $prop: {
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
+  }
+}
+</code></pre>
+<p>Props are reactive and can be set from outside the component as HTML attributes. Add <code>expose: { read: true, write: true }</code> to expose a prop to the agent surface.</p>
+<p><strong>Computed values</strong> — declared with <code>$computed</code>. The bare form uses a thunk:</p>
+<pre><code>@state {
+  $prop: {
+    name: { default: &#39;world&#39;, type: &#39;string&#39; }
+  }
+
+  $computed: {
+    greeting: () =&gt; \`Hello, \${name()}!\`
+  }
+}
+</code></pre>
+<p><strong>Actions</strong> — declared with <code>$action</code>. Bare form is a handler function; the wrapped form adds <code>describe</code> and <code>expose</code> metadata:</p>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+  }
+}
+</code></pre>
+<p><strong>Effects</strong> — anonymous effects use the bare function form:</p>
+<pre><code>@state {
+  $effect: () =&gt; { console.log(&#39;count changed&#39;) }
+}
+</code></pre>
+<p>Named effects (with optional dependency pinning) use the collection form:</p>
+<pre><code>@state {
+  $effect: {
+    logCount: () =&gt; { console.log(count()) },
+  }
+}
+</code></pre>
+<h3>The <code>@template</code> block</h3>
+<p><code>@template</code> defines the component&#39;s DOM structure using aihu&#39;s template DSL:</p>
+<ul>
+<li><code>{expr}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
+<li><code>$href={expr}</code> — binds an HTML attribute reactively (<code>$</code>-prefixed curly; one per attribute).</li>
+<li><code>$on.click=&quot;handler&quot;</code> — attaches an event listener.</li>
+<li><code>$show</code> — toggles visibility based on a boolean signal.</li>
+<li><code>$each</code> — renders a list of items.</li>
+</ul>
+<blockquote>
+<p><strong>Amendment 04 (v1.0.8).</strong> Reactive HTML attribute bindings must be <code>$</code>-prefixed (<code>$class={…}</code>, <code>$href={…}</code>). Plain-curly attributes (<code>class={…}</code>, error <strong>C306</strong>), the colon-form event/bind aliases (<strong>C305</strong>), and the Vue-shape <code>:attr=</code> alias (<strong>C304</strong>) are hard parse errors in v1.0. HTML-tag SFC framing (<code>&lt;template&gt;</code>, <code>&lt;script setup&gt;</code>) is rejected as <strong>C107</strong>. Run <code>npx aihu migrate &lt;file&gt;</code> to upgrade older sources.</p>
+</blockquote>
+<h3>The <code>@agent</code> block</h3>
+<p><code>@agent</code> declares the component&#39;s cross-cutting agent metadata. In v2, per-property <code>describe</code> and <code>expose</code> keys live on the <code>@state</code> entries directly. The <code>@agent</code> block holds only scope and rate-limit constraints:</p>
+<pre><code>@agent {
+  $scope &#39;counter&#39;
+  $rate-limit 60
+}
+</code></pre>
+<h3>The <code>@route</code> block</h3>
+<p><code>@route</code> registers the component as a page route:</p>
+<pre><code>@route {
+  path: /
+  name: home
+}
+</code></pre>
+<p>During build, the Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled SFC. <code>viteRouterIntegration()</code> in <code>vite.config.ts</code> reads these sidecars at build time and assembles the route manifest into <code>virtual:aihu-routes</code> — route manifests are fully static after build with no filesystem scanning at runtime.</p>
+<h3>HMR in development</h3>
+<p>Edit <code>src/pages/index.aihu</code> and the browser updates live — no full reload. Vite watches <code>.aihu</code> files; when you save, only the affected reactive subtree is re-evaluated.</p>
+<h2>A complete example: live counter</h2>
+<p>The canonical minimal SFC (from <code>examples/live-counter/live-counter.aihu</code>):</p>
+<pre><code>@state {
+  import { signal } from &#39;@aihu/signals&#39;
+  const [count, setCount] = signal(0)
+
+  $action: {
+    increment: {
+      describe: &#39;Add 1 to the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+    decrement: {
+      describe: &#39;Subtract 1 from the counter&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(count() - 1),
+    },
+    reset: {
+      describe: &#39;Reset the counter to 0&#39;,
+      expose: { read: true, write: true },
+      handler: () =&gt; setCount(0),
+    },
+  }
+}
+
+@template {
+  &lt;section class=&quot;counter&quot;&gt;
+    &lt;h1&gt;Count: {count}&lt;/h1&gt;
+    &lt;div class=&quot;controls&quot;&gt;
+      &lt;button $on.click=&quot;decrement&quot;&gt;-&lt;/button&gt;
+      &lt;button $on.click=&quot;reset&quot;&gt;Reset&lt;/button&gt;
+      &lt;button $on.click=&quot;increment&quot;&gt;+&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+}
+
+@style {
+  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; }
+  button   { flex: 1; padding: 0.5rem 0.75rem; cursor: pointer; }
+}
+</code></pre>
+<p>This is ~40 LOC, has an agent surface (all three actions are agent-callable), and uses only signals from <code>@aihu/signals</code> directly in <code>@state</code>.</p>
+<h2>Next steps</h2>
+<ul>
+<li><a href="authoring-components.md">Authoring Components</a> — full reference for <code>@state</code>, <code>@template</code>, <code>@style</code>, and <code>@agent</code> blocks.</li>
+<li><a href="reactivity.md">Reactivity</a> — the <code>signal</code>, <code>computed</code>, and <code>effect</code> primitives from <code>@aihu/signals</code>.</li>
+<li><a href="authoring-agents.md">Authoring Agents</a> — how to expose component state and actions to AI agents via MCP.</li>
+</ul>
+`,
+  },
+  'guides/agent-discovery': {
+    title: 'Agent Discovery & MCP Compliance',
+    html: `<h1>Agent Discovery &amp; MCP Compliance</h1>
+<p>aihu is designed from the ground up for the agentic web. Every aihu application automatically exposes standard discovery endpoints that let AI agents find, understand, and call your components as tools — with no manual configuration.</p>
+<h2>How AI agents discover aihu apps</h2>
+<p>Aihu apps expose four discovery endpoints that agents and crawlers check:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/llms.txt</code></td>
+<td>Human-readable index of docs and links in llmstxt.org format</td>
+</tr>
+<tr>
+<td><code>/llms-full.txt</code></td>
+<td>Extended index with full package list, examples, and spec links</td>
+</tr>
+<tr>
+<td><code>/.well-known/mcp/server-card.json</code></td>
+<td>Machine-readable MCP server card (SEP-1649)</td>
+</tr>
+<tr>
+<td><code>/robots.txt</code></td>
+<td>Agent-friendly crawl directives (RFC 9309)</td>
+</tr>
+</tbody></table>
+<p>All four are generated automatically by <code>@aihu-plugin/agent-readiness</code> from a single config object. The minimum viable setup is:</p>
+<pre><code class="language-ts">import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
+import { createRequestRouter, defineRoute } from &#39;@aihu/server&#39;
+
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+  ],
+})
+</code></pre>
+<p>This works on Cloudflare Workers, Bun, and Deno — anywhere with a fetch-API request handler.</p>
+<h2>The MCP Server Card</h2>
+<p>The MCP Server Card is a machine-readable JSON document at <code>/.well-known/mcp/server-card.json</code> that describes your application&#39;s agent capabilities per the SEP-1649 schema.</p>
+<p>A minimal server card looks like:</p>
+<pre><code class="language-json">{
+  &quot;schema_version&quot;: &quot;1.0&quot;,
+  &quot;name&quot;: &quot;My App&quot;,
+  &quot;summary&quot;: &quot;A aihu-powered app.&quot;,
+  &quot;mcp_endpoint&quot;: &quot;https://myapp.workers.dev/mcp&quot;,
+  &quot;skills&quot;: [
+    {
+      &quot;id&quot;: &quot;my-counter&quot;,
+      &quot;name&quot;: &quot;Live Counter&quot;,
+      &quot;description&quot;: &quot;Read and increment a counter&quot;
+    }
+  ]
+}
+</code></pre>
+<p>The <code>skills</code> array is auto-populated from the <code>@agent</code> blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and <code>@aihu-plugin/agent-readiness</code> aggregates them at build time.</p>
+<p>To configure the server card, pass <code>AgentReadinessConfig</code> to <code>createAgentReadinessRoutes</code>:</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  version: &#39;1.0.0&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  // Optional: declare skills explicitly (merged with auto-derived from @agent blocks)
+  skills: [
+    { id: &#39;counter&#39;, name: &#39;Counter&#39;, description: &#39;Read and set counter value&#39; },
+  ],
+})
+</code></pre>
+<h3>Auth configuration (opt-in)</h3>
+<p>By default the MCP endpoint is public (no-auth, Option A). To require OAuth 2.0 (Option C per RFC 9728):</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  auth: {
+    type: &#39;oauth2&#39;,
+    authorizationUrl: &#39;https://auth.myapp.com/authorize&#39;,
+    tokenUrl: &#39;https://auth.myapp.com/token&#39;,
+    scopes: [&#39;mcp:read&#39;, &#39;mcp:write&#39;],
+  },
+})
+</code></pre>
+<h2>llms.txt</h2>
+<p>The <code>llms.txt</code> file at the app root follows the <a href="https://llmstxt.org">llmstxt.org</a> specification. It gives AI coding assistants a structured map of your app&#39;s documentation and endpoints.</p>
+<h3>Format</h3>
+<p>The file uses a small Markdown subset:</p>
+<ul>
+<li>First line: <code># &lt;Name&gt;</code> (H1 heading — the app name)</li>
+<li>Optional second non-blank line: <code>&gt; &lt;tagline&gt;</code> (blockquote summary)</li>
+<li>Sections: <code>## &lt;Section Title&gt;</code> (H2 headings)</li>
+<li>Links: <code>- [Title](URL)</code> or <code>- [Title](URL): Optional description</code></li>
+<li>An optional <code>## Optional</code> section at the end (for supplementary links)</li>
+</ul>
+<p>The <code>llms-full.txt</code> variant follows the same format but uses <code>## More</code> instead of <code>## Optional</code> for the trailing section, and typically includes more links (all packages, examples, spec files).</p>
+<h3>LlmsTxtConfig type</h3>
+<p><code>@aihu-plugin/agent-readiness</code> generates both files from <code>LlmsTxtConfig</code>:</p>
+<pre><code class="language-ts">interface LlmsTxtLink {
+  readonly title: string
+  readonly url: string
+  readonly description?: string
+}
+
+interface LlmsTxtSection {
+  readonly title: string
+  readonly links: ReadonlyArray&lt;LlmsTxtLink&gt;
+}
+
+interface LlmsTxtConfig {
+  readonly name: string
+  readonly summary?: string
+  readonly sections: ReadonlyArray&lt;LlmsTxtSection&gt;
+  readonly optional?: ReadonlyArray&lt;LlmsTxtLink&gt;
+}
+</code></pre>
+<p>To generate the files programmatically:</p>
+<pre><code class="language-ts">import { generateLlmsTxt, generateLlmsFullTxt } from &#39;@aihu-plugin/agent-readiness&#39;
+
+const config: LlmsTxtConfig = {
+  name: &#39;My App&#39;,
+  summary: &#39;A aihu-powered app.&#39;,
+  sections: [
+    {
+      title: &#39;Getting Started&#39;,
+      links: [
+        { title: &#39;Installation&#39;, url: &#39;https://myapp.com/docs/install&#39; },
+        { title: &#39;Quickstart&#39;, url: &#39;https://myapp.com/docs/quickstart&#39; },
+      ],
+    },
+  ],
+  optional: [
+    { title: &#39;Contributing&#39;, url: &#39;https://github.com/org/myapp/blob/main/CONTRIBUTING.md&#39; },
+  ],
+}
+
+const llmsTxt = generateLlmsTxt(config)      // uses &quot;## Optional&quot;
+const llmsFullTxt = generateLlmsFullTxt(config) // uses &quot;## More&quot;
+</code></pre>
+<p>The <code>llmsSections</code> and <code>llmsOptional</code> fields on <code>AgentReadinessConfig</code> feed directly into these generators, so you can customize the content without calling the generators manually.</p>
+<h2>robots.txt</h2>
+<p>Aihu generates an agent-friendly <code>robots.txt</code> per RFC 9309. The default (<code>aiAgents: &#39;allow-all&#39;</code>) produces directives that permit all compliant AI agents to crawl your app:</p>
+<pre><code>User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+</code></pre>
+<p>To restrict AI agent access, set <code>aiAgents: &#39;disallow-all&#39;</code> or <code>aiAgents: &#39;allow-verified&#39;</code>. You can also add custom rules for specific bots via <code>standardBots</code>:</p>
+<pre><code class="language-ts">const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  aiAgents: &#39;allow-all&#39;,
+  standardBots: [
+    { userAgent: &#39;Googlebot&#39;, allow: [&#39;/&#39;], disallow: [&#39;/admin&#39;] },
+  ],
+  sitemap: &#39;https://myapp.com/sitemap.xml&#39;,
+})
+</code></pre>
+<h2>Calling aihu components as MCP tools</h2>
+<p>Agent-callable components are the core proposition of aihu. Here is the end-to-end flow:</p>
+<p><strong>Step 1 — Declare an agent surface in the SFC</strong></p>
+<p>Add an <code>@agent</code> block and expose actions from <code>@state</code>:</p>
+<pre><code>@state {
+  $prop: {
+    count: { default: 0, type: &quot;number&quot;, expose: { read: true } }
+  }
+
+  $action: {
+    increment: {
+      describe: &quot;Increment the counter by one&quot;,
+      expose: { write: true },
+      handler: () =&gt; setCount(count() + 1),
+    },
+  }
+}
+
+@agent {
+  $describe: &quot;A simple counter component&quot;
+}
+</code></pre>
+<p><strong>Step 2 — Compiler emits <code>.mcp.json</code></strong></p>
+<p>When the Rust SFC compiler processes this file with <code>BuildTarget.Server</code> or <code>BuildTarget.Universal</code>, it emits a <code>.mcp.json</code> sidecar describing the exposed tools:</p>
+<pre><code class="language-json">{
+  &quot;tools&quot;: [
+    {
+      &quot;name&quot;: &quot;increment&quot;,
+      &quot;description&quot;: &quot;Increment the counter by one&quot;,
+      &quot;inputSchema&quot;: { &quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {} }
+    }
+  ],
+  &quot;resources&quot;: [
+    { &quot;name&quot;: &quot;count&quot;, &quot;description&quot;: &quot;Current counter value&quot;, &quot;type&quot;: &quot;number&quot; }
+  ]
+}
+</code></pre>
+<p>Note: with <code>BuildTarget.Client</code>, the <code>@agent</code> block is fully elided — no manifest JSON is emitted and no agent code reaches the browser bundle.</p>
+<p><strong>Step 3 — <code>@aihu/agent-service</code> exposes via <code>aihu mcp serve</code></strong></p>
+<p>The <code>@aihu/agent-service</code> package reads the aggregated tool schemas and exposes them over the MCP protocol. Run:</p>
+<pre><code class="language-bash">aihu mcp serve
+</code></pre>
+<p>This starts an MCP-compatible server that AI agents (Claude, GPT, Gemini, etc.) can connect to and call your component actions as tools.</p>
+<p><strong>Step 4 — Live-binding connects tools to the running component</strong></p>
+<p>When an AI agent calls the <code>increment</code> tool, <code>@aihu/agent-service</code> uses the live-binding registry (RFC APPROVED) to find the running component instance and call the action against its actual signal graph — the UI updates in real time.</p>
+<h2>Testing compliance</h2>
+<p>All compliance checks are backed by vitest test suites that run as part of <code>bun run test</code>. The test files serve as the executable specification:</p>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>File</th>
+<th>Tests</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>llms.txt format</td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts</code></td>
+<td>9</td>
+</tr>
+<tr>
+<td>MCP Server Card (SEP-1649)</td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts</code></td>
+<td>14</td>
+</tr>
+<tr>
+<td>robots.txt (RFC 9309)</td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>isitagentready.com checklist</td>
+<td><code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>SSR output structure</td>
+<td><code>packages/server/tests/compliance/ssr-output.test.ts</code></td>
+<td>12</td>
+</tr>
+</tbody></table>
+<p>Run all compliance checks:</p>
+<pre><code class="language-bash">bun run test       # TS + Rust unit, integration, and compliance suites
+bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo)
+</code></pre>
+<h2>isitagentready.com</h2>
+<p>Aihu passes all 7 checks on <a href="https://isitagentready.com">isitagentready.com</a>. The checks are exercised by the compliance test suite at <code>packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts</code>. The seven gates are:</p>
+<ol>
+<li><code>llms.txt</code> present at root</li>
+<li><code>llms.txt</code> first line is <code># &lt;Name&gt;</code></li>
+<li><code>/.well-known/mcp/server-card.json</code> returns valid JSON</li>
+<li>MCP server card contains <code>mcp_endpoint</code></li>
+<li><code>robots.txt</code> present and allows AI agents</li>
+<li>App sets <code>X-Agent-Friendly: true</code> response header</li>
+<li>MCP endpoint responds to <code>POST</code> with a valid tool-list response</li>
+</ol>
+`,
+  },
+  'guides/authoring-agents': {
     title: 'Authoring Agents',
     html: `<h1>Authoring Agents</h1>
 <p>aihu is agent-first by design. Every <code>.aihu</code> SFC can declare an <code>@agent</code> block, and the Rust compiler emits both a Web Component and an MCP tool schema from the same source file. The result is a three-layer stack — component-level <code>@agent</code> declarations, the <code>@aihu/agent</code> static registry, and the <code>@aihu/agent-service</code> live execution engine — that makes every aihu app natively callable by MCP-compatible AI agents.</p>
@@ -1634,7 +1780,7 @@ const mw = async (req: Request) =&gt;
 </ul>
 `,
   },
-  'authoring-components': {
+  'guides/authoring-components': {
     title: 'Authoring Components',
     html: `<h1>Authoring Components</h1>
 <p>A <code>.aihu</code> Single File Component (SFC) is composed of named blocks. Each block uses the <code>@blockname { ... }</code> syntax.</p>
@@ -1914,7 +2060,7 @@ $effect: {
 <p>For the full v0 → v1 mapping of every diagnostic, see the <a href="migration.md">Migration guide</a>.</p>
 `,
   },
-  'authoring-plugins': {
+  'guides/authoring-plugins': {
     title: 'Authoring Plugins',
     html: `<h1>Authoring Plugins</h1>
 <p>aihu plugins extend the compiler with new blocks, macros, component boundaries, and transforms. Every plugin must be explicitly registered — auto-discovery is forbidden per Plugin Contract Spec §7.2.</p>
@@ -2273,7 +2419,7 @@ export default defineAihuConfig({
 <p>No magic imports. No auto-discovery. Explicit registration is the contract.</p>
 `,
   },
-  'data-fetching': {
+  'guides/data-fetching': {
     title: 'Data Fetching',
     html: `<h1>Data Fetching</h1>
 <p>aihu provides several primitives for fetching data, ranging from reactive resource signals to server-side loaders and typed client stubs.</p>
@@ -2493,7 +2639,7 @@ export const events = defineStreamRoute(async (ctx, stream) =&gt; {
 </code></pre>
 `,
   },
-  deployment: {
+  'guides/deployment': {
     title: 'Deployment',
     html: `<h1>Deployment</h1>
 <h2>Build for production</h2>
@@ -2662,6 +2808,7 @@ Deno.serve(router)
 node dist/server/entry.js
 </code></pre>
 <p>The server entry is generated by the universal build and uses <code>@aihu/server</code>&#39;s request router.</p>
+<p>On supported Node platforms <code>@aihu/server</code> lazily loads a native Rust addon to render SSR. Edge runtimes (Cloudflare, Vercel Edge, Deno) automatically skip it and use the TypeScript fallback. To force the fallback on Node — e.g. on an unsupported platform or to debug a parity issue — set <code>SCRIBE_NATIVE_SKIP=1</code> in the server environment.</p>
 <h2><code>viteRouterIntegration()</code> at build time</h2>
 <p>The Vite plugin performs these steps at build time:</p>
 <ol>
@@ -2673,149 +2820,1669 @@ node dist/server/entry.js
 <p>Route manifests are fully static after build — no filesystem scanning at runtime.</p>
 `,
   },
-  'getting-started': {
-    title: 'Getting Started',
-    html: `<h1>Getting Started</h1>
-<h2>Hello World walkthrough</h2>
-<p>After scaffolding (see <a href="installation.md">Installation</a>), open <code>src/pages/index.aihu</code>. The scaffolded template uses the v2 macro vocabulary:</p>
-<pre><code>@state {
-  $prop: {
-    name: { default: &#39;world&#39;, type: &#39;string&#39; }
-  }
-}
-
-@template {
-  &lt;div&gt;Hello {name}&lt;/div&gt;
-}
-
-@route {
-  path: /
-  name: home
-}
-</code></pre>
-<h3>The <code>@state</code> block</h3>
-<p><code>@state</code> declares the reactive state for the component using the v2 collection-form macro vocabulary. Each macro keyword takes an object whose keys are entry names.</p>
-<p><strong>Props</strong> — declared with <code>$prop</code>. Every entry must have at least a <code>default</code> or <code>type</code> key:</p>
-<pre><code>@state {
-  $prop: {
-    name: { default: &#39;world&#39;, type: &#39;string&#39; }
-  }
-}
-</code></pre>
-<p>Props are reactive and can be set from outside the component as HTML attributes. Add <code>expose: { read: true, write: true }</code> to expose a prop to the agent surface.</p>
-<p><strong>Computed values</strong> — declared with <code>$computed</code>. The bare form uses a thunk:</p>
-<pre><code>@state {
-  $prop: {
-    name: { default: &#39;world&#39;, type: &#39;string&#39; }
-  }
-
-  $computed: {
-    greeting: () =&gt; \`Hello, \${name()}!\`
-  }
-}
-</code></pre>
-<p><strong>Actions</strong> — declared with <code>$action</code>. Bare form is a handler function; the wrapped form adds <code>describe</code> and <code>expose</code> metadata:</p>
-<pre><code>@state {
-  import { signal } from &#39;@aihu/signals&#39;
-  const [count, setCount] = signal(0)
-
-  $action: {
-    increment: {
-      describe: &#39;Add 1 to the counter&#39;,
-      expose: { read: true, write: true },
-      handler: () =&gt; setCount(count() + 1),
-    },
-  }
-}
-</code></pre>
-<p><strong>Effects</strong> — anonymous effects use the bare function form:</p>
-<pre><code>@state {
-  $effect: () =&gt; { console.log(&#39;count changed&#39;) }
-}
-</code></pre>
-<p>Named effects (with optional dependency pinning) use the collection form:</p>
-<pre><code>@state {
-  $effect: {
-    logCount: () =&gt; { console.log(count()) },
-  }
-}
-</code></pre>
-<h3>The <code>@template</code> block</h3>
-<p><code>@template</code> defines the component&#39;s DOM structure using aihu&#39;s template DSL:</p>
-<ul>
-<li><code>{expr}</code> — interpolates a reactive expression. Updates use <code>nodeValue</code> for 122× faster targeted writes.</li>
-<li><code>$href={expr}</code> — binds an HTML attribute reactively (<code>$</code>-prefixed curly; one per attribute).</li>
-<li><code>$on.click=&quot;handler&quot;</code> — attaches an event listener.</li>
-<li><code>$show</code> — toggles visibility based on a boolean signal.</li>
-<li><code>$each</code> — renders a list of items.</li>
-</ul>
+  'guides/primitives': {
+    title: 'Primitives',
+    html: `<h1>Primitives</h1>
+<p><strong><code>@aihu/primitives</code></strong> is a set of headless behavior primitives — WAI-ARIA APG patterns implemented as vanilla custom elements. Each primitive emits DOM structure, ARIA wiring, and <code>data-state</code> attributes, and owns its state on <code>@aihu/signals</code>. It ships <strong>zero CSS</strong>: you style every part yourself, typically with the <a href="#styling">css-engine</a>&#39;s <code>cn()</code> + style packs.</p>
 <blockquote>
-<p><strong>Amendment 04 (v1.0.8).</strong> Reactive HTML attribute bindings must be <code>$</code>-prefixed (<code>$class={…}</code>, <code>$href={…}</code>). Plain-curly attributes (<code>class={…}</code>, error <strong>C306</strong>), the colon-form event/bind aliases (<strong>C305</strong>), and the Vue-shape <code>:attr=</code> alias (<strong>C304</strong>) are hard parse errors in v1.0. HTML-tag SFC framing (<code>&lt;template&gt;</code>, <code>&lt;script setup&gt;</code>) is rejected as <strong>C107</strong>. Run <code>npx aihu migrate &lt;file&gt;</code> to upgrade older sources.</p>
+<p><strong>Status:</strong> <code>@aihu/primitives@0.0.1</code> is published. Behaviors below are available today. The styled component registry built on top of them (<code>@aihu/ui</code> / <code>aihu add</code>) is roadmap-only — see <a href="#styling">the registry note</a>.</p>
 </blockquote>
-<h3>The <code>@agent</code> block</h3>
-<p><code>@agent</code> declares the component&#39;s cross-cutting agent metadata. In v2, per-property <code>describe</code> and <code>expose</code> keys live on the <code>@state</code> entries directly. The <code>@agent</code> block holds only scope and rate-limit constraints:</p>
-<pre><code>@agent {
-  $scope &#39;counter&#39;
-  $rate-limit 60
-}
-</code></pre>
-<h3>The <code>@route</code> block</h3>
-<p><code>@route</code> registers the component as a page route:</p>
-<pre><code>@route {
-  path: /
-  name: home
-}
-</code></pre>
-<p>During build, the Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled SFC. <code>viteRouterIntegration()</code> in <code>vite.config.ts</code> reads these sidecars at build time and assembles the route manifest into <code>virtual:aihu-routes</code> — route manifests are fully static after build with no filesystem scanning at runtime.</p>
-<h3>HMR in development</h3>
-<p>Edit <code>src/pages/index.aihu</code> and the browser updates live — no full reload. Vite watches <code>.aihu</code> files; when you save, only the affected reactive subtree is re-evaluated.</p>
-<h2>A complete example: live counter</h2>
-<p>The canonical minimal SFC (from <code>examples/live-counter/live-counter.aihu</code>):</p>
-<pre><code>@state {
-  import { signal } from &#39;@aihu/signals&#39;
-  const [count, setCount] = signal(0)
+<h2>Why headless</h2>
+<p>A headless primitive gives you the hard part — focus management, keyboard interaction, ARIA roles/relationships, open/close state — without imposing any look. Each piece reflects <code>data-state=&quot;open&quot;|&quot;closed&quot;</code> (and friends), so your CSS selectors drive the appearance while the primitive guarantees the accessibility contract. This mirrors the Radix/Ark &quot;root ↔ piece&quot; model: a root element owns the state and provides it via a DOM-walk context; the pieces inject it by walking up the real DOM (across shadow boundaries), nearest-provider-wins.</p>
+<h2>Phase-1 components</h2>
+<h3>Dialog</h3>
+<p>The WAI-ARIA APG <strong>Modal Dialog</strong> pattern. Pieces: <code>&lt;aihu-dialog-root&gt;</code> (state owner), <code>&lt;aihu-dialog-trigger&gt;</code>, <code>&lt;aihu-dialog-content&gt;</code>, <code>&lt;aihu-dialog-backdrop&gt;</code>, <code>&lt;aihu-dialog-close&gt;</code>, <code>&lt;aihu-dialog-title&gt;</code>, <code>&lt;aihu-dialog-description&gt;</code>. Provides focus-trap + return-focus, Escape-to-close, outside-click-to-close (when modal), and <code>role=&quot;dialog&quot;</code> / <code>aria-modal</code> / <code>aria-labelledby</code> / <code>aria-describedby</code> plus the trigger&#39;s <code>aria-haspopup</code> / <code>aria-expanded</code> / <code>aria-controls</code>. Register with <code>defineDialog()</code>.</p>
+<h3>Tooltip</h3>
+<p>The WAI-ARIA APG <strong>Tooltip</strong> pattern. Pieces: <code>&lt;aihu-tooltip-root&gt;</code>, <code>&lt;aihu-tooltip-trigger&gt;</code>, <code>&lt;aihu-tooltip-content&gt;</code>. The trigger is <code>aria-describedby</code> the content (not labelled-by), the content has <code>role=&quot;tooltip&quot;</code> and is not focusable, and Escape dismisses. Open/close honors configurable <code>open-delay</code> / <code>close-delay</code> (default 700 / 300 ms). Placement reuses the css-engine&#39;s <code>position()</code> shim — the tooltip carries no positioning math and adds no floating-ui dependency. Register with <code>defineTooltip()</code>.</p>
+<h3>Button</h3>
+<p><code>AihuButton</code> — a headless button base class implementing the APG <strong>Button</strong> pattern. When the host is not a native <code>&lt;button&gt;</code>, it sets <code>role=&quot;button&quot;</code> + <code>tabindex=&quot;0&quot;</code> and handles Enter / Space to fire a synthetic click; native <code>&lt;button&gt;</code> defers to native semantics. Reflects <code>aria-pressed</code> (toggle), <code>aria-disabled</code>, and <code>data-state</code>, and inherits <code>disabled</code> from an ancestor <code>form-control</code>. It is a base class, not a pre-registered tag — extend it or register a concrete element with <code>defineButton(tag)</code>.</p>
+<h2>Phase-0 substrates</h2>
+<p>The lower-level building blocks the Phase-1 components compose on. Use them directly when building your own primitives.</p>
+<table>
+<thead>
+<tr>
+<th>Primitive</th>
+<th>Subpath</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DOM context</td>
+<td><code>@aihu/primitives/context</code></td>
+<td>Live ancestor-traversal context (<code>createDomContext</code> / <code>provideContext</code> / <code>injectContext</code>) — the root↔piece coordination mechanism. Self-contained; does NOT import <code>@aihu/context</code>.</td>
+</tr>
+<tr>
+<td>Presence gate</td>
+<td><code>@aihu/primitives/presence-gate</code></td>
+<td>Mount/unmount gate that holds children through an exit transition (the Radix <code>Presence</code> pattern). <code>definePresenceGate()</code>.</td>
+</tr>
+<tr>
+<td>Roving focus</td>
+<td><code>@aihu/primitives/roving-focus</code></td>
+<td>Roving-<code>tabindex</code> focus management for composite widgets, configurable <code>Orientation</code>. <code>defineRovingFocus()</code>.</td>
+</tr>
+<tr>
+<td>Collection</td>
+<td><code>@aihu/primitives/collection</code></td>
+<td>Ordered registration of descendant items (for lists, menus, etc.). <code>createCollection()</code> / <code>defineCollection()</code>.</td>
+</tr>
+<tr>
+<td>Config provider</td>
+<td><code>@aihu/primitives/config-provider</code></td>
+<td>Propagates <code>colorScheme</code> / <code>density</code> / <code>direction</code> to descendants via context. <code>defineConfigProvider()</code>.</td>
+</tr>
+<tr>
+<td>Form control</td>
+<td><code>@aihu/primitives/form-control</code></td>
+<td>Shared label/description/validity wiring + a <code>disabled</code> context that descendants (e.g. button) inherit. <code>defineFormControl()</code>.</td>
+</tr>
+</tbody></table>
+<h2>Consumer pattern — <code>cn()</code> + a style pack</h2>
+<p>Primitives are unstyled, so you bring the CSS. The intended pairing is the css-engine: style each <code>data-state</code> with utility classes, and merge any runtime overrides with <code>cn()</code>.</p>
+<pre><code class="language-ts">import { defineDialog } from &#39;@aihu/primitives/dialog&#39;
+import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
 
-  $action: {
-    increment: {
-      describe: &#39;Add 1 to the counter&#39;,
-      expose: { read: true, write: true },
-      handler: () =&gt; setCount(count() + 1),
-    },
-    decrement: {
-      describe: &#39;Subtract 1 from the counter&#39;,
-      expose: { read: true, write: true },
-      handler: () =&gt; setCount(count() - 1),
-    },
-    reset: {
-      describe: &#39;Reset the counter to 0&#39;,
-      expose: { read: true, write: true },
-      handler: () =&gt; setCount(0),
-    },
-  }
-}
+defineDialog()
 
-@template {
-  &lt;section class=&quot;counter&quot;&gt;
-    &lt;h1&gt;Count: {count}&lt;/h1&gt;
-    &lt;div class=&quot;controls&quot;&gt;
-      &lt;button $on.click=&quot;decrement&quot;&gt;-&lt;/button&gt;
-      &lt;button $on.click=&quot;reset&quot;&gt;Reset&lt;/button&gt;
-      &lt;button $on.click=&quot;increment&quot;&gt;+&lt;/button&gt;
-    &lt;/div&gt;
-  &lt;/section&gt;
-}
-
-@style {
-  .counter { display: grid; gap: 0.75rem; padding: 1.5rem; }
-  button   { flex: 1; padding: 0.5rem 0.75rem; cursor: pointer; }
-}
+// merge a base recipe string with a caller-provided override (last-wins)
+const contentClass = cn(&#39;rounded-lg p-6 bg-surface shadow-lg&#39;, userClassName)
+contentEl.className = contentClass
 </code></pre>
-<p>This is ~40 LOC, has an agent surface (all three actions are agent-callable), and uses only signals from <code>@aihu/signals</code> directly in <code>@state</code>.</p>
-<h2>Next steps</h2>
+<pre><code class="language-html">&lt;aihu-dialog-root&gt;
+  &lt;aihu-dialog-trigger&gt;Open&lt;/aihu-dialog-trigger&gt;
+  &lt;aihu-dialog-backdrop class=&quot;fixed inset-0 bg-black/40 data-[state=closed]:opacity-0&quot;&gt;&lt;/aihu-dialog-backdrop&gt;
+  &lt;aihu-dialog-content class=&quot;rounded-lg p-6 bg-surface shadow-lg&quot;&gt;
+    &lt;aihu-dialog-title&gt;Title&lt;/aihu-dialog-title&gt;
+    &lt;aihu-dialog-description&gt;Body copy.&lt;/aihu-dialog-description&gt;
+    &lt;aihu-dialog-close&gt;Close&lt;/aihu-dialog-close&gt;
+  &lt;/aihu-dialog-content&gt;
+&lt;/aihu-dialog-root&gt;
+</code></pre>
+<p>The primitive guarantees focus trap, Escape, ARIA, and <code>data-state</code>; your utility classes (resolved by the css-engine at build time, or merged at runtime with <code>cn()</code>) supply the look.</p>
+<h2>See also</h2>
 <ul>
-<li><a href="authoring-components.md">Authoring Components</a> — full reference for <code>@state</code>, <code>@template</code>, <code>@style</code>, and <code>@agent</code> blocks.</li>
-<li><a href="reactivity.md">Reactivity</a> — the <code>signal</code>, <code>computed</code>, and <code>effect</code> primitives from <code>@aihu/signals</code>.</li>
-<li><a href="authoring-agents.md">Authoring Agents</a> — how to expose component state and actions to AI agents via MCP.</li>
+<li><a href="#styling">Styling</a> — the css-engine, <code>cn()</code>, style packs, scoped output</li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/primitives</code> export tables</li>
+</ul>
+`,
+  },
+  'guides/reactivity': {
+    title: 'Reactivity',
+    html: `<h1>Reactivity</h1>
+<p><code>@aihu/signals</code> provides the reactive foundation for the entire aihu framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.</p>
+<h2><code>signal&lt;T&gt;(initialValue)</code></h2>
+<p>Creates a writable reactive cell:</p>
+<pre><code class="language-typescript">import { signal } from &#39;@aihu/signals&#39;
+
+const count = signal(0)
+
+count()       // read: returns 0
+count(1)      // write: sets to 1, flushes effects
+</code></pre>
+<p>Signals are the atomic unit of state. They are not wrapped in objects or proxies — call them as functions to read or write.</p>
+<h2><code>computed&lt;T&gt;(fn)</code></h2>
+<p>Derives a read-only signal from other signals:</p>
+<pre><code class="language-typescript">import { signal, computed } from &#39;@aihu/signals&#39;
+
+const count = signal(0)
+const doubled = computed(() =&gt; count() * 2)
+
+doubled() // 0
+count(5)
+doubled() // 10
+</code></pre>
+<p>Computed signals are lazily evaluated and memoized. They re-evaluate only when a tracked dependency changes.</p>
+<h2><code>effect(fn)</code></h2>
+<p>Runs a side effect whenever tracked signals change. Returns a dispose function:</p>
+<pre><code class="language-typescript">import { signal, effect } from &#39;@aihu/signals&#39;
+
+const name = signal(&#39;world&#39;)
+const dispose = effect(() =&gt; {
+  console.log(&#39;Hello,&#39;, name())
+})
+// Logs: &quot;Hello, world&quot;
+
+name(&#39;aihu&#39;)
+// Logs: &quot;Hello, aihu&quot;
+
+dispose() // stops the effect
+</code></pre>
+<p>Effects run synchronously after each signal write. They auto-track all signals read during their execution.</p>
+<p>To clean up resources when an effect re-runs, return a cleanup function:</p>
+<pre><code class="language-typescript">const dispose = effect(() =&gt; {
+  const id = setInterval(() =&gt; tick(), 1000)
+  return () =&gt; clearInterval(id)  // called before next run or on dispose
+})
+</code></pre>
+<h2><code>batch(fn)</code></h2>
+<p>Defers effect flushes until the batch function returns:</p>
+<pre><code class="language-typescript">import { signal, effect, batch } from &#39;@aihu/signals&#39;
+
+const a = signal(0)
+const b = signal(0)
+
+effect(() =&gt; console.log(a(), b()))
+
+batch(() =&gt; {
+  a(1)  // no flush yet
+  b(2)  // no flush yet
+})
+// Now effects flush once with a=1, b=2
+</code></pre>
+<p><code>batch</code> is useful when updating multiple signals that drive the same derived computation — it prevents intermediate renders. This is the preferred pattern for atomic multi-signal updates.</p>
+<h2><code>untrack(fn)</code></h2>
+<p>Reads signals inside <code>fn</code> without subscribing to them. Re-entrancy safe:</p>
+<pre><code class="language-typescript">import { signal, effect, untrack } from &#39;@aihu/signals&#39;
+
+const count = signal(0)
+const multiplier = signal(2)
+
+effect(() =&gt; {
+  // Only subscribes to count, not multiplier
+  const m = untrack(() =&gt; multiplier())
+  console.log(count() * m)
+})
+</code></pre>
+<p><code>untrack</code> is re-entrancy safe — calling it from inside an <code>effect</code> or another <code>untrack</code> works correctly.</p>
+<h2>Lattice signals</h2>
+<p>Lattice signals are merge-monotone reactive cells. They are useful for collaborative state where multiple sources update the same value and the result should be the &quot;join&quot; of all inputs.</p>
+<h3><code>latticeSignal&lt;T&gt;(merge, initial)</code></h3>
+<p>General-purpose lattice signal with a custom merge function:</p>
+<pre><code class="language-typescript">import { latticeSignal } from &#39;@aihu/signals&#39;
+
+const versions = latticeSignal&lt;Set&lt;string&gt;&gt;(
+  (a, b) =&gt; new Set([...a, ...b]),
+  new Set()
+)
+</code></pre>
+<h3><code>boolLatticeSignal(initial?)</code></h3>
+<p>Boolean OR-merge lattice signal. Once set to <code>true</code>, stays <code>true</code>:</p>
+<pre><code class="language-typescript">import { boolLatticeSignal } from &#39;@aihu/signals&#39;
+
+const ready = boolLatticeSignal(false)
+ready(true)  // true
+ready(false) // still true — OR merge
+</code></pre>
+<h3><code>maxLatticeSignal(initial?)</code></h3>
+<p>Numeric max-merge lattice signal. Monotonically increases:</p>
+<pre><code class="language-typescript">import { maxLatticeSignal } from &#39;@aihu/signals&#39;
+
+const highScore = maxLatticeSignal(0)
+highScore(42)
+highScore(10)  // stays 42 — max merge
+</code></pre>
+<h2><code>$state</code> accessor</h2>
+<p><code>$state</code> is a shorthand accessor for the component state bag in SFCs. Inside <code>@state</code> blocks, all declared props and computeds are available on <code>$state</code> without qualification.</p>
+<h2>Reactive patterns</h2>
+<h3>Computed chains</h3>
+<p>Computeds can depend on other computeds:</p>
+<pre><code class="language-typescript">const base = signal(10)
+const doubled = computed(() =&gt; base() * 2)
+const quadrupled = computed(() =&gt; doubled() * 2)
+</code></pre>
+<p>Only <code>base</code> is a writable signal; the derived chain updates automatically. Each computed is memoized — intermediate computeds don&#39;t re-run unless their own dependencies change.</p>
+<h3>Effects with cleanup</h3>
+<p>Return a cleanup function from <code>effect</code> to dispose resources before the next run:</p>
+<pre><code class="language-typescript">const url = signal(&#39;/api/data&#39;)
+
+effect(() =&gt; {
+  const controller = new AbortController()
+  fetch(url(), { signal: controller.signal })
+    .then(r =&gt; r.json())
+    .then(setData)
+  return () =&gt; controller.abort()
+})
+</code></pre>
+<p>The cleanup runs when <code>url</code> changes (before the next fetch starts) and when the effect is disposed.</p>
+<h3>The <code>batch</code> pattern for atomic updates</h3>
+<p>When multiple signals feed a single derived value, use <code>batch</code> to prevent intermediate states:</p>
+<pre><code class="language-typescript">const hue = signal(215)
+const saturation = signal(70)
+const lightness = signal(55)
+
+const color = computed(() =&gt;
+  \`hsl(\${hue()} \${saturation()}% \${lightness()}%)\`
+)
+
+// Without batch: color re-computes 3 times
+// With batch: color re-computes once
+batch(() =&gt; {
+  hue(0)
+  saturation(100)
+  lightness(50)
+})
+</code></pre>
+<h2>Push-based semantics</h2>
+<p>aihu signals are push-based: effects run synchronously after each signal write (or after a <code>batch</code> completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.</p>
+`,
+  },
+  'guides/routing-layouts': {
+    title: 'Routing and Layouts',
+    html: `<h1>Routing and Layouts</h1>
+<p>aihu uses file-based routing. Pages live under <code>src/pages/</code> and automatically become routes when compiled.</p>
+<h2>File-based routing</h2>
+<p>Any <code>.aihu</code> file under <code>src/pages/</code> that contains an <code>@route</code> block is treated as a page route. The file path determines the default URL pattern:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Default pattern</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/pages/index.aihu</code></td>
+<td><code>/</code></td>
+</tr>
+<tr>
+<td><code>src/pages/about.aihu</code></td>
+<td><code>/about</code></td>
+</tr>
+<tr>
+<td><code>src/pages/users/[id].aihu</code></td>
+<td><code>/users/:id</code></td>
+</tr>
+</tbody></table>
+<h3>File-based routing tree example</h3>
+<pre><code>src/
+  pages/
+    index.aihu          →  /
+    about.aihu           →  /about
+    users/
+      index.aihu         →  /users
+      [id].aihu          →  /users/:id
+    admin/
+      index.aihu         →  /admin
+      users.aihu         →  /admin/users
+  layouts/
+    default.aihu         →  wraps all routes without an explicit layout
+    admin.aihu           →  wraps routes with layout: admin
+</code></pre>
+<h2>The <code>@route</code> block</h2>
+<pre><code>@route {
+  path: /admin/users
+  name: admin-users
+  middleware: [auth, admin]
+  ssr: true
+  layout: admin
+}
+</code></pre>
+<p>Fields:</p>
+<ul>
+<li><strong><code>path</code></strong> — explicit URL path override. If omitted, the path is derived from the file location.</li>
+<li><strong><code>name</code></strong> — route name used in programmatic navigation and the route manifest.</li>
+<li><strong><code>middleware</code></strong> — array of middleware names applied to this route.</li>
+<li><strong><code>ssr</code></strong> — boolean. <code>true</code> enables server-side rendering for this route.</li>
+<li><strong><code>layout</code></strong> — layout name to wrap this route&#39;s content.</li>
+</ul>
+<h2><code>.route.json</code> sidecars</h2>
+<p>The compiler emits a <code>.route.json</code> file alongside each compiled SFC that has an <code>@route</code> block. Example:</p>
+<pre><code class="language-json">{
+  &quot;pattern&quot;: &quot;/admin/users&quot;,
+  &quot;name&quot;: &quot;admin-users&quot;,
+  &quot;middleware&quot;: [&quot;auth&quot;, &quot;admin&quot;],
+  &quot;ssr&quot;: true,
+  &quot;layout&quot;: &quot;admin&quot;
+}
+</code></pre>
+<p>Read a sidecar programmatically with <code>readRouteSidecar(path)</code> from <code>@aihu/router/plugin</code>.</p>
+<h2><code>viteRouterIntegration()</code></h2>
+<p><code>viteRouterIntegration()</code> is a Vite plugin (from <code>@aihu/router/plugin</code>) that scans <code>src/pages/</code> at build time, reads all <code>.route.json</code> sidecars, and assembles a virtual route manifest module:</p>
+<pre><code class="language-typescript">// vite.config.ts
+import { defineConfig } from &#39;vite&#39;
+import { viteRouterIntegration } from &#39;@aihu/router/plugin&#39;
+
+export default defineConfig({
+  plugins: [viteRouterIntegration()],
+})
+</code></pre>
+<p>The virtual module <code>virtual:aihu-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRouter</code> consumes it to handle navigation.</p>
+<p><code>viteRouterPlugin</code> is a deprecated alias removed at v1.0.</p>
+<h2><code>createRouter(routes)</code></h2>
+<p>Creates a router instance from an array of route definitions. Typically you pass the virtual module directly:</p>
+<pre><code class="language-typescript">import { createRouter } from &#39;@aihu/router&#39;
+import routes from &#39;virtual:aihu-routes&#39;
+
+const router = createRouter(routes)
+</code></pre>
+<h2>Layouts</h2>
+<p>Layouts live under <code>src/layouts/</code>. The default layout is <code>src/layouts/default.aihu</code>. A layout wraps the page&#39;s rendered output via <code>&lt;$slot&gt;</code>:</p>
+<pre><code>@template {
+  &lt;header&gt;My App&lt;/header&gt;
+  &lt;main&gt;
+    &lt;$slot /&gt;
+  &lt;/main&gt;
+  &lt;footer&gt;Footer&lt;/footer&gt;
+}
+</code></pre>
+<p><code>scanLayouts(dir)</code> from <code>@aihu/router/plugin</code> returns all discovered layout names.</p>
+<h2>Router middleware</h2>
+<p>Middleware is defined with <code>defineRouterMiddleware</code> and composed with <code>composeRouterMiddleware</code>:</p>
+<pre><code class="language-typescript">import { defineRouterMiddleware, composeRouterMiddleware } from &#39;@aihu/router&#39;
+
+const authMiddleware = defineRouterMiddleware(async (ctx, next) =&gt; {
+  if (!ctx.params.token) {
+    return { kind: &#39;redirect&#39;, location: &#39;/login&#39;, status: 302 }
+  }
+  return next()
+})
+
+const loggingMiddleware = defineRouterMiddleware(async (ctx, next) =&gt; {
+  console.log(&#39;navigating to&#39;, ctx.url.pathname)
+  return next()
+})
+
+export const composed = composeRouterMiddleware(loggingMiddleware, authMiddleware)
+</code></pre>
+<h3>Stage ordering</h3>
+<p>Middleware passed to <code>composeRouterMiddleware</code> are called in array order. Any middleware that returns a non-void result (e.g. <code>{ kind: &#39;redirect&#39; }</code> or <code>{ kind: &#39;cancel&#39; }</code>) short-circuits the chain — subsequent middleware and the route handler are not called.</p>
+<p>Standard stage ordering convention:</p>
+<ol>
+<li>Logging / tracing</li>
+<li>Auth / session</li>
+<li>Redirect rules</li>
+<li>Render</li>
+</ol>
+<h2>Reactive routing primitives</h2>
+<p>The router exposes reactive primitives for use in SFCs and TypeScript:</p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>useRoute()</code></td>
+<td>Reactive accessor returning the current route match</td>
+</tr>
+<tr>
+<td><code>useRouter()</code></td>
+<td>Access the router instance</td>
+</tr>
+<tr>
+<td><code>navigate(path, opts?)</code></td>
+<td>Programmatic navigation</td>
+</tr>
+<tr>
+<td><code>createRouteSignal(router)</code></td>
+<td>Signal bound to the current route</td>
+</tr>
+<tr>
+<td><code>createPrefetcher(router)</code></td>
+<td>Create a route prefetcher</td>
+</tr>
+<tr>
+<td><code>provideRouteContext(router)</code></td>
+<td>Provide route context to the component tree</td>
+</tr>
+<tr>
+<td><code>RouteContext</code></td>
+<td>Context token for the current route</td>
+</tr>
+</tbody></table>
+`,
+  },
+  'guides/ssr-hydration': {
+    title: 'SSR and Hydration',
+    html: `<h1>SSR and Hydration</h1>
+<p>aihu supports server-side rendering via <code>@aihu/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.</p>
+<h2>Build targets</h2>
+<p>Set the build target in <code>aihu.config.ts</code>:</p>
+<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
+
+export default defineAihuConfig({
+  build: {
+    target: &#39;universal&#39;,
+  },
+})
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>client</code></td>
+<td>Browser bundle only. <code>@agent</code> manifest and <code>$server</code> refs are elided.</td>
+</tr>
+<tr>
+<td><code>server</code></td>
+<td>Server bundle only. Full agent manifest and server-only code included.</td>
+</tr>
+<tr>
+<td><code>universal</code></td>
+<td>Both client and server outputs. Default.</td>
+</tr>
+</tbody></table>
+<h2>The <code>@route</code> block and route sidecars</h2>
+<p>The Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled <code>.aihu</code> file. This sidecar encodes the route path, name, SSR mode, and loader reference. At build time, <code>viteRouterIntegration()</code> reads every <code>.route.json</code> in <code>src/pages/</code> and assembles the route manifest into the <code>virtual:aihu-routes</code> virtual module. The result is a fully static manifest — no filesystem scanning at runtime.</p>
+<pre><code>@route {
+  path: /users
+  name: users
+  ssr: true
+}
+</code></pre>
+<p>Setting <code>ssr: true</code> enables server-side rendering for that route.</p>
+<h2><code>createRequestRouter</code>, <code>defineRoute</code>, and <code>json()</code></h2>
+<p><code>@aihu/server</code> provides a fetch-API-native router. These three exports are the core building blocks:</p>
+<ul>
+<li><strong><code>createRequestRouter(options)</code></strong> — builds a fetch-API request handler from an explicit route manifest. The returned <code>router</code> function is a standard <code>(request: Request) =&gt; Response | Promise&lt;Response&gt;</code> and can be passed directly to <code>Bun.serve</code>, <code>Deno.serve</code>, or exported as a Cloudflare Worker&#39;s <code>fetch</code> handler.</li>
+<li><strong><code>defineRoute(path, handler)</code></strong> — declares a single route. The handler receives a <code>RouteContext</code> and must return a <code>Response</code>.</li>
+<li><strong><code>json(data, init?)</code></strong> — constructs a <code>Response</code> with <code>Content-Type: application/json</code> and the given data serialized. A thin convenience wrapper over <code>new Response(JSON.stringify(data), ...)</code>.</li>
+</ul>
+<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
+import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
+
+const ar = createAgentReadinessRoutes({
+  name: &#39;My App&#39;,
+  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
+  summary: &#39;An aihu-powered app.&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
+    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
+    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
+    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+  ],
+})
+
+// Cloudflare Worker
+export default { fetch: router }
+// Bun
+// Bun.serve({ fetch: router })
+// Deno
+// Deno.serve(router)
+</code></pre>
+<p>Additional server utilities from <code>@aihu/server</code>: <code>badRequest()</code>, <code>notFound()</code>, <code>serverError()</code>, <code>methodNotAllowed()</code>, <code>defineApiRoute()</code>, <code>composeMiddleware()</code>, <code>defineMiddleware()</code>.</p>
+<h2><code>renderToStream</code> and <code>renderToString</code></h2>
+<p>Stream-render a component to an HTML response:</p>
+<pre><code class="language-typescript">import { renderToStream } from &#39;@aihu/server&#39;
+
+const response = renderToStream(MyComponent, {
+  props: { userId: 42 },
+  loader: myLoader,
+})
+</code></pre>
+<p>Returns a <code>ReadableStream&lt;string&gt;</code> that emits HTML chunks as the component tree resolves. Suitable for edge runtimes and Node.js streaming responses.</p>
+<p>For a complete HTML string (e.g. for pre-rendering):</p>
+<pre><code class="language-typescript">import { renderToString } from &#39;@aihu/server&#39;
+
+const html = await renderToString(async () =&gt; {
+  const data = await myLoader(ctx)
+  return renderMyComponent(data)
+})
+</code></pre>
+<h2>SSR with loaders</h2>
+<p>Enable SSR per route with <code>ssr: true</code> in the <code>@route</code> block. The server runs the associated <code>defineLoader</code> and injects the result as props before streaming the component:</p>
+<pre><code>@route {
+  name: users
+  ssr: true
+}
+</code></pre>
+<pre><code class="language-typescript">// users.loader.ts
+import { defineLoader } from &#39;@aihu/server&#39;
+
+export const loader = defineLoader(async (ctx) =&gt; {
+  return { users: await db.users.findMany() }
+})
+</code></pre>
+<p>The loader result is serialized into the SSR payload and dehydrated on the client — no second fetch needed.</p>
+<h2>Islands</h2>
+<p>In aihu, &quot;islands&quot; means interactive components embedded in an otherwise static or server-rendered page. The SSR output is inert HTML; each island component re-attaches its reactive signal graph on the client using <code>hydrate()</code> rather than <code>mount()</code>.</p>
+<p>The island pattern gives you SSR performance for the outer shell while preserving full reactivity for interactive regions — without downloading or executing JavaScript for the static parts.</p>
+<h2><code>hydrate()</code> vs <code>mount()</code> — the distinction</h2>
+<p>Both functions come from <code>@aihu/arbor</code> and return a <code>MountScope</code> (with <code>.dispose()</code> and <code>.serialize()</code> methods). They differ in what happens to the DOM:</p>
+<ul>
+<li><strong><code>mount(component, host)</code></strong> — creates DOM elements from scratch and appends them to <code>host</code>. Used for pure client-side rendering (no prior SSR output).</li>
+<li><strong><code>hydrate(component, host, snapshot)</code></strong> — attaches reactive effects to <em>existing</em> DOM nodes under <code>host</code> without re-creating elements. It walks the arbor node tree and uses <code>data-aihu-path</code> attributes on pre-rendered elements as anchors to wire signal bindings. If a path anchor is missing (DOM mismatch), that subtree falls back to full <code>_materialize()</code>.</li>
+</ul>
+<p><code>hydrate()</code> is the right choice when the server has already emitted HTML for a component. The <code>snapshot</code> parameter is the pre-parsed JSON state previously emitted by <code>MountScope.serialize()</code> (typically injected as <code>window.__aihu_state__[tag]</code> by the SSR renderer).</p>
+<pre><code class="language-typescript">import { hydrate } from &#39;@aihu/arbor&#39;
+
+// In the browser, for an SSR-rendered island:
+const scope = hydrate(
+  () =&gt; buildCounterTree(),
+  document.querySelector(&#39;live-counter&#39;),
+  window.__aihu_state__[&#39;live-counter&#39;] ?? {},
+)
+</code></pre>
+<h2>Client-build elision</h2>
+<p>When target is <code>client</code>:</p>
+<ul>
+<li><code>@agent</code> blocks are removed from the output. The JS contains: <code>// [client build] @agent block elided</code>.</li>
+<li><code>$server</code> macro references are removed. The JS contains: <code>// [client build] $server macro reference elided</code>.</li>
+<li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
+</ul>
+<p>This ensures zero server-only code reaches the browser bundle.</p>
+`,
+  },
+  'guides/styling': {
+    title: 'Styling',
+    html: `<h1>Styling</h1>
+<p>aihu styles components with <strong><code>@aihu/css-engine</code></strong> — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your <code>.aihu</code> SFCs at build time and folds the utility classes each component actually uses into that component&#39;s shadow <code>&lt;style&gt;</code>. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.</p>
+<blockquote>
+<p><strong>See also:</strong> the <a href="#utility-classes">full utility reference</a> — the authoritative index of every supported class, variant, and brand token, plus a &quot;Not yet supported&quot; callout.</p>
+</blockquote>
+<blockquote>
+<p><strong>Status:</strong> <code>@aihu/css-engine@0.1.0</code> is published. The build-time engine (<code>compile</code>, <code>compileSfc</code>) currently depends on the <code>aihu-css-compile</code> Rust binary built from the workspace (<code>cargo build --release -p aihu-css-core</code>); a prebuilt binary ships with the package in a later plan. The runtime helpers (<code>cn</code>, <code>progressive</code>) are stable and tiny.</p>
+</blockquote>
+<h2>How it works</h2>
+<ul>
+<li><strong>Build-time scanning.</strong> The engine reads <code>.aihu</code> SFC source, walks the compiler AST (via <code>@aihu/compiler</code>), collects the utility classes referenced in each component, and emits a per-SFC stylesheet.</li>
+<li><strong>Scoped output, not global.</strong> The emitted CSS is embedded into the component&#39;s shadow root: <code>:host</code>-level theme tokens, the variant-resolved utility rules for that component, and the authored <code>@style</code> block — all folded into one shadow <code>&lt;style&gt;</code>. Two components on the same page never share or leak utility rules.</li>
+<li><strong>Zero-bundle for the static case.</strong> Because utilities resolve to plain CSS at compile time, the static styling path adds no JavaScript to the client. The only runtime code is the optional <code>cn()</code> helper and the progressive-feature fallbacks, and only when you import them.</li>
+</ul>
+<h2>WC-native variants</h2>
+<p>On top of the standard Tailwind variant set, the engine adds variants that only make sense inside a shadow root:</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Targets</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>host:</code></td>
+<td>the component&#39;s <code>:host</code></td>
+<td><code>host:block</code></td>
+</tr>
+<tr>
+<td><code>slotted:</code></td>
+<td><code>::slotted(...)</code> projected children</td>
+<td><code>slotted:text-sm</code></td>
+</tr>
+<tr>
+<td><code>part-*:</code></td>
+<td>a named <code>::part(...)</code> exposed by the component</td>
+<td><code>part-label:font-bold</code></td>
+</tr>
+</tbody></table>
+<p>These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.</p>
+<h2>Style packs</h2>
+<p>Component styling resolves against <strong>design tokens</strong> (CSS custom properties): a utility like <code>bg-primary</code> emits <code>var(--color-primary)</code>, and the <em>value</em> comes from a <strong>style pack</strong> (<code>aihu-default</code>, <code>aihu-graphite</code>, or your own via <code>defineStylePack()</code>). The token contract, the two shipped packs, <code>:root</code> + <code>.dark</code> emission, and how a consumer applies a pack are covered in full on the dedicated <a href="#theming">Theming</a> page.</p>
+<h2><code>cn()</code> — runtime class merge</h2>
+<p>For the cases where a class string is decided at runtime (consumer overrides, conditional classes), import <code>cn()</code> from the dedicated sub-export. It is a separate sub-1 kB gz module so it never pulls in the rest of the engine:</p>
+<pre><code class="language-ts">import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
+
+cn(&#39;p-2&#39;, &#39;p-4&#39;)                 // &#39;p-4&#39;        (last-wins per property group)
+cn(&#39;a&#39;, false &amp;&amp; &#39;b&#39;, [&#39;c&#39;])     // &#39;a c&#39;        (falsy dropped, arrays flattened)
+cn(&#39;bg-red-500&#39;, &#39;bg-blue-500&#39;)  // &#39;bg-blue-500&#39;
+</code></pre>
+<p><code>cn()</code> resolves Tailwind-style conflicts last-wins per property group. The conflict map is <strong>generated at engine build time</strong> from the utility registry (not hand-maintained), so it never drifts from the utility table. Variant prefixes are respected: <code>hover:p-2</code> and <code>hover:p-4</code> conflict, but <code>p-2</code> and <code>hover:p-4</code> do not.</p>
+<blockquote>
+<p>Recipes use static utility strings resolved at compile time. Reach for <code>cn()</code> only for the runtime-override case — not as a general styling mechanism.</p>
+</blockquote>
+<h2>Progressive features</h2>
+<p>Some utilities target modern CSS features (CSS anchor positioning, the Popover API). The engine emits these <code>@supports</code>-gated, and ships a tiny optional fallback shim under a separate sub-export:</p>
+<pre><code class="language-ts">import { anchorFallback, popoverFallback, position } from &#39;@aihu/css-engine/runtime/progressive&#39;
+</code></pre>
+<p>This is a hand-written ~2 kB floating-ui-style positioning shim (NOT the npm <code>@floating-ui/dom</code> package — aihu&#39;s thesis is dependency-free). <code>anchorFallback(anchor, floating, opts)</code> and <code>popoverFallback(anchor, panel, opts)</code> position a floating element with JS only when the native feature is unsupported, and return a cleanup function. It is kept in its own sub-export from <code>cn</code> so the lighter merge helper stays under its size budget.</p>
+<h2>The component registry (<code>@aihu/ui</code> / <code>aihu add</code>)</h2>
+<p>A shadcn-style component registry — copy-in styled components distributed via an <code>aihu add &lt;component&gt;</code> CLI command, built on <code>@aihu/primitives</code> + the css-engine — is <strong>on the roadmap, not yet published</strong>. It is part of the in-progress SFC-primitives arc; do not depend on <code>@aihu/ui</code> or <code>aihu add</code> yet. See <a href="#primitives">Primitives</a> for the headless behaviors that registry will be built on.</p>
+<h2>See also</h2>
+<ul>
+<li><a href="#theming">Theming</a> — design tokens, the <code>aihu-default</code> / <code>aihu-graphite</code> packs, and <code>defineStylePack()</code></li>
+<li><a href="#primitives">Primitives</a> — headless WAI-ARIA behaviors that consume <code>cn()</code> + style packs</li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
+<li><a href="#authoring-components">Authoring Components</a> — the <code>@style</code> block</li>
+</ul>
+`,
+  },
+  'guides/theming': {
+    title: 'Theming',
+    html: `<h1>Theming</h1>
+<p>aihu themes components with <strong>design tokens</strong> — CSS custom properties that the
+<code>@aihu/css-engine</code> utility table resolves against. A utility like <code>bg-primary</code>
+compiles to <code>background: var(--color-primary)</code>; the <em>value</em> of that token is
+supplied by a <strong>style pack</strong>. Swap the pack and every component re-themes with
+no markup change, because the token <em>names</em> are the contract and the <em>values</em>
+are interchangeable.</p>
+<p>This page is the single source of truth for theming. For the broader styling
+model (scoped output, WC-native variants, <code>cn()</code>), see <a href="#styling">Styling</a>.</p>
+<blockquote>
+<p><strong>Status:</strong> <code>@aihu/css-engine</code> ships the two built-in packs three ways, all
+stable and importable: as <code>defineStylePack()</code>, as <code>StylePack</code> objects from
+<code>@aihu/css-engine/packs</code>, and as CSS bundles via <code>@aihu/css-engine/styles/*.css</code>.
+See <a href="#applying-a-pack">Applying a pack</a>.</p>
+</blockquote>
+<h2>The design-token contract</h2>
+<p>A token is a CSS custom property. Throughout this doc and the
+<code>defineStylePack()</code> API, token <strong>names are given without the leading <code>--</code></strong> —
+the engine adds it. The shipped packs declare these token groups:</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Tokens (names without <code>--</code>)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Color</td>
+<td><code>color-primary</code>, <code>color-primary-foreground</code>, <code>color-secondary</code>, <code>color-secondary-foreground</code>, <code>color-accent</code>, <code>color-accent-foreground</code>, <code>color-surface</code>, <code>color-surface-foreground</code>, <code>color-background</code>, <code>color-foreground</code>, <code>color-muted</code>, <code>color-muted-foreground</code>, <code>color-border</code>, <code>color-ring</code>, <code>color-destructive</code>, <code>color-destructive-foreground</code></td>
+</tr>
+<tr>
+<td>Radius</td>
+<td><code>radius-sm</code>, <code>radius-md</code>, <code>radius-lg</code>, <code>radius-pill</code></td>
+</tr>
+<tr>
+<td>Spacing</td>
+<td><code>space-1</code>, <code>space-2</code>, <code>space-3</code>, <code>space-4</code>, <code>space-6</code>, <code>space-8</code>, <code>space-12</code>, <code>space-16</code></td>
+</tr>
+<tr>
+<td>Typography</td>
+<td><code>font-sans</code>, <code>font-mono</code></td>
+</tr>
+</tbody></table>
+<p>The utility table resolves brand utilities against the color names: <code>bg-primary</code>
+→ <code>var(--color-primary)</code>, <code>text-accent</code> → <code>var(--color-accent)</code>, and so on. Any
+pack that declares this name set works under every recipe with no dangling
+<code>var()</code>.</p>
+<h2>The two shipped packs</h2>
+<p>Two packs ship with the engine. They declare the <strong>same token names</strong> — only
+the values differ — so they are drop-in interchangeable:</p>
+<ul>
+<li><strong><code>aihu-default</code></strong> — the aihu brand palette (warm paper + ink, accent
+<code>#c8543a</code>), light values in <code>:root</code>, dark overrides in <code>.dark</code>.</li>
+<li><strong><code>aihu-graphite</code></strong> — a neutral monochrome ramp expressed in <code>oklch()</code>
+(chroma ≈ 0), same token names, same <code>:root</code> + <code>.dark</code> structure.</li>
+</ul>
+<p>A pack emits a light block under <code>:root { … }</code> and an optional dark block under
+<code>.dark { … }</code>. The consumer toggles dark by putting the <code>.dark</code> class on (or
+above) the themed subtree; the same token names carry the dark values, so
+nothing in component markup changes.</p>
+<pre><code class="language-css">/* shape of a shipped pack (aihu-default) */
+:root {
+  --color-primary: #1a1d24;
+  --color-accent: #c8543a;
+  --color-surface: #faf8f4;
+  --radius-md: 8px;
+  /* …the full token set… */
+}
+.dark {
+  --color-primary: #ede8e0;
+  --color-accent: #e8705a;
+  --color-surface: #1a1d24;
+  /* …dark values, same names… */
+}
+</code></pre>
+<h2>How tokens reach shadow-scoped components</h2>
+<p>The css-engine emits per-component CSS into each component&#39;s <strong>shadow root</strong>
+(see <a href="#styling">Styling</a>). The utility rules inside a shadow root reference the
+tokens as <code>var(--color-primary)</code> etc. CSS custom properties <strong>inherit through
+the shadow boundary</strong>, so a pack declared once on <code>:root</code> (light) flows into
+every component on the page. There is no per-component theme wiring.</p>
+<p>The <code>dark:</code> variant works the same way: a utility like <code>dark:bg-surface</code>
+compiles to a rule gated on the <code>.dark</code> ancestor, and because the <code>.dark</code> block
+re-declares the <em>same</em> token names with dark values, the variant resolves to
+the dark token automatically.</p>
+<h2>The built-in packs as JS objects</h2>
+<p>The two built-in packs are exported as ready-made <code>StylePack</code> objects from
+<code>@aihu/css-engine/packs</code>, so you can read their tokens or emit their CSS without
+re-declaring anything:</p>
+<pre><code class="language-ts">import { aihuDefault, aihuGraphite } from &#39;@aihu/css-engine/packs&#39;
+
+aihuDefault.tokens[&#39;color-accent&#39;] // &#39;#c8543a&#39;
+aihuDefault.toCss()                // &#39;:root { … } .dark { … }&#39;
+aihuGraphite.toCss()               // the monochrome oklch() bundle
+</code></pre>
+<p>These objects are the <strong>source of truth</strong> for the shipped <code>styles/*.css</code>
+bundles below — the CSS files are generated from them (<code>pack.toCss()</code>), so the
+two access paths can never drift. They are produced by <code>defineStylePack()</code>, the
+same API external orgs use, so the built-ins carry no privileged shape.</p>
+<h2><code>defineStylePack()</code> — custom packs</h2>
+<p>External orgs declare their own pack against the same token-name contract with
+<code>defineStylePack()</code>. This is the stable, importable API (<code>import { defineStylePack } from &#39;@aihu/css-engine&#39;</code>). The built-in packs are themselves expressible through
+it — <code>defineStylePack()</code> is just the typed, programmatic form of the shipped CSS
+bundles.</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+
+const acme = defineStylePack({
+  name: &#39;acme&#39;,
+  tokens: { &#39;color-primary&#39;: &#39;#0a7&#39;, &#39;radius-md&#39;: &#39;6px&#39; },
+  dark: { &#39;color-primary&#39;: &#39;#3fc&#39; },
+})
+
+acme.toCss()
+// :root {
+//   --color-primary: #0a7;
+//   --radius-md: 6px;
+// }
+// .dark {
+//   --color-primary: #3fc;
+// }
+</code></pre>
+<p><code>defineStylePack({ name, tokens, dark })</code> returns a <code>StylePack</code> descriptor with:</p>
+<ul>
+<li><code>name</code> — the pack name (used for registration / debugging).</li>
+<li><code>tokens</code> — the light-theme <code>TokenMap</code> (the <code>:root</code> block).</li>
+<li><code>dark</code> — the dark-theme <code>TokenMap</code> (the <code>.dark</code> block); empty if you pass none.</li>
+<li><code>toCss()</code> — serialize to a <code>:root { … }</code> (+ <code>.dark { … }</code>) CSS string in the
+same shape as the shipped bundles.</li>
+</ul>
+<p>Token names are normalized whether or not you write the leading <code>--</code>
+(<code>&#39;color-accent&#39;</code> and <code>&#39;--color-accent&#39;</code> both emit <code>--color-accent</code>). An empty
+<code>name</code> or empty <code>tokens</code> map throws. Only declare the tokens you override —
+declare the full contract set (above) if you want a stand-alone pack with no
+dangling utilities.</p>
+<h2>Applying a pack</h2>
+<p>A pack is just a <code>:root { … }</code> (+ <code>.dark { … }</code>) stylesheet. You apply it by
+getting that CSS onto the page&#39;s <code>:root</code>, then toggling <code>.dark</code> for dark mode.
+Three subpath-exported, verified paths:</p>
+<p><strong>1. Import a built-in CSS bundle directly.</strong> <code>@aihu/css-engine/styles/aihu-default.css</code>
+and <code>@aihu/css-engine/styles/aihu-graphite.css</code> are declared in the package
+<code>exports</code>, so Vite (and any bundler that handles CSS imports) inlines them into
+your app&#39;s stylesheet:</p>
+<pre><code class="language-ts">// in your app entry — Vite inlines the CSS, no extra config
+import &#39;@aihu/css-engine/styles/aihu-default.css&#39;
+
+// dark mode: toggle the class the pack&#39;s \`.dark\` block targets
+document.documentElement.classList.toggle(&#39;dark&#39;)
+</code></pre>
+<p><strong>2. The built-in packs as JS objects.</strong> Import the ready-made <code>StylePack</code>
+objects from <code>@aihu/css-engine/packs</code> and inject <code>toCss()</code> yourself — handy when
+you generate the <code>&lt;style&gt;</code> at runtime or need to read individual tokens:</p>
+<pre><code class="language-ts">import { aihuDefault } from &#39;@aihu/css-engine/packs&#39;
+
+const style = document.createElement(&#39;style&#39;)
+style.textContent = aihuDefault.toCss()
+document.head.appendChild(style)
+</code></pre>
+<p><strong>3. <code>defineStylePack().toCss()</code> for a custom pack.</strong> Declare your own token
+bundle and inject its CSS the same way:</p>
+<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+import { appTokens, appDark } from &#39;./tokens.ts&#39; // your token maps
+
+const pack = defineStylePack({ name: &#39;app&#39;, tokens: appTokens, dark: appDark })
+
+const style = document.createElement(&#39;style&#39;)
+style.textContent = pack.toCss()
+document.head.appendChild(style)
+</code></pre>
+<blockquote>
+<p><strong>Source-of-truth note:</strong> the <code>styles/*.css</code> bundles are GENERATED from the
+<code>@aihu/css-engine/packs</code> objects (<code>pack.toCss()</code>), so path #1 and path #2
+emit byte-identical CSS — they cannot drift. The CSS files remain in the
+package <code>files</code> list, so they are also on disk at
+<code>node_modules/@aihu/css-engine/styles/*.css</code> if you prefer to copy them.</p>
+</blockquote>
+<h2>See also</h2>
+<ul>
+<li><a href="#styling">Styling</a> — the scoped-output model, WC-native variants, <code>cn()</code></li>
+<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
+<li><a href="#primitives">Primitives</a> — headless behaviors that consume these tokens</li>
+</ul>
+`,
+  },
+  'guides/utility-classes': {
+    title: 'Utility Classes',
+    html: `<h1>Utility Classes</h1>
+<blockquote>
+<p>Aihu&#39;s css-engine ships a focused Tailwind-v4 utility subset compiled at
+build time into per-component scoped CSS. This page is the authoritative
+index of every supported class, every variant, every brand token, and a
+&quot;Not yet supported&quot; callout so you know when to drop to arbitrary values
+or open an issue.</p>
+</blockquote>
+<h2>At a glance</h2>
+<ul>
+<li>Compiled by <code>@aihu/css-engine</code> from <code>.aihu</code> SFCs.</li>
+<li>Output is scoped CSS (shadow DOM by default, light DOM via <code>shadowMode: &#39;none&#39;</code>).</li>
+<li>Unknown classes are silently dropped — there is no &quot;JIT&quot; and no global utility sheet.</li>
+<li>Conflict resolution (<code>cn()</code>) is last-wins per property group.</li>
+</ul>
+<h2>Class index by family</h2>
+<h3>Layout (display, position, overflow)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>block</code> / <code>inline-block</code> / <code>inline</code></td>
+<td><code>display: block / inline-block / inline;</code></td>
+</tr>
+<tr>
+<td><code>flex</code> / <code>inline-flex</code></td>
+<td><code>display: flex / inline-flex;</code></td>
+</tr>
+<tr>
+<td><code>grid</code> / <code>inline-grid</code></td>
+<td><code>display: grid / inline-grid;</code></td>
+</tr>
+<tr>
+<td><code>hidden</code></td>
+<td><code>display: none;</code></td>
+</tr>
+<tr>
+<td><code>static</code> / <code>relative</code> / <code>absolute</code> / <code>fixed</code> / <code>sticky</code></td>
+<td><code>position: …;</code></td>
+</tr>
+<tr>
+<td><code>overflow-auto</code> / <code>-hidden</code> / <code>-scroll</code> / <code>-visible</code></td>
+<td><code>overflow: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Flex &amp; Grid alignment</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>flex-row</code> / <code>flex-col</code></td>
+<td><code>flex-direction: row / column;</code></td>
+</tr>
+<tr>
+<td><code>flex-wrap</code> / <code>flex-nowrap</code></td>
+<td><code>flex-wrap: …;</code></td>
+</tr>
+<tr>
+<td><code>items-start</code> / <code>-center</code> / <code>-end</code> / <code>-stretch</code></td>
+<td><code>align-items: …;</code></td>
+</tr>
+<tr>
+<td><code>justify-start</code> / <code>-center</code> / <code>-between</code> / <code>-around</code> / <code>-end</code></td>
+<td><code>justify-content: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Grid templating — NEW</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>grid-cols-N</code></td>
+<td><code>grid-template-columns: repeat(N, minmax(0, 1fr));</code></td>
+</tr>
+<tr>
+<td><code>grid-cols-none</code></td>
+<td><code>grid-template-columns: none;</code></td>
+</tr>
+<tr>
+<td><code>grid-rows-N</code></td>
+<td><code>grid-template-rows: repeat(N, minmax(0, 1fr));</code></td>
+</tr>
+<tr>
+<td><code>grid-rows-none</code></td>
+<td><code>grid-template-rows: none;</code></td>
+</tr>
+<tr>
+<td><code>col-span-N</code></td>
+<td><code>grid-column: span N / span N;</code></td>
+</tr>
+<tr>
+<td><code>col-span-full</code></td>
+<td><code>grid-column: 1 / -1;</code></td>
+</tr>
+<tr>
+<td><code>col-auto</code></td>
+<td><code>grid-column: auto;</code></td>
+</tr>
+<tr>
+<td><code>row-span-N</code></td>
+<td><code>grid-row: span N / span N;</code></td>
+</tr>
+<tr>
+<td><code>row-span-full</code></td>
+<td><code>grid-row: 1 / -1;</code></td>
+</tr>
+<tr>
+<td><code>row-auto</code></td>
+<td><code>grid-row: auto;</code></td>
+</tr>
+</tbody></table>
+<p><code>N</code> is any positive integer.</p>
+<h3>Spacing (padding, margin, gap, space-x/y)</h3>
+<p>Spacing uses the Tailwind scale: each unit is <code>0.25rem</code> (so <code>p-4</code> → <code>1rem</code>),
+plus <code>px</code> → <code>1px</code> and <code>0</code> → <code>0</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>p-*</code> / <code>px-*</code> / <code>py-*</code> / <code>pt-* pr-* pb-* pl-*</code></td>
+<td><code>padding…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>m-*</code> / <code>mx-*</code> / <code>my-*</code> / <code>mt-* mr-* mb-* ml-*</code></td>
+<td><code>margin…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>mx-auto</code> / <code>my-auto</code> / <code>mt-auto</code> … — NEW</td>
+<td><code>margin-inline / margin-block / margin-top: auto;</code></td>
+</tr>
+<tr>
+<td><code>gap-*</code> / <code>gap-x-*</code> / <code>gap-y-*</code></td>
+<td><code>gap…: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>space-x-N</code> — NEW</td>
+<td><code>&amp; &gt; * + * { margin-inline-start: &lt;scale&gt;; }</code></td>
+</tr>
+<tr>
+<td><code>space-y-N</code> — NEW</td>
+<td><code>&amp; &gt; * + * { margin-block-start: &lt;scale&gt;; }</code></td>
+</tr>
+</tbody></table>
+<p><code>space-x/y-*</code> emit Tailwind&#39;s standard sibling-margin recipe as a nested rule
+(no margin on the first child; the gap lands on every following sibling).</p>
+<h3>Position scale (top/right/bottom/left/inset) — NEW</h3>
+<p>Inset utilities use the same Tailwind spacing scale as padding/margin (each
+unit <code>0.25rem</code>, <code>0</code> → <code>0</code>), plus the <code>auto</code> keyword. Prefix the class with <code>-</code>
+for negative offsets (<code>-top-4</code> → <code>top: -1rem;</code>). <code>inset-*</code> sets all four
+sides; <code>inset-x-*</code> / <code>inset-y-*</code> set the logical inline / block pairs.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>top-N</code> / <code>right-N</code> / <code>bottom-N</code> / <code>left-N</code></td>
+<td><code>top / right / bottom / left: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>top-auto</code> / <code>right-auto</code> …</td>
+<td><code>top: auto;</code> etc.</td>
+</tr>
+<tr>
+<td><code>-top-N</code> / <code>-left-N</code> … (negative)</td>
+<td><code>top: -&lt;scale&gt;;</code> etc.</td>
+</tr>
+<tr>
+<td><code>inset-N</code></td>
+<td><code>inset: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>inset-0</code></td>
+<td><code>inset: 0;</code></td>
+</tr>
+<tr>
+<td><code>inset-x-N</code></td>
+<td><code>inset-inline: &lt;scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>inset-y-N</code></td>
+<td><code>inset-block: &lt;scale&gt;;</code></td>
+</tr>
+</tbody></table>
+<p><code>N</code> is any spacing-scale step (e.g. <code>0</code>, <code>2</code>, <code>4</code>, <code>0.5</code>). Arbitrary values
+still work for one-offs: <code>top-[3px]</code>, <code>inset-[10%]</code>.</p>
+<h3>Sizing (width, height, min/max)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>w-*</code> / <code>h-*</code> (scale + fractions)</td>
+<td><code>width / height: …;</code></td>
+</tr>
+<tr>
+<td><code>w-full</code> / <code>w-screen</code> / <code>w-auto</code></td>
+<td><code>width: 100% / 100vw / auto;</code></td>
+</tr>
+<tr>
+<td><code>h-full</code> / <code>h-screen</code> / <code>h-auto</code></td>
+<td><code>height: 100% / 100vh / auto;</code></td>
+</tr>
+<tr>
+<td><code>min-w-*</code> / <code>max-w-*</code> / <code>min-h-*</code> / <code>max-h-*</code></td>
+<td>min/max sizing</td>
+</tr>
+<tr>
+<td><code>max-w-{xs…7xl}</code> — NEW</td>
+<td>named scale: <code>20rem … 80rem</code></td>
+</tr>
+<tr>
+<td><code>max-w-prose</code> — NEW</td>
+<td><code>max-width: 65ch;</code></td>
+</tr>
+<tr>
+<td><code>max-w-screen-{sm…2xl}</code> — NEW</td>
+<td>breakpoint widths (<code>40rem … 96rem</code>)</td>
+</tr>
+<tr>
+<td><code>max-w-{none,full,min,max,fit}</code> — NEW</td>
+<td>keyword max-widths</td>
+</tr>
+</tbody></table>
+<p>Named <code>max-w-*</code> scale: <code>xs</code> 20rem, <code>sm</code> 24rem, <code>md</code> 28rem, <code>lg</code> 32rem,
+<code>xl</code> 36rem, <code>2xl</code> 42rem, <code>3xl</code> 48rem, <code>4xl</code> 56rem, <code>5xl</code> 64rem, <code>6xl</code> 72rem,
+<code>7xl</code> 80rem.</p>
+<h3>Typography</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>text-{xs…3xl}</code></td>
+<td><code>font-size</code> + <code>line-height</code></td>
+</tr>
+<tr>
+<td><code>text-left</code> / <code>-center</code> / <code>-right</code></td>
+<td><code>text-align: …;</code></td>
+</tr>
+<tr>
+<td><code>font-{thin…black}</code></td>
+<td><code>font-weight: …;</code></td>
+</tr>
+<tr>
+<td><code>italic</code> / <code>not-italic</code></td>
+<td><code>font-style: …;</code></td>
+</tr>
+<tr>
+<td><code>underline</code> / <code>line-through</code> / <code>no-underline</code></td>
+<td><code>text-decoration-line: …;</code></td>
+</tr>
+<tr>
+<td><code>uppercase</code> / <code>lowercase</code> / <code>capitalize</code></td>
+<td><code>text-transform: …;</code></td>
+</tr>
+<tr>
+<td><code>truncate</code></td>
+<td>ellipsis overflow recipe</td>
+</tr>
+</tbody></table>
+<h4>Leading &amp; tracking scale — NEW</h4>
+<p>Named line-height (<code>leading-*</code>) and letter-spacing (<code>tracking-*</code>) scales,
+matching the Tailwind v4 defaults. <code>leading-&lt;n&gt;</code> (numeric) maps to the spacing
+scale (<code>leading-6</code> → <code>1.5rem</code>); the named steps are unitless multipliers.
+Arbitrary values still work: <code>leading-[1.4]</code>, <code>tracking-[.2em]</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>leading-none</code></td>
+<td><code>line-height: 1;</code></td>
+</tr>
+<tr>
+<td><code>leading-tight</code></td>
+<td><code>line-height: 1.25;</code></td>
+</tr>
+<tr>
+<td><code>leading-snug</code></td>
+<td><code>line-height: 1.375;</code></td>
+</tr>
+<tr>
+<td><code>leading-normal</code></td>
+<td><code>line-height: 1.5;</code></td>
+</tr>
+<tr>
+<td><code>leading-relaxed</code></td>
+<td><code>line-height: 1.625;</code></td>
+</tr>
+<tr>
+<td><code>leading-loose</code></td>
+<td><code>line-height: 2;</code></td>
+</tr>
+<tr>
+<td><code>leading-N</code></td>
+<td><code>line-height: &lt;spacing-scale&gt;;</code></td>
+</tr>
+<tr>
+<td><code>tracking-tighter</code></td>
+<td><code>letter-spacing: -0.05em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-tight</code></td>
+<td><code>letter-spacing: -0.025em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-normal</code></td>
+<td><code>letter-spacing: 0em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-wide</code></td>
+<td><code>letter-spacing: 0.025em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-wider</code></td>
+<td><code>letter-spacing: 0.05em;</code></td>
+</tr>
+<tr>
+<td><code>tracking-widest</code></td>
+<td><code>letter-spacing: 0.1em;</code></td>
+</tr>
+</tbody></table>
+<h3>Colors (bg, text, border, fill, stroke, ring, outline)</h3>
+<p><code>bg-*</code>, <code>text-*</code>, <code>border-*</code>, <code>fill-*</code>, <code>stroke-*</code> accept both <strong>brand tokens</strong>
+(see below) and the <strong>palette</strong> (<code>bg-red-500</code>, <code>text-slate-700</code>, <code>bg-white</code>).
+Brand-token classes emit <code>var(--color-*)</code>.</p>
+<h3>Borders (width incl. directional, radius, color)</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>border</code></td>
+<td><code>border-width: 1px;</code></td>
+</tr>
+<tr>
+<td><code>border-{0,2,4,8}</code> — NEW</td>
+<td><code>border-width: 0 / 2px / 4px / 8px;</code></td>
+</tr>
+<tr>
+<td><code>border-x-{0,2,4,8}</code> / <code>border-y-{…}</code> — NEW</td>
+<td><code>border-inline-width</code> / <code>border-block-width</code></td>
+</tr>
+<tr>
+<td><code>border-t/r/b/l-{0,2,4,8}</code> — NEW</td>
+<td><code>border-top/right/bottom/left-width</code></td>
+</tr>
+<tr>
+<td><code>rounded</code> / <code>-sm</code> / <code>-md</code> / <code>-lg</code> / <code>-full</code></td>
+<td><code>border-radius: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Divide (sibling borders)</h3>
+<p>Borders between adjacent children, reusing the same nested <code>&amp; &gt; * + *</code> recipe
+as <code>space-x/y</code>. The bare form defaults to <code>1px</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>divide-x</code> / <code>divide-y</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-inline-width / border-block-width: 1px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-x-{0,2,4,8}</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-inline-width: 0 / 2px / 4px / 8px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-y-{0,2,4,8}</code> — NEW</td>
+<td><code>&amp; &gt; * + * { border-block-width: 0 / 2px / 4px / 8px; }</code></td>
+</tr>
+<tr>
+<td><code>divide-x-reverse</code> / <code>divide-y-reverse</code> — NEW</td>
+<td><code>&amp; &gt; * + * { --tw-divide-{x,y}-reverse: 1; }</code></td>
+</tr>
+</tbody></table>
+<p>Set the border <em>color</em> on the same element with the standard color utilities
+(e.g. <code>border-muted</code>). The <code>-reverse</code> tokens keep Tailwind&#39;s API surface via the
+<code>--tw-divide-{x,y}-reverse</code> custom property.</p>
+<h3>Effects</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>shadow</code> / <code>-md</code> / <code>-lg</code> / <code>-none</code></td>
+<td><code>box-shadow: …;</code></td>
+</tr>
+<tr>
+<td><code>opacity-*</code></td>
+<td><code>opacity: …;</code></td>
+</tr>
+</tbody></table>
+<h3>Ring</h3>
+<p>A focus ring drawn as a <code>box-shadow</code> composed from <code>--tw-ring-*</code> custom
+properties (the Tailwind v4 recipe), so the ring <strong>width</strong>, <strong>color</strong>, and
+<strong>offset</strong> are set independently and layer with a regular <code>shadow-*</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ring</code> — NEW</td>
+<td>3px ring (<code>box-shadow</code> from <code>--tw-ring-*</code>)</td>
+</tr>
+<tr>
+<td><code>ring-{0,1,2,4,8}</code> — NEW</td>
+<td>ring at that pixel width: <code>--tw-ring-shadow: … calc({n}px + var(--tw-ring-offset-width)) var(--tw-ring-color);</code></td>
+</tr>
+<tr>
+<td><code>ring-inset</code> — NEW</td>
+<td><code>--tw-ring-inset: inset;</code> (draws the ring inside the edge)</td>
+</tr>
+<tr>
+<td><code>ring-offset-{0,1,2,4,8}</code> — NEW</td>
+<td><code>--tw-ring-offset-width: {n}px;</code> (gap between the element and the ring)</td>
+</tr>
+<tr>
+<td><code>ring-&lt;color&gt;</code></td>
+<td>sets the ring <strong>color</strong>: <code>--tw-ring-color: var(--color-*);</code></td>
+</tr>
+</tbody></table>
+<p>The width side (<code>ring-{n}</code>) and the color side (<code>ring-&lt;color&gt;</code>) are
+complementary — use them together, e.g. <code>focus:ring-2 ring-blue-500</code>. The color
+path is unchanged; <code>ring-blue-500</code>, <code>ring-primary</code>, <code>ring-ring</code> etc. still emit
+<code>--tw-ring-color</code>.</p>
+<h3>Z-index</h3>
+<p><code>z-0</code>, <code>z-10</code>, <code>z-20</code>, <code>z-30</code>, <code>z-40</code>, <code>z-50</code>, <code>z-auto</code> → <code>z-index: …;</code>.</p>
+<h2>Motion — NEW</h2>
+<p>Round-2 motion utilities cover transforms, transitions, and animations. Each
+transform utility (<code>translate-*</code>, <code>rotate-*</code>, <code>scale-*</code>) emits a <strong>single
+<code>transform:</code> declaration</strong> rather than composing CSS variables — so within one
+element the CSS cascade applies last-wins per family. To combine transforms
+(e.g. translate <em>and</em> rotate) on one element, use an arbitrary value
+(<code>transform-[...]</code> is not yet wired; compose with a custom <code>@style</code> rule).</p>
+<h3>transform / translate</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transform</code></td>
+<td>identity baseline (<code>translate(0,0) rotate(0) … scaleX(1) scaleY(1)</code>)</td>
+</tr>
+<tr>
+<td><code>transform-none</code></td>
+<td><code>transform: none;</code></td>
+</tr>
+<tr>
+<td><code>translate-x-N</code> / <code>translate-y-N</code></td>
+<td><code>transform: translateX/Y(&lt;spacing-scale&gt;);</code></td>
+</tr>
+<tr>
+<td><code>-translate-x-N</code> / <code>-translate-y-N</code></td>
+<td>negative translate (e.g. <code>-0.5rem</code>)</td>
+</tr>
+</tbody></table>
+<p><code>translate-*</code> uses the spacing scale (<code>translate-x-2</code> → <code>0.5rem</code>). The leading
+<code>-</code> produces the negative form.</p>
+<h3>rotate / scale</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rotate-N</code></td>
+<td><code>transform: rotate(Ndeg);</code></td>
+</tr>
+<tr>
+<td><code>-rotate-N</code></td>
+<td><code>transform: rotate(-Ndeg);</code></td>
+</tr>
+<tr>
+<td><code>scale-N</code></td>
+<td><code>transform: scale(N/100);</code> (e.g. <code>scale-105</code> → <code>1.05</code>)</td>
+</tr>
+<tr>
+<td><code>scale-x-N</code> / <code>scale-y-N</code></td>
+<td><code>transform: scaleX/Y(N/100);</code></td>
+</tr>
+</tbody></table>
+<h3>transition / duration / ease</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>transition</code></td>
+<td>default property set + <code>150ms</code> + <code>cubic-bezier(0.4, 0, 0.2, 1)</code></td>
+</tr>
+<tr>
+<td><code>transition-none</code></td>
+<td><code>transition-property: none;</code></td>
+</tr>
+<tr>
+<td><code>transition-all</code></td>
+<td><code>transition-property: all;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>transition-colors</code></td>
+<td>color/bg/border/decoration/fill/stroke + default timing</td>
+</tr>
+<tr>
+<td><code>transition-opacity</code></td>
+<td><code>transition-property: opacity;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>transition-transform</code></td>
+<td><code>transition-property: transform;</code> + default timing</td>
+</tr>
+<tr>
+<td><code>duration-N</code></td>
+<td><code>transition-duration: Nms;</code></td>
+</tr>
+<tr>
+<td><code>ease-linear</code></td>
+<td><code>transition-timing-function: linear;</code></td>
+</tr>
+<tr>
+<td><code>ease-in</code> / <code>ease-out</code> / <code>ease-in-out</code></td>
+<td>cubic-bezier easing functions</td>
+</tr>
+</tbody></table>
+<h3>animate</h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Declaration</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>animate-none</code></td>
+<td><code>animation: none;</code></td>
+</tr>
+<tr>
+<td><code>animate-spin</code></td>
+<td><code>animation: spin 1s linear infinite;</code> + <code>@keyframes spin</code></td>
+</tr>
+<tr>
+<td><code>animate-ping</code></td>
+<td><code>animation: ping …;</code> + <code>@keyframes ping</code></td>
+</tr>
+<tr>
+<td><code>animate-pulse</code></td>
+<td><code>animation: pulse …;</code> + <code>@keyframes pulse</code></td>
+</tr>
+<tr>
+<td><code>animate-bounce</code></td>
+<td><code>animation: bounce 1s infinite;</code> + <code>@keyframes bounce</code></td>
+</tr>
+</tbody></table>
+<p>Each <code>animate-*</code> (except <code>animate-none</code>) emits its <strong><code>@keyframes</code> block as a
+top-level sibling rule</strong> alongside the class rule — keyframes cannot be nested
+inside a selector body. Re-emitting an identical block is idempotent in CSS.</p>
+<h2>Variants</h2>
+<ul>
+<li><strong>Web-Component-native:</strong> <code>host:</code>, <code>slotted:</code>, <code>slotted-&lt;tag&gt;:</code>, <code>part-&lt;name&gt;:</code>, <code>host-context-&lt;name&gt;:</code></li>
+<li><strong>Pseudo:</strong> <code>hover:</code>, <code>focus:</code>, <code>focus-visible:</code>, <code>active:</code>, <code>disabled:</code>, <code>visited:</code>, <code>checked:</code></li>
+<li><strong>Responsive (min-width):</strong> <code>sm:</code> 40rem, <code>md:</code> 48rem, <code>lg:</code> 64rem, <code>xl:</code> 80rem, <code>2xl:</code> 96rem (override via <code>@theme</code>)</li>
+<li><strong>Dark mode:</strong> <code>dark:</code> (Firefox-safe <code>[data-theme=&quot;dark&quot;]</code> / <code>.dark</code> cascade)</li>
+<li><strong>Arbitrary selectors:</strong> <code>[&amp;&gt;li]:</code>, <code>[&amp;:has(img)]:</code>, etc.</li>
+<li><strong>Stacking:</strong> <code>md:hover:bg-primary</code> — left-to-right composition</li>
+</ul>
+<h3>aria-*/data-* attribute variants</h3>
+<p>Gate a utility on an ARIA state or a <code>data-*</code> attribute. The variant compiles
+to an attribute selector appended to the class.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Selector</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>aria-checked:</code></td>
+<td><code>[aria-checked=&quot;true&quot;]</code></td>
+<td>implicit <code>=&quot;true&quot;</code></td>
+</tr>
+<tr>
+<td><code>aria-disabled:</code></td>
+<td><code>[aria-disabled=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-expanded:</code></td>
+<td><code>[aria-expanded=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-selected:</code></td>
+<td><code>[aria-selected=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-pressed:</code></td>
+<td><code>[aria-pressed=&quot;true&quot;]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>aria-[expanded=false]:</code></td>
+<td><code>[aria-expanded=&quot;false&quot;]</code></td>
+<td>arbitrary <code>name=value</code></td>
+</tr>
+<tr>
+<td><code>data-[state=open]:</code></td>
+<td><code>[data-state=&quot;open&quot;]</code></td>
+<td>arbitrary <code>name=value</code></td>
+</tr>
+<tr>
+<td><code>data-active:</code></td>
+<td><code>[data-active]</code></td>
+<td>bare data-* → presence (no <code>=&quot;true&quot;</code>)</td>
+</tr>
+</tbody></table>
+<pre><code>aria-expanded:bg-accent      →  .aria-expanded\\:bg-accent[aria-expanded=&quot;true&quot;] { background-color: var(--color-accent); }
+data-[state=open]:underline  →  .data-\\[state\\=open\\]\\:underline[data-state=&quot;open&quot;] { text-decoration-line: underline; }
+</code></pre>
+<p>Any aria-/data- variant whose base utility is unknown emits nothing — there is
+no spurious empty rule.</p>
+<h3>Container queries (@container)</h3>
+<p>Mark an element as a query container with <code>@container</code> (or the named
+<code>@container/&lt;name&gt;</code> form), then size descendants with the <code>@sm:</code>/<code>@md:</code>/<code>@lg:</code>/
+<code>@xl:</code>/<code>@2xl:</code> container-query variants. These wrap the rule in an <code>@container</code>
+at-rule rather than <code>@media</code>, and use Tailwind&#39;s container-query scale (which
+differs from the viewport breakpoint scale).</p>
+<table>
+<thead>
+<tr>
+<th>Class / variant</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@container</code></td>
+<td><code>container-type: inline-size;</code></td>
+</tr>
+<tr>
+<td><code>@container/sidebar</code></td>
+<td><code>container-type: inline-size; container-name: sidebar;</code></td>
+</tr>
+<tr>
+<td><code>@sm:</code></td>
+<td><code>@container (min-width: 24rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@md:</code></td>
+<td><code>@container (min-width: 28rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@lg:</code></td>
+<td><code>@container (min-width: 32rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@xl:</code></td>
+<td><code>@container (min-width: 36rem) { … }</code></td>
+</tr>
+<tr>
+<td><code>@2xl:</code></td>
+<td><code>@container (min-width: 42rem) { … }</code></td>
+</tr>
+</tbody></table>
+<pre><code>&lt;div class=&quot;@container&quot;&gt;
+  &lt;div class=&quot;@md:flex&quot;&gt;…&lt;/div&gt;   →  @container (min-width: 28rem) { .\\@md\\:flex { display: flex; } }
+&lt;/div&gt;
+</code></pre>
+<h2>Brand tokens (16)</h2>
+<p>Override any token in a component&#39;s <code>@style</code> block via
+<code>@theme { --color-primary: oklch(...); }</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Token</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>primary</code> / <code>primary-foreground</code></td>
+<td><code>secondary</code> / <code>secondary-foreground</code></td>
+</tr>
+<tr>
+<td><code>accent</code> / <code>accent-foreground</code></td>
+<td><code>surface</code> / <code>surface-foreground</code></td>
+</tr>
+<tr>
+<td><code>destructive</code> / <code>destructive-foreground</code></td>
+<td><code>background</code> / <code>foreground</code></td>
+</tr>
+<tr>
+<td><code>muted</code> / <code>muted-foreground</code></td>
+<td><code>border</code> / <code>ring</code></td>
+</tr>
+</tbody></table>
+<p>Use as <code>bg-primary</code>, <code>text-accent</code>, <code>border-muted</code>, <code>ring-ring</code>, etc.</p>
+<h2>Palette</h2>
+<p>22 color families × 11 shades (<code>50</code>–<code>950</code>), matching the Tailwind v4 palette
+(e.g. <code>bg-red-500</code>, <code>text-slate-700</code>, <code>border-zinc-200</code>). See the
+<a href="https://tailwindcss.com/docs/colors">Tailwind v4 color palette</a> for the full
+swatch list.</p>
+<h2>Arbitrary values</h2>
+<p>Use <code>prefix-[value]</code> to bypass the scale for: <code>bg</code>, <code>text</code>, <code>w</code>, <code>h</code>, <code>min-w</code>,
+<code>max-w</code>, <code>min-h</code>, <code>max-h</code>, <code>p</code>, <code>px</code>, <code>py</code>, <code>m</code>, <code>mx</code>, <code>my</code>, <code>gap</code>, <code>rounded</code>,
+<code>border</code>, <code>leading</code>, <code>tracking</code>, <code>z</code>, <code>top</code>, <code>right</code>, <code>bottom</code>, <code>left</code>,
+<code>inset</code>, <code>fill</code>, <code>stroke</code>, <code>shadow</code>.</p>
+<pre><code>bg-[#1a1d24]   →  background-color: #1a1d24;
+w-[34ch]       →  width: 34ch;
+top-[1rem]     →  top: 1rem;
+</code></pre>
+<h2>Not yet supported</h2>
+<blockquote>
+<p>The following are deliberately out of scope today. Most have an
+arbitrary-value workaround; the rest require variant-parser changes. Open an
+issue if you need one promoted.</p>
+</blockquote>
+<ul>
+<li>Arbitrary at-rules beyond <code>@media</code> / <code>@container</code> (e.g. <code>@supports</code>)</li>
+</ul>
+<h2>Worked examples</h2>
+<p>One input → output pair per new family.</p>
+<h3><code>space-y-4</code> (Spacing)</h3>
+<pre><code class="language-html">&lt;ul class=&quot;space-y-4&quot;&gt; … &lt;/ul&gt;
+</code></pre>
+<pre><code class="language-css">.space-y-4 { &amp; &gt; * + * { margin-block-start: 1rem; } }
+</code></pre>
+<h3><code>divide-y-2</code> (Divide — sibling borders)</h3>
+<pre><code class="language-html">&lt;ul class=&quot;divide-y-2 border-muted&quot;&gt; … &lt;/ul&gt;
+</code></pre>
+<pre><code class="language-css">.divide-y-2 { &amp; &gt; * + * { border-block-width: 2px; } }
+</code></pre>
+<h3><code>mx-auto</code> (Margin auto)</h3>
+<pre><code class="language-html">&lt;div class=&quot;mx-auto&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.mx-auto { margin-inline: auto; }
+</code></pre>
+<h3><code>max-w-7xl</code> (Named max-width)</h3>
+<pre><code class="language-html">&lt;section class=&quot;max-w-7xl&quot;&gt; … &lt;/section&gt;
+</code></pre>
+<pre><code class="language-css">.max-w-7xl { max-width: 80rem; }
+</code></pre>
+<h3><code>grid-cols-3</code> (Grid templating)</h3>
+<pre><code class="language-html">&lt;div class=&quot;grid grid-cols-3 gap-4&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+</code></pre>
+<h3><code>border-t-4</code> (Directional border width)</h3>
+<pre><code class="language-html">&lt;div class=&quot;border-t-4&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.border-t-4 { border-top-width: 4px; }
+</code></pre>
+<h3><code>absolute top-4 right-4</code> (Position scale)</h3>
+<pre><code class="language-html">&lt;button class=&quot;absolute top-4 right-4&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }
+</code></pre>
+<h3><code>leading-relaxed</code> (Line-height scale)</h3>
+<pre><code class="language-html">&lt;p class=&quot;leading-relaxed&quot;&gt; … &lt;/p&gt;
+</code></pre>
+<pre><code class="language-css">.leading-relaxed { line-height: 1.625; }
+</code></pre>
+<h3><code>tracking-wide</code> (Letter-spacing scale)</h3>
+<pre><code class="language-html">&lt;h1 class=&quot;tracking-wide&quot;&gt; … &lt;/h1&gt;
+</code></pre>
+<pre><code class="language-css">.tracking-wide { letter-spacing: 0.025em; }
+</code></pre>
+<h3><code>ring-2 ring-blue-500</code> (Ring width + color)</h3>
+<pre><code class="language-html">&lt;button class=&quot;focus:ring-2 ring-blue-500&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.ring-2 {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+.ring-blue-500 { --tw-ring-color: var(--color-blue-500); }
+</code></pre>
+<h3><code>ring-offset-2</code> (Ring offset width)</h3>
+<pre><code class="language-html">&lt;div class=&quot;ring-2 ring-offset-2&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.ring-offset-2 { --tw-ring-offset-width: 2px; }
+</code></pre>
+<h3><code>hover:scale-105</code> + <code>transition-transform</code> (Motion)</h3>
+<pre><code class="language-html">&lt;button class=&quot;transition-transform duration-300 hover:scale-105&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.duration-300 { transition-duration: 300ms; }
+.hover\\:scale-105:hover { transform: scale(1.05); }
+</code></pre>
+<h3><code>animate-spin</code> (Animation with hoisted keyframes)</h3>
+<pre><code class="language-html">&lt;div class=&quot;animate-spin&quot;&gt; … &lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.animate-spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</code></pre>
+<h3><code>aria-expanded:</code> (attribute variant)</h3>
+<pre><code class="language-html">&lt;button class=&quot;aria-expanded:bg-accent&quot;&gt; … &lt;/button&gt;
+</code></pre>
+<pre><code class="language-css">.aria-expanded\\:bg-accent[aria-expanded=&quot;true&quot;] { background-color: var(--color-accent); }
+</code></pre>
+<h3><code>@container</code> + <code>@md:</code> (container query)</h3>
+<pre><code class="language-html">&lt;div class=&quot;@container&quot;&gt;
+  &lt;div class=&quot;@md:flex&quot;&gt; … &lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+<pre><code class="language-css">.\\@container { container-type: inline-size; }
+@container (min-width: 28rem) {
+  .\\@md\\:flex { display: flex; }
+}
+</code></pre>
+<h2>See also</h2>
+<ul>
+<li><a href="#styling">Styling</a> — how the engine scans and scopes utilities</li>
+<li><a href="#theming">Theming</a> — design tokens and style packs</li>
+<li><a href="#api-reference">API Reference</a> — <code>@aihu/css-engine</code> export tables</li>
 </ul>
 `,
   },
@@ -2836,6 +4503,14 @@ bunx @aihu/cli app my-app
 # Node.js
 npx @aihu/cli app my-app
 </code></pre>
+<blockquote>
+<p><strong>Note (TODO-001):</strong> The ≤5 minute quick start is conditional until pre-built
+<code>aihu-compile</code> binaries ship. Today the scaffolder builds the Rust SFC compiler
+from source on first run, which adds a one-time toolchain step. Once the
+<a href="https://github.com/fellwork/aihu/blob/main/.github/workflows/release.yml">GitHub Actions release workflow</a>
+publishes platform binaries, the install becomes a single download and this
+note will be removed.</p>
+</blockquote>
 <p>The scaffolder generates the following files:</p>
 <pre><code>my-app/
   package.json
@@ -3190,799 +4865,1191 @@ bun run preview
 </ul>
 `,
   },
-  primitives: {
-    title: 'Primitives',
-    html: `<h1>Primitives</h1>
-<p><strong><code>@aihu/primitives</code></strong> is a set of headless behavior primitives — WAI-ARIA APG patterns implemented as vanilla custom elements. Each primitive emits DOM structure, ARIA wiring, and <code>data-state</code> attributes, and owns its state on <code>@aihu/signals</code>. It ships <strong>zero CSS</strong>: you style every part yourself, typically with the <a href="#styling">css-engine</a>&#39;s <code>cn()</code> + style packs.</p>
-<blockquote>
-<p><strong>Status:</strong> <code>@aihu/primitives@0.0.1</code> is published. Behaviors below are available today. The styled component registry built on top of them (<code>@aihu/ui</code> / <code>aihu add</code>) is roadmap-only — see <a href="#styling">the registry note</a>.</p>
-</blockquote>
-<h2>Why headless</h2>
-<p>A headless primitive gives you the hard part — focus management, keyboard interaction, ARIA roles/relationships, open/close state — without imposing any look. Each piece reflects <code>data-state=&quot;open&quot;|&quot;closed&quot;</code> (and friends), so your CSS selectors drive the appearance while the primitive guarantees the accessibility contract. This mirrors the Radix/Ark &quot;root ↔ piece&quot; model: a root element owns the state and provides it via a DOM-walk context; the pieces inject it by walking up the real DOM (across shadow boundaries), nearest-provider-wins.</p>
-<h2>Phase-1 components</h2>
-<h3>Dialog</h3>
-<p>The WAI-ARIA APG <strong>Modal Dialog</strong> pattern. Pieces: <code>&lt;aihu-dialog-root&gt;</code> (state owner), <code>&lt;aihu-dialog-trigger&gt;</code>, <code>&lt;aihu-dialog-content&gt;</code>, <code>&lt;aihu-dialog-backdrop&gt;</code>, <code>&lt;aihu-dialog-close&gt;</code>, <code>&lt;aihu-dialog-title&gt;</code>, <code>&lt;aihu-dialog-description&gt;</code>. Provides focus-trap + return-focus, Escape-to-close, outside-click-to-close (when modal), and <code>role=&quot;dialog&quot;</code> / <code>aria-modal</code> / <code>aria-labelledby</code> / <code>aria-describedby</code> plus the trigger&#39;s <code>aria-haspopup</code> / <code>aria-expanded</code> / <code>aria-controls</code>. Register with <code>defineDialog()</code>.</p>
-<h3>Tooltip</h3>
-<p>The WAI-ARIA APG <strong>Tooltip</strong> pattern. Pieces: <code>&lt;aihu-tooltip-root&gt;</code>, <code>&lt;aihu-tooltip-trigger&gt;</code>, <code>&lt;aihu-tooltip-content&gt;</code>. The trigger is <code>aria-describedby</code> the content (not labelled-by), the content has <code>role=&quot;tooltip&quot;</code> and is not focusable, and Escape dismisses. Open/close honors configurable <code>open-delay</code> / <code>close-delay</code> (default 700 / 300 ms). Placement reuses the css-engine&#39;s <code>position()</code> shim — the tooltip carries no positioning math and adds no floating-ui dependency. Register with <code>defineTooltip()</code>.</p>
-<h3>Button</h3>
-<p><code>AihuButton</code> — a headless button base class implementing the APG <strong>Button</strong> pattern. When the host is not a native <code>&lt;button&gt;</code>, it sets <code>role=&quot;button&quot;</code> + <code>tabindex=&quot;0&quot;</code> and handles Enter / Space to fire a synthetic click; native <code>&lt;button&gt;</code> defers to native semantics. Reflects <code>aria-pressed</code> (toggle), <code>aria-disabled</code>, and <code>data-state</code>, and inherits <code>disabled</code> from an ancestor <code>form-control</code>. It is a base class, not a pre-registered tag — extend it or register a concrete element with <code>defineButton(tag)</code>.</p>
-<h2>Phase-0 substrates</h2>
-<p>The lower-level building blocks the Phase-1 components compose on. Use them directly when building your own primitives.</p>
+  'packages/adapter-cloudflare': {
+    title: '@aihu/adapter-cloudflare',
+    html: `<h1>@aihu/adapter-cloudflare</h1>
+<p>Cloudflare Workers/Pages deployment adapter for <code>@aihu/app</code>. A build-time-only tool — it runs during your production build and emits the files Cloudflare needs to serve your app. It is never included in browser bundles and has no runtime size impact.</p>
+<p>The adapter writes a <code>_worker.js</code> entry into Vite&#39;s output directory and, optionally, a <code>wrangler.toml</code> in your project root. It supports two deployment targets (Workers and Pages) and two serving modes (SPA-only and SSR + static hybrid).</p>
+<h2>Install</h2>
+<pre><code class="language-bash">npm install @aihu/adapter-cloudflare
+# or
+bun add @aihu/adapter-cloudflare
+</code></pre>
+<p>This package declares <code>@aihu/app</code> and <code>vite</code> (&gt;=5.0.0) as peer dependencies — install them alongside it.</p>
+<h2>API overview</h2>
 <table>
 <thead>
 <tr>
-<th>Primitive</th>
-<th>Subpath</th>
-<th>Role</th>
+<th>Name</th>
+<th>Kind</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>DOM context</td>
-<td><code>@aihu/primitives/context</code></td>
-<td>Live ancestor-traversal context (<code>createDomContext</code> / <code>provideContext</code> / <code>injectContext</code>) — the root↔piece coordination mechanism. Self-contained; does NOT import <code>@aihu/context</code>.</td>
+<td><code>cloudflare</code></td>
+<td>function</td>
+<td>Create a Cloudflare adapter for use in <code>aihu.config.ts</code></td>
 </tr>
 <tr>
-<td>Presence gate</td>
-<td><code>@aihu/primitives/presence-gate</code></td>
-<td>Mount/unmount gate that holds children through an exit transition (the Radix <code>Presence</code> pattern). <code>definePresenceGate()</code>.</td>
-</tr>
-<tr>
-<td>Roving focus</td>
-<td><code>@aihu/primitives/roving-focus</code></td>
-<td>Roving-<code>tabindex</code> focus management for composite widgets, configurable <code>Orientation</code>. <code>defineRovingFocus()</code>.</td>
-</tr>
-<tr>
-<td>Collection</td>
-<td><code>@aihu/primitives/collection</code></td>
-<td>Ordered registration of descendant items (for lists, menus, etc.). <code>createCollection()</code> / <code>defineCollection()</code>.</td>
-</tr>
-<tr>
-<td>Config provider</td>
-<td><code>@aihu/primitives/config-provider</code></td>
-<td>Propagates <code>colorScheme</code> / <code>density</code> / <code>direction</code> to descendants via context. <code>defineConfigProvider()</code>.</td>
-</tr>
-<tr>
-<td>Form control</td>
-<td><code>@aihu/primitives/form-control</code></td>
-<td>Shared label/description/validity wiring + a <code>disabled</code> context that descendants (e.g. button) inherit. <code>defineFormControl()</code>.</td>
+<td><code>CloudflareAdapterOptions</code></td>
+<td>interface</td>
+<td>Options bag accepted by <code>cloudflare()</code></td>
 </tr>
 </tbody></table>
-<h2>Consumer pattern — <code>cn()</code> + a style pack</h2>
-<p>Primitives are unstyled, so you bring the CSS. The intended pairing is the css-engine: style each <code>data-state</code> with utility classes, and merge any runtime overrides with <code>cn()</code>.</p>
-<pre><code class="language-ts">import { defineDialog } from &#39;@aihu/primitives/dialog&#39;
-import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
-
-defineDialog()
-
-// merge a base recipe string with a caller-provided override (last-wins)
-const contentClass = cn(&#39;rounded-lg p-6 bg-surface shadow-lg&#39;, userClassName)
-contentEl.className = contentClass
+<p>The default export of <code>@aihu/app</code> returns an <code>AihuAdapter</code>; <code>cloudflare()</code> is the only value export of this package.</p>
+<h2>Functions</h2>
+<h3>cloudflare</h3>
+<pre><code class="language-typescript">function cloudflare(options?: CloudflareAdapterOptions): AihuAdapter
 </code></pre>
-<pre><code class="language-html">&lt;aihu-dialog-root&gt;
-  &lt;aihu-dialog-trigger&gt;Open&lt;/aihu-dialog-trigger&gt;
-  &lt;aihu-dialog-backdrop class=&quot;fixed inset-0 bg-black/40 data-[state=closed]:opacity-0&quot;&gt;&lt;/aihu-dialog-backdrop&gt;
-  &lt;aihu-dialog-content class=&quot;rounded-lg p-6 bg-surface shadow-lg&quot;&gt;
-    &lt;aihu-dialog-title&gt;Title&lt;/aihu-dialog-title&gt;
-    &lt;aihu-dialog-description&gt;Body copy.&lt;/aihu-dialog-description&gt;
-    &lt;aihu-dialog-close&gt;Close&lt;/aihu-dialog-close&gt;
-  &lt;/aihu-dialog-content&gt;
-&lt;/aihu-dialog-root&gt;
-</code></pre>
-<p>The primitive guarantees focus trap, Escape, ARIA, and <code>data-state</code>; your utility classes (resolved by the css-engine at build time, or merged at runtime with <code>cn()</code>) supply the look.</p>
-<h2>See also</h2>
-<ul>
-<li><a href="#styling">Styling</a> — the css-engine, <code>cn()</code>, style packs, scoped output</li>
-<li><a href="#api-reference">API Reference</a> — full <code>@aihu/primitives</code> export tables</li>
-</ul>
-`,
-  },
-  reactivity: {
-    title: 'Reactivity',
-    html: `<h1>Reactivity</h1>
-<p><code>@aihu/signals</code> provides the reactive foundation for the entire aihu framework. It uses a push-based, synchronous execution model: when a signal is written, all dependent effects run immediately.</p>
-<h2><code>signal&lt;T&gt;(initialValue)</code></h2>
-<p>Creates a writable reactive cell:</p>
-<pre><code class="language-typescript">import { signal } from &#39;@aihu/signals&#39;
-
-const count = signal(0)
-
-count()       // read: returns 0
-count(1)      // write: sets to 1, flushes effects
-</code></pre>
-<p>Signals are the atomic unit of state. They are not wrapped in objects or proxies — call them as functions to read or write.</p>
-<h2><code>computed&lt;T&gt;(fn)</code></h2>
-<p>Derives a read-only signal from other signals:</p>
-<pre><code class="language-typescript">import { signal, computed } from &#39;@aihu/signals&#39;
-
-const count = signal(0)
-const doubled = computed(() =&gt; count() * 2)
-
-doubled() // 0
-count(5)
-doubled() // 10
-</code></pre>
-<p>Computed signals are lazily evaluated and memoized. They re-evaluate only when a tracked dependency changes.</p>
-<h2><code>effect(fn)</code></h2>
-<p>Runs a side effect whenever tracked signals change. Returns a dispose function:</p>
-<pre><code class="language-typescript">import { signal, effect } from &#39;@aihu/signals&#39;
-
-const name = signal(&#39;world&#39;)
-const dispose = effect(() =&gt; {
-  console.log(&#39;Hello,&#39;, name())
-})
-// Logs: &quot;Hello, world&quot;
-
-name(&#39;aihu&#39;)
-// Logs: &quot;Hello, aihu&quot;
-
-dispose() // stops the effect
-</code></pre>
-<p>Effects run synchronously after each signal write. They auto-track all signals read during their execution.</p>
-<p>To clean up resources when an effect re-runs, return a cleanup function:</p>
-<pre><code class="language-typescript">const dispose = effect(() =&gt; {
-  const id = setInterval(() =&gt; tick(), 1000)
-  return () =&gt; clearInterval(id)  // called before next run or on dispose
-})
-</code></pre>
-<h2><code>batch(fn)</code></h2>
-<p>Defers effect flushes until the batch function returns:</p>
-<pre><code class="language-typescript">import { signal, effect, batch } from &#39;@aihu/signals&#39;
-
-const a = signal(0)
-const b = signal(0)
-
-effect(() =&gt; console.log(a(), b()))
-
-batch(() =&gt; {
-  a(1)  // no flush yet
-  b(2)  // no flush yet
-})
-// Now effects flush once with a=1, b=2
-</code></pre>
-<p><code>batch</code> is useful when updating multiple signals that drive the same derived computation — it prevents intermediate renders. This is the preferred pattern for atomic multi-signal updates.</p>
-<h2><code>untrack(fn)</code></h2>
-<p>Reads signals inside <code>fn</code> without subscribing to them. Re-entrancy safe:</p>
-<pre><code class="language-typescript">import { signal, effect, untrack } from &#39;@aihu/signals&#39;
-
-const count = signal(0)
-const multiplier = signal(2)
-
-effect(() =&gt; {
-  // Only subscribes to count, not multiplier
-  const m = untrack(() =&gt; multiplier())
-  console.log(count() * m)
-})
-</code></pre>
-<p><code>untrack</code> is re-entrancy safe — calling it from inside an <code>effect</code> or another <code>untrack</code> works correctly.</p>
-<h2>Lattice signals</h2>
-<p>Lattice signals are merge-monotone reactive cells. They are useful for collaborative state where multiple sources update the same value and the result should be the &quot;join&quot; of all inputs.</p>
-<h3><code>latticeSignal&lt;T&gt;(merge, initial)</code></h3>
-<p>General-purpose lattice signal with a custom merge function:</p>
-<pre><code class="language-typescript">import { latticeSignal } from &#39;@aihu/signals&#39;
-
-const versions = latticeSignal&lt;Set&lt;string&gt;&gt;(
-  (a, b) =&gt; new Set([...a, ...b]),
-  new Set()
-)
-</code></pre>
-<h3><code>boolLatticeSignal(initial?)</code></h3>
-<p>Boolean OR-merge lattice signal. Once set to <code>true</code>, stays <code>true</code>:</p>
-<pre><code class="language-typescript">import { boolLatticeSignal } from &#39;@aihu/signals&#39;
-
-const ready = boolLatticeSignal(false)
-ready(true)  // true
-ready(false) // still true — OR merge
-</code></pre>
-<h3><code>maxLatticeSignal(initial?)</code></h3>
-<p>Numeric max-merge lattice signal. Monotonically increases:</p>
-<pre><code class="language-typescript">import { maxLatticeSignal } from &#39;@aihu/signals&#39;
-
-const highScore = maxLatticeSignal(0)
-highScore(42)
-highScore(10)  // stays 42 — max merge
-</code></pre>
-<h2><code>$state</code> accessor</h2>
-<p><code>$state</code> is a shorthand accessor for the component state bag in SFCs. Inside <code>@state</code> blocks, all declared props and computeds are available on <code>$state</code> without qualification.</p>
-<h2>Reactive patterns</h2>
-<h3>Computed chains</h3>
-<p>Computeds can depend on other computeds:</p>
-<pre><code class="language-typescript">const base = signal(10)
-const doubled = computed(() =&gt; base() * 2)
-const quadrupled = computed(() =&gt; doubled() * 2)
-</code></pre>
-<p>Only <code>base</code> is a writable signal; the derived chain updates automatically. Each computed is memoized — intermediate computeds don&#39;t re-run unless their own dependencies change.</p>
-<h3>Effects with cleanup</h3>
-<p>Return a cleanup function from <code>effect</code> to dispose resources before the next run:</p>
-<pre><code class="language-typescript">const url = signal(&#39;/api/data&#39;)
-
-effect(() =&gt; {
-  const controller = new AbortController()
-  fetch(url(), { signal: controller.signal })
-    .then(r =&gt; r.json())
-    .then(setData)
-  return () =&gt; controller.abort()
-})
-</code></pre>
-<p>The cleanup runs when <code>url</code> changes (before the next fetch starts) and when the effect is disposed.</p>
-<h3>The <code>batch</code> pattern for atomic updates</h3>
-<p>When multiple signals feed a single derived value, use <code>batch</code> to prevent intermediate states:</p>
-<pre><code class="language-typescript">const hue = signal(215)
-const saturation = signal(70)
-const lightness = signal(55)
-
-const color = computed(() =&gt;
-  \`hsl(\${hue()} \${saturation()}% \${lightness()}%)\`
-)
-
-// Without batch: color re-computes 3 times
-// With batch: color re-computes once
-batch(() =&gt; {
-  hue(0)
-  saturation(100)
-  lightness(50)
-})
-</code></pre>
-<h2>Push-based semantics</h2>
-<p>aihu signals are push-based: effects run synchronously after each signal write (or after a <code>batch</code> completes). There is no scheduler, no microtask queue, and no async rendering pipeline. This makes behavior predictable and side effects easy to reason about.</p>
-`,
-  },
-  'routing-layouts': {
-    title: 'Routing and Layouts',
-    html: `<h1>Routing and Layouts</h1>
-<p>aihu uses file-based routing. Pages live under <code>src/pages/</code> and automatically become routes when compiled.</p>
-<h2>File-based routing</h2>
-<p>Any <code>.aihu</code> file under <code>src/pages/</code> that contains an <code>@route</code> block is treated as a page route. The file path determines the default URL pattern:</p>
+<p>Returns an <code>AihuAdapter</code> (named <code>&#39;cloudflare&#39;</code>) that you pass to <code>defineConfig({ adapter })</code>. During the build, its <code>adapt()</code> hook runs after Vite finishes and:</p>
+<ol>
+<li>In SSR mode only, writes <code>routes-manifest.js</code> into the output directory before the worker entry.</li>
+<li>Writes <code>_worker.js</code> to the output directory — an SPA entry, or an SSR + static hybrid entry when <code>ssr: true</code>.</li>
+<li>Writes <code>wrangler.toml</code> to the project root, but only if no <code>wrangler.toml</code> already exists. It never overwrites your file.</li>
+</ol>
+<p><strong>Parameters</strong></p>
 <table>
 <thead>
 <tr>
-<th>File</th>
-<th>Default pattern</th>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>src/pages/index.aihu</code></td>
-<td><code>/</code></td>
-</tr>
-<tr>
-<td><code>src/pages/about.aihu</code></td>
-<td><code>/about</code></td>
-</tr>
-<tr>
-<td><code>src/pages/users/[id].aihu</code></td>
-<td><code>/users/:id</code></td>
+<td><code>options</code></td>
+<td><code>CloudflareAdapterOptions</code></td>
+<td>No</td>
+<td>Adapter configuration. All fields are optional.</td>
 </tr>
 </tbody></table>
-<h3>File-based routing tree example</h3>
-<pre><code>src/
-  pages/
-    index.aihu          →  /
-    about.aihu           →  /about
-    users/
-      index.aihu         →  /users
-      [id].aihu          →  /users/:id
-    admin/
-      index.aihu         →  /admin
-      users.aihu         →  /admin/users
-  layouts/
-    default.aihu         →  wraps all routes without an explicit layout
-    admin.aihu           →  wraps routes with layout: admin
-</code></pre>
-<h2>The <code>@route</code> block</h2>
-<pre><code>@route {
-  path: /admin/users
-  name: admin-users
-  middleware: [auth, admin]
-  ssr: true
-  layout: admin
+<p><strong>Returns</strong> <code>AihuAdapter</code> — the adapter object consumed by <code>@aihu/app</code>.</p>
+<h2>Types</h2>
+<h3>CloudflareAdapterOptions</h3>
+<pre><code class="language-typescript">interface CloudflareAdapterOptions {
+  name?: string
+  mode?: &#39;workers&#39; | &#39;pages&#39;
+  generateWrangler?: boolean
+  ssr?: boolean
 }
 </code></pre>
-<p>Fields:</p>
-<ul>
-<li><strong><code>path</code></strong> — explicit URL path override. If omitted, the path is derived from the file location.</li>
-<li><strong><code>name</code></strong> — route name used in programmatic navigation and the route manifest.</li>
-<li><strong><code>middleware</code></strong> — array of middleware names applied to this route.</li>
-<li><strong><code>ssr</code></strong> — boolean. <code>true</code> enables server-side rendering for this route.</li>
-<li><strong><code>layout</code></strong> — layout name to wrap this route&#39;s content.</li>
-</ul>
-<h2><code>.route.json</code> sidecars</h2>
-<p>The compiler emits a <code>.route.json</code> file alongside each compiled SFC that has an <code>@route</code> block. Example:</p>
-<pre><code class="language-json">{
-  &quot;pattern&quot;: &quot;/admin/users&quot;,
-  &quot;name&quot;: &quot;admin-users&quot;,
-  &quot;middleware&quot;: [&quot;auth&quot;, &quot;admin&quot;],
-  &quot;ssr&quot;: true,
-  &quot;layout&quot;: &quot;admin&quot;
-}
-</code></pre>
-<p>Read a sidecar programmatically with <code>readRouteSidecar(path)</code> from <code>@aihu/router/plugin</code>.</p>
-<h2><code>viteRouterIntegration()</code></h2>
-<p><code>viteRouterIntegration()</code> is a Vite plugin (from <code>@aihu/router/plugin</code>) that scans <code>src/pages/</code> at build time, reads all <code>.route.json</code> sidecars, and assembles a virtual route manifest module:</p>
-<pre><code class="language-typescript">// vite.config.ts
-import { defineConfig } from &#39;vite&#39;
-import { viteRouterIntegration } from &#39;@aihu/router/plugin&#39;
+<p>All fields are optional.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>&quot;name&quot;</code> from your <code>package.json</code>, else <code>&#39;aihu-app&#39;</code></td>
+<td>Cloudflare Worker name written into the generated <code>wrangler.toml</code>.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>&#39;workers&#39; | &#39;pages&#39;</code></td>
+<td><code>&#39;workers&#39;</code></td>
+<td>Deployment target. <code>&#39;workers&#39;</code> serves static assets via the <code>env.ASSETS</code> binding; <code>&#39;pages&#39;</code> follows the Cloudflare Pages <code>_worker.js</code> convention. Both produce the same output, only the deploy target differs.</td>
+</tr>
+<tr>
+<td><code>generateWrangler</code></td>
+<td><code>boolean</code></td>
+<td><code>true</code></td>
+<td>Whether to write <code>wrangler.toml</code> in the project root if it is absent. Set to <code>false</code> to manage <code>wrangler.toml</code> yourself. An existing file is never overwritten regardless of this value.</td>
+</tr>
+<tr>
+<td><code>ssr</code></td>
+<td><code>boolean</code></td>
+<td><code>false</code></td>
+<td>Enable SSR + static hybrid mode. When <code>false</code> (default), all requests are served from the <code>ASSETS</code> binding (SPA-only).</td>
+</tr>
+</tbody></table>
+<h2>Serving modes</h2>
+<h3>SPA-only (default)</h3>
+<p>When <code>ssr</code> is <code>false</code>, the generated <code>_worker.js</code> serves every page request from Cloudflare&#39;s <code>ASSETS</code> binding (the CDN). On a 404 from <code>ASSETS</code>, it falls back to <code>/index.html</code> so client-side routing works.</p>
+<h3>SSR + static hybrid</h3>
+<p>When <code>ssr: true</code>, the worker resolves each request in priority order:</p>
+<ol>
+<li><strong>SSR handler</strong> — your aihu server routes (API routes, agent-readiness endpoints, server-rendered pages).</li>
+<li><strong>ASSETS</strong> — pre-rendered static files served from the Cloudflare CDN.</li>
+<li><strong><code>/index.html</code></strong> — the SPA shell fallback for client-side-routed pages.</li>
+</ol>
+<p>In this mode the adapter also emits a <code>routes-manifest.js</code> carrying serializable route metadata (<code>pattern</code>, <code>segments</code>, <code>name</code>, <code>ssr</code>). Because page components are not serializable, each manifest route currently uses a placeholder handler that returns 404, letting the worker fall through to the <code>ASSETS</code> binding for pre-rendered pages.</p>
+<h2>Usage</h2>
+<h3>Basic configuration</h3>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { cloudflare } from &#39;@aihu/adapter-cloudflare&#39;
 
 export default defineConfig({
-  plugins: [viteRouterIntegration()],
+  adapter: cloudflare({ name: &#39;my-worker&#39; }),
 })
 </code></pre>
-<p>The virtual module <code>virtual:aihu-routes</code> exports the assembled <code>RouteDefinition[]</code> array. The runtime <code>createRouter</code> consumes it to handle navigation.</p>
-<p><code>viteRouterPlugin</code> is a deprecated alias removed at v1.0.</p>
-<h2><code>createRouter(routes)</code></h2>
-<p>Creates a router instance from an array of route definitions. Typically you pass the virtual module directly:</p>
-<pre><code class="language-typescript">import { createRouter } from &#39;@aihu/router&#39;
-import routes from &#39;virtual:aihu-routes&#39;
+<h3>SSR + static hybrid</h3>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { cloudflare } from &#39;@aihu/adapter-cloudflare&#39;
 
-const router = createRouter(routes)
-</code></pre>
-<h2>Layouts</h2>
-<p>Layouts live under <code>src/layouts/</code>. The default layout is <code>src/layouts/default.aihu</code>. A layout wraps the page&#39;s rendered output via <code>&lt;$slot&gt;</code>:</p>
-<pre><code>@template {
-  &lt;header&gt;My App&lt;/header&gt;
-  &lt;main&gt;
-    &lt;$slot /&gt;
-  &lt;/main&gt;
-  &lt;footer&gt;Footer&lt;/footer&gt;
-}
-</code></pre>
-<p><code>scanLayouts(dir)</code> from <code>@aihu/router/plugin</code> returns all discovered layout names.</p>
-<h2>Router middleware</h2>
-<p>Middleware is defined with <code>defineRouterMiddleware</code> and composed with <code>composeRouterMiddleware</code>:</p>
-<pre><code class="language-typescript">import { defineRouterMiddleware, composeRouterMiddleware } from &#39;@aihu/router&#39;
-
-const authMiddleware = defineRouterMiddleware(async (ctx, next) =&gt; {
-  if (!ctx.params.token) {
-    return { kind: &#39;redirect&#39;, location: &#39;/login&#39;, status: 302 }
-  }
-  return next()
+export default defineConfig({
+  adapter: cloudflare({ ssr: true }),
 })
-
-const loggingMiddleware = defineRouterMiddleware(async (ctx, next) =&gt; {
-  console.log(&#39;navigating to&#39;, ctx.url.pathname)
-  return next()
-})
-
-export const composed = composeRouterMiddleware(loggingMiddleware, authMiddleware)
 </code></pre>
-<h3>Stage ordering</h3>
-<p>Middleware passed to <code>composeRouterMiddleware</code> are called in array order. Any middleware that returns a non-void result (e.g. <code>{ kind: &#39;redirect&#39; }</code> or <code>{ kind: &#39;cancel&#39; }</code>) short-circuits the chain — subsequent middleware and the route handler are not called.</p>
-<p>Standard stage ordering convention:</p>
-<ol>
-<li>Logging / tracing</li>
-<li>Auth / session</li>
-<li>Redirect rules</li>
-<li>Render</li>
-</ol>
-<h2>Reactive routing primitives</h2>
-<p>The router exposes reactive primitives for use in SFCs and TypeScript:</p>
-<table>
-<thead>
-<tr>
-<th>Export</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>useRoute()</code></td>
-<td>Reactive accessor returning the current route match</td>
-</tr>
-<tr>
-<td><code>useRouter()</code></td>
-<td>Access the router instance</td>
-</tr>
-<tr>
-<td><code>navigate(path, opts?)</code></td>
-<td>Programmatic navigation</td>
-</tr>
-<tr>
-<td><code>createRouteSignal(router)</code></td>
-<td>Signal bound to the current route</td>
-</tr>
-<tr>
-<td><code>createPrefetcher(router)</code></td>
-<td>Create a route prefetcher</td>
-</tr>
-<tr>
-<td><code>provideRouteContext(router)</code></td>
-<td>Provide route context to the component tree</td>
-</tr>
-<tr>
-<td><code>RouteContext</code></td>
-<td>Context token for the current route</td>
-</tr>
-</tbody></table>
+<h3>Managing wrangler.toml yourself</h3>
+<pre><code class="language-typescript">import { defineConfig } from &#39;@aihu/app&#39;
+import { cloudflare } from &#39;@aihu/adapter-cloudflare&#39;
+
+export default defineConfig({
+  // Don&#39;t generate wrangler.toml — you maintain your own.
+  adapter: cloudflare({ generateWrangler: false }),
+})
+</code></pre>
+<h2>Deploy</h2>
+<p>After building, deploy the output with Wrangler:</p>
+<pre><code class="language-bash">wrangler deploy --config wrangler.toml
+</code></pre>
+<p>The generated <code>wrangler.toml</code> sets <code>main = &quot;_worker.js&quot;</code>, a <code>compatibility_date</code>, and an <code>[assets]</code> block binding the output directory to <code>ASSETS</code>. Edit it freely after generation — the adapter never overwrites an existing file.</p>
+<h2>See also</h2>
+<ul>
+<li><a href="#packages/cli">@aihu/cli</a> — scaffold a new aihu app</li>
+</ul>
 `,
   },
-  'ssr-hydration': {
-    title: 'SSR and Hydration',
-    html: `<h1>SSR and Hydration</h1>
-<p>aihu supports server-side rendering via <code>@aihu/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.</p>
-<h2>Build targets</h2>
-<p>Set the build target in <code>aihu.config.ts</code>:</p>
-<pre><code class="language-typescript">import { defineAihuConfig } from &#39;@aihu/server&#39;
-
-export default defineAihuConfig({
-  build: {
-    target: &#39;universal&#39;,
-  },
-})
+  'packages/adapter-vercel': {
+    title: '@aihu/adapter-vercel',
+    html: `<h1>@aihu/adapter-vercel</h1>
+<p>Vercel deployment adapter for <code>@aihu/app</code>. Implements the <code>AihuAdapter</code> interface and emits a <a href="https://vercel.com/docs/build-output-api/v3">Vercel Build Output API v3</a> directory (<code>.vercel/output/</code>) from a finished Vite build, ready for <code>vercel deploy --prebuilt</code>.</p>
+<h2>Install</h2>
+<pre><code class="language-bash">npm install @aihu/adapter-vercel
+# or
+bun add @aihu/adapter-vercel
 </code></pre>
+<p>Peer dependencies: <code>@aihu/app</code> and <code>vite</code> (<code>&gt;=5.0.0</code>).</p>
+<h2>API overview</h2>
 <table>
 <thead>
 <tr>
-<th>Target</th>
+<th>Name</th>
+<th>Kind</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>client</code></td>
-<td>Browser bundle only. <code>@agent</code> manifest and <code>$server</code> refs are elided.</td>
+<td><code>vercel</code></td>
+<td>function</td>
+<td>Create a Vercel <code>AihuAdapter</code> for <code>defineConfig</code></td>
 </tr>
 <tr>
-<td><code>server</code></td>
-<td>Server bundle only. Full agent manifest and server-only code included.</td>
-</tr>
-<tr>
-<td><code>universal</code></td>
-<td>Both client and server outputs. Default.</td>
+<td><code>VercelAdapterOptions</code></td>
+<td>interface</td>
+<td>Options for <code>vercel()</code></td>
 </tr>
 </tbody></table>
-<h2>The <code>@route</code> block and route sidecars</h2>
-<p>The Rust compiler emits a <code>.route.json</code> sidecar alongside each compiled <code>.aihu</code> file. This sidecar encodes the route path, name, SSR mode, and loader reference. At build time, <code>viteRouterIntegration()</code> reads every <code>.route.json</code> in <code>src/pages/</code> and assembles the route manifest into the <code>virtual:aihu-routes</code> virtual module. The result is a fully static manifest — no filesystem scanning at runtime.</p>
-<pre><code>@route {
-  path: /users
-  name: users
-  ssr: true
+<h2>Functions</h2>
+<h3>vercel</h3>
+<pre><code class="language-typescript">function vercel(options?: VercelAdapterOptions): AihuAdapter
+</code></pre>
+<p>Returns an <code>AihuAdapter</code> (named <code>&#39;vercel&#39;</code>) that the <code>@aihu/app</code> Vite plugin invokes after the bundle is written. Its <code>adapt()</code> step:</p>
+<ol>
+<li>Cleans and recreates the output directory (removing stale files from prior builds).</li>
+<li>Copies the Vite output (<code>context.outDir</code>) into <code>.vercel/output/static/</code>.</li>
+<li>Writes an Edge or Serverless function entry at <code>.vercel/output/functions/index.func/index.js</code>.</li>
+<li>Writes the function&#39;s <code>.vc-config.json</code>.</li>
+<li>Writes <code>.vercel/output/config.json</code> with the Build Output API v3 routes manifest.</li>
+</ol>
+<p>The generated routes serve <code>/assets/*</code> with a long-lived immutable <code>cache-control</code> header, send <code>/api/*</code> to the function (<code>/index.func</code>), and fall back all other requests to <code>static/index.html</code> (SPA mode).</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>options</code></td>
+<td><code>VercelAdapterOptions</code></td>
+<td>No</td>
+<td>Adapter configuration. See below.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>AihuAdapter</code> — pass to the <code>adapter</code> field of <code>defineConfig</code>.</p>
+<h2>Types</h2>
+<h3>VercelAdapterOptions</h3>
+<pre><code class="language-typescript">interface VercelAdapterOptions {
+  runtime?: &#39;edge&#39; | &#39;serverless&#39;
+  outputDir?: string
+  nodeVersion?: string
 }
 </code></pre>
-<p>Setting <code>ssr: true</code> enables server-side rendering for that route.</p>
-<h2><code>createRequestRouter</code>, <code>defineRoute</code>, and <code>json()</code></h2>
-<p><code>@aihu/server</code> provides a fetch-API-native router. These three exports are the core building blocks:</p>
-<ul>
-<li><strong><code>createRequestRouter(options)</code></strong> — builds a fetch-API request handler from an explicit route manifest. The returned <code>router</code> function is a standard <code>(request: Request) =&gt; Response | Promise&lt;Response&gt;</code> and can be passed directly to <code>Bun.serve</code>, <code>Deno.serve</code>, or exported as a Cloudflare Worker&#39;s <code>fetch</code> handler.</li>
-<li><strong><code>defineRoute(path, handler)</code></strong> — declares a single route. The handler receives a <code>RouteContext</code> and must return a <code>Response</code>.</li>
-<li><strong><code>json(data, init?)</code></strong> — constructs a <code>Response</code> with <code>Content-Type: application/json</code> and the given data serialized. A thin convenience wrapper over <code>new Response(JSON.stringify(data), ...)</code>.</li>
-</ul>
-<pre><code class="language-typescript">import { createRequestRouter, defineRoute, json } from &#39;@aihu/server&#39;
-import { createAgentReadinessRoutes } from &#39;@aihu-plugin/agent-readiness&#39;
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>runtime</code></td>
+<td><code>&#39;edge&#39; | &#39;serverless&#39;</code></td>
+<td>No</td>
+<td><code>&#39;edge&#39;</code></td>
+<td><code>&#39;edge&#39;</code> targets the Vercel Edge Runtime (V8 isolates, global). <code>&#39;serverless&#39;</code> targets a regional Node.js function.</td>
+</tr>
+<tr>
+<td><code>outputDir</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td><code>&#39;.vercel/output&#39;</code></td>
+<td>Build Output API directory, resolved relative to the project root.</td>
+</tr>
+<tr>
+<td><code>nodeVersion</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td><code>&#39;nodejs18.x&#39;</code></td>
+<td>Node.js version for the serverless runtime. Ignored when <code>runtime</code> is <code>&#39;edge&#39;</code>.</td>
+</tr>
+</tbody></table>
+<h2>Usage</h2>
+<h3>Default (Edge Runtime)</h3>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { vercel } from &#39;@aihu/adapter-vercel&#39;
 
-const ar = createAgentReadinessRoutes({
-  name: &#39;My App&#39;,
-  endpoint: &#39;https://myapp.workers.dev/mcp&#39;,
-  summary: &#39;An aihu-powered app.&#39;,
+export default defineConfig({
+  adapter: vercel(),
+})
+</code></pre>
+<h3>Serverless runtime with a pinned Node version</h3>
+<pre><code class="language-typescript">// aihu.config.ts
+import { defineConfig } from &#39;@aihu/app&#39;
+import { vercel } from &#39;@aihu/adapter-vercel&#39;
+
+export default defineConfig({
+  adapter: vercel({
+    runtime: &#39;serverless&#39;,
+    nodeVersion: &#39;nodejs20.x&#39;,
+  }),
+})
+</code></pre>
+<p>After building, deploy the prebuilt output:</p>
+<pre><code class="language-bash">vercel deploy --prebuilt
+</code></pre>
+<h2>Notes</h2>
+<ul>
+<li><strong>SPA mode (V0).</strong> The generated function entry handles <code>/api/**</code> routes only and currently returns <code>501 Not Implemented</code>; all page requests are served as static files from <code>static/index.html</code>. Full SSR is planned for V1+.</li>
+<li>The adapter wipes its <code>outputDir</code> on every run, so do not point <code>outputDir</code> at a directory containing files you want to keep.</li>
+</ul>
+<h2>See also</h2>
+<ul>
+<li><a href="#packages/adapter-cloudflare">@aihu/adapter-cloudflare</a> — deploy the same app to Cloudflare Pages</li>
+<li><a href="#packages/cli">@aihu/cli</a> — scaffold a new aihu app</li>
+<li><a href="#guides/deployment">Deployment guide</a> — runtime targets and the native-addon fallback</li>
+</ul>
+`,
+  },
+  'packages/agent-a2a': {
+    title: '@aihu/agent-a2a',
+    html: `<h1>@aihu/agent-a2a</h1>
+<p>Wraps an <code>AgentService</code> with Agent-to-Agent (A2A) protocol routes. The adapter exposes a discovery card and task-dispatch endpoints that comply with the A2A wire format, and integrates with any fetch-API server via a single middleware function.</p>
+<h2>Install</h2>
+<pre><code class="language-bash">npm install @aihu/agent-a2a
+# or
+bun add @aihu/agent-a2a
+</code></pre>
+<p><code>@aihu/agent-service</code> is a required peer dependency — install it alongside this package.</p>
+<h2>API overview</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Kind</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mountA2aAdapter</code></td>
+<td>function</td>
+<td>Create an A2A adapter around an AgentService</td>
+</tr>
+<tr>
+<td><code>A2aAdapter</code></td>
+<td>interface</td>
+<td>Object returned by <code>mountA2aAdapter</code></td>
+</tr>
+<tr>
+<td><code>A2aAdapterOptions</code></td>
+<td>interface</td>
+<td>Options accepted by <code>mountA2aAdapter</code></td>
+</tr>
+</tbody></table>
+<h2>Functions</h2>
+<h3>mountA2aAdapter</h3>
+<pre><code class="language-typescript">function mountA2aAdapter(
+  service: AgentService,
+  options?: A2aAdapterOptions,
+): A2aAdapter
+</code></pre>
+<p>Creates an A2A adapter that wraps the given <code>AgentService</code>. The returned <code>A2aAdapter</code> exposes an <code>asMiddleware()</code> method that returns a fetch-API handler function. Calling <code>asMiddleware()</code> multiple times on the same adapter is safe — each call returns a new handler closure over the same service and options.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>service</code></td>
+<td><code>AgentService</code></td>
+<td>Yes</td>
+<td>The agent service instance to wrap. Obtained from <code>createAgentService</code> in <code>@aihu/agent-service</code>.</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td><code>A2aAdapterOptions</code></td>
+<td>No</td>
+<td>Optional configuration. See <code>A2aAdapterOptions</code>.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>A2aAdapter</code> — the configured adapter.</p>
+<h2>Types</h2>
+<h3>A2aAdapter</h3>
+<pre><code class="language-typescript">interface A2aAdapter {
+  asMiddleware(): (req: Request) =&gt; Promise&lt;Response | null&gt;
+}
+</code></pre>
+<p>The object returned by <code>mountA2aAdapter</code>. Call <code>asMiddleware()</code> to obtain a handler that processes incoming requests. The handler returns a <code>Response</code> for any path it owns, and <code>null</code> for paths it does not recognize — allowing you to chain multiple adapters or fall through to a 404 handler.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asMiddleware</code></td>
+<td><code>() =&gt; (req: Request) =&gt; Promise&lt;Response | null&gt;</code></td>
+<td>Yes</td>
+<td>Returns a fetch-API middleware function.</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>A2aAdapterOptions</h3>
+<pre><code class="language-typescript">interface A2aAdapterOptions {
+  prefix?: string
+  name?: string
+}
+</code></pre>
+<p>Configuration options for <code>mountA2aAdapter</code>.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prefix</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>URL prefix prepended to all route paths. Default: <code>&#39;&#39;</code>.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Agent name included in the discovery card response. Default: <code>&#39;aihu-agent-service&#39;</code>.</td>
+</tr>
+</tbody></table>
+<h2>Routes</h2>
+<p>The middleware returned by <code>asMiddleware()</code> owns the following paths (relative to <code>prefix</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code></td>
+<td><code>/.well-known/agent.json</code></td>
+<td>A2A agent discovery card. Returns JSON with <code>name</code>, <code>version</code>, <code>capabilities</code>, and a <code>skills</code> array derived from the service manifest.</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/a2a/tasks/send</code></td>
+<td>Submit a task. Body: <code>{ taskId?, message: string, params? }</code>. Returns JSON <code>{ taskId, status, result | error }</code>.</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/a2a/tasks/sendSubscribe</code></td>
+<td>Submit a task with SSE streaming response. Same request body as <code>/a2a/tasks/send</code>. Returns <code>text/event-stream</code> ending with <code>data: [DONE]</code>.</td>
+</tr>
+</tbody></table>
+<p>All paths not matching one of these three return <code>null</code> from the middleware.</p>
+<h2>Usage</h2>
+<pre><code class="language-typescript">import { createAgentService } from &#39;@aihu/agent-service&#39;
+import { getAllAgentMetadata } from &#39;@aihu/agent&#39;
+import { mountA2aAdapter } from &#39;@aihu/agent-a2a&#39;
+import { defineRoute, createRequestRouter, notFound } from &#39;@aihu/server&#39;
+
+const service = createAgentService({
+  manifests: getAllAgentMetadata(),
+})
+
+const a2a = mountA2aAdapter(service, {
+  prefix: &#39;&#39;,
+  name: &#39;my-app&#39;,
 })
 
 const router = createRequestRouter({
   routes: [
-    defineRoute(&#39;/llms.txt&#39;, ar.llmsTxt),
-    defineRoute(&#39;/.well-known/mcp/server-card.json&#39;, ar.mcpServerCard),
-    defineRoute(&#39;/robots.txt&#39;, ar.robotsTxt),
-    defineRoute(&#39;/api/hello&#39;, () =&gt; json({ hello: &#39;world&#39; })),
+    defineRoute(&#39;/*&#39;, async (req) =&gt; {
+      const res = await a2a.asMiddleware()(req)
+      return res ?? notFound()
+    }),
   ],
 })
 
-// Cloudflare Worker
-export default { fetch: router }
-// Bun
-// Bun.serve({ fetch: router })
-// Deno
-// Deno.serve(router)
+export default router
 </code></pre>
-<p>Additional server utilities from <code>@aihu/server</code>: <code>badRequest()</code>, <code>notFound()</code>, <code>serverError()</code>, <code>methodNotAllowed()</code>, <code>defineApiRoute()</code>, <code>composeMiddleware()</code>, <code>defineMiddleware()</code>.</p>
-<h2><code>renderToStream</code> and <code>renderToString</code></h2>
-<p>Stream-render a component to an HTML response:</p>
-<pre><code class="language-typescript">import { renderToStream } from &#39;@aihu/server&#39;
-
-const response = renderToStream(MyComponent, {
-  props: { userId: 42 },
-  loader: myLoader,
-})
-</code></pre>
-<p>Returns a <code>ReadableStream&lt;string&gt;</code> that emits HTML chunks as the component tree resolves. Suitable for edge runtimes and Node.js streaming responses.</p>
-<p>For a complete HTML string (e.g. for pre-rendering):</p>
-<pre><code class="language-typescript">import { renderToString } from &#39;@aihu/server&#39;
-
-const html = await renderToString(async () =&gt; {
-  const data = await myLoader(ctx)
-  return renderMyComponent(data)
-})
-</code></pre>
-<h2>SSR with loaders</h2>
-<p>Enable SSR per route with <code>ssr: true</code> in the <code>@route</code> block. The server runs the associated <code>defineLoader</code> and injects the result as props before streaming the component:</p>
-<pre><code>@route {
-  name: users
-  ssr: true
-}
-</code></pre>
-<pre><code class="language-typescript">// users.loader.ts
-import { defineLoader } from &#39;@aihu/server&#39;
-
-export const loader = defineLoader(async (ctx) =&gt; {
-  return { users: await db.users.findMany() }
-})
-</code></pre>
-<p>The loader result is serialized into the SSR payload and dehydrated on the client — no second fetch needed.</p>
-<h2>Islands</h2>
-<p>In aihu, &quot;islands&quot; means interactive components embedded in an otherwise static or server-rendered page. The SSR output is inert HTML; each island component re-attaches its reactive signal graph on the client using <code>hydrate()</code> rather than <code>mount()</code>.</p>
-<p>The island pattern gives you SSR performance for the outer shell while preserving full reactivity for interactive regions — without downloading or executing JavaScript for the static parts.</p>
-<h2><code>hydrate()</code> vs <code>mount()</code> — the distinction</h2>
-<p>Both functions come from <code>@aihu/arbor</code> and return a <code>MountScope</code> (with <code>.dispose()</code> and <code>.serialize()</code> methods). They differ in what happens to the DOM:</p>
-<ul>
-<li><strong><code>mount(component, host)</code></strong> — creates DOM elements from scratch and appends them to <code>host</code>. Used for pure client-side rendering (no prior SSR output).</li>
-<li><strong><code>hydrate(component, host, snapshot)</code></strong> — attaches reactive effects to <em>existing</em> DOM nodes under <code>host</code> without re-creating elements. It walks the arbor node tree and uses <code>data-aihu-path</code> attributes on pre-rendered elements as anchors to wire signal bindings. If a path anchor is missing (DOM mismatch), that subtree falls back to full <code>_materialize()</code>.</li>
-</ul>
-<p><code>hydrate()</code> is the right choice when the server has already emitted HTML for a component. The <code>snapshot</code> parameter is the pre-parsed JSON state previously emitted by <code>MountScope.serialize()</code> (typically injected as <code>window.__aihu_state__[tag]</code> by the SSR renderer).</p>
-<pre><code class="language-typescript">import { hydrate } from &#39;@aihu/arbor&#39;
-
-// In the browser, for an SSR-rendered island:
-const scope = hydrate(
-  () =&gt; buildCounterTree(),
-  document.querySelector(&#39;live-counter&#39;),
-  window.__aihu_state__[&#39;live-counter&#39;] ?? {},
-)
-</code></pre>
-<h2>Client-build elision</h2>
-<p>When target is <code>client</code>:</p>
-<ul>
-<li><code>@agent</code> blocks are removed from the output. The JS contains: <code>// [client build] @agent block elided</code>.</li>
-<li><code>$server</code> macro references are removed. The JS contains: <code>// [client build] $server macro reference elided</code>.</li>
-<li><code>manifest_json</code> in <code>EmitResult</code> is empty.</li>
-</ul>
-<p>This ensures zero server-only code reaches the browser bundle.</p>
+<p>The <code>prefix</code> option is useful when mounting the adapter under a path namespace, e.g. <code>prefix: &#39;/api&#39;</code> shifts all routes to <code>GET /api/.well-known/agent.json</code>, <code>POST /api/a2a/tasks/send</code>, and <code>POST /api/a2a/tasks/sendSubscribe</code>.</p>
 `,
   },
-  styling: {
-    title: 'Styling',
-    html: `<h1>Styling</h1>
-<p>aihu styles components with <strong><code>@aihu/css-engine</code></strong> — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your <code>.aihu</code> SFCs at build time and folds the utility classes each component actually uses into that component&#39;s shadow <code>&lt;style&gt;</code>. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.</p>
-<blockquote>
-<p><strong>Status:</strong> <code>@aihu/css-engine@0.1.0</code> is published. The build-time engine (<code>compile</code>, <code>compileSfc</code>) currently depends on the <code>aihu-css-compile</code> Rust binary built from the workspace (<code>cargo build --release -p aihu-css-core</code>); a prebuilt binary ships with the package in a later plan. The runtime helpers (<code>cn</code>, <code>progressive</code>) are stable and tiny.</p>
-</blockquote>
-<h2>How it works</h2>
-<ul>
-<li><strong>Build-time scanning.</strong> The engine reads <code>.aihu</code> SFC source, walks the compiler AST (via <code>@aihu/compiler</code>), collects the utility classes referenced in each component, and emits a per-SFC stylesheet.</li>
-<li><strong>Scoped output, not global.</strong> The emitted CSS is embedded into the component&#39;s shadow root: <code>:host</code>-level theme tokens, the variant-resolved utility rules for that component, and the authored <code>@style</code> block — all folded into one shadow <code>&lt;style&gt;</code>. Two components on the same page never share or leak utility rules.</li>
-<li><strong>Zero-bundle for the static case.</strong> Because utilities resolve to plain CSS at compile time, the static styling path adds no JavaScript to the client. The only runtime code is the optional <code>cn()</code> helper and the progressive-feature fallbacks, and only when you import them.</li>
-</ul>
-<h2>WC-native variants</h2>
-<p>On top of the standard Tailwind variant set, the engine adds variants that only make sense inside a shadow root:</p>
+  'packages/agent-acp': {
+    title: '@aihu/agent-acp',
+    html: `<h1>@aihu/agent-acp</h1>
+<p>Wraps an <code>AgentService</code> with Agent Communication Protocol (ACP) routes. The adapter exposes a discovery card and a message-routing endpoint that comply with the ACP wire format, and integrates with any fetch-API server via a single middleware function.</p>
+<h2>Install</h2>
+<pre><code class="language-bash">npm install @aihu/agent-acp
+# or
+bun add @aihu/agent-acp
+</code></pre>
+<p><code>@aihu/agent-service</code> is a required peer dependency — install it alongside this package.</p>
+<h2>API overview</h2>
 <table>
 <thead>
 <tr>
-<th>Variant</th>
-<th>Targets</th>
-<th>Example</th>
+<th>Name</th>
+<th>Kind</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>host:</code></td>
-<td>the component&#39;s <code>:host</code></td>
-<td><code>host:block</code></td>
+<td><code>mountAcpAdapter</code></td>
+<td>function</td>
+<td>Create an ACP adapter around an AgentService</td>
 </tr>
 <tr>
-<td><code>slotted:</code></td>
-<td><code>::slotted(...)</code> projected children</td>
-<td><code>slotted:text-sm</code></td>
+<td><code>AcpAdapter</code></td>
+<td>interface</td>
+<td>Object returned by <code>mountAcpAdapter</code></td>
 </tr>
 <tr>
-<td><code>part-*:</code></td>
-<td>a named <code>::part(...)</code> exposed by the component</td>
-<td><code>part-label:font-bold</code></td>
+<td><code>AcpAdapterOptions</code></td>
+<td>interface</td>
+<td>Options accepted by <code>mountAcpAdapter</code></td>
+</tr>
+<tr>
+<td><code>AcpMessage</code></td>
+<td>interface</td>
+<td>Minimal ACP message shape consumed by the adapter</td>
 </tr>
 </tbody></table>
-<p>These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.</p>
-<h2>Style packs</h2>
-<p>Component styling resolves against <strong>design tokens</strong> (CSS custom properties): a utility like <code>bg-primary</code> emits <code>var(--color-primary)</code>, and the <em>value</em> comes from a <strong>style pack</strong> (<code>aihu-default</code>, <code>aihu-graphite</code>, or your own via <code>defineStylePack()</code>). The token contract, the two shipped packs, <code>:root</code> + <code>.dark</code> emission, and how a consumer applies a pack are covered in full on the dedicated <a href="#theming">Theming</a> page.</p>
-<h2><code>cn()</code> — runtime class merge</h2>
-<p>For the cases where a class string is decided at runtime (consumer overrides, conditional classes), import <code>cn()</code> from the dedicated sub-export. It is a separate sub-1 kB gz module so it never pulls in the rest of the engine:</p>
-<pre><code class="language-ts">import { cn } from &#39;@aihu/css-engine/runtime/cn&#39;
-
-cn(&#39;p-2&#39;, &#39;p-4&#39;)                 // &#39;p-4&#39;        (last-wins per property group)
-cn(&#39;a&#39;, false &amp;&amp; &#39;b&#39;, [&#39;c&#39;])     // &#39;a c&#39;        (falsy dropped, arrays flattened)
-cn(&#39;bg-red-500&#39;, &#39;bg-blue-500&#39;)  // &#39;bg-blue-500&#39;
+<h2>Functions</h2>
+<h3>mountAcpAdapter</h3>
+<pre><code class="language-typescript">function mountAcpAdapter(
+  service: AgentService,
+  options?: AcpAdapterOptions,
+): AcpAdapter
 </code></pre>
-<p><code>cn()</code> resolves Tailwind-style conflicts last-wins per property group. The conflict map is <strong>generated at engine build time</strong> from the utility registry (not hand-maintained), so it never drifts from the utility table. Variant prefixes are respected: <code>hover:p-2</code> and <code>hover:p-4</code> conflict, but <code>p-2</code> and <code>hover:p-4</code> do not.</p>
-<blockquote>
-<p>Recipes use static utility strings resolved at compile time. Reach for <code>cn()</code> only for the runtime-override case — not as a general styling mechanism.</p>
-</blockquote>
-<h2>Progressive features</h2>
-<p>Some utilities target modern CSS features (CSS anchor positioning, the Popover API). The engine emits these <code>@supports</code>-gated, and ships a tiny optional fallback shim under a separate sub-export:</p>
-<pre><code class="language-ts">import { anchorFallback, popoverFallback, position } from &#39;@aihu/css-engine/runtime/progressive&#39;
-</code></pre>
-<p>This is a hand-written ~2 kB floating-ui-style positioning shim (NOT the npm <code>@floating-ui/dom</code> package — aihu&#39;s thesis is dependency-free). <code>anchorFallback(anchor, floating, opts)</code> and <code>popoverFallback(anchor, panel, opts)</code> position a floating element with JS only when the native feature is unsupported, and return a cleanup function. It is kept in its own sub-export from <code>cn</code> so the lighter merge helper stays under its size budget.</p>
-<h2>The component registry (<code>@aihu/ui</code> / <code>aihu add</code>)</h2>
-<p>A shadcn-style component registry — copy-in styled components distributed via an <code>aihu add &lt;component&gt;</code> CLI command, built on <code>@aihu/primitives</code> + the css-engine — is <strong>on the roadmap, not yet published</strong>. It is part of the in-progress SFC-primitives arc; do not depend on <code>@aihu/ui</code> or <code>aihu add</code> yet. See <a href="#primitives">Primitives</a> for the headless behaviors that registry will be built on.</p>
-<h2>See also</h2>
-<ul>
-<li><a href="#theming">Theming</a> — design tokens, the <code>aihu-default</code> / <code>aihu-graphite</code> packs, and <code>defineStylePack()</code></li>
-<li><a href="#primitives">Primitives</a> — headless WAI-ARIA behaviors that consume <code>cn()</code> + style packs</li>
-<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
-<li><a href="#authoring-components">Authoring Components</a> — the <code>@style</code> block</li>
-</ul>
-`,
-  },
-  theming: {
-    title: 'Theming',
-    html: `<h1>Theming</h1>
-<p>aihu themes components with <strong>design tokens</strong> — CSS custom properties that the
-<code>@aihu/css-engine</code> utility table resolves against. A utility like <code>bg-primary</code>
-compiles to <code>background: var(--color-primary)</code>; the <em>value</em> of that token is
-supplied by a <strong>style pack</strong>. Swap the pack and every component re-themes with
-no markup change, because the token <em>names</em> are the contract and the <em>values</em>
-are interchangeable.</p>
-<p>This page is the single source of truth for theming. For the broader styling
-model (scoped output, WC-native variants, <code>cn()</code>), see <a href="#styling">Styling</a>.</p>
-<blockquote>
-<p><strong>Status:</strong> <code>@aihu/css-engine</code> ships the two built-in packs three ways, all
-stable and importable: as <code>defineStylePack()</code>, as <code>StylePack</code> objects from
-<code>@aihu/css-engine/packs</code>, and as CSS bundles via <code>@aihu/css-engine/styles/*.css</code>.
-See <a href="#applying-a-pack">Applying a pack</a>.</p>
-</blockquote>
-<h2>The design-token contract</h2>
-<p>A token is a CSS custom property. Throughout this doc and the
-<code>defineStylePack()</code> API, token <strong>names are given without the leading <code>--</code></strong> —
-the engine adds it. The shipped packs declare these token groups:</p>
+<p>Creates an ACP adapter that wraps the given <code>AgentService</code>. The returned <code>AcpAdapter</code> exposes an <code>asMiddleware()</code> method that returns a fetch-API handler function. Tool name resolution checks <code>parts[0].content.tool</code> first, then falls back to the <code>content</code> string of the incoming <code>AcpMessage</code>.</p>
+<p><strong>Parameters</strong></p>
 <table>
 <thead>
 <tr>
-<th>Group</th>
-<th>Tokens (names without <code>--</code>)</th>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Color</td>
-<td><code>color-primary</code>, <code>color-primary-foreground</code>, <code>color-secondary</code>, <code>color-secondary-foreground</code>, <code>color-accent</code>, <code>color-accent-foreground</code>, <code>color-surface</code>, <code>color-surface-foreground</code>, <code>color-background</code>, <code>color-foreground</code>, <code>color-muted</code>, <code>color-muted-foreground</code>, <code>color-border</code>, <code>color-ring</code>, <code>color-destructive</code>, <code>color-destructive-foreground</code></td>
+<td><code>service</code></td>
+<td><code>AgentService</code></td>
+<td>Yes</td>
+<td>The agent service instance to wrap. Obtained from <code>createAgentService</code> in <code>@aihu/agent-service</code>.</td>
 </tr>
 <tr>
-<td>Radius</td>
-<td><code>radius-sm</code>, <code>radius-md</code>, <code>radius-lg</code>, <code>radius-pill</code></td>
-</tr>
-<tr>
-<td>Spacing</td>
-<td><code>space-1</code>, <code>space-2</code>, <code>space-3</code>, <code>space-4</code>, <code>space-6</code>, <code>space-8</code>, <code>space-12</code>, <code>space-16</code></td>
-</tr>
-<tr>
-<td>Typography</td>
-<td><code>font-sans</code>, <code>font-mono</code></td>
+<td><code>options</code></td>
+<td><code>AcpAdapterOptions</code></td>
+<td>No</td>
+<td>Optional configuration. See <code>AcpAdapterOptions</code>.</td>
 </tr>
 </tbody></table>
-<p>The utility table resolves brand utilities against the color names: <code>bg-primary</code>
-→ <code>var(--color-primary)</code>, <code>text-accent</code> → <code>var(--color-accent)</code>, and so on. Any
-pack that declares this name set works under every recipe with no dangling
-<code>var()</code>.</p>
-<h2>The two shipped packs</h2>
-<p>Two packs ship with the engine. They declare the <strong>same token names</strong> — only
-the values differ — so they are drop-in interchangeable:</p>
-<ul>
-<li><strong><code>aihu-default</code></strong> — the aihu brand palette (warm paper + ink, accent
-<code>#c8543a</code>), light values in <code>:root</code>, dark overrides in <code>.dark</code>.</li>
-<li><strong><code>aihu-graphite</code></strong> — a neutral monochrome ramp expressed in <code>oklch()</code>
-(chroma ≈ 0), same token names, same <code>:root</code> + <code>.dark</code> structure.</li>
-</ul>
-<p>A pack emits a light block under <code>:root { … }</code> and an optional dark block under
-<code>.dark { … }</code>. The consumer toggles dark by putting the <code>.dark</code> class on (or
-above) the themed subtree; the same token names carry the dark values, so
-nothing in component markup changes.</p>
-<pre><code class="language-css">/* shape of a shipped pack (aihu-default) */
-:root {
-  --color-primary: #1a1d24;
-  --color-accent: #c8543a;
-  --color-surface: #faf8f4;
-  --radius-md: 8px;
-  /* …the full token set… */
-}
-.dark {
-  --color-primary: #ede8e0;
-  --color-accent: #e8705a;
-  --color-surface: #1a1d24;
-  /* …dark values, same names… */
+<p><strong>Returns</strong> <code>AcpAdapter</code> — the configured adapter.</p>
+<h2>Types</h2>
+<h3>AcpAdapter</h3>
+<pre><code class="language-typescript">interface AcpAdapter {
+  asMiddleware(): (req: Request) =&gt; Promise&lt;Response | null&gt;
 }
 </code></pre>
-<h2>How tokens reach shadow-scoped components</h2>
-<p>The css-engine emits per-component CSS into each component&#39;s <strong>shadow root</strong>
-(see <a href="#styling">Styling</a>). The utility rules inside a shadow root reference the
-tokens as <code>var(--color-primary)</code> etc. CSS custom properties <strong>inherit through
-the shadow boundary</strong>, so a pack declared once on <code>:root</code> (light) flows into
-every component on the page. There is no per-component theme wiring.</p>
-<p>The <code>dark:</code> variant works the same way: a utility like <code>dark:bg-surface</code>
-compiles to a rule gated on the <code>.dark</code> ancestor, and because the <code>.dark</code> block
-re-declares the <em>same</em> token names with dark values, the variant resolves to
-the dark token automatically.</p>
-<h2>The built-in packs as JS objects</h2>
-<p>The two built-in packs are exported as ready-made <code>StylePack</code> objects from
-<code>@aihu/css-engine/packs</code>, so you can read their tokens or emit their CSS without
-re-declaring anything:</p>
-<pre><code class="language-ts">import { aihuDefault, aihuGraphite } from &#39;@aihu/css-engine/packs&#39;
-
-aihuDefault.tokens[&#39;color-accent&#39;] // &#39;#c8543a&#39;
-aihuDefault.toCss()                // &#39;:root { … } .dark { … }&#39;
-aihuGraphite.toCss()               // the monochrome oklch() bundle
+<p>The object returned by <code>mountAcpAdapter</code>. Call <code>asMiddleware()</code> to obtain a handler that processes incoming requests. Returns a <code>Response</code> for paths it owns, and <code>null</code> for unrecognized paths — allowing chaining with other adapters or a fallthrough 404 handler.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>asMiddleware</code></td>
+<td><code>() =&gt; (req: Request) =&gt; Promise&lt;Response | null&gt;</code></td>
+<td>Yes</td>
+<td>Returns a fetch-API middleware function.</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>AcpAdapterOptions</h3>
+<pre><code class="language-typescript">interface AcpAdapterOptions {
+  prefix?: string
+  agentId?: string
+}
 </code></pre>
-<p>These objects are the <strong>source of truth</strong> for the shipped <code>styles/*.css</code>
-bundles below — the CSS files are generated from them (<code>pack.toCss()</code>), so the
-two access paths can never drift. They are produced by <code>defineStylePack()</code>, the
-same API external orgs use, so the built-ins carry no privileged shape.</p>
-<h2><code>defineStylePack()</code> — custom packs</h2>
-<p>External orgs declare their own pack against the same token-name contract with
-<code>defineStylePack()</code>. This is the stable, importable API (<code>import { defineStylePack } from &#39;@aihu/css-engine&#39;</code>). The built-in packs are themselves expressible through
-it — <code>defineStylePack()</code> is just the typed, programmatic form of the shipped CSS
-bundles.</p>
-<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
+<p>Configuration options for <code>mountAcpAdapter</code>.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prefix</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>URL prefix prepended to all route paths. Default: <code>&#39;&#39;</code>.</td>
+</tr>
+<tr>
+<td><code>agentId</code></td>
+<td><code>string</code></td>
+<td>No</td>
+<td>Agent identifier included in the discovery card response. Default: <code>&#39;aihu-agent-service&#39;</code>.</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>AcpMessage</h3>
+<pre><code class="language-typescript">interface AcpMessage {
+  role: string
+  content: string
+  parts?: Array&lt;{ type: string; content: unknown }&gt;
+}
+</code></pre>
+<p>The minimal ACP message shape expected by the <code>POST /acp/messages</code> endpoint. The adapter reads the tool name from <code>parts[0].content.tool</code> when present; otherwise it uses <code>content</code> as the tool name directly.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>role</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Message role (e.g. <code>&#39;user&#39;</code>).</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td><code>string</code></td>
+<td>Yes</td>
+<td>Tool name fallback — used when <code>parts[0].content.tool</code> is absent or empty.</td>
+</tr>
+<tr>
+<td><code>parts</code></td>
+<td><code>Array&lt;{ type: string; content: unknown }&gt;</code></td>
+<td>No</td>
+<td>Optional message parts. When present, <code>parts[0].content.tool</code> is checked first for the tool name.</td>
+</tr>
+</tbody></table>
+<h2>Routes</h2>
+<p>The middleware returned by <code>asMiddleware()</code> owns the following paths (relative to <code>prefix</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code></td>
+<td><code>/.well-known/acp-agent</code></td>
+<td>ACP agent discovery card. Returns JSON with <code>agent_id</code>, <code>description</code>, and a <code>skills</code> array derived from the service manifest.</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/acp/messages</code></td>
+<td>ACP message routing. Accepts an <code>AcpMessage</code> body. Resolves tool name from <code>parts[0].content.tool</code> first, then from <code>content</code>. Returns <code>{ role: &#39;agent&#39;, content, parts }</code>.</td>
+</tr>
+</tbody></table>
+<p>All paths not matching one of these two return <code>null</code> from the middleware.</p>
+<h2>Usage</h2>
+<pre><code class="language-typescript">import { createAgentService } from &#39;@aihu/agent-service&#39;
+import { getAllAgentMetadata } from &#39;@aihu/agent&#39;
+import { mountAcpAdapter } from &#39;@aihu/agent-acp&#39;
+import { defineRoute, createRequestRouter, notFound } from &#39;@aihu/server&#39;
 
-const acme = defineStylePack({
-  name: &#39;acme&#39;,
-  tokens: { &#39;color-primary&#39;: &#39;#0a7&#39;, &#39;radius-md&#39;: &#39;6px&#39; },
-  dark: { &#39;color-primary&#39;: &#39;#3fc&#39; },
+const service = createAgentService({
+  manifests: getAllAgentMetadata(),
 })
 
-acme.toCss()
-// :root {
-//   --color-primary: #0a7;
-//   --radius-md: 6px;
-// }
-// .dark {
-//   --color-primary: #3fc;
-// }
+const acp = mountAcpAdapter(service, {
+  prefix: &#39;&#39;,
+  agentId: &#39;my-app&#39;,
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute(&#39;/*&#39;, async (req) =&gt; {
+      const res = await acp.asMiddleware()(req)
+      return res ?? notFound()
+    }),
+  ],
+})
+
+export default router
 </code></pre>
-<p><code>defineStylePack({ name, tokens, dark })</code> returns a <code>StylePack</code> descriptor with:</p>
+<h3>Combining A2A and ACP adapters</h3>
+<p>Both adapters can coexist on the same service instance, checked in order:</p>
+<pre><code class="language-typescript">import { mountA2aAdapter } from &#39;@aihu/agent-a2a&#39;
+import { mountAcpAdapter } from &#39;@aihu/agent-acp&#39;
+
+const a2a = mountA2aAdapter(service)
+const acp = mountAcpAdapter(service)
+
+const mw = async (req: Request): Promise&lt;Response&gt; =&gt;
+  (await a2a.asMiddleware()(req)) ??
+  (await acp.asMiddleware()(req)) ??
+  notFound()
+</code></pre>
+`,
+  },
+  'packages/cli': {
+    title: '@aihu/cli',
+    html: `<h1>@aihu/cli</h1>
+<p>Build-time CLI scaffolder for aihu applications. Zero runtime size impact — it is a
+dev/build-time tool only and is never included in browser bundles.</p>
+<h2>Prerequisites</h2>
 <ul>
-<li><code>name</code> — the pack name (used for registration / debugging).</li>
-<li><code>tokens</code> — the light-theme <code>TokenMap</code> (the <code>:root</code> block).</li>
-<li><code>dark</code> — the dark-theme <code>TokenMap</code> (the <code>.dark</code> block); empty if you pass none.</li>
-<li><code>toCss()</code> — serialize to a <code>:root { … }</code> (+ <code>.dark { … }</code>) CSS string in the
-same shape as the shipped bundles.</li>
+<li>Bun ≥ 1.3.0 (or Node.js ≥ 20.18.0)</li>
+<li>A terminal in your project directory</li>
 </ul>
-<p>Token names are normalized whether or not you write the leading <code>--</code>
-(<code>&#39;color-accent&#39;</code> and <code>&#39;--color-accent&#39;</code> both emit <code>--color-accent</code>). An empty
-<code>name</code> or empty <code>tokens</code> map throws. Only declare the tokens you override —
-declare the full contract set (above) if you want a stand-alone pack with no
-dangling utilities.</p>
-<h2>Applying a pack</h2>
-<p>A pack is just a <code>:root { … }</code> (+ <code>.dark { … }</code>) stylesheet. You apply it by
-getting that CSS onto the page&#39;s <code>:root</code>, then toggling <code>.dark</code> for dark mode.
-Three subpath-exported, verified paths:</p>
-<p><strong>1. Import a built-in CSS bundle directly.</strong> <code>@aihu/css-engine/styles/aihu-default.css</code>
-and <code>@aihu/css-engine/styles/aihu-graphite.css</code> are declared in the package
-<code>exports</code>, so Vite (and any bundler that handles CSS imports) inlines them into
-your app&#39;s stylesheet:</p>
-<pre><code class="language-ts">// in your app entry — Vite inlines the CSS, no extra config
-import &#39;@aihu/css-engine/styles/aihu-default.css&#39;
-
-// dark mode: toggle the class the pack&#39;s \`.dark\` block targets
-document.documentElement.classList.toggle(&#39;dark&#39;)
+<h2>Quick start — <code>aihu app</code></h2>
+<pre><code class="language-bash">npx aihu app my-app
+cd my-app
+bun install
+bun run dev
 </code></pre>
-<p><strong>2. The built-in packs as JS objects.</strong> Import the ready-made <code>StylePack</code>
-objects from <code>@aihu/css-engine/packs</code> and inject <code>toCss()</code> yourself — handy when
-you generate the <code>&lt;style&gt;</code> at runtime or need to read individual tokens:</p>
-<pre><code class="language-ts">import { aihuDefault } from &#39;@aihu/css-engine/packs&#39;
-
-const style = document.createElement(&#39;style&#39;)
-style.textContent = aihuDefault.toCss()
-document.head.appendChild(style)
+<p>This creates:</p>
+<pre><code>my-app/
+  package.json              # all @aihu/* deps pre-wired
+  aihu.config.ts          # defineAihuConfig with target: &#39;universal&#39;
+  vite.config.ts            # viteRouterIntegration + viteAgentReadinessIntegration
+  src/
+    pages/
+      index.aihu          # Hello World page with @state, @template, @route
+    layouts/
+      default.aihu        # default layout with &lt;slot /&gt;
 </code></pre>
-<p><strong>3. <code>defineStylePack().toCss()</code> for a custom pack.</strong> Declare your own token
-bundle and inject its CSS the same way:</p>
-<pre><code class="language-ts">import { defineStylePack } from &#39;@aihu/css-engine&#39;
-import { appTokens, appDark } from &#39;./tokens.ts&#39; // your token maps
-
-const pack = defineStylePack({ name: &#39;app&#39;, tokens: appTokens, dark: appDark })
-
-const style = document.createElement(&#39;style&#39;)
-style.textContent = pack.toCss()
-document.head.appendChild(style)
+<h2>Scaffold commands</h2>
+<h3><code>aihu app &lt;name&gt;</code></h3>
+<p>Scaffold a new application with all aihu integrations wired.</p>
+<pre><code class="language-bash">aihu app my-store
 </code></pre>
-<blockquote>
-<p><strong>Source-of-truth note:</strong> the <code>styles/*.css</code> bundles are GENERATED from the
-<code>@aihu/css-engine/packs</code> objects (<code>pack.toCss()</code>), so path #1 and path #2
-emit byte-identical CSS — they cannot drift. The CSS files remain in the
-package <code>files</code> list, so they are also on disk at
-<code>node_modules/@aihu/css-engine/styles/*.css</code> if you prefer to copy them.</p>
-</blockquote>
-<h2>See also</h2>
+<p>Output:</p>
+<pre><code>✓ Created my-store/
+  cd my-store
+  bun install
+  bun run dev
+</code></pre>
+<h3><code>aihu page &lt;route&gt;</code></h3>
+<p>Add a page to an existing project. Run from the project root.</p>
+<pre><code class="language-bash">aihu page about
+</code></pre>
+<p>Creates <code>src/pages/about.aihu</code>:</p>
+<pre><code>@state {
+}
+
+@template {
+  &lt;div&gt;about page&lt;/div&gt;
+}
+
+@route {
+  path: /about
+  name: about
+}
+</code></pre>
+<h3><code>aihu component &lt;name&gt;</code></h3>
+<p>Scaffold a <code>.aihu</code> component.</p>
+<pre><code class="language-bash">aihu component Button
+</code></pre>
+<p>Creates <code>src/components/Button.aihu</code>:</p>
+<pre><code>@state {
+}
+
+@template {
+  &lt;div&gt;Button&lt;/div&gt;
+}
+</code></pre>
+<h3><code>aihu plugin &lt;name&gt;</code></h3>
+<p>Scaffold a plugin package skeleton. Creates <code>&lt;name&gt;/</code> with a wired <code>definePlugin</code> entry.</p>
+<pre><code class="language-bash">aihu plugin my-forms
+</code></pre>
+<p>Creates:</p>
+<pre><code>my-forms/
+  package.json    # peerDependencies: { &quot;@aihu/plugin&quot;: &quot;latest&quot; }
+  src/
+    index.ts      # definePlugin({ name, namespace, contributes: {} })
+</code></pre>
+<h3><code>aihu migrate [files...]</code></h3>
+<p>Mechanically rewrite legacy v0.1.x SFC syntax to the v1.0 canonical forms. The
+command runs three passes in order — block framing (v1.0.7), inline attribute
+bindings (v1.0.8 / Amendment 04), and package-name renames (v1.0.9 / Naming
+Scheme A) — and is idempotent (running it twice produces the same output as
+running it once).</p>
+<pre><code class="language-bash">aihu migrate src/components/Counter.aihu
+aihu migrate --dry-run src/**/*.aihu
+</code></pre>
+<p>Use <code>--dry-run</code> to preview changes without writing files.</p>
+<h4>Pass 1 — block framing (v1.0.7)</h4>
+<p>Convert HTML-tag SFC framing to <code>@blockname {}</code> syntax.</p>
+<table>
+<thead>
+<tr>
+<th>v0.1.x HTML-tag syntax</th>
+<th>v1.0 <code>@blockname</code> syntax</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&lt;script setup&gt;</code></td>
+<td><code>@state {</code></td>
+</tr>
+<tr>
+<td><code>&lt;template&gt;</code></td>
+<td><code>@template {</code></td>
+</tr>
+<tr>
+<td><code>&lt;style&gt;</code></td>
+<td><code>@style {</code></td>
+</tr>
+<tr>
+<td><code>&lt;agent&gt;</code></td>
+<td><code>@agent {</code></td>
+</tr>
+</tbody></table>
+<h4>Pass 2 — inline attribute bindings (v1.0.8 / Amendment 04)</h4>
+<p>Rewrite the legacy Vue-shape and plain-curly attribute bindings to the
+always-<code>$</code>-prefixed canonical form. Component prop-passing on capitalized
+component tags (<code>&lt;UserCard user={u} /&gt;</code>) and XML namespace prefixes (<code>xmlns:</code>,
+<code>xlink:</code>) are preserved untouched.</p>
+<table>
+<thead>
+<tr>
+<th>Legacy form</th>
+<th>v1.0 canonical form</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>:attr=&quot;expr&quot;</code></td>
+<td><code>$attr={expr}</code> (or <code>$bind.attr=</code> two-way)</td>
+</tr>
+<tr>
+<td><code>@event=&quot;fn&quot;</code></td>
+<td><code>$on.event=&quot;fn&quot;</code> (dot-form per B3c)</td>
+</tr>
+<tr>
+<td><code>attr={expr}</code></td>
+<td><code>$attr={expr}</code></td>
+</tr>
+</tbody></table>
+<h4>Pass 3 — package-name renames (v1.0.9 / Naming Scheme A)</h4>
+<p>The two Plugin Contract packages moved out of the framework-core <code>@aihu/*</code>
+scope into the <code>@aihu-plugin/*</code> scope. The migrate tool rewrites <code>package.json</code>
+dependency keys, static <code>import</code>/<code>export</code> statements, dynamic <code>import()</code> calls,
+and JSDoc/Markdown URL references. Core packages (<code>@aihu/signals</code>,
+<code>@aihu/arbor</code>, <code>@aihu/runtime</code>, <code>@aihu/router</code>, etc.) are NOT renamed.</p>
+<table>
+<thead>
+<tr>
+<th>Legacy import</th>
+<th>v1.0.9 import</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>@aihu/data</code></td>
+<td><code>@aihu-plugin/data</code></td>
+</tr>
+<tr>
+<td><code>@aihu/agent-readiness</code></td>
+<td><code>@aihu-plugin/agent-readiness</code></td>
+</tr>
+</tbody></table>
+<h4>Error codes</h4>
+<p>The v1.0 cutover rejects each legacy form as a hard parse error (no
+deprecation-with-warning period). When the compiler reports one of these codes,
+run <code>npx aihu migrate &lt;file&gt;</code> to obtain the mechanical rewrite.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Rejected form</th>
+<th>Removed in</th>
+<th>Canonical migration target</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C107</td>
+<td><code>&lt;script setup&gt;</code> / <code>&lt;template&gt;</code> / <code>&lt;style&gt;</code> / <code>&lt;agent&gt;</code> HTML-tag SFC framing</td>
+<td>v1.0.7</td>
+<td><code>@state { … }</code> / <code>@template { … }</code> / <code>@style { … }</code> / <code>@agent { … }</code></td>
+</tr>
+<tr>
+<td>C304</td>
+<td><code>:attr=&quot;expr&quot;</code> Vue-shape one-way binding alias</td>
+<td>v1.0.8</td>
+<td><code>$attr={expr}</code> (or <code>$bind.attr=</code> for two-way)</td>
+</tr>
+<tr>
+<td>C305</td>
+<td><code>@event=&quot;fn&quot;</code> Vue-shape event alias</td>
+<td>v1.0.8</td>
+<td><code>$on.event=&quot;fn&quot;</code> (dot-form)</td>
+</tr>
+<tr>
+<td>C306</td>
+<td><code>attr={expr}</code> plain-curly HTML attribute binding (no <code>$</code>)</td>
+<td>v1.0.8</td>
+<td><code>$attr={expr}</code></td>
+</tr>
+</tbody></table>
+<h2>Dev → build → preview cycle</h2>
+<pre><code class="language-bash"># Start development server
+bun run dev
+
+# Production build
+bun run build
+
+# Preview production build locally
+bun run preview
+</code></pre>
+<h2>Programmatic API</h2>
+<p>All scaffold functions are exported for use in build scripts:</p>
+<pre><code class="language-ts">import {
+  scaffoldApp,
+  scaffoldPage,
+  scaffoldComponent,
+  scaffoldPlugin,
+  migrateFile,
+  migrateFiles,
+} from &#39;@aihu/cli&#39;
+
+// Scaffold a new app
+scaffoldApp(&#39;my-app&#39;, &#39;/path/to/projects&#39;)
+
+// Migrate a file&#39;s contents (pure function — no I/O)
+const converted = migrateFile(sfcFileContent)
+</code></pre>
+<h2>Design constraints</h2>
 <ul>
-<li><a href="#styling">Styling</a> — the scoped-output model, WC-native variants, <code>cn()</code></li>
-<li><a href="#api-reference">API Reference</a> — full <code>@aihu/css-engine</code> export tables</li>
-<li><a href="#primitives">Primitives</a> — headless behaviors that consume these tokens</li>
+<li>Zero external npm dependencies (Node/Bun builtins only)</li>
+<li>Build-time only — never added to size budgets or browser bundles</li>
+<li>Per Learning #49 (v3 dep-free thesis): zero non-<code>@aihu/*</code> runtime deps</li>
 </ul>
+`,
+  },
+  'packages/context': {
+    title: '@aihu/context',
+    html: `<h1>@aihu/context</h1>
+<p>Zero-dependency, DOM-free context system. Provides a React-style context API for passing values through a call tree without explicit prop-drilling, with first-class SSR support via per-request context maps.</p>
+<h2>Install</h2>
+<pre><code class="language-bash">npm install @aihu/context
+# or
+bun add @aihu/context
+</code></pre>
+<h2>API overview</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Kind</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>createContext</code></td>
+<td>function</td>
+<td>Create a typed context token with optional default</td>
+</tr>
+<tr>
+<td><code>provide</code></td>
+<td>function</td>
+<td>Write a value into the active context map</td>
+</tr>
+<tr>
+<td><code>inject</code></td>
+<td>function</td>
+<td>Read a value from the active context map</td>
+</tr>
+<tr>
+<td><code>setSsrContextMap</code></td>
+<td>function</td>
+<td>Set the active context map (SSR entry point)</td>
+</tr>
+<tr>
+<td><code>clearSsrContextMap</code></td>
+<td>function</td>
+<td>Clear the active context map (SSR teardown)</td>
+</tr>
+<tr>
+<td><code>runWithContext</code></td>
+<td>function</td>
+<td>Run a function with an isolated context map</td>
+</tr>
+<tr>
+<td><code>ContextToken</code></td>
+<td>interface</td>
+<td>Opaque token identifying a context slot</td>
+</tr>
+</tbody></table>
+<h2>Functions</h2>
+<h3>createContext</h3>
+<pre><code class="language-typescript">function createContext&lt;T&gt;(defaultValue?: T): ContextToken&lt;T&gt;
+</code></pre>
+<p>Creates a new opaque context token. The token is used with <code>provide</code> and <code>inject</code> to write and read values. Each call to <code>createContext</code> produces a unique token — two tokens created with identical default values are not interchangeable.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>defaultValue</code></td>
+<td><code>T</code></td>
+<td>No</td>
+<td>Value returned by <code>inject</code> when no explicit value has been provided. Defaults to <code>undefined</code>.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>ContextToken&lt;T&gt;</code> — a new unique context token.</p>
+<hr>
+<h3>provide</h3>
+<pre><code class="language-typescript">function provide&lt;T&gt;(token: ContextToken&lt;T&gt;, value: T): void
+</code></pre>
+<p>Writes <code>value</code> into the currently active context map under <code>token</code>. If no context map is active (i.e., <code>setSsrContextMap</code> or <code>runWithContext</code> has not been called), this is a no-op.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>token</code></td>
+<td><code>ContextToken&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>The token identifying the context slot.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td><code>T</code></td>
+<td>Yes</td>
+<td>The value to store.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>void</code></p>
+<hr>
+<h3>inject</h3>
+<pre><code class="language-typescript">function inject&lt;T&gt;(token: ContextToken&lt;T&gt;): T | undefined
+</code></pre>
+<p>Reads the value associated with <code>token</code> from the active context map. Falls back to <code>token._default</code> if no entry exists for the token or if no map is active.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>token</code></td>
+<td><code>ContextToken&lt;T&gt;</code></td>
+<td>Yes</td>
+<td>The token identifying the context slot to read.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>T | undefined</code> — the stored value, or <code>token._default</code> if absent.</p>
+<hr>
+<h3>setSsrContextMap</h3>
+<pre><code class="language-typescript">function setSsrContextMap(map: Map&lt;symbol, unknown&gt;): void
+</code></pre>
+<p>Sets the module-level active context map. Any subsequent calls to <code>provide</code> or <code>inject</code> will read from and write to this map. Replaces any previously active map. Prefer <code>runWithContext</code> in most SSR scenarios — it guarantees cleanup even on thrown errors.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>map</code></td>
+<td><code>Map&lt;symbol, unknown&gt;</code></td>
+<td>Yes</td>
+<td>The context map to activate.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>void</code></p>
+<hr>
+<h3>clearSsrContextMap</h3>
+<pre><code class="language-typescript">function clearSsrContextMap(): void
+</code></pre>
+<p>Clears the active context map, setting it to <code>null</code>. Called automatically by <code>runWithContext</code> in its <code>finally</code> block. Call manually after <code>setSsrContextMap</code> if you are not using <code>runWithContext</code>.</p>
+<p><strong>Returns</strong> <code>void</code></p>
+<hr>
+<h3>runWithContext</h3>
+<pre><code class="language-typescript">function runWithContext&lt;R&gt;(map: Map&lt;symbol, unknown&gt;, fn: () =&gt; R): R
+</code></pre>
+<p>Sets <code>map</code> as the active context map, executes <code>fn()</code>, then clears the map in a <code>finally</code> block — even if <code>fn</code> throws. This is the recommended SSR entry point: each request gets its own <code>Map</code>, making context leakage between concurrent requests impossible.</p>
+<p><strong>Parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>map</code></td>
+<td><code>Map&lt;symbol, unknown&gt;</code></td>
+<td>Yes</td>
+<td>A per-request context map, typically <code>new Map()</code>.</td>
+</tr>
+<tr>
+<td><code>fn</code></td>
+<td><code>() =&gt; R</code></td>
+<td>Yes</td>
+<td>The function to execute inside the context.</td>
+</tr>
+</tbody></table>
+<p><strong>Returns</strong> <code>R</code> — the return value of <code>fn()</code>.</p>
+<h2>Types</h2>
+<h3>ContextToken</h3>
+<pre><code class="language-typescript">interface ContextToken&lt;T&gt; {
+  readonly _id: symbol
+  readonly _default: T | undefined
+}
+</code></pre>
+<p>Opaque token returned by <code>createContext</code>. The <code>_id</code> symbol is unique per token and is used as the map key internally. The <code>_default</code> field holds the fallback value supplied to <code>createContext</code>. Treat both fields as read-only internals — do not construct <code>ContextToken</code> objects manually.</p>
+<p><strong>Fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>_id</code></td>
+<td><code>symbol</code></td>
+<td>Yes</td>
+<td>Unique symbol key for this context slot.</td>
+</tr>
+<tr>
+<td><code>_default</code></td>
+<td><code>T | undefined</code></td>
+<td>Yes</td>
+<td>Default value when no explicit value is provided.</td>
+</tr>
+</tbody></table>
+<h2>Subpath exports</h2>
+<h3>./ssr</h3>
+<pre><code class="language-typescript">import { setSsrContextMap, clearSsrContextMap, runWithContext } from &#39;@aihu/context/ssr&#39;
+</code></pre>
+<p>Re-exports only the three SSR-specific functions: <code>setSsrContextMap</code>, <code>clearSsrContextMap</code>, and <code>runWithContext</code>. Use this subpath in server entry files to make the SSR intent explicit and to tree-shake <code>createContext</code>, <code>provide</code>, and <code>inject</code> from your server bundle if they are not needed there.</p>
+<p>The <code>./ssr</code> subpath does <strong>not</strong> export <code>createContext</code>, <code>provide</code>, <code>inject</code>, or <code>ContextToken</code>. Import those from <code>@aihu/context</code> (the main entry).</p>
+<h2>Usage</h2>
+<h3>Client-side: passing a theme value</h3>
+<pre><code class="language-typescript">import { createContext, provide, inject } from &#39;@aihu/context&#39;
+
+// Define a token once, export it for shared use
+export const ThemeToken = createContext&lt;&#39;light&#39; | &#39;dark&#39;&gt;(&#39;light&#39;)
+
+// In a parent scope — set the value before rendering children
+provide(ThemeToken, &#39;dark&#39;)
+
+// In a child scope — read the value
+const theme = inject(ThemeToken) // &#39;dark&#39;
+</code></pre>
+<h3>SSR: per-request context isolation</h3>
+<pre><code class="language-typescript">import { createContext, provide, inject, runWithContext } from &#39;@aihu/context&#39;
+
+export const RequestIdToken = createContext&lt;string&gt;()
+
+async function handleRequest(requestId: string): Promise&lt;string&gt; {
+  const ctx = new Map&lt;symbol, unknown&gt;()
+  return runWithContext(ctx, () =&gt; {
+    provide(RequestIdToken, requestId)
+    // Any code called here can inject(RequestIdToken)
+    return inject(RequestIdToken) ?? &#39;unknown&#39;
+  })
+}
+</code></pre>
 `,
   },
 }

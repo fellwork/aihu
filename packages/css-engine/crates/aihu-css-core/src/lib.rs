@@ -42,6 +42,11 @@ pub fn compile_classes(classes: &[String]) -> String {
             output.push_str(" { ");
             output.push_str(&body);
             output.push_str(" }\n");
+            // Hoist the matching @keyframes as a sibling rule (animate-* only).
+            if let Some(kf) = tokens::animation_keyframes(class) {
+                output.push_str(kf);
+                output.push('\n');
+            }
         }
     }
     output

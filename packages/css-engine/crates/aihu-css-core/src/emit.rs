@@ -20,8 +20,8 @@ use crate::ast::{SfcAst, SfcStyleScope};
 use crate::progressive::ProgressiveRegistry;
 use crate::scanner::{scan, ScanResult};
 use crate::theme::{extract_theme_blocks, ThemeRegistry};
-use crate::tokens::utility_to_css;
-use crate::variants::{split_variants, Variant};
+use crate::tokens::{animation_keyframes, utility_to_css};
+use crate::variants::{split_variants, AttrMatch, Variant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
@@ -33,7 +33,10 @@ pub enum OutputMode {
 fn escape_class(class: &str) -> String {
     let mut out = String::with_capacity(class.len() + 4);
     for c in class.chars() {
-        if matches!(c, '[' | ']' | '#' | '(' | ')' | '.' | '%' | '/' | ':' | ',') {
+        if matches!(
+            c,
+            '[' | ']' | '#' | '(' | ')' | '.' | '%' | '/' | ':' | ',' | '@' | '=' | '"'
+        ) {
             out.push('\\');
         }
         out.push(c);
@@ -71,7 +74,11 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 
     // The base (innermost) selector and declaration body.
     let mut selector = class_sel;
-    let mut media: Option<String> = None;
+    // Wrapping at-rule (e.g. `@media (min-width: …)` for breakpoints or
+    // `@container (min-width: …)` for container queries). Generalized from the
+    // old `media: Option<String>` slot so both `@media` and `@container` wrap
+    // the rule uniformly: `<at-rule> { <rule> }`.
+    let mut at_rule: Option<String> = None;
     let mut dark_cascade = false;
 
     for v in &variants {
@@ -85,9 +92,43 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
                 // `[&>div]:` → substitute `&` for the base selector.
                 selector = sel.replace('&', &selector);
             }
+            Variant::Group(Some(state)) => {
+                // `group-hover:bg-x` → `.group:hover .group-hover\:bg-x`.
+                // Prepend a descendant-combinator ancestor selector: the rule
+                // applies to the element bearing this class when an ancestor
+                // marked `class="group"` is in `:<state>`. Within a shadow root
+                // both the marker and the styled element live in the same tree,
+                // so the class selectors match per spec §6.3 scoping.
+                selector = format!(".group:{state} {selector}");
+            }
+            Variant::Peer(Some(state)) => {
+                // `peer-checked:bg-x` → `.peer:checked ~ .peer-checked\:bg-x`.
+                // Prepend a subsequent-sibling-combinator selector: the rule
+                // applies when a PRIOR sibling marked `class="peer"` is in
+                // `:<state>`. CSS can only look backward to earlier siblings,
+                // so `peer` must appear before the styled element in source.
+                selector = format!(".peer:{state} ~ {selector}");
+            }
+            // Bare `group`/`peer` never reach here (they are marker utilities,
+            // not variant prefixes); a `None` state is unreachable but handled
+            // defensively as a no-op so the base selector is emitted unchanged.
+            Variant::Group(None) | Variant::Peer(None) => {}
+            // aria-*/data-* attribute variants compile to an attribute selector
+            // appended to the base: `aria-checked:` → `.cls[aria-checked="true"]`,
+            // `data-[state=open]:` → `.cls[data-state="open"]`. A keyword data-*
+            // (`data-active:`) emits a presence selector `[data-active]`.
+            Variant::Aria(m) => selector = format!("{selector}{}", attr_selector("aria", m)),
+            Variant::Data(m) => selector = format!("{selector}{}", attr_selector("data", m)),
             Variant::Breakpoint(bp) => {
                 if let Some(min) = theme.breakpoint(bp) {
-                    media = Some(format!("(min-width: {min})"));
+                    at_rule = Some(format!("@media (min-width: {min})"));
+                }
+            }
+            // Container queries wrap the rule in an `@container` at-rule keyed on
+            // the container breakpoint scale (mirrors `breakpoint()`).
+            Variant::Container(bp) => {
+                if let Some(min) = theme.container_breakpoint(bp) {
+                    at_rule = Some(format!("@container (min-width: {min})"));
                 }
             }
             Variant::Dark | Variant::HostContextDark => {
@@ -112,10 +153,39 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
         format!("{selector} {{ {body} }}\n")
     };
 
-    Some(match media {
-        Some(q) => format!("@media {q} {{\n{rule}}}\n"),
+    let rule = match at_rule {
+        Some(at) => format!("{at} {{\n{rule}}}\n"),
+        None => rule,
+    };
+
+    // Hoist the @keyframes an `animate-*` utility depends on as a top-level
+    // sibling rule (it cannot live nested inside the selector body). Re-emitting
+    // an identical block is idempotent in CSS, so per-occurrence emission is
+    // safe. `base` is the variant-stripped class (e.g. `animate-spin`).
+    Some(match animation_keyframes(&base) {
+        Some(kf) => format!("{rule}{kf}\n"),
         None => rule,
     })
+}
+
+/// Build an attribute-selector fragment for an `aria-*`/`data-*` variant.
+///
+/// `attr_selector("aria", Name{checked, true})` → `[aria-checked="true"]`;
+/// `attr_selector("data", NameValue{state, open})` → `[data-state="open"]`;
+/// `attr_selector("data", Name{active, false})` → `[data-active]` (presence).
+fn attr_selector(family: &str, m: &AttrMatch) -> String {
+    match m {
+        AttrMatch::Name { name, imply_true } => {
+            if *imply_true {
+                format!("[{family}-{name}=\"true\"]")
+            } else {
+                format!("[{family}-{name}]")
+            }
+        }
+        AttrMatch::NameValue { name, value } => {
+            format!("[{family}-{name}=\"{value}\"]")
+        }
+    }
 }
 
 /// Emit CSS for a scanned utility set in the given mode.
@@ -138,6 +208,10 @@ pub fn emit_with_progressive(
                 // Flat back-compat: only plain utilities, no variant wrapping.
                 if let Some(body) = utility_to_css(token) {
                     out.push_str(&format!(".{token} {{ {body} }}\n"));
+                    if let Some(kf) = animation_keyframes(token) {
+                        out.push_str(kf);
+                        out.push('\n');
+                    }
                 }
             }
             OutputMode::Scoped => {
@@ -171,8 +245,20 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
     // 1. Theme tokens at :host so var(--color-*) resolves inside the shadow.
     out.push_str(&theme.emit_host_tokens());
 
+    // 1b. Preflight border reset (Tailwind v4 parity). Browsers default
+    // `border-style: none`, so a bare `.border { border-width: 1px }` paints
+    // nothing. Emit a single one-time rule so every border utility renders a
+    // visible solid line. This is one rule per sheet (not per token), so the
+    // size impact is negligible; the matching utility wins by specificity.
+    out.push_str("*, ::before, ::after { border-style: solid; border-width: 0; }\n");
+
     // 2. Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
-    out.push_str(&emit_with_progressive(&result, &theme, &prog, OutputMode::Scoped));
+    out.push_str(&emit_with_progressive(
+        &result,
+        &theme,
+        &prog,
+        OutputMode::Scoped,
+    ));
 
     // 3. Fold the authored @style block (minus @theme directives).
     if let Some(style) = &ast.style {

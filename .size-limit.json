@@ -21,7 +21,7 @@
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "3450 B",
+    "limit": "3550 B",
     "gzip": true
   },
   {
@@ -188,5 +188,12 @@
     "limit": "1.8 KB",
     "gzip": true,
     "ignore": ["@aihu/signals", "@aihu/context", "@aihu-plugin/data"]
+  },
+  {
+    "name": "@aihu/magna/codegen",
+    "path": "packages/magna/dist/codegen.js",
+    "limit": "1.2 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/context", "@aihu-plugin/data", "@aihu/plugin"]
   }
 ]

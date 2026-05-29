@@ -43,12 +43,25 @@ export interface ScaffoldResult {
 export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
 export type AppTemplate = 'minimal' | 'full' | 'docs'
 
+/** Out-of-the-box CSS strategy for a scaffolded app. */
+export type CssChoice = 'engine' | 'none'
+/** Shadow-DOM mode threaded into the compiler when css-engine is opted in. */
+export type ShadowChoice = 'open' | 'closed' | 'none'
+
 // ---------------------------------------------------------------------------
 // App template generators (Vite + viteAihuPlugin, v1 syntax)
 // ---------------------------------------------------------------------------
 
-/** package.json for a new aihu application. */
-export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
+/** package.json for a new aihu application.
+ *
+ * When `withCssEngine` is true, `@aihu/css-engine` is added to `dependencies`
+ * so the OOTB utility-class scaffold resolves the optional compiler peer.
+ */
+export function appPackageJson(
+  name: string,
+  pm: PkgManager = 'bun',
+  withCssEngine = false,
+): string {
   // bun version detection: Bun.version when running under bun, process.versions.bun
   // when bunx routes through node (the published cli's shebang is `#!/usr/bin/env node`,
   // so process.versions.bun is undefined there). When neither is set, drop the field
@@ -77,6 +90,10 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
         // here keeps version drift visible at `bun outdated`.
         '@aihu/app': 'latest',
         '@aihu/arbor': 'latest',
+        // `@aihu/css-engine` is the optional utility-class compiler peer; only
+        // emitted for the OOTB css-engine scaffold (`--css engine`). Its scoped
+        // utilities fold into each component's shadow style at build time.
+        ...(withCssEngine ? { '@aihu/css-engine': 'latest' } : {}),
         '@aihu/router': 'latest',
         '@aihu/runtime': 'latest',
         '@aihu/signals': 'latest',
@@ -102,15 +119,28 @@ export function appPackageJson(name: string, pm: PkgManager = 'bun'): string {
  * `dir.pages` tells the router where to scan for `.aihu` page files; this
  * mirrors `examples/blog-router/vite.config.ts`.
  */
-export function appViteConfig(): string {
+export function appViteConfig(withCssEngine = false, shadowMode: ShadowChoice = 'open'): string {
+  // Default path (css off) and css-engine in the default `open` mode both emit
+  // the SAME plugin options — `open` is the compiler default, so a redundant
+  // `css: { shadowMode: 'open' }` is never written. css-engine in open mode
+  // adds only a clarifying comment. Only `closed`/`none` emit an explicit
+  // `css: { shadowMode }` block.
+  const emitCssBlock = withCssEngine && shadowMode !== 'open'
+  const cssEngineComment = withCssEngine
+    ? `      // @aihu/css-engine utility classes fold into each component's shadow
+      // <style> automatically. Set \`css: { shadowMode: 'none' }\` only to style
+      // light-DOM / external child elements (css-engine is scoped, not global).
+`
+    : ''
+  const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
   return `import { viteAihuPlugin } from '@aihu/app'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [
     viteAihuPlugin({
-      dir: { pages: 'src/pages' },
-    }),
+${cssEngineComment}      dir: { pages: 'src/pages' },
+${cssBlock}    }),
   ],
 })
 `
@@ -193,9 +223,33 @@ export function appAihuConfig(): string {
   return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu-plugin/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
 }
 
-/** src/pages/index.aihu for Hello World (v1 syntax). */
-export function appIndexAihu(appName: string = 'app'): string {
+/** src/pages/index.aihu for Hello World (v1 syntax).
+ *
+ * When `withCssEngine` is true, emits a utility-class starter (no authored
+ * `@style` block) so the scaffold demonstrates `@aihu/css-engine` end to end —
+ * the classes are scanned at build time and the scoped rules fold into the
+ * component's shadow `<style>`. When false, byte-identical to the original
+ * hand-written `@style` starter.
+ */
+export function appIndexAihu(appName: string = 'app', withCssEngine = false): string {
   const _tag = `${toSafe(appName)}-root`
+  if (withCssEngine) {
+    return `@state {
+import { signal } from '@aihu/signals'
+
+const [count, setCount] = signal(0)
+const increment = () => setCount(c => c + 1)
+}
+
+@template {
+  <div class="flex flex-col gap-4 max-w-7xl mx-auto p-8">
+    <h1 class="text-3xl font-bold">Hello from aihu</h1>
+    <p class="text-lg">Count: {count}</p>
+    <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click={increment}>+1</button>
+  </div>
+}
+`
+  }
   return `@state {
 import { signal } from '@aihu/signals'
 
@@ -293,17 +347,26 @@ export function pluginIndex(name: string): string {
 export function scaffoldApp(
   name: string,
   outDir?: string,
-  opts?: { pm?: PkgManager; template?: AppTemplate },
+  opts?: {
+    pm?: PkgManager
+    template?: AppTemplate
+    /** `'engine'` includes `@aihu/css-engine` OOTB; `'none'` (default) is the plain scaffold. */
+    css?: CssChoice
+    /** Shadow mode when css-engine is opted in. Default `'open'` (scoped shadow fold). */
+    shadowMode?: ShadowChoice
+  },
 ): ScaffoldResult {
   const pm = opts?.pm ?? 'bun'
+  const withCssEngine = opts?.css === 'engine'
+  const shadowMode = opts?.shadowMode ?? 'open'
   const root = resolve(outDir ?? '.', name)
   return writeFiles(root, [
-    ['package.json', appPackageJson(name, pm)],
-    ['vite.config.ts', appViteConfig()],
+    ['package.json', appPackageJson(name, pm, withCssEngine)],
+    ['vite.config.ts', appViteConfig(withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],
-    ['src/pages/index.aihu', appIndexAihu(name)],
+    ['src/pages/index.aihu', appIndexAihu(name, withCssEngine)],
     ['.vscode/extensions.json', appVscodeExtensions()],
     ['.vscode/settings.json', appVscodeSettings()],
   ])

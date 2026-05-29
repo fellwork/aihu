@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
-import type { AppTemplate, PkgManager } from './index.js'
+import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
 
 // ─── Colour helpers (no deps) ────────────────────────────────────────────────
@@ -71,6 +71,45 @@ function detectPm(): PkgManager {
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((res) => rl.question(question, res))
+}
+
+// ─── Argv flag helpers (pre-fill / skip prompts) ─────────────────────────────
+
+const argv = process.argv.slice(2)
+
+function extractFlag(flag: string): string | undefined {
+  const long = `--${flag}`
+  const longEq = `${long}=`
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!
+    if (a === long) return argv[i + 1]
+    if (a.startsWith(longEq)) return a.slice(longEq.length)
+  }
+  return undefined
+}
+
+function hasFlag(flag: string): boolean {
+  return argv.includes(`--${flag}`)
+}
+
+/**
+ * Resolve the css-engine choice from argv (`--css engine|none` or the
+ * `--css-engine` boolean alias). Returns `undefined` when no css flag was
+ * passed, so the wizard knows to prompt.
+ */
+function cssFromArgv(): CssChoice | undefined {
+  if (hasFlag('css-engine')) return 'engine'
+  const raw = extractFlag('css')
+  if (raw === 'engine') return 'engine'
+  if (raw === 'none') return 'none'
+  return undefined
+}
+
+/** Resolve the shadow-mode choice from argv, or `undefined` to prompt. */
+function shadowFromArgv(): ShadowChoice | undefined {
+  const raw = extractFlag('shadow')
+  if (raw === 'open' || raw === 'closed' || raw === 'none') return raw
+  return undefined
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -147,6 +186,53 @@ async function main(): Promise<void> {
   }
   const pm: PkgManager = pmMap[pmAnswer.trim().toLowerCase()] ?? detected
 
+  // ── CSS engine (utility classes) ────────────────────────────────────────────
+  // Argv flags (`--css engine|none`, `--css-engine`, `--shadow ...`) suppress the
+  // corresponding prompt, mirroring how `nameArg` short-circuits the name prompt.
+  let css: CssChoice
+  const cssArg = cssFromArgv()
+  if (cssArg !== undefined) {
+    css = cssArg
+    process.stdout.write(`${dim('  CSS engine:')} ${cyan(css === 'engine' ? 'yes' : 'no')}\n`)
+  } else {
+    const cssAnswer = await prompt(
+      rl,
+      `\n  Include ${bold('@aihu/css-engine')} (utility classes)? ${dim('[y/N]')} `,
+    )
+    css = cssAnswer.trim().toLowerCase().startsWith('y') ? 'engine' : 'none'
+  }
+
+  // Shadow mode only matters when css-engine is on.
+  let shadowMode: ShadowChoice = 'open'
+  if (css === 'engine') {
+    const shadowArg = shadowFromArgv()
+    if (shadowArg !== undefined) {
+      shadowMode = shadowArg
+      process.stdout.write(`${dim('  Shadow mode:')} ${cyan(shadowMode)}\n`)
+    } else {
+      process.stdout.write('\n')
+      process.stdout.write(`${dim('  Shadow mode:')}\n`)
+      process.stdout.write(
+        `    ${cyan('1)')} open    ${dim('(default, scoped — utilities fold into the shadow style)')}\n`,
+      )
+      process.stdout.write(`    ${cyan('2)')} closed  ${dim('(scoped, externally hidden)')}\n`)
+      process.stdout.write(
+        `    ${cyan('3)')} none    ${dim('(light DOM — style slotted / external children)')}\n`,
+      )
+      const shadowAnswer = await prompt(rl, `  ${dim('Shadow mode [1]:')} `)
+      const shadowMap: Record<string, ShadowChoice> = {
+        '': 'open',
+        '1': 'open',
+        open: 'open',
+        '2': 'closed',
+        closed: 'closed',
+        '3': 'none',
+        none: 'none',
+      }
+      shadowMode = shadowMap[shadowAnswer.trim().toLowerCase()] ?? 'open'
+    }
+  }
+
   // ── Git init ──────────────────────────────────────────────────────────────
   const gitAnswer = await prompt(rl, `\n  Initialize git repo? ${dim('[Y/n]')} `)
   const initGit = !gitAnswer.trim().toLowerCase().startsWith('n')
@@ -155,11 +241,12 @@ async function main(): Promise<void> {
 
   // ── Scaffold ──────────────────────────────────────────────────────────────
   process.stdout.write('\n')
+  const cssLabel = css === 'engine' ? ` / css-engine:${shadowMode}` : ''
   process.stdout.write(
-    `${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm})…`)}\n\n`,
+    `${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm}${cssLabel})…`)}\n\n`,
   )
 
-  const result = scaffoldApp(projectName, process.cwd(), { pm, template })
+  const result = scaffoldApp(projectName, process.cwd(), { pm, template, css, shadowMode })
 
   for (const f of result.created) process.stdout.write(`  ${green('+')} ${f}\n`)
   for (const f of result.skipped)

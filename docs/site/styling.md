@@ -2,6 +2,8 @@
 
 aihu styles components with **`@aihu/css-engine`** — a hard fork of Tailwind v4 re-targeted for Web Components. Instead of a single global utility stylesheet, the engine scans your `.aihu` SFCs at build time and folds the utility classes each component actually uses into that component's shadow `<style>`. There is no global utility sheet, no runtime CSS-in-JS, and (for the static case) nothing extra ships to the client.
 
+> **See also:** the [full utility reference](#utility-classes) — the authoritative index of every supported class, variant, and brand token, plus a "Not yet supported" callout.
+
 > **Status:** `@aihu/css-engine@0.1.0` is published. The build-time engine (`compile`, `compileSfc`) currently depends on the `aihu-css-compile` Rust binary built from the workspace (`cargo build --release -p aihu-css-core`); a prebuilt binary ships with the package in a later plan. The runtime helpers (`cn`, `progressive`) are stable and tiny.
 
 ## How it works
@@ -21,6 +23,66 @@ On top of the standard Tailwind variant set, the engine adds variants that only 
 | `part-*:` | a named `::part(...)` exposed by the component | `part-label:font-bold` |
 
 These compile to the corresponding shadow-DOM selectors so you can style the host, slotted content, and exposed parts with the same utility vocabulary you use for regular elements.
+
+### group / peer relational variants
+
+`group-*:` and `peer-*:` style an element based on the *state of a related element* — an ancestor (`group`) or a previous sibling (`peer`). Mark the related element with the bare `group` or `peer` class, then prefix the styled element's utilities with the matching variant.
+
+| Variant | Relationship | Compiles to |
+|---------|--------------|-------------|
+| `group-hover:` | ancestor marked `group` is hovered | `.group:hover .group-hover\:<u>` |
+| `group-focus:` / `group-focus-visible:` / `group-active:` / `group-disabled:` | ancestor marked `group` is in that state | `.group:<state> .group-<state>\:<u>` |
+| `peer-checked:` | previous sibling marked `peer` is checked | `.peer:checked ~ .peer-checked\:<u>` |
+| `peer-hover:` / `peer-focus:` / `peer-focus-visible:` / `peer-disabled:` | previous sibling marked `peer` is in that state | `.peer:<state> ~ .peer-<state>\:<u>` |
+
+The bare `group` / `peer` classes are *markers*: they carry no styles of their own, they just anchor the relationship. Because everything is scoped inside one shadow root, the marker and the styled element must live in the same component tree. `peer` only looks **backward** to earlier siblings (CSS has no previous-sibling-forward combinator), so the `peer` element must appear before the styled element in source order.
+
+```html
+<!-- input → output -->
+<div class="group">
+  <span class="group-hover:bg-primary">…</span>
+</div>
+<!-- emits: .group:hover .group-hover\:bg-primary { background-color: var(--color-primary) } -->
+
+<input class="peer" type="checkbox" />
+<span class="peer-checked:bg-primary">…</span>
+<!-- emits: .peer:checked ~ .peer-checked\:bg-primary { background-color: var(--color-primary) } -->
+```
+
+These stack with the other variants left-to-right, e.g. `md:group-hover:bg-primary` wraps the relational rule in the `md` media query.
+
+## Light DOM vs Shadow DOM (and using css-engine)
+
+By default every `.aihu` component renders into an **open shadow root** (`shadowMode: 'open'`). `@aihu/css-engine` is built for this: it compiles each SFC's utility classes to a scoped stylesheet and folds it into that component's shadow `<style>`. **css-engine needs no special configuration to work behind a shadow root** — `shadowMode: 'none'` is *not* required. (That requirement is real only for global-cascade frameworks like Tailwind, UnoCSS, or Pico, which emit one global sheet that a shadow root would block.)
+
+If you do want your components in the **light DOM** — for example to style external/slotted children, or to emit a single global utility sheet — flip one knob:
+
+```ts
+// vite.config.ts
+viteAihuPlugin({
+  dir: { pages: 'src/pages' },
+  css: { shadowMode: 'none' },   // light DOM — utility CSS lands in dist/assets/*.css
+})
+```
+
+What changes when you cross the shadow boundary:
+
+- **Open / closed (default).** Utility CSS folds into each component's shadow `<style>` via `adoptedStyleSheets`. External / global stylesheets do **not** pierce in; theme tokens still cascade in through `:host` because custom properties inherit across the boundary. To deliberately reach across, use the WC-native variants — `host:`, `slotted:`, and `part-*:`.
+- **None (light DOM).** There is no shadow root, so the engine routes the per-SFC utility CSS through Vite's CSS pipeline and it lands in the bundled `dist/assets/*.css`. Now ordinary descendant selectors and global sheets reach your elements (and external children) normally.
+
+**Verification gotcha.** "I switched to shadow mode and `grep dist/assets/*.css` finds nothing" is expected — in open/closed mode the utilities are folded into each component's `<style>`, not the global CSS asset. Grep the *compiled component* (the emitted `__style__.replaceSync(...)` stylesheet) instead. Only in `shadowMode: 'none'` do the utilities appear in `dist/assets/*.css`.
+
+## Scaffolding with css-engine
+
+`@aihu/cli` can wire `@aihu/css-engine` into a fresh project out of the box:
+
+```bash
+aihu app myapp --css engine                  # css-engine, shadow/open (default, scoped)
+aihu app myapp --css engine --shadow none     # css-engine, light DOM
+aihu app myapp --css engine --shadow closed    # css-engine, closed shadow root
+```
+
+`--css engine` adds `@aihu/css-engine` to `dependencies` and emits a starter page that uses utility classes (`flex gap-4 max-w-7xl mx-auto p-8`, `text-3xl font-bold`, …) instead of a hand-written `@style` block. The default shadow mode is `open` — so the default css-engine scaffold writes **no** `css` block at all (open is the compiler default); only `--shadow closed|none` emit an explicit `css: { shadowMode }`. The interactive `create-aihu` wizard (`npm create aihu@latest`) asks the same two questions — *"Include @aihu/css-engine?"* and, if yes, a shadow-mode select.
 
 ## Style packs
 

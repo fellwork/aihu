@@ -40,6 +40,43 @@ pub enum Variant {
     Breakpoint(String),
     /// `[&>div]:` arbitrary selector → native nesting (`& > div`).
     ArbitrarySelector(String),
+
+    // ── relational (group / peer) ────────────────────────────────────────────
+    /// `group-hover:`, `group-focus:`, `group-focus-visible:`, `group-active:`,
+    /// `group-disabled:` → ancestor-state selector
+    /// (`.group:<state> <base>`). The `Option<String>` is the ancestor state
+    /// pseudo-class. A bare `group` (no state) is NOT a variant prefix — it is a
+    /// marker utility (see `tokens::fixed_utility`) applied directly to the
+    /// ancestor element; this arm only ever carries `Some(state)`.
+    Group(Option<String>),
+    /// `peer-hover:`, `peer-focus:`, `peer-focus-visible:`, `peer-checked:`,
+    /// `peer-disabled:` → previous-sibling-state selector
+    /// (`.peer:<state> ~ <base>`). As with [`Variant::Group`], the bare `peer`
+    /// marker is a utility, not a prefix; this arm only carries `Some(state)`.
+    Peer(Option<String>),
+
+    // ── attribute / container (round 2) ───────────────────────────────────────
+    /// `aria-checked:` → `&[aria-checked="true"]` (keyword form, implicit
+    /// `="true"`). `aria-[expanded=false]:` carries an explicit `name=value`
+    /// payload → `&[aria-expanded="false"]`.
+    Aria(AttrMatch),
+    /// `data-[state=open]:` → `&[data-state="open"]` (bracket payload
+    /// `name=value`). `data-active:` (keyword) → `&[data-active]` (presence).
+    Data(AttrMatch),
+    /// Container-query breakpoint variant: `@sm:`/`@md:`/`@lg:`/`@xl:`/`@2xl:`
+    /// → `@container (min-width: …)`. Wraps the rule like `Breakpoint`, but in
+    /// an `@container` at-rule instead of `@media`.
+    Container(String),
+}
+
+/// An attribute-selector match payload for `aria-*` / `data-*` variants.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttrMatch {
+    /// `aria-checked` → `[aria-checked="true"]` (aria) or `[data-active]`
+    /// presence (data). The bool records whether to imply `="true"`.
+    Name { name: String, imply_true: bool },
+    /// Explicit `name=value` → `[<full>-name="value"]`.
+    NameValue { name: String, value: String },
 }
 
 impl Variant {
@@ -111,14 +148,78 @@ fn parse_prefix(prefix: &str) -> Option<Variant> {
         "hover" | "focus" | "focus-visible" | "active" | "disabled" | "visited"
         | "checked" => Variant::Pseudo(prefix.to_string()),
         "sm" | "md" | "lg" | "xl" | "2xl" => Variant::Breakpoint(prefix.to_string()),
+        // Container-query breakpoints: `@sm`/`@md`/`@lg`/`@xl`/`@2xl`.
+        "@sm" | "@md" | "@lg" | "@xl" | "@2xl" => {
+            Variant::Container(prefix[1..].to_string())
+        }
         _ => {
             if let Some(tag) = prefix.strip_prefix("slotted-") {
                 Variant::SlottedTag(tag.to_string())
             } else if let Some(name) = prefix.strip_prefix("part-") {
                 Variant::Part(name.to_string())
+            } else if let Some(state) = group_state(prefix) {
+                Variant::Group(state)
+            } else if let Some(state) = peer_state(prefix) {
+                Variant::Peer(state)
+            } else if let Some(payload) = prefix.strip_prefix("aria-") {
+                Variant::Aria(parse_attr_match(payload, true))
+            } else if let Some(payload) = prefix.strip_prefix("data-") {
+                // data-* never implies `="true"`: bare `data-active` is a
+                // presence selector `[data-active]`.
+                Variant::Data(parse_attr_match(payload, false))
             } else {
                 return None;
             }
         }
     })
+}
+
+/// States a `group-*:` prefix may carry. Returns `Some(Some(state))` when
+/// `prefix` is a recognized `group-<state>` form. (`group` alone is a marker
+/// utility, not a variant — so it is NOT matched here.)
+fn group_state(prefix: &str) -> Option<Option<String>> {
+    let state = prefix.strip_prefix("group-")?;
+    relational_state(state).map(Some)
+}
+
+/// States a `peer-*:` prefix may carry. See [`group_state`].
+fn peer_state(prefix: &str) -> Option<Option<String>> {
+    let state = prefix.strip_prefix("peer-")?;
+    relational_state(state).map(Some)
+}
+
+/// The closed set of states `group-*:` / `peer-*:` accept. They map 1:1 to a
+/// pseudo-class on the ancestor / previous-sibling marker element.
+fn relational_state(state: &str) -> Option<String> {
+    matches!(
+        state,
+        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "checked"
+    )
+    .then(|| state.to_string())
+}
+
+/// Parse the payload after `aria-`/`data-` into an [`AttrMatch`].
+///
+/// Two shapes:
+/// - `checked` (keyword) → `Name { name: "checked", imply_true }`.
+/// - `[state=open]` (bracket, from `data-[state=open]`) → `NameValue`. The
+///   bracket-aware splitter in [`split_variants`] keeps the `[...]` attached to
+///   the prefix, so the payload arrives here as `[state=open]`.
+fn parse_attr_match(payload: &str, imply_true: bool) -> AttrMatch {
+    // Strip an outer `[...]` if present (arbitrary form).
+    let inner = payload
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(payload);
+    if let Some((name, value)) = inner.split_once('=') {
+        AttrMatch::NameValue {
+            name: name.trim().to_string(),
+            value: value.trim().trim_matches('"').to_string(),
+        }
+    } else {
+        AttrMatch::Name {
+            name: inner.trim().to_string(),
+            imply_true,
+        }
+    }
 }

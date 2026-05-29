@@ -20,6 +20,7 @@ expression: "compile_sfc_scoped(&sfc(\"popover:menu\"))"
   --color-surface: #faf8f4;
   --color-surface-foreground: #1a1d24;
 }
+*, ::before, ::after { border-style: solid; border-width: 0; }
 @supports (selector(:popover-open)) {
   .popover\:menu:popover-open { position: fixed; margin: 0; inset: auto; }
 }

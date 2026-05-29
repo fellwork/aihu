@@ -53,6 +53,8 @@ desktop.ini
 .claude/worktrees/
 # team CLI per-developer focus pin (not shared)
 .team-context
+# agent scratch / temp scaffolds (transient, machine-local)
+.context/
 # Top-level worktrees (transient feature-branch worktrees)
 .worktrees/
 

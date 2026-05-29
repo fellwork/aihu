@@ -100,6 +100,17 @@ const SFC_UTILITIES_ONLY = `@template {
   <div class="flex p-4"><span class="text-lg">hi</span></div>
 }`
 
+// Exact repro from #278: an `@style` block must NOT suppress the utility-class
+// scanner. Both the scanned utilities (text-3xl, gap-4) and the authored
+// `@style` rule (.__probe__) must coexist in the folded shadow stylesheet.
+const SFC_278_UTILITIES_AND_PROBE_STYLE = `@template {
+  <div class="text-3xl gap-4">x</div>
+}
+
+@style {
+  .__probe__ { color: rgb(1,2,3); }
+}`
+
 afterEach(() => {
   vi.resetModules()
   vi.doUnmock('@aihu/css-engine')
@@ -136,6 +147,21 @@ describe('css-engine hook — present (e2e)', () => {
     const matches = out.match(/\.box \{ color: red; \}/g) ?? []
     expect(matches).toHaveLength(1)
   })
+
+  it.runIf(cssCoreBin)(
+    'an @style block does NOT suppress scanned template utilities (#278)',
+    async () => {
+      const out = await runPlugin(SFC_278_UTILITIES_AND_PROBE_STYLE, 'x-probe')
+
+      // Scanned template utilities survive alongside the @style block.
+      expect(out).toContain('.gap-4 { gap: 1rem; }')
+      expect(out).toContain('.text-3xl { font-size: 1.875rem')
+      // The authored @style rule is folded in too — both coexist, exactly once.
+      expect(out).toContain('.__probe__ { color: rgb(1,2,3); }')
+      const probeMatches = out.match(/\.__probe__ \{ color: rgb\(1,2,3\); \}/g) ?? []
+      expect(probeMatches).toHaveLength(1)
+    },
+  )
 
   it.runIf(cssCoreBin)('folds utilities even when the SFC has NO @style block (#3)', async () => {
     const out = await runPlugin(SFC_UTILITIES_ONLY, 'x-plain')

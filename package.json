@@ -28,8 +28,9 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "check:ci": "bunx biome ci . && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:runtime-purity",
-    "check:pre-push": "bunx biome ci . && bun run typecheck",
+    "check:lint": "biome ci .",
+    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:runtime-purity",
+    "check:pre-push": "bun run check:lint && bun run typecheck",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "check:runtime-purity": "bun scripts/check-runtime-purity.ts",
@@ -45,7 +46,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.13",
+    "@biomejs/biome": "2.4.14",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@commitlint/cli": "^20.5.3",

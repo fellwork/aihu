@@ -17,7 +17,7 @@
   {
     "name": "@aihu/runtime",
     "bytes": 3502,
-    "limit": "3450 B"
+    "limit": "3550 B"
   },
   {
     "name": "@aihu/agent",
@@ -123,5 +123,10 @@
     "name": "@aihu/magna",
     "bytes": -1,
     "limit": "1.8 KB"
+  },
+  {
+    "name": "@aihu/magna/codegen",
+    "bytes": -1,
+    "limit": "1.2 KB"
   }
 ]

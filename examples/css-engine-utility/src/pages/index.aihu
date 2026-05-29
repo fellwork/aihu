@@ -4,22 +4,88 @@
 }
 
 @template {
-  <section class="flex flex-col gap-6 px-4 py-6 items-center">
+  <section class="max-w-7xl mx-auto flex flex-col gap-6 px-4 py-6">
     <h1 class="text-lg font-bold">css-engine utility classes</h1>
     <p class="text-sm">
-      Utility classes (<code>flex</code>, <code>flex-col</code>, <code>gap-6</code>,
-      <code>px-4</code>, <code>py-6</code>, <code>items-center</code>,
-      <code>text-lg</code>, <code>font-bold</code>, <code>text-sm</code>)
-      are compiled by <code>@aihu/css-engine</code> via the compiler hook
-      wired into <code>viteAihuPlugin</code>. Because
-      <code>css.shadowMode: 'none'</code> is set, the generated CSS lands in
-      the document cascade.
+      Utility classes (<code>max-w-7xl</code>, <code>mx-auto</code>,
+      <code>flex</code>, <code>flex-col</code>, <code>gap-6</code>,
+      <code>px-4</code>, <code>py-6</code>, <code>text-lg</code>,
+      <code>font-bold</code>, <code>text-sm</code>) are compiled by
+      <code>@aihu/css-engine</code> via the compiler hook wired into
+      <code>viteAihuPlugin</code>. Because <code>css.shadowMode: 'none'</code>
+      is set, the generated CSS lands in the document cascade.
     </p>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div class="border-2 rounded p-4">one</div>
+      <div class="border-2 rounded p-4">two</div>
+      <div class="border-2 rounded p-4">three</div>
+    </div>
+
+    <ul class="space-y-4">
+      <li class="text-sm">space-y-4 keeps siblings evenly stacked</li>
+      <li class="text-sm">no margin on the first child</li>
+      <li class="text-sm">margin-block-start on the rest</li>
+    </ul>
+
+    <ul class="divide-y-2 border-muted">
+      <li class="py-2 text-sm">divide-y-2 draws a 2px border between siblings</li>
+      <li class="py-2 text-sm">border-block-width on every child after the first</li>
+      <li class="py-2 text-sm">set the color with a normal border-* utility</li>
+    </ul>
+
+    <div class="relative border-2 rounded p-4">
+      <span class="absolute top-4 right-4 text-sm">badge</span>
+      <p class="leading-relaxed tracking-wide text-sm">
+        Position scale (<code>absolute top-4 right-4</code>) and the named
+        typography scales (<code>leading-relaxed</code>,
+        <code>tracking-wide</code>) are compiled to real declarations.
+      </p>
+    </div>
+
+    <button class="focus:ring-2 ring-blue-500 ring-offset-2 rounded border px-4 py-2 text-sm">
+      focus me — 2px blue ring with a 2px offset (ring-2 ring-blue-500 ring-offset-2)
+    </button>
+
+    <div class="flex gap-6">
+      <button class="transition-transform duration-300 hover:scale-105 border-2 rounded p-4">
+        hover:scale-105 with transition-transform
+      </button>
+      <div class="animate-spin border-2 rounded p-4">animate-spin</div>
+    </div>
+
+    <p class="text-sm">
+      The button above uses <code>transition-transform</code>,
+      <code>duration-300</code>, and <code>hover:scale-105</code> — Round-2
+      motion utilities. The spinner uses <code>animate-spin</code>, which also
+      emits a hoisted <code>@keyframes spin</code> block.
+    </p>
+
+    <div class="@container border-2 rounded p-4">
+      <div class="@md:flex gap-4">
+        <span class="text-sm">@container parent</span>
+        <span class="text-sm">@md:flex child (lays out as a row at ≥28rem)</span>
+      </div>
+    </div>
+
+    <button class="aria-expanded:bg-accent data-[state=open]:underline border-2 rounded px-4 py-6">
+      aria-expanded:/data-[state=open]: attribute-variant toggle
+    </button>
+
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
-      <code>packages/css-engine/README.md</code> for the full table, including
-      what is <em>not</em> supported (e.g. <code>grid-cols-N</code>,
-      <code>mx-auto</code>, <code>max-w-7xl</code>, responsive prefixes).
+      <code>docs/site/utility-classes.md</code> for the full table. Round 2 added
+      <code>group:</code>/<code>peer:</code> variants, motion utilities, container
+      queries (<code>@container</code>, <code>@md:</code>), and
+      <code>aria-*</code>/<code>data-*</code> attribute variants.
     </p>
+
+    <div class="group flex flex-col gap-2">
+      <span class="group-hover:bg-primary p-2">group-hover target</span>
+    </div>
+    <label class="flex flex-col gap-2">
+      <input class="peer" type="checkbox" />
+      <span class="peer-checked:bg-primary p-2">peer-checked target</span>
+    </label>
   </section>
 }

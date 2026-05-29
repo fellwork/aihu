@@ -11,6 +11,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./codegen": {
+      "import": "./dist/codegen.js",
+      "types": "./dist/codegen.d.ts"
     }
   },
   "files": [
