@@ -93,6 +93,13 @@ jobs:
           git diff --exit-code apps/docs/src/content.ts || \
             (echo "ERROR: apps/docs/src/content.ts is stale. Run 'bun run build' in apps/docs and commit the updated file." && exit 1)
 
+      # Doc-coverage gate (default/non-strict): hard-fails on undocumented
+      # A1-owned packages; A3/A4 doc gaps are a tracked WARNING (exit 0) so an
+      # A1 docs deploy is not blocked on other tracks. A3/A4 closeout PRs run
+      # this with --strict to block their own landing on missing docs.
+      - name: Doc-coverage gate
+        run: bun apps/docs/scripts/check-doc-coverage.ts
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
@@ -141,6 +148,25 @@ jobs:
       - name: Build docs
         run: bun run build
         working-directory: apps/docs
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Lighthouse quality gate — serves apps/docs/dist and asserts 95+ on
+      # perf/a11y/best-practices/SEO for /docs/introduction. Runs after the
+      # build and before deploy so a regression blocks the release.
+      - name: Lighthouse gate
+        run: bun scripts/lighthouse.ts
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: scripts/lighthouse-results.json
+          if-no-files-found: ignore
 
       - name: Deploy to Cloudflare Pages
         id: deploy
