@@ -1,45 +1,68 @@
 /**
- * Lighthouse quality gate runner.
+ * Lighthouse quality gate runner — aihu docs site.
  * Usage: bun scripts/lighthouse.ts
  *
- * Starts the demo server, runs Lighthouse against / and /about,
- * asserts score thresholds and Core Web Vitals, writes results to
- * scripts/lighthouse-results.json, then exits non-zero on failure.
+ * Serves the pre-built apps/docs/dist via `wrangler pages dev` and runs
+ * Lighthouse against the docs introduction page, asserting 95+ on
+ * performance / accessibility / best-practices / SEO plus Core Web Vitals.
+ * Writes results to scripts/lighthouse-results.json, exits non-zero on
+ * any threshold miss.
+ *
+ * Prerequisite: `bun run build` must have been run in apps/docs so that
+ * apps/docs/dist exists. The CI deploy workflow builds docs before this gate.
  */
 
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as chromeLauncher from 'chrome-launcher'
 import lighthouse from 'lighthouse'
 
-const DEMO_PORT = 3456
-const BASE_URL = `http://localhost:${DEMO_PORT}`
-const URLS = [`${BASE_URL}/`, `${BASE_URL}/about`]
+const PORT = 8788
+const BASE_URL = `http://localhost:${PORT}`
+
+// The docs site is a hash-routed SPA served by the Cloudflare Pages worker;
+// any unmatched path falls through to the SPA shell, which renders the
+// `introduction` page by default. /docs/introduction is the canonical IA URL
+// for the introduction content (arch-1-website.md §1.1).
+const URLS = [`${BASE_URL}/docs/introduction`]
 const RESULTS_PATH = join(process.cwd(), 'scripts', 'lighthouse-results.json')
+const DIST_DIR = join(process.cwd(), 'apps', 'docs', 'dist')
 
 const THRESHOLDS = {
-  performance: 90,
-  accessibility: 90,
-  'best-practices': 90,
-  seo: 90,
+  performance: 95,
+  accessibility: 95,
+  'best-practices': 95,
+  seo: 95,
 } as const
 
 const CWV = {
   lcp: 2500, // ms
-  cls: 0, // unitless
+  cls: 0.1, // unitless
 } as const
 
-// ── 1. Start demo server ────────────────────────────────────────────────────
+// ── 0. Sanity-check the build output exists ─────────────────────────────────
 
-const server = Bun.spawn(['bun', 'tests/manual-demo/server.ts'], {
-  cwd: process.cwd(),
-  stdout: 'pipe',
-  stderr: 'pipe',
-})
+if (!existsSync(DIST_DIR)) {
+  console.error(`apps/docs/dist not found at ${DIST_DIR}.`)
+  console.error("Run 'bun run build' in apps/docs first (CI builds docs before this gate).")
+  process.exit(1)
+}
 
-// ── 2. Poll until server is ready (up to 10 s) ──────────────────────────────
+// ── 1. Start the docs static server (wrangler pages dev) ────────────────────
 
-async function waitForServer(url: string, timeoutMs = 10_000): Promise<void> {
+const server = Bun.spawn(
+  ['bunx', 'wrangler', 'pages', 'dev', DIST_DIR, '--port', String(PORT), '--ip', '127.0.0.1'],
+  {
+    cwd: process.cwd(),
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { ...process.env, CI: '1' },
+  },
+)
+
+// ── 2. Poll until server is ready (up to 60 s — wrangler cold start) ─────────
+
+async function waitForServer(url: string, timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
@@ -48,13 +71,18 @@ async function waitForServer(url: string, timeoutMs = 10_000): Promise<void> {
     } catch {
       // not ready yet
     }
-    await Bun.sleep(200)
+    await Bun.sleep(500)
   }
   throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`)
 }
 
-console.log('Waiting for demo server…')
-await waitForServer(`${BASE_URL}/`)
+console.log('Waiting for docs server…')
+try {
+  await waitForServer(`${BASE_URL}/`)
+} catch (err) {
+  server.kill()
+  throw err
+}
 console.log('Server ready.')
 
 // ── 3. Run Lighthouse against each URL ──────────────────────────────────────
@@ -135,7 +163,7 @@ for (const url of URLS) {
 writeFileSync(RESULTS_PATH, JSON.stringify(allResults, null, 2))
 console.log(`\nResults written to ${RESULTS_PATH}`)
 
-// ── 8. Kill demo server ───────────────────────────────────────────────────────
+// ── 8. Kill docs server ─────────────────────────────────────────────────────────
 
 server.kill()
 
