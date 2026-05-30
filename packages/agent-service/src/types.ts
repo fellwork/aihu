@@ -130,8 +130,21 @@ export interface AgentServiceOptions {
    * Getter for the `componentInstanceRegistry` from `@aihu/arbor/mount`.
    * Injected at construction time to avoid a circular import.
    * When absent, all `handleToolCall` calls return 404 (no live instance).
+   *
+   * The registry is consumed READ-ONLY here (only `.get(tag)` is called),
+   * so the getter is typed as `ReadonlyMap` — a zero-cost type-level lock that
+   * prevents external mutation of the live registry without snapshotting it.
    */
-  getRegistry?: () => Map<string, LiveBinding[]>
+  getRegistry?: () => ReadonlyMap<string, LiveBinding[]>
+  /**
+   * Optional per-request auth resolver. When provided, `asMiddleware()` calls
+   * it to build the `RequestContext` (userId + raw jwt) passed to
+   * `handleToolCall`, enabling scoped tools over the bundled HTTP path. When
+   * absent, `asMiddleware()` passes no context (fail-closed: scoped tools 401).
+   * Injected to keep agent-service auth-library-agnostic and avoid a circular
+   * `@aihu/auth` dep. The host wires `getAuthState` (`@aihu/auth/server`).
+   */
+  resolveAuth?: (req: Request) => RequestContext | Promise<RequestContext>
 }
 
 /**

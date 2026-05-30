@@ -56,7 +56,9 @@ describe('AC2 — componentInstanceRegistry mount', () => {
   afterEach(() => {
     // Clean up: dispose all scopes created during the test by clearing the registry.
     // In real tests, dispose() is called explicitly.
-    _getComponentInstanceRegistry().clear()
+    // Test-only teardown: the getter returns a ReadonlyMap (G6f hardening);
+    // cast to mutable here to reset live registry state between tests.
+    ;(_getComponentInstanceRegistry() as Map<string, unknown>).clear()
   })
 
   it('registry has one binding after mounting a component with __agentBinding', () => {
@@ -156,7 +158,9 @@ describe('AC2 — componentInstanceRegistry mount', () => {
 
 describe('AC3 — registry dispose on MountScope.dispose()', () => {
   afterEach(() => {
-    _getComponentInstanceRegistry().clear()
+    // Test-only teardown: the getter returns a ReadonlyMap (G6f hardening);
+    // cast to mutable here to reset live registry state between tests.
+    ;(_getComponentInstanceRegistry() as Map<string, unknown>).clear()
   })
 
   it('binding is removed from registry after dispose()', () => {
@@ -207,7 +211,9 @@ describe('AC12 — capacity cap: 1000 max bindings per tag', () => {
   afterEach(() => {
     for (const s of scopes) s.dispose()
     scopes.length = 0
-    _getComponentInstanceRegistry().clear()
+    // Test-only teardown: the getter returns a ReadonlyMap (G6f hardening);
+    // cast to mutable here to reset live registry state between tests.
+    ;(_getComponentInstanceRegistry() as Map<string, unknown>).clear()
   })
 
   it('1000 mounts succeed without warning', () => {
@@ -261,7 +267,9 @@ describe('AC12 — capacity cap: 1000 max bindings per tag', () => {
 
 describe('AC13 — cross-origin iframe skip', () => {
   afterEach(() => {
-    _getComponentInstanceRegistry().clear()
+    // Test-only teardown: the getter returns a ReadonlyMap (G6f hardening);
+    // cast to mutable here to reset live registry state between tests.
+    ;(_getComponentInstanceRegistry() as Map<string, unknown>).clear()
     vi.restoreAllMocks()
   })
 

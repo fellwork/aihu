@@ -50,6 +50,10 @@ export function mountAcpAdapter(service: AgentService, options?: AcpAdapterOptio
           const toolName = fromPart || (typeof msg.content === 'string' ? msg.content.trim() : '')
           if (!toolName) return acpMsg('error: no tool name')
 
+          // v1: acp adapter is ANONYMOUS-ONLY — no RequestContext is forwarded,
+          // so scoped/$rate-limited tools fail closed (401) through this path.
+          // Auth wiring for acp is deferred to M3 (see G6f / asMiddleware which
+          // IS auth-wired). Do not add auth here without the M3 review.
           const result = await service.handleToolCall(toolName, null)
           const err = (result as { error?: string })?.error
           if (err) return acpMsg(`error: ${err}`)

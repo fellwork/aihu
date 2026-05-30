@@ -282,6 +282,8 @@ If `@aihu/auth` middleware is not registered and `handleToolCall` targets a comp
 
 **Implementation requirement:** `AgentService` constructor accepts an optional `authPlugin` dependency. When absent, the `checkScope` function is replaced with a sentinel that returns 401 for any non-null scope. AC7 validates this.
 
+**v1 transport posture (G6f):** `asMiddleware` is auth-wired in v1 via the injected `resolveAuth` resolver — the host supplies `getAuthState` (`@aihu/auth/server`) to build the per-request `RequestContext` (userId + raw jwt), and the middleware propagates the JSON-RPC envelope's HTTP code (no double-wrap). When `resolveAuth` is absent, `asMiddleware` passes no context, so scoped tools fail closed (401), preserving Amendment 2. The `@aihu/agent-a2a` and `@aihu/agent-acp` adapters remain **anonymous-only for v1** (no `RequestContext` forwarded → scoped tools 401); auth wiring for those adapters is deferred to M3.
+
 ### Amendment 3 — §6.3 `userId` Cardinality (CWE-285)
 
 `requestContext.userId` MUST be a non-null, non-empty string from verified JWT claims. If `userId` is absent, undetermined, or empty, `handleToolCall` MUST return 401. The rate-limit key MUST NOT fall through to a shared anonymous bucket.
