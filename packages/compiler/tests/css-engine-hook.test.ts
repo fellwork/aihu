@@ -141,10 +141,14 @@ describe('css-engine hook — present (e2e)', () => {
 
   it.runIf(cssCoreBin)('keeps the authored @style block — emitted exactly once (#2)', async () => {
     const out = await runPlugin(SFC_WITH_UTILITIES_AND_STYLE, 'x-widget')
-    expect(out).toContain('.box { color: red; }')
-    // Exactly one occurrence — the css-engine output already folds @style, so
-    // the codegen body must have been REPLACED (not appended) to avoid a dupe.
-    const matches = out.match(/\.box \{ color: red; \}/g) ?? []
+    // Authored @style is now re-rendered through the css-engine @style parser
+    // (enables @apply), so it is whitespace-normalized to multi-line rather than
+    // byte-identical. Assert the rule is present and folded EXACTLY ONCE (the
+    // css-engine output already folds @style, so the codegen body must have been
+    // REPLACED, not appended, to avoid a dupe) — tolerant of the reformatting.
+    expect(out).toContain('.box {')
+    expect(out).toContain('color: red')
+    const matches = out.match(/\.box\s*\{[^}]*color:\s*red/g) ?? []
     expect(matches).toHaveLength(1)
   })
 
@@ -157,8 +161,11 @@ describe('css-engine hook — present (e2e)', () => {
       expect(out).toContain('.gap-4 { gap: 1rem; }')
       expect(out).toContain('.text-3xl { font-size: 1.875rem')
       // The authored @style rule is folded in too — both coexist, exactly once.
-      expect(out).toContain('.__probe__ { color: rgb(1,2,3); }')
-      const probeMatches = out.match(/\.__probe__ \{ color: rgb\(1,2,3\); \}/g) ?? []
+      // (Whitespace-normalized through the @style parser; assert selector +
+      // declaration presence, tolerant of the reformatting.)
+      expect(out).toContain('.__probe__ {')
+      expect(out).toContain('color: rgb(1,2,3)')
+      const probeMatches = out.match(/\.__probe__\s*\{[^}]*color:\s*rgb\(1,2,3\)/g) ?? []
       expect(probeMatches).toHaveLength(1)
     },
   )
