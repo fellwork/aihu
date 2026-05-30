@@ -28,6 +28,38 @@ describe('check-size-rows policy lint', () => {
 
     expect(classify('@aihu/plugin')).toBe('build-dev-only')
     expect(classify('@aihu/compiler')).toBe('build-dev-only')
+
+    expect(classify('@aihu/ui')).toBe('source-distributed')
+  })
+
+  it('exempts source-distributed @aihu/ui from a row even without src/index.ts', () => {
+    const packages = [
+      {
+        name: '@aihu/ui',
+        dir: '/p/ui',
+        hasIndexTs: false,
+        classification: 'source-distributed' as const,
+      },
+    ]
+    const rows: { name: string; path: string; limit: string }[] = []
+    const result = checkPolicy(packages, rows)
+    expect(result.ok).toBe(true)
+    expect(result.errors).toEqual([])
+  })
+
+  it('catches a source-distributed package with a forbidden row', () => {
+    const packages = [
+      {
+        name: '@aihu/ui',
+        dir: '/p/ui',
+        hasIndexTs: false,
+        classification: 'source-distributed' as const,
+      },
+    ]
+    const rows = [{ name: '@aihu/ui', path: 'x', limit: '5 kB' }]
+    const result = checkPolicy(packages, rows)
+    expect(result.ok).toBe(false)
+    expect(result.errors.some((e) => e.includes('@aihu/ui') && e.includes('MUST NOT'))).toBe(true)
   })
 
   it('passes on a valid configuration (current main snapshot)', () => {

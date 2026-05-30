@@ -53,7 +53,15 @@ export const BUILD_DEV_ONLY = new Set<string>([
   '@aihu/language-server',
 ])
 
-type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only'
+/**
+ * Source-distributed packages — ship `.aihu`/source + an index, never a runtime
+ * bundle. The consumer copies the source via `aihu add` and their OWN build
+ * measures the copied recipes; nothing from THIS package is bundled into a
+ * browser from the package, so it carries no `.size-limit.json` row (D-2).
+ */
+export const SOURCE_DISTRIBUTED = new Set<string>(['@aihu/ui'])
+
+type Classification = 'browser-eligible' | 'server-side' | 'build-dev-only' | 'source-distributed'
 
 interface PackageInfo {
   name: string
@@ -75,6 +83,7 @@ interface SizeLimitEntry {
 export function classify(name: string): Classification {
   if (SERVER_SIDE.has(name)) return 'server-side'
   if (BUILD_DEV_ONLY.has(name)) return 'build-dev-only'
+  if (SOURCE_DISTRIBUTED.has(name)) return 'source-distributed'
   return 'browser-eligible'
 }
 
@@ -136,11 +145,16 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
   let browserEligibleChecked = 0
   let serverSideChecked = 0
   let buildDevOnlyChecked = 0
+  let sourceDistributedChecked = 0
 
   for (const pkg of packages) {
-    if (!pkg.hasIndexTs) {
+    if (!pkg.hasIndexTs && pkg.classification !== 'source-distributed') {
       // Packages without src/index.ts are out of scope — e.g. @aihu/compiler
       // (Rust-backed, JS wrapper at js/index.ts). Skip silently.
+      // EXCEPTION: source-distributed packages (e.g. @aihu/ui) deliberately
+      // have no src/index.ts (they ship .aihu source, not a bundle) but MUST
+      // still be asserted row-free — fall through so the forbidden-row guard
+      // applies regardless.
       continue
     }
 
@@ -182,6 +196,17 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
           )
         }
         break
+      case 'source-distributed':
+        sourceDistributedChecked++
+        if (hasExactRow) {
+          errors.push(
+            `${pkg.name}: source-distributed package MUST NOT have a row in .size-limit.json. ` +
+              `Its payload is copied via \`aihu add\`; the consumer's OWN build measures the ` +
+              `copied recipes, not this package. Remove the row or reclassify in ` +
+              `scripts/check-size-rows.ts.`,
+          )
+        }
+        break
     }
   }
 
@@ -200,10 +225,11 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
   }
 
   const summary =
-    `Checked ${packages.filter((p) => p.hasIndexTs).length} packages with src/index.ts: ` +
+    `Checked ${browserEligibleChecked + serverSideChecked + buildDevOnlyChecked + sourceDistributedChecked} packages in scope: ` +
     `${browserEligibleChecked} browser-eligible, ` +
     `${serverSideChecked} server-side, ` +
-    `${buildDevOnlyChecked} build-dev-only. ` +
+    `${buildDevOnlyChecked} build-dev-only, ` +
+    `${sourceDistributedChecked} source-distributed. ` +
     `${rows.length} rows in .size-limit.json.`
 
   return { ok: errors.length === 0, errors, warnings, summary }

@@ -246,6 +246,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/ui",
+    "version": "0.0.0",
+    "dir": "packages/ui",
+    "isPlatform": false
+  },
+  {
     "name": "vscode-aihu",
     "version": "1.0.0",
     "dir": "packages/vscode-aihu",

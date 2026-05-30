@@ -1,0 +1,60 @@
+{
+  "items": [
+    {
+      "name": "badge",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/badge/badge.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
+      "variants": {
+        "variant": ["default", "secondary", "destructive", "outline"]
+      }
+    },
+    {
+      "name": "button",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/button/button.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
+      "dependencies": ["@aihu/primitives"],
+      "registryDependencies": [],
+      "variants": {
+        "variant": ["default", "destructive", "outline", "ghost", "link"],
+        "size": ["sm", "md", "lg", "icon"]
+      }
+    },
+    {
+      "name": "card",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/card/card.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational card recipe with slotted header, body, and footer regions."
+    },
+    {
+      "name": "separator",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/separator/separator.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
+      "variants": {
+        "orientation": ["horizontal", "vertical"]
+      }
+    }
+  ]
+}

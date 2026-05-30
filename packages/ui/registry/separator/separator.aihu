@@ -1,0 +1,55 @@
+<!--
+  aihu-separator — presentational styled recipe (Plan 5 Task 5, master spec §9.7).
+
+  Standalone styled custom element — NO primitive import. A 1px token-colored
+  rule. Reflects an `orientation` attribute (horizontal | vertical), exposes
+  `role="separator"` + `aria-orientation`. `aihu add` rewrites the `aihu-`
+  prefix at copy time.
+
+  orientation: horizontal (default) | vertical
+
+  CSS attachment (R2): shared static Constructable StyleSheet adopted into the
+  shadow root, not a per-instance inline style element.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  const props = $props
+  const orientation = props.orientation ?? 'horizontal'
+
+  class AihuSeparator extends HTMLElement {
+    static sheet = new CSSStyleSheet()
+
+    connectedCallback() {
+      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+      this.shadowRoot.adoptedStyleSheets = [AihuSeparator.sheet]
+      if (!this.hasAttribute('role')) this.setAttribute('role', 'separator')
+      this.setAttribute('aria-orientation', this.getAttribute('orientation') ?? 'horizontal')
+    }
+  }
+
+  if (!customElements.get('aihu-separator')) {
+    customElements.define('aihu-separator', AihuSeparator)
+  }
+}
+
+@template {
+  <div data-slot="separator" $data-orientation={orientation} $class={cn('aihu-separator', props.class)}></div>
+}
+
+@style {
+  .aihu-separator {
+    display: block;
+    background-color: var(--color-border);
+    flex-shrink: 0;
+  }
+  .aihu-separator[data-orientation="horizontal"] {
+    height: 1px;
+    width: 100%;
+  }
+  .aihu-separator[data-orientation="vertical"] {
+    width: 1px;
+    height: 100%;
+  }
+}

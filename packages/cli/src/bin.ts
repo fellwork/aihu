@@ -9,6 +9,8 @@
  *   aihu dev [options]         Start development server (arch-4 §3)
  *   aihu build [options]       Production build (arch-4 §3)
  *   aihu migrate <files...>    Migrate legacy SFC syntax to v1.0+ canonical forms
+ *   aihu add <names...>        Copy styled recipes from @aihu/ui (css-5 §9.6)
+ *   aihu list [--installed]    List registry recipes (css-5 §9.6)
  */
 
 import { readdirSync, statSync } from 'node:fs'
@@ -109,6 +111,12 @@ function usage(): never {
       '  aihu dev [options]      Start dev server',
       '  aihu build [options]    Production build',
       '  aihu migrate <files...> Migrate legacy SFC syntax to v1.0+ (--dry-run to preview)',
+      '  aihu add <names...>     Copy styled recipes from @aihu/ui into ui.target',
+      '      [--prefix p]            Override the custom-element tag prefix',
+      '      [--dry-run]             Print the plan; write nothing',
+      '      [--diff]                Show a diff against existing target files',
+      '      [--force]               Overwrite on collision',
+      '  aihu list [--installed] List registry recipes (--installed: only copied ones)',
       '  aihu mcp serve          Start the MCP stdio server',
       '',
     ].join('\n'),
@@ -459,6 +467,16 @@ async function main(): Promise<void> {
       process.exit(1)
     }
     migrateFiles(files, dryRun, process.cwd())
+    return
+  }
+  if (cmd === 'add') {
+    const { default: add } = await import('./commands/add.js')
+    await add(rest)
+    return
+  }
+  if (cmd === 'list') {
+    const { default: list } = await import('./commands/list.js')
+    await list(rest)
     return
   }
   if (cmd === 'mcp') {
