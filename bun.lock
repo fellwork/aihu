@@ -118,6 +118,20 @@
         "vitest": "^2.1.1",
       },
     },
+    "examples/auth-magna-seo": {
+      "name": "@aihu/example-auth-magna-seo",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu/auth": "workspace:*",
+        "@aihu/magna": "workspace:*",
+        "@aihu/seo": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "vitest": "^2.1.1",
+      },
+    },
     "examples/blog-loader": {
       "name": "@aihu/example-blog-loader",
       "version": "0.0.0",
@@ -785,6 +799,8 @@
     "@aihu/data": ["@aihu/data@workspace:packages/_moved/data"],
 
     "@aihu/example-agent-hub": ["@aihu/example-agent-hub@workspace:examples/agent-hub"],
+
+    "@aihu/example-auth-magna-seo": ["@aihu/example-auth-magna-seo@workspace:examples/auth-magna-seo"],
 
     "@aihu/example-blog-loader": ["@aihu/example-blog-loader@workspace:examples/blog-loader"],
 
