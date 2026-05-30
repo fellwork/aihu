@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realtime Scores — aihu EX-12</title>
+    <style>
+      :root {
+        --panel-bg: #1e1e2e;
+        --bg: #181825;
+        --fg: #cdd6f4;
+        --muted: #a6adc8;
+        --muted-bg: #45475a;
+        --border: #313244;
+        --accent: #cba6f7;
+        --radius: 0.5rem;
+        --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        --hover-bg: #313244;
+        --success: #a6e3a1;
+        --success-bg: #1e3a2f;
+        --warning: #f9e2af;
+        --warning-bg: #3a2e1e;
+        --btn-bg: #313244;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --panel-bg: #ffffff;
+          --bg: #eff1f5;
+          --fg: #4c4f69;
+          --muted: #8c8fa1;
+          --muted-bg: #e6e9ef;
+          --border: #ccd0da;
+          --accent: #8839ef;
+          --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          --hover-bg: #e6e9ef;
+          --success: #40a02b;
+          --success-bg: #e9f5e1;
+          --warning: #df8e1d;
+          --warning-bg: #fdf4e3;
+          --btn-bg: #e6e9ef;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        font-family: system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <realtime-scores></realtime-scores>
+    <script type="module" src="/src/realtime-scores.aihu"></script>
+  </body>
+</html>

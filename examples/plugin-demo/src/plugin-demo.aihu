@@ -1,0 +1,149 @@
+// EX-11 plugin-demo — canonical proof-of-life for the @aihu/plugin API.
+// Demonstrates: definePlugin (macros + middleware + transforms),
+// createDemoRoutes, and createDemoRuntime with @aihu/signals.
+
+@state {
+  import { signal, computed } from '@aihu/signals'
+
+  const [count, setCount] = signal(0)
+  const doubled = computed(() => count() * 2)
+
+  // $greeting: { name: "aihu" }
+  // ^^ Macro contribution demo — $greeting is declared by @aihu/plugin-demo.
+  // The compiler dispatcher is a no-op at v0.2.x; the contribution SHAPE
+  // exercises the macro slot.
+}
+
+@agent {
+  $expose count
+  $expose doubled
+  getCount: { description: "Return current counter value" }
+}
+
+@template {
+  <section class="demo-root">
+    <h1>EX-11 — Plugin Demo</h1>
+
+    <div class="demo-card">
+      <p class="demo-label">Counter</p>
+      <p class="demo-value">{count()}</p>
+      <p class="demo-label">Doubled</p>
+      <p class="demo-value demo-muted">{doubled()}</p>
+      <button class="demo-btn" onclick={() => setCount(n => n + 1)}>
+        Increment
+      </button>
+    </div>
+
+    <div class="demo-note">
+      <p>
+        This component is served alongside the
+        <code>@aihu/plugin-demo</code> plugin wired in
+        <code>aihu.config.ts</code>. The plugin contributes a
+        <code>$greeting</code> macro, a <code>demo:log-header</code>
+        middleware, and a pass-through transform — one of each contribution
+        type.
+      </p>
+      <p class="demo-muted">
+        Route: <code>GET /__demo/ping</code> → <code>{"{"} ok: true {"}"}</code>
+      </p>
+    </div>
+  </section>
+}
+
+@style {
+  .demo-root {
+    display: grid;
+    gap: 1.5rem;
+    padding: 2rem;
+    max-width: var(--max-w);
+    margin: 0 auto;
+    color: var(--fg);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.75rem;
+  }
+
+  .demo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .demo-label {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  .demo-value {
+    margin: 0;
+    font-family: monospace;
+    font-size: 1.5rem;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .demo-muted {
+    color: var(--muted);
+    font-size: 1rem;
+  }
+
+  .demo-btn {
+    align-self: flex-start;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .demo-note {
+    background: var(--hover-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+  }
+
+  .demo-note p {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    color: var(--fg);
+    line-height: 1.6;
+  }
+
+  .demo-note p:last-child {
+    margin-bottom: 0;
+  }
+
+  .demo-note code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+
+  @media (max-width: 480px) {
+    .demo-root { padding: 1rem; }
+    .demo-card { padding: 1rem; }
+    .demo-value { font-size: 1.2rem; }
+    .demo-btn { align-self: stretch; }
+  }
+}

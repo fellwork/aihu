@@ -1,0 +1,289 @@
+@state {
+  import { getAllAgentMetadata } from '@aihu/agent'
+  import { createContext, provide } from '@aihu/context'
+  import { HubServiceContext } from './hub-context'
+  import { signal } from '@aihu/signals'
+
+  // Context token — imported from hub-context.ts so panel SFCs can inject the
+  // same token reference. createContext is kept in scope for API-pattern demo.
+  // provide() is a no-op when no context map is active (client-side); included
+  // here to demonstrate the @aihu/context API pattern.
+  provide(HubServiceContext, null)
+
+  $computed: {
+    agentList: () => getAllAgentMetadata(),
+    agentCount: () => agentList.length,
+  }
+
+  const [activeTab, setActiveTab] = signal<'a2a' | 'acp'>('a2a')
+}
+
+@template {
+  <div class="hub-root">
+    <header class="hub-header">
+      <h1 class="hub-title">Agent Hub</h1>
+      <p class="hub-subtitle">AgentService aggregation demo</p>
+    </header>
+
+    <section class="agents-section" aria-label="Registered agents">
+      <h2 class="section-heading">
+        Registered agents
+        <span class="agent-count-badge">{agentCount}</span>
+      </h2>
+
+      <ul class="agent-list" $if={agentCount > 0}>
+        <li
+          $each="agentList as agent"
+          $key="agent.tag"
+          class="agent-entry"
+        >
+          <code class="agent-tag">&lt;{agent.tag}&gt;</code>
+          <span class="agent-describes" $if={!!agent.describes}>{agent.describes}</span>
+        </li>
+      </ul>
+
+      <p class="no-agents-msg" $if={agentCount === 0}>
+        No agents registered. Load an .aihu component with an @agent block.
+      </p>
+    </section>
+
+    <section class="protocol-section" aria-label="Protocol adapters">
+      <div class="tab-bar" role="tablist" aria-label="Protocol tabs">
+        <button
+          class="tab-btn"
+          role="tab"
+          $aria-selected={activeTab === 'a2a'}
+          $on.click={() => setActiveTab('a2a')}
+        >
+          A2A
+        </button>
+        <button
+          class="tab-btn"
+          role="tab"
+          $aria-selected={activeTab === 'acp'}
+          $on.click={() => setActiveTab('acp')}
+        >
+          ACP
+        </button>
+      </div>
+
+      <div class="tab-panel" $if={activeTab === 'a2a'} role="tabpanel" aria-label="A2A panel">
+        <a2a-panel></a2a-panel>
+      </div>
+
+      <div class="tab-panel" $if={activeTab === 'acp'} role="tabpanel" aria-label="ACP panel">
+        <acp-panel></acp-panel>
+      </div>
+    </section>
+
+    <agent-panel></agent-panel>
+  </div>
+}
+
+@style {
+  .hub-root {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    color: var(--fg);
+  }
+
+  .hub-header {
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  .hub-title {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.75rem;
+    color: var(--fg);
+  }
+
+  .hub-subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  .agent-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    background: var(--tag-bg);
+    color: var(--tag-fg);
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+
+  .agents-section {
+    margin-bottom: 2rem;
+    padding: 1rem 1.25rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+  }
+
+  .agent-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .agent-entry {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--agent-bg);
+    border: 1px solid var(--agent-border);
+    border-radius: var(--radius);
+  }
+
+  .agent-tag {
+    font-family: ui-monospace, monospace;
+    font-size: 0.875rem;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .agent-describes {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .no-agents-msg {
+    margin: 0;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+
+  .protocol-section {
+    margin-bottom: 2rem;
+  }
+
+  .tab-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
+    transition: color 0.1s, border-color 0.1s;
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .tab-btn:hover {
+    color: var(--fg);
+    background: var(--hover-bg);
+  }
+
+  .tab-btn[aria-selected="true"] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-panel {
+    padding: 1rem 1.25rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) var(--radius);
+    box-shadow: var(--card-shadow);
+  }
+
+  .placeholder-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .placeholder-label {
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .protocol-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius);
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+  }
+
+  .a2a-badge {
+    background: var(--stub-bg);
+    border: 1px solid var(--stub-border);
+    color: var(--stub-fg);
+  }
+
+  .acp-badge {
+    background: var(--success-bg);
+    border: 1px solid var(--success);
+    color: var(--success);
+  }
+
+  @media (max-width: 480px) {
+    .hub-root {
+      padding: 1rem;
+    }
+    .tab-bar {
+      flex-direction: column;
+    }
+    .tab-btn {
+      width: 100%;
+      border-bottom: none;
+      border-left: 2px solid transparent;
+      border-radius: var(--radius);
+      margin-bottom: 0;
+    }
+    .tab-btn[aria-selected="true"] {
+      border-left-color: var(--accent);
+      border-bottom-color: transparent;
+    }
+    .agent-entry {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
+}
+
+@agent {
+  $expose agentCount: number of sub-agents registered
+  $expose activeTab: currently active protocol tab
+
+  getAgentList: { description: "Return all registered agent metadata" }
+}

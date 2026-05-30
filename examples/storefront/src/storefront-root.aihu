@@ -1,0 +1,134 @@
+@state {
+  import { createContext, provide } from '@aihu/context'
+  import { CartContext } from './cart-context'
+  import { signal } from '@aihu/signals'
+  import { createResourceSerializer, createResourceStore } from '@aihu-plugin/data'
+
+  const [cartItems, setCartItems] = signal([])
+  provide(CartContext, [cartItems, setCartItems])
+
+  const store = createResourceStore()
+  const serialize = createResourceSerializer(store)
+  // TODO (M3): pass serialize to renderToString SSR options; dehydrate products into
+  // <script id="__aihu_state__"> for client rehydration (arch-2 §M3)
+
+  $computed: {
+    cartCount: () => cartItems().length,
+  }
+}
+
+@template {
+  <div class="storefront-root">
+    <header class="storefront-header">
+      <span class="site-name">aihu Storefront</span>
+      <div class="cart-badge" $if={cartCount > 0} aria-label={"Cart: " + cartCount + " items"}>
+        <span class="cart-icon">🛒</span>
+        <span class="cart-count">{cartCount}</span>
+      </div>
+    </header>
+
+    <main class="storefront-main">
+      <section class="products-section">
+        <product-list></product-list>
+      </section>
+
+      <aside class="cart-section">
+        <cart-drawer></cart-drawer>
+      </aside>
+    </main>
+
+    <agent-panel></agent-panel>
+  </div>
+}
+
+@agent {
+  $expose cartCount: total items in cart
+}
+
+@style {
+  .storefront-root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--fg);
+    max-width: var(--max-w, 1200px);
+    margin: 0 auto;
+  }
+
+  .storefront-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .site-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+
+  .cart-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--tag-bg);
+    color: var(--tag-fg);
+    border-radius: var(--radius);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .cart-icon {
+    font-size: 1rem;
+  }
+
+  .cart-count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .storefront-main {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 0;
+    flex: 1;
+    border: 1px solid var(--border);
+    border-top: none;
+  }
+
+  .products-section {
+    border-right: 1px solid var(--border);
+    min-height: 400px;
+  }
+
+  .cart-section {
+    min-height: 400px;
+  }
+
+  @media (max-width: 480px) {
+    .storefront-root {
+      max-width: 100%;
+    }
+
+    .storefront-header {
+      padding: 0.75rem 1rem;
+    }
+
+    .storefront-main {
+      grid-template-columns: 1fr;
+    }
+
+    .products-section {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+  }
+}

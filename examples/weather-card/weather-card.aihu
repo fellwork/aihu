@@ -1,14 +1,12 @@
-// @agent flagship #1 — sync action against an inline mock forecast table.
+// @agent flagship #1 — async action against the Open-Meteo public API.
 // Demonstrates the aihu-unique capability: every component readable as MCP.
-// No network: keeps the example self-contained and offline-runnable.
+// Round-1 of m2-a2 replaces the inline mock table with a real geocoding +
+// forecast chain (no auth, no fetch library — global fetch()).
 
 @state {
-  // Standalone signals so the example is interactive in isolation, matching the
-  // clean basics examples (live-counter, temperature-converter). The agent
-  // surface comes from the inline `expose:` on the computeds + action below.
   import { signal } from '@aihu/signals'
 
-  type Forecast = { high: number; low: number; conditions: string }
+  type Forecast = { temperature: number; weatherCode: number; conditions: string; resolvedName: string }
   type Status = 'idle' | 'loading' | 'ready' | 'error'
 
   const [location, setLocation] = signal('San Francisco')
@@ -16,18 +14,23 @@
   const [statusValue, setStatusValue] = signal<Status>('idle')
   const [errorMessage, setErrorMessage] = signal('')
 
-  // Inline mock table standing in for a real forecast API.
-  const mockForecasts: Record<string, Forecast> = {
-    'San Francisco': { high: 64, low: 52, conditions: 'Partly cloudy' },
-    'New York':      { high: 72, low: 58, conditions: 'Sunny' },
-    'London':        { high: 60, low: 48, conditions: 'Rain showers' },
-    'Tokyo':         { high: 68, low: 55, conditions: 'Clear' },
-    'Sydney':        { high: 78, low: 64, conditions: 'Sunny' },
+  // Open-Meteo weather_code -> human-readable conditions.
+  // Spec: https://open-meteo.com/en/docs (WMO Weather interpretation codes).
+  function translateWeatherCode(code: number): string {
+    if (code === 0) return 'Clear'
+    if (code >= 1 && code <= 3) return 'Partly cloudy'
+    if (code === 45 || code === 48) return 'Fog'
+    if (code >= 51 && code <= 57) return 'Drizzle'
+    if (code >= 61 && code <= 67) return 'Rain'
+    if (code >= 71 && code <= 77) return 'Snow'
+    if (code >= 80 && code <= 82) return 'Showers'
+    if (code >= 95 && code <= 99) return 'Thunderstorm'
+    return 'Unknown'
   }
 
   $computed: {
     forecast: {
-      describe: 'Most recent forecast: high, low, conditions (null until fetched)',
+      describe: 'Most recent forecast: temperature, weatherCode, conditions, resolvedName (null until fetched)',
       expose: { read: true },
       value: () => forecastValue(),
     },
@@ -40,19 +43,63 @@
 
   $action: {
     fetchForecast: {
-      describe: 'Look up the forecast for the current location signal',
+      describe: 'Geocode the current location signal via Open-Meteo, then fetch the current temperature + weather code',
       expose: { read: true, write: true },
-      handler: () => {
-        setStatusValue('loading')
-        const data = mockForecasts[location()]
-        if (data) {
-          setForecastValue(data)
-          setStatusValue('ready')
-          setErrorMessage('')
-        } else {
+      handler: async () => {
+        const query = location().trim()
+        if (!query) {
           setForecastValue(null)
           setStatusValue('error')
-          setErrorMessage(`No forecast available for "${location()}".`)
+          setErrorMessage('Please enter a city name.')
+          return
+        }
+
+        setStatusValue('loading')
+        setErrorMessage('')
+
+        try {
+          // Step 1: geocode city name -> lat/lon.
+          const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`
+          const geoResp = await fetch(geoUrl)
+          if (!geoResp.ok) {
+            throw new Error(`Geocoding failed (HTTP ${geoResp.status})`)
+          }
+          const geoJson = await geoResp.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country?: string }> }
+          const hit = geoJson.results && geoJson.results[0]
+          if (!hit) {
+            setForecastValue(null)
+            setStatusValue('error')
+            setErrorMessage(`No matching city found for "${query}".`)
+            return
+          }
+
+          // Step 2: forecast lookup.
+          const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${hit.latitude}&longitude=${hit.longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`
+          const fcResp = await fetch(forecastUrl)
+          if (!fcResp.ok) {
+            throw new Error(`Forecast lookup failed (HTTP ${fcResp.status})`)
+          }
+          const fcJson = await fcResp.json() as { current?: { temperature_2m: number; weather_code: number } }
+          if (!fcJson.current) {
+            throw new Error('Forecast response missing "current" block.')
+          }
+
+          const temp = fcJson.current.temperature_2m
+          const code = fcJson.current.weather_code
+          const resolvedName = hit.country ? `${hit.name}, ${hit.country}` : hit.name
+
+          setForecastValue({
+            temperature: temp,
+            weatherCode: code,
+            conditions: translateWeatherCode(code),
+            resolvedName,
+          })
+          setStatusValue('ready')
+          setErrorMessage('')
+        } catch (err) {
+          setForecastValue(null)
+          setStatusValue('error')
+          setErrorMessage(err instanceof Error ? err.message : 'Unknown error fetching forecast.')
         }
       },
     },
@@ -80,16 +127,17 @@
     </div>
 
     <div class="result ready" $if={status === 'ready' && forecast !== null}>
+      <p class="resolved">{forecast.resolvedName}</p>
       <p class="conditions">{forecast.conditions}</p>
       <dl>
-        <dt>High</dt><dd>{forecast.high}°F</dd>
-        <dt>Low</dt><dd>{forecast.low}°F</dd>
+        <dt>Temperature</dt><dd>{forecast.temperature}°F</dd>
+        <dt>Code</dt><dd>{forecast.weatherCode}</dd>
       </dl>
     </div>
 
-    <div class="result error" $if={status === 'error'}>
-      <p>{errorMessage}</p>
-    </div>
+    <p class="error-pill" role="status" $if={status === 'error'}>
+      {errorMessage}
+    </p>
   </article>
 }
 
@@ -105,11 +153,22 @@
   button:hover  { background: var(--hover-bg); }
   .result       { padding: 0.5rem 0.75rem; border-radius: var(--radius); background: var(--code-bg); color: var(--fg); }
   .result.ready { background: var(--success-bg); }
-  .result.error { background: var(--error-bg); color: var(--error); }
+  .resolved     { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.25rem 0; }
   .conditions   { font-size: 1.1rem; margin: 0 0 0.5rem 0; }
   dl            { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; margin: 0; }
   dt            { font-weight: 600; color: var(--muted); }
   dd            { margin: 0; font-variant-numeric: tabular-nums; }
+
+  .error-pill {
+    display: inline-block;
+    background: var(--stub-bg);
+    border: 1px solid var(--stub-border);
+    color: var(--stub-fg);
+    border-radius: var(--radius);
+    padding: 0.35rem 0.65rem;
+    font-size: 0.85rem;
+    margin: 0;
+  }
 
   @media (max-width: 480px) {
     .row { flex-direction: column; }

@@ -1,0 +1,20 @@
+{
+  "name": "@aihu/example-auth-magna-seo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aihu/auth": "workspace:*",
+    "@aihu/magna": "workspace:*",
+    "@aihu/seo": "workspace:*",
+    "@aihu/server": "workspace:*",
+    "@aihu/signals": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.1"
+  }
+}
