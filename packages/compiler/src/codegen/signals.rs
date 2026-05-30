@@ -128,6 +128,10 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
             StateMacro::Query { name, .. } => {
                 decls.all.insert(name.clone());
             }
+            // arch-3 M2 / A3 G2 (RFC-001): `$auth name` introduces a binding name.
+            StateMacro::Auth { name, .. } => {
+                decls.all.insert(name.clone());
+            }
             StateMacro::EffectAnon { .. }
             | StateMacro::EffectOn { .. }
             | StateMacro::Watch { .. }

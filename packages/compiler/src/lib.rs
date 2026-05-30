@@ -18,7 +18,8 @@ pub use parser::stream_macros;
 pub use parser::state_macros::{is_magna_origin, parse_state_macros};
 pub use parser::template::parse_template;
 pub use types::{
-    ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, BuildTarget, CollectionEntry,
+    ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, AuthMacroKind, BuildTarget,
+    CollectionEntry,
     CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue, RouteBlock,
     ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
     TemplateNode,

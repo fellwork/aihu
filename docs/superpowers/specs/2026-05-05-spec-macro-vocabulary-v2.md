@@ -380,4 +380,74 @@ emitted `inject(MagnaFetchToken)` resolves the fetch at component setup.
 
 ---
 
+## §11 — Plugin-macro amendment: `$auth.*` (RFC-001, arch-3 M2 / A3 G2)
+
+This section ratifies the RFC-001 `$auth.*` macro family
+(cross-reference `docs/roadmap/arch-3-plugins.md` §6 RFC-001 and
+`docs/roadmap/arch-5-sfc-primitives.md` §2.4 `$user`). It is appended
+post-RFC, parallel to §10's `$query`.
+
+### §11.1 — Grammar and validity
+
+- **Macros:** `$auth.session()`, `$auth.currentUser()`.
+- **Plugin:** `@aihu/auth`.
+- **Valid in:** `@state`.
+- **Grammar:** `$auth name = $auth.session()` /
+  `$auth name = $auth.currentUser()` — an `=`-shorthand.
+
+`$auth.*` is **intentionally NOT collection-form.** Like `$query`, it is a
+dedicated `=`-shorthand parsed by its own grammar branch (parallel to
+`$query` / `$route` / `$watch`), and it is therefore **NOT subject to C440.**
+`auth` is not in the collection-keyword list, so authors writing
+`$auth u = $auth.currentUser()` get a clean parse, never a C440. The binding
+`name` is the left-hand identifier — required because `$auth.session()` is an
+expression with no inherent binding (mirrors `$query name = …` and the
+accepted `$user currentUser` form in arch-5 §2.4). Malformed forms (missing
+`=`, empty name, unknown method, e.g. `$auth.foo()`) raise **C461**.
+
+### §11.2 — Lowering
+
+```
+$auth u = $auth.currentUser()
+```
+
+lowers to:
+
+```js
+const u = useCurrentUser()
+```
+
+The compiler emits `import { useCurrentUser } from '@aihu/auth'`.
+`useCurrentUser` is the **existing client reactive getter** exported from the
+`@aihu/auth` root (`packages/auth/src/client.ts`); its module-level signal is
+seeded by `signIn` / `setCurrentScopes`, so the lowering is end-to-end correct
+for client hydration. No new runtime primitive and no new dependency are added
+— the dep-free thesis is intact.
+
+### §11.3 — SSR-seed forward dependency (M3)
+
+The RFC intent is that `$auth.session()` lowers to a `$shared` signal seeded
+**server-side** from `getAuthState(request, config)`. That SSR pre-seed is
+**DEFERRED to M3** because the compiler has no request-context/config
+passthrough at the `@state` lowering boundary today (there is no
+`RequestContext`/`ssrContext`/`seedShared` plumbing in the compiler or
+runtime, and `@aihu/auth` exports no session-getter or `createSharedSignal`
+primitive). This is the same class of forward dependency as §10's
+typed-client gap.
+
+`$auth.session()` therefore lowers to the client-resolvable form PLUS a
+codegen marker:
+
+```js
+const s = useCurrentUser(); /* TODO(M3-auth-ssr): seed this $shared session from getAuthState(request, config) once the SSR request-context passthrough lands — RFC-001 §SSR-seed; see arch-3-plugins.md §6 RFC-001 */
+```
+
+`AuthState` is reconstructable client-side from the user signal; the SSR
+pre-seed is the deferred part. Both methods resolve through `useCurrentUser`
+today; `$auth.session()` differs only by carrying the M3 TODO marker. Emission
+of the lowered statement + marker is verified by the compiler; genuine
+server-side seeding is gated on the SSR request-context slice.
+
+---
+
 *End of v2 spec.*
