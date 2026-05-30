@@ -124,6 +124,10 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
             StateMacro::Route { name } => {
                 decls.all.insert(name.clone());
             }
+            // arch-3 M2 (RFC-003): `$query name` introduces a binding name.
+            StateMacro::Query { name, .. } => {
+                decls.all.insert(name.clone());
+            }
             StateMacro::EffectAnon { .. }
             | StateMacro::EffectOn { .. }
             | StateMacro::Watch { .. }

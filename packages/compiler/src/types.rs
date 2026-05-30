@@ -324,6 +324,16 @@ pub enum StateMacro {
     BeforeNavigate { expr: String },
     /// `$afterNavigate(fn)` — register an after-navigation callback. RFC-A5-016.
     AfterNavigate { expr: String },
+    // ─── arch-3 M2 — magna plugin macro (RFC-003) ────────────────────────────
+    /// `$query name = data.X.query(vars)` — the RFC-003 magna `$query`
+    /// shorthand. It is intentionally **NOT** collection-form: it is a
+    /// dedicated `=`-shorthand parallel to `$route` / `$watch`, parsed by its
+    /// own branch in `try_parse_macro`, and is therefore NOT subject to the
+    /// collection-form C440 rejection. `$query` always lowers to
+    /// `createMagnaResource(inject(MagnaFetchToken), <expr>)` because it is
+    /// magna-only by definition. `expr` is the verbatim RHS (e.g.
+    /// `data.posts.query(vars)`).
+    Query { name: String, expr: String },
 }
 
 // ─── v0.4.7 — @style macro declarations ─────────────────────────────────────

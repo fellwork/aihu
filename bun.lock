@@ -564,6 +564,7 @@
       "version": "0.2.0",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
+        "@aihu/context": "workspace:*",
         "@aihu/plugin": "workspace:*",
         "@aihu/signals": "workspace:*",
       },
