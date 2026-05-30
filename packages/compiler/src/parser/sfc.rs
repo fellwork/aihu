@@ -1,4 +1,4 @@
-use crate::types::{CompileError, RouteBlock, AihuSource, ScriptMeta, StyleBlock, StyleScope};
+use crate::types::{CompileError, RouteBlock, AihuSource, ScriptMeta, SfcMeta, StyleBlock, StyleScope};
 use crate::codegen::signals::collect_state_decls;
 
 /// Count newlines before `pos` to derive a 1-based line number.
@@ -17,6 +17,9 @@ enum BlockKind {
     Route,
     /// v0.6.1: `@layout 'name'` shorthand — deprecated alias for @route { layout: '...' }.
     Layout,
+    /// PR-2: `@meta { … }` block — recipe-catalog metadata (variants/slots/
+    /// dependencies/registryDependencies). Does NOT carry `name` (R-META-COEXIST).
+    Meta,
 }
 
 /// Match an `@blockname {` opener starting at byte position `pos` in `source`.
@@ -53,6 +56,7 @@ fn match_at_opener(source: &str, pos: usize) -> Option<(BlockKind, usize, usize)
         ("style", BlockKind::Style),
         ("agent", BlockKind::Agent),
         ("route", BlockKind::Route),
+        ("meta", BlockKind::Meta),
     ] {
         let after_at = pos + 1;
         let end_name = after_at + name.len();
@@ -361,7 +365,7 @@ fn check_reserved_tokens(region: &str, region_start_line: usize) -> Result<(), C
 /// still-valid `@layout` shorthand. Kept in sync with `match_at_opener` /
 /// `match_layout_shorthand`; any `@<name>` header at top level outside this set
 /// is an unknown block (C204).
-const KNOWN_BLOCK_NAMES: &[&str] = &["state", "template", "style", "agent", "route", "layout"];
+const KNOWN_BLOCK_NAMES: &[&str] = &["state", "template", "style", "agent", "route", "layout", "meta"];
 
 /// If `trimmed` (an already-trimmed inter-block source line) is the header of an
 /// unknown top-level block — i.e. it starts with `@<ident>` immediately followed
@@ -638,6 +642,38 @@ fn parse_route_body(body: &str) -> RouteBlock {
     route
 }
 
+/// Parse the body of an `@meta { … }` block into a `SfcMeta`.
+///
+/// R-JSON5: the body is a LENIENT JSON5-style object literal (unquoted keys,
+/// single OR double quotes, trailing commas) — parsed via the `json5` crate.
+///
+/// R-BRACE-REWRAP: the block parser (`find_at_block_close`) already strips the
+/// outer `{ }`, so `body` is the brace-INNER content (e.g.
+/// `variants: { variant: ['a','b'] }, slots: ['button']`). We re-wrap it in
+/// `{ … }` to form a complete JSON5 object literal before handing it to the
+/// parser. An empty `@meta {}` re-wraps to `{}` → an all-default `SfcMeta`.
+///
+/// R-META-COEXIST: `SfcMeta` has no `name` field, so `@meta` cannot set or
+/// override the component name; tag resolution stays authoritative elsewhere.
+/// A malformed body surfaces as a C110 compile error carrying the `@meta`
+/// opener line (`open_line`).
+fn parse_meta_body(body: &str, open_line: usize) -> Result<SfcMeta, CompileError> {
+    // R-BRACE-REWRAP — re-wrap the brace-stripped body into a full object literal.
+    let wrapped = format!("{{{}}}", body);
+    json5::from_str::<SfcMeta>(&wrapped).map_err(|e| CompileError {
+        message: format!("C110: malformed @meta block — {}", e),
+        line: open_line,
+        col: 0,
+        code: Some("C110".to_string()),
+        hint: Some(
+            "the @meta body is a JSON5 object literal with keys \
+             variants/slots/dependencies/registryDependencies"
+                .to_string(),
+        ),
+        ..Default::default()
+    })
+}
+
 /// Read a quoted string (single or double quotes) from `text` starting at `pos`.
 /// Returns `(value, end_pos)` where `end_pos` is the byte after the closing quote.
 fn read_quoted_string(text: &str, pos: usize) -> Option<(String, usize)> {
@@ -693,6 +729,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
     let meta = ScriptMeta { name: None };
     let mut agent_raw: Option<&str> = None;
     let mut route: Option<RouteBlock> = None;
+    let mut sfc_meta: Option<SfcMeta> = None;
 
     // v1.0.7: HTML-tag block grammar (`<script setup>` / `<template>` / `<style>` /
     // `<agent>`) was removed. Only the `@blockname { … }` grammar (Block Structure
@@ -767,6 +804,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                 BlockKind::Agent => ("@agent", "C104"),
                 BlockKind::Route => ("@route", "C105"),
                 BlockKind::Layout => ("@layout", "C106"),
+                BlockKind::Meta => ("@meta", "C108"),
             };
             CompileError {
                 message: format!("unclosed {} block opened at line {}", label, line_at(source, open_start)),
@@ -865,6 +903,18 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                 }
                 route = Some(parse_route_body(body));
             }
+            BlockKind::Meta => {
+                if sfc_meta.is_some() {
+                    return Err(CompileError {
+                        message: "C109: duplicate @meta block".to_string(),
+                        line: line_at(source, open_start),
+                        col: 0,
+                        code: Some("C109".to_string()),
+                        ..Default::default()
+                    });
+                }
+                sfc_meta = Some(parse_meta_body(body, line_at(source, open_start))?);
+            }
             BlockKind::Layout => {
                 // Layout is handled above in the shorthand branch; this arm won't be reached.
                 unreachable!("@layout shorthand handled before brace-body match");
@@ -905,6 +955,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
         agent,
         route,
         stream: None, // v0.4.0: @stream block parsing deferred to stream_macros module
+        sfc_meta,
     })
 }
 

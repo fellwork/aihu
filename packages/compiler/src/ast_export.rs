@@ -18,7 +18,9 @@
 //! The export is additive: it reuses `compile_with_path` + `compile_full` and
 //! does NOT alter the grammar, parser logic, or any existing public function.
 
-use serde::Serialize;
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
 
 use crate::types::{
     Attr, CompileError, CompileUnit, MacroValue, StyleScope, TemplateNode,
@@ -32,7 +34,7 @@ pub const AST_VERSION: u32 = 1;
 
 /// Top-level AST export — one per `.aihu` SFC. Mirrors the TS `SfcAst`
 /// interface in the spec §4.1.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SfcAstOwned {
     /// Resolved custom-element tag name (meta.name → route.name → file stem).
     pub tag: String,
@@ -48,7 +50,7 @@ pub struct SfcAstOwned {
     pub meta: SfcMetaOwned,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SfcStyleBlockOwned {
     /// Verbatim CSS body of the `@style` block (braces stripped, `$global`
     /// token removed — `sfc.rs` already normalizes this).
@@ -57,23 +59,52 @@ pub struct SfcStyleBlockOwned {
     pub scope: SfcStyleScope,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SfcStyleScope {
     Scoped,
     Global,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// SFC-level metadata in the emitted AST-JSON.
+///
+/// `name` is the resolved tag name (always present). The recipe-catalog
+/// fields (`variants` / `slots` / `dependencies` / `registryDependencies`)
+/// mirror the SFC's `@meta { … }` block (PR-2) and are EMPTY when the SFC
+/// declared no `@meta` block.
+///
+/// R-SERDE-TOLERANT: every recipe field carries `#[serde(default)]` so an
+/// OLD-shape AST-JSON (a `meta` object with only `name`, produced by a
+/// pre-PR-2 compiler) still deserializes — the recipe fields fall back to
+/// empty. `skip_serializing_if` keeps the wire shape identical to the
+/// pre-PR-2 form whenever a field is empty, so consumers on either side of
+/// the staged rollout interoperate. No `deny_unknown_fields` anywhere.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SfcMetaOwned {
     /// From `@meta { name }` / `@route { name }` / file stem — never empty
     /// after resolution.
     pub name: String,
+    /// `variants: { <axis>: [<value>, …] }` — from `@meta`. Empty when absent.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub variants: BTreeMap<String, Vec<String>>,
+    /// `slots: [<name>, …]` — from `@meta`. Empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slots: Vec<String>,
+    /// `dependencies: [<pkg>, …]` — from `@meta`. Empty when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<String>,
+    /// `registryDependencies: [<recipe>, …]` — from `@meta`. Empty when absent.
+    #[serde(
+        default,
+        rename = "registryDependencies",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub registry_dependencies: Vec<String>,
 }
 
 /// Discriminated union mirroring Rust `TemplateNode`. Serializes with a
 /// `kind` tag (spec §4.1 `SfcNode`).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SfcNodeOwned {
     Element {
@@ -111,7 +142,7 @@ pub enum SfcNodeOwned {
 
 /// One `{#if}` / `{:else if}` / `{:else}` branch. An empty `cond` denotes the
 /// `{:else}` branch (mirrors the internal convention in `TemplateNode::IfBlock`).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SfcIfBranch {
     pub cond: String,
     pub body: Vec<SfcNodeOwned>,
@@ -120,7 +151,7 @@ pub struct SfcIfBranch {
 /// Discriminated union mirroring Rust `Attr` — the three class-forms key on
 /// `kind`. This three-variant distinction is frozen as part of the v1.0
 /// stability contract (spec §3 edge #1).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum SfcAttrOwned {
     /// Form A — `class="btn primary"`.
@@ -131,7 +162,7 @@ pub enum SfcAttrOwned {
     Macro { name: String, value: SfcMacroValueOwned },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "form", rename_all = "lowercase")]
 pub enum SfcMacroValueOwned {
     Quoted { value: String },
@@ -275,22 +306,33 @@ pub fn build_owned_ast(unit: &CompileUnit, file_path: Option<&str>) -> SfcAstOwn
         .as_ref()
         .map(|nodes| nodes_to_owned(nodes));
 
+    // PR-2: thread the `@meta { … }` recipe-catalog fields into the emitted
+    // AST-JSON. `name` resolution is UNCHANGED (R-META-COEXIST — `@meta`
+    // never sets the name); the recipe fields default to empty when the SFC
+    // declared no `@meta` block.
+    let sfc_meta = unit.source.sfc_meta.as_ref();
+    let meta = SfcMetaOwned {
+        name: unit
+            .source
+            .meta
+            .name
+            .clone()
+            .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+            .unwrap_or_else(|| file_stem(file_path).unwrap_or_else(|| "Component".to_string())),
+        variants: sfc_meta.map(|m| m.variants.clone()).unwrap_or_default(),
+        slots: sfc_meta.map(|m| m.slots.clone()).unwrap_or_default(),
+        dependencies: sfc_meta.map(|m| m.dependencies.clone()).unwrap_or_default(),
+        registry_dependencies: sfc_meta
+            .map(|m| m.registry_dependencies.clone())
+            .unwrap_or_default(),
+    };
+
     SfcAstOwned {
         tag,
         ast_version: AST_VERSION,
         style,
         template,
-        meta: SfcMetaOwned {
-            name: unit
-                .source
-                .meta
-                .name
-                .clone()
-                .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
-                .unwrap_or_else(|| {
-                    file_stem(file_path).unwrap_or_else(|| "Component".to_string())
-                }),
-        },
+        meta,
     }
 }
 

@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { aihuCompilerPlugin } from '@aihu/compiler'
-import { WebSocketServer } from 'ws'
 import { defineConfig } from 'vite'
+import { WebSocketServer } from 'ws'
 
 // Mock scores data shared between the WS server and the /api/initial-scores endpoint.
 const INITIAL_SCORES = [
@@ -12,7 +12,7 @@ const INITIAL_SCORES = [
 ]
 
 // Mutable live copy updated by the WS tick interval.
-let liveScores = INITIAL_SCORES.map((s) => ({ ...s }))
+const liveScores = INITIAL_SCORES.map((s) => ({ ...s }))
 
 export default defineConfig({
   plugins: [
