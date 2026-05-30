@@ -12,9 +12,7 @@
     {
       "kind": "add-route",
       "factoryName": "createDemoRoutes",
-      "routes": [
-        { "path": "/__demo/ping", "handlerKey": "demoEndpoint" }
-      ]
+      "routes": [{ "path": "/__demo/ping", "handlerKey": "demoEndpoint" }]
     }
   ]
 }

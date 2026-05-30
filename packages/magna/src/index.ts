@@ -12,6 +12,9 @@
  * import { createMagnaFetch, createMagnaResource } from '@aihu/magna'
  */
 
+// Injection token (compiler-emitted `inject(MagnaFetchToken)`)
+export { MagnaFetchToken } from './context.js'
+
 // Runtime helpers
 export { createMagnaFetch } from './fetch.js'
 export { createMagnaResource } from './resource.js'

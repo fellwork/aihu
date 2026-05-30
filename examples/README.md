@@ -24,6 +24,7 @@
 | 14 | [`plugin-demo/`](./plugin-demo) | meta | M2 ready | 5111 | pluginValid/count/doubled + `$greeting` macro | `definePlugin`: macros + middleware + transforms, `createDemoRoutes`, `createDemoRuntime` signal, `install-manifest.json` |
 | 15 | [`realtime-scores/`](./realtime-scores) | meta | M2 ready | 5112 | scores/connected + getScores agent | WebSocket + signals + createResource, live score overlay, $lifecycle mount/dispose |
 | 16 | [`storefront/`](./storefront) | meta | M2 ready | 5113 | cart/checkout + `requireAuth` | `createResource` + `createResourceSerializer` (SSR-safe), `@aihu/context` CartContext provide/inject, `@aihu/auth` `requireAuth` on checkout, dummy Stripe |
+| 17 | [`auth-magna-seo/`](./auth-magna-seo) | meta | M2 ready | 5117 | auth-gated data + SEO metadata | `getAuthState` + `createMagnaFetch`/`createMagnaResource` + `createSeoRoutes` 3-package integration (imperative) |
 
 ### Archived
 
