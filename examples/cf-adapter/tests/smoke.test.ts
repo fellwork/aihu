@@ -97,7 +97,8 @@ describe('EX-10 cf-adapter — agent metadata registry', () => {
         describes: 'EX-10: Cloudflare Workers adapter demo',
         state: {
           workerName: 'Cloudflare Worker name used in wrangler.toml and adapter config',
-          deployMode: 'Deployment target: "workers" (Cloudflare Workers) or "pages" (Cloudflare Pages)',
+          deployMode:
+            'Deployment target: "workers" (Cloudflare Workers) or "pages" (Cloudflare Pages)',
         },
         actions: {
           getConfig: { returns: {} },
