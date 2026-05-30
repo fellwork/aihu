@@ -91,11 +91,45 @@ pub struct AihuSource<'a> {
     pub route: Option<RouteBlock>,
     /// v0.4.0: parsed @stream block, if present.
     pub stream: Option<StreamBlock>,
+    /// PR-2: parsed `@meta { … }` recipe-catalog block, if present. Carries
+    /// variants/slots/dependencies/registryDependencies ONLY — never `name`
+    /// (R-META-COEXIST). `None` when the SFC declared no `@meta` block.
+    pub sfc_meta: Option<SfcMeta>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScriptMeta {
     pub name: Option<String>,
+}
+
+// ─── @meta { … } — recipe-catalog metadata (PR-2) ───────────────────────────
+//
+// The `@meta { … }` block carries recipe-catalog fields ONLY:
+// `variants` / `slots` / `dependencies` / `registryDependencies`.
+//
+// R-META-COEXIST: `@meta` does NOT set or override the component `name`. Tag
+// resolution stays authoritative via `ScriptMeta.name` → `@route { name }` →
+// file stem (see `ast_export::resolve_tag`). `name` is deliberately absent
+// from this struct so the two never collide.
+//
+// The body is parsed as a LENIENT JSON5-style object literal (unquoted keys,
+// single OR double quotes, trailing commas) via the `json5` crate. New fields
+// use `#[serde(default)]` (R-SERDE-TOLERANT) so an empty `@meta {}` yields an
+// all-default `SfcMeta` and unknown keys are tolerated (no `deny_unknown_fields`).
+#[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SfcMeta {
+    /// `variants: { <axis>: [<value>, …] }` — e.g. `{ variant: ['default', 'ghost'] }`.
+    #[serde(default)]
+    pub variants: std::collections::BTreeMap<String, Vec<String>>,
+    /// `slots: [<name>, …]` — declared named slots.
+    #[serde(default)]
+    pub slots: Vec<String>,
+    /// `dependencies: [<pkg>, …]` — npm dependencies the recipe pulls in.
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    /// `registryDependencies: [<recipe>, …]` — other recipes this one composes.
+    #[serde(default, rename = "registryDependencies")]
+    pub registry_dependencies: Vec<String>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -324,6 +358,16 @@ pub enum StateMacro {
     BeforeNavigate { expr: String },
     /// `$afterNavigate(fn)` — register an after-navigation callback. RFC-A5-016.
     AfterNavigate { expr: String },
+    // ─── arch-3 M2 — magna plugin macro (RFC-003) ────────────────────────────
+    /// `$query name = data.X.query(vars)` — the RFC-003 magna `$query`
+    /// shorthand. It is intentionally **NOT** collection-form: it is a
+    /// dedicated `=`-shorthand parallel to `$route` / `$watch`, parsed by its
+    /// own branch in `try_parse_macro`, and is therefore NOT subject to the
+    /// collection-form C440 rejection. `$query` always lowers to
+    /// `createMagnaResource(inject(MagnaFetchToken), <expr>)` because it is
+    /// magna-only by definition. `expr` is the verbatim RHS (e.g.
+    /// `data.posts.query(vars)`).
+    Query { name: String, expr: String },
 }
 
 // ─── v0.4.7 — @style macro declarations ─────────────────────────────────────

@@ -7,10 +7,11 @@
  *
  * Start with: bun --watch server.ts
  */
-import { createAgentService } from '@aihu/agent-service'
+
+import { getAllAgentMetadata } from '@aihu/agent'
 import { mountA2aAdapter } from '@aihu/agent-a2a'
 import { mountAcpAdapter } from '@aihu/agent-acp'
-import { getAllAgentMetadata } from '@aihu/agent'
+import { createAgentService } from '@aihu/agent-service'
 
 // Snapshot the registry at server start time.
 const service = createAgentService({ manifests: getAllAgentMetadata() })

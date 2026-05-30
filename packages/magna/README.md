@@ -70,6 +70,7 @@ bun add @aihu/magna
 
 - `@aihu/signals` — `workspace:*`
 - `@aihu/plugin` — `workspace:*`
+- `@aihu/context` — `workspace:*`
 - `@aihu-plugin/data` — `workspace:*`
 
 **Optional dependencies (platform-specific):**

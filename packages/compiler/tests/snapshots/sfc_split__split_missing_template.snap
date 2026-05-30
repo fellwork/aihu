@@ -14,4 +14,5 @@ AihuSource {
     agent: None,
     route: None,
     stream: None,
+    sfc_meta: None,
 }

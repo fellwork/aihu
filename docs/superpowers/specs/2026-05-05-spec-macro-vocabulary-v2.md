@@ -308,4 +308,76 @@ One ambiguity surfaced and resolved in-spec; one design-constraint disposition s
 
 ---
 
+## §10 — Plugin-macro amendment: `$query` (RFC-003, arch-3 M2)
+
+Per the v1 spec's `Modify` note (`docs/roadmap/arch-3-plugins.md` Appendix), plugin
+macros are appended to this vocabulary post-RFC. This section ratifies the
+RFC-003 magna `$query` macro (cross-reference `docs/roadmap/arch-3-plugins.md`
+§6 RFC-003).
+
+### §10.1 — Grammar and validity
+
+- **Macro:** `$query`
+- **Plugin:** `@aihu/magna` (specializes `@aihu/data`'s `$resource` for the
+  magna GraphQL source).
+- **Valid in:** `@state`.
+- **Grammar:** `$query name = data.X.query(vars)` — an `=`-shorthand.
+
+`$query` is **intentionally NOT collection-form.** It is a dedicated shorthand
+parsed by its own grammar branch (parallel to `$route` / `$watch`), and it is
+therefore **NOT subject to C440.** The C440 rejection applies only to the six
+changing collection-form macros (`$prop`, `$computed`, `$action`, `$resource`,
+`$effect`, `$lifecycle`) when written in their v1 per-line shorthand. `$query`
+is brand-new (no v1 history), so giving it an `=`-shorthand grammar does not
+collide with the collection-form C440 path. Authors writing
+`$query feed = data.posts.query(vars)` get a clean parse, never a C440.
+
+### §10.2 — Magna-origin rationale
+
+The typed shorthand makes the **magna origin explicit**: the RHS references the
+magna typed client `data.X.query(...)`, which (a) enables build-time validation
+of the operation against the SDL via `magna-gqlmin`, and (b) specializes
+`$resource` for the magna source. Both macros remain valid:
+
+- `$query` (and any `$resource` entry whose running-code thunk body is a
+  magna-client call `data.X.query(...)`) lowers to **`createMagnaResource`**.
+- All other `$resource` entries (non-magna sources, e.g. `() => fetchUsers()`)
+  keep the existing **`createResource(() => …)`** lowering — no regression.
+
+Magna-origin detection is **syntactic** (the Rust compiler has no plugin-config
+passthrough): the matcher requires the literal `data.` prefix followed by a
+single identifier and `.query(` at the top of the expression. It is
+deliberately conservative so common non-magna code (`db.query(...)`,
+`el.querySelector(...)`) does NOT trigger magna lowering.
+
+### §10.3 — Lowering
+
+```
+$query feed = data.posts.query(vars)
+```
+
+lowers to:
+
+```js
+const feed = createMagnaResource(inject(MagnaFetchToken), data.posts.query(vars))
+```
+
+The compiler emits `import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'`
+and `import { inject } from '@aihu/context'`. The RHS is emitted **verbatim** —
+`data.X.query(vars)` is the generated typed-client expression (the typed `data`
+client is produced by magna's build-time codegen, OUT OF SCOPE for this slice).
+This slice's contract is only that the call to `createMagnaResource` is emitted
+with the injected `MagnaFetch` and the author's query expression; the typed
+`data`-client generation is a separate forward-dependency slice. `MagnaFetchToken`
+is a `createContext<MagnaFetch>()` token exported from `@aihu/magna`; the
+emitted `inject(MagnaFetchToken)` resolves the fetch at component setup.
+
+> **Forward dependency:** until magna's typed-client codegen lands,
+> `data.X.query(vars)` does not yet evaluate to the `operation: string` that
+> `createMagnaResource` expects. Emission is verified by the compiler;
+> end-to-end runtime execution of a magna query is gated on the typed-client
+> slice.
+
+---
+
 *End of v2 spec.*

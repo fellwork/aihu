@@ -15,12 +15,12 @@ pub use ast_export::{
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use parser::sfc;
 pub use parser::stream_macros;
-pub use parser::state_macros::parse_state_macros;
+pub use parser::state_macros::{is_magna_origin, parse_state_macros};
 pub use parser::template::parse_template;
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, BuildTarget, CollectionEntry,
     CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue, RouteBlock,
-    ScriptMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
+    ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
     TemplateNode,
 };
 
