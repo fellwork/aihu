@@ -1,0 +1,40 @@
+---
+source: tests/meta_block.rs
+expression: parsed
+---
+AihuSource {
+    script: None,
+    template: Some(
+        "<button>{{ label }}</button>",
+    ),
+    style: None,
+    meta: ScriptMeta {
+        name: None,
+    },
+    agent: None,
+    route: None,
+    stream: None,
+    sfc_meta: Some(
+        SfcMeta {
+            variants: {
+                "size": [
+                    "sm",
+                    "lg",
+                ],
+                "variant": [
+                    "default",
+                    "ghost",
+                ],
+            },
+            slots: [
+                "button",
+            ],
+            dependencies: [
+                "clsx",
+            ],
+            registry_dependencies: [
+                "utils",
+            ],
+        },
+    ),
+}

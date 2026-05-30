@@ -21,47 +21,47 @@
   },
   {
     "name": "@aihu/agent",
-    "bytes": 141,
+    "bytes": -1,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 757,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": 1692,
+    "bytes": -1,
     "limit": "1850 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": 1995,
+    "bytes": -1,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 1076,
+    "bytes": -1,
     "limit": "1100 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 586,
+    "bytes": -1,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 717,
+    "bytes": -1,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 1419,
+    "bytes": -1,
     "limit": "1500 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": 578,
+    "bytes": 682,
     "limit": "1 KB"
   },
   {
@@ -116,7 +116,7 @@
   },
   {
     "name": "@aihu/auth",
-    "bytes": 830,
+    "bytes": -1,
     "limit": "1.5 KB"
   },
   {
