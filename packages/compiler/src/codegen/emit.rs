@@ -24,6 +24,10 @@ struct StateImports {
     // imports `createMagnaResource`/`MagnaFetchToken` (`@aihu/magna`) and
     // `inject` (`@aihu/context`) are emitted.
     needs_create_magna_resource: bool,
+    // arch-3 M2 / A3 G2 (RFC-001) — `$auth.session()`/`$auth.currentUser()`
+    // lower to `const <name> = useCurrentUser()`. When set, the
+    // `import { useCurrentUser } from '@aihu/auth'` import is emitted.
+    needs_use_current_user: bool,
     // v0.4.0 — `$stream` lowers to `createStream()` in `@aihu/runtime`.
     needs_create_stream: bool,
     // arch-5 M1 — `$route`, `$beforeNavigate`, `$afterNavigate` lower to
@@ -868,6 +872,12 @@ fn process_state_body(
                 si.needs_create_magna_resource = true;
                 state_names.insert(name);
             }
+            StateMacro::Auth { name, .. } => {
+                // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` lowers to
+                // `const <name> = useCurrentUser()` from `@aihu/auth`.
+                si.needs_use_current_user = true;
+                state_names.insert(name);
+            }
         }
     }
 
@@ -1497,6 +1507,13 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
             StateMacro::Query { name, expr } => {
                 lines.push(format!(
                     "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
+                ));
+            }
+            // arch-3 M2 / A3 G2 (RFC-001) — auth `$auth.*` shorthand.
+            StateMacro::Auth { name, method } => {
+                lines.push(format!(
+                    "{indent}const {name} = useCurrentUser();{}",
+                    crate::parser::state_macros::auth_session_todo(*method)
                 ));
             }
         }
@@ -2391,6 +2408,12 @@ fn build_function_imports(
         lines.push("import { inject } from '@aihu/context'".to_string());
     }
 
+    // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` lowers to `useCurrentUser()`,
+    // the existing client reactive getter exported from `@aihu/auth` root.
+    if si.needs_use_current_user {
+        lines.push("import { useCurrentUser } from '@aihu/auth'".to_string());
+    }
+
     lines.join("\n")
 }
 
@@ -2462,6 +2485,32 @@ fn emit_magna_macro_code_options(macros: &[crate::types::StateMacro]) -> String 
     }
 }
 
+/// arch-3 M2 / A3 G2 (RFC-001) — lower the auth macros (`$auth.session()` /
+/// `$auth.currentUser()`) from a parsed `@state` macro list into
+/// 4-space-indented `const <name> = useCurrentUser();` statements for the
+/// options-form (`@agent` SFC) `setup()` body. `$auth.session()` additionally
+/// carries the deferred-SSR M3 TODO marker. Returns an empty string when no
+/// `$auth` macro is present.
+fn emit_auth_macro_code_options(macros: &[crate::types::StateMacro]) -> String {
+    use crate::parser::state_macros::auth_session_todo;
+    use crate::types::StateMacro;
+    let indent = "    ";
+    let mut lines: Vec<String> = Vec::new();
+    for mac in macros {
+        if let StateMacro::Auth { name, method } = mac {
+            lines.push(format!(
+                "{indent}const {name} = useCurrentUser();{}",
+                auth_session_todo(*method)
+            ));
+        }
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    }
+}
+
 /// Whether ANY entry of a `$resource` collection is magna-origin. Used to
 /// decide if the collection-form `$resource` line must be stripped from the
 /// options-form script body (it is lowered separately via
@@ -2506,6 +2555,13 @@ fn strip_magna_macros_from_script(
 
         // `$query name = ...` — single line; drop it.
         if line.strip_prefix('$').is_some_and(|r| r.starts_with("query ")) {
+            i = nl + 1;
+            continue;
+        }
+
+        // `$auth name = ...` — single line; drop it (lowered separately via
+        // `emit_auth_macro_code_options`). arch-3 M2 / A3 G2 (RFC-001).
+        if line.strip_prefix('$').is_some_and(|r| r.starts_with("auth ")) {
             i = nl + 1;
             continue;
         }
@@ -2572,7 +2628,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // here (mirroring `emit_state_macro_code`) and remove their source lines
     // from the script body so the emitted JS is valid.
     let magna_macro_code = emit_magna_macro_code_options(&pre_macros);
-    let script_body = if magna_macro_code.is_empty() {
+    // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` macros are likewise lowered here
+    // (the options form does not run `process_state_body`) and their source
+    // `$auth ...` lines stripped from the script body so they do not leak.
+    let auth_macro_code = emit_auth_macro_code_options(&pre_macros);
+    let script_body = if magna_macro_code.is_empty() && auth_macro_code.is_empty() {
         extract_script_body(raw_script)
     } else {
         extract_script_body(&strip_magna_macros_from_script(raw_script, &pre_macros))
@@ -2597,6 +2657,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // arch-3 M2 (RFC-003): flag magna imports when any magna macro was lowered.
     if !magna_macro_code.is_empty() {
         si.needs_create_magna_resource = true;
+    }
+    // arch-3 M2 / A3 G2 (RFC-001): flag the `@aihu/auth` import when any
+    // `$auth.*` macro was lowered.
+    if !auth_macro_code.is_empty() {
+        si.needs_use_current_user = true;
     }
 
     // R5 (Defect E): import `when`/`each` from arbor — never inline structural
@@ -2655,6 +2720,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
         import_lines.push("import { inject } from '@aihu/context'".to_string());
     }
 
+    // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` lowers to `useCurrentUser()`.
+    if si.needs_use_current_user {
+        import_lines.push("import { useCurrentUser } from '@aihu/auth'".to_string());
+    }
+
     let imports = import_lines.join("\n");
 
     // attrs array
@@ -2701,6 +2771,11 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
     // statements (4-space indented for setup()).
     if !magna_macro_code.is_empty() {
         setup_body.push_str(&magna_macro_code);
+    }
+    // arch-3 M2 / A3 G2 (RFC-001): auth `$auth.*` lowered statements
+    // (4-space indented for setup()).
+    if !auth_macro_code.is_empty() {
+        setup_body.push_str(&auth_macro_code);
     }
     if !script_body.is_empty() {
         // script_body is already 2-space indented; re-indent to 4 spaces for setup()

@@ -368,6 +368,35 @@ pub enum StateMacro {
     /// magna-only by definition. `expr` is the verbatim RHS (e.g.
     /// `data.posts.query(vars)`).
     Query { name: String, expr: String },
+    // ─── arch-3 M2 / A3 G2 — auth plugin macro family (RFC-001) ───────────────
+    /// `$auth name = $auth.session()` / `$auth name = $auth.currentUser()` —
+    /// the RFC-001 `$auth.*` macro family, valid in `@state`. Like `$query`, it
+    /// is intentionally **NOT** collection-form: a dedicated `=`-shorthand
+    /// parsed by its own branch in `try_parse_macro`, so it is NOT subject to
+    /// the collection-form C440 rejection.
+    ///
+    /// Both methods lower to `const <name> = useCurrentUser()` from
+    /// `@aihu/auth` — the existing client reactive getter (seeded by
+    /// `signIn`/`setCurrentScopes`). `$auth.session()` ADDITIONALLY emits a
+    /// `/* TODO(M3-auth-ssr): ... */` codegen marker: the RFC intent is a
+    /// `$shared` signal seeded server-side from `getAuthState(request, config)`,
+    /// but the compiler has NO request-context/config passthrough at the
+    /// `@state` lowering boundary today, so the SSR pre-seed is a deferred M3
+    /// uplift. The `name` is the LHS identifier (`$auth.session()` is an
+    /// expression with no inherent binding), mirroring `$query name = ...`.
+    Auth { name: String, method: AuthMacroKind },
+}
+
+/// Which `$auth.*` method a [`StateMacro::Auth`] declaration resolved to.
+/// RFC-001 (arch-3 M2 / A3 G2). Both lower through `useCurrentUser()`;
+/// `Session` additionally carries the deferred-SSR `$shared` seed marker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthMacroKind {
+    /// `$auth.session()` — SSR-seed case (M3 forward dependency for the
+    /// server-side `getAuthState` pre-seed; client-resolves via `useCurrentUser`).
+    Session,
+    /// `$auth.currentUser()` — lowers cleanly to the client reactive getter.
+    CurrentUser,
 }
 
 // ─── v0.4.7 — @style macro declarations ─────────────────────────────────────

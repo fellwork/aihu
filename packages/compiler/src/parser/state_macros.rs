@@ -22,7 +22,7 @@
 /// **Preserved from v1 (out of v2 redesign scope):** `$watch`,
 /// `$effect.on(...)`, `$route`, `$beforeNavigate`, `$afterNavigate`.
 
-use crate::types::{CollectionEntry, CollectionKind, CompileError, StateMacro};
+use crate::types::{AuthMacroKind, CollectionEntry, CollectionKind, CompileError, StateMacro};
 
 /// Parse `$macro` declarations from the body of an `@state { }` block.
 ///
@@ -274,6 +274,61 @@ fn try_parse_macro(
             });
         }
         return Ok(Some((StateMacro::Query { name, expr }, nl)));
+    }
+
+    // ─── arch-3 M2 / A3 G2 — auth `$auth.*` macro family (RFC-001) ────────────
+    //
+    // `$auth name = $auth.session()` / `$auth name = $auth.currentUser()` —
+    // dedicated `=`-shorthand parallel to `$query`, NOT collection-form (so it
+    // is NOT subject to C440). `auth` is NOT in the collection-keyword list, so
+    // this branch lives alongside `$query`. Both methods lower to
+    // `const <name> = useCurrentUser()` from `@aihu/auth`; `session()`
+    // additionally emits the deferred-SSR M3 TODO marker (see
+    // `auth_session_todo`). Malformed forms → C461.
+    if let Some(decl) = rest.strip_prefix("auth ") {
+        // Capture the RHS expression verbatim to end-of-line.
+        let nl = full_body[line_offset..]
+            .find('\n')
+            .map(|r| line_offset + r)
+            .unwrap_or(full_body.len());
+        let eq = decl.find('=').ok_or_else(|| CompileError {
+            message: format!(
+                "$auth declaration requires `=` — expected '$auth name = $auth.session()', got '$auth {}'",
+                decl.trim()
+            ),
+            line: 0,
+            col: 0,
+            code: Some("C461".to_string()),
+            ..Default::default()
+        })?;
+        let name = decl[..eq].trim().to_string();
+        let rhs = decl[eq + 1..].trim().trim_end_matches(';').trim();
+        if name.is_empty() {
+            return Err(CompileError {
+                message: "$auth declaration has an empty name — expected '$auth name = $auth.session()'".to_string(),
+                line: 0,
+                col: 0,
+                code: Some("C461".to_string()),
+                ..Default::default()
+            });
+        }
+        let method = if rhs == "$auth.session()" {
+            AuthMacroKind::Session
+        } else if rhs == "$auth.currentUser()" {
+            AuthMacroKind::CurrentUser
+        } else {
+            return Err(CompileError {
+                message: format!(
+                    "unknown $auth method — expected $auth.session() or $auth.currentUser(), got '{}'",
+                    rhs
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C461".to_string()),
+                ..Default::default()
+            });
+        };
+        return Ok(Some((StateMacro::Auth { name, method }, nl)));
     }
 
     if let Some(kind) = match_collection_keyword(rest) {
@@ -1394,6 +1449,22 @@ pub fn is_magna_origin(thunk_body: &str) -> bool {
     idx != 0 && after_data[idx..].starts_with(".query(")
 }
 
+/// The deferred-SSR M3 codegen marker appended to a `$auth.session()` lowering.
+///
+/// RFC-001's intent is that `$auth.session()` lowers to a `$shared` signal
+/// seeded server-side from `getAuthState(request, config)`. The compiler has
+/// no request-context/config passthrough at the `@state` lowering boundary
+/// today, so the SSR pre-seed is deferred to M3 — `$auth.session()` lowers to
+/// the client-resolvable `useCurrentUser()` form PLUS this TODO marker.
+/// `$auth.currentUser()` lowers cleanly with no marker (empty string). All
+/// three emit sites share this single source of the TODO text.
+pub fn auth_session_todo(method: AuthMacroKind) -> &'static str {
+    match method {
+        AuthMacroKind::Session => " /* TODO(M3-auth-ssr): seed this $shared session from getAuthState(request, config) once the SSR request-context passthrough lands — RFC-001 §SSR-seed; see arch-3-plugins.md §6 RFC-001 */",
+        AuthMacroKind::CurrentUser => "",
+    }
+}
+
 /// Emit JS for a list of `StateMacro` declarations (no per-line indent).
 /// Used by the simple emit path; the indented variant lives in
 /// `codegen/emit.rs`.
@@ -1439,6 +1510,13 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
                 lines.push(format!(
                     "const {} = createMagnaResource(inject(MagnaFetchToken), {});",
                     name, expr
+                ));
+            }
+            // arch-3 M2 / A3 G2 (RFC-001) — auth `$auth.*` shorthand.
+            StateMacro::Auth { name, method } => {
+                lines.push(format!(
+                    "const {name} = useCurrentUser();{}",
+                    auth_session_todo(*method)
                 ));
             }
         }
@@ -1719,6 +1797,13 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
             StateMacro::Query { name, expr } => {
                 lines.push(format!(
                     "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
+                ));
+            }
+            // arch-3 M2 / A3 G2 (RFC-001) — auth `$auth.*` shorthand.
+            StateMacro::Auth { name, method } => {
+                lines.push(format!(
+                    "{indent}const {name} = useCurrentUser();{}",
+                    auth_session_todo(*method)
                 ));
             }
         }
