@@ -1,6 +1,6 @@
 ---
 source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
-expression: compile_sfc_scoped(&ast(json))
+expression: compile_sfc_scoped(&ast(json)).unwrap()
 ---
 :host {
   --color-accent: #c8543a;
@@ -24,4 +24,7 @@ expression: compile_sfc_scoped(&ast(json))
 .p-4 { padding: 1rem; }
 .shadow-md { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
 /* authored @style (scoped) */
-.inner { display: grid; gap: 1rem; }
+.inner {
+  display: grid;
+  gap: 1rem;
+}

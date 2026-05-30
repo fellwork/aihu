@@ -5,21 +5,28 @@
 //! of utility classes (see tokens.rs); Plan 2 wires the AST scanner; Plan 3
 //! adds variants and progressive features.
 
+pub mod apply;
 pub mod ast;
 pub mod cache;
 pub mod emit;
 pub mod features;
 pub mod progressive;
 pub mod scanner;
+pub mod style_parser;
 pub mod theme;
 pub mod tokens;
 pub mod variants;
 
+pub use apply::expand_apply;
 pub use ast::{parse_ast, AstError, SfcAst, SfcAttr, SfcNode, SfcStyleScope};
 pub use cache::{hash_ast, CssCache};
-pub use emit::{emit, emit_sfc_scoped, OutputMode};
+pub use emit::{emit, emit_sfc_scoped, CompileError, OutputMode};
 pub use progressive::{ProgressiveFeature, ProgressiveRegistry};
 pub use scanner::{scan, scan_ast, ScanResult};
+pub use style_parser::{
+    parse_style, ApplyDirective, AtRule, AtStatement, Declaration, StyleNode, StyleParseError,
+    StyleRule, StyleSheet,
+};
 pub use theme::ThemeRegistry;
 pub use variants::{split_variants, Variant};
 
@@ -67,6 +74,6 @@ pub fn compile_sfc(ast: &SfcAst) -> String {
 /// `:host`-level theme tokens, variant-resolved utility rules, and the folded
 /// authored `@style` block. This is the production entry consumed by the TS
 /// bridge / `aihu-css-compile --ast-json`.
-pub fn compile_sfc_scoped(ast: &SfcAst) -> String {
+pub fn compile_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
     emit_sfc_scoped(ast)
 }

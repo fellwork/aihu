@@ -1,0 +1,12 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 120
+expression: css
+---
+.grid {
+  @media (min-width: 48rem) {
+    & {
+      display: flex;
+    }
+  }
+}

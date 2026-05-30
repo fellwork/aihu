@@ -68,4 +68,15 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
     expect(css).toContain('background-color: var(--color-primary)')
     expect(css).not.toContain('@theme') // directive consumed, not emitted raw
   })
+
+  // R-RESULT: a binary emit error (non-zero exit) surfaces as a thrown Error
+  // carrying the stderr message, not an opaque status failure.
+  it('throws with the engine error message when emit hard-errors', () => {
+    // `@theme` with no `{` body → CompileError::MalformedTheme in the binary.
+    const source = `@style {
+  @theme --color-primary: red;
+}
+@template { <div class="bg-primary">x</div> }`
+    expect(() => compileSfc(source, 'Broken.aihu')).toThrow(/malformed @theme/)
+  })
 })

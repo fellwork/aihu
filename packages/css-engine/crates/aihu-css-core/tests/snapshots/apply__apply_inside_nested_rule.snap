@@ -1,0 +1,11 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 91
+expression: css
+---
+.card {
+  display: grid;
+  & .title {
+    font-weight: 500;
+  }
+}

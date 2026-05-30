@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 use crate::ast::{SfcAst, SfcAttr, SfcNode, SfcStyleScope};
-use crate::emit::emit_sfc_scoped;
+use crate::emit::{emit_sfc_scoped, CompileError};
 
 /// An in-process compilation cache. Construct one per dev session / build run.
 #[derive(Debug, Default)]
@@ -32,16 +32,19 @@ impl CssCache {
     /// Compile an SFC, returning a cached result on an unchanged-input hit.
     /// `theme_version` participates in the key so a theme change invalidates
     /// every entry.
-    pub fn compile(&mut self, ast: &SfcAst, theme_version: u64) -> String {
+    ///
+    /// On a compile error (R-RESULT) the error propagates and nothing is
+    /// cached, so a later fixed input re-runs the full compile path.
+    pub fn compile(&mut self, ast: &SfcAst, theme_version: u64) -> Result<String, CompileError> {
         let key = hash_ast(ast, theme_version);
         if let Some(cached) = self.entries.get(&key) {
             self.hits += 1;
-            return cached.clone();
+            return Ok(cached.clone());
         }
         self.recompiles += 1;
-        let css = emit_sfc_scoped(ast);
+        let css = emit_sfc_scoped(ast)?;
         self.entries.insert(key, css.clone());
-        css
+        Ok(css)
     }
 
     /// Total full recompiles since construction.

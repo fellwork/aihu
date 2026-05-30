@@ -342,6 +342,14 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "justify-around" => "justify-content: space-around;",
         "justify-evenly" => "justify-content: space-evenly;",
 
+        // Interactivity
+        "select-none" => "user-select: none;",
+        "select-text" => "user-select: text;",
+        "select-all" => "user-select: all;",
+        "select-auto" => "user-select: auto;",
+        "pointer-events-none" => "pointer-events: none;",
+        "pointer-events-auto" => "pointer-events: auto;",
+
         // Position
         "static" => "position: static;",
         "relative" => "position: relative;",

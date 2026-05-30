@@ -1,0 +1,8 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 103
+expression: css
+---
+.swatch {
+  background-color: #fff;
+}

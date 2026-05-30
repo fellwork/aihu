@@ -1,0 +1,10 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/apply.rs
+assertion_line: 131
+expression: css
+---
+.btn {
+  &[data-state="open"] {
+    background-color: var(--color-accent);
+  }
+}

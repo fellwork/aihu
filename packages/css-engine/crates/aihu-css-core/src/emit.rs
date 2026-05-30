@@ -29,6 +29,54 @@ pub enum OutputMode {
     Scoped,
 }
 
+/// A recoverable error raised while emitting CSS from an SFC AST.
+///
+/// This is the precursor error channel (R-RESULT): `emit_sfc_scoped` /
+/// `compile_sfc_scoped` / the per-SFC cache return `Result<String, CompileError>`
+/// so later passes (`@apply` unknown-utility, variant validation) can hard-error
+/// instead of silently dropping. The `aihu-css-compile` binary prints the
+/// `Display` message to stderr and exits non-zero; the TS bridge surfaces it as
+/// a thrown `Error` carrying that message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompileError {
+    /// An authored `@style` block opened `@theme` with no `{ … }` body.
+    MalformedTheme { detail: String },
+    /// An `@apply` directive referenced a utility token whose base utility is
+    /// not in the table (Task 1.4 — unknown utility hard-errors).
+    UnknownApplyUtility { token: String },
+    /// An `@apply` inside a `$global` `@style` block used a variant token that
+    /// implies `&`/host/relational scoping (Task 1.4 — base utilities allowed in
+    /// `$global`, scope-implying variants rejected).
+    GlobalApplyVariant { token: String },
+    /// A `@style` block failed to parse structurally (R-SHARED-PARSER).
+    StyleParse { detail: String },
+}
+
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompileError::MalformedTheme { detail } => {
+                write!(f, "malformed @theme block in authored @style: {detail}")
+            }
+            CompileError::UnknownApplyUtility { token } => {
+                write!(f, "unknown utility in @apply: `{token}`")
+            }
+            CompileError::GlobalApplyVariant { token } => {
+                write!(
+                    f,
+                    "@apply in a $global @style block may not use the scope-implying \
+                     variant `{token}` (only base utilities are allowed in $global)"
+                )
+            }
+            CompileError::StyleParse { detail } => {
+                write!(f, "failed to parse @style block: {detail}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
 /// CSS-escape a class name for use in a selector (`bg-[#fff]` → `bg-\[\#fff\]`).
 fn escape_class(class: &str) -> String {
     let mut out = String::with_capacity(class.len() + 4);
@@ -173,7 +221,7 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 /// `attr_selector("aria", Name{checked, true})` → `[aria-checked="true"]`;
 /// `attr_selector("data", NameValue{state, open})` → `[data-state="open"]`;
 /// `attr_selector("data", Name{active, false})` → `[data-active]` (presence).
-fn attr_selector(family: &str, m: &AttrMatch) -> String {
+pub(crate) fn attr_selector(family: &str, m: &AttrMatch) -> String {
     match m {
         AttrMatch::Name { name, imply_true } => {
             if *imply_true {
@@ -226,7 +274,7 @@ pub fn emit_with_progressive(
 
 /// Compile a full SFC AST to scoped CSS: theme tokens (`:host`-level custom
 /// props) + scanned utility rules + the folded authored `@style` block.
-pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
+pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
     let mut theme = ThemeRegistry::with_aihu_defaults();
 
     // Parse @theme directives from the authored style block first so utilities
@@ -260,44 +308,57 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> String {
         OutputMode::Scoped,
     ));
 
-    // 3. Fold the authored @style block (minus @theme directives).
+    // 3. Fold the authored @style block (minus @theme directives), expanding
+    //    any `@apply` directives first (Task 1.4). Base utilities inline as
+    //    declarations; variant tokens lift to nested `&…` rules on the recipe's
+    //    own selector. Unknown utilities / illegal `$global` variants hard-error.
     if let Some(style) = &ast.style {
-        let authored = strip_theme_blocks(&style.content);
-        let authored = authored.trim();
-        if !authored.is_empty() {
-            match style.scope {
-                // Scoped: it already lives in the shadow <style>; pass through.
-                SfcStyleScope::Scoped => {
-                    out.push_str("/* authored @style (scoped) */\n");
-                    out.push_str(authored);
-                    out.push('\n');
-                }
-                // Global ($global): passed through unscoped (edge E6). The
-                // compiler hoists this out of the shadow root.
-                SfcStyleScope::Global => {
-                    out.push_str("/* authored @style ($global — unscoped) */\n");
-                    out.push_str(authored);
-                    out.push('\n');
+        let stripped = strip_theme_blocks(&style.content)?;
+        if !stripped.trim().is_empty() {
+            let authored = crate::apply::expand_apply(&stripped, style.scope, &theme)?;
+            let authored = authored.trim();
+            if !authored.is_empty() {
+                match style.scope {
+                    // Scoped: it already lives in the shadow <style>; pass through.
+                    SfcStyleScope::Scoped => {
+                        out.push_str("/* authored @style (scoped) */\n");
+                        out.push_str(authored);
+                        out.push('\n');
+                    }
+                    // Global ($global): passed through unscoped (edge E6). The
+                    // compiler hoists this out of the shadow root.
+                    SfcStyleScope::Global => {
+                        out.push_str("/* authored @style ($global — unscoped) */\n");
+                        out.push_str(authored);
+                        out.push('\n');
+                    }
                 }
             }
         }
     }
 
-    out
+    Ok(out)
 }
 
 /// Remove `@theme { ... }` blocks from style content (they become host tokens,
 /// not raw CSS).
-fn strip_theme_blocks(style_content: &str) -> String {
+///
+/// An `@theme` opener with no `{ … }` body is a malformed authored block and
+/// now hard-errors via [`CompileError`] (R-RESULT) instead of silently keeping
+/// the broken text verbatim — the first real error this `Result` channel
+/// surfaces. Later passes (`@apply`, variant validation) add more variants.
+fn strip_theme_blocks(style_content: &str) -> Result<String, CompileError> {
     let mut out = String::new();
     let mut rest = style_content;
     while let Some(at) = rest.find("@theme") {
         out.push_str(&rest[..at]);
         let after = &rest[at + "@theme".len()..];
         let Some(open) = after.find('{') else {
-            // Malformed — keep the rest verbatim and stop.
-            out.push_str(&rest[at..]);
-            return out;
+            // Malformed: `@theme` with no `{` body. Hard-error rather than
+            // emitting the broken text verbatim.
+            return Err(CompileError::MalformedTheme {
+                detail: "expected `{` after `@theme`".to_string(),
+            });
         };
         let body_start = open + 1;
         let mut depth = 1u32;
@@ -318,5 +379,5 @@ fn strip_theme_blocks(style_content: &str) -> String {
         rest = &after[end + 1..];
     }
     out.push_str(rest);
-    out
+    Ok(out)
 }

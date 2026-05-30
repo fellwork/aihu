@@ -204,17 +204,39 @@ function buildMissingBinaryError(
  * @param classes - utility class names like `['bg-primary', 'p-4']`
  * @returns CSS string with one rule per known class
  */
+/**
+ * Spawn the native compiler, returning stdout on success. On a non-zero exit
+ * (the binary's R-RESULT error path) throw an `Error` carrying the binary's
+ * stderr message rather than letting `execFileSync`'s opaque status error
+ * surface. stderr is PIPED (not inherited) so the message lands in the thrown
+ * error instead of the parent's console.
+ */
+function runBinary(bin: string, args: string[], input: string): string {
+  try {
+    return execFileSync(bin, args, {
+      input,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (err) {
+    const e = err as { stderr?: Buffer | string; message?: string }
+    const stderr =
+      typeof e.stderr === 'string'
+        ? e.stderr
+        : e.stderr instanceof Buffer
+          ? e.stderr.toString('utf-8')
+          : ''
+    const detail = stderr.trim() || e.message || 'unknown error'
+    throw new Error(`[@aihu/css-engine] CSS compile failed: ${detail}`)
+  }
+}
+
 export function compile(classes: string[]): string {
   if (classes.length === 0) return ''
 
   const bin = resolveBinary()
   const input = classes.join('\n')
-  const result = execFileSync(bin, [], {
-    input,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'inherit'],
-  })
-  return result
+  return runBinary(bin, [], input)
 }
 
 /**
@@ -233,9 +255,5 @@ export function compile(classes: string[]): string {
 export function compileSfc(source: string, id?: string): string {
   const ast = compileToAst(source, id)
   const bin = resolveBinary()
-  return execFileSync(bin, ['--ast-json'], {
-    input: JSON.stringify(ast),
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'inherit'],
-  })
+  return runBinary(bin, ['--ast-json'], JSON.stringify(ast))
 }

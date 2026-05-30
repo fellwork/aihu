@@ -48,13 +48,14 @@ fn main() {
     }
 
     let css = if ast_mode {
-        match aihu_css_core::parse_ast(&buf) {
-            Ok(ast) => aihu_css_core::compile_sfc_scoped(&ast),
-            Err(e) => {
-                eprintln!("aihu-css-compile: {e}");
-                std::process::exit(1);
-            }
-        }
+        let ast = aihu_css_core::parse_ast(&buf).unwrap_or_else(|e| {
+            eprintln!("aihu-css-compile: {e}");
+            std::process::exit(1);
+        });
+        aihu_css_core::compile_sfc_scoped(&ast).unwrap_or_else(|e| {
+            eprintln!("aihu-css-compile: {e}");
+            std::process::exit(1);
+        })
     } else {
         let classes: Vec<String> = buf
             .lines()
