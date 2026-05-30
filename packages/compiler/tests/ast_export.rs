@@ -8,7 +8,7 @@
 //! Snapshots assert the serialized JSON wire shape (spec §4.3), so any
 //! breaking change to the AST contract surfaces as a snapshot diff.
 
-use aihu_compiler::compile_to_ast;
+use aihu_compiler::{compile_to_ast, SfcAstOwned};
 
 /// Serialize the owned AST to pretty JSON for snapshotting. Mirrors the wire
 /// format `--ast-json` emits (compact in the CLI; pretty here for readable
@@ -148,4 +148,122 @@ fn e11_colon_form_is_parse_error_c500() {
     )
     .expect_err("colon-form must reject with C500");
     assert_eq!(err.code.as_deref(), Some("C500"));
+}
+
+// ─── PR-2 T2.2 — @meta recipe-catalog fields in the emitted AST-JSON ──────────
+
+#[test]
+fn meta_fields_emitted_for_meta_sfc() {
+    // An SFC with an `@meta { … }` block must carry the recipe-catalog fields
+    // in the emitted AST-JSON `meta` object (R-SERDE-TOLERANT producer side).
+    let json = ast_json(
+        r#"@meta {
+  variants: { variant: ['default', 'ghost'], size: ['sm', 'lg'] },
+  slots: ['button'],
+  dependencies: ['clsx'],
+  registryDependencies: ['utils'],
+}
+@template { <button>{{ label }}</button> }"#,
+        Some("Button.aihu"),
+    );
+    insta::assert_snapshot!(json);
+}
+
+#[test]
+fn meta_fields_omitted_when_no_meta_block() {
+    // Backward-compatible wire shape: an SFC with NO `@meta` block emits the
+    // pre-PR-2 `meta` shape — `{ "name": ... }` only. The empty recipe fields
+    // are `skip_serializing_if`-elided so older consumers see no change.
+    let json = ast_json(
+        r#"@template { <button>Go</button> }"#,
+        Some("Button.aihu"),
+    );
+    assert!(json.contains("\"name\": \"Button\""), "got: {json}");
+    assert!(!json.contains("variants"), "empty variants must be elided: {json}");
+    assert!(!json.contains("slots"), "empty slots must be elided: {json}");
+    assert!(
+        !json.contains("dependencies"),
+        "empty dependencies must be elided: {json}"
+    );
+    assert!(
+        !json.contains("registryDependencies"),
+        "empty registryDependencies must be elided: {json}"
+    );
+}
+
+/// CROSS-CRATE AST-JSON CONTRACT (the key R-SERDE-TOLERANT deliverable).
+///
+/// During the staged PR rollout the compiler ships before/after the css-core
+/// consumer, so the AST-JSON wire format spans a version-skew window. This
+/// test pins both directions of skew:
+///
+/// (a) An OLD-shape AST-JSON (a `meta` object with ONLY `name`, the pre-PR-2
+///     producer shape) must still deserialize into the NEW `SfcAstOwned` —
+///     the recipe fields fall back to empty via `#[serde(default)]`.
+/// (b) A NEW-shape AST-JSON carrying variants/slots/deps must round-trip
+///     (deserialize → re-serialize → re-deserialize) byte-stably.
+#[test]
+fn cross_crate_ast_json_contract_old_and_new_shape() {
+    // (a) OLD shape — no recipe fields on `meta`. Must parse; fields default.
+    let old_shape = r#"{
+        "tag": "Button",
+        "astVersion": 1,
+        "style": null,
+        "template": null,
+        "meta": { "name": "Button" }
+    }"#;
+    let parsed: SfcAstOwned =
+        serde_json::from_str(old_shape).expect("old-shape AST-JSON must still deserialize");
+    assert_eq!(parsed.meta.name, "Button");
+    assert!(parsed.meta.variants.is_empty(), "variants default to empty");
+    assert!(parsed.meta.slots.is_empty(), "slots default to empty");
+    assert!(
+        parsed.meta.dependencies.is_empty(),
+        "dependencies default to empty"
+    );
+    assert!(
+        parsed.meta.registry_dependencies.is_empty(),
+        "registryDependencies default to empty"
+    );
+
+    // (b) NEW shape — recipe fields present (note the camelCase
+    // `registryDependencies` wire key). Must round-trip stably.
+    let new_shape = r#"{
+        "tag": "Button",
+        "astVersion": 1,
+        "style": null,
+        "template": null,
+        "meta": {
+            "name": "Button",
+            "variants": { "variant": ["default", "ghost"] },
+            "slots": ["button"],
+            "dependencies": ["clsx"],
+            "registryDependencies": ["utils"]
+        }
+    }"#;
+    let parsed_new: SfcAstOwned =
+        serde_json::from_str(new_shape).expect("new-shape AST-JSON must deserialize");
+    assert_eq!(
+        parsed_new.meta.variants.get("variant").map(Vec::as_slice),
+        Some(["default".to_string(), "ghost".to_string()].as_slice())
+    );
+    assert_eq!(parsed_new.meta.slots, vec!["button".to_string()]);
+    assert_eq!(parsed_new.meta.dependencies, vec!["clsx".to_string()]);
+    assert_eq!(
+        parsed_new.meta.registry_dependencies,
+        vec!["utils".to_string()]
+    );
+
+    // Round-trip: re-serialize then re-deserialize must equal the first parse.
+    let reserialized = serde_json::to_string(&parsed_new).expect("serialize");
+    let reparsed: SfcAstOwned =
+        serde_json::from_str(&reserialized).expect("round-trip deserialize");
+    assert_eq!(parsed_new, reparsed, "new-shape AST-JSON must round-trip");
+
+    // Cross-skew sanity: the OLD-shape parse must also re-serialize and parse
+    // back identically (older producer → newer consumer → newer producer).
+    let old_reserialized = serde_json::to_string(&parsed).expect("serialize old");
+    let old_reparsed: SfcAstOwned =
+        serde_json::from_str(&old_reserialized).expect("round-trip old");
+    assert_eq!(parsed, old_reparsed);
 }

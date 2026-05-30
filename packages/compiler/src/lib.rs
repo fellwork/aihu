@@ -20,7 +20,7 @@ pub use parser::template::parse_template;
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, BuildTarget, CollectionEntry,
     CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue, RouteBlock,
-    ScriptMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
+    ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
     TemplateNode,
 };
 

@@ -77,6 +77,7 @@ fn compile_empty_source() {
             agent: None,
             route: None,
             stream: None,
+            sfc_meta: None,
         }
     );
 }
