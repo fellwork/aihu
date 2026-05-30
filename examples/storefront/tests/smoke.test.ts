@@ -156,7 +156,8 @@ describe('EX-13 storefront — agent metadata registry', () => {
     expect(() => {
       registerAgentMetadata({
         tag: 'storefront-root',
-        describes: 'EX-13: Storefront with createResource product list, @aihu/context cart, and requireAuth checkout',
+        describes:
+          'EX-13: Storefront with createResource product list, @aihu/context cart, and requireAuth checkout',
         state: {
           cartCount: 'Total number of items in the cart',
         },
