@@ -214,8 +214,21 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
           return err('bad json')
         }
         if (typeof body.tool !== 'string') return err('tool must be string')
-        const result = await this.handleToolCall(body.tool, body.params ?? null)
-        return new Response(JSON.stringify({ result }), { status: 200, headers: CT })
+        // G6f BUG 1 fix: build a RequestContext via the injected resolver so
+        // scoped/$rate-limit tools are reachable over the bundled HTTP path.
+        // `options` is closed over by buildService; reference it (NOT `this`).
+        // Fail-closed preserved: without resolveAuth, no ctx is passed, so a
+        // scoped binding still yields 401 (AUTH_MISSING / AUTH_REQUIRED).
+        const ctx = options?.resolveAuth ? await options.resolveAuth(req) : undefined
+        const out = (await this.handleToolCall(body.tool, body.params ?? null, ctx)) as {
+          code?: number
+        }
+        // G6f BUG 2 fix: propagate the JSON-RPC envelope's HTTP code (the helper
+        // is keyed on HTTP codes, always 4xx/5xx — never 0) and stop double-
+        // wrapping — return the envelope as-is. Success envelopes are already
+        // `{ result }` (no `code`, so `|| 200`); error envelopes surface
+        // `{ error, code, jsonrpc }` with the correct status.
+        return new Response(JSON.stringify(out), { status: out.code || 200, headers: CT })
       }
     },
   }

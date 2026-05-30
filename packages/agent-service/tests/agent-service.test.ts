@@ -1,6 +1,7 @@
 import type { AgentMetadata } from '@aihu/agent'
 import { describe, expect, it } from 'vitest'
 import { createAgentService } from '../src/index.ts'
+import type { AuthPlugin, LiveBinding, RateLimitPlugin } from '../src/types.ts'
 
 /**
  * Plan 5.2 — unit tests for `@aihu/agent-service`.
@@ -180,9 +181,13 @@ describe('asMiddleware()', () => {
     })
     const res = await mw(req)
     expect(res).not.toBeNull()
-    expect(res?.status).toBe(200)
-    const body = (await res?.json()) as { result: unknown }
-    expect(body.result).toBeDefined()
+    // G6f: metadata-only service has no live binding → handleToolCall returns a
+    // 404 envelope, which asMiddleware now propagates as HTTP 404 (no longer a
+    // spurious 200 double-wrap). The body is the bare envelope, not { result }.
+    expect(res?.status).toBe(404)
+    const body = (await res?.json()) as { error: string; code: number; result?: unknown }
+    expect(body.code).toBe(404)
+    expect(body.result).toBeUndefined()
   })
 
   it('returns non-null response for invalid JSON body', async () => {
@@ -221,5 +226,146 @@ describe('asMiddleware()', () => {
     })
     const res = await mw(req)
     expect(res?.headers.get('content-type')).toBe('application/json')
+  })
+})
+
+// ── G6f: asMiddleware — live registry + auth ─────────────────────────────────
+
+describe('asMiddleware — live registry + auth (G6f)', () => {
+  /** Minimal LiveBinding factory (mirrors live-dispatch.test.ts). */
+  function makeLiveBinding(
+    tag: string,
+    scopeStr: string | null = null,
+    rateLimitStr: string | null = null,
+  ): LiveBinding {
+    return {
+      rootId: 1,
+      tag,
+      getSignal: () => undefined,
+      setSignal: () => {},
+      async callAction(name: string): Promise<unknown> {
+        if (name === 'fetchForecast') return { weather: 'sunny' }
+        throw new Error(`no action: ${name}`)
+      },
+      scope: () => scopeStr,
+      rateLimit: () => rateLimitStr,
+      dispose$: () => true,
+    }
+  }
+
+  function makeRegistry(tag: string, binding: LiveBinding): Map<string, LiveBinding[]> {
+    return new Map([[tag, [binding]]])
+  }
+
+  const post = (body: unknown): Request =>
+    new Request('http://localhost/__aihu/tools/call', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    })
+
+  const passAuth: AuthPlugin = { checkScope: () => true }
+
+  // AC1: scoped binding + valid auth context (userId + jwt) + passing authPlugin
+  //      → 200 with the REAL result, NOT double-wrapped.
+  it('AC1: scoped tool with valid auth → 200 and bare { result }', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      authPlugin: passAuth,
+      resolveAuth: () => ({ userId: 'u1', jwt: 'token-authenticated' }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(200)
+    const body = (await res?.json()) as { result?: { weather: string }; error?: unknown }
+    // No double-wrap: body.result is the real value, not { error, code }.
+    expect(body.result).toEqual({ weather: 'sunny' })
+    expect(body.error).toBeUndefined()
+  })
+
+  // AC2: status propagation (no double-wrap). Each asserts res.status === code
+  //      AND the JSON body is the bare envelope ({ code } at top level).
+  it('AC2: missing jwt/userId on scoped tool → 401', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      authPlugin: passAuth,
+      resolveAuth: () => ({ userId: null }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(401)
+    const body = (await res?.json()) as { code: number; result?: unknown }
+    expect(body.code).toBe(401)
+    expect(body.result).toBeUndefined()
+  })
+
+  it('AC2: insufficient scope → 403', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const failAuth: AuthPlugin = { checkScope: () => false }
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      authPlugin: failAuth,
+      resolveAuth: () => ({ userId: 'u1', jwt: 'token-no-scope' }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(403)
+    const body = (await res?.json()) as { code: number }
+    expect(body.code).toBe(403)
+  })
+
+  it('AC2: no live instance → 404', async () => {
+    const svc = createAgentService({
+      getRegistry: () => new Map<string, LiveBinding[]>(),
+      resolveAuth: () => ({ userId: 'u1' }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(404)
+    const body = (await res?.json()) as { code: number }
+    expect(body.code).toBe(404)
+  })
+
+  it('AC2: over rate-limit → 429', async () => {
+    const binding = makeLiveBinding('weather-card', null, '1/min')
+    const rateLimitPlugin: RateLimitPlugin = { checkRateLimit: () => false }
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      rateLimitPlugin,
+      resolveAuth: () => ({ userId: 'u1' }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(429)
+    const body = (await res?.json()) as { code: number }
+    expect(body.code).toBe(429)
+  })
+
+  // AC3: scoped binding, NO resolveAuth and NO authPlugin → fail-closed 401.
+  // With no resolveAuth no RequestContext is built, so the userId-cardinality
+  // gate (Amendment 3) fires first → 401 AUTH_REQUIRED. This is the correct
+  // fail-closed outcome when @aihu/auth is not registered.
+  it('AC3: scoped tool, no resolveAuth + no authPlugin → fail-closed 401', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(401)
+    const body = (await res?.json()) as { error: string; code: number; result?: unknown }
+    expect(body.code).toBe(401)
+    expect(body.result).toBeUndefined()
+  })
+
+  // AC3 (AUTH_MISSING path): a userId IS resolved but @aihu/auth (authPlugin)
+  // is NOT registered → the scope check fails closed with 401 AUTH_MISSING.
+  it('AC3: scoped tool, userId resolved but no authPlugin → 401 AUTH_MISSING', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      resolveAuth: () => ({ userId: 'u1', jwt: 'token-authenticated' }),
+    })
+    const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
+    expect(res?.status).toBe(401)
+    const body = (await res?.json()) as { error: string; code: number }
+    expect(body.code).toBe(401)
+    expect(body.error).toContain('AUTH_MISSING')
   })
 })

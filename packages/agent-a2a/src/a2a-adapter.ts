@@ -52,6 +52,10 @@ export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptio
         if (!isSub && typeof msg !== 'string') {
           error = 'bad message'
         } else {
+          // v1: a2a adapter is ANONYMOUS-ONLY — no RequestContext is forwarded,
+          // so scoped/$rate-limited tools fail closed (401) through this path.
+          // Auth wiring for a2a is deferred to M3 (see G6f / asMiddleware which
+          // IS auth-wired). Do not add auth here without the M3 review.
           result = await service.handleToolCall((msg as string) ?? '', body.params ?? null)
           error = (result as { error?: string })?.error
         }

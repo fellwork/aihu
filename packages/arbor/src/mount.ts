@@ -81,11 +81,18 @@ const MAX_BINDINGS_PER_TAG = 1000
 
 /**
  * Export the registry getter for injection into `@aihu/agent-service`.
- * Returns the live Map reference (not a snapshot).
+ * Returns the live Map reference (not a snapshot) as a READ-ONLY view.
+ *
+ * The consumer (`@aihu/agent-service`) only reads via `.get(tag)`, so the
+ * return type is `ReadonlyMap` — a type-level lock that prevents external
+ * mutation of the live registry at zero runtime cost (no snapshot; the
+ * registry MUST stay live for dispatch). Internal writers
+ * (`registerLiveBinding` and the `onCleanup` teardown) hold the module-private
+ * `componentInstanceRegistry` binding directly and are unaffected.
  *
  * @internal — for use by `createAgentService({ getRegistry })` only.
  */
-export function _getComponentInstanceRegistry(): Map<string, LiveBinding[]> {
+export function _getComponentInstanceRegistry(): ReadonlyMap<string, LiveBinding[]> {
   return componentInstanceRegistry
 }
 
