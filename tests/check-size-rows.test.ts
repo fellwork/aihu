@@ -174,6 +174,30 @@ describe('check-size-rows policy lint', () => {
     expect(result.errors.some((e) => e.includes('@aihu/forms') && e.includes('no row'))).toBe(true)
   })
 
+  it('exempts a private package from the row requirement (e.g. @aihu/plugin-demo)', () => {
+    const packages = [
+      {
+        name: '@aihu/signals',
+        dir: '/p/signals',
+        hasIndexTs: true,
+        classification: 'browser-eligible' as const,
+      },
+      // private demo: browser runtime export, but never published → no contract
+      {
+        name: '@aihu/plugin-demo',
+        dir: '/p/plugin-demo',
+        hasIndexTs: true,
+        classification: 'browser-eligible' as const,
+        isPrivate: true,
+      },
+    ]
+    const rows = [{ name: '@aihu/signals', path: 'x', limit: '1970 B' }]
+    const result = checkPolicy(packages, rows)
+    expect(result.ok).toBe(true)
+    expect(result.errors).toEqual([])
+    expect(result.summary).toContain('1 private, exempt')
+  })
+
   it('catches a server-side package with a forbidden row', () => {
     const packages = [
       {

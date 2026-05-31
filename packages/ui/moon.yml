@@ -12,10 +12,22 @@ dependsOn:
   - 'primitives'
   - 'css-engine'
 
-# NOTE: NO `build` task — @aihu/ui emits no dist. The published payload is the
-# `registry/**` .aihu sources plus the generated `registry.json` index.
+# @aihu/ui emits no dist. The published payload is the `registry/**` .aihu
+# sources plus the generated `registry.json` index.
 
 tasks:
+  # @aihu/ui has no bundle, but the global `build` task (.moon/tasks/tasks.yml,
+  # `bun run build` → outputs `dist`) is inherited by ALL TS projects — omitting
+  # it does NOT opt out. Override to a no-op and clear the inherited `dist`
+  # output so Moon doesn't fail with task_runner::missing_outputs / a missing
+  # `build` script. Same pattern as packages/templates/moon.yml.
+  build:
+    command: 'noop'
+    outputs: []
+    options:
+      cache: false
+      mergeOutputs: 'replace'
+
   # Generate the index-only registry.json from registry/**. Not a `build`:
   # it emits a single index artifact, not a dist bundle.
   # NOTE: Moon task identifiers forbid colons (colon is the project:task
