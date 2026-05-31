@@ -187,6 +187,51 @@
   color: inherit;
 }
 
+/* ── Baked syntax-highlight palette (kn-*) ──────────────────────────
+ * @aihu-plugin/kindly-note bakes kn-* spans into <pre><code> at BUILD TIME
+ * (see apps/docs/build.ts). Those spans render inside THIS component's SHADOW
+ * DOM, so global style.css cannot reach them — the palette MUST live here.
+ * Selectors are flat (the emitter does not wrap output in a `.kn` root) and
+ * keyed off the warm brand colors that previously lived in style.css's hljs
+ * block. Only TypeScript/JSON fences carry kn-* spans today (those lang packs
+ * exist on the registry); bash/css/html fences render as uncolored escaped text
+ * until @kindly-note/lang-{bash,css,html} ship. */
+.docs-content article pre code .kn-keyword,
+.docs-content article pre code .kn-built_in,
+.docs-content article pre code .kn-tag,
+.docs-content article pre code .kn-name,
+.docs-content article pre code .kn-symbol { color: #c8543a; }
+.docs-content article pre code .kn-string,
+.docs-content article pre code .kn-attr,
+.docs-content article pre code .kn-meta { color: #6b9e5e; }
+.docs-content article pre code .kn-comment { color: #9e9890; font-style: italic; }
+.docs-content article pre code .kn-number,
+.docs-content article pre code .kn-literal { color: #4f88c4; }
+.docs-content article pre code .kn-title,
+.docs-content article pre code .kn-function,
+.docs-content article pre code .kn-type { color: #7b5ea8; }
+.docs-content article pre code .kn-variable,
+.docs-content article pre code .kn-params,
+.docs-content article pre code .kn-punctuation { color: #5a5a55; }
+
+:host-context(.dark) .docs-content article pre code .kn-keyword,
+:host-context(.dark) .docs-content article pre code .kn-built_in,
+:host-context(.dark) .docs-content article pre code .kn-tag,
+:host-context(.dark) .docs-content article pre code .kn-name,
+:host-context(.dark) .docs-content article pre code .kn-symbol { color: #e8705a; }
+:host-context(.dark) .docs-content article pre code .kn-string,
+:host-context(.dark) .docs-content article pre code .kn-attr,
+:host-context(.dark) .docs-content article pre code .kn-meta { color: #88c07a; }
+:host-context(.dark) .docs-content article pre code .kn-comment { color: #6e6860; font-style: italic; }
+:host-context(.dark) .docs-content article pre code .kn-number,
+:host-context(.dark) .docs-content article pre code .kn-literal { color: #79aee0; }
+:host-context(.dark) .docs-content article pre code .kn-title,
+:host-context(.dark) .docs-content article pre code .kn-function,
+:host-context(.dark) .docs-content article pre code .kn-type { color: #b08ad8; }
+:host-context(.dark) .docs-content article pre code .kn-variable,
+:host-context(.dark) .docs-content article pre code .kn-params,
+:host-context(.dark) .docs-content article pre code .kn-punctuation { color: #9e9890; }
+
 .docs-content article table {
   border-collapse: collapse;
   width: 100%;
