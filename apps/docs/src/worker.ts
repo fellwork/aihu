@@ -317,6 +317,36 @@ export default {
     // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …)
     const discoveryLink =
       '</.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent.json>; rel="agent-card"'
+
+    // 2a. Prerendered doc page (WS1, the load-bearing serve step).
+    //
+    // build.ts emits a content-ful `dist/<id>/index.html` per doc page. For an
+    // HTML navigation to a non-root doc route (e.g. `/reactivity/` or
+    // `/guides/reactivity`), explicitly fetch `<normalizedPathname>/index.html`
+    // from ASSETS and serve it when present. WITHOUT this branch the generic
+    // ASSETS fetch + bare-shell fallback can resolve unmatched doc paths to the
+    // ROOT shell — silently no-op'ing the whole prerender (per-page HTML built
+    // but never served, LCP never improves). `/` keeps the root index.html.
+    const isHtmlNav =
+      request.method === 'GET' && (request.headers.get('Accept') ?? '').includes('text/html')
+    const normalizedPath = url.pathname.replace(/^\/+/, '').replace(/\/+$/, '')
+    const looksLikeFile = /\.[a-z0-9]+$/i.test(normalizedPath)
+    if (isHtmlNav && normalizedPath !== '' && !looksLikeFile) {
+      try {
+        const prerendered = await env.ASSETS.fetch(
+          new Request(new URL(`/${normalizedPath}/index.html`, url.origin), request),
+        )
+        const ct = prerendered.headers.get('Content-Type') ?? ''
+        if (prerendered.status === 200 && ct.includes('text/html')) {
+          const enriched = new Response(prerendered.body, prerendered)
+          enriched.headers.set('Link', discoveryLink)
+          return enriched
+        }
+      } catch {
+        // fall through to the generic asset / shell path below
+      }
+    }
+
     try {
       const assetRes = await env.ASSETS.fetch(request)
       const ct = assetRes.headers.get('Content-Type') ?? ''

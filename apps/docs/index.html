@@ -6,6 +6,18 @@
   <title>aihu — The reactive Web Components framework for modern TypeScript</title>
   <meta name="description" content="A zero-dependency Web Components meta-framework. Every component you write is discoverable by AI agents and callable as a tool — in service of whatever you're building.">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <!-- Pre-paint theme: apply .dark synchronously BEFORE the stylesheet and
+       docs.js so deep-linked / prerendered pages never flash the wrong theme.
+       Mirrors theme-toggle.aihu (localStorage 'theme'), with a system fallback.
+       Must live in this TEMPLATE so it lands in every prerendered dist/<id>/index.html. -->
+  <script>
+    (() => {
+      let t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) { /* storage blocked */ }
+      const dark = t === 'dark' || (t === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', dark);
+    })();
+  </script>
   <!-- Self-hosted fonts: preload the above-the-fold Inter variable face. -->
   <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-wght-normal.woff2" crossorigin>
   <!-- Syntax highlighting is baked into the docs HTML at build time by
@@ -236,9 +248,13 @@
   <!-- ── Docs shell ──────────────────────────────────────────────── -->
   <main>
     <docs-shell></docs-shell>
-    <!-- Static intro for AI crawlers that don't execute JavaScript.
-         Removed by script once docs-shell mounts. -->
-    <section id="static-intro" class="static-intro" aria-label="Introduction">
+    <!-- Prerendered light-DOM content. build.ts replaces this whole <section>
+         per page (dist/<id>/index.html) with that page's baked body HTML; the
+         committed template keeps the introduction copy as the `/` SPA default.
+         Painted from the initial server response (real LCP, no 339 KB-JS wait);
+         CSS hides it once docs-shell :defined, then main.ts removes the node
+         after hydration so the shadow article is the single source of truth. -->
+    <section id="prerendered-content" class="prerendered-content" aria-label="Introduction">
       <h2>What is aihu?</h2>
       <p>aihu is a complete meta-framework for the agentic web. You write <code>.aihu</code> Single-File Components
       (SFCs) — block-structured with <code>@state</code>, <code>@template</code>, <code>@style</code>, and

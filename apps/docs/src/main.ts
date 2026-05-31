@@ -26,3 +26,22 @@ if (hash) {
     window.dispatchEvent(new HashChangeEvent('hashchange'))
   })
 }
+
+// WS1 de-dup: the prerendered light-DOM #prerendered-content paints the page
+// body before docs.js runs (real LCP). After docs-shell upgrades AND its shadow
+// <article> has painted (one rAF), REMOVE the light-DOM copy so it doesn't
+// duplicate the shadow article (double content / a11y-tree dup / layout jump).
+// The `docs-shell:defined ~ #prerendered-content { display:none }` CSS rule
+// hides it for the pre-removal frame, so there is no flash.
+if (typeof customElements !== 'undefined' && typeof document !== 'undefined') {
+  customElements.whenDefined('docs-shell').then(() => {
+    const drop = (): void => {
+      document.getElementById('prerendered-content')?.remove()
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(drop)
+    } else {
+      drop()
+    }
+  })
+}

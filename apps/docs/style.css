@@ -320,35 +320,185 @@ svg {
   stroke: currentColor;
 }
 
-/* ── Static intro (SSR fallback for AI crawlers) ─────────────── */
+/* ── Prerendered light-DOM content (WS1) ─────────────────────────
+ * The build-time prerender injects each page's baked body HTML into
+ * #prerendered-content so the real doc text paints from the initial server
+ * response — no wait on docs.js. This content lives in the LIGHT DOM, so the
+ * shadow-scoped `.docs-content article` typography in docs-shell.aihu cannot
+ * reach it; the ruleset below is the GLOBALIZED copy, scoped to
+ * #prerendered-content, so the prerendered article is visually identical to the
+ * hydrated shadow article (72ch centered, same heading/pre/table styling).
+ * Once docs-shell :defined, the CSS hide below avoids any flash; main.ts then
+ * REMOVES the node post-hydration so the shadow article is the sole copy. */
 
-.static-intro {
-  max-width: 800px;
-  margin: var(--space-8) auto;
-  padding: var(--space-6);
+#prerendered-content {
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
   color: var(--color-text);
+}
+
+#prerendered-content h1 {
+  margin-top: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+#prerendered-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  text-wrap: balance;
+}
+#prerendered-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  text-wrap: balance;
+}
+#prerendered-content p {
+  margin: 0 0 1rem;
+  line-height: 1.75;
+}
+#prerendered-content ul {
+  padding-left: var(--space-6);
+  margin: 0 0 1rem;
+}
+#prerendered-content li {
+  margin-bottom: 0.4rem;
   line-height: 1.7;
 }
 
-.static-intro h2 {
-  font-size: 1.5rem;
-  margin-bottom: var(--space-4);
-}
-.static-intro h3 {
-  font-size: 1.1rem;
-  margin: var(--space-4) 0 var(--space-2);
-}
-.static-intro ul {
-  padding-left: var(--space-6);
-  margin-bottom: var(--space-4);
-}
-.static-intro li {
-  margin-bottom: var(--space-2);
+#prerendered-content pre {
+  background: var(--code-bg, #f6f5f2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  padding: 1.5rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  margin: 1.5rem 0;
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
-/* Hide static intro once docs-shell custom element is registered (JS ran).
-   Without JS, docs-shell is :not(:defined), so the intro remains visible. */
-docs-shell:defined ~ #static-intro {
+#prerendered-content code {
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  background: var(--code-bg, #f6f5f2);
+  border: 1px solid var(--color-border-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--accent, #c8543a);
+}
+
+#prerendered-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+#prerendered-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  display: block;
+  overflow-x: auto;
+}
+
+#prerendered-content th,
+#prerendered-content td {
+  border: 1px solid var(--color-border-subtle);
+  padding: 10px 16px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+#prerendered-content th {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Baked kn-* syntax-highlight palette (light DOM mirror of docs-shell.aihu). */
+#prerendered-content pre code .kn-keyword,
+#prerendered-content pre code .kn-built_in,
+#prerendered-content pre code .kn-tag,
+#prerendered-content pre code .kn-name,
+#prerendered-content pre code .kn-symbol {
+  color: #c8543a;
+}
+#prerendered-content pre code .kn-string,
+#prerendered-content pre code .kn-attr,
+#prerendered-content pre code .kn-meta {
+  color: #6b9e5e;
+}
+#prerendered-content pre code .kn-comment {
+  color: #9e9890;
+  font-style: italic;
+}
+#prerendered-content pre code .kn-number,
+#prerendered-content pre code .kn-literal {
+  color: #4f88c4;
+}
+#prerendered-content pre code .kn-title,
+#prerendered-content pre code .kn-function,
+#prerendered-content pre code .kn-type {
+  color: #7b5ea8;
+}
+#prerendered-content pre code .kn-variable,
+#prerendered-content pre code .kn-params,
+#prerendered-content pre code .kn-punctuation {
+  color: #5a5a55;
+}
+
+.dark #prerendered-content pre code .kn-keyword,
+.dark #prerendered-content pre code .kn-built_in,
+.dark #prerendered-content pre code .kn-tag,
+.dark #prerendered-content pre code .kn-name,
+.dark #prerendered-content pre code .kn-symbol {
+  color: #e8705a;
+}
+.dark #prerendered-content pre code .kn-string,
+.dark #prerendered-content pre code .kn-attr,
+.dark #prerendered-content pre code .kn-meta {
+  color: #88c07a;
+}
+.dark #prerendered-content pre code .kn-comment {
+  color: #6e6860;
+  font-style: italic;
+}
+.dark #prerendered-content pre code .kn-number,
+.dark #prerendered-content pre code .kn-literal {
+  color: #79aee0;
+}
+.dark #prerendered-content pre code .kn-title,
+.dark #prerendered-content pre code .kn-function,
+.dark #prerendered-content pre code .kn-type {
+  color: #b08ad8;
+}
+.dark #prerendered-content pre code .kn-variable,
+.dark #prerendered-content pre code .kn-params,
+.dark #prerendered-content pre code .kn-punctuation {
+  color: #9e9890;
+}
+
+/* Hide the prerendered light-DOM copy once docs-shell is registered (JS ran),
+   pre-removal, to avoid any flash. main.ts then removes the node entirely so
+   the shadow article is the single source of truth. Without JS, docs-shell is
+   :not(:defined) and the prerendered content stays visible (crawlers/no-JS). */
+docs-shell:defined ~ #prerendered-content {
   display: none;
 }
 
