@@ -14,13 +14,11 @@ on:
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
-    paths-ignore:
-      - '.team/**'
-      - 'docs/**'
-      - '.claude/**'
-      - 'state-*.md'
-      - 'README.md'
-      - '**/*.md'
+    # No paths-ignore here: the workflow must trigger on EVERY PR so the
+    # always-on `ci-ok` job reports a required status for branch protection.
+    # Doc-only PRs skip the heavy `check` job via the `changes.code` filter
+    # below (so they cost only `changes` + `ci-ok`, a few seconds), and `ci-ok`
+    # still reports green so the PR is mergeable without an admin override.
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -28,8 +26,13 @@ env:
 jobs:
   check:
     # Skip CI on draft PRs to keep the inner Builder loop cheap.
-    # Push-to-main and ready-for-review PRs still gate.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Skip the heavy build on doc-only PRs (changes.code == 'false') — the
+    # always-on `ci-ok` job still reports green for branch protection.
+    # Push-to-main and ready-for-review code PRs still gate.
+    needs: changes
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -107,12 +110,33 @@ jobs:
       # before publish. See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
       - run: bun run check:runtime-purity
 
+  ci-ok:
+    # Single stable REQUIRED status for branch protection. Always runs (even
+    # when `check` is skipped on a doc-only PR) so a required context is always
+    # reported. Passes when `check` succeeded OR was skipped (docs); fails when
+    # `check` failed or was cancelled. This lets doc-only PRs merge without an
+    # admin override while code PRs still gate on the real build.
+    needs: [check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on check result
+        run: |
+          result="${{ needs.check.result }}"
+          echo "check result: $result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            echo "::error::Required job 'check' did not pass (result=$result)."
+            exit 1
+          fi
+          echo "ci-ok: check=$result — gate green"
+
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
     # only when signals or bench code is touched (per Phase 2.5 brief).
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
+      code: ${{ steps.filter.outputs.code }}
       bench: ${{ steps.filter.outputs.bench }}
       bench_lsp: ${{ steps.filter.outputs.bench_lsp }}
     steps:
@@ -121,6 +145,17 @@ jobs:
         id: filter
         with:
           filters: |
+            # `code` = any changed file that is NOT a doc/agent artifact. When
+            # false, the PR is docs-only and the heavy `check` job is skipped
+            # (ci-ok still reports green). Mirrors the old workflow paths-ignore.
+            code:
+              - '**'
+              - '!.team/**'
+              - '!docs/**'
+              - '!.claude/**'
+              - '!state-*.md'
+              - '!README.md'
+              - '!**/*.md'
             # Source-scoped: docs/README regeneration (e.g. sync-readme touching
             # packages/arbor/README.md from an unrelated PR) must NOT trigger the
             # perf gate on a noisy runner. Watch source + manifests + the harness.
