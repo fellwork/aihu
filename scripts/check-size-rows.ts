@@ -68,6 +68,11 @@ interface PackageInfo {
   dir: string
   hasIndexTs: boolean
   classification: Classification
+  /**
+   * `private: true` in package.json — never published, so it has no shipped
+   * browser-size contract and is exempt from the row-policy entirely.
+   */
+  isPrivate?: boolean
 }
 
 interface SizeLimitEntry {
@@ -98,7 +103,10 @@ export function discoverPackages(repoRoot: string): PackageInfo[] {
     const pkgDir = join(packagesDir, entry.name)
     const pkgJsonPath = join(pkgDir, 'package.json')
     if (!existsSync(pkgJsonPath)) continue
-    const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) as { name?: string }
+    const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) as {
+      name?: string
+      private?: boolean
+    }
     if (!pkg.name) continue
     const indexPath = join(pkgDir, 'src', 'index.ts')
     result.push({
@@ -106,6 +114,7 @@ export function discoverPackages(repoRoot: string): PackageInfo[] {
       dir: pkgDir,
       hasIndexTs: existsSync(indexPath),
       classification: classify(pkg.name),
+      isPrivate: pkg.private === true,
     })
   }
   return result
@@ -146,8 +155,19 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
   let serverSideChecked = 0
   let buildDevOnlyChecked = 0
   let sourceDistributedChecked = 0
+  let privateExemptChecked = 0
 
   for (const pkg of packages) {
+    // `private: true` packages are never published — no shipped browser-size
+    // contract — so they are exempt from the row-policy (neither required to
+    // have a row nor forbidden from one). e.g. @aihu/plugin-demo (held-private
+    // consumer-contract demo) carries a browser runtime export but ships to no
+    // consumer.
+    if (pkg.isPrivate) {
+      privateExemptChecked++
+      continue
+    }
+
     if (!pkg.hasIndexTs && pkg.classification !== 'source-distributed') {
       // Packages without src/index.ts are out of scope — e.g. @aihu/compiler
       // (Rust-backed, JS wrapper at js/index.ts). Skip silently.
@@ -229,8 +249,9 @@ export function checkPolicy(packages: PackageInfo[], rows: SizeLimitEntry[]): Ch
     `${browserEligibleChecked} browser-eligible, ` +
     `${serverSideChecked} server-side, ` +
     `${buildDevOnlyChecked} build-dev-only, ` +
-    `${sourceDistributedChecked} source-distributed. ` +
-    `${rows.length} rows in .size-limit.json.`
+    `${sourceDistributedChecked} source-distributed` +
+    (privateExemptChecked > 0 ? ` (+${privateExemptChecked} private, exempt)` : '') +
+    `. ${rows.length} rows in .size-limit.json.`
 
   return { ok: errors.length === 0, errors, warnings, summary }
 }
