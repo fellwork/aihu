@@ -8,7 +8,14 @@
  *   1. Recursively read every `.md` under `src/content/docs/**`, keying
  *      each page by its IA slug path (e.g. `introduction`,
  *      `guides/reactivity`, `packages/context`).
- *   2. Render Markdown → HTML with `marked`
+ *   2. Render Markdown → HTML. The PRIMARY renderer is `@aihu-plugin/kindly-note`
+ *      `renderMarkdown` (dogfooded at BUILD TIME): it bakes `kn-*` syntax-
+ *      highlight spans for TypeScript/JSON fences directly into the HTML, so the
+ *      docs need NO render-blocking client-side highlighter (cdnjs hljs is gone).
+ *      `renderMarkdown` is CommonMark-only and cannot parse GFM pipe tables, so a
+ *      build-time table pre-pass (`splitTables`) routes ONLY detected table
+ *      blocks through `marked` (which emits real `<table>`), keeping prose on
+ *      kindly-note. `marked` is retained solely for this documented fallback.
  *   3. Write `src/content.ts` with a `window.__DOCS__` map
  *   4. Run `rolldown -c rolldown.config.ts` to bundle the aihu components
  *
@@ -20,8 +27,21 @@ import { execFileSync } from 'node:child_process'
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// LanguageDefinition default exports — passed as actual lang objects (NOT
+// strings) to renderMarkdown's `languages` option. Only typescript + json exist
+// on the @kindly-note registry today; bash/css/html fences render as safe
+// escaped text (uncolored) until those packs ship.
+import json from '@kindly-note/lang-json'
+import typescript from '@kindly-note/lang-typescript'
 import { marked } from 'marked'
 import { generateSitemapXml } from '../../packages/plugin-agent-readiness/src/sitemap.ts'
+// PRIMARY markdown renderer — dogfood @aihu-plugin/kindly-note at build time.
+// build.ts runs under bun and imports the workspace package SOURCE directly (the
+// same pattern as the agent-readiness sitemap import above), so no dist build of
+// the plugin is required. renderMarkdown lazily imports the @kindly-note/* peers
+// (declared as devDependencies of apps/docs) and bakes kn-* highlight spans into
+// the HTML.
+import { renderMarkdown } from '../../packages/plugin-kindly-note/src/render-markdown.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, 'src/content/docs')
@@ -91,9 +111,88 @@ interface DocPage {
 
 const pages: DocPage[] = []
 
+// A markdown segment plus a flag for whether it is a GFM table block that must
+// be routed through `marked` (renderMarkdown is CommonMark-only — see below).
+interface Segment {
+  text: string
+  isTable: boolean
+}
+
+/**
+ * Build-time GFM-table pre-pass.
+ *
+ * `renderMarkdown` (the primary renderer) is CommonMark-only and emits pipe
+ * tables as literal `<p>| A | B |…</p>` (verified empirically). 21 of 25 docs
+ * files use pipe tables, so we detect each table block here and hand only those
+ * blocks to `marked` (which emits real `<table>` with inline markdown in cells).
+ * Everything else stays on `renderMarkdown` so kn-* highlighting is baked into
+ * every file's prose.
+ *
+ * A table block is: a header row matching `^\s*\|.*\|\s*$` immediately followed
+ * by a delimiter row of pipes/dashes/colons containing at least one `-`
+ * (e.g. `|---|:--:|`). The block extends through every following consecutive
+ * line that still looks like a table row (starts/ends with `|`).
+ *
+ * TODO: drop the marked table-block fallback once @kindly-note/lang-markdown-gfm
+ * is published (currently npm 404). renderMarkdown is CommonMark-only and does
+ * not parse GFM tables; until that pack ships, `marked` is the only path to real
+ * `<table>` output and is retained in package.json solely for this fallback.
+ */
+function splitTables(md: string): Segment[] {
+  const lines = md.split('\n')
+  const segments: Segment[] = []
+  let prose: string[] = []
+  const isRow = (l: string): boolean => /^\s*\|.*\|\s*$/.test(l)
+  const isDelimiter = (l: string): boolean =>
+    /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l) && l.includes('|')
+
+  const flushProse = (): void => {
+    if (prose.length > 0) {
+      segments.push({ text: prose.join('\n'), isTable: false })
+      prose = []
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    if (isRow(lines[i]) && i + 1 < lines.length && isDelimiter(lines[i + 1])) {
+      flushProse()
+      const tableLines = [lines[i], lines[i + 1]]
+      let j = i + 2
+      while (j < lines.length && isRow(lines[j])) {
+        tableLines.push(lines[j])
+        j++
+      }
+      segments.push({ text: tableLines.join('\n'), isTable: true })
+      i = j - 1
+    } else {
+      prose.push(lines[i])
+    }
+  }
+  flushProse()
+  return segments
+}
+
+/**
+ * Render one markdown document. Prose goes through kindly-note `renderMarkdown`
+ * (baking kn-* highlight spans); GFM table blocks go through `marked`. Segments
+ * are reassembled in source order so headings/lists/tables stay interleaved.
+ */
+async function renderDoc(source: string): Promise<string> {
+  const segments = splitTables(source)
+  const parts: string[] = []
+  for (const seg of segments) {
+    if (seg.isTable) {
+      parts.push((await marked.parse(seg.text, { gfm: true, breaks: false })).trim())
+    } else {
+      parts.push((await renderMarkdown(seg.text, { languages: [typescript, json] })).trim())
+    }
+  }
+  return parts.filter((p) => p.length > 0).join('\n')
+}
+
 for (const slug of slugs) {
   const source = await readFile(join(docsDir, `${slug}.md`), 'utf8')
-  const html = await marked.parse(source, { gfm: true, breaks: false })
+  const html = await renderDoc(source)
 
   // Extract title from first H1
   const titleMatch = source.match(/^#\s+(.+)$/m)

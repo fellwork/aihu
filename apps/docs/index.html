@@ -10,8 +10,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Highlight.js — CSS first, then script at end of body -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/solarized-dark.min.css" id="hljs-theme">
+  <!-- Syntax highlighting is baked into the docs HTML at build time by
+       @aihu-plugin/kindly-note (kn-* spans), styled by the self-hosted palette
+       in docs-shell.aihu's @style block. No third-party highlighter is loaded. -->
   <link rel="stylesheet" href="./style.css">
   <link rel="canonical" href="https://aihu.dev/">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">
@@ -263,30 +264,9 @@
     <p>&copy; 2026 Fellwork. aihu is open-source software.</p>
   </footer>
 
-  <!-- ── Highlight.js (must come after content is in DOM) ──────── -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
-    // Run once on initial load
-    document.addEventListener('DOMContentLoaded', () => {
-      if (typeof hljs !== 'undefined') {
-        hljs.configure({ ignoreUnescapedHTML: true });
-        hljs.highlightAll();
-      }
-    });
-
-    // Re-run after each SPA navigation (docs-shell fires hashchange)
-    window.addEventListener('hashchange', () => {
-      // Small tick to let the component update the DOM first
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (typeof hljs !== 'undefined') {
-            document.querySelectorAll('pre code:not(.hljs)').forEach((block) => {
-              hljs.highlightElement(block);
-            });
-          }
-        });
-      });
-    });
+    // Syntax highlighting is now baked into the docs HTML at build time
+    // (kn-* spans from @aihu-plugin/kindly-note) — no runtime highlighter.
 
     // Hamburger / mobile drawer logic
     var menuToggle    = document.getElementById('menu-toggle');
