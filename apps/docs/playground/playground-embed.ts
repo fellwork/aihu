@@ -33,6 +33,13 @@ import { DEFAULT_PRESET_ID, getPreset, PRESETS } from './presets.ts'
 
 const DEFAULT_SOURCE = getPreset(DEFAULT_PRESET_ID)?.source ?? PRESETS[0].source
 
+/**
+ * Upper bound for the auto-grow iframe height (Layer B). Matches the
+ * `.playground` clamp max so a runaway preview document can't grow the
+ * embed unbounded; beyond this the iframe's own document scrolls.
+ */
+const MAX_PREVIEW_HEIGHT = 720
+
 const HOST_STYLES = `
 :host {
   display: block;
@@ -46,9 +53,10 @@ const HOST_STYLES = `
 .playground {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: 360px;
+  height: clamp(360px, 70vh, 720px);
+  min-height: 0;
 }
-.pane { display: flex; flex-direction: column; min-width: 0; }
+.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .editor-pane { border-right: 1px solid var(--border, #e2e8f0); }
 .pane > header {
   display: flex;
@@ -133,18 +141,25 @@ code-editor { flex: 1; }
   font-size: 12px;
   white-space: pre-wrap;
   border-top: 1px solid #fecaca;
-  max-height: 30%;
+  max-height: 160px;
   overflow: auto;
 }
 iframe {
   flex: 1;
   width: 100%;
+  min-height: 0;
+  height: 100%;
   border: 0;
   background: #fff;
 }
 @media (max-width: 768px) {
   .playground {
     grid-template-columns: 1fr;
+    /* Single-column stacks editor + preview; a fixed clamped height would
+       compress both panes. Let the grid auto-size and give it a generous
+       floor so each stacked pane keeps usable height (~300px+). */
+    height: auto;
+    min-height: clamp(360px, 140vh, 1200px);
   }
   .editor-pane { border-right: 0; border-bottom: 1px solid var(--border, #e2e8f0); }
 }
@@ -252,7 +267,33 @@ function stripTs(js: string): string {
  *
  * The `</script>` sequence is escaped in both bundle and user code to
  * prevent premature HTML tag closure.
+ *
+ * A trailing height-handshake script (Layer B) observes the document and
+ * posts `{type:'pe-height',height}` to the parent so the host iframe can
+ * auto-grow to fit the rendered preview instead of clipping/scrolling. The
+ * iframe is `sandbox="allow-scripts"` WITHOUT `allow-same-origin`, so
+ * postMessage is the only channel and the parent validates by
+ * `event.source`, not origin (origin is the literal string "null").
  */
+const HEIGHT_HANDSHAKE_SCRIPT = [
+  '(function(){',
+  'function post(){',
+  'try{',
+  'var de=document.documentElement;',
+  'var h=Math.max(de.scrollHeight, document.body?document.body.scrollHeight:0);',
+  "parent.postMessage({type:'pe-height',height:h},'*');",
+  '}catch(e){}',
+  '}',
+  'if(typeof ResizeObserver!=="undefined"){',
+  'var ro=new ResizeObserver(function(){post();});',
+  'ro.observe(document.documentElement);',
+  'if(document.body)ro.observe(document.body);',
+  '}',
+  'window.addEventListener("load",post);',
+  'post();',
+  '})();',
+].join('')
+
 function buildPreviewDoc(bundle: string, userJs: string): string {
   const safeBundle = bundle.replace(/<\/script>/gi, '<\\/script>')
   const safeUserJs = userJs.replace(/<\/script>/gi, '<\\/script>')
@@ -288,6 +329,9 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
     'document.getElementById("root").appendChild(p);',
     '}',
     '})();',
+    '</script>',
+    '<script>',
+    HEIGHT_HANDSHAKE_SCRIPT,
     '</script>',
     '</body></html>',
   ].join('')
@@ -363,6 +407,7 @@ export class PlaygroundEmbed extends HTMLElement {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private source = DEFAULT_SOURCE
   private activePresetId: string = DEFAULT_PRESET_ID
+  private readonly onMessage = (ev: MessageEvent): void => this.handlePreviewMessage(ev)
 
   constructor() {
     super()
@@ -384,6 +429,10 @@ export class PlaygroundEmbed extends HTMLElement {
       }
     }
     this.render()
+    // Layer B: listen for height-handshake messages posted by the preview
+    // iframe so it can auto-grow to fit rendered output. Removed in
+    // disconnectedCallback to avoid leaking listeners across mount/unmount.
+    window.addEventListener('message', this.onMessage)
     void this.boot()
   }
 
@@ -573,13 +622,37 @@ export class PlaygroundEmbed extends HTMLElement {
 
   private postRender(js: string): void {
     if (!this.bundle) {
-      // Bundle not available: show compiled JS as text fallback.
+      // Bundle not available: show compiled JS as text fallback. This doc
+      // ships no height handshake, so the iframe must fill+scroll its pane.
+      this.iframe.style.height = '100%'
       const safeJs = js.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       this.iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{margin:0;padding:8px;font-family:monospace;font-size:12px;white-space:pre-wrap}</style></head><body><pre>${safeJs}</pre></body></html>`
       return
     }
     const processed = stripTs(js)
     this.iframe.srcdoc = buildPreviewDoc(this.bundle, processed)
+  }
+
+  /**
+   * Layer B handler: apply the height posted by the preview iframe so the
+   * frame auto-grows to fit its rendered content (no clipping).
+   *
+   * The iframe is `sandbox="allow-scripts"` WITHOUT `allow-same-origin`, so
+   * `event.origin` is the literal string "null" and cannot be validated;
+   * the message is validated by `event.source === this.iframe.contentWindow`
+   * instead. The applied height is clamped to MAX_PREVIEW_HEIGHT (matching
+   * the `.playground` max) so a runaway document can't grow the embed
+   * unbounded — beyond the cap the iframe's own document scrolls.
+   */
+  private handlePreviewMessage(ev: MessageEvent): void {
+    if (!this.iframe || ev.source !== this.iframe.contentWindow) return
+    const data = ev.data as { type?: unknown; height?: unknown } | null
+    if (!data || data.type !== 'pe-height') return
+    const height = Number(data.height)
+    if (!Number.isFinite(height) || height <= 0) return
+    // When Layer B drives height, switch the iframe from `height:100%` to an
+    // explicit pixel height; the `.playground` clamp still bounds the worst case.
+    this.iframe.style.height = `${Math.min(height, MAX_PREVIEW_HEIGHT)}px`
   }
 
   private setLatency(ms: number): void {
@@ -600,6 +673,7 @@ export class PlaygroundEmbed extends HTMLElement {
 
   disconnectedCallback(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
+    window.removeEventListener('message', this.onMessage)
   }
 }
 
