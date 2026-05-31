@@ -6,10 +6,8 @@
   <title>aihu — The reactive Web Components framework for modern TypeScript</title>
   <meta name="description" content="A zero-dependency Web Components meta-framework. Every component you write is discoverable by AI agents and callable as a tool — in service of whatever you're building.">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <!-- Google Fonts: Inter + JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Self-hosted fonts: preload the above-the-fold Inter variable face. -->
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin-wght-normal.woff2" crossorigin>
   <!-- Syntax highlighting is baked into the docs HTML at build time by
        @aihu-plugin/kindly-note (kn-* spans), styled by the self-hosted palette
        in docs-shell.aihu's @style block. No third-party highlighter is loaded. -->

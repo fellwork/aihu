@@ -11,6 +11,8 @@
     "test:e2e": "bunx playwright test"
   },
   "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@kindly-note/core": "^0.2.0",
     "@kindly-note/emitters-html": "^0.1.0",
     "@kindly-note/emitters-markdown": "^0.1.0",
