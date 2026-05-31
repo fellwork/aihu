@@ -733,12 +733,6 @@ docs-shell:defined ~ #static-intro {
   font-style: italic;
 }
 
-/* Highlight.js overrides — pre > code specificity beats hljs defaults */
-pre code.hljs {
-  background: transparent;
-  padding: 0;
-}
-
 /* ── Theme toggle ────────────────────────────────────────────────── */
 
 .theme-toggle {
@@ -1022,73 +1016,7 @@ pre code.hljs {
   }
 }
 
-/* ── Syntax highlight theme (hljs) ─────────────────────────────── */
-/* Warm, brand-aligned code color scheme */
-
-:root .hljs-keyword,
-:root .hljs-built_in {
-  color: #c8543a;
-}
-:root .hljs-string,
-:root .hljs-attr {
-  color: #6b9e5e;
-}
-:root .hljs-comment {
-  color: #9e9890;
-  font-style: italic;
-}
-:root .hljs-number,
-:root .hljs-literal {
-  color: #4f88c4;
-}
-:root .hljs-title,
-:root .hljs-function {
-  color: #7b5ea8;
-}
-:root .hljs-variable,
-:root .hljs-params {
-  color: #5a5a55;
-}
-:root .hljs-tag {
-  color: #c8543a;
-}
-:root .hljs-name {
-  color: #c8543a;
-}
-:root .hljs-type {
-  color: #7b5ea8;
-}
-
-.dark .hljs-keyword,
-.dark .hljs-built_in {
-  color: #e8705a;
-}
-.dark .hljs-string,
-.dark .hljs-attr {
-  color: #88c07a;
-}
-.dark .hljs-comment {
-  color: #6e6860;
-  font-style: italic;
-}
-.dark .hljs-number,
-.dark .hljs-literal {
-  color: #79aee0;
-}
-.dark .hljs-title,
-.dark .hljs-function {
-  color: #b08ad8;
-}
-.dark .hljs-variable,
-.dark .hljs-params {
-  color: #9e9890;
-}
-.dark .hljs-tag {
-  color: #e8705a;
-}
-.dark .hljs-name {
-  color: #e8705a;
-}
-.dark .hljs-type {
-  color: #b08ad8;
-}
+/* Syntax-highlight theme removed: highlighting is now baked into the docs HTML
+   as kn-* spans at build time by @aihu-plugin/kindly-note, and those spans live
+   inside docs-shell's SHADOW DOM where these light-DOM rules could never reach.
+   The kn-* palette now lives in docs-shell.aihu's @style block instead. */
