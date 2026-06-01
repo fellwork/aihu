@@ -1,5 +1,7 @@
-// content.ts populates window.__DOCS__ before any component reads it
-import './content.ts'
+// Doc page bodies are NO LONGER inlined into the client bundle (the 214 KB
+// window.__DOCS__ blob is gone — WS5). Each page's body is served as
+// prerendered HTML (dist/<id>/index.html, WS1); docs-shell seeds the active
+// page from the painted #prerendered-content node and fetches the rest on nav.
 
 // Aihu components — registered as custom elements on import
 import './components/theme-toggle.aihu'

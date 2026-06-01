@@ -88,11 +88,6 @@ jobs:
         run: bun run build
         working-directory: apps/docs
 
-      - name: Check docs content is up to date
-        run: |
-          git diff --exit-code apps/docs/src/content.ts || \
-            (echo "ERROR: apps/docs/src/content.ts is stale. Run 'bun run build' in apps/docs and commit the updated file." && exit 1)
-
       # Doc-coverage gate (default/non-strict): hard-fails on undocumented
       # A1-owned packages; A3/A4 doc gaps are a tracked WARNING (exit 0) so an
       # A1 docs deploy is not blocked on other tracks. A3/A4 closeout PRs run
@@ -112,6 +107,24 @@ jobs:
       - name: Run smoke tests
         run: bunx playwright test --reporter=line
         working-directory: apps/docs
+
+      # Lighthouse quality gate — serves apps/docs/dist (wrangler pages dev) and
+      # asserts 95+ on perf/a11y/best-practices/SEO + CWV for /docs/introduction.
+      # Lives in the always-run `test` job (no Cloudflare secrets needed) so it
+      # BLOCKS every PR on a perf regression, independent of the deploy job.
+      # Keeps scripts/lighthouse.ts's best-of-3 retry (a temporary stopgap
+      # retired separately once CI confirms deterministic perf — see
+      # docs/plans/2026-05-29-docs-dogfood-overhaul.md §WS5).
+      - name: Lighthouse gate
+        run: bun scripts/lighthouse.ts
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: scripts/lighthouse-results.json
+          if-no-files-found: ignore
 
       - name: Upload compiler binary
         uses: actions/upload-artifact@v4
@@ -149,24 +162,9 @@ jobs:
         run: bun run build
         working-directory: apps/docs
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # Lighthouse quality gate — serves apps/docs/dist and asserts 95+ on
-      # perf/a11y/best-practices/SEO for /docs/introduction. Runs after the
-      # build and before deploy so a regression blocks the release.
-      - name: Lighthouse gate
-        run: bun scripts/lighthouse.ts
-
-      - name: Upload Lighthouse results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse-results
-          path: scripts/lighthouse-results.json
-          if-no-files-found: ignore
+      # The Lighthouse quality gate runs in the always-on `test` job (above),
+      # which this deploy job `needs:` — so a perf regression already blocks the
+      # pipeline before deploy. No need to re-run it here.
 
       - name: Deploy to Cloudflare Pages
         id: deploy
