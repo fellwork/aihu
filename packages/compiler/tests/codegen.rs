@@ -134,6 +134,49 @@ fn style_scoped_emits_css_in_function_form() {
 }
 
 #[test]
+fn style_escapes_backtick_and_interpolation_for_template_literal() {
+    // The @style block is emitted as a JS template literal passed to
+    // `replaceSync(`...`)`. A backtick or `${` in the source CSS (e.g. inside
+    // a `/* ... */` comment that mentions a `.foo` selector) must be escaped,
+    // or the literal terminates early — throwing at runtime and aborting
+    // `customElements.define`, so the element never upgrades. Regression for
+    // the docs-shell `@style` comment containing a backtick-quoted `.kn`.
+    let src = concat!(
+        "@state {
+",
+        "const [count, setCount] = signal(0)
+",
+        "}
+",
+        "@template { <span>{{ count }}</span> }
+",
+        "@style {
+",
+        "/* wrap output in a `.kn` root */
+",
+        "span::before { content: \"${x}\"; }
+",
+        "}"
+    );
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-styled");
+    // Backtick inside the comment must be escaped.
+    assert!(
+        output.js.contains("\\`.kn\\`"),
+        "backtick in @style comment must be escaped; got:\n{}",
+        output.js
+    );
+    // `${` interpolation start must be escaped so it is not read as a template
+    // expression.
+    assert!(
+        output.js.contains("\\${x}"),
+        "`${{` in @style must be escaped; got:\n{}",
+        output.js
+    );
+}
+
+#[test]
 fn ctx_param_present() {
     let src = concat!(
         "@state {

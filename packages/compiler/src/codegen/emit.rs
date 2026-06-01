@@ -79,9 +79,18 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
         (style.content.to_string(), String::new())
     };
 
+    // The CSS is interpolated into a JS template literal, so any backtick,
+    // `${`, or backslash in the source CSS (e.g. inside a `/* ... */` comment
+    // that mentions a `.foo` selector) would otherwise terminate the literal
+    // early — throwing at runtime and aborting `customElements.define`. Escape
+    // backslashes first, then backticks and `${` interpolation starts.
+    let escaped_css = css_content
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${");
     let module_decl = format!(
         "const __style__ = new CSSStyleSheet();\n__style__.replaceSync(`{}`);\n",
-        css_content
+        escaped_css
     );
     let mut setup_injection = match style.scope {
         StyleScope::Scoped => {

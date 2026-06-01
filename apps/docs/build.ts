@@ -42,6 +42,12 @@ import { generateSitemapXml } from '../../packages/plugin-agent-readiness/src/si
 // (declared as devDependencies of apps/docs) and bakes kn-* highlight spans into
 // the HTML.
 import { renderMarkdown } from '../../packages/plugin-kindly-note/src/render-markdown.ts'
+// WS1 prerender: lower a per-page RouteHead (title + canonical) to an SSR
+// HeadConfig using the shipped @aihu/server helper, then render it to an HTML
+// string with a tiny local mirror of the (private) buildHead. Build-time only —
+// this import is NOT bundled into dist/docs.js (it runs under bun in build.ts).
+import { routeHeadToSsrHead } from '../../packages/server/src/head-lowering.ts'
+import type { HeadConfig } from '../../packages/server/src/ssr.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, 'src/content/docs')
@@ -106,7 +112,10 @@ console.log(`Found ${slugs.length} Markdown files in src/content/docs/`)
 interface DocPage {
   id: string
   title: string
+  /** Escaped for the content.ts template literal (window.__DOCS__). */
   html: string
+  /** Raw, unescaped HTML — injected verbatim into the prerendered light DOM. */
+  rawHtml: string
 }
 
 const pages: DocPage[] = []
@@ -200,7 +209,10 @@ for (const slug of slugs) {
 
   // Escape template-literal special chars so the generated TS is valid
   const escaped = html.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\${/g, '\\${')
-  pages.push({ id: slug, title, html: escaped })
+  // Keep the RAW (unescaped) html too: the WS1 prerender injects it verbatim
+  // into the light-DOM #prerendered-content region (escaping would surface
+  // literal backslashes / `${` in the served HTML).
+  pages.push({ id: slug, title, html: escaped, rawHtml: html })
   console.log(`  ✓ ${slug}.md → "${title}"`)
 }
 
@@ -291,6 +303,93 @@ const staticFiles = ['style.css', 'favicon.svg', 'aihu-wordmark.svg']
 for (const file of staticFiles) {
   await copyFile(join(__dir, file), join(__dir, 'dist', file))
 }
+
+// ── 5b. Prerender each doc page → dist/<id>/index.html (WS1) ──────
+//
+// Each page paints its real body text from the initial server response,
+// then docs.js hydrates the SPA. We inject the RAW page HTML into the
+// light-DOM `#prerendered-content` region of the SAME index.html template
+// (so it stays byte-identical to the hydrated SPA content), set a per-page
+// <title> + canonical <link>, and rewrite asset refs to ABSOLUTE `/`-rooted
+// URLs (nested slugs like `guides/reactivity` live 2 dirs deep — relative
+// `./docs.js` / `./style.css` would 404 there).
+
+const SITE_URL = 'https://aihu.dev'
+
+/**
+ * Render an SSR HeadConfig (from routeHeadToSsrHead) to an HTML string.
+ * Mirrors the PRIVATE `buildHead` in @aihu/server (ssr.ts:157) for the subset
+ * of tags we emit per page: <title>, description <meta>, and the canonical
+ * <link>. The global OG/Twitter/JSON-LD already live in the static template.
+ */
+function headConfigToHtml(head: HeadConfig): string {
+  const escAttr = (v: string): string =>
+    v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const parts: string[] = []
+  if (head.title) {
+    const escTitle = head.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    parts.push(`<title>${escTitle}</title>`)
+  }
+  for (const meta of head.meta ?? []) {
+    const attrs = Object.entries(meta)
+      .filter(([, val]) => val !== undefined)
+      .map(([k, val]) => `${k}="${escAttr(String(val))}"`)
+      .join(' ')
+    parts.push(`<meta ${attrs}>`)
+  }
+  for (const link of head.links ?? []) {
+    const attrs = Object.entries(link)
+      .filter(([, val]) => val !== undefined)
+      .map(([k, val]) => `${k}="${escAttr(String(val))}"`)
+      .join(' ')
+    parts.push(`<link ${attrs}>`)
+  }
+  return parts.join('\n  ')
+}
+
+// The same index.html the SPA `/` entry uses, but with assets rooted at `/`
+// (works at any nesting depth) and ./dist/docs.js → /docs.js for production.
+const prerenderTemplate = indexSrc
+  .replace('./dist/docs.js', '/docs.js')
+  .replace('./style.css', '/style.css')
+  .replace('./favicon.svg', '/favicon.svg')
+  .replace('./aihu-wordmark.svg', '/aihu-wordmark.svg')
+  .replace('>v0<', `>v${runtimeVersion}<`)
+
+// The light-DOM region the prerender injects each page's body into. The
+// committed index.html ships the introduction copy as the `/` default; here
+// we replace the WHOLE <section id="prerendered-content">…</section> block.
+const prerenderRegionRe = /<section id="prerendered-content"[\s\S]*?<\/section>/
+
+let prerenderedCount = 0
+for (const page of pages) {
+  // playground has no __DOCS__ entry — emit it as the thin shell only.
+  if (page.id === 'playground') continue
+
+  const routeHead = {
+    title: `${page.title} — aihu`,
+    canonical: `/${page.id}`,
+  }
+  const ssrHead = routeHeadToSsrHead(routeHead, { siteUrl: SITE_URL })
+  const headHtml = headConfigToHtml(ssrHead)
+
+  const region = `<section id="prerendered-content" class="prerendered-content" aria-label="${page.title}">\n${page.rawHtml}\n</section>`
+
+  let html = prerenderTemplate.replace(prerenderRegionRe, region)
+  // Inject per-page <title> + canonical immediately before </head>. The static
+  // template's own <title>/<link rel=canonical> remain but the per-page ones
+  // (appended later in <head>) win for canonical; we drop the template title.
+  html = html
+    .replace(/<title>[\s\S]*?<\/title>\n?/, '')
+    .replace(/<link rel="canonical"[^>]*>\n?/, '')
+    .replace('</head>', `  ${headHtml}\n</head>`)
+
+  const outDir = join(__dir, 'dist', page.id)
+  await mkdir(outDir, { recursive: true })
+  await writeFile(join(outDir, 'index.html'), html, 'utf8')
+  prerenderedCount++
+}
+console.log(`✓ Prerendered ${prerenderedCount} doc pages → dist/<id>/index.html`)
 
 // Copy public/ recursively (_headers, _redirects, .well-known/*, ai.txt, etc.)
 const publicDir = join(__dir, 'public')

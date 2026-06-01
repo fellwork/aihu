@@ -1,20 +1,24 @@
 @state {
   import { signal, effect } from '@aihu/signals'
-  const [activePage, setActivePage] = signal(
-
-  typeof location !== 'undefined' && location.hash
-
-  ? location.hash.slice(1)
-
-  : 'introduction'
-
-  )
+  // Seed the active page from the URL. Hash wins (in-session SPA nav is
+  // hash-based); when the hash is empty, derive the id from the PATHNAME so a
+  // deep-linked / prerendered page (e.g. /reactivity/ or /guides/reactivity/)
+  // hydrates to the SAME page the server rendered. The `/docs/<id>` redirect
+  // form is normalised by stripping a leading `docs/`.
+  const pageFromLocation = () => {
+    if (typeof location === 'undefined') return 'introduction'
+    if (location.hash) return location.hash.slice(1)
+    const path = location.pathname.replace(/^\/+/, '').replace(/\/+$/, '')
+    const id = path.startsWith('docs/') ? path.slice('docs/'.length) : path
+    return id || 'introduction'
+  }
+  const [activePage, setActivePage] = signal(pageFromLocation())
 
   if (typeof window !== 'undefined') {
 
   window.addEventListener('hashchange', () => {
 
-  setActivePage(location.hash ? location.hash.slice(1) : 'introduction')
+  setActivePage(location.hash ? location.hash.slice(1) : pageFromLocation())
 
   })
 
