@@ -60,6 +60,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/agent-server",
+    "version": "0.1.0",
+    "dir": "packages/agent-server",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/agent-service",
     "version": "0.1.3",
     "dir": "packages/agent-service",
