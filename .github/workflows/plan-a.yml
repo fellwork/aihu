@@ -49,14 +49,15 @@ jobs:
       # aihu-compile, which predates the --ast-json hook and makes those e2e
       # tests fail. Build BOTH binaries from source at the workspace root and
       # stage them where the TS resolvers look, before `bun run test`.
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-check-${{ hashFiles('Cargo.lock') }}
+      # Swatinem/rust-cache caches the registry + dependency build artifacts
+      # but CLEANS the local workspace crates out of target/ before saving, so
+      # aihu-compile + aihu-css-compile ALWAYS rebuild from source. The previous
+      # hand-rolled actions/cache (keyed only on Cargo.lock) could restore a
+      # stale target/ with fresh mtimes and let cargo skip rebuilding changed
+      # crate source — shipping a stale aihu-css-compile into the e2e suites
+      # (seen as the css-engine "static island / zero @aihu" fallback).
+      - name: Cache Rust build (deps only; workspace crates always rebuild)
+        uses: Swatinem/rust-cache@v2
       - name: Build Rust binaries (aihu-compile + aihu-css-compile)
         # Workspace build emits both binaries into the workspace-root
         # target/release/ — aihu-css-compile is resolved there directly by
@@ -300,14 +301,12 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
-      - name: Cache Rust build
-        uses: actions/cache@v4
+      # Same stale-binary hardening as the check job — workspace crate
+      # (aihu-compile) always rebuilds; only deps are cached.
+      - name: Cache Rust build (deps only; workspace crates always rebuild)
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/compiler/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/compiler/Cargo.lock') }}
+          workspaces: packages/compiler
       - name: Build compiler binary
         run: cargo build --release --manifest-path packages/compiler/Cargo.toml
       - name: Stage compiler binary
