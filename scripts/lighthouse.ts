@@ -48,28 +48,16 @@ if (!existsSync(DIST_DIR)) {
   process.exit(1)
 }
 
-// ── 1. Start the docs static server (wrangler pages dev) ────────────────────
+// ── 1. Start the docs server: the real worker.ts over a static dist/ shim ────
+// (apps/docs/tests/serve-docs.ts). Replaces `wrangler pages dev`, which flaked
+// in CI on workerd compatibility-date drift + bunx cold-download (issue #314).
 
-const server = Bun.spawn(
-  [
-    'bunx',
-    'wrangler',
-    'pages',
-    'dev',
-    DIST_DIR,
-    '--port',
-    String(PORT),
-    '--ip',
-    '127.0.0.1',
-    '--compatibility-date=2026-05-28',
-  ],
-  {
-    cwd: process.cwd(),
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: { ...process.env, CI: '1' },
-  },
-)
+const server = Bun.spawn(['bun', join('apps', 'docs', 'tests', 'serve-docs.ts')], {
+  cwd: process.cwd(),
+  stdout: 'pipe',
+  stderr: 'pipe',
+  env: { ...process.env, CI: '1', DOCS_PORT: String(PORT), DOCS_DIST: DIST_DIR },
+})
 
 // ── 2. Poll until server is ready (up to 60 s — wrangler cold start) ─────────
 

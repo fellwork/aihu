@@ -15,7 +15,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bunx wrangler pages dev dist/ --port 8788 --compatibility-date=2026-05-28',
+    // Runs the real worker.ts over a static dist/ shim (tests/serve-docs.ts) —
+    // no wrangler/workerd/compat-date flakiness (issue #314). Build runs first.
+    command: 'bun tests/serve-docs.ts',
     url: 'http://localhost:8788',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
