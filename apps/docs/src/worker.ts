@@ -3,12 +3,16 @@
  *
  * Route priority:
  *   1. Agent-readiness endpoints (llms.txt, robots.txt, MCP server card)
- *   2. ASSETS binding — pre-built static files (docs.js, style.css, wasm/, …)
+ *   2a. Prerendered per-page HTML — for an HTML nav to a doc route, serve that
+ *       page's content-ful `dist/<id>/index.html` (WS1) before the bare shell.
+ *   2b. ASSETS binding — pre-built static files (docs.js, style.css, wasm/, …)
  *   3. /index.html fallback for unmatched paths
  *
- * The HTML shell (`index.html`) is built with `window.__DOCS__` inlined by
- * build.ts, so `docs-shell` has content immediately on parse — no flash of
- * unstyled content waiting for `docs.js` to evaluate.
+ * Each doc page is PRERENDERED into its own `dist/<id>/index.html`, so the
+ * served HTML already carries the page body (real LCP, painted from the
+ * #prerendered-content region) with no wait for `docs.js` to evaluate. The
+ * client bundle no longer inlines doc HTML (the old `window.__DOCS__` blob is
+ * gone — WS5); the SPA fetches each prerendered page on client nav.
  */
 
 import type { RouteHandler } from '@aihu/server'

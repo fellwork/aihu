@@ -24,9 +24,69 @@
 
   }
 
-  const activeHtml = () =>
+  // ── Client-side page content (WS5) ──────────────────────────────
+  //
+  // The 214 KB `window.__DOCS__` inline-HTML blob is GONE — deleted from the
+  // client bundle (it bloated docs.js by ~214 KB of inline doc HTML). Each
+  // doc page's body now lives ONLY in its prerendered `dist/<id>/index.html`
+  // (WS1). For an in-session SPA page switch we FETCH that file and extract
+  // its `#prerendered-content` region, so client nav renders real content
+  // WITHOUT re-bundling every page's HTML into docs.js. Pages must never go
+  // blank on nav (the documented WS5 risk) — the fetch repoint is what keeps
+  // them content-ful.
+  //
+  // `htmlCache` memoizes already-fetched pages (keyed by id). On first hydrate
+  // the active page's body is ALREADY painted in the light-DOM
+  // `#prerendered-content` node (which main.ts removes one frame later); we
+  // seed the cache from it so the shadow <article> paints with no fetch flash.
+  const [htmlCache, setHtmlCache] = signal({})
 
-  window.__DOCS__?.[activePage()]?.html ?? '<p>Loading content&hellip;</p>'
+  const cacheSet = (id, html) => {
+    setHtmlCache({ ...htmlCache(), [id]: html })
+  }
+
+  const seedFromPrerender = () => {
+    if (typeof document === 'undefined') return
+    const node = document.getElementById('prerendered-content')
+    if (node) cacheSet(activePage(), node.innerHTML)
+  }
+  seedFromPrerender()
+
+  // Pull the doc body out of a fetched prerendered page: prefer the
+  // `#prerendered-content` region, fall back to the first <article>.
+  const extractContent = (markup) => {
+    if (typeof DOMParser === 'undefined') return null
+    const doc = new DOMParser().parseFromString(markup, 'text/html')
+    const region = doc.getElementById('prerendered-content') ?? doc.querySelector('article')
+    return region ? region.innerHTML : null
+  }
+
+  // Map a page id to its prerendered URL. `introduction` is the `/` home page;
+  // every other id (nested slugs included) lives at `/<id>/index.html`.
+  const pageUrl = (id) => (id === 'introduction' ? '/index.html' : `/${id}/index.html`)
+
+  const fetchPage = (id) => {
+    if (id === 'playground') return // playground is a thin shell — no body fetch
+    if (htmlCache()[id] !== undefined) return // already cached / seeded
+    if (typeof fetch === 'undefined') return
+    fetch(pageUrl(id))
+      .then((res) => (res.ok ? res.text() : null))
+      .then((markup) => {
+        const html = markup ? extractContent(markup) : null
+        cacheSet(id, html ?? '<p>Content unavailable.</p>')
+      })
+      .catch(() => {
+        cacheSet(id, '<p>Content unavailable.</p>')
+      })
+  }
+
+  // Whenever the active page changes (hashchange / initial), ensure its body
+  // is fetched + cached so the shadow <article> never goes blank.
+  effect(() => {
+    fetchPage(activePage())
+  })
+
+  const activeHtml = () => htmlCache()[activePage()] ?? '<p>Loading content&hellip;</p>'
 }
 
 @template {

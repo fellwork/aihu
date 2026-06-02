@@ -6,8 +6,8 @@
     "prebuild": "bun ../../scripts/fetch-wasm-bundle.ts dist/wasm",
     "build": "bun run build.ts",
     "bundle": "rolldown -c rolldown.config.ts",
-    "dev": "bun run build && bunx wrangler pages dev dist/ --port 8788",
-    "dev:watch": "bun run build && concurrently \"bunx rolldown -c rolldown.config.ts --watch\" \"bunx wrangler pages dev dist/ --port 8788\"",
+    "dev": "bun run build && bunx wrangler pages dev dist/ --port 8788 --compatibility-date=2026-05-28",
+    "dev:watch": "bun run build && concurrently \"bunx rolldown -c rolldown.config.ts --watch\" \"bunx wrangler pages dev dist/ --port 8788 --compatibility-date=2026-05-28\"",
     "test:e2e": "bunx playwright test"
   },
   "devDependencies": {

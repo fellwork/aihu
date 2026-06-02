@@ -51,7 +51,18 @@ if (!existsSync(DIST_DIR)) {
 // ── 1. Start the docs static server (wrangler pages dev) ────────────────────
 
 const server = Bun.spawn(
-  ['bunx', 'wrangler', 'pages', 'dev', DIST_DIR, '--port', String(PORT), '--ip', '127.0.0.1'],
+  [
+    'bunx',
+    'wrangler',
+    'pages',
+    'dev',
+    DIST_DIR,
+    '--port',
+    String(PORT),
+    '--ip',
+    '127.0.0.1',
+    '--compatibility-date=2026-05-28',
+  ],
   {
     cwd: process.cwd(),
     stdout: 'pipe',
