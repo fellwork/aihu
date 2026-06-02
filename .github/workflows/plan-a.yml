@@ -302,17 +302,20 @@ jobs:
         with:
           auto-install: true
       # Same stale-binary hardening as the check job — workspace crate
-      # (aihu-compile) always rebuilds; only deps are cached.
+      # (aihu-compile) always rebuilds; only deps are cached. packages/compiler
+      # is a root-workspace member, so it builds into the workspace-root target/
+      # (NOT packages/compiler/target/) — cache the default root workspace.
       - name: Cache Rust build (deps only; workspace crates always rebuild)
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: packages/compiler
       - name: Build compiler binary
         run: cargo build --release --manifest-path packages/compiler/Cargo.toml
       - name: Stage compiler binary
         run: |
           mkdir -p packages/compiler/bin
-          cp packages/compiler/target/release/aihu-compile packages/compiler/bin/aihu-compile
+          # Root-workspace member → binary is at the workspace-root target/.
+          # (The old actions/cache masked this by restoring a stale binary at
+          # packages/compiler/target/; rust-cache's clean exposed the real path.)
+          cp target/release/aihu-compile packages/compiler/bin/aihu-compile
           chmod 0755 packages/compiler/bin/aihu-compile
       - run: bun install --frozen-lockfile
         env:
