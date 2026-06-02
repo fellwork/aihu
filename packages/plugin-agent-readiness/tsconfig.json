@@ -6,6 +6,7 @@
     "declaration": true,
     "declarationDir": "./dist",
     "paths": {
+      "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],
       "@aihu/plugin": ["../plugin/src/index.ts"]
     }

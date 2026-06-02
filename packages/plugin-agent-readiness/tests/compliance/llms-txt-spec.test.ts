@@ -75,6 +75,37 @@ describe('llms.txt spec compliance', () => {
     }
   })
 
+  it('## Components section appears after content sections and before ## Optional', () => {
+    const out = generateLlmsTxt({
+      name: 'App',
+      sections: [{ title: 'Docs', links: [{ title: 'API', url: '/api' }] }],
+      components: [{ tag: 'x-card', describes: 'Card.' }],
+      optional: [{ title: 'Blog', url: '/blog' }],
+    })
+    const h2s = out.split('\n').filter((l) => l.startsWith('## '))
+    expect(h2s).toEqual(['## Docs', '## Components', '## Optional'])
+  })
+
+  it('## Components section is omitted when there are zero components', () => {
+    const out = generateLlmsTxt({
+      name: 'App',
+      sections: [{ title: 'Docs', links: [{ title: 'API', url: '/api' }] }],
+      components: [],
+    })
+    expect(out).not.toContain('## Components')
+  })
+
+  it('component without describes/actions/state renders just its ### heading', () => {
+    const out = generateLlmsTxt({
+      name: 'App',
+      sections: [],
+      components: [{ tag: 'x-bare' }],
+    })
+    expect(out).toContain('### x-bare')
+    expect(out).not.toContain('Actions:')
+    expect(out).not.toContain('State:')
+  })
+
   it('generateLlmsFullTxt does not contain ## Optional heading', () => {
     const out = generateLlmsFullTxt({
       name: 'App',
