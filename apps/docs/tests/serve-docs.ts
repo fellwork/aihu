@@ -14,10 +14,22 @@
  */
 import { existsSync, statSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
-import worker from '../src/worker.ts'
 
 const PORT = Number(process.env.DOCS_PORT ?? 8788)
 const DIST = resolve(process.env.DOCS_DIST ?? join(import.meta.dir, '..', 'dist'))
+
+// Import the BUILT worker (`dist/_worker.js`) — the exact bundle Cloudflare Pages
+// runs, with all deps inlined — rather than the `src/worker.ts` source. Running
+// the source under bun needs `@aihu/server` resolvable from apps/docs at runtime,
+// which differs between local and CI installs (#314); the bundle has none.
+const worker = (await import(join(DIST, '_worker.js'))).default as {
+  fetch(
+    request: Request,
+    env: { ASSETS: { fetch(r: Request): Promise<Response> } },
+    ctx: unknown,
+  ): Promise<Response>
+}
+const ctx = { waitUntil() {}, passThroughOnException() {} }
 
 const CONTENT_TYPE: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -51,5 +63,5 @@ const ASSETS = {
   },
 }
 
-Bun.serve({ port: PORT, idleTimeout: 60, fetch: (req) => worker.fetch(req, { ASSETS }) })
+Bun.serve({ port: PORT, idleTimeout: 60, fetch: (req) => worker.fetch(req, { ASSETS }, ctx) })
 console.log(`[serve-docs] real worker.ts serving ${DIST} on http://localhost:${PORT}`)
