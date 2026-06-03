@@ -29,6 +29,7 @@ import { JSDOM } from 'jsdom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAgentServer } from '../src/agent-server.ts'
 import { createComponentMcpServer } from '../src/mcp-server.ts'
+import { opaqueActionId } from '../src/opaque-id.ts'
 import type { AgentServer, BridgeChannel } from '../src/types.ts'
 
 // ─── A real reactive counter component + its server agent-binding ────────────
@@ -309,10 +310,12 @@ describe('WS capability bridge', () => {
       result: unknown
     }
 
-    // Contract: forwarded message carries the opaque id + args, no policy info.
+    // Contract: forwarded message carries the STABLE opaque id (matching the
+    // compiler-emitted __agentDispatcher) + args, and no policy info.
     expect(lastFrame).not.toBeNull()
     expect(lastFrame!.type).toBe('invoke')
-    expect(lastFrame!.opaqueActionId).toBe(`${TAG}/increment`)
+    expect(lastFrame!.opaqueActionId).toBe(opaqueActionId(TAG, 'increment'))
+    expect(lastFrame!.opaqueActionId).toMatch(/^a_[0-9a-f]{16}$/)
     expect(lastFrame!.args).toEqual([7])
     expect('scope' in (lastFrame as Record<string, unknown>)).toBe(false)
     expect('rateLimit' in (lastFrame as Record<string, unknown>)).toBe(false)
@@ -320,8 +323,10 @@ describe('WS capability bridge', () => {
     // The visible instance's result is surfaced back to the agent.
     expect(res.result).toEqual({ visible: 42 })
 
-    // Server-mounted dispatch ALSO ran (gate path applied it).
-    expect(counter.readCount()).toBe(7)
+    // Browser is authoritative: the server-mounted twin was NOT driven. The
+    // server gates (policy) but delegates execution to the visible instance, so
+    // its signal stays at 0 — no double-execution, no projection drift.
+    expect(counter.readCount()).toBe(0)
   })
 
   it('a disconnect mid-drive is a loud error, not a silent drop', async () => {

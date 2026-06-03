@@ -24,6 +24,7 @@ import type { RequestContext } from '@aihu/agent-service'
 import { createAgentService } from '@aihu/agent-service'
 import type { MountScope, Snapshot } from '@aihu/arbor'
 import { _getComponentInstanceRegistry, mount } from '@aihu/arbor'
+import { opaqueActionIdForTool } from './opaque-id.ts'
 import type {
   AgentServer,
   AgentServerOptions,
@@ -168,10 +169,9 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
   }
 
   /**
-   * Forward an approved invocation to the bridge and await its reply. Returns
-   * the browser's result. If no bridge is attached, resolves to `undefined`
-   * (server-mounted dispatch already happened); if the bridge is disconnected
-   * mid-flight the promise rejects (loud failure, per the plan's failure modes).
+   * Forward an approved invocation to the bridge and await the browser's reply
+   * (the visible instance's result). If the bridge is disconnected mid-flight
+   * the promise rejects (loud failure, per the plan's failure modes).
    */
   function forwardToBridge(opaqueActionId: string, args: unknown[]): Promise<unknown> {
     if (!bridge?.connected) {
@@ -190,35 +190,34 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
     })
   }
 
-  // ── callTool: gate → (server dispatch) → forward-on-approval ───────────────
+  // ── callTool: bridge attached → gate-only + delegate; else server dispatch ─
   async function callTool(
     toolName: string,
     params: unknown,
     ctx?: RequestContext,
   ): Promise<unknown> {
-    // The gate + server-mounted dispatch both happen inside handleToolCall.
-    const envelope = await service.handleToolCall(toolName, params, ctx)
+    const args = Array.isArray(params)
+      ? params
+      : params !== null && params !== undefined
+        ? [params]
+        : []
 
-    // Rejected by the gate (404/401/403/429): do NOT forward to the bridge.
-    if (isGateRejection(envelope)) {
-      return envelope
-    }
-
-    // Approved. Forward the SAME invocation to the visible browser instance.
-    // The bridge carries the opaque action id (== toolName for v1) and args,
-    // never any policy info.
     if (bridge?.connected) {
-      const args = Array.isArray(params)
-        ? params
-        : params !== null && params !== undefined
-          ? [params]
-          : []
+      // Capability-bridge topology: the VISIBLE browser instance is
+      // authoritative. Gate on the server (policy authority) but do NOT
+      // dispatch on the server-mounted twin — that would double-execute side
+      // effects and reintroduce the projection drift the bridge exists to
+      // avoid. Execution is delegated to the browser via the opaque-ID
+      // dispatcher; the gate carries no policy info onto the wire.
+      const verdict = await service.authorize(toolName, params, ctx)
+      if (isGateRejection(verdict)) return verdict
+
+      const opaqueActionId = opaqueActionIdForTool(toolName)
+      if (!opaqueActionId) return { error: `bad tool: ${toolName}`, code: 400 }
+
       try {
-        const bridgeResult = await forwardToBridge(toolName, args)
-        // Prefer the visible instance's result when the bridge returned one.
-        if (bridgeResult !== undefined) {
-          return { result: bridgeResult }
-        }
+        const bridgeResult = await forwardToBridge(opaqueActionId, args)
+        return { result: bridgeResult ?? null }
       } catch (err) {
         // WS-disconnect mid-drive must be surfaced, not silently dropped.
         return {
@@ -228,7 +227,8 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
       }
     }
 
-    return envelope
+    // No bridge (headless / CI): gate + dispatch on the server-mounted instance.
+    return service.handleToolCall(toolName, params, ctx)
   }
 
   function serialize(): Snapshot {

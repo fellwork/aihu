@@ -170,6 +170,16 @@ export interface AgentService {
     requestContext?: RequestContext,
   ): Promise<unknown>
   /**
+   * Run the security gate WITHOUT dispatching. Returns `{ authorized: true }`
+   * when the call would be allowed, or the same `{ error, code, jsonrpc }`
+   * rejection envelope `handleToolCall` would return (404/401/403/429). Shares
+   * the single gate implementation with `handleToolCall`, so the error-ordering
+   * invariant is identical. Used by `@aihu/agent-server`'s capability-bridge
+   * path to gate on the server while delegating execution to the visible
+   * browser instance.
+   */
+  authorize(toolName: string, params: unknown, requestContext?: RequestContext): Promise<unknown>
+  /**
    * Returns a fetch-compatible middleware function.
    * Handles `POST /__aihu/tools/call` with `{ tool, params }` JSON body.
    * Returns `null` for non-matching requests (pass-through).

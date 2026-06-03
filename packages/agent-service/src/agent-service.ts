@@ -99,6 +99,108 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
   const rateLimitPlugin = options?.rateLimitPlugin
   const getRegistry = options?.getRegistry
 
+  /**
+   * Run the security gate (RFC §5 steps 1-4: 404 → 401 → 403 → 429) WITHOUT
+   * dispatching. Returns the resolved live binding + parsed names on success,
+   * or the JSON-RPC rejection envelope to return verbatim.
+   *
+   * Single source of truth for the error-ordering invariant: both
+   * `handleToolCall` (which then dispatches on the server-mounted instance) and
+   * `authorize` (gate-only, used by the `@aihu/agent-server` capability-bridge
+   * path so the VISIBLE browser instance is the sole executor) call this — so
+   * the security ordering can never diverge between the two entry points.
+   */
+  function runGate(
+    toolName: string,
+    requestContext?: RequestContext,
+  ):
+    | { ok: true; binding: LiveBinding; tag: string; action: string }
+    | { ok: false; envelope: ReturnType<typeof jsonrpcError> } {
+    const slash = toolName.indexOf('/')
+    if (slash === -1) return { ok: false, envelope: jsonrpcError(400, `bad tool: ${toolName}`) }
+    const tag = toolName.slice(0, slash)
+    const action = toolName.slice(slash + 1)
+
+    // ── Step 1: 404 — no live instance ────────────────────────────────────
+    // Error ordering invariant (Amendment 4): 404 MUST come first.
+    // A 429 before this would implicitly confirm binding existence to
+    // unauthorized callers (timing-channel, CWE-200).
+    const registry = getRegistry ? getRegistry() : null
+    const bindings = registry ? (registry.get(tag) as LiveBinding[] | undefined) : undefined
+
+    if (!bindings || bindings.length === 0) {
+      // Fall back to legacy metadata-only path when no live registry is present.
+      // This preserves backward compat with the Plan 5.2 stub behavior.
+      const meta = byTag.get(tag)
+      if (!meta) return { ok: false, envelope: jsonrpcError(404, `no live instance: ${tag}`) }
+
+      // AC11: action allowlist check
+      if (meta.actions && !(action in meta.actions)) {
+        return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+      }
+      // Legacy stub response (no live binding).
+      return { ok: false, envelope: jsonrpcError(404, `no live instance: ${tag}`) }
+    }
+
+    // AC11: action allowlist check (against live binding)
+    const binding = bindings[0]!
+    // Check if the action exists in the binding's reads or actions
+    const hasAction = typeof (binding as { callAction: unknown }).callAction === 'function'
+    if (!hasAction) {
+      return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+    }
+
+    // ── Step 2: 401 — userId cardinality (Amendment 3 / §6.3) ────────────
+    // `userId` MUST be non-null, non-empty from verified JWT `sub` claim
+    // when the component has a $scope or $rate-limit (auth-gated endpoints).
+    // For un-scoped, un-rate-limited components, userId is not required
+    // (backward-compatible with adapters that don't carry auth context, e.g.
+    // the a2a/acp adapters in v0.3.0). AC9 tests the scoped case.
+    const scopeRequired = binding.scope()
+    const rateLimitSpec = binding.rateLimit()
+    const needsUserId = scopeRequired !== null || rateLimitSpec !== null
+    const userId = requestContext?.userId
+    if (needsUserId && !userId) {
+      return {
+        ok: false,
+        envelope: jsonrpcError(401, 'AUTH_REQUIRED: userId (JWT sub) is missing or empty'),
+      }
+    }
+
+    // ── Step 3: 403 / 401 AUTH_MISSING — scope check ─────────────────────
+    if (scopeRequired !== null) {
+      // Amendment 2 (§6.1 fail-closed): if @aihu/auth middleware is not
+      // registered, return 401 AUTH_MISSING (not 403 — auth is absent, not
+      // scope-fail). AC7 validates this invariant.
+      if (!authPlugin) {
+        return {
+          ok: false,
+          envelope: jsonrpcError(401, 'AUTH_MISSING: @aihu/auth middleware is not registered'),
+        }
+      }
+      const jwt = requestContext?.jwt ?? ''
+      if (!authPlugin.checkScope(jwt, scopeRequired)) {
+        return {
+          ok: false,
+          envelope: jsonrpcError(403, `SCOPE_DENIED: JWT lacks required scope '${scopeRequired}'`),
+        }
+      }
+    }
+
+    // ── Step 4: 429 — rate limit ──────────────────────────────────────────
+    if (rateLimitSpec !== null && rateLimitPlugin) {
+      const rateLimitKey = `${userId}:${tag}`
+      if (!rateLimitPlugin.checkRateLimit(rateLimitSpec, rateLimitKey)) {
+        return {
+          ok: false,
+          envelope: jsonrpcError(429, `RATE_LIMITED: quota exhausted for ${rateLimitKey}`),
+        }
+      }
+    }
+
+    return { ok: true, binding, tag, action }
+  }
+
   return {
     getManifest(): AgentManifest {
       return manifest
@@ -109,75 +211,9 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       params: unknown,
       requestContext?: RequestContext,
     ): Promise<unknown> {
-      const slash = toolName.indexOf('/')
-      if (slash === -1) return jsonrpcError(400, `bad tool: ${toolName}`)
-      const tag = toolName.slice(0, slash)
-      const action = toolName.slice(slash + 1)
-
-      // ── Step 1: 404 — no live instance ────────────────────────────────────
-      // Error ordering invariant (Amendment 4): 404 MUST come first.
-      // A 429 before this would implicitly confirm binding existence to
-      // unauthorized callers (timing-channel, CWE-200).
-      const registry = getRegistry ? getRegistry() : null
-      const bindings = registry ? (registry.get(tag) as LiveBinding[] | undefined) : undefined
-
-      if (!bindings || bindings.length === 0) {
-        // Fall back to legacy metadata-only path when no live registry is present.
-        // This preserves backward compat with the Plan 5.2 stub behavior.
-        const meta = byTag.get(tag)
-        if (!meta) return jsonrpcError(404, `no live instance: ${tag}`)
-
-        // AC11: action allowlist check
-        if (meta.actions && !(action in meta.actions)) {
-          return jsonrpcError(404, `no action: ${action}`)
-        }
-        // Legacy stub response (no live binding).
-        return jsonrpcError(404, `no live instance: ${tag}`)
-      }
-
-      // AC11: action allowlist check (against live binding)
-      const binding = bindings[0]!
-      // Check if the action exists in the binding's reads or actions
-      const hasAction = typeof (binding as { callAction: unknown }).callAction === 'function'
-      if (!hasAction) {
-        return jsonrpcError(404, `no action: ${action}`)
-      }
-
-      // ── Step 2: 401 — userId cardinality (Amendment 3 / §6.3) ────────────
-      // `userId` MUST be non-null, non-empty from verified JWT `sub` claim
-      // when the component has a $scope or $rate-limit (auth-gated endpoints).
-      // For un-scoped, un-rate-limited components, userId is not required
-      // (backward-compatible with adapters that don't carry auth context, e.g.
-      // the a2a/acp adapters in v0.3.0). AC9 tests the scoped case.
-      const scopeRequired = binding.scope()
-      const rateLimitSpec = binding.rateLimit()
-      const needsUserId = scopeRequired !== null || rateLimitSpec !== null
-      const userId = requestContext?.userId
-      if (needsUserId && !userId) {
-        return jsonrpcError(401, 'AUTH_REQUIRED: userId (JWT sub) is missing or empty')
-      }
-
-      // ── Step 3: 403 / 401 AUTH_MISSING — scope check ─────────────────────
-      if (scopeRequired !== null) {
-        // Amendment 2 (§6.1 fail-closed): if @aihu/auth middleware is not
-        // registered, return 401 AUTH_MISSING (not 403 — auth is absent, not
-        // scope-fail). AC7 validates this invariant.
-        if (!authPlugin) {
-          return jsonrpcError(401, 'AUTH_MISSING: @aihu/auth middleware is not registered')
-        }
-        const jwt = requestContext?.jwt ?? ''
-        if (!authPlugin.checkScope(jwt, scopeRequired)) {
-          return jsonrpcError(403, `SCOPE_DENIED: JWT lacks required scope '${scopeRequired}'`)
-        }
-      }
-
-      // ── Step 4: 429 — rate limit ──────────────────────────────────────────
-      if (rateLimitSpec !== null && rateLimitPlugin) {
-        const rateLimitKey = `${userId}:${tag}`
-        if (!rateLimitPlugin.checkRateLimit(rateLimitSpec, rateLimitKey)) {
-          return jsonrpcError(429, `RATE_LIMITED: quota exhausted for ${rateLimitKey}`)
-        }
-      }
+      const gated = runGate(toolName, requestContext)
+      if (!gated.ok) return gated.envelope
+      const { binding, action } = gated
 
       // ── Step 5: dispatch ──────────────────────────────────────────────────
       // Try callAction first, then getSignal for read-only signals.
@@ -198,6 +234,18 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
         }
         throw err
       }
+    },
+
+    async authorize(
+      toolName: string,
+      _params: unknown,
+      requestContext?: RequestContext,
+    ): Promise<unknown> {
+      // Gate-only: run steps 1-4 and report the verdict WITHOUT executing the
+      // action. Used by the capability bridge so the visible browser instance
+      // is the sole executor while the server stays the policy authority.
+      const gated = runGate(toolName, requestContext)
+      return gated.ok ? { authorized: true } : gated.envelope
     },
 
     asMiddleware(): (req: Request) => Promise<Response | null> {
