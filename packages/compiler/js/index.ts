@@ -77,6 +77,16 @@ export interface AihuCompilerPluginOptions {
    * `defineElement(tag, Ctor, { shadowMode: '...' })`.
    */
   shadowMode?: 'open' | 'closed' | 'none'
+
+  /**
+   * Build target threaded to the compiler binary (`--target`). Defaults to the
+   * compiler's `universal` target (current behaviour). Set to `'client'` for a
+   * browser bundle that must NOT ship the server `__agentBinding` (policy) and
+   * instead gets the policy-free `@agent` opaque-ID dispatcher + the per-instance
+   * `_registerAgentDispatcher` wiring the capability bridge reads after mount.
+   * See `examples/agent-driven-demo`.
+   */
+  target?: 'client' | 'server' | 'universal'
 }
 
 /**
@@ -395,12 +405,19 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
 export function transform(
   source: string,
   id: string,
-  options?: { sidecarOut?: string },
+  options?: { sidecarOut?: string; target?: 'client' | 'server' | 'universal' },
 ): { code: string; map: null } {
   const stem = basename(id, '.aihu')
   const args = ['--stdin', '--tag', stem, '--path', id]
   if (options?.sidecarOut) {
     args.push('--sidecar-out', options.sidecarOut)
+  }
+  // T6 (go-public demo) — thread the build target so a client bundle gets the
+  // policy-free `@agent` dispatcher (and the per-instance registration the
+  // capability bridge needs) instead of the server `__agentBinding`. Defaults to
+  // the compiler's `universal` target when omitted (existing behaviour).
+  if (options?.target) {
+    args.push('--target', options.target)
   }
   const code = execFileSync(resolveBinPath(), args, {
     input: source,
@@ -922,6 +939,7 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
 export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlugin {
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
+  const target = options?.target
 
   // Bug 6 — per-instance store of virtual utility-CSS modules. Keyed by the
   // full virtual id (NUL-prefixed). Populated by the transform hook when
@@ -957,7 +975,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // `tsc --noEmit` over `**/*.aihu.ts` type-checks template
         // expressions end-to-end (Architect spec §7 path (i)).
         const sidecarOut = `${rawId}.ts`
-        const result = transform(code, rawId, { sidecarOut })
+        const result = transform(code, rawId, target ? { sidecarOut, target } : { sidecarOut })
         let compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
 
         // ── css-engine hook (optional, lazy, no circular dep) ──────────────

@@ -1,0 +1,135 @@
+// agent-driven-demo — a durable, agent-drivable task list.
+//
+// This is the REAL component the launch claim is about: an external agent
+// reads the component's metadata (the @agent block → MCP tools), then drives
+// the VISIBLE, mounted instance over a WebSocket capability bridge. The server
+// is the sole policy authority (the gate); the browser instance is the one
+// actually executing the action — so the durable list the user sees is the one
+// the agent mutates.
+//
+// State here is DURABLE list state (not a stateless counter), so the contrast
+// is real: an agent driving generated UI via DOM selectors would have nothing
+// to mutate — there is no component, no signal, no serialisable state. Here it
+// drives the component's own signals and the snapshot reflects every change.
+
+@state {
+  import { signal } from '@aihu/signals'
+
+  // The durable task list the agent drives. Each task: { id, text, done }.
+  const [tasks, setTasks] = signal([])
+  const [nextId, setNextId] = signal(1)
+
+  $action: {
+    addTask: {
+      describe: 'Append a task with the given text; returns the new task id.',
+      expose: { read: true },
+      handler: (args) => {
+        const text = typeof args?.[0] === 'string' ? args[0] : String(args?.[0] ?? '')
+        const id = nextId()
+        setTasks([...tasks(), { id, text, done: false }])
+        setNextId(id + 1)
+      },
+    },
+    toggleTask: {
+      describe: 'Toggle the done state of the task with the given id.',
+      expose: { read: true },
+      handler: (args) => {
+        const id = Number(args?.[0])
+        setTasks(tasks().map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
+      },
+    },
+    clearCompleted: {
+      describe: 'Remove all completed tasks.',
+      expose: { read: true },
+      handler: () => {
+        setTasks(tasks().filter((t) => !t.done))
+      },
+    },
+  }
+}
+
+@template {
+  <section class="task-list">
+    <header class="tl-header">
+      <h2 class="tl-title">Tasks</h2>
+      <span class="tl-count">{tasks.length}</span>
+    </header>
+    <ul class="tl-items">
+      <li $each="tasks as task" $key="task.id" class="tl-item" $data-done={task.done}>
+        <span class="tl-text">{task.text}</span>
+      </li>
+    </ul>
+  </section>
+}
+
+@style {
+  .task-list {
+    max-width: 28rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
+    background: var(--panel-bg, #fff);
+    border: 1px solid var(--border, #e2e2e2);
+    border-radius: var(--radius, 8px);
+    box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
+    color: var(--fg, #1a1a1a);
+  }
+  .tl-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .tl-title {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  .tl-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.4rem;
+    background: var(--tag-bg, #eef);
+    color: var(--tag-fg, #225);
+    border-radius: var(--radius, 8px);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .tl-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .tl-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    background: var(--agent-bg, #fafafa);
+    border: 1px solid var(--agent-border, #ececec);
+    border-radius: var(--radius, 8px);
+  }
+  .tl-item[data-done="true"] .tl-text {
+    text-decoration: line-through;
+    color: var(--muted, #999);
+  }
+  .tl-text {
+    font-size: 0.95rem;
+  }
+  .tl-empty {
+    margin: 0.5rem 0 0;
+    color: var(--muted, #999);
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+}
+
+@agent {
+  action addTask()
+  action toggleTask()
+  action clearCompleted()
+}

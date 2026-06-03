@@ -152,10 +152,25 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
             // only opaque-ID → invoker maps; no scope, no rateLimit.
             let raw_script = unit.source.script.unwrap_or("");
             let dispatcher = emit_agent_client_dispatcher(tag_name, raw_script);
+            // T6 (go-public demo) — per-instance dispatcher wiring.
+            //
+            // The module-scope `export const __agentDispatcher` is a structural
+            // template: its invoker bodies (`(args) => increment(args)`, etc.)
+            // reference setup-closure locals that DO NOT exist at module scope,
+            // so calling them there throws ReferenceError. The capability bridge
+            // needs invokers bound to a SPECIFIC mounted instance's signals.
+            //
+            // So, in addition to the (introspection-only) module-scope export, we
+            // inject a `_registerAgentDispatcher(ctx.element, { … })` call INSIDE
+            // the setup body — where the real `increment`/`reset`/`count`
+            // closures resolve. The runtime keys it by the mounted element so the
+            // browser bridge can take the instance-bound dispatcher after mount.
+            // No policy is carried (same opaque-ID-only shape as the export).
+            let with_reg = inject_dispatcher_registration(&base_js, tag_name, raw_script);
             // Prepend elision comment to the emitted JS, append the dispatcher.
             format!(
                 "// [client build] @agent block elided\n{}\n{}",
-                base_js, dispatcher
+                with_reg, dispatcher
             )
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
@@ -3090,6 +3105,121 @@ fn emit_agent_client_dispatcher(tag_name: &str, raw_script: &str) -> String {
         fmt(&read_entries),
         fmt(&write_entries)
     )
+}
+
+/// T6 (go-public demo) — inject a per-instance `_registerAgentDispatcher` call
+/// into the compiled setup body so the opaque-ID invokers are bound to a SPECIFIC
+/// mounted instance's signals (not the inert module-scope `__agentDispatcher`).
+///
+/// The invoker bodies are byte-identical to `emit_agent_client_dispatcher`'s
+/// (same opaque IDs, same `(args) => name(args)` / `() => name()` / `(v) => { name = v }`
+/// shapes) but emitted INSIDE setup where `name` resolves to the real closure.
+/// We register against `<ctx>.element` (the host custom element) so the browser
+/// bridge can look up the instance dispatcher after mount.
+///
+/// This is a string transform over the compiled module:
+///  1. Add `_registerAgentDispatcher` to the `@aihu/runtime` import.
+///  2. Insert the registration statement immediately before the setup's final
+///     `  return <expr>` line.
+///
+/// Defensive: if the expected runtime-import or setup-`return` shape is not
+/// present (e.g. a future codegen change, or a component with no agent members),
+/// the input is returned UNCHANGED so the build never breaks — the module-scope
+/// export still ships for introspection.
+fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &str) -> String {
+    let members = collect_agent_members(raw_script);
+    if members.actions.is_empty() && members.reads.is_empty() && members.writes.is_empty() {
+        return base_js.to_string();
+    }
+
+    // Build the same opaque-ID → invoker maps as the module-scope export, but as
+    // an inline object literal for the registration call (4-space indent inside
+    // setup body).
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| format!("      {}: (args) => {}(args)", opaque_member_id(tag_name, name), name))
+        .collect();
+    let read_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| format!("      {}: () => {}()", opaque_member_id(tag_name, name), name))
+        .collect();
+    let write_entries: Vec<String> = members
+        .writes
+        .iter()
+        .map(|name| format!("      {}: (v) => {{ {} = v }}", opaque_member_id(tag_name, name), name))
+        .collect();
+    let fmt = |entries: &[String]| -> String {
+        if entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", entries.join(",\n"))
+        }
+    };
+
+    // The registration statement. `_ctx`/`ctx` is the setup parameter; the
+    // compiled bare-arrow form names it `_ctx` (or `ctx` when @style/props are
+    // present). We reference `(_ctx ?? ctx)`-free by matching the actual param
+    // below; here we emit `__aihu_ctx__` and bind it via the param rename.
+    let registration = format!(
+        "  _registerAgentDispatcher(__aihu_ctx__?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n  }})\n",
+        tag_name,
+        fmt(&action_entries),
+        fmt(&read_entries),
+        fmt(&write_entries),
+    );
+
+    // ── 1. Add `_registerAgentDispatcher` to the @aihu/runtime import. ────────
+    let runtime_import_re = "import { defineComponent, defineElement } from '@aihu/runtime'";
+    if !base_js.contains(runtime_import_re) {
+        return base_js.to_string();
+    }
+    let with_import = base_js.replacen(
+        runtime_import_re,
+        "import { defineComponent, defineElement, _registerAgentDispatcher } from '@aihu/runtime'",
+        1,
+    );
+
+    // ── 2. Rename the setup parameter to a stable name we can reference. ──────
+    // Two shapes carry a setup closure whose body has the action/read closures:
+    //   • bare-arrow form: `defineComponent((_ctx) => {` / `((ctx) => {`
+    //   • options/props form: `  setup: (_ctx) => {` / `(ctx) => {`
+    // In both, alias the parameter to `__aihu_ctx__` so the injected
+    // registration can read `__aihu_ctx__?.element`, and keep `ctx` bound for any
+    // body references (props bindings use `ctx.props`, @style uses `ctx.host`).
+    let setup_shapes: [(&str, &str); 4] = [
+        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
+        (
+            "defineComponent((ctx) => {",
+            "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
+        ),
+        ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
+        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
+    ];
+    let mut with_param = with_import;
+    let mut renamed = false;
+    for (from, to) in setup_shapes {
+        if with_param.contains(from) {
+            with_param = with_param.replacen(from, to, 1);
+            renamed = true;
+            break;
+        }
+    }
+    if !renamed {
+        // Unrecognised setup shape (e.g. form-associated) — don't transform.
+        return base_js.to_string();
+    }
+
+    // ── 3. Insert the registration immediately before the setup's `return`. ──
+    // The setup body always ends with `  return <expr>\n}))` (bare-arrow form).
+    // Find the LAST `\n  return ` occurrence and splice the registration in.
+    if let Some(idx) = with_param.rfind("\n  return ") {
+        let (head, tail) = with_param.split_at(idx + 1); // keep the leading '\n'
+        format!("{}{}{}", head, registration, tail)
+    } else {
+        base_js.to_string()
+    }
 }
 
 fn emit_agent_bindings(agent: &AgentBlock) -> String {
