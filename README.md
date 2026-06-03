@@ -166,32 +166,32 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | — | 300 B | _no dist_ |
-| `@aihu/signals` | — | 1970 B | _no dist_ |
-| `@aihu/arbor` | — | 2800 B | _no dist_ |
-| `@aihu/runtime` | — | 3550 B | _no dist_ |
-| `@aihu/agent` | — | 200 B | _no dist_ |
-| `@aihu-plugin/data` | — | 800 B | _no dist_ |
-| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
-| `@aihu/router` | — | 2400 B | _no dist_ |
-| `@aihu/agent-service` | — | 1100 B | _no dist_ |
-| `@aihu/agent-acp` | — | 600 B | _no dist_ |
-| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
-| `@aihu/app` | — | 1500 B | _no dist_ |
-| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
-| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
-| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
-| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
-| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
-| `@aihu/auth` | — | 1.5 KB | _no dist_ |
-| `@aihu/magna` | — | 1.8 KB | _no dist_ |
-| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
+| `@aihu/context` | 242 B | 300 B | pass |
+| `@aihu/signals` | 1.69 kB | 1970 B | pass |
+| `@aihu/arbor` | 2.60 kB | 2800 B | pass |
+| `@aihu/runtime` | 3.42 kB | 3550 B | pass |
+| `@aihu/agent` | 141 B | 200 B | pass |
+| `@aihu-plugin/data` | 757 B | 800 B | pass |
+| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
+| `@aihu/router` | 1.71 kB | 2400 B | pass |
+| `@aihu/agent-service` | 1.17 kB | 1400 B | pass |
+| `@aihu/agent-acp` | 586 B | 600 B | pass |
+| `@aihu/agent-a2a` | 717 B | 750 B | pass |
+| `@aihu/app` | 1.39 kB | 1500 B | pass |
+| `@aihu/css-engine/runtime/cn` | 682 B | 1 KB | pass |
+| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
+| `@aihu/primitives/context` | 430 B | 1 KB | pass |
+| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
+| `@aihu/primitives/form-control` | 1022 B | 4 KB | pass |
+| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
+| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
+| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
+| `@aihu/primitives/dialog` | 1.97 kB | 4 KB | pass |
+| `@aihu/primitives/tooltip` | 1.79 kB | 4 KB | pass |
+| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
+| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
+| `@aihu/magna` | 758 B | 1.8 KB | pass |
+| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -230,6 +230,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.1` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.1` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
+| [`@aihu/agent-server`](./packages/agent-server) | `0.1.0` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.1.3` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
 | [`@aihu/app`](./packages/app) | `0.3.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |

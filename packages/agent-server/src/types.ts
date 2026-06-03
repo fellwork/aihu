@@ -1,0 +1,211 @@
+/**
+ * `@aihu/agent-server` — public type definitions.
+ *
+ * This module is the source of truth for the **WS capability-bridge contract**
+ * (T2). The browser-bridge client (T3, a separate worktree) implements against
+ * the message shapes declared here. Keeping the contract in a dependency-free
+ * `types.ts` lets both the server (`createAgentServer`) and a future client
+ * package import it without pulling in jsdom / the MCP SDK.
+ */
+
+import type {
+  AgentService,
+  AgentServiceOptions,
+  AuthPlugin,
+  RateLimitPlugin,
+  RequestContext,
+} from '@aihu/agent-service'
+import type { AgentBindingSpec, MountScope, Node, Snapshot } from '@aihu/arbor'
+
+// ─── createAgentServer options ───────────────────────────────────────────────
+
+/**
+ * The thing being driven. One of:
+ *  - `node` + `agentBinding`: an arbor render tree plus its compiler-emitted
+ *    `__agentBinding` server export. `createAgentServer` mounts it into a
+ *    jsdom host so its `LiveBinding` registers in the componentInstanceRegistry.
+ *  - `mount`: a `MountScope` you already produced (e.g. via `@aihu/server`
+ *    SSR). The binding is assumed to already be registered.
+ */
+export interface AgentServerTarget {
+  /** arbor render tree (root `Node`) to mount server-side. */
+  node?: Node
+  /** Compiler-emitted `__agentBinding` server export for the component. */
+  agentBinding?: AgentBindingSpec
+  /** A pre-built `MountScope` (its binding is already registered). */
+  mount?: MountScope
+}
+
+/**
+ * Options for {@link createAgentServer}.
+ *
+ * Auth/scope/rate-limit plugins and `resolveAuth` are forwarded verbatim to
+ * the underlying `createAgentService` — the security gate (404→401→403→429)
+ * lives there and is NOT re-implemented in this package.
+ */
+export interface AgentServerOptions {
+  /** The component to mount + drive. */
+  target: AgentServerTarget
+  /**
+   * jsdom host factory. Server-side mounting needs a DOM `Element`. Inject the
+   * host so this package never hard-imports jsdom at module scope (keeps it an
+   * optional peer dep). When omitted, callers must pass `target.mount`.
+   *
+   * Typical wiring:
+   *   import { JSDOM } from 'jsdom'
+   *   createAgentServer({ ..., createHost: () => new JSDOM().window.document.body })
+   */
+  createHost?: () => Element
+  /** Auth plugin — forwarded to `createAgentService` for `$scope` checks. */
+  authPlugin?: AuthPlugin
+  /** Rate-limit plugin — forwarded to `createAgentService`. */
+  rateLimitPlugin?: RateLimitPlugin
+  /**
+   * Per-request auth resolver — forwarded to `createAgentService.asMiddleware`.
+   * Lets scoped/rate-limited tools be reachable over the bundled HTTP path.
+   */
+  resolveAuth?: AgentServiceOptions['resolveAuth']
+}
+
+// ─── WS capability-bridge contract (T2 → T3) ─────────────────────────────────
+
+/**
+ * Protocol version for the capability bridge. Bumped on any breaking change to
+ * the message shapes below so a stale browser client can refuse to connect.
+ */
+export const BRIDGE_PROTOCOL_VERSION = 1 as const
+
+/**
+ * Server → client. Sent ONLY after `handleToolCall` authorizes an invocation
+ * (i.e. the 404→401→403→429 gate has passed). Carries **no policy info** —
+ * the client receives an opaque action id + args and nothing about scope,
+ * rate-limit, or auth. The browser's opaque-ID dispatcher (T1) maps
+ * `opaqueActionId` → a concrete action on the visible component.
+ *
+ * `opaqueActionId` is `"<tag>/<action>"` for v1. The compiler (T1) is expected
+ * to emit a stable opaque id; until that lands the server forwards the plain
+ * tool name, and the client allowlist is keyed on the same string.
+ */
+export interface BridgeInvokeMessage {
+  type: 'invoke'
+  /** Correlates the eventual `result`/`error`/`snapshot` reply. */
+  callId: string
+  /** Opaque action identifier the client maps to a concrete action. */
+  opaqueActionId: string
+  /** Positional arguments for the action. */
+  args: unknown[]
+}
+
+/**
+ * Client → server. The browser executed the approved invocation; this reports
+ * the action's return value (if any) back so the agent's `tools/call` can
+ * resolve with a real result from the *visible* instance.
+ */
+export interface BridgeResultMessage {
+  type: 'result'
+  callId: string
+  result: unknown
+}
+
+/**
+ * Client → server. The browser failed to execute the invocation (e.g. the
+ * opaque id wasn't in its allowlist, or the action threw). Surfaced to the
+ * agent as an error rather than silently swallowed (failure mode: WS-disconnect
+ * / desync must be loud — plan §"Failure modes").
+ */
+export interface BridgeErrorMessage {
+  type: 'error'
+  callId: string
+  message: string
+}
+
+/**
+ * Client → server (or server → a read-only viewer). A flat path-keyed
+ * `serialize()` snapshot of the driven component's signal state, streamed so
+ * the server (and any attached viewer) can reflect the visible component's
+ * current state. `callId` is present when the snapshot is the direct result of
+ * an invocation; absent for spontaneous (effect-driven) state changes.
+ */
+export interface BridgeSnapshotMessage {
+  type: 'snapshot'
+  callId?: string
+  snapshot: Snapshot
+}
+
+/**
+ * Handshake, client → server, sent once on connect. Lets the server reject a
+ * client speaking an incompatible protocol version.
+ */
+export interface BridgeHelloMessage {
+  type: 'hello'
+  protocol: number
+}
+
+/** Any message a client may send to the server over the bridge. */
+export type BridgeClientMessage =
+  | BridgeHelloMessage
+  | BridgeResultMessage
+  | BridgeErrorMessage
+  | BridgeSnapshotMessage
+
+/** Any message the server may send to a client over the bridge. */
+export type BridgeServerMessage = BridgeInvokeMessage
+
+/**
+ * The minimal duplex transport the bridge needs. A real deployment passes a
+ * `ws` `WebSocket` (or an SSE+POST pair); tests pass an in-memory channel. This
+ * keeps `@aihu/agent-server` transport-agnostic and free of a `ws` dep.
+ */
+export interface BridgeChannel {
+  /** Send one (already-serialized) message frame to the peer. */
+  send(data: string): void
+  /** Register a frame handler. Returns an unsubscribe function. */
+  onMessage(handler: (data: string) => void): () => void
+  /** Register a close handler. Returns an unsubscribe function. */
+  onClose(handler: () => void): () => void
+  /** True while the channel can still deliver frames. */
+  readonly connected: boolean
+}
+
+// ─── createAgentServer handle ────────────────────────────────────────────────
+
+/**
+ * The handle returned by {@link createAgentServer}.
+ */
+export interface AgentServer {
+  /** The underlying agent-service (exposes `handleToolCall`, `asMiddleware`). */
+  readonly service: AgentService
+  /** The `MountScope` of the server-mounted component. */
+  readonly mount: MountScope
+
+  /**
+   * Run a tool call through the full agent-service gate. On authorization, the
+   * dispatch is applied to the server-mounted binding AND, if a browser bridge
+   * is attached, forwarded to it as a {@link BridgeInvokeMessage}.
+   *
+   * Returns the agent-service envelope: `{ result }` on success, or
+   * `{ error, code, jsonrpc }` on a gate rejection (404/401/403/429). The HTTP
+   * code is never mutated here — the gate is the sole policy authority.
+   */
+  callTool(toolName: string, params: unknown, ctx?: RequestContext): Promise<unknown>
+
+  /** Current serialized state of the server-mounted component. */
+  serialize(): Snapshot
+
+  /**
+   * Attach a browser bridge channel. Approved invocations are forwarded to it;
+   * `result`/`error`/`snapshot` frames from it resolve pending `callTool`
+   * promises. Returns a detach function.
+   */
+  attachBridge(channel: BridgeChannel): () => void
+
+  /**
+   * Build the MCP `Server` (stdio-ready) exposing each component action as an
+   * MCP tool backed by `callTool`. Lazily constructed; the SDK is imported only
+   * when this is called. See {@link createComponentMcpServer}.
+   */
+  // (the MCP server factory is a separate export to keep the SDK import lazy)
+
+  /** Tear down: dispose the mount + detach any bridge. */
+  dispose(): void
+}

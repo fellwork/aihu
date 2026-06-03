@@ -1,0 +1,54 @@
+{
+  "name": "@aihu/agent-server",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/agent": "workspace:*",
+    "@aihu/agent-service": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "peerDependencies": {
+    "jsdom": "^25.0.0"
+  },
+  "peerDependenciesMeta": {
+    "jsdom": {
+      "optional": true
+    }
+  },
+  "description": "Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/agent-server"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/agent-server#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

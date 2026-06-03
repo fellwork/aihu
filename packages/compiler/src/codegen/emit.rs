@@ -145,8 +145,18 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         }
         if elide_agent {
             eprintln!("WARNING: @agent block elided — client-only build");
-            // Prepend elision comment to the emitted JS.
-            format!("// [client build] @agent block elided\n{}", base_js)
+            // T1 (go-public): the raw `__agentBinding` (actions + scope/rateLimit)
+            // stays server-only — still fully elided here. But the client must
+            // remain drivable by the capability bridge, so we append a NARROW,
+            // policy-free opaque-ID dispatcher (`__agentDispatcher`). It carries
+            // only opaque-ID → invoker maps; no scope, no rateLimit.
+            let raw_script = unit.source.script.unwrap_or("");
+            let dispatcher = emit_agent_client_dispatcher(tag_name, raw_script);
+            // Prepend elision comment to the emitted JS, append the dispatcher.
+            format!(
+                "// [client build] @agent block elided\n{}\n{}",
+                base_js, dispatcher
+            )
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
             format!("// [client build] $server macro reference elided\n{}", base_js)
@@ -2834,15 +2844,33 @@ fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> 
 /// included in client artifacts. [SECURITY] Amendment 7 §6.11 requires a
 /// `[SECURITY]` compiler warning when `$scope` is declared and `@aihu/auth`
 /// is absent (always-warn in v0.3.0).
-fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+/// Exposed agent members collected from the `@state` collections of an SFC.
+///
+/// This is the single source of truth shared by the SERVER `__agentBinding`
+/// export (`emit_agent_binding_export`) and the CLIENT opaque-ID dispatcher
+/// (`emit_agent_client_dispatcher`). Both walk the exact same `@state` expose
+/// metadata, so the set of action/read/write member names is identical between
+/// the two artifacts — which is what lets the server-side allowlist match the
+/// opaque IDs the client dispatcher exposes.
+///
+/// Only member NAMES are collected here (no policy: no scope, no rateLimit).
+/// Policy lives exclusively on the server export.
+#[derive(Default)]
+struct AgentMembers {
+    actions: Vec<String>,
+    reads: Vec<String>,
+    writes: Vec<String>,
+}
+
+/// Walk the `@state` collections of an SFC and collect the names of members
+/// exposed to agents. Shared by the server `__agentBinding` export and the
+/// client opaque-ID dispatcher so the two stay structurally in sync.
+fn collect_agent_members(raw_script: &str) -> AgentMembers {
     use crate::parser::state_macros::{meta_get, parse_state_macros};
     use crate::types::{CollectionKind, StateMacro};
 
     let macros = parse_state_macros(raw_script).unwrap_or_default();
-
-    let mut action_entries: Vec<String> = Vec::new();
-    let mut read_entries: Vec<String> = Vec::new();
-    let mut write_entries: Vec<String> = Vec::new();
+    let mut members = AgentMembers::default();
 
     for mac in &macros {
         if let StateMacro::Collection { kind, entries } = mac {
@@ -2854,45 +2882,79 @@ fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &st
                 match kind {
                     CollectionKind::Action => {
                         if has_read {
-                            // actions: { name: (args) => name(args) }
-                            action_entries.push(format!(
-                                "    {}: (args) => {}(args)",
-                                entry.name, entry.name
-                            ));
+                            members.actions.push(entry.name.clone());
                         }
                     }
                     CollectionKind::Prop => {
                         if has_read {
-                            // reads: { name: () => name() }  (prop is a signal getter)
-                            read_entries.push(format!(
-                                "    {}: () => {}()",
-                                entry.name, entry.name
-                            ));
+                            members.reads.push(entry.name.clone());
                         }
                         if has_write {
-                            // writes: { name: (v) => { name = v } }
-                            // For prop signals, the setter is ctx.props.<name>[1]
-                            write_entries.push(format!(
-                                "    {}: (v) => {{ {} = v }}",
-                                entry.name, entry.name
-                            ));
+                            members.writes.push(entry.name.clone());
                         }
                     }
                     CollectionKind::Computed => {
                         if has_read {
-                            // reads: { name: () => name() }  (computed is a callable)
-                            read_entries.push(format!(
-                                "    {}: () => {}()",
-                                entry.name, entry.name
-                            ));
+                            members.reads.push(entry.name.clone());
                         }
-                        // Computed entries are read-only; write: true on computed is ignored.
+                        // Computed entries are read-only; write: true is ignored.
                     }
                     _ => {}
                 }
             }
         }
     }
+
+    members
+}
+
+/// FNV-1a 64-bit hash. Deterministic and stable across Rust toolchain versions
+/// (unlike `std::hash::DefaultHasher`, whose output is explicitly NOT guaranteed
+/// stable across releases). We rely on this stability because the opaque action
+/// IDs it produces are matched against a server-side allowlist — the same input
+/// MUST hash identically on every compile, on every machine, forever.
+fn fnv1a_64(input: &str) -> u64 {
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut hash = FNV_OFFSET;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
+
+/// Deterministic, stable opaque ID for an agent-exposed member. Derived from
+/// `tag + ':' + name` so it is (a) unique per (component, member) pair and
+/// (b) identical across every compile of the same SFC. The `a_` prefix keeps
+/// the ID a valid JS identifier (no leading digit) and namespaces it as an
+/// agent action ID. Rendered as a zero-padded 16-char lowercase hex string.
+fn opaque_member_id(tag_name: &str, member_name: &str) -> String {
+    let key = format!("{}:{}", tag_name, member_name);
+    format!("a_{:016x}", fnv1a_64(&key))
+}
+
+fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+    let members = collect_agent_members(raw_script);
+
+    // actions: { name: (args) => name(args) }
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| format!("    {}: (args) => {}(args)", name, name))
+        .collect();
+    // reads: { name: () => name() }  (prop signal getter / computed callable)
+    let read_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| format!("    {}: () => {}()", name, name))
+        .collect();
+    // writes: { name: (v) => { name = v } }  (prop signal setter)
+    let write_entries: Vec<String> = members
+        .writes
+        .iter()
+        .map(|name| format!("    {}: (v) => {{ {} = v }}", name, name))
+        .collect();
 
     // $scope and $rate-limit from the @agent block agent_macros.
     let mut scope_val: Option<String> = None;
@@ -2951,6 +3013,82 @@ fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &st
     format!(
         "export const __agentBinding = {{\n  tag: '{}',\n  actions: {},\n  reads: {},\n  writes: {},\n  scope: {},\n  rateLimit: {},\n}}",
         tag_name, actions_str, reads_str, writes_str, scope_str, rate_limit_str
+    )
+}
+
+/// T1 (go-public eng review) — Emit the client-safe `__agentDispatcher` export.
+///
+/// CONTRAST WITH `emit_agent_binding_export`: the server `__agentBinding` ships
+/// the full capability spec INCLUDING policy (`scope`, `rateLimit`) and is
+/// elided from client builds by the `elide_agent` gate. The client must still
+/// be drivable by an external agent (the capability bridge), but must NOT learn
+/// any policy. So this emits a NARROW dispatcher keyed by deterministic OPAQUE
+/// IDs — `actions` / `reads` / `writes` invoker maps and nothing else. There is
+/// deliberately no `scope` and no `rateLimit` field: policy enforcement stays
+/// server-side, the sole policy-enforcement point.
+///
+/// The opaque IDs are stable hashes of `tag + ':' + memberName` (see
+/// `opaque_member_id`). The server-side allowlist recomputes the same IDs from
+/// the same manifest, so a dispatched opaque ID matches iff the server approved
+/// that exact (component, member). IDs being deterministic across compiles is
+/// the load-bearing invariant — drift would desync the allowlist and 404 every
+/// call (plan §"Failure modes — Opaque-ID drift").
+///
+/// Shape is registerable by the browser bridge (T3): the invoker bodies mirror
+/// the server `__agentBinding` (`(args) => name(args)`, `() => name()`,
+/// `(v) => { name = v }`) so the bridge can adapt it to a `LiveBinding`
+/// (`@aihu/arbor` `mount.ts` `options.agentBinding`) by keying on opaque IDs.
+fn emit_agent_client_dispatcher(tag_name: &str, raw_script: &str) -> String {
+    let members = collect_agent_members(raw_script);
+
+    // actions: { <opaqueId>: (args) => name(args) }
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| {
+            format!(
+                "    {}: (args) => {}(args)",
+                opaque_member_id(tag_name, name),
+                name
+            )
+        })
+        .collect();
+    // reads: { <opaqueId>: () => name() }
+    let read_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| format!("    {}: () => {}()", opaque_member_id(tag_name, name), name))
+        .collect();
+    // writes: { <opaqueId>: (v) => { name = v } }
+    let write_entries: Vec<String> = members
+        .writes
+        .iter()
+        .map(|name| {
+            format!(
+                "    {}: (v) => {{ {} = v }}",
+                opaque_member_id(tag_name, name),
+                name
+            )
+        })
+        .collect();
+
+    let fmt = |entries: &[String]| -> String {
+        if entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n  }}", entries.join(",\n"))
+        }
+    };
+
+    // NOTE: NO scope, NO rateLimit, NO policy metadata of any kind. Policy is
+    // server-only — see `__agentBinding` (server artifact). This export carries
+    // only opaque-ID → invoker maps.
+    format!(
+        "export const __agentDispatcher = {{\n  tag: '{}',\n  actions: {},\n  reads: {},\n  writes: {},\n}}",
+        tag_name,
+        fmt(&action_entries),
+        fmt(&read_entries),
+        fmt(&write_entries)
     )
 }
 

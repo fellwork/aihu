@@ -450,6 +450,22 @@
         "@aihu/agent-service": "workspace:*",
       },
     },
+    "packages/agent-server": {
+      "name": "@aihu/agent-server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/agent-service": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@modelcontextprotocol/sdk": "^1.0.0",
+      },
+      "peerDependencies": {
+        "jsdom": "^25.0.0",
+      },
+      "optionalPeers": [
+        "jsdom",
+      ],
+    },
     "packages/agent-service": {
       "name": "@aihu/agent-service",
       "version": "0.1.3",
@@ -782,6 +798,8 @@
     "@aihu/agent-acp": ["@aihu/agent-acp@workspace:packages/agent-acp"],
 
     "@aihu/agent-readiness": ["@aihu/agent-readiness@workspace:packages/_moved/agent-readiness"],
+
+    "@aihu/agent-server": ["@aihu/agent-server@workspace:packages/agent-server"],
 
     "@aihu/agent-service": ["@aihu/agent-service@workspace:packages/agent-service"],
 
