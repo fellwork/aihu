@@ -13,5 +13,8 @@ export default defineConfig({
   output: {
     dir: 'dist',
     format: 'esm',
+    // Minify the client bundle (docs.js + lazy chunks). It's on the LCP path;
+    // rolldown does not minify by default, and sibling packages all set this.
+    minify: true,
   },
 })
