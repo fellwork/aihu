@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@aihu/agent": ["../../packages/agent/src/index.ts"],
+      "@aihu/agent-server": ["../../packages/agent-server/src/index.ts"],
+      "@aihu/agent-service": ["../../packages/agent-service/src/index.ts"],
+      "@aihu/arbor": ["../../packages/arbor/src/index.ts"],
+      "@aihu/runtime": ["../../packages/runtime/src/index.ts"],
+      "@aihu/signals": ["../../packages/signals/src/index.ts"],
+      "@aihu/compiler": ["../../packages/compiler/js/index.ts"]
+    }
+  },
+  "include": [
+    "globals.d.ts",
+    "server.ts",
+    "src/main.ts",
+    "src/aihu-modules.d.ts",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["tests/__generated__/**", "src/**/*.aihu"]
+}

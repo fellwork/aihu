@@ -1,0 +1,6 @@
+# Compiler output written by the vitest globalSetup (the REAL --target client
+# artifact). Regenerated on every test run; never hand-edited.
+tests/__generated__/
+# Per-SFC sidecars written by the compiler transform.
+src/*.aihu.ts
+dist/

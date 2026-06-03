@@ -518,3 +518,86 @@ input x: string
         "different tags must produce different opaque ids for the same member"
     );
 }
+
+/// T6 (go-public demo) — the CLIENT build injects a PER-INSTANCE
+/// `_registerAgentDispatcher(ctx.element, …)` call INSIDE the setup body, so the
+/// opaque-ID invokers bind to a specific mounted instance's signals (the inert
+/// module-scope export references setup-locals that don't exist at module scope).
+#[test]
+fn client_build_injects_per_instance_dispatcher_registration() {
+    use aihu_compiler::types::BuildTarget;
+    let src = r#"@agent {
+state count: number
+action increment()
+}
+@state {
+  $action: {
+    increment: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div>x</div> }"#;
+    let parsed = sfc::parse(src).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let js = emit(&unit, "tc-card").js;
+
+    // The runtime import gained `_registerAgentDispatcher`.
+    assert!(
+        js.contains("_registerAgentDispatcher"),
+        "client build must import + call _registerAgentDispatcher, got:\n{}",
+        js
+    );
+    // The registration is against the host element (per-instance key).
+    assert!(
+        js.contains("_registerAgentDispatcher(__aihu_ctx__?.element, {"),
+        "registration must key on the host element, got:\n{}",
+        js
+    );
+    // The registration invoker body calls the REAL setup-local closure.
+    assert!(
+        js.contains("(args) => increment(args)"),
+        "registration invoker must call the local action closure, got:\n{}",
+        js
+    );
+    // The registration appears INSIDE setup — i.e. BEFORE the module-scope export.
+    let reg_idx = js.find("_registerAgentDispatcher(__aihu_ctx__").unwrap();
+    let export_idx = js.find("export const __agentDispatcher").unwrap();
+    assert!(
+        reg_idx < export_idx,
+        "registration must be injected inside setup (before the module-scope export)"
+    );
+    // Still NO policy on the wire from the client.
+    assert!(!js.contains("scope:"), "no scope leaked, got:\n{}", js);
+    assert!(!js.contains("rateLimit:"), "no rateLimit leaked, got:\n{}", js);
+}
+
+/// T6 — the per-instance registration uses the SAME stable opaque IDs as the
+/// module-scope export, so the server allowlist matches whichever the browser
+/// bridge reads.
+#[test]
+fn per_instance_registration_uses_same_opaque_ids_as_export() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(dispatcher_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let js = emit(&unit, "weather-card");
+
+    let expected_action_id = {
+        const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = FNV_OFFSET;
+        for b in "weather-card:fetchForecast".as_bytes() {
+            h ^= u64::from(*b);
+            h = h.wrapping_mul(FNV_PRIME);
+        }
+        format!("a_{:016x}", h)
+    };
+    // The opaque id appears at least twice: once in the injected registration
+    // (inside setup) and once in the module-scope export.
+    assert!(
+        js.js.matches(&expected_action_id).count() >= 2,
+        "opaque id {} must appear in BOTH the per-instance registration and the export, got:\n{}",
+        expected_action_id,
+        js.js
+    );
+}

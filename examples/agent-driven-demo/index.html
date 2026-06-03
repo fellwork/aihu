@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent-Driven Demo — aihu</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+        color: #1a1a1a;
+      }
+      .lede {
+        color: #555;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 2rem;
+      }
+      code {
+        font-family: ui-monospace, monospace;
+        background: #f3f3f3;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Agent-driven, durable component</h1>
+    <p class="lede">
+      The <code>&lt;task-list&gt;</code> below is a real aihu custom element with
+      durable signal state. An external agent reads its <code>@agent</code>
+      metadata and drives <em>this exact visible instance</em> over a WebSocket —
+      gated server-side, executed here in the browser. Drive it with:
+      <br />
+      <code
+        >curl -XPOST localhost:5208/agent/call -H 'content-type: application/json'
+        -d '{"tool":"task-list/addTask","params":["Write the launch post"]}'</code
+      >
+    </p>
+
+    <task-list></task-list>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

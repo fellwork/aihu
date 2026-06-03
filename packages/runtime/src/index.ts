@@ -5,6 +5,11 @@
 // only consumed by SFCs that use <$focusTrap> / $announce / sr-only / skip-link
 // lowerings.
 export { _ensureA11yStyles, announce, createFocusTrap } from './a11y.ts'
+// T6 (go-public demo) — per-instance agent dispatcher registry. Closes the
+// capability-bridge Step-0 gap: the compiler injects `_registerAgentDispatcher`
+// inside setup; the browser bridge reads it via `_takeAgentDispatcher`.
+export type { InstanceAgentDispatcher } from './agent-dispatch.ts'
+export { _registerAgentDispatcher, _takeAgentDispatcher } from './agent-dispatch.ts'
 export {
   _hmrReplace,
   _onAdopt as onAdopt,
