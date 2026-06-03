@@ -37,7 +37,7 @@ const THRESHOLDS = {
 } as const
 
 const CWV = {
-  lcp: 2500, // ms
+  lcp: 2100, // ms — tightened from 2500 after the prerender overhaul (CI ~1700ms)
   cls: 0.1, // unitless
 } as const
 
@@ -90,18 +90,14 @@ try {
 }
 console.log('Server ready.')
 
-// ── 3. Run Lighthouse against each URL (best-of-N) ──────────────────────────
+// ── 3. Run Lighthouse against each URL (single run) ─────────────────────────
 //
-// Lighthouse scores drift run-to-run (the docs SPA's LCP straddles the 2500ms
-// gate because web fonts + highlight.js load from third-party CDNs whose
-// latency jitters). A single run flakes the gate on unrelated PRs. Until the
-// docs site is prerendered + dogfoods css-engine/kindly-note (which removes the
-// third-party critical-path resources and lets LCP clear the bar with margin —
-// see docs/plans/2026-05-29-docs-dogfood-overhaul.md), take the BEST of up to
-// ATTEMPTS runs: early-exit on the first run that passes every threshold, else
-// assert against the best run (highest performance score, ties broken by LCP).
-
-const ATTEMPTS = 3
+// The best-of-3 stopgap (retired here) absorbed the run-to-run LCP jitter of
+// the old client-rendered docs SPA (third-party fonts + highlight.js on the
+// critical path). After the prerender overhaul + self-hosted fonts + minified
+// bundle (docs/plans/2026-05-29-docs-dogfood-overhaul.md), /docs/introduction
+// measures perf ~99 / LCP ~1700ms in CI — well clear of the gate — so a single
+// run is stable and a tighter LCP threshold (2100ms) catches real regressions.
 
 interface Measurement {
   scores: Record<string, number>
@@ -159,51 +155,22 @@ const allResults: Record<string, unknown>[] = []
 const failures: string[] = []
 
 for (const url of URLS) {
-  console.log(`\nRunning Lighthouse: ${url} (best of ${ATTEMPTS})`)
+  console.log(`\nRunning Lighthouse: ${url}`)
 
-  let best: Measurement | null = null
-  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    const m = await measure(url)
-    if (!m) {
-      console.log(`  attempt ${attempt}: Lighthouse returned no LHR`)
-      continue
-    }
-    console.log(
-      `  attempt ${attempt}: performance=${m.scores.performance?.toFixed(0)}, accessibility=${m.scores.accessibility?.toFixed(0)}, best-practices=${m.scores['best-practices']?.toFixed(0)}, seo=${m.scores.seo?.toFixed(0)}, LCP=${m.lcp.toFixed(0)}ms, CLS=${m.cls.toFixed(3)}`,
-    )
-    // Keep the best run: highest performance score, ties broken by lower LCP.
-    if (
-      !best ||
-      m.scores.performance > best.scores.performance ||
-      (m.scores.performance === best.scores.performance && m.lcp < best.lcp)
-    ) {
-      best = m
-    }
-    // Early-exit as soon as a run clears every threshold.
-    if (violations(m).length === 0) {
-      console.log(`  ✓ attempt ${attempt} passed all thresholds — stopping early`)
-      break
-    }
-  }
-
-  if (!best) {
-    failures.push(`${url}: Lighthouse returned no LHR across ${ATTEMPTS} attempts`)
+  const m = await measure(url)
+  if (!m) {
+    failures.push(`${url}: Lighthouse returned no LHR`)
     continue
   }
 
   console.log(
-    `  Best: performance=${best.scores.performance?.toFixed(0)}, accessibility=${best.scores.accessibility?.toFixed(0)}, best-practices=${best.scores['best-practices']?.toFixed(0)}, seo=${best.scores.seo?.toFixed(0)}`,
+    `  performance=${m.scores.performance?.toFixed(0)}, accessibility=${m.scores.accessibility?.toFixed(0)}, best-practices=${m.scores['best-practices']?.toFixed(0)}, seo=${m.scores.seo?.toFixed(0)}`,
   )
-  console.log(`  CWV:  LCP=${best.lcp.toFixed(0)}ms, CLS=${best.cls.toFixed(3)}`)
+  console.log(`  CWV:  LCP=${m.lcp.toFixed(0)}ms, CLS=${m.cls.toFixed(3)}`)
 
-  allResults.push({
-    url,
-    scores: best.scores,
-    cwv: { lcp: best.lcp, cls: best.cls },
-    lhr: best.finalUrl,
-  })
+  allResults.push({ url, scores: m.scores, cwv: { lcp: m.lcp, cls: m.cls }, lhr: m.finalUrl })
 
-  for (const v of violations(best)) failures.push(`${url}: ${v}`)
+  for (const v of violations(m)) failures.push(`${url}: ${v}`)
 }
 
 // ── 7. Write full report ──────────────────────────────────────────────────────

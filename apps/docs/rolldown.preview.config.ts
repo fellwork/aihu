@@ -6,5 +6,6 @@ export default defineConfig({
     format: 'iife',
     name: '__aihu',
     file: 'dist/aihu-preview-bundle.js',
+    minify: true,
   },
 })
