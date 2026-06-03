@@ -68,6 +68,8 @@ export default defineConfig({
       '@aihu/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url)
         .pathname,
+      '@aihu/agent-server': new URL('./packages/agent-server/src/index.ts', import.meta.url)
+        .pathname,
       '@aihu/agent-a2a': new URL('./packages/agent-a2a/src/index.ts', import.meta.url).pathname,
       '@aihu/plugin': new URL('./packages/plugin/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-acp': new URL('./packages/agent-acp/src/index.ts', import.meta.url).pathname,
