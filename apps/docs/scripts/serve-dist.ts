@@ -75,9 +75,24 @@ Bun.serve({
   port: PORT,
   async fetch(req) {
     const { pathname } = new URL(req.url)
-    const fp = resolveFile(pathname) ?? SPA_SHELL
-    return new Response(Bun.file(fp), {
-      headers: { 'content-type': MIME[extname(fp)] ?? 'application/octet-stream' },
+    const fp = resolveFile(pathname)
+    if (fp) {
+      return new Response(Bun.file(fp), {
+        headers: { 'content-type': MIME[extname(fp)] ?? 'application/octet-stream' },
+      })
+    }
+    // CF Pages ASSETS only SPA-falls-back EXTENSIONLESS navigation routes. A
+    // missing path WITH a file extension (e.g. /robots.txt, /x.js) is a 404, NOT
+    // the SPA shell — returning HTML for /robots.txt fails Lighthouse's SEO
+    // "robots.txt is valid" audit (docks the SEO score below the 95 gate).
+    if (extname(pathname)) {
+      return new Response('Not Found', {
+        status: 404,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      })
+    }
+    return new Response(Bun.file(SPA_SHELL), {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   },
 })
