@@ -323,3 +323,198 @@ input name: string
     assert!(result.js.contains("scope: undefined"), "no scope");
     assert!(result.js.contains("rateLimit: undefined"), "no rateLimit");
 }
+
+// ─── T1 (go-public) — client-safe opaque-ID dispatcher ───────────────────────
+
+/// Source with exposed action + readable/writable prop + readable computed.
+fn dispatcher_source() -> &'static str {
+    r#"@agent {
+input location: string
+$scope authenticated
+$rate-limit 100
+}
+@state {
+  $prop: {
+    location: { default: 'NYC', expose: { read: true, write: true } },
+  }
+  $computed: {
+    forecast: { expose: { read: true }, value: () => 'sunny' },
+  }
+  $action: {
+    fetchForecast: { expose: { read: true }, handler: () => fetch('/api/weather') },
+  }
+}
+@template { <div>{{ location }}</div> }"#
+}
+
+/// T1-a: CLIENT build emits `__agentDispatcher` with opaque-ID keyed maps.
+#[test]
+fn client_dispatcher_emitted_with_opaque_ids() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(dispatcher_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "weather-card");
+
+    // The narrow client dispatcher IS present.
+    assert!(
+        result.js.contains("export const __agentDispatcher"),
+        "client build must contain __agentDispatcher, got:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("tag: 'weather-card'"),
+        "dispatcher must carry its tag"
+    );
+    // Opaque IDs are `a_` + 16 hex chars; the raw member names must NOT appear
+    // as object KEYS (they only appear inside invoker bodies that call them).
+    // We assert the opaque-id prefix shows up for each of action/read/write.
+    let opaque_count = result.js.matches("    a_").count();
+    assert!(
+        opaque_count >= 3,
+        "expected >=3 opaque-id entries (action+read+write), got {} in:\n{}",
+        opaque_count,
+        result.js
+    );
+}
+
+/// T1-b: CLIENT dispatcher contains NO policy metadata (scope/rateLimit).
+#[test]
+fn client_dispatcher_has_no_policy() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(dispatcher_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "weather-card");
+
+    assert!(
+        !result.js.contains("scope"),
+        "client build must NOT leak scope, got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("rateLimit"),
+        "client build must NOT leak rateLimit, got:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("authenticated"),
+        "client build must NOT leak the scope value 'authenticated', got:\n{}",
+        result.js
+    );
+}
+
+/// T1-c: raw `__agentBinding` remains client-elided (existing gate intact).
+#[test]
+fn client_dispatcher_does_not_reintroduce_raw_binding() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(dispatcher_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "weather-card");
+
+    assert!(
+        !result.js.contains("__agentBinding"),
+        "client build must still NOT contain raw __agentBinding, got:\n{}",
+        result.js
+    );
+}
+
+/// T1-d: SERVER build is unchanged — raw binding present, NO dispatcher.
+#[test]
+fn server_build_keeps_raw_binding_and_omits_dispatcher() {
+    let parsed = sfc::parse(dispatcher_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "weather-card");
+
+    assert!(
+        result.js.contains("export const __agentBinding"),
+        "server build keeps raw __agentBinding"
+    );
+    assert!(
+        result.js.contains("scope: 'authenticated'"),
+        "server binding still carries policy"
+    );
+    assert!(
+        !result.js.contains("__agentDispatcher"),
+        "server build must NOT emit the client dispatcher"
+    );
+}
+
+/// T1-e: opaque IDs are DETERMINISTIC — the SAME input yields the SAME IDs
+/// across independent compiles. This is the load-bearing allowlist invariant.
+#[test]
+fn opaque_ids_are_stable_across_compiles() {
+    use aihu_compiler::types::BuildTarget;
+
+    let emit_client = || {
+        let parsed = sfc::parse(dispatcher_source()).unwrap();
+        let mut unit = compile_full(&parsed).unwrap();
+        unit.target = BuildTarget::Client;
+        emit(&unit, "weather-card").js
+    };
+
+    let first = emit_client();
+    let second = emit_client();
+    assert_eq!(
+        first, second,
+        "two independent compiles must produce byte-identical client output"
+    );
+
+    // Extract the dispatcher block and assert a known, fixed opaque id appears.
+    // FNV-1a 64 of "weather-card:fetchForecast" is fully determined; if the
+    // hashing scheme ever changes this literal must be updated deliberately.
+    let expected_action_id = {
+        // recompute via the same algorithm to avoid hard-coding a brittle hex
+        // literal while still proving cross-run stability of the value.
+        const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = FNV_OFFSET;
+        for b in "weather-card:fetchForecast".as_bytes() {
+            h ^= u64::from(*b);
+            h = h.wrapping_mul(FNV_PRIME);
+        }
+        format!("a_{:016x}", h)
+    };
+    assert!(
+        first.contains(&expected_action_id),
+        "client dispatcher must key the action under its stable opaque id {}, got:\n{}",
+        expected_action_id,
+        first
+    );
+}
+
+/// T1-f: a different tag with the SAME member name yields a DIFFERENT opaque id
+/// (IDs are namespaced by tag, preventing cross-component collisions).
+#[test]
+fn opaque_ids_namespaced_by_tag() {
+    use aihu_compiler::types::BuildTarget;
+    let src = r#"@agent {
+input x: string
+}
+@state {
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div>x</div> }"#;
+
+    let emit_for = |tag: &str| {
+        let parsed = sfc::parse(src).unwrap();
+        let mut unit = compile_full(&parsed).unwrap();
+        unit.target = BuildTarget::Client;
+        emit(&unit, tag).js
+    };
+
+    let a = emit_for("alpha-card");
+    let b = emit_for("beta-card");
+
+    // Same member "go", different tag → different opaque id; so the dispatcher
+    // bodies differ. (Both still call the local `go(args)`.)
+    assert!(a.contains("export const __agentDispatcher"));
+    assert!(b.contains("export const __agentDispatcher"));
+    assert_ne!(
+        a, b,
+        "different tags must produce different opaque ids for the same member"
+    );
+}

@@ -2,7 +2,8 @@
  * Lighthouse quality gate runner — aihu docs site.
  * Usage: bun scripts/lighthouse.ts
  *
- * Serves the pre-built apps/docs/dist via `wrangler pages dev` and runs
+ * Serves the pre-built apps/docs/dist via a deterministic static server
+ * (apps/docs/scripts/serve-dist.ts — not wrangler; see issue #314) and runs
  * Lighthouse against the docs introduction page, asserting 95+ on
  * performance / accessibility / best-practices / SEO plus Core Web Vitals.
  * Writes results to scripts/lighthouse-results.json, exits non-zero on
@@ -48,19 +49,23 @@ if (!existsSync(DIST_DIR)) {
   process.exit(1)
 }
 
-// ── 1. Start the docs static server (wrangler pages dev) ────────────────────
+// ── 1. Start the docs static server ─────────────────────────────────────────
+//
+// A deterministic Bun static server (mirrors CF Pages ASSETS: dir-index + SPA
+// fallback) replaces `wrangler pages dev`, which would not start reliably on CI
+// runners (compat-date drift past workerd's max + bunx cold-download) — see
+// apps/docs/scripts/serve-dist.ts + issue #314. Serving the prerendered dist/
+// statically is faithful for the perf measurement AND removes workerd startup
+// variance from the number.
 
-const server = Bun.spawn(
-  ['bunx', 'wrangler', 'pages', 'dev', DIST_DIR, '--port', String(PORT), '--ip', '127.0.0.1'],
-  {
-    cwd: process.cwd(),
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: { ...process.env, CI: '1' },
-  },
-)
+const server = Bun.spawn(['bun', join('apps', 'docs', 'scripts', 'serve-dist.ts')], {
+  cwd: process.cwd(),
+  stdout: 'pipe',
+  stderr: 'pipe',
+  env: { ...process.env, PORT: String(PORT), DIST_DIR },
+})
 
-// ── 2. Poll until server is ready (up to 60 s — wrangler cold start) ─────────
+// ── 2. Poll until server is ready ────────────────────────────────────────────
 
 async function waitForServer(url: string, timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
