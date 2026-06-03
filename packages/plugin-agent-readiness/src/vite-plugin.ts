@@ -1,3 +1,4 @@
+import { getAllAgentMetadata } from '@aihu/agent'
 import type { RouteHandler } from '@aihu/server'
 import { json, notFound } from '@aihu/server'
 import { generateA2aCard } from './a2a-card.ts'
@@ -50,13 +51,16 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   readonly sitemapXml: RouteHandler
 } {
   const llmsTxt: RouteHandler = (_req) => {
+    // Snapshot the component registry at request/build time, consistent with
+    // how the rest of the config is read. Zero components → omitted section.
+    const components = getAllAgentMetadata()
     const txt = generateLlmsTxt({
       name: config.name,
       sections: config.llmsSections ?? [],
+      components,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
-    // TODO: add Components section once @aihu/agent exports getAllAgentMetadata()
     return new Response(txt, {
       status: 200,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -64,9 +68,11 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   }
 
   const llmsFullTxt: RouteHandler = (_req) => {
+    const components = getAllAgentMetadata()
     const txt = generateLlmsFullTxt({
       name: config.name,
       sections: config.llmsSections ?? [],
+      components,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })

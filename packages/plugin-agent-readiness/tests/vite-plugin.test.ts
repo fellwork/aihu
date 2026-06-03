@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { registerAgentMetadata } from '@aihu/agent'
+import { afterEach, describe, expect, it } from 'vitest'
+// `@aihu/agent` aliases to ../../agent/src/index.ts, which re-exports the same
+// registry module — this relative import resolves to that exact module
+// instance, so the registry Map is shared and the reset is effective.
+import { __resetRegistryForTesting } from '../../agent/src/registry.ts'
 import { createAgentReadinessRoutes, viteAgentReadinessIntegration } from '../src/index.ts'
 
 describe('@aihu-plugin/agent-readiness createAgentReadinessRoutes', () => {
@@ -11,6 +16,12 @@ describe('@aihu-plugin/agent-readiness createAgentReadinessRoutes', () => {
       { title: 'Docs', links: [{ title: 'API', url: '/api', description: 'API reference' }] },
     ],
   }
+
+  // Registry is module-global; reset after each test so the Components-section
+  // cases don't leak into the empty-registry assertions.
+  afterEach(() => {
+    __resetRegistryForTesting()
+  })
 
   it('llmsTxt handler returns 200 text/plain with valid llms.txt content', async () => {
     const routes = createAgentReadinessRoutes(config)
@@ -33,6 +44,32 @@ describe('@aihu-plugin/agent-readiness createAgentReadinessRoutes', () => {
     expect(res.status).toBe(200)
     const body = await res.text()
     expect(body).toContain('# Test App')
+  })
+
+  it('llmsTxt handler renders a Components section from the live agent registry', async () => {
+    registerAgentMetadata({
+      tag: 'x-card',
+      describes: 'A flippable card.',
+      actions: { flip: { returns: { face: { type: 'enum', values: ['front', 'back'] } } } },
+      state: { face: 'currently visible face' },
+    })
+    const routes = createAgentReadinessRoutes(config)
+    const req = new Request('https://test.example.com/llms.txt')
+    const ctx = { params: {}, url: new URL('https://test.example.com/llms.txt') }
+    const body = await (await routes.llmsTxt(req, ctx)).text()
+    expect(body).toContain('## Components')
+    expect(body).toContain('### x-card')
+    expect(body).toContain('A flippable card.')
+    expect(body).toContain('- `flip()` → { face: enum }')
+    expect(body).toContain('- `face`: currently visible face')
+  })
+
+  it('llmsTxt handler omits the Components section when the registry is empty', async () => {
+    const routes = createAgentReadinessRoutes(config)
+    const req = new Request('https://test.example.com/llms.txt')
+    const ctx = { params: {}, url: new URL('https://test.example.com/llms.txt') }
+    const body = await (await routes.llmsTxt(req, ctx)).text()
+    expect(body).not.toContain('## Components')
   })
 
   it('mcpServerCard handler returns 200 JSON matching McpServerCard shape', async () => {
