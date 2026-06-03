@@ -258,7 +258,17 @@ console.log('\nBundling Worker with rolldown…')
 await mkdir(join(__dir, 'dist'), { recursive: true })
 execFileSync(
   process.execPath,
-  ['x', 'rolldown', '--input', 'src/worker.ts', '--format', 'esm', '--file', 'dist/_worker.js'],
+  [
+    'x',
+    'rolldown',
+    '--input',
+    'src/worker.ts',
+    '--format',
+    'esm',
+    '--file',
+    'dist/_worker.js',
+    '--minify',
+  ],
   { cwd: __dir, stdio: 'inherit' },
 )
 console.log('✓ Worker build complete → dist/_worker.js')
