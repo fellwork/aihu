@@ -102,20 +102,28 @@ const TASK_LIST = `@state {
 }
 
 @style {
-  .tl { max-width: 32rem; margin: 0 auto; font-family: system-ui, sans-serif; color: #1a1a1a; }
-  .tl-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .85rem; }
-  .tl-title { margin: 0; font-size: 1.3rem; }
-  .tl-count { background: #f1d9d3; color: #8c3a26; border-radius: 999px; padding: .1rem .6rem; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .tl-add { display: flex; gap: .45rem; margin-bottom: .85rem; }
-  .tl-input { flex: 1; padding: .5rem .65rem; border: 1px solid #ddd; border-radius: 7px; font-size: .95rem; }
-  .tl-btn { padding: .5rem 1rem; border: 0; border-radius: 7px; background: #c8543a; color: #fff; cursor: pointer; font-weight: 600; }
-  .tl-items { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; }
-  .tl-item { display: flex; align-items: center; gap: .65rem; padding: .55rem .75rem; background: #fafafa; border: 1px solid #ececec; border-radius: 7px; }
-  .tl-check { width: 1.35rem; height: 1.35rem; border: 1.5px solid #c9c9c9; border-radius: 5px; background: #fff; cursor: pointer; flex: 0 0 auto; position: relative; }
+  .tl { max-width: 30rem; margin: 0 auto; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #1a1d24; }
+  .tl-head { display: flex; align-items: center; gap: .55rem; margin-bottom: 1.05rem; }
+  .tl-title { margin: 0; font-size: 1.35rem; font-weight: 650; letter-spacing: -.01em; }
+  .tl-count { background: rgba(200,84,58,.12); color: #b14a32; border-radius: 999px; padding: .15rem .62rem; font-size: .76rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.6; }
+  .tl-add { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  .tl-input { flex: 1; padding: .64rem .82rem; border: 1px solid #e6e0d6; border-radius: 10px; font-size: .95rem; background: #fffdfa; color: #1a1d24; transition: border-color .15s, box-shadow .15s; }
+  .tl-input:focus { outline: 0; border-color: #c8543a; box-shadow: 0 0 0 3px rgba(200,84,58,.14); }
+  .tl-input::placeholder { color: #a7a097; }
+  .tl-btn { padding: .64rem 1.1rem; border: 0; border-radius: 10px; background: #c8543a; color: #fff; cursor: pointer; font-weight: 600; font-size: .92rem; box-shadow: 0 2px 8px -3px rgba(200,84,58,.6); transition: transform .12s, box-shadow .2s; }
+  .tl-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 14px -4px rgba(200,84,58,.55); }
+  .tl-btn:active { transform: translateY(0); }
+  .tl-items { list-style: none; padding: 0; margin: 0; display: grid; gap: .55rem; }
+  .tl-item { display: flex; align-items: center; gap: .75rem; padding: .72rem .85rem; background: #fffdfa; border: 1px solid #ece6dc; border-radius: 11px; box-shadow: 0 1px 2px rgba(26,29,36,.03); animation: tl-in .42s cubic-bezier(.2,.7,.2,1) both; transition: border-color .15s; }
+  .tl-item:hover { border-color: #ddd2c2; }
+  @keyframes tl-in { from { opacity: 0; transform: translateY(7px) scale(.99); } to { opacity: 1; transform: none; } }
+  .tl-check { width: 1.4rem; height: 1.4rem; border: 1.5px solid #d6cfc3; border-radius: 6px; background: #fff; cursor: pointer; flex: 0 0 auto; position: relative; transition: background .15s, border-color .15s; }
+  .tl-check:hover { border-color: #c8543a; }
   .tl-item[data-done="true"] .tl-check { background: #c8543a; border-color: #c8543a; }
-  .tl-item[data-done="true"] .tl-check::after { content: "✓"; color: #fff; font-size: .85rem; position: absolute; inset: 0; display: grid; place-items: center; }
-  .tl-item[data-done="true"] .tl-text { text-decoration: line-through; color: #999; }
-  .tl-text { font-size: .98rem; }
+  .tl-item[data-done="true"] .tl-check::after { content: "✓"; color: #fff; font-size: .9rem; font-weight: 700; position: absolute; inset: 0; display: grid; place-items: center; }
+  .tl-item[data-done="true"] .tl-text { text-decoration: line-through; color: #a7a097; }
+  .tl-text { font-size: 1rem; color: #2b2e35; }
+  @media (prefers-reduced-motion: reduce) { .tl-item { animation: none; } }
 }
 
 @agent {
