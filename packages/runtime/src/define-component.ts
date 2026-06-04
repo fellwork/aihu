@@ -1,4 +1,5 @@
 import type { signal as SignalFactory } from '@aihu/signals'
+import { _takeAgentServerBinding } from './agent-dispatch.ts'
 import type {
   ComponentOptions,
   MountFn,
@@ -178,7 +179,12 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           const tree = this._build()
           const lc = this[LC_SYM]!
           const host = this.shadowRoot ?? this
-          const scope = _mount(tree!, host)
+          // Server-build @agent components register a full per-instance binding
+          // in setup (keyed by `this`). Forward it to mount() so the LiveBinding
+          // lands in arbor's componentInstanceRegistry — the headless gate path.
+          // Client builds never register one (undefined → mount() no-ops it).
+          const ab = _takeAgentServerBinding(this)
+          const scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
           this[S] = scope
           _scopes.set(this, scope)
           if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
@@ -388,7 +394,11 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         const tree = this._build()
         const lc = this[LC_SYM]!
         const host = this.shadowRoot ?? this
-        const scope = _mount?.(tree!, host)
+        // See function-form connectedCallback: forward the server @agent binding
+        // (registered in setup, keyed by `this`) to mount() so the headless gate
+        // sees a LiveBinding. Client builds never register one.
+        const ab = _takeAgentServerBinding(this)
+        const scope = ab ? _mount?.(tree!, host, { agentBinding: ab }) : _mount?.(tree!, host)
         this[S] = scope
         _scopes.set(this, scope)
         if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)

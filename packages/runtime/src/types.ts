@@ -9,7 +9,7 @@
  * type-only imports do not count.
  */
 
-import type { Branch, Leaf, MountScope } from '@aihu/arbor'
+import type { Branch, Leaf, MountOptions, MountScope } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'
 
 /**
@@ -64,7 +64,11 @@ export type Setup = (ctx: SetupContext) => Branch | Leaf
  *
  * @internal
  */
-export type MountFn = (node: Branch | Leaf, host: ShadowRoot | Element) => MountScope
+export type MountFn = (
+  node: Branch | Leaf,
+  host: ShadowRoot | Element,
+  options?: MountOptions,
+) => MountScope
 
 /**
  * Internal — NOT re-exported from `index.ts` (spec §1.3, Decision 2B).
