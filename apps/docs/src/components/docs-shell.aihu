@@ -66,7 +66,7 @@
   const pageUrl = (id) => (id === 'introduction' ? '/index.html' : `/${id}/index.html`)
 
   const fetchPage = (id) => {
-    if (id === 'playground') return // playground is a thin shell — no body fetch
+    if (id === 'playground' || id === 'demo') return // thin interactive shells — no body fetch
     if (htmlCache()[id] !== undefined) return // already cached / seeded
     if (typeof fetch === 'undefined') return
     fetch(pageUrl(id))
@@ -98,6 +98,7 @@
         <li><a class="nav-link" href="#introduction" $class:active={activePage() === 'introduction'}>Introduction</a></li>
         <li><a class="nav-link" href="#installation" $class:active={activePage() === 'installation'}>Installation</a></li>
         <li><a class="nav-link" href="#getting-started" $class:active={activePage() === 'getting-started'}>Getting Started</a></li>
+        <li><a class="nav-link" href="#demo" $class:active={activePage() === 'demo'}>Demo</a></li>
         <li><a class="nav-link" href="#playground" $class:active={activePage() === 'playground'}>Playground</a></li>
       </ul>
 
@@ -136,8 +137,13 @@
 
     </nav>
     <main class="docs-content">
-      <div class="doc-page-wrapper" $class:is-active={activePage() !== 'playground'}>
+      <div class="doc-page-wrapper" $class:is-active={activePage() !== 'playground' && activePage() !== 'demo'}>
         <article>{@html activeHtml()}</article>
+      </div>
+      <div class="demo-page" $class:is-active={activePage() === 'demo'}>
+        <h1>Agent-first, human-served</h1>
+        <p class="demo-intro">A real, in-browser-compiled <code>.aihu</code> component on the stage. Use it yourself — or hand it to an agent. The agent invokes the component’s own <code>@agent</code> actions on the <strong>same live instance</strong> over a postMessage capability bridge, so what you see is what the agent drives.</p>
+        <agent-stage></agent-stage>
       </div>
       <div class="playground-page" $class:is-active={activePage() === 'playground'}>
         <h1>Playground</h1>
@@ -255,7 +261,7 @@
  * @aihu-plugin/kindly-note bakes kn-* spans into <pre><code> at BUILD TIME
  * (see apps/docs/build.ts). Those spans render inside THIS component's SHADOW
  * DOM, so global style.css cannot reach them — the palette MUST live here.
- * Selectors are flat (the emitter does not wrap output in a `.kn` root) and
+ * Selectors are flat (the emitter does not wrap output in a .kn root) and
  * keyed off the warm brand colors that previously lived in style.css's hljs
  * block. Only TypeScript/JSON fences carry kn-* spans today (those lang packs
  * exist on the registry); bash/css/html fences render as uncolored escaped text
@@ -330,13 +336,41 @@
   display: block;
 }
 
-.playground-page {
+.playground-page,
+.demo-page {
   display: none;
   width: 100%;
 }
 
-.playground-page.is-active {
+.playground-page.is-active,
+.demo-page.is-active {
   display: block;
+}
+
+.demo-page h1 {
+  margin-top: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.demo-page .demo-intro {
+  margin: 0 0 1.75rem;
+  color: var(--muted);
+  line-height: 1.75;
+  max-width: 70ch;
+}
+
+.demo-page .demo-intro code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--accent);
 }
 
 .playground-page h1 {

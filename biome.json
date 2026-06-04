@@ -20,7 +20,8 @@
       "!examples/**/*.css",
       "!bench/compiler-conformance",
       "!packages/cli/tests/legacy-snapshot.golden",
-      "!brand"
+      "!brand",
+      "!apps/docs/vendor"
     ]
   },
   "formatter": {

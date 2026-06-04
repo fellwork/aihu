@@ -46,6 +46,35 @@ pub fn wasm_compile(source: &str) -> Result<JsValue, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("{:?}", e)))
 }
 
+/// Client-target compile: identical to `wasm_compile` but emits the
+/// browser bundle (`BuildTarget::Client`). The difference that matters for the
+/// docs agent-drive stage: a `@agent` component compiled here gets the
+/// policy-free `__agentDispatcher` AND the per-instance
+/// `_registerAgentDispatcher(ctx.element, …)` wiring injected into the setup
+/// body — so a mounted instance can be driven over the capability bridge
+/// (`@aihu/runtime` `_takeAgentDispatcher`). The server `__agentBinding`
+/// (scope/rateLimit policy) is elided. Mirrors the native CLI's
+/// `--target client`.
+#[wasm_bindgen]
+pub fn wasm_compile_client(source: &str) -> Result<JsValue, JsValue> {
+    let parsed = crate::compile(source).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+    let unit = crate::compile_full_with_target(&parsed, crate::BuildTarget::Client)
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+    let tag_name = unit
+        .source
+        .meta
+        .name
+        .clone()
+        .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+        .unwrap_or_else(|| "aihu-component".to_string());
+
+    let result = crate::emit(&unit, &tag_name);
+
+    serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&format!("{:?}", e)))
+}
+
 /// Diagnostic helper exposed to the playground UI: returns the build
 /// version string of the compiler at compile time.
 #[wasm_bindgen]

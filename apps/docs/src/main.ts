@@ -15,6 +15,12 @@ import './components/docs-shell.aihu'
 // 1 MB budget (Directive 1 §3).
 import '../playground/playground-embed.ts'
 
+// Stage-first agent-drive demo. Self-registers as <agent-stage>. Reuses the
+// same lazy CodeMirror + WASM chunks as <playground-embed>; the live component
+// is the hero on a roomy stage and an in-page agent drives it over the
+// postMessage capability bridge (see playground/agent-stage.ts).
+import '../playground/agent-stage.ts'
+
 // Handle hash-based routing on first load
 const hash = window.location.hash.slice(1)
 if (hash) {

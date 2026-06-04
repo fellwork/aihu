@@ -4,8 +4,10 @@
 // wire the runtime before executing each compiled component.
 export { branch, each, leaf, mount, slot, when } from '@aihu/arbor'
 export {
+  _registerAgentDispatcher,
   _setMount,
   _setSignal,
+  _takeAgentDispatcher,
   defineComponent,
   defineElement,
   onAdopt,

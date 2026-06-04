@@ -27,6 +27,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,19 +58,43 @@ const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, 'src/content/docs')
 const wasmFetcher = join(__dir, '../../scripts/fetch-wasm-bundle.ts')
 const wasmOutDir = join(__dir, 'dist/wasm')
+const vendorWasmDir = join(__dir, 'vendor/wasm')
 
-// ── 0. Fetch the WASM playground bundle ──────────────────────────
+// ── 0. Provision the WASM playground bundle ──────────────────────
+//
+// The agent-drive stage compiles `.aihu` source CLIENT-SIDE and needs the
+// CURRENT compiler — specifically the `wasm_compile_client` export (per-instance
+// `_registerAgentDispatcher` wiring the postMessage bridge reads after mount) and
+// the modern template grammar. The `releases/latest` WASM asset can lag the repo
+// (it shipped a much older v0 grammar that rejects member-access interpolation +
+// `$key`), so we PREFER a committed `vendor/wasm/` bundle built from THIS repo's
+// compiler when present, and only fall back to the network fetch otherwise.
 
-console.log('Fetching WASM playground bundle…')
-try {
-  execFileSync(process.execPath, [wasmFetcher, wasmOutDir], {
-    cwd: __dir,
-    stdio: 'inherit',
-  })
-} catch (err) {
-  // Soft-fail: prebuild prints its own diagnostics. Build continues
-  // and the playground renders the runtime fallback.
-  console.warn(`WASM bundle fetch failed: ${(err as Error).message}`)
+const vendorWasm = join(vendorWasmDir, 'aihu_compiler_bg.wasm')
+if (existsSync(vendorWasm)) {
+  console.log('Using vendored WASM playground bundle (vendor/wasm/)…')
+  await mkdir(wasmOutDir, { recursive: true })
+  for (const f of [
+    'aihu_compiler.js',
+    'aihu_compiler_bg.wasm',
+    'aihu_compiler.d.ts',
+    'aihu_compiler_bg.wasm.d.ts',
+  ]) {
+    const src = join(vendorWasmDir, f)
+    if (existsSync(src)) await copyFile(src, join(wasmOutDir, f))
+  }
+} else {
+  console.log('Fetching WASM playground bundle…')
+  try {
+    execFileSync(process.execPath, [wasmFetcher, wasmOutDir], {
+      cwd: __dir,
+      stdio: 'inherit',
+    })
+  } catch (err) {
+    // Soft-fail: prebuild prints its own diagnostics. Build continues
+    // and the playground renders the runtime fallback.
+    console.warn(`WASM bundle fetch failed: ${(err as Error).message}`)
+  }
 }
 
 // Strip non-runtime files that land in dist/wasm/ from the tarball.
@@ -364,8 +389,8 @@ const prerenderRegionRe = /<section id="prerendered-content"[\s\S]*?<\/section>/
 
 let prerenderedCount = 0
 for (const page of pages) {
-  // playground is interactive-only — emit it as the thin shell, no body.
-  if (page.id === 'playground') continue
+  // playground + demo are interactive-only — emit as thin shells, no body.
+  if (page.id === 'playground' || page.id === 'demo') continue
 
   const routeHead = {
     title: `${page.title} — aihu`,

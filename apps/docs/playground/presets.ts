@@ -59,10 +59,10 @@ const TODO = `@state {
 @template {
   <section class="todo">
     <h1>Todos</h1>
-    <input value={draft()} $on.input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
+    <input $value={draft} $on.input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
     <button $on.click={() => add()}>Add</button>
     <ul>
-      <li $each={todos()} $as="t">{{ t.text }}</li>
+      <li $each="todos as t">{t.text}</li>
     </ul>
   </section>
 }
@@ -127,8 +127,12 @@ const SSR = `@state {
 `
 
 const ROUTE = `@state {
-  import { signal } from '@aihu/signals'
+  import { signal, computed } from '@aihu/signals'
   const [page, setPage] = signal('home')
+  // Interpolation must be a single binding, so derive the heading in @state.
+  const heading = computed(() =>
+    page() === 'home' ? 'Welcome' : page() === 'about' ? 'About' : 'Contact',
+  )
 }
 
 @template {
@@ -138,8 +142,8 @@ const ROUTE = `@state {
     <button $on.click={() => setPage('contact')}>Contact</button>
   </nav>
   <section class="page">
-    <h1>{{ page() === 'home' ? 'Welcome' : page() === 'about' ? 'About' : 'Contact' }}</h1>
-    <p>You are viewing <code>/{{ page }}</code>. In a real app, @aihu/router maps file paths to routes.</p>
+    <h1>{heading}</h1>
+    <p>You are viewing the <code>{page}</code> route. In a real app, @aihu/router maps file paths to routes.</p>
   </section>
 }
 
@@ -163,8 +167,8 @@ const PLUGIN = `// Plugins are registered at the app level (aihu.config.ts):
 
 @template {
   <article>
-    <h1>{{ title }}</h1>
-    <input value={title()} $on.input={(e) => setTitle(e.target.value)}>
+    <h1>{title}</h1>
+    <input $value={title} $on.input={(e) => setTitle(e.target.value)}>
     <p class="hint">
       If <code>@aihu/seo</code> is registered, this title flows to
       <code>&lt;title&gt;</code>, OG tags, and JSON-LD automatically.
