@@ -1,17 +1,17 @@
 # Introduction
 
-aihu is a complete meta-framework for the agentic web. You write `.aihu` Single-File Components (SFCs) — block-structured (`@state`, `@template`, `@style`, `@agent`, `@route`) — and a Rust compiler emits standards-compliant Web Components AND machine-readable agent manifests. The runtime is sub-2 kB. Every component shipped by every aihu app is discoverable by AI agents and callable as a tool.
+aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** You author `.aihu` Single-File Components (block-structured: `@state`, `@template`, `@style`, `@agent`, `@route`); a Rust compiler emits standards-compliant Web Components **plus** the machine-readable agent manifest. An agent inspects a real component (llms.txt + MCP) and calls its actions on the live, on-screen instance over a server-mediated capability bridge — the component the user sees is the one the agent drives. Most "agent UI" today is the opposite: disposable HTML/JSON the model regenerates each turn (MCP Apps, generated iframes). Durable components are inspectable, reusable, and trusted, with the server holding auth and policy.
 
 > **Status:** v1 shipped 2026-05-03. npm publish at `0.1.x` rolling out.
 
 ## What makes aihu different
 
-- **Agentic-first** — every component is agent-callable by construction. The `@agent` block on each SFC declares its exposed state and actions; the compiler emits a matching MCP tool schema alongside the Web Component. No separate API gateway required.
-- **Sub-2 kB runtime** — `@aihu/signals` (~1.71 kB gz) and `@aihu/arbor` (~2.72 kB gz) together cover signals, computeds, effects, and direct DOM diffing.
+- **Read and drive, not generate** — an agent inspects a real component and calls its actions on the live, on-screen instance over a server-mediated capability bridge. The component the user sees is the one driven, not disposable UI regenerated each turn (the generative-UI model: MCP Apps, generated iframes). Durable, inspectable, reusable.
+- **Agent-native by construction** — the `@agent` block on each SFC declares its exposed state and actions; the compiler emits a matching MCP tool schema + llms.txt entry alongside the Web Component. No separate API gateway. `@aihu/agent` and `@aihu-plugin/agent-readiness` are first-class.
 - **Vanilla custom elements output** — no framework lock-in at the consumer boundary, no global context, no hydration step.
-- **Dep-free thesis** — zero non-`@aihu/*` runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.
+- **Sub-2 kB runtime** — `@aihu/signals` (~1.71 kB gz) and `@aihu/arbor` (~2.72 kB gz) together cover signals, computeds, effects, and direct DOM diffing.
+- **Dep-free** — zero non-`@aihu/*` runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.
 - **Targeted updates** — aihu uses `nodeValue` rather than `textContent` for reactive text nodes, which is 122× faster on targeted updates.
-- **MCP + agent-first** — `@aihu/agent` and `@aihu-plugin/agent-readiness` are first-class; every aihu application can expose MCP tool/resource endpoints out of the box.
 
 ## Why "meta-framework"?
 
