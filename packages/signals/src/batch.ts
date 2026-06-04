@@ -15,12 +15,17 @@ import { drainBatch, enterBatch, exitBatch, getBatchDepth } from './signal.ts'
  * roll back on exception. Callers that need atomic semantics must implement
  * snapshot-restore manually.
  *
- * `batch` returns `void`; capture results via closures.
+ * Returns whatever `fn` returns (the value is captured before the queue drains
+ * in the `finally`). This lets a batched action surface a result to its
+ * caller — e.g. the compiler lowers `$action` handlers to `return batch(() =>
+ * { … })`, so an agent driving the action receives the handler's return value
+ * instead of `undefined`. Callers that batch purely for side effects can keep
+ * ignoring the return.
  */
-export function batch(fn: () => void): void {
+export function batch<T>(fn: () => T): T {
   enterBatch()
   try {
-    fn()
+    return fn()
   } finally {
     if (getBatchDepth() === 1) {
       try {
