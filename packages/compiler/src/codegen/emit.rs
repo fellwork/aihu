@@ -127,10 +127,15 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // v0.4.0: @stream block is server-only. Elide in client builds.
     let elide_stream = target == BuildTarget::Client && unit.source.stream.is_some();
 
-    let js = if !elide_agent && unit.source.agent.is_some() {
-        emit_options_form(unit, tag_name, unit.source.agent.as_ref().unwrap())
-    } else {
-        let mut base_js = emit_function_form(unit, tag_name);
+    let js = {
+        // Unified lowering engine. `emit_function_form` runs `process_state_body`
+        // (full $prop/$action/$computed/magna/$auth/... lowering) for EVERY
+        // component, including @agent ones — both client (`elide_agent`) and
+        // server builds. The @agent block is passed so the function form can emit
+        // the agent `input` coercions (number/boolean/enum → computed) regardless
+        // of build target. Server-only `__agentBinding`/registration are appended
+        // below; client-only opaque-ID dispatcher likewise.
+        let mut base_js = emit_function_form(unit, tag_name, unit.source.agent.as_ref());
         // v0.4.0: append __streamBinding export for server artifacts.
         if let Some(stream_block) = &unit.source.stream {
             if elide_stream {
@@ -172,6 +177,25 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
                 "// [client build] @agent block elided\n{}\n{}",
                 with_reg, dispatcher
             )
+        } else if let Some(agent) = &unit.source.agent {
+            // SERVER build of an @agent component. Unified path (fix:
+            // server-agent-macro-lowering): `emit_function_form` already lowered
+            // EVERY @state macro ($prop/$action/$computed/magna/$auth/...) and
+            // emitted the agent input coercions, so the setup body is valid JS —
+            // unlike the legacy `emit_options_form` which left them semi-raw.
+            //
+            // Two remaining server-only additions:
+            //  (1) the module-scope `export const __agentBinding` (introspection +
+            //      the shape `@aihu/arbor` mount() consumes); and
+            //  (2) an in-setup `_registerAgentServerBinding(ctx.element, { … })`
+            //      so a server-mounted instance lands a LiveBinding in arbor's
+            //      componentInstanceRegistry — the headless `@aihu/agent-service`
+            //      gate path. This mirrors the client T6 `_registerAgentDispatcher`
+            //      but carries the FULL named binding + policy (server-only).
+            let raw_script = unit.source.script.unwrap_or("");
+            let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
+            let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
+            format!("{}\n{}\n", with_reg, agent_binding_export)
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
             format!("// [client build] $server macro reference elided\n{}", base_js)
@@ -920,6 +944,9 @@ fn process_state_body(
     let mut i = 0usize;
     let mut in_import = false;
     let mut current_import: Vec<String> = Vec::new();
+    // Scratch buffer reused across iterations to own an `export `-stripped line
+    // (the borrow checker needs a binding outliving the per-iteration `&str`).
+    let mut stripped_export_line = String::new();
     let bytes = raw_script.as_bytes();
     while i < bytes.len() {
         let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
@@ -1090,7 +1117,23 @@ fn process_state_body(
             continue;
         }
 
-        let transformed = transform_bare_declaration(line_raw);
+        // Strip a leading top-level `export ` keyword: when the user writes
+        // `export function quote() { … }` in <script setup>, the body is injected
+        // inside `setup(ctx)` where `export` is a syntax error. Preserve leading
+        // indentation. (Previously handled by the now-removed `extract_script_body`
+        // in the legacy options form; folded into the unified path.)
+        let line_for_body: &str = {
+            let lead_len = line_raw.len() - line_raw.trim_start().len();
+            let (lead, rest) = line_raw.split_at(lead_len);
+            if let Some(after) = rest.strip_prefix("export ") {
+                // Re-leak the stripped string into an owned line below.
+                stripped_export_line = format!("{}{}", lead, after);
+                stripped_export_line.as_str()
+            } else {
+                line_raw
+            }
+        };
+        let transformed = transform_bare_declaration(line_for_body);
         // R2 (Defect B): when a bare class-property declaration becomes a
         // `let <name>: <type> = ...`, capture <name> as a state identifier so
         // the template emitter wraps references in `[() => expr]` thunks.
@@ -1984,13 +2027,36 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
 
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
-fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
+fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBlock>) -> String {
     let raw_script = unit.source.script.unwrap_or("");
+
+    // @agent `input` declarations lower to per-instance coercion bindings over
+    // `ctx.attrs.<name>` (number/boolean/enum → `computed(...)`; string →
+    // destructure). They are emitted from the legacy `emit_agent_bindings` so the
+    // unified path keeps byte-identical input semantics. `agent_inputs` is empty
+    // for non-@agent components (zero overhead).
+    let agent_input_bindings = agent.map(emit_agent_bindings).unwrap_or_default();
+    let agent_attrs: Vec<String> = agent
+        .map(|a| a.inputs.iter().map(|i| format!("'{}'", i.name)).collect())
+        .unwrap_or_default();
+    let agent_needs_computed = agent.is_some_and(|a| {
+        a.inputs.iter().any(|i| {
+            matches!(
+                i.kind,
+                InputKind::Number | InputKind::Boolean | InputKind::Enum(_)
+            )
+        })
+    });
 
     // Process state macros first (updates signal_map with computed names)
     let mut signal_map = crate::codegen::signals::resolve_signals(raw_script);
-    let (si, macros, plain_body, user_imports, state_names) =
+    let (mut si, macros, plain_body, user_imports, state_names) =
         process_state_body(raw_script, &mut signal_map);
+    // @agent number/boolean/enum inputs lower to `computed(...)` coercions, so
+    // ensure `computed` is imported even when no $computed macro requested it.
+    if agent_needs_computed {
+        si.needs_computed = true;
+    }
 
     // B3b — rewrite `$emit.<name>(payload)` → `dispatchEvent(new CustomEvent(...))`
     // before any downstream emit walks the template AST. Operates on a
@@ -2085,8 +2151,13 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
     // observedAttributes + attributeChangedCallback. Otherwise stay in the
     // bare-arrow function form (smaller emit; no behavioral diff).
     let prop_entries = collect_prop_entries(&macros);
+    // @agent inputs require the options-form shape too (they read `ctx.attrs`),
+    // so an @agent component with inputs but no $prop still switches to options
+    // form and declares an `attrs: [...]` array.
+    let has_agent_inputs = !agent_attrs.is_empty();
     let uses_props = !prop_entries.is_empty();
-    let uses_ctx = uses_props;
+    let uses_options_form = uses_props || has_agent_inputs;
+    let uses_ctx = uses_options_form;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
     let macro_code = emit_state_macro_code(&macros, &signal_map);
@@ -2113,6 +2184,20 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         if !prop_bindings.is_empty() {
             b.push_str(&prop_bindings);
             b.push('\n');
+        }
+        // @agent input coercions (`const mode = computed(() => ...)`) are hoisted
+        // alongside prop bindings — pure reads of `ctx.attrs.<name>`, declared
+        // before any synchronously-running @state statement that references them.
+        // `emit_agent_bindings` emits 4-space indent (legacy options-form);
+        // re-indent to the 2-space function-form body.
+        if !agent_input_bindings.is_empty() {
+            for line in agent_input_bindings.lines() {
+                if line.trim().is_empty() {
+                    b.push('\n');
+                } else {
+                    b.push_str(&format!("  {}\n", line.trim_start()));
+                }
+            }
         }
         // R2 (Defect A): state declarations (plain_body) MUST precede the rest of
         // macro_code because `effect(...)` / `onMount(...)` / `onCleanup(...)`
@@ -2163,31 +2248,42 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str) -> String {
         String::new()
     };
 
-    if uses_props {
-        // R1 options-form. Emit `props: { ... }` config, then the setup arrow.
-        let props_block = emit_props_config(&prop_entries, "    ");
+    if uses_options_form {
+        // R1 options-form. Emit `[attrs: [...],] [props: { ... },]` config, then
+        // the setup arrow. @agent inputs contribute an `attrs:` array (consumed by
+        // `ctx.attrs.<name>`); $prop entries contribute the `props:` config. Both
+        // can coexist (`defineComponent` builds attrSignals + propSignals).
+        let mut config_lines: Vec<String> = Vec::new();
+        if has_agent_inputs {
+            config_lines.push(format!("  attrs: [{}] as const,", agent_attrs.join(", ")));
+        }
+        if uses_props {
+            let props_block = emit_props_config(&prop_entries, "    ");
+            config_lines.push(format!("  props: {{\n{}\n  }},", props_block));
+        }
+        let config_block = config_lines.join("\n");
         if has_form {
             format!(
-                "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent({{\n  props: {{\n{props_block}\n  }},\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}))\n{form_associated_suffix}",
+                "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}))\n{form_associated_suffix}",
                 merged_imports = merged_imports,
                 module_decl = module_decl,
                 helpers_decl = helpers_decl,
                 tvar = tag_name.replace('-', "_"),
                 tag_name = tag_name,
-                props_block = props_block,
+                config_block = config_block,
                 ctx_param = ctx_param,
                 body = body,
                 form_associated_suffix = form_associated_suffix,
             )
         } else {
             format!(
-                "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n  props: {{\n{}\n  }},\n  setup: ({}) => {{\n{}  }},\n}}))\n",
+                "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n{}\n  setup: ({}) => {{\n{}  }},\n}}))\n",
                 merged_imports,
                 module_decl,
                 helpers_decl,
                 "",
                 tag_name,
-                props_block,
+                config_block,
                 ctx_param,
                 body
             )
@@ -2473,380 +2569,6 @@ fn decode_html_entities(s: &str) -> String {
      .replace("&reg;", "®")
 }
 
-// ─── arch-3 M2 (RFC-003) — magna macro lowering for the options form ─────────
-
-/// Lower the magna macros (`$query` and magna-origin `$resource`) from a
-/// parsed `@state` macro list into 4-space-indented `createMagnaResource(...)`
-/// statements for the options-form (`@agent` SFC) `setup()` body. Returns an
-/// empty string when no magna macro is present. Non-magna macros are ignored
-/// here (the options form leaves them in the script body verbatim, as before).
-fn emit_magna_macro_code_options(macros: &[crate::types::StateMacro]) -> String {
-    use crate::parser::state_macros::{arrow_body, is_magna_origin, running_code};
-    use crate::types::{CollectionKind, StateMacro};
-    let indent = "    ";
-    let mut lines: Vec<String> = Vec::new();
-    for mac in macros {
-        match mac {
-            StateMacro::Query { name, expr } => {
-                lines.push(format!(
-                    "{indent}const {name} = createMagnaResource(inject(MagnaFetchToken), {expr});"
-                ));
-            }
-            StateMacro::Collection {
-                kind: CollectionKind::Resource,
-                entries,
-            } => {
-                for entry in entries {
-                    let Some(thunk) = running_code(entry) else {
-                        continue;
-                    };
-                    let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
-                    if is_magna_origin(&body) {
-                        lines.push(format!(
-                            "{indent}const {} = createMagnaResource(inject(MagnaFetchToken), {body});",
-                            entry.name
-                        ));
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    if lines.is_empty() {
-        String::new()
-    } else {
-        lines.join("\n") + "\n"
-    }
-}
-
-/// arch-3 M2 / A3 G2 (RFC-001) — lower the auth macros (`$auth.session()` /
-/// `$auth.currentUser()`) from a parsed `@state` macro list into
-/// 4-space-indented `const <name> = useCurrentUser();` statements for the
-/// options-form (`@agent` SFC) `setup()` body. `$auth.session()` additionally
-/// carries the deferred-SSR M3 TODO marker. Returns an empty string when no
-/// `$auth` macro is present.
-fn emit_auth_macro_code_options(macros: &[crate::types::StateMacro]) -> String {
-    use crate::parser::state_macros::auth_session_todo;
-    use crate::types::StateMacro;
-    let indent = "    ";
-    let mut lines: Vec<String> = Vec::new();
-    for mac in macros {
-        if let StateMacro::Auth { name, method } = mac {
-            lines.push(format!(
-                "{indent}const {name} = useCurrentUser();{}",
-                auth_session_todo(*method)
-            ));
-        }
-    }
-    if lines.is_empty() {
-        String::new()
-    } else {
-        lines.join("\n") + "\n"
-    }
-}
-
-/// Whether ANY entry of a `$resource` collection is magna-origin. Used to
-/// decide if the collection-form `$resource` line must be stripped from the
-/// options-form script body (it is lowered separately via
-/// `emit_magna_macro_code_options`).
-fn resource_collection_is_magna(entries: &[crate::types::CollectionEntry]) -> bool {
-    use crate::parser::state_macros::{arrow_body, is_magna_origin, running_code};
-    entries.iter().any(|entry| {
-        running_code(entry)
-            .map(|thunk| {
-                let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
-                is_magna_origin(&body)
-            })
-            .unwrap_or(false)
-    })
-}
-
-/// Remove magna macro declarations (`$query ...` and magna-origin
-/// `$resource: { ... }`) from the raw `@state` script so the options-form
-/// `extract_script_body` does not emit them verbatim. Magna macros are lowered
-/// separately by `emit_magna_macro_code_options`. Non-magna `$resource` blocks
-/// and all other content pass through untouched.
-fn strip_magna_macros_from_script(
-    raw_script: &str,
-    macros: &[crate::types::StateMacro],
-) -> String {
-    use crate::types::{CollectionKind, StateMacro};
-
-    let strip_resource = macros.iter().any(|m| {
-        matches!(
-            m,
-            StateMacro::Collection { kind: CollectionKind::Resource, entries }
-                if resource_collection_is_magna(entries)
-        )
-    });
-
-    let bytes = raw_script.as_bytes();
-    let mut out = String::with_capacity(raw_script.len());
-    let mut i = 0usize;
-    while i < bytes.len() {
-        let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
-        let line = raw_script[i..nl].trim_start();
-
-        // `$query name = ...` — single line; drop it.
-        if line.strip_prefix('$').is_some_and(|r| r.starts_with("query ")) {
-            i = nl + 1;
-            continue;
-        }
-
-        // `$auth name = ...` — single line; drop it (lowered separately via
-        // `emit_auth_macro_code_options`). arch-3 M2 / A3 G2 (RFC-001).
-        if line.strip_prefix('$').is_some_and(|r| r.starts_with("auth ")) {
-            i = nl + 1;
-            continue;
-        }
-
-        // magna-origin `$resource: { ... }` — collection-form spanning a
-        // matching brace; drop the whole block.
-        if strip_resource
-            && line
-                .strip_prefix('$')
-                .and_then(|r| r.strip_prefix("resource"))
-                .map(|r| r.trim_start())
-                .is_some_and(|r| r.starts_with(':'))
-        {
-            if let Some(colon_rel) = raw_script[i..].find(':') {
-                let mut p = i + colon_rel + 1;
-                while p < raw_script.len()
-                    && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r')
-                {
-                    p += 1;
-                }
-                if p < raw_script.len() && bytes[p] == b'{' {
-                    if let Some(close) =
-                        crate::parser::state_macros::find_brace_close(raw_script, p + 1)
-                    {
-                        i = close + 1;
-                        if i < bytes.len() && bytes[i] == b'\n' {
-                            i += 1;
-                        }
-                        continue;
-                    }
-                }
-            }
-        }
-
-        out.push_str(&raw_script[i..nl]);
-        if nl < raw_script.len() {
-            out.push('\n');
-        }
-        i = nl + 1;
-    }
-    out
-}
-
-// ─── Options form (with agent block) ─────────────────────────────────────────
-
-fn emit_options_form(unit: &CompileUnit, tag_name: &str, agent: &AgentBlock) -> String {
-    let signal_map = crate::codegen::signals::resolve_signals(unit.source.script.unwrap_or(""));
-    let needs_computed = agent.inputs.iter().any(|i| {
-        matches!(
-            i.kind,
-            InputKind::Number | InputKind::Boolean | InputKind::Enum(_)
-        )
-    });
-
-    let raw_script = unit.source.script.unwrap_or("");
-
-    // B3b — pre-emit `$emit.<name>(...)` lowering pass against the @state
-    // $event collection (if any). Mirror function-form path.
-    let pre_macros = crate::parser::state_macros::parse_state_macros(raw_script).unwrap_or_default();
-
-    // arch-3 M2 (RFC-003): the options form (`@agent` SFCs) does not run
-    // `process_state_body`, so magna `$query` / magna-origin `$resource`
-    // macros would otherwise leak into the setup body verbatim. Lower them
-    // here (mirroring `emit_state_macro_code`) and remove their source lines
-    // from the script body so the emitted JS is valid.
-    let magna_macro_code = emit_magna_macro_code_options(&pre_macros);
-    // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` macros are likewise lowered here
-    // (the options form does not run `process_state_body`) and their source
-    // `$auth ...` lines stripped from the script body so they do not leak.
-    let auth_macro_code = emit_auth_macro_code_options(&pre_macros);
-    let script_body = if magna_macro_code.is_empty() && auth_macro_code.is_empty() {
-        extract_script_body(raw_script)
-    } else {
-        extract_script_body(&strip_magna_macros_from_script(raw_script, &pre_macros))
-    };
-
-    let event_names = collect_event_names(&pre_macros);
-    let template_owned: Vec<TemplateNode> = unit
-        .template_ast
-        .as_deref()
-        .map(|n| {
-            let mut cloned: Vec<TemplateNode> = n.to_vec();
-            apply_emit_lowering_nodes(&mut cloned, &event_names);
-            cloned
-        })
-        .unwrap_or_default();
-    let template_nodes: &[TemplateNode] = &template_owned;
-    let helpers_needed = collect_needed_helpers(template_nodes);
-    let script_uses_effect = raw_script.contains("effect(");
-    let emit_effect = helpers_needed.needs_effect || script_uses_effect;
-
-    let mut si = StateImports::default();
-    // arch-3 M2 (RFC-003): flag magna imports when any magna macro was lowered.
-    if !magna_macro_code.is_empty() {
-        si.needs_create_magna_resource = true;
-    }
-    // arch-3 M2 / A3 G2 (RFC-001): flag the `@aihu/auth` import when any
-    // `$auth.*` macro was lowered.
-    if !auth_macro_code.is_empty() {
-        si.needs_use_current_user = true;
-    }
-
-    // R5 (Defect E): import `when`/`each` from arbor — never inline structural
-    // node literals, because the published arbor bundle minifies internal
-    // property names (`structuralKind` → `sk`, etc).
-    let mut arbor_names: Vec<&str> = vec!["branch", "leaf", "slot"];
-    if helpers_needed.if_boundary {
-        arbor_names.push("when");
-    }
-    if helpers_needed.each_boundary {
-        arbor_names.push("each");
-    }
-    let mut import_lines: Vec<String> = vec![format!(
-        "import {{ {} }} from '@aihu/arbor'",
-        arbor_names.join(", ")
-    )];
-
-    // computed import if needed for number/boolean/enum coercions
-    if needs_computed {
-        import_lines.push("import { computed } from '@aihu/signals'".to_string());
-    }
-
-    // signal import if script uses signals; effect if $html/$show macros or direct effect() calls
-    if !signal_map.0.is_empty() {
-        import_lines.push("import type { Signal } from '@aihu/signals'".to_string());
-        if emit_effect {
-            import_lines.push("import { signal, effect } from '@aihu/signals'".to_string());
-        } else {
-            import_lines.push("import { signal } from '@aihu/signals'".to_string());
-        }
-    } else if emit_effect {
-        import_lines.push("import { effect } from '@aihu/signals'".to_string());
-    }
-
-    let mut rt_items: Vec<String> =
-        vec!["defineComponent".to_string(), "defineElement".to_string()];
-    if si.needs_on_mount || helpers_needed.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
-    if si.needs_on_cleanup { rt_items.push("onCleanup".to_string()); }
-    // R2 (Director r6 §3): $lifecycle four-callback extension imports.
-    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
-    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
-    // arch-5 M1 a11y imports — RFC-A5-017..020 in options form (`@agent` SFCs).
-    if helpers_needed.a11y_focus_trap {
-        rt_items.push("createFocusTrap".to_string());
-    }
-    if helpers_needed.a11y_styles {
-        rt_items.push("_ensureA11yStyles".to_string());
-    }
-    import_lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
-
-    // arch-3 M2 (RFC-003): magna `$query` / magna-origin `$resource` imports.
-    if si.needs_create_magna_resource {
-        import_lines.push(
-            "import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string(),
-        );
-        import_lines.push("import { inject } from '@aihu/context'".to_string());
-    }
-
-    // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` lowers to `useCurrentUser()`.
-    if si.needs_use_current_user {
-        import_lines.push("import { useCurrentUser } from '@aihu/auth'".to_string());
-    }
-
-    let imports = import_lines.join("\n");
-
-    // attrs array
-    let attrs_list: Vec<String> = agent
-        .inputs
-        .iter()
-        .map(|i| format!("'{}'", i.name))
-        .collect();
-    let attrs_str = attrs_list.join(", ");
-
-    // agent-block bindings inside setup(ctx)
-    let agent_bindings = emit_agent_bindings(agent);
-
-    // Options form (`@agent` SFCs) does not run `process_state_body` so no
-    // bare class-property names are tracked. Seed `state_names` from the
-    // signal_map directly so signals declared in the script body still get
-    // wrapped reactively in attribute bindings.
-    let mut state_names = StateNames::default();
-    for k in signal_map.0.keys() {
-        state_names.insert(k);
-    }
-    let return_expr = emit_nodes(template_nodes, &signal_map, &state_names, "      ");
-
-    let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
-        let (decl, injection) = emit_style_block(style);
-        (decl, format!("    {}\n", injection))
-    } else {
-        (String::new(), String::new())
-    };
-
-    let helpers_decl = emit_boundary_helpers(&helpers_needed);
-
-    let mut setup_body = String::new();
-    if !style_injection.is_empty() {
-        setup_body.push_str(&style_injection);
-    }
-    if helpers_needed.a11y_styles {
-        setup_body.push_str("    _ensureA11yStyles()\n");
-    }
-    if !agent_bindings.is_empty() {
-        setup_body.push_str(&agent_bindings);
-    }
-    // arch-3 M2 (RFC-003): magna `$query` / magna-origin `$resource` lowered
-    // statements (4-space indented for setup()).
-    if !magna_macro_code.is_empty() {
-        setup_body.push_str(&magna_macro_code);
-    }
-    // arch-3 M2 / A3 G2 (RFC-001): auth `$auth.*` lowered statements
-    // (4-space indented for setup()).
-    if !auth_macro_code.is_empty() {
-        setup_body.push_str(&auth_macro_code);
-    }
-    if !script_body.is_empty() {
-        // script_body is already 2-space indented; re-indent to 4 spaces for setup()
-        let re_indented = script_body
-            .lines()
-            .map(|l| {
-                if l.trim().is_empty() {
-                    String::new()
-                } else {
-                    format!("  {}", l)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        if !setup_body.is_empty() {
-            setup_body.push('\n');
-        }
-        setup_body.push_str(&re_indented);
-        setup_body.push('\n');
-    }
-    setup_body.push_str(&format!("    return {}\n", return_expr));
-
-    // v0.3.0 — `__agentBinding` export (server artifact only; client builds
-    // are gated by `elide_agent` before this function is called).
-    // [SECURITY] Amendment 7 §6.11: emit warning when $scope is declared —
-    // @aihu/auth absence cannot be detected at compile time in v0.3.0, so we
-    // always warn when $scope is non-null (resolution: always-warn, option c).
-    let agent_binding_export = {
-        let raw = unit.source.script.unwrap_or("");
-        emit_agent_binding_export(tag_name, agent, raw)
-    };
-
-    format!(
-        "{}\n\n{}{}defineElement('{}', defineComponent({{\n  attrs: [{}] as const,\n  setup(ctx) {{\n{}  }}\n}}))\n{}\n",
-        imports, module_decl, helpers_decl, tag_name, attrs_str, setup_body, agent_binding_export
-    )
-}
 
 /// v0.3.0 — Emit the `__agentBinding` named export for server artifacts.
 ///
@@ -3226,6 +2948,129 @@ fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &st
     }
 }
 
+/// fix(server-agent-macro-lowering) — SERVER analog of
+/// `inject_dispatcher_registration`. Injects a per-instance
+/// `_registerAgentServerBinding(ctx.element, { … })` call into the setup body so
+/// a server-mounted instance lands a `LiveBinding` in arbor's
+/// `componentInstanceRegistry` (the headless `@aihu/agent-service` gate path).
+///
+/// CONTRAST WITH the client dispatcher injection: this carries the FULL named
+/// binding (member NAMES → invokers, NOT opaque IDs) AND policy (`scope`,
+/// `rateLimit`) — exactly the `AgentBindingSpec` shape `mount()` consumes. It is
+/// emitted ONLY into SERVER builds (the caller gates on `!elide_agent`); client
+/// builds never see it, preserving the policy-server-only security model.
+///
+/// Defensive: if the runtime-import or setup-`return` shape is not present, the
+/// input is returned UNCHANGED so the build never breaks (the module-scope
+/// `__agentBinding` export still ships for introspection).
+fn inject_server_binding_registration(
+    base_js: &str,
+    tag_name: &str,
+    agent: &AgentBlock,
+    raw_script: &str,
+) -> String {
+    let members = collect_agent_members(raw_script);
+    if members.actions.is_empty() && members.reads.is_empty() && members.writes.is_empty() {
+        return base_js.to_string();
+    }
+
+    // Named-member → invoker maps (4-space indent inside setup body), byte-aligned
+    // with the module-scope `__agentBinding` export's bodies.
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| format!("      {}: (args) => {}(args)", name, name))
+        .collect();
+    let read_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| format!("      {}: () => {}()", name, name))
+        .collect();
+    let write_entries: Vec<String> = members
+        .writes
+        .iter()
+        .map(|name| format!("      {}: (v) => {}.set(v)", name, name))
+        .collect();
+    let fmt = |entries: &[String]| -> String {
+        if entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", entries.join(",\n"))
+        }
+    };
+
+    // $scope / $rate-limit policy (server-only; same source as the export).
+    let mut scope_val: Option<String> = None;
+    let mut rate_limit_val: Option<u32> = None;
+    for mac in &agent.agent_macros {
+        match mac {
+            AgentMacroDecl::Scope(s) => scope_val = Some(s.clone()),
+            AgentMacroDecl::RateLimit(n) => rate_limit_val = Some(*n),
+            AgentMacroDecl::Stream(_) => {}
+        }
+    }
+    let scope_str = match &scope_val {
+        Some(s) => format!("'{}'", s),
+        None => "undefined".to_string(),
+    };
+    let rate_limit_str = match rate_limit_val {
+        Some(n) => format!("'{}/min'", n),
+        None => "undefined".to_string(),
+    };
+
+    let registration = format!(
+        "  _registerAgentServerBinding(__aihu_ctx__?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n    scope: {},\n    rateLimit: {},\n  }})\n",
+        tag_name,
+        fmt(&action_entries),
+        fmt(&read_entries),
+        fmt(&write_entries),
+        scope_str,
+        rate_limit_str,
+    );
+
+    // ── 1. Add `_registerAgentServerBinding` to the @aihu/runtime import. ──────
+    let runtime_import_re = "import { defineComponent, defineElement } from '@aihu/runtime'";
+    if !base_js.contains(runtime_import_re) {
+        return base_js.to_string();
+    }
+    let with_import = base_js.replacen(
+        runtime_import_re,
+        "import { defineComponent, defineElement, _registerAgentServerBinding } from '@aihu/runtime'",
+        1,
+    );
+
+    // ── 2. Rename the setup parameter to a stable name (same as client path). ─
+    let setup_shapes: [(&str, &str); 4] = [
+        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
+        (
+            "defineComponent((ctx) => {",
+            "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
+        ),
+        ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
+        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
+    ];
+    let mut with_param = with_import;
+    let mut renamed = false;
+    for (from, to) in setup_shapes {
+        if with_param.contains(from) {
+            with_param = with_param.replacen(from, to, 1);
+            renamed = true;
+            break;
+        }
+    }
+    if !renamed {
+        return base_js.to_string();
+    }
+
+    // ── 3. Insert the registration immediately before the setup's `return`. ──
+    if let Some(idx) = with_param.rfind("\n  return ") {
+        let (head, tail) = with_param.split_at(idx + 1);
+        format!("{}{}{}", head, registration, tail)
+    } else {
+        base_js.to_string()
+    }
+}
+
 fn emit_agent_bindings(agent: &AgentBlock) -> String {
     let mut lines: Vec<String> = Vec::new();
     for input in &agent.inputs {
@@ -3378,72 +3223,6 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
     )
 }
 
-// ─── Import-span state machine (D6) ──────────────────────────────────────────
-
-fn extract_script_body(script: &str) -> String {
-    let mut in_import = false;
-    let mut result_lines: Vec<String> = Vec::new();
-    for line in script.lines() {
-        let t = line.trim();
-        if t.starts_with("import ") || t.starts_with("import\t") {
-            // A multiline `import { ... } from '...'` block is detected by the
-            // presence of `{` without a matching close on the same line. Bare
-            // side-effect imports (`import 'foo'`) and single-line bracket
-            // imports complete on the opening line.
-            let opens_block = t.contains('{') && !t.contains('}');
-            if !opens_block {
-                // single-line import (with-from, side-effect, or one-line block) — skip
-            } else {
-                in_import = true;
-            }
-            continue;
-        }
-        if in_import {
-            if t.contains(" from ") || t.ends_with(';') {
-                in_import = false;
-            }
-            continue;
-        }
-        // Strip top-level `export ` from function/const/let/class declarations:
-        // when the user's <script setup> declares an exported action handler
-        // (e.g. `export function quote() { ... }`), the emitted setup(ctx)
-        // body must not retain `export` — that keyword is only valid at module
-        // top level and would be a TypeScript error inside a function body.
-        let stripped = if let Some(rest) = line.strip_prefix("export ") {
-            rest.to_string()
-        } else {
-            line.to_string()
-        };
-        result_lines.push(stripped);
-    }
-    // trim leading/trailing blank lines, add 2-space indent
-    let trimmed: Vec<_> = result_lines
-        .iter()
-        .skip_while(|l| l.trim().is_empty())
-        .cloned()
-        .collect();
-    let trimmed: Vec<_> = trimmed
-        .iter()
-        .rev()
-        .skip_while(|l| l.trim().is_empty())
-        .cloned()
-        .collect();
-    if trimmed.is_empty() {
-        return String::new();
-    }
-    trimmed
-        .iter()
-        .rev()
-        .map(|l| {
-            if l.trim().is_empty() {
-                String::new()
-            } else {
-                format!("  {}", l)
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
 
 // ─── Template emission helpers ────────────────────────────────────────────────
 
