@@ -19,7 +19,7 @@ import { expect, test } from '@playwright/test'
 const distDir = fileURLToPath(new URL('../dist/', import.meta.url))
 
 // A known body sentence from each fixture's markdown source.
-const INTRO_SENTENCE = 'complete meta-framework for the agentic web'
+const INTRO_SENTENCE = 'durable Web Components your AI agent can read and drive'
 const REACTIVITY_SENTENCE = 'provides the reactive foundation for the entire'
 
 test.describe('WS1 prerender — static HTML is content-ful', () => {
