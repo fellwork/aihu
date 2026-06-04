@@ -4,11 +4,13 @@
 >
 > Say *EYE-hoo* · 爱护 (*àihù*) · *"to cherish and protect."*
 
-Aihu is a full framework for building web apps as **single-file components**. A Rust compiler turns them into standards-based **Web Components** — no virtual DOM, no hydration step, no runtime lock-in — with a reactive core under **2 kB** and **zero runtime dependencies**.
+Aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** An agent inspects a real component through its llms.txt + MCP manifest and calls its actions on the live, on-screen instance. The thing the user sees is the thing the agent drives, not a throwaway interface regenerated every turn.
 
-What makes it different: **every component is also an AI tool.** The same component that renders your UI is automatically discoverable and callable by AI agents (MCP, llms.txt) — with no separate API layer to build.
+You author `.aihu` single-file components; a Rust compiler emits standards-based **Web Components** *plus* the machine-readable agent manifest — no separate API layer to build.
 
-Routing, server-side rendering, auth, data loading, and cloud adapters are all included — and it's fast (122× faster than vanilla DOM on targeted updates; [benchmarks below](#performance)).
+**Generative UI vs. durable components.** Most "agent UI" today is disposable: the model emits HTML or JSON that renders once and vanishes (MCP Apps, generated iframes). Aihu is the inverse — real, inspectable, reusable custom elements an agent drives over a server-mediated capability bridge, with the server holding auth and policy. Durable wins when the UI has to be trusted, styled, and reused.
+
+Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is **sub-2 kB**, output is **vanilla custom elements** (no lock-in, no hydration step), with **zero runtime dependencies**, and reactive updates run 122× faster than vanilla DOM on targeted writes ([benchmarks below](#performance)).
 
 > **Status:** actively developed, shipping in `v1.0.x` releases. The `v1.0.0` milestone tag is held until the styling engine and UI components land — see [Project status](#project-status).
 
