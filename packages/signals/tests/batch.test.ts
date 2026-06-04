@@ -5,6 +5,18 @@ import { SignalCircularError } from '../src/errors.ts'
 import { signal } from '../src/signal.ts'
 
 describe('batch', () => {
+  it('returns the value its callback returns', () => {
+    expect(batch(() => 42)).toBe(42)
+    const [n, setN] = signal(1)
+    // The pattern the compiler lowers `$action` to: mutate inside batch, return
+    // a value. The agent driving the action must receive that value, not undefined.
+    const result = batch(() => {
+      setN(n() + 4)
+      return n()
+    })
+    expect(result).toBe(5)
+  })
+
   it('single batched write produces single effect run (1 init + 1 flush)', () => {
     const [n, setN] = signal(0)
     let runs = 0

@@ -601,3 +601,68 @@ fn per_instance_registration_uses_same_opaque_ids_as_export() {
         js.js
     );
 }
+
+/// go-public agent-exposure lowering fixes:
+///  - a writable `$prop` write invoker must call the prop signal's `.set(v)`,
+///    NOT reassign the `const` binding (`{ name = v }` both throws on the const
+///    and never reaches the signal).
+///  - a `$action` handler must stay wrapped in `return batch(...)` so its
+///    return value surfaces to the agent (batch now returns its callback value).
+/// Asserted across all three emission sites: the server `__agentBinding`, the
+/// client `__agentDispatcher` export, and the in-setup `_registerAgentDispatcher`.
+#[test]
+fn agent_prop_write_uses_setter_and_action_returns_value() {
+    use aihu_compiler::types::BuildTarget;
+    let source = r#"@agent {
+action bump()
+state label: string
+}
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+  $prop: {
+    label: { default: 'hi', expose: { read: true, write: true } },
+  }
+  $action: {
+    bump: { expose: { read: true }, handler: (args) => { setCount(count() + 1); return count() } },
+  }
+}
+@template { <div>{count} {label}</div> }"#;
+
+    // The CLIENT build is the path the capability bridge drives (the @state
+    // macros are lowered here and the per-instance `_registerAgentDispatcher`
+    // is what `@aihu/agent-server` reads via `_takeAgentDispatcher`).
+    let parsed = sfc::parse(source).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let client = emit(&unit, "repro-card");
+
+    // (A) $action stays wrapped in `return batch(...)`; combined with batch now
+    // returning its callback value (see @aihu/signals batch.test.ts), the agent
+    // receives the handler's return instead of `undefined`.
+    assert!(
+        client.js.contains("function bump(args) { return batch("),
+        "$action must lower to `return batch(...)` so its value surfaces, got:\n{}",
+        client.js
+    );
+    // (C) writable $prop write invoker uses the prop signal's `.set(v)`, never a
+    // `const` reassignment (`{ label = v }` throws and never reaches the signal).
+    assert!(
+        !client.js.contains("label = v }"),
+        "prop write must NOT reassign the const binding, got:\n{}",
+        client.js
+    );
+    // `.set(v)` appears in BOTH the in-setup registration and the module export.
+    assert!(
+        client.js.matches(".set(v)").count() >= 2,
+        "expected >=2 `.set(v)` writes (in-setup registration + module export), got {} in:\n{}",
+        client.js.matches(".set(v)").count(),
+        client.js
+    );
+    // Reads still resolve (prop getter is callable).
+    assert!(
+        client.js.contains("() => label()"),
+        "prop read must call the getter, got:\n{}",
+        client.js
+    );
+}

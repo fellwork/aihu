@@ -2964,11 +2964,14 @@ fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &st
         .iter()
         .map(|name| format!("    {}: () => {}()", name, name))
         .collect();
-    // writes: { name: (v) => { name = v } }  (prop signal setter)
+    // writes: { name: (v) => name.set(v) }  (prop signal setter)
+    // `name` is bound from `ctx.props.<name>`, a callable getter with a `.set`
+    // writer (define-component R1). Reassigning the `const` binding (`name = v`)
+    // both throws (const) and never reaches the signal — call `.set` instead.
     let write_entries: Vec<String> = members
         .writes
         .iter()
-        .map(|name| format!("    {}: (v) => {{ {} = v }}", name, name))
+        .map(|name| format!("    {}: (v) => {}.set(v)", name, name))
         .collect();
 
     // $scope and $rate-limit from the @agent block agent_macros.
@@ -3051,7 +3054,7 @@ fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &st
 ///
 /// Shape is registerable by the browser bridge (T3): the invoker bodies mirror
 /// the server `__agentBinding` (`(args) => name(args)`, `() => name()`,
-/// `(v) => { name = v }`) so the bridge can adapt it to a `LiveBinding`
+/// `(v) => name.set(v)`) so the bridge can adapt it to a `LiveBinding`
 /// (`@aihu/arbor` `mount.ts` `options.agentBinding`) by keying on opaque IDs.
 fn emit_agent_client_dispatcher(tag_name: &str, raw_script: &str) -> String {
     let members = collect_agent_members(raw_script);
@@ -3074,13 +3077,14 @@ fn emit_agent_client_dispatcher(tag_name: &str, raw_script: &str) -> String {
         .iter()
         .map(|name| format!("    {}: () => {}()", opaque_member_id(tag_name, name), name))
         .collect();
-    // writes: { <opaqueId>: (v) => { name = v } }
+    // writes: { <opaqueId>: (v) => name.set(v) }  (prop signal setter, not a
+    // `const` reassignment — see emit_agent_binding_export)
     let write_entries: Vec<String> = members
         .writes
         .iter()
         .map(|name| {
             format!(
-                "    {}: (v) => {{ {} = v }}",
+                "    {}: (v) => {}.set(v)",
                 opaque_member_id(tag_name, name),
                 name
             )
@@ -3148,7 +3152,7 @@ fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &st
     let write_entries: Vec<String> = members
         .writes
         .iter()
-        .map(|name| format!("      {}: (v) => {{ {} = v }}", opaque_member_id(tag_name, name), name))
+        .map(|name| format!("      {}: (v) => {}.set(v)", opaque_member_id(tag_name, name), name))
         .collect();
     let fmt = |entries: &[String]| -> String {
         if entries.is_empty() {
