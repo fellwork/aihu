@@ -108,7 +108,7 @@ npm install @aihu/agent-server
 bun add @aihu/agent-server
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -119,12 +119,12 @@ bun add @aihu/agent-server
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.2.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -137,7 +137,7 @@ bun add @aihu/agent-server
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -157,7 +157,7 @@ bun add @aihu/agent-server
 
 - `jsdom` — `^25.0.0`
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -169,7 +169,7 @@ bun add @aihu/agent-server
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -180,6 +180,6 @@ bun add @aihu/agent-server
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

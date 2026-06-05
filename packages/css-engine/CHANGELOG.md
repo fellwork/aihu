@@ -1,5 +1,51 @@
 # @aihu/css-engine
 
+## 0.4.0
+
+### Minor Changes
+
+- [#329](https://github.com/fellwork/aihu/pull/329) [`8f56e88`](https://github.com/fellwork/aihu/commit/8f56e881e500df7c237f996c319f04dedab3cd7e) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Tailwind-v4 utility parity — render full Tailwind-authored pages on the engine.
+
+  Expands the `aihu-css-core` utility table and fixes two correctness bugs so a
+  marketing page authored against full Tailwind v4 compiles entirely on the engine
+  (under shadow DOM), instead of silently dropping ~230 unsupported utilities.
+
+  - **New families**: `size-*`, `aspect-*`, gradients (`bg-linear/gradient-to-*`,
+    `from/via/to`), `mask-*`, `blur`/`backdrop-blur`, `isolate`, `transform-gpu`,
+    outline width/offset, `shadow-xs/xl/2xl/inner`, `rounded-3xl/4xl`,
+    `font-serif`, `text-6xl…9xl` + `text-<size>/<lh>` slash line-height,
+    `text-wrap/pretty/balance`, `cursor-*`, `list-*`, `sr-only`, `self-*`,
+    `shrink/grow`, `order-*`, negative margins, fractional positions, `-z-*`.
+  - **Arbitrary color typing**: `border-[…]`/`outline-[…]`/`ring-[…]` are now
+    color-vs-width typed by value (`border-[var(--c)]` → `border-color`, not the
+    previous invalid `border-width`); `[color:]`/`[length:]` hints honored.
+  - **`(--var)` shorthand**: `prefix-(--token)` resolves through the prefix's
+    property type (`border-(--c)` is a color), with `/opacity` via color-mix.
+  - **Palette**: the scoped emitter registers the Tailwind-v4 oklch value for each
+    `--color-<family>-<shade>` a component references (used tokens only), so
+    `bg-amber-500` etc. resolve at `:host`.
+  - **Variants**: `open`, `first/last/only/odd/even/empty`, pseudo-elements
+    `marker/placeholder/before/after/selection/file`, and `group-open`/`peer-open`.
+
+  No JS API or CLI change — utility table + scoped emission only. The native
+  `aihu-css-compile` binary is rebuilt from these sources by the existing
+  `publish-css-native` release job.
+
+### Patch Changes
+
+- [#293](https://github.com/fellwork/aihu/pull/293) [`7e1f1fe`](https://github.com/fellwork/aihu/commit/7e1f1fe0ef1be17b5ea928727252d849f48c46ef) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Refresh native platform binaries to 0.1.3. The published `@aihu/css-engine-*`
+  platform packages were frozen at 0.1.2 and predated the utility PRs [#268](https://github.com/fellwork/aihu/issues/268)–[#275](https://github.com/fellwork/aihu/issues/275)
+  (space/grid/border-width families, divide-x/y, position+leading/tracking scales,
+  ring widths, motion utilities, group:/peer: + aria-/data- variants, container
+  queries) — consumers resolving the 0.1.2 binary compiled against a stale utility
+  table. Bumped all four platform packages (`darwin-arm64`, `darwin-x64`,
+  `linux-x64-gnu`, `win32-x64-msvc`) to 0.1.3 and updated the `optionalDependencies`
+  pins so the next `v*` release rebuilds and republishes the binaries at current
+  `main` (the `publish-css-native` job is idempotent and would otherwise skip
+  0.1.2). No API or CLI change — binary content only.
+- Updated dependencies [[`b85f400`](https://github.com/fellwork/aihu/commit/b85f4008c489a0dba9e36cbdfc48b635eeea375f), [`a54ca1b`](https://github.com/fellwork/aihu/commit/a54ca1b8874583a0301e84c91f2d25713908e41f), [`7ec7155`](https://github.com/fellwork/aihu/commit/7ec71553722eaa4e3f6814e79ec747db68b72451), [`1132357`](https://github.com/fellwork/aihu/commit/113235708bac1e8f9263d35feb865af8f8127f86)]:
+  - @aihu/compiler@0.6.0
+
 ## 0.3.0
 
 ### Minor Changes

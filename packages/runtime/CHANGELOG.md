@@ -1,5 +1,36 @@
 # @aihu/runtime
 
+## 1.0.0
+
+### Minor Changes
+
+- [#328](https://github.com/fellwork/aihu/pull/328) [`7ec7155`](https://github.com/fellwork/aihu/commit/7ec71553722eaa4e3f6814e79ec747db68b72451) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix plain `$resource`: emit the `createResource` import + add the runtime primitive.
+
+  The compiler lowered a plain (non-magna) `$resource` entry to `const x = createResource(() => …)` but never emitted the import — the `needs_create_resource` flag was set yet never pushed to the `@aihu/runtime` import list — so any `$resource` produced a bare `ReferenceError: createResource is not defined`. And `@aihu/runtime` had no `createResource` to import (it was meant to live there parallel to `createStream`; only a magna-internal copy in `@aihu-plugin/data` existed).
+
+  - **`@aihu/runtime`**: add `createResource(factory)` next to `createStream` — a reactive async resource with `loading` / `data` / `error` getters + `refetch()`, with a sequence guard so a superseded run never clobbers fresher data. Exported from the barrel.
+  - **`@aihu/compiler`**: push `createResource` into the `@aihu/runtime` import when a plain `$resource` is used (`emit.rs`), mirroring `createStream`.
+
+  The compiler emits the runtime import, so these publish in lockstep. Magna-backed `$resource` (`createMagnaResource` from `@aihu/magna`) is unaffected.
+
+- [#325](https://github.com/fellwork/aihu/pull/325) [`24dee56`](https://github.com/fellwork/aihu/commit/24dee56964e5afdac11c858cca0da2b3ec2483c9) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add the per-element agent-dispatch registry (`_registerAgentDispatcher` / `_takeAgentDispatcher`, from `agent-dispatch.ts`). The compiler injects a `_registerAgentDispatcher(ctx.element, …)` call into each `@agent` component's setup body and imports it from `@aihu/runtime`; the browser capability-bridge client (`@aihu/agent-server`) reads the per-instance dispatcher via `_takeAgentDispatcher`.
+
+  This MUST publish in lockstep with the matching `@aihu/compiler` release. Without this bump, the released compiler emits `import { …, _registerAgentDispatcher } from '@aihu/runtime'` against the previously published runtime (0.1.8), which does not export the symbol — so any compiled `@agent` component would fail to resolve it.
+
+- [#327](https://github.com/fellwork/aihu/pull/327) [`1132357`](https://github.com/fellwork/aihu/commit/113235708bac1e8f9263d35feb865af8f8127f86) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix server/universal `@agent` builds: lower `@state` macros and enable headless dispatch.
+
+  Previously the server/universal path (`emit_options_form`) did **not** run `process_state_body`, so `$prop`/`$action`/`$computed` were emitted as raw JS labeled statements and the module-scope `__agentBinding` referenced undeclared symbols — any real compiled `@agent` component was undrivable server-side (only the browser capability-bridge path worked).
+
+  `@agent` SFC emission is now unified on the function form (which already lowers macros and handles props/magna/`$auth`/form/aria), and `emit_options_form` is removed. For the server, the compiler injects an in-setup `_registerAgentServerBinding(ctx.element, …)` (new in `@aihu/runtime`, mirroring the client's `_registerAgentDispatcher`) that registers a full per-instance `LiveBinding` — with the live setup-scope reads/writes/actions plus `scope`/`rateLimit` — into arbor's `componentInstanceRegistry`. So `@aihu/agent-service`'s gate (`getRegistry`) can drive a real compiled component **headless** (no browser bridge).
+
+  The compiler emits `import { …, _registerAgentServerBinding } from '@aihu/runtime'`, so these publish in lockstep. The client/bridge path (`_registerAgentDispatcher`, opaque-ID dispatcher, client-elided raw `__agentBinding`) and the `batch`-returns-value / `$prop` `.set(v)` fixes are preserved. Proven by `packages/agent-server/tests/headless-compiled-dispatch.test.ts`, which compiles a real SFC `--target server` and drives it.
+
+### Patch Changes
+
+- Updated dependencies [[`b85f400`](https://github.com/fellwork/aihu/commit/b85f4008c489a0dba9e36cbdfc48b635eeea375f)]:
+  - @aihu/signals@0.2.0
+  - @aihu/arbor@1.0.0
+
 ## 0.1.8
 
 ### Patch Changes

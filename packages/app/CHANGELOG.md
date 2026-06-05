@@ -1,5 +1,15 @@
 # @aihu/app
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`b85f400`](https://github.com/fellwork/aihu/commit/b85f4008c489a0dba9e36cbdfc48b635eeea375f), [`7ec7155`](https://github.com/fellwork/aihu/commit/7ec71553722eaa4e3f6814e79ec747db68b72451), [`24dee56`](https://github.com/fellwork/aihu/commit/24dee56964e5afdac11c858cca0da2b3ec2483c9), [`1132357`](https://github.com/fellwork/aihu/commit/113235708bac1e8f9263d35feb865af8f8127f86)]:
+  - @aihu/signals@0.2.0
+  - @aihu/runtime@1.0.0
+  - @aihu/arbor@1.0.0
+  - @aihu/router@0.1.8
+
 ## 0.3.2
 
 ### Patch Changes
