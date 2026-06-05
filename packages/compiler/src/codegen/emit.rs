@@ -2502,6 +2502,10 @@ fn build_function_imports(
     if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
     // v0.4.0 — `$stream` lazy-attach: only import createStream when used.
     if si.needs_create_stream { rt_items.push("createStream".to_string()); }
+    // `$resource` (plain, non-magna) lowers to `createResource()` — import it
+    // from `@aihu/runtime` (parallel to createStream). Was set but never pushed,
+    // so `$resource` emitted a bare `createResource` ReferenceError.
+    if si.needs_create_resource { rt_items.push("createResource".to_string()); }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {

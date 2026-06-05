@@ -666,3 +666,37 @@ state label: string
         client.js
     );
 }
+
+/// Regression: plain `$resource` must IMPORT `createResource` from
+/// `@aihu/runtime`, not just emit a bare `createResource(...)` call. The
+/// `needs_create_resource` flag was set but never pushed to the runtime import
+/// list, so `$resource` produced a `ReferenceError: createResource is not defined`.
+#[test]
+fn plain_resource_imports_create_resource_from_runtime() {
+    let source = r#"@state {
+  import { signal } from '@aihu/signals'
+  $resource: {
+    data: () => fetch('/api/x').then((r) => r.json()),
+  }
+}
+@template { <div>{data.loading}</div> }"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "res-card");
+
+    assert!(
+        result.js.contains("const data = createResource(() =>"),
+        "$resource must lower to createResource(), got:\n{}",
+        result.js
+    );
+    // The crux: a `@aihu/runtime` import line must include createResource.
+    let imported = result
+        .js
+        .lines()
+        .any(|l| l.contains("from '@aihu/runtime'") && l.contains("createResource"));
+    assert!(
+        imported,
+        "createResource must be imported from @aihu/runtime, got:\n{}",
+        result.js
+    );
+}
