@@ -129,6 +129,29 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     // Transition / timing / animation each control a single property.
     out.push(("duration", "transition-duration"));
 
+    // Parity round families. Each new prefix keys on its first dash, so the
+    // entry makes same-family values last-wins (`size-4` vs `size-8`,
+    // `aspect-square` vs `aspect-video`, `order-1` vs `order-2`). Families that
+    // share a FIRST-dash prefix with an entry above are already covered and must
+    // NOT be re-pushed (a duplicate prefix collides in the generated `cn()`
+    // map): `font-serif`→`font`, `outline-offset`→`outline`, `text-pretty`→`text`,
+    // `bg-linear-to`/`bg-gradient-to`→`bg`.
+    out.push(("size", "size")); // width + height (NOTE: does not cross-dedupe vs w-*/h-*)
+    out.push(("aspect", "aspect-ratio"));
+    out.push(("order", "order"));
+    out.push(("blur", "filter"));
+    out.push(("backdrop", "backdrop-filter")); // backdrop-blur-*
+    out.push(("cursor", "cursor"));
+    out.push(("list", "list-style"));
+    out.push(("self", "align-self"));
+    out.push(("shrink", "flex-shrink"));
+    out.push(("grow", "flex-grow"));
+    out.push(("object", "object-fit"));
+    // Gradient color stops — `from-*`/`via-*`/`to-*` dedupe within their slot.
+    out.push(("from", "--tw-gradient-from"));
+    out.push(("via", "--tw-gradient-via"));
+    out.push(("to", "--tw-gradient-to"));
+
     out
 }
 
