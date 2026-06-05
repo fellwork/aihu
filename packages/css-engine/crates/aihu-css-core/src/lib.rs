@@ -10,6 +10,7 @@ pub mod ast;
 pub mod cache;
 pub mod emit;
 pub mod features;
+pub mod palette;
 pub mod progressive;
 pub mod scanner;
 pub mod style_parser;

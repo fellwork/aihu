@@ -32,8 +32,13 @@ pub enum Variant {
     HostContextDark,
 
     // ── standard ─────────────────────────────────────────────────────────────
-    /// `hover:`, `focus:`, `focus-visible:`, `active:`, `disabled:` → `&:<pc>`.
+    /// `hover:`, `focus:`, `focus-visible:`, `active:`, `disabled:`, `first:`
+    /// (→ `:first-child`), `last:`, `open:` → `&:<pc>`.
     Pseudo(String),
+    /// `marker:` → `&::marker`, `placeholder:` → `&::placeholder`,
+    /// `before:`/`after:`/`selection:`/`file:` → `&::<pe>`. Pseudo-*element*
+    /// variants attach with a double colon (distinct from [`Variant::Pseudo`]).
+    PseudoElement(String),
     /// `dark:` — dark cascade (NOT `:host-context()`).
     Dark,
     /// `sm:`/`md:`/`lg:`/`xl:`/`2xl:` → `@media (min-width: …)`.
@@ -145,13 +150,25 @@ fn parse_prefix(prefix: &str) -> Option<Variant> {
         "host-context-dark" => Variant::HostContextDark,
         "slotted" => Variant::Slotted,
         "dark" => Variant::Dark,
-        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "visited"
-        | "checked" => Variant::Pseudo(prefix.to_string()),
+        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "visited" | "checked"
+        | "required" | "open" => Variant::Pseudo(prefix.to_string()),
+        // Structural pseudo-classes map to their `:…-child` / `:nth-child()` form.
+        "first" => Variant::Pseudo("first-child".to_string()),
+        "last" => Variant::Pseudo("last-child".to_string()),
+        "only" => Variant::Pseudo("only-child".to_string()),
+        "odd" => Variant::Pseudo("nth-child(odd)".to_string()),
+        "even" => Variant::Pseudo("nth-child(even)".to_string()),
+        "empty" => Variant::Pseudo("empty".to_string()),
+        // Pseudo-elements (double colon).
+        "marker" => Variant::PseudoElement("marker".to_string()),
+        "placeholder" => Variant::PseudoElement("placeholder".to_string()),
+        "before" => Variant::PseudoElement("before".to_string()),
+        "after" => Variant::PseudoElement("after".to_string()),
+        "selection" => Variant::PseudoElement("selection".to_string()),
+        "file" => Variant::PseudoElement("file-selector-button".to_string()),
         "sm" | "md" | "lg" | "xl" | "2xl" => Variant::Breakpoint(prefix.to_string()),
         // Container-query breakpoints: `@sm`/`@md`/`@lg`/`@xl`/`@2xl`.
-        "@sm" | "@md" | "@lg" | "@xl" | "@2xl" => {
-            Variant::Container(prefix[1..].to_string())
-        }
+        "@sm" | "@md" | "@lg" | "@xl" | "@2xl" => Variant::Container(prefix[1..].to_string()),
         _ => {
             if let Some(tag) = prefix.strip_prefix("slotted-") {
                 Variant::SlottedTag(tag.to_string())
@@ -193,7 +210,7 @@ fn peer_state(prefix: &str) -> Option<Option<String>> {
 fn relational_state(state: &str) -> Option<String> {
     matches!(
         state,
-        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "checked"
+        "hover" | "focus" | "focus-visible" | "active" | "disabled" | "checked" | "open"
     )
     .then(|| state.to_string())
 }
@@ -259,6 +276,10 @@ fn apply_variant_to_selector(
         Variant::Pseudo(pc) => {
             acc.needs_scope = true;
             format!("{selector}:{pc}")
+        }
+        Variant::PseudoElement(pe) => {
+            acc.needs_scope = true;
+            format!("{selector}::{pe}")
         }
         Variant::ArbitrarySelector(sel) => {
             acc.needs_scope = true;

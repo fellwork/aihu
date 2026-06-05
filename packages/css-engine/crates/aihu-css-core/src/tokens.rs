@@ -68,8 +68,9 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     // logical inline/block inset shorthands, distinct from the all-sides
     // `inset`. The negative forms (`-top-4`) share the same group as the
     // positive forms because they set the same property.
-    const POSITION_PREFIXES: &[&str] =
-        &["top", "right", "bottom", "left", "inset", "inset-x", "inset-y"];
+    const POSITION_PREFIXES: &[&str] = &[
+        "top", "right", "bottom", "left", "inset", "inset-x", "inset-y",
+    ];
     for p in POSITION_PREFIXES {
         if let Some(group) = position_prop(p) {
             out.push((p, group));
@@ -147,13 +148,33 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
         return Some(css);
     }
 
+    // 1a. CSS-variable shorthand: `bg-(--brand)`, `text-(--muted-fg)`,
+    //     `border-(--border)`. Tailwind v4 desugars `x-(--v)` to `x-[var(--v)]`
+    //     but keeps the PREFIX's property typing (so `border-(--c)` is a COLOR,
+    //     not a width). Routed before the generic `-` split so the parens aren't
+    //     mistaken for a value segment.
+    if let Some(css) = parse_var_shorthand(class_name) {
+        return Some(css);
+    }
+
+    // 1c. Gradient stops: `from-amber-200`, `via-primary`, `to-(--accent)`.
+    if let Some(css) = parse_gradient_stop(class_name) {
+        return Some(css);
+    }
+
     // 1b. Named container context: `@container/<name>` declares a *named* query
     // container so descendant `@<bp>/<name>:` variants can target it. Emits both
     // the container-type and the container-name. (The bare `@container` form is a
     // fixed utility below.)
     if let Some(name) = class_name.strip_prefix("@container/") {
-        if !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
-            return Some(format!("container-type: inline-size; container-name: {name};"));
+        if !name.is_empty()
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        {
+            return Some(format!(
+                "container-type: inline-size; container-name: {name};"
+            ));
         }
     }
 
@@ -250,17 +271,86 @@ pub fn parse_color_opacity(class_name: &str) -> Option<String> {
 
 /// Parse `prefix-[value]` arbitrary-value syntax. The bracket content is
 /// emitted verbatim into the mapped CSS property (edge E7).
+///
+/// Two refinements over a flat prefix→prop map:
+/// - **Data-type hints** — `border-[length:2px]` / `text-[color:var(--x)]`
+///   force the interpretation Tailwind v4 supports for ambiguous prefixes.
+/// - **Color/length disambiguation** — for `border`/`outline`/`ring`/`divide`,
+///   a value that *looks like a color* maps to the color property; otherwise to
+///   the width property. (Previously `border-[…]` always meant width, so
+///   `border-[var(--c)]` silently produced an invalid `border-width`.)
 pub fn parse_arbitrary(class_name: &str) -> Option<String> {
     let open = class_name.find("-[")?;
     if !class_name.ends_with(']') {
         return None;
     }
     let prefix = &class_name[..open];
-    let value = &class_name[open + 2..class_name.len() - 1];
-    let prop = arbitrary_prop(prefix)?;
+    let raw = &class_name[open + 2..class_name.len() - 1];
+    // Optional `<type>:` data-type hint.
+    let (hint, body) = match raw.split_once(':') {
+        Some((h, v))
+            if matches!(
+                h,
+                "color" | "length" | "angle" | "url" | "number" | "percentage" | "image"
+            ) =>
+        {
+            (Some(h), v)
+        }
+        _ => (None, raw),
+    };
     // Underscores in arbitrary values stand for spaces (Tailwind convention).
-    let value = value.replace('_', " ");
+    let value = body.replace('_', " ");
+
+    // Multi-declaration special cases.
+    match prefix {
+        "size" => return Some(format!("width: {value}; height: {value};")),
+        "mask" | "mask-image" => {
+            return Some(format!("-webkit-mask-image: {value}; mask-image: {value};"));
+        }
+        _ => {}
+    }
+
+    let is_color = hint == Some("color") || (hint.is_none() && looks_like_color(&value));
+    let prop = match prefix {
+        "border" => {
+            if is_color {
+                "border-color"
+            } else {
+                "border-width"
+            }
+        }
+        "outline" => {
+            if is_color {
+                "outline-color"
+            } else {
+                "outline-width"
+            }
+        }
+        "ring" => {
+            if is_color {
+                "--tw-ring-color"
+            } else {
+                "--tw-ring-width"
+            }
+        }
+        _ => arbitrary_prop(prefix)?,
+    };
     Some(format!("{prop}: {value};"))
+}
+
+/// Heuristic: does an arbitrary value denote a color (vs. a length)? Covers
+/// hex, the CSS color functions, `var(--…)` (assumed a color in a color slot),
+/// and the bare CSS named colors the engine already knows.
+fn looks_like_color(v: &str) -> bool {
+    let v = v.trim();
+    v.starts_with('#')
+        || v.starts_with("var(")
+        || v.starts_with("rgb")
+        || v.starts_with("hsl")
+        || v.starts_with("oklch")
+        || v.starts_with("oklab")
+        || v.starts_with("color(")
+        || matches!(v, "transparent" | "currentColor" | "white" | "black")
 }
 
 /// Map an arbitrary-value prefix to its CSS property.
@@ -270,6 +360,7 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         "text" => "color",
         "w" => "width",
         "h" => "height",
+        "size" => "width",
         "min-w" => "min-width",
         "max-w" => "max-width",
         "min-h" => "min-height",
@@ -277,27 +368,180 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         "p" => "padding",
         "px" => "padding-inline",
         "py" => "padding-block",
+        "pt" => "padding-top",
+        "pr" => "padding-right",
+        "pb" => "padding-bottom",
+        "pl" => "padding-left",
         "m" => "margin",
         "mx" => "margin-inline",
         "my" => "margin-block",
+        "mt" => "margin-top",
+        "mr" => "margin-right",
+        "mb" => "margin-bottom",
+        "ml" => "margin-left",
         "gap" => "gap",
+        "gap-x" => "column-gap",
+        "gap-y" => "row-gap",
         "rounded" => "border-radius",
         "border" => "border-width",
+        "border-t" => "border-top-width",
+        "border-r" => "border-right-width",
+        "border-b" => "border-bottom-width",
+        "border-l" => "border-left-width",
         "grid-cols" => "grid-template-columns",
         "grid-rows" => "grid-template-rows",
         "col-span" => "grid-column",
         "row-span" => "grid-row",
         "leading" => "line-height",
         "tracking" => "letter-spacing",
+        "aspect" => "aspect-ratio",
+        "basis" => "flex-basis",
         "z" => "z-index",
+        "order" => "order",
         "top" => "top",
         "right" => "right",
         "bottom" => "bottom",
         "left" => "left",
         "inset" => "inset",
+        "translate-x" => "translate",
         "fill" => "fill",
         "stroke" => "stroke",
         "shadow" => "box-shadow",
+        "opacity" => "opacity",
+        "blur" => "filter",
+        "duration" => "transition-duration",
+        "transition" => "transition-property",
+        "font" => "font-family",
+        "leading-trim" => "line-height",
+        "outline-offset" => "outline-offset",
+        _ => return None,
+    })
+}
+
+/// Parse the Tailwind v4 CSS-variable shorthand `prefix-(--token)`. Desugars to
+/// `prefix-[var(--token)]`, but resolves the property through the *prefix's*
+/// type: color prefixes (`bg`/`text`/`border`/`fill`/`stroke`/`ring`/`outline`)
+/// → the color property, `divide` → the sibling border-color recipe, gradient
+/// prefixes → a gradient stop, everything else → the length/box property. An
+/// optional trailing `/NN` is handled upstream by `parse_color_opacity` (which
+/// re-resolves the base through here), so this function never sees the opacity.
+pub fn parse_var_shorthand(class_name: &str) -> Option<String> {
+    let open = class_name.find("-(")?;
+    if !class_name.ends_with(')') {
+        return None;
+    }
+    let prefix = &class_name[..open];
+    let inner = &class_name[open + 2..class_name.len() - 1];
+    if !inner.starts_with("--") {
+        return None;
+    }
+    let value = format!("var({inner})");
+    if let Some(prop) = color_prop(prefix) {
+        return Some(format!("{prop}: {value};"));
+    }
+    if prefix == "divide" {
+        return Some(format!("& > * + * {{ border-color: {value}; }}"));
+    }
+    if matches!(prefix, "from" | "via" | "to") {
+        return gradient_stop(prefix, &value);
+    }
+    if let Some(prop) = arbitrary_prop(prefix) {
+        return Some(format!("{prop}: {value};"));
+    }
+    None
+}
+
+/// Parse a gradient color-stop utility: `from-<color>`, `via-<color>`,
+/// `to-<color>`. The color may be a brand/palette token, a bare keyword, an
+/// arbitrary `[…]` value, or a `(--var)` shorthand.
+fn parse_gradient_stop(class_name: &str) -> Option<String> {
+    let (prefix, rest) = class_name.split_once('-')?;
+    if !matches!(prefix, "from" | "via" | "to") {
+        return None;
+    }
+    let color = if let Some(inner) = rest.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+        inner.replace('_', " ")
+    } else if let Some(inner) = rest.strip_prefix('(').and_then(|r| r.strip_suffix(')')) {
+        if !inner.starts_with("--") {
+            return None;
+        }
+        format!("var({inner})")
+    } else {
+        resolve_color(rest)?
+    };
+    gradient_stop(prefix, &color)
+}
+
+/// Emit the `--tw-gradient-*` custom properties for a gradient color stop using
+/// Tailwind's stop recipe. `bg-linear-to-*` / `bg-gradient-to-*` consume
+/// `var(--tw-gradient-stops)`.
+fn gradient_stop(prefix: &str, color: &str) -> Option<String> {
+    Some(match prefix {
+        "from" => format!(
+            "--tw-gradient-from: {color}; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgb(0 0 0 / 0));"
+        ),
+        "via" => format!(
+            "--tw-gradient-stops: var(--tw-gradient-from), {color}, var(--tw-gradient-to, rgb(0 0 0 / 0));"
+        ),
+        "to" => format!("--tw-gradient-to: {color};"),
+        _ => return None,
+    })
+}
+
+/// Scan emitted CSS for `var(--color-<family>-<shade>)` palette references and
+/// register each one the theme does not already define with its Tailwind v4
+/// oklch value. Palette utilities compile to `var(--color-*)` refs; Tailwind
+/// ships the palette in its default theme, so the scoped emitter calls this to
+/// make the referenced colors resolve at `:host` (without bloating every shadow
+/// root with all 286 entries — only the ones a component actually uses).
+pub fn register_used_palette(css: &str, theme: &mut crate::theme::ThemeRegistry) {
+    const NEEDLE: &str = "var(--color-";
+    let mut decls = String::new();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut rest = css;
+    while let Some(pos) = rest.find(NEEDLE) {
+        let after = &rest[pos + NEEDLE.len()..];
+        let Some(close) = after.find(')') else { break };
+        let token = &after[..close];
+        rest = &after[close..];
+        // Only `<family>-<shade>` palette tokens (brand tokens like `primary`
+        // are already registered and have no oklch table entry).
+        if !seen.insert(token.to_string()) {
+            continue;
+        }
+        let name = format!("--color-{token}");
+        if theme.get(&name).is_none() {
+            if let Some(value) = crate::palette::oklch(token) {
+                decls.push_str(&format!("{name}: {value};\n"));
+            }
+        }
+    }
+    if !decls.is_empty() {
+        theme.apply_theme_block(&decls);
+    }
+}
+
+/// Resolve a color name (brand token, palette token, or bare keyword) to its
+/// CSS value. Brand + palette tokens resolve to `var(--color-*)`.
+fn resolve_color(name: &str) -> Option<String> {
+    if is_brand_token(name) || is_palette_token(name) {
+        return Some(format!("var(--color-{name})"));
+    }
+    named_keyword_color(name).map(str::to_string)
+}
+
+/// Map a gradient direction suffix (`bg-linear-to-<dir>`) to its `linear-gradient`
+/// direction keyword.
+fn gradient_dir(value: &str) -> Option<&'static str> {
+    Some(match value {
+        "t" => "to top",
+        "tr" => "to top right",
+        "r" => "to right",
+        "br" => "to bottom right",
+        "b" => "to bottom",
+        "bl" => "to bottom left",
+        "l" => "to left",
+        "tl" => "to top left",
         _ => return None,
     })
 }
@@ -551,6 +795,129 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "animate-pulse" => "animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;",
         "animate-bounce" => "animation: bounce 1s infinite;",
 
+        // --- Parity round: long-tail fixed utilities ----------------------
+
+        // Font family (serif completes the sans/mono pair above).
+        "font-serif" => "font-family: var(--font-serif);",
+
+        // Border-radius scale extension (2xl handled above).
+        "rounded-3xl" => "border-radius: 1.5rem;",
+        "rounded-4xl" => "border-radius: 2rem;",
+
+        // Box-shadow scale extension (sm/md/lg/none handled above).
+        "shadow-xs" => "box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);",
+        "shadow-xl" => "box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);",
+        "shadow-2xl" => "box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);",
+        "shadow-inner" => "box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);",
+
+        // Stacking / isolation.
+        "isolate" => "isolation: isolate;",
+        "isolation-auto" => "isolation: auto;",
+
+        // GPU compositing hint. This engine emits direct `transform`
+        // declarations (no var composition), so `transform-gpu` is a benign
+        // 3D-context promotion that doesn't clobber a sibling transform family.
+        "transform-gpu" => "transform: translateZ(0);",
+
+        // Text wrapping / balancing (Tailwind v4).
+        "text-wrap" => "text-wrap: wrap;",
+        "text-nowrap" => "text-wrap: nowrap;",
+        "text-balance" => "text-wrap: balance;",
+        "text-pretty" => "text-wrap: pretty;",
+        "whitespace-nowrap" => "white-space: nowrap;",
+        "whitespace-normal" => "white-space: normal;",
+        "whitespace-pre" => "white-space: pre;",
+        "break-words" => "overflow-wrap: break-word;",
+        "break-all" => "word-break: break-all;",
+
+        // Cursor.
+        "cursor-auto" => "cursor: auto;",
+        "cursor-default" => "cursor: default;",
+        "cursor-pointer" => "cursor: pointer;",
+        "cursor-wait" => "cursor: wait;",
+        "cursor-text" => "cursor: text;",
+        "cursor-move" => "cursor: move;",
+        "cursor-help" => "cursor: help;",
+        "cursor-not-allowed" => "cursor: not-allowed;",
+        "cursor-grab" => "cursor: grab;",
+        "cursor-grabbing" => "cursor: grabbing;",
+
+        // List style.
+        "list-none" => "list-style-type: none;",
+        "list-disc" => "list-style-type: disc;",
+        "list-decimal" => "list-style-type: decimal;",
+        "list-inside" => "list-style-position: inside;",
+        "list-outside" => "list-style-position: outside;",
+
+        // Flex item growth/shrink keywords (numeric `grow-0`/`shrink-0` below).
+        "grow" => "flex-grow: 1;",
+        "grow-0" => "flex-grow: 0;",
+        "shrink" => "flex-shrink: 1;",
+        "shrink-0" => "flex-shrink: 0;",
+
+        // Align-self.
+        "self-auto" => "align-self: auto;",
+        "self-start" => "align-self: flex-start;",
+        "self-end" => "align-self: flex-end;",
+        "self-center" => "align-self: center;",
+        "self-stretch" => "align-self: stretch;",
+        "self-baseline" => "align-self: baseline;",
+
+        // Justify-self / place.
+        "justify-items-start" => "justify-items: start;",
+        "justify-items-center" => "justify-items: center;",
+        "justify-items-end" => "justify-items: end;",
+        "place-items-center" => "place-items: center;",
+        "place-content-center" => "place-content: center;",
+
+        // Order keywords (numeric `order-N` below).
+        "order-first" => "order: -9999;",
+        "order-last" => "order: 9999;",
+        "order-none" => "order: 0;",
+
+        // Object fit/position.
+        "object-cover" => "object-fit: cover;",
+        "object-contain" => "object-fit: contain;",
+        "object-center" => "object-position: center;",
+
+        // Overflow axes.
+        "overflow-x-hidden" => "overflow-x: hidden;",
+        "overflow-y-hidden" => "overflow-y: hidden;",
+        "overflow-x-auto" => "overflow-x: auto;",
+        "overflow-y-auto" => "overflow-y: auto;",
+
+        // Outline keywords (numeric width/offset handled in
+        // `parameterized_utility`). `outline-none` follows Tailwind v4 (a
+        // transparent solid outline so high-contrast modes still show focus).
+        "outline-none" => "outline: 2px solid transparent; outline-offset: 2px;",
+        "outline-hidden" => "outline: 2px solid transparent; outline-offset: 2px;",
+        "appearance-none" => "appearance: none;",
+
+        // Generated-content reset (e.g. `marker:content-none`, `before:content-none`).
+        "content-none" => "content: none;",
+
+        // Width/height intrinsic keywords.
+        "w-min" => "width: min-content;",
+        "w-max" => "width: max-content;",
+        "w-fit" => "width: fit-content;",
+        "h-min" => "height: min-content;",
+        "h-max" => "height: max-content;",
+        "h-fit" => "height: fit-content;",
+        "size-full" => "width: 100%; height: 100%;",
+        "size-auto" => "width: auto; height: auto;",
+        "size-min" => "width: min-content; height: min-content;",
+        "size-max" => "width: max-content; height: max-content;",
+        "size-fit" => "width: fit-content; height: fit-content;",
+
+        // Backdrop blur (base keyword; numeric scale below).
+        "backdrop-blur" => "backdrop-filter: blur(8px);",
+        "blur" => "filter: blur(8px);",
+        "blur-none" => "filter: none;",
+
+        // Screen-reader-only (a11y). Visually hidden but accessible.
+        "sr-only" => "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;",
+        "not-sr-only" => "position: static; width: auto; height: auto; padding: 0; margin: 0; overflow: visible; clip: auto; white-space: normal;",
+
         _ => return None,
     })
 }
@@ -662,7 +1029,7 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
             None => (false, prefix),
         };
         if let Some(prop) = position_prop(base_prefix) {
-            if let Some(v) = spacing_value(value) {
+            if let Some(v) = position_value(value) {
                 if neg && v != "auto" && v != "0" {
                     return Some(format!("{prop}: -{v};"));
                 }
@@ -698,20 +1065,135 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
         }
     }
 
-    // Font size (with paired line-height, Tailwind defaults).
+    // Font size (with paired line-height, Tailwind defaults). The
+    // `text-<size>/<lh>` slash form overrides the paired line-height with a
+    // step from the spacing scale (`text-sm/6` → line-height 1.5rem).
     if prefix == "text" {
-        if let Some(css) = font_size(value) {
-            return Some(css.to_string());
+        if let Some((size, lh)) = value.split_once('/') {
+            if let (Some((fs, _)), Some(lhv)) = (font_size_parts(size), spacing_value(lh)) {
+                return Some(format!("font-size: {fs}; line-height: {lhv};"));
+            }
+        }
+        if let Some((fs, lh)) = font_size_parts(value) {
+            return Some(format!("font-size: {fs}; line-height: {lh};"));
         }
         // text-<color>-<shade> falls through to the color path below.
     }
 
+    // --- Parity round: parameterized families -------------------------------
+
+    // `size-N` → equal width + height on the spacing scale / fractions.
+    if prefix == "size" {
+        if let Some(v) = sizing_value(value) {
+            return Some(format!("width: {v}; height: {v};"));
+        }
+    }
+
+    // `aspect-<ratio>` — `aspect-square|video|auto` keywords plus bare ratios
+    // (`aspect-16/9`, `aspect-1108/632`). The `/` ratio survives the last-`-`
+    // split as the value, so it lands here intact.
+    if prefix == "aspect" {
+        let ratio = match value {
+            "square" => "1 / 1",
+            "video" => "16 / 9",
+            "auto" => "auto",
+            v if v.split_once('/').is_some_and(|(a, b)| {
+                !a.is_empty()
+                    && !b.is_empty()
+                    && a.bytes().all(|c| c.is_ascii_digit())
+                    && b.bytes().all(|c| c.is_ascii_digit())
+            }) =>
+            {
+                return Some(format!("aspect-ratio: {};", v.replace('/', " / ")));
+            }
+            _ => return None,
+        };
+        return Some(format!("aspect-ratio: {ratio};"));
+    }
+
+    // `order-N` / `-order-N`.
+    {
+        let (neg, base) = match prefix.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, prefix),
+        };
+        if base == "order" {
+            if let Some(n) = positive_int_or_zero(value) {
+                return Some(format!("order: {}{n};", if neg { "-" } else { "" }));
+            }
+        }
+    }
+
+    // `blur-N` / `backdrop-blur-N` named filter scale.
+    if prefix == "blur" {
+        if let Some(px) = blur_radius(value) {
+            return Some(format!("filter: blur({px});"));
+        }
+    }
+    if prefix == "backdrop-blur" {
+        if let Some(px) = blur_radius(value) {
+            return Some(format!("backdrop-filter: blur({px});"));
+        }
+    }
+
+    // `outline-N` width (+ `outline-style: solid` so it paints; the engine has
+    // no per-element preflight for outline-style) and `outline-offset-N`
+    // (negative form via the `-` prefix).
+    if prefix == "outline" {
+        if let Some(px) = ring_width(value) {
+            return Some(format!("outline-style: solid; outline-width: {px}px;"));
+        }
+    }
+    {
+        let (neg, base) = match prefix.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, prefix),
+        };
+        if base == "outline-offset" {
+            if let Some(px) = ring_width(value) {
+                return Some(format!(
+                    "outline-offset: {}{px}px;",
+                    if neg { "-" } else { "" }
+                ));
+            }
+        }
+    }
+
+    // Linear-gradient direction: `bg-linear-to-r`, `bg-gradient-to-br`.
+    if prefix == "bg-linear-to" || prefix == "bg-gradient-to" {
+        if let Some(dir) = gradient_dir(value) {
+            return Some(format!(
+                "background-image: linear-gradient({dir}, var(--tw-gradient-stops));"
+            ));
+        }
+    }
+
+    // Negative margins: `-m-4`, `-ml-1`. Only the margin family negates (padding
+    // has no negative form); the positive forms are handled by the spacing path
+    // at the top of this function.
+    if let Some(base) = prefix.strip_prefix('-') {
+        if base.starts_with('m') {
+            if let Some(prop) = spacing_prop(base) {
+                if let Some(v) = spacing_value(value) {
+                    if v != "auto" && v != "0" {
+                        return Some(format!("{prop}: -{v};"));
+                    }
+                    return Some(format!("{prop}: {v};"));
+                }
+            }
+        }
+    }
+
     // Border radius scale already covered by fixed_utility for named sizes.
 
-    // z-index.
-    if prefix == "z" {
-        if value.chars().all(|c| c.is_ascii_digit()) {
-            return Some(format!("z-index: {value};"));
+    // z-index (`z-10`, `-z-10`).
+    {
+        let (neg, base) = match prefix.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, prefix),
+        };
+        if base == "z" && !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()) {
+            return Some(format!("z-index: {}{value};", if neg { "-" } else { "" }));
         }
     }
 
@@ -1019,14 +1501,51 @@ fn positive_int_or_zero(value: &str) -> Option<u32> {
     value.parse().ok()
 }
 
-/// Translate length on the spacing scale, with `px` and fractional steps. Used
-/// by `translate-x/y-*`. Reuses [`spacing_value`] but rejects the `auto`
-/// keyword (translate has no `auto`).
+/// Translate length on the spacing scale, with `px`, fractional steps
+/// (`translate-x-1/2` → 50%), and rejecting `auto`. Used by `translate-x/y-*`.
 fn translate_length(value: &str) -> Option<String> {
     if value == "auto" {
         return None;
     }
+    if let Some(pct) = fraction_percent(value) {
+        return Some(pct);
+    }
     spacing_value(value)
+}
+
+/// A `num/den` fraction as a percentage string (`1/2` → `50%`), or `None` if the
+/// value is not a numeric fraction.
+fn fraction_percent(value: &str) -> Option<String> {
+    let (num, den) = value.split_once('/')?;
+    let n: f32 = num.parse().ok()?;
+    let d: f32 = den.parse().ok()?;
+    if d == 0.0 {
+        return None;
+    }
+    Some(format!("{}%", trim_float(n / d * 100.0)))
+}
+
+/// Position-scale value: fractions resolve to percentages (`left-1/2` → 50%),
+/// otherwise the spacing scale (incl. `auto`, `px`, `0`).
+fn position_value(value: &str) -> Option<String> {
+    if let Some(pct) = fraction_percent(value) {
+        return Some(pct);
+    }
+    spacing_value(value)
+}
+
+/// Named blur radius scale (`blur-*` / `backdrop-blur-*`), Tailwind v4 defaults.
+fn blur_radius(value: &str) -> Option<&'static str> {
+    Some(match value {
+        "xs" => "4px",
+        "sm" => "8px",
+        "md" => "12px",
+        "lg" => "16px",
+        "xl" => "24px",
+        "2xl" => "40px",
+        "3xl" => "64px",
+        _ => return None,
+    })
 }
 
 /// Scale percentage → unit multiplier. `scale-105` → `1.05`, `scale-0` → `0`,
@@ -1085,18 +1604,24 @@ fn sizing_value(value: &str) -> Option<String> {
     spacing_value(value)
 }
 
-/// Font-size scale (size + matched line-height), Tailwind defaults.
-fn font_size(value: &str) -> Option<&'static str> {
+/// Font-size scale as `(size, line-height)` parts, Tailwind v4 defaults. The
+/// caller pairs them into `font-size`/`line-height` declarations, or overrides
+/// the line-height for the `text-<size>/<lh>` slash form.
+fn font_size_parts(value: &str) -> Option<(&'static str, &'static str)> {
     Some(match value {
-        "xs" => "font-size: 0.75rem; line-height: 1rem;",
-        "sm" => "font-size: 0.875rem; line-height: 1.25rem;",
-        "base" => "font-size: 1rem; line-height: 1.5rem;",
-        "lg" => "font-size: 1.125rem; line-height: 1.75rem;",
-        "xl" => "font-size: 1.25rem; line-height: 1.75rem;",
-        "2xl" => "font-size: 1.5rem; line-height: 2rem;",
-        "3xl" => "font-size: 1.875rem; line-height: 2.25rem;",
-        "4xl" => "font-size: 2.25rem; line-height: 2.5rem;",
-        "5xl" => "font-size: 3rem; line-height: 1;",
+        "xs" => ("0.75rem", "1rem"),
+        "sm" => ("0.875rem", "1.25rem"),
+        "base" => ("1rem", "1.5rem"),
+        "lg" => ("1.125rem", "1.75rem"),
+        "xl" => ("1.25rem", "1.75rem"),
+        "2xl" => ("1.5rem", "2rem"),
+        "3xl" => ("1.875rem", "2.25rem"),
+        "4xl" => ("2.25rem", "2.5rem"),
+        "5xl" => ("3rem", "1"),
+        "6xl" => ("3.75rem", "1"),
+        "7xl" => ("4.5rem", "1"),
+        "8xl" => ("6rem", "1"),
+        "9xl" => ("8rem", "1"),
         _ => return None,
     })
 }
