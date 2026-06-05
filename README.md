@@ -171,7 +171,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/context` | — | 300 B | _no dist_ |
 | `@aihu/signals` | — | 1970 B | _no dist_ |
 | `@aihu/arbor` | — | 2800 B | _no dist_ |
-| `@aihu/runtime` | — | 3550 B | _no dist_ |
+| `@aihu/runtime` | — | 3800 B | _no dist_ |
 | `@aihu/agent` | — | 200 B | _no dist_ |
 | `@aihu-plugin/data` | — | 800 B | _no dist_ |
 | `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
@@ -223,38 +223,38 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | Package | Version | Description |
 |---|---|---|
 | [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.0.3` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
-| [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.0` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.1` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.0` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
-| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.0` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `1.0.2` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `1.0.2` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.1` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `2.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `2.0.0` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
-| [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.1` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
-| [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.1` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
+| [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.2` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
+| [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.2` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
-| [`@aihu/agent-server`](./packages/agent-server) | `0.1.0` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
-| [`@aihu/agent-service`](./packages/agent-service) | `0.1.3` | Service-side agent runtime (server-hosted agent endpoints). |
+| [`@aihu/agent-server`](./packages/agent-server) | `0.2.0` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
+| [`@aihu/agent-service`](./packages/agent-service) | `0.2.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `0.3.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
-| [`@aihu/arbor`](./packages/arbor) | `0.1.5` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
-| [`@aihu/auth`](./packages/auth) | `0.1.2` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
+| [`@aihu/app`](./packages/app) | `1.0.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/arbor`](./packages/arbor) | `1.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
+| [`@aihu/auth`](./packages/auth) | `1.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.6.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.5.4` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.6.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
-| [`@aihu/css-engine`](./packages/css-engine) | `0.3.0` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
-| [`@aihu/data`](./packages/_moved/data) | `2.0.0` | [MOVED] This package has moved to @aihu-plugin/data. |
-| [`@aihu/language-server`](./packages/language-server) | `0.2.2` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
-| [`@aihu/magna`](./packages/magna) | `0.2.0` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
+| [`@aihu/css-engine`](./packages/css-engine) | `0.4.0` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
+| [`@aihu/data`](./packages/_moved/data) | `2.0.1` | [MOVED] This package has moved to @aihu-plugin/data. |
+| [`@aihu/language-server`](./packages/language-server) | `0.2.3` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/magna`](./packages/magna) | `0.2.1` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.0` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
-| [`@aihu/primitives`](./packages/primitives) | `0.0.9` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
-| [`@aihu/router`](./packages/router) | `0.1.7` | File-based router for the aihu meta-framework. |
-| [`@aihu/runtime`](./packages/runtime) | `0.1.8` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.1` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
+| [`@aihu/primitives`](./packages/primitives) | `0.0.10` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/router`](./packages/router) | `0.1.8` | File-based router for the aihu meta-framework. |
+| [`@aihu/runtime`](./packages/runtime) | `1.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
 | [`@aihu/seo`](./packages/seo) | `0.2.0` | aihu SEO plugin: sitemap.xml, robots.txt, llms.txt, JSON-LD injection via afterParse hook. |
 | [`@aihu/server`](./packages/server) | `0.2.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
-| [`@aihu/signals`](./packages/signals) | `0.1.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
+| [`@aihu/signals`](./packages/signals) | `0.2.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/ui`](./packages/ui) | `0.0.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
