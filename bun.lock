@@ -846,6 +846,14 @@
 
     "@aihu/css-engine": ["@aihu/css-engine@workspace:packages/css-engine"],
 
+    "@aihu/css-engine-darwin-arm64": ["@aihu/css-engine-darwin-arm64@0.1.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-hWYN8CnWjGiqOG+4rbsQvQvStKcGvR/SHjAftfOCk5XXw0u5RgImICYyVBPGhRr/82gBOFpDUWc2EJB1XIWr/g=="],
+
+    "@aihu/css-engine-darwin-x64": ["@aihu/css-engine-darwin-x64@0.1.3", "", { "os": "darwin", "cpu": "x64" }, "sha512-Gsvyls25tNoUF3RBqwTo9kTaJnlEKmWNGShTmh+X46Kfck/DV28PF++lc+aRJpKVvv7LxMGY0fBCdudImd4Oow=="],
+
+    "@aihu/css-engine-linux-x64-gnu": ["@aihu/css-engine-linux-x64-gnu@0.1.3", "", { "os": "linux", "cpu": "x64" }, "sha512-reixYzSxsgT95RncQzbneJTB8/8rz6eh1nRCIG2TVGilkkW+7Mf6LLfr0qZmams4QhkoOQVa8YyC+NvR9XVSpQ=="],
+
+    "@aihu/css-engine-win32-x64-msvc": ["@aihu/css-engine-win32-x64-msvc@0.1.3", "", { "os": "win32", "cpu": "x64" }, "sha512-pX+baHKt5maM3Ug/B6dDxq9OBzJu/A3jcQVDjThlN+5LhkILYpnQBM7yXhGZ0aWf2Xu/AIax5M1wcX2frun4ug=="],
+
     "@aihu/data": ["@aihu/data@workspace:packages/_moved/data"],
 
     "@aihu/example-agent-driven-demo": ["@aihu/example-agent-driven-demo@workspace:examples/agent-driven-demo"],
