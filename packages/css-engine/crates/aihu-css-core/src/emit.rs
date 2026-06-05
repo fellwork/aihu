@@ -136,6 +136,7 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
             Variant::SlottedTag(tag) => selector = format!("::slotted({tag}{selector})"),
             Variant::Part(name) => selector = format!("::part({name})"),
             Variant::Pseudo(pc) => selector = format!("{selector}:{pc}"),
+            Variant::PseudoElement(pe) => selector = format!("{selector}::{pe}"),
             Variant::ArbitrarySelector(sel) => {
                 // `[&>div]:` → substitute `&` for the base selector.
                 selector = sel.replace('&', &selector);
@@ -288,30 +289,31 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
 
     let result = scan(ast);
     let prog = ProgressiveRegistry::with_builtins();
-    let mut out = String::new();
 
-    // 1. Theme tokens at :host so var(--color-*) resolves inside the shadow.
-    out.push_str(&theme.emit_host_tokens());
+    // Build the rule body first — preflight + scanned utilities + folded
+    // `@style` — so we can discover which palette `--color-*` tokens it
+    // references and register them before emitting the `:host` token block.
+    let mut body = String::new();
 
-    // 1b. Preflight border reset (Tailwind v4 parity). Browsers default
+    // Preflight border reset (Tailwind v4 parity). Browsers default
     // `border-style: none`, so a bare `.border { border-width: 1px }` paints
     // nothing. Emit a single one-time rule so every border utility renders a
     // visible solid line. This is one rule per sheet (not per token), so the
     // size impact is negligible; the matching utility wins by specificity.
-    out.push_str("*, ::before, ::after { border-style: solid; border-width: 0; }\n");
+    body.push_str("*, ::before, ::after { border-style: solid; border-width: 0; }\n");
 
-    // 2. Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
-    out.push_str(&emit_with_progressive(
+    // Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
+    body.push_str(&emit_with_progressive(
         &result,
         &theme,
         &prog,
         OutputMode::Scoped,
     ));
 
-    // 3. Fold the authored @style block (minus @theme directives), expanding
-    //    any `@apply` directives first (Task 1.4). Base utilities inline as
-    //    declarations; variant tokens lift to nested `&…` rules on the recipe's
-    //    own selector. Unknown utilities / illegal `$global` variants hard-error.
+    // Fold the authored @style block (minus @theme directives), expanding any
+    // `@apply` directives first (Task 1.4). Base utilities inline as
+    // declarations; variant tokens lift to nested `&…` rules on the recipe's
+    // own selector. Unknown utilities / illegal `$global` variants hard-error.
     if let Some(style) = &ast.style {
         let stripped = strip_theme_blocks(&style.content)?;
         if !stripped.trim().is_empty() {
@@ -321,21 +323,31 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
                 match style.scope {
                     // Scoped: it already lives in the shadow <style>; pass through.
                     SfcStyleScope::Scoped => {
-                        out.push_str("/* authored @style (scoped) */\n");
-                        out.push_str(authored);
-                        out.push('\n');
+                        body.push_str("/* authored @style (scoped) */\n");
+                        body.push_str(authored);
+                        body.push('\n');
                     }
                     // Global ($global): passed through unscoped (edge E6). The
                     // compiler hoists this out of the shadow root.
                     SfcStyleScope::Global => {
-                        out.push_str("/* authored @style ($global — unscoped) */\n");
-                        out.push_str(authored);
-                        out.push('\n');
+                        body.push_str("/* authored @style ($global — unscoped) */\n");
+                        body.push_str(authored);
+                        body.push('\n');
                     }
                 }
             }
         }
     }
+
+    // Register the palette tokens the body references (Tailwind ships the full
+    // palette in its default theme) so `var(--color-amber-200)` resolves at
+    // `:host`. Only the referenced tokens are added — not all 286.
+    crate::tokens::register_used_palette(&body, &mut theme);
+
+    // Theme tokens at :host (now incl. used palette) so var(--color-*) resolves
+    // inside the shadow root, then the rule body.
+    let mut out = theme.emit_host_tokens();
+    out.push_str(&body);
 
     Ok(out)
 }
