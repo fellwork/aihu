@@ -748,7 +748,7 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     }
     if h.link_element {
         // `<$link>` — render <a>, intercept clicks, set aria-current via effect.
-        lines.push("const createLinkBoundary = (href, prefetch, replace, children) => {\n  const node = branch('a', { href, 'data-aihu-link': '' }, children);\n  const ariaCompute = () => {\n    const r = __aihuRouter.useRoute();\n    return r && r.pathname === href ? 'page' : null;\n  };\n  onMount(() => {\n    const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n    const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n    if (!a) return () => {};\n    const onClick = (e) => {\n      if (e.defaultPrevented || e.button !== 0) return;\n      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n      e.preventDefault();\n      void __aihuRouter.navigate(href, { replace: !!replace });\n    };\n    a.addEventListener('click', onClick);\n    const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n    pf.attach(a, ariaCompute);\n    const stop = effect(() => {\n      const v = ariaCompute();\n      if (v) a.setAttribute('aria-current', v);\n      else a.removeAttribute('aria-current');\n    });\n    return () => { a.removeEventListener('click', onClick); pf.detach(a); stop && stop(); };\n  });\n  return node;\n};");
+        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  const node = branch('a', { ...(attrs || {}), href, 'data-aihu-link': '' }, children);\n  const ariaCompute = () => {\n    const r = __aihuRouter.useRoute();\n    return r && r.pathname === href ? 'page' : null;\n  };\n  onMount(() => {\n    const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n    const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n    if (!a) return () => {};\n    const onClick = (e) => {\n      if (e.defaultPrevented || e.button !== 0) return;\n      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n      // No reactive <$router> context (e.g. createApp): let the click bubble to\n      // @aihu/app's document-level delegation (or the browser) instead of a hard\n      // location.assign. With context present, navigate() does SPA nav here.\n      if (!__aihuRouter.useRouter()) return;\n      e.preventDefault();\n      void __aihuRouter.navigate(href, { replace: !!replace });\n    };\n    a.addEventListener('click', onClick);\n    const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n    pf.attach(a, ariaCompute);\n    const stop = effect(() => {\n      const v = ariaCompute();\n      if (v) a.setAttribute('aria-current', v);\n      else a.removeAttribute('aria-current');\n    });\n    return () => { a.removeEventListener('click', onClick); pf.detach(a); stop && stop(); };\n  });\n  return node;\n};");
     }
     if h.outlet_element {
         // `<$outlet>` — render the matched route component as a child custom element.
@@ -3433,7 +3433,17 @@ fn emit_node(
             }
         }
         TemplateNode::MacroElement { name, attrs, children } => {
-            emit_macro_element(name, attrs, children, signal_map, state_names, child_indent)
+            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent);
+            // Apply structural/effect directives ($each/$if/$key/$show/$class:)
+            // that wrap or affect the element — same as the plain Element arm
+            // above. Without this, directives on macro elements like <$link>
+            // were silently dropped (e.g. `$each` left a dangling loop var).
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
+            if effects.is_empty() {
+                base
+            } else {
+                effects.into_iter().next().unwrap_or(base)
+            }
         }
         // B3 — Variant B block-tag forms. Lower to the same runtime calls as
         // the v1 attribute-directives (`createIfBoundary` / `each`) so the
@@ -3962,6 +3972,26 @@ fn emit_macro_element(
                 .unwrap_or_else(|| "'none'".to_string());
             let replace_expr = find_static_or_binding_attr(attrs, "replace")
                 .unwrap_or_else(|| "false".to_string());
+            // Forward the author's OTHER attributes onto the rendered <a>
+            // (class, id, aria-*, $on:click, $bind:*) via the same path plain
+            // elements use. The <$link> props (href/prefetch/replace) are passed
+            // explicitly and excluded here. Structural/effect directives
+            // ($each/$if/$key/$class:/$show) are NOT consumed here —
+            // emit_macro_effects applies them at the call site (emit_node's
+            // MacroElement arm), exactly as for plain elements.
+            let forwarded: Vec<Attr> = attrs
+                .iter()
+                .filter(|a| {
+                    let n = match a {
+                        Attr::Static { name, .. } => name.as_str(),
+                        Attr::Binding { name, .. } => name.as_str(),
+                        Attr::Macro { name, .. } => name.as_str(),
+                    };
+                    !matches!(n, "href" | "prefetch" | "replace")
+                })
+                .cloned()
+                .collect();
+            let attrs_obj = emit_attrs(&forwarded, state_names, signal_map);
             // Children render inside the <a>.
             let children_subtree = if children.is_empty() {
                 "[]".to_string()
@@ -3970,8 +4000,8 @@ fn emit_macro_element(
                 format!("[{}]", inner)
             };
             format!(
-                "createLinkBoundary({}, {}, {}, {})",
-                href_expr, prefetch_expr, replace_expr, children_subtree
+                "createLinkBoundary({}, {}, {}, {}, {})",
+                href_expr, prefetch_expr, replace_expr, attrs_obj, children_subtree
             )
         }
 
