@@ -1,5 +1,43 @@
 # @aihu/compiler
 
+## 0.8.0
+
+### Minor Changes
+
+- [#339](https://github.com/fellwork/aihu/pull/339) [`fb436ac`](https://github.com/fellwork/aihu/commit/fb436ac2a1ecb6f9d570ccc05beeeab666c3ad6d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Full per-route metadata (`head`/`middleware`/`params`/`ssr`) now reaches
+  `virtual:aihu-routes` in a normal SPA build. Previously only `name`+`layout`
+  survived (via an `@route` source regex): the compiler compiles `.aihu` via
+  stdin and writes no `.route.json` sidecar, and `genR` runs before pages are
+  lazily transformed — so nested metadata like per-route `<head>` SEO tags were
+  silently dropped unless the app was prerendered/SSG'd.
+
+  - **@aihu/compiler** — new `--route-json` binary flag (prints the computed
+    route sidecar to stdout) and a `compileRouteMeta(source, id)` export that
+    wraps it (mirrors `compileToAst`).
+  - **@aihu/router** — `genR` accepts a `compileRouteMeta` option and uses it to
+    recover full `@route` metadata for `.aihu` pages (precedence: disk sidecar →
+    `compileRouteMeta` → `name`+`layout` regex fallback when no compiler is
+    wired, so standalone `viteRouterIntegration` still works).
+  - **@aihu/app** — wires the compiler's `compileRouteMeta` into the router
+    integration, so SPA apps get per-route `<head>` without prerendering.
+
+### Patch Changes
+
+- [#341](https://github.com/fellwork/aihu/pull/341) [`fc5fa49`](https://github.com/fellwork/aihu/commit/fc5fa49688ee8aca8ad5de0a513dca1e648a00f3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix two `.aihu` codegen bugs surfaced by layouts + `<$link>`:
+
+  - **`<$link>` inside `$each`/`$if` threw `onMount: no owner`.** `createLinkBoundary`
+    wired its click handler via `addEventListener` inside `onMount`, which needs the
+    component-setup owner — absent in an each/if item factory — so a looped
+    `<$link>` crashed the whole component. Click is now an owner-agnostic arbor
+    `onClick` attr (and composes any author `$on.click`); the prefetch/aria-current
+    `onMount` is guarded so looped links degrade gracefully (still navigate) instead
+    of throwing.
+  - **Complex attribute bindings compiled eager (non-reactive).** `$class={fn() ? a : b}`
+    (e.g. reading an imported/provided reactive getter the compiler can't see in
+    `@state`) was emitted as a one-shot value and never re-ran — freezing layout
+    toggles. Complex binding expressions are now thunk-wrapped like `$if`/`$show`;
+    bare non-reactive identifiers and static literals stay eager.
+
 ## 0.7.1
 
 ### Patch Changes
