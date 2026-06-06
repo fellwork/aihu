@@ -1,5 +1,16 @@
 # @aihu/app
 
+## 2.0.1
+
+### Patch Changes
+
+- [#336](https://github.com/fellwork/aihu/pull/336) [`0ab1988`](https://github.com/fellwork/aihu/commit/0ab1988b5f546f2050fa3eaea1b0ac1a26a32f96) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix SPA link interception for `<a>` nested inside a shadow root. A click inside
+  a shadow-DOM layout/page (the default shadow mode) is retargeted at the host, so
+  `e.target.closest('a')` missed the real anchor and the click fell through to a
+  full page reload. The handler now resolves the anchor via `composedPath()`, so
+  client-side navigation works inside shadow-DOM layouts — `shadowMode: 'none'` is
+  no longer required just to make in-layout nav links work.
+
 ## 2.0.0
 
 ### Minor Changes
