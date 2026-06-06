@@ -1,5 +1,14 @@
 # @aihu/example-cf-adapter
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [[`62e2f97`](https://github.com/fellwork/aihu/commit/62e2f9738870e8c28af6221d65f674b259510478), [`0ab1988`](https://github.com/fellwork/aihu/commit/0ab1988b5f546f2050fa3eaea1b0ac1a26a32f96)]:
+  - @aihu/compiler@0.7.1
+  - @aihu/app@2.0.1
+  - @aihu/adapter-cloudflare@3.0.1
+
 ## 0.0.2
 
 ### Patch Changes
