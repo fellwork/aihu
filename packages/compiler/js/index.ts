@@ -760,6 +760,47 @@ export function compileToAst(source: string, id?: string): SfcAst {
 }
 
 /**
+ * Structured `@route` metadata (the `.route.json` sidecar shape). All fields
+ * optional — only what the SFC's `@route` block declares is present. `head` is
+ * left opaque here (the router owns its shape).
+ */
+export interface RouteMeta {
+  pattern?: string
+  name?: string
+  layout?: string
+  middleware?: string[]
+  ssr?: boolean
+  params?: string[]
+  head?: unknown
+}
+
+/**
+ * Parse a `.aihu` source string and return its `@route` metadata, or `null`
+ * when the SFC declares no `@route` block.
+ *
+ * Thin wrapper over the Rust binary (mirrors {@link compileToAst}): spawns
+ * `aihu-compile --stdin --tag <stem> --route-json`, feeds `source` on stdin,
+ * and `JSON.parse`s stdout. This is how build tools recover full route
+ * metadata (`head`/`middleware`/`params`/`ssr`/`layout`) for the SPA build
+ * path, where no `.route.json` sidecar is written to disk.
+ *
+ * Throws on parse failure (same error path as `transform()`/`compileToAst()`).
+ */
+export function compileRouteMeta(source: string, id?: string): RouteMeta | null {
+  const stem = id ? basename(id, '.aihu') : 'Component'
+  const args = ['--stdin', '--tag', stem, '--route-json']
+  if (id) {
+    args.push('--path', id)
+  }
+  const out = execFileSync(resolveBinPath(), args, {
+    input: source,
+    encoding: 'utf8',
+  }).trim()
+  if (out === '' || out === 'null') return null
+  return JSON.parse(out) as RouteMeta
+}
+
+/**
  * Inject `_setMount(mount)` + `_setSignal(signal)` auto-wiring into a compiled
  * `.aihu` module. Adds the necessary symbols to existing imports and inserts
  * the boot calls right after the last `import` statement.

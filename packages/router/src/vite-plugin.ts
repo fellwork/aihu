@@ -23,6 +23,16 @@ export interface RouterPluginOptions {
   pagesDir?: string
   /** Directory to scan for layout files. Default: 'src/layouts' */
   layoutsDir?: string
+  /**
+   * Build-time route-metadata extractor — `@aihu/compiler`'s `compileRouteMeta`.
+   * When provided, `genR` uses it to recover FULL `@route` metadata
+   * (`head`/`middleware`/`params`/`ssr`/`layout`) for `.aihu` pages, since the
+   * stdin compile path writes no `.route.json` sidecar to disk. Wired by
+   * `@aihu/app` (which pairs the compiler + router plugins). When absent (e.g.
+   * standalone `viteRouterIntegration` without the compiler), `genR` falls back
+   * to reading `name`+`layout` from the `@route` block via regex.
+   */
+  compileRouteMeta?: (source: string, id: string) => RouteSidecar | null
 }
 
 /** Fields from a .route.json compiler sidecar (v0.6.3). */
@@ -150,17 +160,30 @@ export function scanLayouts(d: string): LayoutMap {
 
 const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head'] as const
 
-function genR(files: string[], pd: string, middlewareByDir: Record<string, string> = {}): string {
+function genR(
+  files: string[],
+  pd: string,
+  middlewareByDir: Record<string, string> = {},
+  compileRouteMeta?: (source: string, id: string) => RouteSidecar | null,
+): string {
   return `// AUTO-GENERATED\nexport default [\n${files
     .map((f) => {
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
-      const sc = readRouteSidecar(f)
-      // No sidecar on disk (the normal Vite build): recover `name` + `layout`
-      // straight from the @route block so file-router layouts work without it.
-      const aihuMeta = !sc?.name && f.endsWith('.aihu') ? readAihuRouteMeta(f) : null
-      const x = sc
-        ? SK.filter((k) => sc[k] !== undefined)
-            .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)
+      // Metadata precedence: disk sidecar (SSG/file-mode build) → compiler
+      // route-json (the SPA build path, full head/middleware/params/ssr) →
+      // @route source regex (name+layout only, when no compiler is wired).
+      let meta: RouteSidecar | null = readRouteSidecar(f)
+      if (!meta && compileRouteMeta && f.endsWith('.aihu')) {
+        try {
+          meta = compileRouteMeta(readFileSync(f, 'utf8'), f)
+        } catch {
+          meta = null
+        }
+      }
+      const aihuMeta = !meta?.name && f.endsWith('.aihu') ? readAihuRouteMeta(f) : null
+      const x = meta
+        ? SK.filter((k) => meta[k] !== undefined)
+            .map((k) => `    ${k}: ${JSON.stringify(meta[k])},`)
             .join('\n')
         : aihuMeta
           ? [
@@ -249,7 +272,7 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
         if (!cr) {
           // v0.7.2: use scanPages to also pick up _middleware files
           const scan = scanPages(root, pd)
-          cr = genR(scan.routes, pd, scan.middlewareByDir)
+          cr = genR(scan.routes, pd, scan.middlewareByDir, opts?.compileRouteMeta)
         }
         return cr
       }

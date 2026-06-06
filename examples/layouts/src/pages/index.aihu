@@ -1,7 +1,8 @@
 @route {
   path: "/",
   name: "home-page",
-  layout: "app"
+  layout: "app",
+  head: { title: "Home — aihu layouts", description: "Runtime layout rendering demo" }
 }
 
 @template {
