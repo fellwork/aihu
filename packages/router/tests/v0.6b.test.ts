@@ -299,6 +299,45 @@ describe('viteRouterPlugin — virtual:aihu-routes layout fallback (no sidecar)'
     }
   })
 
+  it('embeds FULL metadata (head/middleware/layout) via compileRouteMeta when no sidecar', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-routes-meta-'))
+    const pagesTmp = join(tmp, 'pages')
+    mkdirSync(pagesTmp)
+    try {
+      writeFileSync(
+        join(pagesTmp, 'about.aihu'),
+        '@route {\n  path: "/about",\n  name: "about-page"\n}\n@template { <div>about</div> }\n',
+      )
+      // Stub compiler route-metadata extractor (what @aihu/compiler injects):
+      // returns the full @route sidecar shape, incl. nested head.
+      const compileRouteMeta = (_src: string, id: string) =>
+        id.endsWith('about.aihu')
+          ? {
+              name: 'about-page',
+              layout: 'app',
+              middleware: ['auth'],
+              head: { title: 'About', og: { title: 'About OG' } },
+            }
+          : null
+      const plugin = viteRouterPlugin({ pagesDir: 'pages', compileRouteMeta })
+      const mockServer = {
+        config: { root: tmp },
+        watcher: { add: () => {}, on: () => {} },
+        moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
+      }
+      plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
+      const content = plugin.load?.('\0virtual:aihu-routes') as string
+      expect(content).toContain('name: "about-page"')
+      expect(content).toContain('layout: "app"')
+      expect(content).toContain('middleware: ["auth"]')
+      // Nested head — not recoverable by the regex fallback, only via the compiler.
+      expect(content).toContain('"title":"About"')
+      expect(content).toContain('"og":{"title":"About OG"}')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('omits `layout` when the @route block declares none', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-routes-nolayout-'))
     const pagesTmp = join(tmp, 'pages')

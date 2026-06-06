@@ -310,6 +310,41 @@ fn main() {
         }
     }
 
+    // `--route-json`: parse → compile → print the `.route.json` sidecar to
+    // stdout, then short-circuit BEFORE the normal codegen output. Lets build
+    // tools (e.g. @aihu/router's `genR`) recover full route metadata
+    // (name/layout/head/middleware/params/ssr) from stdin without writing a
+    // sidecar to disk — the stdin compile path never persists one. Prints the
+    // literal `null` when the SFC declares no `@route` block.
+    if args.contains(&"--route-json".to_string()) {
+        let on_err = |e: &aihu_compiler::CompileError| -> ! {
+            if machine_errors {
+                emit_machine_error(e);
+                eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            } else {
+                render_human_error(e, &file_label, &source);
+            }
+            process::exit(1);
+        };
+        let parsed_rj = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
+            .unwrap_or_else(|e| on_err(&e));
+        let unit = aihu_compiler::compile_full_with_target(&parsed_rj, target)
+            .unwrap_or_else(|e| on_err(&e));
+        let tag_name = unit
+            .source
+            .meta
+            .name
+            .clone()
+            .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
+            .unwrap_or_else(|| file_stem.clone());
+        let result = aihu_compiler::emit(&unit, &tag_name);
+        match result.route_json {
+            Some(ref rj) => println!("{}", rj),
+            None => println!("null"),
+        }
+        process::exit(0);
+    }
+
     let parsed = aihu_compiler::sfc::parse_with_path(
         &source,
         file_path_opt.as_deref(),

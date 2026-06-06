@@ -2,8 +2,9 @@ import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve as resolvePath } from 'node:path'
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
-import { aihuCompilerPlugin } from '@aihu/compiler'
+import { aihuCompilerPlugin, compileRouteMeta } from '@aihu/compiler'
 import type { RouteDefinition } from '@aihu/router'
+import type { RouterPluginOptions } from '@aihu/router/plugin'
 import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
 import type { Plugin, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
@@ -126,7 +127,15 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   const routerOpts = {
     pagesDir: config?.dir?.pages ?? 'pages',
     layoutsDir: config?.dir?.layouts ?? 'src/layouts',
-  }
+    // Give the router's route generator the compiler's route-metadata extractor
+    // so per-route head/middleware/params/ssr flow into virtual:aihu-routes in
+    // SPA builds (no .route.json sidecar is written on the stdin compile path).
+    // Cast bridges compiler's `RouteMeta` (head: unknown) to the router's
+    // `RouteSidecar` (head: RouteHead) — the shapes are otherwise identical.
+    compileRouteMeta: compileRouteMeta as unknown as NonNullable<
+      RouterPluginOptions['compileRouteMeta']
+    >,
+  } satisfies RouterPluginOptions
 
   // Agent readiness: opt-in only. No safe default for `name`.
   let agentPlugin: Plugin
