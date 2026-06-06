@@ -234,6 +234,9 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
     // `'none'` so styles aren't trapped in shadow roots.
     aihuCompilerPlugin({
       islands: false,
+      // Compile layouts (under the same dir the router scans) in layout mode:
+      // namespaced tag + passive <$outlet> marker the client renderer fills.
+      layoutsDir: routerOpts.layoutsDir,
       ...(config?.css?.shadowMode != null ? { shadowMode: config.css.shadowMode } : {}),
     }) as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,

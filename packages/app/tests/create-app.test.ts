@@ -18,15 +18,21 @@ type RouteStub = {
   name?: string
   module: () => Promise<unknown>
   head?: RouteHeadStub
+  layout?: string
 }
+type LayoutEntry = { tag: string; load: () => Promise<unknown> }
 type MatchStub = { route: RouteStub; params?: Record<string, string> } | null
 
-const { mockRoutes, mockMatch } = vi.hoisted(() => ({
+const { mockRoutes, mockMatch, mockLayouts } = vi.hoisted(() => ({
   mockRoutes: [] as RouteStub[],
   mockMatch: vi.fn<[], MatchStub>(() => null),
+  // Mutated by reference in tests; the same object backs the `layouts` binding
+  // in client.ts (default export of virtual:aihu-layouts).
+  mockLayouts: {} as Record<string, LayoutEntry>,
 }))
 
 vi.mock('virtual:aihu-routes', () => ({ default: mockRoutes }))
+vi.mock('virtual:aihu-layouts', () => ({ default: mockLayouts }))
 vi.mock('@aihu/arbor', () => ({ hydrate: vi.fn(), mount: vi.fn() }))
 vi.mock('@aihu/signals', () => ({ signal: vi.fn() }))
 vi.mock('@aihu/router', () => ({
@@ -471,5 +477,264 @@ describe('createApp — per-route <head> on navigation', () => {
 
     expect(document.head.querySelectorAll('[data-aihu-head]').length).toBe(0)
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('bare-page')
+  })
+})
+
+// ─── Layout rendering (runtime layout — the regression guard this repo lacked) ─
+// These prove the page renders INSIDE the layout's `data-aihu-outlet` marker,
+// not in the root outlet. The layout element mirrors a compiled layout SFC: a
+// passive marker inside a shell, in shadow DOM (default) or light DOM (css
+// `shadowMode: 'none'`).
+
+/**
+ * Register a fake compiled-layout custom element under `tag`. On connect it
+ * mounts `<div class="shell"><div data-aihu-outlet></div></div>` into its shadow
+ * root (or light DOM when `shadow: false`). `noOutlet` omits the marker.
+ */
+function defineTestLayout(tag: string, opts: { shadow?: boolean; noOutlet?: boolean } = {}): void {
+  if (customElements.get(tag)) return
+  class TestLayout extends HTMLElement {
+    connectedCallback(): void {
+      const target: ParentNode = opts.shadow === false ? this : this.attachShadow({ mode: 'open' })
+      const shell = document.createElement('div')
+      shell.className = 'shell'
+      if (!opts.noOutlet) {
+        const marker = document.createElement('div')
+        marker.setAttribute('data-aihu-outlet', '')
+        shell.appendChild(marker)
+      }
+      target.appendChild(shell)
+    }
+  }
+  customElements.define(tag, TestLayout)
+}
+
+describe('createApp — layout rendering', () => {
+  let outlet: HTMLElement
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoutes.length = 0
+    mockMatch.mockReturnValue(null)
+    for (const k of Object.keys(mockLayouts)) delete mockLayouts[k]
+    outlet = makeOutlet()
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('renders the page INSIDE the layout outlet, not the root outlet', async () => {
+    const load = vi.fn(async () => defineTestLayout('aihu-layout-app'))
+    mockLayouts.app = { tag: 'aihu-layout-app', load }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    // Root outlet holds the LAYOUT element (not the page).
+    const layoutEl = outlet.firstElementChild as HTMLElement
+    expect(layoutEl?.tagName.toLowerCase()).toBe('aihu-layout-app')
+    expect(load).toHaveBeenCalledOnce()
+
+    // The page lives inside the layout's data-aihu-outlet marker (shadow DOM).
+    const marker = layoutEl.shadowRoot?.querySelector('[data-aihu-outlet]')
+    expect(marker).not.toBeNull()
+    expect(marker!.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+
+    // …and NOT directly in the root outlet.
+    expect(outlet.querySelector('home-page')).toBeNull()
+  })
+
+  it('passes route params through to the page rendered inside the layout', async () => {
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+    }
+    const route: RouteStub = {
+      name: 'user-profile',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: { userId: '7' } })
+
+    createApp()
+    await flushPromises()
+
+    const page = (outlet.firstElementChild as HTMLElement).shadowRoot?.querySelector(
+      'user-profile',
+    ) as HTMLElement
+    expect(page).not.toBeNull()
+    expect(page.getAttribute('userId')).toBe('7')
+  })
+
+  it('fills a light-DOM (shadowMode: none) layout marker', async () => {
+    mockLayouts.bare = {
+      tag: 'aihu-layout-bare',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-bare', { shadow: false })),
+    }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'bare',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    const layoutEl = outlet.firstElementChild as HTMLElement
+    expect(layoutEl.tagName.toLowerCase()).toBe('aihu-layout-bare')
+    const marker = layoutEl.querySelector('[data-aihu-outlet]')
+    expect(marker!.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+  })
+
+  it('mounts the page directly in the root outlet when route declares no layout', async () => {
+    const route: RouteStub = {
+      name: 'home-page',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+  })
+
+  it('falls back to the root outlet when the declared layout is missing from the map', async () => {
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'ghost', // not present in mockLayouts
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+  })
+
+  it('switches layouts when navigating between routes with different layouts', async () => {
+    // createApp() registers a popstate listener with no teardown, so by this
+    // point earlier tests' createApp instances also fire on the dispatch below
+    // and re-render into their now-detached outlets (no marker → warn). That
+    // noise is a test-isolation artifact, not product behavior — silence it.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+    }
+    mockLayouts.admin = {
+      tag: 'aihu-layout-admin',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-admin')),
+    }
+    const home: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    const dash: RouteStub = {
+      name: 'dash-page',
+      layout: 'admin',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+
+    mockMatch.mockReturnValue({ route: home, params: undefined })
+    createApp()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+
+    mockMatch.mockReturnValue({ route: dash, params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+
+    const layoutEl = outlet.firstElementChild as HTMLElement
+    expect(layoutEl.tagName.toLowerCase()).toBe('aihu-layout-admin')
+    expect(
+      layoutEl.shadowRoot
+        ?.querySelector('[data-aihu-outlet]')
+        ?.firstElementChild?.tagName.toLowerCase(),
+    ).toBe('dash-page')
+    warnSpy.mockRestore()
+  })
+})
+
+// ─── Dynamic layout switching — Step 2 (setLayout on the returned handle) ─────
+
+describe('createApp — dynamic layout switching (setLayout)', () => {
+  let outlet: HTMLElement
+
+  const home = (): RouteStub => ({
+    name: 'home-page',
+    layout: 'app',
+    module: vi.fn().mockResolvedValue(undefined),
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoutes.length = 0
+    mockMatch.mockReturnValue(null)
+    for (const k of Object.keys(mockLayouts)) delete mockLayouts[k]
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+    }
+    mockLayouts.compact = {
+      tag: 'aihu-layout-compact',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-compact')),
+    }
+    outlet = makeOutlet()
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('swaps the layout on the current route without navigating, keeping the page', async () => {
+    mockMatch.mockReturnValue({ route: home(), params: undefined })
+    const app = createApp()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+
+    await app.setLayout('compact')
+
+    const layoutEl = outlet.firstElementChild as HTMLElement
+    expect(layoutEl.tagName.toLowerCase()).toBe('aihu-layout-compact')
+    // The page is still rendered, now inside the compact layout's outlet.
+    expect(
+      layoutEl.shadowRoot
+        ?.querySelector('[data-aihu-outlet]')
+        ?.firstElementChild?.tagName.toLowerCase(),
+    ).toBe('home-page')
+  })
+
+  it('setLayout(null) renders the page with no layout (root outlet)', async () => {
+    mockMatch.mockReturnValue({ route: home(), params: undefined })
+    const app = createApp()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+
+    await app.setLayout(null)
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+  })
+
+  it('resets the override on navigation — the route returns to its declared layout', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockMatch.mockReturnValue({ route: home(), params: undefined })
+    const app = createApp()
+    await flushPromises()
+
+    await app.setLayout(null)
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('home-page')
+
+    // A real navigation clears the override; the declared `app` layout returns.
+    mockMatch.mockReturnValue({ route: home(), params: undefined })
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+    warnSpy.mockRestore()
   })
 })

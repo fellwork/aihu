@@ -7,6 +7,9 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  },
   "ignore": [
     "aihu-docs",
     "@aihu/bench-arbor",
@@ -17,6 +20,7 @@
     "@aihu/example-css-engine-utility",
     "aihu-example-css-pluggability",
     "@aihu/example-hacker-news",
+    "@aihu/example-layouts",
     "@aihu/example-live-counter",
     "@aihu/example-temperature-converter",
     "@aihu/example-timer",

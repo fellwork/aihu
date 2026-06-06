@@ -87,6 +87,20 @@ export interface AihuCompilerPluginOptions {
    * See `examples/agent-driven-demo`.
    */
   target?: 'client' | 'server' | 'universal'
+
+  /**
+   * Directory (relative to the project root) holding layout SFCs. Default:
+   * `'src/layouts'`. Files under this directory are compiled in **layout mode**:
+   * their custom element is registered under the namespaced tag
+   * `aihu-layout-<stem>` (a layout stem like `app` is not a valid custom-element
+   * name on its own), and their `<$outlet>` lowers to a **passive**
+   * `data-aihu-outlet` marker rather than the reactive route-driven boundary —
+   * because `@aihu/app`'s client renderer fills the marker imperatively and the
+   * reactive boundary would otherwise clear it on mount.
+   *
+   * Kept in sync with `@aihu/router`'s `layoutTagFor()` (`virtual:aihu-layouts`).
+   */
+  layoutsDir?: string
 }
 
 /**
@@ -150,6 +164,50 @@ export function _classifyIsland(compiledCode: string): 'static' | 'interactive' 
 function _extractElementTag(code: string): string | null {
   const m = /defineElement\(\s*['"]([^'"]+)['"]/m.exec(code)
   return m ? (m[1] ?? null) : null
+}
+
+/**
+ * Is `rawId` a layout SFC (a `.aihu` file under the configured layouts dir)?
+ * Root-independent: matches the `<layoutsDir>/` segment anywhere in the path,
+ * which is sufficient because the layouts dir is a project-relative convention.
+ * @internal
+ */
+export function _isLayoutFile(rawId: string, layoutsDir: string): boolean {
+  const ld = layoutsDir
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+    .replace(/\/+$/, '')
+  if (!ld) return false
+  return rawId.replace(/\\/g, '/').includes(`/${ld}/`)
+}
+
+/**
+ * Layout custom-element tag for a filename stem. MUST match
+ * `@aihu/router`'s `layoutTagFor()` so the generated `virtual:aihu-layouts`
+ * map and the registered element agree on the tag.
+ * @internal
+ */
+export function _layoutTag(stem: string): string {
+  return `aihu-layout-${stem.toLowerCase()}`
+}
+
+/**
+ * Collapse the reactive `<$outlet>` boundary the Rust codegen emits into a
+ * passive `data-aihu-outlet` marker. Layout SFCs are rendered by `@aihu/app`'s
+ * imperative client renderer, which fills the marker itself; the default
+ * boundary's mount-time `effect()` reads `useRoute()` (null under the imperative
+ * path) and clears the marker, which would wipe the page the renderer inserts.
+ *
+ * Anchors on the exact `const createOutletBoundary = () => { … return host; };`
+ * block the codegen emits (`packages/compiler/src/codegen/emit.rs`). No-op when
+ * the layout declares no `<$outlet>`.
+ * @internal
+ */
+export function _passivizeOutlet(code: string): string {
+  return code.replace(
+    /const createOutletBoundary = \(\) => \{[\s\S]*?return host;\s*\n\};/,
+    `const createOutletBoundary = () => branch('div', { 'data-aihu-outlet': '' }, []);`,
+  )
 }
 
 /**
@@ -405,10 +463,15 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
 export function transform(
   source: string,
   id: string,
-  options?: { sidecarOut?: string; target?: 'client' | 'server' | 'universal' },
+  options?: {
+    sidecarOut?: string
+    target?: 'client' | 'server' | 'universal'
+    /** Override the registered custom-element tag (default: file stem). Used for layouts. */
+    tag?: string
+  },
 ): { code: string; map: null } {
   const stem = basename(id, '.aihu')
-  const args = ['--stdin', '--tag', stem, '--path', id]
+  const args = ['--stdin', '--tag', options?.tag ?? stem, '--path', id]
   if (options?.sidecarOut) {
     args.push('--sidecar-out', options.sidecarOut)
   }
@@ -940,6 +1003,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
   const islandsEnabled = options?.islands !== false
   const shadowMode = options?.shadowMode
   const target = options?.target
+  const layoutsDir = options?.layoutsDir ?? 'src/layouts'
 
   // Bug 6 — per-instance store of virtual utility-CSS modules. Keyed by the
   // full virtual id (NUL-prefixed). Populated by the transform hook when
@@ -975,8 +1039,18 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // `tsc --noEmit` over `**/*.aihu.ts` type-checks template
         // expressions end-to-end (Architect spec §7 path (i)).
         const sidecarOut = `${rawId}.ts`
-        const result = transform(code, rawId, target ? { sidecarOut, target } : { sidecarOut })
+        // Layout SFCs (under the layouts dir) compile in layout mode: a
+        // namespaced `aihu-layout-<stem>` tag + a passive <$outlet> marker.
+        const isLayout = _isLayoutFile(rawId, layoutsDir)
+        const layoutTag = isLayout ? _layoutTag(basename(rawId, '.aihu')) : undefined
+        const tOpts = {
+          sidecarOut,
+          ...(target ? { target } : {}),
+          ...(layoutTag ? { tag: layoutTag } : {}),
+        }
+        const result = transform(code, rawId, tOpts)
         let compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+        if (isLayout) compiled = _passivizeOutlet(compiled)
 
         // ── css-engine hook (optional, lazy, no circular dep) ──────────────
         // @aihu/css-engine depends on @aihu/compiler (for its AST), so the

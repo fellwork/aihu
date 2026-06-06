@@ -1,3 +1,4 @@
+import layouts from 'virtual:aihu-layouts'
 import routes from 'virtual:aihu-routes'
 import { hydrate, mount } from '@aihu/arbor'
 import type { MatchResult, RouteDefinition, RouteHead } from '@aihu/router'
@@ -62,19 +63,35 @@ export interface AppConfig {
 }
 
 /**
+ * Handle returned by {@link createApp} for driving the running app.
+ */
+export interface AppHandle {
+  /**
+   * Switch the active layout on the current route without navigating.
+   * `setLayout(name)` forces that layout; `setLayout(null)` forces none. The
+   * override is reset on the next navigation. Wire it to a UI toggle or expose
+   * it to an `@agent` action (e.g. `setLayout("compact")`).
+   */
+  setLayout(name: string | null): Promise<void>
+}
+
+/**
  * Bootstrap the aihu SPA.
  *
  * - Wires the aihu runtime (mount + signal) — idempotent if called multiple times
  * - Creates the router from virtual:aihu-routes
- * - Renders the current route
+ * - Renders the current route (wrapped in its `layout`, if any)
  * - Installs SPA click interception and popstate listeners
+ *
+ * Returns an {@link AppHandle} for runtime control (e.g. dynamic layout switching).
  *
  * @example
  * // src/main.ts
  * import { createApp } from '@aihu/app/client'
- * createApp()
+ * const app = createApp()
+ * app.setLayout('compact') // switch layout on the current route
  */
-export function createApp(config?: AppConfig): void {
+export function createApp(config?: AppConfig): AppHandle {
   // Hoist provided values into globalThis before any component runs so that
   // @state blocks can reference them as bare identifiers.
   if (config?.provide) {
@@ -126,7 +143,19 @@ export function createApp(config?: AppConfig): void {
     applyHeadToDocument(lowered)
   }
 
+  // Dynamic layout switching (Step 2). `layoutOverride` lets a human toggle or
+  // an `@agent` action swap the active layout WITHOUT navigating:
+  //   - `undefined` → follow the matched route's declared `layout`
+  //   - `null`      → force NO layout (render at the root outlet)
+  //   - `"<name>"`  → force that layout
+  // It is transient: navigating resets it so each route shows its declared
+  // layout again. `currentMatch` is the last rendered match so `setLayout` can
+  // re-render the same route under the new layout.
+  let currentMatch: MatchResult | null = null
+  let layoutOverride: string | null | undefined
+
   async function render(match: MatchResult | null): Promise<void> {
+    currentMatch = match
     if (!match) {
       // Check for a 404/not-found route by convention before falling back inline
       const notFoundRoute = (routes as RouteDefinition[]).find(
@@ -168,11 +197,57 @@ export function createApp(config?: AppConfig): void {
       }
     }
 
+    // Layout wrapping: if the matched route declares a `layout` and that layout
+    // exists in the generated map, render the layout into the root outlet and
+    // mount the page into the layout's `data-aihu-outlet` marker. Otherwise the
+    // page mounts directly into the root outlet (original behavior).
+    // Override (dynamic switch) wins over the route's declared layout.
+    const layoutName =
+      layoutOverride === undefined ? match.route.layout : (layoutOverride ?? undefined)
+    const entry = layoutName ? layouts[layoutName] : undefined
+    if (entry) {
+      // Register the layout's `aihu-layout-<name>` custom element (import side effect).
+      await entry.load()
+      const layoutEl = document.createElement(entry.tag)
+      // Connect the layout first so its template — including the passive outlet
+      // marker — mounts synchronously, then place the page inside the marker.
+      outlet.replaceChildren(layoutEl)
+      const root: ParentNode = layoutEl.shadowRoot ?? layoutEl
+      const marker = root.querySelector('[data-aihu-outlet]')
+      if (marker) {
+        marker.replaceChildren(el)
+      } else {
+        // Misconfigured layout (no <$outlet>) — keep it visible + surface it
+        // rather than silently dropping the page.
+        console.warn(`[@aihu/app] layout "${layoutName}" has no <$outlet>`)
+        root.appendChild(el)
+      }
+      return
+    }
+
     outlet.replaceChildren(el)
   }
 
+  /** Navigate-and-render: a real navigation clears any transient layout override. */
+  function renderNav(match: MatchResult | null): void {
+    layoutOverride = undefined
+    void render(match)
+  }
+
+  /**
+   * Switch the active layout on the current route WITHOUT navigating.
+   * - `setLayout("compact")` — render the current page under the `compact` layout.
+   * - `setLayout(null)` — render the current page with no layout (root outlet).
+   * The override is reset on the next navigation. Returns a promise that
+   * resolves once the re-render completes.
+   */
+  function setLayout(name: string | null): Promise<void> {
+    layoutOverride = name
+    return render(currentMatch)
+  }
+
   // Initial render
-  render(router.match(location.pathname))
+  renderNav(router.match(location.pathname))
 
   // SPA click interception — handles <a> links within the app
   document.addEventListener('click', (e) => {
@@ -183,11 +258,13 @@ export function createApp(config?: AppConfig): void {
       return
     e.preventDefault()
     history.pushState({}, '', href)
-    render(router.match(location.pathname))
+    renderNav(router.match(location.pathname))
   })
 
   // Browser back/forward
   window.addEventListener('popstate', () => {
-    render(router.match(location.pathname))
+    renderNav(router.match(location.pathname))
   })
+
+  return { setLayout }
 }

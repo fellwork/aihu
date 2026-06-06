@@ -1,0 +1,28 @@
+@template {
+  <div class="app-shell">
+    <header class="app-header">
+      <strong>aihu · layouts</strong>
+      <nav class="app-nav">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+      </nav>
+    </header>
+    <main class="app-main">
+      <$outlet></$outlet>
+    </main>
+    <footer class="app-footer">rendered inside the <code>app</code> layout</footer>
+  </div>
+}
+
+@style {
+  .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem; background: #0b1020; color: #fff;
+  }
+  .app-nav { display: flex; gap: 1rem; }
+  .app-nav a { color: #cbd5e1; text-decoration: none; }
+  .app-nav a:hover { color: #fff; }
+  .app-main { flex: 1; max-width: 44rem; width: 100%; margin: 0 auto; padding: 2.5rem 1.5rem; }
+  .app-footer { padding: 1rem 1.5rem; color: #64748b; font-size: 0.85rem; border-top: 1px solid #e2e8f0; }
+}

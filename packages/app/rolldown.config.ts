@@ -16,6 +16,7 @@ const external = [
   'node:fs/promises',
   'node:path',
   'virtual:aihu-routes',
+  'virtual:aihu-layouts',
 ]
 
 export default defineConfig([

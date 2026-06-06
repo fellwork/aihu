@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>layouts — aihu</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, sans-serif; color: #111; }
+      /* Dynamic-switch toolbar — fixed, outside the routed outlet. */
+      #layout-switch {
+        position: fixed; bottom: 1rem; right: 1rem; display: flex; gap: 0.4rem;
+        background: #111; color: #fff; padding: 0.5rem 0.6rem; border-radius: 8px;
+        font-size: 0.8rem; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      }
+      #layout-switch button {
+        font: inherit; cursor: pointer; border: 0; border-radius: 5px;
+        padding: 0.25rem 0.5rem; background: #fff; color: #111;
+      }
+      #layout-switch span { opacity: 0.7; }
+    </style>
+  </head>
+  <body>
+    <div id="outlet"></div>
+
+    <!-- Step 2 demo: switch the layout of the CURRENT route without navigating. -->
+    <div id="layout-switch">
+      <span>layout:</span>
+      <button id="to-app" type="button">app</button>
+      <button id="to-compact" type="button">compact</button>
+      <button id="to-none" type="button">none</button>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

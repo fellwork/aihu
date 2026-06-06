@@ -10,7 +10,12 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { BuildConfig, BuildTarget } from '../../server/src/index.ts'
 import type { RouteDefinition } from '../src/index.ts'
-import { readRouteSidecar, scanLayouts, viteRouterPlugin } from '../src/vite-plugin.ts'
+import {
+  layoutTagFor,
+  readRouteSidecar,
+  scanLayouts,
+  viteRouterPlugin,
+} from '../src/vite-plugin.ts'
 
 // ---------------------------------------------------------------------------
 // v0.6.3 — RouteDefinition sidecar fields (type-level tests)
@@ -237,6 +242,100 @@ describe('viteRouterPlugin — virtual:aihu-layouts hooks', () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
+  })
+
+  it('emits runtime { tag, load } entries (v0.7.5 — not bare path strings)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layouts-runtime-'))
+    const layoutsTmp = join(tmp, 'layouts')
+    mkdirSync(layoutsTmp)
+    try {
+      writeFileSync(join(layoutsTmp, 'app.aihu'), '')
+      const plugin = viteRouterPlugin({ layoutsDir: 'layouts' })
+      const mockServer = {
+        config: { root: tmp },
+        watcher: { add: () => {}, on: () => {} },
+        moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
+      }
+      plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
+      const content = plugin.load?.('\0virtual:aihu-layouts') as string
+      // Namespaced tag the compiler registers + a dynamic-import loader thunk.
+      expect(content).toContain('tag: "aihu-layout-app"')
+      expect(content).toContain('load: () => import(')
+      expect(content).toContain('app.aihu')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// v0.7.5 — genR reads `layout` from the @route block when there is NO sidecar
+// (the normal Vite build path — the compiler compiles via stdin and writes no
+// .route.json, so without this fallback `layout` is silently dropped).
+// ---------------------------------------------------------------------------
+
+describe('viteRouterPlugin — virtual:aihu-routes layout fallback (no sidecar)', () => {
+  it('emits a route `layout` parsed from the @route block when no sidecar exists', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-routes-layout-'))
+    const pagesTmp = join(tmp, 'pages')
+    mkdirSync(pagesTmp)
+    try {
+      writeFileSync(
+        join(pagesTmp, 'index.aihu'),
+        '@route {\n  path: "/",\n  name: "home-page",\n  layout: "app"\n}\n@template { <div>home</div> }\n',
+      )
+      const plugin = viteRouterPlugin({ pagesDir: 'pages' })
+      const mockServer = {
+        config: { root: tmp },
+        watcher: { add: () => {}, on: () => {} },
+        moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
+      }
+      plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
+      const content = plugin.load?.('\0virtual:aihu-routes') as string
+      expect(content).toContain('name: "home-page"')
+      expect(content).toContain('layout: "app"')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('omits `layout` when the @route block declares none', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-routes-nolayout-'))
+    const pagesTmp = join(tmp, 'pages')
+    mkdirSync(pagesTmp)
+    try {
+      writeFileSync(
+        join(pagesTmp, 'about.aihu'),
+        '@route {\n  path: "/about",\n  name: "about-page"\n}\n@template { <div>about</div> }\n',
+      )
+      const plugin = viteRouterPlugin({ pagesDir: 'pages' })
+      const mockServer = {
+        config: { root: tmp },
+        watcher: { add: () => {}, on: () => {} },
+        moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
+      }
+      plugin.configureServer?.(mockServer as Parameters<typeof plugin.configureServer>[0])
+      const content = plugin.load?.('\0virtual:aihu-routes') as string
+      expect(content).toContain('name: "about-page"')
+      expect(content).not.toContain('layout:')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// v0.7.5 — layoutTagFor(): shared namespace convention with @aihu/compiler
+// ---------------------------------------------------------------------------
+
+describe('layoutTagFor()', () => {
+  it('namespaces a layout name into a valid (hyphenated) custom-element tag', () => {
+    expect(layoutTagFor('app')).toBe('aihu-layout-app')
+    expect(layoutTagFor('admin')).toBe('aihu-layout-admin')
+  })
+
+  it('lowercases so the result is always a valid custom-element name', () => {
+    expect(layoutTagFor('App')).toBe('aihu-layout-app')
   })
 })
 
