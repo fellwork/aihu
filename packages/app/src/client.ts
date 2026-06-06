@@ -251,7 +251,12 @@ export function createApp(config?: AppConfig): AppHandle {
 
   // SPA click interception — handles <a> links within the app
   document.addEventListener('click', (e) => {
-    const a = (e.target as Element).closest('a') as HTMLAnchorElement | null
+    // Resolve the anchor across shadow boundaries. A click inside a shadow root
+    // (e.g. a layout shell rendered with the default shadow mode) is retargeted
+    // at the host, so `e.target` is the host element and `closest('a')` misses
+    // the real <a>. `composedPath()` includes nodes inside shadow trees, ordered
+    // target→root, so the first anchor in it is the innermost one clicked.
+    const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement)
     if (!a) return
     const href = a.getAttribute('href')
     if (!href || href.startsWith('http') || href.startsWith('//') || href.startsWith('mailto:'))

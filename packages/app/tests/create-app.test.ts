@@ -266,6 +266,27 @@ describe('createApp — SPA navigation', () => {
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('about-page')
   })
 
+  it('intercepts <a> clicks nested inside a shadow root (composedPath)', async () => {
+    const route: RouteStub = { name: 'deep-page', module: vi.fn().mockResolvedValue(undefined) }
+    createApp()
+    await flushPromises()
+
+    // Mirror a shadow-DOM layout shell: the link lives inside a shadow root, so
+    // the document-level handler sees the host as e.target — only composedPath()
+    // exposes the real anchor.
+    const host = document.createElement('div')
+    const shadow = host.attachShadow({ mode: 'open' })
+    const a = document.createElement('a')
+    a.setAttribute('href', '/deep')
+    shadow.appendChild(a)
+    document.body.appendChild(host)
+
+    mockMatch.mockReturnValue({ route, params: undefined })
+    a.click()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('deep-page')
+  })
+
   it('does not intercept external http links', async () => {
     createApp()
     await flushPromises()
