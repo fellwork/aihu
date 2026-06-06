@@ -41,9 +41,23 @@ export interface RouteSidecar {
   head?: RouteHead
 }
 
-/** Layout name → absolute file path (v0.6.8). */
+/** Layout name → absolute file path (v0.6.8). Build-time scan result. */
 export interface LayoutMap {
   [name: string]: string
+}
+
+/**
+ * Runtime layout namespace convention (v0.7.5). A layout SFC's filename stem is
+ * not a valid custom-element name on its own (e.g. `app` has no hyphen), so the
+ * compiler registers it under `aihu-layout-<stem>`. The generated
+ * `virtual:aihu-layouts` module and `@aihu/app`'s client renderer both resolve
+ * the tag through this helper, so the two sides can never drift.
+ *
+ * KEEP IN SYNC: the `@aihu/compiler` Vite plugin derives the same tag when it
+ * compiles a file under the layouts dir (`packages/compiler/js/index.ts`).
+ */
+export function layoutTagFor(name: string): string {
+  return `aihu-layout-${name.toLowerCase()}`
 }
 
 function segs(rel: string): RouteSegment[] {
@@ -69,15 +83,37 @@ function segs(rel: string): RouteSegment[] {
   return parts
 }
 
-/** Extract the component tag name from an `@route { name: "..." }` block in a .aihu file. */
-function readAihuRouteName(f: string): string | null {
+/**
+ * Extract simple scalar fields from an `@route { … }` block in a `.aihu` file.
+ *
+ * The Vite compiler plugin compiles `.aihu` files via stdin and does NOT write
+ * a `.route.json` sidecar to disk, and even if it did, `genR` runs before the
+ * pages are (lazily) transformed — so `readRouteSidecar` finds nothing during a
+ * normal build. To keep file-router metadata flowing without a sidecar, we read
+ * the handful of simple string fields straight from the source `@route` block.
+ *
+ * `name` is the component/custom-element tag; `layout` is the route's layout
+ * (consumed at runtime by `@aihu/app` to wrap the page). Nested/structured
+ * fields (`head`, `middleware`, `params`) are NOT recovered here — those still
+ * require the sidecar (e.g. the SSG/file-mode path).
+ */
+function readAihuRouteMeta(f: string): { name?: string; layout?: string } | null {
   if (!f.endsWith('.aihu')) return null
   try {
     const content = readFileSync(f, 'utf8')
     const block = content.match(/@route\s*\{([^}]*)\}/)
     if (!block) return null
-    const nm = block[1]!.match(/name\s*:\s*["']([^"']+)["']/)
-    return nm ? nm[1]! : null
+    const body = block[1]!
+    const grab = (k: string): string | undefined => {
+      const m = body.match(new RegExp(`\\b${k}\\s*:\\s*["']([^"']+)["']`))
+      return m ? m[1] : undefined
+    }
+    const meta: { name?: string; layout?: string } = {}
+    const name = grab('name')
+    if (name !== undefined) meta.name = name
+    const layout = grab('layout')
+    if (layout !== undefined) meta.layout = layout
+    return meta
   } catch {
     return null
   }
@@ -119,14 +155,22 @@ function genR(files: string[], pd: string, middlewareByDir: Record<string, strin
     .map((f) => {
       const s = segs(f.replace(/\\/g, '/').replace(new RegExp(`^.*?${pd}/`), ''))
       const sc = readRouteSidecar(f)
-      // For .aihu files without a sidecar, fall back to reading `name` from the @route block.
-      const aihuName = !sc?.name && f.endsWith('.aihu') ? readAihuRouteName(f) : null
+      // No sidecar on disk (the normal Vite build): recover `name` + `layout`
+      // straight from the @route block so file-router layouts work without it.
+      const aihuMeta = !sc?.name && f.endsWith('.aihu') ? readAihuRouteMeta(f) : null
       const x = sc
         ? SK.filter((k) => sc[k] !== undefined)
             .map((k) => `    ${k}: ${JSON.stringify(sc[k])},`)
             .join('\n')
-        : aihuName
-          ? `    name: ${JSON.stringify(aihuName)},`
+        : aihuMeta
+          ? [
+              aihuMeta.name !== undefined ? `    name: ${JSON.stringify(aihuMeta.name)},` : '',
+              aihuMeta.layout !== undefined
+                ? `    layout: ${JSON.stringify(aihuMeta.layout)},`
+                : '',
+            ]
+              .filter(Boolean)
+              .join('\n')
           : ''
       // v0.7.2: embed _middleware file path for file-convention auto-wire
       const fileDir = dirname(f).replace(/\\/g, '/')
@@ -138,8 +182,15 @@ function genR(files: string[], pd: string, middlewareByDir: Record<string, strin
 }
 
 function genL(d: string): string {
+  // v0.7.5: emit runtime-consumable entries — `{ tag, load }` — not bare path
+  // strings. `load()` is a dynamic import so the layout SFC compiles + registers
+  // its `aihu-layout-<name>` custom element on first use; `tag` lets the client
+  // renderer `createElement` it without re-deriving the name.
   return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanLayouts(d))
-    .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
+    .map(
+      ([k, v]) =>
+        `  ${JSON.stringify(k)}: { tag: ${JSON.stringify(layoutTagFor(k))}, load: () => import(${JSON.stringify(v)}) },`,
+    )
     .join('\n')}\n};\n`
 }
 

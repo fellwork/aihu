@@ -13,6 +13,7 @@
  */
 export type { LayoutMap, MiddlewareScan, RouterPluginOptions, RouteSidecar } from './vite-plugin.ts'
 export {
+  layoutTagFor,
   readRouteSidecar,
   scanLayouts,
   scanPages,

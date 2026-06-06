@@ -1,0 +1,18 @@
+@template {
+  <div class="compact-shell">
+    <nav class="compact-nav">
+      <a href="/">Home</a>
+      <a href="/dashboard">Dashboard</a>
+    </nav>
+    <div class="compact-body">
+      <$outlet></$outlet>
+    </div>
+  </div>
+}
+
+@style {
+  .compact-shell { max-width: 30rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  .compact-nav { display: flex; gap: 0.75rem; font-size: 0.85rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+  .compact-nav a { color: #2563eb; text-decoration: none; }
+  .compact-body { padding-top: 1.25rem; }
+}
