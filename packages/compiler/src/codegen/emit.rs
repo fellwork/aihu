@@ -748,7 +748,7 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     }
     if h.link_element {
         // `<$link>` — render <a>, intercept clicks, set aria-current via effect.
-        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  const node = branch('a', { ...(attrs || {}), href, 'data-aihu-link': '' }, children);\n  const ariaCompute = () => {\n    const r = __aihuRouter.useRoute();\n    return r && r.pathname === href ? 'page' : null;\n  };\n  onMount(() => {\n    const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n    const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n    if (!a) return () => {};\n    const onClick = (e) => {\n      if (e.defaultPrevented || e.button !== 0) return;\n      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n      // No reactive <$router> context (e.g. createApp): let the click bubble to\n      // @aihu/app's document-level delegation (or the browser) instead of a hard\n      // location.assign. With context present, navigate() does SPA nav here.\n      if (!__aihuRouter.useRouter()) return;\n      e.preventDefault();\n      void __aihuRouter.navigate(href, { replace: !!replace });\n    };\n    a.addEventListener('click', onClick);\n    const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n    pf.attach(a, ariaCompute);\n    const stop = effect(() => {\n      const v = ariaCompute();\n      if (v) a.setAttribute('aria-current', v);\n      else a.removeAttribute('aria-current');\n    });\n    return () => { a.removeEventListener('click', onClick); pf.detach(a); stop && stop(); };\n  });\n  return node;\n};");
+        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  // Compose any author `$on.click` with SPA navigation. Click is wired as an\n  // arbor event attr (owner-agnostic) so <$link> works inside $each/$if item\n  // factories, where there is no component-setup owner for onMount/effect.\n  const _userClick = attrs && typeof attrs.onClick === 'function' ? attrs.onClick : null;\n  const onClick = (e) => {\n    if (_userClick) _userClick(e);\n    if (e.defaultPrevented || e.button !== 0) return;\n    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n    // No reactive <$router> context (e.g. createApp): let the click bubble to\n    // @aihu/app's document-level delegation (or the browser) instead of a hard\n    // location.assign. With context present, navigate() does SPA nav here.\n    if (!__aihuRouter.useRouter()) return;\n    e.preventDefault();\n    void __aihuRouter.navigate(href, { replace: !!replace });\n  };\n  const node = branch('a', { ...(attrs || {}), href, 'data-aihu-link': '', onClick }, children);\n  // Prefetch + aria-current need the live <a> at mount and use onMount, which\n  // requires a component-setup owner. Inside an each/if factory there is none,\n  // so guard the registration: looped links still navigate (onClick above) —\n  // they just skip prefetch + aria-current rather than throwing 'no owner'.\n  try {\n    onMount(() => {\n      const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n      const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n      if (!a) return () => {};\n      const ariaCompute = () => {\n        const r = __aihuRouter.useRoute();\n        return r && r.pathname === href ? 'page' : null;\n      };\n      const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n      pf.attach(a, ariaCompute);\n      const stop = effect(() => {\n        const v = ariaCompute();\n        if (v) a.setAttribute('aria-current', v);\n        else a.removeAttribute('aria-current');\n      });\n      return () => { pf.detach(a); stop && stop(); };\n    });\n  } catch {}\n  return node;\n};");
     }
     if h.outlet_element {
         // `<$outlet>` — render the matched route component as a child custom element.
@@ -4310,7 +4310,14 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
             return format!("[{}]", trimmed);
         }
     }
-    if expr_references_state(expr, state_names) {
+    // Thunk-wrap any binding that references local @state OR is a complex
+    // (non-simple-identifier) expression. The latter mirrors `$if`/`$show`,
+    // which always wrap complex conditions: a dynamic attr expression may read
+    // an imported/provided reactive getter the compiler can't see in
+    // `state_names` (e.g. a layout's `$class={activeStudy() ? …}` over a store),
+    // so wrapping keeps the binding reactive. Bare non-reactive identifiers stay
+    // eager (the simple-ident path above already handled reactive ones).
+    if expr_references_state(expr, state_names) || !is_simple_ident {
         format!("[() => ({})]", trimmed)
     } else {
         expr.to_string()
