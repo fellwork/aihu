@@ -195,6 +195,67 @@ fn link_onclick_defers_when_no_router_context() {
 }
 
 #[test]
+fn link_click_is_owner_agnostic_attr_not_onmount() {
+    // Bug B regression: <$link> inside $each/$if threw "onMount: no owner"
+    // because createLinkBoundary wired the click via addEventListener inside
+    // onMount (which needs the component-setup owner — absent in an each/if
+    // item factory). Click is now an arbor event attr (owner-agnostic).
+    let source = r#"@template { <$link href="/x">go</$link> }"#;
+    let js = compile(source, "x-link-click");
+    assert!(
+        js.contains("'data-aihu-link': '', onClick"),
+        "click should be wired as an onClick attr, got:\n{js}"
+    );
+    assert!(
+        !js.contains("a.addEventListener('click'"),
+        "click must NOT be wired via addEventListener inside onMount, got:\n{js}"
+    );
+    // Prefetch/aria onMount must be guarded so it can't throw in a factory.
+    assert!(
+        js.contains("try {") && js.contains("onMount("),
+        "onMount (prefetch/aria) should be guarded by try/catch, got:\n{js}"
+    );
+}
+
+#[test]
+fn link_composes_author_on_click_with_navigation() {
+    // <$link $on.click={fn}> must run the author handler AND navigate (and keep
+    // `fn` referenced so its import is not pruned).
+    let source = r#"@state { close: () => void = () => {} }
+@template { <$link href="/x" $on.click={close}>go</$link> }"#;
+    let js = compile(source, "x-link-compose");
+    assert!(
+        js.contains("_userClick"),
+        "author onClick should be composed with navigation, got:\n{js}"
+    );
+    assert!(js.contains("close"), "author handler must stay referenced, got:\n{js}");
+}
+
+#[test]
+fn complex_attr_binding_is_thunk_wrapped_for_reactivity() {
+    // Bug A regression: a complex attr binding (e.g. $class calling a reactive
+    // getter the compiler can't see in @state) compiled eager and never
+    // re-ran. Complex binding exprs are now thunk-wrapped like $if/$show.
+    let source = r#"@template { <div $class={activeStudy() ? "a" : "b"}>x</div> }"#;
+    let js = compile(source, "x-cls-reactive");
+    assert!(
+        js.contains("class: [() => (activeStudy()"),
+        "complex $class must be thunk-wrapped for reactivity, got:\n{js}"
+    );
+}
+
+#[test]
+fn static_literal_attr_stays_eager() {
+    // Don't over-wrap: a plain static attribute stays a literal (no thunk).
+    let source = r#"@template { <div class="static-shell">x</div> }"#;
+    let js = compile(source, "x-cls-static");
+    assert!(
+        js.contains("class: 'static-shell'"),
+        "static class attribute must stay eager, got:\n{js}"
+    );
+}
+
+#[test]
 fn navigate_element_emits_boundary() {
     let source = r#"@template {
   <$navigate to="/login" replace></$navigate>
