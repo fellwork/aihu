@@ -1,5 +1,12 @@
 # @aihu/cookbook
 
+## 0.5.9
+
+### Patch Changes
+
+- Updated dependencies [[`eaadd45`](https://github.com/fellwork/aihu/commit/eaadd459118055e422e4ae025ceaa72be39ee17c)]:
+  - @aihu/compiler@0.7.0
+
 ## 0.5.8
 
 ### Patch Changes
