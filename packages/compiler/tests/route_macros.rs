@@ -118,6 +118,83 @@ fn link_element_emits_boundary_with_attrs() {
 }
 
 #[test]
+fn link_forwards_class_and_event_attrs() {
+    // Regression: `<$link>` used to forward ONLY href, silently dropping
+    // class / $class / $on.click (and pruning their now-"unused" imports).
+    let source = r#"@state {
+  close: () => void = () => {}
+  isActive: (r: string) => boolean = () => false
+}
+@template {
+  <$link href="/read/Gen.1" id="home" $class={isActive("Gen.1") ? "row on" : "row"} $on.click={() => close()}>Genesis</$link>
+}"#;
+    let js = compile(source, "x-link-attrs");
+    assert!(
+        js.contains("createLinkBoundary("),
+        "should still call createLinkBoundary, got:\n{js}"
+    );
+    // id forwarded onto the <a> attrs object.
+    assert!(js.contains("id: 'home'"), "id should forward, got:\n{js}");
+    // $on.click forwarded as an onClick handler (and keeps `close` referenced
+    // so it is not pruned as an unused import).
+    assert!(
+        js.contains("onClick:") && js.contains("close()"),
+        "$on.click should forward as onClick, got:\n{js}"
+    );
+    // $class forwarded as a (reactive) class binding.
+    assert!(
+        js.contains("isActive(\"Gen.1\")"),
+        "$class expression should forward, got:\n{js}"
+    );
+}
+
+#[test]
+fn each_on_link_wraps_in_each_boundary() {
+    // Regression: `$each` on a `<$link>` was dropped entirely, leaving the loop
+    // var dangling (`ReferenceError: b is not defined`).
+    let source = r#"@state { books: Array<{ ref: string; name: string }> = [] }
+@template {
+  <ul><$link $each="books as b" $key={b.ref} href={"/read/" + b.ref}>{b.name}</$link></ul>
+}"#;
+    let js = compile(source, "x-each-link");
+    assert!(
+        js.contains("createEachBoundary("),
+        "$each on <$link> must wrap in createEachBoundary, got:\n{js}"
+    );
+    // The link boundary must be INSIDE the each item function (so `b` is bound).
+    let each_pos = js.find("createEachBoundary(").unwrap();
+    let link_pos = js.find("createLinkBoundary(").unwrap();
+    assert!(
+        each_pos < link_pos,
+        "createLinkBoundary must be nested inside createEachBoundary, got:\n{js}"
+    );
+}
+
+#[test]
+fn if_on_link_wraps_in_if_boundary() {
+    let source = r#"@state { show: boolean = true }
+@template { <div><$link $if={show} href="/x">go</$link></div> }"#;
+    let js = compile(source, "x-if-link");
+    assert!(
+        js.contains("createIfBoundary("),
+        "$if on <$link> must wrap in createIfBoundary, got:\n{js}"
+    );
+}
+
+#[test]
+fn link_onclick_defers_when_no_router_context() {
+    // The link's click handler must NOT hard-navigate when there is no reactive
+    // <$router> context — it guards on useRouter() and lets the click bubble to
+    // @aihu/app's document delegation instead.
+    let source = r#"@template { <$link href="/x">go</$link> }"#;
+    let js = compile(source, "x-link-guard");
+    assert!(
+        js.contains("__aihuRouter.useRouter()"),
+        "createLinkBoundary onClick should guard on useRouter(), got:\n{js}"
+    );
+}
+
+#[test]
 fn navigate_element_emits_boundary() {
     let source = r#"@template {
   <$navigate to="/login" replace></$navigate>
