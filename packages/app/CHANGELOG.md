@@ -1,5 +1,18 @@
 # @aihu/app
 
+## 2.0.3
+
+### Patch Changes
+
+- [#342](https://github.com/fellwork/aihu/pull/342) [`a96c49b`](https://github.com/fellwork/aihu/commit/a96c49b27b42d8271664e4f1c0907cbd27e70dbe) Thanks [@srmcguirt](https://github.com/srmcguirt)! - SSG/prerender layout parity (composition). When a static route declares a
+  `layout` and that layout module exposes an SSR-renderable `default`, the
+  prerender now renders the layout shell and injects the page content into its
+  `data-aihu-outlet` marker — so prerendered HTML matches the client's layout
+  wrapping. Layouts that aren't server-renderable (compiled SFCs, which register a
+  side-effect custom element with no `default`) are unchanged: the page ships the
+  SPA shell and the layout is applied client-side on hydration. A layout that
+  renders no `<$outlet>` marker warns and ships the page unwrapped.
+
 ## 2.0.2
 
 ### Patch Changes
