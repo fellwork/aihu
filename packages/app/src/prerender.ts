@@ -29,7 +29,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 import type { RouteSegment } from '@aihu/router'
-import { readRouteSidecar, scanPages } from '@aihu/router/plugin'
+import { readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
 import type { HeadConfig } from '@aihu/server'
 import { renderToString, routeHeadToSsrHead } from '@aihu/server'
 import type { ResolvedConfig } from 'vite'
@@ -172,6 +172,28 @@ function injectContent(html: string, content: string, outletId: string): string 
   return html
 }
 
+/**
+ * Inject rendered page content into a layout's `data-aihu-outlet` marker (the
+ * server-side mirror of `@aihu/app`'s client renderer). Matches the element
+ * carrying the `data-aihu-outlet` attribute (with or without a value). Returns
+ * the composed HTML, or `null` when the layout renders no such marker (so the
+ * caller can fall back to rendering the page without the layout).
+ */
+function injectIntoOutletMarker(layoutHtml: string, content: string): string | null {
+  const attr = 'data-aihu-outlet(?:="[^"]*")?'
+  // Empty marker `<div data-aihu-outlet></div>` (the passive-marker shape).
+  const emptyRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)(\\s*)(</[a-zA-Z]+>)`, 'i')
+  if (emptyRe.test(layoutHtml)) {
+    return layoutHtml.replace(emptyRe, `$1${content}$3`)
+  }
+  // Open-tag only — insert content right after it.
+  const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)`, 'i')
+  if (openRe.test(layoutHtml)) {
+    return layoutHtml.replace(openRe, `$1${content}`)
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Prerender driver
 // ---------------------------------------------------------------------------
@@ -225,6 +247,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   const root = resolvedViteConfig.root
   const outDir = resolvePath(root, resolvedViteConfig.build.outDir)
   const pagesDir = config?.dir?.pages ?? 'pages'
+  const layoutsDir = config?.dir?.layouts ?? 'src/layouts'
   const siteUrl = config?.site?.url
   const globalHead = config?.app?.head as HeadConfig | undefined
   const outletId = 'outlet'
@@ -233,6 +256,47 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   const pushWarn = (msg: string): void => {
     result.warnings.push(msg)
     warn(msg)
+  }
+
+  // SSR layout parity (#7): render a route's layout shell once and cache by
+  // name (param-independent; routes sharing a layout reuse it). Scoped to the
+  // composition case — only layouts whose module exposes an SSR-renderable
+  // `default` are prerendered. Compiled-SFC layouts (side-effect custom element,
+  // no default) resolve to null, so the page ships the SPA shell unchanged and
+  // the layout is applied client-side on hydration. Map value `null` = resolved
+  // but not server-renderable.
+  const layoutShellCache = new Map<string, string | null>()
+  const renderLayoutShell = async (name: string, routePattern: string): Promise<string | null> => {
+    const cached = layoutShellCache.get(name)
+    if (cached !== undefined) return cached
+    let shell: string | null = null
+    const layoutFile = scanLayouts(resolvePath(root, layoutsDir))[name]
+    if (!layoutFile) {
+      pushWarn(
+        `[@aihu/app] static output: layout "${name}" (route ${routePattern}) not found under ` +
+          `${layoutsDir} — rendering without a layout.`,
+      )
+    } else {
+      try {
+        const layoutComponent = resolveComponent(await loadModule(layoutFile))
+        if (layoutComponent) {
+          shell = await renderToString(layoutComponent)
+        } else {
+          pushWarn(
+            `[@aihu/app] static output: layout "${name}" has no SSR-renderable default export — ` +
+              `route ${routePattern} ships the SPA shell (the layout is applied client-side). ` +
+              `Export a default renderable to prerender the layout.`,
+          )
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        pushWarn(
+          `[@aihu/app] static output: failed to render layout "${name}" for ${routePattern}: ${msg}`,
+        )
+      }
+    }
+    layoutShellCache.set(name, shell)
+    return shell
   }
 
   // The built index.html is our template — it already carries the hashed client
@@ -273,6 +337,20 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       continue
     }
 
+    // SSR layout parity (#7): resolve + render the route's layout shell once.
+    // The page content is injected into its `data-aihu-outlet` marker below. If
+    // the layout isn't server-renderable (compiled SFC) or has no marker, fall
+    // back to rendering the page directly (the client still wraps it on hydrate).
+    const layoutName = sidecar?.layout
+    let layoutShell = layoutName ? await renderLayoutShell(layoutName, route.pattern) : null
+    if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
+      pushWarn(
+        `[@aihu/app] static output: layout "${layoutName}" renders no <$outlet> ` +
+          `(data-aihu-outlet) marker — route ${route.pattern} prerendered without the layout.`,
+      )
+      layoutShell = null
+    }
+
     // Build the param-path list to render: static routes render once with no
     // params; dynamic routes require getStaticPaths().
     let paramSets: Array<Record<string, string>>
@@ -306,6 +384,12 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         const msg = err instanceof Error ? err.message : String(err)
         pushWarn(`[@aihu/app] static output: render failed for ${concretePath}: ${msg}`)
         continue
+      }
+
+      // Compose the page into the layout's outlet marker (marker presence was
+      // verified above; `?? content` is a defensive fallback).
+      if (layoutShell !== null) {
+        content = injectIntoOutletMarker(layoutShell, content) ?? content
       }
 
       const lowered = routeHeadToSsrHead(head, {

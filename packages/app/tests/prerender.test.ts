@@ -198,6 +198,111 @@ describe('runPrerender — static routes', () => {
   })
 })
 
+// ─── runPrerender — SSR layout parity (#7) ────────────────────────────────────
+
+describe('runPrerender — layout composition', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  /** Write a layout `.aihu` file under the layouts dir (content irrelevant —
+   * loadModule is mocked; scanLayouts only needs the file to exist). */
+  async function writeLayout(root: string, name: string): Promise<void> {
+    const dir = join(root, 'src', 'layouts')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, `${name}.aihu`), '<layout/>\n')
+  }
+
+  it('renders the page INSIDE the layout outlet marker', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', {
+      name: 'home-page',
+      layout: 'app',
+      head: { title: 'Home' },
+    })
+    await writeLayout(fx.root, 'app')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/src/layouts/app.aihu')) {
+        return {
+          default: {
+            toHtml: () =>
+              '<div class="shell"><header>App Header</header><main data-aihu-outlet></main></div>',
+          },
+        }
+      }
+      return { default: { toHtml: () => '<h1>Home Content</h1>' } }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.written).toContain('index.html')
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    // Layout shell present…
+    expect(html).toContain('<header>App Header</header>')
+    // …and the page content is INSIDE the layout's data-aihu-outlet marker.
+    expect(html).toMatch(/data-aihu-outlet[^>]*><h1>Home Content<\/h1><\/main>/)
+    // Per-route head still applied to the document.
+    expect(html).toContain('<title>Home</title>')
+    expect(html).toContain('src="/assets/main-abc123.js"')
+  })
+
+  it('falls back to the SPA shell when the layout has no SSR-renderable default', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home-page', layout: 'app' })
+    await writeLayout(fx.root, 'app')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      // Compiled-SFC layout: side-effect custom element, no default renderable.
+      if (file.replace(/\\/g, '/').endsWith('/src/layouts/app.aihu')) return { default: undefined }
+      return { default: { toHtml: () => '<h1>Home Content</h1>' } }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    expect(html).toContain('<h1>Home Content</h1>') // page still ships
+    expect(html).not.toContain('App Header') // layout not server-rendered
+    expect(result.warnings.join('\n')).toMatch(/no SSR-renderable default/)
+  })
+
+  it('warns and ships the page unwrapped when the layout has no <$outlet> marker', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home-page', layout: 'broken' })
+    await writeLayout(fx.root, 'broken')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      if (file.replace(/\\/g, '/').endsWith('/src/layouts/broken.aihu')) {
+        return { default: { toHtml: () => '<div class="shell">no outlet here</div>' } }
+      }
+      return { default: { toHtml: () => '<h1>Home Content</h1>' } }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    expect(html).toContain('<h1>Home Content</h1>') // page still ships
+    expect(result.warnings.join('\n')).toMatch(/renders no <\$outlet>/)
+  })
+})
+
 describe('runPrerender — dynamic routes', () => {
   let fx: Fixture
   afterEach(async () => {
