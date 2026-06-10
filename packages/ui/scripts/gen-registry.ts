@@ -28,7 +28,9 @@
  *     "meta": { ... }                          // optional free-form
  *   }
  * The file list is DISCOVERED by scanning the directory (every file except
- * `meta.json`); each file's `RegistryFile.type` is inferred from its extension.
+ * `meta.json` and co-located dev artifacts — `*.stories.ts` / `*.test.ts`
+ * stay out of the index so `aihu add` never copies them); each file's
+ * `RegistryFile.type` is inferred from its extension.
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -91,6 +93,8 @@ function buildItem(registryRoot: string, recipeDirName: string): RegistryItem {
   // to the package root, posix-normalized for cross-platform stable output.
   const files: RegistryFile[] = readdirSync(recipeDir)
     .filter((entry) => entry !== 'meta.json')
+    // Co-located dev artifacts are not part of the recipe a consumer receives.
+    .filter((entry) => !entry.endsWith('.stories.ts') && !entry.endsWith('.test.ts'))
     .filter((entry) => statSync(join(recipeDir, entry)).isFile())
     .map((entry) => {
       const rel = relative(packageRoot, join(recipeDir, entry)).split(sep).join(posix.sep)

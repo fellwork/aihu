@@ -15,8 +15,9 @@
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
-  const props = $props
-  const orientation = props.orientation ?? 'horizontal'
+  $prop: {
+    orientation: { type: String, default: 'horizontal' },
+  }
 
   class AihuSeparator extends HTMLElement {
     static sheet = new CSSStyleSheet()
@@ -35,7 +36,7 @@
 }
 
 @template {
-  <div data-slot="separator" $data-orientation={orientation} $class={cn('aihu-separator', props.class)}></div>
+  <div data-slot="separator" $data-orientation={orientation} $class={cn('aihu-separator')}></div>
 }
 
 @style {

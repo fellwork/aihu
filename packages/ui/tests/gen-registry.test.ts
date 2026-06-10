@@ -26,6 +26,10 @@ beforeAll(() => {
   const buttonDir = join(registryRoot, 'button')
   mkdirSync(buttonDir, { recursive: true })
   writeFileSync(join(buttonDir, 'button.aihu'), '<!-- button recipe -->\n')
+  // Co-located dev artifacts (Plan 6 Storybook stories + tests) must NOT be
+  // indexed — `aihu add` would otherwise copy them into consumer projects.
+  writeFileSync(join(buttonDir, 'button.stories.ts'), 'export default {}\n')
+  writeFileSync(join(buttonDir, 'button.test.ts'), 'export {}\n')
   writeFileSync(
     join(buttonDir, 'meta.json'),
     JSON.stringify({
@@ -87,6 +91,13 @@ describe('generateRegistry', () => {
     }
     const button = registry.items.find((i) => i.name === 'button')!
     expect(button.files).toEqual([{ path: 'registry/button/button.aihu', type: 'component' }])
+  })
+
+  it('excludes co-located *.stories.ts / *.test.ts dev artifacts from the index', () => {
+    const registry = generateRegistry(registryRoot)
+    const allPaths = registry.items.flatMap((i) => i.files.map((f) => f.path))
+    expect(allPaths.some((p) => p.endsWith('.stories.ts'))).toBe(false)
+    expect(allPaths.some((p) => p.endsWith('.test.ts'))).toBe(false)
   })
 
   it('preserves registryDependencies', () => {
