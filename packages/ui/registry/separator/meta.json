@@ -4,5 +4,14 @@
   "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
   "variants": {
     "orientation": ["horizontal", "vertical"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
   }
 }

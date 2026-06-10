@@ -12,6 +12,15 @@
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
         "variant": ["default", "secondary", "destructive", "outline"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
       }
     },
     {
@@ -29,6 +38,15 @@
       "variants": {
         "variant": ["default", "destructive", "outline", "ghost", "link"],
         "size": ["sm", "md", "lg", "icon"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "keyboard": true,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
       }
     },
     {
@@ -40,7 +58,16 @@
           "type": "component"
         }
       ],
-      "description": "Presentational card recipe with slotted header, body, and footer regions."
+      "description": "Presentational card recipe with slotted header, body, and footer regions.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
     },
     {
       "name": "separator",
@@ -54,6 +81,15 @@
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
         "orientation": ["horizontal", "vertical"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
       }
     }
   ]

@@ -75,5 +75,8 @@
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "storybook": "^10.4.3"
   }
 }

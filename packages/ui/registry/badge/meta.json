@@ -4,5 +4,14 @@
   "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
   "variants": {
     "variant": ["default", "secondary", "destructive", "outline"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
   }
 }

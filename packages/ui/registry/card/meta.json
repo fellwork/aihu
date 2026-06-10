@@ -1,5 +1,14 @@
 {
   "name": "card",
   "type": "ui",
-  "description": "Presentational card recipe with slotted header, body, and footer regions."
+  "description": "Presentational card recipe with slotted header, body, and footer regions.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
 }
