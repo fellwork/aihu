@@ -97,8 +97,10 @@ export class AihuRovingFocus extends HTMLElement {
     return this._collection.register(el)
   }
 
-  /** Move the current index to `index` (clamped/looped) and focus the item. */
-  setCurrent(index: number): void {
+  /** Move the current index to `index` (clamped/looped) and focus the item.
+   * Pass `focus = false` to move the tab stop (tabindex bookkeeping) without
+   * focusing the element. */
+  setCurrent(index: number, focus = true): void {
     const items = this._collection.items()
     if (items.length === 0) return
     let next = index
@@ -108,7 +110,7 @@ export class AihuRovingFocus extends HTMLElement {
       next = Math.max(0, Math.min(items.length - 1, index))
     }
     this._currentIndex[1](next)
-    ;(items[next] as HTMLElement).focus?.()
+    if (focus) (items[next] as HTMLElement).focus?.()
   }
 
   /** Resolve the effective direction (own attr, else nearest config-provider). */

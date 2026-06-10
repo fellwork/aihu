@@ -11,6 +11,15 @@
  */
 
 export { AihuButton, type ButtonType, defineButton } from './button/index.ts'
+// Phase 2 primitives.
+export {
+  AihuCheckboxIndicator,
+  AihuCheckboxRoot,
+  type CheckboxContextValue,
+  type CheckboxState,
+  checkboxContext,
+  defineCheckbox,
+} from './checkbox/index.ts'
 export {
   AihuCollection,
   type CollectionContextValue,
@@ -53,13 +62,40 @@ export {
 } from './dom-context.ts'
 export {
   AihuFormControl,
+  attachHiddenInput,
   defineFormControl,
   type FormControlContextValue,
   formControlContext,
+  type HiddenInputOptions,
 } from './form-control/index.ts'
+export { AihuInput, AihuTextControlBase, defineInput } from './input/index.ts'
+export { AihuLabel, defineLabel } from './label/index.ts'
 // Phase 0 primitives.
 export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
+export {
+  AihuRadioGroupIndicator,
+  AihuRadioGroupItem,
+  AihuRadioGroupRoot,
+  defineRadioGroup,
+  type RadioGroupContextValue,
+  type RadioGroupItemContextValue,
+  radioGroupContext,
+  radioGroupItemContext,
+} from './radio-group/index.ts'
 export { AihuRovingFocus, defineRovingFocus, type Orientation } from './roving-focus/index.ts'
+export {
+  AihuSeparator,
+  defineSeparator,
+  type SeparatorOrientation,
+} from './separator/index.ts'
+export {
+  AihuSwitchRoot,
+  AihuSwitchThumb,
+  defineSwitch,
+  type SwitchContextValue,
+  switchContext,
+} from './switch/index.ts'
+export { AihuTextarea, defineTextarea } from './textarea/index.ts'
 export {
   AihuTooltipContent,
   AihuTooltipRoot,

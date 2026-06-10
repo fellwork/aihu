@@ -14,7 +14,8 @@
       "keyboard": true,
       "form": false,
       "overlay": false,
-      "directional": false
+      "directional": false,
+      "hoverable": true
     }
   }
 }

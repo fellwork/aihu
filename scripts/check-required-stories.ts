@@ -16,10 +16,11 @@
  * Mapping (spec §10.2):
  *   Default, DarkMode                          — always
  *   Variants                                   — iff variants declared
- *   States, Hover, Focus, Disabled             — iff interactive
+ *   States, Focus, Disabled                    — iff interactive
+ *   Hover                                       — iff hoverable (visual; not headless)
  *   KeyboardActivation                         — iff keyboard
  *   FormParticipation                          — iff form
- *   Open, OpenWithLongContent, FocusManagement — iff overlay
+ *   Open, OpenWithLongContent, FocusManagement — iff overlay (FocusManagement iff trapsFocus)
  *   RTLBehavior                                — iff directional
  *
  * Run after `bun run build-storybook`:  bun scripts/check-required-stories.ts
@@ -30,6 +31,12 @@ import { join } from 'node:path'
 
 interface Capabilities {
   interactive?: boolean
+  /** Hover is a VISUAL concern (styled hover states) — required for styled
+   * recipes and any primitive with a hover affordance, but NOT for zero-CSS
+   * headless primitives where hover produces no observable change. Kept
+   * separate from `interactive` so headless form primitives (input, checkbox,
+   * …) aren't forced to ship meaningless Hover stories. */
+  hoverable?: boolean
   keyboard?: boolean
   form?: boolean
   overlay?: boolean
@@ -57,7 +64,12 @@ const REGISTRY_PATH = join(ROOT, 'packages', 'ui', 'registry.json')
  * Extend when a Phase 2+ primitive lands — the gate fails loudly if a listed
  * primitive has no stories at all. */
 const PRIMITIVES: Array<{ name: string; title: string; caps: Capabilities }> = [
-  { name: 'button', title: 'Primitives/Button', caps: { interactive: true, keyboard: true } },
+  // Phase 1.
+  {
+    name: 'button',
+    title: 'Primitives/Button',
+    caps: { interactive: true, hoverable: true, keyboard: true },
+  },
   {
     name: 'dialog',
     title: 'Primitives/Dialog',
@@ -68,12 +80,43 @@ const PRIMITIVES: Array<{ name: string; title: string; caps: Capabilities }> = [
     title: 'Primitives/Tooltip',
     caps: { interactive: true, keyboard: true, overlay: true, trapsFocus: false },
   },
+  // Phase 2. Form primitives are interactive + keyboard + form but NOT
+  // hoverable (zero CSS). Label and Separator are non-focusable — Default +
+  // DarkMode only.
+  {
+    name: 'input',
+    title: 'Primitives/Input',
+    caps: { interactive: true, keyboard: true, form: true },
+  },
+  {
+    name: 'textarea',
+    title: 'Primitives/Textarea',
+    caps: { interactive: true, keyboard: true, form: true },
+  },
+  {
+    name: 'checkbox',
+    title: 'Primitives/Checkbox',
+    caps: { interactive: true, keyboard: true, form: true },
+  },
+  {
+    name: 'switch',
+    title: 'Primitives/Switch',
+    caps: { interactive: true, keyboard: true, form: true },
+  },
+  {
+    name: 'radio-group',
+    title: 'Primitives/RadioGroup',
+    caps: { interactive: true, keyboard: true, form: true, directional: true },
+  },
+  { name: 'label', title: 'Primitives/Label', caps: {} },
+  { name: 'separator', title: 'Primitives/Separator', caps: {} },
 ]
 
 function requiredStories(req: Requirement): string[] {
   const out = ['Default', 'DarkMode']
   if (req.hasVariants) out.push('Variants')
-  if (req.caps.interactive) out.push('States', 'Hover', 'Focus', 'Disabled')
+  if (req.caps.interactive) out.push('States', 'Focus', 'Disabled')
+  if (req.caps.hoverable) out.push('Hover')
   if (req.caps.keyboard) out.push('KeyboardActivation')
   if (req.caps.form) out.push('FormParticipation')
   if (req.caps.overlay) {

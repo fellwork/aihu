@@ -81,7 +81,7 @@
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": 1022,
+    "bytes": 1349,
     "limit": "4 KB"
   },
   {
@@ -91,7 +91,7 @@
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": 1439,
+    "bytes": 1447,
     "limit": "4 KB"
   },
   {
@@ -112,6 +112,41 @@
   {
     "name": "@aihu/primitives/button",
     "bytes": 1131,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/separator",
+    "bytes": 566,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/label",
+    "bytes": 1808,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/input",
+    "bytes": 1466,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/textarea",
+    "bytes": 1444,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/checkbox",
+    "bytes": 1804,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/switch",
+    "bytes": 1708,
+    "limit": "4 KB"
+  },
+  {
+    "name": "@aihu/primitives/radio-group",
+    "bytes": 2979,
     "limit": "4 KB"
   },
   {

@@ -178,6 +178,55 @@
     "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
   },
   {
+    "name": "@aihu/primitives/separator",
+    "path": "packages/primitives/dist/separator.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/label",
+    "path": "packages/primitives/dist/label.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/input",
+    "path": "packages/primitives/dist/input.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/textarea",
+    "path": "packages/primitives/dist/textarea.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/checkbox",
+    "path": "packages/primitives/dist/checkbox.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/switch",
+    "path": "packages/primitives/dist/switch.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/radio-group",
+    "path": "packages/primitives/dist/radio-group.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",
