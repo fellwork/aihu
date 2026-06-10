@@ -189,6 +189,40 @@ document.head.appendChild(style)
 > package `files` list, so they are also on disk at
 > `node_modules/@aihu/css-engine/styles/*.css` if you prefer to copy them.
 
+## Aliasing pack tokens
+
+If you layer your own semantic custom properties over the pack's `--color-*`
+tokens (e.g. `--surface`, `--ink`), declare the alias under **every theme
+selector the pack uses** (`:root` *and* `.dark`) — not just `:root`:
+
+```css
+/* ✅ re-resolves per theme */
+:root, .dark {
+  --surface: var(--color-surface);
+  --ink: var(--color-text);
+}
+```
+
+A `:root`-only alias silently breaks dark mode:
+
+```css
+/* ❌ freezes the LIGHT value */
+:root {
+  --surface: var(--color-surface);
+}
+```
+
+Custom properties are computed **where they are declared**. A `:root`-only
+alias resolves `var(--color-surface)` against the light value once, and that
+fixed light value then inherits into `.dark` containers and every shadow root
+beneath them. The symptom is a half-dark page: elements using `--color-*`
+directly flip to dark, while elements using the alias stay light.
+
+Declaring the alias under both selectors makes it re-resolve in each theme
+context — `.dark` on the toggle element picks up the dark `--color-surface`,
+and shadow roots inherit the correct per-theme value. The same rule applies to
+any extra theme selectors a custom pack targets.
+
 ## See also
 
 - [Styling](#styling) — the scoped-output model, WC-native variants, `cn()`
