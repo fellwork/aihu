@@ -1,5 +1,11 @@
 # @aihu/compiler
 
+## 0.8.1
+
+### Patch Changes
+
+- [#344](https://github.com/fellwork/aihu/pull/344) [`e2ba914`](https://github.com/fellwork/aihu/commit/e2ba9143f410196f84501f9386aa69b0729d158f) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template parser: support HTML comments (`<!-- … -->`). Comments are parsed and dropped — authoring annotations only, never emitted to the compiled output. An unclosed comment is a compile error.
+
 ## 0.8.0
 
 ### Minor Changes
