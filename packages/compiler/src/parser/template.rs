@@ -144,6 +144,13 @@ impl<'a> Parser<'a> {
                 ));
             }
 
+            // HTML comments (`<!-- … -->`) are authoring annotations — parse
+            // and drop them so they never reach the compiled output.
+            if self.starts_with("<!--") {
+                self.skip_html_comment()?;
+                continue;
+            }
+
             if self.starts_with("</") {
                 if let Some(expected) = closing_tag {
                     let found = self.parse_closing_tag_name()?;
@@ -695,6 +702,20 @@ impl<'a> Parser<'a> {
         self.input[self.pos..].starts_with(needle)
     }
 
+    /// Skip an HTML comment (`<!-- … -->`). Comments carry authoring intent
+    /// only; they are dropped from the compiled template.
+    fn skip_html_comment(&mut self) -> Result<(), CompileError> {
+        debug_assert!(self.starts_with("<!--"));
+        self.pos += 4; // consume `<!--`
+        match self.input[self.pos..].find("-->") {
+            Some(rel) => {
+                self.pos += rel + 3; // consume up to and including `-->`
+                Ok(())
+            }
+            None => Err(self.error("unclosed HTML comment (missing `-->`)".to_string())),
+        }
+    }
+
     fn is_eof(&self) -> bool {
         self.pos >= self.input.len()
     }
@@ -851,6 +872,59 @@ pub(crate) fn parse_each_header(
 mod tests {
     use super::*;
     use crate::types::TemplateNode;
+
+    #[test]
+    fn html_comment_dropped_top_level() {
+        let nodes = parse_template("<!-- note --><span>x</span>").unwrap();
+        assert_eq!(nodes.len(), 1);
+        match &nodes[0] {
+            TemplateNode::Element { tag, .. } => assert_eq!(tag, "span"),
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn html_comment_dropped_between_children() {
+        let nodes =
+            parse_template("<div><b>a</b><!-- between siblings --><i>b</i></div>").unwrap()
+        ;
+        match &nodes[0] {
+            TemplateNode::Element { children, .. } => {
+                let tags: Vec<_> = children
+                    .iter()
+                    .filter_map(|n| match n {
+                        TemplateNode::Element { tag, .. } => Some(tag.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(tags, vec!["b", "i"]);
+            }
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn html_comment_inside_block_tag() {
+        let nodes = parse_template("{#if cond}<!-- why --><span>x</span>{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches[0].1.len(), 1);
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn html_comment_may_contain_angle_brackets() {
+        let nodes = parse_template("<!-- <div> not parsed --><p>y</p>").unwrap();
+        assert_eq!(nodes.len(), 1);
+    }
+
+    #[test]
+    fn html_comment_unclosed_errors() {
+        let err = parse_template("<!-- oops <span>x</span>").unwrap_err();
+        assert!(err.message.contains("unclosed HTML comment"), "{}", err.message);
+    }
 
     #[test]
     fn block_if_simple() {
