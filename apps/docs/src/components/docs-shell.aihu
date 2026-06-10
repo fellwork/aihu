@@ -123,7 +123,14 @@
         <li><a class="nav-link" href="#packages/context" $class:active={activePage() === 'packages/context'}>@aihu/context</a></li>
         <li><a class="nav-link" href="#packages/agent-a2a" $class:active={activePage() === 'packages/agent-a2a'}>@aihu/agent-a2a</a></li>
         <li><a class="nav-link" href="#packages/agent-acp" $class:active={activePage() === 'packages/agent-acp'}>@aihu/agent-acp</a></li>
+        <li><a class="nav-link" href="#packages/agent-server" $class:active={activePage() === 'packages/agent-server'}>@aihu/agent-server</a></li>
+        <li><a class="nav-link" href="#packages/auth" $class:active={activePage() === 'packages/auth'}>@aihu/auth</a></li>
         <li><a class="nav-link" href="#packages/cli" $class:active={activePage() === 'packages/cli'}>@aihu/cli</a></li>
+        <li><a class="nav-link" href="#packages/language-server" $class:active={activePage() === 'packages/language-server'}>@aihu/language-server</a></li>
+        <li><a class="nav-link" href="#packages/magna" $class:active={activePage() === 'packages/magna'}>@aihu/magna</a></li>
+        <li><a class="nav-link" href="#packages/scraping" $class:active={activePage() === 'packages/scraping'}>@aihu/scraping</a></li>
+        <li><a class="nav-link" href="#packages/seo" $class:active={activePage() === 'packages/seo'}>@aihu/seo</a></li>
+        <li><a class="nav-link" href="#packages/ui" $class:active={activePage() === 'packages/ui'}>@aihu/ui</a></li>
         <li><a class="nav-link" href="#packages/adapter-cloudflare" $class:active={activePage() === 'packages/adapter-cloudflare'}>@aihu/adapter-cloudflare</a></li>
         <li><a class="nav-link" href="#packages/adapter-vercel" $class:active={activePage() === 'packages/adapter-vercel'}>@aihu/adapter-vercel</a></li>
       </ul>
