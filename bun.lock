@@ -106,14 +106,14 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.11",
+      "version": "0.5.12",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
     },
     "examples/agent-driven-demo": {
       "name": "@aihu/example-agent-driven-demo",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-server": "workspace:*",
@@ -134,7 +134,7 @@
     },
     "examples/agent-hub": {
       "name": "@aihu/example-agent-hub",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-a2a": "workspace:*",
@@ -196,7 +196,7 @@
     },
     "examples/cf-adapter": {
       "name": "@aihu/example-cf-adapter",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "dependencies": {
         "@aihu/adapter-cloudflare": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -354,7 +354,7 @@
     },
     "examples/realtime-scores": {
       "name": "@aihu/example-realtime-scores",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -368,7 +368,7 @@
     },
     "examples/storefront": {
       "name": "@aihu/example-storefront",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -576,7 +576,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "bin": {
         "aihu-compile": "./bin/aihu-compile",
       },
@@ -609,7 +609,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.2.6",
+      "version": "0.2.7",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
