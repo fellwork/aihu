@@ -45,7 +45,7 @@ describe('@aihu/server renderToStream', () => {
       kind: 'branch',
       tag: 'div',
       attrs: {},
-      children: [{ kind: 'leaf', text: 'inner text' }],
+      children: [{ kind: 'leaf', leafKind: 'text', value: 'inner text' }],
       dataSource: readySource,
     }))
     const result = await drain(stream)
@@ -74,7 +74,7 @@ describe('@aihu/server renderToStream', () => {
         kind: 'branch',
         tag: 'div',
         attrs: {},
-        children: [{ kind: 'leaf', text: 'async content' }],
+        children: [{ kind: 'leaf', leafKind: 'text', value: 'async content' }],
         dataSource: source,
       }),
       { head: { title: 'Async' } },
@@ -151,7 +151,7 @@ describe('@aihu/server renderToStream', () => {
               kind: 'branch',
               tag: 'p',
               attrs: {},
-              children: [{ kind: 'leaf', text: 'hi' }],
+              children: [{ kind: 'leaf', leafKind: 'text', value: 'hi' }],
             },
           ],
         }),
