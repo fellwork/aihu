@@ -60,7 +60,7 @@ bun add @aihu/ui
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Published files** | 5 entries |
+| **Published files** | 6 entries |
 | **License** | MIT |
 
 <sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>

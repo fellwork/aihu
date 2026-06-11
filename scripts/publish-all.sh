@@ -65,6 +65,7 @@ PKGS=(
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
+  "ui"                # @aihu/ui styled-recipe registry; aihu add resolves it from npm (must follow primitives)
   "language-server"   # @aihu/language-server LSP; depends on @aihu/compiler (must follow it)
   "plugin-drizzle"    # @aihu-plugin/drizzle; depends on @aihu/server + @aihu-plugin/data (must follow them)
   "plugin-kindly-note" # @aihu-plugin/kindly-note; depends on @aihu/signals (must follow it)
@@ -91,8 +92,9 @@ for pkg in "${PKGS[@]}"; do
   PKG_VERSION="$(node -p "require('$PKG_DIR/package.json').version")"
 
   # Most packages produce dist/index.js via rolldown; the moved-stub packages
-  # ship a root-level index.js (no dist). Allow either layout.
-  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ]; then
+  # ship a root-level index.js (no dist); @aihu/ui is SOURCE-distributed
+  # (registry.json + .aihu recipe sources, no build). Allow all three layouts.
+  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ] && [ ! -f "$PKG_DIR/registry.json" ]; then
     echo "⚠  ${PKG_NAME}: missing dist and no root index.js — run 'moon run :build'. Skipping."
     continue
   fi
