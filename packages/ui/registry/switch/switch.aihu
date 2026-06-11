@@ -1,0 +1,70 @@
+<!--
+  aihu-switch — styled recipe (Phase 2, master spec §9.4 / §9.7).
+
+  The LIGHT-DOM class-extension recipe: the registered `<aihu-switch>` element
+  EXTENDS the headless `AihuSwitchRoot` primitive (role=switch, binary
+  aria-checked, Space/Enter toggle, form participation via a sibling hidden
+  input) via the compiler's `$extends:` macro, so the host inherits all
+  behavior. The host renders in LIGHT DOM (`$shadow: 'none'`) so the hidden
+  input joins the outer <form> and the recipe's tag/class-scoped CSS reaches
+  the global cascade.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+  No `$prop` is declared: AihuSwitchRoot owns every attribute
+  (checked / disabled / required / name / value), surfaced via the runtime's
+  unioned observedAttributes.
+-->
+
+@state {
+  import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+  $extends: AihuSwitchRoot
+  $shadow: 'none'
+}
+
+@template {
+  <span class="aihu-switch-thumb" part="thumb" aria-hidden="true"></span>
+}
+
+@style {
+  aihu-switch {
+    display: inline-flex;
+    align-items: center;
+    width: 2rem;
+    height: 1.15rem;
+    padding: 2px;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-border);
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  aihu-switch:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  aihu-switch[data-state="unchecked"] {
+    background-color: var(--color-border);
+  }
+  aihu-switch[data-state="checked"] {
+    background-color: var(--color-primary);
+  }
+  aihu-switch[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  aihu-switch[aria-invalid="true"] {
+    outline: 2px solid var(--color-destructive);
+    outline-offset: 2px;
+  }
+
+  .aihu-switch-thumb {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-background);
+    transition: transform 0.15s;
+  }
+  aihu-switch[data-state="checked"] .aihu-switch-thumb {
+    transform: translateX(0.85rem);
+  }
+}

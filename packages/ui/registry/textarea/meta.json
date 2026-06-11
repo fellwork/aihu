@@ -1,0 +1,15 @@
+{
+  "name": "textarea",
+  "type": "ui",
+  "description": "Presentational textarea recipe — light-DOM custom element wrapping a native <textarea> that joins the outer form, with token-driven styling.",
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": false,
+      "form": true,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

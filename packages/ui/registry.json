@@ -11,12 +11,7 @@
       ],
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
-        "variant": [
-          "default",
-          "secondary",
-          "destructive",
-          "outline"
-        ]
+        "variant": ["default", "secondary", "destructive", "outline"]
       },
       "meta": {
         "capabilities": {
@@ -38,24 +33,11 @@
         }
       ],
       "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
-      "dependencies": [
-        "@aihu/primitives"
-      ],
+      "dependencies": ["@aihu/primitives"],
       "registryDependencies": [],
       "variants": {
-        "variant": [
-          "default",
-          "destructive",
-          "outline",
-          "ghost",
-          "link"
-        ],
-        "size": [
-          "sm",
-          "md",
-          "lg",
-          "icon"
-        ]
+        "variant": ["default", "destructive", "outline", "ghost", "link"],
+        "size": ["sm", "md", "lg", "icon"]
       },
       "meta": {
         "capabilities": {
@@ -98,15 +80,55 @@
         }
       ],
       "description": "Styled checkbox recipe — light-DOM element extending the headless AihuCheckboxRoot primitive (tri-state, Space toggle, native form participation).",
-      "dependencies": [
-        "@aihu/primitives"
-      ],
+      "dependencies": ["@aihu/primitives"],
       "meta": {
         "capabilities": {
           "interactive": true,
           "hoverable": false,
           "keyboard": true,
           "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "input",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/input/input.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational input recipe — light-DOM custom element wrapping a native <input> that joins the outer form, with token-driven styling.",
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": false,
+          "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "label",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/label/label.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational label recipe — light-DOM custom element wrapping a native <label> with a forwarded `for` association and token-driven styling.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "hoverable": false,
+          "keyboard": false,
+          "form": false,
           "overlay": false,
           "directional": false
         }
@@ -123,16 +145,56 @@
       ],
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
-        "orientation": [
-          "horizontal",
-          "vertical"
-        ]
+        "orientation": ["horizontal", "vertical"]
       },
       "meta": {
         "capabilities": {
           "interactive": false,
           "keyboard": false,
           "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "switch",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/switch/switch.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled switch recipe — light-DOM element extending the headless AihuSwitchRoot primitive (binary toggle, Space/Enter activation, native form participation).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "textarea",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/textarea/textarea.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational textarea recipe — light-DOM custom element wrapping a native <textarea> that joins the outer form, with token-driven styling.",
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": false,
+          "form": true,
           "overlay": false,
           "directional": false
         }

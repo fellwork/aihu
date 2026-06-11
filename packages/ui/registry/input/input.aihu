@@ -1,0 +1,66 @@
+<!--
+  aihu-input — presentational styled recipe (Phase 2, master spec §9.7).
+
+  Wraps a NATIVE <input> and forwards props. NO `$extends` — the native control
+  plus light DOM is enough for forms; extending a primitive would fight the
+  template-rendered native element. `$shadow: 'none'` so the native <input>
+  joins the outer <form>, and the recipe's class-scoped CSS reaches the global
+  cascade. `aihu add` rewrites the `aihu-` prefix at copy time.
+-->
+
+@state {
+  $shadow: 'none'
+
+  $prop: {
+    type: { type: String, default: 'text' },
+    placeholder: { type: String, default: '' },
+    name: { type: String, default: '' },
+    value: { type: String, default: '' },
+    ariaLabel: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+    required: { type: Boolean, default: false },
+  }
+}
+
+@template {
+  <input
+    class="aihu-input"
+    $type={type}
+    $placeholder={placeholder}
+    $name={name}
+    $value={value}
+    $aria-label={ariaLabel}
+    $disabled={disabled}
+    $required={required} />
+}
+
+@style {
+  .aihu-input {
+    height: 2.25rem;
+    width: 100%;
+    padding: var(--space-1) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-foreground);
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .aihu-input::placeholder {
+    color: var(--color-muted-foreground);
+  }
+  .aihu-input:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent);
+  }
+  .aihu-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .aihu-input[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+  }
+}

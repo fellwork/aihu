@@ -1,0 +1,66 @@
+<!--
+  aihu-textarea — presentational styled recipe (Phase 2, master spec §9.7).
+
+  Wraps a NATIVE <textarea> and forwards props. NO `$extends` — the native
+  control plus light DOM is enough for forms. `$shadow: 'none'` so the native
+  <textarea> joins the outer <form>, and the recipe's class-scoped CSS reaches
+  the global cascade. `aihu add` rewrites the `aihu-` prefix at copy time.
+-->
+
+@state {
+  $shadow: 'none'
+
+  $prop: {
+    placeholder: { type: String, default: '' },
+    name: { type: String, default: '' },
+    value: { type: String, default: '' },
+    rows: { type: String, default: '3' },
+    ariaLabel: { type: String, default: '' },
+    disabled: { type: Boolean, default: false },
+    required: { type: Boolean, default: false },
+  }
+}
+
+@template {
+  <textarea
+    class="aihu-textarea"
+    $placeholder={placeholder}
+    $name={name}
+    $value={value}
+    $rows={rows}
+    $aria-label={ariaLabel}
+    $disabled={disabled}
+    $required={required}></textarea>
+}
+
+@style {
+  .aihu-textarea {
+    min-height: 4rem;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-foreground);
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    resize: vertical;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .aihu-textarea::placeholder {
+    color: var(--color-muted-foreground);
+  }
+  .aihu-textarea:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent);
+  }
+  .aihu-textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .aihu-textarea[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "switch",
+  "type": "ui",
+  "description": "Styled switch recipe — light-DOM element extending the headless AihuSwitchRoot primitive (binary toggle, Space/Enter activation, native form participation).",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": true,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}
