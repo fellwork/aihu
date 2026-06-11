@@ -385,6 +385,18 @@ pub enum StateMacro {
     /// uplift. The `name` is the LHS identifier (`$auth.session()` is an
     /// expression with no inherent binding), mirroring `$query name = ...`.
     Auth { name: String, method: AuthMacroKind },
+    // ─── recipe class-extension + per-file shadow mode (master spec §9.4) ─────
+    /// `$extends: Identifier` — the generated element class extends the named
+    /// custom-element base (a user import in `@state` scope) instead of
+    /// `HTMLElement`, threaded into `defineComponent({ base: <Ident>, ... })`.
+    /// A dedicated `:`-shorthand, NOT collection-form (not subject to C440).
+    /// Malformed → C470.
+    Extends { base: String },
+    /// `$shadow: 'open' | 'closed' | 'none'` — per-file shadow mode override.
+    /// Emits a `// @aihu:shadow <mode>` marker the Vite plugin reads to drive
+    /// both shadow attachment and the css-engine light-DOM fold, overriding the
+    /// plugin's global `shadowMode`. Malformed → C471.
+    Shadow { mode: String },
 }
 
 /// Which `$auth.*` method a [`StateMacro::Auth`] declaration resolved to.

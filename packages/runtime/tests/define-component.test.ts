@@ -801,3 +801,81 @@ describe('defineComponent — Bug 6: surface setup throws with component tag', (
     }
   })
 })
+
+describe('defineComponent — §9.4 recipe class-extension (base option)', () => {
+  _setSignal(signal)
+
+  /** A fake primitive base recording lifecycle + setting host ARIA. */
+  function makeBase(log: string[]): typeof HTMLElement {
+    class FakeBase extends HTMLElement {
+      static readonly observedAttributes = ['checked']
+      connectedCallback(): void {
+        log.push('base:connect')
+        this.setAttribute('role', 'checkbox')
+        this.setAttribute('tabindex', '0')
+      }
+      disconnectedCallback(): void {
+        log.push('base:disconnect')
+      }
+      attributeChangedCallback(name: string): void {
+        log.push(`base:attr:${name}`)
+      }
+    }
+    return FakeBase as unknown as typeof HTMLElement
+  }
+
+  it('extends the base, runs base.connectedCallback before mount, sets host ARIA', () => {
+    const log: string[] = []
+    const Base = makeBase(log)
+    const Cmp = defineComponent({
+      base: Base,
+      props: { label: { value: 'x' } },
+      setup: () => {
+        log.push('setup')
+        return leaf('content')
+      },
+    })
+    defineElement('x-ext-1', Cmp, { shadowMode: 'none' })
+    const el = document.createElement('x-ext-1')
+    document.body.appendChild(el)
+    // Base CC runs BEFORE setup (so a context-providing primitive registers
+    // before its child pieces mount), and the host inherits the base's ARIA.
+    expect(log).toEqual(['base:connect', 'setup'])
+    expect(el.getAttribute('role')).toBe('checkbox')
+    expect(el.getAttribute('tabindex')).toBe('0')
+    expect(el instanceof Base).toBe(true)
+    el.remove()
+    expect(log).toContain('base:disconnect')
+  })
+
+  it("unions the base's observedAttributes and forwards attributeChangedCallback", () => {
+    const log: string[] = []
+    const Base = makeBase(log)
+    const Cmp = defineComponent({
+      base: Base,
+      props: { size: { value: 'md' } },
+      setup: () => leaf('c'),
+    })
+    // observedAttributes = props (`size`) ∪ base (`checked`).
+    const observed = (Cmp as unknown as { observedAttributes: string[] }).observedAttributes
+    expect(observed).toContain('size')
+    expect(observed).toContain('checked')
+    defineElement('x-ext-2', Cmp, { shadowMode: 'none' })
+    const el = document.createElement('x-ext-2')
+    document.body.appendChild(el)
+    log.length = 0
+    el.setAttribute('checked', '')
+    // The base sees its own observed attribute change.
+    expect(log).toContain('base:attr:checked')
+    el.remove()
+  })
+
+  it('no base → ordinary HTMLElement component is unchanged (no base dispatch)', () => {
+    const Cmp = defineComponent({ props: { a: { value: '1' } }, setup: () => leaf('c') })
+    defineElement('x-ext-3', Cmp)
+    const el = document.createElement('x-ext-3')
+    expect(() => document.body.appendChild(el)).not.toThrow()
+    expect(el.getAttribute('role')).toBeNull()
+    el.remove()
+  })
+})

@@ -11,7 +11,12 @@
       ],
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
-        "variant": ["default", "secondary", "destructive", "outline"]
+        "variant": [
+          "default",
+          "secondary",
+          "destructive",
+          "outline"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -33,11 +38,24 @@
         }
       ],
       "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "registryDependencies": [],
       "variants": {
-        "variant": ["default", "destructive", "outline", "ghost", "link"],
-        "size": ["sm", "md", "lg", "icon"]
+        "variant": [
+          "default",
+          "destructive",
+          "outline",
+          "ghost",
+          "link"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg",
+          "icon"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -71,6 +89,30 @@
       }
     },
     {
+      "name": "checkbox",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/checkbox/checkbox.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled checkbox recipe — light-DOM element extending the headless AihuCheckboxRoot primitive (tri-state, Space toggle, native form participation).",
+      "dependencies": [
+        "@aihu/primitives"
+      ],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "separator",
       "type": "ui",
       "files": [
@@ -81,7 +123,10 @@
       ],
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
-        "orientation": ["horizontal", "vertical"]
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
       },
       "meta": {
         "capabilities": {
