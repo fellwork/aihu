@@ -16,7 +16,7 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3815,
+    "bytes": 3735,
     "limit": "3900 B"
   },
   {
@@ -81,7 +81,7 @@
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": 1349,
+    "bytes": 1022,
     "limit": "4 KB"
   },
   {
@@ -91,7 +91,7 @@
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": 1447,
+    "bytes": 1439,
     "limit": "4 KB"
   },
   {
@@ -101,12 +101,12 @@
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2062,
+    "bytes": 2015,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": 1878,
+    "bytes": 1834,
     "limit": "4 KB"
   },
   {
@@ -116,37 +116,37 @@
   },
   {
     "name": "@aihu/primitives/separator",
-    "bytes": 566,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/label",
-    "bytes": 1808,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/input",
-    "bytes": 1466,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/textarea",
-    "bytes": 1444,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/checkbox",
-    "bytes": 1804,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/switch",
-    "bytes": 1708,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/radio-group",
-    "bytes": 2979,
+    "bytes": -1,
     "limit": "4 KB"
   },
   {
