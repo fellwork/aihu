@@ -133,7 +133,7 @@ describe('runPrerender — static routes', () => {
           default: () => ({
             kind: 'branch',
             tag: 'h1',
-            children: [{ kind: 'leaf', text: 'Home Content' }],
+            children: [{ kind: 'leaf', leafKind: 'text', value: 'Home Content' }],
           }),
         }
       }
