@@ -234,12 +234,21 @@ const REGISTRY: Array<[string, CustomElementConstructor]> = [
   ['aihu-tooltip-content', AihuTooltipContent],
 ]
 
-let _defined = false
-/** Register all tooltip custom elements (idempotent). */
-export function defineTooltip(): void {
-  if (_defined) return
+const _definedPrefixes = new Set<string>()
+/**
+ * Register all tooltip custom elements under `<prefix>-tooltip-*` (idempotent
+ * per prefix). Non-default prefixes register a fresh trivial subclass per
+ * piece — a constructor can only be `customElements.define`d once. Demos/
+ * stories use a non-`aihu` prefix so styled recipes own the `aihu-tooltip-*`
+ * namespace (spec §9.4).
+ */
+export function defineTooltip(prefix = 'aihu'): void {
+  if (_definedPrefixes.has(prefix)) return
   for (const [tag, ctor] of REGISTRY) {
-    if (!customElements.get(tag)) customElements.define(tag, ctor)
+    const name = prefix === 'aihu' ? tag : tag.replace(/^aihu-/, `${prefix}-`)
+    if (!customElements.get(name)) {
+      customElements.define(name, prefix === 'aihu' ? ctor : class extends ctor {})
+    }
   }
-  _defined = true
+  _definedPrefixes.add(prefix)
 }

@@ -1,0 +1,29 @@
+<!--
+  aihu-dialog-root — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  The state owner of the modal-dialog machine. `<aihu-dialog-root>` EXTENDS the
+  headless AihuDialogRoot primitive (owns `open`/`modal`, provides the dialog
+  context to descendant pieces, reflects `data-state`) via the compiler's
+  `$extends:` macro. Renders in LIGHT DOM (`$shadow: 'none'`) so the pieces it
+  wraps inject the context through the real DOM tree, and `display: contents`
+  keeps the root visually transparent.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogRoot } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogRoot
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-root {
+    display: contents;
+  }
+}

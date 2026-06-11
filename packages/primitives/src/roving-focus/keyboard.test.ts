@@ -95,6 +95,19 @@ describe('<aihu-roving-focus>', () => {
     expect(rf.currentIndex()).toBe(0)
   })
 
+  it('setCurrent(index, false) moves the tab stop without focusing', () => {
+    const { rf, items } = mount()
+    items[0].focus()
+    rf.setCurrent(2, false)
+    expect(rf.currentIndex()).toBe(2)
+    expect(tabindexes(items)).toEqual(['-1', '-1', '0'])
+    // Focus did NOT follow the tab stop.
+    expect(document.activeElement).toBe(items[0])
+    // Default (focus=true) still focuses.
+    rf.setCurrent(1)
+    expect(document.activeElement).toBe(items[1])
+  })
+
   it('RTL flips horizontal arrow direction', () => {
     const { rf } = mount({ orientation: 'horizontal', dir: 'rtl' })
     press(rf, 'ArrowLeft') // RTL: left advances

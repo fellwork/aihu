@@ -85,6 +85,13 @@ bun add @aihu/primitives
 | `./dialog` | `./dist/dialog.js` | `—` |
 | `./tooltip` | `./dist/tooltip.js` | `—` |
 | `./button` | `./dist/button.js` | `—` |
+| `./separator` | `./dist/separator.js` | `—` |
+| `./label` | `./dist/label.js` | `—` |
+| `./input` | `./dist/input.js` | `—` |
+| `./textarea` | `./dist/textarea.js` | `—` |
+| `./checkbox` | `./dist/checkbox.js` | `—` |
+| `./switch` | `./dist/switch.js` | `—` |
+| `./radio-group` | `./dist/radio-group.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/primitives@0.0.12`.</i></sub>
 

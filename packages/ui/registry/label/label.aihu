@@ -1,0 +1,36 @@
+<!--
+  aihu-label — presentational styled recipe (Phase 2, master spec §9.7).
+
+  Wraps a NATIVE <label> and forwards its `for` association. NO `$extends`.
+  `$shadow: 'none'` so the recipe's class-scoped CSS reaches the global cascade.
+  `aihu add` rewrites the `aihu-` prefix at copy time.
+-->
+
+@state {
+  $shadow: 'none'
+
+  $prop: {
+    htmlFor: { type: String, default: '' },
+  }
+}
+
+@template {
+  <label class="aihu-label" $for={htmlFor}><slot /></label>
+}
+
+@style {
+  .aihu-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--color-foreground);
+    user-select: none;
+  }
+  .aihu-label[data-disabled] {
+    opacity: 0.5;
+  }
+}

@@ -1,0 +1,78 @@
+<!--
+  aihu-checkbox — styled recipe (Phase 2, master spec §9.4 / §9.7).
+
+  The LIGHT-DOM class-extension recipe: the registered `<aihu-checkbox>` element
+  EXTENDS the headless `AihuCheckboxRoot` primitive (role=checkbox, tri-state
+  aria-checked, Space toggle, form participation via a sibling hidden input) via
+  the compiler's `$extends:` macro, so the host inherits all behavior. The host
+  renders in LIGHT DOM (`$shadow: 'none'`) so the hidden input joins the outer
+  <form> and the recipe's class-scoped CSS reaches the global cascade.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+  No `$prop` is declared: AihuCheckboxRoot owns every attribute
+  (checked / disabled / required / name / value), surfaced via the runtime's
+  unioned observedAttributes.
+-->
+
+@state {
+  import { AihuCheckboxRoot } from '@aihu/primitives/checkbox'
+
+  $extends: AihuCheckboxRoot
+  $shadow: 'none'
+}
+
+@template {
+  <span class="aihu-checkbox-indicator" part="indicator" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path class="aihu-checkbox-check" d="M3 8.5l3.5 3.5L13 4.5" />
+      <path class="aihu-checkbox-dash" d="M4 8h8" />
+    </svg>
+  </span>
+}
+
+@style {
+  aihu-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: transparent;
+    color: var(--color-primary-foreground);
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+  }
+  aihu-checkbox:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  aihu-checkbox[data-state="checked"],
+  aihu-checkbox[data-state="indeterminate"] {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  aihu-checkbox[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  aihu-checkbox[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+  }
+
+  .aihu-checkbox-indicator {
+    display: inline-flex;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  aihu-checkbox[data-state="checked"] .aihu-checkbox-indicator,
+  aihu-checkbox[data-state="indeterminate"] .aihu-checkbox-indicator {
+    opacity: 1;
+  }
+
+  /* Show the check for `checked`, the dash for `indeterminate`. */
+  .aihu-checkbox-dash { display: none; }
+  aihu-checkbox[data-state="indeterminate"] .aihu-checkbox-check { display: none; }
+  aihu-checkbox[data-state="indeterminate"] .aihu-checkbox-dash { display: inline; }
+}

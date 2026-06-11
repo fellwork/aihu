@@ -56,6 +56,15 @@ describe('<aihu-form-control>', () => {
     expect(label.htmlFor).toBe(input.id)
   })
 
+  it('a non-native [data-fc-label] element wires aria-labelledby onto the control', () => {
+    const fc = mount('<span data-fc-label>Name</span><input data-fc-control />')
+    const span = fc.querySelector('[data-fc-label]') as HTMLElement
+    const input = fc.querySelector('input') as HTMLInputElement
+    expect(span.id).toBeTruthy()
+    expect(input.getAttribute('aria-labelledby')).toBe(span.id)
+    expect(fc.labelId()).toBe(span.id)
+  })
+
   it('uses a supplied control-id', () => {
     const fc = document.createElement('aihu-form-control') as AihuFormControl
     fc.setAttribute('control-id', 'email-field')

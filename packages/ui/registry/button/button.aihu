@@ -22,9 +22,11 @@
   import { cn } from '@aihu/css-engine/runtime/cn'
   import { AihuButton } from '@aihu/primitives/button'
 
-  const props = $props
-  const variant = props.variant ?? 'default'
-  const size = props.size ?? 'md'
+  $prop: {
+    variant: { type: String, default: 'default' },
+    size: { type: String, default: 'md' },
+    disabled: { type: Boolean, default: false },
+  }
 
   // The concrete styled element: behavior inherited from the headless base,
   // appearance from the adopted stylesheet (R2 — shared static, not per-instance).
@@ -55,8 +57,8 @@
     data-slot="button"
     $data-variant={variant}
     $data-size={size}
-    $disabled={props.disabled}
-    $class={cn('aihu-button', props.class)}>
+    $disabled={disabled}
+    $class={cn('aihu-button')}>
     <slot />
   </button>
 }

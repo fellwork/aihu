@@ -936,6 +936,9 @@ fn process_state_body(
                 si.needs_use_current_user = true;
                 state_names.insert(name);
             }
+            // §9.4 — declaration-only macros consumed at the defineComponent
+            // assembly layer; they introduce no state binding here.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
 
@@ -1593,6 +1596,8 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                     crate::parser::state_macros::auth_session_todo(*method)
                 ));
             }
+            // §9.4 — consumed at the defineComponent assembly layer; no body JS.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
     if lines.is_empty() {
@@ -2156,7 +2161,19 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     // form and declares an `attrs: [...]` array.
     let has_agent_inputs = !agent_attrs.is_empty();
     let uses_props = !prop_entries.is_empty();
-    let uses_options_form = uses_props || has_agent_inputs;
+    // §9.4 recipe class-extension: `$extends: Ident` → `base: Ident` in the
+    // options-form; `$shadow: mode` → a `// @aihu:shadow <mode>` marker the
+    // Vite plugin reads. A `$extends` recipe always carries `$prop`s, but force
+    // the options-form regardless so `base` has somewhere to live.
+    let extends_base: Option<&str> = macros.iter().find_map(|m| match m {
+        crate::types::StateMacro::Extends { base } => Some(base.as_str()),
+        _ => None,
+    });
+    let shadow_mode: Option<&str> = macros.iter().find_map(|m| match m {
+        crate::types::StateMacro::Shadow { mode } => Some(mode.as_str()),
+        _ => None,
+    });
+    let uses_options_form = uses_props || has_agent_inputs || extends_base.is_some();
     let uses_ctx = uses_options_form;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
@@ -2234,7 +2251,15 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     // against framework-emitted bindings from the same source. ES modules forbid
     // re-binding an identifier (`import { signal } from 'x'` twice is a
     // SyntaxError), so we union named-import sets per source.
-    let merged_imports = merge_imports(&imports, &user_imports);
+    let mut merged_imports = merge_imports(&imports, &user_imports);
+
+    // §9.4 per-file shadow mode: prepend a `// @aihu:shadow <mode>` marker the
+    // Vite plugin reads to override its global shadowMode (drives both shadow
+    // attachment and the css-engine light-DOM fold). Leading comment — survives
+    // the downstream HMR/island passes untouched.
+    if let Some(mode) = shadow_mode {
+        merged_imports = format!("// @aihu:shadow {}\n{}", mode, merged_imports);
+    }
 
     // D5 — $form: `static formAssociated = true` must be set on the returned
     // component class so the browser recognises the element as form-associated.
@@ -2254,6 +2279,12 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
         // `ctx.attrs.<name>`); $prop entries contribute the `props:` config. Both
         // can coexist (`defineComponent` builds attrSignals + propSignals).
         let mut config_lines: Vec<String> = Vec::new();
+        // §9.4 — `base: <Ident>` first so the runtime extends the named
+        // primitive instead of HTMLElement. The identifier is a user import
+        // hoisted into the module by merge_imports.
+        if let Some(base) = extends_base {
+            config_lines.push(format!("  base: {},", base));
+        }
         if has_agent_inputs {
             config_lines.push(format!("  attrs: [{}] as const,", agent_attrs.join(", ")));
         }

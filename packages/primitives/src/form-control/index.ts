@@ -12,12 +12,14 @@
  * / `[data-fc-error]` element's id); a slotted `<label>` is associated via
  * `for`/`id`.
  * Context: provides `formControlContext` carrying
- * `{ disabled, required, invalid, controlId, describedById }` signals so
- * descendant pieces consume the shared state without prop-drilling.
+ * `{ disabled, required, invalid, controlId, describedById, labelId }` signals
+ * so descendant pieces consume the shared state without prop-drilling.
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+
+export { attachHiddenInput, type HiddenInputOptions } from './hidden-input.ts'
 
 export interface FormControlContextValue {
   readonly disabled: Read<boolean>
@@ -25,6 +27,7 @@ export interface FormControlContextValue {
   readonly invalid: Read<boolean>
   readonly controlId: Read<string>
   readonly describedById: Read<string | null>
+  readonly labelId: Read<string | null>
 }
 
 export const formControlContext = createDomContext<FormControlContextValue>('form-control')
@@ -43,6 +46,7 @@ export class AihuFormControl extends HTMLElement {
   private readonly _invalid = signal(false)
   private readonly _controlId = signal('')
   private readonly _describedById = signal<string | null>(null)
+  private readonly _labelId = signal<string | null>(null)
 
   private _disposers: Array<() => void> = []
 
@@ -58,6 +62,9 @@ export class AihuFormControl extends HTMLElement {
   get controlId(): Read<string> {
     return this._controlId[0]
   }
+  get labelId(): Read<string | null> {
+    return this._labelId[0]
+  }
 
   constructor() {
     super()
@@ -67,6 +74,7 @@ export class AihuFormControl extends HTMLElement {
       invalid: this._invalid[0],
       controlId: this._controlId[0],
       describedById: this._describedById[0],
+      labelId: this._labelId[0],
     })
   }
 
@@ -144,8 +152,17 @@ export class AihuFormControl extends HTMLElement {
     // Associate a slotted label.
     const label = this.querySelector<HTMLElement>('label, [data-fc-label]')
     if (label && control) {
-      if (label instanceof HTMLLabelElement) label.htmlFor = control.id
-      else label.setAttribute('for', control.id)
+      if (label instanceof HTMLLabelElement) {
+        label.htmlFor = control.id
+        this._labelId[1](label.id || null)
+      } else {
+        // Non-native label ([data-fc-label]): `for` has no native semantics,
+        // so associate via aria-labelledby pointing at the label's id.
+        label.setAttribute('for', control.id)
+        if (!label.id) label.id = nextId()
+        control.setAttribute('aria-labelledby', label.id)
+        this._labelId[1](label.id)
+      }
     }
 
     // Collect description + error ids into aria-describedby.

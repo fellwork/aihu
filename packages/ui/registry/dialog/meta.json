@@ -1,0 +1,16 @@
+{
+  "name": "dialog",
+  "type": "ui",
+  "description": "Styled modal dialog recipe — light-DOM pieces extending the headless AihuDialog primitives (focus-trap + return-focus, Escape-to-close, aria-modal, click-outside dismissal).",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": false,
+      "overlay": true,
+      "directional": false
+    }
+  }
+}

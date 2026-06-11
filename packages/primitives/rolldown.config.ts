@@ -18,6 +18,13 @@ export default defineConfig({
     dialog: 'src/dialog/index.ts',
     tooltip: 'src/tooltip/index.ts',
     button: 'src/button/index.ts',
+    separator: 'src/separator/index.ts',
+    label: 'src/label/index.ts',
+    input: 'src/input/index.ts',
+    textarea: 'src/textarea/index.ts',
+    checkbox: 'src/checkbox/index.ts',
+    switch: 'src/switch/index.ts',
+    'radio-group': 'src/radio-group/index.ts',
   },
   output: {
     dir: 'dist',

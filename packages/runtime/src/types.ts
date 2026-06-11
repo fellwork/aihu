@@ -116,6 +116,19 @@ export interface ComponentOptions<A extends ReadonlyArray<string> = ReadonlyArra
    * element (`el.title = newValue`) flow back through the same signal.
    */
   props?: PropsConfig
+  /**
+   * Recipe class-extension (master spec §9.4): the generated element class
+   * extends this base custom-element class instead of `HTMLElement`, so the
+   * base's `connectedCallback` (role/ARIA/keyboard, form-control inheritance,
+   * cross-piece context provision) runs on the host. Emitted by the compiler's
+   * `$extends:` macro. Options-form only — base-extending recipes always carry
+   * `$prop` declarations, so they compile to the options-form. The base's
+   * `connectedCallback` runs BEFORE the template mounts (so a context-providing
+   * primitive registers before its slotted child pieces upgrade), and its
+   * `disconnectedCallback` runs on teardown; `observedAttributes` are unioned
+   * and `attributeChangedCallback` is forwarded to the base.
+   */
+  base?: typeof HTMLElement
   setup: (ctx: SetupContext & AttrContext<A> & PropsContext) => Branch | Leaf
 }
 

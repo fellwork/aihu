@@ -1,0 +1,33 @@
+<!--
+  aihu-dialog-backdrop — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-dialog-backdrop>` EXTENDS the headless AihuDialogBackdrop primitive
+  (click-outside dismissal, reflects `data-state`) via the compiler's
+  `$extends:` macro. Light DOM (`$shadow: 'none'`). The translucent scrim covers
+  the viewport while open and is removed from layout while closed.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogBackdrop } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogBackdrop
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: color-mix(in oklab, var(--color-foreground) 50%, transparent);
+  }
+  aihu-dialog-backdrop[data-state="closed"] {
+    display: none;
+  }
+}

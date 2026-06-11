@@ -239,14 +239,24 @@ const REGISTRY: Array<[string, CustomElementConstructor]> = [
   ['aihu-dialog-description', AihuDialogDescription],
 ]
 
-let _defined = false
-/** Register all dialog custom elements (idempotent). */
-export function defineDialog(): void {
-  if (_defined) return
+const _definedPrefixes = new Set<string>()
+/**
+ * Register all dialog custom elements under `<prefix>-dialog-*` (idempotent
+ * per prefix). Non-default prefixes register a fresh trivial subclass per
+ * piece — a constructor can only be `customElements.define`d once, so the
+ * original classes stay reserved for the default tags. Demos/stories use a
+ * non-`aihu` prefix so styled recipes own the `aihu-dialog-*` namespace
+ * (spec §9.4).
+ */
+export function defineDialog(prefix = 'aihu'): void {
+  if (_definedPrefixes.has(prefix)) return
   for (const [tag, ctor] of REGISTRY) {
-    if (!customElements.get(tag)) customElements.define(tag, ctor)
+    const name = prefix === 'aihu' ? tag : tag.replace(/^aihu-/, `${prefix}-`)
+    if (!customElements.get(name)) {
+      customElements.define(name, prefix === 'aihu' ? ctor : class extends ctor {})
+    }
   }
-  _defined = true
+  _definedPrefixes.add(prefix)
 }
 
 export { createFocusTrap, type FocusTrap } from './focus-trap.ts'

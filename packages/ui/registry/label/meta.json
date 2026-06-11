@@ -1,0 +1,15 @@
+{
+  "name": "label",
+  "type": "ui",
+  "description": "Presentational label recipe — light-DOM custom element wrapping a native <label> with a forwarded `for` association and token-driven styling.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "hoverable": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

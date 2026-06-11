@@ -1,0 +1,34 @@
+<!--
+  aihu-dialog-description — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-dialog-description>` EXTENDS the headless AihuDialogDescription primitive
+  (registers its id as the content's `aria-describedby`) via the compiler's
+  `$extends:` macro. Light DOM (`$shadow: 'none'`).
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogDescription } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogDescription
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-description {
+    display: block;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    /* Muted secondary text that still clears WCAG AA on the surface panel:
+       bias the muted token toward the panel's own foreground. The raw
+       --color-muted-foreground (#8a8880) fails AA on --color-surface
+       (#faf8f4); blending toward --color-surface-foreground restores it
+       while preserving the secondary-text hierarchy. */
+    color: color-mix(in oklab, var(--color-surface-foreground) 70%, var(--color-muted-foreground));
+  }
+}

@@ -43,7 +43,10 @@
     "test:cookbook": "bun run --cwd cookbook test",
     "release": "bun run build && bash scripts/publish-all.sh",
     "release:version": "changeset version && bun install && bun scripts/sync-readme.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "storybook": "bun run --cwd apps/storybook storybook",
+    "build-storybook": "bun run --cwd apps/storybook build-storybook",
+    "check:stories": "bun scripts/check-required-stories.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.14",

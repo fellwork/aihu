@@ -227,6 +227,77 @@ fn try_parse_macro(
         return Err(c440(rest, CollectionKind::Lifecycle));
     }
 
+    // ─── recipe class-extension: `$extends: Identifier` (master spec §9.4) ────
+    //
+    // Dedicated `:`-shorthand parallel to `$query`/`$route`, NOT collection-form
+    // (so NOT subject to C440). Captures the base-class identifier (a user
+    // import in `@state` scope) which codegen threads into
+    // `defineComponent({ base: <Ident>, ... })`. Accepts `$extends: Foo` and
+    // `$extends Foo`. Malformed → C470.
+    if let Some(decl) = rest.strip_prefix("extends") {
+        let nl = full_body[line_offset..]
+            .find('\n')
+            .map(|r| line_offset + r)
+            .unwrap_or(full_body.len());
+        let decl = decl.trim_start();
+        let decl = decl.strip_prefix(':').map(|d| d.trim_start()).unwrap_or(decl);
+        let base = decl.trim().trim_end_matches(';').trim().to_string();
+        let valid_ident = !base.is_empty()
+            && base
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && base
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+        if !valid_ident {
+            return Err(CompileError {
+                message: format!(
+                    "$extends requires a class identifier — expected '$extends: AihuCheckboxRoot', got '$extends {}'",
+                    decl.trim()
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C470".to_string()),
+                ..Default::default()
+            });
+        }
+        return Ok(Some((StateMacro::Extends { base }, nl)));
+    }
+
+    // ─── per-file shadow mode: `$shadow: 'open' | 'closed' | 'none'` ──────────
+    //
+    // Dedicated `:`-shorthand. Codegen emits a `// @aihu:shadow <mode>` marker
+    // the Vite plugin reads to override the global shadow mode per file.
+    // Malformed → C471.
+    if let Some(decl) = rest.strip_prefix("shadow") {
+        let nl = full_body[line_offset..]
+            .find('\n')
+            .map(|r| line_offset + r)
+            .unwrap_or(full_body.len());
+        let decl = decl.trim_start();
+        let decl = decl.strip_prefix(':').map(|d| d.trim_start()).unwrap_or(decl);
+        let mode = decl
+            .trim()
+            .trim_end_matches(';')
+            .trim()
+            .trim_matches(|c| c == '\'' || c == '"')
+            .to_string();
+        if !matches!(mode.as_str(), "open" | "closed" | "none") {
+            return Err(CompileError {
+                message: format!(
+                    "$shadow must be 'open', 'closed', or 'none' — got '$shadow {}'",
+                    decl.trim()
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C471".to_string()),
+                ..Default::default()
+            });
+        }
+        return Ok(Some((StateMacro::Shadow { mode }, nl)));
+    }
+
     // ─── arch-3 M2 — magna `$query` macro (RFC-003) ──────────────────────────
     //
     // `$query name = data.X.query(vars)` — dedicated `=`-shorthand parallel to
@@ -1519,6 +1590,10 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
                     auth_session_todo(*method)
                 ));
             }
+            // §9.4 recipe class-extension + per-file shadow mode: consumed by
+            // codegen::emit (threaded into the defineComponent options / emitted
+            // as a `// @aihu:shadow` marker), so they produce NO setup-body JS.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
     lines.join("\n")
@@ -1806,6 +1881,8 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
                     auth_session_todo(*method)
                 ));
             }
+            // §9.4 — consumed by codegen::emit, no setup-body JS (see above).
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
     if lines.is_empty() {

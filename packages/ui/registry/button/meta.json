@@ -7,5 +7,15 @@
   "variants": {
     "variant": ["default", "destructive", "outline", "ghost", "link"],
     "size": ["sm", "md", "lg", "icon"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "keyboard": true,
+      "form": false,
+      "overlay": false,
+      "directional": false,
+      "hoverable": true
+    }
   }
 }

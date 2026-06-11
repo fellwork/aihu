@@ -18,8 +18,9 @@
   },
   "sideEffects": false,
   "devDependencies": {
+    "@aihu/css-engine": "workspace:*",
     "@aihu/primitives": "workspace:*",
-    "@aihu/css-engine": "workspace:*"
+    "storybook": "^10.4.3"
   },
   "scripts": {
     "gen:registry": "bun scripts/gen-registry.ts",

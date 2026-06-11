@@ -123,6 +123,25 @@ export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'
 }
 
 /**
+ * Light-DOM (`shadowMode:'none'`) recipes: redirect the authored `@style`
+ * block's per-instance `host.adoptedStyleSheets = [__style__]` assignment to
+ * `document.adoptedStyleSheets` so the recipe's class-scoped CSS reaches the
+ * global cascade (a light-DOM host has no shadow root, making the original
+ * setter a silent no-op). The module-level `__style__` is shared across
+ * instances; the `includes` guard keeps the global adoption idempotent.
+ *
+ * @internal
+ */
+export function _globalizeAuthoredStyle(code: string): string {
+  // The Rust codegen emits exactly: `(ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];`
+  const re = /\(ctx\.host as ShadowRoot\)\.adoptedStyleSheets\s*=\s*\[__style__\];?/
+  return code.replace(
+    re,
+    'if (!document.adoptedStyleSheets.includes(__style__)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, __style__];',
+  )
+}
+
+/**
  * Classify the compiled output of a single `.aihu` module as either a
  * **static** island (no reactive state — purely declarative DOM) or an
  * **interactive** island (uses the signals reactivity system).
@@ -1090,7 +1109,23 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           ...(layoutTag ? { tag: layoutTag } : {}),
         }
         const result = transform(code, rawId, tOpts)
-        let compiled = shadowMode != null ? _injectShadowMode(result.code, shadowMode) : result.code
+        // §9.4 per-file shadow override: the Rust `$shadow` macro emits a leading
+        // `// @aihu:shadow <mode>` marker; it wins over the plugin's global
+        // shadowMode and drives BOTH _injectShadowMode and the css fold branch.
+        const perFileShadow = /^\/\/ @aihu:shadow (open|closed|none)\b/m.exec(result.code)?.[1] as
+          | 'open'
+          | 'closed'
+          | 'none'
+          | undefined
+        const effectiveShadow = perFileShadow ?? shadowMode
+        let compiled =
+          effectiveShadow != null ? _injectShadowMode(result.code, effectiveShadow) : result.code
+        // Light-DOM: the authored `@style` block compiled to a per-instance
+        // `host.adoptedStyleSheets` assignment, but a light-DOM host has no
+        // shadow root so that setter is a no-op. Redirect the module-level
+        // sheet to `document.adoptedStyleSheets` (idempotent) so authored recipe
+        // CSS reaches the global cascade alongside the css-engine utility CSS.
+        if (effectiveShadow === 'none') compiled = _globalizeAuthoredStyle(compiled)
         if (isLayout) compiled = _passivizeOutlet(compiled)
 
         // ── css-engine hook (optional, lazy, no circular dep) ──────────────
@@ -1104,7 +1139,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // with zero dependency cycle.
         const utilityCss = await _maybeCompileUtilityCss(code, rawId)
         if (utilityCss) {
-          if (shadowMode === 'none') {
+          if (effectiveShadow === 'none') {
             // Bug 6 — no shadow root → `host.adoptedStyleSheets` is a no-op.
             // Route utility CSS through Vite's CSS pipeline via a virtual
             // `.css` import so it lands in `dist/assets/*.css` and reaches the
@@ -1126,11 +1161,23 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
 
         let out: string
 
+        // §9.4 — a base-extending recipe (`defineComponent({ base: X, ... })`)
+        // MUST take the full defineComponent/defineElement path: the static
+        // island shim inlines `class extends HTMLElement` and cannot honor a
+        // base class. Force-classify it interactive regardless of signal usage.
+        // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
+        const hasBase = /defineComponent\(\s*\{[^]*?\bbase\s*:/.test(compiled)
+
         // Plan 3.3 — static-island fast path. Bypasses HMR injection because
         // a component with no signals has no setup state to hot-replace.
         // Static islands strip @aihu/runtime entirely — do NOT inject auto-wiring
         // (it would reference _setMount/_setSignal as undefined identifiers).
-        if (islandsEnabled && elementTag !== null && _classifyIsland(compiled) === 'static') {
+        if (
+          islandsEnabled &&
+          elementTag !== null &&
+          !hasBase &&
+          _classifyIsland(compiled) === 'static'
+        ) {
           out = _buildStaticIsland(compiled, elementTag)
         } else if (elementTag !== null) {
           // Inject HMR instrumentation. The injected block is gated on

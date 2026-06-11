@@ -1,0 +1,16 @@
+{
+  "name": "checkbox",
+  "type": "ui",
+  "description": "Styled checkbox recipe — light-DOM element extending the headless AihuCheckboxRoot primitive (tri-state, Space toggle, native form participation).",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": true,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

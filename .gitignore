@@ -19,6 +19,10 @@ examples/*/dist/
 # Vite
 .vite/
 
+# Storybook (Plan 6) — static build + synced recipe copies (generated)
+apps/storybook/storybook-static/
+apps/storybook/src/recipes/
+
 # Rolldown cache files (hashed temp artifacts from build)
 rolldown.config.*.js
 

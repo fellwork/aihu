@@ -222,7 +222,16 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     return C
   }
 
-  const { attrs = [] as unknown as ReadonlyArray<string>, setup, props: propsCfg } = setupOrOptions
+  const {
+    attrs = [] as unknown as ReadonlyArray<string>,
+    setup,
+    props: propsCfg,
+    base,
+  } = setupOrOptions
+  // Recipe class-extension (§9.4): extend a primitive base instead of
+  // HTMLElement so its connectedCallback (ARIA/keyboard/context) runs. When no
+  // base is declared this is HTMLElement, so existing components are unchanged.
+  const Base: typeof HTMLElement = base ?? HTMLElement
   const S = Symbol()
   const PROPS_SYM = Symbol()
   // Bug (pre-connect prop binding): per-instance buffer for prop writes that
@@ -260,11 +269,30 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     }
   }
 
-  // observedAttributes = legacy `attrs` ∪ R1 prop attribute names.
+  // observedAttributes = legacy `attrs` ∪ R1 prop attribute names ∪ the base
+  // class's own observed attributes. A subclass's static `observedAttributes`
+  // SHADOWS the base's, so without the union the base would stop seeing its
+  // attributes (e.g. AihuButton's `disabled`/`pressed`) in
+  // attributeChangedCallback. Union them when a base is present.
   const observed: string[] = [...attrs]
   for (const [, , attrName] of propEntries) {
     if (attrName !== null && !observed.includes(attrName)) observed.push(attrName)
   }
+  const baseObserved = (Base as unknown as { observedAttributes?: string[] }).observedAttributes
+  if (baseObserved) {
+    for (const a of baseObserved) if (!observed.includes(a)) observed.push(a)
+  }
+
+  // Base lifecycle callbacks, captured once. `super.<cb>` can't be typed (the
+  // DOM lib doesn't declare these on HTMLElement), so we dispatch via the base
+  // prototype. All are `undefined` when `base` is unset (HTMLElement), so the
+  // forwarding below is a no-op for ordinary components.
+  type _LifecycleProto = {
+    connectedCallback?: () => void
+    disconnectedCallback?: () => void
+    attributeChangedCallback?: (n: string, o: string | null, v: string | null) => void
+  }
+  const _baseProto = Base.prototype as _LifecycleProto
 
   // Reverse-lookup: attribute name → prop name. Used by attributeChangedCallback
   // to resolve which signal to update.
@@ -273,7 +301,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     if (attrName !== null) attrToProp.set(attrName, name)
   }
 
-  class C extends HTMLElement {
+  class C extends Base {
     static readonly observedAttributes = observed
     private [S]: _ScopeRef | null = null
     private [LC_SYM]: _LC | null = null
@@ -383,6 +411,15 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       // SCR-R0003 "no signal" invariant from _build() — is logged WITH the tag
       // for attribution, then re-thrown to preserve fail-loud propagation.
       try {
+        // §9.4 class-extension: run the base primitive's connectedCallback
+        // FIRST — it sets role/tabindex/aria-* and listeners on the HOST and
+        // provides any cross-piece context, none of which touch the host's
+        // children. Running it before the template mounts means a
+        // context-providing primitive (e.g. checkbox root) is registered
+        // before its slotted child pieces upgrade. Dispatched via the base
+        // prototype (the DOM lib can't type `super.connectedCallback`); a no-op
+        // when the base is HTMLElement, so existing components are unaffected.
+        _baseProto.connectedCallback?.call(this)
         // Bug D — light-DOM slot projection (see function-form for the full
         // rationale). Mirrored here so options/props-form components behave
         // identically under `shadowMode: 'none'`.
@@ -410,6 +447,11 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     }
 
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+      // §9.4 class-extension: forward to the base FIRST so a base that observes
+      // its own attributes (e.g. AihuButton's `disabled`/`pressed`) reacts. The
+      // union'd observedAttributes is what makes this callback fire for the
+      // base's attrs at all. No-op when base is HTMLElement.
+      _baseProto.attributeChangedCallback?.call(this, name, oldValue, newValue)
       // R4/Q3: reflect-loop guard. Set host-wide flag so ps.set() called from
       // userland onAttributeChange (or from the propagated _convert below)
       // does not reflect back to the attribute and re-fire this callback.
@@ -440,7 +482,10 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       }
     }
 
-    // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
+    // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt. A base
+    // primitive's adoptedCallback is NOT forwarded — no primitive defines one,
+    // and document-adoption of a custom element is a rare edge the recipe layer
+    // doesn't need (kept lean for the runtime size budget).
     adoptedCallback(): void {
       const lc = this[LC_SYM]
       if (lc) _runAdopts(lc)
@@ -453,6 +498,9 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       this[S] = this[LC_SYM] = null
       this[PROPS_SYM] = null
       _scopes.delete(this)
+      // §9.4 class-extension: let the base tear down its own listeners/effects
+      // (e.g. AihuButton's disposer array). Last, after our scope dispose.
+      _baseProto.disconnectedCallback?.call(this)
     }
   }
 

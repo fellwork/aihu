@@ -13,8 +13,6 @@
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
-  const props = $props
-
   class AihuCard extends HTMLElement {
     static sheet = new CSSStyleSheet()
 
@@ -30,7 +28,7 @@
 }
 
 @template {
-  <div data-slot="card" $class={cn('aihu-card', props.class)}>
+  <div data-slot="card" $class={cn('aihu-card')}>
     <div class="aihu-card-header" part="header"><slot name="header" /></div>
     <div class="aihu-card-body" part="body"><slot /></div>
     <div class="aihu-card-footer" part="footer"><slot name="footer" /></div>
