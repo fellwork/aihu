@@ -124,27 +124,81 @@ function escapeAttr(val: string): string {
   return val.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
+/** Escape element text content (NOT attributes): &, <, > → entities. */
+function escapeText(val: string): string {
+  return val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/**
+ * Read an arbor text-leaf `value`. Per the arbor leaf shape (leaf.ts), a static
+ * leaf carries the string directly; a reactive leaf carries a `[read, write]`
+ * Signal tuple (discriminated by `Array.isArray`). SSR reads the current value.
+ */
+function leafText(value: unknown): string {
+  if (Array.isArray(value)) {
+    const get = value[0]
+    return typeof get === 'function' ? String((get as () => unknown)()) : ''
+  }
+  return value == null ? '' : String(value)
+}
+
+const VOID_ELEMENTS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+])
+
+/** Serialize a branch/leaf attr map to ` k="v"` / boolean-attr form. */
+function serializeAttrs(attrs: Record<string, string | boolean>): string {
+  let out = ''
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === true) out += ` ${k}`
+    else if (v !== false && v !== undefined) out += ` ${k}="${escapeAttr(String(v))}"`
+  }
+  return out
+}
+
+function asAttrMap(v: unknown): Record<string, string | boolean> {
+  return typeof v === 'object' && v !== null ? (v as Record<string, string | boolean>) : {}
+}
+
+/**
+ * Render an arbor leaf to HTML. A text leaf (`leafKind: 'text'`) renders its
+ * escaped `value`; an element leaf (`leafKind: 'element'`) renders `<tag attrs>`
+ * (void) or `<tag attrs></tag>`. Previously this read a nonexistent `obj.text`
+ * field, so all leaf content was dropped (fellwork FEL-224).
+ */
+function renderLeaf(obj: Record<string, unknown>): string {
+  if (obj.leafKind === 'element') {
+    const tag = typeof obj.tag === 'string' ? obj.tag : 'span'
+    const a = serializeAttrs(asAttrMap(obj.attrs))
+    return VOID_ELEMENTS.has(tag) ? `<${tag}${a}>` : `<${tag}${a}></${tag}>`
+  }
+  return escapeText(leafText(obj.value))
+}
+
 function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   if (typeof node !== 'object' || node === null) return ''
   const obj = node as Record<string, unknown>
   if (!('kind' in obj)) return ''
 
   if (obj.kind === 'leaf') {
-    const text = typeof obj.text === 'string' ? obj.text : ''
-    return text
+    return renderLeaf(obj)
   }
 
   if (obj.kind === 'branch') {
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    const attrs =
-      typeof obj.attrs === 'object' && obj.attrs !== null
-        ? (obj.attrs as Record<string, string | boolean>)
-        : {}
-    let attrStr = ''
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v === true) attrStr += ` ${k}`
-      else if (v !== false && v !== undefined) attrStr += ` ${k}="${escapeAttr(String(v))}"`
-    }
+    let attrStr = serializeAttrs(asAttrMap(obj.attrs))
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     const children = Array.isArray(obj.children) ? obj.children : []
     const inner = children.map((c, i) => _renderNode(c, `${path}.${i}`, hydratable)).join('')
@@ -204,22 +258,13 @@ async function renderNodeAsync(
   }
 
   if (obj.kind === 'leaf') {
-    const text = typeof obj.text === 'string' ? obj.text : ''
-    controller.enqueue(text)
+    controller.enqueue(renderLeaf(obj))
     return
   }
 
   if (obj.kind === 'branch') {
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    const attrs =
-      typeof obj.attrs === 'object' && obj.attrs !== null
-        ? (obj.attrs as Record<string, string | boolean>)
-        : {}
-    let attrStr = ''
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v === true) attrStr += ` ${k}`
-      else if (v !== false && v !== undefined) attrStr += ` ${k}="${escapeAttr(String(v))}"`
-    }
+    let attrStr = serializeAttrs(asAttrMap(obj.attrs))
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
 
     const children = Array.isArray(obj.children) ? obj.children : []

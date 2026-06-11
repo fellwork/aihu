@@ -8,8 +8,13 @@ describe('@aihu/server ssr', () => {
     expect(result).toBe('<p>Hello World</p>')
   })
 
-  it('factory returning leaf renders text', async () => {
-    const component = () => ({ kind: 'leaf', text: 'Hello' })
+  // Leaf fixtures mirror the real arbor shape (packages/arbor/src/leaf.ts):
+  // a text leaf is { kind:'leaf', leafKind:'text', value } — content in `value`,
+  // NOT `text`. The earlier fixtures used a `text` field arbor never emits, so
+  // they passed while real leaves rendered empty (FEL-224).
+
+  it('factory returning text leaf renders its value', async () => {
+    const component = () => ({ kind: 'leaf', leafKind: 'text', value: 'Hello' })
     const result = await renderToString(component)
     expect(result).toBe('Hello')
   })
@@ -18,10 +23,35 @@ describe('@aihu/server ssr', () => {
     const component = () => ({
       kind: 'branch',
       tag: 'div',
-      children: [{ kind: 'leaf', text: 'X' }],
+      children: [{ kind: 'leaf', leafKind: 'text', value: 'X' }],
     })
     const result = await renderToString(component)
     expect(result).toBe('<div>X</div>')
+  })
+
+  it('text leaf HTML-escapes its value', async () => {
+    const component = () => ({ kind: 'leaf', leafKind: 'text', value: '<b>&"q"' })
+    const result = await renderToString(component)
+    expect(result).toBe('&lt;b&gt;&amp;"q"')
+  })
+
+  it('text leaf with a Signal tuple value renders the current value', async () => {
+    // A reactive leaf carries a [read, write] tuple (Array.isArray discriminant).
+    const value: [() => string, (v: string) => void] = [() => 'live', () => {}]
+    const component = () => ({ kind: 'leaf', leafKind: 'text', value })
+    const result = await renderToString(component)
+    expect(result).toBe('live')
+  })
+
+  it('element leaf renders a void tag with attrs', async () => {
+    const component = () => ({
+      kind: 'leaf',
+      leafKind: 'element',
+      tag: 'br',
+      attrs: { class: 'x' },
+    })
+    const result = await renderToString(component)
+    expect(result).toBe('<br class="x">')
   })
 
   it('with opts.head.title → output starts with <!DOCTYPE html> and contains <title>', async () => {
@@ -58,7 +88,7 @@ describe('@aihu/server ssr', () => {
       kind: 'branch',
       tag: 'a',
       attrs: { href: '/home', class: 'nav-link' },
-      children: [{ kind: 'leaf', text: 'Home' }],
+      children: [{ kind: 'leaf', leafKind: 'text', value: 'Home' }],
     })
     const result = await renderToString(component)
     expect(result).toContain('href="/home"')
