@@ -1,5 +1,19 @@
 # @aihu/css-engine
 
+## 0.4.3
+
+### Patch Changes
+
+- [#331](https://github.com/fellwork/aihu/pull/331) [`cc24673`](https://github.com/fellwork/aihu/commit/cc246732d7dce820ee6abdc1dc86d391a228d7cf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `cn()`: register the Tailwind-v4 parity utility families in the conflict map so
+  `cn()` de-dupes them last-wins — `size`, `aspect`, `order`, `blur`,
+  `backdrop-blur`, `cursor`, `list`, `self`, `shrink`, `grow`, `object`, and the
+  gradient stops `from`/`via`/`to`. Families that share a first-dash prefix with an
+  existing entry (`font-serif`→`font`, `outline-offset`→`outline`,
+  `text-pretty`→`text`, `bg-linear-to`→`bg`) were already covered. Follow-up to the
+  utility-parity work in [#329](https://github.com/fellwork/aihu/issues/329).
+- Updated dependencies [[`dbc0903`](https://github.com/fellwork/aihu/commit/dbc09031f22ee93d9e5c9a46fea2ca2409463e90)]:
+  - @aihu/compiler@0.9.0
+
 ## 0.4.2
 
 ### Patch Changes

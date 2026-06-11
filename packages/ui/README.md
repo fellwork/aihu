@@ -47,7 +47,7 @@ npm install @aihu/ui
 bun add @aihu/ui
 ```
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -58,12 +58,12 @@ bun add @aihu/ui
 
 | | |
 |---|---|
-| **Version** | `0.0.0` |
+| **Version** | `0.1.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 5 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -77,7 +77,7 @@ bun add @aihu/ui
 | `./registry.json` | `./registry.json` | — |
 | `./schema` | `—` | `—` |
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -88,7 +88,7 @@ bun add @aihu/ui
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -100,7 +100,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -111,6 +111,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/ui@0.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
