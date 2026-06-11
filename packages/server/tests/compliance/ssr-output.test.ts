@@ -78,7 +78,7 @@ describe('@aihu/server SSR structural compliance', () => {
             kind: 'branch' as const,
             tag: 'p',
             attrs: {},
-            children: [{ kind: 'leaf' as const, text: 'Hello' }],
+            children: [{ kind: 'leaf' as const, leafKind: 'text', value: 'Hello' }],
           },
         ],
       }),
@@ -94,7 +94,7 @@ describe('@aihu/server SSR structural compliance', () => {
       kind: 'branch' as const,
       tag: 'button',
       attrs: { disabled: true },
-      children: [{ kind: 'leaf' as const, text: 'Click' }],
+      children: [{ kind: 'leaf' as const, leafKind: 'text', value: 'Click' }],
     }))
     // Should contain " disabled" (the attribute name only, no ="...")
     expect(result).toContain('<button disabled>')
@@ -107,7 +107,7 @@ describe('@aihu/server SSR structural compliance', () => {
       kind: 'branch' as const,
       tag: 'button',
       attrs: { disabled: false },
-      children: [{ kind: 'leaf' as const, text: 'Click' }],
+      children: [{ kind: 'leaf' as const, leafKind: 'text', value: 'Click' }],
     }))
     expect(result).not.toContain('disabled')
   })
@@ -128,7 +128,7 @@ describe('@aihu/server SSR structural compliance', () => {
               kind: 'branch' as const,
               tag: 'li',
               attrs: {},
-              children: [{ kind: 'leaf' as const, text: 'Item' }],
+              children: [{ kind: 'leaf' as const, leafKind: 'text', value: 'Item' }],
             },
           ],
         },
@@ -149,7 +149,7 @@ describe('@aihu/server SSR structural compliance', () => {
             kind: 'branch' as const,
             tag: 'span',
             attrs: {},
-            children: [{ kind: 'leaf' as const, text: 'hi' }],
+            children: [{ kind: 'leaf' as const, leafKind: 'text', value: 'hi' }],
           },
         ],
       }),
