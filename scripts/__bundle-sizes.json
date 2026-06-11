@@ -101,12 +101,12 @@
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2015,
+    "bytes": 2062,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": 1834,
+    "bytes": 1878,
     "limit": "4 KB"
   },
   {

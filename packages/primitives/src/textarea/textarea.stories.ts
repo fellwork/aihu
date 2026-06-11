@@ -11,7 +11,7 @@ import { expect, fn, userEvent } from 'storybook/test'
 
 import { type AihuTextarea, defineTextarea } from './index.ts'
 
-defineTextarea() // module-level; registration is guarded
+defineTextarea('demo-textarea') // module-level; registration is guarded
 
 export default {
   title: 'Primitives/Textarea',
@@ -20,18 +20,18 @@ export default {
 
 export const Default = {
   render: (): string =>
-    `<aihu-textarea rows="3" placeholder="Type here" aria-label="Default textarea"></aihu-textarea>`,
+    `<demo-textarea rows="3" placeholder="Type here" aria-label="Default textarea"></demo-textarea>`,
 }
 
 export const States = {
   render: (): string => `
     <div style="display: flex; gap: 1rem;">
-      <aihu-textarea placeholder="Idle" aria-label="Idle"></aihu-textarea>
-      <aihu-textarea disabled placeholder="Disabled" aria-label="Disabled"></aihu-textarea>
-      <aihu-textarea readonly value="Read only" aria-label="Readonly"></aihu-textarea>
+      <demo-textarea placeholder="Idle" aria-label="Idle"></demo-textarea>
+      <demo-textarea disabled placeholder="Disabled" aria-label="Disabled"></demo-textarea>
+      <demo-textarea readonly value="Read only" aria-label="Readonly"></demo-textarea>
     </div>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const [idle, disabled, readonly] = Array.from(canvasElement.querySelectorAll('aihu-textarea'))
+    const [idle, disabled, readonly] = Array.from(canvasElement.querySelectorAll('demo-textarea'))
     await expect(idle).toHaveAttribute('data-state', 'idle')
     await expect(disabled).toHaveAttribute('data-state', 'disabled')
     await expect(readonly).toHaveAttribute('data-state', 'readonly')
@@ -39,9 +39,9 @@ export const States = {
 }
 
 export const Focus = {
-  render: (): string => `<aihu-textarea aria-label="Focus textarea"></aihu-textarea>`,
+  render: (): string => `<demo-textarea aria-label="Focus textarea"></demo-textarea>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const host = canvasElement.querySelector('aihu-textarea') as AihuTextarea
+    const host = canvasElement.querySelector('demo-textarea') as AihuTextarea
     host.focus()
     // focus() delegates to the native light-DOM child.
     await expect(host.querySelector('textarea')).toHaveFocus()
@@ -49,23 +49,23 @@ export const Focus = {
 }
 
 export const Disabled = {
-  render: (): string => `<aihu-textarea disabled aria-label="Disabled textarea"></aihu-textarea>`,
+  render: (): string => `<demo-textarea disabled aria-label="Disabled textarea"></demo-textarea>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const host = canvasElement.querySelector('aihu-textarea') as AihuTextarea
+    const host = canvasElement.querySelector('demo-textarea') as AihuTextarea
     const native = host.querySelector('textarea') as HTMLTextAreaElement
     await expect(native.disabled).toBe(true)
   },
 }
 
 export const DarkMode = {
-  render: (): string => `<aihu-textarea aria-label="Dark mode textarea"></aihu-textarea>`,
+  render: (): string => `<demo-textarea aria-label="Dark mode textarea"></demo-textarea>`,
   globals: { mode: 'dark' },
 }
 
 export const KeyboardActivation = {
-  render: (): string => `<aihu-textarea aria-label="Typing target"></aihu-textarea>`,
+  render: (): string => `<demo-textarea aria-label="Typing target"></demo-textarea>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const host = canvasElement.querySelector('aihu-textarea') as AihuTextarea
+    const host = canvasElement.querySelector('demo-textarea') as AihuTextarea
     const onChange = fn()
     host.addEventListener('value-change', onChange)
     const native = host.querySelector('textarea') as HTMLTextAreaElement
@@ -79,11 +79,11 @@ export const KeyboardActivation = {
 export const FormParticipation = {
   render: (): string => `
     <form>
-      <aihu-textarea name="bio" aria-label="Bio"></aihu-textarea>
+      <demo-textarea name="bio" aria-label="Bio"></demo-textarea>
     </form>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const form = canvasElement.querySelector('form') as HTMLFormElement
-    const native = canvasElement.querySelector('aihu-textarea textarea') as HTMLTextAreaElement
+    const native = canvasElement.querySelector('demo-textarea textarea') as HTMLTextAreaElement
     await userEvent.type(native, 'about me')
     await expect(new FormData(form).get('bio')).toBe('about me')
   },

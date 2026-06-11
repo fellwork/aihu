@@ -81,7 +81,10 @@ jobs:
       - name: Test-runner — play functions + axe (spec §10.2–10.3)
         run: |
           bunx http-server apps/storybook/storybook-static -p 6006 --silent &
-          npx wait-on tcp:127.0.0.1:6006
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:6006 && break
+            sleep 1
+          done
           bun run --cwd apps/storybook test-storybook
 
   storybook-ok:

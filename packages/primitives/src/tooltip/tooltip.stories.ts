@@ -11,7 +11,7 @@ import { expect, userEvent, waitFor } from 'storybook/test'
 
 import { defineTooltip } from './index.ts'
 
-defineTooltip() // module-level; registration is guarded
+defineTooltip('demo') // module-level; registration is guarded
 
 export default {
   title: 'Primitives/Tooltip',
@@ -20,10 +20,10 @@ export default {
 
 /** Zero delays so play functions and snapshots see deterministic state. */
 const TOOLTIP = (body = 'Helpful hint') => `
-  <aihu-tooltip-root placement="top" open-delay="0" close-delay="0">
-    <aihu-tooltip-trigger tabindex="0">Hover or focus me</aihu-tooltip-trigger>
-    <aihu-tooltip-content>${body}</aihu-tooltip-content>
-  </aihu-tooltip-root>`
+  <demo-tooltip-root placement="top" open-delay="0" close-delay="0">
+    <demo-tooltip-trigger tabindex="0">Hover or focus me</demo-tooltip-trigger>
+    <demo-tooltip-content>${body}</demo-tooltip-content>
+  </demo-tooltip-root>`
 
 export const Default = {
   render: (): string => TOOLTIP(),
@@ -32,8 +32,8 @@ export const Default = {
 export const States = {
   render: (): string => TOOLTIP(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const content = canvasElement.querySelector('aihu-tooltip-content') as HTMLElement
-    const trigger = canvasElement.querySelector('aihu-tooltip-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-tooltip-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-tooltip-trigger') as HTMLElement
     await expect(content).toHaveAttribute('role', 'tooltip')
     await expect(content).toHaveAttribute('data-state', 'closed')
     // APG Tooltip: the trigger is DESCRIBED by the content (not labelled-by).
@@ -44,8 +44,8 @@ export const States = {
 export const Open = {
   render: (): string => TOOLTIP(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-tooltip-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-tooltip-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-tooltip-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-tooltip-content') as HTMLElement
     trigger.focus()
     await waitFor(async () => {
       await expect(content).toHaveAttribute('data-state', 'open')
@@ -56,8 +56,8 @@ export const Open = {
 export const OpenWithLongContent = {
   render: (): string => TOOLTIP('A much longer explanation. '.repeat(20)),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-tooltip-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-tooltip-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-tooltip-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-tooltip-content') as HTMLElement
     trigger.focus()
     await waitFor(async () => {
       await expect(content).toHaveAttribute('data-state', 'open')
@@ -68,8 +68,8 @@ export const OpenWithLongContent = {
 export const KeyboardActivation = {
   render: (): string => TOOLTIP(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-tooltip-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-tooltip-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-tooltip-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-tooltip-content') as HTMLElement
     // Focus opens (keyboard path)…
     trigger.focus()
     await waitFor(async () => {

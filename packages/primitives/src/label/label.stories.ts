@@ -11,7 +11,7 @@ import { expect, userEvent, waitFor } from 'storybook/test'
 
 import { defineLabel } from './index.ts'
 
-defineLabel() // module-level; registration is guarded
+defineLabel('demo-label') // module-level; registration is guarded
 
 export default {
   title: 'Primitives/Label',
@@ -21,7 +21,7 @@ export default {
 export const Default = {
   render: (): string => `
     <div>
-      <aihu-label for="default-input">Name</aihu-label>
+      <demo-label for="default-input">Name</demo-label>
       <input id="default-input" type="text" />
     </div>`,
 }
@@ -30,20 +30,20 @@ export const States = {
   render: (): string => `
     <div style="display: flex; flex-direction: column; gap: 1rem;">
       <div>
-        <aihu-label for="states-text">Text control</aihu-label>
+        <demo-label for="states-text">Text control</demo-label>
         <input id="states-text" type="text" />
       </div>
       <div>
-        <aihu-label for="states-box">Custom checkbox</aihu-label>
+        <demo-label for="states-box">Custom checkbox</demo-label>
         <div id="states-box" role="checkbox" aria-checked="false" tabindex="0"></div>
       </div>
       <div>
-        <aihu-label for="states-disabled">Disabled control</aihu-label>
+        <demo-label for="states-disabled">Disabled control</demo-label>
         <input id="states-disabled" type="text" disabled />
       </div>
     </div>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const labels = Array.from(canvasElement.querySelectorAll('aihu-label'))
+    const labels = Array.from(canvasElement.querySelectorAll('demo-label'))
     const box = canvasElement.querySelector('#states-box') as HTMLElement
     for (const label of labels) {
       await expect(label.id).toBeTruthy()
@@ -57,11 +57,11 @@ export const States = {
 export const ClickForwardsFocus = {
   render: (): string => `
     <div>
-      <aihu-label for="forward-input">Click me to focus the input</aihu-label>
+      <demo-label for="forward-input">Click me to focus the input</demo-label>
       <input id="forward-input" type="text" />
     </div>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const label = canvasElement.querySelector('aihu-label') as HTMLElement
+    const label = canvasElement.querySelector('demo-label') as HTMLElement
     const input = canvasElement.querySelector('#forward-input') as HTMLInputElement
     await userEvent.click(label)
     await waitFor(async () => {
@@ -73,7 +73,7 @@ export const ClickForwardsFocus = {
 export const DarkMode = {
   render: (): string => `
     <div>
-      <aihu-label for="dark-input">Name</aihu-label>
+      <demo-label for="dark-input">Name</demo-label>
       <input id="dark-input" type="text" />
     </div>`,
   globals: { mode: 'dark' },

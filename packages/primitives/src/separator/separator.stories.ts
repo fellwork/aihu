@@ -10,7 +10,7 @@ import { expect } from 'storybook/test'
 
 import { defineSeparator } from './index.ts'
 
-defineSeparator() // module-level; registration is guarded
+defineSeparator('demo-separator') // module-level; registration is guarded
 
 export default {
   title: 'Primitives/Separator',
@@ -21,7 +21,7 @@ export const Default = {
   render: (): string => `
     <div>
       <p>Above</p>
-      <aihu-separator></aihu-separator>
+      <demo-separator></demo-separator>
       <p>Below</p>
     </div>`,
 }
@@ -29,13 +29,13 @@ export const Default = {
 export const States = {
   render: (): string => `
     <div style="display: flex; gap: 1rem; align-items: center;">
-      <aihu-separator></aihu-separator>
-      <aihu-separator orientation="vertical"></aihu-separator>
-      <aihu-separator decorative></aihu-separator>
+      <demo-separator></demo-separator>
+      <demo-separator orientation="vertical"></demo-separator>
+      <demo-separator decorative></demo-separator>
     </div>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const [horizontal, vertical, decorative] = Array.from(
-      canvasElement.querySelectorAll('aihu-separator'),
+      canvasElement.querySelectorAll('demo-separator'),
     )
     await expect(horizontal).toHaveAttribute('role', 'separator')
     await expect(horizontal).toHaveAttribute('data-orientation', 'horizontal')
@@ -50,7 +50,7 @@ export const DarkMode = {
   render: (): string => `
     <div>
       <p>Above</p>
-      <aihu-separator></aihu-separator>
+      <demo-separator></demo-separator>
       <p>Below</p>
     </div>`,
   globals: { mode: 'dark' },

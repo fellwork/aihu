@@ -11,7 +11,7 @@ import { expect, userEvent, waitFor } from 'storybook/test'
 
 import { defineDialog } from './index.ts'
 
-defineDialog() // module-level; registration is guarded
+defineDialog('demo') // module-level; registration is guarded
 
 export default {
   title: 'Primitives/Dialog',
@@ -19,16 +19,16 @@ export default {
 }
 
 const DIALOG = (body = 'Body') => `
-  <aihu-dialog-root modal>
-    <aihu-dialog-trigger>Open dialog</aihu-dialog-trigger>
-    <aihu-dialog-backdrop></aihu-dialog-backdrop>
-    <aihu-dialog-content>
-      <aihu-dialog-title>Title</aihu-dialog-title>
-      <aihu-dialog-description>${body}</aihu-dialog-description>
+  <demo-dialog-root modal>
+    <demo-dialog-trigger>Open dialog</demo-dialog-trigger>
+    <demo-dialog-backdrop></demo-dialog-backdrop>
+    <demo-dialog-content>
+      <demo-dialog-title>Title</demo-dialog-title>
+      <demo-dialog-description>${body}</demo-dialog-description>
       <button type="button">Action</button>
-      <aihu-dialog-close>Close</aihu-dialog-close>
-    </aihu-dialog-content>
-  </aihu-dialog-root>`
+      <demo-dialog-close>Close</demo-dialog-close>
+    </demo-dialog-content>
+  </demo-dialog-root>`
 
 export const Default = {
   render: (): string => DIALOG(),
@@ -37,8 +37,8 @@ export const Default = {
 export const States = {
   render: (): string => DIALOG(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
-    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-dialog-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-dialog-trigger') as HTMLElement
     await expect(content).toHaveAttribute('data-state', 'closed')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   },
@@ -47,8 +47,8 @@ export const States = {
 export const Open = {
   render: (): string => DIALOG(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-dialog-content') as HTMLElement
     await userEvent.click(trigger)
     await waitFor(async () => {
       await expect(content).toHaveAttribute('data-state', 'open')
@@ -61,8 +61,8 @@ export const Open = {
 export const OpenWithLongContent = {
   render: (): string => DIALOG('Long content. '.repeat(120)),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-dialog-content') as HTMLElement
     await userEvent.click(trigger)
     await waitFor(async () => {
       await expect(content).toHaveAttribute('data-state', 'open')
@@ -73,8 +73,8 @@ export const OpenWithLongContent = {
 export const FocusManagement = {
   render: (): string => DIALOG(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-dialog-content') as HTMLElement
     await userEvent.click(trigger)
     // APG: focus moves INTO the content on open…
     await waitFor(async () => {
@@ -95,8 +95,8 @@ export const FocusManagement = {
 export const KeyboardActivation = {
   render: (): string => DIALOG(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
-    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
-    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
+    const trigger = canvasElement.querySelector('demo-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('demo-dialog-content') as HTMLElement
     await userEvent.click(trigger)
     await waitFor(async () => {
       await expect(content).toHaveAttribute('data-state', 'open')
