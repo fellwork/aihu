@@ -1,5 +1,13 @@
 # @aihu/example-plugin-demo
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [3ba1ec3]
+  - @aihu/server@0.2.1
+  - @aihu/plugin-demo@0.1.1
+
 ## 0.0.1
 
 ### Patch Changes

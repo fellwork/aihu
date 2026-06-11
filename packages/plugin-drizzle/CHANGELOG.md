@@ -1,5 +1,12 @@
 # @aihu-plugin/drizzle
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [3ba1ec3]
+  - @aihu/server@0.2.1
+
 ## 0.1.0
 
 ### Minor Changes
