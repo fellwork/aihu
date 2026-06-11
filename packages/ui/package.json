@@ -5,6 +5,7 @@
   "type": "module",
   "files": [
     "registry",
+    "!registry/**/*.stories.ts",
     "registry.json",
     "src",
     "README.md",
