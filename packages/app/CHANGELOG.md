@@ -1,5 +1,12 @@
 # @aihu/app
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`dbc0903`](https://github.com/fellwork/aihu/commit/dbc09031f22ee93d9e5c9a46fea2ca2409463e90)]:
+  - @aihu/runtime@1.1.0
+
 ## 2.0.3
 
 ### Patch Changes
