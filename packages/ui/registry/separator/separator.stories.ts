@@ -21,7 +21,6 @@ export const Default = {
       <aihu-separator></aihu-separator>
       below
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Variants = {
@@ -35,7 +34,6 @@ export const Variants = {
         right
       </div>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {

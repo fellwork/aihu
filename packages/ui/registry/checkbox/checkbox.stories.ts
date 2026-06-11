@@ -18,7 +18,6 @@ export default {
 
 export const Default = {
   render: (): string => `<aihu-checkbox aria-label="Accept"></aihu-checkbox>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {
@@ -29,7 +28,6 @@ export const States = {
       <aihu-checkbox aria-label="Indeterminate" checked="mixed"></aihu-checkbox>
       <aihu-checkbox aria-label="Disabled" disabled></aihu-checkbox>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Focus = {

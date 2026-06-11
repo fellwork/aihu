@@ -19,7 +19,6 @@ export default {
 
 export const Default = {
   render: (): string => `<aihu-switch aria-label="Notifications"></aihu-switch>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {
@@ -29,7 +28,6 @@ export const States = {
       <aihu-switch aria-label="On" checked></aihu-switch>
       <aihu-switch aria-label="Disabled" disabled></aihu-switch>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Focus = {

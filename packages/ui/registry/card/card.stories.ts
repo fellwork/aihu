@@ -21,7 +21,6 @@ const CARD = `
 
 export const Default = {
   render: (): string => CARD,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const DarkMode = {

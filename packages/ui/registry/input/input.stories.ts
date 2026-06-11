@@ -19,7 +19,6 @@ export default {
 export const Default = {
   render: (): string =>
     `<aihu-input aria-label="Email" placeholder="you@example.com"></aihu-input>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {
@@ -29,7 +28,6 @@ export const States = {
       <aihu-input aria-label="Filled" value="hello@aihu.dev"></aihu-input>
       <aihu-input aria-label="Disabled" placeholder="Disabled" disabled></aihu-input>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Focus = {

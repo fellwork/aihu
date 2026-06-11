@@ -76,8 +76,17 @@ jobs:
         run: bun run --cwd apps/storybook build-storybook
       - name: Required-story-set gate (spec §10.2)
         run: bun scripts/check-required-stories.ts
-      - name: Install Playwright chromium (version pinned by the lockfile)
-        run: bunx playwright install --with-deps chromium
+      - name: Install Playwright chromium (version matched to the lockfile)
+        # Bare `bunx playwright` fetches the LATEST playwright (it is only a
+        # transitive dep, so no .bin link exists), whose browser revision
+        # differs from what the test-runner's pinned playwright-core expects
+        # ("Executable doesn't exist at …"). Read the lockfile-resolved version
+        # out of bun's store and install exactly that.
+        run: |
+          PW_VERSION=$(ls node_modules/.bun | grep -oE '^playwright@[0-9][0-9.]*' | head -1 | cut -d'@' -f2)
+          echo "playwright (lockfile) = ${PW_VERSION}"
+          test -n "$PW_VERSION"
+          bunx "playwright@${PW_VERSION}" install --with-deps chromium
       - name: Test-runner — play functions + axe (spec §10.2–10.3)
         run: |
           bunx http-server apps/storybook/storybook-static -p 6006 --silent &

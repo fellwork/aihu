@@ -17,9 +17,12 @@
  * overrides do not restyle shadow-DOM recipe internals — only light-DOM
  * content. The toolbar ships per the spec contract regardless.
  *
- * Chromatic modes (spec §10.1 matrix): full-matrix stories snapshot under all
- * four pack × mode combinations; canonical stories pin a single mode by
- * overriding `parameters.chromatic.modes` per-story.
+ * Chromatic modes (spec §10.1 matrix): every story snapshots under the four
+ * global pack × mode combinations. Per-story `viewports`/`modes` overrides are
+ * deliberately ABSENT: Chromatic rejects mixing legacy `viewports` with
+ * `modes`, and Storybook's deep parameter merge makes story-level `modes`
+ * additive (not a pin). The spec's mobile-viewport axis comes later as
+ * additional `{ viewport: … }` modes once the snapshot budget is confirmed.
  */
 
 // Vite inlines the pack CSS (exported package subpaths).
@@ -98,9 +101,7 @@ const preview: Preview = {
   parameters: {
     // Spec §10.3: axe violations block merge — fail the story, not just warn.
     a11y: { test: 'error' },
-    // Spec §10.1 matrix: pack × mode. Viewports are added per full-matrix
-    // story (`chromatic: { viewports: [1280, 375] }`); canonical stories
-    // override `modes` to pin a single config.
+    // Spec §10.1 matrix: pack × mode (see header note on viewports).
     chromatic: {
       modes: {
         'default-light': { pack: 'aihu-default', mode: 'light' },

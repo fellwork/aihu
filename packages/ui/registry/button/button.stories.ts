@@ -22,7 +22,6 @@ const SIZES = ['sm', 'md', 'lg', 'icon'] as const
 
 export const Default = {
   render: (): string => `<aihu-button>Button</aihu-button>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Variants = {
@@ -33,7 +32,6 @@ export const Variants = {
     <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 1rem;">
       ${SIZES.map((s) => `<aihu-button size="${s}">${s === 'icon' ? '★' : s}</aihu-button>`).join('\n      ')}
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {
@@ -42,7 +40,6 @@ export const States = {
       <aihu-button>Idle</aihu-button>
       <aihu-button disabled>Disabled</aihu-button>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Hover = {
@@ -50,9 +47,6 @@ export const Hover = {
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const host = canvasElement.querySelector('aihu-button') as HTMLElement
     await userEvent.hover(host)
-  },
-  parameters: {
-    chromatic: { modes: { 'default-light': { pack: 'aihu-default', mode: 'light' } } },
   },
 }
 
@@ -65,9 +59,6 @@ export const Focus = {
     inner?.focus()
     await expect(host.shadowRoot?.activeElement).toBe(inner)
   },
-  parameters: {
-    chromatic: { modes: { 'default-light': { pack: 'aihu-default', mode: 'light' } } },
-  },
 }
 
 export const Disabled = {
@@ -77,9 +68,6 @@ export const Disabled = {
     const inner = host.shadowRoot?.querySelector('button') as HTMLButtonElement
     await expect(inner).toBeTruthy()
     await expect(inner.disabled).toBe(true)
-  },
-  parameters: {
-    chromatic: { modes: { 'default-light': { pack: 'aihu-default', mode: 'light' } } },
   },
 }
 
@@ -108,8 +96,5 @@ export const KeyboardActivation = {
     inner.focus()
     await userEvent.keyboard('{Enter}')
     await expect(onClick).toHaveBeenCalled()
-  },
-  parameters: {
-    chromatic: { modes: { 'default-light': { pack: 'aihu-default', mode: 'light' } } },
   },
 }

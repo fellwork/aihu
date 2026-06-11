@@ -40,7 +40,6 @@ const DIALOG = (
 
 export const Default = {
   render: (): string => DIALOG(),
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const DarkMode = {

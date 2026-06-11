@@ -29,7 +29,6 @@ const TOOLTIP = (body = 'Helpful hint'): string => `
 
 export const Default = {
   render: (): string => TOOLTIP(),
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const DarkMode = {

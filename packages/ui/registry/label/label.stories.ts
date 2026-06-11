@@ -17,7 +17,6 @@ export default {
 
 export const Default = {
   render: (): string => `<aihu-label html-for="email">Email address</aihu-label>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const DarkMode = {

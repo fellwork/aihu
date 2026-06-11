@@ -19,7 +19,6 @@ export default {
 export const Default = {
   render: (): string =>
     `<aihu-textarea aria-label="Bio" placeholder="Tell us about yourself"></aihu-textarea>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const States = {
@@ -29,7 +28,6 @@ export const States = {
       <aihu-textarea aria-label="Filled" value="Hello from aihu."></aihu-textarea>
       <aihu-textarea aria-label="Disabled" placeholder="Disabled" disabled></aihu-textarea>
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Focus = {

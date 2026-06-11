@@ -15,7 +15,6 @@ const VARIANTS = ['default', 'secondary', 'destructive', 'outline'] as const
 
 export const Default = {
   render: (): string => `<aihu-badge>Badge</aihu-badge>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const Variants = {
@@ -23,7 +22,6 @@ export const Variants = {
     <div style="display: flex; gap: 0.5rem; align-items: center;">
       ${VARIANTS.map((v) => `<aihu-badge variant="${v}">${v}</aihu-badge>`).join('\n      ')}
     </div>`,
-  parameters: { chromatic: { viewports: [1280, 375] } },
 }
 
 export const DarkMode = {
