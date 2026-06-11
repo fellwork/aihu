@@ -93,6 +93,52 @@
       }
     },
     {
+      "name": "dialog",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/dialog/dialog-backdrop.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-close.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-content.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-description.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-root.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-title.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/dialog/dialog-trigger.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled modal dialog recipe — light-DOM pieces extending the headless AihuDialog primitives (focus-trap + return-focus, Escape-to-close, aria-modal, click-outside dismissal).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "input",
       "type": "ui",
       "files": [
@@ -196,6 +242,37 @@
           "keyboard": false,
           "form": true,
           "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "tooltip",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/tooltip/tooltip-content.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/tooltip/tooltip-root.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/tooltip/tooltip-trigger.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled tooltip recipe — light-DOM pieces extending the headless AihuTooltip primitives (hover/focus open, Escape dismiss, aria-describedby, placement positioning). Non-focus-trapping overlay.",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "trapsFocus": false,
           "directional": false
         }
       }

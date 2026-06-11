@@ -1,0 +1,46 @@
+<!--
+  aihu-dialog-close — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-dialog-close>` EXTENDS the headless AihuDialogClose primitive (closes
+  the dialog on activation, `role=button` when not a native button) via the
+  compiler's `$extends:` macro. Light DOM (`$shadow: 'none'`). Positioned at the
+  top-right corner of the content panel.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogClose } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogClose
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-close {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-surface-foreground);
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  aihu-dialog-close:hover {
+    opacity: 1;
+  }
+  aihu-dialog-close:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}

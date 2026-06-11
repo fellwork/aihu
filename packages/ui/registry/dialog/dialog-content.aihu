@@ -1,0 +1,51 @@
+<!--
+  aihu-dialog-content — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-dialog-content>` EXTENDS the headless AihuDialogContent primitive
+  (`role=dialog`, `aria-modal`, focus-trap + return-focus, Escape-to-close,
+  `aria-labelledby`/`aria-describedby`) via the compiler's `$extends:` macro.
+  Light DOM (`$shadow: 'none'`) is required so the focus trap can see the
+  consumer's children. Only the DEFAULT `<slot/>` projects in light DOM, so the
+  consumer composes the title/description/close as plain children.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogContent } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogContent
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-content {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    width: 100%;
+    max-width: 32rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+    color: var(--color-surface-foreground);
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--color-foreground) 25%, transparent);
+  }
+  aihu-dialog-content[data-state="closed"] {
+    display: none;
+  }
+  aihu-dialog-content:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}

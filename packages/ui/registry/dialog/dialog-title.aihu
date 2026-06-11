@@ -1,0 +1,30 @@
+<!--
+  aihu-dialog-title — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-dialog-title>` EXTENDS the headless AihuDialogTitle primitive (registers
+  its id as the content's `aria-labelledby`) via the compiler's `$extends:`
+  macro. Light DOM (`$shadow: 'none'`).
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuDialogTitle } from '@aihu/primitives/dialog'
+
+  $extends: AihuDialogTitle
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-dialog-title {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--color-surface-foreground);
+  }
+}

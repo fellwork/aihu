@@ -1,0 +1,17 @@
+{
+  "name": "tooltip",
+  "type": "ui",
+  "description": "Styled tooltip recipe — light-DOM pieces extending the headless AihuTooltip primitives (hover/focus open, Escape dismiss, aria-describedby, placement positioning). Non-focus-trapping overlay.",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": false,
+      "overlay": true,
+      "trapsFocus": false,
+      "directional": false
+    }
+  }
+}

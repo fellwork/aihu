@@ -27,10 +27,16 @@ mkdirSync(OUT, { recursive: true })
 const synced: string[] = []
 for (const dir of readdirSync(REGISTRY, { withFileTypes: true })) {
   if (!dir.isDirectory()) continue
-  const source = join(REGISTRY, dir.name, `${dir.name}.aihu`)
-  const target = join(OUT, `aihu-${dir.name}.aihu`)
-  copyFileSync(source, target)
-  synced.push(`aihu-${dir.name}.aihu`)
+  // Copy EVERY `.aihu` file in the recipe dir, not just `<name>.aihu` — a
+  // multi-piece recipe (dialog/tooltip) ships one `.aihu` per piece tag
+  // (`dialog-content.aihu`, …). Each file's stem (prefixed `aihu-`) becomes the
+  // registered custom-element tag.
+  for (const entry of readdirSync(join(REGISTRY, dir.name))) {
+    if (!entry.endsWith('.aihu')) continue
+    const stem = entry.slice(0, -'.aihu'.length)
+    copyFileSync(join(REGISTRY, dir.name, entry), join(OUT, `aihu-${stem}.aihu`))
+    synced.push(`aihu-${stem}.aihu`)
+  }
 }
 
 console.log(`aihu-storybook: synced ${synced.length} recipes → src/recipes/ (${synced.join(', ')})`)

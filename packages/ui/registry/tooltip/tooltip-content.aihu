@@ -1,0 +1,39 @@
+<!--
+  aihu-tooltip-content — styled recipe piece (Phase 2, master spec §9.4 / §9.7).
+
+  `<aihu-tooltip-content>` EXTENDS the headless AihuTooltipContent primitive
+  (`role=tooltip`, positions against the trigger via the css-engine shim,
+  reflects `data-state`) via the compiler's `$extends:` macro. Light DOM
+  (`$shadow: 'none'`). Placement positioning is the primitive's job — no
+  side/align variants here.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuTooltipContent } from '@aihu/primitives/tooltip'
+
+  $extends: AihuTooltipContent
+  $shadow: 'none'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-tooltip-content {
+    position: fixed;
+    z-index: 50;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+    padding: 0.375rem var(--space-3);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    max-width: 18rem;
+  }
+  aihu-tooltip-content[data-state="closed"] {
+    display: none;
+  }
+}
