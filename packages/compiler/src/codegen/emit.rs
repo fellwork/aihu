@@ -3374,37 +3374,74 @@ fn emit_node(
             }
         }
         TemplateNode::Interpolation(id) => {
-            // Support dotted property access: "item.title", "post.title", "route.params.slug"
-            if let Some(dot_pos) = id.find('.') {
-                let base = &id[..dot_pos];
-                let prop_path = &id[dot_pos + 1..];
-                if signal_map.is_computed(base) {
-                    return format!(
-                        "leaf([() => ({}() as any).{}, () => {{}}] as unknown as Signal<string>)",
-                        base, prop_path
-                    );
-                } else if let Some(setter) = signal_map.0.get(base) {
-                    if !setter.is_empty() {
+            let trimmed = id.trim();
+            let is_simple_ident = !trimmed.is_empty()
+                && trimmed
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+
+            // 1. Bare registered signal/computed identifier → reactive tuple.
+            if is_simple_ident {
+                if let Some(setter) = signal_map.0.get(trimmed) {
+                    if setter.is_empty() {
+                        // Computed signal (read-only) — emit reactive getter.
                         return format!(
-                            "leaf([() => ({}() as any).{}, {}] as unknown as Signal<string>)",
-                            base, prop_path, setter
+                            "leaf([() => {}() as unknown as string, () => {{}}] as unknown as Signal<string>)",
+                            trimmed
                         );
                     }
+                    return format!(
+                        "leaf([{}, {}] as unknown as Signal<string>)",
+                        trimmed, setter
+                    );
                 }
-                // Plain variable (e.g., loop variable `item.title`)
-                return format!("leaf({}.{})", base, prop_path);
             }
-            // Simple identifier
-            if let Some(setter) = signal_map.0.get(id) {
-                if setter.is_empty() {
-                    // Computed signal (read-only) — emit reactive getter
-                    format!("leaf([() => {}() as unknown as string, () => {{}}] as unknown as Signal<string>)", id)
-                } else {
-                    format!("leaf([{}, {}] as unknown as Signal<string>)", id, setter)
+
+            // 2. Dotted access whose BASE is a registered signal/computed →
+            //    reactive member read (e.g. {user.name}, {route.params.slug}).
+            if let Some(dot_pos) = trimmed.find('.') {
+                let base = &trimmed[..dot_pos];
+                let prop_path = &trimmed[dot_pos + 1..];
+                let base_is_ident = !base.is_empty()
+                    && base
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                if base_is_ident {
+                    if signal_map.is_computed(base) {
+                        return format!(
+                            "leaf([() => ({}() as any).{}, () => {{}}] as unknown as Signal<string>)",
+                            base, prop_path
+                        );
+                    } else if let Some(setter) = signal_map.0.get(base) {
+                        if !setter.is_empty() {
+                            return format!(
+                                "leaf([() => ({}() as any).{}, {}] as unknown as Signal<string>)",
+                                base, prop_path, setter
+                            );
+                        }
+                    }
                 }
-            } else {
-                format!("leaf({})", id)
             }
+
+            // 3. FEL-228 / FEL-173: a complex interpolation that reads reactive
+            //    state the compiler can't resolve to a bare signal — a
+            //    computed/getter CALL like `{selBookLabel()}` or an expression
+            //    over an imported store. These previously fell through to an
+            //    EAGER `leaf(expr)`: a static text node evaluated once that
+            //    never re-rendered on signal change (the "sole text-leaf gap").
+            //    Thunk-wrap so the leaf tracks its reads — the same reactivity
+            //    contract attribute bindings get from `lower_attr_expr`. Pure
+            //    projections of loop vars (`{item.title}` — no call) stay
+            //    eager to avoid a needless per-row effect.
+            if interpolation_has_call(trimmed) {
+                return format!(
+                    "leaf([() => ({}) as unknown as string, () => {{}}] as unknown as Signal<string>)",
+                    trimmed
+                );
+            }
+
+            // 4. Genuinely static (loop-var projection, plain const) → eager.
+            format!("leaf({})", trimmed)
         }
         TemplateNode::Element {
             tag,
@@ -4369,6 +4406,50 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
     } else {
         expr.to_string()
     }
+}
+
+/// FEL-228: decide whether a text interpolation must be lowered to a reactive
+/// thunk-leaf. True when the expression contains a function call `(` outside
+/// string literals — this catches computed/getter calls (`{selBookLabel()}`,
+/// `{label()}`) and expressions over imported reactive stores the compiler
+/// cannot resolve to a bare signal, which previously compiled to an EAGER,
+/// never-re-rendering `leaf(expr)`. Bare registered signals/computeds and
+/// reactive dotted reads are already handled by the tuple paths above; plain
+/// consts and pure loop-var projections (`{message}`, `{item.title}`) contain
+/// no call and stay eager, avoiding a needless per-node reactive effect.
+///
+/// NOTE: complex expressions over a *writable* signal without a call
+/// (`{count + 1}`) are deliberately NOT wrapped here — making them reactive
+/// requires rewriting bare signal reads to getter calls (FEL-172/173), a
+/// separate pass; wrapping alone would stringify the getter function.
+fn interpolation_has_call(expr: &str) -> bool {
+    let bytes = expr.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        // Skip string / template literals so a `(` inside text doesn't count.
+        if c == b'\'' || c == b'"' || c == b'`' {
+            let quote = c;
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    i += 2;
+                    continue;
+                }
+                if bytes[i] == quote {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if c == b'(' {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Return true iff `expr` contains an identifier token that matches any name
