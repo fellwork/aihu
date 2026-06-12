@@ -586,6 +586,55 @@ fn collect_needed_helpers(nodes: &[TemplateNode]) -> NeededHelpers {
     h
 }
 
+/// Scan an element's attributes for macro directives that require an inlined
+/// boundary helper or runtime import, and set the corresponding flags on `h`.
+/// Shared by the `Element` and `MacroElement` arms of
+/// `collect_helpers_recursive` — both lower the same directives via
+/// `emit_macro_effects`, so both must contribute to helper collection (FEL-230).
+fn scan_attr_helpers(attrs: &[Attr], h: &mut NeededHelpers) {
+    for attr in attrs {
+        if let Attr::Macro { name, .. } = attr {
+            match name.as_str() {
+                "if" => h.if_boundary = true,
+                "once" => h.once_boundary = true,
+                "memo" => h.memo_boundary = true,
+                "each" => h.each_boundary = true,
+                // $html and $show emit effect() calls — ensure effect is imported.
+                // They also need onMount to access node.el after arbor mounts
+                // the branch descriptor.
+                "html" | "show" => {
+                    h.needs_effect = true;
+                    h.needs_on_mount_for_directives = true;
+                }
+                // B3 — $ref also uses onMount to capture node.el.
+                "ref" => {
+                    h.needs_on_mount_for_directives = true;
+                }
+                // $class:NAME also uses onMount+effect in its IIFE.
+                n if n.starts_with("class:") => {
+                    h.needs_effect = true;
+                    h.needs_on_mount_for_directives = true;
+                }
+                _ => {}
+            }
+        }
+        // B3 — `class={[...]}` array form needs the __aihu_cls helper.
+        if let Attr::Binding { name, expr } = attr {
+            if name == "class" && expr.trim_start().starts_with('[') {
+                h.needs_class_helper = true;
+            }
+        }
+        // B3 / R4 — any `$bind.<non-checked>` needs the conv helper.
+        if let Attr::Macro { name, .. } = attr {
+            if let Some(prop) = name.strip_prefix("bind:") {
+                if prop != "checked" {
+                    h.needs_bind_conv_helper = true;
+                }
+            }
+        }
+    }
+}
+
 fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
     for node in nodes {
         match node {
@@ -629,50 +678,17 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                     "navigate" => h.navigate_element = true,
                     _ => {}
                 }
+                // FEL-230: structural/effect directives placed ON a macro element
+                // (e.g. `<$link $each=...>`) emit their boundary call site in
+                // `emit_macro_effects`, so the matching helper definition must be
+                // collected here too. Without this scan, a module whose only
+                // `$each` sits on `<$link>` emitted `createEachBoundary(...)` with
+                // no inlined definition → ReferenceError, blank page.
+                scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
             TemplateNode::Element { attrs, children, .. } => {
-                for attr in attrs {
-                    if let Attr::Macro { name, .. } = attr {
-                        match name.as_str() {
-                            "if" => h.if_boundary = true,
-                            "once" => h.once_boundary = true,
-                            "memo" => h.memo_boundary = true,
-                            "each" => h.each_boundary = true,
-                            // $html and $show emit effect() calls — ensure effect is imported.
-                            // They also need onMount to access node.el after arbor mounts
-                            // the branch descriptor.
-                            "html" | "show" => {
-                                h.needs_effect = true;
-                                h.needs_on_mount_for_directives = true;
-                            }
-                            // B3 — $ref also uses onMount to capture node.el.
-                            "ref" => {
-                                h.needs_on_mount_for_directives = true;
-                            }
-                            // $class:NAME also uses onMount+effect in its IIFE.
-                            n if n.starts_with("class:") => {
-                                h.needs_effect = true;
-                                h.needs_on_mount_for_directives = true;
-                            }
-                            _ => {}
-                        }
-                    }
-                    // B3 — `class={[...]}` array form needs the __aihu_cls helper.
-                    if let Attr::Binding { name, expr } = attr {
-                        if name == "class" && expr.trim_start().starts_with('[') {
-                            h.needs_class_helper = true;
-                        }
-                    }
-                    // B3 / R4 — any `$bind.<non-checked>` needs the conv helper.
-                    if let Attr::Macro { name, .. } = attr {
-                        if let Some(prop) = name.strip_prefix("bind:") {
-                            if prop != "checked" {
-                                h.needs_bind_conv_helper = true;
-                            }
-                        }
-                    }
-                }
+                scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
             // B3 — Variant B block-tag forms reuse the same boundary helpers

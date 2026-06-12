@@ -81,7 +81,7 @@
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": 1349,
+    "bytes": 1067,
     "limit": "4 KB"
   },
   {
@@ -101,7 +101,7 @@
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2062,
+    "bytes": 2122,
     "limit": "4 KB"
   },
   {
@@ -126,27 +126,27 @@
   },
   {
     "name": "@aihu/primitives/input",
-    "bytes": 1466,
+    "bytes": 1616,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/textarea",
-    "bytes": 1444,
+    "bytes": 1595,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/checkbox",
-    "bytes": 1804,
+    "bytes": 1701,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/switch",
-    "bytes": 1708,
+    "bytes": 1593,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/radio-group",
-    "bytes": 2979,
+    "bytes": 2866,
     "limit": "4 KB"
   },
   {
