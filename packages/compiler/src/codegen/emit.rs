@@ -3423,25 +3423,30 @@ fn emit_node(
                 }
             }
 
-            // 3. FEL-228 / FEL-173: a complex interpolation that reads reactive
-            //    state the compiler can't resolve to a bare signal — a
-            //    computed/getter CALL like `{selBookLabel()}` or an expression
-            //    over an imported store. These previously fell through to an
-            //    EAGER `leaf(expr)`: a static text node evaluated once that
-            //    never re-rendered on signal change (the "sole text-leaf gap").
+            // 3. FEL-172/173: rewrite bare reads of registered getters to calls
+            //    (`{count + 1}` → `count() + 1`, `{section.kind}` handled in
+            //    step 2, but `{section.kind === 'x' ? a : b}` lands here).
+            let rewritten = rewrite_signal_reads_to_calls(trimmed, signal_map);
+
+            // 4. FEL-228 / FEL-173: a complex interpolation that reads reactive
+            //    state — a computed/getter CALL like `{selBookLabel()}`, an
+            //    expression over an imported store, or a rewritten signal read
+            //    from step 3. These previously fell through to an EAGER
+            //    `leaf(expr)`: a static text node evaluated once that never
+            //    re-rendered on signal change (the "sole text-leaf gap").
             //    Thunk-wrap so the leaf tracks its reads — the same reactivity
             //    contract attribute bindings get from `lower_attr_expr`. Pure
             //    projections of loop vars (`{item.title}` — no call) stay
             //    eager to avoid a needless per-row effect.
-            if interpolation_has_call(trimmed) {
+            if interpolation_has_call(&rewritten) {
                 return format!(
                     "leaf([() => ({}) as unknown as string, () => {{}}] as unknown as Signal<string>)",
-                    trimmed
+                    rewritten
                 );
             }
 
-            // 4. Genuinely static (loop-var projection, plain const) → eager.
-            format!("leaf({})", trimmed)
+            // 5. Genuinely static (loop-var projection, plain const) → eager.
+            format!("leaf({})", rewritten)
         }
         TemplateNode::Element {
             tag,
@@ -3626,6 +3631,10 @@ fn emit_if_block(
         let (cond, body) = &branches[idx];
         let body_str = emit_body(body, signal_map, state_names, child_indent);
 
+        // FEL-172: chain/negation thunks read cond expressions verbatim, so
+        // bare getter reads must be rewritten to calls here too — otherwise
+        // `{:else if count}` emits `(count)` (the function — always truthy).
+        let rewritten_cond = rewrite_signal_reads_to_calls(cond, signal_map);
         let cond_arg = if cond.is_empty() {
             // {:else} — fire when all prior conds are false
             negate_chain_thunk(prior_conds)
@@ -3637,7 +3646,7 @@ fn emit_if_block(
                 .iter()
                 .map(|c| format!("!({})", c))
                 .collect();
-            parts.push(format!("({})", cond));
+            parts.push(format!("({})", rewritten_cond));
             format!("[() => ({})]", parts.join(" && "))
         };
 
@@ -3647,7 +3656,7 @@ fn emit_if_block(
         ));
 
         if !cond.is_empty() {
-            prior_conds.push(cond.clone());
+            prior_conds.push(rewritten_cond);
             let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent);
             out.extend(rest);
             prior_conds.pop();
@@ -3682,7 +3691,8 @@ fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
             }
         }
     }
-    format!("[() => ({})]", trimmed)
+    // FEL-172: complex conditions read getters by value.
+    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
 }
 
 /// B3 — Lower an `{#each}` block to the existing `each(...)` runtime call.
@@ -3711,10 +3721,18 @@ fn emit_each_block(
 
     let idx = idx_alias.unwrap_or("i");
     let key_part = match key_expr {
-        Some(k) => format!("({}) => {}", item_alias, k),
+        // FEL-172: key exprs may read getters by value.
+        Some(k) => format!(
+            "({}) => {}",
+            item_alias,
+            rewrite_signal_reads_to_calls(k, signal_map)
+        ),
         None => "undefined".to_string(),
     };
 
+    // FEL-172: complex list exprs read getters by value
+    // (`{#each section.data as it}` → `section().data`).
+    let rewritten_list = rewrite_signal_reads_to_calls(list_expr, signal_map);
     let items_arg = if signal_map.is_reactive(list_expr) {
         if let Some(setter) = signal_map.0.get(list_expr) {
             if !setter.is_empty() {
@@ -3723,11 +3741,11 @@ fn emit_each_block(
                 format!("[{}]", list_expr)
             }
         } else {
-            format!("[() => ({})]", list_expr)
+            format!("[() => ({})]", rewritten_list)
         }
     } else {
         // Complex expression — wrap in thunk array to take Path 2.
-        format!("[() => ({})]", list_expr)
+        format!("[() => ({})]", rewritten_list)
     };
 
     let each_call = if signal_map.is_reactive(list_expr) {
@@ -3755,9 +3773,16 @@ fn emit_each_block(
         } else {
             format!("branch('', undefined, [{}])", empty_parts.join(", "))
         };
-        // Reactive length read uses thunk array.
-        let populated_cond = format!("[() => (({}) && ({}).length > 0)]", list_expr, list_expr);
-        let empty_cond = format!("[() => !(({}) && ({}).length > 0)]", list_expr, list_expr);
+        // Reactive length read uses thunk array. FEL-172: the cond thunks read
+        // the list by value — a bare signal here would be a truthy function
+        // with `.length === undefined`, so the populated branch would never fire.
+        let cond_list = if signal_map.is_reactive(list_expr) {
+            format!("{}()", list_expr)
+        } else {
+            rewritten_list.clone()
+        };
+        let populated_cond = format!("[() => (({}) && ({}).length > 0)]", cond_list, cond_list);
+        let empty_cond = format!("[() => !(({}) && ({}).length > 0)]", cond_list, cond_list);
         return format!(
             "branch('', undefined, [createIfBoundary({}, () => {{ return {} }}), createIfBoundary({}, () => {{ return {} }})])",
             populated_cond, each_call, empty_cond, empty_str
@@ -4234,7 +4259,18 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                 // bracket-literal at top level. Other class expressions
                 // (`class={cond ? 'a' : 'b'}`) pass through unchanged.
                 let lowered = if is_event {
-                    expr.to_string()
+                    // FEL-172: rewrite bare getter reads inside handler bodies
+                    // (`$on.click={() => select(section)}` → `select(section())`).
+                    // A bare-ident handler (`$on.click={increment}`) is left
+                    // verbatim — it's the function itself, not a read.
+                    let t = expr.trim();
+                    let bare_ident = !t.is_empty()
+                        && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                    if bare_ident {
+                        expr.to_string()
+                    } else {
+                        rewrite_signal_reads_to_calls(t, signal_map)
+                    }
                 } else if name == "class" && expr.trim_start().starts_with('[') {
                     let inner = expr.trim();
                     // Wrap the array in a class-joining helper. The wrapped form
@@ -4258,7 +4294,16 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     ))
                 } else if let Some(event) = name.strip_prefix("on:") {
                     let handler = macro_value_expr(value);
-                    Some(format!("on{}: {}", capitalize_first(event), handler))
+                    // FEL-172: same handler-body rewrite as the Binding path.
+                    let t = handler.trim();
+                    let bare_ident = !t.is_empty()
+                        && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                    let lowered_handler = if bare_ident {
+                        handler.clone()
+                    } else {
+                        rewrite_signal_reads_to_calls(t, signal_map)
+                    };
+                    Some(format!("on{}: {}", capitalize_first(event), lowered_handler))
                 } else {
                     None
                 }
@@ -4401,8 +4446,11 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
     // `state_names` (e.g. a layout's `$class={activeStudy() ? …}` over a store),
     // so wrapping keeps the binding reactive. Bare non-reactive identifiers stay
     // eager (the simple-ident path above already handled reactive ones).
+    // FEL-172: bare getter reads inside the expression are rewritten to calls
+    // (`$class={section.kind === 'prose' ? 'a' : 'b'}` → `section().kind …`)
+    // so the thunk reads VALUES, not the signal function.
     if expr_references_state(expr, state_names) || !is_simple_ident {
-        format!("[() => ({})]", trimmed)
+        format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
     } else {
         expr.to_string()
     }
@@ -4418,10 +4466,218 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
 /// consts and pure loop-var projections (`{message}`, `{item.title}`) contain
 /// no call and stay eager, avoiding a needless per-node reactive effect.
 ///
-/// NOTE: complex expressions over a *writable* signal without a call
-/// (`{count + 1}`) are deliberately NOT wrapped here — making them reactive
-/// requires rewriting bare signal reads to getter calls (FEL-172/173), a
-/// separate pass; wrapping alone would stringify the getter function.
+/// FEL-172: collect arrow-function parameter names appearing in `expr`, so the
+/// signal-read rewrite can skip identifiers shadowed by handler params (e.g.
+/// the `e` in `(e) => …`, or a param that happens to share a signal's name).
+/// Over-collects inside parenthesized param lists (defaults/destructuring also
+/// contribute their identifiers) — conservative: a missed rewrite, never a
+/// broken one.
+fn collect_arrow_params(expr: &str) -> std::collections::BTreeSet<String> {
+    let mut params = std::collections::BTreeSet::new();
+    let bytes = expr.as_bytes();
+    let mut i = 0usize;
+    let mut in_str: Option<u8> = None;
+    while i + 1 < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 2;
+                continue;
+            }
+            if c == q {
+                in_str = None;
+            }
+            i += 1;
+            continue;
+        }
+        if c == b'\'' || c == b'"' || c == b'`' {
+            in_str = Some(c);
+            i += 1;
+            continue;
+        }
+        if c == b'=' && bytes[i + 1] == b'>' {
+            // Walk back over whitespace to the params.
+            let mut j = i;
+            while j > 0 && bytes[j - 1].is_ascii_whitespace() {
+                j -= 1;
+            }
+            if j > 0 && bytes[j - 1] == b')' {
+                // Parenthesized list — scan back to the matching '('.
+                let mut depth = 1usize;
+                let mut k = j - 1;
+                while k > 0 {
+                    k -= 1;
+                    match bytes[k] {
+                        b')' => depth += 1,
+                        b'(' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if depth == 0 {
+                    let inner = &expr[k + 1..j - 1];
+                    let mut start: Option<usize> = None;
+                    for (idx, ch) in inner.char_indices() {
+                        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '$' {
+                            if start.is_none() {
+                                start = Some(idx);
+                            }
+                        } else if let Some(s) = start.take() {
+                            params.insert(inner[s..idx].to_string());
+                        }
+                    }
+                    if let Some(s) = start {
+                        params.insert(inner[s..].to_string());
+                    }
+                }
+            } else {
+                // Single bare-ident param: `e => …`.
+                let end = j;
+                let mut k = j;
+                while k > 0
+                    && (bytes[k - 1].is_ascii_alphanumeric()
+                        || bytes[k - 1] == b'_'
+                        || bytes[k - 1] == b'$')
+                {
+                    k -= 1;
+                }
+                if k < end {
+                    params.insert(expr[k..end].to_string());
+                }
+            }
+            i += 2;
+            continue;
+        }
+        i += 1;
+    }
+    params
+}
+
+/// FEL-172 / FEL-173: rewrite bare reads of registered reactive getters
+/// (props, signals, computeds — the keys of `signal_map`) to getter CALLS
+/// inside a template expression, so expressions emitted into thunks read
+/// values instead of function objects. `$if={section.kind === 'prose'}`
+/// becomes `section().kind === 'prose'` — previously `.kind` was read off the
+/// signal FUNCTION → always undefined → the branch silently never rendered.
+///
+/// The rewrite is token-based and deliberately conservative; an identifier is
+/// rewritten only when ALL of:
+///   - it is a key of `signal_map` (a compiled getter)
+///   - not a member access (`obj.section` — prev significant char is `.`)
+///   - not already a call (`section(...)` — next significant char is `(`)
+///   - not an object-literal key (`{ section: 1 }`) or shorthand (`{ section }`)
+///     — guarded only inside object-literal braces, tracked via a bracket
+///     stack that distinguishes arrow BLOCK bodies (`=> { … }`) from literals
+///   - not shadowed by an arrow param in the same expression
+/// String/template literals are copied verbatim (template `${}` interpolation
+/// is conservatively not entered, matching `expr_references_state`).
+fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
+    if signal_map.0.is_empty() {
+        return expr.to_string();
+    }
+    let shadowed = collect_arrow_params(expr);
+    let bytes = expr.as_bytes();
+    let mut out = String::with_capacity(expr.len() + 8);
+    let mut i = 0usize;
+    let mut prev_significant: u8 = 0;
+    // Bracket context: '(' | '[' | 'O' (object-literal brace) | 'B' (block brace).
+    let mut stack: Vec<u8> = Vec::new();
+    let mut arrow_pending = false;
+
+    let next_significant = |from: usize| -> Option<u8> {
+        bytes[from..]
+            .iter()
+            .copied()
+            .find(|b| !b.is_ascii_whitespace())
+    };
+
+    while i < bytes.len() {
+        let c = bytes[i];
+        // String / template literals: copy verbatim.
+        if c == b'\'' || c == b'"' || c == b'`' {
+            let quote = c;
+            out.push(c as char);
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    out.push(bytes[i] as char);
+                    out.push(bytes[i + 1] as char);
+                    i += 2;
+                    continue;
+                }
+                out.push(bytes[i] as char);
+                if bytes[i] == quote {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            prev_significant = quote;
+            arrow_pending = false;
+            continue;
+        }
+        // Identifier token.
+        if c.is_ascii_alphabetic() || c == b'_' || c == b'$' {
+            let start = i;
+            while i < bytes.len()
+                && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'$')
+            {
+                i += 1;
+            }
+            let ident = &expr[start..i];
+            let next = next_significant(i);
+            let in_object = stack.last() == Some(&b'O');
+            let after_open_or_comma =
+                prev_significant == b'{' || prev_significant == b',' || prev_significant == 0;
+            let is_member = prev_significant == b'.';
+            let is_call = next == Some(b'(');
+            let is_obj_key = in_object && after_open_or_comma && next == Some(b':');
+            let is_obj_shorthand = in_object
+                && after_open_or_comma
+                && matches!(next, Some(b'}') | Some(b','));
+            if !is_member
+                && !is_call
+                && !is_obj_key
+                && !is_obj_shorthand
+                && signal_map.0.contains_key(ident)
+                && !shadowed.contains(ident)
+            {
+                out.push_str(ident);
+                out.push_str("()");
+            } else {
+                out.push_str(ident);
+            }
+            prev_significant = bytes[i - 1];
+            arrow_pending = false;
+            continue;
+        }
+        out.push(c as char);
+        if !c.is_ascii_whitespace() {
+            match c {
+                b'(' | b'[' => stack.push(c),
+                b'{' => {
+                    stack.push(if arrow_pending { b'B' } else { b'O' });
+                }
+                b')' | b']' | b'}' => {
+                    stack.pop();
+                }
+                _ => {}
+            }
+            arrow_pending = c == b'>' && prev_significant == b'=';
+            prev_significant = c;
+        }
+        i += 1;
+    }
+    out
+}
+
+/// NOTE: interpolations are REWRITTEN first (`rewrite_signal_reads_to_calls`,
+/// FEL-172/173) — `{count + 1}` becomes `count() + 1`, which then carries a
+/// call and gets wrapped here. So this predicate runs on the rewritten form.
 fn interpolation_has_call(expr: &str) -> bool {
     let bytes = expr.as_bytes();
     let mut i = 0usize;
@@ -4912,9 +5168,12 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                         format!("[() => ({})]", trimmed)
                     }
                 } else {
-                    // complex expression — wrap in thunk; user is responsible
-                    // for calling getters inside (e.g. `{loading() && !error()}`).
-                    format!("[() => ({})]", trimmed)
+                    // complex expression — wrap in thunk. FEL-172: bare getter
+                    // reads are rewritten to calls (`$if={section.kind === 'x'}`
+                    // → `section().kind === 'x'`); previously `.kind` was read
+                    // off the signal FUNCTION → always undefined → the branch
+                    // silently never rendered.
+                    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
                 };
                 if_cond_arg = Some(cond_arg);
             }
@@ -4925,7 +5184,11 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // consumers can override via :host([hidden]) { display: ... }.
                 // toggleAttribute is the WHATWG-canonical primitive: passing
                 // `false` removes the attribute; `true` writes empty-string.
-                elem_effects.push(ElemEffect::Show(macro_value_expr(value)));
+                // FEL-172: rewrite bare getter reads inside the effect body.
+                elem_effects.push(ElemEffect::Show(rewrite_signal_reads_to_calls(
+                    &macro_value_expr(value),
+                    signal_map,
+                )));
             }
             "each" => {
                 has_each = true;
@@ -4955,7 +5218,10 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // IIFE: capture node, wire reactive effect inside onMount, return node
                 // so the parent children array receives the element (not a bare effect).
                 // replaceChildren + createContextualFragment parses trusted build-time HTML.
-                elem_effects.push(ElemEffect::Html(macro_value_expr(value)));
+                elem_effects.push(ElemEffect::Html(rewrite_signal_reads_to_calls(
+                    &macro_value_expr(value),
+                    signal_map,
+                )));
             }
             "once" => {
                 once = true;
@@ -4967,7 +5233,10 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 let class_name = n["class:".len()..].to_string();
                 // Same IIFE pattern as $show: capture node, wire reactive effect inside
                 // onMount so .el is guaranteed to be set, return node to parent children.
-                elem_effects.push(ElemEffect::Class(class_name, macro_value_expr(value)));
+                elem_effects.push(ElemEffect::Class(
+                    class_name,
+                    rewrite_signal_reads_to_calls(&macro_value_expr(value), signal_map),
+                ));
             }
             n if n.starts_with("bind:") || n.starts_with("on:") => {
                 // These are already handled in emit_attrs — skip here.
@@ -5040,7 +5309,12 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
         let key_part = if key_fn.is_empty() {
             "undefined".to_string()
         } else {
-            format!("({}) => {}", item_alias, key_fn)
+            // FEL-172: key exprs may read getters too ($key={section.id + b.ref}).
+            format!(
+                "({}) => {}",
+                item_alias,
+                rewrite_signal_reads_to_calls(&key_fn, signal_map)
+            )
         };
 
         // Use arbor's reactive `each()` when the list is an authored signal.
@@ -5065,9 +5339,17 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 items_arg, key_part, item_alias, idx_alias, current
             );
         } else {
+            // FEL-172: a complex list expr may read a prop/signal getter
+            // (`$each="section.data as it"` → `section().data`); without the
+            // rewrite the thunk reads `.data` off the signal FUNCTION →
+            // undefined → the loop renders nothing.
             current = format!(
                 "createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
-                each_items, key_part, item_alias, idx_alias, current
+                rewrite_signal_reads_to_calls(&each_items, signal_map),
+                key_part,
+                item_alias,
+                idx_alias,
+                current
             );
         }
     }
