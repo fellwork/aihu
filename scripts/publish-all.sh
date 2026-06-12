@@ -61,6 +61,7 @@ PKGS=(
   "adapter-cloudflare"
   "adapter-vercel"
   "app"
+  "seo"               # @aihu/seo SSR/meta helpers; depends on @aihu/plugin + @aihu/server + @aihu-plugin/agent-readiness (must follow them)
   "cli"
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
