@@ -1,5 +1,14 @@
 # @aihu/example-storefront
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`4306589`](https://github.com/fellwork/aihu/commit/4306589e75aab21d7f6ebc323abc3209091312ce)]:
+  - @aihu/compiler@0.9.1
+  - @aihu/auth@1.0.0
+  - @aihu-plugin/data@2.0.1
+
 ## 0.0.6
 
 ### Patch Changes

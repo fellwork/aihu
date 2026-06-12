@@ -1,6 +1,6 @@
 {
   "name": "@aihu/seo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "aihu SEO plugin: sitemap.xml, robots.txt, llms.txt, JSON-LD injection via afterParse hook.",
   "license": "MIT",
   "type": "module",
