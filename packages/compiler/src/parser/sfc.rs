@@ -447,8 +447,17 @@ pub(crate) fn collect_undeclared_template_refs(
     template: &str,
     declared: &crate::codegen::signals::StateDecls,
 ) -> Vec<String> {
+    // FEL-184: `$each` loop aliases ("list as item" / "list as item, idx" —
+    // attribute and `{#each}` block forms) are template-scoped bindings, not
+    // cross-block references. Register them before validating so `{c}` inside
+    // `$each="chaptersOf(b) as c"` doesn't warn (and doesn't become a hard
+    // error at the v0.4 promotion). Template-global registration is
+    // deliberate: this is a declaredness check, not a scope checker.
+    let each_aliases = collect_each_aliases(template);
     let is_declared = |name: &str| -> bool {
-        declared.all.contains(name) || JS_GLOBALS.contains(&name)
+        declared.all.contains(name)
+            || JS_GLOBALS.contains(&name)
+            || each_aliases.contains(name)
     };
     let mut out: Vec<String> = Vec::new();
 
@@ -512,6 +521,76 @@ pub(crate) fn collect_undeclared_template_refs(
 /// not a bare cross-block reference, and is deliberately not flagged.
 fn is_simple_ident(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+/// FEL-184: collect every `$each` loop alias declared anywhere in the template,
+/// covering both the attribute form (`$each="list as item"` /
+/// `$each="list as item, idx"`, quoted or curly value) and the block form
+/// (`{#each list as item, idx}`). Mirrors the alias parsing in
+/// `emit_macro_effects` (split on " as ", then ','). Aliases that aren't simple
+/// identifiers are skipped — the checker only flags simple identifiers anyway.
+fn collect_each_aliases(template: &str) -> std::collections::BTreeSet<String> {
+    let mut aliases = std::collections::BTreeSet::new();
+    let mut register = |rest: &str| {
+        // rest is the text AFTER " as ": "item" or "item, idx".
+        for part in rest.split(',') {
+            let alias = part.trim();
+            if is_simple_ident(alias) {
+                aliases.insert(alias.to_string());
+            }
+        }
+    };
+
+    // Attribute form: `$each=` followed by a quoted string or curly expression.
+    let mut search = template;
+    while let Some(pos) = search.find("$each=") {
+        let after = &search[pos + "$each=".len()..];
+        let value: Option<&str> = match after.bytes().next() {
+            Some(b'"') => after[1..].find('"').map(|end| &after[1..1 + end]),
+            Some(b'\'') => after[1..].find('\'').map(|end| &after[1..1 + end]),
+            Some(b'{') => {
+                // Brace-balanced read (mirrors parse_expr_interpolation).
+                let bytes = after.as_bytes();
+                let mut depth = 0usize;
+                let mut end = None;
+                for (j, &b) in bytes.iter().enumerate() {
+                    match b {
+                        b'{' => depth += 1,
+                        b'}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                end = Some(j);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                end.map(|j| &after[1..j])
+            }
+            _ => None,
+        };
+        if let Some(v) = value {
+            if let Some((_, rest)) = v.split_once(" as ") {
+                register(rest);
+            }
+        }
+        search = &search[pos + "$each=".len()..];
+    }
+
+    // Block form: `{#each list as item, idx}` — read to the closing `}`.
+    let mut search = template;
+    while let Some(pos) = search.find("{#each ") {
+        let after = &search[pos + "{#each ".len()..];
+        if let Some(end) = after.find('}') {
+            if let Some((_, rest)) = after[..end].split_once(" as ") {
+                register(rest);
+            }
+        }
+        search = &search[pos + "{#each ".len()..];
+    }
+
+    aliases
 }
 
 fn warn_undeclared(name: &str) {
@@ -1013,6 +1092,62 @@ $computed: { cls: () => active() === 'home' ? 'on' : '' }";
         // undeclared ref was invisible. Now it is caught.
         let warnings = undeclared("", "<span>{lonelyRef}</span>");
         assert_eq!(warnings, vec!["lonelyRef".to_string()]);
+    }
+
+    // ─── FEL-184 — $each loop aliases are template-scoped, not cross-block ───
+
+    #[test]
+    fn fel184_each_attr_alias_does_not_warn() {
+        // The field repro: `$each="chaptersOf(b) as c"` then `{c}` inside.
+        let state = "const chaptersOf = (b) => []";
+        let warnings = undeclared(
+            state,
+            r#"<ul><li $each="chaptersOf(b) as c">{c}</li></ul>"#,
+        );
+        assert!(
+            warnings.is_empty(),
+            "FEL-184: $each alias must be registered before validating: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn fel184_each_attr_alias_with_index_does_not_warn() {
+        let state = "const items = []";
+        let warnings = undeclared(
+            state,
+            r#"<ul><li $each="items as it, idx">{it} {idx}</li></ul>"#,
+        );
+        assert!(warnings.is_empty(), "item AND idx aliases register: {warnings:?}");
+    }
+
+    #[test]
+    fn fel184_each_block_alias_does_not_warn() {
+        let state = "const rows = []";
+        let warnings = undeclared(state, "{#each rows as r, n}<p>{r} {n}</p>{/each}");
+        assert!(warnings.is_empty(), "block-form aliases register: {warnings:?}");
+    }
+
+    #[test]
+    fn fel184_nested_each_alias_does_not_warn() {
+        // Second field repro: nested each over a loop var's member
+        // (`$each="v.phrases as p"`).
+        let state = "const verses = []";
+        let warnings = undeclared(
+            state,
+            r#"<div $each="verses as v"><span $each="v.phrases as p">{p}</span></div>"#,
+        );
+        assert!(warnings.is_empty(), "nested aliases register: {warnings:?}");
+    }
+
+    #[test]
+    fn fel184_genuinely_undeclared_still_warns_alongside_each() {
+        // The checker must not be neutered: an unrelated bare ref still warns.
+        let state = "const items = []";
+        let warnings = undeclared(
+            state,
+            r#"<ul><li $each="items as it">{it} {strayRef}</li></ul>"#,
+        );
+        assert_eq!(warnings, vec!["strayRef".to_string()]);
     }
 
     // ─── Bug 7 — must NOT misfire on non-interpolation braces ────────────────
