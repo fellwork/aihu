@@ -182,6 +182,49 @@ fn if_on_link_wraps_in_if_boundary() {
 }
 
 #[test]
+fn each_on_link_emits_each_boundary_definition() {
+    // FEL-230: when the ONLY `$each` in a module sits on a `<$link>`, the
+    // compiler emitted the `createEachBoundary(...)` call site but never the
+    // inlined `const createEachBoundary = ...` definition (the helper collector
+    // scanned only plain Element attrs, not MacroElement attrs) →
+    // `ReferenceError: createEachBoundary is not defined`, blank page.
+    let source = r#"@state { studies: Array<{ ref: string; name: string }> = [] }
+@template {
+  <div><$link $each="studies as s" $key={s.ref} href={"/read/" + s.ref}>{s.name}</$link></div>
+}"#;
+    let js = compile(source, "x-each-link-only");
+    assert!(
+        js.contains("createEachBoundary("),
+        "call site must be emitted, got:\n{js}"
+    );
+    assert!(
+        js.contains("const createEachBoundary ="),
+        "FEL-230: helper DEFINITION must be emitted when the only $each is on \
+         <$link>, else createEachBoundary is undefined at runtime, got:\n{js}"
+    );
+    // The definition must precede its first call site in module order.
+    let def_pos = js.find("const createEachBoundary =").unwrap();
+    let call_pos = js.find("createEachBoundary([").unwrap();
+    assert!(
+        def_pos < call_pos,
+        "definition must be declared before its call site, got:\n{js}"
+    );
+}
+
+#[test]
+fn if_on_link_emits_if_boundary_definition() {
+    // FEL-230 sibling: `$if` on a macro element must also collect its helper
+    // definition, not just emit the call site.
+    let source = r#"@state { show: boolean = true }
+@template { <div><$link $if={show} href="/x">go</$link></div> }"#;
+    let js = compile(source, "x-if-link-only");
+    assert!(
+        js.contains("const createIfBoundary ="),
+        "FEL-230: $if on <$link> must emit createIfBoundary definition, got:\n{js}"
+    );
+}
+
+#[test]
 fn link_onclick_defers_when_no_router_context() {
     // The link's click handler must NOT hard-navigate when there is no reactive
     // <$router> context — it guards on useRouter() and lets the click bubble to

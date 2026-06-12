@@ -703,3 +703,80 @@ fn r2_state_precedes_action_function_definitions() {
         result.js
     );
 }
+
+// ─── FEL-238: composing $each with another effect directive ───────────────────
+
+#[test]
+fn fel238_each_plus_show_composes_each_outermost() {
+    // FEL-238: an element carrying BOTH `$each` and a second effect directive
+    // ($show here) previously kept only the first-emitted wrapper and DROPPED
+    // the rest. `$each` was always appended last, so it was the casualty: the
+    // element rendered ONCE with the loop alias `v` dangling, and any descendant
+    // `$on` handler (or the element's own thunk) closed over an undeclared loop
+    // var that never advanced per iteration. Both wrappers must now compose,
+    // with `each` OUTERMOST so its factory's `v` scopes everything inside.
+    let src = r#"@state {
+  import { signal } from '@aihu/signals'
+  const [para, setPara] = signal([])
+  const openVerse = (v) => {}
+}
+@template {
+  <div><span $each="para as v" $show={v.ok}><button $on.click={() => openVerse(v)}>{v.verse}</button></span></div>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-fel238").js;
+
+    // The each wrapper must survive (not be dropped by the second directive).
+    assert!(
+        js.contains("each([para, setPara]"),
+        "FEL-238: $each must not be dropped when a second effect directive is \
+         present, got:\n{js}"
+    );
+    // …and the $show effect must also survive.
+    assert!(
+        js.contains("toggleAttribute('hidden'"),
+        "FEL-238: $show must compose alongside $each, got:\n{js}"
+    );
+    // `each(` must appear OUTSIDE the $show IIFE: the loop factory has to scope
+    // the descendant handler's `v`, so the each call precedes the IIFE.
+    let each_pos = js.find("each([para, setPara]").unwrap();
+    let iife_pos = js.find("toggleAttribute('hidden'").unwrap();
+    let handler_pos = js.find("openVerse(v)").unwrap();
+    assert!(
+        each_pos < iife_pos && each_pos < handler_pos,
+        "each() must be the OUTERMOST wrapper so its loop alias scopes the \
+         $show thunk and the descendant handler, got:\n{js}"
+    );
+}
+
+#[test]
+fn fel238_each_plus_class_composes() {
+    // Same defect via `$class:` — the most common pairing in the field report
+    // (`<span class=v $each>` over a verse list).
+    let src = r#"@state {
+  import { signal } from '@aihu/signals'
+  const [para, setPara] = signal([])
+  const pick = (v) => {}
+}
+@template {
+  <ul><li $each="para as v" $class:on={v.active}><button $on.click={() => pick(v)}>x</button></li></ul>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-fel238b").js;
+    assert!(
+        js.contains("each([para, setPara]"),
+        "FEL-238: $each must survive alongside $class:, got:\n{js}"
+    );
+    assert!(
+        js.contains("classList.toggle('on'"),
+        "FEL-238: $class: must compose alongside $each, got:\n{js}"
+    );
+    let each_pos = js.find("each([para, setPara]").unwrap();
+    let handler_pos = js.find("pick(v)").unwrap();
+    assert!(
+        each_pos < handler_pos,
+        "each() must wrap the descendant handler so `v` is per-iteration, got:\n{js}"
+    );
+}

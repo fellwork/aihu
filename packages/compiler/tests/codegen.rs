@@ -111,6 +111,53 @@ fn plain_var_no_cast() {
 }
 
 #[test]
+fn fel228_getter_call_interpolation_is_reactive_thunk() {
+    // FEL-228: a sole text-interpolation child that CALLS a getter
+    // (`{selBookLabel()}`) previously compiled to an eager `leaf(selBookLabel())`
+    // — a static text node evaluated once that never re-rendered when the
+    // underlying signal changed (the "sole text-leaf gap"). It must lower to a
+    // reactive thunk-leaf so the node tracks its reads.
+    let src = concat!(
+        "@state {\n",
+        "import { signal, computed } from '@aihu/signals'\n",
+        "const [book, setBook] = signal('Gen')\n",
+        "const selBookLabel = computed(() => book())\n",
+        "}\n",
+        "@template { <h4>{selBookLabel()}</h4> }"
+    );
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-fel228").js;
+    assert!(
+        js.contains("leaf([() => (selBookLabel())"),
+        "getter-call interpolation must be a reactive thunk-leaf, got:\n{js}"
+    );
+    assert!(
+        !js.contains("leaf(selBookLabel())"),
+        "must NOT emit an eager static leaf for a getter call, got:\n{js}"
+    );
+}
+
+#[test]
+fn fel228_loop_var_projection_stays_eager() {
+    // Guard against over-wrapping: a pure loop-var projection (`{b.name}` — no
+    // call) must stay an eager `leaf(b.name)` so each row doesn't pay for a
+    // needless reactive effect. The each() reconciler recreates the leaf when
+    // the keyed item changes.
+    let src = concat!(
+        "@state { books: Array<{ name: string }> = [] }\n",
+        "@template { <ul><li $each=\"books as b\">{b.name}</li></ul> }"
+    );
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-fel228-loop").js;
+    assert!(
+        js.contains("leaf(b.name)"),
+        "loop-var projection must stay an eager leaf, got:\n{js}"
+    );
+}
+
+#[test]
 fn style_scoped_emits_css_in_function_form() {
     let src = concat!(
         "@state {
