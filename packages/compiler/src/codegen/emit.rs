@@ -4814,8 +4814,67 @@ fn find_paren_close_local(s: &str, i: usize) -> Option<usize> {
 
 /// Emit side-effectful JS for macro attributes ($if, $show, $each, $html, etc.)
 /// attached to an element identified by `el_var`.
+/// A per-element effect directive ($show/$html/$class:/$ref) that wraps the
+/// element node in an IIFE registering an onMount effect. These read the
+/// element's `.el`, so they must nest immediately around the base node, inside
+/// any structural boundary ($if/$each).
+enum ElemEffect {
+    Show(String),
+    Html(String),
+    Class(String, String),
+    Ref(String),
+}
+
+impl ElemEffect {
+    /// Wrap `inner` (the node expression this effect operates on) in the IIFE.
+    fn wrap(&self, inner: &str, indent: &str) -> String {
+        match self {
+            ElemEffect::Show(expr) => format!(
+                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                indent, inner, expr
+            ),
+            ElemEffect::Html(expr) => format!(
+                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                indent, inner, expr
+            ),
+            ElemEffect::Class(class_name, expr) => format!(
+                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                indent, inner, class_name, expr
+            ),
+            ElemEffect::Ref(setter_call) => format!(
+                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); return _n; }})()",
+                indent, inner, setter_call
+            ),
+        }
+    }
+}
+
+/// Compose all effect/structural directives on a single element into ONE nested
+/// wrapper around `subtree`, returning it as a single-element Vec (or an empty
+/// Vec when the element carries no such directives).
+///
+/// FEL-238: an element may carry MULTIPLE directives at once — e.g.
+/// `<span $each=… $show=…>` or `<li $each=… $class:on=…>`. Each directive WRAPS
+/// the node, so they must be COMPOSED (nested), not emitted as independent
+/// siblings. Previously each directive built its own wrapper around the bare
+/// `subtree` and the caller kept only the FIRST, silently dropping the rest.
+/// When `$each` was the dropped one (it was always appended last), the element
+/// rendered ONCE with the loop alias dangling, so descendant `$on` handlers —
+/// and the element's own `$show`/`$class` thunks — closed over an undeclared
+/// loop variable that never advanced per iteration (the production reader
+/// opened verse 1's study for every tap).
+///
+/// Composition is innermost → outermost, independent of source order:
+///   base node
+///     → element effects ($show/$html/$class:/$ref — need the element's `.el`)
+///       → $once / $memo / $if (structural boundaries)
+///         → $each (iteration — OUTERMOST so its factory's loop alias scopes
+///                  every inner wrapper and every descendant handler)
 fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
-    let mut effects: Vec<String> = Vec::new();
+    let mut elem_effects: Vec<ElemEffect> = Vec::new();
+    let mut once = false;
+    let mut memo_deps: Option<String> = None;
+    let mut if_cond_arg: Option<String> = None;
 
     let mut has_each = false;
     let mut each_items = String::new();
@@ -4857,23 +4916,16 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     // for calling getters inside (e.g. `{loading() && !error()}`).
                     format!("[() => ({})]", trimmed)
                 };
-                effects.push(format!(
-                    "{}createIfBoundary({}, () => {{ return {} }})",
-                    indent, cond_arg, subtree
-                ));
+                if_cond_arg = Some(cond_arg);
             }
             "show" => {
-                let expr = macro_value_expr(value);
                 // R3 (Director r6 §3.R3): lower $show to the platform `hidden`
                 // attribute (NOT --show CSS custom property). `hidden` respects
                 // user CSS [hidden] { display: none !important }; Shadow DOM
                 // consumers can override via :host([hidden]) { display: ... }.
                 // toggleAttribute is the WHATWG-canonical primitive: passing
                 // `false` removes the attribute; `true` writes empty-string.
-                effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
-                    indent, subtree, expr
-                ));
+                elem_effects.push(ElemEffect::Show(macro_value_expr(value)));
             }
             "each" => {
                 has_each = true;
@@ -4899,38 +4951,23 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 key_fn = macro_value_expr(value);
             }
             "html" => {
-                let expr = macro_value_expr(value);
                 // branch() returns a descriptor; .el is populated after arbor mounts it.
                 // IIFE: capture node, wire reactive effect inside onMount, return node
                 // so the parent children array receives the element (not a bare effect).
                 // replaceChildren + createContextualFragment parses trusted build-time HTML.
-                effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
-                    indent, subtree, expr
-                ));
+                elem_effects.push(ElemEffect::Html(macro_value_expr(value)));
             }
             "once" => {
-                effects.push(format!(
-                    "{}createOnceBoundary(() => {{ return {} }})",
-                    indent, subtree
-                ));
+                once = true;
             }
             "memo" => {
-                let deps = macro_value_expr(value);
-                effects.push(format!(
-                    "{}createMemoBoundary({}, () => {{ return {} }})",
-                    indent, deps, subtree
-                ));
+                memo_deps = Some(macro_value_expr(value));
             }
             n if n.starts_with("class:") => {
-                let class_name = &n["class:".len()..];
-                let expr = macro_value_expr(value);
+                let class_name = n["class:".len()..].to_string();
                 // Same IIFE pattern as $show: capture node, wire reactive effect inside
                 // onMount so .el is guaranteed to be set, return node to parent children.
-                effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
-                    indent, subtree, class_name, expr
-                ));
+                elem_effects.push(ElemEffect::Class(class_name, macro_value_expr(value)));
             }
             n if n.starts_with("bind:") || n.starts_with("on:") => {
                 // These are already handled in emit_attrs — skip here.
@@ -4955,10 +4992,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     // Plain identifier reassignment in scope.
                     format!("{} = _el", trimmed)
                 };
-                effects.push(format!(
-                    "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); return _n; }})()",
-                    indent, subtree, setter_call
-                ));
+                elem_effects.push(ElemEffect::Ref(setter_call));
             }
             // Risk-7 closure (spec-template-syntax-v2 §"Codegen hardening —
             // silent-drop fix"): the parser now rejects unreserved
@@ -4976,6 +5010,30 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 );
             }
         }
+    }
+
+    // Nothing to wrap — caller uses the bare base node.
+    if elem_effects.is_empty() && !once && memo_deps.is_none() && if_cond_arg.is_none() && !has_each {
+        return Vec::new();
+    }
+
+    // --- compose innermost → outermost ---
+    // Element effects sit closest to the node (they read `_n.el`). Only the
+    // OUTERMOST wrapper carries the caller's `indent`; inner wrappers use no
+    // extra indent so single-directive output is byte-identical to before.
+    let mut current = subtree.to_string();
+    for eff in &elem_effects {
+        current = eff.wrap(&current, "");
+    }
+
+    if once {
+        current = format!("createOnceBoundary(() => {{ return {} }})", current);
+    }
+    if let Some(deps) = &memo_deps {
+        current = format!("createMemoBoundary({}, () => {{ return {} }})", deps, current);
+    }
+    if let Some(cond_arg) = &if_cond_arg {
+        current = format!("createIfBoundary({}, () => {{ return {} }})", cond_arg, current);
     }
 
     if has_each {
@@ -5002,17 +5060,18 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             } else {
                 format!("[() => ({})]", each_items)
             };
-            effects.push(format!(
-                "{}each({}, {}, ({}, {}) => {{ return {} }})",
-                indent, items_arg, key_part, item_alias, idx_alias, subtree
-            ));
+            current = format!(
+                "each({}, {}, ({}, {}) => {{ return {} }})",
+                items_arg, key_part, item_alias, idx_alias, current
+            );
         } else {
-            effects.push(format!(
-                "{}createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
-                indent, each_items, key_part, item_alias, idx_alias, subtree
-            ));
+            current = format!(
+                "createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
+                each_items, key_part, item_alias, idx_alias, current
+            );
         }
     }
 
-    effects
+    // Apply the caller's indent to the outermost wrapper.
+    vec![format!("{}{}", indent, current)]
 }
