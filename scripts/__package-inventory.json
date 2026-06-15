@@ -103,7 +103,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.9.4",
+    "version": "0.9.5",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -151,7 +151,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.2.12",
+    "version": "0.2.13",
     "dir": "packages/language-server",
     "isPlatform": false
   },
