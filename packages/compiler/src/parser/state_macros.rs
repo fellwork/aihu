@@ -864,6 +864,47 @@ fn parse_object_collection(
         // function expression like `() => ...` or `(args) => { body }`).
         let is_wrapped = value.starts_with('{');
 
+        // Missing-comma guard. Collection entries are comma-separated (JS object
+        // syntax — every canonical example uses commas). Without a comma the
+        // top-level splitter collapses adjacent entries into one chunk and the
+        // parser keeps only the first `name: value`, SILENTLY DROPPING the rest
+        // — which produces wrong runtime codegen (referenced handlers become
+        // undefined → ReferenceError) and broken type-check sidecars, with no
+        // diagnostic. Detect it for the wrapped form (the common metadata-bag
+        // case, e.g. `$action: { a: { … } b: { … } }`): a wrapped value must BE
+        // the whole value, so any non-whitespace after its closing brace is a
+        // glued-on entry. (Bare function values can't be delimited unambiguously
+        // — `(t): string => …` has a legitimate top-level `:` — so they are not
+        // guarded here; the canonical comma form always parses correctly.)
+        if is_wrapped {
+            if let Some(close) = find_brace_close(&value, 1) {
+                let trailing = value[close + 1..].trim();
+                if !trailing.is_empty() {
+                    let next = trailing
+                        .split(|c: char| c == ':' || c.is_whitespace())
+                        .find(|s| !s.is_empty())
+                        .unwrap_or("<next entry>");
+                    return Err(CompileError {
+                        message: format!(
+                            "C447: `${}` collection entries must be separated by commas. \
+                             Entry `{}` is immediately followed by `{}` with no comma between \
+                             them — add a comma after the closing `}}` of `{}`. Without it the \
+                             parser silently drops `{}` and every entry after it.",
+                            keyword_name(kind),
+                            name,
+                            next,
+                            name,
+                            next
+                        ),
+                        line: 0,
+                        col: 0,
+                        code: Some("C447".to_string()),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
         // Per-kind rules per spec §2.4:
         //   $prop       — always wrapped (no running code to imply)
         //   $lifecycle  — always bare (no metadata-bag form, per D.3)

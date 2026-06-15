@@ -610,6 +610,74 @@ const openTerm = (e: Event, t: unknown) => {}
     );
 }
 
+#[test]
+fn comma_less_collection_entries_error_c447_not_silent_drop() {
+    // Collection entries are comma-separated. A missing comma between wrapped
+    // entries previously caused the splitter to collapse them into one chunk
+    // and silently keep only the first — wrong runtime codegen (referenced
+    // handlers undefined → ReferenceError) and broken sidecars, no diagnostic.
+    // It must now be a clear C447 compile error.
+    let src = r#"@state {
+  count: number = 0
+  $action: {
+    increment: { handler: () => { count++ }, describe: 'a' }
+    decrement: { handler: () => { count-- }, describe: 'b' }
+    reset:     { handler: () => { count = 0 }, describe: 'c' }
+  }
+}
+@template { <button $on.click={increment}>+</button> }"#;
+    let parsed = aihu_compiler::sfc::parse(src).unwrap();
+    let err = aihu_compiler::compile_full(&parsed)
+        .expect_err("comma-less collection entries must error, not silently drop");
+    assert_eq!(err.code.as_deref(), Some("C447"), "expected C447; got {:?}", err.code);
+    // Message must name the dropped entry so the fix is obvious.
+    assert!(
+        err.message.contains("decrement") && err.message.contains("comma"),
+        "C447 must name the dropped entry + cite the missing comma: {}",
+        err.message
+    );
+}
+
+#[test]
+fn comma_separated_collection_entries_compile_clean() {
+    // Guard: the canonical comma-separated form (incl. trailing comma) must keep
+    // compiling — all entries captured, no false C447.
+    let src = r#"@state {
+  count: number = 0
+  $action: {
+    increment: { handler: () => { count++ }, describe: 'a' },
+    decrement: { handler: () => { count-- }, describe: 'b' },
+  }
+}
+@template { <button $on.click={increment}>+</button><button $on.click={decrement}>-</button> }"#;
+    let parsed = aihu_compiler::sfc::parse(src).unwrap();
+    let js = aihu_compiler::compile_full(&parsed)
+        .map(|u| aihu_compiler::emit(&u, "x-actions").js)
+        .expect("comma-separated collections must compile");
+    assert!(
+        js.contains("function increment") && js.contains("function decrement"),
+        "both actions must be wired:\n{js}"
+    );
+}
+
+#[test]
+fn bare_typed_arrow_collection_entry_not_false_flagged() {
+    // Guard: a bare arrow value with a top-level return-type colon
+    // (`(t: number): string => …`) must NOT be mistaken for a missing comma.
+    let src = r#"@state {
+  $action: {
+    ago: (t: number): string => { return `${t}m` },
+    host: (u: string): string => { return u },
+  }
+}
+@template { <span>{ago(5)}</span> }"#;
+    let parsed = aihu_compiler::sfc::parse(src).unwrap();
+    assert!(
+        aihu_compiler::compile_full(&parsed).is_ok(),
+        "typed bare-arrow entries must not trip the missing-comma guard"
+    );
+}
+
 // ─── B3b — $event collection-form parsing (AC9 prerequisite) ─────────────────
 
 #[test]
