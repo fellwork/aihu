@@ -168,39 +168,39 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 242 B | 300 B | pass |
-| `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.60 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.73 kB | 3900 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 757 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 1.17 kB | 1400 B | pass |
-| `@aihu/agent-acp` | 586 B | 600 B | pass |
-| `@aihu/agent-a2a` | 717 B | 750 B | pass |
-| `@aihu/app` | 1.58 kB | 1750 B | pass |
-| `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.32 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 2.01 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.83 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/primitives/separator` | 566 B | 4 KB | pass |
-| `@aihu/primitives/label` | 1.77 kB | 4 KB | pass |
-| `@aihu/primitives/input` | 1.43 kB | 4 KB | pass |
-| `@aihu/primitives/textarea` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
-| `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
-| `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2800 B | _no dist_ |
+| `@aihu/runtime` | — | 3900 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 1400 B | _no dist_ |
+| `@aihu/agent-acp` | — | 600 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
+| `@aihu/app` | — | 1750 B | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
+| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/separator` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/label` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/input` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/textarea` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -246,11 +246,11 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/arbor`](./packages/arbor) | `1.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `1.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.6.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.9.2` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.9.3` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.3` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.1` | [MOVED] This package has moved to @aihu-plugin/data. |
-| [`@aihu/language-server`](./packages/language-server) | `0.2.10` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/language-server`](./packages/language-server) | `0.2.11` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
 | [`@aihu/magna`](./packages/magna) | `0.2.1` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |

@@ -1,5 +1,12 @@
 # @aihu/example-storefront
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [[`08ba1a7`](https://github.com/fellwork/aihu/commit/08ba1a7a2fb5cba9f6ce1b4bfddf666264b45277)]:
+  - @aihu/compiler@0.9.3
+
 ## 0.0.8
 
 ### Patch Changes
