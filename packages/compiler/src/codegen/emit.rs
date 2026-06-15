@@ -243,7 +243,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 /// concrete type-checking depth grows in later rounds.
 fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     let nodes = unit.template_ast.as_ref()?;
-    let mut exprs: Vec<String> = Vec::new();
+    let mut exprs: Vec<SidecarExpr> = Vec::new();
     collect_template_exprs(nodes, &mut exprs);
     // Always emit a sidecar when a template is present so tsc has a per-SFC
     // surface to check, even if the @template happens to contain only static
@@ -320,6 +320,7 @@ declare const onMount: (fn: () => void | (() => void)) => void;
 declare const onCleanup: (fn: () => void) => void;
 declare const onAdopt: (fn: () => void) => void;
 declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;
+declare function __handler(h: (...args: any[]) => any): void;
 {}
 {}
 ",
@@ -328,10 +329,20 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
     let body_exprs: Vec<String> = exprs
         .iter()
         .map(|e| {
-            // Wrap each expression in `void (...)` so its result type isn't
-            // checked beyond syntactic validity. tsc will still flag undefined
-            // identifiers and most type errors.
-            format!("  void ({});", e)
+            if e.is_handler {
+                // Event handlers (`$on.click={(e) => …}`) are functions. Pass
+                // them in CALL position to a `(...args: any[]) => any` param so
+                // their inline arrow params get a contextual `any` type — a bare
+                // `void ((e) => …)` leaves `e` implicit-any → TS7006 under
+                // noImplicitAny. A non-function handler still type-errors here
+                // (caught, as intended).
+                format!("  __handler({});", e.expr)
+            } else {
+                // Wrap value expressions in `void (...)` so the result type
+                // isn't checked beyond syntactic validity; tsc still flags
+                // undefined identifiers and most type errors.
+                format!("  void ({});", e.expr)
+            }
         })
         .collect();
     let body = body_exprs.join("\n");
@@ -367,7 +378,7 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
     let scope_names = collect_sidecar_scope_names(script, nodes);
     let referenced: Vec<String> = scope_names
         .into_iter()
-        .filter(|name| exprs.iter().any(|e| expr_references_ident(e, name)))
+        .filter(|name| exprs.iter().any(|e| expr_references_ident(&e.expr, name)))
         .collect();
     let params = referenced
         .iter()
@@ -433,43 +444,76 @@ fn is_js_ident(s: &str) -> bool {
 /// Collect the bound names from `import` statements in the @state script:
 /// `import { a, b as c } from '…'` → a, c; `import D from '…'` → D;
 /// `import * as N from '…'` → N. Type-only imports contribute names too —
-/// harmless as `any` params.
+/// harmless as `any` params. Handles MULTI-LINE imports (named lists split
+/// across lines), which the previous line-at-a-time scan missed — that miss is
+/// why imported handlers like `closeNav` still TS2304'd.
 fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<String>) {
+    // Reassemble each `import …` statement (it may span several lines) up to and
+    // including its `from '…'` tail, then parse that single logical statement.
+    let mut buf = String::new();
+    let mut in_import = false;
     for line in script.lines() {
         let t = line.trim();
-        let Some(rest) = t.strip_prefix("import ") else {
-            continue;
-        };
-        if let (Some(lb), Some(rb)) = (rest.find('{'), rest.find('}')) {
-            if lb < rb {
-                // Named imports (may coexist with a default before the brace).
-                for part in rest[lb + 1..rb].split(',') {
-                    let bound = part.trim().rsplit(" as ").next().unwrap_or("").trim();
-                    if is_js_ident(bound) {
-                        out.insert(bound.to_string());
-                    }
-                }
-                // Default import preceding the brace: `import D, { … } from …`.
-                let head = rest[..lb].trim().trim_end_matches(',').trim();
-                if is_js_ident(head) {
-                    out.insert(head.to_string());
-                }
-                continue;
+        if !in_import {
+            if t.starts_with("import ") {
+                in_import = true;
+                buf.clear();
+                buf.push_str(t);
             }
+        } else {
+            buf.push(' ');
+            buf.push_str(t);
         }
-        if let Some(star) = rest.strip_prefix("* as ") {
-            if let Some(n) = star.split_whitespace().next() {
-                if is_js_ident(n) {
-                    out.insert(n.to_string());
+        // A statement is complete once it carries its `from` clause (named/
+        // default/namespace imports). Side-effect imports (`import './x'`,
+        // no `from`) bind nothing — terminate them on the trailing quote.
+        let done = in_import
+            && (buf.contains(" from ")
+                || buf.trim_end().ends_with('\'')
+                || buf.trim_end().ends_with('"')
+                || buf.trim_end().ends_with(';'));
+        if done {
+            parse_import_statement(&buf, out);
+            in_import = false;
+            buf.clear();
+        }
+    }
+}
+
+/// Parse one assembled `import …` statement for its bound names.
+fn parse_import_statement(stmt: &str, out: &mut std::collections::BTreeSet<String>) {
+    let Some(rest) = stmt.trim().strip_prefix("import ") else {
+        return;
+    };
+    if let (Some(lb), Some(rb)) = (rest.find('{'), rest.find('}')) {
+        if lb < rb {
+            for part in rest[lb + 1..rb].split(',') {
+                // `name` or `name as alias` (the alias is the local binding).
+                let bound = part.trim().rsplit(" as ").next().unwrap_or("").trim();
+                if is_js_ident(bound) {
+                    out.insert(bound.to_string());
                 }
             }
-            continue;
+            // Default import preceding the brace: `import D, { … } from …`.
+            let head = rest[..lb].trim().trim_end_matches(',').trim();
+            if is_js_ident(head) {
+                out.insert(head.to_string());
+            }
+            return;
         }
-        // Default import: `import D from '…'`.
-        if let Some(n) = rest.split_whitespace().next() {
+    }
+    if let Some(star) = rest.strip_prefix("* as ") {
+        if let Some(n) = star.split_whitespace().next() {
             if is_js_ident(n) {
                 out.insert(n.to_string());
             }
+        }
+        return;
+    }
+    // Default import: `import D from '…'`.
+    if let Some(n) = rest.split_whitespace().next() {
+        if is_js_ident(n) {
+            out.insert(n.to_string());
         }
     }
 }
@@ -582,63 +626,62 @@ fn expr_references_ident(expr: &str, name: &str) -> bool {
     false
 }
 
+/// A template expression collected for the type-check sidecar, tagged by
+/// whether it's an event-handler value (a function — emitted in call position
+/// so its inline arrow params get a contextual type) vs a plain value.
+struct SidecarExpr {
+    expr: String,
+    is_handler: bool,
+}
+
 /// Walk the template AST and collect every JS expression appearing in a
 /// curly-binding, $on handler, $bind expr, {#if cond}, {#each list as item},
 /// {@html expr}, or text interpolation.
-fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<String>) {
+fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
+    // Shared attribute handling for Element + MacroElement.
+    fn push_attrs(attrs: &[Attr], out: &mut Vec<SidecarExpr>) {
+        for a in attrs {
+            match a {
+                // `$each="list as item"` — collect the LIST expression (mirrors
+                // the {#each} block arm's `list_expr` push) so its reads are
+                // type-checked and an OUTER loop alias used only inside an inner
+                // each's iterable (`s` in `s.books as b`) still counts as
+                // referenced.
+                Attr::Macro { name, value } if name == "each" => {
+                    let clause = macro_value_expr(value);
+                    let list = clause.split_once(" as ").map(|(l, _)| l).unwrap_or(&clause);
+                    out.push(SidecarExpr { expr: list.trim().to_string(), is_handler: false });
+                }
+                // `$on.*={handler}` normalizes to an `on:<event>` attr — the
+                // value is a function, emitted in call position so inline arrow
+                // params (`(e) => …`) get a contextual `any` type (else TS7006).
+                Attr::Macro { name, value } if name.starts_with("on:") => {
+                    out.push(SidecarExpr { expr: macro_value_expr(value), is_handler: true });
+                }
+                Attr::Binding { expr, .. } => {
+                    out.push(SidecarExpr { expr: expr.clone(), is_handler: false });
+                }
+                Attr::Macro { value: MacroValue::Curly(s), .. } => {
+                    out.push(SidecarExpr { expr: s.clone(), is_handler: false });
+                }
+                _ => {}
+            }
+        }
+    }
     for node in nodes {
         match node {
-            TemplateNode::Element { attrs, children, .. } => {
-                for a in attrs {
-                    match a {
-                        // `$each="list as item"` — collect the LIST expression
-                        // (mirrors the {#each} block arm's `list_expr` push) so
-                        // its reads are type-checked and an OUTER loop alias used
-                        // only inside an inner each's iterable (`s` in
-                        // `s.books as b`) still counts as referenced.
-                        Attr::Macro { name, value } if name == "each" => {
-                            let clause = macro_value_expr(value);
-                            let list = clause
-                                .split_once(" as ")
-                                .map(|(l, _)| l)
-                                .unwrap_or(&clause);
-                            out.push(list.trim().to_string());
-                        }
-                        Attr::Binding { expr, .. } => out.push(expr.clone()),
-                        Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
-                        _ => {}
-                    }
-                }
+            TemplateNode::Element { attrs, children, .. }
+            | TemplateNode::MacroElement { attrs, children, .. } => {
+                push_attrs(attrs, out);
                 collect_template_exprs(children, out);
             }
-            TemplateNode::MacroElement { attrs, children, .. } => {
-                for a in attrs {
-                    match a {
-                        // `$each="list as item"` — collect the LIST expression
-                        // (mirrors the {#each} block arm's `list_expr` push) so
-                        // its reads are type-checked and an OUTER loop alias used
-                        // only inside an inner each's iterable (`s` in
-                        // `s.books as b`) still counts as referenced.
-                        Attr::Macro { name, value } if name == "each" => {
-                            let clause = macro_value_expr(value);
-                            let list = clause
-                                .split_once(" as ")
-                                .map(|(l, _)| l)
-                                .unwrap_or(&clause);
-                            out.push(list.trim().to_string());
-                        }
-                        Attr::Binding { expr, .. } => out.push(expr.clone()),
-                        Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
-                        _ => {}
-                    }
-                }
-                collect_template_exprs(children, out);
+            TemplateNode::Interpolation(s) => {
+                out.push(SidecarExpr { expr: s.clone(), is_handler: false })
             }
-            TemplateNode::Interpolation(s) => out.push(s.clone()),
             TemplateNode::IfBlock { branches } => {
                 for (cond, body) in branches {
                     if !cond.is_empty() {
-                        out.push(cond.clone());
+                        out.push(SidecarExpr { expr: cond.clone(), is_handler: false });
                     }
                     collect_template_exprs(body, out);
                 }
@@ -650,16 +693,18 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<String>) {
                 empty_body,
                 ..
             } => {
-                out.push(list_expr.clone());
+                out.push(SidecarExpr { expr: list_expr.clone(), is_handler: false });
                 if let Some(k) = key_expr {
-                    out.push(k.clone());
+                    out.push(SidecarExpr { expr: k.clone(), is_handler: false });
                 }
                 collect_template_exprs(body, out);
                 if let Some(eb) = empty_body {
                     collect_template_exprs(eb, out);
                 }
             }
-            TemplateNode::HtmlBlock { expr } => out.push(expr.clone()),
+            TemplateNode::HtmlBlock { expr } => {
+                out.push(SidecarExpr { expr: expr.clone(), is_handler: false })
+            }
             TemplateNode::Text(_) => {}
         }
     }
