@@ -444,6 +444,71 @@ fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
     );
 }
 
+#[test]
+fn sidecar_declares_state_bindings_referenced_by_template() {
+    // Regression: the sidecar emitted `void (toggle())` / `void (label())` for
+    // user @state consts but never DECLARED them, so every such sidecar failed
+    // tsc with `TS2304: Cannot find name`. Repo-wide breakage surfaced whenever
+    // sidecars were regenerated (web + api). The generator must declare every
+    // @state binding the template can reference.
+    let src = r#"@state {
+import { signal, computed } from '@aihu/signals'
+const [open, setOpen] = signal(false)
+const toggle = () => setOpen(!open())
+const label = computed(() => open() ? 'Close' : 'Open')
+}
+@template { <button $on.click={toggle}>{label()}</button> }"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-sidecar-state");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    // The template references `toggle` and `label`; both must be in scope as
+    // __aihu_template parameters so the `void (...)` checks resolve instead of
+    // TS2304-ing. Parameters (not module-scope decls) so names that shadow DOM
+    // globals like `open` don't collide (TS2451).
+    assert!(
+        sidecar.contains("function __aihu_template(")
+            && sidecar.contains("toggle: any")
+            && sidecar.contains("label: any"),
+        "sidecar must declare referenced @state bindings as params:\n{sidecar}"
+    );
+    // `open` is referenced (inside `toggle`'s expr is NOT in template, but the
+    // setter use is) — it is NOT referenced by a template expr here, so it must
+    // NOT be emitted (no unused params).
+    assert!(
+        !sidecar.contains("open: any"),
+        "unreferenced @state bindings must not become params:\n{sidecar}"
+    );
+    // Framework globals must NOT be re-declared (typed in the preamble already).
+    assert!(
+        !sidecar.contains("signal: any"),
+        "framework globals must not be shadowed:\n{sidecar}"
+    );
+}
+
+#[test]
+fn sidecar_declares_prop_and_computed_collection_names() {
+    // $prop / $computed entry names are template-referenceable @state symbols
+    // too — they must be declared in the sidecar.
+    let src = r#"@state {
+  $prop: { active: { default: '', type: string } }
+  $computed: { cls: () => active() === 'home' ? 'on' : '' }
+}
+@template { <a $class={cls()}>{active()}</a> }"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-sidecar-prop");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("active: any"),
+        "sidecar must declare the `active` $prop as a param:\n{sidecar}"
+    );
+    assert!(
+        sidecar.contains("cls: any"),
+        "sidecar must declare the `cls` $computed as a param:\n{sidecar}"
+    );
+}
+
 // ─── B3b — $event collection-form parsing (AC9 prerequisite) ─────────────────
 
 #[test]
