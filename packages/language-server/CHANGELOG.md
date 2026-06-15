@@ -1,5 +1,12 @@
 # @aihu/language-server
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [[`fba3f04`](https://github.com/fellwork/aihu/commit/fba3f04eb986fa0540c1424296b81d75556794ad)]:
+  - @aihu/compiler@0.9.2
+
 ## 0.2.9
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @aihu/example-cf-adapter
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [[`fba3f04`](https://github.com/fellwork/aihu/commit/fba3f04eb986fa0540c1424296b81d75556794ad)]:
+  - @aihu/compiler@0.9.2
+  - @aihu/app@3.0.1
+
 ## 0.0.8
 
 ### Patch Changes
