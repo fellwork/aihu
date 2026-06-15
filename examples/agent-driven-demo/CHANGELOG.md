@@ -1,5 +1,12 @@
 # @aihu/example-agent-driven-demo
 
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [[`72596d3`](https://github.com/fellwork/aihu/commit/72596d3ae9757fd763bb428628aa594ca414b4a1)]:
+  - @aihu/compiler@0.9.6
+
 ## 0.0.11
 
 ### Patch Changes
