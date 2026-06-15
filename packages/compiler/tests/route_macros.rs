@@ -312,3 +312,76 @@ fn navigate_element_emits_boundary() {
         "<$navigate> should call createNavigateBoundary, got:\n{js}"
     );
 }
+
+// ─── <$link href> reactivity ──────────────────────────────────────────────────
+
+#[test]
+fn link_dynamic_href_is_reactive_thunk() {
+    // Confirmed bug: `<$link href={readHref()}>` passed the EVALUATED string to
+    // createLinkBoundary (`createLinkBoundary(readHref(), …)`), so the boundary
+    // baked the href once at mount and the rendered <a> never tracked the
+    // selection signal — Read/Study links stayed on the chapter regardless of
+    // verse selection. A dynamic href must be passed as a THUNK so the boundary
+    // binds it reactively (mirroring a plain `<a $href={…}>`).
+    let source = r#"@state {
+import { signal, computed } from '@aihu/signals'
+const [verse, setVerse] = signal(1)
+const readHref = computed(() => `/read/${verse()}`)
+}
+@template { <$link href={readHref()}>Read</$link> }"#;
+    let js = compile(source, "x-link-dyn-href");
+    assert!(
+        js.contains("createLinkBoundary(() => (readHref())"),
+        "dynamic href must be passed as a thunk, got:\n{js}"
+    );
+    assert!(
+        !js.contains("createLinkBoundary(readHref(),"),
+        "must NOT pass the eagerly-evaluated href (the non-reactivity bug), got:\n{js}"
+    );
+    // The boundary binds a function href via the thunk-array attr form and
+    // reads the live value for navigation / aria-current.
+    assert!(
+        js.contains("href: typeof href === 'function' ? [() => href()] : href"),
+        "createLinkBoundary must bind a function href reactively, got:\n{js}"
+    );
+    assert!(
+        js.contains("const hrefVal = typeof href === 'function' ? href : () => href"),
+        "createLinkBoundary must read the live href for navigate/aria, got:\n{js}"
+    );
+    assert!(
+        js.contains("__aihuRouter.navigate(hrefVal()"),
+        "navigation must use the current href value, got:\n{js}"
+    );
+}
+
+#[test]
+fn link_static_href_stays_eager_string() {
+    // Guard against over-wrapping: a static href is a plain quoted string, so
+    // the link pays no per-link effect and renders the attribute directly.
+    let source = r#"@template { <$link href="/about">About</$link> }"#;
+    let js = compile(source, "x-link-static-href");
+    assert!(
+        js.contains("createLinkBoundary('/about'"),
+        "static href must stay a quoted string, got:\n{js}"
+    );
+    assert!(
+        !js.contains("createLinkBoundary(() =>"),
+        "static href must NOT be wrapped in a thunk, got:\n{js}"
+    );
+}
+
+#[test]
+fn link_dynamic_href_prop_read_is_rewritten() {
+    // FEL-172 must reach the href expr too: a prop getter read in the href
+    // expression is rewritten to a call so the thunk reads the VALUE.
+    let source = r#"@state {
+  $prop: { study: { default: null, type: object } }
+}
+@template { <$link href={study.url}>Open</$link> }"#;
+    let js = compile(source, "x-link-prop-href");
+    assert!(
+        js.contains("createLinkBoundary(() => (study().url)")
+            || js.contains("createLinkBoundary(() => ((study() as any).url)"),
+        "FEL-172: prop read in href must be rewritten to a call, got:\n{js}"
+    );
+}
