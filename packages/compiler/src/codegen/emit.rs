@@ -336,18 +336,107 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
         .collect();
     let body = body_exprs.join("\n");
     // B3b — DO NOT embed the user @state script verbatim. The script body
-    // contains aihu macros (`$prop`, `$computed`, `$event` etc.) which
-    // surface as labeled-statement-shaped lines and are NOT valid TypeScript
-    // — they would emit noisy `TS1128 Declaration or statement expected`
-    // errors that mask real template type errors. The framework globals are
-    // already permissively re-declared in the preamble; that's enough for
-    // tsc to type-check the template expressions in `__aihu_template`.
-    let _ = script;
+    // contains aihu macros (`$prop`, `$computed`, `$event` etc.) which surface
+    // as labeled-statement-shaped lines and are NOT valid TypeScript — they
+    // emit noisy `TS1128` that masks real template type errors.
+    //
+    // BUT the framework-global preamble alone is not enough: a template that
+    // reads a user `@state` binding (`void (toggle())`, `void (label())`)
+    // needs that name in scope, or tsc reports `TS2304: Cannot find name`.
+    // Since #129 removed the raw-script embed without replacing it, every SFC
+    // whose template reads @state produced a broken sidecar — latent until the
+    // sidecars were regenerated (web + api both hit it).
+    //
+    // Declare each REFERENCED @state binding as a PARAMETER of __aihu_template
+    // (typed `any` — precise typing is a watched B3+ item). Parameters, not
+    // module-scope `declare const`, because a binding may shadow a DOM global
+    // (`open`, `close`, `name`, `status`, `location`, …): an ambient
+    // `declare const open` collides with lib.dom's `open` (`TS2451`), whereas
+    // a parameter cleanly shadows it. Only names actually referenced by a
+    // template expression are emitted, so there are no unused parameters.
+    let state_names = collect_state_names_for_sidecar(script);
+    let referenced: Vec<String> = state_names
+        .into_iter()
+        .filter(|name| exprs.iter().any(|e| expr_references_ident(e, name)))
+        .collect();
+    let params = referenced
+        .iter()
+        .map(|n| format!("{}: any", n))
+        .collect::<Vec<_>>()
+        .join(", ");
     let out = format!(
-        "{}{}\nfunction __aihu_template(): void {{\n{}\n}}\n",
-        header, preamble, body
+        "{}{}\nfunction __aihu_template({}): void {{\n{}\n}}\n",
+        header, preamble, params, body
     );
     Some(out)
+}
+
+/// Every `@state` binding name (signals, computeds, plain consts, and
+/// `$prop`/`$computed`/`$action`/`$resource`/… collection names) MINUS the
+/// framework globals the sidecar preamble already declares — those would
+/// duplicate the typed decls.
+fn collect_state_names_for_sidecar(script: &str) -> Vec<String> {
+    const PREAMBLE_GLOBALS: &[&str] = &[
+        "signal",
+        "computed",
+        "onMount",
+        "onCleanup",
+        "onAdopt",
+        "onAttributeChange",
+    ];
+    crate::codegen::signals::collect_state_decls(script)
+        .all
+        .into_iter()
+        .filter(|n| !PREAMBLE_GLOBALS.contains(&n.as_str()))
+        .collect()
+}
+
+/// True iff `name` appears as a standalone identifier token in `expr` (not a
+/// member access `obj.name`, not inside a string literal). Mirrors the scan in
+/// `expr_references_state`, specialized to one name.
+fn expr_references_ident(expr: &str, name: &str) -> bool {
+    let bytes = expr.as_bytes();
+    let mut i = 0usize;
+    let mut prev_significant: u8 = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c == b'\'' || c == b'"' || c == b'`' {
+            let quote = c;
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    i += 2;
+                    continue;
+                }
+                if bytes[i] == quote {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            prev_significant = quote;
+            continue;
+        }
+        if c.is_ascii_alphabetic() || c == b'_' || c == b'$' {
+            let start = i;
+            while i < bytes.len()
+                && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'$')
+            {
+                i += 1;
+            }
+            // Member-access property (`.name`) is not a reference to the binding.
+            if prev_significant != b'.' && &expr[start..i] == name {
+                return true;
+            }
+            prev_significant = bytes[i - 1];
+            continue;
+        }
+        if !c.is_ascii_whitespace() {
+            prev_significant = c;
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Walk the template AST and collect every JS expression appearing in a
