@@ -149,12 +149,54 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
     // INSIDE a `$action`/`$effect` arrow body is NOT mistaken for a top-level
     // @state const.
     for line in plain_state_lines(script) {
-        if let Some(name) = extract_decl_name(line.trim()) {
+        let lt = line.trim();
+        if let Some(name) = extract_decl_name(lt) {
+            decls.all.insert(name);
+        }
+        // Destructuring bindings: `const [showLine] = signal(false)` (single
+        // element — `resolve_signals` only seeds two-element getter/setter
+        // pairs), `const [a, b, c] = …`, and `const { x, y } = …`. Every bound
+        // name is a referenceable @state binding.
+        for name in extract_destructure_names(lt) {
             decls.all.insert(name);
         }
     }
 
     decls
+}
+
+/// Extract every simple binding name from a destructuring `const`/`let`:
+/// `const [a, b] = …` → a, b; `const [only] = …` → only; `const { x, y: z } = …`
+/// → x, z; defaults (`a = 1`) and object renames (`y: z`) yield the bound name.
+/// Best-effort, flat (does not recurse into nested patterns) — over-collection
+/// is harmless for the callers that filter by template reference.
+fn extract_destructure_names(line: &str) -> Vec<String> {
+    let rest = match line.strip_prefix("const ").or_else(|| line.strip_prefix("let ")) {
+        Some(r) => r.trim_start(),
+        None => return Vec::new(),
+    };
+    let close = match rest.chars().next() {
+        Some('[') => ']',
+        Some('{') => '}',
+        _ => return Vec::new(),
+    };
+    let Some(close_idx) = rest.find(close) else {
+        return Vec::new();
+    };
+    let inner = &rest[1..close_idx];
+    let mut names = Vec::new();
+    for part in inner.split(',') {
+        // strip default value (`a = 1`) then object rename (`key: binding`).
+        let no_default = part.split('=').next().unwrap_or("").trim();
+        let binding = no_default
+            .split_once(':')
+            .map(|(_, b)| b.trim())
+            .unwrap_or(no_default);
+        if let Some(id) = leading_ident(binding) {
+            names.push(id);
+        }
+    }
+    names
 }
 
 /// Return the TOP-LEVEL plain lines of a `@state` body — every line that is NOT

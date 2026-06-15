@@ -557,6 +557,59 @@ const chaptersOf = (bk: string) => []
     }
 }
 
+#[test]
+fn sidecar_handles_multiline_imports_single_destructure_and_handler_params() {
+    // The final three sidecar gaps after 0.9.4: (1) a MULTI-LINE import (the
+    // line-at-a-time scan missed these), (2) a single-element destructure
+    // `const [showLine] = signal()` (resolve_signals only seeds 2-element
+    // pairs), (3) an inline event-handler param `(e) => …` (emitted bare it is
+    // implicit-any → TS7006).
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+import {
+  closeNav,
+  toggleTheme,
+} from '../lib/store.ts'
+const [showLine] = signal(false)
+const openTerm = (e: Event, t: unknown) => {}
+}
+@template {
+  <div>
+    <button $on.click={() => closeNav()}>x</button>
+    <button $on.click={() => toggleTheme()}>t</button>
+    {#if showLine}<hr />{/if}
+    <a $on.click={(e) => openTerm(e, showLine())}>go</a>
+  </div>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-sidecar-final");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    // Multi-line import names + single-element destructure are in scope.
+    for name in ["closeNav: any", "toggleTheme: any", "showLine: any"] {
+        assert!(sig.contains(name), "sidecar must declare `{name}`:\n{sig}");
+    }
+    // Handlers go through the __handler() helper (call position) so their inline
+    // arrow params get a contextual `any` type instead of implicit-any (TS7006).
+    assert!(
+        sidecar.contains("declare function __handler(h: (...args: any[]) => any): void;"),
+        "sidecar must declare the __handler typing helper:\n{sidecar}"
+    );
+    assert!(
+        sidecar.contains("__handler((e) => openTerm(e, showLine()))"),
+        "inline handler must be emitted via __handler(...):\n{sidecar}"
+    );
+    // Plain value expressions still use `void (...)`, not __handler.
+    assert!(
+        sidecar.contains("void (showLine)"),
+        "non-handler exprs stay `void (...)`:\n{sidecar}"
+    );
+}
+
 // ─── B3b — $event collection-form parsing (AC9 prerequisite) ─────────────────
 
 #[test]
