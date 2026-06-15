@@ -509,6 +509,54 @@ fn sidecar_declares_prop_and_computed_collection_names() {
     );
 }
 
+#[test]
+fn sidecar_declares_setters_loop_aliases_and_imports() {
+    // The three extraction gaps that remained after the first sidecar fix, all
+    // in one SFC: (1) a signal SETTER used in a handler, (2) `$each` loop
+    // aliases including one whose iterable has a nested call
+    // (`chaptersOf(selBook()) as c`), (3) a name imported into @state and used
+    // directly in the template. Each must be an `__aihu_template` parameter or
+    // the regenerated sidecar TS2304s.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+import { closeNav, activeStudy } from './nav-store.ts'
+const [sel, setSel] = signal('')
+const sections = () => []
+const selBook = () => 'Gen'
+const chaptersOf = (bk: string) => []
+}
+@template {
+  <ul>
+    <li $each="sections() as s">
+      <span $each="s.books as b" $on.click={() => setSel(b.id)}>{b.name}</span>
+      <i $each="chaptersOf(selBook()) as c">{c}</i>
+      <button $on.click={closeNav}>{activeStudy()}</button>
+    </li>
+  </ul>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "x-sidecar-gaps");
+    let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    for name in [
+        "setSel: any",      // signal setter
+        "s: any",           // loop alias (call iterable)
+        "b: any",           // loop alias (member iterable)
+        "c: any",           // loop alias — NESTED-CALL iterable (the big gap)
+        "closeNav: any",    // imported, used in handler
+        "activeStudy: any", // imported, used in interpolation
+    ] {
+        assert!(
+            sig.contains(name),
+            "sidecar __aihu_template must declare `{name}`:\n{sig}"
+        );
+    }
+}
+
 // ─── B3b — $event collection-form parsing (AC9 prerequisite) ─────────────────
 
 #[test]
