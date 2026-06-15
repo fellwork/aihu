@@ -764,7 +764,7 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
     }
     if h.link_element {
         // `<$link>` — render <a>, intercept clicks, set aria-current via effect.
-        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  // Compose any author `$on.click` with SPA navigation. Click is wired as an\n  // arbor event attr (owner-agnostic) so <$link> works inside $each/$if item\n  // factories, where there is no component-setup owner for onMount/effect.\n  const _userClick = attrs && typeof attrs.onClick === 'function' ? attrs.onClick : null;\n  const onClick = (e) => {\n    if (_userClick) _userClick(e);\n    if (e.defaultPrevented || e.button !== 0) return;\n    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n    // No reactive <$router> context (e.g. createApp): let the click bubble to\n    // @aihu/app's document-level delegation (or the browser) instead of a hard\n    // location.assign. With context present, navigate() does SPA nav here.\n    if (!__aihuRouter.useRouter()) return;\n    e.preventDefault();\n    void __aihuRouter.navigate(href, { replace: !!replace });\n  };\n  const node = branch('a', { ...(attrs || {}), href, 'data-aihu-link': '', onClick }, children);\n  // Prefetch + aria-current need the live <a> at mount and use onMount, which\n  // requires a component-setup owner. Inside an each/if factory there is none,\n  // so guard the registration: looped links still navigate (onClick above) —\n  // they just skip prefetch + aria-current rather than throwing 'no owner'.\n  try {\n    onMount(() => {\n      const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n      const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n      if (!a) return () => {};\n      const ariaCompute = () => {\n        const r = __aihuRouter.useRoute();\n        return r && r.pathname === href ? 'page' : null;\n      };\n      const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n      pf.attach(a, ariaCompute);\n      const stop = effect(() => {\n        const v = ariaCompute();\n        if (v) a.setAttribute('aria-current', v);\n        else a.removeAttribute('aria-current');\n      });\n      return () => { pf.detach(a); stop && stop(); };\n    });\n  } catch {}\n  return node;\n};");
+        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  // Compose any author `$on.click` with SPA navigation. Click is wired as an\n  // arbor event attr (owner-agnostic) so <$link> works inside $each/$if item\n  // factories, where there is no component-setup owner for onMount/effect.\n  // href may be a reactive thunk (dynamic `href={expr}`) or a static string.\n  // hrefVal() yields the current string for imperative reads (navigation,\n  // aria-current); the rendered <a> binds the thunk-array form so its href\n  // attribute tracks signal changes, mirroring a plain `<a $href={…}>`.\n  const hrefVal = typeof href === 'function' ? href : () => href;\n  const _userClick = attrs && typeof attrs.onClick === 'function' ? attrs.onClick : null;\n  const onClick = (e) => {\n    if (_userClick) _userClick(e);\n    if (e.defaultPrevented || e.button !== 0) return;\n    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n    // No reactive <$router> context (e.g. createApp): let the click bubble to\n    // @aihu/app's document-level delegation (or the browser) instead of a hard\n    // location.assign. With context present, navigate() does SPA nav here.\n    if (!__aihuRouter.useRouter()) return;\n    e.preventDefault();\n    void __aihuRouter.navigate(hrefVal(), { replace: !!replace });\n  };\n  const node = branch('a', { ...(attrs || {}), href: typeof href === 'function' ? [() => href()] : href, 'data-aihu-link': '', onClick }, children);\n  // Prefetch + aria-current need the live <a> at mount and use onMount, which\n  // requires a component-setup owner. Inside an each/if factory there is none,\n  // so guard the registration: looped links still navigate (onClick above) —\n  // they just skip prefetch + aria-current rather than throwing 'no owner'.\n  try {\n    onMount(() => {\n      const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n      const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n      if (!a) return () => {};\n      const ariaCompute = () => {\n        const r = __aihuRouter.useRoute();\n        return r && r.pathname === hrefVal() ? 'page' : null;\n      };\n      const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n      pf.attach(a, ariaCompute);\n      const stop = effect(() => {\n        const v = ariaCompute();\n        if (v) a.setAttribute('aria-current', v);\n        else a.removeAttribute('aria-current');\n      });\n      return () => { pf.detach(a); stop && stop(); };\n    });\n  } catch {}\n  return node;\n};");
     }
     if h.outlet_element {
         // `<$outlet>` — render the matched route component as a child custom element.
@@ -4075,8 +4075,14 @@ fn emit_macro_element(
 
         "link" => {
             // `<$link href prefetch replace>` — RFC-A5-012.
-            let href_expr = find_static_or_binding_attr(attrs, "href")
-                .unwrap_or_else(|| "'#'".to_string());
+            // A DYNAMIC href (`href={expr}`) is passed as a THUNK so the
+            // boundary can bind it reactively (mirroring a plain
+            // `<a $href={…}>`); the old eager form evaluated the expr once at
+            // the call site and baked the string into the <a>, so a selection
+            // signal change never updated the link. A static href stays a
+            // quoted string (no needless per-link effect).
+            let href_expr =
+                link_href_arg(attrs, signal_map).unwrap_or_else(|| "'#'".to_string());
             let prefetch_expr = find_static_or_binding_attr(attrs, "prefetch")
                 .unwrap_or_else(|| "'none'".to_string());
             let replace_expr = find_static_or_binding_attr(attrs, "replace")
@@ -4148,6 +4154,36 @@ fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Opt
 }
 
 /// Find a static OR curly-binding attribute value by name.
+/// `<$link href>` argument for `createLinkBoundary`. A dynamic href
+/// (`href={expr}`) is wrapped in a thunk `() => (expr)` so the boundary binds
+/// it reactively (the eager form baked the value once → links never tracked a
+/// selection signal). A static href (`href="/x"`) stays a quoted string so
+/// static links pay no per-link effect. Bare getter reads in the expr are
+/// rewritten to calls (FEL-172) so prop/signal hrefs read values, not the
+/// getter function.
+fn link_href_arg(attrs: &[crate::types::Attr], signal_map: &SignalMap) -> Option<String> {
+    use crate::types::Attr;
+    attrs.iter().find_map(|a| match a {
+        Attr::Static { name, value } if name == "href" => Some(format!("'{}'", value)),
+        Attr::Macro {
+            name,
+            value: MacroValue::Quoted(s),
+        } if name == "href" => Some(format!("'{}'", s)),
+        Attr::Binding { name, expr } if name == "href" => Some(format!(
+            "() => ({})",
+            rewrite_signal_reads_to_calls(expr, signal_map)
+        )),
+        Attr::Macro {
+            name,
+            value: MacroValue::Curly(expr),
+        } if name == "href" => Some(format!(
+            "() => ({})",
+            rewrite_signal_reads_to_calls(expr, signal_map)
+        )),
+        _ => None,
+    })
+}
+
 fn find_static_or_binding_attr(attrs: &[crate::types::Attr], attr_name: &str) -> Option<String> {
     attrs.iter().find_map(|a| match a {
         crate::types::Attr::Static { name, value } if name == attr_name => {
