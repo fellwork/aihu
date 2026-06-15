@@ -347,15 +347,25 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
     // whose template reads @state produced a broken sidecar — latent until the
     // sidecars were regenerated (web + api both hit it).
     //
-    // Declare each REFERENCED @state binding as a PARAMETER of __aihu_template
+    // Declare each REFERENCED in-scope name as a PARAMETER of __aihu_template
     // (typed `any` — precise typing is a watched B3+ item). Parameters, not
-    // module-scope `declare const`, because a binding may shadow a DOM global
+    // module-scope `declare const`, because a name may shadow a DOM global
     // (`open`, `close`, `name`, `status`, `location`, …): an ambient
     // `declare const open` collides with lib.dom's `open` (`TS2451`), whereas
     // a parameter cleanly shadows it. Only names actually referenced by a
     // template expression are emitted, so there are no unused parameters.
-    let state_names = collect_state_names_for_sidecar(script);
-    let referenced: Vec<String> = state_names
+    //
+    // The in-scope set spans four sources a template expression can read:
+    //   1. @state binding names (signals/computeds/consts/$prop/$computed/…)
+    //   2. signal SETTERS (`const [g, setG] = signal()` — `setG` used in a
+    //      handler like `$on.click={() => setG(x)}`; collect_state_decls only
+    //      yields the getter half)
+    //   3. names imported into @state (`import { closeNav } from …`) and used
+    //      directly in the template (collect_state_decls skips import lines)
+    //   4. `$each` / `{#each}` loop aliases (`… as item, idx`), which are
+    //      scoped to the loop body but flattened into __aihu_template here
+    let scope_names = collect_sidecar_scope_names(script, nodes);
+    let referenced: Vec<String> = scope_names
         .into_iter()
         .filter(|name| exprs.iter().any(|e| expr_references_ident(e, name)))
         .collect();
@@ -371,11 +381,13 @@ declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newV
     Some(out)
 }
 
-/// Every `@state` binding name (signals, computeds, plain consts, and
-/// `$prop`/`$computed`/`$action`/`$resource`/… collection names) MINUS the
-/// framework globals the sidecar preamble already declares — those would
-/// duplicate the typed decls.
-fn collect_state_names_for_sidecar(script: &str) -> Vec<String> {
+/// Every name a `@template` expression could reference and that must therefore
+/// be in scope in the type-check sidecar — MINUS the framework globals the
+/// preamble already declares (re-declaring them would duplicate-identifier).
+/// Sources: @state binding names, signal setters, `@state` imports, and
+/// `$each`/`{#each}` loop aliases. Deduplicated and sorted for deterministic
+/// output.
+fn collect_sidecar_scope_names(script: &str, nodes: &[TemplateNode]) -> Vec<String> {
     const PREAMBLE_GLOBALS: &[&str] = &[
         "signal",
         "computed",
@@ -384,11 +396,142 @@ fn collect_state_names_for_sidecar(script: &str) -> Vec<String> {
         "onAdopt",
         "onAttributeChange",
     ];
-    crate::codegen::signals::collect_state_decls(script)
-        .all
+    let mut names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
+    // 1. @state binding names (getters, computeds, consts, $prop/$computed/… ).
+    for n in crate::codegen::signals::collect_state_decls(script).all {
+        names.insert(n);
+    }
+    // 2. Signal setters — `resolve_signals` maps getter -> setter; the values
+    //    are the setter names (empty for computeds, skipped).
+    for setter in crate::codegen::signals::resolve_signals(script).0.into_values() {
+        if !setter.is_empty() {
+            names.insert(setter);
+        }
+    }
+    // 3. Names imported into @state and usable directly in the template.
+    collect_imported_names(script, &mut names);
+    // 4. Loop aliases from $each attrs and {#each} blocks.
+    collect_loop_aliases(nodes, &mut names);
+
+    names
         .into_iter()
         .filter(|n| !PREAMBLE_GLOBALS.contains(&n.as_str()))
         .collect()
+}
+
+/// True for a non-empty `[A-Za-z_$][A-Za-z0-9_$]*` token.
+fn is_js_ident(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '$' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+}
+
+/// Collect the bound names from `import` statements in the @state script:
+/// `import { a, b as c } from '…'` → a, c; `import D from '…'` → D;
+/// `import * as N from '…'` → N. Type-only imports contribute names too —
+/// harmless as `any` params.
+fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<String>) {
+    for line in script.lines() {
+        let t = line.trim();
+        let Some(rest) = t.strip_prefix("import ") else {
+            continue;
+        };
+        if let (Some(lb), Some(rb)) = (rest.find('{'), rest.find('}')) {
+            if lb < rb {
+                // Named imports (may coexist with a default before the brace).
+                for part in rest[lb + 1..rb].split(',') {
+                    let bound = part.trim().rsplit(" as ").next().unwrap_or("").trim();
+                    if is_js_ident(bound) {
+                        out.insert(bound.to_string());
+                    }
+                }
+                // Default import preceding the brace: `import D, { … } from …`.
+                let head = rest[..lb].trim().trim_end_matches(',').trim();
+                if is_js_ident(head) {
+                    out.insert(head.to_string());
+                }
+                continue;
+            }
+        }
+        if let Some(star) = rest.strip_prefix("* as ") {
+            if let Some(n) = star.split_whitespace().next() {
+                if is_js_ident(n) {
+                    out.insert(n.to_string());
+                }
+            }
+            continue;
+        }
+        // Default import: `import D from '…'`.
+        if let Some(n) = rest.split_whitespace().next() {
+            if is_js_ident(n) {
+                out.insert(n.to_string());
+            }
+        }
+    }
+}
+
+/// Walk the template AST collecting `$each`/`{#each}` loop aliases (`item` and
+/// optional `index` from `<list> as item[, index]`), which are in scope inside
+/// the loop body the sidecar flattens into `__aihu_template`.
+fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
+    fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
+        // `<list> as item` or `<list> as item, idx`. The split keys on the
+        // FIRST " as "; the list part is irrelevant (only the trailing aliases
+        // matter), so nested calls/parens in the list never confuse it.
+        if let Some((_, rest)) = clause.split_once(" as ") {
+            for alias in rest.split(',') {
+                let a = alias.trim();
+                if is_js_ident(a) {
+                    out.insert(a.to_string());
+                }
+            }
+        }
+    }
+    for node in nodes {
+        match node {
+            TemplateNode::Element { attrs, children, .. }
+            | TemplateNode::MacroElement { attrs, children, .. } => {
+                for a in attrs {
+                    if let Attr::Macro { name, value } = a {
+                        if name == "each" {
+                            push_clause(&macro_value_expr(value), out);
+                        }
+                    }
+                }
+                collect_loop_aliases(children, out);
+            }
+            TemplateNode::EachBlock {
+                item_alias,
+                idx_alias,
+                body,
+                empty_body,
+                ..
+            } => {
+                if is_js_ident(item_alias) {
+                    out.insert(item_alias.clone());
+                }
+                if let Some(idx) = idx_alias {
+                    if is_js_ident(idx) {
+                        out.insert(idx.clone());
+                    }
+                }
+                collect_loop_aliases(body, out);
+                if let Some(eb) = empty_body {
+                    collect_loop_aliases(eb, out);
+                }
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches {
+                    collect_loop_aliases(body, out);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// True iff `name` appears as a standalone identifier token in `expr` (not a
@@ -448,6 +591,19 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<String>) {
             TemplateNode::Element { attrs, children, .. } => {
                 for a in attrs {
                     match a {
+                        // `$each="list as item"` — collect the LIST expression
+                        // (mirrors the {#each} block arm's `list_expr` push) so
+                        // its reads are type-checked and an OUTER loop alias used
+                        // only inside an inner each's iterable (`s` in
+                        // `s.books as b`) still counts as referenced.
+                        Attr::Macro { name, value } if name == "each" => {
+                            let clause = macro_value_expr(value);
+                            let list = clause
+                                .split_once(" as ")
+                                .map(|(l, _)| l)
+                                .unwrap_or(&clause);
+                            out.push(list.trim().to_string());
+                        }
                         Attr::Binding { expr, .. } => out.push(expr.clone()),
                         Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
                         _ => {}
@@ -458,6 +614,19 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<String>) {
             TemplateNode::MacroElement { attrs, children, .. } => {
                 for a in attrs {
                     match a {
+                        // `$each="list as item"` — collect the LIST expression
+                        // (mirrors the {#each} block arm's `list_expr` push) so
+                        // its reads are type-checked and an OUTER loop alias used
+                        // only inside an inner each's iterable (`s` in
+                        // `s.books as b`) still counts as referenced.
+                        Attr::Macro { name, value } if name == "each" => {
+                            let clause = macro_value_expr(value);
+                            let list = clause
+                                .split_once(" as ")
+                                .map(|(l, _)| l)
+                                .unwrap_or(&clause);
+                            out.push(list.trim().to_string());
+                        }
                         Attr::Binding { expr, .. } => out.push(expr.clone()),
                         Attr::Macro { value: MacroValue::Curly(s), .. } => out.push(s.clone()),
                         _ => {}
