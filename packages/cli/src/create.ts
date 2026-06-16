@@ -14,9 +14,10 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
+import { fileURLToPath } from 'node:url'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
 
@@ -112,14 +113,96 @@ function shadowFromArgv(): ShadowChoice | undefined {
   return undefined
 }
 
+/** Resolve the template choice from argv, or `undefined` to prompt. */
+function templateFromArgv(): AppTemplate | undefined {
+  const raw = extractFlag('template')
+  if (raw === 'minimal' || raw === 'full' || raw === 'docs') return raw
+  return undefined
+}
+
+/** Resolve the package-manager choice from argv, or `undefined` to prompt. */
+function pmFromArgv(): PkgManager | undefined {
+  const raw = extractFlag('pm')
+  if (raw === 'bun' || raw === 'pnpm' || raw === 'npm' || raw === 'yarn') return raw
+  return undefined
+}
+
+/**
+ * Pure resolution of every scaffold option from flags + environment, with
+ * documented defaults. Used by the non-interactive path (`--yes` or non-TTY
+ * stdin) so piped/scripted invocations never hang waiting on a prompt that can
+ * never be answered.
+ *
+ * Defaults: template=minimal, pm=detected, css=none, git=on.
+ */
+export interface ResolvedCreateOptions {
+  readonly template: AppTemplate
+  readonly pm: PkgManager
+  readonly css: CssChoice
+  readonly shadowMode: ShadowChoice
+  readonly initGit: boolean
+}
+
+export function resolveCreateOptions(opts: {
+  template?: AppTemplate | undefined
+  pm?: PkgManager | undefined
+  css?: CssChoice | undefined
+  shadow?: ShadowChoice | undefined
+  /** `false` when `--no-git` is present. */
+  git?: boolean | undefined
+  /** Detected package manager fallback (so this stays pure/testable). */
+  detected: PkgManager
+}): ResolvedCreateOptions {
+  const css: CssChoice = opts.css ?? 'none'
+  const shadowMode: ShadowChoice = css === 'engine' ? (opts.shadow ?? 'open') : 'open'
+  return {
+    template: opts.template ?? 'minimal',
+    pm: opts.pm ?? opts.detected,
+    css,
+    shadowMode,
+    initGit: opts.git ?? true,
+  }
+}
+
+/** True when the run must be fully non-interactive: `--yes`/`-y` was passed, or
+ * stdin is not a TTY (piped/redirected input — Node readline drops buffered
+ * lines at EOF, which silently no-ops the wizard). */
+function isNonInteractive(): boolean {
+  return hasFlag('yes') || argv.includes('-y') || !process.stdin.isTTY
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-
   process.stdout.write('\n')
   process.stdout.write(`${purple(bold('◆'))} ${bold('Create Aihu App')}\n`)
   process.stdout.write(`${dim('  Web Components, reactive.')}\n\n`)
+
+  const detected = detectPm()
+  const nonInteractive = isNonInteractive()
+
+  // ── Non-interactive path (--yes / -y or non-TTY stdin) ──────────────────────
+  // Every unset option takes its documented default; NO prompts are issued.
+  // This is the pipe-safe fix: `printf '' | create-aihu demo --yes` (or any
+  // redirected stdin) deterministically scaffolds and exits 0 instead of
+  // silently no-op'ing when readline loses its buffered lines at EOF.
+  if (nonInteractive) {
+    const nameArg = process.argv[2]
+    const projectName = nameArg && nameArg !== '.' ? nameArg : 'my-aihu-app'
+    const opts = resolveCreateOptions({
+      template: templateFromArgv(),
+      pm: pmFromArgv(),
+      css: cssFromArgv(),
+      shadow: shadowFromArgv(),
+      git: hasFlag('no-git') ? false : undefined,
+      detected,
+    })
+    await scaffoldAndReport(projectName, opts)
+    return
+  }
+
+  // ── Interactive (TTY) path ──────────────────────────────────────────────────
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
 
   // ── Project name ──────────────────────────────────────────────────────────
   const nameArg = process.argv[2]
@@ -147,44 +230,63 @@ async function main(): Promise<void> {
   }
 
   // ── Template ──────────────────────────────────────────────────────────────
-  process.stdout.write('\n')
-  process.stdout.write(`${dim('  Select template:')}\n`)
-  process.stdout.write(`    ${cyan('1)')} minimal  — signals + arbor, single SFC\n`)
-  process.stdout.write(`    ${cyan('2)')} full     — signals, arbor, router, server\n`)
-  process.stdout.write(`    ${cyan('3)')} docs     — interactive docs site\n`)
-  const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
-  const templateMap: Record<string, AppTemplate> = {
-    '': 'minimal',
-    '1': 'minimal',
-    minimal: 'minimal',
-    '2': 'full',
-    full: 'full',
-    '3': 'docs',
-    docs: 'docs',
+  // A `--template` flag short-circuits the prompt (mirrors `nameArg`).
+  let template: AppTemplate
+  const templateArg = templateFromArgv()
+  if (templateArg !== undefined) {
+    template = templateArg
+    process.stdout.write(`${dim('  Template:')} ${cyan(template)}\n`)
+  } else {
+    process.stdout.write('\n')
+    process.stdout.write(`${dim('  Select template:')}\n`)
+    process.stdout.write(`    ${cyan('1)')} minimal  — signals + arbor, single SFC\n`)
+    process.stdout.write(`    ${cyan('2)')} full     — signals, arbor, router, multi-page\n`)
+    process.stdout.write(`    ${cyan('3)')} docs     — docs site starter\n`)
+    const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
+    const templateMap: Record<string, AppTemplate> = {
+      '': 'minimal',
+      '1': 'minimal',
+      minimal: 'minimal',
+      '2': 'full',
+      full: 'full',
+      '3': 'docs',
+      docs: 'docs',
+    }
+    template = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
   }
-  const template: AppTemplate = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
 
   // ── Package manager ───────────────────────────────────────────────────────
-  const detected = detectPm()
-  process.stdout.write('\n')
-  process.stdout.write(`${dim('  Package manager:')}\n`)
-  process.stdout.write(`    ${cyan('1)')} bun   ${detected === 'bun' ? dim('(detected)') : ''}\n`)
-  process.stdout.write(`    ${cyan('2)')} pnpm  ${detected === 'pnpm' ? dim('(detected)') : ''}\n`)
-  process.stdout.write(`    ${cyan('3)')} yarn  ${detected === 'yarn' ? dim('(detected)') : ''}\n`)
-  process.stdout.write(`    ${cyan('4)')} npm   ${detected === 'npm' ? dim('(detected)') : ''}\n`)
-  const pmAnswer = await prompt(rl, `  ${dim(`Package manager [${detected}]:`)} `)
-  const pmMap: Record<string, PkgManager> = {
-    '': detected,
-    '1': 'bun',
-    bun: 'bun',
-    '2': 'pnpm',
-    pnpm: 'pnpm',
-    '3': 'yarn',
-    yarn: 'yarn',
-    '4': 'npm',
-    npm: 'npm',
+  // A `--pm` flag short-circuits the prompt.
+  let pm: PkgManager
+  const pmArg = pmFromArgv()
+  if (pmArg !== undefined) {
+    pm = pmArg
+    process.stdout.write(`${dim('  Package manager:')} ${cyan(pm)}\n`)
+  } else {
+    process.stdout.write('\n')
+    process.stdout.write(`${dim('  Package manager:')}\n`)
+    process.stdout.write(`    ${cyan('1)')} bun   ${detected === 'bun' ? dim('(detected)') : ''}\n`)
+    process.stdout.write(
+      `    ${cyan('2)')} pnpm  ${detected === 'pnpm' ? dim('(detected)') : ''}\n`,
+    )
+    process.stdout.write(
+      `    ${cyan('3)')} yarn  ${detected === 'yarn' ? dim('(detected)') : ''}\n`,
+    )
+    process.stdout.write(`    ${cyan('4)')} npm   ${detected === 'npm' ? dim('(detected)') : ''}\n`)
+    const pmAnswer = await prompt(rl, `  ${dim(`Package manager [${detected}]:`)} `)
+    const pmMap: Record<string, PkgManager> = {
+      '': detected,
+      '1': 'bun',
+      bun: 'bun',
+      '2': 'pnpm',
+      pnpm: 'pnpm',
+      '3': 'yarn',
+      yarn: 'yarn',
+      '4': 'npm',
+      npm: 'npm',
+    }
+    pm = pmMap[pmAnswer.trim().toLowerCase()] ?? detected
   }
-  const pm: PkgManager = pmMap[pmAnswer.trim().toLowerCase()] ?? detected
 
   // ── CSS engine (utility classes) ────────────────────────────────────────────
   // Argv flags (`--css engine|none`, `--css-engine`, `--shadow ...`) suppress the
@@ -234,10 +336,29 @@ async function main(): Promise<void> {
   }
 
   // ── Git init ──────────────────────────────────────────────────────────────
-  const gitAnswer = await prompt(rl, `\n  Initialize git repo? ${dim('[Y/n]')} `)
-  const initGit = !gitAnswer.trim().toLowerCase().startsWith('n')
+  // `--no-git` skips the prompt entirely (default remains git on).
+  let initGit: boolean
+  if (hasFlag('no-git')) {
+    initGit = false
+    process.stdout.write(`${dim('  Git:')} ${cyan('skipped')}\n`)
+  } else {
+    const gitAnswer = await prompt(rl, `\n  Initialize git repo? ${dim('[Y/n]')} `)
+    initGit = !gitAnswer.trim().toLowerCase().startsWith('n')
+  }
 
   rl.close()
+
+  await scaffoldAndReport(projectName, { template, pm, css, shadowMode, initGit })
+}
+
+/** Shared scaffold + git + next-steps reporting, used by both the interactive
+ * and non-interactive paths. */
+async function scaffoldAndReport(
+  projectName: string,
+  resolved: ResolvedCreateOptions,
+): Promise<void> {
+  const { template, pm, css, shadowMode, initGit } = resolved
+  const targetDir = resolve(process.cwd(), projectName)
 
   // ── Scaffold ──────────────────────────────────────────────────────────────
   process.stdout.write('\n')
@@ -286,7 +407,22 @@ async function main(): Promise<void> {
   process.stdout.write(`  ${dim('Docs:')} https://github.com/fellwork/aihu\n\n`)
 }
 
-main().catch((err: unknown) => {
-  process.stderr.write(`\n  ${c.red}error${c.reset} ${String(err)}\n\n`)
-  process.exit(1)
-})
+/** True when this module is the process entry point (the `create-aihu` bin),
+ * not when imported (e.g. by the unit tests for `resolveCreateOptions`). Uses
+ * an argv[1] vs module-path comparison that works on both node and bun. */
+function isCliEntry(): boolean {
+  const entry = process.argv[1]
+  if (!entry) return false
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return false
+  }
+}
+
+if (isCliEntry()) {
+  main().catch((err: unknown) => {
+    process.stderr.write(`\n  ${c.red}error${c.reset} ${String(err)}\n\n`)
+    process.exit(1)
+  })
+}

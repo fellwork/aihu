@@ -154,6 +154,14 @@ export function resolveCompilerBinary(): string {
   const devCandidates = [
     resolve(__dirname, '../../../target/release', `aihu-compile${ext}`),
     resolve(__dirname, '../../../target/debug', `aihu-compile${ext}`),
+    // Package-local staged binary: `packages/compiler/bin/aihu-compile`. This is
+    // where CI and the release pipeline place a prebuilt binary that was built
+    // or downloaded out-of-band — e.g. deploy-docs.yml's "Build & deploy" job
+    // downloads the linux-x64 artifact here (without a cargo `target/`), and
+    // release.yml's "Stage compiler bin" step does the same so prepublish builds
+    // can compile. In published consumers this dir holds only the `.mjs` shim, so
+    // this candidate simply doesn't exist there and we fall through.
+    resolve(__dirname, '../bin', `aihu-compile${ext}`),
   ]
   for (const c of devCandidates) {
     if (existsSync(c)) {

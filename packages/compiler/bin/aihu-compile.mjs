@@ -86,6 +86,10 @@ function resolveCompilerBinary() {
   const devCandidates = [
     resolve(__dirname, '../../../target/release', `aihu-compile${ext}`),
     resolve(__dirname, '../../../target/debug', `aihu-compile${ext}`),
+    // Package-local staged binary (sibling of this shim): CI / release pipeline
+    // place a prebuilt binary here. In published consumers only this .mjs shim
+    // lives in bin/, so this candidate is absent and we fall through.
+    resolve(__dirname, `aihu-compile${ext}`),
   ]
   for (const c of devCandidates) {
     if (existsSync(c)) return c

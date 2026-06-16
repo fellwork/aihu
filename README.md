@@ -245,7 +245,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/app`](./packages/app) | `3.0.1` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `1.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `1.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
-| [`@aihu/cli`](./packages/cli) | `0.6.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `0.7.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.9.8` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.3` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
@@ -264,6 +264,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/signals`](./packages/signals) | `0.2.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
+| [`create-aihu`](./packages/create-aihu) | `0.1.0` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
