@@ -110,3 +110,7 @@ docs/spec-headless.md
 # misresolved output path (e.g. gitfellwork-wt*, gitfellworkaihu-head). Plain
 # file copies, never tracked — ignored so biome/CI do not scan them.
 /gitfellwork*/
+
+# Local scratch / smoke-test output (never commit)
+.scratch-smoke/
+.scratch*/

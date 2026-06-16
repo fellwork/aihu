@@ -6,26 +6,26 @@
  *   aihuCompilerPlugin()   — Vite plugin that wires transform() into the build
  */
 import { execFileSync } from 'node:child_process'
-import { basename, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename } from 'node:path'
+import { resolveCompilerBinary } from './resolve-binary.ts'
 
-// Binary resolution: env var override, fallback to the bin/ directory written
-// by the postinstall hook (packages/compiler/bin/aihu-compile[.exe]).
+// Binary resolution: env var override, then the per-platform optionalDependency
+// package (`@aihu/compiler-<platform>`) with a workspace `target/` dev fallback —
+// see js/resolve-binary.ts (a clone of css-engine's resolver). The published
+// @aihu/compiler tarball ships only the JS shim (bin/aihu-compile.mjs); the
+// native binary arrives via the optionalDependency packages, so there is no
+// `../bin/aihu-compile` relative path anymore.
 //
 // Bug 6 fix — resolveBinPath() is CALL-TIME, not module-load-time. The Vite
 // plugin's `_maybeCompileUtilityCss` sets `process.env.SCRIBE_COMPILE_BIN` so
 // that css-engine's bundled copy of `compileToAst` spawns THIS compiler's
 // binary. Prior to this fix `binPath` was a module-scope const captured at
 // import time, so the env-var assignment was always too late and `compileSfc`
-// failed with ENOENT on the (non-existent) `packages/css-engine/bin/aihu-compile`
-// path. Re-reading on every call is essentially free (string concatenation +
-// a single env lookup) and makes the SCRIBE_COMPILE_BIN handshake actually work.
-const ext = process.platform === 'win32' ? '.exe' : ''
+// failed with ENOENT. Re-reading on every call is essentially free (an env
+// lookup, then a memoized resolve) and makes the SCRIBE_COMPILE_BIN handshake
+// actually work.
 function resolveBinPath(): string {
-  return (
-    process.env.SCRIBE_COMPILE_BIN ??
-    resolve(dirname(fileURLToPath(import.meta.url)), `../bin/aihu-compile${ext}`)
-  )
+  return process.env.SCRIBE_COMPILE_BIN ?? resolveCompilerBinary()
 }
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.

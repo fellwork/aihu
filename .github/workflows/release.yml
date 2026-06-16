@@ -485,6 +485,101 @@ jobs:
           done
 
   # ---------------------------------------------------------------------------
+  # @aihu/compiler native CLI binary (aihu-compile, from the aihu-compile crate).
+  # Like @aihu/css-engine, the compiler invokes the binary as a CLI SUBPROCESS —
+  # the per-platform packages ship a raw executable, and resolveCompilerBinary()
+  # (packages/compiler/js/resolve-binary.ts) + the bin shim
+  # (packages/compiler/bin/aihu-compile.mjs) resolve its path via the
+  # optionalDependency package. REUSES the existing `build` job's 5
+  # aihu-compile-<platform> artifacts (no new build job). The dev/monorepo path
+  # uses the workspace `target/` fallback.
+  #
+  # IMPORTANT: artifact names differ from npm dir names — they are mapped
+  # EXPLICITLY below. Unlike publish-css-native's silent-skip loop, a missing
+  # binary for any of the 5 dirs is a HARD FAIL: a silent skip would publish an
+  # empty platform package and brick install resolution for that platform.
+  # ---------------------------------------------------------------------------
+  publish-compiler-native:
+    name: Publish @aihu/compiler-* platform packages
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all compiler binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: compiler-artifacts
+
+      - name: Stage and publish each platform package (idempotent, hard-fail)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Explicit npm-dir → (build artifact name, dest file) map. The `build`
+          # job uploads artifacts named aihu-compile-<asset>; download-artifact@v4
+          # places each under compiler-artifacts/<artifact-name>/<artifact-name>.
+          # Dest file is aihu-compile (or aihu-compile.exe on win32) to match the
+          # platform package's `files` entry and the resolver's binFile.
+          declare -A ARTIFACT=(
+            [darwin-arm64]="aihu-compile-darwin-arm64"
+            [darwin-x64]="aihu-compile-darwin-x64"
+            [linux-x64-gnu]="aihu-compile-linux-x64"
+            [linux-arm64-gnu]="aihu-compile-linux-arm64"
+            [win32-x64-msvc]="aihu-compile-windows-x64.exe"
+          )
+          for dir in packages/compiler/npm/*/; do
+            platform=$(basename "$dir")
+            artifact="${ARTIFACT[$platform]:-}"
+            if [ -z "$artifact" ]; then
+              echo "::error::no artifact mapping for platform dir $platform"
+              exit 1
+            fi
+            src="compiler-artifacts/$artifact/$artifact"
+            if [ ! -f "$src" ]; then
+              echo "::error::expected compiler binary artifact not found: $src (platform $platform)"
+              exit 1
+            fi
+            case "$platform" in
+              win32-*) dest="$dir/aihu-compile.exe" ;;
+              *)       dest="$dir/aihu-compile" ;;
+            esac
+            cp "$src" "$dest"
+            # Restore +x lost in actions/download-artifact@v4 (does NOT preserve
+            # POSIX mode bits). Skip win32 — NTFS has no exec bit and we run on
+            # Linux. Without this the published tarball ships aihu-compile as
+            # -rw-r--r-- and Bun consumers (postinstall blocked for untrusted
+            # deps) cannot fix it, so resolveCompilerBinary()'s isUsableExecutable
+            # X_OK check rejects it.
+            case "$platform" in
+              win32-*) ;;
+              *) chmod 0755 "$dest" ;;
+            esac
+            # Final guard: the staged file must be non-empty before publish.
+            if [ ! -s "$dest" ]; then
+              echo "::error::staged binary is empty: $dest (platform $platform)"
+              exit 1
+            fi
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            # Idempotency: skip if this version is already on npm (re-run / retag).
+            existing=$(npm view "${pkg_name}@${pkg_version}" version 2>/dev/null || true)
+            if [ -n "$existing" ]; then
+              echo "${pkg_name}@${pkg_version} already published — skipping"
+              continue
+            fi
+            ( cd "$dir" && npm publish --access public )
+          done
+
+  # ---------------------------------------------------------------------------
   # Publish all tier A/B/C/D @aihu/* JS packages on `v*` tag.
   #
   # Mirrors the publish-native pattern: triggered only by an actual tag push,
@@ -500,7 +595,7 @@ jobs:
   # ---------------------------------------------------------------------------
   publish-packages:
     name: Publish @aihu/* packages to npm
-    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native]
+    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native]
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -534,10 +629,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Download compiler binaries
-        # Postinstall would normally fetch from GitHub releases at install
-        # time on the consumer machine; in CI we have the freshly-built
-        # artifacts available. Stage the host platform's binary so the
-        # compiler package's prepublishOnly + bin field are coherent.
+        # The compiler's `build` job produced the freshly-built per-platform
+        # aihu-compile binaries as artifacts. Stage the host platform's binary
+        # so the `bun run build` step below (which compiles .aihu sources via
+        # the workspace `target/` dev fallback OR this staged bin) can exec it.
         uses: actions/download-artifact@v4
         with:
           path: native-artifacts
@@ -549,11 +644,13 @@ jobs:
             cp native-artifacts/aihu-compile-linux-x64/aihu-compile-linux-x64 packages/compiler/bin/aihu-compile
             chmod 0755 packages/compiler/bin/aihu-compile
           fi
-          # The published tarball does NOT include this bin file — consumer
-          # postinstall fetches the right binary for their platform from the
-          # GitHub Release. The bin/ entry in package.json points to the
-          # postinstall-populated path. Staging here is for prepublishOnly
-          # build steps that exec the binary; not bundled.
+          # This staged bin is ONLY for build-time compile steps in this job.
+          # It does NOT affect what gets packed: the published @aihu/compiler
+          # tarball's `bin` target is the committed ESM shim
+          # (bin/aihu-compile.mjs), and `files` lists only that .mjs — never the
+          # native binary. The per-platform native binaries are published
+          # separately by the publish-compiler-native job above and resolved at
+          # runtime via the @aihu/compiler-<platform> optionalDependencies.
 
       - name: Build all packages
         run: bun run build

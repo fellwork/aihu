@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,11 +13,11 @@
     }
   },
   "bin": {
-    "aihu-compile": "./bin/aihu-compile"
+    "aihu-compile": "./bin/aihu-compile.mjs"
   },
   "files": [
+    "bin/aihu-compile.mjs",
     "dist",
-    "js/postinstall.ts",
     "README.md",
     "LICENSE"
   ],
@@ -25,9 +25,15 @@
   "scripts": {
     "build": "rolldown -c",
     "typecheck": "tsc --noEmit",
-    "postinstall": "bun run js/postinstall.ts",
     "prepublishOnly": "bun run build",
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
+  },
+  "optionalDependencies": {
+    "@aihu/compiler-darwin-arm64": "0.1.0",
+    "@aihu/compiler-darwin-x64": "0.1.0",
+    "@aihu/compiler-linux-x64-gnu": "0.1.0",
+    "@aihu/compiler-linux-arm64-gnu": "0.1.0",
+    "@aihu/compiler-win32-x64-msvc": "0.1.0"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"

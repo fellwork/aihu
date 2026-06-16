@@ -21,7 +21,7 @@ npm install @aihu/compiler
 bun add @aihu/compiler
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,12 +32,12 @@ bun add @aihu/compiler
 
 | | |
 |---|---|
-| **Version** | `0.9.7` |
+| **Version** | `0.9.8` |
 | **Tier** | D — Compiler — Single-File Component (.aihu) → Web Component |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/compiler
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -63,7 +63,15 @@ bun add @aihu/compiler
 
 - `vite` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+**Optional dependencies (platform-specific):**
+
+- `@aihu/compiler-darwin-arm64` — `0.1.0`
+- `@aihu/compiler-darwin-x64` — `0.1.0`
+- `@aihu/compiler-linux-x64-gnu` — `0.1.0`
+- `@aihu/compiler-linux-arm64-gnu` — `0.1.0`
+- `@aihu/compiler-win32-x64-msvc` — `0.1.0`
+
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +85,7 @@ bun add @aihu/compiler
 - [Macro Vocabulary spec](../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +96,6 @@ bun add @aihu/compiler
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler@0.9.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@0.9.8`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
