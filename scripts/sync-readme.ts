@@ -622,6 +622,14 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/compiler', href: '../compiler' },
     ],
   },
+  'create-aihu': {
+    tier: 'D',
+    label: 'Toolchain — `npm create aihu` scaffolder entry point',
+    seeAlso: [
+      { label: '@aihu/cli', href: '../cli' },
+      { label: 'docs/cli.md', href: '../../docs/cli.md' },
+    ],
+  },
   '@aihu/css-engine': {
     tier: 'D',
     label: 'Compiler — CSS engine (Tailwind v4 hard fork, WC-native scoped output)',
@@ -721,6 +729,15 @@ function genInstallSection(p: PkgInfo): SectionResult {
     lines.push(`bunx ${p.name} app my-app`)
     lines.push(`# Or install globally`)
     lines.push(`bun add -g ${p.name}`)
+    lines.push('```')
+  } else if (p.name === 'create-aihu') {
+    lines.push('```bash')
+    lines.push(`# Scaffold a new Aihu app (no install needed)`)
+    lines.push(`npm create aihu@latest my-app`)
+    lines.push(`# or`)
+    lines.push(`npx create-aihu my-app`)
+    lines.push(`# or`)
+    lines.push(`bun create aihu my-app`)
     lines.push('```')
   } else if (ti.tier === 'E' && p.name === 'vscode-aihu') {
     lines.push(
@@ -1026,7 +1043,7 @@ function syncPackageReadme(
   // doesn't carry the brand block.
   const tooShort = existing ? existing.split('\n').length < 40 : true
   const hasBrandBlock = existing
-    ? /^# (@aihu\/[a-z0-9-]+|vscode-aihu)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(existing)
+    ? /^# (@aihu\/[a-z0-9-]+|vscode-aihu|create-aihu)\s*\n\s*\n\s*>\s*\*\*Aihu\*\*/m.test(existing)
     : false
 
   let after: string

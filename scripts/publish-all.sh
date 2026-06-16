@@ -63,6 +63,7 @@ PKGS=(
   "app"
   "seo"               # @aihu/seo SSR/meta helpers; depends on @aihu/plugin + @aihu/server + @aihu-plugin/agent-readiness (must follow them)
   "cli"
+  "create-aihu"       # `npm create aihu` entry point; thin delegator — depends on @aihu/cli (must follow it)
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
@@ -94,8 +95,9 @@ for pkg in "${PKGS[@]}"; do
 
   # Most packages produce dist/index.js via rolldown; the moved-stub packages
   # ship a root-level index.js (no dist); @aihu/ui is SOURCE-distributed
-  # (registry.json + .aihu recipe sources, no build). Allow all three layouts.
-  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ] && [ ! -f "$PKG_DIR/registry.json" ]; then
+  # (registry.json + .aihu recipe sources, no build); create-aihu ships a
+  # single committed bin.mjs (no build). Allow all four layouts.
+  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ] && [ ! -f "$PKG_DIR/registry.json" ] && [ ! -f "$PKG_DIR/bin.mjs" ]; then
     echo "⚠  ${PKG_NAME}: missing dist and no root index.js — run 'moon run :build'. Skipping."
     continue
   fi
