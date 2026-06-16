@@ -1,5 +1,12 @@
 # @aihu/example-agent-hub
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [[`0ba842f`](https://github.com/fellwork/aihu/commit/0ba842fa22eb752e71460b369cc99e506f1b9ef0)]:
+  - @aihu/compiler@0.9.7
+
 ## 0.0.12
 
 ### Patch Changes
