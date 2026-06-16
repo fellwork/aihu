@@ -4922,6 +4922,14 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
     let bytes = expr.as_bytes();
     let mut out = String::with_capacity(expr.len() + 8);
     let mut i = 0usize;
+    // Bytes [flush_from..) not yet copied to `out`. Copied as a single UTF-8
+    // slice the next time output diverges from input (a getter `()` append) and
+    // once at the end. This preserves multibyte UTF-8 verbatim — the old
+    // byte-by-byte `out.push(b as char)` mangled Greek/Hebrew/glyphs in string
+    // literals into latin-1 mojibake. All tokenizing decisions key on ASCII
+    // bytes (quotes, identifiers, delimiters), so every flush boundary lands on
+    // a char boundary; non-ASCII bytes simply pass through inside a slice.
+    let mut flush_from = 0usize;
     let mut prev_significant: u8 = 0;
     // Bracket context: '(' | '[' | 'O' (object-literal brace) | 'B' (block brace).
     let mut stack: Vec<u8> = Vec::new();
@@ -4936,19 +4944,15 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
 
     while i < bytes.len() {
         let c = bytes[i];
-        // String / template literals: copy verbatim.
+        // String / template literals: skip over verbatim (stay in flush region).
         if c == b'\'' || c == b'"' || c == b'`' {
             let quote = c;
-            out.push(c as char);
             i += 1;
             while i < bytes.len() {
                 if bytes[i] == b'\\' && i + 1 < bytes.len() {
-                    out.push(bytes[i] as char);
-                    out.push(bytes[i + 1] as char);
                     i += 2;
                     continue;
                 }
-                out.push(bytes[i] as char);
                 if bytes[i] == quote {
                     i += 1;
                     break;
@@ -4959,7 +4963,7 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
             arrow_pending = false;
             continue;
         }
-        // Identifier token.
+        // Identifier token (ASCII-led).
         if c.is_ascii_alphabetic() || c == b'_' || c == b'$' {
             let start = i;
             while i < bytes.len()
@@ -4985,16 +4989,17 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
                 && signal_map.0.contains_key(ident)
                 && !shadowed.contains(ident)
             {
-                out.push_str(ident);
+                // Flush everything through the identifier, then append the call.
+                out.push_str(&expr[flush_from..i]);
                 out.push_str("()");
-            } else {
-                out.push_str(ident);
+                flush_from = i;
             }
             prev_significant = bytes[i - 1];
             arrow_pending = false;
             continue;
         }
-        out.push(c as char);
+        // Any other byte (operator, whitespace, or a multibyte UTF-8 byte):
+        // stays in the flush region, copied verbatim later as part of a slice.
         if !c.is_ascii_whitespace() {
             match c {
                 b'(' | b'[' => stack.push(c),
@@ -5011,6 +5016,7 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
         }
         i += 1;
     }
+    out.push_str(&expr[flush_from..]);
     out
 }
 
@@ -5174,22 +5180,24 @@ fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>
     let bytes = expr.as_bytes();
     let mut out = String::with_capacity(expr.len());
     let mut i = 0;
+    // Bytes [flush_from..) pending verbatim copy — flushed as a single UTF-8
+    // slice at each `$emit` rewrite and once at the end. Strings, comments, and
+    // gaps stay in this region rather than being copied byte-by-byte (the old
+    // `out.push(b as char)` mangled multibyte UTF-8 into latin-1 mojibake). All
+    // tokenizing keys on ASCII, so flush boundaries are always char boundaries.
+    let mut flush_from = 0usize;
     while i < bytes.len() {
         // Skip strings to avoid rewriting `$emit.x` inside a string literal.
         let c = bytes[i];
         if c == b'"' || c == b'\'' || c == b'`' {
             let q = c;
-            out.push(q as char);
             i += 1;
             while i < bytes.len() {
                 let b = bytes[i];
                 if b == b'\\' && i + 1 < bytes.len() {
-                    out.push(b as char);
-                    out.push(bytes[i + 1] as char);
                     i += 2;
                     continue;
                 }
-                out.push(b as char);
                 i += 1;
                 if b == q {
                     break;
@@ -5200,22 +5208,16 @@ fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>
         // Skip line + block comments.
         if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
             while i < bytes.len() && bytes[i] != b'\n' {
-                out.push(bytes[i] as char);
                 i += 1;
             }
             continue;
         }
         if c == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
-            out.push('/');
-            out.push('*');
             i += 2;
             while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
-                out.push(bytes[i] as char);
                 i += 1;
             }
             if i + 1 < bytes.len() {
-                out.push('*');
-                out.push('/');
                 i += 2;
             }
             continue;
@@ -5243,8 +5245,7 @@ fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>
                 let close = match find_paren_close_local(expr, p) {
                     Some(k) => k,
                     None => {
-                        // Malformed; leave verbatim.
-                        out.push(c as char);
+                        // Malformed; leave verbatim (stays in the flush region).
                         i += 1;
                         continue;
                     }
@@ -5262,17 +5263,19 @@ fn lower_emit_calls(expr: &str, event_names: &std::collections::BTreeSet<String>
                         name, name
                     );
                 }
+                out.push_str(&expr[flush_from..i]);
                 out.push_str(&format!(
                     "this.dispatchEvent(new CustomEvent('{}', {{ detail: {}, bubbles: true, composed: false, cancelable: true }}))",
                     name, detail_arg
                 ));
                 i = close + 1;
+                flush_from = i;
                 continue;
             }
         }
-        out.push(c as char);
         i += 1;
     }
+    out.push_str(&expr[flush_from..]);
     out
 }
 
