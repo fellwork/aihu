@@ -609,3 +609,38 @@ fn repro_translation_waves_preserves_trailing_space() {
         output.js
     );
 }
+
+#[test]
+fn non_ascii_string_literals_in_expressions_are_not_latin1_mangled() {
+    // Bug: non-ASCII string literals inside `{}` expressions (interpolations,
+    // ternaries, $class, $each, $on handlers, $emit) were copied byte-by-byte
+    // via `out.push(byte as char)` in the expression-lowering pass, mangling
+    // UTF-8 (Greek/Hebrew/glyphs) into latin-1 mojibake (`λ` → `Î»`). Static
+    // template text was unaffected. Critical for a Bible app interpolating
+    // Greek/Hebrew through expressions. A signal must be present so the
+    // rewrite pass actually runs.
+    let src = concat!(
+        "@state {\n",
+        "import { signal } from '@aihu/signals'\n",
+        "const [tier, setTier] = signal('study')\n",
+        "$event: { picked: { payload: string } }\n",
+        "}\n",
+        "@template {\n",
+        "  <span class=\"static\">λόγος שלום ▾</span>\n",
+        "  <span>{tier() === 'study' ? 'λόγος' : 'word'}</span>\n",
+        "  <i $class={tier() === 'study' ? 'on ▾' : 'off ▸'}>x</i>\n",
+        "  <button $on.click={() => $emit.picked('χάρις')}>e</button>\n",
+        "}"
+    );
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-utf8").js;
+    // Every non-ASCII string survives intact in expression position.
+    for s in ["'λόγος'", "'on ▾'", "'off ▸'", "'χάρις'", "λόγος שלום ▾"] {
+        assert!(js.contains(s), "expected intact `{s}` in:\n{js}");
+    }
+    // And none of the classic latin-1 mojibake leaders appear.
+    for bad in ["Î»", "Ï", "â¾", "â¸", "×©"] {
+        assert!(!js.contains(bad), "latin-1 mojibake `{bad}` leaked into:\n{js}");
+    }
+}
