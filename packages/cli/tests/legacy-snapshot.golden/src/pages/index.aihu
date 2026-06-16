@@ -1,3 +1,7 @@
+@route {
+  name: 'legacy-snapshot-root'
+}
+
 @state {
 import { signal } from '@aihu/signals'
 

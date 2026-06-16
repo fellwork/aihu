@@ -175,7 +175,9 @@ async function transformStarter(
   try {
     const plugin = aihuCompilerPlugin(options)
     const transform = plugin.transform as unknown as TransformFn
-    const res = await transform.call({}, source, join(tmp, 'index.aihu'))
+    // The starter now carries a `@route` block, which the compiler only accepts
+    // under a `src/pages/` path (C500), so compile it at that path.
+    const res = await transform.call({}, source, join(tmp, 'src', 'pages', 'index.aihu'))
     if (res == null) throw new Error('plugin returned no result')
     return res.code
   } finally {

@@ -143,16 +143,18 @@ describe('appDefaultLayout', () => {
 })
 
 describe('pageAihu', () => {
-  it('sets route name from path', () => {
-    expect(pageAihu('/about')).toContain("name: 'about'")
+  it('sets route name from path, suffixing -page to keep it hyphenated', () => {
+    // Single-segment path has no hyphen, so `-page` is appended to make it a
+    // valid (mountable) custom-element tag.
+    expect(pageAihu('/about')).toContain("name: 'about-page'")
   })
 
-  it('converts nested path to kebab name', () => {
+  it('converts nested path to kebab name (already hyphenated, left as-is)', () => {
     expect(pageAihu('/admin/users')).toContain("name: 'admin-users'")
   })
 
-  it('falls back to "page" for root path', () => {
-    expect(pageAihu('/')).toContain("name: 'page'")
+  it('falls back to "page-page" for root path', () => {
+    expect(pageAihu('/')).toContain("name: 'page-page'")
   })
 })
 

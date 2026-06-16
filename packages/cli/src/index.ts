@@ -283,13 +283,24 @@ export function appAihuConfig(): string {
  * hand-written `@style` starter.
  */
 export function appIndexAihu(appName: string = 'app', withCssEngine = false): string {
-  const _tag = `${toSafe(appName)}-root`
+  const tag = `${toSafe(appName)}-root`
   // The counter's actions are declared as `$action` entries so they are exposed
   // as agent-callable tools (mirrored into vite.config's agentReadiness.skills).
   // Template buttons reference them by name (string handler form) so the action
   // name is the single source of truth.
+  //
+  // The `@route { name }` block registers the page under a HYPHENATED
+  // custom-element tag. The router only mounts routes whose name is a valid
+  // custom-element tag (must contain a hyphen); without this block the page is
+  // registered under its filename stem (`index`, no hyphen) and never mounts —
+  // the app renders a blank `#outlet`. The tag MUST equal the one
+  // `appViteConfig` uses for agentReadiness skill ids so they stay aligned.
   if (withCssEngine) {
-    return `@state {
+    return `@route {
+  name: '${tag}'
+}
+
+@state {
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
@@ -318,7 +329,11 @@ $action: {
 }
 `
   }
-  return `@state {
+  return `@route {
+  name: '${tag}'
+}
+
+@state {
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
@@ -370,9 +385,9 @@ export function appDefaultLayout(): string {
 /** src/pages/about.aihu — a second route, emitted by the `full` template to
  * demonstrate the router resolving more than one page. Client-buildable only
  * (no @aihu/server wiring). */
-export function appAboutAihu(): string {
+export function appAboutAihu(appName: string = 'app'): string {
   return `@route {
-  name: 'about'
+  name: '${toSafe(appName)}-about'
 }
 
 @template {
@@ -398,7 +413,12 @@ export function appAboutAihu(): string {
  * Pure string generator, client-buildable only. */
 export function appDocsIndexAihu(appName: string = 'app'): string {
   const title = appName
-  return `@state {
+  const tag = `${toSafe(appName)}-root`
+  return `@route {
+  name: '${tag}'
+}
+
+@state {
 import { signal } from '@aihu/signals'
 
 const [open, setOpen] = signal(false)
@@ -444,9 +464,9 @@ button.toggle {
 }
 
 /** src/pages/guide.aihu — second docs route for the `docs` template. */
-export function appDocsGuideAihu(): string {
+export function appDocsGuideAihu(appName: string = 'app'): string {
   return `@route {
-  name: 'guide'
+  name: '${toSafe(appName)}-guide'
 }
 
 @template {
@@ -471,7 +491,11 @@ export function appDocsGuideAihu(): string {
 /** A page file for a given route path. */
 export function pageAihu(routePath: string): string {
   const name = routePath.replace(/^\//, '').replace(/\//g, '-') || 'page'
-  return `@route {\n  name: '${name}'\n}\n\n@template {\n  <div class="${name}">\n    <h1>${name}</h1>\n  </div>\n}\n`
+  // The router only mounts routes whose name is a valid custom-element tag
+  // (must contain a hyphen). A single-segment path like `/contact` yields a
+  // non-hyphenated name, so suffix `-page` to keep it mountable.
+  const tag = name.includes('-') ? name : `${name}-page`
+  return `@route {\n  name: '${tag}'\n}\n\n@template {\n  <div class="${tag}">\n    <h1>${tag}</h1>\n  </div>\n}\n`
 }
 
 /** A component file for a given component name. */
@@ -564,11 +588,11 @@ export function scaffoldApp(
     // `full` demonstrates router multi-page + a shared layout. Client-buildable
     // files only — no @aihu/server dependency.
     files.push(['src/layouts/default.aihu', appDefaultLayout()])
-    files.push(['src/pages/about.aihu', appAboutAihu()])
+    files.push(['src/pages/about.aihu', appAboutAihu(name)])
   } else if (template === 'docs') {
     // `docs` is a docs-flavored variant: a distinct landing page (above) plus a
     // second guide route.
-    files.push(['src/pages/guide.aihu', appDocsGuideAihu()])
+    files.push(['src/pages/guide.aihu', appDocsGuideAihu(name)])
   }
 
   return writeFiles(root, files)

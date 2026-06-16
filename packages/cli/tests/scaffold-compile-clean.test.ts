@@ -24,7 +24,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { scaffoldApp, scaffoldComponent, scaffoldPage } from '../src/index.ts'
@@ -60,11 +60,29 @@ function collectAihu(root: string): string[] {
 function compileFile(file: string): { ok: boolean; status: number | null; stderr: string } {
   const res = spawnSync(COMPILE_BIN, [file], { encoding: 'utf8' })
   const stderr = res.stderr ?? ''
-  // Hard error codes are emitted as `C<digits>:`; warnings/advisories
-  // (e.g. the `[SECURITY]` $scope advisory, the missing-hyphen tag warning)
-  // are intentionally NOT treated as failures.
+  // Hard error codes are emitted as `C<digits>:`; the `[SECURITY]` $scope
+  // advisory is intentionally NOT treated as a failure.
   const hasErrorCode = /\bC\d{3,}\b/.test(stderr)
   return { ok: res.status === 0 && !hasErrorCode, status: res.status, stderr }
+}
+
+/**
+ * The router only mounts a route whose `name` is a valid (hyphenated)
+ * custom-element tag; the compiler warns `does not contain a hyphen` for any
+ * page registered under a non-hyphenated stem, which then never mounts (blank
+ * `#outlet`). Every scaffolded PAGE (`src/pages/`) now carries a
+ * `@route { name }` with a hyphenated tag, so this warning MUST be absent for
+ * page files. Asserting its absence is the regression guard for the blank-page
+ * bug. Layouts (`src/layouts/`) and components (`src/components/`) are
+ * author-mounted (not router-mounted) and legitimately keep their filename
+ * stem as the tag, so the warning is benign for them and is not asserted.
+ */
+function assertNoHyphenWarning(stderr: string, file: string): void {
+  if (!file.includes(`${join('src', 'pages')}${sep}`)) return
+  expect(
+    stderr.includes('does not contain a hyphen'),
+    `scaffolded page emitted a non-hyphenated tag warning (would render blank #outlet) for ${file}\nstderr:\n${stderr}`,
+  ).toBe(false)
 }
 
 let parentDir: string
@@ -108,6 +126,7 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
     for (const f of files) {
       const r = compileFile(f)
       expect(r.ok, `compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`).toBe(true)
+      assertNoHyphenWarning(r.stderr, f)
     }
   })
 
@@ -129,6 +148,7 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
           r.ok,
           `${template}: compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`,
         ).toBe(true)
+        assertNoHyphenWarning(r.stderr, f)
       }
     }
   })
@@ -146,6 +166,7 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
     for (const f of files) {
       const r = compileFile(f)
       expect(r.ok, `compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`).toBe(true)
+      assertNoHyphenWarning(r.stderr, f)
     }
   })
 
