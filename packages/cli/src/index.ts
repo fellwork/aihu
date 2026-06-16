@@ -104,6 +104,12 @@ export function appPackageJson(
         typescript: '^5.0.0',
         vite: '^6.0.0',
       },
+      // `@aihu/compiler`'s postinstall downloads the correct-arch native binary
+      // and arch-validates it. Under bun, postinstall scripts are BLOCKED unless
+      // the package is trusted — without this, the wrong-arch binary baked into
+      // the published tarball stays in place and `bun run build` dies with
+      // ENOEXEC ("Unknown system error -8"). See FIX 1 (cli release readiness).
+      trustedDependencies: ['@aihu/compiler'],
       ...(packageManager ? { packageManager } : {}),
     },
     null,
@@ -285,6 +291,107 @@ export function appDefaultLayout(): string {
   return '@template {\n  <div class="layout">\n    <slot />\n  </div>\n}\n\n@style {\n.layout {\n  max-width: 1200px;\n  margin: 0 auto;\n}\n}\n'
 }
 
+/** src/pages/about.aihu — a second route, emitted by the `full` template to
+ * demonstrate the router resolving more than one page. Client-buildable only
+ * (no @aihu/server wiring). */
+export function appAboutAihu(): string {
+  return `@route {
+  name: 'about'
+}
+
+@template {
+  <div class="about">
+    <h1>About</h1>
+    <p>This is the about page — a second route wired through the aihu router.</p>
+    <a href="/">Home</a>
+  </div>
+}
+
+@style {
+.about {
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 600px;
+  margin: 0 auto;
+}
+}
+`
+}
+
+/** src/pages/index.aihu for the `docs` template — a docs-flavored landing page.
+ * Pure string generator, client-buildable only. */
+export function appDocsIndexAihu(appName: string = 'app'): string {
+  const title = appName
+  return `@state {
+import { signal } from '@aihu/signals'
+
+const [open, setOpen] = signal(false)
+const toggle = () => setOpen(v => !v)
+}
+
+@template {
+  <div class="docs">
+    <header class="docs-header">
+      <h1>${title} docs</h1>
+      <p class="tagline">Web Components, reactive — documentation starter.</p>
+    </header>
+    <nav class="docs-nav">
+      <a href="/">Home</a>
+      <a href="/guide">Guide</a>
+    </nav>
+    <button class="toggle" $on.click={toggle}>{open ? 'Hide' : 'Show'} details</button>
+    <section $if={open} class="details">
+      <p>Edit <code>src/pages/index.aihu</code> to author your docs content.</p>
+    </section>
+  </div>
+}
+
+@style {
+.docs {
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.tagline {
+  color: #666;
+}
+.docs-nav a {
+  margin-right: 1rem;
+}
+button.toggle {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+}
+`
+}
+
+/** src/pages/guide.aihu — second docs route for the `docs` template. */
+export function appDocsGuideAihu(): string {
+  return `@route {
+  name: 'guide'
+}
+
+@template {
+  <div class="guide">
+    <h1>Guide</h1>
+    <p>Author your guide pages as <code>.aihu</code> SFCs under <code>src/pages</code>.</p>
+    <a href="/">Back to docs</a>
+  </div>
+}
+
+@style {
+.guide {
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 760px;
+  margin: 0 auto;
+}
+}
+`
+}
+
 /** A page file for a given route path. */
 export function pageAihu(routePath: string): string {
   const name = routePath.replace(/^\//, '').replace(/\//g, '-') || 'page'
@@ -357,19 +464,38 @@ export function scaffoldApp(
   },
 ): ScaffoldResult {
   const pm = opts?.pm ?? 'bun'
+  const template: AppTemplate = opts?.template ?? 'minimal'
   const withCssEngine = opts?.css === 'engine'
   const shadowMode = opts?.shadowMode ?? 'open'
   const root = resolve(outDir ?? '.', name)
-  return writeFiles(root, [
+
+  // Shared base across every template. `minimal` is exactly this set (8 files),
+  // byte-identical to the historical scaffold (modulo the trustedDependencies
+  // line) so the legacy-snapshot golden + default-e2e stay green.
+  const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
+  const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
     ['vite.config.ts', appViteConfig(withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],
-    ['src/pages/index.aihu', appIndexAihu(name, withCssEngine)],
+    ['src/pages/index.aihu', indexPage],
     ['.vscode/extensions.json', appVscodeExtensions()],
     ['.vscode/settings.json', appVscodeSettings()],
-  ])
+  ]
+
+  if (template === 'full') {
+    // `full` demonstrates router multi-page + a shared layout. Client-buildable
+    // files only — no @aihu/server dependency.
+    files.push(['src/layouts/default.aihu', appDefaultLayout()])
+    files.push(['src/pages/about.aihu', appAboutAihu()])
+  } else if (template === 'docs') {
+    // `docs` is a docs-flavored variant: a distinct landing page (above) plus a
+    // second guide route.
+    files.push(['src/pages/guide.aihu', appDocsGuideAihu()])
+  }
+
+  return writeFiles(root, files)
 }
 
 /**
