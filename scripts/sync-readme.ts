@@ -660,10 +660,11 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
  * `@aihu/<parent>-<platform-triple>`. We ship two families today:
  *   - `@aihu/server-<triple>`     → native napi `.node` renderer addon.
  *   - `@aihu/css-engine-<triple>` → prebuilt `aihu-css-compile` CLI executable.
+ *   - `@aihu/compiler-<triple>`   → prebuilt `aihu-compile` CLI executable.
  * Return the parent package name for a platform package, or null if not one.
  */
 function platformParent(name: string): string | null {
-  const m = name.match(/^(@aihu\/(?:server|css-engine))-[a-z0-9-]+$/)
+  const m = name.match(/^(@aihu\/(?:server|css-engine|compiler))-[a-z0-9-]+$/)
   return m ? m[1] : null
 }
 

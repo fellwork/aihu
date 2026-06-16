@@ -1,0 +1,14 @@
+{
+  "name": "@aihu/compiler-darwin-arm64",
+  "version": "0.1.0",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "aihu-compile"
+  ]
+}
