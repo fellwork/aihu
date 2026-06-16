@@ -73,6 +73,21 @@ describe('appPackageJson', () => {
     const pkg = JSON.parse(appPackageJson('demo')) as { type: string }
     expect(pkg.type).toBe('module')
   })
+
+  it('declares @aihu/compiler as a trusted dependency (FIX 1)', () => {
+    // Under `bun install`, postinstall scripts are blocked unless trusted.
+    // @aihu/compiler's postinstall downloads + arch-validates the native
+    // binary; without trust, the wrong-arch tarball binary stays and
+    // `bun run build` dies with ENOEXEC. Assert for every PM + css variant.
+    for (const pm of ['bun', 'pnpm', 'npm', 'yarn'] as const) {
+      for (const withCss of [false, true]) {
+        const pkg = JSON.parse(appPackageJson('demo', pm, withCss)) as {
+          trustedDependencies?: string[]
+        }
+        expect(pkg.trustedDependencies, `pm=${pm} css=${withCss}`).toEqual(['@aihu/compiler'])
+      }
+    }
+  })
 })
 
 describe('appViteConfig', () => {
@@ -291,6 +306,48 @@ describe('scaffoldApp', () => {
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
     expect(second.skipped).toHaveLength(8)
+  })
+
+  it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
+    scaffoldApp('demo', tmpDir)
+    const pkg = JSON.parse(
+      readFileSync(join(tmpDir, 'demo', 'package.json'), 'utf8'),
+    ) as { trustedDependencies?: string[] }
+    expect(pkg.trustedDependencies).toEqual(['@aihu/compiler'])
+  })
+})
+
+describe('scaffoldApp · template differentiation (FIX 3)', () => {
+  it('minimal produces the baseline 8-file set (no layout, no extra pages)', () => {
+    const result = scaffoldApp('demo', tmpDir, { template: 'minimal' })
+    expect(result.created).toHaveLength(8)
+    expect(result.created).not.toContain('src/layouts/default.aihu')
+    expect(result.created).not.toContain('src/pages/about.aihu')
+  })
+
+  it('full adds a default layout and an about page (router multi-page)', () => {
+    const result = scaffoldApp('demo', tmpDir, { template: 'full' })
+    expect(result.created).toContain('src/layouts/default.aihu')
+    expect(result.created).toContain('src/pages/about.aihu')
+    expect(existsSync(join(tmpDir, 'demo', 'src', 'layouts', 'default.aihu'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'demo', 'src', 'pages', 'about.aihu'))).toBe(true)
+  })
+
+  it('docs adds a guide page and a docs-flavored index', () => {
+    const result = scaffoldApp('demo', tmpDir, { template: 'docs' })
+    expect(result.created).toContain('src/pages/guide.aihu')
+    expect(result.created).not.toContain('src/pages/about.aihu')
+    const index = readFileSync(join(tmpDir, 'demo', 'src', 'pages', 'index.aihu'), 'utf8')
+    expect(index).toContain('docs')
+  })
+
+  it('the three templates produce distinct file sets', () => {
+    const minimal = scaffoldApp('m', tmpDir, { template: 'minimal' }).created
+    const full = scaffoldApp('f', tmpDir, { template: 'full' }).created
+    const docs = scaffoldApp('d', tmpDir, { template: 'docs' }).created
+    expect(full.length).toBeGreaterThan(minimal.length)
+    expect(docs.length).toBeGreaterThan(minimal.length)
+    expect([...full].sort()).not.toEqual([...docs].sort())
   })
 })
 

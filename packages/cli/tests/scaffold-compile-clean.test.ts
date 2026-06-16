@@ -111,6 +111,28 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
     }
   })
 
+  it('full + docs templates emit compiler-clean .aihu (FIX 3 hard constraint)', () => {
+    for (const template of ['full', 'docs'] as const) {
+      const appName = `tpl-${template}`
+      const root = join(parentDir, appName)
+      scaffoldApp(appName, parentDir, { template })
+
+      const files = collectAihu(root)
+      expect(
+        files.length,
+        `${template} scaffold must emit at least one .aihu file`,
+      ).toBeGreaterThan(0)
+
+      for (const f of files) {
+        const r = compileFile(f)
+        expect(
+          r.ok,
+          `${template}: compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`,
+        ).toBe(true)
+      }
+    }
+  })
+
   it('`aihu page` + `aihu component` scaffolders emit compiler-clean .aihu', () => {
     const root = join(parentDir, 'gen')
     // page lands at src/pages/about.aihu (carries a @route block, so it must
