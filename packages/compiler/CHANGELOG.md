@@ -1,5 +1,17 @@
 # @aihu/compiler
 
+## 0.9.9
+
+### Patch Changes
+
+- [#370](https://github.com/fellwork/aihu/pull/370) [`6f845bf`](https://github.com/fellwork/aihu/commit/6f845bf56784b188abf3a3cac1df4b6cc31e7c3b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Stop force-packing a publisher-arch native binary into the `@aihu/compiler` npm
+  tarball. The `bin` target is now a committed ESM shim (`bin/aihu-compile.mjs`)
+  that resolves the platform `aihu-compile` executable at runtime; the native
+  binaries ship via per-platform `optionalDependencies`
+  (`@aihu/compiler-<platform>`), mirroring `@aihu/css-engine`. The published
+  tarball now contains the JS shim and no native binary. The `postinstall`
+  download hook is removed in favor of optionalDependency resolution.
+
 ## 0.9.7
 
 ### Patch Changes
