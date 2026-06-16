@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+#
+# packages/create-aihu/ is the UNSCOPED `create-aihu` entry-point package: a
+# single committed `bin.mjs` that delegates to @aihu/cli's scaffolder. It has
+# NO TypeScript sources and NO build step (nothing to compile or bundle).
+#
+# `language: 'unknown'` opts moon out of TypeScript task inheritance. We also
+# explicitly disable the inherited `build`/`typecheck` tasks (from
+# .moon/tasks/tasks.yml, which run `bun run build` → `dist` and `tsc --noEmit`
+# against every project) and clear their inherited `dist` output so moon does
+# not fail with task_runner::missing_outputs or a missing `build` script.
+# Same pattern as packages/templates/moon.yml and packages/ui/moon.yml.
+language: 'unknown'
+
+tasks:
+  build:
+    command: 'noop'
+    outputs: []
+    options:
+      cache: false
+      mergeOutputs: 'replace'
+  typecheck:
+    command: 'noop'
+    options:
+      cache: false
