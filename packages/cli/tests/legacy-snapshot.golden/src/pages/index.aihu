@@ -2,14 +2,27 @@
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
-const increment = () => setCount(c => c + 1)
+
+$action: {
+  increment: {
+    describe: 'Add 1 to the counter',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+  reset: {
+    describe: 'Reset the counter to 0',
+    expose: { read: true, write: true },
+    handler: () => setCount(0),
+  },
+}
 }
 
 @template {
   <div class="home">
     <h1>Hello from aihu</h1>
     <p>Count: {count}</p>
-    <button $on.click={increment}>+1</button>
+    <button $on.click="increment">+1</button>
+    <button $on.click="reset">Reset</button>
   </div>
 }
 
@@ -23,5 +36,6 @@ const increment = () => setCount(c => c + 1)
 button {
   padding: 8px 16px;
   cursor: pointer;
+  margin-right: 8px;
 }
 }

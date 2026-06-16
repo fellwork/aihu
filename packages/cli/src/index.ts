@@ -99,6 +99,12 @@ export function appPackageJson(
         '@aihu/signals': 'latest',
       },
       devDependencies: {
+        // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
+        // vite.config.ts (llms.txt + MCP server-card emission). It is a
+        // devDependency of `@aihu/app`, NOT a transitive runtime dep, so a
+        // consumer must list it explicitly — otherwise `viteAihuPlugin`'s
+        // `require('@aihu-plugin/agent-readiness')` throws at config load.
+        '@aihu-plugin/agent-readiness': 'latest',
         '@aihu/cli': 'latest',
         '@aihu/compiler': 'latest',
         typescript: '^5.0.0',
@@ -125,7 +131,11 @@ export function appPackageJson(
  * `dir.pages` tells the router where to scan for `.aihu` page files; this
  * mirrors `examples/blog-router/vite.config.ts`.
  */
-export function appViteConfig(withCssEngine = false, shadowMode: ShadowChoice = 'open'): string {
+export function appViteConfig(
+  appName = 'app',
+  withCssEngine = false,
+  shadowMode: ShadowChoice = 'open',
+): string {
   // Default path (css off) and css-engine in the default `open` mode both emit
   // the SAME plugin options — `open` is the compiler default, so a redundant
   // `css: { shadowMode: 'open' }` is never written. css-engine in open mode
@@ -139,14 +149,49 @@ export function appViteConfig(withCssEngine = false, shadowMode: ShadowChoice = 
 `
     : ''
   const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
+  // Skill ids are namespaced by the root component's custom-element tag, matching
+  // the `$action` entries authored in src/pages/index.aihu.
+  const tag = `${toSafe(appName)}-root`
   return `import { viteAihuPlugin } from '@aihu/app'
+import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Vite/esbuild pre-bundles dependencies for dev. \`@aihu/app\`'s client entry
+  // imports the \`virtual:aihu-routes\` / \`virtual:aihu-layouts\` modules that the
+  // router plugin resolves at request time — esbuild's pre-bundle pass can't see
+  // them, so it MUST be excluded or \`vite dev\` fails to start.
+  optimizeDeps: { exclude: ['@aihu/app'] },
   plugins: [
     viteAihuPlugin({
 ${cssEngineComment}      dir: { pages: 'src/pages' },
 ${cssBlock}    }),
+    // Agent-readiness: emit the machine-readable agent surface — llms.txt,
+    // llms-full.txt, robots.txt, and the MCP server card at
+    // /.well-known/mcp/server-card.json (written to dist/ at build, served in
+    // \`vite dev\`). Wired directly (rather than via viteAihuPlugin's
+    // agentReadiness option) so it loads as an ESM import in vite.config.
+    viteAgentReadinessIntegration({
+      name: '${appName}',
+      summary: 'A reactive Web Components app built with aihu — agent-callable by default.',
+      version: '0.1.0',
+      // Canonical origin. Drives JSON-LD, MCP discovery, and the card's endpoint.
+      // Replace 'https://example.com' with your deployed URL.
+      siteUrl: 'https://example.com',
+      // The MCP server card is a DISCOVERY document advertising the tools below.
+      // Making the endpoint actually CALLABLE requires running @aihu/server (SSR)
+      // at this URL; a static client build only publishes the card, not a live
+      // tool endpoint.
+      endpoint: 'https://example.com/.well-known/mcp/server-card.json',
+      mcpDiscovery: true,
+      // The live agent registry is populated in the browser/SSR at runtime, not
+      // during \`vite build\`, so the static card's tools are declared here and
+      // kept in sync with the \`$action\` entries in src/pages/index.aihu.
+      skills: [
+        { id: '${tag}.increment', name: 'increment', description: 'Add 1 to the counter' },
+        { id: '${tag}.reset', name: 'reset', description: 'Reset the counter to 0' },
+      ],
+    }),
   ],
 })
 `
@@ -239,19 +284,36 @@ export function appAihuConfig(): string {
  */
 export function appIndexAihu(appName: string = 'app', withCssEngine = false): string {
   const _tag = `${toSafe(appName)}-root`
+  // The counter's actions are declared as `$action` entries so they are exposed
+  // as agent-callable tools (mirrored into vite.config's agentReadiness.skills).
+  // Template buttons reference them by name (string handler form) so the action
+  // name is the single source of truth.
   if (withCssEngine) {
     return `@state {
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
-const increment = () => setCount(c => c + 1)
+
+$action: {
+  increment: {
+    describe: 'Add 1 to the counter',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+  reset: {
+    describe: 'Reset the counter to 0',
+    expose: { read: true, write: true },
+    handler: () => setCount(0),
+  },
+}
 }
 
 @template {
   <div class="flex flex-col gap-4 max-w-7xl mx-auto p-8">
     <h1 class="text-3xl font-bold">Hello from aihu</h1>
     <p class="text-lg">Count: {count}</p>
-    <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click={increment}>+1</button>
+    <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click="increment">+1</button>
+    <button class="px-4 py-2 rounded-lg border" $on.click="reset">Reset</button>
   </div>
 }
 `
@@ -260,14 +322,27 @@ const increment = () => setCount(c => c + 1)
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
-const increment = () => setCount(c => c + 1)
+
+$action: {
+  increment: {
+    describe: 'Add 1 to the counter',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+  reset: {
+    describe: 'Reset the counter to 0',
+    expose: { read: true, write: true },
+    handler: () => setCount(0),
+  },
+}
 }
 
 @template {
   <div class="home">
     <h1>Hello from aihu</h1>
     <p>Count: {count}</p>
-    <button $on.click={increment}>+1</button>
+    <button $on.click="increment">+1</button>
+    <button $on.click="reset">Reset</button>
   </div>
 }
 
@@ -281,6 +356,7 @@ const increment = () => setCount(c => c + 1)
 button {
   padding: 8px 16px;
   cursor: pointer;
+  margin-right: 8px;
 }
 }
 `
@@ -475,7 +551,7 @@ export function scaffoldApp(
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
-    ['vite.config.ts', appViteConfig(withCssEngine, shadowMode)],
+    ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],

@@ -50,35 +50,34 @@ describe('scaffold css-engine · package.json', () => {
 
 describe('scaffold css-engine · vite.config.ts', () => {
   it('open mode (default) emits NO css block but adds the clarifying comment', () => {
-    const cfg = appViteConfig(true, 'open')
+    const cfg = appViteConfig('demo', true, 'open')
     expect(cfg).not.toContain('      css: { shadowMode')
     expect(cfg).toContain('fold into each')
   })
 
   it('shadowMode: none emits an explicit css block', () => {
-    const cfg = appViteConfig(true, 'none')
+    const cfg = appViteConfig('demo', true, 'none')
     expect(cfg).toContain("css: { shadowMode: 'none' },")
   })
 
   it('shadowMode: closed emits an explicit css block', () => {
-    const cfg = appViteConfig(true, 'closed')
+    const cfg = appViteConfig('demo', true, 'closed')
     expect(cfg).toContain("css: { shadowMode: 'closed' },")
   })
 
-  it('css off (default) is byte-identical to the historical plain config', () => {
-    const plain = `import { viteAihuPlugin } from '@aihu/app'
-import { defineConfig } from 'vite'
-
-export default defineConfig({
-  plugins: [
-    viteAihuPlugin({
-      dir: { pages: 'src/pages' },
-    }),
-  ],
-})
-`
-    expect(appViteConfig()).toBe(plain)
-    expect(appViteConfig(false, 'open')).toBe(plain)
+  it('css off (default) emits the base config: optimizeDeps + agentReadiness, no css block', () => {
+    const cfg = appViteConfig('demo')
+    // Gap 1: dev-server fix — @aihu/app must be excluded from esbuild pre-bundle.
+    expect(cfg).toContain("optimizeDeps: { exclude: ['@aihu/app'] }")
+    // Gap 2: the agent surface is enabled by default with the counter skills.
+    expect(cfg).toContain('viteAgentReadinessIntegration(')
+    expect(cfg).toContain("from '@aihu-plugin/agent-readiness'")
+    expect(cfg).toContain("name: 'demo'")
+    expect(cfg).toContain("name: 'increment'")
+    expect(cfg).toContain("dir: { pages: 'src/pages' }")
+    // css off → no shadowMode block and no css-engine comment.
+    expect(cfg).not.toContain('      css: { shadowMode')
+    expect(cfg).not.toContain('fold into each')
   })
 })
 
