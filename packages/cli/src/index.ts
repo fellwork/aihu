@@ -472,8 +472,7 @@ export function scaffoldApp(
   // Shared base across every template. `minimal` is exactly this set (8 files),
   // byte-identical to the historical scaffold (modulo the trustedDependencies
   // line) so the legacy-snapshot golden + default-e2e stay green.
-  const indexPage =
-    template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
+  const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
     ['vite.config.ts', appViteConfig(withCssEngine, shadowMode)],

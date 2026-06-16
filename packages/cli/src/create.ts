@@ -266,8 +266,12 @@ async function main(): Promise<void> {
     process.stdout.write('\n')
     process.stdout.write(`${dim('  Package manager:')}\n`)
     process.stdout.write(`    ${cyan('1)')} bun   ${detected === 'bun' ? dim('(detected)') : ''}\n`)
-    process.stdout.write(`    ${cyan('2)')} pnpm  ${detected === 'pnpm' ? dim('(detected)') : ''}\n`)
-    process.stdout.write(`    ${cyan('3)')} yarn  ${detected === 'yarn' ? dim('(detected)') : ''}\n`)
+    process.stdout.write(
+      `    ${cyan('2)')} pnpm  ${detected === 'pnpm' ? dim('(detected)') : ''}\n`,
+    )
+    process.stdout.write(
+      `    ${cyan('3)')} yarn  ${detected === 'yarn' ? dim('(detected)') : ''}\n`,
+    )
     process.stdout.write(`    ${cyan('4)')} npm   ${detected === 'npm' ? dim('(detected)') : ''}\n`)
     const pmAnswer = await prompt(rl, `  ${dim(`Package manager [${detected}]:`)} `)
     const pmMap: Record<string, PkgManager> = {

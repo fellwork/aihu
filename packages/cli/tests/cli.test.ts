@@ -310,9 +310,9 @@ describe('scaffoldApp', () => {
 
   it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
     scaffoldApp('demo', tmpDir)
-    const pkg = JSON.parse(
-      readFileSync(join(tmpDir, 'demo', 'package.json'), 'utf8'),
-    ) as { trustedDependencies?: string[] }
+    const pkg = JSON.parse(readFileSync(join(tmpDir, 'demo', 'package.json'), 'utf8')) as {
+      trustedDependencies?: string[]
+    }
     expect(pkg.trustedDependencies).toEqual(['@aihu/compiler'])
   })
 })
