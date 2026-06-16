@@ -149,8 +149,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // dynamic `import()` uses the ESM `import` condition and resolves correctly;
     // Vite accepts the resulting `Promise<Plugin>` as a plugin entry and awaits it.
     agentPlugin = import('@aihu-plugin/agent-readiness').then(
-      ({ viteAgentReadinessIntegration }) =>
-        viteAgentReadinessIntegration(ar) as unknown as Plugin,
+      ({ viteAgentReadinessIntegration }) => viteAgentReadinessIntegration(ar) as unknown as Plugin,
     )
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry
