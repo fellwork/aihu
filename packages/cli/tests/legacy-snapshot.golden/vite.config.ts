@@ -34,8 +34,9 @@ export default defineConfig({
       // during `vite build`, so the static card's tools are declared here and
       // kept in sync with the `$action` entries in src/pages/index.aihu.
       skills: [
-        { id: 'legacy-snapshot-root.increment', name: 'increment', description: 'Add 1 to the counter' },
-        { id: 'legacy-snapshot-root.reset', name: 'reset', description: 'Reset the counter to 0' },
+        { id: 'legacy-snapshot-root.increment', name: 'increment', description: 'Add 1 to the value' },
+        { id: 'legacy-snapshot-root.decrement', name: 'decrement', description: 'Subtract 1 from the value' },
+        { id: 'legacy-snapshot-root.reset', name: 'reset', description: 'Set the value to 0' },
       ],
     }),
   ],

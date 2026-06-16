@@ -84,11 +84,13 @@ describe('scaffold css-engine · vite.config.ts', () => {
 describe('scaffold css-engine · index.aihu starter', () => {
   it('uses utility classes and drops the @style block when on', () => {
     const sfc = appIndexAihu('myapp', true)
-    expect(sfc).toContain('class="flex flex-col gap-4 max-w-7xl mx-auto p-8"')
+    expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).toContain('class="text-3xl font-bold"')
     expect(sfc).not.toContain('@style')
     // signal counter retained
     expect(sfc).toContain('const [count, setCount] = signal(0)')
+    // the agent-surface section dramatizes the human + agent control panel
+    expect(sfc).toContain('Agent surface')
   })
 
   it('keeps the hand-written @style starter byte-identical when off', () => {
@@ -120,7 +122,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     expect(vite).not.toContain('      css: { shadowMode')
 
     const sfc = readFileSync(join(root, 'src/pages/index.aihu'), 'utf8')
-    expect(sfc).toContain('class="flex flex-col gap-4 max-w-7xl mx-auto p-8"')
+    expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
   })
 

@@ -9,12 +9,17 @@ const [count, setCount] = signal(0)
 
 $action: {
   increment: {
-    describe: 'Add 1 to the counter',
+    describe: 'Add 1 to the value',
     expose: { read: true, write: true },
     handler: () => setCount(count() + 1),
   },
+  decrement: {
+    describe: 'Subtract 1 from the value',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() - 1),
+  },
   reset: {
-    describe: 'Reset the counter to 0',
+    describe: 'Set the value to 0',
     expose: { read: true, write: true },
     handler: () => setCount(0),
   },
@@ -22,24 +27,83 @@ $action: {
 }
 
 @template {
-  <div class="home">
-    <h1>Hello from aihu</h1>
-    <p>Count: {count}</p>
-    <button $on.click="increment">+1</button>
-    <button $on.click="reset">Reset</button>
-  </div>
+  <main class="root">
+    <header>
+      <h1>legacy-snapshot</h1>
+      <p class="subtitle">A durable Web Component your AI agent can read and drive.</p>
+    </header>
+
+    <section class="card">
+      <h2>Control</h2>
+      <p class="value">Value: {count}</p>
+      <div class="controls">
+        <button $on.click="decrement">−1</button>
+        <button $on.click="reset">Reset</button>
+        <button $on.click="increment">+1</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Agent surface</h2>
+      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <ul>
+        <li>increment — Add 1 to the value</li>
+        <li>decrement — Subtract 1 from the value</li>
+        <li>reset — Set the value to 0</li>
+      </ul>
+      <p>
+        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+      </p>
+    </section>
+
+    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+  </main>
 }
 
 @style {
-.home {
+.root {
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.subtitle {
+  color: #555;
+  margin: 0;
+}
+.card {
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+.card h2 {
+  margin-top: 0;
+}
+.value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.controls {
+  display: flex;
+  gap: 0.5rem;
 }
 button {
   padding: 8px 16px;
   cursor: pointer;
-  margin-right: 8px;
+}
+ul {
+  padding-left: 1.25rem;
+}
+.note {
+  color: #555;
 }
 }

@@ -53,7 +53,7 @@ describe('aihu app · OOTB css-engine flags', () => {
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
     expect(read('a', 'vite.config.ts')).not.toContain('      css: { shadowMode')
     const sfc = read('a', 'src/pages/index.aihu')
-    expect(sfc).toContain('class="flex flex-col gap-4 max-w-7xl mx-auto p-8"')
+    expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
   })
 

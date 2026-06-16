@@ -188,8 +188,9 @@ ${cssBlock}    }),
       // during \`vite build\`, so the static card's tools are declared here and
       // kept in sync with the \`$action\` entries in src/pages/index.aihu.
       skills: [
-        { id: '${tag}.increment', name: 'increment', description: 'Add 1 to the counter' },
-        { id: '${tag}.reset', name: 'reset', description: 'Reset the counter to 0' },
+        { id: '${tag}.increment', name: 'increment', description: 'Add 1 to the value' },
+        { id: '${tag}.decrement', name: 'decrement', description: 'Subtract 1 from the value' },
+        { id: '${tag}.reset', name: 'reset', description: 'Set the value to 0' },
       ],
     }),
   ],
@@ -295,37 +296,72 @@ export function appIndexAihu(appName: string = 'app', withCssEngine = false): st
   // registered under its filename stem (`index`, no hyphen) and never mounts —
   // the app renders a blank `#outlet`. The tag MUST equal the one
   // `appViteConfig` uses for agentReadiness skill ids so they stay aligned.
-  if (withCssEngine) {
-    return `@route {
-  name: '${tag}'
-}
-
-@state {
+  // The `$action` block is the single source of truth for the agent surface:
+  // the human buttons reference these actions by name (string-handler form), and
+  // vite.config's agentReadiness.skills mirrors the same three actions so the
+  // MCP server card matches the on-screen component exactly.
+  const stateBlock = `@state {
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 
 $action: {
   increment: {
-    describe: 'Add 1 to the counter',
+    describe: 'Add 1 to the value',
     expose: { read: true, write: true },
     handler: () => setCount(count() + 1),
   },
+  decrement: {
+    describe: 'Subtract 1 from the value',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() - 1),
+  },
   reset: {
-    describe: 'Reset the counter to 0',
+    describe: 'Set the value to 0',
     expose: { read: true, write: true },
     handler: () => setCount(0),
   },
 }
+}`
+  if (withCssEngine) {
+    return `@route {
+  name: '${tag}'
 }
 
+${stateBlock}
+
 @template {
-  <div class="flex flex-col gap-4 max-w-7xl mx-auto p-8">
-    <h1 class="text-3xl font-bold">Hello from aihu</h1>
-    <p class="text-lg">Count: {count}</p>
-    <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click="increment">+1</button>
-    <button class="px-4 py-2 rounded-lg border" $on.click="reset">Reset</button>
-  </div>
+  <main class="flex flex-col gap-8 max-w-7xl mx-auto p-8">
+    <header class="flex flex-col gap-1">
+      <h1 class="text-3xl font-bold">${appName}</h1>
+      <p class="text-lg">A durable Web Component your AI agent can read and drive.</p>
+    </header>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="text-xl font-semibold">Control</h2>
+      <p class="text-lg">Value: {count}</p>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 rounded-lg border" $on.click="decrement">−1</button>
+        <button class="px-4 py-2 rounded-lg border" $on.click="reset">Reset</button>
+        <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click="increment">+1</button>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="text-xl font-semibold">Agent surface</h2>
+      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <ul class="flex flex-col gap-1">
+        <li>increment — Add 1 to the value</li>
+        <li>decrement — Subtract 1 from the value</li>
+        <li>reset — Set the value to 0</li>
+      </ul>
+      <p>
+        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+      </p>
+    </section>
+
+    <p>Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+  </main>
 }
 `
   }
@@ -333,45 +369,87 @@ $action: {
   name: '${tag}'
 }
 
-@state {
-import { signal } from '@aihu/signals'
-
-const [count, setCount] = signal(0)
-
-$action: {
-  increment: {
-    describe: 'Add 1 to the counter',
-    expose: { read: true, write: true },
-    handler: () => setCount(count() + 1),
-  },
-  reset: {
-    describe: 'Reset the counter to 0',
-    expose: { read: true, write: true },
-    handler: () => setCount(0),
-  },
-}
-}
+${stateBlock}
 
 @template {
-  <div class="home">
-    <h1>Hello from aihu</h1>
-    <p>Count: {count}</p>
-    <button $on.click="increment">+1</button>
-    <button $on.click="reset">Reset</button>
-  </div>
+  <main class="root">
+    <header>
+      <h1>${appName}</h1>
+      <p class="subtitle">A durable Web Component your AI agent can read and drive.</p>
+    </header>
+
+    <section class="card">
+      <h2>Control</h2>
+      <p class="value">Value: {count}</p>
+      <div class="controls">
+        <button $on.click="decrement">−1</button>
+        <button $on.click="reset">Reset</button>
+        <button $on.click="increment">+1</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Agent surface</h2>
+      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <ul>
+        <li>increment — Add 1 to the value</li>
+        <li>decrement — Subtract 1 from the value</li>
+        <li>reset — Set the value to 0</li>
+      </ul>
+      <p>
+        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+      </p>
+    </section>
+
+    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+  </main>
 }
 
 @style {
-.home {
+.root {
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.subtitle {
+  color: #555;
+  margin: 0;
+}
+.card {
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+.card h2 {
+  margin-top: 0;
+}
+.value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.controls {
+  display: flex;
+  gap: 0.5rem;
 }
 button {
   padding: 8px 16px;
   cursor: pointer;
-  margin-right: 8px;
+}
+ul {
+  padding-left: 1.25rem;
+}
+.note {
+  color: #555;
 }
 }
 `
