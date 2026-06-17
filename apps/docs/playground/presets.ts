@@ -45,13 +45,18 @@ const COUNTER = `@state {
 
 const TODO = `@state {
   import { signal } from '@aihu/signals'
-  const [todos, setTodos] = signal([{ text: 'Try aihu', done: false }])
+  // Each todo needs a stable id: $each requires a $key, and the key must be
+  // unique + stable per item (the reconciler keys list nodes by it).
+  const [todos, setTodos] = signal([{ id: 1, text: 'Try aihu', done: false }])
+  const [nextId, setNextId] = signal(2)
   const [draft, setDraft] = signal('')
 
   const add = () => {
     const text = draft().trim()
     if (!text) return
-    setTodos([...todos(), { text, done: false }])
+    const id = nextId()
+    setTodos([...todos(), { id, text, done: false }])
+    setNextId(id + 1)
     setDraft('')
   }
 }
@@ -59,10 +64,10 @@ const TODO = `@state {
 @template {
   <section class="todo">
     <h1>Todos</h1>
-    <input $value={draft()} $on.input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
+    <input $value={draft} $on.input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
     <button $on.click={() => add()}>Add</button>
     <ul>
-      <li $each="todos as t">{t.text}</li>
+      <li $each="todos as t" $key="t.id">{t.text}</li>
     </ul>
   </section>
 }

@@ -171,7 +171,28 @@ async function errorText(page: import('@playwright/test').Page) {
   })
 }
 
-test('every preset compiles without a compile error', async ({ page }) => {
+// Render state of the preview iframe. Compiling cleanly is NOT enough — a preset
+// can compile yet render NOTHING (an each() with no $key → undefined keyFn threw;
+// an incompletely-stripped `as unknown as <Type>` cast → SyntaxError, script never
+// runs). Those surface only as a blank preview or a `.pe-error` INSIDE the iframe,
+// so the guard must look in the frame, not just the compile-error pane.
+async function previewRender(page: import('@playwright/test').Page) {
+  const frame = page.frameLocator('iframe')
+  return frame.locator('body').evaluate((b) => {
+    const pe = b.querySelector('.pe-error')
+    if (pe) return { ok: false, why: `pe-error: ${(pe.textContent ?? '').slice(0, 80)}` }
+    const ac = b.querySelector('aihu-component') as
+      | (HTMLElement & { shadowRoot: ShadowRoot })
+      | null
+    const n = ac?.shadowRoot?.childElementCount ?? 0
+    return {
+      ok: n > 0,
+      why: ac ? `shadow children=${n}` : 'no <aihu-component> (script failed to run)',
+    }
+  })
+}
+
+test('every preset compiles AND renders in the preview', async ({ page }) => {
   await gotoPlayground(page)
   await page.waitForTimeout(900) // WASM boot + first compile
   const boot = await errorText(page)
@@ -188,8 +209,10 @@ test('every preset compiles without a compile error', async ({ page }) => {
       )?.click()
     }, id)
     await expect.poll(() => activePresetId(page)).toBe(id)
-    await page.waitForTimeout(400) // debounce + compile
+    await page.waitForTimeout(500) // debounce + compile + iframe srcdoc swap + execute
     expect(await errorText(page), `preset "${id}" must compile cleanly`).toBe('')
+    const r = await previewRender(page)
+    expect(r.ok, `preset "${id}" must render in the preview (${r.why})`).toBe(true)
   }
 })
 
