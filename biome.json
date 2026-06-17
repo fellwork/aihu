@@ -65,7 +65,11 @@
   },
   "overrides": [
     {
-      "includes": ["bench/arbor/src/**", "packages/plugin-agent-readiness/src/vite-plugin.ts"],
+      "includes": [
+        "bench/arbor/src/**",
+        "packages/plugin-agent-readiness/src/vite-plugin.ts",
+        "packages/language-server/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
@@ -83,6 +87,16 @@
         "rules": {
           "suspicious": {
             "noTemplateCurlyInString": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/docs/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDescendingSpecificity": "off"
           }
         }
       }
