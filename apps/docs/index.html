@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>aihu — The reactive Web Components framework for modern TypeScript</title>
-  <meta name="description" content="A zero-dependency Web Components meta-framework. Every component you write is discoverable by AI agents and callable as a tool — in service of whatever you're building.">
+  <title>aihu — durable Web Components your AI agent can drive</title>
+  <meta name="description" content="aihu builds durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP + llms.txt built in.">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <!-- Pre-paint theme: apply .dark synchronously BEFORE the stylesheet and
        docs.js so deep-linked / prerendered pages never flash the wrong theme.
@@ -38,14 +38,14 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://aihu.dev/">
-  <meta property="og:title" content="aihu — The reactive Web Components framework for modern TypeScript">
-  <meta property="og:description" content="A zero-dependency Web Components meta-framework. Every component you write is discoverable by AI agents and callable as a tool.">
+  <meta property="og:title" content="aihu — durable Web Components your AI agent can drive">
+  <meta property="og:description" content="Durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP built in.">
   <meta property="og:image" content="https://aihu.dev/aihu-wordmark.svg">
   <meta property="og:site_name" content="aihu">
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="aihu — The reactive Web Components framework for modern TypeScript">
-  <meta name="twitter:description" content="A zero-dependency Web Components meta-framework. Every component you write is discoverable by AI agents and callable as a tool.">
+  <meta name="twitter:title" content="aihu — durable Web Components your AI agent can drive">
+  <meta name="twitter:description" content="Durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP built in.">
   <script type="module" src="./dist/docs.js"></script>
   <script type="application/ld+json">
   {
@@ -76,7 +76,7 @@
         "@type": "SoftwareApplication",
         "@id": "https://aihu.dev/#software",
         "name": "aihu",
-        "description": "A zero-dependency Web Components meta-framework. .aihu SFCs compile to vanilla custom elements with sub-2 kB reactive primitives. Every component is agent-discoverable and callable as an MCP tool.",
+        "description": "aihu builds durable Web Components an AI agent can read and drive — not disposable UI it regenerates each turn. .aihu SFCs compile to vanilla custom elements with sub-2 kB reactive primitives; every component is agent-discoverable and callable as an MCP tool over a server-mediated capability bridge.",
         "url": "https://aihu.dev",
         "version": "0.4",
         "applicationCategory": "DeveloperApplication",
@@ -113,7 +113,7 @@
         "name": "What is aihu?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "aihu is a zero-dependency Web Components meta-framework for modern TypeScript. You write .aihu Single-File Components with @state, @template, @style, and @agent blocks, and a compiler emits standards-compliant custom elements with sub-2 kB reactive primitives."
+          "text": "aihu builds durable Web Components an AI agent can read and drive — not disposable UI it regenerates each turn. You write .aihu Single-File Components (@state, @template, @style, @agent), and a Rust compiler emits standards-compliant custom elements (sub-2 kB runtime) plus a machine-readable agent manifest; an agent calls the component's actions on the live, on-screen instance over a server-mediated capability bridge."
         }
       },
       {
@@ -226,7 +226,7 @@
         <text x="128" y="100" font-family="Inter, Geist, ui-sans-serif, system-ui, sans-serif" font-size="84" font-weight="600" letter-spacing="-1.68" fill="#faf8f4">aihu</text>
       </svg>
 
-      <p class="hero-tagline">The reactive web framework for modern TypeScript</p>
+      <p class="hero-tagline">Durable Web Components your AI agent can drive — not disposable UI it generates.</p>
 
       <div class="hero-ctas">
         <a href="#getting-started" class="btn btn-primary">Get Started</a>
@@ -235,6 +235,8 @@
           View on GitHub
         </a>
       </div>
+
+      <code class="hero-code">npx create-aihu my-app --template agent</code>
     </div>
   </section>
 
@@ -256,21 +258,23 @@
          after hydration so the shadow article is the single source of truth. -->
     <section id="prerendered-content" class="prerendered-content" aria-label="Introduction">
       <h2>What is aihu?</h2>
-      <p>aihu is a complete meta-framework for the agentic web. You write <code>.aihu</code> Single-File Components
-      (SFCs) — block-structured with <code>@state</code>, <code>@template</code>, <code>@style</code>, and
-      <code>@agent</code> blocks — and a Rust compiler emits standards-compliant Web Components and machine-readable
-      agent manifests. The runtime is sub-2 kB. Every component is discoverable by AI agents and callable as an
-      MCP tool out of the box.</p>
-      <h3>Key features</h3>
+      <p>aihu builds <strong>durable Web Components your AI agent can read and drive — not disposable UI it has to
+      generate.</strong> You write <code>.aihu</code> Single-File Components (block-structured with <code>@state</code>,
+      <code>@template</code>, <code>@style</code>, and <code>@agent</code>), and a Rust compiler emits standards-compliant
+      Web Components <em>plus</em> a machine-readable agent manifest. An agent inspects a real component (llms.txt + MCP)
+      and calls its actions on the live, on-screen instance over a server-mediated capability bridge — the component the
+      user sees is the one the agent drives. The runtime is sub-2 kB and the output is vanilla custom elements.</p>
+      <h3>Why durable, not generative</h3>
       <ul>
-        <li><strong>Agentic-first</strong> — every component is agent-callable by construction via the <code>@agent</code> block.</li>
-        <li><strong>Sub-2 kB runtime</strong> — signals, computeds, effects, and DOM diffing in under 2 kB gzipped.</li>
-        <li><strong>Vanilla custom elements</strong> — no framework lock-in at the consumer boundary.</li>
-        <li><strong>Zero dependencies</strong> — no non-@aihu/* runtime dependencies across all packages.</li>
-        <li><strong>MCP + agent-first</strong> — @aihu/agent and @aihu-plugin/agent-readiness are first-class packages.</li>
+        <li><strong>Read and drive, not generate</strong> — the agent drives the live component the user sees, not throwaway HTML/JSON regenerated each turn (the MCP-Apps / generated-iframe model).</li>
+        <li><strong>Governed</strong> — the server is the policy gate (auth scope + rate limit, auditable); the browser is the sole executor.</li>
+        <li><strong>Agent-native by construction</strong> — the <code>@agent</code> block emits a matching MCP tool schema + llms.txt entry next to the component. No separate API gateway.</li>
+        <li><strong>Vanilla custom elements</strong> — no framework lock-in, no global context, no hydration step.</li>
+        <li><strong>Sub-2 kB, dependency-free</strong> — signals, computeds, effects, and direct DOM diffing; zero non-@aihu/* runtime dependencies.</li>
       </ul>
-      <p>Get started with <a href="#installation">installation</a>, read the <a href="#introduction">introduction</a>,
-      or explore the <a href="#api-reference">API reference</a>.</p>
+      <p>Try it in one command — <code>npx create-aihu my-app --template agent</code> — or read the
+      <a href="#introduction">introduction</a>, <a href="#getting-started">getting started</a>, or
+      <a href="#api-reference">API reference</a>.</p>
     </section>
   </main>
 

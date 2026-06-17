@@ -616,6 +616,17 @@ docs-shell:defined ~ #prerendered-content {
   justify-content: center;
 }
 
+/* One-command CTA under the hero buttons — a copyable command pill. */
+.hero-code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--font-size-sm);
+  color: rgba(250, 248, 244, 0.92);
+  background: rgba(250, 248, 244, 0.08);
+  border: 1px solid rgba(250, 248, 244, 0.18);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
