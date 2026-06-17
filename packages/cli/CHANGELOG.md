@@ -1,5 +1,42 @@
 # @aihu/cli
 
+## 0.8.0
+
+### Minor Changes
+
+- [#374](https://github.com/fellwork/aihu/pull/374) [`6a0d8e4`](https://github.com/fellwork/aihu/commit/6a0d8e426fa2ab53c37fa5d1d4e6ae63ca671e0d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - add `create-aihu --template agent` + publish `@aihu/agent-server`
+
+  - **New opt-in `agent` template** (`create-aihu --template agent`, or option 4 in the
+    wizard): the headline aihu thesis made runnable. A durable on-screen `<task-list>`
+    Web Component that BOTH a human and an external AI agent drive — the agent reaches the
+    same visible instance over `@aihu/agent-server`'s capability bridge (server = policy
+    gate, browser = sole executor). Two-process app (Bun bridge server + Vite, client-target
+    compiler). Verified end-to-end: typing in the input AND an external
+    `curl /agent/call` both append to the same live instance; unexposed actions are rejected.
+  - **`@aihu/agent-server` first publish** (added to the release allowlist). Includes the
+    fix that lets `createAgentServer`'s `node` mount path stand up its own server-side DOM
+    internally (no consumer jsdom/`createHost` glue) when the runtime has no `document`.
+
+  The bridge in the template is unauthenticated (local dev/demo); the generated server
+  warns against exposing it to untrusted networks.
+
+- [#374](https://github.com/fellwork/aihu/pull/374) [`6a0d8e4`](https://github.com/fellwork/aihu/commit/6a0d8e426fa2ab53c37fa5d1d4e6ae63ca671e0d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - create-aihu: fix `bun run dev` + ship the agent surface out of the box
+
+  - **`bun run dev` no longer crashes.** The generated `vite.config.ts` now sets
+    `optimizeDeps: { exclude: ['@aihu/app'] }` — esbuild's dep pre-bundle can't
+    resolve the `virtual:aihu-routes` / `virtual:aihu-layouts` modules that
+    `@aihu/app`'s client entry imports (the router plugin resolves them at request
+    time), so excluding `@aihu/app` from pre-bundling is required for dev to boot.
+  - **The default scaffold now delivers the agentic surface.** `vite.config.ts`
+    wires `viteAgentReadinessIntegration` (imported directly from
+    `@aihu-plugin/agent-readiness`, now a scaffolded devDependency), so
+    `vite build` emits `llms.txt`, `llms-full.txt`, `robots.txt`, the MCP server
+    card at `/.well-known/mcp/server-card.json`, and JSON-LD — all served in
+    `vite dev` too. The hello-world page is now an agent-callable component: its
+    counter exposes `increment` / `reset` as `$action` tools, mirrored into the
+    card's `skills`. (A live, callable MCP endpoint still requires running
+    `@aihu/server`; the static card is discovery metadata — noted in the config.)
+
 ## 0.7.0
 
 ### Minor Changes
