@@ -391,19 +391,41 @@ export function agentMainTs(): string {
 /** src/task-list.aihu — the durable, human+agent-drivable, RESKINNABLE component. */
 export function agentComponentAihu(): string {
   return `@state {
-  import { signal } from '@aihu/signals'
+  import { signal, effect } from '@aihu/signals'
+
+  // Client-durable state: hydrate from localStorage on mount, write back on
+  // every change. Survives a refresh — and because the agent's bridge calls
+  // drive these SAME signals, the agent's reskin persists too. Browser-only;
+  // guarded so any non-browser eval (build/SSR) safely falls back to defaults.
+  // (For state shared across tabs/devices + multiple viewers, move the source
+  // of truth server-side — e.g. a Durable Object / KV behind the agent gate.)
+  const STORE_KEY = 'aihu:task-list:v1'
+  const persisted =
+    typeof localStorage !== 'undefined'
+      ? JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}')
+      : {}
 
   // The durable list both a human and an agent drive. Each task: { id, text }.
-  const [tasks, setTasks] = signal([])
-  const [nextId, setNextId] = signal(1)
-  const [draft, setDraft] = signal('')
+  const [tasks, setTasks] = signal(persisted.tasks ?? [])
+  const [nextId, setNextId] = signal(persisted.nextId ?? 1)
+  const [draft, setDraft] = signal('') // transient input — not persisted
   // Agent-RESKINNABLE state: the heading text + the visual variant. An agent
   // sets these on the live instance — molding a vanilla component into a styled one.
   // The signal setters are named writeLabel/writeVariant so they don't collide
   // with the agent-facing setLabel/setVariant $actions below (same name → the
   // compiler would emit two top-level \`const setLabel\`).
-  const [label, writeLabel] = signal('Tasks')
-  const [variant, writeVariant] = signal('default')
+  const [label, writeLabel] = signal(persisted.label ?? 'Tasks')
+  const [variant, writeVariant] = signal(persisted.variant ?? 'default')
+
+  // Persist the durable slice on any change (effect re-runs when a signal it
+  // reads changes). draft is intentionally excluded.
+  effect(() => {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(
+      STORE_KEY,
+      JSON.stringify({ tasks: tasks(), nextId: nextId(), label: label(), variant: variant() }),
+    )
+  })
 
   // Shared mutation — the human input and the agent's addTask both call this, so
   // both drive the SAME signal state on this one instance.
