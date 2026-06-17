@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>aihu — durable Web Components your AI agent can drive</title>
-  <meta name="description" content="aihu builds durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP + llms.txt built in.">
+  <meta name="description" content="Durable Web Components your AI agent can drive — not disposable UI it generates. aihu is a full Web Components meta-framework (routing, SSR, auth, deploy); vanilla custom elements, ~2 kB runtime, MCP + llms.txt built in.">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <!-- Pre-paint theme: apply .dark synchronously BEFORE the stylesheet and
        docs.js so deep-linked / prerendered pages never flash the wrong theme.
@@ -39,13 +39,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://aihu.dev/">
   <meta property="og:title" content="aihu — durable Web Components your AI agent can drive">
-  <meta property="og:description" content="Durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP built in.">
+  <meta property="og:description" content="Durable Web Components your AI agent can drive — and a full Web Components framework (routing, SSR, auth, deploy) underneath. Vanilla custom elements, ~2 kB runtime, MCP built in.">
   <meta property="og:image" content="https://aihu.dev/aihu-wordmark.svg">
   <meta property="og:site_name" content="aihu">
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="aihu — durable Web Components your AI agent can drive">
-  <meta name="twitter:description" content="Durable Web Components an AI agent can read and drive over a scoped capability bridge — not disposable UI it regenerates each turn. Vanilla custom elements, ~2 kB runtime, MCP built in.">
+  <meta name="twitter:description" content="Durable Web Components your AI agent can drive — and a full Web Components framework (routing, SSR, auth, deploy) underneath. Vanilla custom elements, ~2 kB runtime, MCP built in.">
   <script type="module" src="./dist/docs.js"></script>
   <script type="application/ld+json">
   {
@@ -226,7 +226,10 @@
         <text x="128" y="100" font-family="Inter, Geist, ui-sans-serif, system-ui, sans-serif" font-size="84" font-weight="600" letter-spacing="-1.68" fill="#faf8f4">aihu</text>
       </svg>
 
-      <p class="hero-tagline">Durable Web Components your AI agent can drive — not disposable UI it generates.</p>
+      <div class="hero-lede">
+        <p class="hero-tagline">Durable Web Components your AI agent can drive — not disposable UI it generates.</p>
+        <p class="hero-sub">A complete Web Components framework — routing, SSR, auth, data, and deploy — where every component is also an MCP tool.</p>
+      </div>
 
       <div class="hero-ctas">
         <a href="#getting-started" class="btn btn-primary">Get Started</a>
@@ -263,7 +266,9 @@
       <code>@template</code>, <code>@style</code>, and <code>@agent</code>), and a Rust compiler emits standards-compliant
       Web Components <em>plus</em> a machine-readable agent manifest. An agent inspects a real component (llms.txt + MCP)
       and calls its actions on the live, on-screen instance over a server-mediated capability bridge — the component the
-      user sees is the one the agent drives. The runtime is sub-2 kB and the output is vanilla custom elements.</p>
+      user sees is the one the agent drives. The runtime is sub-2 kB and the output is vanilla custom elements.
+      Under the hood it's a full meta-framework — file-based routing, SSR, loaders, auth, and cloud adapters are
+      first-class, not add-ons.</p>
       <h3>Why durable, not generative</h3>
       <ul>
         <li><strong>Read and drive, not generate</strong> — the agent drives the live component the user sees, not throwaway HTML/JSON regenerated each turn (the MCP-Apps / generated-iframe model).</li>

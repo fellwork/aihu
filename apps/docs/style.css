@@ -609,6 +609,27 @@ docs-shell:defined ~ #prerendered-content {
   color: var(--color-text-secondary);
 }
 
+/* Wedge tagline + framework-substance sub-line, grouped as one lede block. */
+.hero-lede {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hero-sub {
+  font-size: var(--font-size-base);
+  color: rgba(250, 248, 244, 0.55);
+  margin: 0;
+  max-width: 56ch;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.dark .hero-sub {
+  color: var(--color-text-secondary);
+}
+
 .hero-ctas {
   display: flex;
   gap: var(--space-3);
