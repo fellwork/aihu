@@ -241,19 +241,31 @@ async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
  * Strip TypeScript-specific syntax from WASM compiler output so the JS is
  * valid for `eval`/script execution in a browser context.
  *
- * The compiler emits exactly two TS-specific constructs:
+ * The compiler emits these TS-specific constructs:
  *   - `import type { Signal }` lines (type-only imports)
- *   - ` as unknown as Signal<string>` casts inside leaf() calls
- *   - ` as ShadowRoot` cast in the style-injection setup line
- * All `import … from '@aihu/*'` lines are stripped because those packages
- * are already available via window.__aihu in the preview iframe.
+ *   - `… as unknown as <Type>` double-casts inside leaf()/binding calls. The
+ *     <Type> varies: `Signal<string>` for plain signal leaves, but `string`
+ *     (and others) for computed/derived leaves — e.g. a computed text node
+ *     compiles to `leaf([() => x() as unknown as string, () => {}] as unknown
+ *     as Signal<string>)`. A narrow `Signal<string>`-only strip left the inner
+ *     `as unknown as string` behind → SyntaxError → blank preview (the `route`
+ *     preset). Match the whole `as unknown as <Type>` up to a delimiter.
+ *   - ` as ShadowRoot` cast in the style-injection setup line.
+ *   - `export const __agentBinding = {…}` from an `@agent` block. The preview
+ *     runs the compiled code inside a non-module `<script>` IIFE, where an ESM
+ *     `export` is a SyntaxError — the whole script fails to parse and nothing
+ *     renders (the `agent-block` preset). The binding is unused in the
+ *     standalone preview, so drop the `export` keyword (keep the harmless const).
+ * All `import … from '@aihu/*'` lines are stripped because those packages are
+ * already available via window.__aihu in the preview iframe.
  */
 function stripTs(js: string): string {
   return js
     .replace(/^import type .+$/gm, '')
     .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
-    .replace(/ as unknown as Signal<string>/g, '')
+    .replace(/ as unknown as [^,;)\n]+/g, '')
     .replace(/ as ShadowRoot/g, '')
+    .replace(/^export /gm, '')
 }
 
 /**
