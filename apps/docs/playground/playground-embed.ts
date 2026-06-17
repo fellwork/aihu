@@ -130,8 +130,8 @@ const HOST_STYLES = `
 }
 .reset-btn:hover { color: var(--fg, #1a1a1a); }
 .reset-btn[hidden] { display: none; }
-.editor-host { flex: 1; min-height: 0; display: flex; }
-code-editor { flex: 1; }
+.editor-host { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
+code-editor { flex: 1; min-width: 0; }
 .error {
   margin: 0;
   padding: 8px 12px;
