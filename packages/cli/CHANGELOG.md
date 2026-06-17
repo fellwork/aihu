@@ -1,5 +1,19 @@
 # @aihu/cli
 
+## 0.8.2
+
+### Patch Changes
+
+- [#378](https://github.com/fellwork/aihu/pull/378) [`ce3b9a9`](https://github.com/fellwork/aihu/commit/ce3b9a9de72bc2439294df4089d430e8220fc388) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(cli): the `agent` template ships client-durable state
+
+  The scaffolded `<task-list>` now hydrates its signals from `localStorage` on
+  mount and writes back on every change, so the durable component **survives a
+  page refresh** out of the box. Because the agent's bridge calls drive the same
+  signals, an agent's reskin (label, variant, tasks) persists too. Browser-only
+  and guarded, so build/SSR safely fall back to defaults. (For state shared across
+  tabs/devices, move the source of truth server-side — e.g. a Durable Object / KV
+  behind the agent gate.)
+
 ## 0.8.1
 
 ### Patch Changes
