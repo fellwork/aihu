@@ -2,7 +2,7 @@
 
 aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** You author `.aihu` Single-File Components (block-structured: `@state`, `@template`, `@style`, `@agent`, `@route`); a Rust compiler emits standards-compliant Web Components **plus** the machine-readable agent manifest. An agent inspects a real component (llms.txt + MCP) and calls its actions on the live, on-screen instance over a server-mediated capability bridge — the component the user sees is the one the agent drives. Most "agent UI" today is the opposite: disposable HTML/JSON the model regenerates each turn (MCP Apps, generated iframes). Durable components are inspectable, reusable, and trusted, with the server holding auth and policy.
 
-> **Status:** v1 shipped 2026-05-03. npm publish at `0.1.x` rolling out.
+> **Status:** actively developed and shipping in `v1.0.x` releases. The reactive runtime, compiler, router, server, agent surface, CLI, styling engine, and UI primitives all work today; the `v1.0.0` tag is held for a rich-text/markdown plugin.
 
 ## What makes aihu different
 
