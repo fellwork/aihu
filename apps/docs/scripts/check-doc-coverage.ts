@@ -193,7 +193,7 @@ console.log(`Enumerated ${packages.length} published @aihu package(s).\n`)
 
 console.log(`Documented: ${documented.length}`)
 for (const p of documented) {
-  const via = hasDocPage(p.short) ? 'packages/' + p.short + '.md' : 'api-reference.md'
+  const via = hasDocPage(p.short) ? `packages/${p.short}.md` : 'api-reference.md'
   console.log(`  OK    ${p.name}  (${via})`)
 }
 

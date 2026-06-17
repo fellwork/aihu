@@ -17,7 +17,6 @@
  */
 
 import { existsSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import {
   type RegistryFs,
   RegistryResolveError,

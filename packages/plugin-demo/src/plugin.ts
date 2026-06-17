@@ -48,11 +48,11 @@ export function demo(options?: DemoOptions): Plugin {
           lowering: (_ctx, args) => {
             // Lowering is declared but the compiler dispatcher is a no-op at v0.2.x.
             // This shape proves the macro contribution contract holds end-to-end.
-            const name = typeof args['name'] === 'string' ? args['name'] : greetingName
+            const name = typeof args.name === 'string' ? args.name : greetingName
             return `<span class="aihu-greeting">Hello, ${name}</span>`
           },
           validation: (ctx, args) => {
-            if (args['name'] !== undefined && typeof args['name'] !== 'string') {
+            if (args.name !== undefined && typeof args.name !== 'string') {
               ctx.error('$greeting: "name" must be a string')
             }
           },
