@@ -433,5 +433,8 @@ describe("scaffoldApp · template 'agent' (capability-bridge showcase)", () => {
     expect(sfc).toContain('$action')
     expect(sfc).toContain('addTask')
     expect(sfc).toContain('$on.click={addFromInput}')
+    // client-durable state: hydrates from + persists to localStorage (survives refresh)
+    expect(sfc).toContain('localStorage')
+    expect(sfc).toContain('aihu:task-list:v1')
   })
 })
