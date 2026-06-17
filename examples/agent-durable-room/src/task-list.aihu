@@ -1,0 +1,174 @@
+// task-list — a SERVER-AUTHORITATIVE, multi-client durable component.
+//
+// Unlike the localStorage `agent` template (where the browser owns the state),
+// here the canonical state lives in a Durable Object. This component is a live
+// VIEW: on mount it opens a WebSocket to the room DO, hydrates from the snapshot
+// the DO sends, and re-renders on every broadcast. A human's UI intents and an
+// agent's gated /agent/call both mutate the SAME DO state, so every open tab —
+// and every device — sees the change live, and a refresh re-hydrates from the
+// DO (survives reload AND server restart). No localStorage: one source of truth.
+
+@state {
+  import { signal } from '@aihu/signals'
+
+  // Local mirror of the DO's canonical state. The DO is authoritative; these
+  // signals are only ever set from a broadcast snapshot (see apply()).
+  const [tasks, setTasks] = signal([])
+  const [label, writeLabel] = signal('Tasks')
+  const [variant, writeVariant] = signal('default')
+  const [draft, setDraft] = signal('')
+  const [live, setLive] = signal(false)
+
+  let ws = null
+  const apply = (s) => {
+    setTasks(Array.isArray(s.tasks) ? s.tasks : [])
+    writeLabel(typeof s.label === 'string' ? s.label : 'Tasks')
+    writeVariant(typeof s.variant === 'string' ? s.variant : 'default')
+  }
+
+  // Connect to the room DO. Auto-reconnect so the view is resilient.
+  if (typeof window !== 'undefined') {
+    const connect = () => {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+      ws = new WebSocket(proto + '://' + location.host + '/ws')
+      ws.onopen = () => setLive(true)
+      ws.onclose = () => {
+        setLive(false)
+        setTimeout(connect, 1000)
+      }
+      ws.onmessage = (e) => {
+        try {
+          const m = JSON.parse(e.data)
+          if (m.type === 'state' && m.state) apply(m.state)
+        } catch (_err) {
+          // ignore malformed frame
+        }
+      }
+    }
+    connect()
+  }
+
+  // Send a user intent to the DO. The DO mutates + broadcasts; we never mutate
+  // local state directly — we wait for the snapshot, so all views stay in sync.
+  const send = (type, arg) => {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type, arg }))
+  }
+
+  const onDraft = (e) => setDraft(e.target.value)
+  const addFromInput = () => {
+    const t = draft().trim()
+    if (!t) return
+    send('addTask', t)
+    setDraft('')
+  }
+}
+
+@template {
+  <section $class={['tl', variant()]}>
+    <header class="tl-head">
+      <h2 class="tl-title">{label}</h2>
+      <span class="tl-count">{tasks.length}</span>
+      <span $class={['tl-live', live() ? 'on' : 'off']}>{live() ? 'live' : 'connecting…'}</span>
+    </header>
+    <div class="tl-add">
+      <label class="tl-srlabel" for="tl-new">New task</label>
+      <input id="tl-new" class="tl-input" $value={draft} $on.input={onDraft} $on.keydown={(e) => e.key === 'Enter' && addFromInput()} placeholder="Add a task and press Enter">
+      <button class="tl-btn" $on.click={addFromInput}>Add</button>
+      <button class="tl-btn" $on.click={() => send('clearTasks')}>Clear</button>
+    </div>
+    <ul class="tl-items">
+      <li $each="tasks as task" $key="task.id" class="tl-item">
+        <span class="tl-text">{task.text}</span>
+      </li>
+    </ul>
+  </section>
+}
+
+@style {
+  .tl {
+    --tl-accent: #334155;
+    --tl-border: #e2e2e2;
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
+    background: #fff;
+    border: 1px solid var(--tl-border);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    color: #1a1a1a;
+  }
+  .tl.compact { padding: 0.75rem 1rem; }
+  .tl.danger {
+    --tl-accent: #c0392b;
+    --tl-border: #c0392b;
+    background: #fff6f5;
+  }
+  .tl-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+  }
+  .tl-title {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--tl-accent);
+  }
+  .tl-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.45rem;
+    background: var(--tl-accent);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .tl-live {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #9a9a9a;
+  }
+  .tl-live.on { color: #16a34a; }
+  .tl-add { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+  .tl-srlabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .tl-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  .tl-btn {
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--tl-accent);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--tl-accent);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .tl-btn:hover { background: var(--tl-accent); color: #fff; }
+  .tl-items { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+  .tl-item {
+    padding: 0.5rem 0.7rem;
+    background: #fafafa;
+    border: 1px solid #ececec;
+    border-radius: 8px;
+  }
+  .tl-text { font-size: 0.95rem; }
+}

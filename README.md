@@ -293,27 +293,28 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | # | Folder | What it teaches | Port |
 |---|---|---|---|
 | 01 | [`agent-driven-demo/`](./examples/agent-driven-demo) | An external agent reads a component's metadata and **drives the real, visible component instance** over a real WebSocket — gated server-s... | 5108 |
-| 02 | [`agent-hub/`](./examples/agent-hub) | _no README_ | 5107 |
-| 03 | [`auth-magna-seo/`](./examples/auth-magna-seo) | A server-only worked example that proves the **3-package integration contract** — `@aihu/auth` + `@aihu/magna` + `@aihu/seo` — using **on... | — |
-| 04 | [`blog-loader/`](./examples/blog-loader) | A server-rendered post page demonstrating aihu's loader pattern, `@aihu/context` as a parallel data channel, and an `@agent` block for ag... | — |
-| 05 | [`blog-router/`](./examples/blog-router) | A 3-page blog demonstrating aihu's file-based routing. | — |
-| 06 | [`cf-adapter/`](./examples/cf-adapter) | _no README_ | 5110 |
-| 07 | [`color-theme/`](./examples/color-theme) | `$reactive(...)` in `@style` plus `$global { }` to propagate tokens beyond component scope — and `$media` macro for responsive breakpoint... | 5105 |
-| 08 | [`css-engine-demo/`](./examples/css-engine-demo) | Demonstrates all three browser-facing surfaces of the published [`@aihu/css-engine`](../../packages/css-engine) package: | 5114 |
-| 09 | [`css-engine-utility/`](./examples/css-engine-utility) | When `@aihu/css-engine` is installed (as a dependency or peer), the compiler plugin that `viteAihuPlugin` composes will: | 5118 |
-| 10 | [`css-pluggability/`](./examples/css-pluggability) | A worked example showing how to plug **Tailwind CSS** into a aihu app, plus documented swap paths to **UnoCSS**, **Pico CSS**, and **vani... | — |
-| 11 | [`currency-converter/`](./examples/currency-converter) | the second `@agent` flagship, with enum-typed inputs. Demonstrates how a TypeScript union type (`'USD' | 'EUR' | 'GBP' | 'JPY'`) on a sta... | 5116 |
-| 12 | [`hacker-news/`](./examples/hacker-news) | A aihu port of the canonical Hacker News reader. Hits the live HN API. M1 polish: dark-mode token pass, `@agent` block on the index page,... | 5108 |
-| 13 | [`layouts/`](./examples/layouts) | Runtime **layout rendering** + **dynamic layout switching**. | — |
-| 14 | [`live-counter/`](./examples/live-counter) | the smallest possible aihu component — state, event handlers, a reactive text node, and an agent surface, in one file. | 5101 |
-| 15 | [`plugin-demo/`](./examples/plugin-demo) | _no README_ | 5111 |
-| 16 | [`primitives-showcase/`](./examples/primitives-showcase) | Wires three WAI-ARIA APG patterns from the published [`@aihu/primitives`](../../packages/primitives) package — each a vanilla custom elem... | 5115 |
-| 17 | [`realtime-scores/`](./examples/realtime-scores) | Live score board demonstrating WebSocket-driven signal updates, `$lifecycle.mount/dispose`, and `createResource` from `@aihu-plugin/data`... | 5112 |
-| 18 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
-| 19 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
-| 20 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
-| 21 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
-| 22 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
+| 02 | [`agent-durable-room/`](./examples/agent-durable-room) | The **server-authoritative, multi-client** version of the agent-driven component. | — |
+| 03 | [`agent-hub/`](./examples/agent-hub) | _no README_ | 5107 |
+| 04 | [`auth-magna-seo/`](./examples/auth-magna-seo) | A server-only worked example that proves the **3-package integration contract** — `@aihu/auth` + `@aihu/magna` + `@aihu/seo` — using **on... | — |
+| 05 | [`blog-loader/`](./examples/blog-loader) | A server-rendered post page demonstrating aihu's loader pattern, `@aihu/context` as a parallel data channel, and an `@agent` block for ag... | — |
+| 06 | [`blog-router/`](./examples/blog-router) | A 3-page blog demonstrating aihu's file-based routing. | — |
+| 07 | [`cf-adapter/`](./examples/cf-adapter) | _no README_ | 5110 |
+| 08 | [`color-theme/`](./examples/color-theme) | `$reactive(...)` in `@style` plus `$global { }` to propagate tokens beyond component scope — and `$media` macro for responsive breakpoint... | 5105 |
+| 09 | [`css-engine-demo/`](./examples/css-engine-demo) | Demonstrates all three browser-facing surfaces of the published [`@aihu/css-engine`](../../packages/css-engine) package: | 5114 |
+| 10 | [`css-engine-utility/`](./examples/css-engine-utility) | When `@aihu/css-engine` is installed (as a dependency or peer), the compiler plugin that `viteAihuPlugin` composes will: | 5118 |
+| 11 | [`css-pluggability/`](./examples/css-pluggability) | A worked example showing how to plug **Tailwind CSS** into a aihu app, plus documented swap paths to **UnoCSS**, **Pico CSS**, and **vani... | — |
+| 12 | [`currency-converter/`](./examples/currency-converter) | the second `@agent` flagship, with enum-typed inputs. Demonstrates how a TypeScript union type (`'USD' | 'EUR' | 'GBP' | 'JPY'`) on a sta... | 5116 |
+| 13 | [`hacker-news/`](./examples/hacker-news) | A aihu port of the canonical Hacker News reader. Hits the live HN API. M1 polish: dark-mode token pass, `@agent` block on the index page,... | 5108 |
+| 14 | [`layouts/`](./examples/layouts) | Runtime **layout rendering** + **dynamic layout switching**. | — |
+| 15 | [`live-counter/`](./examples/live-counter) | the smallest possible aihu component — state, event handlers, a reactive text node, and an agent surface, in one file. | 5101 |
+| 16 | [`plugin-demo/`](./examples/plugin-demo) | _no README_ | 5111 |
+| 17 | [`primitives-showcase/`](./examples/primitives-showcase) | Wires three WAI-ARIA APG patterns from the published [`@aihu/primitives`](../../packages/primitives) package — each a vanilla custom elem... | 5115 |
+| 18 | [`realtime-scores/`](./examples/realtime-scores) | Live score board demonstrating WebSocket-driven signal updates, `$lifecycle.mount/dispose`, and `createResource` from `@aihu-plugin/data`... | 5112 |
+| 19 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
+| 20 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
+| 21 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
+| 22 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
+| 23 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
