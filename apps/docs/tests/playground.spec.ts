@@ -155,3 +155,62 @@ test('?src=<source> roundtrip: cold-load arbitrary source', async ({ page }) => 
   // No preset is active for arbitrary sources.
   expect(await activePresetId(page)).toBeNull()
 })
+
+// Regression guard: presets must stay in sync with the shipped compiler
+// grammar. They have drifted before (C306 `$value`, `$each` string form,
+// single-identifier interpolation), erroring half the tabs and — because the
+// preview only repaints on a successful compile — leaving the preview stuck on
+// the last good render ("can't control the preview"). WASM-gated: skipped when
+// the build has no ./wasm bundle (the playground shows a fallback message).
+async function errorText(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const shell = document.querySelector('docs-shell')
+    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
+    const err = embed?.shadowRoot?.querySelector('.error') as HTMLElement | null
+    return err && !err.hidden ? (err.textContent ?? '') : ''
+  })
+}
+
+test('every preset compiles without a compile error', async ({ page }) => {
+  await gotoPlayground(page)
+  await page.waitForTimeout(900) // WASM boot + first compile
+  const boot = await errorText(page)
+  test.skip(boot.includes('WASM bundle unavailable'), 'no ./wasm bundle in this build')
+
+  for (const id of PRESET_IDS) {
+    await page.evaluate((pid) => {
+      const shell = document.querySelector('docs-shell')
+      const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
+      ;(
+        embed?.shadowRoot?.querySelector(
+          `.preset-tab[data-preset-id="${pid}"]`,
+        ) as HTMLButtonElement | null
+      )?.click()
+    }, id)
+    await expect.poll(() => activePresetId(page)).toBe(id)
+    await page.waitForTimeout(400) // debounce + compile
+    expect(await errorText(page), `preset "${id}" must compile cleanly`).toBe('')
+  }
+})
+
+test('code editor stays within its column — no overflow into the preview pane', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await gotoPlayground(page)
+  const probe = await page.evaluate(() => {
+    const shell = document.querySelector('docs-shell')
+    const sr = (shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null)
+      ?.shadowRoot
+    const ce = sr?.querySelector('code-editor') as HTMLElement | null
+    const pv = sr?.querySelector('.preview-pane') as HTMLElement | null
+    if (!ce || !pv) return null
+    return {
+      editorRight: ce.getBoundingClientRect().right,
+      previewLeft: pv.getBoundingClientRect().left,
+    }
+  })
+  expect(probe).not.toBeNull()
+  // The editor's right edge must not cross into the preview column (1px slack).
+  expect(probe!.editorRight).toBeLessThanOrEqual(probe!.previewLeft + 1)
+})

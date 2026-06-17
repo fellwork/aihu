@@ -43,8 +43,8 @@ function loadCodeMirror() {
 }
 
 const HOST_STYLES = `
-:host { display: block; }
-.code-editor-mount { height: 100%; min-height: 240px; font-size: 13px; }
+:host { display: block; min-width: 0; overflow: hidden; }
+.code-editor-mount { height: 100%; min-height: 240px; font-size: 13px; overflow: hidden; }
 .code-editor-fallback {
   height: 100%;
   min-height: 240px;
@@ -182,9 +182,15 @@ export class CodeEditor extends HTMLElement {
         javascript({ typescript: true }),
         keymap.of(defaultKeymap),
         updateListener,
+        // Wrap long lines so the editor never sets a wide intrinsic width that
+        // overflows its grid column into the preview pane.
+        EditorView.lineWrapping,
         EditorView.theme({
-          '&': { height: '100%' },
-          '.cm-scroller': { fontFamily: 'ui-monospace, Menlo, Consolas, monospace' },
+          '&': { height: '100%', maxWidth: '100%' },
+          '.cm-scroller': {
+            fontFamily: 'ui-monospace, Menlo, Consolas, monospace',
+            overflowX: 'auto',
+          },
         }),
       ],
     })
