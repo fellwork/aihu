@@ -97,7 +97,7 @@
   },
   {
     "name": "@aihu/cli",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "dir": "packages/cli",
     "isPlatform": false
   },
@@ -289,7 +289,7 @@
   },
   {
     "name": "create-aihu",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "dir": "packages/create-aihu",
     "isPlatform": false
   },

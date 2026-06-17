@@ -1,5 +1,23 @@
 # create-aihu
 
+## 0.1.2
+
+### Patch Changes
+
+- [#376](https://github.com/fellwork/aihu/pull/376) [`d48a7ad`](https://github.com/fellwork/aihu/commit/d48a7ad12851ee30b869ee5f8f234038d97c9aff) Thanks [@srmcguirt](https://github.com/srmcguirt)! - fix(create-aihu): pin `@aihu/cli` to a caret that tracks this release
+
+  `create-aihu@0.1.1` froze an exact `@aihu/cli@0.7.0` dependency — a stale
+  `bun.lock`-resolved pin baked by `bun pm pack` at publish time (the changesets
+  Version PR bumps `package.json` but not `bun.lock`). Because the `agent`
+  template was added in `cli@0.8.0`, `npx create-aihu@latest --template agent`
+  resolved a cli with no agent template and failed. `publish-all.sh` now stamps
+  the `@aihu/cli` dependency from the live cli package version (`^x.y.z`) before
+  packing, so the delegator always resolves a cli that carries the current
+  templates regardless of lock state.
+
+- Updated dependencies [[`d48a7ad`](https://github.com/fellwork/aihu/commit/d48a7ad12851ee30b869ee5f8f234038d97c9aff)]:
+  - @aihu/cli@0.8.1
+
 ## 0.1.1
 
 ### Patch Changes
