@@ -6,13 +6,21 @@
 
 Aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** An agent inspects a real component through its llms.txt + MCP manifest and calls its actions on the live, on-screen instance. The thing the user sees is the thing the agent drives, not a throwaway interface regenerated every turn.
 
+<p align="center">
+  <img src="docs/media/hero.gif" width="640" alt="An AI agent relabeling, restyling, and adding tasks to a live aihu component over a scoped capability bridge — and the state surviving a page refresh">
+</p>
+
+```bash
+npx create-aihu my-app --template agent   # a durable component an AI can drive — running in one command
+```
+
 You author `.aihu` single-file components; a Rust compiler emits standards-based **Web Components** *plus* the machine-readable agent manifest — no separate API layer to build.
 
 **Generative UI vs. durable components.** Most "agent UI" today is disposable: the model emits HTML or JSON that renders once and vanishes (MCP Apps, generated iframes). Aihu is the inverse — real, inspectable, reusable custom elements an agent drives over a server-mediated capability bridge, with the server holding auth and policy. Durable wins when the UI has to be trusted, styled, and reused.
 
 Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is **sub-2 kB**, output is **vanilla custom elements** (no lock-in, no hydration step), with **zero runtime dependencies**, and reactive updates run 122× faster than vanilla DOM on targeted writes ([benchmarks below](#performance)).
 
-> **Status:** actively developed, shipping in `v1.0.x` releases. The `v1.0.0` milestone tag is held until the styling engine and UI components land — see [Project status](#project-status).
+> **Status:** actively developed and shipping in `v1.0.x` releases — the reactive runtime, compiler, router, server, agent surface, CLI, styling engine, and UI primitives all work today. See [Project status](#project-status).
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
@@ -28,19 +36,21 @@ Under the hood it's a complete meta-framework — routing, SSR, auth, data loadi
 ## Quickstart
 
 ```bash
-# Scaffold a new app
-bunx @aihu/cli app my-app
-cd my-app
-bun install
-bun run dev      # http://localhost:5173
+# The agent showcase — a durable <task-list> a human AND an AI agent drive
+npx create-aihu my-app --template agent
+cd my-app && bun install
+bun run dev      # component on http://localhost:5108 · agent bridge on :5208
 
-# Or run the canonical examples portfolio in parallel
+# …or a minimal app
+npx create-aihu my-app
+
+# …or run the canonical examples portfolio in parallel
 git clone https://github.com/fellwork/aihu
 cd aihu && bun install
 bun run dev:examples
 ```
 
-For an SFC tour, see [`examples/live-counter/`](./examples/live-counter) (~40 LOC) or jump to the [13-example portfolio](./examples/README.md).
+For an SFC tour, see [`examples/live-counter/`](./examples/live-counter) (~40 LOC) or jump to the [example portfolio](./examples/README.md).
 
 ---
 
@@ -95,7 +105,7 @@ Most component libraries give you a way to build *components*. Aihu gives you a 
 ### Developer experience
 - `aihu` CLI for scaffolding and builds (`app` / `page` / `component` / `plugin` / `dev` / `build`)
 - VS Code extension — syntax highlighting today, full language server in progress
-- A 13-example portfolio you can run in parallel with `bun run dev:examples`
+- An example portfolio you can run in parallel with `bun run dev:examples`
 - Built on Bun, Rolldown, Biome, and Vitest
 
 ### Standards & compliance
@@ -108,11 +118,11 @@ Most component libraries give you a way to build *components*. Aihu gives you a 
 
 ## Project status
 
-Aihu is under active development and ships in `v1.0.x` releases. The reactive runtime, compiler, router, server, agent surface, and CLI all work today. The `v1.0.0` milestone tag is intentionally held until three additions land:
+Aihu is under active development and ships in `v1.0.x` releases. The reactive runtime, compiler, router, server, agent surface, CLI, styling engine (`@aihu/css-engine` — a Tailwind v4-style utility engine with scoped, **zero-browser-byte** output), and accessible UI primitives (`@aihu/primitives` — dialog, tooltip, button, and more) all work today. The `v1.0.0` milestone tag is held for one remaining piece:
 
-- **A styling engine** (`@aihu/css-engine`) — build-time CSS: a Tailwind v4-style utility engine with scoped, per-component output that adds **zero** bytes to the browser bundle. The engine, compiler integration, style packs, and a `cn()` helper have landed; a copy-paste UI registry is next.
-- **UI components** (`@aihu/primitives`) — accessible, headless primitives (dialog, tooltip, button, and more) built on the engine. Landed.
 - **Rich-text / markdown** support, shipping as a plugin.
+
+A copy-paste UI registry built on the engine is also in progress.
 
 Packages version independently (most are in the `0.x` range during early access), so you can adopt any piece on its own. **Aihu is dependency-free at runtime** — every browser-shipped package has an empty `dependencies` list. It's a research-driven codebase: each layer is pinned by a written spec before code lands, and performance regressions block merges.
 
@@ -315,8 +325,6 @@ Run all polished examples in parallel:
 bun run dev:examples
 ```
 
-The remaining examples ship in M2.
-
 ---
 
 ## Toolchain
@@ -336,7 +344,7 @@ The remaining examples ship in M2.
 ```bash
 bun install
 bun run build      # build all packages
-bun run test       # 607 TS tests + 222 Rust tests (unit + integration + compliance)
+bun run test       # TS + Rust suites (unit + integration + compliance)
 bun run size       # per-package gzipped bundle gates
 bun run check      # biome lint + format
 bash scripts/check-boundary.sh   # AC-7: hard boundary (no client imports in server layer)
@@ -414,64 +422,11 @@ Run all compliance checks: `bun run test && bun run test:quality`
 
 ## Reference
 
-- **Roadmap (start here):** [`docs/roadmap/SUMMARY.md`](./docs/roadmap/SUMMARY.md) — v1.1 master plan, milestone schedule, dependency graph.
-- **User directives:** [`docs/roadmap/_user-directives.md`](./docs/roadmap/_user-directives.md) — Directive 0 (project mantra) and Directive 3 (locked decisions).
-
-### Architecture tracks
-
-<!-- BEGIN_AUTOGEN: reference -->
-<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
-
-#### Roadmap tracks
-
-- [`docs/roadmap/arch-1-website.md`](./docs/roadmap/arch-1-website.md) — Architecture Spec: Aihu Project Website + Documentation (v1.1+)
-- [`docs/roadmap/arch-2-examples.md`](./docs/roadmap/arch-2-examples.md) — Architecture Spec — Examples Polish + Website Integration
-- [`docs/roadmap/arch-3-plugins.md`](./docs/roadmap/arch-3-plugins.md) — Architecture Spec — SOTA Plugins + Magna Integration
-- [`docs/roadmap/arch-4-dx-tools.md`](./docs/roadmap/arch-4-dx-tools.md) — Architecture Spec — DX Tooling, Language Server, Agentic Surface
-- [`docs/roadmap/arch-5-sfc-primitives.md`](./docs/roadmap/arch-5-sfc-primitives.md) — Architecture Spec — SFC Component Primitives: Audit + 7-Dimension Design
-- [`docs/roadmap/arch-6-cli-templates.md`](./docs/roadmap/arch-6-cli-templates.md) — Architecture Spec — CLI Templates v0.2.0
-
-#### Specs (ratified + RFC)
-
-- [`docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md`](./docs/superpowers/specs/2026-04-23-aihu-v0-vertical-slice-design.md) — aihu v0 — Vertical Slice Design _(Draft)_
-- [`docs/superpowers/specs/2026-05-02-spec-block-structure.md`](./docs/superpowers/specs/2026-05-02-spec-block-structure.md) — Block Structure — `@aihu/compiler` _(Ratified 2026-05-02)_
-- [`docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md`](./docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md) — Macro Vocabulary — `@aihu/compiler` _(Ratified 2026-05-02)_
-- [`docs/superpowers/specs/2026-05-02-spec-plugin-contract.md`](./docs/superpowers/specs/2026-05-02-spec-plugin-contract.md) — Plugin Contract — `@aihu/compiler` _(Ratified 2026-05-02)_
-- [`docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`](./docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md) — Template Attribute Syntax — `@aihu/compiler` _(Ratified 2026-05-02)_
-- [`docs/superpowers/specs/2026-05-05-spec-live-binding.md`](./docs/superpowers/specs/2026-05-05-spec-live-binding.md) — Live-Binding Architecture — `@aihu/arbor` + `@aihu/agent-service` _(APPROVED per Directive 3)_
-- [`docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md`](./docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md) — Macro Vocabulary v2 — Object-literal Collection-Form _(RATIFIED 2026-05-05)_
-- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-platform-audit.md) — Template Syntax v2 — Platform Audit (Round 3)
-- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2-samples.md) — Template Syntax v2 — Corpus Samples (Variant B) _(Variant B per Director r2 reconciliation)_
-- [`docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md`](./docs/superpowers/specs/2026-05-06-spec-template-syntax-v2.md) — Template Syntax v2 — `@template` redesign _(PROPOSED — not RATIFIED until user approves)_
-- [`docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md`](./docs/superpowers/specs/2026-05-10-aihu-css-engine-and-primitives-design.md) — aihu CSS Engine + Primitives + UI — Design _(Draft)_
-- [`docs/superpowers/specs/compiler-ast-export-hook.md`](./docs/superpowers/specs/compiler-ast-export-hook.md) — Compiler AST-Export Hook — Co-Design Note _(preparatory design)_
-- [`docs/superpowers/specs/live-binding-impl.md`](./docs/superpowers/specs/live-binding-impl.md) — Spec: $live binding — Implementation Design (v0.3.0) _(DRAFT — for Builder dispatch)_
-- [`docs/superpowers/specs/lsp-language-server.md`](./docs/superpowers/specs/lsp-language-server.md) — Spec: vscode-aihu LSP Language Server
-- [`docs/superpowers/specs/mcp-server.md`](./docs/superpowers/specs/mcp-server.md) — Spec: @aihu/mcp — aihu MCP Server
-- [`docs/superpowers/specs/stream-impl.md`](./docs/superpowers/specs/stream-impl.md) — Spec: Streaming Text I/O — Implementation Design (v0.4.0) _(DRAFT — for Builder dispatch)_
-
-<sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
-
-<!-- END_AUTOGEN: reference -->
-
-### Process docs
-
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — fork, branch, conventional-commits, changesets, dep-free thesis.
-- [`docs/RELEASING.md`](./docs/RELEASING.md) — changeset workflow, release PR, npm publish pipeline.
-- [`docs/site/`](./docs/site) — 12-page user guide: introduction, installation, getting-started, authoring-components, authoring-agents, reactivity, ssr-hydration, routing-layouts, data-fetching, deployment, api-reference, authoring-plugins.
-- [`docs/cli.md`](./docs/cli.md) — CLI reference.
-- **CLI:** [`@aihu/cli`](./packages/cli) — `npx aihu app`, `npx aihu migrate`.
-
-### Pre-v1 phase specs (historical, still binding)
-
-- [`.team/phase-2/spec-signals.md`](./.team/phase-2/spec-signals.md), [`.team/phase-3/spec-arbor.md`](./.team/phase-3/spec-arbor.md), [`.team/phase-4/spec-runtime.md`](./.team/phase-4/spec-runtime.md), [`.team/phase-5/spec-agent.md`](./.team/phase-5/spec-agent.md), [`.team/agent-readiness/spec-agent-readiness.md`](./.team/agent-readiness/spec-agent-readiness.md).
-- Phase retros: `.team/phase-*/retro.md`, `.team/round-n1/retro.md`, [`.team/agent-readiness/retro-phase1-3.md`](./.team/agent-readiness/retro-phase1-3.md).
-- Learnings: [`.team/learnings.md`](./.team/learnings.md).
-
-### Bench harness
-
-- [`bench/signals/HARNESS.md`](./bench/signals/HARNESS.md), [`bench/signals/RESULTS.md`](./bench/signals/RESULTS.md)
-- [`bench/arbor/HARNESS.md`](./bench/arbor/HARNESS.md), [`bench/arbor/RESULTS.md`](./bench/arbor/RESULTS.md)
+- **User guide** — [`docs/site/`](./docs/site): introduction, installation, getting started, authoring components, authoring agents, reactivity, SSR + hydration, routing + layouts, data fetching, deployment, API reference, and plugins.
+- **CLI reference** — [`docs/cli.md`](./docs/cli.md): `create-aihu`, `aihu app` / `page` / `component` / `dev` / `build`, and `aihu migrate`.
+- **Contributing** — [`CONTRIBUTING.md`](./CONTRIBUTING.md): fork, branch, conventional commits, changesets, and the dependency-free thesis.
+- **Releasing** — [`docs/RELEASING.md`](./docs/RELEASING.md): changeset workflow, release PR, npm publish pipeline.
+- **Benchmarks** — [`bench/signals/`](./bench/signals) and [`bench/arbor/`](./bench/arbor): harness + full results.
 
 ---
 
