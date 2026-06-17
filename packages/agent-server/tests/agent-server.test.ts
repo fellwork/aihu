@@ -281,6 +281,84 @@ function makeFakeBridge(onSend: (data: string) => void): BridgeChannel & {
   }
 }
 
+// ─── Internal SSR-DOM: no createHost, no pre-existing global document ─────────
+//
+// This is the fix's load-bearing path. Under plain Bun/Node there is no global
+// `document`, and arbor's `mount()` reaches for `document.createElement` etc.
+// `createAgentServer` must stand up an internal jsdom DOM so a consumer needs
+// NO `createHost` and NO `globalThis.document` glue. The root vitest config runs
+// `environment: 'jsdom'`, so a global `document` already exists here — we delete
+// it to exercise the headless path, then restore it for the other suites.
+describe('internal SSR-DOM (no createHost, no global document)', () => {
+  let savedDocument: typeof globalThis.document | undefined
+  let savedWindow: typeof globalThis.window | undefined
+
+  beforeEach(() => {
+    savedDocument = (globalThis as Record<string, unknown>).document as typeof globalThis.document
+    savedWindow = (globalThis as Record<string, unknown>).window as typeof globalThis.window
+    // Actually remove the globals so `typeof document === 'undefined'`,
+    // reproducing a plain Bun/Node runtime (not just setting them undefined).
+    delete (globalThis as Record<string, unknown>).document
+    delete (globalThis as Record<string, unknown>).window
+  })
+
+  afterEach(() => {
+    ;(globalThis as Record<string, unknown>).document = savedDocument
+    ;(globalThis as Record<string, unknown>).window = savedWindow
+  })
+
+  it('mounts + registers a LiveBinding with no DOM glue, and the gate drives it', async () => {
+    expect(typeof (globalThis as Record<string, unknown>).document).toBe('undefined')
+
+    const counter = makeCounter()
+    // No `createHost`. No pre-existing `document`. This crashed before the fix.
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+    })
+
+    // The internal DOM was installed by createAgentServer.
+    expect(typeof (globalThis as Record<string, unknown>).document).not.toBe('undefined')
+
+    // Starting state mounted correctly.
+    expect(counter.readCount()).toBe(0)
+
+    // The gate resolves the EXPOSED action and drives the real signal.
+    const ok = (await server.callTool(`${TAG}/increment`, [4], { userId: 'u1' })) as {
+      result?: unknown
+      code?: number
+    }
+    expect(ok.code).toBeUndefined()
+    expect(counter.readCount()).toBe(4)
+    const after = server.serialize()
+    expect(Object.values(after)).toContain(4)
+
+    // The gate REJECTS an unexposed tag (404) — the security gate still works
+    // through the internally-mounted binding.
+    const denied = (await server.callTool('not-exposed/doThing', {}, { userId: 'u1' })) as {
+      code: number
+      error: string
+    }
+    expect(denied.code).toBe(404)
+    expect(denied.error).toContain('not-exposed')
+  })
+
+  it('honors an explicit createHost even when an internal DOM would be stood up', () => {
+    const counter = makeCounter()
+    let hostCalls = 0
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: () => {
+        hostCalls++
+        // createAgentServer ensures the DOM BEFORE calling createHost, so a
+        // factory that itself uses `document` works without consumer glue.
+        return document.createElement('section')
+      },
+    })
+    expect(hostCalls).toBe(1)
+    expect(server.serialize()).toBeDefined()
+  })
+})
+
 describe('WS capability bridge', () => {
   it('forwards an approved invocation as {opaqueActionId, args} and surfaces the browser result', async () => {
     const counter = makeCounter()

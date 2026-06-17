@@ -50,46 +50,47 @@ describe('scaffold css-engine · package.json', () => {
 
 describe('scaffold css-engine · vite.config.ts', () => {
   it('open mode (default) emits NO css block but adds the clarifying comment', () => {
-    const cfg = appViteConfig(true, 'open')
+    const cfg = appViteConfig('demo', true, 'open')
     expect(cfg).not.toContain('      css: { shadowMode')
     expect(cfg).toContain('fold into each')
   })
 
   it('shadowMode: none emits an explicit css block', () => {
-    const cfg = appViteConfig(true, 'none')
+    const cfg = appViteConfig('demo', true, 'none')
     expect(cfg).toContain("css: { shadowMode: 'none' },")
   })
 
   it('shadowMode: closed emits an explicit css block', () => {
-    const cfg = appViteConfig(true, 'closed')
+    const cfg = appViteConfig('demo', true, 'closed')
     expect(cfg).toContain("css: { shadowMode: 'closed' },")
   })
 
-  it('css off (default) is byte-identical to the historical plain config', () => {
-    const plain = `import { viteAihuPlugin } from '@aihu/app'
-import { defineConfig } from 'vite'
-
-export default defineConfig({
-  plugins: [
-    viteAihuPlugin({
-      dir: { pages: 'src/pages' },
-    }),
-  ],
-})
-`
-    expect(appViteConfig()).toBe(plain)
-    expect(appViteConfig(false, 'open')).toBe(plain)
+  it('css off (default) emits the base config: optimizeDeps + agentReadiness, no css block', () => {
+    const cfg = appViteConfig('demo')
+    // Gap 1: dev-server fix — @aihu/app must be excluded from esbuild pre-bundle.
+    expect(cfg).toContain("optimizeDeps: { exclude: ['@aihu/app'] }")
+    // Gap 2: the agent surface is enabled by default with the counter skills.
+    expect(cfg).toContain('viteAgentReadinessIntegration(')
+    expect(cfg).toContain("from '@aihu-plugin/agent-readiness'")
+    expect(cfg).toContain("name: 'demo'")
+    expect(cfg).toContain("name: 'increment'")
+    expect(cfg).toContain("dir: { pages: 'src/pages' }")
+    // css off → no shadowMode block and no css-engine comment.
+    expect(cfg).not.toContain('      css: { shadowMode')
+    expect(cfg).not.toContain('fold into each')
   })
 })
 
 describe('scaffold css-engine · index.aihu starter', () => {
   it('uses utility classes and drops the @style block when on', () => {
     const sfc = appIndexAihu('myapp', true)
-    expect(sfc).toContain('class="flex flex-col gap-4 max-w-7xl mx-auto p-8"')
+    expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).toContain('class="text-3xl font-bold"')
     expect(sfc).not.toContain('@style')
     // signal counter retained
     expect(sfc).toContain('const [count, setCount] = signal(0)')
+    // the agent-surface section dramatizes the human + agent control panel
+    expect(sfc).toContain('Agent surface')
   })
 
   it('keeps the hand-written @style starter byte-identical when off', () => {
@@ -121,7 +122,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     expect(vite).not.toContain('      css: { shadowMode')
 
     const sfc = readFileSync(join(root, 'src/pages/index.aihu'), 'utf8')
-    expect(sfc).toContain('class="flex flex-col gap-4 max-w-7xl mx-auto p-8"')
+    expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
   })
 
@@ -176,7 +177,9 @@ async function transformStarter(
   try {
     const plugin = aihuCompilerPlugin(options)
     const transform = plugin.transform as unknown as TransformFn
-    const res = await transform.call({}, source, join(tmp, 'index.aihu'))
+    // The starter now carries a `@route` block, which the compiler only accepts
+    // under a `src/pages/` path (C500), so compile it at that path.
+    const res = await transform.call({}, source, join(tmp, 'src', 'pages', 'index.aihu'))
     if (res == null) throw new Error('plugin returned no result')
     return res.code
   } finally {

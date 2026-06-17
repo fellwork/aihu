@@ -152,9 +152,6 @@ bun add @aihu/agent-server
 - `@aihu/agent-service` — `workspace:*`
 - `@aihu/arbor` — `workspace:*`
 - `@modelcontextprotocol/sdk` — `^1.0.0`
-
-**Peer dependencies:**
-
 - `jsdom` — `^25.0.0`
 
 <sub><i>Auto-generated against `@aihu/agent-server@0.2.0`.</i></sub>

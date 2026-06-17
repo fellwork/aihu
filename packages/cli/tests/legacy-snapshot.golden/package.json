@@ -17,6 +17,7 @@
     "@aihu/signals": "latest"
   },
   "devDependencies": {
+    "@aihu-plugin/agent-readiness": "latest",
     "@aihu/cli": "latest",
     "@aihu/compiler": "latest",
     "typescript": "^5.0.0",

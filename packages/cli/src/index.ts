@@ -20,6 +20,18 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import {
+  agentComponentAihu,
+  agentIndexHtml,
+  agentMainTs,
+  agentMcpTs,
+  agentModuleShim,
+  agentPackageJson,
+  agentReadme,
+  agentServerTs,
+  agentTsConfig,
+  agentViteConfig,
+} from './templates-agent.js'
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -41,7 +53,7 @@ export interface ScaffoldResult {
 // ---------------------------------------------------------------------------
 
 export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
-export type AppTemplate = 'minimal' | 'full' | 'docs'
+export type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent'
 
 /** Out-of-the-box CSS strategy for a scaffolded app. */
 export type CssChoice = 'engine' | 'none'
@@ -99,6 +111,12 @@ export function appPackageJson(
         '@aihu/signals': 'latest',
       },
       devDependencies: {
+        // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
+        // vite.config.ts (llms.txt + MCP server-card emission). It is a
+        // devDependency of `@aihu/app`, NOT a transitive runtime dep, so a
+        // consumer must list it explicitly — otherwise `viteAihuPlugin`'s
+        // `require('@aihu-plugin/agent-readiness')` throws at config load.
+        '@aihu-plugin/agent-readiness': 'latest',
         '@aihu/cli': 'latest',
         '@aihu/compiler': 'latest',
         typescript: '^5.0.0',
@@ -125,7 +143,11 @@ export function appPackageJson(
  * `dir.pages` tells the router where to scan for `.aihu` page files; this
  * mirrors `examples/blog-router/vite.config.ts`.
  */
-export function appViteConfig(withCssEngine = false, shadowMode: ShadowChoice = 'open'): string {
+export function appViteConfig(
+  appName = 'app',
+  withCssEngine = false,
+  shadowMode: ShadowChoice = 'open',
+): string {
   // Default path (css off) and css-engine in the default `open` mode both emit
   // the SAME plugin options — `open` is the compiler default, so a redundant
   // `css: { shadowMode: 'open' }` is never written. css-engine in open mode
@@ -139,14 +161,50 @@ export function appViteConfig(withCssEngine = false, shadowMode: ShadowChoice = 
 `
     : ''
   const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
+  // Skill ids are namespaced by the root component's custom-element tag, matching
+  // the `$action` entries authored in src/pages/index.aihu.
+  const tag = `${toSafe(appName)}-root`
   return `import { viteAihuPlugin } from '@aihu/app'
+import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Vite/esbuild pre-bundles dependencies for dev. \`@aihu/app\`'s client entry
+  // imports the \`virtual:aihu-routes\` / \`virtual:aihu-layouts\` modules that the
+  // router plugin resolves at request time — esbuild's pre-bundle pass can't see
+  // them, so it MUST be excluded or \`vite dev\` fails to start.
+  optimizeDeps: { exclude: ['@aihu/app'] },
   plugins: [
     viteAihuPlugin({
 ${cssEngineComment}      dir: { pages: 'src/pages' },
 ${cssBlock}    }),
+    // Agent-readiness: emit the machine-readable agent surface — llms.txt,
+    // llms-full.txt, robots.txt, and the MCP server card at
+    // /.well-known/mcp/server-card.json (written to dist/ at build, served in
+    // \`vite dev\`). Wired directly (rather than via viteAihuPlugin's
+    // agentReadiness option) so it loads as an ESM import in vite.config.
+    viteAgentReadinessIntegration({
+      name: '${appName}',
+      summary: 'A reactive Web Components app built with aihu — agent-callable by default.',
+      version: '0.1.0',
+      // Canonical origin. Drives JSON-LD, MCP discovery, and the card's endpoint.
+      // Replace 'https://example.com' with your deployed URL.
+      siteUrl: 'https://example.com',
+      // The MCP server card is a DISCOVERY document advertising the tools below.
+      // Making the endpoint actually CALLABLE requires running @aihu/server (SSR)
+      // at this URL; a static client build only publishes the card, not a live
+      // tool endpoint.
+      endpoint: 'https://example.com/.well-known/mcp/server-card.json',
+      mcpDiscovery: true,
+      // The live agent registry is populated in the browser/SSR at runtime, not
+      // during \`vite build\`, so the static card's tools are declared here and
+      // kept in sync with the \`$action\` entries in src/pages/index.aihu.
+      skills: [
+        { id: '${tag}.increment', name: 'increment', description: 'Add 1 to the value' },
+        { id: '${tag}.decrement', name: 'decrement', description: 'Subtract 1 from the value' },
+        { id: '${tag}.reset', name: 'reset', description: 'Set the value to 0' },
+      ],
+    }),
   ],
 })
 `
@@ -238,49 +296,172 @@ export function appAihuConfig(): string {
  * hand-written `@style` starter.
  */
 export function appIndexAihu(appName: string = 'app', withCssEngine = false): string {
-  const _tag = `${toSafe(appName)}-root`
-  if (withCssEngine) {
-    return `@state {
+  const tag = `${toSafe(appName)}-root`
+  // The counter's actions are declared as `$action` entries so they are exposed
+  // as agent-callable tools (mirrored into vite.config's agentReadiness.skills).
+  // Template buttons reference them by name (string handler form) so the action
+  // name is the single source of truth.
+  //
+  // The `@route { name }` block registers the page under a HYPHENATED
+  // custom-element tag. The router only mounts routes whose name is a valid
+  // custom-element tag (must contain a hyphen); without this block the page is
+  // registered under its filename stem (`index`, no hyphen) and never mounts —
+  // the app renders a blank `#outlet`. The tag MUST equal the one
+  // `appViteConfig` uses for agentReadiness skill ids so they stay aligned.
+  // The `$action` block is the single source of truth for the agent surface:
+  // the human buttons reference these actions by name (string-handler form), and
+  // vite.config's agentReadiness.skills mirrors the same three actions so the
+  // MCP server card matches the on-screen component exactly.
+  const stateBlock = `@state {
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
-const increment = () => setCount(c => c + 1)
+
+$action: {
+  increment: {
+    describe: 'Add 1 to the value',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+  decrement: {
+    describe: 'Subtract 1 from the value',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() - 1),
+  },
+  reset: {
+    describe: 'Set the value to 0',
+    expose: { read: true, write: true },
+    handler: () => setCount(0),
+  },
+}
+}`
+  if (withCssEngine) {
+    return `@route {
+  name: '${tag}'
 }
 
+${stateBlock}
+
 @template {
-  <div class="flex flex-col gap-4 max-w-7xl mx-auto p-8">
-    <h1 class="text-3xl font-bold">Hello from aihu</h1>
-    <p class="text-lg">Count: {count}</p>
-    <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click={increment}>+1</button>
-  </div>
+  <main class="flex flex-col gap-8 max-w-7xl mx-auto p-8">
+    <header class="flex flex-col gap-1">
+      <h1 class="text-3xl font-bold">${appName}</h1>
+      <p class="text-lg">A durable Web Component your AI agent can read and drive.</p>
+    </header>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="text-xl font-semibold">Control</h2>
+      <p class="text-lg">Value: {count}</p>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 rounded-lg border" $on.click="decrement">−1</button>
+        <button class="px-4 py-2 rounded-lg border" $on.click="reset">Reset</button>
+        <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click="increment">+1</button>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="text-xl font-semibold">Agent surface</h2>
+      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <ul class="flex flex-col gap-1">
+        <li>increment — Add 1 to the value</li>
+        <li>decrement — Subtract 1 from the value</li>
+        <li>reset — Set the value to 0</li>
+      </ul>
+      <p>
+        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+      </p>
+    </section>
+
+    <p>Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+  </main>
 }
 `
   }
-  return `@state {
-import { signal } from '@aihu/signals'
-
-const [count, setCount] = signal(0)
-const increment = () => setCount(c => c + 1)
+  return `@route {
+  name: '${tag}'
 }
 
+${stateBlock}
+
 @template {
-  <div class="home">
-    <h1>Hello from aihu</h1>
-    <p>Count: {count}</p>
-    <button $on.click={increment}>+1</button>
-  </div>
+  <main class="root">
+    <header>
+      <h1>${appName}</h1>
+      <p class="subtitle">A durable Web Component your AI agent can read and drive.</p>
+    </header>
+
+    <section class="card">
+      <h2>Control</h2>
+      <p class="value">Value: {count}</p>
+      <div class="controls">
+        <button $on.click="decrement">−1</button>
+        <button $on.click="reset">Reset</button>
+        <button $on.click="increment">+1</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Agent surface</h2>
+      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <ul>
+        <li>increment — Add 1 to the value</li>
+        <li>decrement — Subtract 1 from the value</li>
+        <li>reset — Set the value to 0</li>
+      </ul>
+      <p>
+        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+      </p>
+    </section>
+
+    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+  </main>
 }
 
 @style {
-.home {
+.root {
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.subtitle {
+  color: #555;
+  margin: 0;
+}
+.card {
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+.card h2 {
+  margin-top: 0;
+}
+.value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.controls {
+  display: flex;
+  gap: 0.5rem;
 }
 button {
   padding: 8px 16px;
   cursor: pointer;
+}
+ul {
+  padding-left: 1.25rem;
+}
+.note {
+  color: #555;
 }
 }
 `
@@ -294,9 +475,9 @@ export function appDefaultLayout(): string {
 /** src/pages/about.aihu — a second route, emitted by the `full` template to
  * demonstrate the router resolving more than one page. Client-buildable only
  * (no @aihu/server wiring). */
-export function appAboutAihu(): string {
+export function appAboutAihu(appName: string = 'app'): string {
   return `@route {
-  name: 'about'
+  name: '${toSafe(appName)}-about'
 }
 
 @template {
@@ -322,7 +503,12 @@ export function appAboutAihu(): string {
  * Pure string generator, client-buildable only. */
 export function appDocsIndexAihu(appName: string = 'app'): string {
   const title = appName
-  return `@state {
+  const tag = `${toSafe(appName)}-root`
+  return `@route {
+  name: '${tag}'
+}
+
+@state {
 import { signal } from '@aihu/signals'
 
 const [open, setOpen] = signal(false)
@@ -368,9 +554,9 @@ button.toggle {
 }
 
 /** src/pages/guide.aihu — second docs route for the `docs` template. */
-export function appDocsGuideAihu(): string {
+export function appDocsGuideAihu(appName: string = 'app'): string {
   return `@route {
-  name: 'guide'
+  name: '${toSafe(appName)}-guide'
 }
 
 @template {
@@ -395,7 +581,11 @@ export function appDocsGuideAihu(): string {
 /** A page file for a given route path. */
 export function pageAihu(routePath: string): string {
   const name = routePath.replace(/^\//, '').replace(/\//g, '-') || 'page'
-  return `@route {\n  name: '${name}'\n}\n\n@template {\n  <div class="${name}">\n    <h1>${name}</h1>\n  </div>\n}\n`
+  // The router only mounts routes whose name is a valid custom-element tag
+  // (must contain a hyphen). A single-segment path like `/contact` yields a
+  // non-hyphenated name, so suffix `-page` to keep it mountable.
+  const tag = name.includes('-') ? name : `${name}-page`
+  return `@route {\n  name: '${tag}'\n}\n\n@template {\n  <div class="${tag}">\n    <h1>${tag}</h1>\n  </div>\n}\n`
 }
 
 /** A component file for a given component name. */
@@ -469,13 +659,35 @@ export function scaffoldApp(
   const shadowMode = opts?.shadowMode ?? 'open'
   const root = resolve(outDir ?? '.', name)
 
+  // `agent` is the showcase template: a durable component driven by both a human
+  // and an external AI agent over @aihu/agent-server's capability bridge. It is a
+  // two-process app (Bun bridge server + Vite) and uses the raw client-target
+  // compiler — NOT the viteAihuPlugin pages-router base — so it emits its own
+  // file set and returns early.
+  if (template === 'agent') {
+    return writeFiles(root, [
+      ['package.json', agentPackageJson(name, pm)],
+      ['vite.config.ts', agentViteConfig()],
+      ['tsconfig.json', agentTsConfig()],
+      ['index.html', agentIndexHtml(name)],
+      ['server.ts', agentServerTs()],
+      ['mcp.ts', agentMcpTs()],
+      ['src/main.ts', agentMainTs()],
+      ['src/task-list.aihu', agentComponentAihu()],
+      ['src/aihu-modules.d.ts', agentModuleShim()],
+      ['README.md', agentReadme(name)],
+      ['.vscode/extensions.json', appVscodeExtensions()],
+      ['.vscode/settings.json', appVscodeSettings()],
+    ])
+  }
+
   // Shared base across every template. `minimal` is exactly this set (8 files),
   // byte-identical to the historical scaffold (modulo the trustedDependencies
   // line) so the legacy-snapshot golden + default-e2e stay green.
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
-    ['vite.config.ts', appViteConfig(withCssEngine, shadowMode)],
+    ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],
@@ -488,11 +700,11 @@ export function scaffoldApp(
     // `full` demonstrates router multi-page + a shared layout. Client-buildable
     // files only — no @aihu/server dependency.
     files.push(['src/layouts/default.aihu', appDefaultLayout()])
-    files.push(['src/pages/about.aihu', appAboutAihu()])
+    files.push(['src/pages/about.aihu', appAboutAihu(name)])
   } else if (template === 'docs') {
     // `docs` is a docs-flavored variant: a distinct landing page (above) plus a
     // second guide route.
-    files.push(['src/pages/guide.aihu', appDocsGuideAihu()])
+    files.push(['src/pages/guide.aihu', appDocsGuideAihu(name)])
   }
 
   return writeFiles(root, files)

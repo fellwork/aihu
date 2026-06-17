@@ -57,9 +57,57 @@ function isGateRejection(envelope: unknown): envelope is { error: string; code: 
 }
 
 /**
+ * Ensure a global DOM exists before arbor's `mount()` runs.
+ *
+ * Why: arbor's `mount`/`branch`/`leaf` materializers reach for the GLOBAL
+ * `document` (`document.createElement`, `createTextNode`, `createComment`,
+ * `createDocumentFragment`, `createElementNS`). Under plain Bun/Node there is no
+ * `document`, so a server-side mount crashes with `ReferenceError: document is
+ * not defined`. `@aihu/agent-server` is a server-side package (no
+ * `.size-limit.json` row), so it owns the SSR-DOM internally rather than making
+ * every consumer hand-wire `globalThis.document = new JSDOM(...).window.document`.
+ *
+ * Guard: we ONLY install globals when none exist. In a browser, or a test env
+ * that already provides jsdom (vitest `environment: 'jsdom'`), `document` is
+ * present and we leave it untouched — we never clobber a real DOM.
+ *
+ * `jsdom` is pulled in via a SYNCHRONOUS require so `createAgentServer` stays
+ * synchronous. We obtain `createRequire` through `process.getBuiltinModule`
+ * (Node/Bun) rather than a static `import 'node:module'`: this barrel also
+ * re-exports the browser-side `createBridgeClient`, and a static `node:module`
+ * import gets externalized by bundlers (Vite) into a stub that THROWS the moment
+ * its binding is read at module-eval time — breaking the whole graph in the
+ * browser. Resolving it lazily here (this function only runs server-side, gated
+ * by the missing `document`) keeps the barrel browser-safe.
+ */
+function ensureServerDom(): void {
+  if (typeof globalThis.document !== 'undefined') return
+  const nodeModule = (
+    globalThis as { process?: { getBuiltinModule?: (id: string) => unknown } }
+  ).process?.getBuiltinModule?.('module') as
+    | { createRequire(path: string | URL): NodeRequire }
+    | undefined
+  if (!nodeModule?.createRequire) {
+    throw new Error(
+      '@aihu/agent-server: no global `document` and could not load `jsdom` ' +
+        '(process.getBuiltinModule unavailable). Provide `target.mount` or run on Node/Bun.',
+    )
+  }
+  const require = nodeModule.createRequire(import.meta.url)
+  const { JSDOM } = require('jsdom') as typeof import('jsdom')
+  const dom = new JSDOM('<!doctype html><html><body></body></html>')
+  const w = dom.window as unknown as Record<string, unknown>
+  // Only the globals arbor's mount path actually reaches for. `document` is the
+  // load-bearing one (all node creation flows through it); `window` is read
+  // behind a `typeof window !== 'undefined'` guard in mount.ts.
+  ;(globalThis as Record<string, unknown>).window = w
+  ;(globalThis as Record<string, unknown>).document = w.document
+}
+
+/**
  * Create an {@link AgentServer}.
  *
- * @throws if neither `target.mount` nor (`target.node` + `createHost`) is given.
+ * @throws if neither `target.mount` nor `target.node` is given.
  */
 export function createAgentServer(options: AgentServerOptions): AgentServer {
   const { target } = options
@@ -74,12 +122,12 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
         '@aihu/agent-server: target must provide either `mount` or `node` (+ `agentBinding`).',
       )
     }
-    if (!options.createHost) {
-      throw new Error(
-        '@aihu/agent-server: mounting `node` requires `createHost` (e.g. () => new JSDOM().window.document.body).',
-      )
-    }
-    const host = options.createHost()
+    // Stand up a server-side DOM (jsdom) if the runtime has none, so arbor's
+    // `mount()` can create nodes. No-op when a real DOM already exists.
+    ensureServerDom()
+    // `createHost` is optional: default to a detached <div> in the ensured DOM.
+    // An explicit `createHost` still wins (e.g. to mount into a specific host).
+    const host = options.createHost ? options.createHost() : document.createElement('div')
     scope = mount(
       target.node,
       host,

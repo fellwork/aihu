@@ -143,16 +143,18 @@ describe('appDefaultLayout', () => {
 })
 
 describe('pageAihu', () => {
-  it('sets route name from path', () => {
-    expect(pageAihu('/about')).toContain("name: 'about'")
+  it('sets route name from path, suffixing -page to keep it hyphenated', () => {
+    // Single-segment path has no hyphen, so `-page` is appended to make it a
+    // valid (mountable) custom-element tag.
+    expect(pageAihu('/about')).toContain("name: 'about-page'")
   })
 
-  it('converts nested path to kebab name', () => {
+  it('converts nested path to kebab name (already hyphenated, left as-is)', () => {
     expect(pageAihu('/admin/users')).toContain("name: 'admin-users'")
   })
 
-  it('falls back to "page" for root path', () => {
-    expect(pageAihu('/')).toContain("name: 'page'")
+  it('falls back to "page-page" for root path', () => {
+    expect(pageAihu('/')).toContain("name: 'page-page'")
   })
 })
 
@@ -385,5 +387,51 @@ describe('scaffoldPlugin', () => {
     scaffoldPlugin('my-forms', tmpDir)
     expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'package.json'))).toBe(true)
     expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'src', 'index.ts'))).toBe(true)
+  })
+})
+
+describe("scaffoldApp · template 'agent' (capability-bridge showcase)", () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'aihu-agent-tmpl-'))
+  })
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('emits the two-process agent file set (server.ts + client-target vite + component), not the pages base', () => {
+    scaffoldApp('myagent', dir, { template: 'agent' })
+    const root = join(dir, 'myagent')
+    for (const f of [
+      'server.ts',
+      'vite.config.ts',
+      'src/main.ts',
+      'src/task-list.aihu',
+      'src/aihu-modules.d.ts',
+      'index.html',
+    ]) {
+      expect(existsSync(join(root, f)), `${f} should exist`).toBe(true)
+    }
+    expect(existsSync(join(root, 'src/pages/index.aihu'))).toBe(false)
+  })
+
+  it('wires the bridge: client compiler target, @aihu/agent-server dep, @agent surface + human controls', () => {
+    scaffoldApp('myagent', dir, { template: 'agent' })
+    const root = join(dir, 'myagent')
+    const vite = readFileSync(join(root, 'vite.config.ts'), 'utf8')
+    expect(vite).toContain("target: 'client'")
+    expect(vite).toContain("'/agent'")
+    expect(vite).toContain("'/bridge'")
+
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      dependencies: Record<string, string>
+    }
+    expect(pkg.dependencies['@aihu/agent-server']).toBe('latest')
+
+    const sfc = readFileSync(join(root, 'src/task-list.aihu'), 'utf8')
+    expect(sfc).toContain('@agent')
+    expect(sfc).toContain('$action')
+    expect(sfc).toContain('addTask')
+    expect(sfc).toContain('$on.click={addFromInput}')
   })
 })

@@ -47,6 +47,7 @@ PKGS=(
   "agent"
   "plugin-agent-readiness"
   "agent-service"
+  "agent-server"       # @aihu/agent-server — capability bridge (createAgentServer); depends on @aihu/agent + @aihu/agent-service + @aihu/arbor (must follow them). Powers `create-aihu --template agent`.
   "agent-a2a"
   "agent-acp"
   "auth"              # depends on agent-service + signals

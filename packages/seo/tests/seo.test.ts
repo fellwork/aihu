@@ -142,7 +142,7 @@ describe('SAMPLE-S07 — JSON-LD injection via afterParse', () => {
     const jsonLdStr = generateJsonLd({ '@type': 'Article', name: 'Test' })
     const parsed = JSON.parse(jsonLdStr) as Record<string, unknown>
     expect(parsed['@type']).toBe('Article')
-    expect(parsed['name']).toBe('Test')
+    expect(parsed.name).toBe('Test')
   })
 })
 
@@ -230,9 +230,7 @@ describe('SAMPLE-S13 — no size-limit row', () => {
       path?: string
     }>
     const hasSeoRow = entries.some(
-      (e) =>
-        (e.name !== undefined && e.name.includes('@aihu/seo')) ||
-        (e.path !== undefined && e.path.includes('packages/seo')),
+      (e) => e.name?.includes('@aihu/seo') || e.path?.includes('packages/seo'),
     )
     expect(hasSeoRow).toBe(false)
   })

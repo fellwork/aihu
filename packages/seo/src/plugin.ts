@@ -43,7 +43,7 @@ export function seo(config: SeoConfig) {
         // The compiler may pick this up for script injection; if not, the
         // routes layer handles JSON-LD delivery via server-side HTML.
         if (ast !== null && typeof ast === 'object' && !Array.isArray(ast)) {
-          ;(ast as Record<string, unknown>)['__seoJsonLd'] = jsonLd
+          ;(ast as Record<string, unknown>).__seoJsonLd = jsonLd
         }
         return ast
       },

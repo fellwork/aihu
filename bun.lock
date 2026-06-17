@@ -517,13 +517,11 @@
         "@aihu/agent-service": "workspace:*",
         "@aihu/arbor": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.0.0",
-      },
-      "peerDependencies": {
         "jsdom": "^25.0.0",
       },
-      "optionalPeers": [
-        "jsdom",
-      ],
+      "devDependencies": {
+        "@types/jsdom": "^21.1.7",
+      },
     },
     "packages/agent-service": {
       "name": "@aihu/agent-service",

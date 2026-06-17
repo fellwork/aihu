@@ -116,7 +116,7 @@ function shadowFromArgv(): ShadowChoice | undefined {
 /** Resolve the template choice from argv, or `undefined` to prompt. */
 function templateFromArgv(): AppTemplate | undefined {
   const raw = extractFlag('template')
-  if (raw === 'minimal' || raw === 'full' || raw === 'docs') return raw
+  if (raw === 'minimal' || raw === 'full' || raw === 'docs' || raw === 'agent') return raw
   return undefined
 }
 
@@ -242,6 +242,9 @@ async function main(): Promise<void> {
     process.stdout.write(`    ${cyan('1)')} minimal  — signals + arbor, single SFC\n`)
     process.stdout.write(`    ${cyan('2)')} full     — signals, arbor, router, multi-page\n`)
     process.stdout.write(`    ${cyan('3)')} docs     — docs site starter\n`)
+    process.stdout.write(
+      `    ${cyan('4)')} agent    — agent-drivable component over the capability bridge\n`,
+    )
     const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
     const templateMap: Record<string, AppTemplate> = {
       '': 'minimal',
@@ -251,6 +254,8 @@ async function main(): Promise<void> {
       full: 'full',
       '3': 'docs',
       docs: 'docs',
+      '4': 'agent',
+      agent: 'agent',
     }
     template = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
   }

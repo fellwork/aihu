@@ -70,7 +70,8 @@ const server = createAgentServer({
       rateLimit: undefined,
     },
   },
-  createHost: () => globalThis.document?.createElement('div') ?? ({} as Element),
+  // No `createHost` and no jsdom glue: @aihu/agent-server stands up its own
+  // server-side DOM internally when the runtime (plain Bun here) has none.
 })
 
 // ── Wrap a Bun ServerWebSocket as a BridgeChannel. ────────────────────────────

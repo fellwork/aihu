@@ -47,13 +47,11 @@ export interface AgentServerOptions {
   /** The component to mount + drive. */
   target: AgentServerTarget
   /**
-   * jsdom host factory. Server-side mounting needs a DOM `Element`. Inject the
-   * host so this package never hard-imports jsdom at module scope (keeps it an
-   * optional peer dep). When omitted, callers must pass `target.mount`.
-   *
-   * Typical wiring:
-   *   import { JSDOM } from 'jsdom'
-   *   createAgentServer({ ..., createHost: () => new JSDOM().window.document.body })
+   * Optional host factory for the server-side mount. When omitted,
+   * `createAgentServer` stands up an internal jsdom-backed global DOM (if the
+   * runtime has none) and mounts into a fresh detached `<div>` — so a plain
+   * Bun/Node consumer needs no DOM glue at all. Provide this only to mount into
+   * a specific host element (an explicit factory always wins).
    */
   createHost?: () => Element
   /** Auth plugin — forwarded to `createAgentService` for `$scope` checks. */

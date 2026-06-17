@@ -6,7 +6,7 @@ import { aihuCompilerPlugin, compileRouteMeta } from '@aihu/compiler'
 import type { RouteDefinition } from '@aihu/router'
 import type { RouterPluginOptions } from '@aihu/router/plugin'
 import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
-import type { Plugin, ResolvedConfig } from 'vite'
+import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { applyHeadConfig } from './head.ts'
@@ -123,7 +123,7 @@ function buildAdapterContext(
  *   })]
  * })
  */
-export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
+export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   const routerOpts = {
     pagesDir: config?.dir?.pages ?? 'pages',
     layoutsDir: config?.dir?.layouts ?? 'src/layouts',
@@ -138,16 +138,19 @@ export function viteAihuPlugin(config?: AihuConfig): Plugin[] {
   } satisfies RouterPluginOptions
 
   // Agent readiness: opt-in only. No safe default for `name`.
-  let agentPlugin: Plugin
+  let agentPlugin: PluginOption
   const ar = config?.agentReadiness
   if (ar) {
-    // Dynamic import to avoid pulling @aihu-plugin/agent-readiness into the bundle
-    // when it is not configured. The `require` below is evaluated at runtime
-    // in Node.js (vite.config.ts execution context), not in the browser.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { viteAgentReadinessIntegration } =
-      require('@aihu-plugin/agent-readiness') as typeof import('@aihu-plugin/agent-readiness')
-    agentPlugin = viteAgentReadinessIntegration(ar) as unknown as Plugin
+    // Lazy-load @aihu-plugin/agent-readiness so it isn't pulled in when unused.
+    // It is an ESM-only package (its `exports` expose no CJS/`require` entry), and
+    // vite loads vite.config.ts as bundled ESM where the bare `require` global
+    // doesn't exist — so neither `require(...)` nor createRequire works here
+    // (createRequire uses CJS resolution → ERR_PACKAGE_PATH_NOT_EXPORTED). A
+    // dynamic `import()` uses the ESM `import` condition and resolves correctly;
+    // Vite accepts the resulting `Promise<Plugin>` as a plugin entry and awaits it.
+    agentPlugin = import('@aihu-plugin/agent-readiness').then(
+      ({ viteAgentReadinessIntegration }) => viteAgentReadinessIntegration(ar) as unknown as Plugin,
+    )
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry
     agentPlugin = { name: 'aihu-agent-readiness-disabled' }
