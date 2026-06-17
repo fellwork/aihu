@@ -26,6 +26,13 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// vitest is built on vite, so `vite` is always resolvable in the test runtime.
+// `@aihu/compiler`'s plugin transpiles the TS it emits to runnable JS in dev;
+// `transformWithOxc` (vite's current transpiler; it superseded the now-removed
+// `transformWithEsbuild`) performs the same parse+transpile, so feeding the
+// compiled output through it mirrors the real dev path and fails on the same
+// inputs (duplicate top-level `const`, TS that won't transpile).
+import { transformWithOxc } from 'vite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { scaffoldApp, scaffoldComponent, scaffoldPage } from '../src/index.ts'
 
@@ -64,6 +71,31 @@ function compileFile(file: string): { ok: boolean; status: number | null; stderr
   // advisory is intentionally NOT treated as a failure.
   const hasErrorCode = /\bC\d{3,}\b/.test(stderr)
   return { ok: res.status === 0 && !hasErrorCode, status: res.status, stderr }
+}
+
+/**
+ * Compile with `--target client` (the browser pipeline the vite plugin uses)
+ * and return the emitted module text alongside the clean check. The native
+ * compiler exits 0 even when the emitted code has a duplicate top-level `const`
+ * (e.g. a signal setter named like an $action) — that class of bug only
+ * surfaces when the TS is transpiled, which is why the agent guard below feeds
+ * `stdout` through esbuild.
+ */
+function compileClient(file: string): {
+  ok: boolean
+  status: number | null
+  stderr: string
+  stdout: string
+} {
+  const res = spawnSync(COMPILE_BIN, [file, '--target', 'client'], { encoding: 'utf8' })
+  const stderr = res.stderr ?? ''
+  const hasErrorCode = /\bC\d{3,}\b/.test(stderr)
+  return {
+    ok: res.status === 0 && !hasErrorCode,
+    status: res.status,
+    stderr,
+    stdout: res.stdout ?? '',
+  }
 }
 
 /**
@@ -150,6 +182,37 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
         ).toBe(true)
         assertNoHyphenWarning(r.stderr, f)
       }
+    }
+  })
+
+  it('agent template: emitted .aihu native-compiles AND esbuild-transpiles (dev-path mount guard)', async () => {
+    const appName = 'tpl-agent'
+    const root = join(parentDir, appName)
+    scaffoldApp(appName, parentDir, { template: 'agent' })
+
+    const files = collectAihu(root)
+    expect(files.length, 'agent scaffold must emit at least one .aihu file').toBeGreaterThan(0)
+
+    for (const f of files) {
+      // 1) Native compiler must be clean (exit 0, no C### diagnostic).
+      const r = compileClient(f)
+      expect(
+        r.ok,
+        `agent: native compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`,
+      ).toBe(true)
+      assertNoHyphenWarning(r.stderr, f)
+
+      // 2) The CLIENT-target output must transpile to runnable JS — exactly what
+      //    @aihu/compiler's vite plugin does in dev. If this throws (a signal
+      //    setter colliding with an $action name → two top-level `const`, or any
+      //    TS that won't transpile), the plugin silently serves raw TS and the
+      //    custom element never registers (blank mount). This is the regression
+      //    guard for that bug class; the file-presence + native-compile checks
+      //    alone passed it silently (native compile exits 0).
+      await expect(
+        transformWithOxc(r.stdout, 'component.ts'),
+        `agent: compiled output for ${f} failed to transpile (would never mount in the browser)`,
+      ).resolves.toBeTruthy()
     }
   })
 

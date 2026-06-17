@@ -124,6 +124,20 @@ for pkg in "${PKGS[@]}"; do
     echo "   (with --provenance via OIDC trusted publisher)"
   fi
 
+  # create-aihu is a thin delegator that spawns @aihu/cli at runtime, so its
+  # published @aihu/cli pin MUST resolve a cli that carries this release. We do
+  # NOT trust `bun pm pack`'s workspace:* rewrite here: it reads bun.lock, which
+  # the changesets Version-PR bumps package.json WITHOUT updating — so the pack
+  # froze a stale exact pin (create-aihu@0.1.1 shipped `@aihu/cli: 0.7.0` while
+  # cli was already at 0.8.0, leaving `npx create-aihu@latest --template agent`
+  # pointing at a cli with no agent template). Stamp the pin explicitly from the
+  # live cli package version as a caret so the delegator tracks cli patches.
+  if [ "$pkg" = "create-aihu" ]; then
+    CLI_VERSION="$(node -p "require('$ROOT/packages/cli/package.json').version")"
+    node -e "const fs=require('fs');const f='$PKG_DIR/package.json';const p=require(f);p.dependencies['@aihu/cli']='^$CLI_VERSION';fs.writeFileSync(f, JSON.stringify(p, null, 2) + '\n')"
+    echo "   stamped @aihu/cli => ^$CLI_VERSION (delegator pin)"
+  fi
+
   # bun pm pack rewrites workspace:* → real version range; npm publish
   # then uploads the tarball using npm's auth (which works in CI).
   PACK_DIR="$(mktemp -d)"

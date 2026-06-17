@@ -399,8 +399,11 @@ export function agentComponentAihu(): string {
   const [draft, setDraft] = signal('')
   // Agent-RESKINNABLE state: the heading text + the visual variant. An agent
   // sets these on the live instance — molding a vanilla component into a styled one.
-  const [label, setLabel] = signal('Tasks')
-  const [variant, setVariant] = signal('default')
+  // The signal setters are named writeLabel/writeVariant so they don't collide
+  // with the agent-facing setLabel/setVariant $actions below (same name → the
+  // compiler would emit two top-level \`const setLabel\`).
+  const [label, writeLabel] = signal('Tasks')
+  const [variant, writeVariant] = signal('default')
 
   // Shared mutation — the human input and the agent's addTask both call this, so
   // both drive the SAME signal state on this one instance.
@@ -432,21 +435,21 @@ export function agentComponentAihu(): string {
     setLabel: {
       describe: 'Set the panel heading text.',
       expose: { read: true },
-      handler: (args) => setLabel(typeof args?.[0] === 'string' && args[0] ? args[0] : 'Tasks'),
+      handler: (args) => writeLabel(typeof args?.[0] === 'string' && args[0] ? args[0] : 'Tasks'),
     },
     setVariant: {
       describe: "Set the visual variant: one of 'default', 'compact', 'danger'.",
       expose: { read: true },
       handler: (args) => {
         const v = String(args?.[0] ?? 'default')
-        setVariant(['default', 'compact', 'danger'].includes(v) ? v : 'default')
+        writeVariant(['default', 'compact', 'danger'].includes(v) ? v : 'default')
       },
     },
   }
 }
 
 @template {
-  <section $class={['tl', variant]}>
+  <section $class={['tl', variant()]}>
     <header class="tl-head">
       <h2 class="tl-title">{label}</h2>
       <span class="tl-count">{tasks.length}</span>
