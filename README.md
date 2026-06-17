@@ -1,8 +1,6 @@
 # Aihu
 
 > **Aihu — agentic discovery and interaction, for human purpose.**
->
-> Say *EYE-hoo* · 爱护 (*àihù*) · *"to cherish and protect."*
 
 Aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** An agent inspects a real component through its llms.txt + MCP manifest and calls its actions on the live, on-screen instance. The thing the user sees is the thing the agent drives, not a throwaway interface regenerated every turn.
 
