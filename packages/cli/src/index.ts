@@ -20,6 +20,16 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import {
+  agentComponentAihu,
+  agentIndexHtml,
+  agentMainTs,
+  agentModuleShim,
+  agentPackageJson,
+  agentServerTs,
+  agentTsConfig,
+  agentViteConfig,
+} from './templates-agent.js'
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -41,7 +51,7 @@ export interface ScaffoldResult {
 // ---------------------------------------------------------------------------
 
 export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
-export type AppTemplate = 'minimal' | 'full' | 'docs'
+export type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent'
 
 /** Out-of-the-box CSS strategy for a scaffolded app. */
 export type CssChoice = 'engine' | 'none'
@@ -646,6 +656,26 @@ export function scaffoldApp(
   const withCssEngine = opts?.css === 'engine'
   const shadowMode = opts?.shadowMode ?? 'open'
   const root = resolve(outDir ?? '.', name)
+
+  // `agent` is the showcase template: a durable component driven by both a human
+  // and an external AI agent over @aihu/agent-server's capability bridge. It is a
+  // two-process app (Bun bridge server + Vite) and uses the raw client-target
+  // compiler — NOT the viteAihuPlugin pages-router base — so it emits its own
+  // file set and returns early.
+  if (template === 'agent') {
+    return writeFiles(root, [
+      ['package.json', agentPackageJson(name, pm)],
+      ['vite.config.ts', agentViteConfig()],
+      ['tsconfig.json', agentTsConfig()],
+      ['index.html', agentIndexHtml(name)],
+      ['server.ts', agentServerTs()],
+      ['src/main.ts', agentMainTs()],
+      ['src/task-list.aihu', agentComponentAihu()],
+      ['src/aihu-modules.d.ts', agentModuleShim()],
+      ['.vscode/extensions.json', appVscodeExtensions()],
+      ['.vscode/settings.json', appVscodeSettings()],
+    ])
+  }
 
   // Shared base across every template. `minimal` is exactly this set (8 files),
   // byte-identical to the historical scaffold (modulo the trustedDependencies
