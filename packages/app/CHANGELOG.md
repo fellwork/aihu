@@ -1,5 +1,18 @@
 # @aihu/app
 
+## 3.0.2
+
+### Patch Changes
+
+- [#374](https://github.com/fellwork/aihu/pull/374) [`6a0d8e4`](https://github.com/fellwork/aihu/commit/6a0d8e426fa2ab53c37fa5d1d4e6ae63ca671e0d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - fix: `viteAihuPlugin({ agentReadiness })` no longer crashes under ESM vite config
+
+  `viteAihuPlugin` lazy-loaded `@aihu-plugin/agent-readiness` with a bare
+  `require(...)`, which throws "require is not defined" when vite loads
+  `vite.config.ts` as bundled ESM (and `createRequire` fails too, since the
+  package is ESM-only with no CJS export). Switched to a dynamic `import()`
+  returned as a `Promise<Plugin>` (Vite awaits plugin promises). The plugin
+  factory's return type widens from `Plugin[]` to `PluginOption[]`.
+
 ## 3.0.1
 
 ### Patch Changes

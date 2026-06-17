@@ -168,39 +168,39 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 242 B | 300 B | pass |
-| `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.60 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.73 kB | 3900 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 757 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 1.17 kB | 1400 B | pass |
-| `@aihu/agent-acp` | 586 B | 600 B | pass |
-| `@aihu/agent-a2a` | 717 B | 750 B | pass |
-| `@aihu/app` | 1.58 kB | 1750 B | pass |
-| `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.32 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 2.01 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.83 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/primitives/separator` | 566 B | 4 KB | pass |
-| `@aihu/primitives/label` | 1.77 kB | 4 KB | pass |
-| `@aihu/primitives/input` | 1.43 kB | 4 KB | pass |
-| `@aihu/primitives/textarea` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
-| `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
-| `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/context` | — | 300 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2800 B | _no dist_ |
+| `@aihu/runtime` | — | 3900 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 1400 B | _no dist_ |
+| `@aihu/agent-acp` | — | 600 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 750 B | _no dist_ |
+| `@aihu/app` | — | 1750 B | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
+| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/separator` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/label` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/input` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/textarea` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -233,19 +233,19 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.1` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.1` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.1` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `4.0.1` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `4.0.1` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `4.0.2` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `4.0.2` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.2` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.2` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
-| [`@aihu/agent-server`](./packages/agent-server) | `0.2.0` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
+| [`@aihu/agent-server`](./packages/agent-server) | `0.3.0` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.2.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `3.0.1` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `3.0.2` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `1.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `1.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
-| [`@aihu/cli`](./packages/cli) | `0.7.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `0.8.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `0.9.9` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.3` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
@@ -264,7 +264,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/signals`](./packages/signals) | `0.2.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
-| [`create-aihu`](./packages/create-aihu) | `0.1.0` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
+| [`create-aihu`](./packages/create-aihu) | `0.1.1` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
