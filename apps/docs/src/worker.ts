@@ -277,6 +277,21 @@ interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> }
 }
 
+// RFC 9727 API catalog as an RFC 9264 linkset: one anchor (the site) linking out
+// to the machine-readable API description, human API docs, and full LLM docs via
+// IANA-registered relation types. Served at /.well-known/api-catalog and
+// advertised in the homepage Link header (rel="api-catalog").
+const API_CATALOG = {
+  linkset: [
+    {
+      anchor: 'https://aihu.dev/',
+      'service-desc': [{ href: 'https://aihu.dev/openapi.json', type: 'application/json' }],
+      'service-doc': [{ href: 'https://aihu.dev/api-reference', type: 'text/html' }],
+      describedby: [{ href: 'https://aihu.dev/llms-full.txt', type: 'text/plain' }],
+    },
+  ],
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -318,9 +333,33 @@ export default {
       return merged
     }
 
-    // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …)
-    const discoveryLink =
-      '</.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent.json>; rel="agent-card"'
+    // 1b. RFC 9727 API catalog (RFC 9264 linkset). Served here so it gets the
+    // right type — the static SPA fallback would return HTML for this path.
+    if (url.pathname === '/.well-known/api-catalog') {
+      return new Response(JSON.stringify(API_CATALOG), {
+        headers: {
+          'Content-Type': 'application/linkset+json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      })
+    }
+
+    // 2. Pre-built static assets (docs.js, style.css, wasm/*, favicon, …).
+    // The Link header advertises agent-discovery resources with IANA-registered
+    // relation types (RFC 8288 / 8631 / 9727) so agents find them from the
+    // response headers alone, not just the HTML <link> tags: service-desc
+    // (OpenAPI), service-doc (API reference), describedby (full LLM docs), and
+    // api-catalog (the linkset above), plus the MCP/agent-card extras.
+    const discoveryLink = [
+      '</.well-known/api-catalog>; rel="api-catalog"',
+      '</openapi.json>; rel="service-desc"',
+      '</api-reference>; rel="service-doc"',
+      '</llms-full.txt>; rel="describedby"',
+      '</.well-known/mcp/server-card.json>; rel="mcp-server"',
+      '</llms.txt>; rel="ai-content-discovery"',
+      '</.well-known/agent.json>; rel="agent-card"',
+    ].join(', ')
 
     // 2a. Prerendered doc page (WS1, the load-bearing serve step).
     //
