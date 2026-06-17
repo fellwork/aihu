@@ -505,7 +505,7 @@ export function agentIndexHtml(name: string): string {
     '      state. Add tasks yourself, AND drive the same on-screen instance as an agent',
     '      would — gated server-side, executed here in the browser:',
     '      <br /><br />',
-    "      <code>curl -XPOST localhost:5208/agent/call -H 'content-type: application/json' -d '{\"tool\":\"task-list/addTask\",\"params\":[\"from agent\"]}'</code>",
+    '      <code>curl -XPOST localhost:5208/agent/call -H \'content-type: application/json\' -d \'{"tool":"task-list/addTask","params":["from agent"]}\'</code>',
     '    </p>',
     '    <task-list></task-list>',
     '    <script type="module" src="/src/main.ts"></script>',
