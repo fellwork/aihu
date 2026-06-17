@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>aihu — durable, agent-driven room</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.25rem;
+        padding: 3rem 1.25rem;
+        background: #f6f7fb;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: #1a1a1a;
+      }
+      h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+      .lede { max-width: 40rem; text-align: center; color: #444; line-height: 1.6; margin: 0; }
+      code { background: #eceef3; padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.85em; }
+      pre {
+        max-width: 40rem;
+        width: 100%;
+        box-sizing: border-box;
+        background: #0e1530;
+        color: #cfe;
+        padding: 0.9rem 1.1rem;
+        border-radius: 10px;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Durable, agent-driven room</h1>
+    <p class="lede">
+      The <code>&lt;task-list&gt;</code> below is a real aihu Web Component, but its state
+      lives in a <strong>Cloudflare Durable Object</strong> — not this tab. Open this page in
+      a second tab (or on your phone), then drive the room as an agent would; <em>every</em>
+      connected viewer updates live, and the state survives a refresh.
+    </p>
+
+    <task-list></task-list>
+
+    <p class="lede">
+      Drive it as an agent (authorized + rate-limited, executed in the Durable Object):
+    </p>
+    <pre>curl -XPOST /agent/call -H 'content-type: application/json' \
+  -d '{"tool":"task-list/setVariant","params":["danger"],"userId":"u1","jwt":"tasks:write"}'</pre>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

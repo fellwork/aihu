@@ -1,0 +1,24 @@
+{
+  "name": "@aihu/example-agent-durable-room",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build && wrangler dev",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/signals": "workspace:*"
+  },
+  "devDependencies": {
+    "@aihu/compiler": "workspace:*",
+    "@cloudflare/workers-types": "^4.20250601.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "wrangler": "^4.0.0"
+  }
+}
