@@ -15,6 +15,6 @@
     "@aihu/signals": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "^2.1.1"
+    "vitest": "^3.2.6"
   }
 }
