@@ -16,7 +16,7 @@
     "@aihu/compiler": "workspace:*"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
-    "vitest": "^2.1.1"
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
   }
 }
