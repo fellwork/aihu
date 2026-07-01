@@ -445,6 +445,39 @@ fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
 }
 
 #[test]
+fn sidecar_places_expressions_on_their_aihu_source_line() {
+    // Part 2 — line-preserving layout: a lifted template expression lands on its
+    // real `.aihu` source line so `tsc` diagnostics cite the right line. Sidecar
+    // line 1 = compact preamble, line 2 = the function opener, body ≥ line 3.
+    let src = "\
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+}
+@template {
+  <div>{count()}</div>
+}";
+    // `{count()}` sits on .aihu line 6, so its check must be on sidecar line 6.
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-lines").sidecar_ts.expect("sidecar must be emitted");
+    let lines: Vec<&str> = sidecar.lines().collect();
+    assert!(
+        lines[0].contains("declare const signal"),
+        "line 1 must be the compact preamble:\n{sidecar}"
+    );
+    assert!(
+        lines[1].starts_with("function __aihu_template("),
+        "line 2 must be the function opener:\n{sidecar}"
+    );
+    assert_eq!(
+        lines.get(5).copied(),
+        Some("void (count());"),
+        "`count()` must be on sidecar line 6 (matching .aihu line 6):\n{sidecar}"
+    );
+}
+
+#[test]
 fn sidecar_declares_state_bindings_referenced_by_template() {
     // Regression: the sidecar emitted `void (toggle())` / `void (label())` for
     // user @state consts but never DECLARED them, so every such sidecar failed
