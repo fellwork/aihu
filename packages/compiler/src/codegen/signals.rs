@@ -114,11 +114,26 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
                         decls.all.insert(e.name.clone());
                     }
                 }
+                // `$context` provide/consume keys ARE reference-able bindings:
+                // the template reads them directly (`{theme}`) and `$action`
+                // mutates them. The key names live in each entry's `meta`
+                // (entry.name is "provide"/"consume"; the meta keys are the
+                // context binding names — mirrors the emitter's extraction in
+                // parser/state_macros.rs CollectionKind::Context). Without this
+                // they TS2304 in the type-check sidecar and trip the
+                // "references X not declared in @state" cross-block warning
+                // (which becomes a hard error in v0.4).
+                CollectionKind::Context => {
+                    for e in entries {
+                        for (ctx_key, _) in &e.meta {
+                            decls.all.insert(ctx_key.clone());
+                        }
+                    }
+                }
                 CollectionKind::Effect
                 | CollectionKind::Lifecycle
                 | CollectionKind::Event
                 | CollectionKind::Aria
-                | CollectionKind::Context
                 | CollectionKind::Form => {}
             },
             StateMacro::Route { name } => {
@@ -667,6 +682,23 @@ $action: { inc: () => { count = count + 1 } }
         let decls = collect_state_decls(script);
         assert!(decls.all.contains("count"), "legacy signal getter declared");
         assert!(decls.all.contains("inc"), "$action name declared");
+    }
+
+    // Fix A — `$context` provide/consume keys are reference-able bindings a
+    // template reads directly (`{theme}`); harvest them so they land in the
+    // type-check sidecar scope AND clear the "not declared in @state"
+    // cross-block warning (which shares this decl set).
+    #[test]
+    fn collects_context_provide_and_consume_keys() {
+        let script = "\
+$context: {
+  provide: { theme: { value: 'light', type: 'string' } },
+  consume: { locale: { type: 'Locale' } },
+}
+";
+        let decls = collect_state_decls(script);
+        assert!(decls.all.contains("theme"), "$context provide key 'theme' must be declared");
+        assert!(decls.all.contains("locale"), "$context consume key 'locale' must be declared");
     }
 
     #[test]

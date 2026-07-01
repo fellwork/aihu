@@ -518,20 +518,82 @@ fn parse_import_statement(stmt: &str, out: &mut std::collections::BTreeSet<Strin
     }
 }
 
+/// Split `s` on TOP-LEVEL commas, respecting `[]`/`{}`/`()` nesting so a
+/// destructuring alias like `[a, b]` isn't torn apart. Minimal by design — a
+/// loop-clause alias list carries no string/template literals.
+fn split_top_level_commas_pat(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+    for (i, c) in s.char_indices() {
+        match c {
+            '[' | '{' | '(' => depth += 1,
+            ']' | '}' | ')' => depth = (depth - 1).max(0),
+            ',' if depth == 0 => {
+                out.push(s[start..i].to_string());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(s[start..].to_string());
+    out
+}
+
+/// Extract every bound identifier from a single loop-alias part: a bare ident
+/// (`item`), array destructuring (`[a, b]`, `[a, ...r]`, holes skipped), or
+/// object destructuring (`{a, b}`, `{a: b}` → local `b`, `{a, ...r}`). Nested
+/// patterns recurse; default initializers (`a = expr`) are stripped. Non-ident
+/// tokens are skipped. Without this, `$each="… as [name, desc]"` bound nothing
+/// (the whole `[name, desc]` failed `is_js_ident`) → template refs TS2304'd.
+fn extract_pattern_idents(part: &str, out: &mut std::collections::BTreeSet<String>) {
+    let p = part.trim();
+    let (inner, is_object) = if p.starts_with('[') && p.ends_with(']') {
+        (&p[1..p.len() - 1], false)
+    } else if p.starts_with('{') && p.ends_with('}') {
+        (&p[1..p.len() - 1], true)
+    } else {
+        if is_js_ident(p) {
+            out.insert(p.to_string());
+        }
+        return;
+    };
+    for sub in split_top_level_commas_pat(inner) {
+        let s = sub.trim().trim_start_matches("...").trim();
+        if s.is_empty() {
+            continue; // array hole or trailing comma
+        }
+        // Object rename/shorthand: `key` or `key: local` — the LOCAL binding is
+        // after the top-level colon.
+        let token = if is_object {
+            s.split_once(':').map(|(_, v)| v.trim()).unwrap_or(s)
+        } else {
+            s
+        };
+        // Strip a default-value initializer (`a = expr`).
+        let token = token.split('=').next().map(str::trim).unwrap_or(token);
+        if token.starts_with('[') || token.starts_with('{') {
+            extract_pattern_idents(token, out);
+        } else if is_js_ident(token) {
+            out.insert(token.to_string());
+        }
+    }
+}
+
 /// Walk the template AST collecting `$each`/`{#each}` loop aliases (`item` and
 /// optional `index` from `<list> as item[, index]`), which are in scope inside
-/// the loop body the sidecar flattens into `__aihu_template`.
+/// the loop body the sidecar flattens into `__aihu_template`. Destructuring
+/// aliases (`as [k, v]`, `as {a, b}`) bind each contained identifier.
 fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
     fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
-        // `<list> as item` or `<list> as item, idx`. The split keys on the
-        // FIRST " as "; the list part is irrelevant (only the trailing aliases
-        // matter), so nested calls/parens in the list never confuse it.
+        // `<list> as <alias>` where <alias> is `item`, `item, idx`, or a
+        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). Split on the
+        // FIRST " as " (list part is irrelevant), then split the alias list on
+        // TOP-LEVEL commas so a destructure isn't torn apart, and extract every
+        // bound identifier from each part.
         if let Some((_, rest)) = clause.split_once(" as ") {
-            for alias in rest.split(',') {
-                let a = alias.trim();
-                if is_js_ident(a) {
-                    out.insert(a.to_string());
-                }
+            for part in split_top_level_commas_pat(rest) {
+                extract_pattern_idents(&part, out);
             }
         }
     }
@@ -555,9 +617,8 @@ fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTre
                 empty_body,
                 ..
             } => {
-                if is_js_ident(item_alias) {
-                    out.insert(item_alias.clone());
-                }
+                // item_alias may be a destructuring pattern (`{#each xs as [k, v]}`).
+                extract_pattern_idents(item_alias, out);
                 if let Some(idx) = idx_alias {
                     if is_js_ident(idx) {
                         out.insert(idx.clone());
@@ -5698,4 +5759,63 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
 
     // Apply the caller's indent to the outermost wrapper.
     vec![format!("{}{}", indent, current)]
+}
+
+#[cfg(test)]
+mod sidecar_alias_tests {
+    use super::extract_pattern_idents;
+    use std::collections::BTreeSet;
+
+    fn idents(part: &str) -> Vec<String> {
+        let mut out = BTreeSet::new();
+        extract_pattern_idents(part, &mut out);
+        out.into_iter().collect()
+    }
+
+    // Fix B — a loop alias may be a destructuring pattern; every contained
+    // binding must land in the sidecar scope. Regression for `$each="… as
+    // [name, desc]"` where the whole `[name, desc]` failed `is_js_ident` and
+    // bound nothing → template refs TS2304'd.
+    #[test]
+    fn bare_alias() {
+        assert_eq!(idents("item"), vec!["item"]);
+    }
+
+    #[test]
+    fn array_destructure_binds_each_element() {
+        assert_eq!(idents("[name, desc]"), vec!["desc", "name"]); // BTreeSet → sorted
+    }
+
+    #[test]
+    fn array_holes_and_rest() {
+        assert_eq!(idents("[a, , c]"), vec!["a", "c"]);
+        assert_eq!(idents("[first, ...rest]"), vec!["first", "rest"]);
+    }
+
+    #[test]
+    fn object_shorthand_rename_and_rest() {
+        assert_eq!(idents("{a, b}"), vec!["a", "b"]);
+        // `{key: local}` binds the LOCAL name, not the key.
+        assert_eq!(idents("{key: local}"), vec!["local"]);
+        assert_eq!(idents("{a, ...others}"), vec!["a", "others"]);
+    }
+
+    #[test]
+    fn default_initializers_are_stripped() {
+        assert_eq!(idents("[a = 5]"), vec!["a"]);
+        assert_eq!(idents("{a = 1, b}"), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn nested_pattern_recurses() {
+        assert_eq!(idents("[a, [b, c]]"), vec!["a", "b", "c"]);
+        assert_eq!(idents("{outer: {inner}}"), vec!["inner"]);
+    }
+
+    #[test]
+    fn non_ident_tokens_skipped() {
+        // Empty / punctuation-only parts contribute nothing (no panic).
+        assert!(idents("[]").is_empty());
+        assert!(idents("").is_empty());
+    }
 }
