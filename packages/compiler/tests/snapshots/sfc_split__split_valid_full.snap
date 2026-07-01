@@ -9,6 +9,7 @@ AihuSource {
     template: Some(
         "<div>{{ count }}</div>",
     ),
+    template_line: 8,
     style: Some(
         StyleBlock {
             content: "div { color: red; }",

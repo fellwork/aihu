@@ -5,6 +5,7 @@ expression: result
 AihuSource {
     script: None,
     template: None,
+    template_line: 0,
     style: Some(
         StyleBlock {
             content: "body { margin: 0; }",

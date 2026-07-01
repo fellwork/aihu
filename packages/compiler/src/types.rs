@@ -84,6 +84,11 @@ pub struct StyleBlock<'a> {
 pub struct AihuSource<'a> {
     pub script: Option<&'a str>,
     pub template: Option<&'a str>,
+    /// 1-based line in the original `.aihu` file where the `@template` body's
+    /// first non-whitespace character sits. Lets the type-check sidecar place
+    /// each lifted template expression on its real source line so `tsc`
+    /// diagnostics point at the originating `.aihu` line. 0 when no @template.
+    pub template_line: usize,
     pub style: Option<StyleBlock<'a>>,
     pub meta: ScriptMeta,
     pub agent: Option<AgentBlock>,

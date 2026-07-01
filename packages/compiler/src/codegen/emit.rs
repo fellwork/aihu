@@ -250,10 +250,6 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // markup at this moment.
 
     let script = unit.source.script.unwrap_or("").trim();
-    let header = format!(
-        "// generated sidecar for {}.aihu — DO NOT EDIT\n// Type-checking surface for @template expressions per spec §7 path (i).\n",
-        tag_name
-    );
     // Preamble re-declares typical SFC globals so tsc has a permissive type
     // scope. We type these as `any` because precise typing requires deeper
     // SFC -> TS lowering (B3+ sidecar refinement is a watched item).
@@ -312,69 +308,34 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
             format!("declare const $event: {{\n{}\n}};", event_lines.join("\n")),
         )
     };
-    let preamble = format!(
-        "\
-declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void];
-declare const computed: <T>(fn: () => T) => () => T;
-declare const onMount: (fn: () => void | (() => void)) => void;
-declare const onCleanup: (fn: () => void) => void;
-declare const onAdopt: (fn: () => void) => void;
-declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;
-declare function __handler(h: (...args: any[]) => any): void;
-{}
-{}
-",
-        emit_decl, event_decl
+    // COMPACT one-line preamble. All framework-global decls + the derived
+    // `$emit`/`$event` decls live on a SINGLE physical line, and the function
+    // opener on the next. That two-line prefix is what makes the line-preserving
+    // layout below work: every lifted template expression at or after source
+    // line 3 can be placed on its exact `.aihu` line, so `tsc` diagnostics cite
+    // the real source line instead of a bunched-up projection region.
+    let preamble_line = format!(
+        "declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void]; \
+         declare const computed: <T>(fn: () => T) => () => T; \
+         declare const onMount: (fn: () => void | (() => void)) => void; \
+         declare const onCleanup: (fn: () => void) => void; \
+         declare const onAdopt: (fn: () => void) => void; \
+         declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void; \
+         declare function __handler(h: (...args: any[]) => any): void; {} {} // {}.aihu type-check sidecar (generated, line-preserving)",
+        to_single_line(&emit_decl),
+        to_single_line(&event_decl),
+        tag_name
     );
-    let body_exprs: Vec<String> = exprs
-        .iter()
-        .map(|e| {
-            if e.is_handler {
-                // Event handlers (`$on.click={(e) => …}`) are functions. Pass
-                // them in CALL position to a `(...args: any[]) => any` param so
-                // their inline arrow params get a contextual `any` type — a bare
-                // `void ((e) => …)` leaves `e` implicit-any → TS7006 under
-                // noImplicitAny. A non-function handler still type-errors here
-                // (caught, as intended).
-                format!("  __handler({});", e.expr)
-            } else {
-                // Wrap value expressions in `void (...)` so the result type
-                // isn't checked beyond syntactic validity; tsc still flags
-                // undefined identifiers and most type errors.
-                format!("  void ({});", e.expr)
-            }
-        })
-        .collect();
-    let body = body_exprs.join("\n");
-    // B3b — DO NOT embed the user @state script verbatim. The script body
-    // contains aihu macros (`$prop`, `$computed`, `$event` etc.) which surface
-    // as labeled-statement-shaped lines and are NOT valid TypeScript — they
-    // emit noisy `TS1128` that masks real template type errors.
-    //
-    // BUT the framework-global preamble alone is not enough: a template that
-    // reads a user `@state` binding (`void (toggle())`, `void (label())`)
-    // needs that name in scope, or tsc reports `TS2304: Cannot find name`.
-    // Since #129 removed the raw-script embed without replacing it, every SFC
-    // whose template reads @state produced a broken sidecar — latent until the
-    // sidecars were regenerated (web + api both hit it).
-    //
-    // Declare each REFERENCED in-scope name as a PARAMETER of __aihu_template
-    // (typed `any` — precise typing is a watched B3+ item). Parameters, not
+
+    // Declare each REFERENCED in-scope name as an `any` PARAMETER of
+    // __aihu_template (precise typing is a watched B3+ item). Parameters, not
     // module-scope `declare const`, because a name may shadow a DOM global
     // (`open`, `close`, `name`, `status`, `location`, …): an ambient
-    // `declare const open` collides with lib.dom's `open` (`TS2451`), whereas
-    // a parameter cleanly shadows it. Only names actually referenced by a
-    // template expression are emitted, so there are no unused parameters.
-    //
-    // The in-scope set spans four sources a template expression can read:
-    //   1. @state binding names (signals/computeds/consts/$prop/$computed/…)
-    //   2. signal SETTERS (`const [g, setG] = signal()` — `setG` used in a
-    //      handler like `$on.click={() => setG(x)}`; collect_state_decls only
-    //      yields the getter half)
-    //   3. names imported into @state (`import { closeNav } from …`) and used
-    //      directly in the template (collect_state_decls skips import lines)
-    //   4. `$each` / `{#each}` loop aliases (`… as item, idx`), which are
-    //      scoped to the loop body but flattened into __aihu_template here
+    // `declare const open` collides with lib.dom's `open` (`TS2451`), whereas a
+    // parameter cleanly shadows it. Only names actually referenced by a template
+    // expression are emitted, so there are no unused params. The in-scope set
+    // spans @state binding names, signal setters, @state imports, and
+    // `$each`/`{#each}` loop aliases (see collect_sidecar_scope_names).
     let scope_names = collect_sidecar_scope_names(script, nodes);
     let referenced: Vec<String> = scope_names
         .into_iter()
@@ -385,11 +346,77 @@ declare function __handler(h: (...args: any[]) => any): void;
         .map(|n| format!("{}: any", n))
         .collect::<Vec<_>>()
         .join(", ");
-    let out = format!(
-        "{}{}\nfunction __aihu_template({}): void {{\n{}\n}}\n",
-        header, preamble, params, body
-    );
-    Some(out)
+
+    // Line-preserving body. `lines[i]` is sidecar line i+1: line 1 = preamble,
+    // line 2 = the function opener, body statements on line ≥3. Each lifted
+    // expression is placed on its real `.aihu` source line, recovered by a
+    // forward-cursor search of the @template text (exprs are collected in source
+    // order, so the cursor disambiguates repeated expressions). Expressions are
+    // collapsed to a single physical line, so a multi-line source expression is
+    // reported at its START line; several expressions sharing a source line
+    // share a sidecar line. Blank body lines are valid (empty statements).
+    const OPENER_LINE: usize = 2;
+    let template_text = unit.source.template.unwrap_or("");
+    let tmpl_first_line = unit.source.template_line; // 1-based; 0 if no @template
+    let mut lines: Vec<String> = vec![
+        preamble_line,
+        format!("function __aihu_template({}): void {{", params),
+    ];
+    let mut cursor = 0usize;
+    for e in &exprs {
+        // Recover the expression's 1-based `.aihu` file line (0 = unknown).
+        let file_line = if tmpl_first_line == 0 {
+            0
+        } else if let Some(off) = template_text.get(cursor..).and_then(|s| s.find(e.expr.as_str())) {
+            let abs = cursor + off;
+            cursor = abs + e.expr.len();
+            tmpl_first_line + newlines_before(template_text, abs)
+        } else {
+            0 // expr not found verbatim (normalized/rewritten) — stack after body
+        };
+        let stmt = if e.is_handler {
+            // Handlers are functions — pass in CALL position so inline arrow
+            // params get a contextual `any` (a bare `void ((e) => …)` would leave
+            // `e` implicit-any → TS7006). A non-function handler still errors here.
+            format!("__handler({});", to_single_line(&e.expr))
+        } else {
+            // `void (...)` so the result type isn't checked beyond validity; tsc
+            // still flags undefined identifiers and most type errors.
+            format!("void ({});", to_single_line(&e.expr))
+        };
+        // Target line: the real source line when it's below the opener; otherwise
+        // stack immediately after the current body (can't write into the preamble).
+        let target = if file_line > OPENER_LINE {
+            file_line
+        } else {
+            lines.len().max(OPENER_LINE) + 1
+        };
+        let idx = target - 1;
+        if idx >= lines.len() {
+            lines.resize(idx + 1, String::new()); // pad blank body lines
+            lines[idx] = stmt;
+        } else if lines[idx].is_empty() {
+            lines[idx] = stmt;
+        } else {
+            lines[idx].push(' '); // another expr shares this source line
+            lines[idx].push_str(&stmt);
+        }
+    }
+    lines.push("}".to_string());
+    Some(format!("{}\n", lines.join("\n")))
+}
+
+/// Replace newlines with spaces so a value fits on one physical line — used to
+/// keep each lifted template expression (and the compact preamble decls) on a
+/// single sidecar line for the line-preserving layout. String-literal interior
+/// whitespace is otherwise untouched.
+fn to_single_line(s: &str) -> String {
+    s.replace(['\r', '\n'], " ")
+}
+
+/// Number of `\n` in `text[..offset]` (line breaks before `offset`).
+fn newlines_before(text: &str, offset: usize) -> usize {
+    text[..offset].bytes().filter(|&b| b == b'\n').count()
 }
 
 /// Every name a `@template` expression could reference and that must therefore

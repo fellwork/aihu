@@ -7,6 +7,7 @@ AihuSource {
     template: Some(
         "<button>{{ label }}</button>",
     ),
+    template_line: 8,
     style: None,
     meta: ScriptMeta {
         name: None,

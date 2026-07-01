@@ -804,6 +804,8 @@ pub fn parse(source: &str) -> Result<AihuSource<'_>, CompileError> {
 pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<AihuSource<'a>, CompileError> {
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
+    // 1-based source line of the @template body's first non-whitespace char.
+    let mut template_line: usize = 0;
     let mut style: Option<StyleBlock> = None;
     let meta = ScriptMeta { name: None };
     let mut agent_raw: Option<&str> = None;
@@ -915,6 +917,11 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                         ..Default::default()
                     });
                 }
+                // Record the file line of the trimmed body's first char so the
+                // type-check sidecar can line-align lifted expressions.
+                let untrimmed = &source[body_start..close_pos];
+                let lead_ws = untrimmed.len() - untrimmed.trim_start().len();
+                template_line = line_at(source, body_start + lead_ws);
                 template = Some(body);
             }
             BlockKind::Style => {
@@ -1029,6 +1036,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
     Ok(AihuSource {
         script,
         template,
+        template_line,
         style,
         meta,
         agent,

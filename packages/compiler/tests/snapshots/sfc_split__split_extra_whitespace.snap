@@ -9,6 +9,7 @@ AihuSource {
     template: Some(
         "<p>text</p>",
     ),
+    template_line: 12,
     style: None,
     meta: ScriptMeta {
         name: None,
