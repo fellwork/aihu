@@ -32,6 +32,13 @@
 pub mod rewrite;
 pub use rewrite::{rewrite_signal_reads, RewriteResult};
 
+// W4 (advanced-js-template-expressions): AST-derived sidecar harvest — the
+// identifier-READ set of a captured expression and the identifier-BINDING
+// set of an each-head alias list. Always-on (type-check-side only; see
+// harvest.rs module docs for why it is not flag-gated).
+pub mod harvest;
+pub use harvest::{alias_bound_idents, referenced_idents};
+
 use crate::types::{Attr, CompileError, MacroValue, TemplateNode};
 
 use oxc_allocator::Allocator;

@@ -643,6 +643,207 @@ const openTerm = (e: Event, t: unknown) => {}
     );
 }
 
+// ─── W4 (advanced-js-template-expressions) — AST-derived sidecar harvest ────
+
+#[test]
+fn sidecar_harvests_template_literal_and_spread_reads() {
+    // W4 — the token harvest treated a backtick as a plain string open (so
+    // everything inside `` `…` `` was invisible) and treated the identifier
+    // after `...` as a member access. `count`/`nums`/`items` were therefore
+    // never declared as params and VALID components failed sidecar tsc with
+    // TS2304. The AST harvest sees `${…}` holes and spread targets as the
+    // ordinary reads they are.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+const [nums, setNums] = signal([1])
+const [items, setItems] = signal(['a'])
+}
+@template {
+  <span>{`Count: ${count}`}</span>
+  <b>{Math.max(...nums)}</b>
+  <i $class={[...items, 'x']}>y</i>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-tpl-spread").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    for name in ["count: any", "nums: any", "items: any"] {
+        assert!(
+            sig.contains(name),
+            "sidecar must declare `{name}` (template-literal/spread read):\n{sig}"
+        );
+    }
+}
+
+#[test]
+fn sidecar_omits_shadowed_params_and_object_keys() {
+    // W4 — post-scope-model harvest: an arrow param that SHADOWS a state
+    // binding is not a template read of it, and a non-computed object KEY /
+    // member property is never a read (they are `IdentifierName` nodes).
+    // The token scan emitted a `count: any` param for all three sites here;
+    // object SHORTHAND (`{ count }`) IS a read and keeps the param.
+    let base = |template: &str| {
+        format!(
+            r#"@state {{
+import {{ signal }} from '@aihu/signals'
+const [count, setCount] = signal(0)
+const [items, setItems] = signal([1])
+const [user, setUser] = signal({{ name: '' }})
+}}
+@template {{
+  {template}
+}}"#
+        )
+    };
+    // Shadowed param + object key + member property: no `count` param.
+    let src = base("<span>{items.map(count => count + 1).join('')}</span><b>{JSON.stringify({ count: 1 })}</b><i>{user.name}</i>");
+    let parsed = sfc::parse(&src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-shadow").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    assert!(sig.contains("items: any"), "outer `items` read must surface:\n{sig}");
+    assert!(sig.contains("user: any"), "member BASE `user` read must surface:\n{sig}");
+    assert!(
+        !sig.contains("count: any"),
+        "shadowed-param/object-key `count` must NOT become a param:\n{sig}"
+    );
+    // Object shorthand IS a read.
+    let src = base("<span>{JSON.stringify({ count })}</span>");
+    let parsed = sfc::parse(&src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-shorthand").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    assert!(sig.contains("count: any"), "shorthand `{{ count }}` is a read:\n{sig}");
+}
+
+#[test]
+fn sidecar_binds_destructured_each_aliases() {
+    // W4 — `{#each pairs as [k, v], i (k)}`: the header split tears the
+    // pattern across item/idx (`[k` + `v], i`), so the token extractor bound
+    // NOTHING and k/v/i all TS2304'd in the sidecar. The harvest rejoins the
+    // alias list and REALLY parses it as a parameter list.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [pairs, setPairs] = signal([['a', 1]])
+}
+@template {
+  <ul>
+    {#each pairs as [k, v], i (k)}
+      <li>{k}: {v} #{i}</li>
+    {/each}
+  </ul>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-destructure").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    for name in ["k: any", "v: any", "i: any", "pairs: any"] {
+        assert!(
+            sig.contains(name),
+            "sidecar must declare destructured each alias `{name}`:\n{sig}"
+        );
+    }
+}
+
+#[test]
+fn sidecar_binds_object_pattern_each_aliases_in_macro_form() {
+    // W4 — `$each` attr with an object-pattern alias incl. a RENAME
+    // (`{ name, id: rid }` binds `rid`, not `id`) — the rename's LOCAL side
+    // must be the param; the key side must not.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [users, setUsers] = signal([])
+}
+@template {
+  <li $each="users as { name, id: rid }">{name}: {rid}</li>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-objpat").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    for name in ["name: any", "rid: any"] {
+        assert!(sig.contains(name), "sidecar must bind `{name}`:\n{sig}");
+    }
+    // Param-boundary check (`rid: any` contains the substring `id: any`).
+    assert!(
+        !sig.contains("(id: any") && !sig.contains(", id: any"),
+        "the rename's KEY side must not bind:\n{sig}"
+    );
+}
+
+#[test]
+fn sidecar_line_mapping_holds_for_newly_harvested_forms() {
+    // W4 must not disturb the #390 contract: the harvest changes which names
+    // become params (line 2, the opener), never how expressions are PLACED.
+    // A template-literal expression — newly harvested via the AST — still
+    // lands on its real `.aihu` source line.
+    let src = "\
+@state {
+  import { signal } from '@aihu/signals'
+  const [count, setCount] = signal(0)
+}
+@template {
+  <div>x</div>
+  <span>{`Count: ${count}`}</span>
+}";
+    // The template-literal interpolation sits on .aihu line 7.
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-lines").sidecar_ts.expect("sidecar must be emitted");
+    let lines: Vec<&str> = sidecar.lines().collect();
+    assert!(
+        lines[1].contains("count: any"),
+        "line 2 opener must declare the template-literal read as a param:\n{sidecar}"
+    );
+    assert_eq!(
+        lines.get(6).copied(),
+        Some("void (`Count: ${count}`);"),
+        "the template-literal expr must sit on sidecar line 7 (its .aihu line):\n{sidecar}"
+    );
+}
+
+#[test]
+fn sidecar_falls_back_to_token_harvest_for_unparseable_captures() {
+    // Under `--expr-parser legacy` (the default) a capture that is not a
+    // parseable TS expression can reach emit. The AST harvest returns None
+    // for it and the per-expression token-scan fallback keeps declaring what
+    // it can — the sidecar never loses the coverage it had.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+}
+@template {
+  <span>{count +}</span>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-w4-fallback").sidecar_ts.expect("sidecar must be emitted");
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    assert!(
+        sig.contains("count: any"),
+        "token fallback must still declare `count`:\n{sig}"
+    );
+}
+
 #[test]
 fn comma_less_collection_entries_error_c447_not_silent_drop() {
     // Collection entries are comma-separated. A missing comma between wrapped

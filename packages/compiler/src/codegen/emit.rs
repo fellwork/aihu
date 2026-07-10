@@ -338,9 +338,34 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // spans @state binding names, signal setters, @state imports, and
     // `$each`/`{#each}` loop aliases (see collect_sidecar_scope_names).
     let scope_names = collect_sidecar_scope_names(script, nodes);
+    // W4 (advanced-js-template-expressions) — the referenced-ident harvest
+    // reads the oxc AST (`expr::referenced_idents`): every identifier READ a
+    // template expression makes, post-scope-model — reads inside
+    // template-literal `${…}` holes and after `...` spread now count (the
+    // token scan was blind to both, so valid components false-TS2304'd),
+    // while expression-internal shadows (arrow params, block `const`s),
+    // member properties, object keys, and TS type names never do. Always-on,
+    // not `--expr-parser`-gated: harvesting is type-check-side only (it
+    // changes which `any` params the sidecar declares, never the emitted
+    // JS). Captures that don't parse as a TS expression (possible under
+    // `--expr-parser legacy`) fall back to the token scan per-expression, so
+    // the sidecar never loses the coverage it had.
+    let mut referenced_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for e in &exprs {
+        match crate::expr::referenced_idents(&e.expr) {
+            Some(reads) => referenced_names.extend(reads),
+            None => {
+                for name in &scope_names {
+                    if expr_references_ident(&e.expr, name) {
+                        referenced_names.insert(name.clone());
+                    }
+                }
+            }
+        }
+    }
     let referenced: Vec<String> = scope_names
         .into_iter()
-        .filter(|name| exprs.iter().any(|e| expr_references_ident(&e.expr, name)))
+        .filter(|name| referenced_names.contains(name))
         .collect();
     let params = referenced
         .iter()
@@ -608,6 +633,42 @@ fn extract_pattern_idents(part: &str, out: &mut std::collections::BTreeSet<Strin
     }
 }
 
+/// The alias-side source text of an each head, rejoined from the parser's
+/// (possibly torn) `item_alias`/`idx_alias` fields: `parse_each_header` splits
+/// the alias list on the FIRST comma (template.rs — W5 turns it into a parsed
+/// BindingPattern), so `as [k, v], i` arrives as `[k` + `v], i`. Rejoining
+/// with a comma reconstructs the exact alias list for a real parse.
+fn rejoin_alias_list(item_alias: &str, idx_alias: Option<&str>) -> String {
+    match idx_alias {
+        Some(idx) => format!("{}, {}", item_alias, idx),
+        None => item_alias.to_string(),
+    }
+}
+
+/// Bind the identifiers of one each-head alias list into `out` — via a real
+/// parse of the (rejoined) alias list (W4, `expr::alias_bound_idents`), so
+/// destructuring patterns torn by the header split bind every contained
+/// identifier instead of nothing; the token extractor stays as the fallback
+/// for alias text that doesn't parse as a parameter list.
+fn push_alias_bindings(
+    item_alias: &str,
+    idx_alias: Option<&str>,
+    out: &mut std::collections::BTreeSet<String>,
+) {
+    let alias_list = rejoin_alias_list(item_alias, idx_alias);
+    match crate::expr::alias_bound_idents(&alias_list) {
+        Some(bound) => out.extend(bound),
+        None => {
+            extract_pattern_idents(item_alias, out);
+            if let Some(idx) = idx_alias {
+                if is_js_ident(idx) {
+                    out.insert(idx.to_string());
+                }
+            }
+        }
+    }
+}
+
 /// Walk the template AST collecting `$each`/`{#each}` loop aliases (`item` and
 /// optional `index` from `<list> as item[, index]`), which are in scope inside
 /// the loop body the sidecar flattens into `__aihu_template`. Destructuring
@@ -615,11 +676,15 @@ fn extract_pattern_idents(part: &str, out: &mut std::collections::BTreeSet<Strin
 fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
     fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
         // `<list> as <alias>` where <alias> is `item`, `item, idx`, or a
-        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). Split on the
-        // FIRST " as " (list part is irrelevant), then split the alias list on
-        // TOP-LEVEL commas so a destructure isn't torn apart, and extract every
-        // bound identifier from each part.
-        if let Some((_, rest)) = clause.split_once(" as ") {
+        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). W4: split
+        // with the parser's scanner-aware each-header split (an ` as ` inside
+        // a string/parens in the LIST no longer mis-splits; a trailing `(key)`
+        // group no longer swallows the idx alias), then bind the alias side
+        // from a real parse. The naive textual split stays as the fallback
+        // for clauses `parse_each_header` rejects.
+        if let Ok((_, item, idx, _)) = crate::parser::template::parse_each_header(clause) {
+            push_alias_bindings(&item, idx.as_deref(), out);
+        } else if let Some((_, rest)) = clause.split_once(" as ") {
             for part in split_top_level_commas_pat(rest) {
                 extract_pattern_idents(&part, out);
             }
@@ -645,13 +710,12 @@ fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTre
                 empty_body,
                 ..
             } => {
-                // item_alias may be a destructuring pattern (`{#each xs as [k, v]}`).
-                extract_pattern_idents(item_alias, out);
-                if let Some(idx) = idx_alias {
-                    if is_js_ident(idx) {
-                        out.insert(idx.clone());
-                    }
-                }
+                // item_alias may be a destructuring pattern (`{#each xs as
+                // [k, v]}`) — and until W5 the header split tears it across
+                // item/idx (`[k` + `v], i`), so the token extractor bound
+                // NOTHING and every body reference TS2304'd. W4 rejoins the
+                // alias list and really parses it.
+                push_alias_bindings(item_alias, idx_alias.as_deref(), out);
                 collect_loop_aliases(body, out);
                 if let Some(eb) = empty_body {
                     collect_loop_aliases(eb, out);
@@ -738,8 +802,20 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                 // referenced.
                 Attr::Macro { name, value } if name == "each" => {
                     let clause = macro_value_expr(value);
-                    let list = clause.split_once(" as ").map(|(l, _)| l).unwrap_or(&clause);
-                    out.push(SidecarExpr { expr: list.trim().to_string(), is_handler: false });
+                    // W4: locate the ` as ` with the parser's scanner-aware
+                    // header split so an ` as ` inside a string/parens in the
+                    // LIST doesn't tear it; the naive split stays as the
+                    // fallback for clauses `parse_each_header` rejects.
+                    let list = match crate::parser::template::parse_each_header(&clause) {
+                        Ok((list_expr, _, _, _)) => list_expr,
+                        Err(_) => clause
+                            .split_once(" as ")
+                            .map(|(l, _)| l)
+                            .unwrap_or(&clause)
+                            .trim()
+                            .to_string(),
+                    };
+                    out.push(SidecarExpr { expr: list, is_handler: false });
                 }
                 // `$on.*={handler}` normalizes to an `on:<event>` attr — the
                 // value is a function, emitted in call position so inline arrow

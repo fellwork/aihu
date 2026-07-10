@@ -91,6 +91,48 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     }
   })
 
+  it('passes tsc on template-literal, spread, and destructured-each reads (W4)', () => {
+    // W4 — the AST harvest: reads inside `${…}` holes and after `...`, and
+    // destructured `{#each}` aliases, all surface as `__aihu_template`
+    // params. Before W4 the token harvest missed every one of them and this
+    // fixture failed tsc with false TS2304s.
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-w4-adv-'))
+    try {
+      const src = readFileSync(join(fixturesDir, 'w4-advanced-exprs.aihu'), 'utf8')
+      const sidecarOut = join(tmp, 'w4-advanced-exprs.aihu.ts')
+      transform(src, join(tmp, 'w4-advanced-exprs.aihu'), { sidecarOut })
+      const ts = readFileSync(sidecarOut, 'utf8')
+      const sig = ts.split('\n').find((l) => l.includes('function __aihu_template')) ?? ''
+      for (const param of ['count: any', 'nums: any', 'k: any', 'v: any', 'i: any']) {
+        expect(sig).toContain(param)
+      }
+      const result = runTsc(sidecarOut)
+      expect(result.code, `tsc must be clean:\n${result.stdout}\n${result.stderr}`).toBe(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('cites the real .aihu line for an error inside a template-literal hole (W4/#390)', () => {
+    // Line-mapping proof: the undefined `nope` lives in a `${…}` hole on
+    // .aihu line 11; the line-preserving sidecar makes tsc cite line 11.
+    // The in-scope `count` in the SAME literal must NOT error (before W4 it
+    // false-TS2304'd, drowning the genuine diagnostic).
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-w4-line-'))
+    try {
+      const src = readFileSync(join(fixturesDir, 'w4-bad-line-cite.aihu'), 'utf8')
+      const sidecarOut = join(tmp, 'w4-bad-line-cite.aihu.ts')
+      transform(src, join(tmp, 'w4-bad-line-cite.aihu'), { sidecarOut })
+      const result = runTsc(sidecarOut)
+      expect(result.code).not.toBe(0)
+      const combined = `${result.stdout}\n${result.stderr}`
+      expect(combined).toMatch(/\(11,\d+\): error TS2304: Cannot find name 'nope'/)
+      expect(combined).not.toMatch(/Cannot find name 'count'/)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('passes tsc on a well-typed $emit payload', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-b3b-good-'))
     try {
