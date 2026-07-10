@@ -75,3 +75,16 @@
 - **Why:** Cosmetic/UX correctness — the call is still rejected loudly without mutating state (the security invariant holds), but the code is misleading. A real MCP client would prefer a `404`.
 - **Context:** `packages/agent-service/src/agent-service.ts` `runGate` step 1 (the live-binding branch checks `typeof binding.callAction === 'function'`, not action membership). Low priority; documented in the agent-server tests.
 - **Depends on:** nothing.
+
+### Bare boolean attributes are stripped in templates (bug)
+- **What:** A bare HTML boolean attribute in `@template` (e.g. `<button disabled>`)
+  is dropped from the emitted element — authors must write `$disabled={true}` to
+  get `disabled=""`. Found while wiring a disabled affordance in fellwork-web; the
+  same latent bug sits on an audio `<button disabled>` there.
+- **Why:** Bare booleans (`disabled`, `readonly`, `required`, `checked`, `selected`,
+  `hidden`, …) are standard HTML; silently stripping them is a correctness trap the
+  author only catches at runtime.
+- **Start at:** the template attribute parser/codegen (`packages/compiler/src/parser/`
+  attribute handling + `codegen/emit.rs`) — emit a bare boolean attribute as
+  `attr=""` (or the framework's boolean-attr convention), or diagnose it.
+- **Depends on:** nothing.
