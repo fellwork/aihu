@@ -520,14 +520,16 @@ fn parse_macro_attr(rest: &str) -> Result<Attr, CompileError> {
 }
 
 /// Find the position of the top-level `=` in a macro attribute token,
-/// skipping over brace-balanced regions.
+/// skipping over brace-balanced regions with full lexical awareness (an `=`
+/// inside a string, template literal, comment, or regex never splits).
 fn find_top_level_eq(s: &str) -> Option<usize> {
+    let mut scanner = crate::parser::expr_scan::CodeScanner::new(s);
     let mut depth = 0usize;
-    for (i, c) in s.char_indices() {
+    while let Some((i, c)) = scanner.next_code_byte() {
         match c {
-            '{' => depth += 1,
-            '}' => depth = depth.saturating_sub(1),
-            '=' if depth == 0 => return Some(i),
+            b'{' => depth += 1,
+            b'}' => depth = depth.saturating_sub(1),
+            b'=' if depth == 0 => return Some(i),
             _ => {}
         }
     }
@@ -535,28 +537,14 @@ fn find_top_level_eq(s: &str) -> Option<usize> {
 }
 
 /// Extract the inner content of a brace-balanced `{...}` expression.
-/// `s` must start with `{`.
+/// `s` must start with `{`. Lexically aware via the shared scanner: `}`
+/// inside strings, template literals, comments, and regex does not close.
 fn extract_balanced_braces(s: &str) -> Option<&str> {
-    let bytes = s.as_bytes();
-    if bytes.first() != Some(&b'{') {
+    if !s.starts_with('{') {
         return None;
     }
-    let mut depth = 0usize;
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'{' => depth += 1,
-            b'}' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&s[1..i]);
-                }
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    None
+    let close = crate::parser::expr_scan::find_matching_close_brace(s, 1)?;
+    Some(&s[1..close])
 }
 
 /// Parse a `$each` quoted value in `"list as item"` or `"list as item, idx"` form.
@@ -729,10 +717,22 @@ fn strip_quotes(value: &str) -> &str {
 
 fn identifier_error() -> CompileError {
     CompileError {
-        message: "interpolation must be a single identifier in v0; expressions are not supported"
+        message: "`{{…}}` is the v0 single-identifier interpolation form; for \
+                  expressions use single braces `{…}` (an expression starting with \
+                  an object literal needs a space: `{ {…} }`)"
             .to_string(),
         line: 0,
         col: 0,
+        hint: Some(
+            "double-brace `{{count}}` reads exactly one signal; anything richer — \
+             operators, calls, ternaries — belongs in the single-brace form"
+                .to_string(),
+        ),
+        fix: Some(
+            "rewrite as `{expr}` with single braces, or hoist the logic into \
+             `$computed` and reference the computed name"
+                .to_string(),
+        ),
         ..Default::default()
     }
 }

@@ -143,6 +143,25 @@ fn find_at_block_close(source: &str, body_start: usize, kind: BlockKind) -> Opti
     while i < bytes.len() {
         let c = bytes[i];
         match c {
+            b'{' if kind == BlockKind::Template => {
+                // An interior `{…}` region in a template body is a block tail
+                // (`{/if}` — template grammar, skipped verbatim) or a JS
+                // expression / block-tag head — delegated to the shared
+                // lexical scanner so `}` inside strings, template literals,
+                // comments, and regex does not corrupt block depth (the
+                // `{'{'}` / `{'}'}` "unclosed @template" class). Prose
+                // outside braces is untouched (bare apostrophes stay inert).
+                if let Some(close) = crate::parser::expr_scan::block_tail_close(source, i) {
+                    i = close + 1;
+                } else {
+                    match crate::parser::expr_scan::find_matching_close_brace(source, i + 1) {
+                        Some(close) => i = close + 1,
+                        // Unclosed expression — consume to end; surfaces as
+                        // the unclosed-@template error with the opener line.
+                        None => i = bytes.len(),
+                    }
+                }
+            }
             b'{' => {
                 depth += 1;
                 i += 1;
@@ -484,26 +503,12 @@ pub(crate) fn collect_undeclared_template_refs(
                 i += 1;
                 continue;
             }
-            // Single-curly `{ expr }` — brace-balanced read to the matching `}`
-            // (mirrors the template parser's `parse_expr_interpolation`).
-            let mut depth = 1usize;
-            let mut j = i + 1;
-            while j < bytes.len() {
-                match bytes[j] {
-                    b'{' => depth += 1,
-                    b'}' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-                j += 1;
-            }
-            if depth != 0 {
+            // Single-curly `{ expr }` — lexically-aware read to the matching
+            // `}` (mirrors the template parser's `parse_expr_interpolation`).
+            let Some(j) = crate::parser::expr_scan::find_matching_close_brace(template, i + 1)
+            else {
                 break; // unbalanced — leave the rest alone
-            }
+            };
             let inner = template[i + 1..j].trim();
             if is_simple_ident(inner) && !is_declared(inner) {
                 out.push(inner.to_string());
@@ -549,24 +554,9 @@ fn collect_each_aliases(template: &str) -> std::collections::BTreeSet<String> {
             Some(b'"') => after[1..].find('"').map(|end| &after[1..1 + end]),
             Some(b'\'') => after[1..].find('\'').map(|end| &after[1..1 + end]),
             Some(b'{') => {
-                // Brace-balanced read (mirrors parse_expr_interpolation).
-                let bytes = after.as_bytes();
-                let mut depth = 0usize;
-                let mut end = None;
-                for (j, &b) in bytes.iter().enumerate() {
-                    match b {
-                        b'{' => depth += 1,
-                        b'}' => {
-                            depth -= 1;
-                            if depth == 0 {
-                                end = Some(j);
-                                break;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                end.map(|j| &after[1..j])
+                // Lexically-aware balanced read (mirrors parse_expr_interpolation).
+                crate::parser::expr_scan::find_matching_close_brace(after, 1)
+                    .map(|j| &after[1..j])
             }
             _ => None,
         };
@@ -578,11 +568,13 @@ fn collect_each_aliases(template: &str) -> std::collections::BTreeSet<String> {
         search = &search[pos + "$each=".len()..];
     }
 
-    // Block form: `{#each list as item, idx}` — read to the closing `}`.
+    // Block form: `{#each list as item, idx}` — lexically-aware read to the
+    // closing `}` (a `}` inside a string in the list expression must not
+    // truncate the header before ` as `).
     let mut search = template;
     while let Some(pos) = search.find("{#each ") {
         let after = &search[pos + "{#each ".len()..];
-        if let Some(end) = after.find('}') {
+        if let Some(end) = crate::parser::expr_scan::find_matching_close_brace(after, 0) {
             if let Some((_, rest)) = after[..end].split_once(" as ") {
                 register(rest);
             }

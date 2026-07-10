@@ -129,9 +129,7 @@ impl<'a> Parser<'a> {
                 nodes.push(node);
                 continue;
             }
-            if (self.starts_with("{:") || self.starts_with("{/"))
-                && !self.starts_expr_comment()
-            {
+            if self.starts_with("{:") || self.starts_block_tail() {
                 if let Some(stops) = block_stops {
                     let boundary = self.parse_block_boundary()?;
                     if stops.iter().any(|s| std::mem::discriminant(s) == std::mem::discriminant(&boundary)) {
@@ -304,6 +302,7 @@ impl<'a> Parser<'a> {
     fn parse_block_boundary(&mut self) -> Result<BlockBoundary, CompileError> {
         if self.starts_with("{/") {
             self.expect("{/")?;
+            self.skip_whitespace();
             let tag = self.read_word();
             self.skip_whitespace();
             self.expect("}")?;
@@ -342,30 +341,27 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Read text up to a closing `}`, respecting brace nesting. Consumes the
-    /// closing `}` and returns the inner text.
+    /// Read text up to a closing `}`, respecting brace nesting AND JS lexical
+    /// structure (via the shared scanner): `}` inside string literals,
+    /// template literals, comments, and regex literals never closes the
+    /// header. Consumes the closing `}` and returns the inner text.
     fn read_balanced_until_close_brace(&mut self) -> Result<String, CompileError> {
-        let start = self.pos;
-        let mut depth: usize = 0;
-        while self.pos < self.input.len() {
-            match self.input.as_bytes()[self.pos] {
-                b'{' => {
-                    depth += 1;
-                    self.pos += 1;
-                }
-                b'}' => {
-                    if depth == 0 {
-                        let text = self.input[start..self.pos].to_string();
-                        self.pos += 1;
-                        return Ok(text);
-                    }
-                    depth -= 1;
-                    self.pos += 1;
-                }
-                _ => self.pos += 1,
-            }
-        }
-        Err(self.error("unclosed `{` in block-tag header".to_string()))
+        let Some(close) = crate::parser::expr_scan::find_matching_close_brace(self.input, self.pos)
+        else {
+            return Err(self.error_with_help(
+                "unclosed `{` in block-tag header".to_string(),
+                "block-tag heads (`{#if}`, `{#each}`, `{@html}`) take a single JS \
+                 expression; strings, template literals, comments, and regex literals \
+                 are understood — an unterminated one also triggers this error"
+                    .to_string(),
+                "close the head with `}`, or hoist complex logic into `$computed` \
+                 and reference the computed name here"
+                    .to_string(),
+            ));
+        };
+        let text = self.input[self.pos..close].to_string();
+        self.pos = close + 1;
+        Ok(text)
     }
 
     fn read_word(&mut self) -> String {
@@ -501,11 +497,10 @@ impl<'a> Parser<'a> {
         while !self.is_eof() && !self.starts_with("<") {
             // B3 — block-tag forms (`{#`, `{:`, `{/`, `{@`) bubble back to the
             // caller so parse_nodes_with_boundary can dispatch them.
-            if (self.starts_with("{#")
+            if self.starts_with("{#")
                 || self.starts_with("{:")
-                || self.starts_with("{/")
-                || self.starts_with("{@"))
-                && !self.starts_expr_comment()
+                || self.starts_with("{@")
+                || self.starts_block_tail()
             {
                 return Ok(());
             }
@@ -555,29 +550,27 @@ impl<'a> Parser<'a> {
 
     /// Parse a `{expr}` single-brace expression in template text content.
     /// The expr is returned as a raw string (no identifier validation).
+    /// Boundary detection is lexically aware (shared scanner): `}` inside
+    /// strings, template literals (incl. `${…}` holes), comments, and regex
+    /// literals never ends the expression.
     fn parse_expr_interpolation(&mut self) -> Result<TemplateNode, CompileError> {
-        let start = self.pos;
         self.expect("{")?;
-        // Read until matching `}`, respecting nesting.
-        let mut depth = 1usize;
-        let mut expr_end = self.pos;
-        while expr_end < self.input.len() {
-            match self.input.as_bytes()[expr_end] {
-                b'{' => { depth += 1; expr_end += 1; }
-                b'}' => {
-                    depth -= 1;
-                    if depth == 0 { break; }
-                    expr_end += 1;
-                }
-                _ => expr_end += 1,
-            }
-        }
-        if depth != 0 {
-            return Err(self.error("unclosed '{' in expression interpolation".to_string()));
-        }
-        let expr = self.input[self.pos..expr_end].to_string();
-        self.pos = expr_end + 1; // past the closing `}`
-        let _ = start;
+        let Some(close) = crate::parser::expr_scan::find_matching_close_brace(self.input, self.pos)
+        else {
+            return Err(self.error_with_help(
+                "unclosed `{` in template expression".to_string(),
+                "template expressions are single JS expressions — member access, \
+                 calls, method chains, ternaries, arrows, template literals, regex, \
+                 object/array literals; strings and comments are understood, so an \
+                 unterminated string or template literal here also triggers this error"
+                    .to_string(),
+                "close the expression with `}`, or hoist complex logic into \
+                 `$computed` and reference the computed name here"
+                    .to_string(),
+            ));
+        };
+        let expr = self.input[self.pos..close].to_string();
+        self.pos = close + 1; // past the closing `}`
         Ok(TemplateNode::Interpolation(expr))
     }
 
@@ -630,30 +623,12 @@ impl<'a> Parser<'a> {
         let start = self.pos;
         let mut in_quote = false;
         let mut quote_char = '\0';
-        let mut brace_depth: usize = 0;
 
         while let Some(ch) = self.peek_char() {
             if in_quote {
                 self.pos += ch.len_utf8();
                 if ch == quote_char {
                     in_quote = false;
-                }
-                continue;
-            }
-
-            if brace_depth > 0 {
-                match ch {
-                    '{' => {
-                        brace_depth += 1;
-                        self.pos += ch.len_utf8();
-                    }
-                    '}' => {
-                        brace_depth -= 1;
-                        self.pos += ch.len_utf8();
-                    }
-                    _ => {
-                        self.pos += ch.len_utf8();
-                    }
                 }
                 continue;
             }
@@ -665,8 +640,19 @@ impl<'a> Parser<'a> {
                     self.pos += ch.len_utf8();
                 }
                 '{' => {
-                    brace_depth += 1;
-                    self.pos += ch.len_utf8();
+                    // Delegate the whole `{…}` region to the shared scanner so
+                    // quotes, template literals, comments, and regex INSIDE the
+                    // braces are lexically understood (fixes `$title={'}'}`,
+                    // which the old depth-only counter tore apart).
+                    match crate::parser::expr_scan::find_matching_close_brace(
+                        self.input,
+                        self.pos + 1,
+                    ) {
+                        Some(close) => self.pos = close + 1,
+                        // Unclosed `{…}` — consume the rest; parse_attr's
+                        // brace extraction reports the unclosed error (C301/C303).
+                        None => self.pos = self.input.len(),
+                    }
                 }
                 '>' => break,
                 '/' if self.starts_with("/>") => break,
@@ -705,12 +691,15 @@ impl<'a> Parser<'a> {
         self.input[self.pos..].starts_with(needle)
     }
 
-    /// `{//` or `{/*` opens a JS comment at the start of a `{expr}`
-    /// interpolation — it is not a `{/if}` / `{/each}` block tail. Block
-    /// tails are always `{/` followed by a letter, so `/` or `*` after `{/`
-    /// disambiguates unambiguously.
-    fn starts_expr_comment(&self) -> bool {
-        self.starts_with("{//") || self.starts_with("{/*")
+    /// Classify a `{/…` sequence: it is block-tail-SHAPED only when it reads
+    /// `{/` ws* word ws* `}` (`{/if}`, `{/each}`, `{/ if }`, and typos like
+    /// `{/for}` — the boundary parser validates the word and reports unknown
+    /// tails precisely). Anything else — `{//` and `{/*` comments (b03dba1)
+    /// and now the whole lexical class, e.g. `{/^a/.test(x)}` regex literals —
+    /// is an expression that happens to start with `/` and falls through to
+    /// expression parsing, where the shared scanner understands it.
+    fn starts_block_tail(&self) -> bool {
+        crate::parser::expr_scan::block_tail_close(self.input, self.pos).is_some()
     }
 
     /// Skip an HTML comment (`<!-- … -->`). Comments carry authoring intent
@@ -744,6 +733,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Like `error`, but with the rich-diagnostic `hint`/`fix` fields set
+    /// (rendered by `bin/main.rs::render_human_error`).
+    fn error_with_help(&self, message: String, hint: String, fix: String) -> CompileError {
+        CompileError {
+            hint: Some(hint),
+            fix: Some(fix),
+            ..self.error(message)
+        }
+    }
+
     fn line_at(&self, pos: usize) -> usize {
         self.input[..pos]
             .bytes()
@@ -764,88 +763,48 @@ impl<'a> Parser<'a> {
 /// Parse a `{#each}` header: `<list-expr> as <item>[, <idx>] [(<key-expr>)]`.
 /// Returns `(list_expr, item_alias, idx_alias, key_expr)`.
 ///
-/// `list-expr` may contain arbitrary expression syntax (parens, dots, lambdas)
-/// — we tokenize by skipping balanced strings/parens/braces and locate the
-/// first ` as ` outside of any nesting. The optional `(key)` is a parenthesized
-/// expression at the very end (after balanced match — caller's parse_balanced
-/// already accepted the body up to `}`, so the parenthesized key is still
-/// inside `header`).
+/// `list-expr` may contain arbitrary expression syntax (parens, dots, lambdas,
+/// strings, template literals, regex, comments) — a single pass of the shared
+/// lexical scanner locates the first ` as ` outside any nesting or literal,
+/// plus the last top-level `(…)` group. That trailing group is the `(key)`
+/// ONLY when its `)` ends the header and whitespace precedes its `(` (a call
+/// like `items.filter(p => p.ok)` attaches to the expression instead).
 pub(crate) fn parse_each_header(
     header: &str,
 ) -> Result<(String, String, Option<String>, Option<String>), String> {
-    // Split off optional ` (key)` from the end. We match the LAST balanced
-    // `(...)` whose closing paren is the LAST non-whitespace char of header.
     let trimmed = header.trim();
-    let (no_key_part, key_expr) = if trimmed.ends_with(')') {
-        // Walk backwards to find the matching opening paren at depth 0.
-        let bytes = trimmed.as_bytes();
-        let mut depth: usize = 0;
-        let mut open_idx: Option<usize> = None;
-        for i in (0..bytes.len()).rev() {
-            match bytes[i] {
-                b')' => depth += 1,
-                b'(' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        open_idx = Some(i);
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        if let Some(open) = open_idx {
-            // Heuristic: the parenthesized expression at the end is the key
-            // ONLY when the chars before `(` are whitespace (it's separated
-            // from the iteration alias by ` `). If `(` directly follows a
-            // non-space character, this is part of the list expression
-            // (e.g. `{#each items.filter(p => p.ok) as p}`).
-            let head_before = trimmed[..open].trim_end();
-            let head_after = trimmed[..open].trim_end();
-            if head_before.len() < trimmed[..open].len() {
-                // there was whitespace between item alias and `(key)`
-                let key = trimmed[open + 1..trimmed.len() - 1].trim().to_string();
-                (head_after.to_string(), Some(key))
-            } else {
-                (trimmed.to_string(), None)
-            }
-        } else {
-            (trimmed.to_string(), None)
-        }
-    } else {
-        (trimmed.to_string(), None)
-    };
+    let bytes = trimmed.as_bytes();
 
-    // Find ` as ` at top-level (not inside parens/strings/braces).
-    let bytes = no_key_part.as_bytes();
+    let mut scanner = crate::parser::expr_scan::CodeScanner::new(trimmed);
     let mut depth_paren: usize = 0;
     let mut depth_brace: usize = 0;
     let mut depth_bracket: usize = 0;
-    let mut in_string: Option<u8> = None;
     let mut as_pos: Option<usize> = None;
-    let mut i = 0;
-    while i + 4 <= bytes.len() {
-        let c = bytes[i];
-        if let Some(q) = in_string {
-            if c == b'\\' && i + 1 < bytes.len() {
-                i += 2;
-                continue;
-            }
-            if c == q {
-                in_string = None;
-            }
-            i += 1;
-            continue;
-        }
+    // Currently-open top-level `(` and the last completed top-level `(…)`.
+    let mut open_at: Option<usize> = None;
+    let mut last_group: Option<(usize, usize)> = None;
+    while let Some((i, c)) = scanner.next_code_byte() {
         match c {
-            b'\'' | b'"' | b'`' => in_string = Some(c),
-            b'(' => depth_paren += 1,
-            b')' => depth_paren = depth_paren.saturating_sub(1),
+            b'(' => {
+                if depth_paren == 0 && depth_brace == 0 && depth_bracket == 0 {
+                    open_at = Some(i);
+                }
+                depth_paren += 1;
+            }
+            b')' => {
+                depth_paren = depth_paren.saturating_sub(1);
+                if depth_paren == 0 && depth_brace == 0 && depth_bracket == 0 {
+                    if let Some(open) = open_at.take() {
+                        last_group = Some((open, i));
+                    }
+                }
+            }
             b'{' => depth_brace += 1,
             b'}' => depth_brace = depth_brace.saturating_sub(1),
             b'[' => depth_bracket += 1,
             b']' => depth_bracket = depth_bracket.saturating_sub(1),
-            b' ' if depth_paren == 0
+            b' ' if as_pos.is_none()
+                && depth_paren == 0
                 && depth_brace == 0
                 && depth_bracket == 0
                 && bytes.get(i + 1) == Some(&b'a')
@@ -853,19 +812,33 @@ pub(crate) fn parse_each_header(
                 && bytes.get(i + 3) == Some(&b' ') =>
             {
                 as_pos = Some(i);
-                break;
             }
             _ => {}
         }
-        i += 1;
     }
 
     let Some(as_at) = as_pos else {
-        return Err("`{#each}` header must contain ` as ` separator".to_string());
+        return Err(
+            "`{#each}` header must contain ` as ` separator — expected \
+             `{#each <list-expr> as <item>[, <idx>] [(key)]}`"
+                .to_string(),
+        );
     };
 
-    let list_expr = no_key_part[..as_at].trim().to_string();
-    let rest = no_key_part[as_at + 4..].trim();
+    // Split off the optional trailing `(key)` group.
+    let (alias_end, key_expr) = match last_group {
+        Some((open, close))
+            if close + 1 == trimmed.len()
+                && open > as_at
+                && trimmed[..open].ends_with(|c: char| c.is_whitespace()) =>
+        {
+            (open, Some(trimmed[open + 1..close].trim().to_string()))
+        }
+        _ => (trimmed.len(), None),
+    };
+
+    let list_expr = trimmed[..as_at].trim().to_string();
+    let rest = trimmed[as_at + 4..alias_end].trim();
     if list_expr.is_empty() || rest.is_empty() {
         return Err("`{#each}` requires non-empty list and item alias".to_string());
     }
@@ -1124,5 +1097,262 @@ mod tests {
     fn block_each_missing_as_errors() {
         let err = parse_template("{#each items}body{/each}").unwrap_err();
         assert!(err.message.contains("as"));
+    }
+
+    // ─── W1 boundary-scanner hardening (shared lexical scanner) ──────────────
+    // Fixture ids reference the truth table in
+    // docs/plans/advanced-js-template-expressions.md.
+
+    fn first_interpolation(template: &str) -> String {
+        let nodes = parse_template(template).unwrap();
+        fn find(nodes: &[TemplateNode]) -> Option<String> {
+            for n in nodes {
+                match n {
+                    TemplateNode::Interpolation(e) => return Some(e.clone()),
+                    TemplateNode::Element { children, .. }
+                    | TemplateNode::MacroElement { children, .. } => {
+                        if let Some(e) = find(children) {
+                            return Some(e);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            None
+        }
+        find(&nodes).expect("template must contain an Interpolation")
+    }
+
+    #[test]
+    fn a16_regex_literal_opens_expression() {
+        // `{/^a/…}` was misclassified as a `{/…}` block tail (same class as
+        // the b03dba1 comment bug, generalized here).
+        let expr = first_interpolation("<p>{/^a/.test(user.name) ? 1 : 0}</p>");
+        assert_eq!(expr, "/^a/.test(user.name) ? 1 : 0");
+    }
+
+    #[test]
+    fn a16_regex_with_close_brace_in_char_class() {
+        let expr = first_interpolation("<p>{/[}]/.test(user.name) ? 1 : 0}</p>");
+        assert_eq!(expr, "/[}]/.test(user.name) ? 1 : 0");
+    }
+
+    #[test]
+    fn a17_close_brace_inside_string_literal() {
+        let expr = first_interpolation("<p>{'}'}</p>");
+        assert_eq!(expr, "'}'");
+    }
+
+    #[test]
+    fn a17_open_brace_inside_string_literal() {
+        let expr = first_interpolation("<p>{'{'}</p>");
+        assert_eq!(expr, "'{'");
+    }
+
+    #[test]
+    fn a24_template_literal_holes_with_braces() {
+        let expr = first_interpolation("<p>{`n=${count} of ${items.length}`}</p>");
+        assert_eq!(expr, "`n=${count} of ${items.length}`");
+    }
+
+    #[test]
+    fn template_literal_hole_containing_string_close_brace() {
+        let expr = first_interpolation("<p>{`v=${obj['}']}`}</p>");
+        assert_eq!(expr, "`v=${obj['}']}`");
+    }
+
+    #[test]
+    fn a12_nested_object_literal_braces() {
+        let expr = first_interpolation("<p>{ {...obj, b: 2}.b }</p>");
+        assert_eq!(expr.trim(), "{...obj, b: 2}.b");
+    }
+
+    #[test]
+    fn js_block_comment_containing_close_brace() {
+        // b03dba1 classified the comment correctly but the brace-matcher
+        // still counted the `}` inside it; the shared scanner does not.
+        let expr = first_interpolation("<h1>{/* } */ count}</h1>");
+        assert!(expr.contains("count"), "{}", expr);
+    }
+
+    #[test]
+    fn b15_attr_close_brace_inside_string() {
+        let nodes = parse_template(r#"<span $title={'}'}></span>"#).unwrap();
+        match &nodes[0] {
+            TemplateNode::Element { attrs, .. } => {
+                assert_eq!(
+                    attrs[0],
+                    crate::types::Attr::Binding {
+                        name: "title".to_string(),
+                        expr: "'}'".to_string(),
+                    }
+                );
+            }
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn b10_attr_regex_still_parses() {
+        let nodes =
+            parse_template(r#"<span $title={/a/.test(user.name) ? 'y' : 'n'}></span>"#).unwrap();
+        match &nodes[0] {
+            TemplateNode::Element { attrs, .. } => {
+                assert_eq!(
+                    attrs[0],
+                    crate::types::Attr::Binding {
+                        name: "title".to_string(),
+                        expr: "/a/.test(user.name) ? 'y' : 'n'".to_string(),
+                    }
+                );
+            }
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn attr_template_literal_with_hole() {
+        let nodes = parse_template(r#"<span $title={`c=${count}`}></span>"#).unwrap();
+        match &nodes[0] {
+            TemplateNode::Element { attrs, .. } => {
+                assert_eq!(
+                    attrs[0],
+                    crate::types::Attr::Binding {
+                        name: "title".to_string(),
+                        expr: "`c=${count}`".to_string(),
+                    }
+                );
+            }
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn c14_each_list_with_string_close_brace() {
+        let nodes = parse_template("{#each ['}'] as it}<li>x</li>{/each}").unwrap();
+        match &nodes[0] {
+            TemplateNode::EachBlock { list_expr, item_alias, .. } => {
+                assert_eq!(list_expr, "['}']");
+                assert_eq!(item_alias, "it");
+            }
+            other => panic!("expected EachBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn if_head_with_string_close_brace() {
+        let nodes = parse_template("{#if name === '}'}<span>x</span>{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches[0].0, "name === '}'");
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn else_if_head_with_string_close_brace() {
+        let nodes =
+            parse_template("{#if a}A{:else if name === '}'}B{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches.len(), 2);
+                assert_eq!(branches[1].0, "name === '}'");
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn c06_if_head_regex_still_parses() {
+        let nodes = parse_template("{#if /a/.test(user.name)}<span>x</span>{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches[0].0, "/a/.test(user.name)");
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn block_tail_whitespace_tolerant() {
+        let nodes = parse_template("{#if cond}<span>x</span>{/ if }").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => assert_eq!(branches.len(), 1),
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn unknown_block_tail_still_reports_precisely() {
+        // `{/for}` is tail-SHAPED (word + `}`) — it must keep the precise
+        // "unknown closing block-tag" error, not decay into a regex misparse.
+        let err = parse_template("{#if a}x{/for}{/if}").unwrap_err();
+        assert!(
+            err.message.contains("unknown closing block-tag"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn regex_expression_inside_if_block_still_finds_tail() {
+        // Companion to js_comment_expression_inside_block_still_finds_tail —
+        // a regex-opening expression must not be eaten as the block tail.
+        let nodes = parse_template("{#if cond}{/a/.test(x) ? 1 : 0}{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches[0].1.len(), 1);
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
+    }
+
+    // ─── W1 diagnostics: honest messages + hoisting guidance ─────────────────
+
+    #[test]
+    fn unclosed_expression_diagnostic_says_what_is_allowed() {
+        let err = parse_template("<p>{count</p>").unwrap_err();
+        assert_eq!(err.message, "unclosed `{` in template expression");
+        let hint = err.hint.expect("hint present");
+        assert!(hint.contains("single JS expressions"), "{}", hint);
+        let fix = err.fix.expect("fix present");
+        assert!(fix.contains("$computed"), "{}", fix);
+    }
+
+    #[test]
+    fn unterminated_string_surfaces_as_unclosed_expression_here() {
+        // The scanner understands strings, so an unterminated one no longer
+        // produces a far-away "unclosed <p> element" error.
+        let err = parse_template("<p>{'oops}</p>").unwrap_err();
+        assert_eq!(err.message, "unclosed `{` in template expression");
+    }
+
+    #[test]
+    fn unclosed_block_head_diagnostic_suggests_computed() {
+        let err = parse_template("{#if (count").unwrap_err();
+        assert_eq!(err.message, "unclosed `{` in block-tag header");
+        assert!(err.fix.expect("fix present").contains("$computed"));
+    }
+
+    #[test]
+    fn each_missing_as_diagnostic_shows_expected_form() {
+        let err = parse_template("{#each items}body{/each}").unwrap_err();
+        assert!(
+            err.message
+                .contains("`{#each <list-expr> as <item>[, <idx>] [(key)]}`"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn parse_each_header_key_after_string_list() {
+        let (list, item, idx, key) =
+            parse_each_header("items.filter(s => s !== ')') as s, i (s)").unwrap();
+        assert_eq!(list, "items.filter(s => s !== ')')");
+        assert_eq!(item, "s");
+        assert_eq!(idx.as_deref(), Some("i"));
+        assert_eq!(key.as_deref(), Some("s"));
     }
 }
