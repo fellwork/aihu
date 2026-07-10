@@ -60,6 +60,28 @@ To measure bundle size after build:
 gzip -9 -c pkg-wasm/aihu_compiler_bg.wasm | wc -c
 ```
 
+## Size Budget & Measured Sizes
+
+The gzipped `.wasm` budget is **<500 KB (512,000 B)** — Directive 1 acceptance
+criterion #3 + arch-4 §4.6. Since W2 (advanced-js-template-expressions) the
+release CI **hard-fails** past the budget (previously a non-blocking warning).
+
+W2 embedded `oxc_parser` (expression validation behind `--expr-parser ast`) and
+adopted a size-optimized `[profile.release]` at the workspace root
+(`opt-level = "z"`, fat LTO, `codegen-units = 1`, `panic = "abort"`,
+`strip = true`) so the combined cdylib stays comfortably inside budget.
+
+Measured 2026-07-10 (wasm-pack `--target web`, local Apple Silicon; gzip -9):
+
+| Build | rustc | raw `.wasm` | gzipped |
+|---|---|---|---|
+| Pre-W2 baseline (no oxc, default O3 release profile) | 1.87.0 | 668,236 B | 250,786 B |
+| W2 (oxc 0.139 embedded, `z`+LTO profile) | 1.95.0 | 926,337 B | **325,133 B** |
+
+Net cost of real-JS expression parsing: **+258 KB raw / +74 KB gzip** after the
+profile change — 63.5% of budget used, ~187 KB gzip headroom remaining for W3+.
+
+
 ## Smoke Benchmark
 
 `bench/wasm-smoke.html` runs a 5-iteration benchmark of the 50-line fixture and reports min / max / p50. WASM requires a real HTTP server (not `file://`):
@@ -107,7 +129,7 @@ cd packages/compiler && wasm-pack build --target web --out-dir pkg-wasm
 tar -czf aihu-compile-wasm.tar.gz -C packages/compiler pkg-wasm
 ```
 
-Size diagnostic: the job emits `::warning::` annotations if the gzipped `.wasm` exceeds 500 KB (Directive 1 acceptance criterion #3 + arch-4 §4.6). The warning is non-blocking — release continues — but surfaces budget regressions.
+Size gate: the job **fails** (`::error::` + exit 1) if the gzipped `.wasm` exceeds 500 KB (Directive 1 acceptance criterion #3 + arch-4 §4.6). W2 turned the old non-blocking warning into a hard assert — with oxc embedded, a deliberate chunk of the budget is spent, so regressions must block the release. See "Size Budget & Measured Sizes" above for current numbers.
 
 ### SHA256 verification
 

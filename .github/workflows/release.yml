@@ -29,14 +29,16 @@ name: Release aihu-compile binaries
 permissions:
   contents: write
 
-# Force every `cargo` invocation to resolve toolchain to 1.88 by default.
+# Force every `cargo` invocation to resolve toolchain to 1.95 by default.
 # The dtolnay/rust-toolchain action installs the version but doesn't always
 # rewrite rustup's default; without this env, plain `cargo build` falls back
-# to the system default (1.87) which fails napi-build@2.3.1's rust-version
-# check. See PR #68 for the original toolchain bump and run 25394476208 for
-# the failure that exposed the env-vs-default-toolchain gap.
+# to the system default which fails MSRV checks. See PR #68 for the original
+# toolchain bump and run 25394476208 for the failure that exposed the
+# env-vs-default-toolchain gap. 1.88 → 1.95 (W2 advanced-js-template-
+# expressions): oxc_parser 0.139 requires rustc >= 1.94; keep in sync with
+# rust-toolchain.toml and deploy-docs.yml.
 env:
-  RUSTUP_TOOLCHAIN: "1.88"
+  RUSTUP_TOOLCHAIN: "1.95"
 
 jobs:
   build:
@@ -84,7 +86,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: "1.88"
+          toolchain: "1.95"
           targets: ${{ matrix.target }}
 
       - name: Install cross (aarch64-linux only)
@@ -150,7 +152,7 @@ jobs:
       - name: Install Rust toolchain (wasm32)
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: "1.88"
+          toolchain: "1.95"
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
@@ -168,13 +170,18 @@ jobs:
           tar -czf artifact/aihu-compile-wasm.tar.gz -C packages/compiler pkg-wasm
           # SHA256 sidecar
           sha256sum artifact/aihu-compile-wasm.tar.gz | awk '{print $1}' > artifact/aihu-compile-wasm.tar.gz.sha256
-          # Size diagnostics — non-fatal warnings, just observability.
+          # Size gate — W2 (advanced-js-template-expressions) turned the old
+          # non-fatal warning into a HARD assert: embedding oxc_parser spends
+          # a deliberate chunk of the budget (see packages/compiler/WASM.md
+          # for the measured numbers), so regressions past 500 KB gzip must
+          # fail the build, not warn (arch-4 §4.6 / Directive 1).
           raw=$(stat -c %s artifact/aihu-compile-wasm.tar.gz)
           gz_wasm=$(gzip -9 -c packages/compiler/pkg-wasm/aihu_compiler_bg.wasm | wc -c)
           echo "Tar.gz bundle size: $raw bytes"
-          echo "Raw .wasm gzipped:  $gz_wasm bytes (target <500KB = 512000)"
+          echo "Raw .wasm gzipped:  $gz_wasm bytes (budget <500KB = 512000)"
           if [ "$gz_wasm" -gt 512000 ]; then
-            echo "::warning::WASM gzipped size $gz_wasm exceeds 500KB target (arch-4 §4.6)"
+            echo "::error::WASM gzipped size $gz_wasm exceeds the 500KB budget (arch-4 §4.6 / WASM.md)"
+            exit 1
           fi
 
       - name: Upload artifact
@@ -273,7 +280,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: "1.88"
+          toolchain: "1.95"
           targets: ${{ matrix.target }}
 
       - name: Setup Node
@@ -400,7 +407,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
         with:
-          toolchain: "1.88"
+          toolchain: "1.95"
           targets: ${{ matrix.target }}
 
       - name: Build release binary (cargo)

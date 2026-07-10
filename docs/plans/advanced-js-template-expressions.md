@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-10
 **Author:** Scoping brief (founder direction 2026-07-10; same session as the HTML-comment parser report)
-**Status:** Scoped, implementation-ready. Not started.
+**Status:** APPROVED — founder selected Option C (hybrid, 2026-07-10). W1+W2 in build.
 **Supersedes/absorbs:** the two TODOS.md entries added 2026-07-10 — *"Template expressions:
 spread, `.map`, and array/array-like functions"* (absorbed fully by W1–W5) and the template
 half of *"TS type-check sidecar — completion pass"* (W4; the `@state`-emit-path audit half

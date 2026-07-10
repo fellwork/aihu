@@ -1,5 +1,9 @@
 pub mod ast_export;
 pub mod codegen;
+// W2 (advanced-js-template-expressions): oxc-backed expression validation
+// behind `--expr-parser <legacy|ast>`. ALL oxc types are contained in this
+// module (plan §Risks 1 — oxc AST churn stays localized).
+pub mod expr;
 pub mod parser;
 pub mod types;
 
@@ -13,6 +17,7 @@ pub use ast_export::{
     SfcMetaOwned, SfcNodeOwned, SfcStyleBlockOwned, SfcStyleScope, AST_VERSION,
 };
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
+pub use expr::ExprParserMode;
 pub use parser::sfc;
 pub use parser::stream_macros;
 pub use parser::state_macros::{is_magna_origin, parse_state_macros};
@@ -41,10 +46,34 @@ pub fn compile_full_with_target<'a>(
     source: &'a AihuSource<'a>,
     target: BuildTarget,
 ) -> Result<CompileUnit<'a>, CompileError> {
+    compile_full_with_options(source, target, ExprParserMode::Legacy)
+}
+
+/// W2 (advanced-js-template-expressions): `compile_full_with_target` plus the
+/// `--expr-parser` mode. `ExprParserMode::Legacy` (the default everywhere) is
+/// byte-identical to `compile_full_with_target`; `ExprParserMode::Ast`
+/// additionally VALIDATES every captured template expression with oxc
+/// (parse failure → C320/C321) while leaving codegen untouched — accepted
+/// sources emit byte-identically under both modes.
+pub fn compile_full_with_options<'a>(
+    source: &'a AihuSource<'a>,
+    target: BuildTarget,
+    expr_parser: ExprParserMode,
+) -> Result<CompileUnit<'a>, CompileError> {
     let template_ast = match source.template {
         Some(tmpl) => Some(parser::template::parse_template(tmpl)?),
         None => None,
     };
+
+    // W2 validate-only hook: the captured expression strings live on the
+    // template AST nodes, DOWNSTREAM of the (W1-owned) capture sites in
+    // parser/template.rs. Once W1 threads `.aihu` byte offsets onto these
+    // nodes, expr::validate_template gains exact file line/col mapping.
+    if expr_parser == ExprParserMode::Ast {
+        if let Some(ref ast) = template_ast {
+            expr::validate_template(ast)?;
+        }
+    }
 
     // v2 (B6.3): validate `@state` macro grammar at compile time so v1
     // syntax surfaces as a hard error (C440 / C441 / C442 / C443 / C444)

@@ -17,13 +17,34 @@ use wasm_bindgen::prelude::*;
 /// 3. fallback to `"aihu-component"`
 #[wasm_bindgen]
 pub fn wasm_compile(source: &str) -> Result<JsValue, JsValue> {
+    compile_impl(source, crate::ExprParserMode::Legacy)
+}
+
+/// W2 (advanced-js-template-expressions): `wasm_compile` with the
+/// `--expr-parser` mode exposed to the playground. `expr_parser` is
+/// `"legacy"` (default pipeline, identical to `wasm_compile`) or `"ast"`
+/// (every captured template expression is additionally VALIDATED by oxc —
+/// parse errors surface as C320/C321 diagnostics; emitted code unchanged).
+/// Unrecognized values fall back to `"legacy"` so playground callers can pass
+/// a feature-flag string straight through.
+#[wasm_bindgen]
+pub fn wasm_compile_with_expr_parser(source: &str, expr_parser: &str) -> Result<JsValue, JsValue> {
+    let mode = crate::ExprParserMode::parse(expr_parser).unwrap_or_default();
+    compile_impl(source, mode)
+}
+
+fn compile_impl(source: &str, expr_parser: crate::ExprParserMode) -> Result<JsValue, JsValue> {
     // Phase 1: parse SFC into AihuSource
     let parsed = crate::compile(source)
         .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
     // Phase 2: compile_full produces the CompileUnit (template AST + metadata)
-    let unit = crate::compile_full(&parsed)
-        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+    let unit = crate::compile_full_with_options(
+        &parsed,
+        crate::BuildTarget::Universal,
+        expr_parser,
+    )
+    .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
     // Phase 3: resolve tag name (mirrors src/bin/main.rs logic).
     // Note: AihuSource.script is `Option<&str>` (raw script body); the parsed
