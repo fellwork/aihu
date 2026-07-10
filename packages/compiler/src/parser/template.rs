@@ -129,7 +129,9 @@ impl<'a> Parser<'a> {
                 nodes.push(node);
                 continue;
             }
-            if self.starts_with("{:") || self.starts_with("{/") {
+            if (self.starts_with("{:") || self.starts_with("{/"))
+                && !self.starts_expr_comment()
+            {
                 if let Some(stops) = block_stops {
                     let boundary = self.parse_block_boundary()?;
                     if stops.iter().any(|s| std::mem::discriminant(s) == std::mem::discriminant(&boundary)) {
@@ -499,10 +501,11 @@ impl<'a> Parser<'a> {
         while !self.is_eof() && !self.starts_with("<") {
             // B3 — block-tag forms (`{#`, `{:`, `{/`, `{@`) bubble back to the
             // caller so parse_nodes_with_boundary can dispatch them.
-            if self.starts_with("{#")
+            if (self.starts_with("{#")
                 || self.starts_with("{:")
                 || self.starts_with("{/")
-                || self.starts_with("{@")
+                || self.starts_with("{@"))
+                && !self.starts_expr_comment()
             {
                 return Ok(());
             }
@@ -700,6 +703,14 @@ impl<'a> Parser<'a> {
 
     fn starts_with(&self, needle: &str) -> bool {
         self.input[self.pos..].starts_with(needle)
+    }
+
+    /// `{//` or `{/*` opens a JS comment at the start of a `{expr}`
+    /// interpolation — it is not a `{/if}` / `{/each}` block tail. Block
+    /// tails are always `{/` followed by a letter, so `/` or `*` after `{/`
+    /// disambiguates unambiguously.
+    fn starts_expr_comment(&self) -> bool {
+        self.starts_with("{//") || self.starts_with("{/*")
     }
 
     /// Skip an HTML comment (`<!-- … -->`). Comments carry authoring intent
@@ -918,6 +929,48 @@ mod tests {
     fn html_comment_may_contain_angle_brackets() {
         let nodes = parse_template("<!-- <div> not parsed --><p>y</p>").unwrap();
         assert_eq!(nodes.len(), 1);
+    }
+
+    #[test]
+    fn js_block_comment_opens_expression() {
+        // `{/*` is a JS comment opening an expression, not a `{/…}` block tail.
+        let nodes = parse_template("<h1>{/* note */ count}</h1>").unwrap();
+        match &nodes[0] {
+            TemplateNode::Element { children, .. } => match &children[0] {
+                TemplateNode::Interpolation(expr) => {
+                    assert!(expr.contains("count"), "{}", expr);
+                }
+                other => panic!("expected Interpolation, got {:?}", other),
+            },
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn js_line_comment_opens_expression() {
+        let nodes = parse_template("<h1>{// note\ncount}</h1>").unwrap();
+        match &nodes[0] {
+            TemplateNode::Element { children, .. } => match &children[0] {
+                TemplateNode::Interpolation(expr) => {
+                    assert!(expr.contains("count"), "{}", expr);
+                }
+                other => panic!("expected Interpolation, got {:?}", other),
+            },
+            other => panic!("expected Element, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn js_comment_expression_inside_block_still_finds_tail() {
+        // A comment-opening expression inside `{#if}` must not be mistaken
+        // for the block tail — and the real `{/if}` must still close it.
+        let nodes = parse_template("{#if cond}{/* why */ count}{/if}").unwrap();
+        match &nodes[0] {
+            TemplateNode::IfBlock { branches } => {
+                assert_eq!(branches[0].1.len(), 1);
+            }
+            other => panic!("expected IfBlock, got {:?}", other),
+        }
     }
 
     #[test]
