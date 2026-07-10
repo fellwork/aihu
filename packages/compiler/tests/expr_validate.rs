@@ -1,9 +1,14 @@
-//! W2 (advanced-js-template-expressions, Option C hybrid) — end-to-end proof
-//! of the `--expr-parser <legacy|ast>` flag:
+//! W2/W3 (advanced-js-template-expressions, Option C hybrid) — end-to-end
+//! proof of the `--expr-parser <legacy|ast>` flag:
 //!
-//! 1. valid expressions (the plan's ACCEPT fixture grammar) compile under
-//!    `ast` mode and emit BYTE-IDENTICALLY to `legacy` mode (validate-only —
-//!    codegen is untouched in W2; the AST rewrite is W3);
+//! 1. valid expressions OUTSIDE the plan's silent-miscompile classes compile
+//!    under `ast` mode and emit BYTE-IDENTICALLY to `legacy` mode. (W2 held
+//!    this for the whole ACCEPT grammar; W3 deliberately changes emission
+//!    for the fix classes — spread, template-literal `${…}` holes,
+//!    dotted-base fast-path tails, each-alias shadowing, class arrays,
+//!    handler write-targets. Those rows moved to
+//!    `template_expr_rewrite.rs`'s W3 section, which asserts the FIXED
+//!    output, not identity.);
 //! 2. garbage expressions produce the new C320/C321 diagnostics WITH the
 //!    flag, at every capture position (interpolation / attr binding /
 //!    handler / if-head / each-list / each-key / @html);
@@ -74,24 +79,19 @@ fn assert_flag_only_rejection(template_body: &str, code: &str) {
 
 #[test]
 fn accepted_grammar_emits_byte_identically_under_both_modes() {
-    // Every legacy-ACCEPT row from the plan's truth table (a-series) that the
-    // W1-era boundary scanner already tolerates.
+    // Legacy-ACCEPT rows from the plan's truth table (a-series) that are NOT
+    // in a W3 fix class: no spread, no template-literal signal reads, no
+    // dotted-base fast path with a non-pure tail. W3's intentional diffs for
+    // the fix classes are asserted in `template_expr_rewrite.rs`.
     for body in [
         "<p>{user.name}</p>",
-        "<p>{items.join(', ')}</p>",
-        "<p>{items.filter(i => i > 1).map(i => i * 2).join(',')}</p>",
         "<p>{count > 0 ? 'many' : 'none'}</p>",
         "<p>{(() => count)()}</p>",
-        "<p>{`Count: ${count}`}</p>",
         "<p>{user?.name}</p>",
         "<p>{count ?? 0}</p>",
-        "<p>{Math.max(...nums)}</p>",
-        "<p>{[...items, extra].length}</p>",
         "<p>{JSON.stringify({ a: 1 })}</p>",
         "<p>{new Date().getFullYear()}</p>",
-        "<p>{items.map(i => { return i * 2 }).join('')}</p>",
         "<p>{{count}}</p>",
-        "<p>{items.map(({ x }) => x)}</p>",
     ] {
         assert_identical_both_modes(body);
     }
@@ -100,9 +100,9 @@ fn accepted_grammar_emits_byte_identically_under_both_modes() {
 #[test]
 fn accepted_attr_handler_and_block_positions_emit_identically() {
     for body in [
-        // b-series: attribute bindings + handlers.
+        // b-series: attribute bindings + handlers. (`$class={[...]}` moved to
+        // the W3 fix-class tests — the class array is now rewritten under ast.)
         "<p $if={count > 0 && !loading}>yes</p>",
-        "<div $class={[...items, 'x']}>c</div>",
         "<button $on.click={() => setCount(count() + 1)}>+</button>",
         "<button $on.click={(e) => { setCount(count() + 1); e.preventDefault() }}>+</button>",
         "<p $title={/a/.test(user.name) ? 'y' : 'n'}>t</p>",
@@ -154,8 +154,25 @@ fn contract_violations_are_c321_with_flag_only() {
 #[test]
 fn assignment_is_permitted_in_handler_position() {
     // The Contract carve-out: `$on.*` handlers may assign/update at the root.
-    assert_identical_both_modes("<button $on.click={count = 5}>set</button>");
-    assert_identical_both_modes("<button $on.click={count++}>inc</button>");
+    // W3 note: emission is NOT byte-identical here — the legacy token rewrite
+    // splices `()` onto the WRITE target (`count() = 5`, `count()++` — both
+    // invalid JS), while the AST rewrite recognizes assignment/update targets
+    // and leaves them alone. Both modes must still ACCEPT the source; the
+    // AST-mode emission is asserted verbatim.
+    for (body, ast_expected) in [
+        ("<button $on.click={count = 5}>set</button>", "onClick: count = 5"),
+        ("<button $on.click={count++}>inc</button>", "onClick: count++"),
+    ] {
+        let source = src_with_template(body);
+        compile_mode(&source, ExprParserMode::Legacy)
+            .unwrap_or_else(|e| panic!("legacy mode rejected `{body}`: {}", e.message));
+        let ast = compile_mode(&source, ExprParserMode::Ast)
+            .unwrap_or_else(|e| panic!("ast mode rejected `{body}`: {}", e.message));
+        assert!(
+            ast.contains(ast_expected),
+            "ast mode must not splice `()` onto a write target, got:\n{ast}"
+        );
+    }
 }
 
 // ─── 3. Diagnostic quality bar (plan §Contract / W2) ─────────────────────────

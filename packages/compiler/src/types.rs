@@ -197,6 +197,13 @@ pub struct CompileUnit<'a> {
     pub template_ast: Option<Vec<TemplateNode>>,
     /// v0.6.4: build target for artifact gating.
     pub target: BuildTarget,
+    /// W3 (advanced-js-template-expressions): which expression front-end the
+    /// emitter uses for the signal-read rewrite. Set by
+    /// `compile_full_with_options`; `Legacy` (the default) keeps codegen
+    /// byte-identical to pre-W3. Under `Ast` the rewrite runs scope-aware on
+    /// the oxc AST (spread / template-literal holes / arrow bodies /
+    /// each-alias shadowing all handled — the plan's silent-miscompile rows).
+    pub expr_parser: crate::expr::ExprParserMode,
 }
 
 #[derive(Debug, Default)]

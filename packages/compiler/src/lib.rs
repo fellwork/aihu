@@ -49,12 +49,15 @@ pub fn compile_full_with_target<'a>(
     compile_full_with_options(source, target, ExprParserMode::Legacy)
 }
 
-/// W2 (advanced-js-template-expressions): `compile_full_with_target` plus the
-/// `--expr-parser` mode. `ExprParserMode::Legacy` (the default everywhere) is
-/// byte-identical to `compile_full_with_target`; `ExprParserMode::Ast`
-/// additionally VALIDATES every captured template expression with oxc
-/// (parse failure → C320/C321) while leaving codegen untouched — accepted
-/// sources emit byte-identically under both modes.
+/// W2/W3 (advanced-js-template-expressions): `compile_full_with_target` plus
+/// the `--expr-parser` mode. `ExprParserMode::Legacy` (the default everywhere)
+/// is byte-identical to `compile_full_with_target`. `ExprParserMode::Ast`
+/// VALIDATES every captured template expression with oxc (parse failure →
+/// C320/C321) and — W3 — routes the emitter's signal-read rewrite through the
+/// scope-aware AST rewrite (`expr::rewrite_signal_reads`) instead of the
+/// legacy token scanner, fixing the plan's silent-miscompile classes (spread,
+/// template-literal `${…}` holes, dotted-base arrow bodies, `{#each}` alias
+/// shadowing).
 pub fn compile_full_with_options<'a>(
     source: &'a AihuSource<'a>,
     target: BuildTarget,
@@ -126,5 +129,6 @@ pub fn compile_full_with_options<'a>(
         source: source.clone(),
         template_ast,
         target,
+        expr_parser,
     })
 }

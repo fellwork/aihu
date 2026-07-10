@@ -1,4 +1,5 @@
 use crate::codegen::signals::{SignalMap, StateNames};
+use crate::expr::ExprParserMode;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{
     AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
@@ -2549,7 +2550,16 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
         helpers_needed.each_boundary,
         &helpers_needed,
     );
-    let return_expr = emit_nodes(template_nodes, &signal_map, &state_names, "    ");
+    // W3: the emitter's rewrite front-end follows the unit's `--expr-parser`
+    // mode (Legacy = byte-identical token pipeline; Ast = scope-aware oxc
+    // rewrite).
+    let return_expr = emit_nodes(
+        template_nodes,
+        &signal_map,
+        &state_names,
+        "    ",
+        unit.expr_parser,
+    );
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
@@ -3673,10 +3683,11 @@ fn emit_nodes(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     let non_empty: Vec<String> = nodes
         .iter()
-        .map(|n| emit_node(n, signal_map, state_names, child_indent))
+        .map(|n| emit_node(n, signal_map, state_names, child_indent, mode))
         .filter(|s| !s.is_empty())
         .collect();
 
@@ -3710,6 +3721,7 @@ fn emit_node(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     match node {
         TemplateNode::Text(s) => {
@@ -3790,7 +3802,22 @@ fn emit_node(
 
             // 2. Dotted access whose BASE is a registered signal/computed →
             //    reactive member read (e.g. {user.name}, {route.params.slug}).
-            if let Some(dot_pos) = trimmed.find('.') {
+            //
+            //    W3: under `--expr-parser ast` this fast path is restricted to
+            //    PURE dotted ident paths. Legacy fires it for ANY expression
+            //    whose text-before-the-first-dot is an identifier, copying the
+            //    tail VERBATIM — so `{items.filter(i => i > count).length}`
+            //    emitted `(items() as any).filter(i => i > count).length` with
+            //    the arrow-body `count` unrewritten (plan d01, a silent
+            //    miscompile). AST mode routes anything richer than
+            //    `base.prop.path` through the scope-aware rewrite below.
+            let dotted_fast_path = match mode {
+                ExprParserMode::Legacy => true,
+                ExprParserMode::Ast => is_pure_dotted_path(trimmed),
+            };
+            if !dotted_fast_path {
+                // fall through to step 3
+            } else if let Some(dot_pos) = trimmed.find('.') {
                 let base = &trimmed[..dot_pos];
                 let prop_path = &trimmed[dot_pos + 1..];
                 let base_is_ident = !base.is_empty()
@@ -3817,7 +3844,7 @@ fn emit_node(
             // 3. FEL-172/173: rewrite bare reads of registered getters to calls
             //    (`{count + 1}` → `count() + 1`, `{section.kind}` handled in
             //    step 2, but `{section.kind === 'x' ? a : b}` lands here).
-            let rewritten = rewrite_signal_reads_to_calls(trimmed, signal_map);
+            let rewritten = rewrite_template_expr(trimmed, signal_map, mode);
 
             // 4. FEL-228 / FEL-173: a complex interpolation that reads reactive
             //    state — a computed/getter CALL like `{selBookLabel()}`, an
@@ -3829,15 +3856,25 @@ fn emit_node(
             //    contract attribute bindings get from `lower_attr_expr`. Pure
             //    projections of loop vars (`{item.title}` — no call) stay
             //    eager to avoid a needless per-row effect.
-            if interpolation_has_call(&rewritten) {
+            //
+            //    W3: AST mode ALSO thunks when the rewritten AST reads a
+            //    signal even though no call-paren is visible to the legacy
+            //    scanner — the template-literal class (plan a06/a24:
+            //    `` {`Count: ${count}`} `` rewrote to `${count()}` INSIDE a
+            //    backtick literal, which `interpolation_has_call` skips
+            //    entirely, so it stayed an eager, never-updating leaf). The
+            //    has-a-call heuristic is kept as an OR so expressions over
+            //    imported stores the compiler can't see stay reactive,
+            //    exactly as under legacy.
+            if interpolation_has_call(&rewritten.source) || rewritten.reads_signal {
                 return format!(
                     "leaf([() => ({}) as unknown as string, () => {{}}] as unknown as Signal<string>)",
-                    rewritten
+                    rewritten.source
                 );
             }
 
             // 5. Genuinely static (loop-var projection, plain const) → eager.
-            format!("leaf({})", rewritten)
+            format!("leaf({})", rewritten.source)
         }
         TemplateNode::Element {
             tag,
@@ -3862,7 +3899,7 @@ fn emit_node(
             // Check for $raw — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
-            let attrs_str = emit_attrs(attrs, state_names, signal_map);
+            let attrs_str = emit_attrs(attrs, state_names, signal_map, mode);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -3873,7 +3910,7 @@ fn emit_node(
             } else {
                 children
                     .iter()
-                    .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+                    .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
                     .filter(|s| !s.is_empty())
                     .collect()
             };
@@ -3904,7 +3941,7 @@ fn emit_node(
             };
 
             // Emit macro effects (wrapping/side-effect macros).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
             if effects.is_empty() {
                 base
             } else {
@@ -3913,12 +3950,12 @@ fn emit_node(
             }
         }
         TemplateNode::MacroElement { name, attrs, children } => {
-            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent);
+            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent, mode);
             // Apply structural/effect directives ($each/$if/$key/$show/$class:)
             // that wrap or affect the element — same as the plain Element arm
             // above. Without this, directives on macro elements like <$link>
             // were silently dropped (e.g. `$each` left a dangling loop var).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
             if effects.is_empty() {
                 base
             } else {
@@ -3929,7 +3966,7 @@ fn emit_node(
         // the v1 attribute-directives (`createIfBoundary` / `each`) so the
         // reactivity contract is preserved.
         TemplateNode::IfBlock { branches } => {
-            emit_if_block(branches, signal_map, state_names, child_indent)
+            emit_if_block(branches, signal_map, state_names, child_indent, mode)
         }
         TemplateNode::EachBlock {
             list_expr,
@@ -3948,6 +3985,7 @@ fn emit_node(
             signal_map,
             state_names,
             child_indent,
+            mode,
         ),
         TemplateNode::HtmlBlock { expr } => emit_html_block(expr, child_indent),
     }
@@ -3962,17 +4000,19 @@ fn emit_if_block(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     fn emit_body(
         body: &[TemplateNode],
         signal_map: &SignalMap,
         state_names: &StateNames,
         child_indent: &str,
+        mode: ExprParserMode,
     ) -> String {
         let next_indent = format!("{}  ", child_indent);
         let parts: Vec<String> = body
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
             .filter(|s| !s.is_empty())
             .collect();
         if parts.is_empty() {
@@ -4012,6 +4052,7 @@ fn emit_if_block(
         signal_map: &SignalMap,
         state_names: &StateNames,
         child_indent: &str,
+        mode: ExprParserMode,
     ) -> Vec<String> {
         // Returns a list of when() calls (siblings) for the branches starting
         // at idx. The caller wraps these into a fragment-branch.
@@ -4020,17 +4061,17 @@ fn emit_if_block(
             return out;
         }
         let (cond, body) = &branches[idx];
-        let body_str = emit_body(body, signal_map, state_names, child_indent);
+        let body_str = emit_body(body, signal_map, state_names, child_indent, mode);
 
         // FEL-172: chain/negation thunks read cond expressions verbatim, so
         // bare getter reads must be rewritten to calls here too — otherwise
         // `{:else if count}` emits `(count)` (the function — always truthy).
-        let rewritten_cond = rewrite_signal_reads_to_calls(cond, signal_map);
+        let rewritten_cond = rewrite_template_expr(cond, signal_map, mode).source;
         let cond_arg = if cond.is_empty() {
             // {:else} — fire when all prior conds are false
             negate_chain_thunk(prior_conds)
         } else if prior_conds.is_empty() {
-            lower_if_cond(cond, signal_map)
+            lower_if_cond(cond, signal_map, mode)
         } else {
             // {:else if}: !prior0 && !prior1 && ... && cond
             let mut parts: Vec<String> = prior_conds
@@ -4048,7 +4089,7 @@ fn emit_if_block(
 
         if !cond.is_empty() {
             prior_conds.push(rewritten_cond);
-            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent);
+            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent, mode);
             out.extend(rest);
             prior_conds.pop();
         }
@@ -4056,7 +4097,7 @@ fn emit_if_block(
     }
 
     let mut prior: Vec<String> = Vec::new();
-    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent);
+    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent, mode);
     if when_calls.len() == 1 {
         when_calls.into_iter().next().unwrap()
     } else {
@@ -4067,7 +4108,7 @@ fn emit_if_block(
 /// Lower a `{#if}` condition the same way the attribute-form `$if` does:
 /// simple identifier of a registered signal → `[get, set]` tuple; otherwise a
 /// thunk array.
-fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
+fn lower_if_cond(cond: &str, signal_map: &SignalMap, mode: ExprParserMode) -> String {
     let trimmed = cond.trim();
     let is_simple_ident = !trimmed.is_empty()
         && trimmed
@@ -4083,7 +4124,10 @@ fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
         }
     }
     // FEL-172: complex conditions read getters by value.
-    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+    format!(
+        "[() => ({})]",
+        rewrite_template_expr(trimmed, signal_map, mode).source
+    )
 }
 
 /// B3 — Lower an `{#each}` block to the existing `each(...)` runtime call.
@@ -4097,11 +4141,61 @@ fn emit_each_block(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
+    // W3 (plan d03/d04): the loop aliases are BINDINGS in scope for the body
+    // and the key expr — an alias that shares a registered signal's name
+    // shadows it. Legacy has no scope model, so `{#each items as count}`
+    // emitted `leaf([count, setCount])` INSIDE the loop callback (the signal
+    // tuple, not the row value). Under `--expr-parser ast` the body/key are
+    // emitted against maps with the alias names REMOVED, so every downstream
+    // decision (tuple fast paths, rewrites, thunk wrapping, nested blocks)
+    // treats the alias as the plain loop variable it is. The LIST expression
+    // (and the `{:empty}` length conds over it) evaluates OUTSIDE the alias
+    // scope and keeps the original maps.
+    //
+    // Alias-name extraction reuses the sidecar's `extract_pattern_idents`
+    // (destructuring-aware). The c10/c11 TORN patterns (`as [k, v]` split at
+    // the comma into `[k` / `v]`) yield no idents and thus no filtering —
+    // pattern aliases are W5's fix; until then they behave exactly as legacy.
+    let mut alias_names = std::collections::BTreeSet::new();
+    if mode == ExprParserMode::Ast {
+        extract_pattern_idents(item_alias, &mut alias_names);
+        if let Some(idx) = idx_alias {
+            extract_pattern_idents(idx, &mut alias_names);
+        }
+    }
+    let filtered_signal_map: SignalMap;
+    let filtered_state_names: StateNames;
+    let (body_signal_map, body_state_names): (&SignalMap, &StateNames) = if alias_names
+        .iter()
+        .any(|n| signal_map.0.contains_key(n) || state_names.contains(n))
+    {
+        filtered_signal_map = SignalMap(
+            signal_map
+                .0
+                .iter()
+                .filter(|(k, _)| !alias_names.contains(*k))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        );
+        filtered_state_names = StateNames(
+            state_names
+                .0
+                .iter()
+                .filter(|n| !alias_names.contains(*n))
+                .cloned()
+                .collect(),
+        );
+        (&filtered_signal_map, &filtered_state_names)
+    } else {
+        (signal_map, state_names)
+    };
+
     let next_indent = format!("{}  ", child_indent);
     let body_parts: Vec<String> = body
         .iter()
-        .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+        .map(|c| emit_node(c, body_signal_map, body_state_names, &next_indent, mode))
         .filter(|s| !s.is_empty())
         .collect();
     let body_str = if body_parts.len() == 1 {
@@ -4112,18 +4206,20 @@ fn emit_each_block(
 
     let idx = idx_alias.unwrap_or("i");
     let key_part = match key_expr {
-        // FEL-172: key exprs may read getters by value.
+        // FEL-172: key exprs may read getters by value. W3: the key runs with
+        // the alias bound (`({alias}) => key`), so it uses the alias-filtered
+        // map under AST mode.
         Some(k) => format!(
             "({}) => {}",
             item_alias,
-            rewrite_signal_reads_to_calls(k, signal_map)
+            rewrite_template_expr(k, body_signal_map, mode).source
         ),
         None => "undefined".to_string(),
     };
 
     // FEL-172: complex list exprs read getters by value
     // (`{#each section.data as it}` → `section().data`).
-    let rewritten_list = rewrite_signal_reads_to_calls(list_expr, signal_map);
+    let rewritten_list = rewrite_template_expr(list_expr, signal_map, mode).source;
     let items_arg = if signal_map.is_reactive(list_expr) {
         if let Some(setter) = signal_map.0.get(list_expr) {
             if !setter.is_empty() {
@@ -4156,7 +4252,7 @@ fn emit_each_block(
     if let Some(eb) = empty_body {
         let empty_parts: Vec<String> = eb
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
             .filter(|s| !s.is_empty())
             .collect();
         let empty_str = if empty_parts.len() == 1 {
@@ -4204,6 +4300,7 @@ fn emit_macro_element(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     let next_indent = format!("{}  ", child_indent);
 
@@ -4226,7 +4323,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 String::new()
             } else {
-                emit_nodes(children, signal_map, state_names, &next_indent)
+                emit_nodes(children, signal_map, state_names, &next_indent, mode)
             };
 
             let child_fn = if children_subtree.is_empty() {
@@ -4255,8 +4352,8 @@ fn emit_macro_element(
 
             let (fallback_children, loaded_children) = split_slot_fallback(children);
 
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
-            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent, mode);
 
             format!(
                 "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
@@ -4268,8 +4365,8 @@ fn emit_macro_element(
         "shield" => {
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
 
             format!(
                 "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
@@ -4301,7 +4398,7 @@ fn emit_macro_element(
                     scope_name
                 );
 
-                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
                 // Lower to: when(getScopeSignal('scope'), () => branch(...children...))
                 // `getScopeSignal` is imported from `@aihu/auth` at consumer build time.
                 // The guard_boundary helper is not used for scope-form; when() is used directly.
@@ -4316,8 +4413,8 @@ fn emit_macro_element(
 
                 let (fallback_children, main_children) = split_slot_fallback(children);
 
-                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
-                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
 
                 format!(
                     "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
@@ -4334,7 +4431,7 @@ fn emit_macro_element(
             let target_expr = find_static_or_binding_attr(attrs, "target")
                 .unwrap_or_else(|| "undefined".to_string());
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             let child_fn = format!("() => {{ return {} }}", children_subtree);
 
             format!(
@@ -4361,7 +4458,7 @@ fn emit_macro_element(
                 .map(|v| v != "false")
                 .unwrap_or(true);
             let atomic_str = if atomic { "true" } else { "false" };
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             // children_subtree is the wrapped branch; we want its children only. Easiest:
             // emit a branch wrapping the existing subtree as a single fragment child.
             format!(
@@ -4373,7 +4470,7 @@ fn emit_macro_element(
         // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
         // once at component mount via _ensureA11yStyles().
         "visuallyHidden" => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
                 children_subtree
@@ -4384,7 +4481,7 @@ fn emit_macro_element(
         // injected once at component mount.
         "skipLink" => {
             let target = find_static_attr(attrs, "target").unwrap_or("#main");
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
                 target, children_subtree
@@ -4441,7 +4538,7 @@ fn emit_macro_element(
                 None => "null".to_string(),
             };
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createFocusTrap({}, {}, {}, () => {{ return {} }})",
                 active_expr, return_focus, initial_focus, children_subtree
@@ -4457,7 +4554,7 @@ fn emit_macro_element(
                 .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
             let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
                 .unwrap_or_else(|| "false".to_string());
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createRouterBoundary({}, {}, () => {{ return {} }})",
                 router_expr, vt_expr, children_subtree
@@ -4473,7 +4570,7 @@ fn emit_macro_element(
             // signal change never updated the link. A static href stays a
             // quoted string (no needless per-link effect).
             let href_expr =
-                link_href_arg(attrs, signal_map).unwrap_or_else(|| "'#'".to_string());
+                link_href_arg(attrs, signal_map, mode).unwrap_or_else(|| "'#'".to_string());
             let prefetch_expr = find_static_or_binding_attr(attrs, "prefetch")
                 .unwrap_or_else(|| "'none'".to_string());
             let replace_expr = find_static_or_binding_attr(attrs, "replace")
@@ -4497,12 +4594,12 @@ fn emit_macro_element(
                 })
                 .cloned()
                 .collect();
-            let attrs_obj = emit_attrs(&forwarded, state_names, signal_map);
+            let attrs_obj = emit_attrs(&forwarded, state_names, signal_map, mode);
             // Children render inside the <a>.
             let children_subtree = if children.is_empty() {
                 "[]".to_string()
             } else {
-                let inner = emit_nodes(children, signal_map, state_names, &next_indent);
+                let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode);
                 format!("[{}]", inner)
             };
             format!(
@@ -4527,7 +4624,7 @@ fn emit_macro_element(
 
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "/* <${}> unknown macro element — passthrough */ {}",
                 name, children_subtree
@@ -4552,7 +4649,11 @@ fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Opt
 /// static links pay no per-link effect. Bare getter reads in the expr are
 /// rewritten to calls (FEL-172) so prop/signal hrefs read values, not the
 /// getter function.
-fn link_href_arg(attrs: &[crate::types::Attr], signal_map: &SignalMap) -> Option<String> {
+fn link_href_arg(
+    attrs: &[crate::types::Attr],
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> Option<String> {
     use crate::types::Attr;
     attrs.iter().find_map(|a| match a {
         Attr::Static { name, value } if name == "href" => Some(format!("'{}'", value)),
@@ -4562,14 +4663,14 @@ fn link_href_arg(attrs: &[crate::types::Attr], signal_map: &SignalMap) -> Option
         } if name == "href" => Some(format!("'{}'", s)),
         Attr::Binding { name, expr } if name == "href" => Some(format!(
             "() => ({})",
-            rewrite_signal_reads_to_calls(expr, signal_map)
+            rewrite_template_expr(expr, signal_map, mode).source
         )),
         Attr::Macro {
             name,
             value: MacroValue::Curly(expr),
         } if name == "href" => Some(format!(
             "() => ({})",
-            rewrite_signal_reads_to_calls(expr, signal_map)
+            rewrite_template_expr(expr, signal_map, mode).source
         )),
         _ => None,
     })
@@ -4637,7 +4738,12 @@ fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<Tem
     (fallback, main)
 }
 
-fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) -> String {
+fn emit_attrs(
+    attrs: &[Attr],
+    state_names: &StateNames,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> String {
     // Filter out macro attrs that aren't pure attribute expressions
     // (those are handled via emit_macro_effects instead).
     //
@@ -4696,16 +4802,27 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     if bare_ident {
                         expr.to_string()
                     } else {
-                        rewrite_signal_reads_to_calls(t, signal_map)
+                        rewrite_template_expr(t, signal_map, mode).source
                     }
                 } else if name == "class" && expr.trim_start().starts_with('[') {
-                    let inner = expr.trim();
+                    // W3 (plan b04): legacy NEVER rewrote inside the class
+                    // array, so `$class={[...items, 'x']}` spread the getter
+                    // FUNCTION (silent runtime crash) and even plain signal
+                    // reads (`[active ? 'on' : '']`) read the getter object.
+                    // AST mode rewrites the array expression like any other
+                    // binding; legacy copies it verbatim (byte-identical).
+                    let inner = match mode {
+                        ExprParserMode::Legacy => expr.trim().to_string(),
+                        ExprParserMode::Ast => {
+                            rewrite_template_expr(expr.trim(), signal_map, mode).source
+                        }
+                    };
                     // Wrap the array in a class-joining helper. The wrapped form
                     // becomes `[() => __aihu_cls([…])]` — a thunk-array reactive
                     // binding that still tracks signal updates via mountEffect.
                     format!("[() => __aihu_cls({})]", inner)
                 } else {
-                    lower_attr_expr(expr, state_names, signal_map)
+                    lower_attr_expr(expr, state_names, signal_map, mode)
                 };
                 Some(format!("{}: {}", format_attr_key(name), lowered))
             }
@@ -4717,7 +4834,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     Some(format!(
                         "{}: {}",
                         format_attr_key(prop),
-                        lower_attr_expr(&expr, state_names, signal_map)
+                        lower_attr_expr(&expr, state_names, signal_map, mode)
                     ))
                 } else if let Some(event) = name.strip_prefix("on:") {
                     let handler = macro_value_expr(value);
@@ -4728,7 +4845,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     let lowered_handler = if bare_ident {
                         handler.clone()
                     } else {
-                        rewrite_signal_reads_to_calls(t, signal_map)
+                        rewrite_template_expr(t, signal_map, mode).source
                     };
                     Some(format!("on{}: {}", capitalize_first(event), lowered_handler))
                 } else {
@@ -4848,7 +4965,12 @@ fn is_event_attr_name(name: &str) -> bool {
 /// Identifier extraction is a lightweight token walk — sufficient for
 /// well-formed JS expressions and indifferent to string-literal contents
 /// because string contents would not match `@state` declarations.
-fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap) -> String {
+fn lower_attr_expr(
+    expr: &str,
+    state_names: &StateNames,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> String {
     let trimmed = expr.trim();
     // R5c: pass-through signal tuple when the expression is a simple
     // identifier that's a registered signal — matches the leaf-emission
@@ -4877,7 +4999,10 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
     // (`$class={section.kind === 'prose' ? 'a' : 'b'}` → `section().kind …`)
     // so the thunk reads VALUES, not the signal function.
     if expr_references_state(expr, state_names) || !is_simple_ident {
-        format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+        format!(
+            "[() => ({})]",
+            rewrite_template_expr(trimmed, signal_map, mode).source
+        )
     } else {
         expr.to_string()
     }
@@ -4982,6 +5107,60 @@ fn collect_arrow_params(expr: &str) -> std::collections::BTreeSet<String> {
         i += 1;
     }
     params
+}
+
+/// W3 (advanced-js-template-expressions) — the mode-dispatched signal-read
+/// rewrite every template-expression lowering site calls.
+///
+/// `Legacy` (the default): the token-scanner rewrite below, byte-identical to
+/// pre-W3 output. `Ast` (`--expr-parser ast`): the scope-aware span-edit
+/// rewrite over the oxc AST (`expr::rewrite_signal_reads`) — spread,
+/// template-literal `${…}` holes, arrow bodies, param defaults, and object
+/// shorthand all rewrite correctly, and `reads_signal` reports whether the
+/// expression actually reads a signal (post-shadowing) for the reactivity
+/// decision. An unparseable capture (already C320/C321-rejected before emit
+/// when compiled through `compile_full_with_options`; reachable only by
+/// direct `emit()` callers) falls back to the legacy rewrite so emit always
+/// produces output.
+struct RewrittenExpr {
+    source: String,
+    /// AST mode only: the expression reads a registered signal after
+    /// shadowing is resolved. Always `false` under `Legacy` (legacy decision
+    /// sites don't consult it).
+    reads_signal: bool,
+}
+
+/// W3 — true when `s` is nothing but `ident.ident[.ident…]` (the shape the
+/// Interpolation dotted-base fast path exists for: `{user.name}`,
+/// `{route.params.slug}`). Anything richer — calls, operators, optional
+/// chaining, arrows — must go through the full rewrite under AST mode.
+fn is_pure_dotted_path(s: &str) -> bool {
+    s.contains('.')
+        && s.split('.').all(|seg| {
+            !seg.is_empty()
+                && seg
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+        })
+}
+
+fn rewrite_template_expr(
+    expr: &str,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> RewrittenExpr {
+    if mode == ExprParserMode::Ast {
+        if let Some(result) = crate::expr::rewrite_signal_reads(expr, signal_map) {
+            return RewrittenExpr {
+                source: result.source,
+                reads_signal: result.reads_signal,
+            };
+        }
+    }
+    RewrittenExpr {
+        source: rewrite_signal_reads_to_calls(expr, signal_map),
+        reads_signal: false,
+    }
 }
 
 /// FEL-172 / FEL-173: rewrite bare reads of registered reactive getters
@@ -5556,7 +5735,14 @@ impl ElemEffect {
 ///       → $once / $memo / $if (structural boundaries)
 ///         → $each (iteration — OUTERMOST so its factory's loop alias scopes
 ///                  every inner wrapper and every descendant handler)
-fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
+fn emit_macro_effects(
+    attrs: &[Attr],
+    _el_var: &str,
+    subtree: &str,
+    indent: &str,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> Vec<String> {
     let mut elem_effects: Vec<ElemEffect> = Vec::new();
     let mut once = false;
     let mut memo_deps: Option<String> = None;
@@ -5603,7 +5789,10 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     // → `section().kind === 'x'`); previously `.kind` was read
                     // off the signal FUNCTION → always undefined → the branch
                     // silently never rendered.
-                    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+                    format!(
+                        "[() => ({})]",
+                        rewrite_template_expr(trimmed, signal_map, mode).source
+                    )
                 };
                 if_cond_arg = Some(cond_arg);
             }
@@ -5615,10 +5804,9 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // toggleAttribute is the WHATWG-canonical primitive: passing
                 // `false` removes the attribute; `true` writes empty-string.
                 // FEL-172: rewrite bare getter reads inside the effect body.
-                elem_effects.push(ElemEffect::Show(rewrite_signal_reads_to_calls(
-                    &macro_value_expr(value),
-                    signal_map,
-                )));
+                elem_effects.push(ElemEffect::Show(
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
+                ));
             }
             "each" => {
                 has_each = true;
@@ -5648,10 +5836,9 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // IIFE: capture node, wire reactive effect inside onMount, return node
                 // so the parent children array receives the element (not a bare effect).
                 // replaceChildren + createContextualFragment parses trusted build-time HTML.
-                elem_effects.push(ElemEffect::Html(rewrite_signal_reads_to_calls(
-                    &macro_value_expr(value),
-                    signal_map,
-                )));
+                elem_effects.push(ElemEffect::Html(
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
+                ));
             }
             "once" => {
                 once = true;
@@ -5665,7 +5852,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // onMount so .el is guaranteed to be set, return node to parent children.
                 elem_effects.push(ElemEffect::Class(
                     class_name,
-                    rewrite_signal_reads_to_calls(&macro_value_expr(value), signal_map),
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
                 ));
             }
             n if n.starts_with("bind:") || n.starts_with("on:") => {
@@ -5743,7 +5930,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             format!(
                 "({}) => {}",
                 item_alias,
-                rewrite_signal_reads_to_calls(&key_fn, signal_map)
+                rewrite_template_expr(&key_fn, signal_map, mode).source
             )
         };
 
@@ -5775,7 +5962,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             // undefined → the loop renders nothing.
             current = format!(
                 "createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
-                rewrite_signal_reads_to_calls(&each_items, signal_map),
+                rewrite_template_expr(&each_items, signal_map, mode).source,
                 key_part,
                 item_alias,
                 idx_alias,

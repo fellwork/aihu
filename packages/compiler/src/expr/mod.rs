@@ -26,6 +26,12 @@
 //! sites carry offsets, `validate_expr` takes the expression's base offset and
 //! the span math below becomes exact file line/col.
 
+// W3 (advanced-js-template-expressions): the AST-driven, scope-aware
+// signal-read rewrite (span edits over the same oxc parse). Consumed by
+// `codegen/emit.rs` when the unit was compiled with `--expr-parser ast`.
+pub mod rewrite;
+pub use rewrite::{rewrite_signal_reads, RewriteResult};
+
 use crate::types::{Attr, CompileError, MacroValue, TemplateNode};
 
 use oxc_allocator::Allocator;

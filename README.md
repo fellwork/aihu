@@ -272,6 +272,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/signals`](./packages/signals) | `0.2.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
+| [`aihu-compiler`](./packages/compiler/pkg-wasm) | `0.1.0` | _no description_ |
 | [`create-aihu`](./packages/create-aihu) | `0.1.3` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 

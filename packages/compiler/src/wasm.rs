@@ -20,11 +20,13 @@ pub fn wasm_compile(source: &str) -> Result<JsValue, JsValue> {
     compile_impl(source, crate::ExprParserMode::Legacy)
 }
 
-/// W2 (advanced-js-template-expressions): `wasm_compile` with the
+/// W2/W3 (advanced-js-template-expressions): `wasm_compile` with the
 /// `--expr-parser` mode exposed to the playground. `expr_parser` is
 /// `"legacy"` (default pipeline, identical to `wasm_compile`) or `"ast"`
-/// (every captured template expression is additionally VALIDATED by oxc —
-/// parse errors surface as C320/C321 diagnostics; emitted code unchanged).
+/// (every captured template expression is VALIDATED by oxc — parse errors
+/// surface as C320/C321 diagnostics — and, since W3, the signal-read rewrite
+/// runs scope-aware on the oxc AST: spread, template-literal `${…}` holes,
+/// arrow bodies, and `{#each}` alias shadowing all emit correctly).
 /// Unrecognized values fall back to `"legacy"` so playground callers can pass
 /// a feature-flag string straight through.
 #[wasm_bindgen]

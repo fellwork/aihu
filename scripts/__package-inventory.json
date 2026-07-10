@@ -288,6 +288,12 @@
     "isPlatform": false
   },
   {
+    "name": "aihu-compiler",
+    "version": "0.1.0",
+    "dir": "packages/compiler/pkg-wasm",
+    "isPlatform": false
+  },
+  {
     "name": "create-aihu",
     "version": "0.1.3",
     "dir": "packages/create-aihu",
