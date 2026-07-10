@@ -1,5 +1,53 @@
 # TODOS
 
+## Compiler / language (added 2026-07-10)
+
+### TS type-check sidecar — completion pass
+- **What:** Finish the TypeScript sidecar so `tsc` coverage over `.aihu` files is
+  complete: every template-referenced binding surfaces in the sidecar (not just
+  `$context` keys + destructuring loop aliases from #389), line preservation
+  (#390) holds across all macro forms, and the remaining unharvested constructs
+  (whatever an audit of the emit paths turns up — `@state` collection-macro
+  bodies, `$action`/`$computed` return types, slot/prop generics) are typed
+  rather than elided.
+- **Why:** The sidecar's whole value is trust — a type error in an `.aihu` file
+  should always cite the real line (#390's contract) and never be silently
+  skipped because a construct wasn't harvested. Partial harvesting gives false
+  green checkmarks, which is worse than no checking.
+- **Context:** Recent work: #389 (sidecar harvests `$context` keys +
+  destructuring loop aliases), #390 (line-preserving sidecar so tsc cites the
+  real `.aihu` line). Start with an audit of what the harvester still skips.
+- **Start at:** `packages/compiler/src/types.rs` (sidecar placement fields,
+  ~L88), the codegen emit paths in `packages/compiler/src/codegen/`, and the
+  sidecar tests (`packages/compiler/tests/b3_variant_b.rs`,
+  `route_and_build_target.rs`).
+- **Depends on:** nothing; sequence after the `@state` server-lowering fix below
+  if both touch `emit.rs`, to avoid churn.
+
+### Template expressions: spread, `.map`, and array/array-like functions
+- **What:** First-class support in the HTML/template portion of `.aihu` syntax
+  for spread (`...xs`), `.map()`/`.filter()`/`.flatMap()` and friends, and
+  array-likes (`Set`/`Map` iteration, `Array.from`, index/entries) — both in
+  interpolation expressions and in attribute/loop positions. Define what the
+  template expression grammar admits vs what must be hoisted to the script
+  portion, and make the compiler's error message say exactly that when an
+  expression is rejected.
+- **Why:** Component authors reach for `items.map(...)` and spread as
+  reflexively as in JSX; today the boundary between "template expression" and
+  "hoist it to a `$computed`" is undocumented and (per founder report) errors
+  are opaque. Whether the fix is grammar support, better lowering, or just a
+  crisp diagnostic + docs, the current silent/obscure failure is the bug.
+- **Context:** Founder request 2026-07-10, same session as the HTML-comment
+  parser report — treat both as "template tokenizer/expression grammar
+  hardening". Audit what the expression parser accepts today before deciding
+  the cut-line.
+- **Start at:** the template expression parser/tokenizer in
+  `packages/compiler/src/` (grep for the interpolation/expression grammar), its
+  codegen lowering in `codegen/emit.rs`, and the compiler test suite for
+  template-expression cases; add a docs page for the template-expression subset
+  once the grammar is settled.
+- **Depends on:** nothing.
+
 ## Deferred from go-public eng review (2026-06-02)
 
 ### WS capability-bridge auth/origin hardening (v1.x)
