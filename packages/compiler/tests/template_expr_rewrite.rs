@@ -199,6 +199,30 @@ fn fel173_loop_var_projection_still_eager() {
 }
 
 #[test]
+fn spread_of_signals_is_rewritten_and_reactive() {
+    // `{ [...a, ...b].length }` — the `a`/`b` after `...` are VALUE reads, not
+    // member access. Regression: the read-rewrite treated the `.` ending a
+    // spread as a member-access dot and left the signals un-called, spreading
+    // the getter FUNCTIONS. They must become `...a()` / `...b()`, and the
+    // resulting call makes the interpolation a reactive thunk-leaf.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [a, setA] = signal([1, 2])
+const [b, setB] = signal([3, 4])
+}
+@template { <p>{ [...a, ...b].length }</p> }"#;
+    let js = compile_to_js(src, "x-spread");
+    assert!(
+        js.contains("[...a(), ...b()].length"),
+        "spread must read signal VALUES (...a(), ...b()), got:\n{js}"
+    );
+    assert!(
+        js.contains("leaf([() => ([...a(), ...b()].length)"),
+        "spread-of-signals interpolation must be a reactive thunk-leaf, got:\n{js}"
+    );
+}
+
+#[test]
 fn fel172_string_literal_contents_untouched() {
     // Identifier-lookalikes inside string literals must not be rewritten.
     let src = r#"@state {

@@ -5064,7 +5064,17 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
             let in_object = stack.last() == Some(&b'O');
             let after_open_or_comma =
                 prev_significant == b'{' || prev_significant == b',' || prev_significant == 0;
-            let is_member = prev_significant == b'.';
+            // Spread (`...xs`) ends in a `.`, but the ident it precedes is a
+            // VALUE read, not a member access — distinguish it from real member
+            // access (`obj.xs`) by looking back over whitespace for a `...` run.
+            let is_spread = {
+                let mut k = start;
+                while k > 0 && bytes[k - 1].is_ascii_whitespace() {
+                    k -= 1;
+                }
+                k >= 3 && &bytes[k - 3..k] == b"..."
+            };
+            let is_member = prev_significant == b'.' && !is_spread;
             let is_call = next == Some(b'(');
             let is_obj_key = in_object && after_open_or_comma && next == Some(b':');
             let is_obj_shorthand = in_object
