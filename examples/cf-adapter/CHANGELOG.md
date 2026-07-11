@@ -1,5 +1,13 @@
 # @aihu/example-cf-adapter
 
+## 0.0.18
+
+### Patch Changes
+
+- Updated dependencies [[`6ff3759`](https://github.com/fellwork/aihu/commit/6ff375925256e5ac7be91a301bb01e9ce2c5e1c9)]:
+  - @aihu/compiler@0.9.11
+  - @aihu/app@3.0.2
+
 ## 0.0.17
 
 ### Patch Changes
