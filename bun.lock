@@ -129,14 +129,14 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.21",
+      "version": "0.5.22",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
     },
     "examples/agent-driven-demo": {
       "name": "@aihu/example-agent-driven-demo",
-      "version": "0.0.15",
+      "version": "0.0.16",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-server": "workspace:*",
@@ -173,7 +173,7 @@
     },
     "examples/agent-hub": {
       "name": "@aihu/example-agent-hub",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-a2a": "workspace:*",
@@ -235,7 +235,7 @@
     },
     "examples/cf-adapter": {
       "name": "@aihu/example-cf-adapter",
-      "version": "0.0.16",
+      "version": "0.0.17",
       "dependencies": {
         "@aihu/adapter-cloudflare": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -393,7 +393,7 @@
     },
     "examples/realtime-scores": {
       "name": "@aihu/example-realtime-scores",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -407,7 +407,7 @@
     },
     "examples/storefront": {
       "name": "@aihu/example-storefront",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -496,7 +496,7 @@
       "version": "4.0.2",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
-        "vite": "^6.0.0",
+        "vite": ">=5.0.0",
       },
     },
     "packages/adapter-vercel": {
@@ -504,7 +504,7 @@
       "version": "4.0.2",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
-        "vite": "^6.0.0",
+        "vite": ">=5.0.0",
       },
     },
     "packages/agent": {
@@ -573,7 +573,7 @@
         "@aihu/runtime": "workspace:*",
         "@aihu/server": "workspace:*",
         "@aihu/signals": "workspace:*",
-        "vite": "^6.0.0",
+        "vite": ">=5.0.0",
       },
     },
     "packages/arbor": {
@@ -613,7 +613,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "0.9.9",
+      "version": "0.9.10",
       "bin": {
         "aihu-compile": "./bin/aihu-compile.mjs",
       },
@@ -628,7 +628,7 @@
         "@aihu/compiler-win32-x64-msvc": "0.1.0",
       },
       "peerDependencies": {
-        "vite": "^6.0.0",
+        "vite": ">=5.0.0",
       },
       "optionalPeers": [
         "vite",
@@ -663,7 +663,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.2.16",
+      "version": "0.2.17",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
