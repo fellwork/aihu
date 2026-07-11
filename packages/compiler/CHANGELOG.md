@@ -1,5 +1,19 @@
 # @aihu/compiler
 
+## 0.9.10
+
+### Patch Changes
+
+- [#391](https://github.com/fellwork/aihu/pull/391) [`444be87`](https://github.com/fellwork/aihu/commit/444be87ddbabd874fe4479dff260063f8bee8c95) Thanks [@srmcguirt](https://github.com/srmcguirt)! - fix: rewrite signal reads inside spread expressions
+
+  A spread of a signal in a template expression (e.g. `{ [...a, ...b].length }`)
+  silently miscompiled: because `...` ends in a `.`, the identifier after it was
+  misclassified as member access (`obj.a`) and skipped by the signal-read
+  rewriter — so the emitted code spread the getter **functions** instead of their
+  values, and as a non-reactive eager leaf. Spread idents are now distinguished
+  from real member access (look-back over whitespace for a `...` run); `...a` and
+  object spread `{...o()}` rewrite to their called forms and stay reactive.
+
 ## 0.9.9
 
 ### Patch Changes
