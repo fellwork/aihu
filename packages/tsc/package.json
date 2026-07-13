@@ -4,6 +4,11 @@
   "license": "MIT",
   "type": "module",
   "description": "aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/tsc"
+  },
   "bin": {
     "aihu-tsc": "./bin/aihu-tsc.mjs"
   },
