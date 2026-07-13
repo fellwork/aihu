@@ -282,15 +282,15 @@
     "isPlatform": false
   },
   {
-    "name": "@aihu/ui",
+    "name": "@aihu/tsc",
     "version": "0.1.0",
-    "dir": "packages/ui",
+    "dir": "packages/tsc",
     "isPlatform": false
   },
   {
-    "name": "aihu-compiler",
+    "name": "@aihu/ui",
     "version": "0.1.0",
-    "dir": "packages/compiler/pkg-wasm",
+    "dir": "packages/ui",
     "isPlatform": false
   },
   {
