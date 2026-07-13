@@ -1,5 +1,12 @@
 # create-aihu
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [[`8127925`](https://github.com/fellwork/aihu/commit/8127925482725c8394c03298a27b91cbbfc59418)]:
+  - @aihu/cli@0.8.3
+
 ## 0.1.3
 
 ### Patch Changes

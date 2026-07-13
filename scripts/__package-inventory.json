@@ -97,13 +97,13 @@
   },
   {
     "name": "@aihu/cli",
-    "version": "0.8.2",
+    "version": "0.8.3",
     "dir": "packages/cli",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.9.11",
+    "version": "0.10.0",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -145,7 +145,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -181,7 +181,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.2.18",
+    "version": "0.2.19",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -211,7 +211,7 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/primitives",
     "isPlatform": false
   },
@@ -283,7 +283,7 @@
   },
   {
     "name": "@aihu/tsc",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "dir": "packages/tsc",
     "isPlatform": false
   },
@@ -295,7 +295,7 @@
   },
   {
     "name": "create-aihu",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "dir": "packages/create-aihu",
     "isPlatform": false
   },
