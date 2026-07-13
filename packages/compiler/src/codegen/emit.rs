@@ -581,9 +581,14 @@ fn macro_line_set(script: &str) -> std::collections::BTreeSet<usize> {
 ///
 /// `$prop` entries carry a declared `type:`, so they get their REAL type — props
 /// are what templates touch most, and a wrong prop type is exactly the bug the
-/// sidecar exists to catch. The other collections bind functions whose types
-/// would have to be inferred from macro bodies that aren't yet lowered to TS, so
-/// they are honestly `any` for now rather than confidently wrong.
+/// sidecar exists to catch. They are typed as ACCESSORS (`() => T`), not values:
+/// at runtime `ctx.props.<name>` is a `Signal`, read via the getter call
+/// (`props.title()`), so a template reads a prop as `language()`. Typing the
+/// binding as a plain `T` made every such call a `TS2349` "not callable".
+///
+/// The other collections bind functions whose types would have to be inferred
+/// from macro bodies that aren't yet lowered to TS, so they are honestly `any`
+/// for now rather than confidently wrong.
 ///
 /// Module-scope `let`/`const` (not `declare const`): a binding may shadow a DOM
 /// global (`name`, `open`, `status`, `close`), and an ambient re-declaration of
@@ -607,7 +612,8 @@ fn macro_binding_decls(script: &str) -> String {
                         .find(|(k, _)| k == "type")
                         .map(|(_, v)| unquote_ts_type(v.trim()))
                         .unwrap_or_else(|| "any".to_string());
-                    decls.push(format!("let {}: {} = null as any;", name, ty));
+                    // Accessor, not value: a prop is a Signal getter (`props.name()`).
+                    decls.push(format!("let {}: () => {} = null as any;", name, ty));
                 }
                 // Event dispatchers are already typed by the $emit/$event decls.
                 crate::types::CollectionKind::Event => {}

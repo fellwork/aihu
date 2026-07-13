@@ -25,18 +25,18 @@
     </header>
 
     <article>
-      <h1>{route.data.user.id}</h1>
+      <h1>{route().data.user.id}</h1>
       <dl>
         <dt>created</dt>
-        <dd>{joined(route.data.user.created)}</dd>
+        <dd>{joined(route().data.user.created)}</dd>
         <dt>karma</dt>
-        <dd>{route.data.user.karma}</dd>
+        <dd>{route().data.user.karma}</dd>
         <dt>submissions</dt>
-        <dd>{(route.data.user.submitted ?? []).length}</dd>
+        <dd>{(route().data.user.submitted ?? []).length}</dd>
       </dl>
-      <section class="about" $if={!!route.data.user.about}>
+      <section class="about" $if={!!route().data.user.about}>
         <h2>about</h2>
-        <div $html="route.data.user.about"></div>
+        <div $html={route().data.user.about}></div>
       </section>
     </article>
   </main>
