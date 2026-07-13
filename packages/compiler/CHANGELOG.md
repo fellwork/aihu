@@ -1,5 +1,101 @@
 # @aihu/compiler
 
+## 0.10.0
+
+### Minor Changes
+
+- [#395](https://github.com/fellwork/aihu/pull/395) [`8127925`](https://github.com/fellwork/aihu/commit/8127925482725c8394c03298a27b91cbbfc59418) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Advanced JS in template expressions, waves 1–3 (opt-in via `--expr-parser ast`
+  or `AIHU_EXPR_PARSER=ast`; default behavior unchanged):
+
+  - **Shared lexical scanner** for `{expr}` boundaries — strings, template
+    literals (with nested `${}` holes), comments, and regex are understood by
+    every brace scanner, closing the whole brace-in-literal misparse class
+    (`'}'` in strings, regex after `{`, quotes inside attribute braces).
+    Rejection diagnostics now state the allowed expression forms and suggest
+    hoisting to `$computed`.
+  - **oxc-powered expression validation** (`ast` mode): every captured template
+    expression is parsed in TS mode; syntax errors become C320 diagnostics with
+    codeframes, statements/sequences/`await` get C321 steering.
+  - **Scope-aware AST signal rewrite** (`ast` mode): spread arguments, template
+    literal holes, arrow bodies, and param defaults now rewrite signal reads
+    correctly; `{#each}` aliases that shadow a signal no longer emit the signal
+    tuple; write targets are left alone (legacy emitted invalid `count() = 5`).
+    Corpus-verified: legacy emit stays byte-identical; the only `ast`-mode diffs
+    are fixes to previously silent miscompiles.
+
+  Note: the toolchain now pins rustc 1.95 and wasm-opt is re-enabled with
+  bulk-memory flags (it had been silently skipped, shipping unoptimized wasm).
+
+- [#395](https://github.com/fellwork/aihu/pull/395) [`8127925`](https://github.com/fellwork/aihu/commit/8127925482725c8394c03298a27b91cbbfc59418) Thanks [@srmcguirt](https://github.com/srmcguirt)! - **`.aihu` files are now type-checked.** They were not before — at all.
+
+  The type-check sidecar declared every template-referenced binding as an `any`
+  parameter and never emitted the `@state` body, so TypeScript was handed a file
+  that could not disagree with the author about anything. A `const x: number =
+'a string'` inside `@state`, or a typo'd property, passed `tsc --noEmit` clean.
+  The green check was over code TypeScript had never seen.
+
+  Two things change:
+
+  **`@aihu/compiler`** now inlines the `@state` body into the type-check surface, at
+  its real source lines. Bindings carry their true types instead of `any`, imports
+  resolve so call sites are checked, and a diagnostic inside `@state` cites the
+  `.aihu` line the author wrote it on. Only loop aliases remain `any` — `{#each xs
+as m}` binds `m` in the template, so there is no declaration to borrow a type
+  from.
+
+  **`@aihu/tsc`** (new) provides `aihu-tsc`, which projects each `.aihu` into the
+  TypeScript program as a VIRTUAL file via Volar's `proxyCreateProgram`. No
+  `.aihu.ts` sidecar is written to disk any more: the Vite plugin no longer emits
+  them, and consumers can delete the ones they have and drop `*.aihu.ts` from
+  `.gitignore`.
+
+  **Migration.** Replace `tsc --noEmit` with `aihu-tsc` in your `typecheck` script
+  (`@aihu/cli` now scaffolds this for new projects). Plain `tsc` cannot see inside a
+  `.aihu` file, so it will keep reporting a clean pass over every SFC in your
+  project without having checked one.
+
+  Expect real diagnostics the first time you run it — this is code that has never
+  been type-checked. Implicit-`any` inside `.aihu` files is suppressed by default,
+  since no corpus has ever been annotated for it; `aihu-tsc --strict-templates`
+  turns it on.
+
+### Patch Changes
+
+- [#395](https://github.com/fellwork/aihu/pull/395) [`8127925`](https://github.com/fellwork/aihu/commit/8127925482725c8394c03298a27b91cbbfc59418) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template parser: a JS comment opening a `{expr}` interpolation (`{/* note */ count}`,
+  `{// note` …`}`) was misclassified as a `{/if}` / `{/each}` block tail and errored
+  with "unexpected `{:` or `{/`". Block tails are always `{/` + letter, so `{//` and
+  `{/*` now fall through to expression parsing. Comments inside expressions were
+  already handled downstream (`{count /* trailing */}` worked); only the
+  comment-first form was affected.
+
+- [#398](https://github.com/fellwork/aihu/pull/398) [`250dbbf`](https://github.com/fellwork/aihu/commit/250dbbf4024f77ddfe41cf9d04b14ad5266ccfee) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Type-check surface: type a `$prop` binding as a Signal accessor (`() => T`), not a
+  plain value.
+
+  At runtime `ctx.props.<name>` is a `Signal`, read via the getter call
+  (`props.title()`), so a template reads a prop as `language()`. The sidecar typed
+  the binding as a plain `T`, which made every such call a `TS2349` "not callable".
+  This also correctly flags the inverse — a prop read _without_ a call
+  (`route.data`) — as the bug it is.
+
+- [#395](https://github.com/fellwork/aihu/pull/395) [`8127925`](https://github.com/fellwork/aihu/commit/8127925482725c8394c03298a27b91cbbfc59418) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Block delimiting: lex regex literals, and stop treating `//` as a comment in HTML
+  and CSS.
+
+  The block scanners counted raw bytes. They knew strings and comments, but not
+  regex literals, so a regex's braces and quotes were read as structure:
+
+  - `/\{/` opened a depth that never closed — `@state` swallowed the template and
+    the parser died on markup the author never wrote.
+  - `/}/` closed `@state` EARLY, silently dropping every statement after it and
+    emitting a truncated `const re = /` — while exiting 0.
+  - `/['"]/` — the quote opened string mode and ate the rest of the block.
+  - A regex inside a `$action` handler ran the collection splitter past the comma
+    that ended the entry (C447).
+
+  `//` was also treated as a line comment inside `@template` and `@style`. Neither
+  language has one — HTML uses `<!-- -->`, CSS uses `/* */` — so any `https://` URL
+  commented out the rest of its line, closing brace included. A CSS
+  `background: url(https://…)` was enough to fail the build.
+
 ## 0.9.11
 
 ### Patch Changes
