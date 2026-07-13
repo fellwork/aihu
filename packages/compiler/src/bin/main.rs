@@ -413,6 +413,20 @@ fn main() {
         _ => None,
     };
 
+    // `--sidecar-stdout` prints the type-check surface to stdout INSTEAD of the
+    // emitted JS, so a caller can hold it in memory. This is what lets `aihu-tsc`
+    // hand `.aihu` files to TypeScript as virtual files: no `.aihu.ts` is written
+    // next to the source for the type-checker to find.
+    //
+    // Exits 0 with no output when the SFC has no @template (no surface to check),
+    // so callers can treat empty output as "nothing to check", not as a failure.
+    if args.iter().any(|a| a == "--sidecar-stdout") {
+        if let Some(ref ts) = result.sidecar_ts {
+            print!("{ts}");
+        }
+        process::exit(0);
+    }
+
     if let Some(ref path) = sidecar_out {
         if let Some(ref ts) = result.sidecar_ts {
             if let Some(parent) = std::path::Path::new(path).parent() {
