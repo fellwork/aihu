@@ -52,6 +52,11 @@ export const BUILD_DEV_ONLY = new Set<string>([
   '@aihu/adapter-vercel',
   '@aihu/css-engine',
   '@aihu/language-server',
+  // `aihu-tsc` is a CLI type-checker: it runs at build/dev time and nothing from
+  // it is ever bundled into a browser app, so the dep-free browser-bundle thesis
+  // does not apply to it — same footing as @aihu/language-server, with which it
+  // shares its Volar dependencies.
+  '@aihu/tsc',
 ])
 
 /**

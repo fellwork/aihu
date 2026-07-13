@@ -130,6 +130,7 @@
         <li><a class="nav-link" href="#packages/magna" $class:active={activePage() === 'packages/magna'}>@aihu/magna</a></li>
         <li><a class="nav-link" href="#packages/scraping" $class:active={activePage() === 'packages/scraping'}>@aihu/scraping</a></li>
         <li><a class="nav-link" href="#packages/seo" $class:active={activePage() === 'packages/seo'}>@aihu/seo</a></li>
+        <li><a class="nav-link" href="#packages/tsc" $class:active={activePage() === 'packages/tsc'}>@aihu/tsc</a></li>
         <li><a class="nav-link" href="#packages/ui" $class:active={activePage() === 'packages/ui'}>@aihu/ui</a></li>
         <li><a class="nav-link" href="#packages/adapter-cloudflare" $class:active={activePage() === 'packages/adapter-cloudflare'}>@aihu/adapter-cloudflare</a></li>
         <li><a class="nav-link" href="#packages/adapter-vercel" $class:active={activePage() === 'packages/adapter-vercel'}>@aihu/adapter-vercel</a></li>
