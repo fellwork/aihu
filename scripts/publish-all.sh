@@ -70,6 +70,9 @@ PKGS=(
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
   "ui"                # @aihu/ui styled-recipe registry; aihu add resolves it from npm (must follow primitives)
   "language-server"   # @aihu/language-server LSP; depends on @aihu/compiler (must follow it)
+  "tsc"               # @aihu/tsc — `aihu-tsc`; depends on @aihu/compiler (must follow it).
+                      # The scaffolded `typecheck` script runs aihu-tsc, so a project
+                      # created by `npm create aihu` cannot type-check until this ships.
   "plugin-drizzle"    # @aihu-plugin/drizzle; depends on @aihu/server + @aihu-plugin/data (must follow them)
   "plugin-kindly-note" # @aihu-plugin/kindly-note; depends on @aihu/signals (must follow it)
   "_moved/data"
