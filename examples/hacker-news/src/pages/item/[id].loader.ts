@@ -14,6 +14,7 @@ export interface HnItem {
   readonly score?: number
   readonly time?: number
   readonly kids?: number[]
+  readonly descendants?: number
   readonly deleted?: boolean
   readonly dead?: boolean
 }

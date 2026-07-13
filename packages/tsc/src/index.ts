@@ -149,4 +149,4 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], cwd: string): 
   })
 }
 
-export { createAihuLanguagePlugin } from './language-plugin.ts'
+export { buildMappings, createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'

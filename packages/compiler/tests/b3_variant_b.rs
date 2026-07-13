@@ -551,6 +551,32 @@ const bad: number = 'not a number'
 }
 
 #[test]
+fn sidecar_lowers_a_bare_typed_declaration_to_valid_ts() {
+    // `@state` accepts a bare typed declaration with no keyword — the runtime emit
+    // lowers it to `let`. The sidecar must apply the SAME lowering: inlined
+    // verbatim, `intervalId: number | null = null` reads as a labelled statement,
+    // so tsc reported `'number' only refers to a type, but is being used as a value
+    // here` on a line the author wrote correctly — and, worse, never declared the
+    // name, so every template reference to it false-errored as undefined. It cost
+    // the examples 7 phantom diagnostics.
+    let src = "@state {\n  intervalId: number | null = null\n}\n@template {\n  <p>{intervalId}</p>\n}";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-bare").sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("let intervalId: number | null = null"),
+        "a bare typed declaration must be lowered to `let`, as the runtime emit does:\n{sidecar}"
+    );
+    // And it must still sit on its own source line (line 2) — the lowering adds a
+    // keyword, it does not move the statement.
+    let lines: Vec<&str> = sidecar.lines().collect();
+    assert!(
+        lines[1].contains("let intervalId"),
+        "the lowered declaration must stay on its real .aihu line:\n{sidecar}"
+    );
+}
+
+#[test]
 fn sidecar_declares_state_bindings_referenced_by_template() {
     // Regression: the sidecar emitted `void (toggle())` / `void (label())` for
     // user @state consts but never DECLARED them, so every such sidecar failed

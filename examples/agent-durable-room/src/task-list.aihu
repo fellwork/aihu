@@ -50,7 +50,7 @@
 
   // Send a user intent to the DO. The DO mutates + broadcasts; we never mutate
   // local state directly — we wait for the snapshot, so all views stay in sync.
-  const send = (type, arg) => {
+  const send = (type, arg?) => {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type, arg }))
   }
 

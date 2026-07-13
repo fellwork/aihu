@@ -76,6 +76,25 @@ export function buildMappings(source: string, generated: string): CodeMapping[] 
       continue
     }
 
+    // A @state line the compiler rewrote but did not move: a bare typed
+    // declaration (`count: number = 0`) is lowered to `let count: number = 0`, so
+    // the source text survives INSIDE the generated line at a shifted column. Map
+    // that span, or the `let ` prefix would silently cost the line its mapping —
+    // and an unmapped line is a line whose diagnostics are dropped on the floor.
+    const body = src.trim()
+    if (body) {
+      const at = gen.indexOf(body)
+      if (at >= 0) {
+        mappings.push({
+          sourceOffsets: [srcStarts[i] + src.indexOf(body)],
+          generatedOffsets: [genStarts[i] + at],
+          lengths: [body.length],
+          data: FULL,
+        })
+        continue
+      }
+    }
+
     // A lifted template expression: `void (EXPR);` / `__handler(EXPR);`. The EXPR
     // text is verbatim from the source, so find it in the source line. Several
     // expressions can share a line; walk both cursors forward so repeats of the

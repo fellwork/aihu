@@ -445,12 +445,25 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
             if idx >= lines.len() {
                 lines.resize(idx + 1, String::new());
             }
-            let text = if macro_lines.contains(&n) { "" } else { text };
+            // `transform_bare_declaration` is the SAME lowering the runtime emit
+            // applies: `@state` accepts a bare typed declaration with no keyword —
+            // `intervalId: number | null = null`, `rates: Record<…, number> = {…}` —
+            // and that is aihu syntax, not TypeScript. Inlined verbatim it reads as
+            // a labelled statement, so tsc reports `'number' only refers to a type,
+            // but is being used as a value here` on a line the author wrote
+            // correctly, and the name never gets declared (every template reference
+            // to it then false-errors as undefined). Lowering it to `let name: T = …`
+            // keeps the line — and its length, so the mapping still holds.
+            let text = if macro_lines.contains(&n) {
+                String::new()
+            } else {
+                transform_bare_declaration(text)
+            };
             // Line 1 is the preamble and must not be overwritten. A @state body
             // cannot start there in practice (the `@state {` opener occupies a
             // line above it), so this only guards the pathological case.
             if idx > 0 {
-                lines[idx] = text.to_string();
+                lines[idx] = text;
             }
         }
     }
