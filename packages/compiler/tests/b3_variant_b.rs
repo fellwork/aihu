@@ -551,6 +551,27 @@ const bad: number = 'not a number'
 }
 
 #[test]
+fn sidecar_types_a_prop_as_an_accessor_not_a_value() {
+    // At runtime `ctx.props.<name>` is a Signal, read via the getter call
+    // (`props.title()`), so a template reads a prop as `language()`. Typing the
+    // sidecar binding as a plain value made every such call a TS2349 "not
+    // callable" — 39 false positives across the fellwork web app. A prop is
+    // `() => T`, with `type:` giving the RETURN type.
+    let src = "@state {\n  $prop: {\n    lang: { default: 'grc', type: string },\n  }\n}\n@template {\n  <span>{lang()}</span>\n}";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-prop").sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("let lang: () => string"),
+        "a prop must be typed as an accessor `() => T`:\n{sidecar}"
+    );
+    assert!(
+        !sidecar.contains("let lang: string ="),
+        "a prop must NOT be typed as a plain value — that breaks every `lang()` call:\n{sidecar}"
+    );
+}
+
+#[test]
 fn sidecar_lowers_a_bare_typed_declaration_to_valid_ts() {
     // `@state` accepts a bare typed declaration with no keyword — the runtime emit
     // lowers it to `let`. The sidecar must apply the SAME lowering: inlined
