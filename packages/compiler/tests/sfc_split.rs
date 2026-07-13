@@ -71,6 +71,7 @@ fn compile_empty_source() {
         result,
         aihu_compiler::AihuSource {
             script: None,
+            script_line: 0,
             template: None,
             template_line: 0,
             style: None,

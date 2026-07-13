@@ -18,37 +18,51 @@
  */
 
 import { execFile, execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { transform } from '../js/index.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+// Sidecars now INLINE the @state body, imports and all, so tsc must resolve
+// `@aihu/signals` when checking one. Scratch dirs therefore live inside the
+// workspace (where module resolution walks up to node_modules) rather than in the
+// OS temp dir, where every sidecar with an import would false-fail on TS2307.
+const SCRATCH = join(__dirname, '.scratch')
+mkdirSync(SCRATCH, { recursive: true })
+
 const fixturesDir = resolve(__dirname, 'fixtures/b3b-sidecar')
 
 function runTsc(sidecarPath: string): { code: number; stderr: string; stdout: string } {
-  // Wrap tsc in --noEmit so it only type-checks. Use --skipLibCheck to keep
-  // the run fast and isolated from project-wide lib types.
+  // A sidecar now INLINES the @state body, imports and all, so type-checking one
+  // means resolving `@aihu/signals`. The workspace packages are not symlinked into
+  // a root `node_modules/@aihu/`, so tsc is given an explicit path mapping —
+  // otherwise every sidecar with an import false-fails on TS2307 and the test would
+  // be asserting the resolver's failure, not the sidecar's correctness.
+  const repoRoot = resolve(__dirname, '../../..')
+  const cfgPath = join(dirname(sidecarPath), 'tsconfig.json')
+  writeFileSync(
+    cfgPath,
+    JSON.stringify({
+      compilerOptions: {
+        noEmit: true,
+        skipLibCheck: true,
+        target: 'esnext',
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        strict: true,
+        baseUrl: '.',
+        paths: { '@aihu/*': [`${repoRoot}/packages/*/dist/index.d.ts`] },
+      },
+      files: [sidecarPath],
+    }),
+  )
   try {
-    const stdout = execFileSync(
-      'bunx',
-      [
-        'tsc',
-        '--noEmit',
-        '--skipLibCheck',
-        '--target',
-        'esnext',
-        '--module',
-        'esnext',
-        '--moduleResolution',
-        'bundler',
-        '--strict',
-        sidecarPath,
-      ],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-    )
+    const stdout = execFileSync('bunx', ['tsc', '--noEmit', '-p', cfgPath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     return { code: 0, stdout, stderr: '' }
   } catch (e) {
     const err = e as { status?: number; stdout?: Buffer | string; stderr?: Buffer | string }
@@ -60,7 +74,7 @@ function runTsc(sidecarPath: string): { code: number; stderr: string; stdout: st
 
 describe('B3b — AC12 sidecar tsc end-to-end', () => {
   it('writes a .ts sidecar to the sidecarOut path', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'aihu-b3b-sidecar-'))
+    const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-sidecar-'))
     try {
       const src = readFileSync(join(fixturesDir, 'good-emit-payload.aihu'), 'utf8')
       const sidecarOut = join(tmp, 'good.aihu.ts')
@@ -75,7 +89,7 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
   })
 
   it('catches a deliberate $emit payload type error via tsc', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'aihu-b3b-bad-'))
+    const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-bad-'))
     try {
       const src = readFileSync(join(fixturesDir, 'bad-emit-payload.aihu'), 'utf8')
       const sidecarOut = join(tmp, 'bad.aihu.ts')
@@ -91,8 +105,63 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     }
   })
 
+  it('passes tsc on template-literal, spread, and destructured-each reads (W4)', () => {
+    // W4 — the AST harvest: reads inside `${…}` holes and after `...`, and
+    // destructured `{#each}` aliases, must all be IN SCOPE for the lifted
+    // expressions. Before W4 the token harvest missed every one of them and this
+    // fixture failed tsc with false TS2304s.
+    //
+    // How a name gets into scope changed: @state bindings (`count`, `nums`) are
+    // now bound by the INLINED @state body, carrying their real types, and only
+    // the template-only loop aliases (`i`, `k`, `v`) remain `any` params. So the
+    // check is "does tsc resolve it", not "is it in the parameter list" — the old
+    // assertion pinned the sidecar to a shape in which every binding was `any` and
+    // a type error in @state could never be caught.
+    const tmp = mkdtempSync(join(SCRATCH, 'aihu-w4-adv-'))
+    try {
+      const src = readFileSync(join(fixturesDir, 'w4-advanced-exprs.aihu'), 'utf8')
+      const sidecarOut = join(tmp, 'w4-advanced-exprs.aihu.ts')
+      transform(src, join(tmp, 'w4-advanced-exprs.aihu'), { sidecarOut })
+      const ts = readFileSync(sidecarOut, 'utf8')
+      const sig = ts.split('\n').find((l) => l.includes('function __aihu_template')) ?? ''
+      // Loop aliases have no declaration to borrow a type from — they stay params.
+      for (const param of ['i: any', 'k: any', 'v: any']) {
+        expect(sig).toContain(param)
+      }
+      // @state bindings come from the inlined body instead.
+      expect(sig).not.toContain('count: any')
+      expect(ts).toContain('count')
+      expect(ts).toContain('nums')
+      // The real check: tsc resolves every one of them. A missed harvest is a TS2304.
+      const result = runTsc(sidecarOut)
+      expect(result.code, `tsc must be clean:\n${result.stdout}\n${result.stderr}`).toBe(0)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('cites the real .aihu line for an error inside a template-literal hole (W4/#390)', () => {
+    // Line-mapping proof: the undefined `nope` lives in a `${…}` hole on
+    // .aihu line 11; the line-preserving sidecar makes tsc cite line 11.
+    // The in-scope `count` in the SAME literal must NOT error (before W4 it
+    // false-TS2304'd, drowning the genuine diagnostic).
+    const tmp = mkdtempSync(join(SCRATCH, 'aihu-w4-line-'))
+    try {
+      const src = readFileSync(join(fixturesDir, 'w4-bad-line-cite.aihu'), 'utf8')
+      const sidecarOut = join(tmp, 'w4-bad-line-cite.aihu.ts')
+      transform(src, join(tmp, 'w4-bad-line-cite.aihu'), { sidecarOut })
+      const result = runTsc(sidecarOut)
+      expect(result.code).not.toBe(0)
+      const combined = `${result.stdout}\n${result.stderr}`
+      expect(combined).toMatch(/\(11,\d+\): error TS2304: Cannot find name 'nope'/)
+      expect(combined).not.toMatch(/Cannot find name 'count'/)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('passes tsc on a well-typed $emit payload', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'aihu-b3b-good-'))
+    const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-good-'))
     try {
       const src = readFileSync(join(fixturesDir, 'good-emit-payload.aihu'), 'utf8')
       const sidecarOut = join(tmp, 'good.aihu.ts')

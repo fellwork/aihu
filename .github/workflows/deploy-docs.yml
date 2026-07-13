@@ -38,7 +38,8 @@ permissions:
   pull-requests: write
 
 env:
-  RUSTUP_TOOLCHAIN: "1.88"
+  # W2: oxc_parser 0.139 needs rustc >= 1.94; keep in sync with rust-toolchain.toml.
+  RUSTUP_TOOLCHAIN: "1.95"
 
 jobs:
   test:
@@ -51,7 +52,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
-          toolchain: "1.88"
+          toolchain: "1.95" # W2: oxc_parser 0.139 needs rustc >= 1.94; sync with rust-toolchain.toml
 
       # MUST build aihu-compile fresh from current source so docs are compiled
       # with the latest @style emission. The old actions/cache (restore-keys

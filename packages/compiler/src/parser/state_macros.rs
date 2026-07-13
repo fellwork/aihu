@@ -484,7 +484,7 @@ fn try_parse_macro(
                 });
             }
             let (body, advance) = if full_body.as_bytes()[q] == b'{' {
-                let close = find_brace_close(full_body, q + 1).ok_or_else(|| CompileError {
+                let close = find_brace_close_js(full_body, q + 1).ok_or_else(|| CompileError {
                     message: "$effect anonymous form: unclosed `{` in arrow body".to_string(),
                     line: 0,
                     col: 0,
@@ -504,7 +504,7 @@ fn try_parse_macro(
         if full_body.as_bytes()[p] != b'{' {
             return Err(c440(rest, kind));
         }
-        let close = find_brace_close(full_body, p + 1).ok_or_else(|| CompileError {
+        let close = find_brace_close_js(full_body, p + 1).ok_or_else(|| CompileError {
             message: format!("${}: unclosed `{{` in collection body", keyword_name(kind)),
             line: 0,
             col: 0,
@@ -877,7 +877,7 @@ fn parse_object_collection(
         // — `(t): string => …` has a legitimate top-level `:` — so they are not
         // guarded here; the canonical comma form always parses correctly.)
         if is_wrapped {
-            if let Some(close) = find_brace_close(&value, 1) {
+            if let Some(close) = find_brace_close_js(&value, 1) {
                 let trailing = value[close + 1..].trim();
                 if !trailing.is_empty() {
                     let next = trailing
@@ -1191,49 +1191,31 @@ fn parse_meta_pairs(body: &str) -> Result<Vec<(String, String)>, CompileError> {
 /// string/template literals). Trailing-comma-only entries (empty between
 /// commas) are skipped.
 fn split_top_level_commas(s: &str) -> Vec<String> {
-    let bytes = s.as_bytes();
+    // Over the shared scanner's code-byte stream, a naive bracket count is
+    // lexically correct: a comma, brace or quote inside a string, comment or
+    // regex literal never reaches us. Counting raw bytes instead meant a handler
+    // like `s.replace(/['"]/g, '')` opened string mode on the regex's quote and
+    // ran the split straight past the comma that ends the entry.
+    let mut scanner = crate::parser::expr_scan::CodeScanner::new(s);
     let mut out = Vec::new();
     let mut start = 0usize;
     let mut depth_brace = 0i32;
     let mut depth_paren = 0i32;
     let mut depth_bracket = 0i32;
-    let mut i = 0usize;
-    while i < bytes.len() {
-        match bytes[i] {
+    while let Some((i, b)) = scanner.next_code_byte() {
+        match b {
             b'{' => depth_brace += 1,
             b'}' => depth_brace = (depth_brace - 1).max(0),
             b'(' => depth_paren += 1,
             b')' => depth_paren = (depth_paren - 1).max(0),
             b'[' => depth_bracket += 1,
             b']' => depth_bracket = (depth_bracket - 1).max(0),
-            b'"' | b'\'' | b'`' => {
-                let q = bytes[i];
-                i += 1;
-                while i < bytes.len() {
-                    if bytes[i] == b'\\' && i + 1 < bytes.len() {
-                        i += 2;
-                        continue;
-                    }
-                    if bytes[i] == q {
-                        break;
-                    }
-                    i += 1;
-                }
-            }
-            b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => {
-                // Skip to end of line
-                while i < bytes.len() && bytes[i] != b'\n' {
-                    i += 1;
-                }
-                continue; // don't increment past newline; outer loop does
-            }
             b',' if depth_brace == 0 && depth_paren == 0 && depth_bracket == 0 => {
                 out.push(s[start..i].to_string());
                 start = i + 1;
             }
             _ => {}
         }
-        i += 1;
     }
     if start < s.len() {
         out.push(s[start..].to_string());
@@ -1351,7 +1333,7 @@ fn extract_brace_body_with_pos(
                 ..Default::default()
             })?;
     let close_pos =
-        find_brace_close(full_body, open_pos + 1).ok_or_else(|| CompileError {
+        find_brace_close_js(full_body, open_pos + 1).ok_or_else(|| CompileError {
             message: "unclosed '{' in macro body".to_string(),
             line: 0,
             col: 0,
@@ -1401,8 +1383,22 @@ pub fn find_paren_close(s: &str, body_start: usize) -> Option<usize> {
     None
 }
 
-/// Find the matching `}` for an already-opened block.
-/// `body_start` is the byte just past the opening `{`.
+/// Find the matching `}` for an already-opened JS body — a macro body, an
+/// `$effect` arrow, a collection entry. `body_start` is the byte just past the
+/// opening `{`.
+///
+/// Defers to the shared lexical scanner, so braces inside strings, template
+/// literals, comments and regex literals are payload rather than structure. The
+/// hand-rolled scan below knows strings but not regexes, which is why a handler
+/// like `s.replace(/['"]/g, '')` used to leave the body "unclosed".
+pub fn find_brace_close_js(s: &str, body_start: usize) -> Option<usize> {
+    crate::parser::expr_scan::find_matching_close_brace(s, body_start)
+}
+
+/// Find the matching `}` for an already-opened CSS body (`$media`, `$when`,
+/// `$global`). `body_start` is the byte just past the opening `{`.
+///
+/// CSS is not JS: it has strings, but no regex literals and no `//` comments.
 pub fn find_brace_close(s: &str, body_start: usize) -> Option<usize> {
     let bytes = s.as_bytes();
     let mut depth: usize = 1;

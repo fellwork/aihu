@@ -96,6 +96,7 @@ fn ac2_stream_codegen_creates_stream_call() {
         source,
         template_ast,
         target: BuildTarget::Universal,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "chat-widget");
     let js = &result.js;
@@ -136,6 +137,7 @@ fn ac2_stream_codegen_has_start_stop() {
         source,
         template_ast,
         target: BuildTarget::Universal,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "my-widget");
     let js = &result.js;
@@ -191,6 +193,7 @@ $stream: {
         source,
         template_ast,
         target: BuildTarget::Universal,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "dual-stream");
     let js = &result.js;
@@ -224,6 +227,7 @@ fn ac8_no_stream_no_create_stream_import() {
         source,
         template_ast,
         target: BuildTarget::Universal,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "no-stream");
     let js = &result.js;
@@ -264,6 +268,7 @@ fn ac9_stream_block_server_artifact() {
         source,
         template_ast,
         target: BuildTarget::Server,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "chat-widget");
     let js = &result.js;
@@ -310,6 +315,7 @@ fn ac10_stream_block_client_elision() {
         source,
         template_ast,
         target: BuildTarget::Client,
+        expr_parser: Default::default(),
     };
     let result = emit(&unit, "chat-widget");
     let js = &result.js;

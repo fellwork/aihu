@@ -1,2 +1,6 @@
 [toolchain]
-channel = "1.87.0"
+# W2 (advanced-js-template-expressions): oxc_parser 0.139 requires rustc >= 1.94;
+# 1.95.0 verified working locally (scoping brief, 2026-07-10). Keep in sync with
+# the CI pins in .github/workflows/release.yml (RUSTUP_TOOLCHAIN env + the
+# dtolnay/rust-toolchain steps) and .github/workflows/deploy-docs.yml.
+channel = "1.95.0"

@@ -1,0 +1,26 @@
+---
+source: packages/compiler/tests/template_parse.rs
+expression: result
+---
+Ok(
+    [
+        EachBlock {
+            list_expr: "['}']",
+            item_alias: "it",
+            idx_alias: None,
+            key_expr: None,
+            body: [
+                Element {
+                    tag: "li",
+                    attrs: [],
+                    children: [
+                        Text(
+                            "x",
+                        ),
+                    ],
+                },
+            ],
+            empty_body: None,
+        },
+    ],
+)

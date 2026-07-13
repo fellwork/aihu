@@ -20,6 +20,7 @@ fn emit_sfc(sfc_src: &str, tag: &str) -> String {
         source,
         template_ast,
         target: BuildTarget::Universal,
+        expr_parser: Default::default(),
     };
     emit(&unit, tag).js
 }

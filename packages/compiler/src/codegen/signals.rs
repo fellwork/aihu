@@ -277,7 +277,7 @@ fn plain_state_lines(raw_script: &str) -> Vec<String> {
                     if p < raw_script.len() {
                         if bytes[p] == b'{' {
                             if let Some(close) =
-                                crate::parser::state_macros::find_brace_close(raw_script, p + 1)
+                                crate::parser::state_macros::find_brace_close_js(raw_script, p + 1)
                             {
                                 i = close + 1;
                                 if i < bytes.len() && bytes[i] == b'\n' {
@@ -305,7 +305,7 @@ fn plain_state_lines(raw_script: &str) -> Vec<String> {
                                     }
                                     if q < raw_script.len() && bytes[q] == b'{' {
                                         if let Some(close) =
-                                            crate::parser::state_macros::find_brace_close(
+                                            crate::parser::state_macros::find_brace_close_js(
                                                 raw_script,
                                                 q + 1,
                                             )
@@ -338,7 +338,7 @@ fn plain_state_lines(raw_script: &str) -> Vec<String> {
                     has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2));
                 if let Some(brace_start) = brace_start_opt {
                     if let Some(close) =
-                        crate::parser::state_macros::find_brace_close(raw_script, brace_start + 1)
+                        crate::parser::state_macros::find_brace_close_js(raw_script, brace_start + 1)
                     {
                         i = close + 1;
                         if i < bytes.len() && bytes[i] == b'\n' {

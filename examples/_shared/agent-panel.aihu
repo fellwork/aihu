@@ -28,7 +28,7 @@
       <span class="panel-icon" aria-hidden="true">&#x2713;</span>
       Agent surface
       <span class="panel-count" $if={hasEntries}>({count})</span>
-      <span class="panel-chevron" aria-hidden="true">{open ? '▲' : '▼'}</span>
+      <span class="panel-chevron" aria-hidden="true">{open() ? '▲' : '▼'}</span>
     </button>
 
     <div class="agent-panel-body" $if={open}>

@@ -83,6 +83,11 @@ pub struct StyleBlock<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct AihuSource<'a> {
     pub script: Option<&'a str>,
+    /// 1-based line in the original `.aihu` file where the `@state` body's first
+    /// non-whitespace character sits. The type-check sidecar inlines the script
+    /// verbatim at these lines, so a `tsc` diagnostic inside `@state` cites the
+    /// real `.aihu` line. 0 when no @state.
+    pub script_line: usize,
     pub template: Option<&'a str>,
     /// 1-based line in the original `.aihu` file where the `@template` body's
     /// first non-whitespace character sits. Lets the type-check sidecar place
@@ -197,6 +202,13 @@ pub struct CompileUnit<'a> {
     pub template_ast: Option<Vec<TemplateNode>>,
     /// v0.6.4: build target for artifact gating.
     pub target: BuildTarget,
+    /// W3 (advanced-js-template-expressions): which expression front-end the
+    /// emitter uses for the signal-read rewrite. Set by
+    /// `compile_full_with_options`; `Legacy` (the default) keeps codegen
+    /// byte-identical to pre-W3. Under `Ast` the rewrite runs scope-aware on
+    /// the oxc AST (spread / template-literal holes / arrow bodies /
+    /// each-alias shadowing all handled — the plan's silent-miscompile rows).
+    pub expr_parser: crate::expr::ExprParserMode,
 }
 
 #[derive(Debug, Default)]

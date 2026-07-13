@@ -1,4 +1,5 @@
 use crate::codegen::signals::{SignalMap, StateNames};
+use crate::expr::ExprParserMode;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{
     AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
@@ -314,16 +315,36 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // layout below work: every lifted template expression at or after source
     // line 3 can be placed on its exact `.aihu` line, so `tsc` diagnostics cite
     // the real source line instead of a bunched-up projection region.
+    //
+    // A framework global is declared only when the script does NOT already bind
+    // that name. Now that the @state body is inlined verbatim, a component that
+    // imports `signal` from '@aihu/signals' brings its own — and an ambient
+    // re-declaration beside the import is a hard TS2440 conflict.
+    const FRAMEWORK_GLOBALS: &[(&str, &str)] = &[
+        ("signal", "declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void];"),
+        ("computed", "declare const computed: <T>(fn: () => T) => () => T;"),
+        ("onMount", "declare const onMount: (fn: () => void | (() => void)) => void;"),
+        ("onCleanup", "declare const onCleanup: (fn: () => void) => void;"),
+        ("onAdopt", "declare const onAdopt: (fn: () => void) => void;"),
+        (
+            "onAttributeChange",
+            "declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;",
+        ),
+    ];
+    let script_bound = script_bound_names(script);
+    let globals: String = FRAMEWORK_GLOBALS
+        .iter()
+        .filter(|(name, _)| !script_bound.contains(*name))
+        .map(|(_, decl)| *decl)
+        .collect::<Vec<_>>()
+        .join(" ");
     let preamble_line = format!(
-        "declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void]; \
-         declare const computed: <T>(fn: () => T) => () => T; \
-         declare const onMount: (fn: () => void | (() => void)) => void; \
-         declare const onCleanup: (fn: () => void) => void; \
-         declare const onAdopt: (fn: () => void) => void; \
-         declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void; \
-         declare function __handler(h: (...args: any[]) => any): void; {} {} // {}.aihu type-check sidecar (generated, line-preserving)",
+        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {} \
+         // {}.aihu type-check sidecar (generated, line-preserving)",
+        globals,
         to_single_line(&emit_decl),
         to_single_line(&event_decl),
+        macro_binding_decls(script),
         tag_name
     );
 
@@ -337,31 +358,120 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // spans @state binding names, signal setters, @state imports, and
     // `$each`/`{#each}` loop aliases (see collect_sidecar_scope_names).
     let scope_names = collect_sidecar_scope_names(script, nodes);
+    // W4 (advanced-js-template-expressions) — the referenced-ident harvest
+    // reads the oxc AST (`expr::referenced_idents`): every identifier READ a
+    // template expression makes, post-scope-model — reads inside
+    // template-literal `${…}` holes and after `...` spread now count (the
+    // token scan was blind to both, so valid components false-TS2304'd),
+    // while expression-internal shadows (arrow params, block `const`s),
+    // member properties, object keys, and TS type names never do. Always-on,
+    // not `--expr-parser`-gated: harvesting is type-check-side only (it
+    // changes which `any` params the sidecar declares, never the emitted
+    // JS). Captures that don't parse as a TS expression (possible under
+    // `--expr-parser legacy`) fall back to the token scan per-expression, so
+    // the sidecar never loses the coverage it had.
+    let mut referenced_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for e in &exprs {
+        match crate::expr::referenced_idents(&e.expr) {
+            Some(reads) => referenced_names.extend(reads),
+            None => {
+                for name in &scope_names {
+                    if expr_references_ident(&e.expr, name) {
+                        referenced_names.insert(name.clone());
+                    }
+                }
+            }
+        }
+    }
     let referenced: Vec<String> = scope_names
         .into_iter()
-        .filter(|name| exprs.iter().any(|e| expr_references_ident(&e.expr, name)))
+        .filter(|name| referenced_names.contains(name))
         .collect();
+    // The @state body is INLINED verbatim below (at its real lines), so every
+    // name it binds — bindings, setters, imports — carries its true type. Only
+    // the loop aliases remain `any`: `{#each xs as m}` binds `m` in the TEMPLATE,
+    // so no declaration for it exists in the script to borrow a type from.
+    // (Deriving the element type from the iterable is the next step; until then
+    // an honest `any` beats a wrong type.)
+    //
+    // Everything else used to be an `any` param too, which is why a `@state` type
+    // error could never be caught: the script was never handed to tsc at all.
+    let loop_aliases: std::collections::BTreeSet<String> = {
+        let mut a = std::collections::BTreeSet::new();
+        collect_loop_aliases(nodes, &mut a);
+        a
+    };
     let params = referenced
         .iter()
+        .filter(|n| loop_aliases.contains(n.as_str()))
         .map(|n| format!("{}: any", n))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Line-preserving body. `lines[i]` is sidecar line i+1: line 1 = preamble,
-    // line 2 = the function opener, body statements on line ≥3. Each lifted
-    // expression is placed on its real `.aihu` source line, recovered by a
-    // forward-cursor search of the @template text (exprs are collected in source
-    // order, so the cursor disambiguates repeated expressions). Expressions are
-    // collapsed to a single physical line, so a multi-line source expression is
-    // reported at its START line; several expressions sharing a source line
-    // share a sidecar line. Blank body lines are valid (empty statements).
-    const OPENER_LINE: usize = 2;
+    // then the @state body verbatim at its own source lines, then the template
+    // function whose lifted expressions each sit on their real `.aihu` line
+    // (recovered by a forward-cursor search of the @template text; exprs are
+    // collected in source order, so the cursor disambiguates repeats).
+    // Expressions are collapsed to a single physical line, so a multi-line source
+    // expression is reported at its START line, and several expressions sharing a
+    // source line share a sidecar line.
+    //
+    // @state precedes @template in every ordinary SFC, so the script's lines and
+    // the template's lines never collide and both keep their true numbers. When a
+    // file inverts that order the script still lands on its real lines and the
+    // template function stacks after it — diagnostics inside @state stay exact,
+    // and the template's may shift. `script_opener_line` is the last line we may
+    // not write into.
     let template_text = unit.source.template.unwrap_or("");
     let tmpl_first_line = unit.source.template_line; // 1-based; 0 if no @template
-    let mut lines: Vec<String> = vec![
-        preamble_line,
-        format!("function __aihu_template({}): void {{", params),
-    ];
+    let mut lines: Vec<String> = vec![preamble_line];
+
+    // The @state body, on its real lines, at module scope — so the template
+    // function below closes over every binding with its TRUE type.
+    //
+    // Plain JS/TS lines (imports, `const`s, functions — the bulk of a @state
+    // block) go through verbatim and are fully checked, each on its own source
+    // line. Macro lines are blanked: `$prop: { … }` and friends are aihu syntax,
+    // not TypeScript (`type: { params: { ref: string } }` uses `string` in value
+    // position), so feeding them to tsc raises syntax errors on code the author
+    // never wrote. What the macros BIND is declared instead, on the preamble line
+    // — with the prop's real declared type where `type:` gives one.
+    let macro_lines = macro_line_set(script);
+    let script_first_line = unit.source.script_line; // 1-based; 0 if no @state
+    if script_first_line > 0 && !script.is_empty() {
+        for (n, text) in script.lines().enumerate() {
+            let idx = script_first_line - 1 + n;
+            if idx >= lines.len() {
+                lines.resize(idx + 1, String::new());
+            }
+            // `transform_bare_declaration` is the SAME lowering the runtime emit
+            // applies: `@state` accepts a bare typed declaration with no keyword —
+            // `intervalId: number | null = null`, `rates: Record<…, number> = {…}` —
+            // and that is aihu syntax, not TypeScript. Inlined verbatim it reads as
+            // a labelled statement, so tsc reports `'number' only refers to a type,
+            // but is being used as a value here` on a line the author wrote
+            // correctly, and the name never gets declared (every template reference
+            // to it then false-errors as undefined). Lowering it to `let name: T = …`
+            // keeps the line — and its length, so the mapping still holds.
+            let text = if macro_lines.contains(&n) {
+                String::new()
+            } else {
+                transform_bare_declaration(text)
+            };
+            // Line 1 is the preamble and must not be overwritten. A @state body
+            // cannot start there in practice (the `@state {` opener occupies a
+            // line above it), so this only guards the pathological case.
+            if idx > 0 {
+                lines[idx] = text;
+            }
+        }
+    }
+
+    // Open the template function on the first free line after the script.
+    let opener_line = lines.len().max(1) + 1;
+    lines.resize(opener_line - 1, String::new());
+    lines.push(format!("function __aihu_template({}): void {{", params));
     let mut cursor = 0usize;
     for e in &exprs {
         // Recover the expression's 1-based `.aihu` file line (0 = unknown).
@@ -384,12 +494,13 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
             // still flags undefined identifiers and most type errors.
             format!("void ({});", to_single_line(&e.expr))
         };
-        // Target line: the real source line when it's below the opener; otherwise
-        // stack immediately after the current body (can't write into the preamble).
-        let target = if file_line > OPENER_LINE {
+        // Target line: the real source line when it sits below the function opener
+        // (and so cannot collide with the preamble or the inlined script);
+        // otherwise stack after the current body.
+        let target = if file_line > opener_line {
             file_line
         } else {
-            lines.len().max(OPENER_LINE) + 1
+            lines.len().max(opener_line) + 1
         };
         let idx = target - 1;
         if idx >= lines.len() {
@@ -404,6 +515,118 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     }
     lines.push("}".to_string());
     Some(format!("{}\n", lines.join("\n")))
+}
+
+/// Top-level names the `@state` body itself binds — imports and `const`/`let`
+/// declarations. The sidecar's preamble skips any framework global already bound
+/// here: with the script inlined verbatim, `import { signal } from '@aihu/signals'`
+/// beside an ambient `declare const signal` is a TS2440 conflict.
+fn script_bound_names(script: &str) -> std::collections::BTreeSet<String> {
+    let mut names = std::collections::BTreeSet::new();
+    collect_imported_names(script, &mut names);
+    names.extend(crate::codegen::signals::collect_state_decls(script).all);
+    names
+}
+
+/// The 0-based line indices (within the `@state` body) occupied by a `$macro`
+/// and its body. The sidecar blanks these so tsc never parses aihu macro syntax
+/// as TypeScript, while the surrounding real code keeps its line numbers.
+///
+/// Mirrors the macro-region skip in `codegen::signals::collect_state_decls`.
+fn macro_line_set(script: &str) -> std::collections::BTreeSet<usize> {
+    let mut out = std::collections::BTreeSet::new();
+    let bytes = script.as_bytes();
+    let mut i = 0usize;
+    while i < script.len() {
+        let nl = script[i..].find('\n').map(|r| i + r).unwrap_or(script.len());
+        let line = script[i..nl].trim();
+        if line.starts_with('$') {
+            // Find the macro's end: the close of its `{ … }` or `( … )` payload,
+            // else just this line.
+            let mut end = nl;
+            if let Some(colon_rel) = script[i..].find(|c| c == '{' || c == '(') {
+                let p = i + colon_rel;
+                // Only treat it as a payload when it opens on the macro's own line
+                // or the next (a `$macro` never opens its body further away).
+                if script[i..p].bytes().filter(|&b| b == b'\n').count() <= 1 {
+                    let close = if bytes[p] == b'{' {
+                        crate::parser::state_macros::find_brace_close_js(script, p + 1)
+                    } else {
+                        crate::parser::state_macros::find_paren_close(script, p + 1)
+                    };
+                    if let Some(c) = close {
+                        end = c;
+                    }
+                }
+            }
+            let first = newlines_before(script, i);
+            let last = newlines_before(script, end.min(script.len()));
+            for l in first..=last {
+                out.insert(l);
+            }
+            i = script[end.min(script.len())..]
+                .find('\n')
+                .map(|r| end + r + 1)
+                .unwrap_or(script.len());
+            continue;
+        }
+        i = nl + 1;
+    }
+    out
+}
+
+/// Declarations for every binding a `$macro` introduces, as a single physical
+/// line appended to the preamble (the macro's own lines are blanked — see
+/// `macro_line_set`).
+///
+/// `$prop` entries carry a declared `type:`, so they get their REAL type — props
+/// are what templates touch most, and a wrong prop type is exactly the bug the
+/// sidecar exists to catch. The other collections bind functions whose types
+/// would have to be inferred from macro bodies that aren't yet lowered to TS, so
+/// they are honestly `any` for now rather than confidently wrong.
+///
+/// Module-scope `let`/`const` (not `declare const`): a binding may shadow a DOM
+/// global (`name`, `open`, `status`, `close`), and an ambient re-declaration of
+/// one collides with lib.dom (TS2451) where a module-scope binding shadows it.
+fn macro_binding_decls(script: &str) -> String {
+    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let mut decls: Vec<String> = Vec::new();
+    for m in &macros {
+        let crate::types::StateMacro::Collection { kind, entries } = m else {
+            continue;
+        };
+        for e in entries {
+            let name = &e.name;
+            match kind {
+                crate::types::CollectionKind::Prop => {
+                    // `type:` is a TS type, but may be written as a quoted string
+                    // (`type: "number"`) or bare (`type: { params: { ref: string } }`).
+                    let ty = e
+                        .meta
+                        .iter()
+                        .find(|(k, _)| k == "type")
+                        .map(|(_, v)| unquote_ts_type(v.trim()))
+                        .unwrap_or_else(|| "any".to_string());
+                    decls.push(format!("let {}: {} = null as any;", name, ty));
+                }
+                // Event dispatchers are already typed by the $emit/$event decls.
+                crate::types::CollectionKind::Event => {}
+                _ => decls.push(format!("let {}: any = null as any;", name)),
+            }
+        }
+    }
+    decls.join(" ")
+}
+
+/// A `type:` meta value is a TS type. Accept both the quoted (`"number"`) and
+/// bare (`{ params: { ref: string } }`) spellings authors use.
+fn unquote_ts_type(v: &str) -> String {
+    let t = v.trim();
+    let unq = t
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| t.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')));
+    to_single_line(unq.unwrap_or(t)).trim().to_string()
 }
 
 /// Replace newlines with spaces so a value fits on one physical line — used to
@@ -607,6 +830,42 @@ fn extract_pattern_idents(part: &str, out: &mut std::collections::BTreeSet<Strin
     }
 }
 
+/// The alias-side source text of an each head, rejoined from the parser's
+/// (possibly torn) `item_alias`/`idx_alias` fields: `parse_each_header` splits
+/// the alias list on the FIRST comma (template.rs — W5 turns it into a parsed
+/// BindingPattern), so `as [k, v], i` arrives as `[k` + `v], i`. Rejoining
+/// with a comma reconstructs the exact alias list for a real parse.
+fn rejoin_alias_list(item_alias: &str, idx_alias: Option<&str>) -> String {
+    match idx_alias {
+        Some(idx) => format!("{}, {}", item_alias, idx),
+        None => item_alias.to_string(),
+    }
+}
+
+/// Bind the identifiers of one each-head alias list into `out` — via a real
+/// parse of the (rejoined) alias list (W4, `expr::alias_bound_idents`), so
+/// destructuring patterns torn by the header split bind every contained
+/// identifier instead of nothing; the token extractor stays as the fallback
+/// for alias text that doesn't parse as a parameter list.
+fn push_alias_bindings(
+    item_alias: &str,
+    idx_alias: Option<&str>,
+    out: &mut std::collections::BTreeSet<String>,
+) {
+    let alias_list = rejoin_alias_list(item_alias, idx_alias);
+    match crate::expr::alias_bound_idents(&alias_list) {
+        Some(bound) => out.extend(bound),
+        None => {
+            extract_pattern_idents(item_alias, out);
+            if let Some(idx) = idx_alias {
+                if is_js_ident(idx) {
+                    out.insert(idx.to_string());
+                }
+            }
+        }
+    }
+}
+
 /// Walk the template AST collecting `$each`/`{#each}` loop aliases (`item` and
 /// optional `index` from `<list> as item[, index]`), which are in scope inside
 /// the loop body the sidecar flattens into `__aihu_template`. Destructuring
@@ -614,11 +873,15 @@ fn extract_pattern_idents(part: &str, out: &mut std::collections::BTreeSet<Strin
 fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
     fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
         // `<list> as <alias>` where <alias> is `item`, `item, idx`, or a
-        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). Split on the
-        // FIRST " as " (list part is irrelevant), then split the alias list on
-        // TOP-LEVEL commas so a destructure isn't torn apart, and extract every
-        // bound identifier from each part.
-        if let Some((_, rest)) = clause.split_once(" as ") {
+        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). W4: split
+        // with the parser's scanner-aware each-header split (an ` as ` inside
+        // a string/parens in the LIST no longer mis-splits; a trailing `(key)`
+        // group no longer swallows the idx alias), then bind the alias side
+        // from a real parse. The naive textual split stays as the fallback
+        // for clauses `parse_each_header` rejects.
+        if let Ok((_, item, idx, _)) = crate::parser::template::parse_each_header(clause) {
+            push_alias_bindings(&item, idx.as_deref(), out);
+        } else if let Some((_, rest)) = clause.split_once(" as ") {
             for part in split_top_level_commas_pat(rest) {
                 extract_pattern_idents(&part, out);
             }
@@ -644,13 +907,12 @@ fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTre
                 empty_body,
                 ..
             } => {
-                // item_alias may be a destructuring pattern (`{#each xs as [k, v]}`).
-                extract_pattern_idents(item_alias, out);
-                if let Some(idx) = idx_alias {
-                    if is_js_ident(idx) {
-                        out.insert(idx.clone());
-                    }
-                }
+                // item_alias may be a destructuring pattern (`{#each xs as
+                // [k, v]}`) — and until W5 the header split tears it across
+                // item/idx (`[k` + `v], i`), so the token extractor bound
+                // NOTHING and every body reference TS2304'd. W4 rejoins the
+                // alias list and really parses it.
+                push_alias_bindings(item_alias, idx_alias.as_deref(), out);
                 collect_loop_aliases(body, out);
                 if let Some(eb) = empty_body {
                     collect_loop_aliases(eb, out);
@@ -737,8 +999,20 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                 // referenced.
                 Attr::Macro { name, value } if name == "each" => {
                     let clause = macro_value_expr(value);
-                    let list = clause.split_once(" as ").map(|(l, _)| l).unwrap_or(&clause);
-                    out.push(SidecarExpr { expr: list.trim().to_string(), is_handler: false });
+                    // W4: locate the ` as ` with the parser's scanner-aware
+                    // header split so an ` as ` inside a string/parens in the
+                    // LIST doesn't tear it; the naive split stays as the
+                    // fallback for clauses `parse_each_header` rejects.
+                    let list = match crate::parser::template::parse_each_header(&clause) {
+                        Ok((list_expr, _, _, _)) => list_expr,
+                        Err(_) => clause
+                            .split_once(" as ")
+                            .map(|(l, _)| l)
+                            .unwrap_or(&clause)
+                            .trim()
+                            .to_string(),
+                    };
+                    out.push(SidecarExpr { expr: list, is_handler: false });
                 }
                 // `$on.*={handler}` normalizes to an `on:<event>` attr — the
                 // value is a function, emitted in call position so inline arrow
@@ -1437,7 +1711,7 @@ fn process_state_body(
                     }
                     if p < raw_script.len() {
                         if bytes[p] == b'{' {
-                            if let Some(close) = crate::parser::state_macros::find_brace_close(
+                            if let Some(close) = crate::parser::state_macros::find_brace_close_js(
                                 raw_script,
                                 p + 1,
                             ) {
@@ -1474,7 +1748,7 @@ fn process_state_body(
                                     }
                                     if q < raw_script.len() && bytes[q] == b'{' {
                                         if let Some(close) =
-                                            crate::parser::state_macros::find_brace_close(
+                                            crate::parser::state_macros::find_brace_close_js(
                                                 raw_script,
                                                 q + 1,
                                             )
@@ -1510,7 +1784,7 @@ fn process_state_body(
                 let brace_start_opt =
                     has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2));
                 if let Some(brace_start) = brace_start_opt {
-                    if let Some(close) = crate::parser::state_macros::find_brace_close(
+                    if let Some(close) = crate::parser::state_macros::find_brace_close_js(
                         raw_script,
                         brace_start + 1,
                     ) {
@@ -2549,7 +2823,16 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
         helpers_needed.each_boundary,
         &helpers_needed,
     );
-    let return_expr = emit_nodes(template_nodes, &signal_map, &state_names, "    ");
+    // W3: the emitter's rewrite front-end follows the unit's `--expr-parser`
+    // mode (Legacy = byte-identical token pipeline; Ast = scope-aware oxc
+    // rewrite).
+    let return_expr = emit_nodes(
+        template_nodes,
+        &signal_map,
+        &state_names,
+        "    ",
+        unit.expr_parser,
+    );
 
     let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
@@ -3673,10 +3956,11 @@ fn emit_nodes(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     let non_empty: Vec<String> = nodes
         .iter()
-        .map(|n| emit_node(n, signal_map, state_names, child_indent))
+        .map(|n| emit_node(n, signal_map, state_names, child_indent, mode))
         .filter(|s| !s.is_empty())
         .collect();
 
@@ -3710,6 +3994,7 @@ fn emit_node(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     match node {
         TemplateNode::Text(s) => {
@@ -3790,7 +4075,22 @@ fn emit_node(
 
             // 2. Dotted access whose BASE is a registered signal/computed →
             //    reactive member read (e.g. {user.name}, {route.params.slug}).
-            if let Some(dot_pos) = trimmed.find('.') {
+            //
+            //    W3: under `--expr-parser ast` this fast path is restricted to
+            //    PURE dotted ident paths. Legacy fires it for ANY expression
+            //    whose text-before-the-first-dot is an identifier, copying the
+            //    tail VERBATIM — so `{items.filter(i => i > count).length}`
+            //    emitted `(items() as any).filter(i => i > count).length` with
+            //    the arrow-body `count` unrewritten (plan d01, a silent
+            //    miscompile). AST mode routes anything richer than
+            //    `base.prop.path` through the scope-aware rewrite below.
+            let dotted_fast_path = match mode {
+                ExprParserMode::Legacy => true,
+                ExprParserMode::Ast => is_pure_dotted_path(trimmed),
+            };
+            if !dotted_fast_path {
+                // fall through to step 3
+            } else if let Some(dot_pos) = trimmed.find('.') {
                 let base = &trimmed[..dot_pos];
                 let prop_path = &trimmed[dot_pos + 1..];
                 let base_is_ident = !base.is_empty()
@@ -3817,7 +4117,7 @@ fn emit_node(
             // 3. FEL-172/173: rewrite bare reads of registered getters to calls
             //    (`{count + 1}` → `count() + 1`, `{section.kind}` handled in
             //    step 2, but `{section.kind === 'x' ? a : b}` lands here).
-            let rewritten = rewrite_signal_reads_to_calls(trimmed, signal_map);
+            let rewritten = rewrite_template_expr(trimmed, signal_map, mode);
 
             // 4. FEL-228 / FEL-173: a complex interpolation that reads reactive
             //    state — a computed/getter CALL like `{selBookLabel()}`, an
@@ -3829,15 +4129,25 @@ fn emit_node(
             //    contract attribute bindings get from `lower_attr_expr`. Pure
             //    projections of loop vars (`{item.title}` — no call) stay
             //    eager to avoid a needless per-row effect.
-            if interpolation_has_call(&rewritten) {
+            //
+            //    W3: AST mode ALSO thunks when the rewritten AST reads a
+            //    signal even though no call-paren is visible to the legacy
+            //    scanner — the template-literal class (plan a06/a24:
+            //    `` {`Count: ${count}`} `` rewrote to `${count()}` INSIDE a
+            //    backtick literal, which `interpolation_has_call` skips
+            //    entirely, so it stayed an eager, never-updating leaf). The
+            //    has-a-call heuristic is kept as an OR so expressions over
+            //    imported stores the compiler can't see stay reactive,
+            //    exactly as under legacy.
+            if interpolation_has_call(&rewritten.source) || rewritten.reads_signal {
                 return format!(
                     "leaf([() => ({}) as unknown as string, () => {{}}] as unknown as Signal<string>)",
-                    rewritten
+                    rewritten.source
                 );
             }
 
             // 5. Genuinely static (loop-var projection, plain const) → eager.
-            format!("leaf({})", rewritten)
+            format!("leaf({})", rewritten.source)
         }
         TemplateNode::Element {
             tag,
@@ -3862,7 +4172,7 @@ fn emit_node(
             // Check for $raw — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
-            let attrs_str = emit_attrs(attrs, state_names, signal_map);
+            let attrs_str = emit_attrs(attrs, state_names, signal_map, mode);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -3873,7 +4183,7 @@ fn emit_node(
             } else {
                 children
                     .iter()
-                    .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+                    .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
                     .filter(|s| !s.is_empty())
                     .collect()
             };
@@ -3904,7 +4214,7 @@ fn emit_node(
             };
 
             // Emit macro effects (wrapping/side-effect macros).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
             if effects.is_empty() {
                 base
             } else {
@@ -3913,12 +4223,12 @@ fn emit_node(
             }
         }
         TemplateNode::MacroElement { name, attrs, children } => {
-            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent);
+            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent, mode);
             // Apply structural/effect directives ($each/$if/$key/$show/$class:)
             // that wrap or affect the element — same as the plain Element arm
             // above. Without this, directives on macro elements like <$link>
             // were silently dropped (e.g. `$each` left a dangling loop var).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map);
+            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
             if effects.is_empty() {
                 base
             } else {
@@ -3929,7 +4239,7 @@ fn emit_node(
         // the v1 attribute-directives (`createIfBoundary` / `each`) so the
         // reactivity contract is preserved.
         TemplateNode::IfBlock { branches } => {
-            emit_if_block(branches, signal_map, state_names, child_indent)
+            emit_if_block(branches, signal_map, state_names, child_indent, mode)
         }
         TemplateNode::EachBlock {
             list_expr,
@@ -3948,6 +4258,7 @@ fn emit_node(
             signal_map,
             state_names,
             child_indent,
+            mode,
         ),
         TemplateNode::HtmlBlock { expr } => emit_html_block(expr, child_indent),
     }
@@ -3962,17 +4273,19 @@ fn emit_if_block(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     fn emit_body(
         body: &[TemplateNode],
         signal_map: &SignalMap,
         state_names: &StateNames,
         child_indent: &str,
+        mode: ExprParserMode,
     ) -> String {
         let next_indent = format!("{}  ", child_indent);
         let parts: Vec<String> = body
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
             .filter(|s| !s.is_empty())
             .collect();
         if parts.is_empty() {
@@ -4012,6 +4325,7 @@ fn emit_if_block(
         signal_map: &SignalMap,
         state_names: &StateNames,
         child_indent: &str,
+        mode: ExprParserMode,
     ) -> Vec<String> {
         // Returns a list of when() calls (siblings) for the branches starting
         // at idx. The caller wraps these into a fragment-branch.
@@ -4020,17 +4334,17 @@ fn emit_if_block(
             return out;
         }
         let (cond, body) = &branches[idx];
-        let body_str = emit_body(body, signal_map, state_names, child_indent);
+        let body_str = emit_body(body, signal_map, state_names, child_indent, mode);
 
         // FEL-172: chain/negation thunks read cond expressions verbatim, so
         // bare getter reads must be rewritten to calls here too — otherwise
         // `{:else if count}` emits `(count)` (the function — always truthy).
-        let rewritten_cond = rewrite_signal_reads_to_calls(cond, signal_map);
+        let rewritten_cond = rewrite_template_expr(cond, signal_map, mode).source;
         let cond_arg = if cond.is_empty() {
             // {:else} — fire when all prior conds are false
             negate_chain_thunk(prior_conds)
         } else if prior_conds.is_empty() {
-            lower_if_cond(cond, signal_map)
+            lower_if_cond(cond, signal_map, mode)
         } else {
             // {:else if}: !prior0 && !prior1 && ... && cond
             let mut parts: Vec<String> = prior_conds
@@ -4048,7 +4362,7 @@ fn emit_if_block(
 
         if !cond.is_empty() {
             prior_conds.push(rewritten_cond);
-            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent);
+            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent, mode);
             out.extend(rest);
             prior_conds.pop();
         }
@@ -4056,7 +4370,7 @@ fn emit_if_block(
     }
 
     let mut prior: Vec<String> = Vec::new();
-    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent);
+    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent, mode);
     if when_calls.len() == 1 {
         when_calls.into_iter().next().unwrap()
     } else {
@@ -4067,7 +4381,7 @@ fn emit_if_block(
 /// Lower a `{#if}` condition the same way the attribute-form `$if` does:
 /// simple identifier of a registered signal → `[get, set]` tuple; otherwise a
 /// thunk array.
-fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
+fn lower_if_cond(cond: &str, signal_map: &SignalMap, mode: ExprParserMode) -> String {
     let trimmed = cond.trim();
     let is_simple_ident = !trimmed.is_empty()
         && trimmed
@@ -4083,7 +4397,10 @@ fn lower_if_cond(cond: &str, signal_map: &SignalMap) -> String {
         }
     }
     // FEL-172: complex conditions read getters by value.
-    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+    format!(
+        "[() => ({})]",
+        rewrite_template_expr(trimmed, signal_map, mode).source
+    )
 }
 
 /// B3 — Lower an `{#each}` block to the existing `each(...)` runtime call.
@@ -4097,11 +4414,61 @@ fn emit_each_block(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
+    // W3 (plan d03/d04): the loop aliases are BINDINGS in scope for the body
+    // and the key expr — an alias that shares a registered signal's name
+    // shadows it. Legacy has no scope model, so `{#each items as count}`
+    // emitted `leaf([count, setCount])` INSIDE the loop callback (the signal
+    // tuple, not the row value). Under `--expr-parser ast` the body/key are
+    // emitted against maps with the alias names REMOVED, so every downstream
+    // decision (tuple fast paths, rewrites, thunk wrapping, nested blocks)
+    // treats the alias as the plain loop variable it is. The LIST expression
+    // (and the `{:empty}` length conds over it) evaluates OUTSIDE the alias
+    // scope and keeps the original maps.
+    //
+    // Alias-name extraction reuses the sidecar's `extract_pattern_idents`
+    // (destructuring-aware). The c10/c11 TORN patterns (`as [k, v]` split at
+    // the comma into `[k` / `v]`) yield no idents and thus no filtering —
+    // pattern aliases are W5's fix; until then they behave exactly as legacy.
+    let mut alias_names = std::collections::BTreeSet::new();
+    if mode == ExprParserMode::Ast {
+        extract_pattern_idents(item_alias, &mut alias_names);
+        if let Some(idx) = idx_alias {
+            extract_pattern_idents(idx, &mut alias_names);
+        }
+    }
+    let filtered_signal_map: SignalMap;
+    let filtered_state_names: StateNames;
+    let (body_signal_map, body_state_names): (&SignalMap, &StateNames) = if alias_names
+        .iter()
+        .any(|n| signal_map.0.contains_key(n) || state_names.contains(n))
+    {
+        filtered_signal_map = SignalMap(
+            signal_map
+                .0
+                .iter()
+                .filter(|(k, _)| !alias_names.contains(*k))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        );
+        filtered_state_names = StateNames(
+            state_names
+                .0
+                .iter()
+                .filter(|n| !alias_names.contains(*n))
+                .cloned()
+                .collect(),
+        );
+        (&filtered_signal_map, &filtered_state_names)
+    } else {
+        (signal_map, state_names)
+    };
+
     let next_indent = format!("{}  ", child_indent);
     let body_parts: Vec<String> = body
         .iter()
-        .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+        .map(|c| emit_node(c, body_signal_map, body_state_names, &next_indent, mode))
         .filter(|s| !s.is_empty())
         .collect();
     let body_str = if body_parts.len() == 1 {
@@ -4112,18 +4479,20 @@ fn emit_each_block(
 
     let idx = idx_alias.unwrap_or("i");
     let key_part = match key_expr {
-        // FEL-172: key exprs may read getters by value.
+        // FEL-172: key exprs may read getters by value. W3: the key runs with
+        // the alias bound (`({alias}) => key`), so it uses the alias-filtered
+        // map under AST mode.
         Some(k) => format!(
             "({}) => {}",
             item_alias,
-            rewrite_signal_reads_to_calls(k, signal_map)
+            rewrite_template_expr(k, body_signal_map, mode).source
         ),
         None => "undefined".to_string(),
     };
 
     // FEL-172: complex list exprs read getters by value
     // (`{#each section.data as it}` → `section().data`).
-    let rewritten_list = rewrite_signal_reads_to_calls(list_expr, signal_map);
+    let rewritten_list = rewrite_template_expr(list_expr, signal_map, mode).source;
     let items_arg = if signal_map.is_reactive(list_expr) {
         if let Some(setter) = signal_map.0.get(list_expr) {
             if !setter.is_empty() {
@@ -4156,7 +4525,7 @@ fn emit_each_block(
     if let Some(eb) = empty_body {
         let empty_parts: Vec<String> = eb
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
             .filter(|s| !s.is_empty())
             .collect();
         let empty_str = if empty_parts.len() == 1 {
@@ -4204,6 +4573,7 @@ fn emit_macro_element(
     signal_map: &SignalMap,
     state_names: &StateNames,
     child_indent: &str,
+    mode: ExprParserMode,
 ) -> String {
     let next_indent = format!("{}  ", child_indent);
 
@@ -4226,7 +4596,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 String::new()
             } else {
-                emit_nodes(children, signal_map, state_names, &next_indent)
+                emit_nodes(children, signal_map, state_names, &next_indent, mode)
             };
 
             let child_fn = if children_subtree.is_empty() {
@@ -4255,8 +4625,8 @@ fn emit_macro_element(
 
             let (fallback_children, loaded_children) = split_slot_fallback(children);
 
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
-            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent, mode);
 
             format!(
                 "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
@@ -4268,8 +4638,8 @@ fn emit_macro_element(
         "shield" => {
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
 
             format!(
                 "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
@@ -4301,7 +4671,7 @@ fn emit_macro_element(
                     scope_name
                 );
 
-                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
                 // Lower to: when(getScopeSignal('scope'), () => branch(...children...))
                 // `getScopeSignal` is imported from `@aihu/auth` at consumer build time.
                 // The guard_boundary helper is not used for scope-form; when() is used directly.
@@ -4316,8 +4686,8 @@ fn emit_macro_element(
 
                 let (fallback_children, main_children) = split_slot_fallback(children);
 
-                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent);
-                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent);
+                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
 
                 format!(
                     "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
@@ -4334,7 +4704,7 @@ fn emit_macro_element(
             let target_expr = find_static_or_binding_attr(attrs, "target")
                 .unwrap_or_else(|| "undefined".to_string());
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             let child_fn = format!("() => {{ return {} }}", children_subtree);
 
             format!(
@@ -4361,7 +4731,7 @@ fn emit_macro_element(
                 .map(|v| v != "false")
                 .unwrap_or(true);
             let atomic_str = if atomic { "true" } else { "false" };
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             // children_subtree is the wrapped branch; we want its children only. Easiest:
             // emit a branch wrapping the existing subtree as a single fragment child.
             format!(
@@ -4373,7 +4743,7 @@ fn emit_macro_element(
         // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
         // once at component mount via _ensureA11yStyles().
         "visuallyHidden" => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
                 children_subtree
@@ -4384,7 +4754,7 @@ fn emit_macro_element(
         // injected once at component mount.
         "skipLink" => {
             let target = find_static_attr(attrs, "target").unwrap_or("#main");
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
                 target, children_subtree
@@ -4441,7 +4811,7 @@ fn emit_macro_element(
                 None => "null".to_string(),
             };
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createFocusTrap({}, {}, {}, () => {{ return {} }})",
                 active_expr, return_focus, initial_focus, children_subtree
@@ -4457,7 +4827,7 @@ fn emit_macro_element(
                 .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
             let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
                 .unwrap_or_else(|| "false".to_string());
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createRouterBoundary({}, {}, () => {{ return {} }})",
                 router_expr, vt_expr, children_subtree
@@ -4473,7 +4843,7 @@ fn emit_macro_element(
             // signal change never updated the link. A static href stays a
             // quoted string (no needless per-link effect).
             let href_expr =
-                link_href_arg(attrs, signal_map).unwrap_or_else(|| "'#'".to_string());
+                link_href_arg(attrs, signal_map, mode).unwrap_or_else(|| "'#'".to_string());
             let prefetch_expr = find_static_or_binding_attr(attrs, "prefetch")
                 .unwrap_or_else(|| "'none'".to_string());
             let replace_expr = find_static_or_binding_attr(attrs, "replace")
@@ -4497,12 +4867,12 @@ fn emit_macro_element(
                 })
                 .cloned()
                 .collect();
-            let attrs_obj = emit_attrs(&forwarded, state_names, signal_map);
+            let attrs_obj = emit_attrs(&forwarded, state_names, signal_map, mode);
             // Children render inside the <a>.
             let children_subtree = if children.is_empty() {
                 "[]".to_string()
             } else {
-                let inner = emit_nodes(children, signal_map, state_names, &next_indent);
+                let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode);
                 format!("[{}]", inner)
             };
             format!(
@@ -4527,7 +4897,7 @@ fn emit_macro_element(
 
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "/* <${}> unknown macro element — passthrough */ {}",
                 name, children_subtree
@@ -4552,7 +4922,11 @@ fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Opt
 /// static links pay no per-link effect. Bare getter reads in the expr are
 /// rewritten to calls (FEL-172) so prop/signal hrefs read values, not the
 /// getter function.
-fn link_href_arg(attrs: &[crate::types::Attr], signal_map: &SignalMap) -> Option<String> {
+fn link_href_arg(
+    attrs: &[crate::types::Attr],
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> Option<String> {
     use crate::types::Attr;
     attrs.iter().find_map(|a| match a {
         Attr::Static { name, value } if name == "href" => Some(format!("'{}'", value)),
@@ -4562,14 +4936,14 @@ fn link_href_arg(attrs: &[crate::types::Attr], signal_map: &SignalMap) -> Option
         } if name == "href" => Some(format!("'{}'", s)),
         Attr::Binding { name, expr } if name == "href" => Some(format!(
             "() => ({})",
-            rewrite_signal_reads_to_calls(expr, signal_map)
+            rewrite_template_expr(expr, signal_map, mode).source
         )),
         Attr::Macro {
             name,
             value: MacroValue::Curly(expr),
         } if name == "href" => Some(format!(
             "() => ({})",
-            rewrite_signal_reads_to_calls(expr, signal_map)
+            rewrite_template_expr(expr, signal_map, mode).source
         )),
         _ => None,
     })
@@ -4637,7 +5011,12 @@ fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<Tem
     (fallback, main)
 }
 
-fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) -> String {
+fn emit_attrs(
+    attrs: &[Attr],
+    state_names: &StateNames,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> String {
     // Filter out macro attrs that aren't pure attribute expressions
     // (those are handled via emit_macro_effects instead).
     //
@@ -4696,16 +5075,27 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     if bare_ident {
                         expr.to_string()
                     } else {
-                        rewrite_signal_reads_to_calls(t, signal_map)
+                        rewrite_template_expr(t, signal_map, mode).source
                     }
                 } else if name == "class" && expr.trim_start().starts_with('[') {
-                    let inner = expr.trim();
+                    // W3 (plan b04): legacy NEVER rewrote inside the class
+                    // array, so `$class={[...items, 'x']}` spread the getter
+                    // FUNCTION (silent runtime crash) and even plain signal
+                    // reads (`[active ? 'on' : '']`) read the getter object.
+                    // AST mode rewrites the array expression like any other
+                    // binding; legacy copies it verbatim (byte-identical).
+                    let inner = match mode {
+                        ExprParserMode::Legacy => expr.trim().to_string(),
+                        ExprParserMode::Ast => {
+                            rewrite_template_expr(expr.trim(), signal_map, mode).source
+                        }
+                    };
                     // Wrap the array in a class-joining helper. The wrapped form
                     // becomes `[() => __aihu_cls([…])]` — a thunk-array reactive
                     // binding that still tracks signal updates via mountEffect.
                     format!("[() => __aihu_cls({})]", inner)
                 } else {
-                    lower_attr_expr(expr, state_names, signal_map)
+                    lower_attr_expr(expr, state_names, signal_map, mode)
                 };
                 Some(format!("{}: {}", format_attr_key(name), lowered))
             }
@@ -4717,7 +5107,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     Some(format!(
                         "{}: {}",
                         format_attr_key(prop),
-                        lower_attr_expr(&expr, state_names, signal_map)
+                        lower_attr_expr(&expr, state_names, signal_map, mode)
                     ))
                 } else if let Some(event) = name.strip_prefix("on:") {
                     let handler = macro_value_expr(value);
@@ -4728,7 +5118,7 @@ fn emit_attrs(attrs: &[Attr], state_names: &StateNames, signal_map: &SignalMap) 
                     let lowered_handler = if bare_ident {
                         handler.clone()
                     } else {
-                        rewrite_signal_reads_to_calls(t, signal_map)
+                        rewrite_template_expr(t, signal_map, mode).source
                     };
                     Some(format!("on{}: {}", capitalize_first(event), lowered_handler))
                 } else {
@@ -4848,7 +5238,12 @@ fn is_event_attr_name(name: &str) -> bool {
 /// Identifier extraction is a lightweight token walk — sufficient for
 /// well-formed JS expressions and indifferent to string-literal contents
 /// because string contents would not match `@state` declarations.
-fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap) -> String {
+fn lower_attr_expr(
+    expr: &str,
+    state_names: &StateNames,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> String {
     let trimmed = expr.trim();
     // R5c: pass-through signal tuple when the expression is a simple
     // identifier that's a registered signal — matches the leaf-emission
@@ -4877,7 +5272,10 @@ fn lower_attr_expr(expr: &str, state_names: &StateNames, signal_map: &SignalMap)
     // (`$class={section.kind === 'prose' ? 'a' : 'b'}` → `section().kind …`)
     // so the thunk reads VALUES, not the signal function.
     if expr_references_state(expr, state_names) || !is_simple_ident {
-        format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+        format!(
+            "[() => ({})]",
+            rewrite_template_expr(trimmed, signal_map, mode).source
+        )
     } else {
         expr.to_string()
     }
@@ -4982,6 +5380,60 @@ fn collect_arrow_params(expr: &str) -> std::collections::BTreeSet<String> {
         i += 1;
     }
     params
+}
+
+/// W3 (advanced-js-template-expressions) — the mode-dispatched signal-read
+/// rewrite every template-expression lowering site calls.
+///
+/// `Legacy` (the default): the token-scanner rewrite below, byte-identical to
+/// pre-W3 output. `Ast` (`--expr-parser ast`): the scope-aware span-edit
+/// rewrite over the oxc AST (`expr::rewrite_signal_reads`) — spread,
+/// template-literal `${…}` holes, arrow bodies, param defaults, and object
+/// shorthand all rewrite correctly, and `reads_signal` reports whether the
+/// expression actually reads a signal (post-shadowing) for the reactivity
+/// decision. An unparseable capture (already C320/C321-rejected before emit
+/// when compiled through `compile_full_with_options`; reachable only by
+/// direct `emit()` callers) falls back to the legacy rewrite so emit always
+/// produces output.
+struct RewrittenExpr {
+    source: String,
+    /// AST mode only: the expression reads a registered signal after
+    /// shadowing is resolved. Always `false` under `Legacy` (legacy decision
+    /// sites don't consult it).
+    reads_signal: bool,
+}
+
+/// W3 — true when `s` is nothing but `ident.ident[.ident…]` (the shape the
+/// Interpolation dotted-base fast path exists for: `{user.name}`,
+/// `{route.params.slug}`). Anything richer — calls, operators, optional
+/// chaining, arrows — must go through the full rewrite under AST mode.
+fn is_pure_dotted_path(s: &str) -> bool {
+    s.contains('.')
+        && s.split('.').all(|seg| {
+            !seg.is_empty()
+                && seg
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+        })
+}
+
+fn rewrite_template_expr(
+    expr: &str,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> RewrittenExpr {
+    if mode == ExprParserMode::Ast {
+        if let Some(result) = crate::expr::rewrite_signal_reads(expr, signal_map) {
+            return RewrittenExpr {
+                source: result.source,
+                reads_signal: result.reads_signal,
+            };
+        }
+    }
+    RewrittenExpr {
+        source: rewrite_signal_reads_to_calls(expr, signal_map),
+        reads_signal: false,
+    }
 }
 
 /// FEL-172 / FEL-173: rewrite bare reads of registered reactive getters
@@ -5566,7 +6018,14 @@ impl ElemEffect {
 ///       → $once / $memo / $if (structural boundaries)
 ///         → $each (iteration — OUTERMOST so its factory's loop alias scopes
 ///                  every inner wrapper and every descendant handler)
-fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str, signal_map: &SignalMap) -> Vec<String> {
+fn emit_macro_effects(
+    attrs: &[Attr],
+    _el_var: &str,
+    subtree: &str,
+    indent: &str,
+    signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> Vec<String> {
     let mut elem_effects: Vec<ElemEffect> = Vec::new();
     let mut once = false;
     let mut memo_deps: Option<String> = None;
@@ -5613,7 +6072,10 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                     // → `section().kind === 'x'`); previously `.kind` was read
                     // off the signal FUNCTION → always undefined → the branch
                     // silently never rendered.
-                    format!("[() => ({})]", rewrite_signal_reads_to_calls(trimmed, signal_map))
+                    format!(
+                        "[() => ({})]",
+                        rewrite_template_expr(trimmed, signal_map, mode).source
+                    )
                 };
                 if_cond_arg = Some(cond_arg);
             }
@@ -5625,10 +6087,9 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // toggleAttribute is the WHATWG-canonical primitive: passing
                 // `false` removes the attribute; `true` writes empty-string.
                 // FEL-172: rewrite bare getter reads inside the effect body.
-                elem_effects.push(ElemEffect::Show(rewrite_signal_reads_to_calls(
-                    &macro_value_expr(value),
-                    signal_map,
-                )));
+                elem_effects.push(ElemEffect::Show(
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
+                ));
             }
             "each" => {
                 has_each = true;
@@ -5658,10 +6119,9 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // IIFE: capture node, wire reactive effect inside onMount, return node
                 // so the parent children array receives the element (not a bare effect).
                 // replaceChildren + createContextualFragment parses trusted build-time HTML.
-                elem_effects.push(ElemEffect::Html(rewrite_signal_reads_to_calls(
-                    &macro_value_expr(value),
-                    signal_map,
-                )));
+                elem_effects.push(ElemEffect::Html(
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
+                ));
             }
             "once" => {
                 once = true;
@@ -5675,7 +6135,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
                 // onMount so .el is guaranteed to be set, return node to parent children.
                 elem_effects.push(ElemEffect::Class(
                     class_name,
-                    rewrite_signal_reads_to_calls(&macro_value_expr(value), signal_map),
+                    rewrite_template_expr(&macro_value_expr(value), signal_map, mode).source,
                 ));
             }
             n if n.starts_with("bind:") || n.starts_with("on:") => {
@@ -5753,7 +6213,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             format!(
                 "({}) => {}",
                 item_alias,
-                rewrite_signal_reads_to_calls(&key_fn, signal_map)
+                rewrite_template_expr(&key_fn, signal_map, mode).source
             )
         };
 
@@ -5785,7 +6245,7 @@ fn emit_macro_effects(attrs: &[Attr], _el_var: &str, subtree: &str, indent: &str
             // undefined → the loop renders nothing.
             current = format!(
                 "createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
-                rewrite_signal_reads_to_calls(&each_items, signal_map),
+                rewrite_template_expr(&each_items, signal_map, mode).source,
                 key_part,
                 item_alias,
                 idx_alias,

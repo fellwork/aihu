@@ -10,11 +10,19 @@
 //! exegesis-section). FEL-173 is the interpolation face of the same gap:
 //! `{count + 1}` stringified the getter function instead of tracking it.
 
-use aihu_compiler::{compile_full, emit, sfc};
+use aihu_compiler::{compile_full, compile_full_with_options, emit, sfc, BuildTarget, ExprParserMode};
 
 fn compile_to_js(source: &str, tag: &str) -> String {
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
+    emit(&unit, tag).js
+}
+
+/// W3 — compile under `--expr-parser ast` (scope-aware AST signal rewrite).
+fn compile_to_js_ast(source: &str, tag: &str) -> String {
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full_with_options(&parsed, BuildTarget::Universal, ExprParserMode::Ast)
+        .unwrap_or_else(|e| panic!("ast mode rejected fixture: {}", e.message));
     emit(&unit, tag).js
 }
 
@@ -251,4 +259,243 @@ const log = (o: object) => console.log(o)
         js.contains("log({ count: 1 })"),
         "FEL-172: object-literal keys must not be rewritten, got:\n{js}"
     );
+}
+
+// ─── W3 (advanced-js-template-expressions): every truth-table SILENT-WRONG row
+// now emits correctly under `--expr-parser ast` and stays byte-identical to
+// the old (wrong) output under legacy. Row ids reference the plan's empirical
+// truth table (docs/plans/advanced-js-template-expressions.md).
+
+const SIGNAL_STATE: &str = r#"@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+const [items, setItems] = signal(['a', 'b'])
+const [nums, setNums] = signal([1, 2, 3])
+const [obj, setObj] = signal({ a: 1 })
+const extra = 'x'
+}
+"#;
+
+fn both_modes(template_body: &str, tag: &str) -> (String, String) {
+    let src = format!("{SIGNAL_STATE}@template {{\n  {template_body}\n}}");
+    (compile_to_js(&src, tag), compile_to_js_ast(&src, tag))
+}
+
+#[test]
+fn w3_a06_template_literal_hole_is_rewritten_and_reactive() {
+    // a06: legacy neither rewrote `${count}` nor thunked the leaf (no `(`
+    // visible outside strings) → rendered the getter's function source, never
+    // updated.
+    let (legacy, ast) = both_modes("<p>{`Count: ${count}`}</p>", "x-w3-a06");
+    assert!(
+        legacy.contains("leaf(`Count: ${count}`)"),
+        "legacy stays byte-identical (eager, unrewritten), got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("leaf([() => (`Count: ${count()}`) as unknown as string"),
+        "ast mode must rewrite inside the hole AND thunk the leaf, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_a10_spread_call_argument_is_rewritten() {
+    // a10: `...nums` made the legacy scanner treat `nums` as a member access →
+    // spread the getter FUNCTION → NaN.
+    let (legacy, ast) = both_modes("<p>{Math.max(...nums)}</p>", "x-w3-a10");
+    assert!(legacy.contains("Math.max(...nums)"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        ast.contains("Math.max(...nums())"),
+        "ast mode must rewrite the spread argument, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_a11_spread_array_literal_is_rewritten_and_reactive() {
+    // a11: unrewritten AND eager → `TypeError: items is not iterable`.
+    let (legacy, ast) = both_modes("<p>{[...items, extra].length}</p>", "x-w3-a11");
+    assert!(
+        legacy.contains("leaf([...items, extra].length)"),
+        "legacy unchanged (eager, unrewritten), got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("leaf([() => ([...items(), extra].length) as unknown as string"),
+        "ast mode must rewrite the spread and thunk the leaf, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_a12_object_spread_is_rewritten() {
+    let (_, ast) = both_modes("<p>{ {...obj, b: 2}.b }</p>", "x-w3-a12");
+    assert!(
+        ast.contains("{...obj(), b: 2}.b"),
+        "ast mode must rewrite an object-literal spread, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_b04_class_array_spread_is_rewritten() {
+    // b04: `$class={[...items, 'x']}` emitted `__aihu_cls([...items, 'x'])`
+    // with the getter spread verbatim → runtime crash.
+    let (legacy, ast) = both_modes("<div $class={[...items, 'x']}>c</div>", "x-w3-b04");
+    assert!(
+        legacy.contains("[() => __aihu_cls([...items, 'x'])]"),
+        "legacy unchanged, got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("[() => __aihu_cls([...items(), 'x'])]"),
+        "ast mode must rewrite inside the class array, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_b08_template_literal_attr_binding_is_rewritten() {
+    // b08: thunked but unrewritten (a06 class in attribute position).
+    let (legacy, ast) = both_modes("<p $title={`c=${count}`}>t</p>", "x-w3-b08");
+    assert!(legacy.contains("`c=${count}`"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        ast.contains("[() => (`c=${count()}`)]"),
+        "ast mode must rewrite the hole inside the attr thunk, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_b13_component_prop_spread_is_rewritten() {
+    // b13: `<user-card items={[...items]} />` spread the getter into the prop.
+    let (legacy, ast) = both_modes("<user-card $items={[...items]}></user-card>", "x-w3-b13");
+    assert!(legacy.contains("[...items]"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        ast.contains("[() => ([...items()])]"),
+        "ast mode must rewrite the component-prop spread, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_c12_each_list_spread_is_rewritten() {
+    // c12: `{#each [...items, extra] as it}` crashed at runtime.
+    let (legacy, ast) = both_modes(
+        "{#each [...items, extra] as it}\n  <p>{it}</p>\n  {/each}",
+        "x-w3-c12",
+    );
+    assert!(legacy.contains("[...items, extra]"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        ast.contains("[() => ([...items(), extra])]"),
+        "ast mode must rewrite the each-list spread, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_d01_dotted_base_arrow_body_is_rewritten() {
+    // d01: the dotted-base fast path copied `.filter(i => i > count).length`
+    // VERBATIM after the base — `count` compared as a function, always false.
+    let (legacy, ast) = both_modes(
+        "<p>{items.filter(i => i > count).length}</p>",
+        "x-w3-d01",
+    );
+    assert!(
+        legacy.contains("(items() as any).filter(i => i > count).length"),
+        "legacy unchanged (fast-path verbatim tail), got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("items().filter(i => i > count()).length"),
+        "ast mode must rewrite inside the arrow body, got:\n{ast}"
+    );
+    // …while the PURE dotted path keeps the fast-path emission byte-for-byte.
+    let (legacy_pure, ast_pure) = both_modes("<p>{obj.a}</p>", "x-w3-d01-pure");
+    assert_eq!(legacy_pure, ast_pure, "pure dotted paths stay on the fast path");
+}
+
+#[test]
+fn w3_d03_each_alias_shadowing_a_signal_is_not_rewritten() {
+    // d03/d04: `{#each items as count}` — the alias shadows the signal, but
+    // legacy emitted `leaf([count, setCount])` (the signal tuple) INSIDE the
+    // loop callback.
+    let (legacy, ast) = both_modes(
+        "{#each items as count}\n  <p>{count}</p>\n  {/each}",
+        "x-w3-d03",
+    );
+    assert!(
+        legacy.contains("leaf([count, setCount]"),
+        "legacy unchanged (signal tuple inside the loop), got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("leaf(count)"),
+        "ast mode must treat the shadowed alias as the plain loop var, got:\n{ast}"
+    );
+    assert!(
+        !ast.contains("leaf([count, setCount]"),
+        "ast mode must not emit the signal tuple for a shadowed alias, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_d06_template_literal_if_cond_is_rewritten() {
+    // d06: `` {#if `${count}` === '3'} `` — unrewritten → the branch never fired.
+    let (legacy, ast) = both_modes(
+        "{#if `${count}` === '3'}\n  <p>three</p>\n  {/if}",
+        "x-w3-d06",
+    );
+    assert!(legacy.contains("`${count}` === '3'"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        ast.contains("[() => (`${count()}` === '3')]"),
+        "ast mode must rewrite the hole in the cond thunk, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_object_shorthand_expands_to_a_read() {
+    // A form the token rewriter could not express: `{ count }` shorthand is a
+    // signal READ and expands to `{ count: count() }`.
+    let (legacy, ast) = both_modes(
+        "<p>{JSON.stringify({ count })}</p>",
+        "x-w3-shorthand",
+    );
+    assert!(
+        legacy.contains("JSON.stringify({ count })"),
+        "legacy unchanged (shorthand untouched), got:\n{legacy}"
+    );
+    assert!(
+        ast.contains("JSON.stringify({ count: count() })"),
+        "ast mode must expand shorthand to a getter read, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_object_keys_stay_untouched_in_both_modes() {
+    let (legacy, ast) = both_modes(
+        "<p>{JSON.stringify({ count: 1 })}</p>",
+        "x-w3-objkey",
+    );
+    assert!(legacy.contains("{ count: 1 }"), "got:\n{legacy}");
+    assert!(ast.contains("{ count: 1 }"), "got:\n{ast}");
+}
+
+#[test]
+fn w3_shadowed_arrow_param_suppresses_rewrite_in_ast_mode() {
+    // a22 under the fast-path retirement: the map body's `count` is the param.
+    let (_, ast) = both_modes(
+        "<p>{items.map(count => count + 1).join('')}</p>",
+        "x-w3-a22",
+    );
+    assert!(
+        ast.contains("items().map(count => count + 1).join('')"),
+        "ast mode must rewrite the base but honor the param shadow, got:\n{ast}"
+    );
+}
+
+#[test]
+fn w3_legacy_default_is_untouched_end_to_end() {
+    // The whole fixture family compiles identically through `compile_full`
+    // (no flag) and `compile_full_with_options(..., Legacy)`.
+    let src = format!(
+        "{SIGNAL_STATE}@template {{\n  <p>{{`c=${{count}}`}}</p>\n  <p>{{Math.max(...nums)}}</p>\n}}"
+    );
+    let parsed = sfc::parse(&src).unwrap();
+    let implicit = emit(&compile_full(&parsed).unwrap(), "x-w3-default").js;
+    let explicit = emit(
+        &compile_full_with_options(&parsed, BuildTarget::Universal, ExprParserMode::Legacy)
+            .unwrap(),
+        "x-w3-default",
+    )
+    .js;
+    assert_eq!(implicit, explicit, "legacy flag-off path must be byte-identical");
 }

@@ -765,6 +765,34 @@ export type SfcMacroValue =
  * Throws on parse failure — the Rust binary exits non-zero and `execFileSync`
  * surfaces the diagnostic (same error path as `transform()`).
  */
+/**
+ * Compile an SFC to its TYPE-CHECK SURFACE and return it as a string — the
+ * `.aihu.ts` sidecar's content, without writing a file.
+ *
+ * This is the in-memory path `aihu-tsc` uses to hand `.aihu` files to TypeScript
+ * as virtual files. The surface is line-preserving: line N of the returned text
+ * corresponds to line N of the `.aihu` source, which is what lets a `tsc`
+ * diagnostic be mapped straight back to the line the author wrote.
+ *
+ * Returns `''` when the SFC has no `@template` (nothing to check).
+ */
+export function compileSidecar(source: string, id?: string): string {
+  const stem = id ? basename(id, '.aihu') : 'Component'
+  const args = ['--stdin', '--tag', stem, '--sidecar-stdout']
+  if (id) {
+    args.push('--path', id)
+  }
+  return execFileSync(resolveBinPath(), args, {
+    input: source,
+    encoding: 'utf8',
+    // Capture stderr rather than inheriting it: the compiler's warnings (unhyphenated
+    // tag names, undeclared cross-block refs) belong to `aihu build`, and would
+    // otherwise interleave with the type diagnostics a caller is trying to read.
+    // A hard compile failure still throws, carrying the message with it.
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+}
+
 export function compileToAst(source: string, id?: string): SfcAst {
   const stem = id ? basename(id, '.aihu') : 'Component'
   const args = ['--stdin', '--tag', stem, '--ast-json']
@@ -1095,16 +1123,17 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
       const rawId = id.split('?')[0]!
       if (!rawId.endsWith('.aihu')) return
       return (async () => {
-        // B3b — write per-SFC `.aihu.ts` sidecar adjacent to source so
-        // `tsc --noEmit` over `**/*.aihu.ts` type-checks template
-        // expressions end-to-end (Architect spec §7 path (i)).
-        const sidecarOut = `${rawId}.ts`
+        // No `.aihu.ts` sidecar is written any more. Type-checking goes through
+        // `aihu-tsc`, which projects each `.aihu` into the TypeScript program as a
+        // VIRTUAL file — so the type-check surface never lands on disk beside the
+        // source, where authors saw it, editors indexed it, and `.gitignore` had to
+        // hide it. A build has no business writing type-checker inputs at all.
+        //
         // Layout SFCs (under the layouts dir) compile in layout mode: a
         // namespaced `aihu-layout-<stem>` tag + a passive <$outlet> marker.
         const isLayout = _isLayoutFile(rawId, layoutsDir)
         const layoutTag = isLayout ? _layoutTag(basename(rawId, '.aihu')) : undefined
         const tOpts = {
-          sidecarOut,
           ...(target ? { target } : {}),
           ...(layoutTag ? { tag: layoutTag } : {}),
         }

@@ -169,6 +169,31 @@ fn main() {
 
     let stdin_mode = args.contains(&"--stdin".to_string());
 
+    // W2 (advanced-js-template-expressions): `--expr-parser <legacy|ast>` OR
+    // AIHU_EXPR_PARSER env var (flag wins; mirrors the --machine-errors /
+    // AIHU_MACHINE_ERRORS pattern above). Default: legacy (off).
+    // `ast` = validate every captured template expression with oxc
+    // (C320/C321 on failure); emitted code is unchanged either way.
+    let expr_parser = {
+        let pos = args.iter().position(|a| a == "--expr-parser");
+        match pos {
+            Some(i) => {
+                let value = args.get(i + 1).map(String::as_str).unwrap_or("");
+                match aihu_compiler::ExprParserMode::parse(value) {
+                    Some(mode) => mode,
+                    None => {
+                        eprintln!(
+                            "error: --expr-parser requires a value (legacy|ast), got '{}'",
+                            value
+                        );
+                        process::exit(1);
+                    }
+                }
+            }
+            None => aihu_compiler::ExprParserMode::from_env().unwrap_or_default(),
+        }
+    };
+
     // Parse --out <dir>
     let out_dir: Option<String> = {
         let pos = args.iter().position(|a| a == "--out");
@@ -239,7 +264,7 @@ fn main() {
         let file_path = match args.get(1) {
             Some(p) if !p.starts_with("--") => p.clone(),
             _ => {
-                eprintln!("usage: aihu-compile <file.aihu> [--out <dir>] [--target <client|server|universal>]");
+                eprintln!("usage: aihu-compile <file.aihu> [--out <dir>] [--target <client|server|universal>] [--expr-parser <legacy|ast>]");
                 process::exit(1);
             }
         };
@@ -281,7 +306,7 @@ fn main() {
         };
         let parsed_ast = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
             .unwrap_or_else(|e| on_err(&e));
-        let unit = aihu_compiler::compile_full_with_target(&parsed_ast, target)
+        let unit = aihu_compiler::compile_full_with_options(&parsed_ast, target, expr_parser)
             .unwrap_or_else(|e| on_err(&e));
         let mut ast = aihu_compiler::build_owned_ast(&unit, file_path_opt.as_deref());
         // Apply the CLI's authoritative stem resolution (OQ-C6):
@@ -328,7 +353,7 @@ fn main() {
         };
         let parsed_rj = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
             .unwrap_or_else(|e| on_err(&e));
-        let unit = aihu_compiler::compile_full_with_target(&parsed_rj, target)
+        let unit = aihu_compiler::compile_full_with_options(&parsed_rj, target, expr_parser)
             .unwrap_or_else(|e| on_err(&e));
         let tag_name = unit
             .source
@@ -358,7 +383,7 @@ fn main() {
         process::exit(1);
     });
 
-    let unit = aihu_compiler::compile_full_with_target(&parsed, target).unwrap_or_else(|e| {
+    let unit = aihu_compiler::compile_full_with_options(&parsed, target, expr_parser).unwrap_or_else(|e| {
         if machine_errors {
             emit_machine_error(&e);
             eprintln!("{}:{}: {}", file_label, e.line, e.message);
@@ -387,6 +412,20 @@ fn main() {
         Some(i) if i + 1 < args.len() => Some(args[i + 1].clone()),
         _ => None,
     };
+
+    // `--sidecar-stdout` prints the type-check surface to stdout INSTEAD of the
+    // emitted JS, so a caller can hold it in memory. This is what lets `aihu-tsc`
+    // hand `.aihu` files to TypeScript as virtual files: no `.aihu.ts` is written
+    // next to the source for the type-checker to find.
+    //
+    // Exits 0 with no output when the SFC has no @template (no surface to check),
+    // so callers can treat empty output as "nothing to check", not as a failure.
+    if args.iter().any(|a| a == "--sidecar-stdout") {
+        if let Some(ref ts) = result.sidecar_ts {
+            print!("{ts}");
+        }
+        process::exit(0);
+    }
 
     if let Some(ref path) = sidecar_out {
         if let Some(ref ts) = result.sidecar_ts {
