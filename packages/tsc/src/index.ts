@@ -89,11 +89,14 @@ export function run(options: RunOptions = {}): number {
   ])
 
   const host = ts.createCompilerHost(parsed.options)
+  // `projectReferences` is spread in only when present: under
+  // `exactOptionalPropertyTypes`, passing an explicit `undefined` is not the same
+  // as omitting the key.
   const program = createProgram({
     rootNames: parsed.fileNames,
     options: parsed.options,
     host,
-    projectReferences: parsed.projectReferences,
+    ...(parsed.projectReferences ? { projectReferences: parsed.projectReferences } : {}),
   })
 
   // A .aihu root that never became a source file is UNCHECKED — it does not

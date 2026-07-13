@@ -52,32 +52,56 @@ describe('the .aihu file reaches TypeScript as virtual TS', () => {
   })
 })
 
+/**
+ * The text a mapping actually covers on one side. Reads the first (and, for these
+ * mappings, only) span — `noUncheckedIndexedAccess` makes each index `| undefined`,
+ * so this centralises the guard instead of scattering casts through the assertions.
+ */
+function span(text: string, offsets: readonly number[], lengths: readonly number[]): string {
+  const start = offsets[0]
+  const length = lengths[0]
+  if (start === undefined || length === undefined) return '<unmapped>'
+  return text.slice(start, start + length)
+}
+
 describe('mappings put a diagnostic on the line the author wrote', () => {
   it('maps a verbatim @state line back to its own source offsets', () => {
     const source = '@state {\nconst bad: number = 1\n}\n@template { <p>{x()}</p> }\n'
     const generated =
       'declare const q: 1;\nconst bad: number = 1\nfunction __aihu_template(): void {\n'
     const [m] = buildMappings(source, generated)
-    // Source line 2 and generated line 2 hold identical text, at different offsets
-    // in their respective files — so the mapping must translate, not assume equality.
-    expect(source.slice(m.sourceOffsets[0], m.sourceOffsets[0] + m.lengths[0])).toBe(
-      'const bad: number = 1',
-    )
-    expect(generated.slice(m.generatedOffsets[0], m.generatedOffsets[0] + m.lengths[0])).toBe(
-      'const bad: number = 1',
-    )
+    expect(m, 'the line must be mapped — an unmapped line loses its diagnostics').toBeDefined()
+    if (!m) return
+    // Source line 2 and generated line 2 hold identical text at DIFFERENT offsets in
+    // their respective files — so the mapping must translate, not assume equality.
+    expect(span(source, m.sourceOffsets, m.lengths)).toBe('const bad: number = 1')
+    expect(span(generated, m.generatedOffsets, m.lengths)).toBe('const bad: number = 1')
+  })
+
+  it('maps a bare typed declaration through the `let` lowering', () => {
+    // The compiler lowers `count: number = 0` to `let count: number = 0`, shifting
+    // the column. Without this mapping the line would be unmapped, and every
+    // diagnostic on it dropped — silently, which is the worst way to lose one.
+    const source = '@state {\n  count: number = 0\n}\n@template { <p>{count}</p> }\n'
+    const generated =
+      'declare const q: 1;\n  let count: number = 0\nfunction __aihu_template(): void {\n'
+    const [m] = buildMappings(source, generated)
+    expect(m, 'the lowered line must still be mapped').toBeDefined()
+    if (!m) return
+    expect(span(source, m.sourceOffsets, m.lengths)).toBe('count: number = 0')
+    expect(span(generated, m.generatedOffsets, m.lengths)).toBe('count: number = 0')
   })
 
   it('maps a lifted template expression to the expression in the source', () => {
     const source = '@state {\n}\n@template {\n  <p>{count()}</p>\n}\n'
     const generated = 'declare const q: 1;\n\n\nvoid (count());\n'
     const [m] = buildMappings(source, generated)
-    expect(source.slice(m.sourceOffsets[0], m.sourceOffsets[0] + m.lengths[0])).toBe('count()')
+    expect(m).toBeDefined()
+    if (!m) return
+    expect(span(source, m.sourceOffsets, m.lengths)).toBe('count()')
     // The generated span must be the expression itself, NOT the `void (` scaffolding —
-    // a diagnostic on it has to land under the expression the author typed.
-    expect(generated.slice(m.generatedOffsets[0], m.generatedOffsets[0] + m.lengths[0])).toBe(
-      'count()',
-    )
+    // a diagnostic has to land under the expression the author typed.
+    expect(span(generated, m.generatedOffsets, m.lengths)).toBe('count()')
   })
 
   it('maps repeated expressions on one line to successive occurrences', () => {
@@ -85,10 +109,12 @@ describe('mappings put a diagnostic on the line the author wrote', () => {
     const generated = 'declare const q: 1;\n\n\nvoid (a()); void (a());\n'
     const ms = buildMappings(source, generated)
     expect(ms).toHaveLength(2)
+    const [m0, m1] = ms
+    if (!m0 || !m1) return
     // The second must map to the SECOND `a()` in the source, not back to the first.
-    expect(ms[1].sourceOffsets[0]).toBeGreaterThan(ms[0].sourceOffsets[0])
-    expect(source.slice(ms[1].sourceOffsets[0], ms[1].sourceOffsets[0] + ms[1].lengths[0])).toBe(
-      'a()',
-    )
+    const first = m0.sourceOffsets[0] ?? -1
+    const second = m1.sourceOffsets[0] ?? -1
+    expect(second).toBeGreaterThan(first)
+    expect(span(source, m1.sourceOffsets, m1.lengths)).toBe('a()')
   })
 })

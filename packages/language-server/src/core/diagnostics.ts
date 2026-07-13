@@ -35,7 +35,9 @@ const ext = process.platform === 'win32' ? '.exe' : ''
 function resolveCompileBin(): string {
   if (process.env.AIHU_COMPILE_BIN) return process.env.AIHU_COMPILE_BIN
   const here = dirname(fileURLToPath(import.meta.url))
-  const candidates = [
+  // A non-empty tuple, so the `candidates[0]` fallback below is a `string` and not
+  // `string | undefined` under `noUncheckedIndexedAccess`.
+  const candidates: [string, ...string[]] = [
     // staged sibling package bin (packages/compiler/bin) — bundled dist/bin.js
     resolve(here, `../../compiler/bin/aihu-compile${ext}`),
     // …same, from unbundled dist/core/ or src/core/ (one level deeper)

@@ -63,13 +63,15 @@ export function buildMappings(source: string, generated: string): CodeMapping[] 
   for (let i = 0; i < genLines.length && i < srcLines.length; i++) {
     const gen = genLines[i]
     const src = srcLines[i]
-    if (!gen || !src) continue
+    const srcStart = srcStarts[i]
+    const genStart = genStarts[i]
+    if (!gen || !src || srcStart === undefined || genStart === undefined) continue
 
     // Verbatim @state line — identical text, so the whole line maps by identity.
     if (gen === src) {
       mappings.push({
-        sourceOffsets: [srcStarts[i]],
-        generatedOffsets: [genStarts[i]],
+        sourceOffsets: [srcStart],
+        generatedOffsets: [genStart],
         lengths: [src.length],
         data: FULL,
       })
@@ -86,8 +88,8 @@ export function buildMappings(source: string, generated: string): CodeMapping[] 
       const at = gen.indexOf(body)
       if (at >= 0) {
         mappings.push({
-          sourceOffsets: [srcStarts[i] + src.indexOf(body)],
-          generatedOffsets: [genStarts[i] + at],
+          sourceOffsets: [srcStart + src.indexOf(body)],
+          generatedOffsets: [genStart + at],
           lengths: [body.length],
           data: FULL,
         })
@@ -108,8 +110,8 @@ export function buildMappings(source: string, generated: string): CodeMapping[] 
       srcCursor = srcCol + expr.length
       const genCol = (m.index ?? 0) + m[0].indexOf(expr)
       mappings.push({
-        sourceOffsets: [srcStarts[i] + srcCol],
-        generatedOffsets: [genStarts[i] + genCol],
+        sourceOffsets: [srcStart + srcCol],
+        generatedOffsets: [genStart + genCol],
         lengths: [expr.length],
         data: FULL,
       })
