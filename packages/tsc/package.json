@@ -1,0 +1,39 @@
+{
+  "name": "@aihu/tsc",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk.",
+  "bin": {
+    "aihu-tsc": "./bin/aihu-tsc.mjs"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin/aihu-tsc.mjs",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/compiler": "workspace:*",
+    "@volar/typescript": "2.4.28",
+    "@volar/language-core": "2.4.28"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  }
+}
