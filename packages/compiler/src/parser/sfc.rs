@@ -22,6 +22,18 @@ enum BlockKind {
     Meta,
 }
 
+impl BlockKind {
+    /// Whether `//` opens a comment in this block's body.
+    ///
+    /// HTML (`@template`) and CSS (`@style`) have no `//` comment — HTML uses
+    /// `<!-- -->` and CSS uses `/* */`. There a `//` is ordinary text, and almost
+    /// always the scheme separator of a URL (`https://…`); reading it as a comment
+    /// swallowed the rest of the line, closing `}` and all.
+    fn has_line_comments(self) -> bool {
+        !matches!(self, BlockKind::Template | BlockKind::Style)
+    }
+}
+
 /// Match an `@blockname {` opener starting at byte position `pos` in `source`.
 /// The opener must appear at the start of a line (after optional leading
 /// whitespace) per Block Structure Spec §2.1.
@@ -135,7 +147,17 @@ fn match_layout_shorthand(source: &str, pos: usize) -> Option<(BlockKind, usize,
 /// For `BlockKind::Template` the string-literal skip is disabled: template
 /// bodies contain HTML prose where a bare apostrophe (e.g. "don't") must not
 /// trigger string-literal mode and accidentally swallow the closing `}`.
+///
+/// A `@state` body is JavaScript end to end, so it is handed whole to the shared
+/// lexical scanner — the one place that knows every construct a brace can hide
+/// in. Hand-rolling it here missed regex literals, so `/\{/` opened a depth that
+/// never closed and `/}/` closed the block early and silently dropped the rest of
+/// the body.
 fn find_at_block_close(source: &str, body_start: usize, kind: BlockKind) -> Option<usize> {
+    if kind == BlockKind::Script {
+        return crate::parser::expr_scan::find_matching_close_brace(source, body_start);
+    }
+
     let bytes = source.as_bytes();
     let mut depth: usize = 1;
     let mut i = body_start;
@@ -173,7 +195,7 @@ fn find_at_block_close(source: &str, body_start: usize, kind: BlockKind) -> Opti
                 }
                 i += 1;
             }
-            b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => {
+            b'/' if kind.has_line_comments() && i + 1 < bytes.len() && bytes[i + 1] == b'/' => {
                 // Line comment — skip to newline.
                 i += 2;
                 while i < bytes.len() && bytes[i] != b'\n' {
@@ -1036,6 +1058,76 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
         stream: None, // v0.4.0: @stream block parsing deferred to stream_macros module
         sfc_meta,
     })
+}
+
+/// Block bodies are delimited by brace depth, so the scanner has to know which
+/// braces are structure and which are payload. These are the constructs that used
+/// to desynchronise it: a regex literal's braces and quotes were counted as
+/// structure, and `//` was read as a comment inside HTML and CSS, where it is
+/// really the scheme separator of a URL.
+#[cfg(test)]
+mod block_delimiting_tests {
+    use super::*;
+
+    #[test]
+    fn regex_with_an_unbalanced_open_brace_does_not_swallow_the_block() {
+        // `/\{/` used to open a depth that never closed: @state ran on into the
+        // template, and the parser failed on markup the author never wrote.
+        let src = "@state {\n  const re = /\\{/\n}\n\n@template {\n  <p>hi</p>\n}\n";
+        let parsed = parse(src).expect("a regex with `{` must not unbalance the block");
+        assert!(parsed.script.unwrap().contains("const re"));
+        assert!(parsed.template.unwrap().contains("<p>hi</p>"));
+    }
+
+    #[test]
+    fn regex_with_an_unbalanced_close_brace_does_not_truncate_the_block() {
+        // The dangerous one: `/}/` closed @state early, so everything after it was
+        // dropped from the output — and the compiler still exited 0.
+        let src =
+            "@state {\n  const re = /}/\n  const kept = 42\n}\n\n@template {\n  <p>hi</p>\n}\n";
+        let parsed = parse(src).expect("a regex with `}` must not close the block early");
+        let script = parsed.script.unwrap();
+        assert!(script.contains("const re = /}/"), "regex truncated: {script:?}");
+        assert!(script.contains("const kept = 42"), "code after the regex was dropped: {script:?}");
+    }
+
+    #[test]
+    fn a_quote_inside_a_regex_does_not_open_string_mode() {
+        let src = "@state {\n  const strip = (s) => s.replace(/['\"]/g, '')\n  const kept = 1\n}\n\n@template {\n  <p>hi</p>\n}\n";
+        let parsed = parse(src).expect("a quote inside a regex must not start a string");
+        assert!(parsed.script.unwrap().contains("const kept = 1"));
+    }
+
+    #[test]
+    fn division_is_not_mistaken_for_a_regex() {
+        let src = "@state {\n  const half = (a, b) => a / b / 2\n  const kept = 1\n}\n\n@template {\n  <p>hi</p>\n}\n";
+        let parsed = parse(src).expect("division must not be lexed as a regex literal");
+        assert!(parsed.script.unwrap().contains("const kept = 1"));
+    }
+
+    #[test]
+    fn a_url_in_a_template_is_not_a_line_comment() {
+        // `//` in `https://` used to comment out the rest of the line — including
+        // the `}` that closes the block.
+        let src = "@state {\n  const x = 1\n}\n\n@template { <a href=\"https://x.test\">y</a> }\n";
+        let parsed = parse(src).expect("a URL must not comment out the closing brace");
+        assert!(parsed.template.unwrap().contains("https://x.test"));
+    }
+
+    #[test]
+    fn a_url_in_a_style_block_is_not_a_line_comment() {
+        let src = "@state {\n  const x = 1\n}\n\n@template {\n  <p>hi</p>\n}\n\n@style {\n  .a { background: url(https://cdn.test/i.png); }\n}\n";
+        let parsed = parse(src).expect("a CSS url() must not comment out the closing brace");
+        assert!(parsed.style.is_some());
+    }
+
+    #[test]
+    fn a_regex_in_an_action_handler_does_not_break_the_entry_split() {
+        // The collection splitter counted raw bytes, so the regex's quote opened
+        // string mode and the split ran past the comma ending the entry (C447).
+        let src = "@state {\n  $prop: {\n    name: { default: \"\", type: \"string\" }\n  }\n  $action: {\n    clean: {\n      handler: () => { name = name.replace(/['\"]/g, '') },\n    },\n  }\n}\n\n@template {\n  <p>{name}</p>\n}\n";
+        parse(src).expect("a regex inside a $action handler must not split the collection");
+    }
 }
 
 #[cfg(test)]

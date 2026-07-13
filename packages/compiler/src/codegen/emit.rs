@@ -1514,7 +1514,7 @@ fn process_state_body(
                     }
                     if p < raw_script.len() {
                         if bytes[p] == b'{' {
-                            if let Some(close) = crate::parser::state_macros::find_brace_close(
+                            if let Some(close) = crate::parser::state_macros::find_brace_close_js(
                                 raw_script,
                                 p + 1,
                             ) {
@@ -1551,7 +1551,7 @@ fn process_state_body(
                                     }
                                     if q < raw_script.len() && bytes[q] == b'{' {
                                         if let Some(close) =
-                                            crate::parser::state_macros::find_brace_close(
+                                            crate::parser::state_macros::find_brace_close_js(
                                                 raw_script,
                                                 q + 1,
                                             )
@@ -1587,7 +1587,7 @@ fn process_state_body(
                 let brace_start_opt =
                     has_brace.filter(|&b| has_nl_first.map_or(true, |nl2| b < nl2));
                 if let Some(brace_start) = brace_start_opt {
-                    if let Some(close) = crate::parser::state_macros::find_brace_close(
+                    if let Some(close) = crate::parser::state_macros::find_brace_close_js(
                         raw_script,
                         brace_start + 1,
                     ) {
