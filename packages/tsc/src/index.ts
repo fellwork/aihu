@@ -12,8 +12,9 @@
  * reads a `tsconfig.json`, checks the project, and reports. Emitting from
  * `.aihu` is the job of `aihu build`, so there is nothing here to emit.
  */
-import { proxyCreateProgram } from '@volar/typescript'
+
 import { relative } from 'node:path'
+import { proxyCreateProgram } from '@volar/typescript'
 import ts from 'typescript'
 import { createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
+import { describe, expect, it } from 'vitest'
 import { buildMappings, createAihuLanguagePlugin } from '../src/language-plugin.ts'
 
 const SFC = `@state {
@@ -55,7 +55,8 @@ describe('the .aihu file reaches TypeScript as virtual TS', () => {
 describe('mappings put a diagnostic on the line the author wrote', () => {
   it('maps a verbatim @state line back to its own source offsets', () => {
     const source = '@state {\nconst bad: number = 1\n}\n@template { <p>{x()}</p> }\n'
-    const generated = 'declare const q: 1;\nconst bad: number = 1\nfunction __aihu_template(): void {\n'
+    const generated =
+      'declare const q: 1;\nconst bad: number = 1\nfunction __aihu_template(): void {\n'
     const [m] = buildMappings(source, generated)
     // Source line 2 and generated line 2 hold identical text, at different offsets
     // in their respective files — so the mapping must translate, not assume equality.
