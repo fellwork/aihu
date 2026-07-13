@@ -2,6 +2,50 @@
 
 ## Compiler / language (added 2026-07-10)
 
+### aihu-tsc — retire the on-disk `.aihu.ts` sidecars (added 2026-07-12)
+- **What:** A `tsc` wrapper (`aihu-tsc`) that presents `.aihu` files to TypeScript
+  as virtual TS in memory, via Volar's `proxyCreateProgram`, so no `*.aihu.ts`
+  is ever written next to a source. Then: drop the `sidecarOut` write from the
+  vite plugin (`packages/compiler/js/index.ts`, ~L1098), point the scaffolded
+  `typecheck` script (`packages/cli/src/index.ts` ~L95) at `aihu-tsc`, and drop
+  `*.aihu.ts` from consumers' `.gitignore`.
+- **Why:** The generator now emits a real type-check surface (see below), but it
+  still lands as a file on disk beside every `.aihu` — an artifact authors see,
+  editors index, and `.gitignore` has to hide. The virtual-file path is what the
+  Volar machinery already in `@aihu/language-server` exists for.
+- **Start at:** `packages/language-server/src/core/volar-plugin.ts` — it already
+  builds a `VirtualCode` per `.aihu` with source maps. `aihu-tsc` is that same
+  language plugin handed to `proxyCreateProgram` (the `vue-tsc` shape). Its
+  `state-generator.ts` should be retired in favour of the compiler's sidecar so
+  the editor and the CLI cannot disagree.
+- **Note:** the wrapper is also where implicit-`any` is relaxed for `.aihu`
+  virtual files only — filter `TS7006`/`TS7031` diagnostics whose origin is a
+  `.aihu`. It cannot be done in `tsconfig` without weakening real `.ts` too.
+
+### `signal(null)` infers `T = null` — untyped signals across the corpus (added 2026-07-12)
+- **What:** `const [doc, setDoc] = signal(null)` gives `T = null`, so `doc()` is
+  `null`, `setDoc(realDoc)` is an error, and every member read off it lands on
+  `never`. Same for `signal([])` → `never[]`. Wants `signal<Doc | null>(null)`.
+- **Why:** Now that @state is actually type-checked, this single idiom is the
+  dominant source of diagnostics in the fellwork web app (15 files; it accounts
+  for most of the ~274 substantive errors the new sidecar surfaces). It was
+  invisible before only because the script was never handed to tsc.
+- **Note:** this is app-side authoring, not a compiler bug — but the corpus has
+  to be migrated before `.aihu` type-checking can be made blocking.
+
+### TS type-check sidecar — remaining harvest gap
+- **Status (2026-07-12):** the @state body is now INLINED into the sidecar at its
+  real lines, so plain script code (imports, consts, functions) carries real
+  types and is fully checked. What remains:
+  - **macro bodies are not checked.** `$prop:`/`$action:`/`$computed:` lines are
+    blanked (they are aihu syntax, not TS — `type: { params: { ref: string } }`
+    puts `string` in value position). Their bindings are declared instead, with
+    `$prop` carrying its real `type:`. Lowering macro bodies to TS is the fix.
+  - **loop aliases are `any`.** `{#each xs as m}` binds `m` in the template, so
+    there is no declaration to borrow from. Deriving the element type from the
+    iterable (e.g. projecting the body through `xs.forEach((m) => …)`) would
+    give `m` a real type.
+
 ### TS type-check sidecar — completion pass
 - **What:** Finish the TypeScript sidecar so `tsc` coverage over `.aihu` files is
   complete: every template-referenced binding surfaces in the sidecar (not just
