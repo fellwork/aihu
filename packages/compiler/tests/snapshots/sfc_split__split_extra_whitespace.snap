@@ -1,11 +1,13 @@
 ---
-source: tests/sfc_split.rs
+source: packages/compiler/tests/sfc_split.rs
+assertion_line: 33
 expression: result
 ---
 AihuSource {
     script: Some(
         "const y = 2",
     ),
+    script_line: 5,
     template: Some(
         "<p>text</p>",
     ),

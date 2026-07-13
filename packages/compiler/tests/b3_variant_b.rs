@@ -446,9 +446,10 @@ fn b3_ac12_sidecar_ts_includes_emit_and_event_decls() {
 
 #[test]
 fn sidecar_places_expressions_on_their_aihu_source_line() {
-    // Part 2 — line-preserving layout: a lifted template expression lands on its
-    // real `.aihu` source line so `tsc` diagnostics cite the right line. Sidecar
-    // line 1 = compact preamble, line 2 = the function opener, body ≥ line 3.
+    // Part 2 — line-preserving layout: every line of the sidecar sits at its real
+    // `.aihu` line, so a `tsc` diagnostic cites the line the author actually
+    // wrote. Line 1 is the compact preamble; the @state body follows on ITS lines;
+    // lifted template expressions follow on theirs.
     let src = "\
 @state {
   import { signal } from '@aihu/signals'
@@ -457,23 +458,95 @@ fn sidecar_places_expressions_on_their_aihu_source_line() {
 @template {
   <div>{count()}</div>
 }";
-    // `{count()}` sits on .aihu line 6, so its check must be on sidecar line 6.
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let sidecar = emit(&unit, "x-lines").sidecar_ts.expect("sidecar must be emitted");
     let lines: Vec<&str> = sidecar.lines().collect();
     assert!(
-        lines[0].contains("declare const signal"),
+        lines[0].contains("type-check sidecar"),
         "line 1 must be the compact preamble:\n{sidecar}"
     );
+    // The @state body keeps its own source lines (2 and 3) — this is what makes a
+    // type error inside @state cite the line the author wrote it on.
     assert!(
-        lines[1].starts_with("function __aihu_template("),
-        "line 2 must be the function opener:\n{sidecar}"
+        lines[1].contains("import { signal }") && lines[2].contains("const [count, setCount]"),
+        "the @state body must sit on its real lines (2, 3):\n{sidecar}"
     );
+    // `{count()}` sits on .aihu line 6, so its check must be on sidecar line 6.
     assert_eq!(
         lines.get(5).copied(),
         Some("void (count());"),
         "`count()` must be on sidecar line 6 (matching .aihu line 6):\n{sidecar}"
+    );
+}
+
+/// Whether `name` is in scope for the sidecar's template expressions.
+///
+/// These tests exist to prevent one failure: `TS2304: Cannot find name` on a
+/// binding a template references. A name is in scope either because the inlined
+/// `@state` body binds it (the usual case — and it carries its REAL type there),
+/// or because it is a template-only loop alias, which has no declaration to
+/// borrow a type from and so arrives as an `any` parameter.
+///
+/// It deliberately does not care WHICH: asserting `name: any` in the signature
+/// would pin the test to the old all-params sidecar, where every binding was
+/// `any` and a `@state` type error could never be caught.
+fn in_scope(sidecar: &str, name: &str) -> bool {
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    if sig.contains(&format!("{name}: any")) {
+        return true; // a template-only loop alias
+    }
+    // Otherwise it must be bound in the declaration region: the preamble plus the
+    // inlined @state body, i.e. everything above the template function.
+    let decls: String = sidecar
+        .lines()
+        .take_while(|l| !l.contains("function __aihu_template"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    contains_word(&decls, name)
+}
+
+/// `haystack` contains `name` as a whole identifier (not as a substring of a
+/// longer one — `sel` must not match inside `setSel`).
+fn contains_word(haystack: &str, name: &str) -> bool {
+    let is_ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    haystack.match_indices(name).any(|(i, _)| {
+        let before = haystack[..i].chars().next_back();
+        let after = haystack[i + name.len()..].chars().next();
+        !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
+    })
+}
+
+#[test]
+fn sidecar_inlines_state_so_bindings_carry_real_types() {
+    // The sidecar used to declare every template-referenced binding as an `any`
+    // parameter and never emit the @state body at all — so a type error inside
+    // @state was structurally impossible to catch, and `tsc` reported a green
+    // check over code it had never seen. The body is now inlined verbatim (at its
+    // real lines), which is what gives these bindings their true types.
+    let src = r#"@state {
+import { signal } from '@aihu/signals'
+const [n, setN] = signal(0)
+const bad: number = 'not a number'
+}
+@template { <p>{n()}</p> }"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let sidecar = emit(&unit, "x-inline").sidecar_ts.expect("sidecar must be emitted");
+    assert!(
+        sidecar.contains("const bad: number = 'not a number'"),
+        "the @state body must reach tsc verbatim, or nothing in it is checked:\n{sidecar}"
+    );
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or_default();
+    assert!(
+        sig == "function __aihu_template(): void {",
+        "an inlined binding must NOT also arrive as an `any` param (that erases its type):\n{sig}"
     );
 }
 
@@ -501,22 +574,24 @@ const label = computed(() => open() ? 'Close' : 'Open')
     // globals like `open` don't collide (TS2451).
     assert!(
         sidecar.contains("function __aihu_template(")
-            && sidecar.contains("toggle: any")
-            && sidecar.contains("label: any"),
+            && in_scope(&sidecar, "toggle")
+            && in_scope(&sidecar, "label"),
         "sidecar must declare referenced @state bindings as params:\n{sidecar}"
     );
-    // `open` is referenced (inside `toggle`'s expr is NOT in template, but the
-    // setter use is) — it is NOT referenced by a template expr here, so it must
-    // NOT be emitted (no unused params).
-    assert!(
-        !sidecar.contains("open: any"),
-        "unreferenced @state bindings must not become params:\n{sidecar}"
-    );
-    // Framework globals must NOT be re-declared (typed in the preamble already).
-    assert!(
-        !sidecar.contains("signal: any"),
-        "framework globals must not be shadowed:\n{sidecar}"
-    );
+    // No @state binding should arrive as an `any` PARAM — each is bound by the
+    // inlined script and carries its real type. `open` in particular: it shadows
+    // lib.dom's `open`, which an ambient re-declaration would collide with
+    // (TS2451), but a module-scope `const` shadows cleanly.
+    let sig = sidecar
+        .lines()
+        .find(|l| l.contains("function __aihu_template"))
+        .unwrap_or("");
+    for name in ["open", "toggle", "label", "signal"] {
+        assert!(
+            !sig.contains(&format!("{name}: any")),
+            "`{name}` must come from the inlined @state body, not an `any` param:\n{sig}"
+        );
+    }
 }
 
 #[test]
@@ -533,11 +608,11 @@ fn sidecar_declares_prop_and_computed_collection_names() {
     let result = emit(&unit, "x-sidecar-prop");
     let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
     assert!(
-        sidecar.contains("active: any"),
+        in_scope(&sidecar, "active"),
         "sidecar must declare the `active` $prop as a param:\n{sidecar}"
     );
     assert!(
-        sidecar.contains("cls: any"),
+        in_scope(&sidecar, "cls"),
         "sidecar must declare the `cls` $computed as a param:\n{sidecar}"
     );
 }
@@ -576,15 +651,15 @@ const chaptersOf = (bk: string) => []
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
     for name in [
-        "setSel: any",      // signal setter
-        "s: any",           // loop alias (call iterable)
-        "b: any",           // loop alias (member iterable)
-        "c: any",           // loop alias — NESTED-CALL iterable (the big gap)
-        "closeNav: any",    // imported, used in handler
-        "activeStudy: any", // imported, used in interpolation
+        "setSel",      // signal setter
+        "s",           // loop alias (call iterable)
+        "b",           // loop alias (member iterable)
+        "c",           // loop alias — NESTED-CALL iterable (the big gap)
+        "closeNav",    // imported, used in handler
+        "activeStudy", // imported, used in interpolation
     ] {
         assert!(
-            sig.contains(name),
+            in_scope(&sidecar, name),
             "sidecar __aihu_template must declare `{name}`:\n{sig}"
         );
     }
@@ -623,8 +698,8 @@ const openTerm = (e: Event, t: unknown) => {}
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
     // Multi-line import names + single-element destructure are in scope.
-    for name in ["closeNav: any", "toggleTheme: any", "showLine: any"] {
-        assert!(sig.contains(name), "sidecar must declare `{name}`:\n{sig}");
+    for name in ["closeNav", "toggleTheme", "showLine"] {
+        assert!(in_scope(&sidecar, name), "sidecar must declare `{name}`:\n{sig}");
     }
     // Handlers go through the __handler() helper (call position) so their inline
     // arrow params get a contextual `any` type instead of implicit-any (TS7006).
@@ -671,9 +746,9 @@ const [items, setItems] = signal(['a'])
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    for name in ["count: any", "nums: any", "items: any"] {
+    for name in ["count", "nums", "items"] {
         assert!(
-            sig.contains(name),
+            in_scope(&sidecar, name),
             "sidecar must declare `{name}` (template-literal/spread read):\n{sig}"
         );
     }
@@ -708,8 +783,8 @@ const [user, setUser] = signal({{ name: '' }})
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    assert!(sig.contains("items: any"), "outer `items` read must surface:\n{sig}");
-    assert!(sig.contains("user: any"), "member BASE `user` read must surface:\n{sig}");
+    assert!(in_scope(&sidecar, "items"), "outer `items` read must surface:\n{sig}");
+    assert!(in_scope(&sidecar, "user"), "member BASE `user` read must surface:\n{sig}");
     assert!(
         !sig.contains("count: any"),
         "shadowed-param/object-key `count` must NOT become a param:\n{sig}"
@@ -723,7 +798,7 @@ const [user, setUser] = signal({{ name: '' }})
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    assert!(sig.contains("count: any"), "shorthand `{{ count }}` is a read:\n{sig}");
+    assert!(in_scope(&sidecar, "count"), "shorthand `{{ count }}` is a read:\n{sig}");
 }
 
 #[test]
@@ -750,9 +825,9 @@ const [pairs, setPairs] = signal([['a', 1]])
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    for name in ["k: any", "v: any", "i: any", "pairs: any"] {
+    for name in ["k", "v", "i", "pairs"] {
         assert!(
-            sig.contains(name),
+            in_scope(&sidecar, name),
             "sidecar must declare destructured each alias `{name}`:\n{sig}"
         );
     }
@@ -777,8 +852,8 @@ const [users, setUsers] = signal([])
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    for name in ["name: any", "rid: any"] {
-        assert!(sig.contains(name), "sidecar must bind `{name}`:\n{sig}");
+    for name in ["name", "rid"] {
+        assert!(in_scope(&sidecar, name), "sidecar must bind `{name}`:\n{sig}");
     }
     // Param-boundary check (`rid: any` contains the substring `id: any`).
     assert!(
@@ -807,9 +882,11 @@ fn sidecar_line_mapping_holds_for_newly_harvested_forms() {
     let unit = compile_full(&parsed).unwrap();
     let sidecar = emit(&unit, "x-w4-lines").sidecar_ts.expect("sidecar must be emitted");
     let lines: Vec<&str> = sidecar.lines().collect();
+    // The read inside the template literal must be in scope — it comes from the
+    // inlined @state body now, not from an `any` param on the opener line.
     assert!(
-        lines[1].contains("count: any"),
-        "line 2 opener must declare the template-literal read as a param:\n{sidecar}"
+        in_scope(&sidecar, "count"),
+        "the template-literal read must be in scope:\n{sidecar}"
     );
     assert_eq!(
         lines.get(6).copied(),
@@ -839,7 +916,7 @@ const [count, setCount] = signal(0)
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
     assert!(
-        sig.contains("count: any"),
+        in_scope(&sidecar, "count"),
         "token fallback must still declare `count`:\n{sig}"
     );
 }

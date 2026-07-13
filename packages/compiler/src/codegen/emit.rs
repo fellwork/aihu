@@ -315,16 +315,36 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // layout below work: every lifted template expression at or after source
     // line 3 can be placed on its exact `.aihu` line, so `tsc` diagnostics cite
     // the real source line instead of a bunched-up projection region.
+    //
+    // A framework global is declared only when the script does NOT already bind
+    // that name. Now that the @state body is inlined verbatim, a component that
+    // imports `signal` from '@aihu/signals' brings its own — and an ambient
+    // re-declaration beside the import is a hard TS2440 conflict.
+    const FRAMEWORK_GLOBALS: &[(&str, &str)] = &[
+        ("signal", "declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void];"),
+        ("computed", "declare const computed: <T>(fn: () => T) => () => T;"),
+        ("onMount", "declare const onMount: (fn: () => void | (() => void)) => void;"),
+        ("onCleanup", "declare const onCleanup: (fn: () => void) => void;"),
+        ("onAdopt", "declare const onAdopt: (fn: () => void) => void;"),
+        (
+            "onAttributeChange",
+            "declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void;",
+        ),
+    ];
+    let script_bound = script_bound_names(script);
+    let globals: String = FRAMEWORK_GLOBALS
+        .iter()
+        .filter(|(name, _)| !script_bound.contains(*name))
+        .map(|(_, decl)| *decl)
+        .collect::<Vec<_>>()
+        .join(" ");
     let preamble_line = format!(
-        "declare const signal: <T>(initial: T) => readonly [() => T, (v: T) => void]; \
-         declare const computed: <T>(fn: () => T) => () => T; \
-         declare const onMount: (fn: () => void | (() => void)) => void; \
-         declare const onCleanup: (fn: () => void) => void; \
-         declare const onAdopt: (fn: () => void) => void; \
-         declare const onAttributeChange: (fn: (name: string, oldVal: string | null, newVal: string | null) => void) => void; \
-         declare function __handler(h: (...args: any[]) => any): void; {} {} // {}.aihu type-check sidecar (generated, line-preserving)",
+        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {} \
+         // {}.aihu type-check sidecar (generated, line-preserving)",
+        globals,
         to_single_line(&emit_decl),
         to_single_line(&event_decl),
+        macro_binding_decls(script),
         tag_name
     );
 
@@ -367,27 +387,78 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         .into_iter()
         .filter(|name| referenced_names.contains(name))
         .collect();
+    // The @state body is INLINED verbatim below (at its real lines), so every
+    // name it binds — bindings, setters, imports — carries its true type. Only
+    // the loop aliases remain `any`: `{#each xs as m}` binds `m` in the TEMPLATE,
+    // so no declaration for it exists in the script to borrow a type from.
+    // (Deriving the element type from the iterable is the next step; until then
+    // an honest `any` beats a wrong type.)
+    //
+    // Everything else used to be an `any` param too, which is why a `@state` type
+    // error could never be caught: the script was never handed to tsc at all.
+    let loop_aliases: std::collections::BTreeSet<String> = {
+        let mut a = std::collections::BTreeSet::new();
+        collect_loop_aliases(nodes, &mut a);
+        a
+    };
     let params = referenced
         .iter()
+        .filter(|n| loop_aliases.contains(n.as_str()))
         .map(|n| format!("{}: any", n))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Line-preserving body. `lines[i]` is sidecar line i+1: line 1 = preamble,
-    // line 2 = the function opener, body statements on line ≥3. Each lifted
-    // expression is placed on its real `.aihu` source line, recovered by a
-    // forward-cursor search of the @template text (exprs are collected in source
-    // order, so the cursor disambiguates repeated expressions). Expressions are
-    // collapsed to a single physical line, so a multi-line source expression is
-    // reported at its START line; several expressions sharing a source line
-    // share a sidecar line. Blank body lines are valid (empty statements).
-    const OPENER_LINE: usize = 2;
+    // then the @state body verbatim at its own source lines, then the template
+    // function whose lifted expressions each sit on their real `.aihu` line
+    // (recovered by a forward-cursor search of the @template text; exprs are
+    // collected in source order, so the cursor disambiguates repeats).
+    // Expressions are collapsed to a single physical line, so a multi-line source
+    // expression is reported at its START line, and several expressions sharing a
+    // source line share a sidecar line.
+    //
+    // @state precedes @template in every ordinary SFC, so the script's lines and
+    // the template's lines never collide and both keep their true numbers. When a
+    // file inverts that order the script still lands on its real lines and the
+    // template function stacks after it — diagnostics inside @state stay exact,
+    // and the template's may shift. `script_opener_line` is the last line we may
+    // not write into.
     let template_text = unit.source.template.unwrap_or("");
     let tmpl_first_line = unit.source.template_line; // 1-based; 0 if no @template
-    let mut lines: Vec<String> = vec![
-        preamble_line,
-        format!("function __aihu_template({}): void {{", params),
-    ];
+    let mut lines: Vec<String> = vec![preamble_line];
+
+    // The @state body, on its real lines, at module scope — so the template
+    // function below closes over every binding with its TRUE type.
+    //
+    // Plain JS/TS lines (imports, `const`s, functions — the bulk of a @state
+    // block) go through verbatim and are fully checked, each on its own source
+    // line. Macro lines are blanked: `$prop: { … }` and friends are aihu syntax,
+    // not TypeScript (`type: { params: { ref: string } }` uses `string` in value
+    // position), so feeding them to tsc raises syntax errors on code the author
+    // never wrote. What the macros BIND is declared instead, on the preamble line
+    // — with the prop's real declared type where `type:` gives one.
+    let macro_lines = macro_line_set(script);
+    let script_first_line = unit.source.script_line; // 1-based; 0 if no @state
+    if script_first_line > 0 && !script.is_empty() {
+        for (n, text) in script.lines().enumerate() {
+            let idx = script_first_line - 1 + n;
+            if idx >= lines.len() {
+                lines.resize(idx + 1, String::new());
+            }
+            let text = if macro_lines.contains(&n) { "" } else { text };
+            // Line 1 is the preamble and must not be overwritten. A @state body
+            // cannot start there in practice (the `@state {` opener occupies a
+            // line above it), so this only guards the pathological case.
+            if idx > 0 {
+                lines[idx] = text.to_string();
+            }
+        }
+    }
+
+    // Open the template function on the first free line after the script.
+    let opener_line = lines.len().max(1) + 1;
+    lines.resize(opener_line - 1, String::new());
+    lines.push(format!("function __aihu_template({}): void {{", params));
     let mut cursor = 0usize;
     for e in &exprs {
         // Recover the expression's 1-based `.aihu` file line (0 = unknown).
@@ -410,12 +481,13 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
             // still flags undefined identifiers and most type errors.
             format!("void ({});", to_single_line(&e.expr))
         };
-        // Target line: the real source line when it's below the opener; otherwise
-        // stack immediately after the current body (can't write into the preamble).
-        let target = if file_line > OPENER_LINE {
+        // Target line: the real source line when it sits below the function opener
+        // (and so cannot collide with the preamble or the inlined script);
+        // otherwise stack after the current body.
+        let target = if file_line > opener_line {
             file_line
         } else {
-            lines.len().max(OPENER_LINE) + 1
+            lines.len().max(opener_line) + 1
         };
         let idx = target - 1;
         if idx >= lines.len() {
@@ -430,6 +502,118 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     }
     lines.push("}".to_string());
     Some(format!("{}\n", lines.join("\n")))
+}
+
+/// Top-level names the `@state` body itself binds — imports and `const`/`let`
+/// declarations. The sidecar's preamble skips any framework global already bound
+/// here: with the script inlined verbatim, `import { signal } from '@aihu/signals'`
+/// beside an ambient `declare const signal` is a TS2440 conflict.
+fn script_bound_names(script: &str) -> std::collections::BTreeSet<String> {
+    let mut names = std::collections::BTreeSet::new();
+    collect_imported_names(script, &mut names);
+    names.extend(crate::codegen::signals::collect_state_decls(script).all);
+    names
+}
+
+/// The 0-based line indices (within the `@state` body) occupied by a `$macro`
+/// and its body. The sidecar blanks these so tsc never parses aihu macro syntax
+/// as TypeScript, while the surrounding real code keeps its line numbers.
+///
+/// Mirrors the macro-region skip in `codegen::signals::collect_state_decls`.
+fn macro_line_set(script: &str) -> std::collections::BTreeSet<usize> {
+    let mut out = std::collections::BTreeSet::new();
+    let bytes = script.as_bytes();
+    let mut i = 0usize;
+    while i < script.len() {
+        let nl = script[i..].find('\n').map(|r| i + r).unwrap_or(script.len());
+        let line = script[i..nl].trim();
+        if line.starts_with('$') {
+            // Find the macro's end: the close of its `{ … }` or `( … )` payload,
+            // else just this line.
+            let mut end = nl;
+            if let Some(colon_rel) = script[i..].find(|c| c == '{' || c == '(') {
+                let p = i + colon_rel;
+                // Only treat it as a payload when it opens on the macro's own line
+                // or the next (a `$macro` never opens its body further away).
+                if script[i..p].bytes().filter(|&b| b == b'\n').count() <= 1 {
+                    let close = if bytes[p] == b'{' {
+                        crate::parser::state_macros::find_brace_close_js(script, p + 1)
+                    } else {
+                        crate::parser::state_macros::find_paren_close(script, p + 1)
+                    };
+                    if let Some(c) = close {
+                        end = c;
+                    }
+                }
+            }
+            let first = newlines_before(script, i);
+            let last = newlines_before(script, end.min(script.len()));
+            for l in first..=last {
+                out.insert(l);
+            }
+            i = script[end.min(script.len())..]
+                .find('\n')
+                .map(|r| end + r + 1)
+                .unwrap_or(script.len());
+            continue;
+        }
+        i = nl + 1;
+    }
+    out
+}
+
+/// Declarations for every binding a `$macro` introduces, as a single physical
+/// line appended to the preamble (the macro's own lines are blanked — see
+/// `macro_line_set`).
+///
+/// `$prop` entries carry a declared `type:`, so they get their REAL type — props
+/// are what templates touch most, and a wrong prop type is exactly the bug the
+/// sidecar exists to catch. The other collections bind functions whose types
+/// would have to be inferred from macro bodies that aren't yet lowered to TS, so
+/// they are honestly `any` for now rather than confidently wrong.
+///
+/// Module-scope `let`/`const` (not `declare const`): a binding may shadow a DOM
+/// global (`name`, `open`, `status`, `close`), and an ambient re-declaration of
+/// one collides with lib.dom (TS2451) where a module-scope binding shadows it.
+fn macro_binding_decls(script: &str) -> String {
+    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let mut decls: Vec<String> = Vec::new();
+    for m in &macros {
+        let crate::types::StateMacro::Collection { kind, entries } = m else {
+            continue;
+        };
+        for e in entries {
+            let name = &e.name;
+            match kind {
+                crate::types::CollectionKind::Prop => {
+                    // `type:` is a TS type, but may be written as a quoted string
+                    // (`type: "number"`) or bare (`type: { params: { ref: string } }`).
+                    let ty = e
+                        .meta
+                        .iter()
+                        .find(|(k, _)| k == "type")
+                        .map(|(_, v)| unquote_ts_type(v.trim()))
+                        .unwrap_or_else(|| "any".to_string());
+                    decls.push(format!("let {}: {} = null as any;", name, ty));
+                }
+                // Event dispatchers are already typed by the $emit/$event decls.
+                crate::types::CollectionKind::Event => {}
+                _ => decls.push(format!("let {}: any = null as any;", name)),
+            }
+        }
+    }
+    decls.join(" ")
+}
+
+/// A `type:` meta value is a TS type. Accept both the quoted (`"number"`) and
+/// bare (`{ params: { ref: string } }`) spellings authors use.
+fn unquote_ts_type(v: &str) -> String {
+    let t = v.trim();
+    let unq = t
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| t.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')));
+    to_single_line(unq.unwrap_or(t)).trim().to_string()
 }
 
 /// Replace newlines with spaces so a value fits on one physical line — used to

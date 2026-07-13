@@ -819,6 +819,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
     let mut script: Option<&str> = None;
     let mut template: Option<&str> = None;
     // 1-based source line of the @template body's first non-whitespace char.
+    let mut script_line: usize = 0;
     let mut template_line: usize = 0;
     let mut style: Option<StyleBlock> = None;
     let meta = ScriptMeta { name: None };
@@ -920,6 +921,11 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                         ..Default::default()
                     });
                 }
+                // Record the file line of the trimmed body's first char so the
+                // sidecar can inline the script at its real lines.
+                let untrimmed = &source[body_start..close_pos];
+                let lead_ws = untrimmed.len() - untrimmed.trim_start().len();
+                script_line = line_at(source, body_start + lead_ws);
                 script = Some(body);
             }
             BlockKind::Template => {
@@ -1049,6 +1055,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
 
     Ok(AihuSource {
         script,
+        script_line,
         template,
         template_line,
         style,

@@ -83,6 +83,11 @@ pub struct StyleBlock<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct AihuSource<'a> {
     pub script: Option<&'a str>,
+    /// 1-based line in the original `.aihu` file where the `@state` body's first
+    /// non-whitespace character sits. The type-check sidecar inlines the script
+    /// verbatim at these lines, so a `tsc` diagnostic inside `@state` cites the
+    /// real `.aihu` line. 0 when no @state.
+    pub script_line: usize,
     pub template: Option<&'a str>,
     /// 1-based line in the original `.aihu` file where the `@template` body's
     /// first non-whitespace character sits. Lets the type-check sidecar place
