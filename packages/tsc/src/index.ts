@@ -15,7 +15,7 @@
 import { proxyCreateProgram } from '@volar/typescript'
 import { relative } from 'node:path'
 import ts from 'typescript'
-import { createAihuLanguagePlugin } from './language-plugin.ts'
+import { createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'
 
 /**
  * Implicit-`any` diagnostics, suppressed for `.aihu` files only.
@@ -100,9 +100,10 @@ export function run(options: RunOptions = {}): number {
   // build`'s to report, but silence here would let a green run mean "TypeScript
   // refused to read your file", which is the false green this tool exists to
   // remove. So: name them, count them as failures, and still check the rest.
-  const unchecked = parsed.fileNames.filter(
-    (f) => f.endsWith('.aihu') && !program.getSourceFile(f),
-  )
+  // NOT "has no source file": a non-compiling SFC still gets one (TypeScript
+  // parses its raw text). The only sound test is whether a type-check surface was
+  // generated for it at all.
+  const unchecked = [...getUncompilableFiles()].sort()
 
   const diagnostics = [
     ...program.getConfigFileParsingDiagnostics(),

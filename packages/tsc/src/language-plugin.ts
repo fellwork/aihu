@@ -104,30 +104,47 @@ export interface AihuVirtualCode extends VirtualCode {
   languageId: 'typescript'
 }
 
+/**
+ * Files whose SFC does not compile, so there is no surface to type-check.
+ *
+ * They must be NAMED, not silently skipped: a pass over a file the compiler
+ * refused to read is a false green. `run()` reports them and fails the run.
+ */
+const uncompilable = new Set<string>()
+
+export function getUncompilableFiles(): ReadonlySet<string> {
+  return uncompilable
+}
+
 function createVirtualCode(
   fileName: string,
   snapshot: ts.IScriptSnapshot,
   tsModule: typeof ts,
-): AihuVirtualCode | undefined {
+): AihuVirtualCode {
   const source = snapshot.getText(0, snapshot.getLength())
   let generated: string
   try {
     generated = compileSidecar(source, fileName)
+    uncompilable.delete(fileName)
   } catch {
-    // The SFC does not compile. That is a COMPILE error, and `aihu build` /
-    // `aihu dev` already report it with a real .aihu line and caret. Surfacing a
-    // second, worse-worded copy of it here — or worse, a cascade of phantom type
-    // errors from a half-generated surface — would only add noise, so this file
-    // contributes nothing to type-check.
-    return undefined
+    // The SFC does not compile — a COMPILE error, which `aihu build` already
+    // reports with a real .aihu line and caret. Repeating it here, worse worded,
+    // would only add noise.
+    //
+    // But we must still hand TypeScript SOMETHING. Returning nothing leaves it to
+    // parse the raw `.aihu` text as TypeScript, which buries the real problem
+    // under a landslide of nonsense — `TS1146: Declaration expected` pointing at
+    // `@state {`. An empty surface contributes no diagnostics; the file is named
+    // in the summary instead.
+    uncompilable.add(fileName)
+    generated = ''
   }
-  if (!generated.trim()) return undefined
 
   return {
     id: 'main',
     languageId: 'typescript',
     snapshot: tsModule.ScriptSnapshot.fromString(generated),
-    mappings: buildMappings(source, generated),
+    mappings: generated ? buildMappings(source, generated) : [],
   }
 }
 

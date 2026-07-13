@@ -120,6 +120,25 @@ export function isUsableExecutable(candidate: string): boolean {
 export function resolveCompilerBinary(): string {
   if (_binPath !== null) return _binPath
 
+  // 0. `AIHU_COMPILE_BIN` — an explicit override, checked before everything else.
+  //
+  // Working ON the compiler means the freshly built `target/release/aihu-compile`
+  // must win over the PUBLISHED `@aihu/compiler-<platform>` package, which is
+  // resolvable in this very monorepo and would otherwise shadow it. That shadowing
+  // is quiet and nasty: an older binary silently ignores a flag it does not know
+  // and emits its normal output, so the caller gets a plausible-looking wrong
+  // answer rather than an error.
+  const override = process.env.AIHU_COMPILE_BIN
+  if (override) {
+    if (!isUsableExecutable(override)) {
+      throw new Error(
+        `[@aihu/compiler] AIHU_COMPILE_BIN is set to '${override}', which is not an executable file.`,
+      )
+    }
+    _binPath = override
+    return _binPath
+  }
+
   const descriptor = detectPlatform()
 
   // 1. Per-platform optionalDependency package (the published-consumer path).

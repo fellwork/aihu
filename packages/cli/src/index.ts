@@ -92,7 +92,10 @@ export function appPackageJson(
         dev: 'vite',
         build: 'vite build',
         preview: 'vite preview',
-        typecheck: 'tsc --noEmit',
+        // `aihu-tsc`, not `tsc`: plain tsc cannot see inside a `.aihu` file, so it
+        // would report a clean pass over every SFC in the project without having
+        // type-checked a line of one.
+        typecheck: 'aihu-tsc',
       },
       dependencies: {
         // `@aihu/app` re-exports `viteAihuPlugin` (the composed compiler +
@@ -119,6 +122,8 @@ export function appPackageJson(
         '@aihu-plugin/agent-readiness': 'latest',
         '@aihu/cli': 'latest',
         '@aihu/compiler': 'latest',
+        // Provides `aihu-tsc` — the `typecheck` script above.
+        '@aihu/tsc': 'latest',
         typescript: '^5.0.0',
         vite: '^6.0.0',
       },

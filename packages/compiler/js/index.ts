@@ -1123,16 +1123,17 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
       const rawId = id.split('?')[0]!
       if (!rawId.endsWith('.aihu')) return
       return (async () => {
-        // B3b — write per-SFC `.aihu.ts` sidecar adjacent to source so
-        // `tsc --noEmit` over `**/*.aihu.ts` type-checks template
-        // expressions end-to-end (Architect spec §7 path (i)).
-        const sidecarOut = `${rawId}.ts`
+        // No `.aihu.ts` sidecar is written any more. Type-checking goes through
+        // `aihu-tsc`, which projects each `.aihu` into the TypeScript program as a
+        // VIRTUAL file — so the type-check surface never lands on disk beside the
+        // source, where authors saw it, editors indexed it, and `.gitignore` had to
+        // hide it. A build has no business writing type-checker inputs at all.
+        //
         // Layout SFCs (under the layouts dir) compile in layout mode: a
         // namespaced `aihu-layout-<stem>` tag + a passive <$outlet> marker.
         const isLayout = _isLayoutFile(rawId, layoutsDir)
         const layoutTag = isLayout ? _layoutTag(basename(rawId, '.aihu')) : undefined
         const tOpts = {
-          sidecarOut,
           ...(target ? { target } : {}),
           ...(layoutTag ? { tag: layoutTag } : {}),
         }

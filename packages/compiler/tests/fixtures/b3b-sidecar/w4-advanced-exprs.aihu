@@ -12,7 +12,7 @@
 
 @template {
   <span>{`Count: ${count}`}</span>
-  <b>{Math.max(...nums)}</b>
+  <b>{Math.max(...nums())}</b>
   <ul>
     {#each pairs as [k, v], i (k)}
       <li>{k}: {v} #{i}</li>

@@ -2,25 +2,20 @@
 
 ## Compiler / language (added 2026-07-10)
 
-### aihu-tsc — retire the on-disk `.aihu.ts` sidecars (added 2026-07-12)
-- **What:** A `tsc` wrapper (`aihu-tsc`) that presents `.aihu` files to TypeScript
-  as virtual TS in memory, via Volar's `proxyCreateProgram`, so no `*.aihu.ts`
-  is ever written next to a source. Then: drop the `sidecarOut` write from the
-  vite plugin (`packages/compiler/js/index.ts`, ~L1098), point the scaffolded
-  `typecheck` script (`packages/cli/src/index.ts` ~L95) at `aihu-tsc`, and drop
-  `*.aihu.ts` from consumers' `.gitignore`.
-- **Why:** The generator now emits a real type-check surface (see below), but it
-  still lands as a file on disk beside every `.aihu` — an artifact authors see,
-  editors index, and `.gitignore` has to hide. The virtual-file path is what the
-  Volar machinery already in `@aihu/language-server` exists for.
-- **Start at:** `packages/language-server/src/core/volar-plugin.ts` — it already
-  builds a `VirtualCode` per `.aihu` with source maps. `aihu-tsc` is that same
-  language plugin handed to `proxyCreateProgram` (the `vue-tsc` shape). Its
-  `state-generator.ts` should be retired in favour of the compiler's sidecar so
-  the editor and the CLI cannot disagree.
-- **Note:** the wrapper is also where implicit-`any` is relaxed for `.aihu`
-  virtual files only — filter `TS7006`/`TS7031` diagnostics whose origin is a
-  `.aihu`. It cannot be done in `tsconfig` without weakening real `.ts` too.
+### aihu-tsc — DONE (2026-07-13); remaining follow-ups
+- **Shipped:** `@aihu/tsc` (`aihu-tsc`) projects each `.aihu` into the TypeScript
+  program as a VIRTUAL file via Volar's `proxyCreateProgram`. The vite plugin no
+  longer writes `*.aihu.ts`, and the scaffolded `typecheck` script now runs
+  `aihu-tsc` instead of `tsc` (plain `tsc` cannot see inside a `.aihu` and reports
+  a clean pass over every SFC without checking one).
+- **Follow-ups:**
+  - Consumers can drop `*.aihu.ts` from `.gitignore` once on the new compiler, and
+    delete any sidecars still on disk.
+  - `aihu-compile <file> --out <dir>` still writes a `<tag>.aihu.ts` into the OUT
+    dir. Harmless (it is not next to the source) but now pointless — remove.
+  - Wire `.aihu` diagnostics into `@aihu/language-server` from the same surface, so
+    the editor and `aihu-tsc` cannot disagree. Its `state-generator.ts` is a second,
+    weaker generator and should be retired.
 
 ### `signal(null)` infers `T = null` — untyped signals across the corpus (added 2026-07-12)
 - **What:** `const [doc, setDoc] = signal(null)` gives `T = null`, so `doc()` is

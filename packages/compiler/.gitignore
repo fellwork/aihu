@@ -19,3 +19,4 @@ pkg-wasm/
 # verification. CI generates these and uploads them alongside binaries;
 # nothing locally generated should ever be committed.
 *.sha256
+tests/.scratch/
