@@ -76,6 +76,9 @@ jobs:
           # release download — it predates the --ast-json hook.
           SCRIBE_SKIP_POSTINSTALL: "1"
       - run: bun run check:deps
+      # Guard: a compiler Rust change must bump the platform binary packages,
+      # or the rebuilt binary is silently skipped at publish (see the script).
+      - run: bun run check:compiler-binary-bump
         # Use the pinned local biome (node_modules/.bin via check:lint), NOT
         # `bunx biome`, which resolves its own latest copy and made CI flap when
         # biome 2.4.15 published mid-day (see PR pinning @biomejs/biome to 2.4.14).
