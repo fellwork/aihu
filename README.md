@@ -254,11 +254,11 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/arbor`](./packages/arbor) | `1.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `1.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `0.8.3` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `0.10.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `0.10.1` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/context`](./packages/context) | `0.1.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.4` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.1` | [MOVED] This package has moved to @aihu-plugin/data. |
-| [`@aihu/language-server`](./packages/language-server) | `0.2.19` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/language-server`](./packages/language-server) | `0.2.20` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
 | [`@aihu/magna`](./packages/magna) | `0.2.1` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
@@ -271,7 +271,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/server`](./packages/server) | `0.2.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.2.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
-| [`@aihu/tsc`](./packages/tsc) | `0.2.0` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
+| [`@aihu/tsc`](./packages/tsc) | `0.2.1` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
 | [`create-aihu`](./packages/create-aihu) | `0.1.4` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
