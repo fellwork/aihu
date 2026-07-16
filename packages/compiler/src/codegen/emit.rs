@@ -4007,7 +4007,24 @@ fn emit_node(
             // Decode entities first so &nbsp; etc. survive whitespace normalization.
             let raw = decode_html_entities(s);
             if raw.trim().is_empty() {
-                String::new()
+                // A whitespace-only text node. On a SINGLE line (no newline in the
+                // run) it is a significant inline separator — the only space
+                // between `{a}` and `{b}`, or between text and an inline element —
+                // and collapses to one space, matching HTML's inline whitespace
+                // model and rule 3 below (which only ran for mixed-content text).
+                // Before this it was dropped outright, so `{a} {b}` rendered `ab`
+                // (#400). A run that SPANS lines is template-body indentation
+                // between block-level content and stays stripped (rule 4).
+                if raw.contains('\n') {
+                    String::new()
+                } else if raw.contains('\u{00A0}') {
+                    // A non-breaking space is deliberate significant whitespace —
+                    // preserve it rather than folding to a plain space (the decode
+                    // above exists precisely so `&nbsp;` survives).
+                    "leaf('\\u00A0')".to_string()
+                } else {
+                    "leaf(' ')".to_string()
+                }
             } else {
                 // JSX-style whitespace handling for text adjacent to inline elements:
                 //  1. Collapse runs of ASCII whitespace (incl. newlines) per-line.

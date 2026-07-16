@@ -559,6 +559,55 @@ fn text_before_inline_preserves_single_space() {
 }
 
 #[test]
+fn whitespace_only_node_between_two_interpolations_is_preserved() {
+    // #400: a whitespace-only text node flanked by dynamic boundaries was dropped
+    // entirely — `<p>{a} {b}</p>` rendered `ab`, fusing two values whose only
+    // separator was that space. The single space must survive as `leaf(' ')`.
+    let src =
+        "@state {\n  import { signal } from '@aihu/signals'\n  const [count] = signal(400)\n  const [label] = signal('x')\n}\n@template { <p>{count()} {label()}</p> }";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-400a");
+    assert!(
+        output.js.contains("leaf(' ')"),
+        "the space between two interpolations must be preserved (#400); got:\n{}",
+        output.js
+    );
+}
+
+#[test]
+fn whitespace_only_node_before_an_inline_element_is_preserved() {
+    // #400 control case: the space before a child element is also dropped.
+    let src =
+        "@state {\n  import { signal } from '@aihu/signals'\n  const [count] = signal(400)\n  const [label] = signal('x')\n}\n@template { <p>{count()} <span>{label()}</span></p> }";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-400b");
+    assert!(
+        output.js.contains("leaf(' ')"),
+        "the space before an inline element must be preserved (#400); got:\n{}",
+        output.js
+    );
+}
+
+#[test]
+fn whitespace_only_node_spanning_lines_is_still_stripped() {
+    // The fix must NOT inject spurious spaces from template-body indentation
+    // between block-level siblings: the whitespace between the two <p>s spans a
+    // newline and stays elided (HTML would collapse it to nothing between blocks).
+    let src =
+        "@state {\n  import { signal } from '@aihu/signals'\n  const [a] = signal(1)\n  const [b] = signal(2)\n}\n@template {\n  <div>\n    <p>{a()}</p>\n    <p>{b()}</p>\n  </div>\n}";
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let output = emit(&unit, "x-ws-400c");
+    assert!(
+        !output.js.contains("leaf(' ')"),
+        "newline-spanning indentation between block elements must not become a space; got:\n{}",
+        output.js
+    );
+}
+
+#[test]
 fn multi_line_surrounding_whitespace_stripped() {
     // Template body newlines + indentation around a text node should be
     // stripped entirely (no leading/trailing space injected).
