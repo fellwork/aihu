@@ -37,6 +37,7 @@
     "test:quality": "bun scripts/lighthouse.ts",
     "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
+    "check:compiler-binary-bump": "bun scripts/check-compiler-binary-bump.ts",
     "lint:dep-pins": "bun scripts/lint-dep-pins.ts",
     "lint:node-leak": "bun scripts/lint-node-bundle-leaks.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
