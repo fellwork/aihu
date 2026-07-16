@@ -103,7 +103,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "0.10.1",
+    "version": "0.10.2",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -181,7 +181,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.2.20",
+    "version": "0.2.21",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -283,7 +283,7 @@
   },
   {
     "name": "@aihu/tsc",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "dir": "packages/tsc",
     "isPlatform": false
   },
