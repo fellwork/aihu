@@ -524,6 +524,41 @@ describe('defineComponent — pre-connect reactive $prop binding', () => {
     el.remove()
   })
 
+  it('PC0 (pre-define): $prop set before the tag is defined survives the upgrade', () => {
+    // One step earlier than PC1. PC1 writes after define() but before connect —
+    // the accessor exists, so the write buffers. Here the write happens BEFORE
+    // define(), the lazy/async-import case: the tag renders and is written to
+    // before its chunk lands. With no accessor yet, `el.body = …` lands as an
+    // OWN property that SHADOWS the accessor once the element upgrades — the
+    // setter never runs and the prop reverts to its default. The constructor's
+    // upgrade rescue must reclaim it.
+    _setSignal(signal)
+    _setMount(mount)
+    let captured: (() => unknown) | null = null
+    const Cmp = defineComponent({
+      props: { body: { value: 'DEFAULT' } },
+      setup: (ctx) => {
+        captured = ctx.props.body as () => unknown
+        return branch('div', undefined, [leaf('x')])
+      },
+    })
+
+    // Element exists and is written to BEFORE its tag is defined.
+    const el = document.createElement('x-pc0') as HTMLElement & { body: string }
+    document.body.appendChild(el)
+    el.body = '<p>real</p>'
+    expect(Object.hasOwn(el, 'body')).toBe(true) // shadowing own prop, pre-upgrade
+
+    // The chunk lands: define + upgrade. The rescue must reclaim the own prop.
+    defineElement('x-pc0', Cmp)
+    customElements.upgrade(el)
+
+    expect(Object.hasOwn(el, 'body')).toBe(false) // own prop deleted by the rescue
+    expect(captured).not.toBeNull()
+    expect(captured!()).toBe('<p>real</p>') // not 'DEFAULT'
+    el.remove()
+  })
+
   it('PC2 (slotted): child given $prop before its wrapper connects gets the value', () => {
     _setSignal(signal)
     let captured: (() => unknown) | null = null
