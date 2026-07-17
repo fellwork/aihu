@@ -2,7 +2,7 @@
 
 `@aihu/signals` is the reactive primitive layer for the aihu framework, implementing push-based signals, computeds, and effects on a doubly-linked dependency graph. It ships as ≤ 1.97 kB gzipped — the entire reactivity runtime that powers all aihu components.
 
-The public API is three functions: `signal()`, `computed()`, `effect()`, plus `batch()`, `untrack()`, and lattice helpers. All reactive tracking is automatic — reading a signal inside a `computed` or `effect` body subscribes the observer to that signal's dependency list.
+The public API is three functions: `signal()`, `computed()`, `effect()`, plus `batch()` and `untrack()`. All reactive tracking is automatic — reading a signal inside a `computed` or `effect` body subscribes the observer to that signal's dependency list.
 
 ## Right idioms
 

@@ -1,6 +1,7 @@
 ---
 "@aihu/signals": minor
 "@aihu/arbor": minor
+"@aihu-plugin/data": patch
 ---
 
 Reactivity correctness pass on @aihu/signals + hot-path refinement of @aihu/arbor.
@@ -32,3 +33,11 @@ Perf: `drainBatch` no longer allocates a retired array per flush wave
 (index-chunked drain), drain loops are iterator-free, and arbor resolves the
 property-vs-attribute split once at bind time instead of re-running
 `namespaceURI` + `key in el` checks on every reactive attr update.
+
+**Lattice removed from the core.** `latticeSignal` / `boolLatticeSignal` /
+`maxLatticeSignal` (and the `LatticeSignal` type) are gone from `@aihu/signals`.
+Its only consumer was `@aihu-plugin/data`'s `createResource`, where both uses were
+plain signals in disguise — the bool coalescer is recreated per fetch (so its
+monotone merge was never exercised) and the max signal is a +1 counter. Both are
+migrated to plain `signal()`; equal-write suppression gives the same
+invalidate() coalescing for free. Frees the core of an unused abstraction.
