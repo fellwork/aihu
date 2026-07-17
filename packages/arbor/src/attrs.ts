@@ -96,7 +96,21 @@ export function _applyAttrs(
       const get = value[0] as () => unknown
       const path = `${pathBase}.attr:${key}`
       registry?.set(path, get)
-      mountEffect(disposers, () => _setAttrOrProp(el, key, get()), path, errorHandler)
+      // Resolve the property-vs-attribute split ONCE at bind time — it is
+      // determined by the element's prototype and namespace, which never
+      // change. The effect body then does a bare assignment per update
+      // instead of re-running the `namespaceURI` + `key in el` checks.
+      const asProp = el.namespaceURI !== SVG_NS && key in el
+      mountEffect(
+        disposers,
+        asProp
+          ? () => {
+              ;(el as unknown as Record<string, unknown>)[key] = get()
+            }
+          : () => el.setAttribute(key, String(get())),
+        path,
+        errorHandler,
+      )
       continue
     }
     // Path 3: static primitive (string | number | boolean).

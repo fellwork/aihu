@@ -133,3 +133,61 @@ describe('_applyAttrs — three detection paths', () => {
     expect(paths).toEqual(['0.2.attr:class', '0.2.attr:id'])
   })
 })
+
+describe('_applyAttrs — bind-time property/attribute resolution (reactive path)', () => {
+  // The prop-vs-attr split is resolved once when the binding is created;
+  // re-firing the bound effect fn must keep routing to the same target.
+  const makeSpyMountEffect = (): {
+    spy: MountEffectFn
+    calls: { fn: () => void; path: string }[]
+  } => {
+    const calls: { fn: () => void; path: string }[] = []
+    const spy: MountEffectFn = (_disposers: Dispose[], fn: () => void, path: string) => {
+      calls.push({ fn, path })
+      fn()
+    }
+    return { spy, calls }
+  }
+
+  it('reactive property binding (`key in el`) assigns the property on every fire', () => {
+    const input = document.createElement('input')
+    let value: unknown = true
+    const sig = [() => value, () => {}] as never
+    const { spy, calls } = makeSpyMountEffect()
+
+    _applyAttrs(input, { disabled: sig }, [], '0', spy)
+    expect(input.disabled).toBe(true)
+
+    value = false
+    calls[0]?.fn() // simulate signal-driven re-fire
+    expect(input.disabled).toBe(false)
+  })
+
+  it('reactive attribute binding (key not on el) uses setAttribute with String coercion', () => {
+    const el = document.createElement('div')
+    let value: unknown = 1
+    const sig = [() => value, () => {}] as never
+    const { spy, calls } = makeSpyMountEffect()
+
+    _applyAttrs(el, { 'data-n': sig }, [], '0', spy)
+    expect(el.getAttribute('data-n')).toBe('1')
+
+    value = 2
+    calls[0]?.fn()
+    expect(el.getAttribute('data-n')).toBe('2')
+  })
+
+  it('reactive SVG binding always routes through setAttribute (never property)', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    let value: unknown = '0 0 10 10'
+    const sig = [() => value, () => {}] as never
+    const { spy, calls } = makeSpyMountEffect()
+
+    _applyAttrs(svg, { viewBox: sig }, [], '0', spy)
+    expect(svg.getAttribute('viewBox')).toBe('0 0 10 10')
+
+    value = '0 0 20 20'
+    calls[0]?.fn()
+    expect(svg.getAttribute('viewBox')).toBe('0 0 20 20')
+  })
+})
