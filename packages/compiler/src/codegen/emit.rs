@@ -215,7 +215,19 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     };
 
     // v0.6.2: Emit route_json sidecar when @route block is present.
-    let route_json = unit.source.route.as_ref().map(|r| emit_route_json(r));
+    // The `components` member (added for route-scoped registration) lists the
+    // custom-element tags this page's template references, so the router can
+    // import + register exactly this route's component graph instead of the app
+    // eagerly importing every component at boot.
+    let mut component_tags = std::collections::BTreeSet::new();
+    if let Some(nodes) = unit.template_ast.as_ref() {
+        collect_component_tags(nodes, &mut component_tags);
+    }
+    let route_json = unit
+        .source
+        .route
+        .as_ref()
+        .map(|r| emit_route_json(r, &component_tags));
 
     // B3 — Per-SFC `.aihu.ts` sidecar (Architect spec §7 path (i)). Generates
     // a typed function body containing the template expressions so `tsc
@@ -1080,7 +1092,7 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
 
 // ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
 
-fn emit_route_json(route: &RouteBlock) -> String {
+fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeSet<String>) -> String {
     let pattern = route.path.as_deref().unwrap_or("");
     let name = route.name.as_deref().unwrap_or("");
     let ssr = route.ssr.unwrap_or(false);
@@ -1100,10 +1112,64 @@ fn emit_route_json(route: &RouteBlock) -> String {
         None => String::new(),
     };
 
+    // `components` — the custom-element tags this page uses. Absent (not `[]`)
+    // when the page references no components, so existing consumers and the
+    // common no-component page stay byte-identical.
+    let components_member = if component_tags.is_empty() {
+        String::new()
+    } else {
+        let items: Vec<String> = component_tags.iter().map(|t| json_string(t)).collect();
+        format!(",\n  \"components\": [{}]", items.join(", "))
+    };
+
     format!(
-        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}\n}}",
-        pattern, name, middleware_json, ssr, layout, head_member
+        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}{}\n}}",
+        pattern, name, middleware_json, ssr, layout, head_member, components_member
     )
+}
+
+/// Collect the custom-element tags a template references — the page's component
+/// dependency list, for route-scoped registration.
+///
+/// A tag is a component reference when it is not a plain HTML/SVG element:
+/// either it contains a hyphen (`my-widget`, a custom-element name) or it starts
+/// with an uppercase letter (`Comment`, the PascalCase component form). Plain
+/// lowercase tags (`div`, `p`) are the platform's own and never need
+/// registration. `<$macro>` boundary elements (slot/suspense/link/...) are
+/// compiler intrinsics, not user components, so they are excluded.
+fn collect_component_tags(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
+    fn is_component_tag(tag: &str) -> bool {
+        tag.contains('-') || tag.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+    }
+    for node in nodes {
+        match node {
+            TemplateNode::Element { tag, children, .. } => {
+                if is_component_tag(tag) {
+                    out.insert(tag.clone());
+                }
+                collect_component_tags(children, out);
+            }
+            // MacroElement is a compiler intrinsic (`<$slot>`, `<$link>`, …) — not
+            // a user component — but its children may still contain components.
+            TemplateNode::MacroElement { children, .. } => {
+                collect_component_tags(children, out);
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches {
+                    collect_component_tags(body, out);
+                }
+            }
+            TemplateNode::EachBlock { body, empty_body, .. } => {
+                collect_component_tags(body, out);
+                if let Some(empty) = empty_body {
+                    collect_component_tags(empty, out);
+                }
+            }
+            TemplateNode::Text(_)
+            | TemplateNode::Interpolation(_)
+            | TemplateNode::HtmlBlock { .. } => {}
+        }
+    }
 }
 
 // ─── B1 (SEO arc) — head JSON serialization ──────────────────────────────────

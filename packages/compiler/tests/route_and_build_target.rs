@@ -204,6 +204,50 @@ fn v062_route_json_emitted_when_route_present() {
     assert!(route_json.contains(r#""layout": "admin""#));
 }
 
+/// route_json lists the page's component tags for route-scoped registration:
+/// custom-element (hyphenated) and PascalCase references, from nested elements
+/// and inside `{#if}`/`{#each}`. Plain HTML tags and `<$macro>` intrinsics are
+/// excluded.
+#[test]
+fn route_json_components_lists_referenced_component_tags() {
+    let src = r#"
+@route { path: '/x', name: 'x-page' }
+@template {
+  <div>
+    <Comment comment={a} />
+    <my-widget></my-widget>
+    <p>plain</p>
+    {#if cond}<lazy-graph></lazy-graph>{/if}
+  </div>
+}
+"#;
+    let parsed = sfc::parse_with_path(src, Some("src/pages/x.aihu")).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let route_json = emit(&unit, "x-page").route_json.expect("route_json should be Some");
+    // BTreeSet → sorted, deduped.
+    assert!(
+        route_json.contains(r#""components": ["Comment", "lazy-graph", "my-widget"]"#),
+        "components must list the referenced component tags; got:\n{route_json}"
+    );
+}
+
+/// A page with no component references omits the `components` member entirely —
+/// existing consumers and the common no-component page stay byte-identical.
+#[test]
+fn route_json_omits_components_when_none_referenced() {
+    let src = r#"
+@route { path: '/y', name: 'y-page' }
+@template { <div><p>hi</p><span>x</span></div> }
+"#;
+    let parsed = sfc::parse_with_path(src, Some("src/pages/y.aihu")).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let route_json = emit(&unit, "y-page").route_json.expect("route_json should be Some");
+    assert!(
+        !route_json.contains("components"),
+        "no-component page must omit the components member; got:\n{route_json}"
+    );
+}
+
 /// EmitResult.route_json is None when no @route block.
 #[test]
 fn v062_route_json_none_without_route_block() {
