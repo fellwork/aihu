@@ -324,6 +324,30 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     // precedent).
     _isInternalAttrChange: boolean = false
 
+    constructor() {
+      // Custom-element constructors are always invoked with no arguments (the
+      // spec forbids parameters), so `super()` covers HTMLElement and any custom
+      // `$extends` base alike.
+      super()
+      // Upgrade rescue. A prop assigned to an element BEFORE its tag was
+      // `define()`d — the lazy/async-import case, where the tag renders and is
+      // written to before its chunk lands — has no accessor to catch it, so it
+      // lands as an OWN property that then SHADOWS the prototype accessor forever
+      // once the element upgrades: the setter never runs, the signal never sees
+      // the value, and the prop silently reverts to its default. Capture each
+      // such own property, delete it, and re-assign THROUGH the accessor, which
+      // (pre-connect) buffers it into PENDING_SYM for `_build()` to seed. Fields
+      // above are already initialized by the time this runs, so the accessor's
+      // pre-connect branch is live.
+      for (const [name] of propEntries) {
+        if (Object.hasOwn(this, name)) {
+          const buffered = (this as Record<string, unknown>)[name]
+          delete (this as Record<string, unknown>)[name]
+          ;(this as Record<string, unknown>)[name] = buffered
+        }
+      }
+    }
+
     /** @internal — hydration entry point. Runs the signal/prop preamble
      * and setup, returning the node tree without calling _mount. Called by
      * define-element's hydration branch via the `_build?()` check. */
