@@ -18,6 +18,12 @@ export interface Link {
   nextSub: Link | null
   prevDep: Link | null
   nextDep: Link | null
+  /** @internal — sub.trackVer value of the last run that read this edge.
+   * Stamped by linkAdd on both fresh and deduped reads; pruneDeps unlinks
+   * edges whose stamp is older than the run that just completed (dynamic
+   * dependency pruning — a dep read in a previous run but not this one no
+   * longer notifies the sub). SMI. */
+  seen: number
 }
 
 /** @internal — unified Subscriber shape under K1c+ (spec-6.2-phase3.md §3.1, §5.1).
@@ -47,6 +53,12 @@ export interface Subscriber {
    * replaces the NOTIFIED bit. SMI to keep the slot off the HeapNumber path.
    * Always present from construction (K1c+ shape collapse). */
   lastWave: number
+  /** @internal — id of this sub's current/most recent tracking run (from the
+   * module-level `runVer` counter). linkAdd stamps `link.seen` with it so
+   * pruneDeps can drop edges not re-read by the latest run. Always present
+   * from construction (`0`, SMI) for shape parity; hosts never run so theirs
+   * stays 0. */
+  trackVer: number
   /** @internal — present on Computed instances via prototype; absent on
    * Effect instances and signal-host literals. Optional-chain semantics at
    * the cascade-suppression settle (signal.ts:285–287). */
@@ -77,6 +89,16 @@ export interface Subscriber {
  * "potentially dirty; run checkDirty at effect-drain time before recomputing."
  * Not set on fan-out nodes (those take the STALE path unchanged). */
 /** @internal */ export const PENDING = 0x100
+/** @internal — set on a sub when an actual value change reached it directly:
+ * at mark time on the direct subs of a written signal host, and at settle
+ * time on the direct subs of a computed whose recompute produced a non-equal
+ * value. `shallowClear` never clears a CONFIRMED sub's mark — this removes
+ * the "last settled dep wins" hazard where an unchanged dep's equality
+ * suppression erased the mark contributed by a dep that DID change (missed
+ * effect runs / stale computed reads in diamond graphs). Cleared on effects
+ * at drain (and by `clearEffectQueue`); cleared on computeds by the next
+ * successful recompute. */
+/** @internal */ export const CONFIRMED = 0x200
 /** @internal — combined mark flags for inner chase path. */
 export const MARKED_PENDING = MARKED | PENDING
 
@@ -148,15 +170,22 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   // Tail fast-path: if the most recently added dep is already `dep`, skip
   // the full dedup walk entirely. O(1). Safe because the MERGE bit was
   // already set when the tail link was first created (line ~146 below).
-  if (sub.depsTail !== null && sub.depsTail.dep === dep) return false
+  const tail = sub.depsTail
+  if (tail !== null && tail.dep === dep) {
+    tail.seen = sub.trackVer
+    return false
+  }
   // Dedup: walk sub's back-edge list looking for an existing edge to dep.
   // The "last linked" optimisation (spec §2 Phase 2) keeps the most
   // recent dep at depsTail; many computeds re-read the same dep
   // consecutively, so walking from tail catches the common case at
   // O(1) most of the time. Start from prevDep — the tail was already
   // checked by the fast-path above.
-  for (let l = sub.depsTail?.prevDep ?? null; l !== null; l = l.prevDep) {
-    if (l.dep === dep) return false
+  for (let l = tail?.prevDep ?? null; l !== null; l = l.prevDep) {
+    if (l.dep === dep) {
+      l.seen = sub.trackVer
+      return false
+    }
   }
   // H5 MERGE-1: promote sub from Linear to Merge on its 2nd inbound dep.
   // Idempotent — re-setting on an already-Merge sub is a no-op. Must run
@@ -165,6 +194,7 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   const link = _linkPool.length > 0 ? _linkPool.pop()! : ({} as Link)
   link.dep = dep
   link.sub = sub
+  link.seen = sub.trackVer
   link.prevSub = dep.subsTail
   link.nextSub = null
   link.prevDep = sub.depsTail
@@ -178,6 +208,30 @@ export function linkAdd(dep: Subscriber, sub: Subscriber): boolean {
   else sub.depsHead = link
   sub.depsTail = link
   return true
+}
+
+/** @internal — monotonic tracking-run counter. Each computed recompute /
+ * effect run gets a fresh id via beginTrack; linkAdd stamps edges with it. */
+let runVer = 0
+
+/** @internal — start a tracking run for `sub`: assign a fresh run id so
+ * linkAdd stamps every edge read during the run. Pair with pruneDeps on
+ * successful completion. */
+export function beginTrack(sub: Subscriber): void {
+  sub.trackVer = ++runVer
+}
+
+/** @internal — dynamic dependency pruning: unlink every dep edge that was
+ * not (re-)read during `sub`'s just-completed tracking run. Called only on
+ * successful runs — a throwing run keeps its old edges (conservative: stale
+ * edges over-notify, never under-notify). */
+export function pruneDeps(sub: Subscriber): void {
+  const v = sub.trackVer
+  for (let l = sub.depsHead; l !== null; ) {
+    const next = l.nextDep
+    if (l.seen !== v) linkUnlink(l)
+    l = next
+  }
 }
 
 /** @internal — remove `link` from both its dep.subs list and sub.deps list. */
@@ -296,19 +350,30 @@ function markOne(root: Subscriber): void {
 }
 
 /** @internal — phase-1 mark entry from signal.write. Walks the linked
- * sub list of a dep. */
+ * sub list of a dep. Direct subs of a written host are CONFIRMED — the
+ * host's value really changed (equality was already checked at the write
+ * site), so equality suppression from an unrelated computed dep must not
+ * erase their mark. */
 export function propagateMark(head: Link | null): void {
-  for (let l = head; l !== null; l = l.nextSub) markOne(l.sub)
+  for (let l = head; l !== null; l = l.nextSub) {
+    l.sub.flags |= CONFIRMED
+    markOne(l.sub)
+  }
 }
 
 /**
  * @internal — equality short-circuit (spec §2.6 / Phase 2 Finding 3).
  * Clears MARKED on direct effect subs (drain skips) and STALE+MARKED on
  * direct computed subs (their settle becomes a no-op).
+ *
+ * CONFIRMED subs are exempt: another dep of the sub (a written host or a
+ * computed that actually changed value) already vouched for the mark, and
+ * an equality-suppressed sibling must not override that.
  */
 export function shallowClear(head: Link | null): void {
   for (let l = head; l !== null; l = l.nextSub) {
     const sub = l.sub
+    if (sub.flags & CONFIRMED) continue
     if (sub.flags & EFFECT) sub.flags &= ~MARKED
     else sub.flags &= ~(STALE | MARKED)
   }
@@ -319,7 +384,11 @@ export function shallowClear(head: Link | null): void {
  * a thrown effect aborts the drain and re-throws to the caller.
  */
 function drainEffectQueue(): void {
-  for (const sub of effectQueue) {
+  // Indexed loop (not for..of): no iterator allocation on the per-write hot
+  // path, and the live length check naturally covers both appends from
+  // nested marks and truncation by a re-entrant drain.
+  for (let i = 0; i < effectQueue.length; i++) {
+    const sub = effectQueue[i] as Subscriber
     if (sub.flags & DISPOSED) continue
     if (!(sub.flags & MARKED)) continue
     // α (Round N+3 fusion): pull-on-demand settle is the SOLE settle path.
@@ -334,7 +403,7 @@ function drainEffectQueue(): void {
       }
       if (!(sub.flags & MARKED)) continue // shallowClear suppressed cascade
     }
-    sub.flags &= ~MARKED
+    sub.flags &= ~(MARKED | CONFIRMED)
     // K1c+: `notify` lives on Effect.prototype; effects always carry
     // it. Optional-chain is a defensive guard (signal-host literals
     // have no `notify` but never reach drainEffectQueue — only EFFECT-
@@ -350,7 +419,8 @@ function drainEffectQueue(): void {
  * only consulted by drainEffectQueue, which iterates effects, never
  * computeds — re-mark via `|=` is idempotent. */
 function clearEffectQueue(): void {
-  for (const sub of effectQueue) sub.flags &= ~(MARKED | PENDING)
+  for (let i = 0; i < effectQueue.length; i++)
+    (effectQueue[i] as Subscriber).flags &= ~(MARKED | PENDING | CONFIRMED)
   effectQueue.length = 0
 }
 
@@ -362,20 +432,31 @@ function clearEffectQueue(): void {
  */
 export function drainBatch(): void {
   let iterations = 0
+  // Index-chunked drain: each while-iteration processes the [start, end)
+  // slice as one wave; effects that write during the flush append past
+  // `end` and are picked up by the next iteration. Replaces the prior
+  // `splice(0)` per wave (one retired-array allocation per flush).
+  let start = 0
   try {
-    while (batchQueue.length > 0) {
+    while (start < batchQueue.length) {
       if (++iterations > MAX_BATCH_ITERATIONS) throw new SignalCircularError()
       wave++
-      const drainList = batchQueue.splice(0)
-      for (const sub of drainList) {
+      const end = batchQueue.length
+      for (let i = start; i < end; i++) {
+        const sub = batchQueue[i] as Subscriber
+        // Batched subs are the direct subs of written hosts (queued at the
+        // write site after the equality check) — CONFIRMED, same as the
+        // unbatched propagateMark path.
+        sub.flags |= CONFIRMED
         sub.flags &= ~QUEUED
         markOne(sub)
       }
+      start = end
       drainEffectQueue()
     }
   } finally {
     clearEffectQueue()
-    for (const sub of batchQueue) sub.flags &= ~QUEUED
+    for (let i = start; i < batchQueue.length; i++) (batchQueue[i] as Subscriber).flags &= ~QUEUED
     batchQueue.length = 0
   }
 }
@@ -431,6 +512,7 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
     depsHead: null,
     depsTail: null,
     lastWave: 0,
+    trackVer: 0,
   }
   const equals: ((a: T, b: T) => boolean) | false = options?.equals ?? Object.is
 
@@ -461,7 +543,6 @@ export function signal<T>(initial: T, options?: SignalOptions<T>): Signal<T> {
       return
     }
     wave++
-    host.lastWave = wave // record write wave for checkDirty signal-source detection
     try {
       propagateMark(head)
       drainEffectQueue()
