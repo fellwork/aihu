@@ -50,6 +50,17 @@ export function _teardownChildScope(s: ChildScope): void {
 }
 
 /**
+ * Error-only abort for an uncommitted child scope: LIFO-dispose the partial
+ * disposers, then remove the just-inserted anchor guarded on parentage.
+ * Shared by _reconcileWhen and _reconcileEach catch paths.
+ * @internal
+ */
+function _abortChild(cd: Dispose[], ca: Comment, par: Element | ShadowRoot): void {
+  for (let i = cd.length; i--; ) cd[i]?.()
+  if (ca.parentNode === par) par.removeChild(ca)
+}
+
+/**
  * Materialize childTree into a temp element, then move nodes into parent before beforeNode.
  * Returns the array of moved nodes.
  * @internal
@@ -93,11 +104,23 @@ function _reconcileWhen(
   const cd: Dispose[] = []
   const ca = document.createComment('w')
   par.insertBefore(ca, anc.nextSibling)
-  st.c = {
-    anchor: ca,
-    key: 'when',
-    disposers: cd,
-    appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling),
+  try {
+    st.c = {
+      anchor: ca,
+      key: 'when',
+      disposers: cd,
+      appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling),
+    }
+  } catch (err) {
+    // Error-only path: grow()/materialize threw BEFORE the st.c commit, so
+    // no teardown path (condition flip or scope dispose) can ever find the
+    // just-inserted anchor or the partially-built child disposers. Tear down
+    // eagerly — LIFO dispose then parentage-guarded anchor removal, mirroring
+    // _teardownChildScope — and rethrow so the error still reaches
+    // _mountEffect's handler/caller. st.c stays null: a later reconcile
+    // retries grow() from a consistent empty state.
+    _abortChild(cd, ca, par)
+    throw err
   }
 }
 
@@ -126,20 +149,31 @@ function _reconcileEach(
     const cd: Dispose[] = []
     const ca = document.createComment('e')
     par.appendChild(ca)
-    sc.set(k, {
-      anchor: ca,
-      key: k,
-      disposers: cd,
-      appendedNodes: _mc(
-        lgrow(items[i]!, i),
-        par,
-        cd,
-        `${pb}.list.${String(k).replace(/\./g, '_')}`,
-        mfn,
-        eh,
-        null,
-      ),
-    })
+    try {
+      sc.set(k, {
+        anchor: ca,
+        key: k,
+        disposers: cd,
+        appendedNodes: _mc(
+          lgrow(items[i]!, i),
+          par,
+          cd,
+          `${pb}.list.${String(k).replace(/\./g, '_')}`,
+          mfn,
+          eh,
+          null,
+        ),
+      })
+    } catch (err) {
+      // Error-only path, mirroring _reconcileWhen: lgrow()/materialize threw
+      // BEFORE this item's sc.set commit, so no teardown path (stale-key sweep
+      // or scope dispose) can ever find the just-appended anchor or the
+      // partially-built child disposers. Tear down the in-flight item eagerly
+      // and rethrow; already-committed siblings stay in sc and remain
+      // disposable as usual.
+      _abortChild(cd, ca, par)
+      throw err
+    }
   }
   let ref: globalThis.Node | null = anc.nextSibling
   for (let i = 0; i < items.length; i++) {

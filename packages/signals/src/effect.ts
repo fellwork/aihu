@@ -1,10 +1,12 @@
 import { SignalCircularError } from './errors.ts'
 import {
+  beginTrack,
   DISPOSED,
   EFFECT,
   type Link,
   linkRecycle,
   MERGE,
+  pruneDeps,
   RUNNING,
   type Subscriber,
   setCurrentObserver,
@@ -49,6 +51,7 @@ class Effect implements Subscriber {
   depsHead: Link | null = null
   depsTail: Link | null = null
   lastWave = 0
+  trackVer = 0
   fn: EffectFn | null
 
   constructor(fn: EffectFn) {
@@ -67,7 +70,17 @@ function runEffect(node: Effect): void {
   const prev = setCurrentObserver(node)
   try {
     const fn = node.fn
-    if (fn !== null) fn()
+    if (fn !== null) {
+      beginTrack(node)
+      fn()
+      // Self-dispose mid-run: dispose() already unlinked the deps read so
+      // far, but reads AFTER the dispose() call re-linked fresh edges onto
+      // the dead node. Poison trackVer so the prune below drops them all.
+      if (node.flags & DISPOSED) node.trackVer = -1
+      // Success only: drop dep edges not re-read by this run (dynamic
+      // dependency pruning). A throwing run keeps its old edges.
+      pruneDeps(node)
+    }
   } finally {
     setCurrentObserver(prev)
     node.flags &= ~RUNNING
@@ -94,10 +107,8 @@ export function effect(fn: EffectFn): Dispose {
   } else {
     node = new Effect(fn)
   }
-  runEffect(node)
-
   let disposed = false
-  return () => {
+  const dispose = () => {
     if (disposed) return
     disposed = true
     // Closure-local `disposed` flag is the only guard needed: a node
@@ -124,4 +135,16 @@ export function effect(fn: EffectFn): Dispose {
     node.fn = null
     if (pool.length < MAX_POOL) pool.push(node)
   }
+  // First-run cleanup: if the initial synchronous run throws, the caller
+  // never receives the dispose handle, so any dep edges linked before the
+  // throw would keep the broken effect subscribed forever (every later
+  // signal write would re-run the throwing fn at the write site). Dispose
+  // the node before propagating so the throw leaves no live subscription.
+  try {
+    runEffect(node)
+  } catch (err) {
+    dispose()
+    throw err
+  }
+  return dispose
 }

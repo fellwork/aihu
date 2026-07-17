@@ -128,17 +128,34 @@ export function _materialize(
   if (node.kind === 'branch' && node.tag === null) {
     const appended: globalThis.Node[] = []
     const fChildren = node.children
-    for (let i = 0; i < fChildren.length; i++) {
-      const nodes = _materialize(
-        fChildren[i] as Node,
-        host,
-        disposers,
-        `${pathBase}.${i}`,
-        mountEffect,
-        errorHandler,
-        registry,
-      )
-      for (let j = 0; j < nodes.length; j++) appended.push(nodes[j]!)
+    try {
+      for (let i = 0; i < fChildren.length; i++) {
+        const nodes = _materialize(
+          fChildren[i] as Node,
+          host,
+          disposers,
+          `${pathBase}.${i}`,
+          mountEffect,
+          errorHandler,
+          registry,
+        )
+        for (let j = 0; j < nodes.length; j++) appended.push(nodes[j]!)
+      }
+    } catch (err) {
+      // Error-only path: a child threw mid-loop, so the siblings already
+      // appended to `host` never reach mount()'s `appendedRoots` (the throw
+      // discards this return value) and would be orphaned forever once the
+      // scope is disposed. Register their removal on the disposer chain
+      // instead of removing eagerly — unshift so it runs LAST in the LIFO
+      // dispose loop, after structural (when/each) teardowns that need
+      // their anchor comments still parented to find child nodes.
+      disposers.unshift(() => {
+        for (let j = appended.length; j--; ) {
+          const n = appended[j]!
+          if (n.parentNode === host) host.removeChild(n)
+        }
+      })
+      throw err
     }
     return appended
   }

@@ -1,6 +1,6 @@
 import { inject } from '@aihu/context'
 import type { Signal } from '@aihu/signals'
-import { batch, boolLatticeSignal, effect, maxLatticeSignal, signal, untrack } from '@aihu/signals'
+import { batch, effect, signal, untrack } from '@aihu/signals'
 import type { ResourceStore, ResourceStoreWithMeta } from './store.ts'
 import { createResourceStore, ResourceStoreToken } from './store.ts'
 import type { DataState, Resource, ResourceHandle, ResourceOptions } from './types.ts'
@@ -47,36 +47,37 @@ export function createResource<T>(
   // 3. Create the reactive state signal.
   const [getState, setState] = signal<DataState<T>>(initialState)
 
-  // 4. Stale signal — a boolLatticeSignal coalescer. Multiple invalidate()
-  //    calls within the same batch wave coalesce into one effect re-run.
-  //    Reassigned to a fresh instance on each fetch start to reset state.
-  let _staleSignal = boolLatticeSignal(false)
+  // 4. Stale flag. A fresh signal per fetch resets the state; equal-write
+  //    suppression in @aihu/signals coalesces repeated invalidate()s in one
+  //    batch wave into a single effect re-run (setStale(true) is a no-op once
+  //    already true) — the coalescing the old lattice provided, for free.
+  let [_staleRead, _setStale] = signal(false)
 
   // 5. Active fetch guard — prevents a stale Promise from overwriting newer
-  //    state. maxLatticeSignal gives explicit monotonic semantics; the bump
+  //    state. The counter is monotonic (bumped by +1); the bump
   //    runs through untrack() because the signal is mutated inside the
   //    effect below — subscribing the effect to its own version would be a
   //    bug (and would throw SignalCircularError on the self-write). Async
   //    .then callbacks run outside any tracking scope, so direct read() is
   //    safe there.
-  const _v = maxLatticeSignal(0)
+  // Monotonic fetch-version counter (only ever bumped by +1, so max === +1).
+  const [_vRead, _setV] = signal(0)
   const _bump = (): number =>
     untrack(() => {
-      const n = _v.read() + 1
-      _v.merge(n)
-      _v.commit()
+      const n = _vRead() + 1
+      _setV(n)
       return n
     })
 
   // 6. Internal helper: start a fetch for a given key, writing loading/ready/error.
   function _startFetch(fetchKey: string): void {
-    _staleSignal = boolLatticeSignal(false)
+    ;[_staleRead, _setStale] = signal(false)
     const fetchId = _bump()
     setState({ status: 'loading' })
 
     fetcher(fetchKey).then(
       (data) => {
-        if (fetchId !== _v.read()) return // superseded by a newer fetch
+        if (fetchId !== _vRead()) return // superseded by a newer fetch
         const next: DataState<T> = { status: 'ready', data }
         store.set(fetchKey, next as DataState<unknown>)
         // If dehydrate: true, mark this key as dehydration-eligible.
@@ -86,7 +87,7 @@ export function createResource<T>(
         setState(next)
       },
       (error: unknown) => {
-        if (fetchId !== _v.read()) return
+        if (fetchId !== _vRead()) return
         const next: DataState<T> = { status: 'error', error }
         store.set(fetchKey, next as DataState<unknown>)
         setState(next)
@@ -111,7 +112,7 @@ export function createResource<T>(
 
     // Check if a ready cache entry exists and is not stale.
     const cached = store.get(currentKey)
-    if (cached?.status === 'ready' && !_staleSignal.read()) {
+    if (cached?.status === 'ready' && !_staleRead()) {
       setState({ status: 'ready', data: cached.data as T })
       return
     }
@@ -130,7 +131,7 @@ export function createResource<T>(
       // Delete the store entry to force bypass of cache in next run,
       // then start a fresh fetch directly (don't wait for effect re-run).
       store.delete(currentKey)
-      _staleSignal = boolLatticeSignal(false)
+      ;[_staleRead, _setStale] = signal(false)
       _startFetch(currentKey)
     },
 
@@ -143,8 +144,7 @@ export function createResource<T>(
       // invalidate() calls in the same tick into a single effect re-run.
       // commit() is idempotent within a batch wave.
       batch(() => {
-        _staleSignal.merge(true)
-        _staleSignal.commit()
+        _setStale(true)
       })
       // No store mutation, no setState call: spec §3.3 invalidate invariant.
     },

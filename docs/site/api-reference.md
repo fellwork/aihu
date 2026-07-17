@@ -9,14 +9,11 @@
 | `effect(fn)` | Run a side-effect; auto-tracks signal reads; returns dispose |
 | `batch(fn)` | Defer effect flushes until fn completes |
 | `untrack(fn)` | Read signals inside fn without subscribing |
-| `latticeSignal<T>(merge, initial)` | Merge-monotone signal with custom merge function |
-| `boolLatticeSignal(initial?)` | Boolean lattice signal (OR-merge) |
-| `maxLatticeSignal(initial?)` | Numeric lattice signal (max-merge) |
 | `$state` | State bag shorthand accessor (SFC-internal) |
 | `SignalError` | Base error class for signal errors |
 | `SignalCircularError` | Error thrown on circular signal dependencies |
 
-**Types:** `Signal<T>`, `Read<T>`, `Write<T>`, `SignalOptions<T>`, `Dispose`, `EffectFn`, `LatticeSignal<T>`, `ComputedOptions<T>`, `State`
+**Types:** `Signal<T>`, `Read<T>`, `Write<T>`, `SignalOptions<T>`, `Dispose`, `EffectFn`, `ComputedOptions<T>`
 
 ## @aihu/arbor
 

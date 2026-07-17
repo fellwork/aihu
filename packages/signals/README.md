@@ -7,7 +7,7 @@ Tiny reactive signals — the reactive primitive at the core of aihu.
 Part of the **runtime core** layer of the Aihu meta-framework. Shipped to the client; sized via `bun run size`. The runtime core is dep-free and stacks under `@aihu/runtime` → `@aihu/router` → `@aihu/server` → `@aihu/app`.
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-Small (≤ 1.6 kB gz) reactive primitives — the foundation layer for Aihu's arbor renderer. Two read shapes (`signal` tuple, `$state` value), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
+Small (≤ 2 kB gz) reactive primitives — the foundation layer for Aihu's arbor renderer. One read shape (`signal` tuple), one underlying cell. Sync semantics, lazy `computed`, explicit `batch`. No proxies, no scheduler queue, no global tick.
 
 ## Hello counter
 
@@ -57,25 +57,11 @@ let id: string
 batch(() => { id = insertRow(); setName('Ada') })
 ```
 
-## Coming from Vue? Use `$state`
-
-If `.value` muscle memory matters, use `$state` instead of `signal`:
-
-```ts
-import { $state, effect } from '@aihu/signals'
-
-const count = $state(0)
-effect(() => console.log(count.value))
-count.value++   // works like Vue's ref
-```
-
-Same underlying cell as `signal` — pick the shape that fits your code.
-
 ## Cross-library cheat sheet
 
 | Vue 3 | Solid | Preact Signals | aihu |
 |---|---|---|---|
-| `ref(0)` + `.value` | `createSignal(0)` → `[get, set]` | `signal(0)` + `.value` | `signal(0)` → `[get, set]` *or* `$state(0).value` |
+| `ref(0)` + `.value` | `createSignal(0)` → `[get, set]` | `signal(0)` + `.value` | `signal(0)` → `[get, set]` |
 | `computed(fn)` + `.value` | `createMemo(fn)` (eager) | `computed(fn)` + `.value` (lazy) | `computed(fn)` (lazy, call-shape) |
 | `watchEffect(fn)` → `WatchHandle.stop()` | `createEffect(fn)` (microtask) | `effect(fn)` → dispose | `effect(fn)` → dispose (sync) |
 | `nextTick` (no batch) | `batch(fn)` (returns) | `batch(fn)` (void) | `batch(fn)` (void) |
@@ -118,8 +104,6 @@ setFn(() => () => 6)      // ✅ stores the function
 ```
 
 The runtime disambiguates `value` vs `updater` by `typeof === 'function'`, so a raw function is unambiguous *only* via the updater form. Mirrors SolidJS's `Setter<T>`. Detail: [`.team/phase-2/spec-signals-write-of-functions.md`](../../.team/phase-2/spec-signals-write-of-functions.md).
-
-> **`$state<T>` for function-typed `T`** retains a pre-existing runtime quirk (the underlying write invokes the function rather than storing it). Use `signal()` directly for function-valued reactive state until the v1 fix lands.
 
 ## v0 limitations
 

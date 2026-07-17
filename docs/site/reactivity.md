@@ -104,46 +104,6 @@ effect(() => {
 
 `untrack` is re-entrancy safe — calling it from inside an `effect` or another `untrack` works correctly.
 
-## Lattice signals
-
-Lattice signals are merge-monotone reactive cells. They are useful for collaborative state where multiple sources update the same value and the result should be the "join" of all inputs.
-
-### `latticeSignal<T>(merge, initial)`
-
-General-purpose lattice signal with a custom merge function:
-
-```typescript
-import { latticeSignal } from '@aihu/signals'
-
-const versions = latticeSignal<Set<string>>(
-  (a, b) => new Set([...a, ...b]),
-  new Set()
-)
-```
-
-### `boolLatticeSignal(initial?)`
-
-Boolean OR-merge lattice signal. Once set to `true`, stays `true`:
-
-```typescript
-import { boolLatticeSignal } from '@aihu/signals'
-
-const ready = boolLatticeSignal(false)
-ready(true)  // true
-ready(false) // still true — OR merge
-```
-
-### `maxLatticeSignal(initial?)`
-
-Numeric max-merge lattice signal. Monotonically increases:
-
-```typescript
-import { maxLatticeSignal } from '@aihu/signals'
-
-const highScore = maxLatticeSignal(0)
-highScore(42)
-highScore(10)  // stays 42 — max merge
-```
 
 ## `$state` accessor
 

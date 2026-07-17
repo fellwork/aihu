@@ -161,4 +161,23 @@ describe('@aihu/server renderToStream', () => {
     expect(result).toContain('data-aihu-path="0"')
     expect(result).toContain('data-aihu-path="0.0"')
   })
+
+  // Same text-leaf coalescing guard as the sync renderer, on the streaming path.
+  it('opts.hydratable: true inserts a boundary comment between adjacent text leaves', async () => {
+    const result = await drain(
+      renderToStream(
+        () => ({
+          kind: 'branch',
+          tag: 'p',
+          attrs: {},
+          children: [
+            { kind: 'leaf', leafKind: 'text', value: 'a' },
+            { kind: 'leaf', leafKind: 'text', value: 'b' },
+          ],
+        }),
+        { hydratable: true },
+      ),
+    )
+    expect(result).toContain('a<!--|-->b')
+  })
 })

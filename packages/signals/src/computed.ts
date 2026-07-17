@@ -1,6 +1,8 @@
 import { SignalCircularError } from './errors.ts'
 import {
   __HOST,
+  beginTrack,
+  CONFIRMED,
   currentObserver,
   DISPOSED,
   EFFECT,
@@ -10,6 +12,7 @@ import {
   linkUnlink,
   MARKED,
   PENDING,
+  pruneDeps,
   type Read,
   RUNNING,
   STALE,
@@ -60,6 +63,7 @@ class Computed<T> implements Subscriber {
   depsHead: Link | null = null
   depsTail: Link | null = null
   lastWave = 0
+  trackVer = 0
   fn: () => T
   cached: T | undefined = undefined
   hasCached = false
@@ -90,12 +94,14 @@ class Computed<T> implements Subscriber {
       shallowClear(this.subsHead)
       return
     }
-    // Re-assert MARKED on direct subs (linked-list walk).
+    // Actual change: re-assert MARKED on direct subs (linked-list walk) and
+    // CONFIRM them — a later equality-suppressed sibling dep must not clear
+    // the mark this change contributed (see CONFIRMED in signal.ts).
     for (let l: Link | null = this.subsHead; l !== null; l = l.nextSub) {
       const sub = l.sub
       if (sub.flags & DISPOSED) continue
-      if (sub.flags & EFFECT) sub.flags |= MARKED
-      else sub.flags |= STALE | MARKED
+      if (sub.flags & EFFECT) sub.flags |= MARKED | CONFIRMED
+      else sub.flags |= STALE | MARKED | CONFIRMED
     }
   }
 
@@ -109,12 +115,19 @@ class Computed<T> implements Subscriber {
    * nor HOST is cleared. */
   recompute(): T {
     this.flags |= RUNNING
+    beginTrack(this)
     const prevObserver = setCurrentObserver(this)
     try {
-      return this.fn()
+      const next = this.fn()
+      pruneDeps(this)
+      // Success only: clear dirty flags. On throw, STALE/PENDING survive so
+      // the next read retries fn() instead of silently serving the stale
+      // cached value (the throw already propagated to the reader).
+      this.flags &= ~(STALE | MARKED | PENDING | CONFIRMED)
+      return next
     } finally {
       setCurrentObserver(prevObserver)
-      this.flags &= ~(RUNNING | STALE | MARKED | PENDING)
+      this.flags &= ~RUNNING
     }
   }
 }

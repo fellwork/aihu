@@ -173,18 +173,6 @@ function registerLiveBinding(binding: LiveBinding): void {
 export const _mountDisposersStack: Array<Dispose[]> = []
 
 /**
- * Returns the disposers array at the top of the stack (the currently
- * active mount scope), or `null` if no mount is in progress.
- *
- * @internal
- */
-export function _currentMountDisposers(): Dispose[] | null {
-  return _mountDisposersStack.length > 0
-    ? (_mountDisposersStack[_mountDisposersStack.length - 1] ?? null)
-    : null
-}
-
-/**
  * Counter for root-id assignment per spec §2.7. Increments per `mount()`
  * call so each scope's path keys are uniquely prefixed.
  *
