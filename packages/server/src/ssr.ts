@@ -187,6 +187,33 @@ function renderLeaf(obj: Record<string, unknown>): string {
   return escapeText(leafText(obj.value))
 }
 
+/**
+ * Boundary comment emitted between two adjacent text-leaf children. Two bare
+ * text leaves rendered back-to-back (e.g. `{a} {b}` → `a`,` `,`b`) parse into a
+ * SINGLE DOM Text node, which misaligns the hydration walker's per-host text
+ * cursor (it claims one node per text leaf; see `arbor/src/hydrate.ts`). An
+ * interleaved comment keeps them as separate Text nodes and is skipped by the
+ * walker, so it is invisible to both render and hydrate. Only element/branch
+ * children wrap in tags, so only text-leaf pairs need this. Emitted in
+ * hydratable output only — static SSR never hydrates, so the extra bytes would
+ * be dead weight.
+ */
+const TEXT_LEAF_BOUNDARY = '<!--|-->'
+
+/** A text leaf renders bare text (no tag/comment wrapper), so two adjacent ones coalesce. */
+function _isTextLeaf(node: unknown): boolean {
+  if (typeof node !== 'object' || node === null) return false
+  const o = node as Record<string, unknown>
+  return o.kind === 'leaf' && o.leafKind !== 'element'
+}
+
+/** The boundary to emit before `children[i]` (empty unless it and its predecessor are both text leaves). */
+function _textBoundaryBefore(children: unknown[], i: number, hydratable: boolean): string {
+  return hydratable && i > 0 && _isTextLeaf(children[i - 1]) && _isTextLeaf(children[i])
+    ? TEXT_LEAF_BOUNDARY
+    : ''
+}
+
 function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   if (typeof node !== 'object' || node === null) return ''
   const obj = node as Record<string, unknown>
@@ -201,7 +228,11 @@ function _renderNode(node: unknown, path: string, hydratable: boolean): string {
     let attrStr = serializeAttrs(asAttrMap(obj.attrs))
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     const children = Array.isArray(obj.children) ? obj.children : []
-    const inner = children.map((c, i) => _renderNode(c, `${path}.${i}`, hydratable)).join('')
+    let inner = ''
+    for (let i = 0; i < children.length; i++) {
+      inner += _textBoundaryBefore(children, i, hydratable)
+      inner += _renderNode(children[i], `${path}.${i}`, hydratable)
+    }
     return `<${tag}${attrStr}>${inner}</${tag}>`
   }
 
@@ -283,6 +314,8 @@ async function renderNodeAsync(
       // Synchronous branch — no async boundary
       controller.enqueue(`<${tag}${attrStr}>`)
       for (let i = 0; i < children.length; i++) {
+        const b = _textBoundaryBefore(children, i, hydratable)
+        if (b) controller.enqueue(b)
         await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
       }
       controller.enqueue(`</${tag}>`)
@@ -300,6 +333,8 @@ async function renderNodeAsync(
     if (dataSource.status === 'ready') {
       // Already resolved — render children synchronously (no suspension)
       for (let i = 0; i < children.length; i++) {
+        const b = _textBoundaryBefore(children, i, hydratable)
+        if (b) controller.enqueue(b)
         await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
       }
       controller.enqueue(`</${tag}>`)
@@ -316,6 +351,8 @@ async function renderNodeAsync(
           return
         }
         for (let i = 0; i < children.length; i++) {
+          const b = _textBoundaryBefore(children, i, hydratable)
+          if (b) controller.enqueue(b)
           await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
         }
         controller.enqueue(`</${tag}>`)

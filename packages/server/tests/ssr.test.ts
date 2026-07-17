@@ -106,6 +106,68 @@ describe('@aihu/server ssr', () => {
     expect(result).toContain('data-aihu-path=')
   })
 
+  // Adjacent bare text leaves parse into ONE DOM Text node in the browser,
+  // which misaligns the hydration walker's per-host text cursor (it claims one
+  // node per text leaf — see packages/arbor/src/hydrate.ts). A `<!--|-->`
+  // boundary comment keeps them as separate Text nodes; the walker skips it.
+  it('hydratable: inserts a boundary comment between adjacent text leaves', async () => {
+    const component = () => ({
+      kind: 'branch',
+      tag: 'div',
+      children: [
+        { kind: 'leaf', leafKind: 'text', value: 'a' },
+        { kind: 'leaf', leafKind: 'text', value: 'b' },
+      ],
+    })
+    const result = await renderToString(component, { hydratable: true })
+    // The two leaves are separated, not coalesced into `ab`.
+    expect(result).toContain('a<!--|-->b')
+    expect(result).not.toContain('>ab<')
+  })
+
+  it('hydratable: `{a} {b}` (static space between) yields the marker layout arbor M2 expects', async () => {
+    const component = () => ({
+      kind: 'branch',
+      tag: 'div',
+      children: [
+        { kind: 'leaf', leafKind: 'text', value: '1' },
+        { kind: 'leaf', leafKind: 'text', value: ' ' },
+        { kind: 'leaf', leafKind: 'text', value: '2' },
+      ],
+    })
+    const result = await renderToString(component, { hydratable: true })
+    expect(result).toContain('1<!--|--> <!--|-->2')
+  })
+
+  it('non-hydratable: no boundary comment (static SSR never hydrates)', async () => {
+    const component = () => ({
+      kind: 'branch',
+      tag: 'div',
+      children: [
+        { kind: 'leaf', leafKind: 'text', value: 'a' },
+        { kind: 'leaf', leafKind: 'text', value: 'b' },
+      ],
+    })
+    const result = await renderToString(component)
+    expect(result).toBe('<div>ab</div>')
+    expect(result).not.toContain('<!--|-->')
+  })
+
+  it('hydratable: no boundary between a text leaf and an element leaf (element wraps in a tag)', async () => {
+    const component = () => ({
+      kind: 'branch',
+      tag: 'div',
+      children: [
+        { kind: 'leaf', leafKind: 'text', value: 'a' },
+        { kind: 'leaf', leafKind: 'element', tag: 'br' },
+        { kind: 'leaf', leafKind: 'text', value: 'b' },
+      ],
+    })
+    const result = await renderToString(component, { hydratable: true })
+    expect(result).not.toContain('<!--|-->')
+    expect(result).toContain('a<br>b')
+  })
+
   it('head with meta tags renders meta elements', async () => {
     const component = { toHtml: () => '' }
     const result = await renderToString(component, {

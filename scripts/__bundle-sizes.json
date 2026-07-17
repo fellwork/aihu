@@ -26,7 +26,7 @@
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 723,
+    "bytes": 757,
     "limit": "800 B"
   },
   {
@@ -106,7 +106,7 @@
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": 1563,
+    "bytes": 1878,
     "limit": "4 KB"
   },
   {
