@@ -1,3 +1,4 @@
+import { _enterContext, _exitContext } from '@aihu/context'
 import type { signal as SignalFactory } from '@aihu/signals'
 import { _takeAgentServerBinding } from './agent-dispatch.ts'
 import type {
@@ -67,6 +68,39 @@ export function _setMount(fn: MountFn): void {
 const _scopes = new WeakMap<HTMLElement, _ScopeRef>()
 const ATTR_SYM = Symbol()
 const LC_SYM = Symbol()
+// Hierarchical DI: each instance's `provides` object. Its prototype chain IS the
+// ancestor context tree. Defaults to a shared reference to the parent's object
+// (zero allocation); `@aihu/context.provide` swaps in an own `Object.create` copy
+// on first provide. Read by descendants at connect to inherit the chain.
+const PROVIDES_SYM = Symbol()
+
+/**
+ * Enter a component's context scope for the duration of its setup: resolve the
+ * nearest ancestor component's `provides`, default this instance to a shared
+ * reference to it (zero allocation), and install the scope. The ancestor object
+ * is already prototype-linked to ITS ancestors, so one reference yields the whole
+ * chain; resolution is a single hop up through the shadow host (falling back to
+ * the light-DOM parent), repeated only across non-component nodes. Runs at connect
+ * (post-upgrade), so a lazily-registered child still finds its ancestor. Returns
+ * the token for `_exitContext`.
+ */
+function _enterOwnerContext(el: Record<symbol, unknown>): ReturnType<typeof _enterContext> {
+  let node: Node | null = el as unknown as Node
+  let parent: Record<symbol, unknown> | null = null
+  while (node) {
+    const root = node.getRootNode()
+    node = root instanceof ShadowRoot ? root.host : node.parentNode
+    const p = node && (node as unknown as Record<symbol, unknown>)[PROVIDES_SYM]
+    if (p != null) {
+      parent = p as Record<symbol, unknown>
+      break
+    }
+  }
+  el[PROVIDES_SYM] = parent as unknown as Record<symbol, unknown>
+  return _enterContext(parent, (own) => {
+    el[PROVIDES_SYM] = own
+  })
+}
 const _E0002 = 'no mount'
 
 /** Bug 6: safe tag-name lookup for the connectedCallback error path. A real
@@ -147,9 +181,11 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         this[LC_SYM] = lc
         const host = this.shadowRoot ?? this
         _cur = lc
+        const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
         try {
           return setup({ host, element: this } as SetupContext)
         } finally {
+          _exitContext(prevCtx)
           _cur = null
         }
       }
@@ -416,6 +452,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       this[LC_SYM] = lc
       const host = this.shadowRoot ?? this
       _cur = lc
+      const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
       try {
         return setup({
           host,
@@ -424,6 +461,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           props: propSignals,
         } as Parameters<typeof setup>[0])
       } finally {
+        _exitContext(prevCtx)
         _cur = null
       }
     }
