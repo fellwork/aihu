@@ -1,5 +1,5 @@
 import { signal } from '@aihu/signals'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { branch, each, leaf, mount, when } from '../src/index.ts'
 
 /**
@@ -98,6 +98,152 @@ describe('when() — conditional rendering', () => {
     expect(host.textContent).toBe('Loading')
 
     scope.dispose()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// when() grow()-throw leak (regression): a throw before the st.c state commit
+// must not orphan the just-inserted 'w' anchor comment or the partially-built
+// child subtree's disposers.
+// ---------------------------------------------------------------------------
+
+/** Count comment nodes among an element's direct children. */
+function commentCount(el: Element): number {
+  let n = 0
+  for (const c of Array.from(el.childNodes)) if (c.nodeType === 8) n++
+  return n
+}
+
+describe('when() — grow() throw mid-reconcile does not leak anchor/disposers', () => {
+  it('W1: reactive flip true with onError, grow() throws → anchor comment is not leaked', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const [getCond, setCond] = signal(false)
+    const cond: ReturnType<typeof signal<boolean>> = [getCond, setCond]
+
+    const scope = mount(
+      branch('div', undefined, [
+        when(cond, () => {
+          throw new Error('grow-boom')
+        }),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    const inner = host.querySelector('div') as HTMLElement
+    // Mounted false: only the 'when' anchor comment.
+    expect(commentCount(inner)).toBe(1)
+
+    // Flip true — grow() throws inside the reconcile effect. The error must
+    // reach onError, and the just-inserted 'w' anchor must be cleaned up
+    // (before the fix it leaked: st.c was never committed, so no teardown
+    // path could find it).
+    setCond(true)
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(commentCount(inner)).toBe(1)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('W2: reactive flip true, materialize throws mid-child → partial child disposers run', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const [getCond, setCond] = signal(false)
+    const cond: ReturnType<typeof signal<boolean>> = [getCond, setCond]
+    const [getText, setText] = signal('live')
+    const textSig: ReturnType<typeof signal<string>> = [getText, setText]
+
+    // grow() builds a fragment: a <p> with a reactive leaf materializes fully
+    // (its effect subscribes and lands in the child-disposer array), then the
+    // invalid tag throws before the state commit.
+    const pNode = branch('p', undefined, [leaf(textSig)])
+    const scope = mount(
+      branch('div', undefined, [
+        when(cond, () => branch(null, undefined, [pNode, leaf.element('not a valid tag')])),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    setCond(true)
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    // The <p> was materialized before the throw; its live DOM element is
+    // reachable via the branch back-reference.
+    const p = pNode.el as HTMLElement
+    expect(p.textContent).toBe('live')
+
+    // The anchor comment must be gone from the parent.
+    const inner = host.querySelector('div') as HTMLElement
+    expect(commentCount(inner)).toBe(1)
+
+    // The reactive leaf's effect must have been disposed: before the fix the
+    // child-disposer array was stranded and this write resurrected the text.
+    setText('after-throw')
+    expect(p.textContent).toBe('live')
+
+    scope.dispose()
+  })
+
+  it('W3: no onError → error propagates to the writer; state stays consistent for retry', () => {
+    const host = document.createElement('div')
+    const [getCond, setCond] = signal(false)
+    const cond: ReturnType<typeof signal<boolean>> = [getCond, setCond]
+
+    let calls = 0
+    const scope = mount(
+      branch('div', undefined, [
+        when(cond, () => {
+          calls++
+          if (calls === 1) throw new Error('first-grow-boom')
+          return branch('span', undefined, [leaf('recovered')])
+        }),
+      ]),
+      host,
+    )
+
+    // Without onError the throw must still propagate to the caller (the
+    // signal write) — the fix is leak-only, never error-swallowing.
+    expect(() => setCond(true)).toThrow('first-grow-boom')
+
+    const inner = host.querySelector('div') as HTMLElement
+    expect(commentCount(inner)).toBe(1)
+    expect(host.textContent).toBe('')
+
+    // st.c stayed null (nothing committed), so a false→true retry re-grows.
+    setCond(false)
+    setCond(true)
+    expect(host.textContent).toBe('recovered')
+    expect(commentCount(inner)).toBe(2)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('W4: initial mount with condition true and throwing grow() → anchor cleaned up', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const cond = signal(true)
+
+    const scope = mount(
+      branch('div', undefined, [
+        when(cond, () => {
+          throw new Error('initial-grow-boom')
+        }),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const inner = host.querySelector('div') as HTMLElement
+    // Only the 'when' anchor survives — the 'w' child anchor must not leak.
+    expect(commentCount(inner)).toBe(1)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
   })
 })
 

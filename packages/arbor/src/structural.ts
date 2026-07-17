@@ -93,11 +93,24 @@ function _reconcileWhen(
   const cd: Dispose[] = []
   const ca = document.createComment('w')
   par.insertBefore(ca, anc.nextSibling)
-  st.c = {
-    anchor: ca,
-    key: 'when',
-    disposers: cd,
-    appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling),
+  try {
+    st.c = {
+      anchor: ca,
+      key: 'when',
+      disposers: cd,
+      appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling),
+    }
+  } catch (err) {
+    // Error-only path: grow()/materialize threw BEFORE the st.c commit, so
+    // no teardown path (condition flip or scope dispose) can ever find the
+    // just-inserted anchor or the partially-built child disposers. Tear down
+    // eagerly — LIFO dispose then parentage-guarded anchor removal, mirroring
+    // _teardownChildScope — and rethrow so the error still reaches
+    // _mountEffect's handler/caller. st.c stays null: a later reconcile
+    // retries grow() from a consistent empty state.
+    for (let i = cd.length; i--; ) cd[i]?.()
+    if (ca.parentNode === par) par.removeChild(ca)
+    throw err
   }
 }
 
