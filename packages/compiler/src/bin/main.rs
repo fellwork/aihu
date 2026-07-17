@@ -38,7 +38,11 @@ fn emit_machine_error(e: &aihu_compiler::CompileError) {
 
     let json = format!(
         r#"{{"code":"{}","message":"{}","from":{},"to":{},"range":{}}}"#,
-        escape(code), message, from, to, range_json
+        escape(code),
+        message,
+        from,
+        to,
+        range_json
     );
 
     let _ = writeln!(std::io::stderr(), "{}", json);
@@ -160,6 +164,33 @@ fn render_human_error(e: &aihu_compiler::CompileError, file_label: &str, source:
     }
 }
 
+/// O1a (tag naming): normalize the resolved define-name (`@meta name` →
+/// `@route name` → file stem) to its kebab custom-element form, and reject
+/// (C450) a component-SHAPED name (hyphenated or PascalCase) that cannot
+/// carry a hyphen — e.g. the stem `Comment`. A plain lowercase hyphen-less
+/// name (e.g. `timer`) is NOT component-shaped: it passes through and keeps
+/// the historical emit-time hyphen WARNING instead of erroring.
+fn normalize_define_tag(raw: &str) -> Result<String, aihu_compiler::CompileError> {
+    let normalized = aihu_compiler::tags::kebab_component_tag(raw);
+    if aihu_compiler::tags::is_component_tag(raw) && !normalized.contains('-') {
+        return Err(aihu_compiler::CompileError {
+            message: aihu_compiler::tags::validate_component_tag(raw)
+                .expect_err("hyphen-less normalization must fail validation"),
+            line: 0,
+            col: 0,
+            code: Some("C450".to_string()),
+            hint: Some(format!(
+                "custom-element names require a hyphen; the single word '{raw}' can never satisfy that"
+            )),
+            fix: Some(format!(
+                "rename the file to a hyphenated stem (e.g. 'x-{normalized}.aihu') or set an explicit hyphenated `@meta name`"
+            )),
+            ..Default::default()
+        });
+    }
+    Ok(normalized)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -223,7 +254,10 @@ fn main() {
                     "server" => aihu_compiler::BuildTarget::Server,
                     "universal" => aihu_compiler::BuildTarget::Universal,
                     other => {
-                        eprintln!("error: unknown --target '{}' (expected: client|server|universal)", other);
+                        eprintln!(
+                            "error: unknown --target '{}' (expected: client|server|universal)",
+                            other
+                        );
                         process::exit(1);
                     }
                 }
@@ -321,6 +355,9 @@ fn main() {
             .clone()
             .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
             .unwrap_or_else(|| file_stem.clone());
+        // O1a (tag naming): normalize (PascalCase→kebab) and reject a
+        // component-shaped name with no hyphen (C450).
+        let stem_fallback = normalize_define_tag(&stem_fallback).unwrap_or_else(|e| on_err(&e));
         ast.tag = stem_fallback.clone();
         ast.meta.name = stem_fallback;
         match serde_json::to_string(&ast) {
@@ -362,6 +399,9 @@ fn main() {
             .clone()
             .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
             .unwrap_or_else(|| file_stem.clone());
+        // O1a (tag naming): normalize (PascalCase→kebab) and reject a
+        // component-shaped name with no hyphen (C450).
+        let tag_name = normalize_define_tag(&tag_name).unwrap_or_else(|e| on_err(&e));
         let result = aihu_compiler::emit(&unit, &tag_name);
         match result.route_json {
             Some(ref rj) => println!("{}", rj),
@@ -370,36 +410,54 @@ fn main() {
         process::exit(0);
     }
 
-    let parsed = aihu_compiler::sfc::parse_with_path(
-        &source,
-        file_path_opt.as_deref(),
-    ).unwrap_or_else(|e| {
-        if machine_errors {
-            emit_machine_error(&e);
-            eprintln!("{}:{}: {}", file_label, e.line, e.message);
-        } else {
-            render_human_error(&e, &file_label, &source);
-        }
-        process::exit(1);
-    });
+    let parsed = aihu_compiler::sfc::parse_with_path(&source, file_path_opt.as_deref())
+        .unwrap_or_else(|e| {
+            if machine_errors {
+                emit_machine_error(&e);
+                eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            } else {
+                render_human_error(&e, &file_label, &source);
+            }
+            process::exit(1);
+        });
 
-    let unit = aihu_compiler::compile_full_with_options(&parsed, target, expr_parser).unwrap_or_else(|e| {
-        if machine_errors {
-            emit_machine_error(&e);
-            eprintln!("{}:{}: {}", file_label, e.line, e.message);
-        } else {
-            render_human_error(&e, &file_label, &source);
-        }
-        process::exit(1);
-    });
+    let unit = aihu_compiler::compile_full_with_options(&parsed, target, expr_parser)
+        .unwrap_or_else(|e| {
+            if machine_errors {
+                emit_machine_error(&e);
+                eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            } else {
+                render_human_error(&e, &file_label, &source);
+            }
+            process::exit(1);
+        });
 
     // Tag name resolution (OQ-C6):
     // 1. @meta { name: "..." } — explicit override (highest priority)
     // 2. @route { name: "..." } — derived from route block (e.g. "blog-index")
     // 3. file_stem — basename of the source file (fallback)
-    let tag_name = unit.source.meta.name.clone()
+    let tag_name = unit
+        .source
+        .meta
+        .name
+        .clone()
         .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
         .unwrap_or(file_stem);
+
+    // O1a (tag naming): normalize the define-name (PascalCase→kebab) so the
+    // registered custom element matches emitted `branch(...)` references and
+    // the manifest. A component-shaped name that cannot carry a hyphen (e.g.
+    // the stem `Comment`) is a hard C450 error; a plain lowercase hyphen-less
+    // name (e.g. `timer`) keeps the emit-time WARNING path unchanged.
+    let tag_name = normalize_define_tag(&tag_name).unwrap_or_else(|e| {
+        if machine_errors {
+            emit_machine_error(&e);
+            eprintln!("{}:{}: {}", file_label, e.line, e.message);
+        } else {
+            render_human_error(&e, &file_label, &source);
+        }
+        process::exit(1);
+    });
 
     let result = aihu_compiler::emit(&unit, &tag_name);
 
@@ -432,7 +490,11 @@ fn main() {
             if let Some(parent) = std::path::Path::new(path).parent() {
                 if !parent.as_os_str().is_empty() {
                     std::fs::create_dir_all(parent).unwrap_or_else(|e| {
-                        eprintln!("error creating sidecar parent '{}': {}", parent.display(), e);
+                        eprintln!(
+                            "error creating sidecar parent '{}': {}",
+                            parent.display(),
+                            e
+                        );
                         process::exit(1);
                     });
                 }

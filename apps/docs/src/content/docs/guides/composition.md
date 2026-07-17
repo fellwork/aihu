@@ -5,6 +5,44 @@ aihu has first-class support for the two halves of Vue-style composition:
 **hierarchical injection** — providing a dependency to a subtree and injecting
 it anywhere below.
 
+## Tag naming
+
+Every `.aihu` component compiles to a **native custom element**, and the
+platform requires custom-element names to contain a hyphen. The compiler
+normalizes component tags for you — with one hard rule you must know:
+
+> **Single-word component names are a hard compile error (C450).**
+> A single word can never become a valid custom-element name. Multi-word
+> PascalCase kebab-cases automatically; already-hyphenated tags pass through
+> lowercased; plain lowercase HTML/SVG tags are never touched.
+
+| You write | Compiles to |
+|---|---|
+| `<UserCard>` | `user-card` |
+| `<APIClient>` | `api-client` |
+| `<HTMLParser>` | `html-parser` |
+| `<my-widget>` | `my-widget` |
+| `<Aihu-Button>` | `aihu-button` |
+| `<Comment>` | **error C450** — `comment` has no hyphen |
+| `<div>`, `<linearGradient>` | untouched (plain HTML/SVG) |
+
+The same rule applies to the component's own resolved name (`@meta name` →
+`@route name` → file stem): `UserCard.aihu` defines `user-card`, while a file
+named `Comment.aihu` is rejected with C450.
+
+**Fixing a C450:** pick a hyphenated tag — reference it as `<x-comment>` (and
+name the file `x-comment.aihu`), or keep the file name and set an explicit
+hyphenated `@meta name`:
+
+```
+@meta { name: 'hn-comment' }
+```
+
+References, the route manifest's `components` list, and the registered
+element name all agree on the normalized tag, so `<UserCard>` in a template
+always matches the `user-card` element that `UserCard.aihu` defines. See also
+[Authoring Components](authoring-components.md).
+
 ## Composables
 
 An `@state` block *is* your component's setup function. So a plain function you

@@ -59,26 +59,25 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
     // `document.documentElement`. The CSS content has the calls replaced with
     // `var(--reactive-global-N)` references, and the corresponding `:root` declarations
     // are prepended.
-    let (css_content, global_reactive_effects) = if style.scope == StyleScope::Global
-        && style.content.contains("$reactive(")
-    {
-        let (cleaned_css, reactives) = extract_global_reactives(style.content);
-        // Build GlobalReactive StyleMacro list for emission
-        let macros: Vec<StyleMacro> = reactives
-            .into_iter()
-            .map(|(index, expr)| StyleMacro::GlobalReactive { index, expr })
-            .collect();
-        let (macro_css, macro_js) = emit_style_macros(&macros);
-        // Prepend the :root declarations to the cleaned CSS
-        let full_css = if macro_css.is_empty() {
-            cleaned_css
+    let (css_content, global_reactive_effects) =
+        if style.scope == StyleScope::Global && style.content.contains("$reactive(") {
+            let (cleaned_css, reactives) = extract_global_reactives(style.content);
+            // Build GlobalReactive StyleMacro list for emission
+            let macros: Vec<StyleMacro> = reactives
+                .into_iter()
+                .map(|(index, expr)| StyleMacro::GlobalReactive { index, expr })
+                .collect();
+            let (macro_css, macro_js) = emit_style_macros(&macros);
+            // Prepend the :root declarations to the cleaned CSS
+            let full_css = if macro_css.is_empty() {
+                cleaned_css
+            } else {
+                format!("{}\n{}", macro_css, cleaned_css)
+            };
+            (full_css, macro_js)
         } else {
-            format!("{}\n{}", macro_css, cleaned_css)
+            (style.content.to_string(), String::new())
         };
-        (full_css, macro_js)
-    } else {
-        (style.content.to_string(), String::new())
-    };
 
     // The CSS is interpolated into a JS template literal, so any backtick,
     // `${`, or backslash in the source CSS (e.g. inside a `/* ... */` comment
@@ -194,12 +193,16 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
             //      gate path. This mirrors the client T6 `_registerAgentDispatcher`
             //      but carries the FULL named binding + policy (server-only).
             let raw_script = unit.source.script.unwrap_or("");
-            let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
+            let with_reg =
+                inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
             let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
             format!("{}\n{}\n", with_reg, agent_binding_export)
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
-            format!("// [client build] $server macro reference elided\n{}", base_js)
+            format!(
+                "// [client build] $server macro reference elided\n{}",
+                base_js
+            )
         } else {
             base_js
         }
@@ -234,7 +237,12 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // --noEmit` over `**/*.aihu.ts` checks template type-safety end-to-end.
     let sidecar_ts = emit_sidecar_ts(unit, tag_name);
 
-    EmitResult { js, manifest_json, route_json, sidecar_ts }
+    EmitResult {
+        js,
+        manifest_json,
+        route_json,
+        sidecar_ts,
+    }
 }
 
 /// B3 — Emit a TypeScript sidecar containing the SFC's template expressions
@@ -382,7 +390,8 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // JS). Captures that don't parse as a TS expression (possible under
     // `--expr-parser legacy`) fall back to the token scan per-expression, so
     // the sidecar never loses the coverage it had.
-    let mut referenced_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut referenced_names: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
     for e in &exprs {
         match crate::expr::referenced_idents(&e.expr) {
             Some(reads) => referenced_names.extend(reads),
@@ -489,7 +498,10 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         // Recover the expression's 1-based `.aihu` file line (0 = unknown).
         let file_line = if tmpl_first_line == 0 {
             0
-        } else if let Some(off) = template_text.get(cursor..).and_then(|s| s.find(e.expr.as_str())) {
+        } else if let Some(off) = template_text
+            .get(cursor..)
+            .and_then(|s| s.find(e.expr.as_str()))
+        {
             let abs = cursor + off;
             cursor = abs + e.expr.len();
             tmpl_first_line + newlines_before(template_text, abs)
@@ -550,7 +562,10 @@ fn macro_line_set(script: &str) -> std::collections::BTreeSet<usize> {
     let bytes = script.as_bytes();
     let mut i = 0usize;
     while i < script.len() {
-        let nl = script[i..].find('\n').map(|r| i + r).unwrap_or(script.len());
+        let nl = script[i..]
+            .find('\n')
+            .map(|r| i + r)
+            .unwrap_or(script.len());
         let line = script[i..nl].trim();
         if line.starts_with('$') {
             // Find the macro's end: the close of its `{ … }` or `( … )` payload,
@@ -683,7 +698,10 @@ fn collect_sidecar_scope_names(script: &str, nodes: &[TemplateNode]) -> Vec<Stri
     }
     // 2. Signal setters — `resolve_signals` maps getter -> setter; the values
     //    are the setter names (empty for computeds, skipped).
-    for setter in crate::codegen::signals::resolve_signals(script).0.into_values() {
+    for setter in crate::codegen::signals::resolve_signals(script)
+        .0
+        .into_values()
+    {
         if !setter.is_empty() {
             names.insert(setter);
         }
@@ -907,8 +925,12 @@ fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTre
     }
     for node in nodes {
         match node {
-            TemplateNode::Element { attrs, children, .. }
-            | TemplateNode::MacroElement { attrs, children, .. } => {
+            TemplateNode::Element {
+                attrs, children, ..
+            }
+            | TemplateNode::MacroElement {
+                attrs, children, ..
+            } => {
                 for a in attrs {
                     if let Attr::Macro { name, value } = a {
                         if name == "each" {
@@ -1030,19 +1052,34 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                             .trim()
                             .to_string(),
                     };
-                    out.push(SidecarExpr { expr: list, is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: list,
+                        is_handler: false,
+                    });
                 }
                 // `$on.*={handler}` normalizes to an `on:<event>` attr — the
                 // value is a function, emitted in call position so inline arrow
                 // params (`(e) => …`) get a contextual `any` type (else TS7006).
                 Attr::Macro { name, value } if name.starts_with("on:") => {
-                    out.push(SidecarExpr { expr: macro_value_expr(value), is_handler: true });
+                    out.push(SidecarExpr {
+                        expr: macro_value_expr(value),
+                        is_handler: true,
+                    });
                 }
                 Attr::Binding { expr, .. } => {
-                    out.push(SidecarExpr { expr: expr.clone(), is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: expr.clone(),
+                        is_handler: false,
+                    });
                 }
-                Attr::Macro { value: MacroValue::Curly(s), .. } => {
-                    out.push(SidecarExpr { expr: s.clone(), is_handler: false });
+                Attr::Macro {
+                    value: MacroValue::Curly(s),
+                    ..
+                } => {
+                    out.push(SidecarExpr {
+                        expr: s.clone(),
+                        is_handler: false,
+                    });
                 }
                 _ => {}
             }
@@ -1050,18 +1087,26 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
     }
     for node in nodes {
         match node {
-            TemplateNode::Element { attrs, children, .. }
-            | TemplateNode::MacroElement { attrs, children, .. } => {
+            TemplateNode::Element {
+                attrs, children, ..
+            }
+            | TemplateNode::MacroElement {
+                attrs, children, ..
+            } => {
                 push_attrs(attrs, out);
                 collect_template_exprs(children, out);
             }
-            TemplateNode::Interpolation(s) => {
-                out.push(SidecarExpr { expr: s.clone(), is_handler: false })
-            }
+            TemplateNode::Interpolation(s) => out.push(SidecarExpr {
+                expr: s.clone(),
+                is_handler: false,
+            }),
             TemplateNode::IfBlock { branches } => {
                 for (cond, body) in branches {
                     if !cond.is_empty() {
-                        out.push(SidecarExpr { expr: cond.clone(), is_handler: false });
+                        out.push(SidecarExpr {
+                            expr: cond.clone(),
+                            is_handler: false,
+                        });
                     }
                     collect_template_exprs(body, out);
                 }
@@ -1073,18 +1118,25 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                 empty_body,
                 ..
             } => {
-                out.push(SidecarExpr { expr: list_expr.clone(), is_handler: false });
+                out.push(SidecarExpr {
+                    expr: list_expr.clone(),
+                    is_handler: false,
+                });
                 if let Some(k) = key_expr {
-                    out.push(SidecarExpr { expr: k.clone(), is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: k.clone(),
+                        is_handler: false,
+                    });
                 }
                 collect_template_exprs(body, out);
                 if let Some(eb) = empty_body {
                     collect_template_exprs(eb, out);
                 }
             }
-            TemplateNode::HtmlBlock { expr } => {
-                out.push(SidecarExpr { expr: expr.clone(), is_handler: false })
-            }
+            TemplateNode::HtmlBlock { expr } => out.push(SidecarExpr {
+                expr: expr.clone(),
+                is_handler: false,
+            }),
             TemplateNode::Text(_) => {}
         }
     }
@@ -1092,7 +1144,10 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
 
 // ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
 
-fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeSet<String>) -> String {
+fn emit_route_json(
+    route: &RouteBlock,
+    component_tags: &std::collections::BTreeSet<String>,
+) -> String {
     let pattern = route.path.as_deref().unwrap_or("");
     let name = route.name.as_deref().unwrap_or("");
     let ssr = route.ssr.unwrap_or(false);
@@ -1101,7 +1156,11 @@ fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeS
     let middleware_json = if route.middleware.is_empty() {
         "[]".to_string()
     } else {
-        let items: Vec<String> = route.middleware.iter().map(|m| format!("\"{}\"", m)).collect();
+        let items: Vec<String> = route
+            .middleware
+            .iter()
+            .map(|m| format!("\"{}\"", m))
+            .collect();
         format!("[{}]", items.join(", "))
     };
 
@@ -1133,19 +1192,21 @@ fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeS
 ///
 /// A tag is a component reference when it is not a plain HTML/SVG element:
 /// either it contains a hyphen (`my-widget`, a custom-element name) or it starts
-/// with an uppercase letter (`Comment`, the PascalCase component form). Plain
+/// with an uppercase letter (`UserCard`, the PascalCase component form). Plain
 /// lowercase tags (`div`, `p`) are the platform's own and never need
 /// registration. `<$macro>` boundary elements (slot/suspense/link/...) are
-/// compiler intrinsics, not user components, so they are excluded.
+/// compiler intrinsics, not user components, so they are excluded. Collected
+/// tags are NORMALIZED (PascalCase→kebab, see `crate::tags`) so the manifest
+/// matches the emitted `branch(...)` references and the define-name.
 fn collect_component_tags(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
-    fn is_component_tag(tag: &str) -> bool {
-        tag.contains('-') || tag.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-    }
     for node in nodes {
         match node {
             TemplateNode::Element { tag, children, .. } => {
-                if is_component_tag(tag) {
-                    out.insert(tag.clone());
+                if crate::tags::is_component_tag(tag) {
+                    // O1a (tag naming): the manifest carries the NORMALIZED
+                    // custom-element name so `route.json` `components` agrees
+                    // with reference emission and the define-name.
+                    out.insert(crate::tags::kebab_component_tag(tag));
                 }
                 collect_component_tags(children, out);
             }
@@ -1159,7 +1220,9 @@ fn collect_component_tags(nodes: &[TemplateNode], out: &mut std::collections::BT
                     collect_component_tags(body, out);
                 }
             }
-            TemplateNode::EachBlock { body, empty_body, .. } => {
+            TemplateNode::EachBlock {
+                body, empty_body, ..
+            } => {
                 collect_component_tags(body, out);
                 if let Some(empty) = empty_body {
                     collect_component_tags(empty, out);
@@ -1375,17 +1438,24 @@ fn scan_attr_helpers(attrs: &[Attr], h: &mut NeededHelpers) {
 fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
     for node in nodes {
         match node {
-            TemplateNode::MacroElement { name, attrs, children, .. } => {
+            TemplateNode::MacroElement {
+                name,
+                attrs,
+                children,
+                ..
+            } => {
                 match name.as_str() {
                     "slot" => h.slot_boundary = true,
                     "suspense" => h.suspense_boundary = true,
                     "shield" => h.shield_boundary = true,
                     "guard" => {
                         // v0.3.0: detect scope-form vs check-form.
-                        let has_scope = attrs.iter().any(|a| matches!(
-                            a,
-                            Attr::Static { name, .. } if name == "scope"
-                        ));
+                        let has_scope = attrs.iter().any(|a| {
+                            matches!(
+                                a,
+                                Attr::Static { name, .. } if name == "scope"
+                            )
+                        });
                         if has_scope {
                             h.guard_scope_boundary = true;
                             h.if_boundary = true; // needs `when()` from arbor
@@ -1424,7 +1494,9 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                 scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
-            TemplateNode::Element { attrs, children, .. } => {
+            TemplateNode::Element {
+                attrs, children, ..
+            } => {
                 scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
@@ -1436,7 +1508,9 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                     collect_helpers_recursive(body, h);
                 }
             }
-            TemplateNode::EachBlock { body, empty_body, .. } => {
+            TemplateNode::EachBlock {
+                body, empty_body, ..
+            } => {
                 h.each_boundary = true;
                 collect_helpers_recursive(body, h);
                 if let Some(eb) = empty_body {
@@ -1539,7 +1613,13 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
 fn process_state_body(
     raw_script: &str,
     signal_map: &mut SignalMap,
-) -> (StateImports, Vec<crate::types::StateMacro>, String, Vec<String>, StateNames) {
+) -> (
+    StateImports,
+    Vec<crate::types::StateMacro>,
+    String,
+    Vec<String>,
+    StateNames,
+) {
     use crate::parser::state_macros::parse_state_macros;
     use crate::types::StateMacro;
 
@@ -1596,8 +1676,7 @@ fn process_state_body(
                         // keeps the plain `createResource` lowering (no regression).
                         let is_magna = running_code(e)
                             .map(|thunk| {
-                                let body =
-                                    arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                                let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
                                 is_magna_origin(&body)
                             })
                             .unwrap_or(false);
@@ -1705,7 +1784,10 @@ fn process_state_body(
     let mut stripped_export_line = String::new();
     let bytes = raw_script.as_bytes();
     while i < bytes.len() {
-        let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
+        let nl = raw_script[i..]
+            .find('\n')
+            .map(|r| i + r)
+            .unwrap_or(raw_script.len());
         let line_raw = &raw_script[i..nl];
         let line = line_raw.trim();
 
@@ -1766,8 +1848,8 @@ fn process_state_body(
                     // v0.4.0
                     | Some("stream")
             ) && stripped.contains(':');
-            let is_preserved_macro = stripped.starts_with("effect.on(")
-                || matches!(macro_keyword, Some("watch"));
+            let is_preserved_macro =
+                stripped.starts_with("effect.on(") || matches!(macro_keyword, Some("watch"));
 
             if is_collection_macro {
                 // For v2 collection-form, the body opens with `:` followed by
@@ -1776,17 +1858,14 @@ fn process_state_body(
                 // closing brace / paren.
                 if let Some(colon_rel) = raw_script[i..].find(':') {
                     let mut p = i + colon_rel + 1;
-                    while p < raw_script.len()
-                        && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r')
-                    {
+                    while p < raw_script.len() && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r') {
                         p += 1;
                     }
                     if p < raw_script.len() {
                         if bytes[p] == b'{' {
-                            if let Some(close) = crate::parser::state_macros::find_brace_close_js(
-                                raw_script,
-                                p + 1,
-                            ) {
+                            if let Some(close) =
+                                crate::parser::state_macros::find_brace_close_js(raw_script, p + 1)
+                            {
                                 i = close + 1;
                                 if i < bytes.len() && bytes[i] == b'\n' {
                                     i += 1;
@@ -1800,9 +1879,7 @@ fn process_state_body(
                                 crate::parser::state_macros::find_paren_close(raw_script, p + 1)
                             {
                                 let mut q = close_paren + 1;
-                                while q < raw_script.len()
-                                    && matches!(bytes[q], b' ' | b'\t')
-                                {
+                                while q < raw_script.len() && matches!(bytes[q], b' ' | b'\t') {
                                     q += 1;
                                 }
                                 if q + 1 < raw_script.len()
@@ -1811,10 +1888,7 @@ fn process_state_body(
                                 {
                                     q += 2;
                                     while q < raw_script.len()
-                                        && matches!(
-                                            bytes[q],
-                                            b' ' | b'\t' | b'\n' | b'\r'
-                                        )
+                                        && matches!(bytes[q], b' ' | b'\t' | b'\n' | b'\r')
                                     {
                                         q += 1;
                                     }
@@ -1941,7 +2015,7 @@ fn extract_state_decl_name(line: &str) -> Option<String> {
     let trimmed = line.trim();
     let rest = trimmed
         .strip_prefix("let ")
-        .or_else(|| trimmed.strip_prefix("const ")) ?;
+        .or_else(|| trimmed.strip_prefix("const "))?;
     let head = rest.trim_start();
     // Must start with a simple identifier (not `[`, `{`, etc.).
     let first = head.chars().next()?;
@@ -2009,7 +2083,11 @@ fn transform_bare_declaration(line: &str) -> String {
 
     let colon_pos = colon_pos.unwrap();
     let name_part = trimmed[..colon_pos].trim();
-    if name_part.is_empty() || name_part.chars().any(|c| c.is_whitespace() || c == '.' || c == '[') {
+    if name_part.is_empty()
+        || name_part
+            .chars()
+            .any(|c| c.is_whitespace() || c == '.' || c == '[')
+    {
         return line.to_string();
     }
 
@@ -2033,7 +2111,11 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
             ')' => depth_paren = (depth_paren - 1).max(0),
             '[' => depth_bracket += 1,
             ']' => depth_bracket = (depth_bracket - 1).max(0),
-            ':' if depth_angle == 0 && depth_brace == 0 && depth_paren == 0 && depth_bracket == 0 => {
+            ':' if depth_angle == 0
+                && depth_brace == 0
+                && depth_paren == 0
+                && depth_bracket == 0 =>
+            {
                 return Some(i);
             }
             _ => {}
@@ -2079,8 +2161,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
                             lines.push(format!(
                                 "{indent}const {} = computed(() => {body});",
                                 entry.name
@@ -2091,8 +2172,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
                             // arch-3 M2 (RFC-003): magna-origin `$resource`
                             // (body is `data.X.query(...)`) lowers to
                             // `createMagnaResource`; everything else keeps the
@@ -2143,8 +2223,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let body = arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
                             if let Some(deps_raw) = meta_get(entry, "on") {
                                 let deps_inner = deps_raw
                                     .trim()
@@ -2171,15 +2250,17 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+                            let body = arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
                             match entry.name.as_str() {
-                                "mount" => lines
-                                    .push(format!("{indent}onMount(() => {{ {body} }});")),
-                                "dispose" => lines
-                                    .push(format!("{indent}onCleanup(() => {{ {body} }});")),
-                                "adopt" => lines
-                                    .push(format!("{indent}onAdopt(() => {{ {body} }});")),
+                                "mount" => {
+                                    lines.push(format!("{indent}onMount(() => {{ {body} }});"))
+                                }
+                                "dispose" => {
+                                    lines.push(format!("{indent}onCleanup(() => {{ {body} }});"))
+                                }
+                                "adopt" => {
+                                    lines.push(format!("{indent}onAdopt(() => {{ {body} }});"))
+                                }
                                 "attributeChange" => {
                                     // Preserve the user-supplied param list so
                                     // names match what the user authored.
@@ -2210,10 +2291,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // called once; if the returned object has
                             // `hostConnected`/`hostDisconnected` methods they are
                             // wired into onMount/onCleanup respectively.
-                            let factory = match crate::parser::state_macros::meta_get(entry, "value") {
-                                Some(f) => f.trim(),
-                                None => continue,
-                            };
+                            let factory =
+                                match crate::parser::state_macros::meta_get(entry, "value") {
+                                    Some(f) => f.trim(),
+                                    None => continue,
+                                };
                             let name = &entry.name;
                             lines.push(format!(
                                 "{indent}const {name} = (() => {{\n\
@@ -2247,15 +2329,25 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 let v_trimmed = ctx_val.trim();
                                 if entry.name == "provide" {
                                     // Parse the sub-object { value: () => expr } to extract factory.
-                                    let inner = match crate::parser::state_macros::strip_outer_braces_pub(v_trimmed) {
-                                        Some(s) => s,
-                                        None => continue,
-                                    };
-                                    let sub_meta = match crate::parser::state_macros::parse_meta_pairs_pub(&inner) {
-                                        Ok(p) => p,
-                                        Err(_) => continue,
-                                    };
-                                    let val_factory = match sub_meta.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim().to_string()) {
+                                    let inner =
+                                        match crate::parser::state_macros::strip_outer_braces_pub(
+                                            v_trimmed,
+                                        ) {
+                                            Some(s) => s,
+                                            None => continue,
+                                        };
+                                    let sub_meta =
+                                        match crate::parser::state_macros::parse_meta_pairs_pub(
+                                            &inner,
+                                        ) {
+                                            Ok(p) => p,
+                                            Err(_) => continue,
+                                        };
+                                    let val_factory = match sub_meta
+                                        .iter()
+                                        .find(|(mk, _)| mk == "value")
+                                        .map(|(_, mv)| mv.trim().to_string())
+                                    {
                                         Some(f) => f,
                                         None => continue,
                                     };
@@ -2367,7 +2459,9 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
 /// non-empty, the function-form switches to the options-form
 /// `defineComponent({ props: { … }, setup: (ctx) => { … } })` shape so the
 /// runtime can synthesize observedAttributes + attributeChangedCallback.
-fn collect_prop_entries(macros: &[crate::types::StateMacro]) -> Vec<&crate::types::CollectionEntry> {
+fn collect_prop_entries(
+    macros: &[crate::types::StateMacro],
+) -> Vec<&crate::types::CollectionEntry> {
     let mut out = Vec::new();
     for m in macros {
         if let crate::types::StateMacro::Collection {
@@ -2503,9 +2597,19 @@ const KEYBOARD_ROLES: &[&str] = &["button", "link", "menuitem", "tab"];
 
 /// Roles that require tabindex="0" injection unless already declared.
 const FOCUSABLE_ROLES: &[&str] = &[
-    "button", "link", "menuitem", "tab",
-    "menuitemcheckbox", "menuitemradio", "option", "switch",
-    "checkbox", "radio", "slider", "spinbutton", "textbox",
+    "button",
+    "link",
+    "menuitem",
+    "tab",
+    "menuitemcheckbox",
+    "menuitemradio",
+    "option",
+    "switch",
+    "checkbox",
+    "radio",
+    "slider",
+    "spinbutton",
+    "textbox",
 ];
 
 /// Native HTML tags that already handle keyboard interaction natively — the
@@ -2526,7 +2630,13 @@ fn emit_aria_wiring(
 
     // Find the $aria collection. Distinguish "not present" from "present but empty".
     let has_aria_collection = macros.iter().any(|m| {
-        matches!(m, StateMacro::Collection { kind: CollectionKind::Aria, .. })
+        matches!(
+            m,
+            StateMacro::Collection {
+                kind: CollectionKind::Aria,
+                ..
+            }
+        )
     });
     if !has_aria_collection {
         return (String::new(), false, false);
@@ -2535,7 +2645,11 @@ fn emit_aria_wiring(
     let aria_entries: Vec<&crate::types::CollectionEntry> = macros
         .iter()
         .flat_map(|m| {
-            if let StateMacro::Collection { kind: CollectionKind::Aria, entries } = m {
+            if let StateMacro::Collection {
+                kind: CollectionKind::Aria,
+                entries,
+            } = m
+            {
                 entries.iter().collect::<Vec<_>>()
             } else {
                 Vec::new()
@@ -2558,14 +2672,13 @@ fn emit_aria_wiring(
             e.value_raw.clone()
         };
         // Strip surrounding quotes from static string literals.
-        v.trim()
-            .trim_matches(|c| c == '\'' || c == '"')
-            .to_string()
+        v.trim().trim_matches(|c| c == '\'' || c == '"').to_string()
     });
     let role_str = role_raw.as_deref().unwrap_or("");
 
     // Determine root template element tag and whether tabindex is already declared.
-    let (root_tag, root_has_tabindex, root_has_click) = if let Some(first) = template_nodes.first() {
+    let (root_tag, root_has_tabindex, root_has_click) = if let Some(first) = template_nodes.first()
+    {
         match first {
             TemplateNode::Element { tag, attrs, .. } => {
                 let has_tabindex = attrs.iter().any(|a| match a {
@@ -2597,16 +2710,17 @@ fn emit_aria_wiring(
     let should_promote_keyboard = is_keyboard_role && !is_native_interactive && root_has_click;
 
     // Determine tabindex injection.
-    let should_inject_tabindex = FOCUSABLE_ROLES.contains(&role_str)
-        && !root_has_tabindex
-        && !root_tag.is_empty();
+    let should_inject_tabindex =
+        FOCUSABLE_ROLES.contains(&role_str) && !root_has_tabindex && !root_tag.is_empty();
 
     let indent = "  ";
     let mut lines: Vec<String> = Vec::new();
     let mut needs_effect = false;
 
     // attachInternals — lazy-attach guard (only emitted when $aria is declared).
-    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+    lines.push(format!(
+        "{indent}if (!this._internals) this._internals = this.attachInternals();"
+    ));
 
     // Emit per-key ARIA wiring.
     for entry in &aria_entries {
@@ -2657,23 +2771,39 @@ fn emit_aria_wiring(
         // Determine if this is a boolean-cast ARIA property.
         let is_bool_cast = matches!(
             key,
-            "pressed" | "expanded" | "disabled" | "hidden" | "selected"
-            | "checked" | "invalid" | "required" | "modal" | "multiline"
-            | "multiSelectable" | "readOnly"
+            "pressed"
+                | "expanded"
+                | "disabled"
+                | "hidden"
+                | "selected"
+                | "checked"
+                | "invalid"
+                | "required"
+                | "modal"
+                | "multiline"
+                | "multiSelectable"
+                | "readOnly"
         );
-        let is_number_cast = matches!(key, "level" | "posInSet" | "setSize" | "valueMax" | "valueMin" | "valueNow");
+        let is_number_cast = matches!(
+            key,
+            "level" | "posInSet" | "setSize" | "valueMax" | "valueMin" | "valueNow"
+        );
 
         if is_thunk(value_trimmed) {
             needs_effect = true;
             if is_bool_cast || is_number_cast {
                 lines.push(format!(
                     "{indent}effect(() => {{ this._internals.{prop} = String(({value})()); }});",
-                    indent = indent, prop = idl_prop_name, value = value_trimmed
+                    indent = indent,
+                    prop = idl_prop_name,
+                    value = value_trimmed
                 ));
             } else {
                 lines.push(format!(
                     "{indent}effect(() => {{ this._internals.{prop} = ({value})(); }});",
-                    indent = indent, prop = idl_prop_name, value = value_trimmed
+                    indent = indent,
+                    prop = idl_prop_name,
+                    value = value_trimmed
                 ));
             }
         } else {
@@ -2681,7 +2811,9 @@ fn emit_aria_wiring(
             let static_val = value_trimmed.to_string();
             lines.push(format!(
                 "{indent}this._internals.{prop} = {val};",
-                indent = indent, prop = idl_prop_name, val = static_val
+                indent = indent,
+                prop = idl_prop_name,
+                val = static_val
             ));
         }
     }
@@ -2717,7 +2849,13 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
 
     // Find $form entries. Distinguish "not present" from "present but empty".
     let has_form_collection = macros.iter().any(|m| {
-        matches!(m, StateMacro::Collection { kind: CollectionKind::Form, .. })
+        matches!(
+            m,
+            StateMacro::Collection {
+                kind: CollectionKind::Form,
+                ..
+            }
+        )
     });
     if !has_form_collection {
         return (String::new(), false);
@@ -2726,7 +2864,11 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
     let form_entries: Vec<&crate::types::CollectionEntry> = macros
         .iter()
         .filter_map(|m| {
-            if let StateMacro::Collection { kind: CollectionKind::Form, entries } = m {
+            if let StateMacro::Collection {
+                kind: CollectionKind::Form,
+                entries,
+            } = m
+            {
                 Some(entries.iter())
             } else {
                 None
@@ -2743,7 +2885,9 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
     let mut lines: Vec<String> = Vec::new();
 
     // attachInternals guard — lazy-attach (shared with $aria).
-    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+    lines.push(format!(
+        "{indent}if (!this._internals) this._internals = this.attachInternals();"
+    ));
 
     // Emit per-entry wiring.
     for entry in &form_entries {
@@ -2761,12 +2905,14 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
                 if is_thunk(expr) {
                     lines.push(format!(
                         "{indent}effect(() => {{ this._internals.setFormValue(({expr})()); }});",
-                        indent = indent, expr = expr
+                        indent = indent,
+                        expr = expr
                     ));
                 } else {
                     lines.push(format!(
                         "{indent}effect(() => {{ this._internals.setFormValue({expr}); }});",
-                        indent = indent, expr = expr
+                        indent = indent,
+                        expr = expr
                     ));
                 }
             }
@@ -2937,7 +3083,11 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     });
     let uses_options_form = uses_props || has_agent_inputs || extends_base.is_some();
     let uses_ctx = uses_options_form;
-    let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
+    let ctx_param = if uses_ctx || unit.source.style.is_some() {
+        "ctx"
+    } else {
+        "_ctx"
+    };
 
     let macro_code = emit_state_macro_code(&macros, &signal_map);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
@@ -3132,7 +3282,11 @@ fn parse_import_line(line: &str) -> Option<ParsedImport> {
         let s = after_from
             .strip_prefix('\'')
             .and_then(|s| s.strip_suffix('\''))
-            .or_else(|| after_from.strip_prefix('"').and_then(|s| s.strip_suffix('"')))?;
+            .or_else(|| {
+                after_from
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+            })?;
         (trimmed[..from_idx].trim(), s.to_string())
     };
     let (head, type_only) = if let Some(h) = rest.strip_prefix("import type ") {
@@ -3153,7 +3307,12 @@ fn parse_import_line(line: &str) -> Option<ParsedImport> {
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect();
-        return Some(ParsedImport { type_only, source, names, raw_passthrough: None });
+        return Some(ParsedImport {
+            type_only,
+            source,
+            names,
+            raw_passthrough: None,
+        });
     }
     Some(ParsedImport {
         type_only,
@@ -3173,8 +3332,8 @@ fn merge_imports(framework: &str, user: &[String]) -> String {
         std::collections::HashMap::new();
 
     let push = |imp: ParsedImport,
-                    buckets: &mut Vec<ParsedImport>,
-                    bucket_idx: &mut std::collections::HashMap<(String, bool), usize>| {
+                buckets: &mut Vec<ParsedImport>,
+                bucket_idx: &mut std::collections::HashMap<(String, bool), usize>| {
         if imp.raw_passthrough.is_some() || imp.names.is_empty() {
             buckets.push(imp);
             return;
@@ -3223,7 +3382,12 @@ fn merge_imports(framework: &str, user: &[String]) -> String {
             continue;
         } else {
             let kw = if b.type_only { "import type" } else { "import" };
-            out.push(format!("{} {{ {} }} from '{}'", kw, b.names.join(", "), b.source));
+            out.push(format!(
+                "{} {{ {} }} from '{}'",
+                kw,
+                b.names.join(", "),
+                b.source
+            ));
         }
     }
     out.join("\n")
@@ -3265,19 +3429,37 @@ fn build_function_imports(
     if !signal_map.0.is_empty() {
         lines.push("import type { Signal } from '@aihu/signals'".to_string());
         let mut sig_items: Vec<&str> = vec!["signal"];
-        if si.needs_computed { sig_items.push("computed"); }
-        if emit_effect { sig_items.push("effect"); }
-        if si.needs_batch { sig_items.push("batch"); }
-        lines.push(format!("import {{ {} }} from '@aihu/signals'", sig_items.join(", ")));
+        if si.needs_computed {
+            sig_items.push("computed");
+        }
+        if emit_effect {
+            sig_items.push("effect");
+        }
+        if si.needs_batch {
+            sig_items.push("batch");
+        }
+        lines.push(format!(
+            "import {{ {} }} from '@aihu/signals'",
+            sig_items.join(", ")
+        ));
     } else {
         // No signals in map, but may still need computed/effect/batch
         let mut sig_items: Vec<&str> = Vec::new();
-        if si.needs_computed { sig_items.push("computed"); }
-        if emit_effect { sig_items.push("effect"); }
-        if si.needs_batch { sig_items.push("batch"); }
+        if si.needs_computed {
+            sig_items.push("computed");
+        }
+        if emit_effect {
+            sig_items.push("effect");
+        }
+        if si.needs_batch {
+            sig_items.push("batch");
+        }
         if !sig_items.is_empty() {
             lines.push("import type { Signal } from '@aihu/signals'".to_string());
-            lines.push(format!("import {{ {} }} from '@aihu/signals'", sig_items.join(", ")));
+            lines.push(format!(
+                "import {{ {} }} from '@aihu/signals'",
+                sig_items.join(", ")
+            ));
         }
     }
 
@@ -3285,20 +3467,34 @@ fn build_function_imports(
     // helpers (which call them at component setup time).
     let mut rt_items: Vec<String> =
         vec!["defineComponent".to_string(), "defineElement".to_string()];
-    let needs_on_mount_for_router =
-        helpers.router_element || helpers.link_element || helpers.outlet_element || helpers.navigate_element;
+    let needs_on_mount_for_router = helpers.router_element
+        || helpers.link_element
+        || helpers.outlet_element
+        || helpers.navigate_element;
     let needs_on_cleanup_for_router = helpers.router_element || helpers.outlet_element;
-    if si.needs_on_mount || needs_on_mount_for_router || helpers.needs_on_mount_for_directives { rt_items.push("onMount".to_string()); }
-    if si.needs_on_cleanup || needs_on_cleanup_for_router { rt_items.push("onCleanup".to_string()); }
+    if si.needs_on_mount || needs_on_mount_for_router || helpers.needs_on_mount_for_directives {
+        rt_items.push("onMount".to_string());
+    }
+    if si.needs_on_cleanup || needs_on_cleanup_for_router {
+        rt_items.push("onCleanup".to_string());
+    }
     // R2 (Director r6 §3): $lifecycle four-callback extension imports.
-    if si.needs_on_adopt { rt_items.push("onAdopt".to_string()); }
-    if si.needs_on_attribute_change { rt_items.push("onAttributeChange".to_string()); }
+    if si.needs_on_adopt {
+        rt_items.push("onAdopt".to_string());
+    }
+    if si.needs_on_attribute_change {
+        rt_items.push("onAttributeChange".to_string());
+    }
     // v0.4.0 — `$stream` lazy-attach: only import createStream when used.
-    if si.needs_create_stream { rt_items.push("createStream".to_string()); }
+    if si.needs_create_stream {
+        rt_items.push("createStream".to_string());
+    }
     // `$resource` (plain, non-magna) lowers to `createResource()` — import it
     // from `@aihu/runtime` (parallel to createStream). Was set but never pushed,
     // so `$resource` emitted a bare `createResource` ReferenceError.
-    if si.needs_create_resource { rt_items.push("createResource".to_string()); }
+    if si.needs_create_resource {
+        rt_items.push("createResource".to_string());
+    }
     // arch-5 M1 a11y imports — RFC-A5-017..021. Each is feature-flagged so
     // SFCs that don't use a11y primitives import nothing extra.
     if helpers.a11y_focus_trap {
@@ -3310,7 +3506,10 @@ fn build_function_imports(
     if helpers.a11y_announce {
         rt_items.push("announce as __a11y_announce".to_string());
     }
-    lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
+    lines.push(format!(
+        "import {{ {} }} from '@aihu/runtime'",
+        rt_items.join(", ")
+    ));
 
     // arch-5 M1: namespace import for @aihu/router when `$route`,
     // `$beforeNavigate`, `$afterNavigate`, or any of `<$router>`,
@@ -3329,9 +3528,8 @@ fn build_function_imports(
     // context imports. Bare `@aihu/magna` specifier (G7 entry-split not landed;
     // forward-compatible with the future browser `.` entry).
     if si.needs_create_magna_resource {
-        lines.push(
-            "import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string(),
-        );
+        lines
+            .push("import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string());
         lines.push("import { inject } from '@aihu/context'".to_string());
     }
 
@@ -3348,24 +3546,23 @@ fn build_function_imports(
 
 fn decode_html_entities(s: &str) -> String {
     s.replace("&larr;", "←")
-     .replace("&rarr;", "→")
-     .replace("&uarr;", "↑")
-     .replace("&darr;", "↓")
-     .replace("&lArr;", "⇐")
-     .replace("&rArr;", "⇒")
-     .replace("&nbsp;", "\u{00A0}")
-     .replace("&amp;", "&")
-     .replace("&lt;", "<")
-     .replace("&gt;", ">")
-     .replace("&quot;", "\"")
-     .replace("&apos;", "'")
-     .replace("&mdash;", "—")
-     .replace("&ndash;", "–")
-     .replace("&hellip;", "…")
-     .replace("&copy;", "©")
-     .replace("&reg;", "®")
+        .replace("&rarr;", "→")
+        .replace("&uarr;", "↑")
+        .replace("&darr;", "↓")
+        .replace("&lArr;", "⇐")
+        .replace("&rArr;", "⇒")
+        .replace("&nbsp;", "\u{00A0}")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&mdash;", "—")
+        .replace("&ndash;", "–")
+        .replace("&hellip;", "…")
+        .replace("&copy;", "©")
+        .replace("&reg;", "®")
 }
-
 
 /// v0.3.0 — Emit the `__agentBinding` named export for server artifacts.
 ///
@@ -3661,17 +3858,35 @@ fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &st
     let action_entries: Vec<String> = members
         .actions
         .iter()
-        .map(|name| format!("      {}: (args) => {}(args)", opaque_member_id(tag_name, name), name))
+        .map(|name| {
+            format!(
+                "      {}: (args) => {}(args)",
+                opaque_member_id(tag_name, name),
+                name
+            )
+        })
         .collect();
     let read_entries: Vec<String> = members
         .reads
         .iter()
-        .map(|name| format!("      {}: () => {}()", opaque_member_id(tag_name, name), name))
+        .map(|name| {
+            format!(
+                "      {}: () => {}()",
+                opaque_member_id(tag_name, name),
+                name
+            )
+        })
         .collect();
     let write_entries: Vec<String> = members
         .writes
         .iter()
-        .map(|name| format!("      {}: (v) => {}.set(v)", opaque_member_id(tag_name, name), name))
+        .map(|name| {
+            format!(
+                "      {}: (v) => {}.set(v)",
+                opaque_member_id(tag_name, name),
+                name
+            )
+        })
         .collect();
     let fmt = |entries: &[String]| -> String {
         if entries.is_empty() {
@@ -3712,13 +3927,19 @@ fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &st
     // registration can read `__aihu_ctx__?.element`, and keep `ctx` bound for any
     // body references (props bindings use `ctx.props`, @style uses `ctx.host`).
     let setup_shapes: [(&str, &str); 4] = [
-        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
+        (
+            "defineComponent((_ctx) => {",
+            "defineComponent((__aihu_ctx__) => {",
+        ),
         (
             "defineComponent((ctx) => {",
             "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
         ),
         ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
-        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
+        (
+            "setup: (ctx) => {",
+            "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;",
+        ),
     ];
     let mut with_param = with_import;
     let mut renamed = false;
@@ -3838,13 +4059,19 @@ fn inject_server_binding_registration(
 
     // ── 2. Rename the setup parameter to a stable name (same as client path). ─
     let setup_shapes: [(&str, &str); 4] = [
-        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
+        (
+            "defineComponent((_ctx) => {",
+            "defineComponent((__aihu_ctx__) => {",
+        ),
         (
             "defineComponent((ctx) => {",
             "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
         ),
         ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
-        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
+        (
+            "setup: (ctx) => {",
+            "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;",
+        ),
     ];
     let mut with_param = with_import;
     let mut renamed = false;
@@ -4020,7 +4247,6 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
     )
 }
 
-
 // ─── Template emission helpers ────────────────────────────────────────────────
 
 fn emit_nodes(
@@ -4113,8 +4339,7 @@ fn emit_node(
                     .count();
                 let leading_run = &raw[..leading_len];
                 let trailing_run = &raw[raw.len() - trailing_len..];
-                let has_same_line_leading =
-                    !leading_run.is_empty() && !leading_run.contains('\n');
+                let has_same_line_leading = !leading_run.is_empty() && !leading_run.contains('\n');
                 let has_same_line_trailing =
                     !trailing_run.is_empty() && !trailing_run.contains('\n');
 
@@ -4277,6 +4502,16 @@ fn emit_node(
                     .collect()
             };
 
+            // O1a (tag naming): component references emit their NORMALIZED
+            // custom-element name (`<UserCard>` → branch('user-card', …));
+            // plain HTML/SVG tags pass through verbatim. `slot` and `<$macro>`
+            // forms never reach here (handled above / in the MacroElement arm).
+            let tag = if crate::tags::is_component_tag(tag) {
+                crate::tags::kebab_component_tag(tag)
+            } else {
+                tag.clone()
+            };
+
             let base = if non_empty_children.is_empty() {
                 format!("branch('{}', {}, [])", tag, attrs_str)
             } else if has_element_child {
@@ -4311,8 +4546,20 @@ fn emit_node(
                 effects.into_iter().next().unwrap_or(base)
             }
         }
-        TemplateNode::MacroElement { name, attrs, children } => {
-            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent, mode);
+        TemplateNode::MacroElement {
+            name,
+            attrs,
+            children,
+        } => {
+            let base = emit_macro_element(
+                name,
+                attrs,
+                children,
+                signal_map,
+                state_names,
+                child_indent,
+                mode,
+            );
             // Apply structural/effect directives ($each/$if/$key/$show/$class:)
             // that wrap or affect the element — same as the plain Element arm
             // above. Without this, directives on macro elements like <$link>
@@ -4436,10 +4683,7 @@ fn emit_if_block(
             lower_if_cond(cond, signal_map, mode)
         } else {
             // {:else if}: !prior0 && !prior1 && ... && cond
-            let mut parts: Vec<String> = prior_conds
-                .iter()
-                .map(|c| format!("!({})", c))
-                .collect();
+            let mut parts: Vec<String> = prior_conds.iter().map(|c| format!("!({})", c)).collect();
             parts.push(format!("({})", rewritten_cond));
             format!("[() => ({})]", parts.join(" && "))
         };
@@ -4451,7 +4695,15 @@ fn emit_if_block(
 
         if !cond.is_empty() {
             prior_conds.push(rewritten_cond);
-            let rest = build_chain(idx + 1, branches, prior_conds, signal_map, state_names, child_indent, mode);
+            let rest = build_chain(
+                idx + 1,
+                branches,
+                prior_conds,
+                signal_map,
+                state_names,
+                child_indent,
+                mode,
+            );
             out.extend(rest);
             prior_conds.pop();
         }
@@ -4459,7 +4711,15 @@ fn emit_if_block(
     }
 
     let mut prior: Vec<String> = Vec::new();
-    let when_calls = build_chain(0, branches, &mut prior, signal_map, state_names, child_indent, mode);
+    let when_calls = build_chain(
+        0,
+        branches,
+        &mut prior,
+        signal_map,
+        state_names,
+        child_indent,
+        mode,
+    );
     if when_calls.len() == 1 {
         when_calls.into_iter().next().unwrap()
     } else {
@@ -4714,8 +4974,20 @@ fn emit_macro_element(
 
             let (fallback_children, loaded_children) = split_slot_fallback(children);
 
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
-            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent, mode);
+            let fallback_subtree = emit_nodes(
+                &fallback_children,
+                signal_map,
+                state_names,
+                &next_indent,
+                mode,
+            );
+            let loaded_subtree = emit_nodes(
+                &loaded_children,
+                signal_map,
+                state_names,
+                &next_indent,
+                mode,
+            );
 
             format!(
                 "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
@@ -4727,8 +4999,15 @@ fn emit_macro_element(
         "shield" => {
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+            let main_subtree =
+                emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+            let fallback_subtree = emit_nodes(
+                &fallback_children,
+                signal_map,
+                state_names,
+                &next_indent,
+                mode,
+            );
 
             format!(
                 "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
@@ -4760,7 +5039,8 @@ fn emit_macro_element(
                     scope_name
                 );
 
-                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+                let main_subtree =
+                    emit_nodes(children, signal_map, state_names, &next_indent, mode);
                 // Lower to: when(getScopeSignal('scope'), () => branch(...children...))
                 // `getScopeSignal` is imported from `@aihu/auth` at consumer build time.
                 // The guard_boundary helper is not used for scope-form; when() is used directly.
@@ -4775,8 +5055,15 @@ fn emit_macro_element(
 
                 let (fallback_children, main_children) = split_slot_fallback(children);
 
-                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
-                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+                let main_subtree =
+                    emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
+                let fallback_subtree = emit_nodes(
+                    &fallback_children,
+                    signal_map,
+                    state_names,
+                    &next_indent,
+                    mode,
+                );
 
                 format!(
                     "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
@@ -4793,7 +5080,8 @@ fn emit_macro_element(
             let target_expr = find_static_or_binding_attr(attrs, "target")
                 .unwrap_or_else(|| "undefined".to_string());
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             let child_fn = format!("() => {{ return {} }}", children_subtree);
 
             format!(
@@ -4815,12 +5103,17 @@ fn emit_macro_element(
             let politeness = find_static_attr(attrs, "politeness").unwrap_or("polite");
             // Validate politeness: silently coerce unknown values to 'polite' rather
             // than failing the build — defensive for HMR/templating cases.
-            let politeness = if politeness == "assertive" { "assertive" } else { "polite" };
+            let politeness = if politeness == "assertive" {
+                "assertive"
+            } else {
+                "polite"
+            };
             let atomic = find_static_attr(attrs, "atomic")
                 .map(|v| v != "false")
                 .unwrap_or(true);
             let atomic_str = if atomic { "true" } else { "false" };
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             // children_subtree is the wrapped branch; we want its children only. Easiest:
             // emit a branch wrapping the existing subtree as a single fragment child.
             format!(
@@ -4832,7 +5125,8 @@ fn emit_macro_element(
         // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
         // once at component mount via _ensureA11yStyles().
         "visuallyHidden" => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
                 children_subtree
@@ -4843,7 +5137,8 @@ fn emit_macro_element(
         // injected once at component mount.
         "skipLink" => {
             let target = find_static_attr(attrs, "target").unwrap_or("#main");
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
                 target, children_subtree
@@ -4879,28 +5174,32 @@ fn emit_macro_element(
             // returnFocus: void-style boolean attr (`returnFocus`), static
             // (`returnFocus="false"`), or curly (`returnFocus={expr}`). Default
             // is `true` per spec.
-            let return_focus = attrs.iter().find_map(|a| match a {
-                crate::types::Attr::Static { name, value } if name == "returnFocus" => {
-                    if value.is_empty() {
-                        Some("true".to_string())
-                    } else if value == "false" {
-                        Some("false".to_string())
-                    } else {
-                        Some("true".to_string())
+            let return_focus = attrs
+                .iter()
+                .find_map(|a| match a {
+                    crate::types::Attr::Static { name, value } if name == "returnFocus" => {
+                        if value.is_empty() {
+                            Some("true".to_string())
+                        } else if value == "false" {
+                            Some("false".to_string())
+                        } else {
+                            Some("true".to_string())
+                        }
                     }
-                }
-                crate::types::Attr::Binding { name, expr } if name == "returnFocus" => {
-                    Some(expr.clone())
-                }
-                _ => None,
-            }).unwrap_or_else(|| "true".to_string());
+                    crate::types::Attr::Binding { name, expr } if name == "returnFocus" => {
+                        Some(expr.clone())
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| "true".to_string());
 
             let initial_focus = match find_static_attr(attrs, "initialFocus") {
                 Some(s) => format!("'{}'", s),
                 None => "null".to_string(),
             };
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createFocusTrap({}, {}, {}, () => {{ return {} }})",
                 active_expr, return_focus, initial_focus, children_subtree
@@ -4912,11 +5211,13 @@ fn emit_macro_element(
             // `<$router>` — RFC-A5-011. Provides RouteContext to descendants.
             // Optional attribute `router={expr}` — when omitted, falls back to
             // `createRouter(routes)` using the file-system routes virtual module.
-            let router_expr = find_static_or_binding_attr(attrs, "router")
-                .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
+            let router_expr = find_static_or_binding_attr(attrs, "router").unwrap_or_else(|| {
+                "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string()
+            });
             let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
                 .unwrap_or_else(|| "false".to_string());
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "createRouterBoundary({}, {}, () => {{ return {} }})",
                 router_expr, vt_expr, children_subtree
@@ -4977,8 +5278,8 @@ fn emit_macro_element(
 
         "navigate" => {
             // `<$navigate to replace />` — RFC-A5-014.
-            let to_expr = find_static_or_binding_attr(attrs, "to")
-                .unwrap_or_else(|| "'/'".to_string());
+            let to_expr =
+                find_static_or_binding_attr(attrs, "to").unwrap_or_else(|| "'/'".to_string());
             let replace_expr = find_static_or_binding_attr(attrs, "replace")
                 .unwrap_or_else(|| "false".to_string());
             format!("createNavigateBoundary({}, {})", to_expr, replace_expr)
@@ -4986,7 +5287,8 @@ fn emit_macro_element(
 
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree =
+                emit_nodes(children, signal_map, state_names, &next_indent, mode);
             format!(
                 "/* <${}> unknown macro element — passthrough */ {}",
                 name, children_subtree
@@ -5072,14 +5374,10 @@ fn split_slot_fallback(children: &[TemplateNode]) -> (Vec<TemplateNode>, Vec<Tem
                     _ => false,
                 })
             }
-            TemplateNode::Element { attrs, .. } => {
-                attrs.iter().any(|a| match a {
-                    crate::types::Attr::Static { name, value } => {
-                        name == "slot" && value == "fallback"
-                    }
-                    _ => false,
-                })
-            }
+            TemplateNode::Element { attrs, .. } => attrs.iter().any(|a| match a {
+                crate::types::Attr::Static { name, value } => name == "slot" && value == "fallback",
+                _ => false,
+            }),
             _ => false,
         };
 
@@ -5160,7 +5458,8 @@ fn emit_attrs(
                     // verbatim — it's the function itself, not a read.
                     let t = expr.trim();
                     let bare_ident = !t.is_empty()
-                        && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                        && t.chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
                     if bare_ident {
                         expr.to_string()
                     } else {
@@ -5203,13 +5502,18 @@ fn emit_attrs(
                     // FEL-172: same handler-body rewrite as the Binding path.
                     let t = handler.trim();
                     let bare_ident = !t.is_empty()
-                        && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
+                        && t.chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$');
                     let lowered_handler = if bare_ident {
                         handler.clone()
                     } else {
                         rewrite_template_expr(t, signal_map, mode).source
                     };
-                    Some(format!("on{}: {}", capitalize_first(event), lowered_handler))
+                    Some(format!(
+                        "on{}: {}",
+                        capitalize_first(event),
+                        lowered_handler
+                    ))
                 } else {
                     None
                 }
@@ -5273,10 +5577,8 @@ fn emit_attrs(
                                 .iter()
                                 .any(|s| s.starts_with(&format!("{}:", on_key)));
                             if !already_has_on {
-                                bind_writebacks.push(format!(
-                                    "{}: (e) => {}({})",
-                                    on_key, setter, read_expr
-                                ));
+                                bind_writebacks
+                                    .push(format!("{}: (e) => {}({})", on_key, setter, read_expr));
                             }
                         }
                     }
@@ -5618,9 +5920,8 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
             let is_member = prev_significant == b'.' && !is_spread;
             let is_call = next == Some(b'(');
             let is_obj_key = in_object && after_open_or_comma && next == Some(b':');
-            let is_obj_shorthand = in_object
-                && after_open_or_comma
-                && matches!(next, Some(b'}') | Some(b','));
+            let is_obj_shorthand =
+                in_object && after_open_or_comma && matches!(next, Some(b'}') | Some(b','));
             if !is_member
                 && !is_call
                 && !is_obj_key
@@ -5792,7 +6093,11 @@ fn collect_event_names(macros: &[crate::types::StateMacro]) -> std::collections:
     use crate::types::{CollectionKind, StateMacro};
     let mut out = std::collections::BTreeSet::new();
     for m in macros {
-        if let StateMacro::Collection { kind: CollectionKind::Event, entries } = m {
+        if let StateMacro::Collection {
+            kind: CollectionKind::Event,
+            entries,
+        } = m
+        {
             for e in entries {
                 out.insert(e.name.clone());
             }
@@ -5927,8 +6232,12 @@ fn apply_emit_lowering_nodes(
 ) {
     for node in nodes.iter_mut() {
         match node {
-            TemplateNode::Element { attrs, children, .. }
-            | TemplateNode::MacroElement { attrs, children, .. } => {
+            TemplateNode::Element {
+                attrs, children, ..
+            }
+            | TemplateNode::MacroElement {
+                attrs, children, ..
+            } => {
                 for a in attrs.iter_mut() {
                     apply_emit_lowering_attr(a, event_names);
                 }
@@ -5947,7 +6256,13 @@ fn apply_emit_lowering_nodes(
                     apply_emit_lowering_nodes(body, event_names);
                 }
             }
-            TemplateNode::EachBlock { list_expr, key_expr, body, empty_body, .. } => {
+            TemplateNode::EachBlock {
+                list_expr,
+                key_expr,
+                body,
+                empty_body,
+                ..
+            } => {
                 if list_expr.contains("$emit.") {
                     *list_expr = lower_emit_calls(list_expr, event_names);
                 }
@@ -5971,10 +6286,7 @@ fn apply_emit_lowering_nodes(
     }
 }
 
-fn apply_emit_lowering_attr(
-    a: &mut Attr,
-    event_names: &std::collections::BTreeSet<String>,
-) {
+fn apply_emit_lowering_attr(a: &mut Attr, event_names: &std::collections::BTreeSet<String>) {
     match a {
         Attr::Binding { expr, .. } => {
             if expr.contains("$emit.") {
@@ -6271,7 +6583,8 @@ fn emit_macro_effects(
     }
 
     // Nothing to wrap — caller uses the bare base node.
-    if elem_effects.is_empty() && !once && memo_deps.is_none() && if_cond_arg.is_none() && !has_each {
+    if elem_effects.is_empty() && !once && memo_deps.is_none() && if_cond_arg.is_none() && !has_each
+    {
         return Vec::new();
     }
 
@@ -6288,10 +6601,16 @@ fn emit_macro_effects(
         current = format!("createOnceBoundary(() => {{ return {} }})", current);
     }
     if let Some(deps) = &memo_deps {
-        current = format!("createMemoBoundary({}, () => {{ return {} }})", deps, current);
+        current = format!(
+            "createMemoBoundary({}, () => {{ return {} }})",
+            deps, current
+        );
     }
     if let Some(cond_arg) = &if_cond_arg {
-        current = format!("createIfBoundary({}, () => {{ return {} }})", cond_arg, current);
+        current = format!(
+            "createIfBoundary({}, () => {{ return {} }})",
+            cond_arg, current
+        );
     }
 
     if has_each {

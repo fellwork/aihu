@@ -5,6 +5,8 @@ pub mod codegen;
 // module (plan §Risks 1 — oxc AST churn stays localized).
 pub mod expr;
 pub mod parser;
+// Component-tag naming (O1a): PascalCase→kebab normalization + C450 validation.
+pub mod tags;
 pub mod types;
 
 // WASM bindings — only compiled for the wasm32 target. The module is declared
@@ -19,22 +21,24 @@ pub use ast_export::{
 pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
 pub use expr::ExprParserMode;
 pub use parser::sfc;
-pub use parser::stream_macros;
 pub use parser::state_macros::{is_magna_origin, parse_state_macros};
+pub use parser::stream_macros;
 pub use parser::template::parse_template;
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, AuthMacroKind, BuildTarget,
-    CollectionEntry,
-    CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue, RouteBlock,
-    ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
-    TemplateNode,
+    CollectionEntry, CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue,
+    RouteBlock, ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro,
+    StyleScope, TemplateNode,
 };
 
 pub fn compile(source: &str) -> Result<AihuSource<'_>, CompileError> {
     parser::sfc::parse(source)
 }
 
-pub fn compile_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<AihuSource<'a>, CompileError> {
+pub fn compile_with_path<'a>(
+    source: &'a str,
+    file_path: Option<&str>,
+) -> Result<AihuSource<'a>, CompileError> {
     parser::sfc::parse_with_path(source, file_path)
 }
 
@@ -76,6 +80,15 @@ pub fn compile_full_with_options<'a>(
         if let Some(ref ast) = template_ast {
             expr::validate_template(ast)?;
         }
+    }
+
+    // O1a (tag naming): every component tag reference must normalize to a
+    // valid custom-element name (hyphen required). Single-word PascalCase
+    // (`<Comment>`) can never satisfy that, so it is a hard C450 error for
+    // ALL builds — not gated on ExprParserMode. Plain HTML/SVG tags are not
+    // component tags and are never checked.
+    if let Some(ref ast) = template_ast {
+        validate_component_tags(ast)?;
     }
 
     // v2 (B6.3): validate `@state` macro grammar at compile time so v1
@@ -131,4 +144,58 @@ pub fn compile_full_with_options<'a>(
         target,
         expr_parser,
     })
+}
+
+/// O1a (tag naming): walk the template AST and reject any component tag that
+/// cannot normalize to a valid custom-element name (C450). The traversal shape
+/// mirrors `collect_component_tags` in codegen/emit.rs: recurse into
+/// Element/MacroElement children, `{#if}` branches, and `{#each}` bodies.
+/// `<$macro>` elements are compiler intrinsics — their own names are never
+/// component tags — but their children may contain components.
+fn validate_component_tags(nodes: &[TemplateNode]) -> Result<(), CompileError> {
+    for node in nodes {
+        match node {
+            TemplateNode::Element { tag, children, .. } => {
+                if tags::is_component_tag(tag) {
+                    if let Err(msg) = tags::validate_component_tag(tag) {
+                        return Err(CompileError {
+                            message: msg,
+                            line: 0,
+                            col: 0,
+                            code: Some("C450".to_string()),
+                            hint: Some(format!(
+                                "custom-element names require a hyphen; the single word '{tag}' can never satisfy that"
+                            )),
+                            fix: Some(format!(
+                                "use a hyphenated tag (e.g. '<x-{}>') or set an explicit hyphenated `@meta name` on the component",
+                                tags::kebab_component_tag(tag)
+                            )),
+                            ..Default::default()
+                        });
+                    }
+                }
+                validate_component_tags(children)?;
+            }
+            TemplateNode::MacroElement { children, .. } => {
+                validate_component_tags(children)?;
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches {
+                    validate_component_tags(body)?;
+                }
+            }
+            TemplateNode::EachBlock {
+                body, empty_body, ..
+            } => {
+                validate_component_tags(body)?;
+                if let Some(empty) = empty_body {
+                    validate_component_tags(empty)?;
+                }
+            }
+            TemplateNode::Text(_)
+            | TemplateNode::Interpolation(_)
+            | TemplateNode::HtmlBlock { .. } => {}
+        }
+    }
+    Ok(())
 }
