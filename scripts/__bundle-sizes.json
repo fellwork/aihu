@@ -2,22 +2,22 @@
   {
     "name": "@aihu/context",
     "bytes": 372,
-    "limit": "300 B"
+    "limit": "450 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 1726,
     "limit": "1970 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": -1,
+    "bytes": 2663,
     "limit": "2800 B"
   },
   {
     "name": "@aihu/runtime",
     "bytes": 3988,
-    "limit": "4000 B"
+    "limit": "4100 B"
   },
   {
     "name": "@aihu/agent",
@@ -61,92 +61,92 @@
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": -1,
+    "bytes": 886,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": -1,
+    "bytes": 716,
     "limit": "3 KB"
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": -1,
+    "bytes": 430,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": -1,
+    "bytes": 798,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": -1,
+    "bytes": 1349,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": -1,
+    "bytes": 757,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": -1,
+    "bytes": 1447,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": -1,
+    "bytes": 515,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": -1,
+    "bytes": 2062,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": -1,
+    "bytes": 1878,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": -1,
+    "bytes": 1131,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/separator",
-    "bytes": -1,
+    "bytes": 566,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/label",
-    "bytes": -1,
+    "bytes": 1808,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/input",
-    "bytes": -1,
+    "bytes": 1466,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/textarea",
-    "bytes": -1,
+    "bytes": 1444,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/checkbox",
-    "bytes": -1,
+    "bytes": 1804,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/switch",
-    "bytes": -1,
+    "bytes": 1708,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/radio-group",
-    "bytes": -1,
+    "bytes": 2979,
     "limit": "4 KB"
   },
   {
