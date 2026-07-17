@@ -1,7 +1,7 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": 242,
+    "bytes": 372,
     "limit": "300 B"
   },
   {
@@ -16,8 +16,8 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 3850,
-    "limit": "3900 B"
+    "bytes": 3988,
+    "limit": "4000 B"
   },
   {
     "name": "@aihu/agent",

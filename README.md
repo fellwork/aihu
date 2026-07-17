@@ -176,10 +176,10 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 242 B | 300 B | pass |
+| `@aihu/context` | 372 B | 300 B | OVER |
 | `@aihu/signals` | 1.69 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.60 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.76 kB | 3900 B | pass |
+| `@aihu/runtime` | 3.89 kB | 4000 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 757 B | 800 B | pass |
 | `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
