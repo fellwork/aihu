@@ -105,6 +105,7 @@
       <ul>
         <li><a class="nav-link" href="#guides/authoring-components" $class:active={activePage() === 'guides/authoring-components'}>Authoring Components</a></li>
         <li><a class="nav-link" href="#guides/reactivity" $class:active={activePage() === 'guides/reactivity'}>Reactivity</a></li>
+        <li><a class="nav-link" href="#guides/composition" $class:active={activePage() === 'guides/composition'}>Composition &amp; Injection</a></li>
         <li><a class="nav-link" href="#guides/authoring-agents" $class:active={activePage() === 'guides/authoring-agents'}>Authoring Agents</a></li>
         <li><a class="nav-link" href="#guides/styling" $class:active={activePage() === 'guides/styling'}>Styling</a></li>
         <li><a class="nav-link" href="#guides/theming" $class:active={activePage() === 'guides/theming'}>Theming</a></li>
