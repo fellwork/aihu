@@ -141,6 +141,8 @@ Only `mount` and `dispose` are valid keys. `describe`, `expose`, `value`, and `h
 
 The `@template` block defines the DOM output using aihu's template DSL.
 
+> **Tag naming.** Component tags must normalize to a hyphenated custom-element name: multi-word PascalCase kebab-cases automatically (`<UserCard>` → `user-card`), hyphenated tags pass through lowercased, and **single-word component names are a hard compile error (C450)** — use a hyphenated tag (e.g. `<x-comment>`) or an explicit hyphenated `@meta name`.
+
 > **Amendment 04 (v1.0.8) — `$`-prefixed reactive bindings.** Every reactive HTML attribute binding is `$`-prefixed: `$class={…}`, `$href={…}`, `$on.click=…`, `$bind.value=…`. The legacy colon-form event/bind aliases (`$on` + colon + event, error **C305**), the Vue-shape `:attr=` alias (**C304**), and plain-curly attribute bindings (`class={…}` without `$`, **C306**) are hard parse errors in v1.0. Component prop-passing (`<UserCard user={u} />`) keeps the plain-curly form and is unaffected. Run `npx aihu migrate <file>` to mechanically rewrite pre-v1.0.8 sources.
 
 ### Text interpolation

@@ -1138,14 +1138,14 @@ fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeS
 /// registration. `<$macro>` boundary elements (slot/suspense/link/...) are
 /// compiler intrinsics, not user components, so they are excluded.
 fn collect_component_tags(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
-    fn is_component_tag(tag: &str) -> bool {
-        tag.contains('-') || tag.chars().next().is_some_and(|c| c.is_ascii_uppercase())
-    }
     for node in nodes {
         match node {
             TemplateNode::Element { tag, children, .. } => {
-                if is_component_tag(tag) {
-                    out.insert(tag.clone());
+                if crate::tags::is_component_tag(tag) {
+                    // O1a (tag naming): the manifest carries the NORMALIZED
+                    // custom-element name so `route.json` `components` agrees
+                    // with reference emission and the define-name.
+                    out.insert(crate::tags::kebab_component_tag(tag));
                 }
                 collect_component_tags(children, out);
             }
@@ -4275,6 +4275,16 @@ fn emit_node(
                     .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
                     .filter(|s| !s.is_empty())
                     .collect()
+            };
+
+            // O1a (tag naming): component references emit their NORMALIZED
+            // custom-element name (`<UserCard>` → branch('user-card', …));
+            // plain HTML/SVG tags pass through verbatim. `slot` and `<$macro>`
+            // forms never reach here (handled above / in the MacroElement arm).
+            let tag = if crate::tags::is_component_tag(tag) {
+                crate::tags::kebab_component_tag(tag)
+            } else {
+                tag.clone()
             };
 
             let base = if non_empty_children.is_empty() {

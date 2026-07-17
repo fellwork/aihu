@@ -211,6 +211,38 @@ export function _layoutTag(stem: string): string {
 }
 
 /**
+ * O1a (tag naming) — JS mirror of the Rust compiler's
+ * `tags::kebab_component_tag` (packages/compiler/src/tags.rs). PascalCase→kebab,
+ * else lowercase-verbatim: inserts '-' before an uppercase letter when the
+ * previous char is lowercase/digit, OR (acronym boundary) the previous char is
+ * uppercase and the next is lowercase; then lowercases all. Applied to the
+ * file stem before it is passed as `--tag` so the JS driver's define-name
+ * matches the Rust one (`UserCard.aihu` → `user-card`). Validation/erroring
+ * (C450) is owned by the Rust compiler — this is the infallible transform only.
+ * @internal
+ */
+export function kebabComponentTag(raw: string): string {
+  let out = ''
+  for (let i = 0; i < raw.length; i++) {
+    // charAt (not raw[i]) returns string, never string|undefined — satisfies
+    // noUncheckedIndexedAccess; charAt(i+1) yields '' past the end, matching
+    // the "no next char" case.
+    const c = raw.charAt(i)
+    if (i > 0 && c >= 'A' && c <= 'Z') {
+      const prev = raw.charAt(i - 1)
+      const next = raw.charAt(i + 1)
+      const prevLower = prev >= 'a' && prev <= 'z'
+      const prevDigit = prev >= '0' && prev <= '9'
+      const prevUpper = prev >= 'A' && prev <= 'Z'
+      const nextLower = next >= 'a' && next <= 'z'
+      if (prevLower || prevDigit || (prevUpper && nextLower)) out += '-'
+    }
+    out += c.toLowerCase()
+  }
+  return out
+}
+
+/**
  * Collapse the reactive `<$outlet>` boundary the Rust codegen emits into a
  * passive `data-aihu-outlet` marker. Layout SFCs are rendered by `@aihu/app`'s
  * imperative client renderer, which fills the marker itself; the default
@@ -489,7 +521,16 @@ export function transform(
     tag?: string
   },
 ): { code: string; map: null } {
-  const stem = basename(id, '.aihu')
+  // O1a (tag naming): normalize the stem so the JS driver's define-name
+  // matches the Rust compiler's (`UserCard.aihu` → `user-card`). When a
+  // component-shaped (uppercase-first) stem normalizes to a hyphen-less name
+  // (`Comment.aihu` → `comment`), pass the RAW stem instead so the Rust
+  // compiler surfaces its C450 error — the JS never validates or errors, but
+  // it must not mask the error by pre-lowercasing. An explicit `options.tag`
+  // (e.g. `_layoutTag` for layouts) passes through untouched.
+  const rawStem = basename(id, '.aihu')
+  const kebabStem = kebabComponentTag(rawStem)
+  const stem = /^[A-Z]/.test(rawStem) && !kebabStem.includes('-') ? rawStem : kebabStem
   const args = ['--stdin', '--tag', options?.tag ?? stem, '--path', id]
   if (options?.sidecarOut) {
     args.push('--sidecar-out', options.sidecarOut)

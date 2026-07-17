@@ -21,7 +21,7 @@ Navigate to:
 - File-based routing with three pages via `viteRouterIntegration()`
 - Server-side data fetching via `defineLoader` on every route
 - List rendering with `$each` + `$key`
-- **Recursive components** — `Comment.aihu` renders itself for nested replies
+- **Recursive components** — `hn-comment.aihu` renders itself for nested replies
 - Dark-mode tokens: `var(--bg)`, `var(--fg)`, `var(--muted)`, `var(--border)` throughout
 - HN orange brand color locked as `var(--hn-orange, #ff6600)` (brand fallback preserved)
 - Mobile-responsive CSS via `@media` queries in `@style`
@@ -42,5 +42,5 @@ Agents can read the current top stories page to surface news summaries to a huma
 | `src/pages/index.aihu` + `.loader.ts` | Top-stories list |
 | `src/pages/item/[id].aihu` + `.loader.ts` | Story + recursive comments |
 | `src/pages/user/[id].aihu` + `.loader.ts` | User profile |
-| `src/components/Comment.aihu` | Self-recursive comment renderer |
+| `src/components/hn-comment.aihu` | Self-recursive comment renderer |
 | `vite.config.ts` | `viteRouterIntegration()` + SSR + `@shared` alias |

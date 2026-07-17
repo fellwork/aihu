@@ -160,6 +160,23 @@ fn render_human_error(e: &aihu_compiler::CompileError, file_label: &str, source:
     }
 }
 
+/// O1a (tag naming): normalize the resolved define-name (`@meta name` →
+/// `@route name` → file stem) to its kebab custom-element form, so the
+/// registered element matches emitted `branch(...)` references and the
+/// manifest (`UserCard.aihu` → `user-card`). This is an INFALLIBLE transform:
+/// a single-word define-name (`Comment`, `timer`) that can't carry a hyphen
+/// keeps the historical emit-time hyphen WARNING rather than erroring — only
+/// component *references* in a template are a hard C450 (see
+/// `validate_component_tags` in lib.rs). Lowercase non-component names pass
+/// through unchanged.
+fn normalize_define_tag(raw: &str) -> String {
+    if aihu_compiler::tags::is_component_tag(raw) {
+        aihu_compiler::tags::kebab_component_tag(raw)
+    } else {
+        raw.to_string()
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -321,6 +338,8 @@ fn main() {
             .clone()
             .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
             .unwrap_or_else(|| file_stem.clone());
+        // O1a (tag naming): normalize the define-name (PascalCase→kebab).
+        let stem_fallback = normalize_define_tag(&stem_fallback);
         ast.tag = stem_fallback.clone();
         ast.meta.name = stem_fallback;
         match serde_json::to_string(&ast) {
@@ -362,6 +381,8 @@ fn main() {
             .clone()
             .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
             .unwrap_or_else(|| file_stem.clone());
+        // O1a (tag naming): normalize the define-name (PascalCase→kebab).
+        let tag_name = normalize_define_tag(&tag_name);
         let result = aihu_compiler::emit(&unit, &tag_name);
         match result.route_json {
             Some(ref rj) => println!("{}", rj),
@@ -400,6 +421,12 @@ fn main() {
     let tag_name = unit.source.meta.name.clone()
         .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
         .unwrap_or(file_stem);
+
+    // O1a (tag naming): normalize the define-name (PascalCase→kebab) so the
+    // registered custom element matches emitted `branch(...)` references and
+    // the manifest. A single-word define-name keeps the emit-time hyphen
+    // WARNING; only component *references* are a hard C450 (see lib.rs).
+    let tag_name = normalize_define_tag(&tag_name);
 
     let result = aihu_compiler::emit(&unit, &tag_name);
 
