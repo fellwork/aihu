@@ -481,3 +481,86 @@ describe('mount() — onError / error boundary (Plan 4.2)', () => {
     scope.dispose()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Fragment mount-error DOM leak (regression)
+// ---------------------------------------------------------------------------
+
+describe('mount() — fragment error path does not orphan appended siblings', () => {
+  it('L1: fragment child throws mid-materialize with onError → dispose removes earlier siblings', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+
+    // Fragment root: two good children append to host, then the third child
+    // throws synchronously OUTSIDE any effect (invalid tag name →
+    // document.createElement throws InvalidCharacterError). With onError set,
+    // mount() swallows the error and returns a scope — dispose() must still
+    // remove the two siblings that were already appended to host.
+    const scope = mount(
+      branch(null, undefined, [
+        branch('p', undefined, [leaf('first')]),
+        leaf('second'),
+        leaf.element('not a valid tag'),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    // The error was reported, and the first two children reached the host.
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(host.querySelector('p')?.textContent).toBe('first')
+    expect(host.childNodes.length).toBe(2)
+
+    scope.dispose()
+
+    // Regression: before the fix, mount()'s appendedRoots stayed [] on the
+    // error path, so these two nodes were orphaned forever.
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('L2: nested fragment child throws → dispose removes partial appends from both levels', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+
+    const scope = mount(
+      branch(null, undefined, [
+        leaf('outer-a'),
+        branch(null, undefined, [leaf('inner-a'), leaf.element('also bad tag')]),
+        leaf('outer-never-reached'),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    // outer-a + inner-a were appended before the throw.
+    expect(host.childNodes.length).toBe(2)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('L3: reactive sibling before the throwing child is disposed and removed', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const sig = signal('live')
+    const setText = sig[1]
+
+    const scope = mount(
+      branch(null, undefined, [branch('p', undefined, [leaf(sig)]), leaf.element('bad tag')]),
+      host,
+      { onError: errorSpy },
+    )
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const p = host.querySelector('p') as HTMLElement
+    expect(p.textContent).toBe('live')
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+
+    // Effect torn down too: writes after dispose must not resurrect anything.
+    setText('after')
+    expect(p.textContent).toBe('live')
+  })
+})

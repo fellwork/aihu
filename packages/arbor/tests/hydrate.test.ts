@@ -297,3 +297,116 @@ describe('hydrate().dispose()', () => {
     expect(() => scope.dispose()).not.toThrow()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Multi-text hydration (regression): adjacent reactive text leaves must each
+// bind to their OWN text node, not all to the first.
+// ---------------------------------------------------------------------------
+
+describe('hydrate() — adjacent reactive text leaves', () => {
+  it('M1: two adjacent signal leaves bind to distinct text nodes; second signal updates second node', () => {
+    // Pre-rendered host with TWO separate text nodes under one <p>
+    // (as produced by SSR marker-comment emission, or any non-coalesced DOM).
+    const host = document.createElement('div')
+    const p = document.createElement('p')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
+    const t1 = document.createTextNode('1')
+    const t2 = document.createTextNode('2')
+    p.appendChild(t1)
+    p.appendChild(t2)
+    host.appendChild(p)
+
+    const sigA = signal('1')
+    const sigB = signal('2')
+    const setB = sigB[1]
+
+    const scope = hydrate(() => branch('p', undefined, [leaf(sigA), leaf(sigB)]), host, {})
+
+    // Each leaf owns its node after the initial effect run.
+    expect(t1.nodeValue).toBe('1')
+    expect(t2.nodeValue).toBe('2')
+
+    // Regression: before the fix, BOTH leaves bound to t1 (the walker always
+    // took the first text child), so updating the second signal rewrote the
+    // first node and t2 was dead.
+    setB('two')
+    expect(t2.nodeValue).toBe('two')
+    expect(t1.nodeValue).toBe('1')
+    expect(p.textContent).toBe('1two')
+
+    scope.dispose()
+  })
+
+  it('M2: marker comments between text nodes are skipped by the walker', () => {
+    // Simulates the proposed SSR emission `1<!--|--> <!--|-->2` for the
+    // template `{a()} {b()}` — comments prevent parser coalescing.
+    const host = document.createElement('div')
+    const p = document.createElement('p')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
+    const t1 = document.createTextNode('1')
+    const tStatic = document.createTextNode(' ')
+    const t2 = document.createTextNode('2')
+    p.appendChild(t1)
+    p.appendChild(document.createComment('|'))
+    p.appendChild(tStatic)
+    p.appendChild(document.createComment('|'))
+    p.appendChild(t2)
+    host.appendChild(p)
+    const innerBefore = host.innerHTML
+
+    const sigA = signal('1')
+    const sigB = signal('2')
+    const setA = sigA[1]
+    const setB = sigB[1]
+
+    const scope = hydrate(
+      () => branch('p', undefined, [leaf(sigA), leaf(' '), leaf(sigB)]),
+      host,
+      {},
+    )
+
+    // Happy path: no DOM created or destroyed.
+    expect(host.innerHTML).toBe(innerBefore)
+
+    setB('B')
+    expect(t2.nodeValue).toBe('B')
+    expect(tStatic.nodeValue).toBe(' ')
+    expect(t1.nodeValue).toBe('1')
+
+    setA('A')
+    expect(t1.nodeValue).toBe('A')
+    expect(p.textContent).toBe('A B')
+
+    scope.dispose()
+  })
+
+  it('M3: reactive text leaves separated by an element each bind in order', () => {
+    // Template shape: <p>{a()}<br>{b()}</p> — the <br> naturally separates
+    // the text nodes; the walker cursor must not rebind b to the first node.
+    const host = document.createElement('div')
+    const p = document.createElement('p')
+    p.setAttribute('data-aihu-path', 'hydrate.0')
+    const t1 = document.createTextNode('1')
+    const t2 = document.createTextNode('2')
+    p.appendChild(t1)
+    p.appendChild(document.createElement('br'))
+    p.appendChild(t2)
+    host.appendChild(p)
+
+    const sigA = signal('1')
+    const sigB = signal('2')
+    const setB = sigB[1]
+
+    const scope = hydrate(
+      () => branch('p', undefined, [leaf(sigA), leaf.element('br'), leaf(sigB)]),
+      host,
+      {},
+    )
+
+    setB('two')
+    expect(t2.nodeValue).toBe('two')
+    expect(t1.nodeValue).toBe('1')
+
+    scope.dispose()
+  })
+})

@@ -140,7 +140,7 @@ bun add @aihu/arbor
 |---|---|
 | **Version** | `1.0.0` |
 | **Tier** | A — Reactive runtime core — DOM materialization layer |
-| **Bundle size** | 2.59 kB (gz) — limit 2800 B |
+| **Bundle size** | 2.66 kB (gz) — limit 2800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

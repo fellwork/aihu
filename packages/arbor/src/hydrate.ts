@@ -9,8 +9,10 @@
  *   1. Build a path→element map from `host.querySelectorAll('[data-aihu-path]')`.
  *   2. Walk the arbor `node` tree using `_hydrateNode`, which:
  *      a. For branch nodes: look up the existing element by path; wire attrs.
- *      b. For text leaves: find the first text child node of the matching
- *         host element; wire signal effects to `nodeValue`.
+ *      b. For text leaves: claim the next unclaimed text child node of the
+ *         matching host element (a per-host cursor keeps adjacent text
+ *         leaves each bound to their own node); wire signal effects to
+ *         `nodeValue` for reactive leaves.
  *      c. On DOM mismatch (expected node not found at path): fall back to
  *         `_materialize()` for that subtree, appending newly-created nodes.
  *   3. Returns a `MountScope` over the wired disposers.
@@ -51,6 +53,7 @@ function _hydrateNode(
   signalRegistry: Map<string, () => unknown>,
   pathMap: Map<string, Element>,
   errorHandler: ErrorHandler | undefined,
+  textCursor: { i: number },
 ): void {
   // Structural nodes (when/each): fall back to full materialize for the subtree.
   // Hydrating structural nodes requires full reconciler integration (future).
@@ -67,17 +70,23 @@ function _hydrateNode(
   // Text leaf
   if (node.kind === 'leaf' && node.leafKind === 'text') {
     const value = node.value
+    // Claim the NEXT unclaimed text node at/after the shared per-host cursor.
+    // Every text leaf (static or reactive) advances the cursor, so adjacent
+    // text leaves each line up with their own DOM text node instead of all
+    // rebinding the first one. Comments (e.g. SSR `<!--|-->` boundary
+    // markers between adjacent text leaves) and elements are skipped here
+    // and naturally keep neighbouring text nodes from coalescing.
+    let textNode: Text | null = null
+    const cns0 = host.childNodes
+    for (let i = textCursor.i; i < cns0.length; i++) {
+      if (cns0[i]!.nodeType === 3 /* Node.TEXT_NODE */) {
+        textNode = cns0[i] as Text
+        textCursor.i = i + 1
+        break
+      }
+    }
     if (Array.isArray(value)) {
       const get = value[0] as () => unknown
-      // Find the first text node in host (SSR renders text inline).
-      let textNode: Text | null = null
-      const cns0 = host.childNodes
-      for (let i = 0; i < cns0.length; i++) {
-        if (cns0[i]!.nodeType === 3 /* Node.TEXT_NODE */) {
-          textNode = cns0[i] as Text
-          break
-        }
-      }
       if (textNode) {
         const path = `${pathBase}.text`
         signalRegistry.set(path, get)
@@ -100,7 +109,8 @@ function _hydrateNode(
         _mountDisposersStack.pop()
       }
     }
-    // Static text leaf — SSR already rendered it; nothing to wire.
+    // Static text leaf — SSR already rendered it; nothing to wire (the
+    // cursor claim above keeps later reactive siblings aligned).
     return
   }
 
@@ -171,7 +181,9 @@ function _hydrateNode(
     )
   }
 
-  // Recurse into children.
+  // Recurse into children. A fresh text cursor scopes text-node claiming
+  // to THIS element's childNodes (shared across all its direct children).
+  const childCursor = { i: 0 }
   const ch = branchNode.children
   for (let i = 0; i < ch.length; i++) {
     _hydrateNode(
@@ -182,6 +194,7 @@ function _hydrateNode(
       signalRegistry,
       pathMap,
       errorHandler,
+      childCursor,
     )
   }
 }
@@ -262,7 +275,7 @@ export function hydrate(
   // Use fixed path prefix for hydration (not the counter-based rootId from mount()).
   const pathBase = 'hydrate.0'
 
-  _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler)
+  _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler, { i: 0 })
 
   if (typeof __DEV__ !== 'undefined' && __DEV__)
     _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
