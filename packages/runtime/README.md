@@ -34,7 +34,7 @@ bun add @aihu/runtime
 |---|---|
 | **Version** | `1.1.0` |
 | **Tier** | A — Reactive runtime core — custom-element wiring for compiled SFCs |
-| **Bundle size** | 3.76 kB (gz) — limit 3900 B |
+| **Bundle size** | 3.89 kB (gz) — limit 4100 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -64,6 +64,7 @@ bun add @aihu/runtime
 
 - `@aihu/arbor` — `workspace:^`
 - `@aihu/signals` — `workspace:^`
+- `@aihu/context` — `workspace:^`
 
 <sub><i>Auto-generated against `@aihu/runtime@1.1.0`.</i></sub>
 

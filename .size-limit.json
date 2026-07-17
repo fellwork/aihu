@@ -2,7 +2,7 @@
   {
     "name": "@aihu/context",
     "path": "packages/context/dist/index.js",
-    "limit": "300 B",
+    "limit": "450 B",
     "gzip": true
   },
   {
@@ -21,7 +21,7 @@
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "3900 B",
+    "limit": "4100 B",
     "gzip": true
   },
   {
