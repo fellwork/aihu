@@ -247,6 +247,177 @@ describe('when() — grow() throw mid-reconcile does not leak anchor/disposers',
   })
 })
 
+// ---------------------------------------------------------------------------
+// each() grow()-throw leak (regression): a throw before the per-item sc.set
+// commit must not orphan the just-appended 'e' anchor comment or the in-flight
+// item's partially-built disposers — and must not disturb already-committed
+// sibling items.
+// ---------------------------------------------------------------------------
+
+describe('each() — item grow() throw mid-reconcile does not leak anchor/disposers', () => {
+  it('E1: reactive list update, new item grow() throws → its anchor is not leaked; committed siblings intact', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const [getItems, setItems] = signal(['a', 'b'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => {
+            if (item === 'boom') throw new Error('item-grow-boom')
+            return branch('li', undefined, [leaf(item as string)])
+          },
+        ),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    const ul = host.querySelector('ul') as HTMLElement
+    // 'each' anchor + one 'e' anchor per committed item.
+    expect(commentCount(ul)).toBe(3)
+    expect(host.querySelectorAll('li').length).toBe(2)
+
+    // Add a throwing item — the reconcile effect throws mid-item. The error
+    // must reach onError, and the just-appended 'e' anchor for the in-flight
+    // item must be cleaned up (before the fix it leaked: sc.set never ran, so
+    // no teardown path could find it).
+    setItems(['a', 'b', 'boom'])
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(commentCount(ul)).toBe(3)
+    // Committed siblings are untouched and still disposable.
+    expect(host.querySelectorAll('li').length).toBe(2)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('E2: materialize throws mid-item → the in-flight item’s partial disposers run', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const [getItems, setItems] = signal(['a'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+    const [getText, setText] = signal('live')
+    const textSig: ReturnType<typeof signal<string>> = [getText, setText]
+
+    // The bad item's grow builds a fragment: a <p> with a reactive leaf
+    // materializes fully (its effect subscribes and lands in the item's
+    // child-disposer array), then the invalid tag throws before sc.set.
+    const pNode = branch('p', undefined, [leaf(textSig)])
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) =>
+            item === 'bad'
+              ? branch(null, undefined, [pNode, leaf.element('not a valid tag')])
+              : branch('li', undefined, [leaf(item as string)]),
+        ),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    setItems(['a', 'bad'])
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    // The <p> was materialized before the throw; reachable via back-reference.
+    const p = pNode.el as HTMLElement
+    expect(p.textContent).toBe('live')
+
+    // The in-flight item's anchor must be gone: 'each' anchor + committed 'a'.
+    const ul = host.querySelector('ul') as HTMLElement
+    expect(commentCount(ul)).toBe(2)
+
+    // The reactive leaf's effect must have been disposed: before the fix the
+    // item's disposer array was stranded and this write updated the detached
+    // <p>.
+    setText('after-throw')
+    expect(p.textContent).toBe('live')
+
+    scope.dispose()
+  })
+
+  it('E3: no onError → error propagates to the writer; committed items and retry stay consistent', () => {
+    const host = document.createElement('div')
+    const [getItems, setItems] = signal(['a'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+
+    let boomCalls = 0
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => {
+            if (item === 'boom') {
+              boomCalls++
+              if (boomCalls === 1) throw new Error('first-item-boom')
+            }
+            return branch('li', undefined, [leaf(item as string)])
+          },
+        ),
+      ]),
+      host,
+    )
+
+    // Without onError the throw must still propagate to the caller (the
+    // signal write) — the fix is leak-only, never error-swallowing.
+    expect(() => setItems(['a', 'boom'])).toThrow('first-item-boom')
+
+    const ul = host.querySelector('ul') as HTMLElement
+    // 'each' anchor + committed 'a' anchor only — no stranded 'e' anchor.
+    expect(commentCount(ul)).toBe(2)
+    expect(host.querySelectorAll('li').length).toBe(1)
+
+    // 'boom' was never committed, so a retry re-grows it cleanly.
+    setItems(['a'])
+    setItems(['a', 'boom'])
+    expect(host.querySelectorAll('li').length).toBe(2)
+    expect(host.textContent).toBe('aboom')
+    expect(commentCount(ul)).toBe(3)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('E4: initial mount, middle item throws → earlier items committed, in-flight anchor cleaned up', () => {
+    const host = document.createElement('div')
+    const errorSpy = vi.fn()
+    const items = signal(['a', 'boom', 'c'])
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          items,
+          (item) => item as string,
+          (item) => {
+            if (item === 'boom') throw new Error('initial-item-boom')
+            return branch('li', undefined, [leaf(item as string)])
+          },
+        ),
+      ]),
+      host,
+      { onError: errorSpy },
+    )
+
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const ul = host.querySelector('ul') as HTMLElement
+    // 'a' was committed before the throw; 'boom' aborted the loop so 'c' was
+    // never reached. Only the 'each' anchor + 'a' anchor survive.
+    expect(host.querySelectorAll('li').length).toBe(1)
+    expect(host.textContent).toBe('a')
+    expect(commentCount(ul)).toBe(2)
+
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+})
+
 describe('each() — list rendering', () => {
   it('T4: initial list renders correct elements in order', () => {
     const host = document.createElement('div')
