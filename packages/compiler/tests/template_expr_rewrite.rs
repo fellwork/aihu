@@ -299,10 +299,14 @@ fn w3_a06_template_literal_hole_is_rewritten_and_reactive() {
 
 #[test]
 fn w3_a10_spread_call_argument_is_rewritten() {
-    // a10: `...nums` made the legacy scanner treat `nums` as a member access →
-    // spread the getter FUNCTION → NaN.
+    // a10: `...nums` once made the legacy scanner treat `nums` as a member
+    // access → spread the getter FUNCTION → NaN. #391 closed that gap in the
+    // legacy path, so legacy now rewrites the spread too (== ast here).
     let (legacy, ast) = both_modes("<p>{Math.max(...nums)}</p>", "x-w3-a10");
-    assert!(legacy.contains("Math.max(...nums)"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        legacy.contains("Math.max(...nums())"),
+        "legacy also rewrites the spread since #391, got:\n{legacy}"
+    );
     assert!(
         ast.contains("Math.max(...nums())"),
         "ast mode must rewrite the spread argument, got:\n{ast}"
@@ -311,11 +315,12 @@ fn w3_a10_spread_call_argument_is_rewritten() {
 
 #[test]
 fn w3_a11_spread_array_literal_is_rewritten_and_reactive() {
-    // a11: unrewritten AND eager → `TypeError: items is not iterable`.
+    // a11: once unrewritten AND eager → `TypeError: items is not iterable`.
+    // #391 fixed the legacy spread rewrite here, so legacy now matches ast.
     let (legacy, ast) = both_modes("<p>{[...items, extra].length}</p>", "x-w3-a11");
     assert!(
-        legacy.contains("leaf([...items, extra].length)"),
-        "legacy unchanged (eager, unrewritten), got:\n{legacy}"
+        legacy.contains("[...items(), extra].length"),
+        "legacy also rewrites the spread since #391, got:\n{legacy}"
     );
     assert!(
         ast.contains("leaf([() => ([...items(), extra].length) as unknown as string"),
@@ -360,9 +365,13 @@ fn w3_b08_template_literal_attr_binding_is_rewritten() {
 
 #[test]
 fn w3_b13_component_prop_spread_is_rewritten() {
-    // b13: `<user-card items={[...items]} />` spread the getter into the prop.
+    // b13: `<user-card items={[...items]} />` once spread the getter into the
+    // prop; #391 fixed the legacy rewrite, so legacy now matches ast.
     let (legacy, ast) = both_modes("<user-card $items={[...items]}></user-card>", "x-w3-b13");
-    assert!(legacy.contains("[...items]"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        legacy.contains("[...items()]"),
+        "legacy also rewrites the spread since #391, got:\n{legacy}"
+    );
     assert!(
         ast.contains("[() => ([...items()])]"),
         "ast mode must rewrite the component-prop spread, got:\n{ast}"
@@ -371,12 +380,16 @@ fn w3_b13_component_prop_spread_is_rewritten() {
 
 #[test]
 fn w3_c12_each_list_spread_is_rewritten() {
-    // c12: `{#each [...items, extra] as it}` crashed at runtime.
+    // c12: `{#each [...items, extra] as it}` once crashed at runtime; #391
+    // fixed the legacy spread rewrite, so legacy now matches ast.
     let (legacy, ast) = both_modes(
         "{#each [...items, extra] as it}\n  <p>{it}</p>\n  {/each}",
         "x-w3-c12",
     );
-    assert!(legacy.contains("[...items, extra]"), "legacy unchanged, got:\n{legacy}");
+    assert!(
+        legacy.contains("[...items(), extra]"),
+        "legacy also rewrites the spread since #391, got:\n{legacy}"
+    );
     assert!(
         ast.contains("[() => ([...items(), extra])]"),
         "ast mode must rewrite the each-list spread, got:\n{ast}"
