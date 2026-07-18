@@ -55,6 +55,8 @@ export type RouteDefinition = {
   layout?: string
   // B2: per-route <head> metadata from the .route.json `head:` block
   head?: RouteHead
+  /** Normalized custom-element tags this route references; used for route-scoped registration (O1). */
+  components?: readonly string[]
 }
 
 export type MatchResult = {

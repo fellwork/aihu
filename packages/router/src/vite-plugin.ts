@@ -18,11 +18,14 @@ interface VitePlugin {
 
 const RR = '\0virtual:aihu-routes'
 const LR = '\0virtual:aihu-layouts'
+const CR = '\0virtual:aihu-components'
 
 export interface RouterPluginOptions {
   pagesDir?: string
   /** Directory to scan for layout files. Default: 'src/layouts' */
   layoutsDir?: string
+  /** Directory to scan for component files. Default: 'src/components' */
+  componentsDir?: string
   /**
    * Build-time route-metadata extractor — `@aihu/compiler`'s `compileRouteMeta`.
    * When provided, `genR` uses it to recover FULL `@route` metadata
@@ -49,6 +52,13 @@ export interface RouteSidecar {
    * and the generated `virtual:aihu-routes` module.
    */
   head?: RouteHead
+  /**
+   * O1a: normalized custom-element tags this route's template references
+   * (e.g. `["hn-comment", "user-card"]`). Emitted by the compiler's
+   * `route.json`; threaded through to RouteDefinition.components so O1c can
+   * register a route's components on navigation instead of eager imports.
+   */
+  components?: string[]
 }
 
 /** Layout name → absolute file path (v0.6.8). Build-time scan result. */
@@ -68,6 +78,40 @@ export interface LayoutMap {
  */
 export function layoutTagFor(name: string): string {
   return `aihu-layout-${name.toLowerCase()}`
+}
+
+/**
+ * Normalize a component name to its custom-element tag (O1b). Multi-word
+ * PascalCase becomes kebab (`UserCard` → `user-card`, `APIClient` →
+ * `api-client`); already-hyphenated names pass through lowercased. A `-` is
+ * inserted before an uppercase letter when the previous char is a lowercase
+ * letter or digit, OR when the previous char is uppercase and the next is
+ * lowercase (acronym boundary); the result is lowercased.
+ *
+ * KEEP IN SYNC with `@aihu/compiler` `kebabComponentTag`
+ * (`packages/compiler/js/index.ts`) and the Rust normalizer (`tags.rs`).
+ * The router deliberately does not depend on `@aihu/compiler` (same precedent
+ * as `layoutTagFor` above), so this is a local copy of the algorithm.
+ */
+export function componentTagFor(name: string): string {
+  let out = ''
+  for (let i = 0; i < name.length; i++) {
+    // charAt (not name[i]) returns string, never string|undefined — satisfies
+    // noUncheckedIndexedAccess; charAt(i+1) yields '' past the end, matching
+    // the "no next char" case.
+    const c = name.charAt(i)
+    if (i > 0 && c >= 'A' && c <= 'Z') {
+      const prev = name.charAt(i - 1)
+      const next = name.charAt(i + 1)
+      const prevLower = prev >= 'a' && prev <= 'z'
+      const prevDigit = prev >= '0' && prev <= '9'
+      const prevUpper = prev >= 'A' && prev <= 'Z'
+      const nextLower = next >= 'a' && next <= 'z'
+      if (prevLower || prevDigit || (prevUpper && nextLower)) out += '-'
+    }
+    out += c.toLowerCase()
+  }
+  return out
 }
 
 function segs(rel: string): RouteSegment[] {
@@ -158,7 +202,63 @@ export function scanLayouts(d: string): LayoutMap {
   return m
 }
 
-const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head'] as const
+/**
+ * O1b: Resolve the custom-element tag a component file registers under.
+ * Name precedence mirrors the compiler: explicit `@meta { name }` →
+ * `@route { name }` → the file stem; the winner is normalized via
+ * `componentTagFor`. Build-time only.
+ */
+export function readAihuComponentTag(f: string): string {
+  const stem = basename(f).replace(/\.[^.]+$/, '')
+  try {
+    const content = readFileSync(f, 'utf8')
+    const grab = (block: RegExpMatchArray | null): string | undefined => {
+      if (!block) return undefined
+      const m = block[1]!.match(/\bname\s*:\s*["']([^"']+)["']/)
+      return m ? m[1] : undefined
+    }
+    const name =
+      grab(content.match(/@meta\s*\{([^}]*)\}/)) ??
+      grab(content.match(/@route\s*\{([^}]*)\}/)) ??
+      stem
+    return componentTagFor(name)
+  } catch {
+    return componentTagFor(stem)
+  }
+}
+
+/**
+ * O1b: Recursively scan a components dir for `.aihu` files, mapping each
+ * file's normalized custom-element tag → absolute POSIX path. Unlike the flat
+ * `scanLayouts`, components commonly nest in subdirectories. On a tag
+ * collision the last file wins, but the collision is warned so it's not
+ * silent. Build-time only.
+ */
+export function scanComponents(d: string): Record<string, string> {
+  const m: Record<string, string> = {}
+  if (!existsSync(d)) return m
+  const w = (dir: string): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const fp = join(dir, e.name)
+      if (e.isDirectory()) {
+        w(fp)
+      } else if (e.isFile() && e.name.endsWith('.aihu')) {
+        const tag = readAihuComponentTag(fp)
+        const posix = fp.replace(/\\/g, '/')
+        const prev = m[tag]
+        if (prev !== undefined && prev !== posix)
+          console.warn(
+            `[aihu-router] component tag collision: "${tag}" maps to both ${prev} and ${posix} (last wins)`,
+          )
+        m[tag] = posix
+      }
+    }
+  }
+  w(d)
+  return m
+}
+
+const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head', 'components'] as const
 
 function genR(
   files: string[],
@@ -217,6 +317,20 @@ function genL(d: string): string {
     .join('\n')}\n};\n`
 }
 
+/**
+ * O1b: Generate the `virtual:aihu-components` module — the compile-time
+ * tag → module registry. Keys are normalized custom-element tags; values are
+ * bare `() => import(path)` loaders (the key IS the tag, so no `{ tag, load }`
+ * wrapper like `genL`). Keys are sorted so output is deterministic. Consumed
+ * by O1c's route-scoped component registration. Exported for tests.
+ */
+export function genC(d: string): string {
+  return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanComponents(d))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `  ${JSON.stringify(k)}: () => import(${JSON.stringify(v)}),`)
+    .join('\n')}\n};\n`
+}
+
 /** v0.7.2: File-convention middleware discovered alongside routes. */
 export interface MiddlewareScan {
   /** Route files (non-underscore page files). */
@@ -259,14 +373,22 @@ function _pages(root: string, pd: string): string[] {
 
 export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
   const pd = opts?.pagesDir ?? 'pages',
-    ld = opts?.layoutsDir ?? 'src/layouts'
+    ld = opts?.layoutsDir ?? 'src/layouts',
+    cd = opts?.componentsDir ?? 'src/components'
   let root = process.cwd(),
     cr: string | null = null,
-    cl: string | null = null
+    cl: string | null = null,
+    cc: string | null = null
   return {
     name: 'aihu-router',
     resolveId: (id) =>
-      id === 'virtual:aihu-routes' ? RR : id === 'virtual:aihu-layouts' ? LR : null,
+      id === 'virtual:aihu-routes'
+        ? RR
+        : id === 'virtual:aihu-layouts'
+          ? LR
+          : id === 'virtual:aihu-components'
+            ? CR
+            : null,
     load(id) {
       if (id === RR) {
         if (!cr) {
@@ -277,15 +399,18 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
         return cr
       }
       if (id === LR) return (cl ??= genL(resolve(root, ld)))
+      if (id === CR) return (cc ??= genC(resolve(root, cd)))
       return null
     },
     configureServer(server) {
       const s = server as unknown as { config?: { root?: string } } & typeof server
       if (s.config?.root) root = s.config.root
       const pa = resolve(root, pd),
-        la = resolve(root, ld)
+        la = resolve(root, ld),
+        ca = resolve(root, cd)
       server.watcher.add(pa)
       server.watcher.add(la)
+      server.watcher.add(ca)
       const mk = (abs: string, rst: () => void, rid: string) => (p: string) => {
         if (!p.replace(/\\/g, '/').includes(abs.replace(/\\/g, '/'))) return
         rst()
@@ -305,14 +430,23 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
             cl = null
           },
           LR,
+        ),
+        ic = mk(
+          ca,
+          () => {
+            cc = null
+          },
+          CR,
         )
       server.watcher.on('add', (p) => {
         ir(p)
         il(p)
+        ic(p)
       })
       server.watcher.on('unlink', (p) => {
         ir(p)
         il(p)
+        ic(p)
       })
     },
   }
