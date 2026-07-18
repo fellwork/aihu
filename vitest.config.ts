@@ -109,6 +109,10 @@ export default defineConfig({
         './packages/app/tests/__stubs__/aihu-layouts.ts',
         import.meta.url,
       ).pathname,
+      'virtual:aihu-components': new URL(
+        './packages/app/tests/__stubs__/aihu-components.ts',
+        import.meta.url,
+      ).pathname,
     },
   },
 })

@@ -54,6 +54,40 @@ always matches the `user-card` element that `UserCard.aihu` defines.
 
 See also [Authoring Components](authoring-components.md).
 
+## Route-scoped component registration
+
+You never write a boot file that imports every component. The compiler records
+which components each page references — every `route.json` carries a
+`components` array of [normalized tags](#tag-naming) — and the router's Vite
+plugin turns those into a compile-time registry (`virtual:aihu-components`) of
+tag → lazy import. On navigation, `@aihu/app` imports the matched route's
+referenced components from that registry and registers their custom elements
+**before the page renders**, so a page's children are always defined when it
+mounts.
+
+Before (hand-written eager entry):
+
+```typescript
+// src/main.ts — DON'T do this
+import './components/hn-comment.js'
+import './components/vote-button.js'
+import { createApp } from '@aihu/app/client'
+createApp()
+```
+
+After — just reference the tag; the router registers it:
+
+```html
+@template {
+  <hn-comment $comment={item} />
+}
+```
+
+Only the components the active route actually uses are loaded — a tag not
+referenced by the current page costs nothing. A `components` tag with no
+registry entry (e.g. an element you registered globally yourself) is skipped
+silently.
+
 ## Composables
 
 An `@state` block *is* your component's setup function. So a plain function you

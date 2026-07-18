@@ -1,3 +1,4 @@
+import componentRegistry from 'virtual:aihu-components'
 import layouts from 'virtual:aihu-layouts'
 import routes from 'virtual:aihu-routes'
 import { hydrate, mount } from '@aihu/arbor'
@@ -73,6 +74,21 @@ export interface AppHandle {
    * it to an `@agent` action (e.g. `setLayout("compact")`).
    */
   setLayout(name: string | null): Promise<void>
+}
+
+/**
+ * O1c: import (and thereby defineElement) every component a route references,
+ * from the compile-time `virtual:aihu-components` registry, so a page's child
+ * custom elements are defined before the page element mounts. Unknown tags are
+ * skipped (a tag with no registry entry — e.g. a globally-registered element —
+ * is not an error). Returns the in-flight import promises.
+ */
+function registerRouteComponents(route: RouteDefinition): Promise<unknown>[] {
+  const tags = route.components ?? []
+  return tags
+    .map((t) => componentRegistry[t])
+    .filter((load): load is () => Promise<unknown> => typeof load === 'function')
+    .map((load) => load())
 }
 
 /**
@@ -162,7 +178,8 @@ export function createApp(config?: AppConfig): AppHandle {
         (r) => r.pattern === '*' || r.name === 'not-found',
       )
       if (notFoundRoute) {
-        await notFoundRoute.module()
+        // Load the 404 page module AND its referenced components together (O1c).
+        await Promise.all([notFoundRoute.module(), ...registerRouteComponents(notFoundRoute)])
         const tag = notFoundRoute.name
         if (tag?.includes('-')) {
           updateHead(notFoundRoute.head)
@@ -183,8 +200,11 @@ export function createApp(config?: AppConfig): AppHandle {
     // its element, so title/meta/canonical/JSON-LD match the page being shown.
     updateHead(match.route.head)
 
-    // Import the page module — registers its custom element + auto-wires runtime
-    await match.route.module()
+    // Import the page module — registers its custom element + auto-wires runtime.
+    // O1c: also import every component the route references (route.json
+    // `components` → virtual:aihu-components), so child custom elements are
+    // defined before the page element is created and mounted below.
+    await Promise.all([match.route.module(), ...registerRouteComponents(match.route)])
     const tag = match.route.name
     if (!tag?.includes('-')) return
 
