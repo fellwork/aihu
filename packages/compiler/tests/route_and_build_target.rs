@@ -6,9 +6,7 @@
 ///   v0.6.4 — BuildTarget enum plumbed through CompileUnit
 ///   v0.6.6 — Client build elides @agent manifest_json + emits warning comment
 ///   C500   — @route block outside pages/ path → compile error
-use aihu_compiler::{
-    compile_full, compile_full_with_target, emit, sfc, BuildTarget,
-};
+use aihu_compiler::{compile_full, compile_full_with_target, emit, sfc, BuildTarget};
 
 // ─── v0.6.1 — @route block parsing ──────────────────────────────────────────
 
@@ -160,7 +158,10 @@ fn v061_no_c500_without_route_block() {
 fn v061_layout_shorthand_parses_to_route_block() {
     let src = "@layout 'dashboard'\n\n@template {\n  <div>Page</div>\n}\n";
     let parsed = sfc::parse_with_path(src, Some("src/pages/settings.aihu")).unwrap();
-    let route = parsed.route.as_ref().expect("route should be Some from @layout");
+    let route = parsed
+        .route
+        .as_ref()
+        .expect("route should be Some from @layout");
     assert_eq!(route.layout.as_deref(), Some("dashboard"));
     assert!(route.name.is_none());
     assert!(route.path.is_none());
@@ -196,7 +197,10 @@ fn v062_route_json_emitted_when_route_present() {
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "admin-users");
 
-    let route_json = result.route_json.as_ref().expect("route_json should be Some");
+    let route_json = result
+        .route_json
+        .as_ref()
+        .expect("route_json should be Some");
     assert!(route_json.contains(r#""pattern": "/admin/users""#));
     assert!(route_json.contains(r#""name": "admin-users""#));
     assert!(route_json.contains(r#""auth""#));
@@ -207,14 +211,16 @@ fn v062_route_json_emitted_when_route_present() {
 /// route_json lists the page's component tags for route-scoped registration:
 /// custom-element (hyphenated) and PascalCase references, from nested elements
 /// and inside `{#if}`/`{#each}`. Plain HTML tags and `<$macro>` intrinsics are
-/// excluded.
+/// excluded. O1a (tag naming): the manifest carries NORMALIZED tags —
+/// `<UserCard>` is listed as `user-card`, matching reference emission and the
+/// define-name.
 #[test]
 fn route_json_components_lists_referenced_component_tags() {
     let src = r#"
 @route { path: '/x', name: 'x-page' }
 @template {
   <div>
-    <Comment comment={a} />
+    <UserCard comment={a} />
     <my-widget></my-widget>
     <p>plain</p>
     {#if cond}<lazy-graph></lazy-graph>{/if}
@@ -223,11 +229,70 @@ fn route_json_components_lists_referenced_component_tags() {
 "#;
     let parsed = sfc::parse_with_path(src, Some("src/pages/x.aihu")).unwrap();
     let unit = compile_full(&parsed).unwrap();
-    let route_json = emit(&unit, "x-page").route_json.expect("route_json should be Some");
-    // BTreeSet → sorted, deduped.
+    let route_json = emit(&unit, "x-page")
+        .route_json
+        .expect("route_json should be Some");
+    // BTreeSet → sorted, deduped; PascalCase references appear normalized.
     assert!(
-        route_json.contains(r#""components": ["Comment", "lazy-graph", "my-widget"]"#),
-        "components must list the referenced component tags; got:\n{route_json}"
+        route_json.contains(r#""components": ["lazy-graph", "my-widget", "user-card"]"#),
+        "components must list the referenced component tags (normalized); got:\n{route_json}"
+    );
+}
+
+/// O1a (tag naming): a single-word PascalCase component reference can never
+/// normalize to a valid custom-element name (no hyphen) — compile_full rejects
+/// it with C450 for ALL builds.
+#[test]
+fn c450_single_word_component_reference_is_compile_error() {
+    let src = r#"
+@route { path: '/x', name: 'x-page' }
+@template {
+  <div>
+    <Comment comment={a} />
+  </div>
+}
+"#;
+    let parsed = sfc::parse_with_path(src, Some("src/pages/x.aihu")).unwrap();
+    let err = compile_full(&parsed)
+        .expect_err("single-word PascalCase component reference must be a C450 error");
+    assert_eq!(
+        err.code.as_deref(),
+        Some("C450"),
+        "expected C450, got {err:?}"
+    );
+    assert!(
+        err.message.contains("C450") && err.message.contains("Comment"),
+        "C450 message must name the offending tag; got: {}",
+        err.message
+    );
+}
+
+/// O1a (tag naming): multi-word PascalCase references normalize in the emitted
+/// JS — `<UserCard>` emits `branch('user-card', …)`, never the raw tag.
+#[test]
+fn emitted_js_normalizes_pascal_case_component_references() {
+    let src = r#"
+@template {
+  <div>
+    <UserCard label={a} />
+    <my-widget></my-widget>
+  </div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let js = emit(&unit, "x-page").js;
+    assert!(
+        js.contains("branch('user-card'"),
+        "PascalCase reference must emit its normalized tag; got:\n{js}"
+    );
+    assert!(
+        !js.contains("branch('UserCard'"),
+        "raw PascalCase tag must not survive into emitted JS; got:\n{js}"
+    );
+    assert!(
+        js.contains("branch('my-widget'"),
+        "hyphenated reference must pass through; got:\n{js}"
     );
 }
 
@@ -241,7 +306,9 @@ fn route_json_omits_components_when_none_referenced() {
 "#;
     let parsed = sfc::parse_with_path(src, Some("src/pages/y.aihu")).unwrap();
     let unit = compile_full(&parsed).unwrap();
-    let route_json = emit(&unit, "y-page").route_json.expect("route_json should be Some");
+    let route_json = emit(&unit, "y-page")
+        .route_json
+        .expect("route_json should be Some");
     assert!(
         !route_json.contains("components"),
         "no-component page must omit the components member; got:\n{route_json}"
@@ -399,7 +466,9 @@ fn v066_client_build_elides_server_macro() {
     let result = emit(&unit, "server-users");
 
     assert!(
-        result.js.contains("// [client build] $server macro reference elided"),
+        result
+            .js
+            .contains("// [client build] $server macro reference elided"),
         "JS should contain $server elision comment for client build"
     );
 }
@@ -434,13 +503,17 @@ fn v066_server_build_does_not_elide_agent() {
 #[test]
 fn v069_fixture_basic_route_json() {
     let src = include_str!("../../../bench/compiler-conformance/route/01-basic-route.aihu");
-    let golden_json = include_str!("../../../bench/compiler-conformance/route/01-basic-route.route.json");
+    let golden_json =
+        include_str!("../../../bench/compiler-conformance/route/01-basic-route.route.json");
 
     let parsed = sfc::parse_with_path(src, Some("src/pages/users.aihu")).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "01-basic-route");
 
-    let route_json = result.route_json.as_ref().expect("route_json should be Some for fixture");
+    let route_json = result
+        .route_json
+        .as_ref()
+        .expect("route_json should be Some for fixture");
     // Normalize whitespace for comparison
     let actual = route_json.split_whitespace().collect::<Vec<_>>().join(" ");
     let expected = golden_json.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -451,16 +524,23 @@ fn v069_fixture_basic_route_json() {
 #[test]
 fn v069_fixture_route_with_layout_json() {
     let src = include_str!("../../../bench/compiler-conformance/route/02-route-with-layout.aihu");
-    let golden_json = include_str!("../../../bench/compiler-conformance/route/02-route-with-layout.route.json");
+    let golden_json =
+        include_str!("../../../bench/compiler-conformance/route/02-route-with-layout.route.json");
 
     let parsed = sfc::parse_with_path(src, Some("src/pages/admin/users.aihu")).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "02-route-with-layout");
 
-    let route_json = result.route_json.as_ref().expect("route_json should be Some");
+    let route_json = result
+        .route_json
+        .as_ref()
+        .expect("route_json should be Some");
     let actual = route_json.split_whitespace().collect::<Vec<_>>().join(" ");
     let expected = golden_json.split_whitespace().collect::<Vec<_>>().join(" ");
-    assert_eq!(actual, expected, "route_json should match golden for layout fixture");
+    assert_eq!(
+        actual, expected,
+        "route_json should match golden for layout fixture"
+    );
 }
 
 // ─── B1 (SEO arc) — per-route head metadata ──────────────────────────────────
@@ -490,14 +570,27 @@ fn b1_route_head_round_trips_into_route_json() {
     let parsed = sfc::parse_with_path(src, Some("src/pages/about.aihu")).unwrap();
 
     // Parser: head present with typed sub-objects.
-    let head = parsed.route.as_ref().unwrap().head.as_ref().expect("head parsed");
+    let head = parsed
+        .route
+        .as_ref()
+        .unwrap()
+        .head
+        .as_ref()
+        .expect("head parsed");
     assert_eq!(head.title.as_deref(), Some("About Us"));
     assert_eq!(head.description.as_deref(), Some("Who we are"));
     assert_eq!(head.canonical.as_deref(), Some("/about"));
     assert_eq!(head.og.as_ref().unwrap().image.as_deref(), Some("/og.png"));
     assert_eq!(head.og.as_ref().unwrap().r#type.as_deref(), Some("website"));
-    assert_eq!(head.twitter.as_ref().unwrap().site.as_deref(), Some("@acme"));
-    assert!(head.jsonld.as_ref().unwrap().contains(r#""@context": "https://schema.org""#));
+    assert_eq!(
+        head.twitter.as_ref().unwrap().site.as_deref(),
+        Some("@acme")
+    );
+    assert!(head
+        .jsonld
+        .as_ref()
+        .unwrap()
+        .contains(r#""@context": "https://schema.org""#));
 
     // Codegen: head member emitted into the sidecar, jsonld verbatim, valid JSON.
     let unit = compile_full(&parsed).unwrap();
@@ -516,9 +609,15 @@ fn b1_route_head_round_trips_into_route_json() {
         serde_json::from_str(&route_json).expect("emitted route_json must be valid JSON");
     assert_eq!(parsed_json["head"]["title"], "About Us");
     assert_eq!(parsed_json["head"]["og"]["url"], "/about");
-    assert_eq!(parsed_json["head"]["twitter"]["card"], "summary_large_image");
+    assert_eq!(
+        parsed_json["head"]["twitter"]["card"],
+        "summary_large_image"
+    );
     assert_eq!(parsed_json["head"]["jsonld"]["@type"], "Organization");
-    assert_eq!(parsed_json["head"]["jsonld"]["@context"], "https://schema.org");
+    assert_eq!(
+        parsed_json["head"]["jsonld"]["@context"],
+        "https://schema.org"
+    );
 }
 
 /// A route WITHOUT a head key emits a valid route_json with no head member
@@ -539,7 +638,10 @@ fn b1_route_without_head_omits_head_member() {
     assert!(parsed.route.as_ref().unwrap().head.is_none());
     let unit = compile_full(&parsed).unwrap();
     let route_json = emit(&unit, "plain").route_json.expect("route_json");
-    assert!(!route_json.contains("head"), "no head member when head absent");
+    assert!(
+        !route_json.contains("head"),
+        "no head member when head absent"
+    );
     let v: serde_json::Value =
         serde_json::from_str(&route_json).expect("route_json must be valid JSON");
     assert!(v.get("head").is_none());
@@ -556,17 +658,25 @@ fn b1_fixture_route_with_head_json() {
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "03-route-with-head");
 
-    let route_json = result.route_json.as_ref().expect("route_json should be Some");
+    let route_json = result
+        .route_json
+        .as_ref()
+        .expect("route_json should be Some");
     let actual = route_json.split_whitespace().collect::<Vec<_>>().join(" ");
     let expected = golden_json.split_whitespace().collect::<Vec<_>>().join(" ");
-    assert_eq!(actual, expected, "route_json should match golden for head fixture");
+    assert_eq!(
+        actual, expected,
+        "route_json should match golden for head fixture"
+    );
 }
 
 /// bench/compiler-conformance/build-target/01-client-elides-agent.aihu
 /// — client build produces elision comment.
 #[test]
 fn v069_fixture_client_elides_agent_js() {
-    let src = include_str!("../../../bench/compiler-conformance/build-target/01-client-elides-agent.aihu");
+    let src = include_str!(
+        "../../../bench/compiler-conformance/build-target/01-client-elides-agent.aihu"
+    );
 
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
