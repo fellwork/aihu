@@ -258,6 +258,56 @@ export function scanComponents(d: string): Record<string, string> {
   return m
 }
 
+/**
+ * F2: extract the normalized component tags a layout SFC's `@template`
+ * references, so `genL` can carry them on each `virtual:aihu-layouts` entry and
+ * `@aihu/app` can register a layout's own children before the layout mounts —
+ * mirroring the page path (route.json `components` → O1c).
+ *
+ * The `@template` block is located by a brace-balanced walk (templates nest
+ * `{…}` freely — `@if { }`, interpolations — so the `readAihuRouteMeta`-style
+ * `[^}]*` regex would truncate). Inside it, element OPENINGS are matched with
+ * `/<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])/g` — closing tags (`</x>`) and special
+ * forms (`<$outlet>`) never match because the char after `<` must be a letter.
+ * A matched tag counts as a component when it contains a hyphen OR starts with
+ * an ASCII uppercase letter; winners are normalized via `componentTagFor`,
+ * deduped, and sorted (deterministic output). Build-time only.
+ *
+ * KEEP IN SYNC with the Rust compiler's classification + collection:
+ * `is_component_tag` (`packages/compiler/src/tags.rs`) and
+ * `collect_component_tags` (`packages/compiler/src/codegen/emit.rs`). Like
+ * `componentTagFor` above, this is a deliberate router-side mirror so the
+ * router keeps zero compiler dependency.
+ */
+export function readAihuLayoutComponents(f: string): string[] {
+  try {
+    const content = readFileSync(f, 'utf8')
+    const at = content.search(/@template\s*\{/)
+    if (at === -1) return []
+    const start = content.indexOf('{', at)
+    let depth = 0
+    let end = content.length
+    for (let i = start; i < content.length; i++) {
+      const c = content.charAt(i)
+      if (c === '{') depth++
+      else if (c === '}' && --depth === 0) {
+        end = i
+        break
+      }
+    }
+    const body = content.slice(start + 1, end)
+    const tags = new Set<string>()
+    for (const m of body.matchAll(/<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])/g)) {
+      const raw = m[1]!
+      const c0 = raw.charAt(0)
+      if (raw.includes('-') || (c0 >= 'A' && c0 <= 'Z')) tags.add(componentTagFor(raw))
+    }
+    return [...tags].sort()
+  } catch {
+    return []
+  }
+}
+
 const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head', 'components'] as const
 
 function genR(
@@ -304,15 +354,20 @@ function genR(
     .join(',\n')}\n];\n`
 }
 
-function genL(d: string): string {
-  // v0.7.5: emit runtime-consumable entries — `{ tag, load }` — not bare path
-  // strings. `load()` is a dynamic import so the layout SFC compiles + registers
-  // its `aihu-layout-<name>` custom element on first use; `tag` lets the client
-  // renderer `createElement` it without re-deriving the name.
+/**
+ * v0.7.5: emit runtime-consumable entries — `{ tag, load, components }` — not
+ * bare path strings. `load()` is a dynamic import so the layout SFC compiles +
+ * registers its `aihu-layout-<name>` custom element on first use; `tag` lets
+ * the client renderer `createElement` it without re-deriving the name;
+ * `components` (F2) is the layout template's own referenced component tags
+ * (`readAihuLayoutComponents`), so `@aihu/app` can register a layout's children
+ * the same way it registers a page's. Exported for tests.
+ */
+export function genL(d: string): string {
   return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanLayouts(d))
     .map(
       ([k, v]) =>
-        `  ${JSON.stringify(k)}: { tag: ${JSON.stringify(layoutTagFor(k))}, load: () => import(${JSON.stringify(v)}) },`,
+        `  ${JSON.stringify(k)}: { tag: ${JSON.stringify(layoutTagFor(k))}, load: () => import(${JSON.stringify(v)}), components: ${JSON.stringify(readAihuLayoutComponents(v))} },`,
     )
     .join('\n')}\n};\n`
 }

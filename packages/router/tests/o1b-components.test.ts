@@ -15,7 +15,9 @@ import type { RouteDefinition } from '../src/index.ts'
 import {
   componentTagFor,
   genC,
+  genL,
   readAihuComponentTag,
+  readAihuLayoutComponents,
   scanComponents,
   viteRouterPlugin,
 } from '../src/vite-plugin.ts'
@@ -158,6 +160,92 @@ describe('genC()', () => {
       expect(iMy).toBeGreaterThan(-1)
       expect(iMy).toBeLessThan(iUser)
       expect(iUser).toBeLessThan(iX)
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// F2: readAihuLayoutComponents() / genL() — a layout's own referenced
+// component tags, carried on each virtual:aihu-layouts entry
+// ---------------------------------------------------------------------------
+
+describe('readAihuLayoutComponents()', () => {
+  it('extracts + normalizes component-shaped tags from the @template block', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layout-comps-'))
+    try {
+      const f = join(tmp, 'app.aihu')
+      writeFileSync(
+        f,
+        [
+          '@template {',
+          '  <div class="shell">',
+          '    <some-widget size="lg" />',
+          '    <OtherThing label="x">nested</OtherThing>',
+          '    <header><$outlet /></header>',
+          '  </div>',
+          '}',
+          '',
+        ].join('\n'),
+      )
+      // Sorted, deduped, normalized (OtherThing → other-thing); plain HTML
+      // tags (div, header) and the <$outlet> marker are never collected.
+      expect(readAihuLayoutComponents(f)).toEqual(['other-thing', 'some-widget'])
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('survives nested braces inside the template (brace-balanced walk)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layout-comps-nested-'))
+    try {
+      const f = join(tmp, 'app.aihu')
+      writeFileSync(
+        f,
+        '@template {\n  @if { open } {\n    <nav-bar />\n  }\n  <p>{count}</p>\n  <UserCard />\n}\n',
+      )
+      expect(readAihuLayoutComponents(f)).toEqual(['nav-bar', 'user-card'])
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('returns [] for a layout referencing no components, and for missing @template/file', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-layout-comps-empty-'))
+    try {
+      const plain = join(tmp, 'plain.aihu')
+      writeFileSync(plain, '@template {\n  <div><header/><$outlet /></div>\n}\n')
+      expect(readAihuLayoutComponents(plain)).toEqual([])
+      const noTemplate = join(tmp, 'meta-only.aihu')
+      writeFileSync(noTemplate, '@meta {\n  name: "whatever"\n}\n')
+      expect(readAihuLayoutComponents(noTemplate)).toEqual([])
+      expect(readAihuLayoutComponents(join(tmp, 'nope.aihu'))).toEqual([])
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('genL() — layout entries carry `components`', () => {
+  it('emits a components array per layout entry', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-genl-comps-'))
+    try {
+      writeFileSync(
+        join(tmp, 'app.aihu'),
+        '@template {\n  <some-widget />\n  <OtherThing />\n  <$outlet />\n}\n',
+      )
+      writeFileSync(join(tmp, 'bare.aihu'), '@template {\n  <div><$outlet /></div>\n}\n')
+      const content = genL(tmp)
+      expect(content).toContain('// AUTO-GENERATED')
+      // Entry shape: { tag, load, components } — components normalized+sorted.
+      expect(content).toMatch(
+        /"app": \{ tag: "aihu-layout-app", load: \(\) => import\(".*app\.aihu"\), components: \["other-thing","some-widget"\] \}/,
+      )
+      // A layout referencing no components still carries an explicit [].
+      expect(content).toMatch(
+        /"bare": \{ tag: "aihu-layout-bare", load: \(\) => import\(".*bare\.aihu"\), components: \[\] \}/,
+      )
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
