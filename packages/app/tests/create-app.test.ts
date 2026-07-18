@@ -337,6 +337,43 @@ describe('createApp — route-scoped component registration (O1c)', () => {
   })
 })
 
+// ─── Nested-outlet registrar global (F1) ─────────────────────────────────────
+// The compiler-emitted `createOutletBoundary` (packages/compiler/src/codegen/
+// emit.rs) cannot import virtual:aihu-components, so client.ts publishes
+// registerRouteComponents on globalThis at module top level. The emitted JS
+// calls it optional-chained: `globalThis.__aihuRegisterRouteComponents?.(m.route)`.
+
+describe('client bootstrap — __aihuRegisterRouteComponents global (F1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    for (const k of Object.keys(mockComponents)) delete mockComponents[k]
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('is published on globalThis at module load (before createApp runs)', () => {
+    // client.ts was imported at the top of this file — no createApp() needed:
+    // a nested outlet can render before/without the imperative bootstrap path.
+    expect(typeof globalThis.__aihuRegisterRouteComponents).toBe('function')
+  })
+
+  it('resolves route.components through the registry, skipping unknown tags', async () => {
+    const widgetLoad = vi.fn().mockResolvedValue(undefined)
+    mockComponents['x-widget'] = widgetLoad
+    const hook = globalThis.__aihuRegisterRouteComponents
+    expect(hook).toBeDefined()
+
+    // Exactly the shape the emitted boundary awaits: one promise per known tag.
+    const promises = hook!({ components: ['x-widget', 'ghost-tag'] })
+    expect(promises).toHaveLength(1)
+    await Promise.all(promises)
+    expect(widgetLoad).toHaveBeenCalledOnce()
+
+    // A route with no components yields nothing to await.
+    expect(hook!({})).toHaveLength(0)
+  })
+})
+
 // ─── SPA navigation ──────────────────────────────────────────────────────────
 
 describe('createApp — SPA navigation', () => {

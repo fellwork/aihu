@@ -90,6 +90,18 @@ function registerRouteComponents(route: RouteDefinition): Promise<unknown>[] {
     .filter((load): load is () => Promise<unknown> => typeof load === 'function')
     .map((load) => load())
 }
+// F1: publish the registrar for compiler-emitted code. The nested `<$outlet>`
+// boundary (`createOutletBoundary` in packages/compiler/src/codegen/emit.rs) is
+// emitted JS with no build-graph import, so it cannot import
+// virtual:aihu-components itself — instead it calls this global optional-chained
+// (`globalThis.__aihuRegisterRouteComponents?.(m.route)`) to load a route's
+// referenced components alongside its page module. A standalone @aihu/router
+// app that never loads @aihu/app leaves the global undefined and the outlet
+// simply skips component registration. Published at module top level (like the
+// registry import itself) so it is live before any component code runs; typed
+// in virtual.d.ts, cast here because the hook's parameter is deliberately wider
+// (structural `{ components? }`) than RouteDefinition.
+;(globalThis as Record<string, unknown>).__aihuRegisterRouteComponents = registerRouteComponents
 
 /**
  * Bootstrap the aihu SPA.

@@ -17,6 +17,24 @@ declare module 'virtual:aihu-components' {
   export default registry
 }
 
+/**
+ * F1: runtime hook published by @aihu/app's client bootstrap (client.ts, module
+ * top level) so COMPILER-EMITTED code can register a route's referenced
+ * components. The nested `<$outlet>` boundary (`createOutletBoundary` in
+ * packages/compiler/src/codegen/emit.rs) has no build-graph import of
+ * virtual:aihu-components, so it calls this global optional-chained:
+ *
+ *   Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])])
+ *
+ * `undefined` when @aihu/app is not loaded (standalone @aihu/router app) — the
+ * outlet then skips component registration. The parameter is structural
+ * (`{ components? }`, not RouteDefinition) — the emitted JS passes the matched
+ * route object and the hook only reads its `components` tags.
+ */
+declare var __aihuRegisterRouteComponents:
+  | ((route: { components?: readonly string[] }) => Promise<unknown>[])
+  | undefined
+
 declare module 'virtual:aihu-layouts' {
   /**
    * Layout name (from `@route { layout: "<name>" }`) → runtime entry. `load()`
