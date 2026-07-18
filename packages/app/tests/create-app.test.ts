@@ -19,20 +19,25 @@ type RouteStub = {
   module: () => Promise<unknown>
   head?: RouteHeadStub
   layout?: string
+  components?: readonly string[]
 }
 type LayoutEntry = { tag: string; load: () => Promise<unknown> }
 type MatchStub = { route: RouteStub; params?: Record<string, string> } | null
 
-const { mockRoutes, mockMatch, mockLayouts } = vi.hoisted(() => ({
+const { mockRoutes, mockMatch, mockLayouts, mockComponents } = vi.hoisted(() => ({
   mockRoutes: [] as RouteStub[],
   mockMatch: vi.fn<[], MatchStub>(() => null),
   // Mutated by reference in tests; the same object backs the `layouts` binding
   // in client.ts (default export of virtual:aihu-layouts).
   mockLayouts: {} as Record<string, LayoutEntry>,
+  // Mutated by reference in tests; backs the `componentRegistry` binding in
+  // client.ts (default export of virtual:aihu-components, O1c).
+  mockComponents: {} as Record<string, () => Promise<unknown>>,
 }))
 
 vi.mock('virtual:aihu-routes', () => ({ default: mockRoutes }))
 vi.mock('virtual:aihu-layouts', () => ({ default: mockLayouts }))
+vi.mock('virtual:aihu-components', () => ({ default: mockComponents }))
 vi.mock('@aihu/arbor', () => ({ hydrate: vi.fn(), mount: vi.fn() }))
 vi.mock('@aihu/signals', () => ({ signal: vi.fn() }))
 vi.mock('@aihu/router', () => ({
@@ -222,6 +227,113 @@ describe('createApp — initial rendering', () => {
     await flushPromises()
     const p = outlet.querySelector('p')
     expect(p?.textContent).toContain('404')
+  })
+})
+
+// ─── Route-scoped component registration (O1c) ───────────────────────────────
+// A route's `components` tags are resolved against virtual:aihu-components and
+// their loaders imported (registering each custom element as a side effect)
+// BEFORE the page element is created and mounted.
+
+describe('createApp — route-scoped component registration (O1c)', () => {
+  let outlet: HTMLElement
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoutes.length = 0
+    mockMatch.mockReturnValue(null)
+    for (const k of Object.keys(mockComponents)) delete mockComponents[k]
+    outlet = makeOutlet()
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('calls (and awaits) the registry loader for each tag in route.components', async () => {
+    const widgetLoad = vi.fn().mockResolvedValue(undefined)
+    const chipLoad = vi.fn().mockResolvedValue(undefined)
+    mockComponents['x-widget'] = widgetLoad
+    mockComponents['x-chip'] = chipLoad
+    const route: RouteStub = {
+      name: 'my-page',
+      components: ['x-widget', 'x-chip'],
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(widgetLoad).toHaveBeenCalledOnce()
+    expect(chipLoad).toHaveBeenCalledOnce()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('my-page')
+  })
+
+  it('awaits the loader BEFORE the page element is appended to the outlet', async () => {
+    // Deferred loader: while it is pending the page must NOT be mounted yet.
+    let resolveLoad!: () => void
+    const pending = new Promise<void>((r) => {
+      resolveLoad = r
+    })
+    mockComponents['x-widget'] = vi.fn(() => pending)
+    const route: RouteStub = {
+      name: 'my-page',
+      components: ['x-widget'],
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+    // Page module resolved, but the component loader is still in flight —
+    // render must be blocked on Promise.all, so nothing is mounted yet.
+    expect(outlet.firstElementChild).toBeNull()
+
+    resolveLoad()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('my-page')
+  })
+
+  it('registers nothing and still renders when route.components is absent', async () => {
+    mockComponents['x-widget'] = vi.fn().mockResolvedValue(undefined)
+    const route: RouteStub = { name: 'my-page', module: vi.fn().mockResolvedValue(undefined) }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(mockComponents['x-widget']).not.toHaveBeenCalled()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('my-page')
+  })
+
+  it('skips a components tag with no registry entry silently (no throw)', async () => {
+    const route: RouteStub = {
+      name: 'my-page',
+      components: ['ghost-tag'], // not in the registry — e.g. globally registered
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('my-page')
+  })
+
+  it('registers the not-found route components too', async () => {
+    const load = vi.fn().mockResolvedValue(undefined)
+    mockComponents['x-sad-face'] = load
+    mockRoutes.push({
+      pattern: '*',
+      name: 'not-found-page',
+      components: ['x-sad-face'],
+      module: vi.fn().mockResolvedValue(undefined),
+    })
+
+    createApp()
+    await flushPromises()
+
+    expect(load).toHaveBeenCalledOnce()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('not-found-page')
   })
 })
 
