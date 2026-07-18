@@ -1762,12 +1762,18 @@ fn emit_collection_entry(
             ))
         }
         CollectionKind::Context => {
-            // B5 — `$context` entries are either `provide` or `consume`.
+            // B5/O2 — `$context` entries are either `provide` or `consume`.
             // The entry is always wrapped: `meta` holds the context keys and their
             // sub-metadata bag strings (parsed by `parse_object_collection`).
             //
             // Example: provide entry → meta: [("theme", "{ value: () => themeSignal }")]
             //          consume entry → meta: [("locale", "{ type: 'Locale' }")]
+            //
+            // Lowering (O2): synchronous setup-body `provide`/`inject` calls
+            // onto @aihu/context's prototype-chain DI, keyed by interned
+            // `contextKey` string tokens. Mirrors codegen/emit.rs
+            // CollectionKind::Context (the primary path); the old client-only
+            // `__aihu_ctx_*` CustomEvent lowering is removed.
             let mut lines: Vec<String> = Vec::new();
             for (ctx_key, ctx_val) in &entry.meta {
                 let v_trimmed = ctx_val.trim();
@@ -1777,9 +1783,7 @@ fn emit_collection_entry(
                     let meta2 = parse_meta_pairs(inner2).ok()?;
                     let val_factory = meta2.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim())?;
                     lines.push(format!(
-                        "{indent}onMount(() => {{\n\
-                         {indent}  this.dispatchEvent(new CustomEvent('__aihu_ctx_provide', {{ bubbles: true, composed: true, detail: {{ key: '{key}', value: ({factory})() }} }}))\n\
-                         {indent}}})",
+                        "{indent}provide(contextKey('{key}'), ({factory})())",
                         indent = indent,
                         key = ctx_key,
                         factory = val_factory,
@@ -1787,13 +1791,7 @@ fn emit_collection_entry(
                 } else {
                     // consume: ctx_key → { type: 'T' }
                     lines.push(format!(
-                        "{indent}let {key} = undefined\n\
-                         {indent}onMount(() => {{\n\
-                         {indent}  this.addEventListener('__aihu_ctx_provide', (e) => {{\n\
-                         {indent}    if (e.detail?.key === '{key}') {key} = e.detail.value\n\
-                         {indent}  }})\n\
-                         {indent}  this.dispatchEvent(new Event('__aihu_ctx_request', {{ bubbles: true, composed: true }}))\n\
-                         {indent}}})",
+                        "{indent}const {key} = inject(contextKey('{key}'))",
                         indent = indent,
                         key = ctx_key,
                     ));

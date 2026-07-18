@@ -54,6 +54,27 @@ export function createContext<T>(defaultValue?: T): ContextToken<T> {
 }
 
 /**
+ * Interned string-key → token map for `contextKey`. Module-global on purpose:
+ * every component in the app must agree on the token for a given key.
+ */
+const _stringTokens = new Map<string, ContextToken<unknown>>()
+
+/**
+ * Intern a stable context token for a string key, so the compiler-lowered
+ * `$context` provide/consume (which are string-keyed) resolve to one shared
+ * token app-wide. Module-global, so every component agrees on the token for a
+ * key.
+ */
+export function contextKey(key: string): ContextToken<unknown> {
+  let t = _stringTokens.get(key)
+  if (t === undefined) {
+    t = createContext<unknown>()
+    _stringTokens.set(key, t)
+  }
+  return t
+}
+
+/**
  * Write a value for the given token into the active context map.
  * If no map is currently active, this is a no-op.
  */

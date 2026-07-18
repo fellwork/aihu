@@ -36,7 +36,9 @@ struct StateImports {
     needs_aihu_router: bool,
     // B5 — `$controller` requires onMount+onCleanup for lifecycle wiring.
     needs_controller: bool,
-    // B5 — `$context` requires onMount for provide/consume wiring.
+    // B5/O2 — `$context` lowers to `provide`/`inject`/`contextKey` calls from
+    // `@aihu/context` (prototype-chain hierarchical DI). When set, that import
+    // is emitted.
     needs_context: bool,
 }
 
@@ -629,6 +631,21 @@ fn macro_binding_decls(script: &str) -> String {
                 }
                 // Event dispatchers are already typed by the $emit/$event decls.
                 crate::types::CollectionKind::Event => {}
+                // B5/O2 — `$context` entries are named "provide"/"consume"; the
+                // template-referenceable bindings are the context KEYS in each
+                // entry's meta (`theme`, `locale`, …). The runtime lowering is
+                // `const key = inject(contextKey('key'))` / `provide(...)`; the
+                // macro line itself is blanked in the sidecar, so declare each
+                // key here (as `any` — the injected value's type is a watched
+                // B3+ refinement) instead of the entry names.
+                crate::types::CollectionKind::Context => {
+                    for (ctx_key, _) in &e.meta {
+                        let decl = format!("let {}: any = null as any;", ctx_key);
+                        if !decls.contains(&decl) {
+                            decls.push(decl);
+                        }
+                    }
+                }
                 _ => decls.push(format!("let {}: any = null as any;", name)),
             }
         }
@@ -1653,10 +1670,13 @@ fn process_state_body(
                     }
                 }
                 CollectionKind::Context => {
-                    // B5 — $context provide/consume entries lower to DOM event
-                    // patterns inside onMount. Mark needs_context.
+                    // B5/O2 — $context provide/consume entries lower to
+                    // synchronous provide()/inject() setup-body calls (see
+                    // CollectionKind::Context in the lowering below). Mark
+                    // needs_context so the @aihu/context import is emitted.
+                    // No onMount: provide/inject must run DURING setup so the
+                    // prototype-chain scope entered at connect captures them.
                     si.needs_context = true;
-                    si.needs_on_mount = true;
                 }
                 CollectionKind::Form => {
                     // D5 — $form wiring is handled by emit_form_wiring() at
@@ -2233,7 +2253,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // Individual entries are not lowered here.
                         }
                         CollectionKind::Context => {
-                            // B5 — $context entries are `provide` or `consume`.
+                            // B5/O2 — $context entries are `provide` or `consume`.
                             // Each is a wrapped entry whose `meta` pairs hold
                             // the context keys and their sub-metadata objects.
                             //
@@ -2241,8 +2261,16 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             //   provide entry → meta: [("theme", "{ value: () => themeSignal }")]
                             //   consume entry → meta: [("locale", "{ type: 'Locale' }")]
                             //
-                            // For provide: emit onMount dispatching __aihu_ctx_provide event.
-                            // For consume: emit let binding + onMount listener pattern.
+                            // Lowering (O2): synchronous setup-body calls onto the
+                            // prototype-chain DI in @aihu/context — NOT wrapped in
+                            // onMount, because the runtime enters the component's
+                            // context scope for the duration of setup (a parent
+                            // provides during its setup; a child injects during its
+                            // own, after connect-time parent resolution).
+                            // `contextKey` interns one shared token per string key
+                            // so separately compiled SFCs meet. Works under SSR too
+                            // (flat-map fallback), unlike the removed client-only
+                            // CustomEvent path.
                             for (ctx_key, ctx_val) in &entry.meta {
                                 let v_trimmed = ctx_val.trim();
                                 if entry.name == "provide" {
@@ -2260,26 +2288,18 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                         None => continue,
                                     };
                                     lines.push(format!(
-                                        concat!(
-                                            "{indent}onMount(() => {{\n",
-                                            "{indent}  this.dispatchEvent(new CustomEvent('__aihu_ctx_provide', {{ bubbles: true, composed: true, detail: {{ key: '{key}', value: ({factory})() }} }}))\n",
-                                            "{indent}}})"),
+                                        "{indent}provide(contextKey('{key}'), ({factory})())",
                                         indent = indent,
                                         key = ctx_key,
                                         factory = val_factory,
                                     ));
                                 } else {
-                                    // consume: ctx_key -> { type: 'T' }
-                                    // Emit a `let` binding and an onMount listener.
+                                    // consume: ctx_key -> { type: 'T' }. The
+                                    // injected value is whatever was provided
+                                    // (typically a signal), so template reads
+                                    // like `{key()}` keep working identically.
                                     lines.push(format!(
-                                        concat!(
-                                            "{indent}let {key}\n",
-                                            "{indent}onMount(() => {{\n",
-                                            "{indent}  this.addEventListener('__aihu_ctx_provide', (e) => {{\n",
-                                            "{indent}    if (e.detail?.key === '{key}') {key} = e.detail.value\n",
-                                            "{indent}  }})\n",
-                                            "{indent}  this.dispatchEvent(new Event('__aihu_ctx_request', {{ bubbles: true, composed: true }}))\n",
-                                            "{indent}}})"),
+                                        "{indent}const {key} = inject(contextKey('{key}'))",
                                         indent = indent,
                                         key = ctx_key,
                                     ));
@@ -3328,11 +3348,23 @@ fn build_function_imports(
     // `createMagnaResource(inject(MagnaFetchToken), ...)`. Emit the magna +
     // context imports. Bare `@aihu/magna` specifier (G7 entry-split not landed;
     // forward-compatible with the future browser `.` entry).
+    //
+    // B5/O2: `$context` lowers to `provide`/`inject`/`contextKey` calls, which
+    // also come from `@aihu/context`. Collect the needed names and emit exactly
+    // ONE `@aihu/context` import line — two separate imports would double-bind
+    // `inject` when magna and `$context` coexist.
     if si.needs_create_magna_resource {
         lines.push(
             "import { createMagnaResource, MagnaFetchToken } from '@aihu/magna'".to_string(),
         );
-        lines.push("import { inject } from '@aihu/context'".to_string());
+    }
+    let ctx_items: &[&str] = match (si.needs_context, si.needs_create_magna_resource) {
+        (true, _) => &["provide", "inject", "contextKey"],
+        (false, true) => &["inject"],
+        (false, false) => &[],
+    };
+    if !ctx_items.is_empty() {
+        lines.push(format!("import {{ {} }} from '@aihu/context'", ctx_items.join(", ")));
     }
 
     // arch-3 M2 / A3 G2 (RFC-001): `$auth.*` lowers to `useCurrentUser()`,
