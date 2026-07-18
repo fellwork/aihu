@@ -1,5 +1,12 @@
 # @aihu/agent-server
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [[`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu/arbor@2.0.0
+
 ## 0.3.0
 
 ### Minor Changes
