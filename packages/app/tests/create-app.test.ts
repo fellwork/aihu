@@ -21,7 +21,7 @@ type RouteStub = {
   layout?: string
   components?: readonly string[]
 }
-type LayoutEntry = { tag: string; load: () => Promise<unknown> }
+type LayoutEntry = { tag: string; load: () => Promise<unknown>; components?: readonly string[] }
 type MatchStub = { route: RouteStub; params?: Record<string, string> } | null
 
 const { mockRoutes, mockMatch, mockLayouts, mockComponents } = vi.hoisted(() => ({
@@ -334,6 +334,43 @@ describe('createApp — route-scoped component registration (O1c)', () => {
 
     expect(load).toHaveBeenCalledOnce()
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('not-found-page')
+  })
+})
+
+// ─── Nested-outlet registrar global (F1) ─────────────────────────────────────
+// The compiler-emitted `createOutletBoundary` (packages/compiler/src/codegen/
+// emit.rs) cannot import virtual:aihu-components, so client.ts publishes
+// registerRouteComponents on globalThis at module top level. The emitted JS
+// calls it optional-chained: `globalThis.__aihuRegisterRouteComponents?.(m.route)`.
+
+describe('client bootstrap — __aihuRegisterRouteComponents global (F1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    for (const k of Object.keys(mockComponents)) delete mockComponents[k]
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('is published on globalThis at module load (before createApp runs)', () => {
+    // client.ts was imported at the top of this file — no createApp() needed:
+    // a nested outlet can render before/without the imperative bootstrap path.
+    expect(typeof globalThis.__aihuRegisterRouteComponents).toBe('function')
+  })
+
+  it('resolves route.components through the registry, skipping unknown tags', async () => {
+    const widgetLoad = vi.fn().mockResolvedValue(undefined)
+    mockComponents['x-widget'] = widgetLoad
+    const hook = globalThis.__aihuRegisterRouteComponents
+    expect(hook).toBeDefined()
+
+    // Exactly the shape the emitted boundary awaits: one promise per known tag.
+    const promises = hook!({ components: ['x-widget', 'ghost-tag'] })
+    expect(promises).toHaveLength(1)
+    await Promise.all(promises)
+    expect(widgetLoad).toHaveBeenCalledOnce()
+
+    // A route with no components yields nothing to await.
+    expect(hook!({})).toHaveLength(0)
   })
 })
 
@@ -794,6 +831,125 @@ describe('createApp — layout rendering', () => {
         ?.firstElementChild?.tagName.toLowerCase(),
     ).toBe('dash-page')
     warnSpy.mockRestore()
+  })
+})
+
+// ─── Layout-scoped component registration (F2) ───────────────────────────────
+// A layout entry's `components` tags (scanned from the layout SFC's template by
+// the router's genL) are resolved against virtual:aihu-components and their
+// loaders imported BEFORE the layout element mounts — mirroring the page path.
+
+describe('createApp — layout-scoped component registration (F2)', () => {
+  let outlet: HTMLElement
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoutes.length = 0
+    mockMatch.mockReturnValue(null)
+    for (const k of Object.keys(mockLayouts)) delete mockLayouts[k]
+    for (const k of Object.keys(mockComponents)) delete mockComponents[k]
+    outlet = makeOutlet()
+  })
+
+  afterEach(() => document.body.replaceChildren())
+
+  it('calls (and awaits) the registry loader for each tag in the layout entry components', async () => {
+    const widgetLoad = vi.fn().mockResolvedValue(undefined)
+    mockComponents['layout-widget'] = widgetLoad
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+      components: ['layout-widget'],
+    }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(widgetLoad).toHaveBeenCalledOnce()
+    const layoutEl = outlet.firstElementChild as HTMLElement
+    expect(layoutEl?.tagName.toLowerCase()).toBe('aihu-layout-app')
+    expect(
+      layoutEl.shadowRoot
+        ?.querySelector('[data-aihu-outlet]')
+        ?.firstElementChild?.tagName.toLowerCase(),
+    ).toBe('home-page')
+  })
+
+  it('awaits the layout-component loader BEFORE the layout element mounts', async () => {
+    // Deferred loader: while it is pending the layout must NOT be mounted yet.
+    let resolveLoad!: () => void
+    const pending = new Promise<void>((r) => {
+      resolveLoad = r
+    })
+    const widgetLoad = vi.fn(() => pending)
+    mockComponents['layout-widget'] = widgetLoad
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+      components: ['layout-widget'],
+    }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+    // Layout module resolved, but its component loader is still in flight —
+    // the layout branch awaits Promise.all, so nothing is mounted yet.
+    expect(widgetLoad).toHaveBeenCalledOnce()
+    expect(outlet.firstElementChild).toBeNull()
+
+    resolveLoad()
+    await flushPromises()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+  })
+
+  it('renders the layout when its entry has no components field (pre-F2 shape)', async () => {
+    mockComponents['layout-widget'] = vi.fn().mockResolvedValue(undefined)
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+    }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(mockComponents['layout-widget']).not.toHaveBeenCalled()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
+  })
+
+  it('skips a layout components tag with no registry entry silently (no throw)', async () => {
+    mockLayouts.app = {
+      tag: 'aihu-layout-app',
+      load: vi.fn(async () => defineTestLayout('aihu-layout-app')),
+      components: ['ghost-tag'], // not in the registry — e.g. globally registered
+    }
+    const route: RouteStub = {
+      name: 'home-page',
+      layout: 'app',
+      module: vi.fn().mockResolvedValue(undefined),
+    }
+    mockMatch.mockReturnValue({ route, params: undefined })
+
+    createApp()
+    await flushPromises()
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe('aihu-layout-app')
   })
 })
 

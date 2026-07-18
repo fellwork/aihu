@@ -1158,6 +1158,17 @@ pub fn parse_meta_pairs_pub(body: &str) -> Result<Vec<(String, String)>, crate::
     parse_meta_pairs(body)
 }
 
+/// True when a `$context` provide `value:` expression is function-shaped —
+/// a `function` expression or an arrow (`() => …`, `x => …`). Function-shaped
+/// values are treated as factories and called at provide time; anything else
+/// (string/number literals, identifiers, object literals) is provided
+/// verbatim. Used by both `$context` lowerings (codegen/emit.rs and the
+/// legacy path below).
+pub fn is_fn_expr(s: &str) -> bool {
+    let v = s.trim();
+    v.starts_with("function") || v.contains("=>")
+}
+
 /// Split a metadata-bag body into `(key, raw-value)` pairs. The body is
 /// the inside of `{ ... }`. Top-level commas separate pairs; the first
 /// `:` at depth-0 in each pair separates the key from the value.
@@ -1778,16 +1789,28 @@ fn emit_collection_entry(
             for (ctx_key, ctx_val) in &entry.meta {
                 let v_trimmed = ctx_val.trim();
                 if entry.name == "provide" {
-                    // provide: ctx_key → { value: () => factory_expr }
+                    // provide: ctx_key → { value: () => factory_expr }.
+                    // Function-shaped values are factories: wrap-and-call.
+                    // Static values (`value: 'light'`, `value: themeSignal`)
+                    // are provided verbatim — calling them would TypeError.
                     let inner2 = strip_outer_braces(v_trimmed)?;
                     let meta2 = parse_meta_pairs(inner2).ok()?;
                     let val_factory = meta2.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim())?;
-                    lines.push(format!(
-                        "{indent}provide(contextKey('{key}'), ({factory})())",
-                        indent = indent,
-                        key = ctx_key,
-                        factory = val_factory,
-                    ));
+                    if is_fn_expr(val_factory) {
+                        lines.push(format!(
+                            "{indent}provide(contextKey('{key}'), ({factory})())",
+                            indent = indent,
+                            key = ctx_key,
+                            factory = val_factory,
+                        ));
+                    } else {
+                        lines.push(format!(
+                            "{indent}provide(contextKey('{key}'), {value})",
+                            indent = indent,
+                            key = ctx_key,
+                            value = val_factory,
+                        ));
+                    }
                 } else {
                     // consume: ctx_key → { type: 'T' }
                     lines.push(format!(

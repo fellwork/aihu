@@ -1,4 +1,6 @@
-// context-provider — $context provide: exposes a theme object to descendants
+// context-provider — $context provide: exposes a static theme token to descendants
+// Pairs with context-consumer.aihu, which injects `theme` and renders it.
+// The static `value: 'light'` is provided verbatim (not called as a factory).
 
 @state {
   $context: {
@@ -6,21 +8,12 @@
       theme: { value: 'light', type: 'string' },
     },
   }
-
-  $action: {
-    toggleTheme: () => {
-      theme = theme === 'light' ? 'dark' : 'light'
-    },
-  }
 }
 
 @template {
-  <div class="provider" $data-theme={theme}>
+  <div class="provider" data-theme="light">
     <div class="controls">
-      <span class="label">Theme: <strong>{theme}</strong></span>
-      <button $on.click={toggleTheme} class="toggle-btn">
-        Switch to {theme === 'light' ? 'dark' : 'light'}
-      </button>
+      <span class="label">Providing theme: <strong>light</strong></span>
     </div>
     <div class="slot-area">
       <$slot />
@@ -32,6 +25,5 @@
   .provider { padding: 1rem; border: 2px solid var(--border, #ccc); border-radius: 6px; }
   .controls { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
   .label { font-size: 0.9rem; color: var(--muted, #666); }
-  .toggle-btn { padding: 0.3rem 0.75rem; border: 1px solid var(--border, #ccc); border-radius: 4px; cursor: pointer; }
   .slot-area { padding-top: 0.5rem; border-top: 1px solid var(--border, #eee); }
 }

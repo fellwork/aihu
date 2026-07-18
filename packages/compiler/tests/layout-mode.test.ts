@@ -33,6 +33,16 @@ const createOutletBoundary = () => {
       if (cleanup) { cleanup(); cleanup = null; }
       while (el.firstChild) el.removeChild(el.firstChild);
       if (!m) return;
+      Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])]).then(async ([mod]) => {
+        const Component = mod.default;
+        const loaderData = mod.loader ? await mod.loader(m.params) : undefined;
+        const inst = (typeof Component === 'function') ? new Component() : null;
+        if (inst && inst.setAttribute) {
+          inst.setAttribute('route', JSON.stringify({ params: m.params, pathname: m.pathname, data: loaderData }));
+          el.appendChild(inst);
+          cleanup = () => { try { el.removeChild(inst); } catch {} };
+        }
+      });
     });
     return () => { if (cleanup) cleanup(); stop && stop(); };
   });
@@ -82,6 +92,10 @@ describe('_passivizeOutlet', () => {
     expect(out).not.toMatch(/useRoute\(/)
     expect(out).not.toMatch(/\beffect\s*\(/)
     expect(out).not.toMatch(/onMount\(/)
+    // …including the F1 module+components load — the imperative renderer owns
+    // both the page module and its route-scoped component registration.
+    expect(out).not.toMatch(/Promise\.all\(/)
+    expect(out).not.toMatch(/__aihuRegisterRouteComponents/)
     // The call site stays valid and the element still registers.
     expect(out).toContain('createOutletBoundary()')
     expect(out).toContain("defineElement('aihu-layout-app'")

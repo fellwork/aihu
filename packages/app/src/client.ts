@@ -84,12 +84,36 @@ export interface AppHandle {
  * is not an error). Returns the in-flight import promises.
  */
 function registerRouteComponents(route: RouteDefinition): Promise<unknown>[] {
-  const tags = route.components ?? []
-  return tags
+  return registerComponents(route.components)
+}
+
+/**
+ * F2: shared core of route-scoped registration — kick off the registry loader
+ * for each tag, skipping tags with no registry entry. Used for both a PAGE's
+ * `route.components` (O1c, above) and a LAYOUT entry's `components`
+ * (`virtual:aihu-layouts`, scanned from the layout SFC's template by the
+ * router's `genL`), so components referenced inside a layout — not the page —
+ * are also defined before mount instead of relying on prop-on-upgrade (#406)
+ * or an eager import.
+ */
+function registerComponents(tags: readonly string[] | undefined): Promise<unknown>[] {
+  return (tags ?? [])
     .map((t) => componentRegistry[t])
     .filter((load): load is () => Promise<unknown> => typeof load === 'function')
     .map((load) => load())
 }
+// F1: publish the registrar for compiler-emitted code. The nested `<$outlet>`
+// boundary (`createOutletBoundary` in packages/compiler/src/codegen/emit.rs) is
+// emitted JS with no build-graph import, so it cannot import
+// virtual:aihu-components itself — instead it calls this global optional-chained
+// (`globalThis.__aihuRegisterRouteComponents?.(m.route)`) to load a route's
+// referenced components alongside its page module. A standalone @aihu/router
+// app that never loads @aihu/app leaves the global undefined and the outlet
+// simply skips component registration. Published at module top level (like the
+// registry import itself) so it is live before any component code runs; typed
+// in virtual.d.ts, cast here because the hook's parameter is deliberately wider
+// (structural `{ components? }`) than RouteDefinition.
+;(globalThis as Record<string, unknown>).__aihuRegisterRouteComponents = registerRouteComponents
 
 /**
  * Bootstrap the aihu SPA.
@@ -226,8 +250,12 @@ export function createApp(config?: AppConfig): AppHandle {
       layoutOverride === undefined ? match.route.layout : (layoutOverride ?? undefined)
     const entry = layoutName ? layouts[layoutName] : undefined
     if (entry) {
-      // Register the layout's `aihu-layout-<name>` custom element (import side effect).
-      await entry.load()
+      // Register the layout's `aihu-layout-<name>` custom element (import side
+      // effect) AND — F2, mirroring the page path above — the layout's OWN
+      // referenced components (`entry.components`, scanned from the layout
+      // SFC's template by the router's `genL`), so children used inside the
+      // layout are defined before the layout element mounts.
+      await Promise.all([entry.load(), ...registerComponents(entry.components)])
       const layoutEl = document.createElement(entry.tag)
       // Connect the layout first so its template — including the passive outlet
       // marker — mounts synchronously, then place the page inside the marker.

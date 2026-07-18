@@ -1524,7 +1524,7 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         // `<$outlet>` — render the matched route component as a child custom element.
         // Replaces children via DOM methods (no innerHTML). The matched component
         // reads `route` JSON via the standard $prop pattern.
-        lines.push("const createOutletBoundary = () => {\n  const host = branch('div', { 'data-aihu-outlet': '' }, []);\n  onMount(() => {\n    const el = host && host.el;\n    if (!el) return () => {};\n    let cleanup = null;\n    const stop = effect(() => {\n      const m = __aihuRouter.useRoute();\n      if (cleanup) { cleanup(); cleanup = null; }\n      while (el.firstChild) el.removeChild(el.firstChild);\n      if (!m) return;\n      Promise.resolve(m.route.module()).then(async (mod) => {\n        const Component = mod.default;\n        const loaderData = mod.loader ? await mod.loader(m.params) : undefined;\n        const inst = (typeof Component === 'function') ? new Component() : null;\n        if (inst && inst.setAttribute) {\n          inst.setAttribute('route', JSON.stringify({ params: m.params, pathname: m.pathname, data: loaderData }));\n          el.appendChild(inst);\n          cleanup = () => { try { el.removeChild(inst); } catch {} };\n        }\n      });\n    });\n    return () => { if (cleanup) cleanup(); stop && stop(); };\n  });\n  return host;\n};");
+        lines.push("const createOutletBoundary = () => {\n  const host = branch('div', { 'data-aihu-outlet': '' }, []);\n  onMount(() => {\n    const el = host && host.el;\n    if (!el) return () => {};\n    let cleanup = null;\n    const stop = effect(() => {\n      const m = __aihuRouter.useRoute();\n      if (cleanup) { cleanup(); cleanup = null; }\n      while (el.firstChild) el.removeChild(el.firstChild);\n      if (!m) return;\n      Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])]).then(async ([mod]) => {\n        const Component = mod.default;\n        const loaderData = mod.loader ? await mod.loader(m.params) : undefined;\n        const inst = (typeof Component === 'function') ? new Component() : null;\n        if (inst && inst.setAttribute) {\n          inst.setAttribute('route', JSON.stringify({ params: m.params, pathname: m.pathname, data: loaderData }));\n          el.appendChild(inst);\n          cleanup = () => { try { el.removeChild(inst); } catch {} };\n        }\n      });\n    });\n    return () => { if (cleanup) cleanup(); stop && stop(); };\n  });\n  return host;\n};");
     }
     if h.navigate_element {
         // `<$navigate>` — programmatic redirect on mount.
@@ -2287,12 +2287,26 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                         Some(f) => f,
                                         None => continue,
                                     };
-                                    lines.push(format!(
-                                        "{indent}provide(contextKey('{key}'), ({factory})())",
-                                        indent = indent,
-                                        key = ctx_key,
-                                        factory = val_factory,
-                                    ));
+                                    // Function-shaped values are factories:
+                                    // wrap-and-call. Static values
+                                    // (`value: 'light'`, `value: themeSignal`)
+                                    // are provided verbatim — calling them
+                                    // would TypeError at runtime.
+                                    if crate::parser::state_macros::is_fn_expr(&val_factory) {
+                                        lines.push(format!(
+                                            "{indent}provide(contextKey('{key}'), ({factory})())",
+                                            indent = indent,
+                                            key = ctx_key,
+                                            factory = val_factory,
+                                        ));
+                                    } else {
+                                        lines.push(format!(
+                                            "{indent}provide(contextKey('{key}'), {value})",
+                                            indent = indent,
+                                            key = ctx_key,
+                                            value = val_factory,
+                                        ));
+                                    }
                                 } else {
                                     // consume: ctx_key -> { type: 'T' }. The
                                     // injected value is whatever was provided

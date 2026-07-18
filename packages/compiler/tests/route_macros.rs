@@ -96,6 +96,25 @@ fn router_element_emits_boundary_and_import() {
 }
 
 #[test]
+fn outlet_boundary_registers_route_components_via_global_hook() {
+    // F1: the nested-outlet render path must load the matched route's referenced
+    // components alongside its page module. The emitted helper cannot import
+    // virtual:aihu-components (it is compiler-emitted JS with no build-graph
+    // import), so it calls the hook @aihu/app publishes on globalThis —
+    // optional-chained, so a standalone @aihu/router app just skips it.
+    let source = r#"@template {
+  <$outlet></$outlet>
+}"#;
+    let js = compile(source, "x-layout");
+    assert!(
+        js.contains(
+            "Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])]).then(async ([mod]) => {"
+        ),
+        "<$outlet> boundary should await the route module AND the route's components via the global hook, got:\n{js}"
+    );
+}
+
+#[test]
 fn link_element_emits_boundary_with_attrs() {
     let source = r#"@template {
   <$link href="/users/42" prefetch="hover" replace>Profile</$link>
