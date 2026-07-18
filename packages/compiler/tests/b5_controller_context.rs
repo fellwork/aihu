@@ -5,7 +5,8 @@
 //!   Controller pattern. Factory called once; hostConnected/hostDisconnected
 //!   auto-wired into onMount/onCleanup.
 //! - `$context: { provide: { key: { value: () => expr } }, consume: { key: { type: 'T' } } }`
-//!   — tree-scoped DI via DOM custom-event pattern.
+//!   — tree-scoped DI lowered onto @aihu/context's prototype-chain
+//!   provide/inject (O2), string keys interned via `contextKey`.
 //! - No overhead when neither collection is declared.
 
 use aihu_compiler::{compile_full, emit, sfc};
@@ -132,7 +133,7 @@ fn b5_controller_multiple_entries() {
     );
 }
 
-// ─── AC #4 — $context provide: dispatches provide event on mount ─────────────
+// ─── AC #4 — $context provide: synchronous setup-body provide() call ─────────
 
 #[test]
 fn b5_context_provide() {
@@ -148,30 +149,39 @@ fn b5_context_provide() {
 }"#;
     let js = compile_fixture(src, "x-b5-ctx-provide");
 
-    // onMount dispatching the provide event.
+    // Synchronous setup-body provide onto the interned string-key token.
     assert!(
-        js.contains("onMount("),
-        "expected onMount call: {js}"
+        js.contains("provide(contextKey('theme'), (() => themeSignal)())"),
+        "expected provide(contextKey('theme'), ...) call: {js}"
+    );
+    // Exactly one @aihu/context import carrying the DI helpers.
+    assert!(
+        js.contains("import { provide, inject, contextKey } from '@aihu/context'"),
+        "expected combined @aihu/context import: {js}"
+    );
+    assert_eq!(
+        js.matches("from '@aihu/context'").count(),
+        1,
+        "expected exactly one @aihu/context import line: {js}"
+    );
+    // The old client-only event machinery must be gone, and the provide must
+    // NOT be deferred to onMount (it must run during setup so the runtime's
+    // context scope captures it) — a $context-only component imports no onMount.
+    assert!(
+        !js.contains("__aihu_ctx_provide"),
+        "must not emit __aihu_ctx_provide event: {js}"
     );
     assert!(
-        js.contains("__aihu_ctx_provide"),
-        "expected __aihu_ctx_provide event: {js}"
+        !js.contains("CustomEvent"),
+        "must not emit CustomEvent dispatch: {js}"
     );
     assert!(
-        js.contains("key: 'theme'") || js.contains("key: \"theme\""),
-        "expected key: 'theme' in dispatch: {js}"
-    );
-    assert!(
-        js.contains("themeSignal"),
-        "expected themeSignal value: {js}"
-    );
-    assert!(
-        js.contains("CustomEvent"),
-        "expected CustomEvent dispatch: {js}"
+        js.contains("import { defineComponent, defineElement } from '@aihu/runtime'"),
+        "expected runtime import without onMount: {js}"
     );
 }
 
-// ─── AC #5 — $context consume: wires listener + request dispatch ─────────────
+// ─── AC #5 — $context consume: synchronous setup-body inject() binding ───────
 
 #[test]
 fn b5_context_consume() {
@@ -187,33 +197,37 @@ fn b5_context_consume() {
 }"#;
     let js = compile_fixture(src, "x-b5-ctx-consume");
 
-    // `let locale` binding.
+    // `const locale = inject(contextKey('locale'))` binding — no `let`, no
+    // listener, no request event.
     assert!(
-        js.contains("let locale"),
-        "expected `let locale` binding: {js}"
-    );
-    // onMount registering the listener.
-    assert!(
-        js.contains("onMount("),
-        "expected onMount for consume listener: {js}"
-    );
-    // Listener checks key.
-    assert!(
-        js.contains("'locale'") || js.contains("\"locale\""),
-        "expected key 'locale' check in listener: {js}"
-    );
-    // Request dispatch.
-    assert!(
-        js.contains("__aihu_ctx_request"),
-        "expected __aihu_ctx_request dispatch: {js}"
+        js.contains("const locale = inject(contextKey('locale'))"),
+        "expected const locale = inject(contextKey('locale')): {js}"
     );
     assert!(
-        js.contains("bubbles: true"),
-        "expected bubbles: true on request: {js}"
+        !js.contains("let locale"),
+        "must not emit `let locale` event-fill binding: {js}"
     );
     assert!(
-        js.contains("composed: true"),
-        "expected composed: true on request: {js}"
+        !js.contains("__aihu_ctx_provide"),
+        "must not emit __aihu_ctx_provide listener: {js}"
+    );
+    assert!(
+        !js.contains("__aihu_ctx_request"),
+        "must not emit __aihu_ctx_request dispatch: {js}"
+    );
+    assert!(
+        !js.contains("addEventListener('__aihu_ctx_provide'"),
+        "must not register a context event listener: {js}"
+    );
+    // Exactly one @aihu/context import.
+    assert!(
+        js.contains("import { provide, inject, contextKey } from '@aihu/context'"),
+        "expected combined @aihu/context import: {js}"
+    );
+    assert_eq!(
+        js.matches("from '@aihu/context'").count(),
+        1,
+        "expected exactly one @aihu/context import line: {js}"
     );
 }
 
@@ -236,22 +250,70 @@ fn b5_context_provide_and_consume() {
 }"#;
     let js = compile_fixture(src, "x-b5-ctx-both");
 
-    // Both provide and consume patterns present.
+    // Both provide and consume lowerings present.
     assert!(
-        js.contains("__aihu_ctx_provide"),
-        "expected __aihu_ctx_provide event: {js}"
+        js.contains("provide(contextKey('theme'), (() => themeSignal)())"),
+        "expected theme provide call: {js}"
     );
     assert!(
-        js.contains("__aihu_ctx_request"),
-        "expected __aihu_ctx_request dispatch: {js}"
+        js.contains("const locale = inject(contextKey('locale'))"),
+        "expected locale inject binding: {js}"
+    );
+    // One import line serves both.
+    assert_eq!(
+        js.matches("from '@aihu/context'").count(),
+        1,
+        "expected exactly one @aihu/context import line: {js}"
+    );
+    // The event contract is fully removed.
+    assert!(
+        !js.contains("__aihu_ctx_provide"),
+        "must not emit __aihu_ctx_provide: {js}"
     );
     assert!(
-        js.contains("let locale"),
-        "expected let locale consume binding: {js}"
+        !js.contains("__aihu_ctx_request"),
+        "must not emit __aihu_ctx_request: {js}"
+    );
+}
+
+// ─── AC #6b — $context + magna $resource: single deduped @aihu/context import ─
+
+#[test]
+fn b5_context_with_magna_resource_single_context_import() {
+    let src = r#"@state {
+  $context: {
+    consume: {
+      locale: { type: 'Locale' },
+    },
+  }
+  $resource: {
+    feed: () => data.posts.query({ first: 10 })
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let js = compile_fixture(src, "x-b5-ctx-magna");
+
+    // Magna lowering still injects its fetch token...
+    assert!(
+        js.contains("inject(MagnaFetchToken)"),
+        "expected inject(MagnaFetchToken): {js}"
+    );
+    // ...and the $context consume coexists...
+    assert!(
+        js.contains("const locale = inject(contextKey('locale'))"),
+        "expected locale inject binding: {js}"
+    );
+    // ...via a SINGLE combined @aihu/context import (no duplicate `inject`).
+    assert_eq!(
+        js.matches("from '@aihu/context'").count(),
+        1,
+        "expected exactly one @aihu/context import line: {js}"
     );
     assert!(
-        js.contains("key: 'theme'") || js.contains("key: \"theme\""),
-        "expected theme provide key: {js}"
+        js.contains("import { provide, inject, contextKey } from '@aihu/context'"),
+        "expected combined @aihu/context import: {js}"
     );
 }
 
@@ -294,17 +356,17 @@ fn b5_no_context_no_overhead() {
 }"#;
     let js = compile_fixture(src, "x-b5-no-ctx");
 
-    // No context event dispatch or listener.
+    // No context DI calls or import.
+    assert!(
+        !js.contains("contextKey("),
+        "SFC without $context must not emit contextKey calls: {js}"
+    );
+    assert!(
+        !js.contains("from '@aihu/context'"),
+        "SFC without $context must not import @aihu/context: {js}"
+    );
     assert!(
         !js.contains("__aihu_ctx_provide"),
         "SFC without $context must not emit __aihu_ctx_provide: {js}"
-    );
-    assert!(
-        !js.contains("__aihu_ctx_request"),
-        "SFC without $context must not emit __aihu_ctx_request: {js}"
-    );
-    assert!(
-        !js.contains("__aihu_ctx_consume"),
-        "SFC without $context must not emit __aihu_ctx_consume: {js}"
     );
 }

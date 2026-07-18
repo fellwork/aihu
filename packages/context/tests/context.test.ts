@@ -1,7 +1,10 @@
 // @vitest-environment node
 
 import {
+  _enterContext,
+  _exitContext,
   clearSsrContextMap,
+  contextKey,
   createContext,
   inject,
   provide,
@@ -187,4 +190,45 @@ it('two createContext calls produce tokens with distinct _id symbols', () => {
   const t2 = createContext<string>()
   // biome-ignore lint/suspicious/noExplicitAny: testing internal _id field
   expect((t1 as any)._id).not.toBe((t2 as any)._id)
+})
+
+// ---------------------------------------------------------------------------
+// 13. contextKey: string-key token interning for compiler-lowered $context
+// ---------------------------------------------------------------------------
+describe('contextKey', () => {
+  it('returns the SAME token for the same string key (interned identity)', () => {
+    const t1 = contextKey('theme')
+    const t2 = contextKey('theme')
+    expect(t1).toBe(t2)
+    expect(t1._id).toBe(t2._id)
+  })
+
+  it('returns distinct tokens for different keys', () => {
+    expect(contextKey('theme-a')).not.toBe(contextKey('theme-b'))
+    expect(contextKey('theme-a')._id).not.toBe(contextKey('theme-b')._id)
+  })
+
+  it('provide(contextKey(k), v) then inject(contextKey(k)) round-trips through the client provides path', () => {
+    // Mirror the runtime's setup scope: enter a client context scope (as
+    // _enterOwnerContext does at component connect), provide, and inject via a
+    // SECOND contextKey() call — the interning is what makes the two calls
+    // resolve to the same slot, exactly how two separately compiled SFCs meet.
+    let own: Record<symbol, unknown> | null = null
+    const prev = _enterContext(null, (o) => {
+      own = o
+    })
+    try {
+      const value = { current: 'dark' }
+      provide(contextKey('x'), value)
+      // The first provide allocated this owner's own provides object.
+      expect(own).not.toBeNull()
+      expect(inject(contextKey('x'))).toBe(value)
+    } finally {
+      _exitContext(prev)
+    }
+    // Outside the scope (and with no SSR map active), the un-defaulted
+    // string-key token falls back to undefined.
+    clearSsrContextMap()
+    expect(inject(contextKey('x'))).toBeUndefined()
+  })
 })

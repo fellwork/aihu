@@ -70,6 +70,22 @@ try {
 }
 ```
 
+### 6. Use `contextKey()` for string-keyed context (the compiler's `$context` lowering)
+
+```ts
+import { contextKey, provide, inject } from '@aihu/context'
+
+// contextKey interns ONE stable token per string key, module-global —
+// two components (compiled separately) that use the same key share a slot.
+provide(contextKey('theme'), themeSignal)
+const theme = inject(contextKey('theme'))
+```
+
+This is what the `$context: { provide: … , consume: … }` macro lowers to.
+Prefer `createContext<T>()` tokens in hand-written code — they are typed and
+collision-free; `contextKey` exists so string-keyed macro declarations resolve
+to the same token app-wide.
+
 ## Anti-patterns
 
 ### 1. Do not share a single `Map` across concurrent SSR requests
