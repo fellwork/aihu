@@ -1,5 +1,63 @@
 # @aihu/runtime
 
+## 2.0.0
+
+### Minor Changes
+
+- [#411](https://github.com/fellwork/aihu/pull/411) [`8c80d98`](https://github.com/fellwork/aihu/commit/8c80d9844503c248ecf5fb2c0b3ec5ab06128d5e) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Hierarchical provide/inject on the client.
+
+  `inject()` now resolves through the component tree: an ancestor's `provide()` is
+  visible to its descendants, scoped to the subtree (siblings don't see it, a
+  nearer provider overrides a farther one), and it crosses shadow boundaries. The
+  value is whatever you provided — provide a signal and descendants read it
+  reactively, for free.
+
+  The mechanism is the Solid/Vue-grade one: each component instance holds a
+  `provides` object whose prototype chain IS the ancestor context tree. A component
+  that provides nothing shares its parent's object by reference (zero allocation);
+  the first `provide()` does one `Object.create`. `inject()` is a single
+  prototype-chain lookup — no per-lookup tree walk. The parent is resolved once at
+  connect via a single shadow-host hop, which is correct under lazy/async component
+  registration too (it runs after upgrade).
+
+  Backward-compatible: the flat SSR context path (`setSsrContextMap` /
+  `runWithContext`) is unchanged, and the client hierarchical path only engages
+  during a component's setup. `createContext` / `provide` / `inject` keep their
+  signatures.
+
+### Patch Changes
+
+- [#412](https://github.com/fellwork/aihu/pull/412) [`e8b082f`](https://github.com/fellwork/aihu/commit/e8b082f708e67de5ca54cf2d1e774a38b650c61c) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Bless composables as a supported, tested contract.
+
+  A plain function called from an `@state` block runs inside the component's setup,
+  so it can use the full reactive surface — signals, lifecycle hooks bound to the
+  calling component, and hierarchical `inject`/`provide`. This is aihu's Vue-style
+  composable pattern; the mechanism already existed, and a contract test now locks
+  it (signals + `onMount`/`onCleanup` + inject-with-default all work inside a
+  composable). A new "Composition & Injection" guide documents the `use*`
+  convention and the layered-injection pattern.
+
+- [#406](https://github.com/fellwork/aihu/pull/406) [`84d6544`](https://github.com/fellwork/aihu/commit/84d654444bbfe2877896bca5ae74cbe5ce3ea364) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Prop set before a custom element upgrades is no longer lost.
+
+  A `.aihu` component compiles to a custom element, and its prop accessors live on
+  the class prototype. If a prop is assigned to an element BEFORE its tag is
+  `define()`d — the lazy/async-import case, where a page renders a tag and binds it
+  before the component's chunk lands — there is no accessor yet, so the write lands
+  as an OWN property. When the element later upgrades, that own property SHADOWS the
+  prototype accessor forever: the setter never runs, the signal never sees the
+  value, and the prop silently reverts to its default.
+
+  The element constructor now performs the standard upgrade rescue — for each
+  declared prop, capture any shadowing own property, delete it, and re-assign
+  through the accessor, which buffers it for the pre-connect seed. This makes
+  route-scoped / lazily-imported components safe to render before their definition
+  loads.
+
+- Updated dependencies [[`b279f74`](https://github.com/fellwork/aihu/commit/b279f74b34cd4e901be1cfa5d70c212cf604dfc1), [`8c80d98`](https://github.com/fellwork/aihu/commit/8c80d9844503c248ecf5fb2c0b3ec5ab06128d5e), [`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu/context@0.2.0
+  - @aihu/signals@0.3.0
+  - @aihu/arbor@2.0.0
+
 ## 1.1.0
 
 ### Minor Changes

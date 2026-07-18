@@ -1,5 +1,51 @@
 # @aihu-plugin/data
 
+## 2.0.2
+
+### Patch Changes
+
+- [#413](https://github.com/fellwork/aihu/pull/413) [`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reactivity correctness pass on @aihu/signals + hot-path refinement of @aihu/arbor.
+
+  Signals — four correctness fixes, each with regression tests:
+
+  - **Diamond graphs with equality suppression no longer miss updates.** The
+    equality short-circuit (`shallowClear`) was last-settled-dep-wins: an
+    unchanged computed dep could erase the mark contributed by a sibling dep
+    that DID change (a written signal or a changed computed), silently skipping
+    the effect run or leaving a sibling computed serving a stale cache. A new
+    internal `CONFIRMED` flag records "an actual value change reached this sub";
+    confirmed marks are immune to equality suppression.
+  - **Dynamic dependency pruning.** Effects and computeds now drop dep edges
+    they did not re-read on their latest run (`cond() ? a() : b()` unsubscribes
+    from `a` after switching to `b`). Previously stale deps notified forever —
+    extra effect runs and recomputes on every write to an abandoned branch.
+  - **An effect whose first run throws is disposed before the throw
+    propagates.** Previously the partially-linked effect stayed subscribed with
+    no dispose handle, re-throwing from every later signal write.
+  - **A computed whose recompute throws stays STALE.** The next read retries
+    `fn()` instead of silently serving the previous cached value.
+
+  Removed (nothing in the repo consumed them): the `$state`/`State` value-shape
+  wrapper (use `signal()`; `@aihu/runtime`'s `$state` SFC macro is unrelated and
+  unaffected) and arbor's never-thrown `ArborError` export.
+
+  Perf: `drainBatch` no longer allocates a retired array per flush wave
+  (index-chunked drain), drain loops are iterator-free, and arbor resolves the
+  property-vs-attribute split once at bind time instead of re-running
+  `namespaceURI` + `key in el` checks on every reactive attr update.
+
+  **Lattice removed from the core.** `latticeSignal` / `boolLatticeSignal` /
+  `maxLatticeSignal` (and the `LatticeSignal` type) are gone from `@aihu/signals`.
+  Its only consumer was `@aihu-plugin/data`'s `createResource`, where both uses were
+  plain signals in disguise — the bool coalescer is recreated per fetch (so its
+  monotone merge was never exercised) and the max signal is a +1 counter. Both are
+  migrated to plain `signal()`; equal-write suppression gives the same
+  invalidate() coalescing for free. Frees the core of an unused abstraction.
+
+- Updated dependencies [[`b279f74`](https://github.com/fellwork/aihu/commit/b279f74b34cd4e901be1cfa5d70c212cf604dfc1), [`8c80d98`](https://github.com/fellwork/aihu/commit/8c80d9844503c248ecf5fb2c0b3ec5ab06128d5e), [`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu/context@0.2.0
+  - @aihu/signals@0.3.0
+
 ## 2.0.1
 
 ### Patch Changes

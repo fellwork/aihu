@@ -23,7 +23,7 @@ npm install @aihu/tsc
 bun add @aihu/tsc
 ```
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,12 +34,12 @@ bun add @aihu/tsc
 
 | | |
 |---|---|
-| **Version** | `0.2.2` |
+| **Version** | `0.2.3` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -52,7 +52,7 @@ bun add @aihu/tsc
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -71,7 +71,7 @@ bun add @aihu/tsc
 
 - `typescript` — `>=5.0.0`
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -83,7 +83,7 @@ bun add @aihu/tsc
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -94,6 +94,6 @@ bun add @aihu/tsc
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/tsc@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/tsc@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

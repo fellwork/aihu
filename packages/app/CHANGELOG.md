@@ -1,5 +1,23 @@
 # @aihu/app
 
+## 4.0.0
+
+### Minor Changes
+
+- [#418](https://github.com/fellwork/aihu/pull/418) [`212e3e3`](https://github.com/fellwork/aihu/commit/212e3e38ae57de7e38c3211ef0223729ba1511e1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Layout-scoped component registration (F2): a layout's own referenced components now get route-scope registered, the same way a page's do. The router's `virtual:aihu-layouts` entries carry a `components` array — the normalized tags the layout SFC's `@template` references, scanned at build time (`readAihuLayoutComponents`, mirroring the compiler's `is_component_tag`/`collect_component_tags` rule). When `@aihu/app` renders a route under a layout, it registers those components (from `virtual:aihu-components`) alongside loading the layout module, so a component used inside a layout — not the page — is defined before the layout element mounts instead of relying on prop-on-upgrade or an eager import. Entries without a `components` field (pre-F2 generated modules) keep working unchanged.
+
+- [#416](https://github.com/fellwork/aihu/pull/416) [`bf66339`](https://github.com/fellwork/aihu/commit/bf66339bfeb7aaf855eb23e804f099c0e7d92726) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Route-scoped component registration (O1c): on navigation the client imports every component the matched route references — from the compile-time `virtual:aihu-components` registry — and registers their custom elements before the page element mounts. Apps no longer need a hand-written entry that eagerly imports every component; just reference the tag in a template. Tags with no registry entry (e.g. globally-registered elements) are skipped silently. Applies to the not-found route too.
+
+### Patch Changes
+
+- [#418](https://github.com/fellwork/aihu/pull/418) [`212e3e3`](https://github.com/fellwork/aihu/commit/212e3e38ae57de7e38c3211ef0223729ba1511e1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Nested `<$outlet>` component registration (F1): the compiler-emitted `createOutletBoundary` now loads the matched route's referenced components alongside its page module — `Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])])` — so pages rendered through a layout's nested outlet get the same route-scoped registration as the top-level render path (O1c). `@aihu/app` publishes the registrar as `globalThis.__aihuRegisterRouteComponents` at module load; a standalone `@aihu/router` app without `@aihu/app` leaves it undefined and the outlet simply skips registration, unchanged from before.
+
+- Updated dependencies [[`e8b082f`](https://github.com/fellwork/aihu/commit/e8b082f708e67de5ca54cf2d1e774a38b650c61c), [`8c80d98`](https://github.com/fellwork/aihu/commit/8c80d9844503c248ecf5fb2c0b3ec5ab06128d5e), [`212e3e3`](https://github.com/fellwork/aihu/commit/212e3e38ae57de7e38c3211ef0223729ba1511e1), [`84d6544`](https://github.com/fellwork/aihu/commit/84d654444bbfe2877896bca5ae74cbe5ce3ea364), [`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu/runtime@2.0.0
+  - @aihu/router@0.3.0
+  - @aihu/signals@0.3.0
+  - @aihu/arbor@2.0.0
+
 ## 3.0.2
 
 ### Patch Changes

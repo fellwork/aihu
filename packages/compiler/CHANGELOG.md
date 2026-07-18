@@ -1,5 +1,89 @@
 # @aihu/compiler
 
+## 0.11.0
+
+### Minor Changes
+
+- [#414](https://github.com/fellwork/aihu/pull/414) [`df40c34`](https://github.com/fellwork/aihu/commit/df40c34526e985ce656a6a5650ac1d83ebef3a80) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Component tag naming: PascalCase→kebab normalization + C450 validation.
+
+  Custom-element names require a hyphen, so the compiler now normalizes every
+  component tag to its valid custom-element form — consistently across reference
+  emission (`branch('user-card', …)`), the route manifest's `components` array,
+  and the `customElements.define` name:
+
+  - Multi-word PascalCase kebab-cases automatically: `<UserCard>` → `user-card`,
+    `<APIClient>` → `api-client`, `<HTMLParser>` → `html-parser`.
+  - Already-hyphenated tags pass through lowercased: `<Aihu-Button>` → `aihu-button`.
+  - **Single-word component names are a new hard compile error (C450)** — a
+    single word (`<Comment>`, or a file stem like `Comment.aihu` with no
+    hyphenated `@meta name`) can never become a valid custom-element name. Fix by
+    using a hyphenated tag (e.g. `<x-comment>`) or an explicit hyphenated
+    `@meta name`.
+  - Plain lowercase HTML/SVG tags (`div`, `linearGradient`) are untouched, and a
+    plain lowercase hyphen-less define-name (e.g. `timer.aihu`) keeps its
+    existing warning.
+
+  The JS driver mirrors the same normalization for file stems, so the define-name
+  agrees between the Rust CLI and the Vite plugin.
+
+- [#417](https://github.com/fellwork/aihu/pull/417) [`b279f74`](https://github.com/fellwork/aihu/commit/b279f74b34cd4e901be1cfa5d70c212cf604dfc1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `$context` now lowers onto `@aihu/context`'s prototype-chain provide/inject DI
+  instead of the old DOM-CustomEvent mechanism.
+
+  - `@aihu/context` gains `contextKey(key)`: an interning helper that returns one
+    stable `ContextToken` per string key, module-global, so the string-keyed
+    `$context` macro and separately compiled components all resolve the same
+    token.
+  - The compiler emits synchronous setup-body calls —
+    `provide(contextKey('theme'), (factory)())` for `provide` entries and
+    `const locale = inject(contextKey('locale'))` for `consume` entries — plus a
+    single combined `import { provide, inject, contextKey } from '@aihu/context'`
+    (deduped with the magna `inject` import). The `__aihu_ctx_provide` /
+    `__aihu_ctx_request` event contract is removed, and `$context` no longer
+    forces an `onMount` import.
+  - Because the new lowering rides the hierarchical DI added in [#411](https://github.com/fellwork/aihu/issues/411) (with its
+    SSR flat-map fallback), `$context` now works under SSR and is no longer
+    timing-fragile on the client — unlike the old client-only event path, which
+    required the consumer to be listening before the provider fired.
+
+- [#409](https://github.com/fellwork/aihu/pull/409) [`38652d5`](https://github.com/fellwork/aihu/commit/38652d544fd1001e42d505627de88976d69c1710) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Route manifest: the compiler now lists each page's component dependencies.
+
+  `.route.json` gains a `components` member — the custom-element tags a page's
+  template references (hyphenated names and PascalCase component references, from
+  nested elements and inside `{#if}`/`{#each}`; plain HTML tags and `<$macro>`
+  intrinsics are excluded). This is the per-route component graph the router needs
+  to import and register exactly a page's components on demand, instead of the app
+  eagerly importing every component at boot.
+
+  Additive and backward-compatible: a page that references no components omits the
+  `components` member entirely, so existing consumers and no-component pages are
+  byte-identical. Emitted runtime JS is unchanged.
+
+### Patch Changes
+
+- [#418](https://github.com/fellwork/aihu/pull/418) [`212e3e3`](https://github.com/fellwork/aihu/commit/212e3e38ae57de7e38c3211ef0223729ba1511e1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `$context` provide: static `value:` expressions are provided verbatim, not
+  called. Stacked on the O2 prototype-chain lowering ([#417](https://github.com/fellwork/aihu/issues/417)), which wrapped every
+  provide `value:` in `({expr})()` — correct for arrow factories
+  (`value: () => themeSignal`), but a runtime TypeError for static values
+  (`value: 'light'` lowered to `('light')()`).
+
+  The lowering now only wraps-and-calls function-shaped values (`function …` or
+  an arrow containing `=>`); everything else — string/number literals,
+  identifiers, object literals — is passed through as-is:
+
+  - `value: () => themeSignal` → `provide(contextKey('theme'), (() => themeSignal)())` (unchanged)
+  - `value: 'light'` → `provide(contextKey('theme'), 'light')`
+  - `value: themeSignal` → `provide(contextKey('theme'), themeSignal)`
+
+  Edge to note: an identifier that happens to name a factory function is NOT
+  called — "value is the value". Write `value: () => makeThing()` when you want
+  a call at provide time.
+
+  Both lowering paths (codegen/emit.rs and the legacy parser/state_macros.rs
+  path) are fixed identically. The cookbook context-provider/context-consumer
+  pair is reworked to be a correct static-value example.
+
+- [#418](https://github.com/fellwork/aihu/pull/418) [`212e3e3`](https://github.com/fellwork/aihu/commit/212e3e38ae57de7e38c3211ef0223729ba1511e1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Nested `<$outlet>` component registration (F1): the compiler-emitted `createOutletBoundary` now loads the matched route's referenced components alongside its page module — `Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])])` — so pages rendered through a layout's nested outlet get the same route-scoped registration as the top-level render path (O1c). `@aihu/app` publishes the registrar as `globalThis.__aihuRegisterRouteComponents` at module load; a standalone `@aihu/router` app without `@aihu/app` leaves it undefined and the outlet simply skips registration, unchanged from before.
+
 ## 0.10.2
 
 ### Patch Changes

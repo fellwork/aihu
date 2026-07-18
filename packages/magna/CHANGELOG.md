@@ -1,5 +1,14 @@
 # @aihu/magna
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [[`b279f74`](https://github.com/fellwork/aihu/commit/b279f74b34cd4e901be1cfa5d70c212cf604dfc1), [`8c80d98`](https://github.com/fellwork/aihu/commit/8c80d9844503c248ecf5fb2c0b3ec5ab06128d5e), [`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu/context@0.2.0
+  - @aihu/signals@0.3.0
+  - @aihu-plugin/data@2.0.2
+
 ## 0.2.1
 
 ### Patch Changes

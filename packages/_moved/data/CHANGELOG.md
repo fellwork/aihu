@@ -1,5 +1,12 @@
 # @aihu/data
 
+## 2.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`514336d`](https://github.com/fellwork/aihu/commit/514336da5892c29e9e02d7a6391bb06c62d688c3)]:
+  - @aihu-plugin/data@2.0.2
+
 ## 2.0.1
 
 ### Patch Changes

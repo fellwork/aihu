@@ -1,7 +1,7 @@
 {
   "name": "@aihu/example-agent-durable-room",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "build": "vite build",
