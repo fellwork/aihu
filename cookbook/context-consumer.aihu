@@ -1,9 +1,10 @@
 // context-consumer — $context consume: reads theme from ancestor provider
+// Pairs with context-provider.aihu; `theme` is the injected provided value.
 
 @state {
   $context: {
     consume: {
-      theme: { type: 'string', default: 'light' },
+      theme: { type: 'string' },
     },
   }
 }

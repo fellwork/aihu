@@ -2287,12 +2287,26 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                         Some(f) => f,
                                         None => continue,
                                     };
-                                    lines.push(format!(
-                                        "{indent}provide(contextKey('{key}'), ({factory})())",
-                                        indent = indent,
-                                        key = ctx_key,
-                                        factory = val_factory,
-                                    ));
+                                    // Function-shaped values are factories:
+                                    // wrap-and-call. Static values
+                                    // (`value: 'light'`, `value: themeSignal`)
+                                    // are provided verbatim — calling them
+                                    // would TypeError at runtime.
+                                    if crate::parser::state_macros::is_fn_expr(&val_factory) {
+                                        lines.push(format!(
+                                            "{indent}provide(contextKey('{key}'), ({factory})())",
+                                            indent = indent,
+                                            key = ctx_key,
+                                            factory = val_factory,
+                                        ));
+                                    } else {
+                                        lines.push(format!(
+                                            "{indent}provide(contextKey('{key}'), {value})",
+                                            indent = indent,
+                                            key = ctx_key,
+                                            value = val_factory,
+                                        ));
+                                    }
                                 } else {
                                     // consume: ctx_key -> { type: 'T' }. The
                                     // injected value is whatever was provided

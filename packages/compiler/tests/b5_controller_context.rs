@@ -181,6 +181,66 @@ fn b5_context_provide() {
     );
 }
 
+// ─── F3 — $context provide: static values are provided verbatim, not called ──
+
+#[test]
+fn b5_context_provide_static_value_verbatim() {
+    // A non-function `value:` (string literal here) must be provided as-is.
+    // The old lowering wrapped every value in `({expr})()`, turning
+    // `value: 'light'` into `('light')()` — a runtime TypeError.
+    let src = r#"@state {
+  $context: {
+    provide: {
+      theme: { value: 'light', type: 'string' },
+    },
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let js = compile_fixture(src, "x-b5-ctx-provide-static");
+
+    assert!(
+        js.contains("provide(contextKey('theme'), 'light')"),
+        "expected verbatim static provide: {js}"
+    );
+    assert!(
+        !js.contains("('light')()"),
+        "static value must not be wrapped-and-called: {js}"
+    );
+}
+
+#[test]
+fn b5_context_provide_identifier_verbatim_and_factory_called() {
+    // Identifiers are values too ("value is the value") — provided verbatim.
+    // Arrow factories keep the wrap-and-call behavior, byte-identical to O2.
+    let src = r#"@state {
+  $context: {
+    provide: {
+      theme: { value: themeSignal },
+      locale: { value: () => localeSignal },
+    },
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let js = compile_fixture(src, "x-b5-ctx-provide-ident");
+
+    assert!(
+        js.contains("provide(contextKey('theme'), themeSignal)"),
+        "expected verbatim identifier provide: {js}"
+    );
+    assert!(
+        !js.contains("(themeSignal)()"),
+        "identifier value must not be wrapped-and-called: {js}"
+    );
+    assert!(
+        js.contains("provide(contextKey('locale'), (() => localeSignal)())"),
+        "expected arrow factory still wrapped-and-called: {js}"
+    );
+}
+
 // ─── AC #5 — $context consume: synchronous setup-body inject() binding ───────
 
 #[test]
