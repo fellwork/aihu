@@ -171,6 +171,34 @@
 - **What:** `docs/site/agent-discovery.md` + `authoring-agents.md` total 937 lines with **zero** "not yet implemented"/"planned"/"deferred" markers. Specific contradictions: "Every aihu application automatically exposes standard discovery endpoints… with no manual configuration" (it is opt-in via `config.agentReadiness`, routes hand-wired); "The `skills` array is auto-populated from the `@agent` blocks in your SFCs… aggregated at build time" (hand-mirrored in `vite.config.ts`); and a `.mcp.json` sidecar that does not exist (the real file is `agent-manifest.json`, a different non-MCP shape).
 - **Also:** `MarkdownResolver` is an injected interface with no concrete implementation shipping anywhere, and content negotiation is `Accept: text/markdown`-only — it does not sniff user-agents, so a crawler that omits the header gets HTML.
 
+### SSR hydration does not work end-to-end — two independent mismatches
+- **Path keys never match.** Server emits `data-aihu-path="0"`, `"0.0"` (`packages/server/src/ssr.ts:440`); client hydrate hardcodes `const pathBase = 'hydrate.0'` (`packages/arbor/src/hydrate.ts:276`). Every lookup misses, `existingEl` is undefined, and hydration silently degrades to the `_materialize()` fallback — appending new nodes alongside the server's rather than adopting them.
+- **Why it's green:** `packages/arbor/tests/hydrate.test.ts` hand-writes `hydrate.0` markup instead of feeding it real `renderToString` output. There is no test anywhere piping `renderToString(…, {hydratable:true})` into `hydrate()`. The Rust renderer shares the convention (`packages/server/src-native/src/render.rs:408`), so a fix lands in three places.
+- **Shadow DOM is invisible to SSR.** No declarative shadow DOM (`<template shadowrootmode>`) is emitted — grep `packages/server/src` for `shadow` returns nothing. Server output is flat light DOM while the client hydrates into `this.shadowRoot ?? this`. With `mode: 'open'` the default, those are different trees. A second mismatch stacked on the first.
+- **Also:** the production SSR path (`packages/router/src/server.ts`) calls `renderToString(component)` with no options at all, so it emits non-hydratable HTML regardless.
+- **Also:** `_rootIdCounter` is a mutable module global, so path keys are stable only within one page's mount ordering — not across a server and client render.
+- **Depends on:** nothing. Blocks any real SSR story, and blocks shards entirely.
+
+### C205 is a stale hard error rejecting valid code
+- **What:** `lib.rs:109-136` fires C205 when a plain `@state` const reads a `$prop`, on the premise that the prop shadow is emitted AFTER the plain body. Issue #279 hoisted prop bindings ABOVE the plain body (`emit.rs:2987-2995`, whose comment says so explicitly), which fixed the TDZ this guards against. Confirmed empirically: `const label = ctx.props.label` now emits before the plain body.
+- **Net:** code that would compile correctly today is rejected at build time. `cross_block_decls.rs:70-85` locks the obsolete rejection in, and four docs pages repeat the stale claim.
+- **Fix:** delete the check + its test, update docs. Small.
+
+### Shard prerequisites (only if pursuing topcoat-style server fragments)
+- Ordered; each blocks the next. Recorded from the feasibility pass so the shape isn't re-derived.
+- 1. The two SSR mismatches above — prerequisite for everything.
+- 2. **Signal pre-seeding.** `hydrate()` accepts a `snapshot` and explicitly discards it (`void snapshot`, hydrate.ts:244) because `signalRegistry` stores getters only, not setters. A server fragment can re-wire effects but cannot deliver VALUES — which is the entire point of a shard.
+- 3. **SSR for structural nodes.** `renderNodeAsync` handles `leaf` and `branch`, then falls through to `enqueue('')` — `when()`/`each()` render to the empty string. No shard may contain a list or conditional.
+- 4. **A `hydrateFragment(node, host, pathPrefix, parentScope)` entry point.** Today `pathBase` is hardcoded and there is no way to hydrate against an EXISTING scope, so a fragment can't splice into its parent's disposal chain.
+- 5. **The endpoint layer.** No server-function / RPC / action concept exists anywhere in `router` or `server` (grepped: zero hits). Registry, stable IDs, protocol, and client-signal serialization all need building.
+- **Reusable as-is:** fragment-mode `renderToString` (omit `head`), the hydration walker's wire-don't-recreate algorithm, `ChildScope` + `_teardownChildScope` + `_mc` as the region swap primitive, `effect()` for invalidation, `defineApiRoute` as endpoint substrate.
+- **Recommendation:** restrict v1 shards to `shadowMode: 'none'` — those route CSS through `virtual:aihu-utility/<hash>.css` and sidestep the constructable-stylesheet problem entirely, since a server fragment cannot carry `adoptedStyleSheets`.
+
+### MCP tools still ship without parameter schemas
+- **What:** `buildToolDefinitions` emits `inputSchema: { properties: { args: { type: 'array' } } }` for every action — no arity, no parameter names, no types. `ActionSchema` carries `returns` and (now) `describe`, but no parameter information, so there is nothing to emit even in principle.
+- **Why it matters:** descriptions now reach agents, which fixes tool SELECTION. This is what's left for tool USE — an LLM still has to guess argument shape.
+- **Fix:** extract handler signatures (arity + types off the `handler:` arrow) in the compiler and thread them into `ActionSchema`. Interacts with the `$prop`-mutation decision above, since both touch action-body/handler parsing.
+
 ### Bare boolean attributes are stripped in templates (bug)
 - **What:** A bare HTML boolean attribute in `@template` (e.g. `<button disabled>`)
   is dropped from the emitted element — authors must write `$disabled={true}` to
