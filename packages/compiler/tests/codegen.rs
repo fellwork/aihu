@@ -833,6 +833,108 @@ const [rows, setRows] = signal([])
     );
 }
 
+// ─── Agent gating: `expose:` is the opt-in, `@agent` is policy ────────────
+
+/// A component with exposed members and NO `@agent` block must still emit the
+/// agent surface. Gating on the block contradicted the documented contract
+/// ("No `@agent` block needed") and meant the `aihu create` scaffold and
+/// `cookbook/agent-weather.aihu` — both of which write `expose:` and no block
+/// — compiled to zero agent artifacts.
+#[test]
+fn exposed_members_without_agent_block_still_emit_agent_surface() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+
+$prop: {
+  city: { default: 'London', describe: 'City to look up', expose: { read: true } },
+}
+
+$action: {
+  refresh: { describe: 'Reload the forecast', expose: { read: true }, handler: () => {} },
+}
+
+const [n, setN] = signal(0)
+}
+@template {
+  <div>{city}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    assert!(
+        parsed.agent.is_none(),
+        "fixture must have no @agent block, or it proves nothing"
+    );
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "no-block-agent");
+
+    assert!(
+        result.js.contains("registerAgentMetadata({"),
+        "no metadata emitted without an @agent block:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("Reload the forecast"),
+        "describe missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export const __agentBinding"),
+        "no binding emitted:\n{}",
+        result.js
+    );
+    assert!(
+        !result.manifest_json.is_empty(),
+        "no manifest emitted without an @agent block"
+    );
+    // No @agent block means no policy — absent, not defaulted to something.
+    assert!(
+        result.js.contains("scope: undefined"),
+        "expected absent scope:\n{}",
+        result.js
+    );
+}
+
+/// The converse: a component that exposes NOTHING must stay inert, block or
+/// no block. `expose:` is the opt-in, and it is per-member.
+#[test]
+fn component_with_no_exposed_members_emits_no_agent_surface() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+
+$action: {
+  internalOnly: { describe: 'Not for agents', handler: () => {} },
+}
+
+const [n, setN] = signal(0)
+}
+@template {
+  <div>{n}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "inert-component");
+
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "unexposed component emitted agent metadata:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("__agentBinding"),
+        "unexposed component emitted a binding:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("Not for agents"),
+        "unexposed describe leaked:\n{}",
+        result.js
+    );
+    assert!(
+        result.manifest_json.is_empty(),
+        "unexposed component emitted a manifest: {}",
+        result.manifest_json
+    );
+}
+
 #[test]
 fn no_agent_block_manifest_empty() {
     let source = include_str!("../fixtures/vite-counter/counter.aihu");

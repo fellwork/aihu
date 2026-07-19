@@ -123,9 +123,33 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 
     let target = unit.target;
 
+    // A component is agent-enabled when it EXPOSES anything — an `@agent` block
+    // is not required.
+    //
+    // Previously every agent artifact was gated on `unit.source.agent.is_some()`,
+    // which contradicted the documented contract
+    // (docs/site/authoring-agents.md: "No `@agent` block needed") and, more
+    // concretely, meant `aihu create`'s scaffold and `cookbook/agent-weather.aihu`
+    // — both of which write `expose:` + `describe:` and NO `@agent` block —
+    // compiled to zero agent artifacts. The scaffold's own comment that
+    // "`$action` is the single source of truth for the agent surface" was false
+    // at the compiler level.
+    //
+    // This does not widen the exposed surface: `expose: { read: true }` is
+    // already an explicit, per-member author opt-in, and unexposed members are
+    // still excluded by `collect_agent_members`. Requiring a SECOND opt-in
+    // (`@agent`) only made the first one silently inert.
+    //
+    // `@agent` retains its v2 job: carrying policy (`$scope`, `$rate-limit`).
+    let has_exposed_members = {
+        let members = collect_agent_members(unit.source.script.unwrap_or(""));
+        !members.actions.is_empty() || !members.reads.is_empty() || !members.writes.is_empty()
+    };
+    let is_agent_component = unit.source.agent.is_some() || has_exposed_members;
+
     // v0.6.6: Server-artifact emission gates.
     // When target == Client, check for @agent block or $server macro references.
-    let elide_agent = target == BuildTarget::Client && unit.source.agent.is_some();
+    let elide_agent = target == BuildTarget::Client && is_agent_component;
     let elide_server_macro = target == BuildTarget::Client
         && unit.source.script.map_or(false, |s| s.contains("$server"));
     // v0.4.0: @stream block is server-only. Elide in client builds.
@@ -181,7 +205,13 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
                 "// [client build] @agent block elided\n{}\n{}",
                 with_reg, dispatcher
             )
-        } else if let Some(agent) = &unit.source.agent {
+        } else if is_agent_component {
+            // A component with exposed members but no `@agent` block carries no
+            // policy, so an empty AgentBlock is the correct stand-in: `$scope`
+            // and `$rate-limit` are absent, which the runtime reads as
+            // "unscoped, unthrottled" — exactly what declaring nothing means.
+            let empty_agent = AgentBlock::default();
+            let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
             // SERVER build of an @agent component. Unified path (fix:
             // server-agent-macro-lowering): `emit_function_form` already lowered
             // EVERY @state macro ($prop/$action/$computed/magna/$auth/...) and
@@ -226,7 +256,9 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // v0.6.6: Do NOT emit manifest_json for client-only builds.
     let manifest_json = if elide_agent {
         String::new()
-    } else if let Some(agent) = &unit.source.agent {
+    } else if is_agent_component {
+        let empty_agent = AgentBlock::default();
+        let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
         emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""))
     } else {
         String::new()
