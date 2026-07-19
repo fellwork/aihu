@@ -144,10 +144,34 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
 
     // AC11: action allowlist check (against live binding)
     const binding = bindings[0]!
-    // Check if the action exists in the binding's reads or actions
-    const hasAction = typeof (binding as { callAction: unknown }).callAction === 'function'
-    if (!hasAction) {
-      return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+
+    // The previous check here was `typeof binding.callAction === 'function'`,
+    // which is ALWAYS true for a LiveBinding — so the allowlist was dead code
+    // on the only branch that can succeed, and enforcement was displaced to
+    // the browser's opaque-ID map. That made the CLIENT the allowlist
+    // authority, inverting this module's stated design that the server-side
+    // gate is load-bearing.
+    //
+    // LiveBinding deliberately exposes no action list (it is a set of
+    // invokers, not a manifest), so the authority is the compiler-emitted
+    // metadata registered for this tag. `registerAgentMetadata` is emitted for
+    // every server/universal build of an @agent component, so `meta` is
+    // present for any properly compiled component.
+    //
+    // When metadata IS present it is enforced: an action must be advertised in
+    // `actions`, or be a readable member in `state` (handleToolCall falls
+    // through to getSignal for those). When it is ABSENT we cannot enforce —
+    // there is nothing to enforce against — so the call proceeds to the
+    // downstream invoker, which rejects unknown names on its own. Closing that
+    // remaining gap means giving LiveBinding an advertised surface, tracked
+    // separately; it is not reachable by any component compiled from source.
+    const meta = byTag.get(tag)
+    if (meta) {
+      const inActions = meta.actions ? action in meta.actions : false
+      const inState = meta.state ? action in meta.state : false
+      if (!inActions && !inState) {
+        return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+      }
     }
 
     // ── Step 2: 401 — userId cardinality (Amendment 3 / §6.3) ────────────

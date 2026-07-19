@@ -222,6 +222,92 @@ describe('AC11 — undeclared action → 404', () => {
   })
 })
 
+// ─── AC11b: the gate itself must enforce, not the invoker ───────────────────
+//
+// AC11 above passes even with NO server-side allowlist, because
+// `makeLiveBinding.callAction` throws `no action: …` and the handler maps that
+// to a 404. It therefore asserts the INVOKER's rejection, not the gate's — the
+// same inversion that let `typeof binding.callAction === 'function'` stand in
+// for an allowlist check on the only branch that can succeed.
+//
+// These tests are constructed so the invoker WOULD succeed. Only a real
+// server-side check can produce a 404.
+
+describe('AC11b — server-side allowlist is load-bearing', () => {
+  /** A binding whose callAction succeeds for ANY name. */
+  function makePermissiveBinding(tag: string): LiveBinding {
+    return {
+      rootId: 1,
+      tag,
+      getSignal: () => 'readable',
+      setSignal: () => {},
+      callAction: async (name: string) => ({ called: name }),
+      scope: () => null,
+      rateLimit: () => null,
+      dispose$: () => true,
+    }
+  }
+
+  it('denies an action the metadata does not advertise, even though the binding would run it', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [
+        {
+          tag: 'weather-card',
+          actions: { fetchForecast: { returns: {} } },
+          state: { forecast: 'The current forecast' },
+        },
+      ],
+    })
+
+    // Sanity: the binding really would have run it.
+    await expect(binding.callAction('wipeDatabase', [])).resolves.toEqual({
+      called: 'wipeDatabase',
+    })
+
+    const res = (await svc.handleToolCall('weather-card/wipeDatabase', {}, { userId: 'u1' })) as {
+      error: string
+      code: number
+    }
+    expect(res.code).toBe(404)
+    expect(res.error).toContain('wipeDatabase')
+  })
+
+  it('allows an advertised action', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [{ tag: 'weather-card', actions: { fetchForecast: { returns: {} } } }],
+    })
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', {}, { userId: 'u1' })) as {
+      result: unknown
+    }
+    expect(res.result).toBeDefined()
+  })
+
+  it('allows a readable state member (handleToolCall falls through to getSignal)', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [
+        {
+          tag: 'weather-card',
+          actions: { fetchForecast: { returns: {} } },
+          state: { forecast: 'The current forecast' },
+        },
+      ],
+    })
+    const res = (await svc.handleToolCall('weather-card/forecast', {}, { userId: 'u1' })) as {
+      result: unknown
+    }
+    expect(res.result).toBeDefined()
+  })
+})
+
 // ─── AC5 + AC6: Scope enforcement ───────────────────────────────────────────
 
 describe('AC5 + AC6 — scope enforcement', () => {
