@@ -26,6 +26,13 @@ export interface InputSchema {
  */
 export interface ActionSchema {
   returns: Record<string, InputSchema>
+  /**
+   * Human-readable description of what the action does, sourced from the
+   * `describe:` key on the component's `$action` entry. Surfaced as the MCP
+   * tool description — this is the text an LLM reads when deciding whether to
+   * call the tool, so its absence degrades tool selection, not just docs.
+   */
+  describe?: string
 }
 
 /**

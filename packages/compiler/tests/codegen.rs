@@ -486,6 +486,192 @@ fn agent_airtime_quote_manifest() {
     assert!(result.manifest_json.contains("\"amount\""), "input");
 }
 
+// ─── v2 manifest emission: `expose` / `describe` on @state entries ────────
+//
+// The v1 `@agent { input / action }` keywords above are the only shape
+// `agent_airtime_quote_manifest` exercises. v2 (agent_macros.rs) gutted the
+// block to `$scope` / `$rate-limit` and moved per-name metadata onto `@state`
+// collection entries — which `collect_agent_members` reads and `emit_manifest`
+// does not. These tests pin the v2 path.
+
+fn v2_exposed_source() -> &'static str {
+    r#"@agent {
+$scope "user:write"
+$rate-limit 30
+}
+@state {
+import { signal, computed } from '@aihu/signals'
+
+$prop: {
+  label: { default: 'hi', describe: 'The visible label', expose: { read: true, write: true } },
+}
+
+$computed: {
+  shout: { describe: 'Label in upper case', expose: { read: true }, value: () => label().toUpperCase() },
+}
+
+$action: {
+  bump: { describe: 'Increment the counter by one', expose: { read: true }, handler: () => setCount(count() + 1) },
+}
+
+const [count, setCount] = signal(0)
+}
+@template {
+  <div>{label}</div>
+}"#
+}
+
+/// The exposed members collected by `collect_agent_members` (and proven present
+/// in `__agentBinding`) must also reach the manifest sidecar.
+#[test]
+fn v2_exposed_members_reach_manifest() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    // Sanity: the binding path already works. If this fails, the fixture is bad,
+    // not the manifest.
+    assert!(
+        result.js.contains("bump: (args) => bump(args)"),
+        "precondition: action should reach __agentBinding\n{}",
+        result.js
+    );
+
+    assert!(
+        !result.manifest_json.is_empty(),
+        "manifest should be non-empty"
+    );
+    assert!(
+        result.manifest_json.contains("\"bump\""),
+        "exposed $action missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("\"label\""),
+        "exposed $prop missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("\"shout\""),
+        "exposed $computed missing from manifest:\n{}",
+        result.manifest_json
+    );
+}
+
+/// The compiler must emit `registerAgentMetadata` — it is the ONLY input to
+/// `@aihu/agent-server`'s `buildToolDefinitions`. Before this test existed the
+/// call was emitted nowhere, so the registry was empty in every real app and
+/// MCP tools were generated from nothing.
+#[test]
+fn v2_emits_agent_metadata_registration() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        result
+            .js
+            .contains("import { registerAgentMetadata } from '@aihu/agent'"),
+        "registry import missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("registerAgentMetadata({"),
+        "registerAgentMetadata call missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("Increment the counter by one"),
+        "$action describe missing from metadata:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("The visible label"),
+        "$prop describe missing from metadata:\n{}",
+        result.js
+    );
+}
+
+/// Client builds elide the agent surface entirely; the metadata registration
+/// must go with it, or a client bundle would advertise a server capability.
+#[test]
+fn v2_client_build_elides_agent_metadata() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "client build leaked agent metadata:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("Increment the counter by one"),
+        "client build leaked describe text:\n{}",
+        result.js
+    );
+}
+
+/// `describe:` is the LLM-facing tool description. It is parsed and validated,
+/// then currently dropped — it appears in no emitted artifact, which is why
+/// every MCP action tool ships with an untyped, undescribed schema.
+#[test]
+fn v2_describe_reaches_manifest() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        result
+            .manifest_json
+            .contains("Increment the counter by one"),
+        "$action describe missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("The visible label"),
+        "$prop describe missing from manifest:\n{}",
+        result.manifest_json
+    );
+}
+
+/// Unexposed members must stay out of the manifest — the manifest is a public
+/// artifact and is the discovery surface an agent reads.
+#[test]
+fn v2_unexposed_members_absent_from_manifest() {
+    let source = r#"@agent {
+$scope "user:read"
+}
+@state {
+import { signal } from '@aihu/signals'
+
+$action: {
+  secret: { describe: 'Must never be advertised', handler: () => {} },
+}
+
+const [count, setCount] = signal(0)
+}
+@template {
+  <div>{count}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-unexposed");
+
+    assert!(
+        !result.manifest_json.contains("\"secret\""),
+        "action without `expose` leaked into manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        !result.manifest_json.contains("Must never be advertised"),
+        "unexposed describe leaked into manifest:\n{}",
+        result.manifest_json
+    );
+}
+
 #[test]
 fn no_agent_block_manifest_empty() {
     let source = include_str!("../fixtures/vite-counter/counter.aihu");

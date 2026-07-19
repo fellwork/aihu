@@ -1,5 +1,6 @@
 use crate::codegen::signals::{SignalMap, StateNames};
 use crate::expr::ExprParserMode;
+use std::collections::BTreeMap;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{
     AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
@@ -195,10 +196,25 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
             //      componentInstanceRegistry — the headless `@aihu/agent-service`
             //      gate path. This mirrors the client T6 `_registerAgentDispatcher`
             //      but carries the FULL named binding + policy (server-only).
+            //  (3) the module-scope `registerAgentMetadata({ … })` that populates
+            //      the `@aihu/agent` registry. This is what `@aihu/agent-server`
+            //      reads to build MCP tool definitions — without it the registry
+            //      is empty and every tool ships undescribed. Pure data, so it is
+            //      safe at module scope (unlike `__agentBinding`, whose invoker
+            //      bodies close over setup locals).
             let raw_script = unit.source.script.unwrap_or("");
             let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
             let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
-            format!("{}\n{}\n", with_reg, agent_binding_export)
+            let agent_metadata = emit_agent_metadata_registration(tag_name, raw_script);
+            let with_metadata = if agent_metadata.is_empty() {
+                with_reg
+            } else {
+                format!(
+                    "import {{ registerAgentMetadata }} from '@aihu/agent'\n{}\n{}",
+                    with_reg, agent_metadata
+                )
+            };
+            format!("{}\n{}\n", with_metadata, agent_binding_export)
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
             format!("// [client build] $server macro reference elided\n{}", base_js)
@@ -211,7 +227,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     let manifest_json = if elide_agent {
         String::new()
     } else if let Some(agent) = &unit.source.agent {
-        emit_manifest(tag_name, agent)
+        emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""))
     } else {
         String::new()
     };
@@ -3440,6 +3456,15 @@ struct AgentMembers {
     actions: Vec<String>,
     reads: Vec<String>,
     writes: Vec<String>,
+    /// Member name → the entry's `describe:` value, stored as the RAW JS string
+    /// literal (quotes included) exactly as authored. Kept as a side map rather
+    /// than widening the three `Vec<String>`s above, because those feed the
+    /// invoker-map emitters whose bodies are byte-aligned across the server
+    /// export, the server registration, and the client opaque-ID dispatcher.
+    ///
+    /// Only populated for members that survive the `expose` gate — an
+    /// unexposed member's description must never reach a public artifact.
+    describes: BTreeMap<String, String>,
 }
 
 /// Walk the `@state` collections of an SFC and collect the names of members
@@ -3481,6 +3506,18 @@ fn collect_agent_members(raw_script: &str) -> AgentMembers {
                     }
                     _ => {}
                 }
+
+                // Record the description only for members that cleared the
+                // gate above. Gating on (has_read || has_write) rather than on
+                // the match arm keeps unexposed members — and their prose,
+                // which may describe internals — out of every emitted artifact.
+                if has_read || has_write {
+                    if let Some(desc) = meta_get(entry, "describe") {
+                        members
+                            .describes
+                            .insert(entry.name.clone(), desc.trim().to_string());
+                    }
+                }
             }
         }
     }
@@ -3512,6 +3549,70 @@ fn fnv1a_64(input: &str) -> u64 {
 fn opaque_member_id(tag_name: &str, member_name: &str) -> String {
     let key = format!("{}:{}", tag_name, member_name);
     format!("a_{:016x}", fnv1a_64(&key))
+}
+
+/// Emit the `registerAgentMetadata({...})` call that populates the
+/// `@aihu/agent` registry — the ONLY source `@aihu/agent-server`'s
+/// `buildToolDefinitions` reads when constructing MCP tool definitions.
+///
+/// Before this existed the compiler emitted no such call anywhere, so the
+/// registry was empty in every real app and every action tool shipped with a
+/// synthesized description and an untyped `args: { type: 'array' }` schema.
+/// `describe:` was parsed, validated, and then dropped — it reached no artifact.
+///
+/// Unlike `__agentBinding`, this payload is PURE DATA: it closes over no setup
+/// locals, so emitting it at module scope is safe and it can be read on import
+/// without a live component instance.
+///
+/// Only `read`-exposed members are advertised. Write-exposed props are
+/// deliberately omitted: the dispatch path to `setSignal` is closed by design
+/// (`agent-service` proves this with a test), so advertising a write tool would
+/// promise a capability the server refuses to serve.
+fn emit_agent_metadata_registration(tag_name: &str, raw_script: &str) -> String {
+    let members = collect_agent_members(raw_script);
+    if members.actions.is_empty() && members.reads.is_empty() {
+        return String::new();
+    }
+
+    // state: { name: '<describe>' } — Record<string, string>. Every read member
+    // appears, described or not, so the read tool is generated either way; the
+    // value is the description when authored and '' when not (agent-server
+    // falls back to a synthesized string on empty).
+    let state_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| {
+            let desc = members.describes.get(name).map_or("''", String::as_str);
+            format!("    {}: {}", name, desc)
+        })
+        .collect();
+
+    // actions: { name: { describe: '<describe>', returns: {} } }
+    // `returns` is present-but-empty: the v2 `@state` form carries no return
+    // shape (only the retired v1 `@agent { action ... -> {...} }` did), and
+    // ActionSchema requires the key.
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| match members.describes.get(name) {
+            Some(desc) => format!("    {}: {{ describe: {}, returns: {{}} }}", name, desc),
+            None => format!("    {}: {{ returns: {{}} }}", name),
+        })
+        .collect();
+
+    let mut out = String::from("registerAgentMetadata({\n");
+    out.push_str(&format!("  tag: '{}',\n", tag_name));
+    if !state_entries.is_empty() {
+        out.push_str(&format!("  state: {{\n{}\n  }},\n", state_entries.join(",\n")));
+    }
+    if !action_entries.is_empty() {
+        out.push_str(&format!(
+            "  actions: {{\n{}\n  }},\n",
+            action_entries.join(",\n")
+        ));
+    }
+    out.push_str("})\n");
+    out
 }
 
 fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
@@ -3961,8 +4062,32 @@ fn emit_agent_bindings(agent: &AgentBlock) -> String {
 
 // ─── Manifest JSON emission ───────────────────────────────────────────────────
 
-fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
-    if agent.inputs.is_empty() && agent.actions.is_empty() && agent.agent_macros.is_empty() {
+/// Convert an authored JS string literal (`'foo'` / `"foo"`, quotes included,
+/// as `meta_get` returns it) into the body of a JSON string. Returns `None` for
+/// anything not quote-delimited — a computed or interpolated `describe:` has no
+/// compile-time text, so it is omitted rather than emitted wrong.
+fn js_literal_to_json_body(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    let inner = t
+        .strip_prefix('\'')
+        .and_then(|s| s.strip_suffix('\''))
+        .or_else(|| t.strip_prefix('"').and_then(|s| s.strip_suffix('"')))?;
+    Some(inner.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn emit_manifest(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+    // v2 members live on `@state` entries, not on the `@agent` block. Collected
+    // from the SAME walk that feeds `__agentBinding` and
+    // `registerAgentMetadata`, so the sidecar cannot drift from the live
+    // registry the way it did when it read only the retired v1 keywords.
+    let members = collect_agent_members(raw_script);
+
+    if agent.inputs.is_empty()
+        && agent.actions.is_empty()
+        && agent.agent_macros.is_empty()
+        && members.actions.is_empty()
+        && members.reads.is_empty()
+    {
         return String::new();
     }
 
@@ -4005,11 +4130,10 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
         format!("{{\n{}\n    }}", input_entries.join(",\n"))
     };
 
-    // Build actions JSON
-    let actions_json = if agent.actions.is_empty() {
-        "{}".to_string()
-    } else {
-        let action_entries: Vec<String> = agent
+    // Build actions JSON — v1 `@agent { action ... }` entries first, then v2
+    // `$action` entries that cleared the `expose` gate.
+    let actions_json = {
+        let mut action_entries: Vec<String> = agent
             .actions
             .iter()
             .map(|act| {
@@ -4037,7 +4161,48 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
                 )
             })
             .collect();
-        format!("{{\n{}\n    }}", action_entries.join(",\n"))
+
+        for name in &members.actions {
+            let describe_part = members
+                .describes
+                .get(name)
+                .and_then(|raw| js_literal_to_json_body(raw))
+                .map(|body| format!(",\n        \"describe\": \"{}\"", body))
+                .unwrap_or_default();
+            action_entries.push(format!(
+                "      \"{}\": {{\n        \"returns\": {{}}{}\n      }}",
+                name, describe_part
+            ));
+        }
+
+        if action_entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", action_entries.join(",\n"))
+        }
+    };
+
+    // Build state JSON from v2 read-exposed members, mirroring the
+    // `registerAgentMetadata` payload so the sidecar and the live registry
+    // describe the same surface.
+    let state_json = {
+        let entries: Vec<String> = members
+            .reads
+            .iter()
+            .map(|name| {
+                let body = members
+                    .describes
+                    .get(name)
+                    .and_then(|raw| js_literal_to_json_body(raw))
+                    .unwrap_or_default();
+                format!("      \"{}\": \"{}\"", name, body)
+            })
+            .collect();
+        if entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", entries.join(",\n"))
+        }
     };
 
     // Build agent macros extras (v2: only $scope and $rate-limit survive).
@@ -4061,8 +4226,8 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
     }
 
     format!(
-        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {}{}\n  }}]\n}}",
-        tool_name, tag_name, inputs_json, actions_json, extra_fields
+        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {},\n    \"state\": {}{}\n  }}]\n}}",
+        tool_name, tag_name, inputs_json, actions_json, state_json, extra_fields
     )
 }
 
