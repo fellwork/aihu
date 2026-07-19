@@ -1801,6 +1801,15 @@ fn process_state_body(
                     | Some("context")
                     // v0.4.0
                     | Some("stream")
+                    // D5 — `$form` entries are lowered by emit_form_wiring() at
+                    // the SFC-body level, not per-entry. It still has to be
+                    // SKIPPED here: without this arm its body leaked into
+                    // plain_body, where the `name: type` declaration scanner
+                    // rewrote `value: () => value,` into
+                    // `let value: () => value,` and left a dangling `}`.
+                    // Every other CollectionKind variant is listed above; keep
+                    // this arm in sync when adding one.
+                    | Some("form")
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
@@ -2079,7 +2088,9 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
 }
 
 fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &SignalMap) -> String {
-    use crate::parser::state_macros::{arrow_args, arrow_body, meta_get, running_code};
+    use crate::parser::state_macros::{
+        arrow_args, arrow_async_prefix, arrow_body, arrow_body_spliceable, meta_get, running_code,
+    };
     use crate::types::{CollectionKind, StateMacro};
     let mut lines: Vec<String> = Vec::new();
     let indent = "  ";
@@ -2115,10 +2126,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let body = arrow_body_spliceable(thunk)
+                                .unwrap_or_else(|| thunk.to_string());
+                            let am = arrow_async_prefix(thunk);
                             lines.push(format!(
-                                "{indent}const {} = computed(() => {body});",
+                                "{indent}const {} = computed({am}() => {body});",
                                 entry.name
                             ));
                         }
@@ -2127,8 +2139,9 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let am = arrow_async_prefix(thunk);
+                            let body = arrow_body_spliceable(thunk)
+                                .unwrap_or_else(|| thunk.to_string());
                             // arch-3 M2 (RFC-003): magna-origin `$resource`
                             // (body is `data.X.query(...)`) lowers to
                             // `createMagnaResource`; everything else keeps the
@@ -2140,7 +2153,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 ));
                             } else {
                                 lines.push(format!(
-                                    "{indent}const {} = createResource(() => {body});",
+                                    "{indent}const {} = createResource({am}() => {body});",
                                     entry.name
                                 ));
                             }
@@ -2169,10 +2182,32 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             // arch-5 M1: rewrite $announce(...) call sites in
                             // action bodies to the runtime-imported alias.
                             let body = body.replace("$announce(", "__a11y_announce(");
-                            lines.push(format!(
-                                "{indent}function {}({args}) {{ return batch(() => {{ {body} }}) }}",
-                                entry.name
-                            ));
+                            if crate::parser::state_macros::arrow_is_async(arrow) {
+                                // Async handlers are NOT wrapped in `batch`.
+                                // Two reasons, both correctness rather than
+                                // preference:
+                                //  1. `batch` takes a plain arrow, so an
+                                //     `await` in the body is a syntax error.
+                                //  2. `batch` flushes synchronously, so even if
+                                //     it accepted an async callback it would
+                                //     cover only the prefix before the first
+                                //     `await` — the later writes would escape
+                                //     it silently. A partial batch is worse
+                                //     than none, because it looks atomic.
+                                // The return contract still holds: an async
+                                // function returns a promise, so `$action`
+                                // callers awaiting the result get the body's
+                                // value as before.
+                                lines.push(format!(
+                                    "{indent}async function {}({args}) {{ {body} }}",
+                                    entry.name
+                                ));
+                            } else {
+                                lines.push(format!(
+                                    "{indent}function {}({args}) {{ return batch(() => {{ {body} }}) }}",
+                                    entry.name
+                                ));
+                            }
                         }
                         CollectionKind::Effect => {
                             let thunk = match running_code(entry) {
@@ -2181,6 +2216,12 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            // Async effects track dependencies only up to the
+                            // first `await` (the signals graph collects reads
+                            // synchronously). That is a real caveat, but it is
+                            // the author's to make — emitting a non-async arrow
+                            // around an awaiting body is just a syntax error.
+                            let am = arrow_async_prefix(thunk);
                             if let Some(deps_raw) = meta_get(entry, "on") {
                                 let deps_inner = deps_raw
                                     .trim()
@@ -2188,11 +2229,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                     .and_then(|s| s.strip_suffix(']'))
                                     .unwrap_or(deps_raw);
                                 lines.push(format!(
-                                    "{indent}effect(() => {{ {dep}; {body} }});",
+                                    "{indent}effect({am}() => {{ {dep}; {body} }});",
                                     dep = deps_inner.trim()
                                 ));
                             } else {
-                                lines.push(format!("{indent}effect(() => {{ {body} }});"));
+                                lines.push(format!("{indent}effect({am}() => {{ {body} }});"));
                             }
                         }
                         CollectionKind::Lifecycle => {
@@ -2209,13 +2250,14 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+                            let am = arrow_async_prefix(arrow);
                             match entry.name.as_str() {
                                 "mount" => lines
-                                    .push(format!("{indent}onMount(() => {{ {body} }});")),
+                                    .push(format!("{indent}onMount({am}() => {{ {body} }});")),
                                 "dispose" => lines
-                                    .push(format!("{indent}onCleanup(() => {{ {body} }});")),
+                                    .push(format!("{indent}onCleanup({am}() => {{ {body} }});")),
                                 "adopt" => lines
-                                    .push(format!("{indent}onAdopt(() => {{ {body} }});")),
+                                    .push(format!("{indent}onAdopt({am}() => {{ {body} }});")),
                                 "attributeChange" => {
                                     // Preserve the user-supplied param list so
                                     // names match what the user authored.
@@ -6407,13 +6449,12 @@ fn emit_macro_effects(
                 // Parse "list as item" or "list as item, idx"
                 if let Some((list_part, rest)) = raw.split_once(" as ") {
                     each_items = list_part.trim().to_string();
-                    if let Some((item, idx)) = rest.split_once(',') {
-                        item_alias = item.trim().to_string();
-                        idx_alias = idx.trim().to_string();
-                    } else {
-                        item_alias = rest.trim().to_string();
-                        idx_alias = "i".to_string();
-                    }
+                    // Depth-aware split: `as [name, desc]` must not tear at the
+                    // comma inside its own destructuring pattern. Tearing here
+                    // produced a key function of `([name) => name`.
+                    let (item, idx) = crate::parser::directives::split_each_alias(rest);
+                    item_alias = item;
+                    idx_alias = idx.unwrap_or_else(|| "i".to_string());
                 } else {
                     // fallback for old form (should have been caught by parser, but be safe)
                     each_items = raw;

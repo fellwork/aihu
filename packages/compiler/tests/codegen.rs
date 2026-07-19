@@ -672,6 +672,167 @@ const [count, setCount] = signal(0)
     );
 }
 
+// ─── Emitted-JS validity regressions ──────────────────────────────────────
+//
+// Five separate bugs, all found by syntax-checking every cookbook/ and
+// examples/ component with esbuild rather than by any test. Each produced
+// output that parsed as nothing — the compiler reported success and the build
+// failed later, or silently shipped broken code.
+
+/// `handler: async () => …` lowered to `function name(async ()) { … }`.
+/// `arrow_args` saw a leading `a` rather than `(`, took the single-identifier
+/// branch, and returned everything before `=>`.
+#[test]
+fn async_action_lowers_to_async_function() {
+    let source = r#"@state {
+$action: {
+  load: { handler: async () => { const r = await fetch('/x'); return r.ok } },
+}
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "async-action");
+
+    assert!(
+        !result.js.contains("(async ())"),
+        "async arrow parsed as a parameter list:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("async function load()"),
+        "expected `async function load()`:\n{}",
+        result.js
+    );
+    // `batch` takes a plain arrow, so an awaiting body must not be wrapped.
+    assert!(
+        !result.js.contains("async function load() { return batch"),
+        "async handler must not be wrapped in batch (await would be a syntax error):\n{}",
+        result.js
+    );
+}
+
+/// A block-bodied `$computed` lost its braces: `arrow_body` strips them (which
+/// `$action` wants, since it re-wraps) but the computed emitter splices into
+/// `() => <expr>`, producing `computed(() => if (x) return y)`.
+#[test]
+fn block_bodied_computed_keeps_its_braces() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+const [n, setN] = signal(0)
+
+$computed: {
+  label: { value: () => { if (n() < 1) return 'none'; return 'some' } },
+}
+}
+@template {
+  <div>{label}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "block-computed");
+
+    assert!(
+        result.js.contains("computed(() => {"),
+        "block body must stay braced:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("computed(() => if"),
+        "bare statements spliced into expression position:\n{}",
+        result.js
+    );
+}
+
+/// An async `$resource` lost both its braces and its `async`, so the awaiting
+/// body landed in a non-async arrow.
+#[test]
+fn async_resource_keeps_async_and_braces() {
+    let source = r#"@state {
+$resource: {
+  data: async () => { const r = await fetch('/x'); return r.json() },
+}
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "async-resource");
+
+    assert!(
+        result.js.contains("createResource(async () => {"),
+        "expected `createResource(async () => {{`:\n{}",
+        result.js
+    );
+}
+
+/// `$form` was the one CollectionKind missing from the plain-body skip list,
+/// so its body leaked into `plain_body`, where the `name: type` declaration
+/// scanner rewrote `value: () => value,` into `let value: () => value,` and
+/// left a dangling `}`.
+#[test]
+fn form_collection_does_not_leak_into_plain_body() {
+    let source = r#"@state {
+value: string = ''
+
+$form: {
+  value: () => value,
+  validity: () => ({ valueMissing: !value.trim() }),
+}
+}
+@template {
+  <input>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "form-leak");
+
+    assert!(
+        !result.js.contains("let value: () =>"),
+        "$form body leaked into plain_body as a declaration:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("let validity:"),
+        "$form entry leaked as a declaration:\n{}",
+        result.js
+    );
+}
+
+/// A destructured `$each` alias tore at the comma inside its own pattern:
+/// `as [name, desc]` split into `[name` + `desc]`, emitting `([name) => name`.
+/// The split existed in THREE places; the emit.rs copy was the one reached by
+/// the `$each="…"` attribute form.
+#[test]
+fn destructured_each_alias_does_not_tear() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+const [rows, setRows] = signal([])
+}
+@template {
+  <ul>
+    <li $each="rows as [name, desc]" $key="name">{name}</li>
+  </ul>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "each-destructure");
+
+    assert!(
+        !result.js.contains("([name)"),
+        "alias torn at the comma inside its destructuring pattern:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("([name, desc])"),
+        "expected an intact destructured alias:\n{}",
+        result.js
+    );
+}
+
 #[test]
 fn no_agent_block_manifest_empty() {
     let source = include_str!("../fixtures/vite-counter/counter.aihu");

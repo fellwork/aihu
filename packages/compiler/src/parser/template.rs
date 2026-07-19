@@ -842,11 +842,9 @@ pub(crate) fn parse_each_header(
     if list_expr.is_empty() || rest.is_empty() {
         return Err("`{#each}` requires non-empty list and item alias".to_string());
     }
-    let (item_alias, idx_alias) = if let Some((item, idx)) = rest.split_once(',') {
-        (item.trim().to_string(), Some(idx.trim().to_string()))
-    } else {
-        (rest.to_string(), None)
-    };
+    // Depth-aware: a destructured alias (`as [name, desc]`) must not split on
+    // the comma inside its own pattern. See `split_each_alias`.
+    let (item_alias, idx_alias) = crate::parser::directives::split_each_alias(rest);
     Ok((list_expr, item_alias, idx_alias, key_expr))
 }
 

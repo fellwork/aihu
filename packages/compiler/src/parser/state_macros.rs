@@ -1526,8 +1526,72 @@ pub fn arrow_body(arrow: &str) -> Option<String> {
 
 /// Extract the parameter list `(args)` from an arrow function. Returns the
 /// args text (between the outermost `(` and `)`), or `None` if unrecognizable.
+/// Strip a leading `async` keyword from an arrow expression, returning the
+/// remainder. Requires a word boundary, so an arrow whose single parameter is
+/// merely NAMED `asyncThing` is left alone.
+fn strip_async_prefix(trimmed: &str) -> Option<&str> {
+    let rest = trimmed.strip_prefix("async")?;
+    // `async(` is a call, not an async arrow; `asyncFoo` is an identifier.
+    // Only whitespace after the keyword marks an async arrow function.
+    if !rest.starts_with(|c: char| c.is_whitespace()) {
+        return None;
+    }
+    Some(rest.trim_start())
+}
+
+/// True when the arrow expression is an async function (`async () => …` /
+/// `async x => …`).
+pub fn arrow_is_async(arrow: &str) -> bool {
+    strip_async_prefix(arrow.trim()).is_some()
+}
+
+/// The arrow's body, kept safe to splice into the expression position of a
+/// GENERATED arrow (`() => <here>`).
+///
+/// `arrow_body` strips the braces off a block body, which is what `$action`
+/// wants (it re-wraps in its own `{ … }`) but silently corrupts every emitter
+/// that interpolates straight into `() => {body}` — a Rust format placeholder,
+/// not JS braces. A block-bodied `$computed`/`$resource`/`$effect` then emitted
+/// bare statements in expression position: `computed(() => if (x) return y)`.
+///
+/// Re-wraps block bodies and leaves expression bodies alone.
+pub fn arrow_body_spliceable(arrow: &str) -> Option<String> {
+    let body = arrow_body(arrow)?;
+    let trimmed = arrow.trim();
+    let after_async = strip_async_prefix(trimmed).unwrap_or(trimmed);
+    // Was the original a block body? `arrow_body` only strips braces when it
+    // saw `=> { … }`, so re-detect the same way rather than guessing from the
+    // returned text (an object-literal body like `({ a: 1 })` must NOT be
+    // treated as a block).
+    let is_block = after_async
+        .find("=>")
+        .map(|i| after_async[i + 2..].trim_start().starts_with('{'))
+        .unwrap_or(false);
+    if is_block {
+        Some(format!("{{ {} }}", body))
+    } else {
+        Some(body)
+    }
+}
+
+/// The `async ` prefix to put on a generated arrow, or `""`. Pairs with
+/// [`arrow_body_spliceable`] so an async source arrow stays async after
+/// lowering — otherwise an `await` in the body is a syntax error.
+pub fn arrow_async_prefix(arrow: &str) -> &'static str {
+    if arrow_is_async(arrow) {
+        "async "
+    } else {
+        ""
+    }
+}
+
 pub fn arrow_args(arrow: &str) -> Option<String> {
     let trimmed = arrow.trim();
+    // `async () => …` — without this, the leading byte is `a` rather than `(`,
+    // so the single-identifier branch below returns everything before `=>`,
+    // i.e. the literal string `async ()`. That lowered to
+    // `function name(async ()) { … }`, a syntax error, for every async $action.
+    let trimmed = strip_async_prefix(trimmed).unwrap_or(trimmed);
     let bytes = trimmed.as_bytes();
     if bytes.first() != Some(&b'(') {
         // Single-identifier param form: `x => body`.

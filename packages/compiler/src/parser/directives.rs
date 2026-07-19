@@ -548,6 +548,32 @@ fn extract_balanced_braces(s: &str) -> Option<&str> {
 }
 
 /// Parse a `$each` quoted value in `"list as item"` or `"list as item, idx"` form.
+/// Split an `$each` alias clause into `(item_alias, idx_alias)` at the first
+/// comma that is NOT inside a destructuring pattern.
+///
+/// A plain `split_once(',')` breaks every destructured alias: for
+/// `as [name, desc]` it returns `("[name", Some("desc]"))`, which then emits
+/// `([name) => name` — a syntax error. Object patterns (`as { id, label }`)
+/// fail the same way.
+pub(crate) fn split_each_alias(rest: &str) -> (String, Option<String>) {
+    let bytes = rest.as_bytes();
+    let mut depth = 0i32;
+    for (i, b) in bytes.iter().enumerate() {
+        match b {
+            b'[' | b'{' | b'(' => depth += 1,
+            b']' | b'}' | b')' => depth = (depth - 1).max(0),
+            b',' if depth == 0 => {
+                return (
+                    rest[..i].trim().to_string(),
+                    Some(rest[i + 1..].trim().to_string()),
+                );
+            }
+            _ => {}
+        }
+    }
+    (rest.trim().to_string(), None)
+}
+
 /// Returns `(list_expr, item_alias, idx_alias)`.
 /// Old-style `$each="items"` (no ` as `) is error C302.
 fn parse_each_value(value: &str) -> Result<(String, String, Option<String>), CompileError> {
@@ -561,11 +587,7 @@ fn parse_each_value(value: &str) -> Result<(String, String, Option<String>), Com
         });
     };
     let list_expr = list_part.trim().to_string();
-    let (item_alias, idx_alias) = if let Some((item, idx)) = rest.split_once(',') {
-        (item.trim().to_string(), Some(idx.trim().to_string()))
-    } else {
-        (rest.trim().to_string(), None)
-    };
+    let (item_alias, idx_alias) = split_each_alias(rest);
     if list_expr.is_empty() || item_alias.is_empty() {
         return Err(CompileError {
             message: "$each: list expression and item alias must not be empty".to_string(),
