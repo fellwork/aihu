@@ -103,17 +103,56 @@
   - Reads (`() => computed()` / `() => prop()`) were already correct.
 - **Net:** the capability-bridge (client) path now supports reading computed/prop, driving actions WITH return values, and writing props — so the demo can read/drive signals directly instead of via the `serialize()` snapshot workaround.
 
-### `@state` collection macros are NOT lowered in the SERVER/universal build (separate, deeper bug)
-- **What:** Discovered while fixing the above. For `--target server`/universal, the compiler emits the `@state` body's `$prop:`/`$action:`/`$computed:` blocks **verbatim as raw JS labeled statements** instead of lowering them (to `ctx.props.x` / `function name(){…}` / `computed(…)`). The emitted `__agentBinding` then references `bump`, `label`, etc. that are never declared — so the **headless server-side dispatch path (`__agentBinding` without a bridge) is broken for any real compiled `@agent` component.** Only the CLIENT (elide_agent) path lowers correctly.
-- **Why it hasn't bitten yet:** the T6 demo + `@aihu/agent-server` tests drive components over the **bridge (client) path**, and the agent-service unit tests use **hand-built** `agentBinding` objects — so the compiler's server-side lowering was never exercised end-to-end. The launch demo is unaffected. But "use `createAgentServer` headless (no browser) against a compiled component" would fail today.
-- **Context:** `packages/compiler/src/codegen/emit.rs` — the server/universal `emit()` path does not run the collection-macro lowering that the client `elide_agent` path runs. Repro: `aihu-compile --stdin --tag t --target server < comp.aihu` and inspect the `setup(ctx)` body — the `$prop:`/`$action:` blocks appear unlowered.
-- **Depends on:** nothing; compiler fix. Bigger blast radius than the client-path fix — touches the core setup-body lowering, so scope carefully.
+### ~~`@state` collection macros are NOT lowered in the SERVER/universal build~~ — FIXED (#327, `11323570`)
+- **Resolved:** `emit_options_form` (the divergent server path that skipped lowering) was deleted rather than patched. Targets now branch in exactly one place (`emit.rs:127-131`) and `emit_function_form` runs unconditionally for client/server/universal. Verified: `--target server` emits fully lowered `$prop`/`$action`/`$computed` plus a callable `_registerAgentServerBinding`; `--target universal` is byte-identical.
+- **Still true (by design, not a bug):** the module-scope `export const __agentBinding` references setup-closure locals, so it is introspection-only — never invoke it directly. The callable path is the in-setup `_registerAgentServerBinding`.
+- **Residual gap — test coverage, not correctness:** there is still no insta snapshot of `--target server` output, `inject_server_binding_registration` has no Rust test, and `agent_prop_write_uses_setter_and_action_returns_value` claims to assert "all three emission sites" but sets `target = Client` and inspects only `client.js`. The whole server path leans on one TS test (`agent-server/tests/headless-compiled-dispatch.test.ts`) that **skips itself if the compiler binary is absent**.
 
-### agent-service gate authorizes by tag, not action name (minor)
-- **What:** `handleToolCall`/`authorize` confirm a live binding exists for the TAG but don't re-validate the action name against that binding. An unknown action on a registered tag passes the gate and surfaces as a loud `503 BRIDGE_ERROR` from the browser-side opaque-ID desync rather than a clean `404 no action`.
-- **Why:** Cosmetic/UX correctness — the call is still rejected loudly without mutating state (the security invariant holds), but the code is misleading. A real MCP client would prefer a `404`.
-- **Context:** `packages/agent-service/src/agent-service.ts` `runGate` step 1 (the live-binding branch checks `typeof binding.callAction === 'function'`, not action membership). Low priority; documented in the agent-server tests.
+### ~~`describe:` / `expose:` never reached any agent-facing artifact~~ — FIXED (this change)
+- **What it was:** Two independent dead ends. (1) `emit_manifest` read only the retired **v1** `@agent { input / action }` keywords, so a v2 component's manifest came out `"inputs": {}, "actions": {}` — and nothing in the repo reads `agent-manifest.json` anyway. (2) More importantly, the compiler **never emitted `registerAgentMetadata` at all**, so the `@aihu/agent` registry that `agent-server`'s `buildToolDefinitions` reads was empty in every real app. `describe:` was parsed, validated, parser-tested — then dropped on the floor, reaching no artifact.
+- **Why it hid:** the only manifest test in the suite (`agent_airtime_quote_manifest`) uses a **v1** fixture, so it exercised the dead path and stayed green. `registry.ts`'s doc comment ("The compiler emits `registerAgentMetadata(metadata)` at the top level of each…") described a wire that was never built.
+- **Fixed:** `collect_agent_members` now also collects each entry's `describe` (gated on `expose`, so unexposed prose never leaks). New `emit_agent_metadata_registration` emits `registerAgentMetadata({ tag, state, actions })` at module scope for server/universal builds — pure data, so it is safe there. `ActionSchema` gained `describe?`; `buildToolDefinitions` now prefers the authored text over its synthesized string for both action and state tools. `emit_manifest` derives from the same walk, so the sidecar can no longer drift from the live registry.
+- **Still open:** MCP `inputSchema` is still `args: { type: 'array' }` — real parameter schemas need handler-signature extraction (arity + types off the `handler:` arrow). That is a separate, larger piece and likely interacts with the `function fetchForecast(async ())` codegen bug below.
+
+### `agent-manifest.json` has no consumers
+- **What:** Every `manifest_json` reference in the repo is a compiler test. Nothing in `agent-server`, the CLI, the Vite plugin, or `plugin-agent-readiness` reads the sidecar. It is now derived from the same walk as the live registry so it cannot drift, but it remains an artifact nobody opens.
+- **Decision needed:** keep it as a build-time introspection sidecar (external tools could consume it), or delete it and let `registerAgentMetadata` be the single source. Leaning delete — an unread artifact that silently disagreed with the live one is exactly how the v1/v2 drift above went unnoticed.
+
+### `@agent` block: docs say optional, compiler says required
+- **What:** All agent codegen is gated on `unit.source.agent.is_some()` (`emit.rs:127, 211`). But `docs/site/authoring-agents.md:87` says "No `@agent` block needed", and `aihu create` scaffolds a component with `$action` + `expose` + `describe` and **no `@agent` block**. `cookbook/agent-weather.aihu` — the canonical `expose`/`describe` example — likewise has none, and compiles to zero agent artifacts.
+- **Net:** the default scaffold is discoverable (the MCP server-card is served) but not callable, and the card's `skills` array is hand-mirrored in `vite.config.ts` with a comment admitting it is kept in sync manually. The scaffold's own comment that "`$action` is the single source of truth for the agent surface" is false at the compiler level.
+- **Decision needed:** either make `@agent` optional in codegen (gate on "has any exposed member" instead), or make the scaffold and cookbook include the block. Pick one.
+
+### `agent-weather.aihu` compiles to invalid JS (bug)
+- **What:** An async `$action` handler lowers to `function fetchForecast(async ()) { … }` — a syntax error. Reproduced by compiling `cookbook/agent-weather.aihu` directly.
+- **Why it matters:** it ships as a cookbook exemplar for the agent feature.
+
+### agent-service gate authorizes by tag, not action name — NOT minor; re-triaged
+- **What:** `handleToolCall`/`authorize` confirm a live binding exists for the TAG but don't re-validate the action name against that binding. `agent-service.ts:148` checks `typeof binding.callAction === 'function'` — **always true**. The real check (`action in meta.actions`) sits only on a branch that unconditionally returns 404 two lines later, so the allowlist is never enforced on any path that can succeed.
+- **Why the old "cosmetic" triage was wrong:** enforcement is displaced to the browser's opaque-ID map, which makes **the client the allowlist authority**. That directly inverts this file's own stated design two entries up — "The dispatcher exposes no policy info, so the server-side gate is load-bearing." Today it is not load-bearing.
+- **Context:** `packages/agent-service/src/agent-service.ts` `runGate` step 1.
 - **Depends on:** nothing.
+
+### a2a / acp are shims that look finished (security + correctness)
+- **What:** Neither implements its spec. `agent-a2a` is REST paths using deprecated pre-v0.2 method names with no JSON-RPC envelope and no task store; `body.message` must be the literal string `"tag/action"`, so a conforming client sending a `Message` with `parts` gets `error: 'bad message'`. `agent-acp` hardcodes `handleToolCall(toolName, null)` — **the ACP path structurally cannot pass arguments to any action.**
+- **Security:** both forward no `RequestContext`, so they are anonymous by construction. Components *with* `$scope` fail closed correctly, but any component without `$scope`/`$rate-limit` is fully callable, unauthenticated and unthrottled, over public HTTP.
+- **Why it hides:** 542 lines of tests validate the shims' own invented shape, locking in the divergence rather than catching it.
+- **Also:** the header claims Zed's Agent Client Protocol; the implementation resembles BeeAI ACP.
+- **Decision needed:** implement, or mark experimental and stop shipping them as complete.
+
+### Rate limiting fails open where scope fails closed
+- **What:** `if (rateLimitSpec !== null && rateLimitPlugin)` — declare `$rate-limit`, forget to install the plugin, get silently unlimited. Scope, by contrast, fails closed (401 `AUTH_MISSING`).
+- **Also:** rate-limit keys are `${userId}:${tag}` where `userId` is caller-supplied via MCP tool arguments — trivially evaded by rotating it.
+
+### `@aihu/seo` duplicates `plugin-agent-readiness`, with inverted defaults
+- **What:** Copy-pasted bot list; sitemap does **not** XML-escape (a path containing `&` produces invalid XML); `plugin.ts`/`json-ld.ts` write to `ast.__seoJsonLd`, which nothing reads. Not wired into the app pipeline; one example consumer.
+- **The footgun:** `agent-readiness` defaults `aiAgents = 'allow-all'`; `seo` defaults `disallowAiBots` to **true**. Same 13 bots, opposite defaults, undocumented. For a framework selling agent-readiness, `@aihu/seo` blocking every AI crawler by default is the wrong default in the wrong package.
+- **Also:** `mcp-server-card.ts:84-85` advertises `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`; nothing serves either.
+- **Recommendation:** delete `@aihu/seo` or re-export from `plugin-agent-readiness`.
+
+### Docs describe unshipped behavior with no status markers
+- **What:** `docs/site/agent-discovery.md` + `authoring-agents.md` total 937 lines with **zero** "not yet implemented"/"planned"/"deferred" markers. Specific contradictions: "Every aihu application automatically exposes standard discovery endpoints… with no manual configuration" (it is opt-in via `config.agentReadiness`, routes hand-wired); "The `skills` array is auto-populated from the `@agent` blocks in your SFCs… aggregated at build time" (hand-mirrored in `vite.config.ts`); and a `.mcp.json` sidecar that does not exist (the real file is `agent-manifest.json`, a different non-MCP shape).
+- **Also:** `MarkdownResolver` is an injected interface with no concrete implementation shipping anywhere, and content negotiation is `Accept: text/markdown`-only — it does not sniff user-agents, so a crawler that omits the header gets HTML.
 
 ### Bare boolean attributes are stripped in templates (bug)
 - **What:** A bare HTML boolean attribute in `@template` (e.g. `<button disabled>`)
