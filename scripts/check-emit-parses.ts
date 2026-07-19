@@ -110,7 +110,9 @@ for (const rel of files) {
 }
 
 if (failures.length > 0) {
-  console.error(`\ncheck:emit-parses — ${failures.length}/${files.length} component(s) emit invalid JS:\n`)
+  console.error(
+    `\ncheck:emit-parses — ${failures.length}/${files.length} component(s) emit invalid JS:\n`,
+  )
   for (const f of failures) {
     console.error(`── ${f.file}  (${f.stage})`)
     console.error(`${f.detail}\n`)
