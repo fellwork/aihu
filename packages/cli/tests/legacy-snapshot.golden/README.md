@@ -9,6 +9,21 @@ output).
 
 ## Regeneration log
 
+### 2026-07-20 — DA4 scaffold `$shadow: 'none'` pin (#437)
+
+- **Why it moved:** DA4 phase 1 (founder-ratified, issue #437) intentionally
+  changed the legacy scaffold emitter (`packages/cli/src/index.ts::appIndexAihu`,
+  plain/non-css branch) to pin `$shadow: 'none'` in the generated index page's
+  `@state` block. Pages default to light DOM at the next major; new apps adopt
+  that now, and the pin keeps a fresh scaffold free of the new W472 warning.
+- **Regenerated:** 2026-07-20, from the emitter on `fix/da4-classifier`
+  (base `origin/main` at `774b38cf`). Only `src/pages/index.aihu` was
+  rewritten — regenerated directly from `appIndexAihu('legacy-snapshot',
+  false)` and then verified byte-identical by a full harness run.
+- **Diff vs previous golden:** exactly one hunk, in `src/pages/index.aihu` —
+  the `$shadow: 'none'` line (plus its blank separator) at the top of
+  `@state`. No other file changed.
+
 ### 2026-07-20 — aihu-tsc typecheck (#434)
 
 - **Why it moved:** PR #395 (commit `81279254`, 2026-07-13, "type-check .aihu

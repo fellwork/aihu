@@ -4,6 +4,10 @@
  */
 
 export const APP_INDEX_SCRIBE = `@state {
+  // DA4 (#437): pages default to light DOM at the next major so crawlers that
+  // do not execute JS can read server-rendered content. New apps adopt that
+  // now — pinning the mode also means no W472 warning noise on a fresh scaffold.
+  $shadow: 'none'
   $prop: {
     name: { default: 'world', type: "string" }
   }
