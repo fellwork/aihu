@@ -11,7 +11,7 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2761,
+    "bytes": 2760,
     "limit": "2800 B"
   },
   {
@@ -21,42 +21,42 @@
   },
   {
     "name": "@aihu/agent",
-    "bytes": 141,
+    "bytes": -1,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 757,
+    "bytes": -1,
     "limit": "800 B"
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": 1692,
+    "bytes": -1,
     "limit": "1850 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": 1750,
+    "bytes": -1,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 1203,
+    "bytes": -1,
     "limit": "1400 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 586,
+    "bytes": -1,
     "limit": "600 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 717,
+    "bytes": -1,
     "limit": "750 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 1621,
+    "bytes": -1,
     "limit": "1750 B"
   },
   {
@@ -151,17 +151,17 @@
   },
   {
     "name": "@aihu/auth",
-    "bytes": 1184,
+    "bytes": -1,
     "limit": "1.5 KB"
   },
   {
     "name": "@aihu/magna",
-    "bytes": 758,
+    "bytes": -1,
     "limit": "1.8 KB"
   },
   {
     "name": "@aihu/magna/codegen",
-    "bytes": 1064,
+    "bytes": -1,
     "limit": "1.2 KB"
   }
 ]

@@ -20,10 +20,13 @@
   "measuredOn": "ci/thesis-invariants",
   "checks": {
     "derived": {
-      "expect": 2,
-      "reason": "Scorecard §Derived 3/5 — the two ❌ rows. (1) 'MCP server-card `skills` generated — ❌ — packages/cli/src/index.ts:206 — \"kept in sync with the `$action` entries\", hand-written in the scaffold' (rule D2, one finding: the scaffold carries three comments at :206/:306/:318 describing the single literal at :207-211, and grouping is by defect, not by comment). (2) '`AgentReadinessConfig` single-sourced — ❌ — mirrored in two files, both carrying \"Mirror of … keep in sync\": packages/server/src/agent-readiness-config.ts:1 and packages/plugin-agent-readiness/src/types.ts:1' (rule D1, one finding, keyed on the structural hash because the second comment wrongly claims to mirror itself).",
-      "blockedBy": ["DE1", "DE2"],
-      "ratchet": "DE1 (skills from registry) takes 2→1; DE2 (single-source config) takes 1→0."
+      "expect": 1,
+      "reason": "Scorecard §Derived 4/5 after DE2. The remaining ❌ row: 'MCP server-card `skills` generated — ❌ — packages/cli/src/index.ts:206 — \"kept in sync with the `$action` entries\", hand-written in the scaffold' (rule D2, one finding: the scaffold carries three comments at :206/:306/:318 describing the single literal at :207-211, and grouping is by defect, not by comment). CLEARED by DE2: '`AgentReadinessConfig` single-sourced' (rule D1) — the type is now declared once, in packages/server/src/agent-readiness-config.ts, and packages/plugin-agent-readiness/src/types.ts re-exports it (`export type { AgentReadinessConfig } from '@aihu/server'`). Server owns it because it types `AihuConfig.agent` and the plugin already depends on `@aihu/server`, so the re-export flows with the existing dependency arrow and introduces no cycle. The two \"Mirror of … keep in sync\" comments are gone.",
+      "expectChangedFrom": 2,
+      "expectChangedOn": "2026-07-20",
+      "expectChangedReason": "RATCHET DECREMENT 2→1 by DE2 (single-source config), clearing the D1 finding. The D2 finding (hand-written `skills` literal in the CLI scaffold) remains and is owned by DE1.",
+      "blockedBy": ["DE1"],
+      "ratchet": "DE1 (skills from registry) takes 1→0."
     },
     "governed": {
       "expect": 0,
