@@ -173,6 +173,50 @@ describe('scripted MCP client drives a server-mounted component', () => {
     await client.close()
     await mcp.close()
   })
+
+  // ─── DE5 — derived named-parameter schema, marshalled to positional ─────────
+  it('a derived param schema surfaces named inputs and marshals them positionally', async () => {
+    const counter = makeCounter()
+    // Register metadata carrying a DERIVED param schema (as the compiler now
+    // emits it for `increment(by: number)`) — last-write-wins over beforeEach.
+    registerAgentMetadata({
+      tag: TAG,
+      actions: {
+        increment: {
+          returns: {},
+          params: { properties: { by: { type: 'number' } }, required: ['by'] },
+        },
+        set: { returns: {} },
+      },
+      state: { count: 'The current counter value.' },
+    })
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+    })
+
+    const mcp = createComponentMcpServer(server)
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair()
+    await mcp.connect(serverT)
+    const client = new Client({ name: 'test-agent', version: '0.0.0' }, { capabilities: {} })
+    await client.connect(clientT)
+
+    // The tool advertises the REAL parameter, not the opaque `args` array.
+    const { tools } = await client.listTools()
+    const inc = tools.find((t) => t.name === `${TAG}/increment`)!
+    expect(inc.inputSchema.properties).toHaveProperty('by')
+    expect(inc.inputSchema.properties).not.toHaveProperty('args')
+    expect(inc.inputSchema.required).toEqual(['by'])
+
+    // A NAMED call marshals `{ by: 5 }` back into the positional `[5]` the
+    // runtime action expects — the signal advances by 5.
+    const res = await client.callTool({ name: `${TAG}/increment`, arguments: { by: 5 } })
+    expect(res.isError).toBeFalsy()
+    expect(counter.readCount()).toBe(5)
+
+    await client.close()
+    await mcp.close()
+  })
 })
 
 // ─── Gate: 404 / 401 / 403 (delegated to agent-service, verified end-to-end) ──
