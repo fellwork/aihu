@@ -21,12 +21,13 @@
   "checks": {
     "derived": {
       "expect": 1,
-      "reason": "Scorecard §Derived — the remaining ❌ row after DE1. (D1, still present) '`AgentReadinessConfig` single-sourced — ❌ — mirrored in two files, both carrying \"Mirror of … keep in sync\": packages/server/src/agent-readiness-config.ts:1 and packages/plugin-agent-readiness/src/types.ts:1' (one finding, keyed on the structural hash because the second comment wrongly claims to mirror itself). DE2 owns this one and takes 1→0. (D2, CLEARED 2026-07-20 by DE1) 'MCP server-card `skills` generated' — the scaffold's hand-written `skills` literal at packages/cli/src/index.ts:207 (with three \"kept in sync\" comments at :206/:306/:318) is deleted; the MCP server card now DERIVES its tools from the compiler-populated @aihu/agent registry via `skillsFromRegistry()` in generateMcpServerCard — the same source @aihu/agent-server's buildToolDefinitions reads — so the card cannot drift from a component's `$action` entries. Proven by a bidirectional test (add/remove an exposed action → card tools change with no config edit).",
-      "expectChangedFrom": 2,
+      "expect": 0,
+      "reason": "Scorecard \u00a7Derived 5/5 \u2014 CLOSED 2026-07-20. Both findings fixed, neither re-scoped. (D2) DE1: the scaffold's hand-written `skills` literal in packages/cli/src/index.ts and its three 'kept in sync' comments are deleted; the MCP server card now DERIVES its tools from the compiler-populated @aihu/agent registry via skillsFromRegistry(), the same source @aihu/agent-server's buildToolDefinitions reads, so it cannot drift from a component's $action entries. DE1 also fixed a latent bug: agentMetadataToSkills read action.desc where the field is describe, so derived descriptions were silently empty. (D1) DE2: AgentReadinessConfig is single-sourced \u2014 @aihu/server owns it, packages/plugin-agent-readiness/src/types.ts re-exports via `export type ... from '@aihu/server'`, following the existing plugin->server dependency arrow with no new edge or cycle. Both verified in-worktree before merge: check:derived went 2->1 (DE1, D2 gone) and 1->0 (DE2, D1 gone), each with a bidirectional test.",
+      "expectChangedFrom": 1,
       "expectChangedOn": "2026-07-20",
-      "expectChangedReason": "RATCHET DECREMENT 2→1 by DE1 (skills from registry). Only the D2 finding (the scaffold skills literal) was fixed; the D1 finding (duplicated AgentReadinessConfig) is DE2's and remains, so the honest value is 1, not 0. Fix landed with the deletion of the literal + all three sync comments and a runtime derivation; check:derived output confirms D2 gone, D1 present.",
-      "blockedBy": ["DE2"],
-      "ratchet": "DE2 (single-source config) takes 1→0."
+      "expectChangedReason": "RATCHET DECREMENT TO ZERO, resolved at merge. DE1 and DE2 each cleared one of the two findings and each independently wrote expect 2->1 (correct for its own finding, parallel branches). Merged, both are fixed, so the honest value is 0. Derived is the last of the four thesis properties to close; all four now read zero, plus the hydration-adoption invariant.",
+      "blockedBy": [],
+      "ratchet": "CLOSED. Both findings fixed 2026-07-20. Candidate for removing --expect and switching to zero-tolerance per spec Phase 4."
     },
     "governed": {
       "expect": 0,
