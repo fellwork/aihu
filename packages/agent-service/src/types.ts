@@ -123,7 +123,13 @@ export interface AgentServiceOptions {
    */
   authPlugin?: AuthPlugin
   /**
-   * Optional rate-limit plugin. When absent, rate-limiting is skipped.
+   * Optional rate-limit plugin. Fail-closed, matching `authPlugin`: when a
+   * component declares `$rate-limit` and this is ABSENT, the gate returns 429
+   * `RATE_LIMIT_MISSING` rather than dispatching. A component that declares no
+   * `$rate-limit` is unaffected and dispatches normally.
+   *
+   * "Optional" therefore means "un-rate-limited components need no plugin" — it
+   * is NOT optional for a component that asks to be rate-limited.
    */
   rateLimitPlugin?: RateLimitPlugin
   /**

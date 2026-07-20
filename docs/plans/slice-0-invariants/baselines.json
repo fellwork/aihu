@@ -26,10 +26,10 @@
       "ratchet": "DE1 (skills from registry) takes 2→1; DE2 (single-source config) takes 1→0."
     },
     "governed": {
-      "expect": 2,
-      "reason": "Scorecard §Governed 2/4 — the two ❌ rows. (1) 'Rate limiting fails closed — ❌ — agent-service.ts:215 — `if (rateLimitSpec !== null && rateLimitPlugin)`. Declare `$rate-limit`, omit the plugin, get silently unlimited' (probe G1). (2) 'Bridge handshake verified — ❌ — BRIDGE_PROTOCOL_VERSION is sent (bridge-client.ts:67) and exported (index.ts:15) — and never checked server-side. Nothing validates it' (probe G2, one finding covering all three sub-probes: one defect, the absent comparison).",
-      "blockedBy": ["GO1", "GO2"],
-      "ratchet": "GO1 (rate-limit fail closed) takes 2→1; GO2 (bridge handshake) takes 1→0."
+      "expect": 0,
+      "reason": "Scorecard §Governed 4/4 — CLEARED 2026-07-19 by GO1 + GO2 in one commit (2→0), the ratchet's first entry to reach zero. Was 2: (1) 'Rate limiting fails closed — ❌ — agent-service.ts:215 — `if (rateLimitSpec !== null && rateLimitPlugin)`. Declare `$rate-limit`, omit the plugin, get silently unlimited' (probe G1). GO1 split the guard so an absent plugin returns 429 RATE_LIMIT_MISSING, mirroring the `$scope`/401 AUTH_MISSING posture. (2) 'Bridge handshake verified — ❌ — BRIDGE_PROTOCOL_VERSION is sent (bridge-client.ts:67) and exported (index.ts:15) — and never checked server-side' (probe G2, one finding covering all three sub-probes: one defect, the absent comparison). GO2 wrote the comparison: `callTool` refuses to delegate to a channel that has not completed a valid `hello` (503 BRIDGE_UNVERIFIED), and an unverified channel may send no frame other than `hello`. The no-bridge headless/CI path (agent-server.ts:279) is untouched and requires no handshake. Both slices landed with bidirectional named tests — a declared control with its plugin absent DENIES, an undeclared control still DISPATCHES — and the probe's self-test was re-based in the same commit from shim-simulated fixes to real-code regressions plus a must-delegate positive control, so it still discriminates rather than going vacuous at zero.",
+      "blockedBy": [],
+      "ratchet": "CLEARED. GO1 + GO2 landed together and took 2→0. Per spec Phase 4, this entry is now eligible to drop its `--expect` gate and switch to zero-tolerance."
     },
     "attributed": {
       "expect": 2,

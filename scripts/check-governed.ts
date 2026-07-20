@@ -17,20 +17,47 @@ import type { LiveBinding, RequestContext } from '@aihu/agent-service'
  * succeed.
  *
  * G1 — a declared control whose plugin is absent must DENY.
- *   `$scope` declared / authPlugin omitted     → expect 401 AUTH_MISSING. Passes today.
- *   `$rate-limit` declared / plugin omitted    → expect a fail-closed denial. FAILS today:
- *      `agent-service.ts:215` reads `if (rateLimitSpec !== null && rateLimitPlugin)`, so the
- *      plugin's absence makes the whole branch unreachable and the call dispatches.
+ *   `$scope` declared / authPlugin omitted      → expect 401 AUTH_MISSING.
+ *   `$rate-limit` declared / plugin omitted     → expect a fail-closed denial (429).
+ *   NOTHING declared / no plugin                → must DISPATCH.
  *
- *   That G1 reports scope PASS and rate-limit FAIL from the SAME harness is the
- *   check's own proof of discrimination. If both pass or both fail, the harness
- *   is broken and this script says so rather than reporting a count.
+ * G2 — the bridge handshake must be VERIFIED. An unverified channel that
+ *   receives `invoke` frames IS the execution authority, so the server must
+ *   refuse to delegate to one. Three channels must be REJECTED (no `hello`;
+ *   mismatched protocol; non-numeric protocol) and one — a channel that sent a
+ *   valid `hello` — must be DELEGATED to.
  *
- * G2 — the bridge handshake must be VERIFIED. `BRIDGE_PROTOCOL_VERSION` is sent
- *   (`bridge-client.ts:67`), exported (`agent-server.ts:302`), and never appears
- *   on the right-hand side of a comparison anywhere in the tree. An unverified
- *   channel becomes the execution authority: `handleBridgeFrame`'s `case 'hello'`
- *   returns without inspecting `msg.protocol`. FAILS today — one finding.
+ * ─── Both slices have LANDED (GO1, GO2, 2026-07-19). ────────────────────────
+ *
+ * This file was updated in the same commit as the fix, because the self-test
+ * below was written against the broken tree and would otherwise have gone
+ * vacuous the moment the tree went green. Nothing was WEAKENED: the two
+ * simulation shims were REMOVED and replaced with stronger, real-behaviour
+ * controls in both directions.
+ *
+ *   Before: the should-not-flag half was a SHIM — a hardcoded
+ *     `{ code: 429 }` / early return that simulated the fix the tree did not
+ *     yet have. It proved the assertion logic could observe a pass; it could
+ *     not prove the SERVER could produce one.
+ *
+ *   After: the should-not-flag half is the REAL, unmutated tree, and the
+ *     should-flag half REGRESSES it using real code paths only — no shim
+ *     anywhere:
+ *       G1 regression: inject an always-permissive `rateLimitPlugin`, which
+ *         reproduces exactly what the old `&& rateLimitPlugin` guard produced —
+ *         a declared control that does not enforce.
+ *       G2 regression: send a VALID `hello` first. The pre-fix server treated
+ *         every channel as delegable; a post-fix server treats a handshaken one
+ *         that way. The regression is therefore the real server's real
+ *         delegation path, not a stand-in for it.
+ *
+ * The discrimination proof was likewise re-based rather than dropped. It used
+ * to read "$scope denies, $rate-limit does not" — an assertion that only held
+ * while the bug did. It now asserts the axis that actually matters and that a
+ * broken gate cannot fake: DECLARED-with-absent-plugin denies, UNDECLARED
+ * dispatches, and the two declared controls deny with DIFFERENT codes (401 vs
+ * 429) so they are provably two separate checks rather than one blanket rule.
+ * A gate that denied everything, or allowed everything, fails it.
  *
  * NO suppression comments are supported.
  *
@@ -175,9 +202,18 @@ interface ProbeOutcome {
   readonly detail: string
 }
 
-async function runG1Cell(cell: G1Cell, failClosed: boolean): Promise<ProbeOutcome> {
+/**
+ * @param regressed When true, reproduce the PRE-GO1 defect using real code
+ *   only: hand every `$rate-limit` cell an always-permissive plugin, so the
+ *   declared control runs but never denies — observationally identical to the
+ *   old `if (rateLimitSpec !== null && rateLimitPlugin)` guard skipping it.
+ *   The should-flag cells must flip to "not denied" under this, which is what
+ *   proves the probe can still see the violation it was written for.
+ */
+async function runG1Cell(cell: G1Cell, regressed: boolean): Promise<ProbeOutcome> {
   const binding = makeBinding(cell.scope, cell.rateLimit)
   const registry = new Map<string, LiveBinding[]>([[TAG, [binding]]])
+  const regressRateLimit = regressed && cell.rateLimit !== null && !cell.plugin
 
   // The action IS advertised in metadata, so the 404 "unknown action" branch
   // cannot fire. This is the explicit anti-AC11 guard: we assert the GATE's
@@ -187,23 +223,17 @@ async function runG1Cell(cell: G1Cell, failClosed: boolean): Promise<ProbeOutcom
     manifests: [{ tag: TAG, describes: 'probe', actions: { [ACTION]: { returns: {} } } }],
     getRegistry: () => registry,
     ...(cell.plugin && cell.scope ? { authPlugin: { checkScope: () => true } } : {}),
-    ...(cell.plugin && cell.rateLimit ? { rateLimitPlugin: { checkRateLimit: () => true } } : {}),
+    ...((cell.plugin && cell.rateLimit) || regressRateLimit
+      ? { rateLimitPlugin: { checkRateLimit: () => true } }
+      : {}),
   })
 
   const ctx: RequestContext = { userId: 'probe-user', jwt: 'probe-jwt' }
-  const raw = (await service.handleToolCall(`${TAG}/${ACTION}`, [], ctx)) as Envelope
-
-  // `--self-test` mutation: simulate the fail-closed implementation the
-  // property requires, so the should-flag cells must flip to denied. This is
-  // what proves the probe can observe a PASS, not only the current failure.
-  let env = raw
-  if (failClosed && cell.rateLimit !== null && !cell.plugin) {
-    env = { error: 'RATE_LIMIT_PLUGIN_ABSENT: fail closed', code: 429 }
-  }
+  const env = (await service.handleToolCall(`${TAG}/${ACTION}`, [], ctx)) as Envelope
 
   const code = typeof env.code === 'number' ? env.code : undefined
   const denied = code !== undefined
-  const dispatched = binding.dispatched() && !failClosed
+  const dispatched = binding.dispatched()
 
   if (cell.expectDenyCodes === null) {
     const correct = !denied
@@ -237,9 +267,9 @@ async function runG1Cell(cell: G1Cell, failClosed: boolean): Promise<ProbeOutcom
   }
 }
 
-async function runG1(failClosed: boolean): Promise<ProbeOutcome[]> {
+async function runG1(regressed: boolean): Promise<ProbeOutcome[]> {
   const out: ProbeOutcome[] = []
-  for (const cell of G1_MATRIX) out.push(await runG1Cell(cell, failClosed))
+  for (const cell of G1_MATRIX) out.push(await runG1Cell(cell, regressed))
   return out
 }
 
@@ -310,6 +340,13 @@ interface G2Sub {
   readonly label: string
   /** The `hello` frame to send before invoking, or null to send none. */
   readonly hello: string | null
+  /**
+   * `true` when the channel is legitimate and the server MUST delegate to it.
+   * This is the anti-vacuity half: without it, "refuse every channel" would
+   * score a perfect G2, and the fix would be indistinguishable from breaking
+   * the bridge outright.
+   */
+  readonly mustDelegate?: boolean
 }
 
 const G2_SUBPROBES: readonly G2Sub[] = [
@@ -322,6 +359,11 @@ const G2_SUBPROBES: readonly G2Sub[] = [
     label: "hello with protocol = 'not-a-number'",
     hello: JSON.stringify({ type: 'hello', protocol: 'not-a-number' }),
   },
+  {
+    label: 'hello with a VALID protocol (must delegate)',
+    hello: JSON.stringify({ type: 'hello', protocol: 1 }),
+    mustDelegate: true,
+  },
 ]
 
 /**
@@ -333,7 +375,7 @@ const G2_SUBPROBES: readonly G2Sub[] = [
  * having proved which protocol it speaks. A correct implementation refuses to
  * treat an unhandshaken channel as the authoritative instance.
  */
-async function runG2Sub(sub: G2Sub, verifyHandshake: boolean): Promise<ProbeOutcome> {
+async function runG2Sub(sub: G2Sub, regressed: boolean): Promise<ProbeOutcome> {
   registerAgentMetadata({
     tag: TAG,
     describes: 'probe',
@@ -349,26 +391,16 @@ async function runG2Sub(sub: G2Sub, verifyHandshake: boolean): Promise<ProbeOutc
     const sent: string[] = []
     const channel = makeChannel(sent)
     server.attachBridge(channel)
-    if (sub.hello) channel.reply(sub.hello)
 
-    // `--self-test` mutation: a verifying server refuses to delegate to a
-    // channel that has not completed a valid handshake. Under this shim all
-    // three sub-probes must flip to rejected, which proves the probe can
-    // observe the fixed state and is not simply always-red.
-    if (verifyHandshake) {
-      const ok =
-        sub.hello !== null && (JSON.parse(sub.hello) as { protocol?: unknown }).protocol === 1
-      if (!ok) {
-        return {
-          label: sub.label,
-          denied: true,
-          code: 503,
-          dispatched: false,
-          correct: true,
-          detail: 'unverified channel refused; invocation not delegated',
-        }
-      }
-    }
+    // `--self-test` REGRESSION (no shim): prepend a valid handshake. The
+    // pre-GO2 server delegated to every channel unconditionally; a post-GO2
+    // server delegates to a handshaken one. So sending a good `hello` first
+    // reproduces the old delegation behaviour through the REAL code path, and
+    // the three must-reject sub-probes must flip to "delegated" — which is what
+    // proves this probe is not structurally always-green now that the tree is
+    // fixed. The must-delegate sub-probe is unaffected (it already handshakes).
+    if (regressed) channel.reply(JSON.stringify({ type: 'hello', protocol: 1 }))
+    if (sub.hello) channel.reply(sub.hello)
 
     const call = server.callTool(`${TAG}/${ACTION}`, [], { userId: 'probe-user', jwt: 'j' })
     // `callTool` awaits the gate before forwarding, so the wire is still empty
@@ -384,80 +416,117 @@ async function runG2Sub(sub: G2Sub, verifyHandshake: boolean): Promise<ProbeOutc
     await Promise.race([call, sleep(BRIDGE_DEADLINE_MS)])
 
     const delegated = frame !== undefined
+    const correct = sub.mustDelegate === true ? delegated : !delegated
     return {
       label: sub.label,
       denied: !delegated,
       code: undefined,
       dispatched: delegated,
-      correct: !delegated,
-      detail: delegated
-        ? 'server FORWARDED an `invoke` to a channel that never completed a valid handshake — ' +
-          'the unverified channel became the execution authority. BRIDGE_PROTOCOL_VERSION is ' +
-          'sent and exported but never compared against anything.'
-        : 'server refused to delegate to the unverified channel',
+      correct,
+      detail: sub.mustDelegate
+        ? delegated
+          ? 'server delegated to the properly handshaken channel, as it must'
+          : 'server REFUSED a channel that sent a valid `hello` — the handshake check has ' +
+            'become "reject everything", which breaks the bridge instead of governing it.'
+        : delegated
+          ? 'server FORWARDED an `invoke` to a channel that never completed a valid handshake — ' +
+            'the unverified channel became the execution authority. BRIDGE_PROTOCOL_VERSION is ' +
+            'sent and exported but never compared against anything.'
+          : 'server refused to delegate to the unverified channel',
     }
   } finally {
     server.dispose()
   }
 }
 
-async function runG2(verifyHandshake: boolean): Promise<ProbeOutcome[]> {
+async function runG2(regressed: boolean): Promise<ProbeOutcome[]> {
   const out: ProbeOutcome[] = []
-  for (const sub of G2_SUBPROBES) out.push(await runG2Sub(sub, verifyHandshake))
+  for (const sub of G2_SUBPROBES) out.push(await runG2Sub(sub, regressed))
   return out
 }
 
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 async function runSelfTest(): Promise<void> {
-  // Should-flag half: the real, unmutated tree. The two rate-limit/handshake
-  // controls must be observed failing.
+  // Should-NOT-flag half: the real, unmutated tree. GO1 and GO2 have landed, so
+  // this must be clean — and it is the REAL server producing that, not a shim.
   const g1Live = await runG1(false)
   const g2Live = await runG2(false)
-  // Should-not-flag half: the mutated (fixed) tree. Everything must pass, which
-  // proves the probes are not structurally always-red.
-  const g1Fixed = await runG1(true)
-  const g2Fixed = await runG2(true)
+  // Should-flag half: the same real code paths, regressed to their pre-fix
+  // behaviour (permissive rate-limit plugin / pre-sent valid handshake). The
+  // probes must still see the violations they were written for.
+  const g1Regressed = await runG1(true)
+  const g2Regressed = await runG2(true)
 
   selfTest(NAME, [
     {
-      label: 'should-flag: rate-limit control with plugin absent (live tree)',
+      label: 'should-not-flag: fail-closed rate limiting (live tree, GO1 landed)',
       actual: g1Live.filter((o) => !o.correct).length,
+      expected: 0,
+    },
+    {
+      label: 'should-not-flag: verified handshake (live tree, GO2 landed)',
+      actual: g2Live.filter((o) => !o.correct).length,
+      expected: 0,
+    },
+    {
+      label: 'should-flag: rate-limit control that does not enforce (regressed)',
+      actual: g1Regressed.filter((o) => !o.correct).length,
       expected: 1,
     },
     {
-      label: 'should-flag: bridge sub-probes not rejected (live tree)',
-      actual: g2Live.filter((o) => !o.correct).length,
+      label: 'should-flag: bridge sub-probes delegated unverified (regressed)',
+      actual: g2Regressed.filter((o) => !o.correct).length,
       expected: 3,
-    },
-    {
-      label: 'should-not-flag: fail-closed rate limiting (mutated tree)',
-      actual: g1Fixed.filter((o) => !o.correct).length,
-      expected: 0,
-    },
-    {
-      label: 'should-not-flag: verified handshake (mutated tree)',
-      actual: g2Fixed.filter((o) => !o.correct).length,
-      expected: 0,
     },
   ])
 
-  // The discrimination proof the spec calls for: scope and rate-limit come out
-  // of the SAME harness with OPPOSITE verdicts. If both agree, the harness is
-  // broken and no count from it is trustworthy.
+  // ── Discrimination proof ───────────────────────────────────────────────────
+  //
+  // This used to read "$scope denies, $rate-limit does not", which was only
+  // ever true while GO1's bug was. Post-fix BOTH deny, so that phrasing would
+  // now be either failing or vacuous. It is re-based onto the axis the property
+  // is actually about, which a broken gate cannot fake in either direction:
+  //
+  //   (a) both DECLARED controls deny when their plugin is absent — under-
+  //       enforcement is caught; and
+  //   (b) they deny with DIFFERENT codes (401 vs 429), proving two separate
+  //       checks rather than one blanket "declared ⇒ deny" rule; and
+  //   (c) the UNDECLARED cell still dispatches — over-enforcement is caught.
+  //
+  // A gate that denied everything fails (c). One that allowed everything fails
+  // (a). One that collapsed the two controls into a single rule fails (b).
   const scopeCell = g1Live.find((o) => o.label.startsWith('$scope'))!
   const rateCell = g1Live.find((o) => o.label.startsWith('$rate-limit declared, rateLimitPlugin'))!
-  if (scopeCell.correct === rateCell.correct) {
+  const undeclaredCell = g1Live.find((o) => o.label.startsWith('no control declared'))!
+
+  const problems: string[] = []
+  if (!scopeCell.denied) problems.push('$scope with no authPlugin did NOT deny')
+  if (!rateCell.denied) problems.push('$rate-limit with no rateLimitPlugin did NOT deny')
+  if (scopeCell.code === rateCell.code) {
+    problems.push(
+      `both declared controls denied with the SAME code (${scopeCell.code}) — they must be ` +
+        'distinguishable (401 for absent auth, 429 for absent rate limiting), or the gate is ' +
+        'applying one blanket rule rather than enforcing each declaration',
+    )
+  }
+  if (undeclaredCell.denied) {
+    problems.push(
+      `an UNDECLARED control was denied (code ${undeclaredCell.code}) — the gate has become ` +
+        '"deny everything", which is not enforcement either',
+    )
+  }
+  if (problems.length > 0) {
     console.error(
-      `${NAME} — HARNESS BROKEN: the $scope and $rate-limit cells agree ` +
-        `(both ${scopeCell.correct ? 'PASS' : 'FAIL'}). They must disagree — scope denies ` +
-        'without its plugin, rate-limit does not. Identical verdicts mean the probe is not ' +
-        'measuring the control it names.',
+      `${NAME} — HARNESS/GATE BROKEN: no count from this run is trustworthy.\n  - ` +
+        problems.join('\n  - '),
     )
     process.exit(1)
   }
   console.log(
-    `${NAME} — discrimination ok: $scope denies (${scopeCell.code}), $rate-limit does not.`,
+    `${NAME} — discrimination ok: declared controls deny with distinct codes ` +
+      `($scope ${scopeCell.code}, $rate-limit ${rateCell.code}); an undeclared control still ` +
+      'dispatches.',
   )
 }
 
