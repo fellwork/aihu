@@ -37,11 +37,11 @@ import { join } from 'node:path'
 import { Glob } from 'bun'
 import ts from 'typescript'
 import {
-  type Finding,
-  ROOT,
   expectCount,
   expectedFrom,
+  type Finding,
   isExcluded,
+  ROOT,
   refuseVacuous,
   selfTest,
 } from './lib/invariant.ts'
@@ -87,7 +87,8 @@ function parse(source: string, fileName: string): ts.SourceFile {
  * argument exists" would be satisfied by a hardcoded null.
  */
 function classifyCtxArg(arg: ts.Expression | undefined): { ok: boolean; detail: string } {
-  if (!arg) return { ok: false, detail: 'no third argument — the call is anonymous by construction' }
+  if (!arg)
+    return { ok: false, detail: 'no third argument — the call is anonymous by construction' }
   if (arg.kind === ts.SyntaxKind.NullKeyword) {
     return { ok: false, detail: 'third argument is a literal `null` — no identity is carried' }
   }

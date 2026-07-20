@@ -48,7 +48,12 @@
     "storybook": "bun run --cwd apps/storybook storybook",
     "build-storybook": "bun run --cwd apps/storybook build-storybook",
     "check:stories": "bun scripts/check-required-stories.ts",
-    "check:emit-parses": "bun scripts/check-emit-parses.ts"
+    "check:emit-parses": "bun scripts/check-emit-parses.ts",
+    "check:derived": "bun scripts/check-derived.ts",
+    "check:attributed": "bun scripts/check-attributed.ts",
+    "check:governed": "SCRIBE_NATIVE_SKIP=1 bun --tsconfig-override ./tsconfig.json scripts/check-governed.ts",
+    "check:dual-audience": "SCRIBE_NATIVE_SKIP=1 bun --tsconfig-override ./tsconfig.json scripts/check-dual-audience.ts",
+    "check:thesis": "bun run check:derived && bun run check:attributed && bun run check:governed && bun run check:dual-audience"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.14",

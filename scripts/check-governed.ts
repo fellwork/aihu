@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import type { BridgeChannel } from '@aihu/agent-server'
+import type { LiveBinding, RequestContext } from '@aihu/agent-service'
 /**
  * check:governed — thesis §3: capability, authority, and rate are declared
  * per-member and ENFORCED BY THE SERVER.
@@ -36,22 +38,39 @@
  *   bun run check:governed
  */
 import type { AgentBindingSpec } from '@aihu/arbor'
-import type { BridgeChannel } from '@aihu/agent-server'
-import type { LiveBinding, RequestContext } from '@aihu/agent-service'
 import type { Signal } from '@aihu/signals'
 import { JSDOM } from 'jsdom'
-import { type Finding, expectCount, expectedFrom, refuseVacuous, selfTest } from './lib/invariant.ts'
+import {
+  expectCount,
+  expectedFrom,
+  type Finding,
+  refuseVacuous,
+  selfTest,
+} from './lib/invariant.ts'
 
-// Workspace packages are imported DYNAMICALLY, and by source: the
-// `--preload ./scripts/lib/resolve-workspace-src.ts` resolver plugin maps
-// `@aihu/*` to `packages/<pkg>/src`, and bun applies runtime onResolve hooks
-// only to imports evaluated after preload — the entry module's static imports
-// are resolved before it runs. Type-only imports above are erased, so they
-// never hit the resolver.
+// Workspace packages are imported by SOURCE, via the `check:governed` npm
+// script's `bun --tsconfig-override ./tsconfig.json`.
+//
+// That flag is load-bearing, and the reason is not obvious. `@aihu/*` is NOT
+// linked into `node_modules` (the install is isolated; `node_modules/@aihu`
+// does not exist), so resolution falls to tsconfig `paths`. Bun applies the
+// tsconfig NEAREST each file, and the per-package ones — e.g.
+// `packages/arbor/tsconfig.json` — omit `baseUrl`, which makes bun ignore
+// their `paths` entirely. So the entry's own imports resolve fine while a
+// TRANSITIVE one dies: `packages/arbor/src/mount.ts` importing `@aihu/signals`
+// fails. `--tsconfig-override` forces the root map on every file and fixes it.
+//
+// Without the flag this script does not merely mis-measure, it CRASHES before
+// reporting — which is how it sat unverified in the WIP commit.
 //
 // Source, not `dist/`, on purpose: a behavioral invariant that reads a stale
 // package build reports on a tree nobody is reviewing. Same trap as the stale
-// compiler binary that once produced 24 phantom failures.
+// compiler binary that once produced 24 phantom failures. Bare `bun` without
+// the override silently resolves `@aihu/arbor` to a PUBLISHED 2.0.0 tarball in
+// `~/.bun/install/cache` — measuring someone else's build, not this tree.
+//
+// Imports stay dynamic so a resolution failure surfaces here rather than at
+// module-graph construction. Type-only imports above are erased entirely.
 const { registerAgentMetadata } = await import('@aihu/agent')
 const { createAgentService } = await import('@aihu/agent-service')
 const { branch, leaf } = await import('@aihu/arbor')
@@ -168,9 +187,7 @@ async function runG1Cell(cell: G1Cell, failClosed: boolean): Promise<ProbeOutcom
     manifests: [{ tag: TAG, describes: 'probe', actions: { [ACTION]: { returns: {} } } }],
     getRegistry: () => registry,
     ...(cell.plugin && cell.scope ? { authPlugin: { checkScope: () => true } } : {}),
-    ...(cell.plugin && cell.rateLimit
-      ? { rateLimitPlugin: { checkRateLimit: () => true } }
-      : {}),
+    ...(cell.plugin && cell.rateLimit ? { rateLimitPlugin: { checkRateLimit: () => true } } : {}),
   })
 
   const ctx: RequestContext = { userId: 'probe-user', jwt: 'probe-jwt' }
@@ -339,7 +356,8 @@ async function runG2Sub(sub: G2Sub, verifyHandshake: boolean): Promise<ProbeOutc
     // three sub-probes must flip to rejected, which proves the probe can
     // observe the fixed state and is not simply always-red.
     if (verifyHandshake) {
-      const ok = sub.hello !== null && (JSON.parse(sub.hello) as { protocol?: unknown }).protocol === 1
+      const ok =
+        sub.hello !== null && (JSON.parse(sub.hello) as { protocol?: unknown }).protocol === 1
       if (!ok) {
         return {
           label: sub.label,

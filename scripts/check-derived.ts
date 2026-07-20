@@ -41,12 +41,12 @@ import { join } from 'node:path'
 import { Glob } from 'bun'
 import ts from 'typescript'
 import {
-  type Finding,
-  ROOT,
   agentSurfaceFiles,
   expectCount,
   expectedFrom,
+  type Finding,
   isExcluded,
+  ROOT,
   refuseVacuous,
   selfTest,
 } from './lib/invariant.ts'

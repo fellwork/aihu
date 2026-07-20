@@ -39,19 +39,28 @@
  *
  * NO suppression comments are supported.
  *
- * Wired into CI (plan-a.yml `check` job). Run manually:
+ * Wired into CI (plan-a.yml `check` job). Run via the npm script, NOT bare bun:
  *   bun run check:dual-audience
+ *
+ * The script carries two settings this check does not work without.
+ * `--tsconfig-override ./tsconfig.json` forces the root `paths` map onto every
+ * file, because the per-package tsconfigs omit `baseUrl` and bun therefore
+ * ignores their `paths` — without it a transitive `@aihu/*` import throws and
+ * this check crashes instead of reporting. `SCRIBE_NATIVE_SKIP=1` selects the
+ * TypeScript SSR fallback ("slower, always correct"), matching what
+ * `vitest.config.ts` sets for the same reason; the native renderer binary is
+ * not built in a plain checkout.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Glob } from 'bun'
 import ts from 'typescript'
 import {
-  type Finding,
-  ROOT,
   expectCount,
   expectedFrom,
+  type Finding,
   isExcluded,
+  ROOT,
   refuseVacuous,
   selfTest,
 } from './lib/invariant.ts'
@@ -235,7 +244,9 @@ interface UaOutcome {
   readonly correct: boolean
 }
 
-async function runDaB(uaAware: boolean): Promise<{ outcomes: UaOutcome[]; finding: Finding | null }> {
+async function runDaB(
+  uaAware: boolean,
+): Promise<{ outcomes: UaOutcome[]; finding: Finding | null }> {
   const { createContentNegotiationHandler } = await import(
     '@aihu-plugin/agent-readiness/content-negotiation'
   ).catch(() => import('@aihu-plugin/agent-readiness'))
@@ -252,9 +263,10 @@ async function runDaB(uaAware: boolean): Promise<{ outcomes: UaOutcome[]; findin
     if (cell.accept) headers.Accept = cell.accept
 
     const req = new Request('https://example.test/docs/page', { headers })
-    const next = async () => new Response('<html><body>ui</body></html>', {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    })
+    const next = async () =>
+      new Response('<html><body>ui</body></html>', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
 
     let res = await middleware(req, next)
     // `--self-test` mutation: simulate the UA-aware implementation the
@@ -296,17 +308,19 @@ const PRIMARY_TEXT = 'PRIMARY-CONTENT-REACHABLE-WITHOUT-JS'
 async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Finding | null }> {
   const { createServerRouter } = await import('@aihu/router/server')
   const { branch, leaf } = await import('@aihu/arbor')
-  const { signal } = await import('@aihu/signals')
+  const { renderToString } = await import('@aihu/server')
 
   // A fixture route whose component renders known text. We assert the text is
   // REACHABLE and the hydration markers are PRESENT — never an exact markup
   // blob. `hydrate.test.ts` hand-wrote the `hydrate.0` markup it then asserted
   // and measured nothing; this must not repeat that.
-  const [text] = signal(PRIMARY_TEXT)
+  //
+  // `leaf` takes `Signal<string> | string`; a plain string is used deliberately.
+  // Passing a bare signal GETTER stringifies the accessor's source into the
+  // markup instead of its value, which silently made the primary text
+  // unfindable and the should-not-flag half of this probe impossible to satisfy.
   const component = () =>
-    branch('main', { id: 'page' }, [
-      branch('article', {}, [leaf(text as unknown as never)]),
-    ])
+    branch('main', { id: 'page' }, [branch('article', {}, [leaf(PRIMARY_TEXT)])])
 
   const routes = [
     {
@@ -316,13 +330,19 @@ async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Fin
     },
   ] as unknown as Parameters<typeof createServerRouter>[0]
 
-  const router = createServerRouter(routes)
-  const res = await router.handle(new Request('https://example.test/probe'))
-  let body = await res.text()
-
-  // `--self-test` mutation: what the router would emit if it passed
-  // `{ hydratable: true }`. Proves the assertions can pass.
-  if (hydratable) body = body.replace('<main', '<main data-aihu-path="0"')
+  let body: string
+  if (hydratable) {
+    // `--self-test` mutation: render the SAME component through the SAME
+    // renderer the router uses, differing ONLY in the options object the
+    // router fails to pass. Deliberately not a string patch of the live body —
+    // a mutation that fakes the output proves nothing about whether the
+    // assertions can recognize genuinely hydratable markup.
+    body = await renderToString(component, { hydratable: true })
+  } else {
+    const router = createServerRouter(routes)
+    const res = await router.handle(new Request('https://example.test/probe'))
+    body = await res.text()
+  }
 
   const hasText = body.includes(PRIMARY_TEXT)
   const hasMarkers = body.includes('data-aihu-path')
