@@ -1845,6 +1845,16 @@ fn process_state_body(
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
+            // arch-5 M1 router call-macros: `$beforeNavigate(fn)` / `$afterNavigate(fn)`.
+            // These are the call form (`$name(...)`), not the collection form
+            // (`$name: {...}`) nor the preserved `{...}`-body form — so neither
+            // branch above matches them, and without this one only the macro's
+            // FIRST line is skipped while the rest of a multi-line callback body
+            // (and its closing `})`) leaks into plain_body as dangling JS (#426).
+            // They are lowered from `macros` at the `StateMacro::AfterNavigate`
+            // emit branch; here we only need to skip their full source span.
+            let is_router_call_macro = stripped.starts_with("beforeNavigate(")
+                || stripped.starts_with("afterNavigate(");
 
             if is_collection_macro {
                 // For v2 collection-form, the body opens with `:` followed by
@@ -1941,6 +1951,30 @@ fn process_state_body(
                         if i < bytes.len() && bytes[i] == b'\n' {
                             i += 1;
                         }
+                        continue;
+                    }
+                }
+            }
+
+            if is_router_call_macro {
+                // The call-macro opens with `(` right after the keyword; skip
+                // past the matching `)` (which spans any multi-line callback),
+                // then an optional trailing `;` and newline. Mirrors the span
+                // skip the collection/preserved forms already perform, so no
+                // fragment of the callback body reaches plain_body.
+                if let Some(paren_rel) = raw_script[i..].find('(') {
+                    let open = i + paren_rel;
+                    if let Some(close) =
+                        crate::parser::state_macros::find_paren_close(raw_script, open + 1)
+                    {
+                        let mut j = close + 1;
+                        if j < bytes.len() && bytes[j] == b';' {
+                            j += 1;
+                        }
+                        if j < bytes.len() && bytes[j] == b'\n' {
+                            j += 1;
+                        }
+                        i = j;
                         continue;
                     }
                 }

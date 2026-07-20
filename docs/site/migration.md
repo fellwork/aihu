@@ -47,18 +47,18 @@ There is no `@props` block. Declare props with the `$prop:` collection form insi
 }
 ```
 
-## 3. Reading a prop — use `$computed`, not a bare const (C205)
+## 3. Reading a prop — prefer `$computed` for reactive derivations
 
-This is the migration trap most likely to bite. A prop read inside a plain `@state` `const`/`let` throws at runtime (the prop binding is emitted *after* the plain `@state` body, so the read hits a temporal-dead-zone error). The compiler surfaces this as **C205** and steers you to `$computed`, where the read happens inside a thunk:
+Reading a prop inside a plain `@state` `const`/`let` **compiles** — the prop getter is hoisted above the `@state` body, so there is no temporal-dead-zone error. (An earlier release rejected this with a `C205` error; that codegen ordering was fixed and the diagnostic retired.) The reason to still prefer `$computed` is reactivity: a bare `const` captures the prop's value once at setup and never updates, while `$computed` re-reads it inside a thunk and stays reactive:
 
 ```
-// before (throws at runtime → C205)
+// compiles — but greeting is captured once and will not track prop changes
 @state {
   $prop: { name: { default: 'world', type: 'string' } }
   const greeting = `Hello, ${name()}!`   // reads a prop in a bare const
 }
 
-// after (v1)
+// reactive derivation (recommended)
 @state {
   $prop: { name: { default: 'world', type: 'string' } }
   $computed: {
@@ -66,8 +66,6 @@ This is the migration trap most likely to bite. A prop read inside a plain `@sta
   }
 }
 ```
-
-aihu deliberately does NOT re-order codegen to paper over this — the supported path is `$computed`.
 
 ## 4. Reactive attribute bindings — `$`-prefixed (C304 / C305 / C306)
 
@@ -126,7 +124,6 @@ The v0 `@agent`-level macros are removed. `$expose`, `$expose.write`, agent-bare
 |------|---------|-----|
 | C107 | HTML-tag SFC framing (`<template>`, `<script setup>`) | use `@state` / `@template` / `@style` blocks |
 | C204 | unknown `@block` (e.g. `@props`) | use a recognized block; declare props via `$prop:` in `@state` |
-| C205 | prop read in a plain `@state` const/let (TDZ) | read the prop in `$computed: { x: () => prop() }` |
 | C304 | Vue-shape `:attr=` alias | `$attr={expr}` |
 | C305 | colon-form event/bind alias | `$on.click=…`, `$bind.value=…` |
 | C306 | plain-curly attribute binding (`class={…}`) | `$class={…}` |

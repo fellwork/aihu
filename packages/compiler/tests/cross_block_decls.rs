@@ -11,9 +11,13 @@
 //! compiles and undeclared code still compiles-with-warning, per the v0.3.x
 //! "warning not error" contract.)
 //!
-//! Bug 8: a plain `@state` const/let whose initializer reads a `$prop` name is a
-//! C205 compile error (TDZ avoidance, diagnostic-only — no codegen reorder); the
-//! `$computed` form compiles clean.
+//! Bug 8 (issue #424): the former C205 hard error rejected a plain `@state`
+//! const/let whose initializer reads a `$prop` name. Issue #279 hoisted prop
+//! bindings ABOVE the plain body, so that construct now compiles correctly —
+//! C205 was rejecting valid code and has been retired. The tests below verify
+//! the previously-rejected form now COMPILES and that its prop binding is
+//! emitted BEFORE the plain body (the hoist that makes it safe), while the
+//! `$computed` form keeps compiling clean.
 
 use aihu_compiler::{compile_full, sfc};
 
@@ -21,6 +25,12 @@ fn try_compile(src: &str) -> Result<(), aihu_compiler::CompileError> {
     let parsed = sfc::parse(src)?;
     compile_full(&parsed)?;
     Ok(())
+}
+
+fn emit_js(src: &str, tag: &str) -> String {
+    let parsed = sfc::parse(src).expect("parse");
+    let unit = compile_full(&parsed).expect("compile_full");
+    aihu_compiler::emit(&unit, tag).js
 }
 
 // ─── Bug 7 — the report's correctly-migrated repro compiles cleanly ──────────
@@ -65,22 +75,45 @@ fn bug7_genuinely_undeclared_single_curly_is_warning_not_error() {
     );
 }
 
-// ─── Bug 8 — plain const reading a prop → C205; $computed form → clean ───────
+// ─── Bug 8 / issue #424 — the retired C205: previously-rejected form COMPILES ─
 
 #[test]
-fn bug8_plain_const_reading_prop_is_c205() {
+fn issue424_plain_const_reading_prop_now_compiles() {
+    // This is the exact construct the old C205 rejected. After #279 hoisted prop
+    // bindings above the plain body, it compiles correctly — no diagnostic.
     let src = r#"@state {
   $prop: { active: { default: '', type: "string" } }
   const cls = active() ?? ''
 }
 @template { <a $class={cls}>Home</a> }
 "#;
-    let err = try_compile(src).expect_err("plain const reading a prop must be a C205 error");
-    assert_eq!(err.code.as_deref(), Some("C205"), "expected C205, got {err:?}");
     assert!(
-        err.message.contains("active") && err.message.contains("$computed"),
-        "C205 message must name the prop and point to $computed: {}",
-        err.message
+        try_compile(src).is_ok(),
+        "a plain @state const reading a prop must compile (C205 retired, #424)"
+    );
+}
+
+#[test]
+fn issue424_prop_binding_is_emitted_before_plain_body() {
+    // Proves WHY the above is safe: the #279 hoist emits the prop getter
+    // (`const active = ctx.props.active`) BEFORE the plain-body `const cls`,
+    // so reading the prop in the const initializer never hits the TDZ.
+    let src = r#"@state {
+  $prop: { active: { default: '', type: "string" } }
+  const cls = active() ?? ''
+}
+@template { <a $class={cls}>Home</a> }
+"#;
+    let js = emit_js(src, "x-issue424");
+    let prop_pos = js
+        .find("const active = ctx.props.active")
+        .expect("prop binding must be emitted");
+    let const_pos = js
+        .find("const cls =")
+        .expect("plain-body const must be emitted");
+    assert!(
+        prop_pos < const_pos,
+        "prop binding must precede the plain-body const that reads it (the #279 hoist that makes it safe)\n--- emitted JS ---\n{js}"
     );
 }
 

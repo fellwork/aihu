@@ -103,43 +103,18 @@ pub fn compile_full_with_options<'a>(
         // is the pipeline's error boundary, and it runs before any codegen.
         validate_prop_writes(&macros)?;
 
-        // Bug 8 (06cb46b1 / 17f5394b, defect #3): a plain `@state` const/let
-        // whose initializer reads a `$prop:` name TDZ-throws at runtime (the
-        // prop shadow `const <name> = ctx.props.<name>` is emitted AFTER the
-        // plain @state body, guarded by the documented effect-capture invariant
-        // in emit.rs). Per user decision we do NOT hoist / re-order codegen —
-        // we surface a clear C205 diagnostic steering to `$computed`, which is
-        // the supported path. The `$computed: { x: () => prop() }` form reads
-        // the prop inside a thunk (no eager TDZ) and compiles clean.
-        let decls = codegen::signals::collect_state_decls(script);
-        if let Some((decl_name, prop_name)) =
-            codegen::signals::find_plain_const_prop_read(script, &decls.props)
-        {
-            return Err(CompileError {
-                message: format!(
-                    "C205: prop '{prop}' read in a plain @state const/let ('{decl}') — \
-                     a plain `@state` const is emitted BEFORE the prop binding, so reading \
-                     a prop there throws (TDZ) at runtime. Read props in `$computed` \
-                     (e.g. `$computed: {{ {decl}: () => {prop}() }}`), not a plain const.",
-                    prop = prop_name,
-                    decl = decl_name,
-                ),
-                line: 0,
-                col: 0,
-                code: Some("C205".to_string()),
-                hint: Some(format!(
-                    "a plain `@state` const is emitted before the prop binding, so reading \
-                     '{prop_name}' there throws (TDZ) at runtime"
-                )),
-                fix: Some(format!(
-                    "move the derivation into `$computed` so the prop is read inside a thunk: \
-                     `$computed: {{ {decl_name}: () => {prop_name}() }}`"
-                )),
-                from: Some(format!("const {decl_name} = ...{prop_name}...")),
-                to: Some(format!("$computed: {{ {decl_name}: () => {prop_name}() }}")),
-                ..Default::default()
-            });
-        }
+        // NOTE (issue #424): the former C205 hard error — which rejected a plain
+        // `@state` const/let whose initializer reads a `$prop:` name — has been
+        // retired. It was premised on the prop shadow (`const <name> =
+        // ctx.props.<name>`) being emitted AFTER the plain @state body, which
+        // would TDZ-throw at runtime. Issue #279 hoisted those prop bindings
+        // ABOVE the plain body (emit.rs, `emit_prop_bindings` precedes
+        // `plain_body` in the function-form assembly), so the prop getter is now
+        // declared before any synchronously-running @state statement reads it.
+        // The construct C205 rejected therefore compiles correctly today, so the
+        // diagnostic was rejecting valid code and is removed. Props read inside a
+        // `$action`/`$computed`/effect thunk were already lazy (never C205), and
+        // remain safe. No genuinely TDZ-unsafe construct depended on this guard.
     }
 
     Ok(CompileUnit {
