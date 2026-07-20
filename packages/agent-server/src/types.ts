@@ -64,6 +64,13 @@ export interface AgentServerOptions {
    */
   resolveAuth?: AgentServiceOptions['resolveAuth']
   /**
+   * Auth-discovery URL forwarded to `createAgentService` — included in every
+   * 401 envelope so a refused agent knows where to obtain a credential (e.g.
+   * the deployment's `/.well-known/oauth-protected-resource`). Informational
+   * only; never a policy input.
+   */
+  authDiscoveryUrl?: AgentServiceOptions['authDiscoveryUrl']
+  /**
    * How long (ms) `callTool` waits for an attached bridge channel to complete
    * its `hello` handshake before refusing to delegate to it (503
    * `BRIDGE_UNVERIFIED`). Defaults to 1000ms.

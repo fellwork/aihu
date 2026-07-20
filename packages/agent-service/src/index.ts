@@ -4,7 +4,8 @@
  * Value exports: `createAgentService`
  * Type exports: `AgentManifest`, `AgentToolEntry`, `AgentService`,
  *               `AgentServiceOptions`, `InputSchema`, `ActionSchema`,
- *               `LiveBinding`, `RequestContext`, `AuthPlugin`, `RateLimitPlugin`
+ *               `LiveBinding`, `RequestContext`, `AuthPlugin`,
+ *               `RateLimitPlugin`, `VerifiedClaims`
  */
 export { createAgentService } from './agent-service.ts'
 export type {
@@ -18,4 +19,5 @@ export type {
   LiveBinding,
   RateLimitPlugin,
   RequestContext,
+  VerifiedClaims,
 } from './types.ts'

@@ -62,11 +62,16 @@ function makeLiveBinding(tag: string, scopeStr: string | null = null) {
   return { binding, spy }
 }
 
-/** Auth plugin: JWT carries the scope iff the scope string is a substring. */
+/**
+ * Auth plugin: JWT carries the scope iff the scope string is a substring.
+ * #420: `verify` accepts any non-empty token as signed for `user-1` — the
+ * scope decision below runs only after this verification step passes.
+ */
 const authPlugin: AuthPlugin = {
   checkScope(jwt: string, scope: string): boolean {
     return jwt.includes(scope)
   },
+  verify: async (jwt: string) => (jwt.length > 0 ? { sub: 'user-1' } : null),
 }
 
 /**

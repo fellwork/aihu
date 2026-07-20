@@ -23,8 +23,29 @@ import type { AgentServer } from './types.ts'
 interface ComponentToolArgs {
   /** Positional arguments forwarded to the action (legacy positional form). */
   args?: unknown[]
-  /** Optional auth context (userId, jwt) for scoped/rate-limited tools. */
+  /**
+   * Optional auth context for scoped/rate-limited tools. ONLY the `jwt` is
+   * honored (#420): it is a credential the gate signature-verifies before
+   * use. Any `userId` (or other identity field) in here is caller-supplied
+   * over an unauthenticated transport and is DROPPED, never forwarded as if
+   * authoritative — the verified principal is the JWT's `sub` claim.
+   */
   context?: RequestContext
+}
+
+/**
+ * Reduce caller-supplied tool arguments to the ONLY part of the auth context
+ * this transport may forward: the JWT credential. Everything else (notably
+ * `userId`) is discarded — trusting it let a caller reset its own rate-limit
+ * bucket by rotating the value (#420). Belt-and-braces: the agent-service
+ * gate ignores caller `userId` too; this keeps the spoofed value from even
+ * crossing the boundary.
+ */
+function credentialOnlyContext(raw: unknown): RequestContext | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const jwt = (raw as { jwt?: unknown }).jwt
+  if (typeof jwt !== 'string' || jwt === '') return undefined
+  return { userId: null, jwt }
 }
 
 /**
@@ -169,23 +190,37 @@ export function createComponentMcpServer(
     const params =
       order !== undefined ? order.map((paramName) => input[paramName]) : (input.args ?? [])
 
-    // Route through the gated callTool. The envelope is `{ result }` on success
-    // or `{ error, code, jsonrpc }` on a gate rejection (404/401/403/429/503).
-    const envelope = (await agentServer.callTool(name, params, input.context)) as {
+    // Route through the gated callTool with a credential-only context: the
+    // JWT is forwarded for the gate to verify; caller-supplied identity
+    // (`context.userId`) is dropped at this boundary (#420).
+    // The envelope is `{ result }` on success or `{ error, code, jsonrpc }`
+    // on a gate rejection (404/401/403/429/503).
+    const envelope = (await agentServer.callTool(
+      name,
+      params,
+      credentialOnlyContext(input.context),
+    )) as {
       result?: unknown
       error?: string
       code?: number
+      authDiscoveryUrl?: string
     }
 
     if (typeof envelope.code === 'number') {
       // Gate rejection → MCP tool error. The code (404/401/403/429/503) is
-      // surfaced in the message so the agent learns why it was denied.
+      // surfaced in the message so the agent learns why it was denied, and a
+      // 401 carries the auth-discovery URL (when configured) so the agent
+      // learns where to obtain a credential.
+      const discovery =
+        typeof envelope.authDiscoveryUrl === 'string'
+          ? ` (auth discovery: ${envelope.authDiscoveryUrl})`
+          : ''
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: `[${envelope.code}] ${envelope.error ?? 'denied'}`,
+            text: `[${envelope.code}] ${envelope.error ?? 'denied'}${discovery}`,
           },
         ],
       }

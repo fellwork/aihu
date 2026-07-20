@@ -241,7 +241,10 @@ describe('security gate is preserved through callTool', () => {
     const server = spawn({
       target: { node: counter.node, agentBinding: counter.agentBinding },
       createHost: host,
-      authPlugin: { checkScope: () => true },
+      authPlugin: {
+        checkScope: () => true,
+        verify: async (jwt) => (jwt.startsWith('token-') ? { sub: 'u1' } : null),
+      },
     })
     const res = (await server.callTool(`${TAG}/increment`, { args: [1] })) as {
       code: number
@@ -250,12 +253,33 @@ describe('security gate is preserved through callTool', () => {
     expect(res.code).toBe(401)
   })
 
-  it('403 for a scoped component whose JWT lacks the claim', async () => {
+  it('401 (fail-closed) when the auth plugin cannot signature-verify (#420)', async () => {
+    const counter = makeCounter({ scope: 'authenticated' })
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      // Decode-only plugin: no `verify`. The gate must refuse rather than
+      // trust unverified claims — even though checkScope would have passed.
+      authPlugin: { checkScope: () => true },
+    })
+    const res = (await server.callTool(
+      `${TAG}/increment`,
+      { args: [1] },
+      { userId: 'u1', jwt: 'token-authenticated' },
+    )) as { code: number; error: string }
+    expect(res.code).toBe(401)
+    expect(res.error).toContain('AUTH_UNVERIFIABLE')
+  })
+
+  it('403 for a scoped component whose (verified) JWT lacks the claim', async () => {
     const counter = makeCounter({ scope: 'admin' })
     const server = spawn({
       target: { node: counter.node, agentBinding: counter.agentBinding },
       createHost: host,
-      authPlugin: { checkScope: (jwt, scope) => jwt.includes(scope) },
+      authPlugin: {
+        checkScope: (jwt, scope) => jwt.includes(scope),
+        verify: async (jwt) => (jwt.startsWith('token-') ? { sub: 'u1' } : null),
+      },
     })
     const res = (await server.callTool(
       `${TAG}/increment`,
@@ -271,7 +295,10 @@ describe('security gate is preserved through callTool', () => {
     const server = spawn({
       target: { node: counter.node, agentBinding: counter.agentBinding },
       createHost: host,
-      authPlugin: { checkScope: (jwt, scope) => jwt.includes(scope) },
+      authPlugin: {
+        checkScope: (jwt, scope) => jwt.includes(scope),
+        verify: async (jwt) => (jwt.length > 0 ? { sub: 'u1' } : null),
+      },
     })
     const forwarded: string[] = []
     server.attachBridge(makeFakeBridge((msg) => forwarded.push(msg)))
@@ -284,6 +311,107 @@ describe('security gate is preserved through callTool', () => {
     expect(res.code).toBe(403)
     // The gate rejected it; the visible instance must never have been driven.
     expect(forwarded).toHaveLength(0)
+  })
+})
+
+// ─── MCP transport hardening (#420) ──────────────────────────────────────────
+//
+// `mcp-server.ts` used to forward `request.params.arguments.context` (incl.
+// `userId`) to the gate as if authoritative. It now forwards ONLY the `jwt`
+// credential; caller-supplied identity is dropped at the boundary.
+
+describe('MCP boundary forwards the credential, never caller identity (#420)', () => {
+  async function mcpPair(server: AgentServer) {
+    const mcp = createComponentMcpServer(server)
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair()
+    await mcp.connect(serverT)
+    const client = new Client({ name: 'test-agent', version: '0.0.0' }, { capabilities: {} })
+    await client.connect(clientT)
+    return { mcp, client }
+  }
+
+  it('rotating context.userId over MCP does not rotate the rate-limit bucket', async () => {
+    const counter = makeCounter({ rateLimit: '100/min' })
+    const usedKeys: string[] = []
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      authPlugin: {
+        checkScope: () => true,
+        verify: async (jwt) => (jwt === 'signed-token' ? { sub: 'true-principal' } : null),
+      },
+      rateLimitPlugin: {
+        checkRateLimit: (_spec, key) => {
+          usedKeys.push(key)
+          return true
+        },
+      },
+    })
+    const { mcp, client } = await mcpPair(server)
+
+    for (const spoofed of ['spoof-a', 'spoof-b']) {
+      const res = await client.callTool({
+        name: `${TAG}/increment`,
+        arguments: { args: [1], context: { userId: spoofed, jwt: 'signed-token' } },
+      })
+      expect(res.isError).toBeFalsy()
+    }
+    expect(usedKeys).toEqual([`true-principal:${TAG}`, `true-principal:${TAG}`])
+    expect(usedKeys.join()).not.toContain('spoof')
+
+    await client.close()
+    await mcp.close()
+  })
+
+  it('context carrying only a userId (no jwt) is dropped entirely → 401', async () => {
+    const counter = makeCounter({ rateLimit: '100/min' })
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      authPlugin: {
+        checkScope: () => true,
+        verify: async () => ({ sub: 'true-principal' }),
+      },
+      rateLimitPlugin: { checkRateLimit: () => true },
+    })
+    const { mcp, client } = await mcpPair(server)
+
+    const res = (await client.callTool({
+      name: `${TAG}/increment`,
+      arguments: { args: [1], context: { userId: 'i-claim-to-be-someone' } },
+    })) as { isError?: boolean; content: Array<{ text: string }> }
+    expect(res.isError).toBe(true)
+    expect(res.content[0]!.text).toContain('[401]')
+
+    await client.close()
+    await mcp.close()
+  })
+
+  it('a 401 over MCP carries the configured auth-discovery URL', async () => {
+    const DISCOVERY = 'https://example.dev/.well-known/oauth-protected-resource'
+    const counter = makeCounter({ rateLimit: '100/min' })
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      authPlugin: {
+        checkScope: () => true,
+        verify: async (jwt) => (jwt === 'signed-token' ? { sub: 'true-principal' } : null),
+      },
+      rateLimitPlugin: { checkRateLimit: () => true },
+      authDiscoveryUrl: DISCOVERY,
+    })
+    const { mcp, client } = await mcpPair(server)
+
+    const res = (await client.callTool({
+      name: `${TAG}/increment`,
+      arguments: { args: [1] }, // anonymous — no credential at all
+    })) as { isError?: boolean; content: Array<{ text: string }> }
+    expect(res.isError).toBe(true)
+    expect(res.content[0]!.text).toContain('[401]')
+    expect(res.content[0]!.text).toContain(DISCOVERY)
+
+    await client.close()
+    await mcp.close()
   })
 })
 
@@ -697,7 +825,10 @@ describe('GO2 over-enforcement — verification must not break the working paths
     const server = spawn({
       target: { node: counter.node, agentBinding: counter.agentBinding },
       createHost: host,
-      authPlugin: { checkScope: (jwt, scope) => jwt.includes(scope) },
+      authPlugin: {
+        checkScope: (jwt, scope) => jwt.includes(scope),
+        verify: async (jwt) => (jwt.length > 0 ? { sub: 'u1' } : null),
+      },
       bridgeHandshakeTimeoutMs: 50,
     })
     const sent: string[] = []

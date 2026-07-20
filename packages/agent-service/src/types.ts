@@ -47,28 +47,80 @@ export interface LiveBinding {
 
 /**
  * Request context passed to `handleToolCall` for authorization and rate-limit
- * checks. All fields are required; omitting userId results in a 401.
+ * checks.
+ *
+ * SECURITY (#420): `jwt` is the credential; `userId` is a caller-supplied
+ * HINT that is NEVER used for authorization or rate-limit keying. The gate
+ * derives the principal exclusively from `AuthPlugin.verify(jwt)` — the
+ * signature-verified `sub` claim. A caller can put anything in `userId`; it
+ * cannot move them into another caller's rate-limit bucket or satisfy a
+ * scope check.
  */
 export interface RequestContext {
-  /** The verified user ID from JWT `sub` claim (non-null, non-empty). */
+  /**
+   * Caller-supplied identity hint. Retained for interface compatibility and
+   * telemetry only — the gate ignores it for every policy decision. The
+   * authoritative identity is the `sub` claim of the signature-verified `jwt`.
+   */
   readonly userId: string | null | undefined
-  /** The raw JWT string, used for scope claim extraction. */
+  /**
+   * The raw JWT string. This is the sole credential: scoped and rate-limited
+   * tools require it, and all claims (identity + scopes) are read from it
+   * only after `AuthPlugin.verify` has checked its signature.
+   */
   readonly jwt?: string | null
 }
 
 // ─── v0.3.0 — auth/scope plugin ──────────────────────────────────────────────
 
 /**
+ * Claims decoded from a JWT whose signature HAS been verified.
+ * Shape mirrors the standard scope-claim conventions (`scope`/`scp`/`scopes`).
+ */
+export interface VerifiedClaims {
+  /** Subject — the verified principal identity. */
+  readonly sub?: string
+  /** Space-separated scope string (RFC 6749 §3.3). */
+  readonly scope?: string
+  /** Array-form scopes (Auth0 convention). */
+  readonly scp?: readonly string[]
+  /** Array-form scopes (Okta convention). */
+  readonly scopes?: readonly string[]
+  readonly [key: string]: unknown
+}
+
+/**
  * Optional auth plugin injected into `createAgentService`. When absent and
- * a component has a non-null `$scope`, `handleToolCall` returns HTTP 401
- * `AUTH_MISSING` (fail-closed per Amendment 2 / §6.1).
+ * a component has a non-null `$scope` or `$rate-limit`, `handleToolCall`
+ * returns HTTP 401 `AUTH_MISSING` (fail-closed per Amendment 2 / §6.1).
  */
 export interface AuthPlugin {
   /**
    * Verify that the JWT carries the required scope claim.
    * Returns true if the claim is present, false otherwise.
+   *
+   * SECURITY (#420): the gate calls this only AFTER `verify` has confirmed
+   * the token's signature, so implementations may decode without their own
+   * signature check — the claims they read are already authenticated. This
+   * method alone is NOT sufficient for a scoped tool: a plugin without
+   * `verify` is treated as unable to verify and the gate fails closed (401).
    */
   checkScope(jwt: string, scope: string): boolean
+  /**
+   * Signature-verify `jwt` and return its claims, or `null` when the token
+   * is malformed, forged, or otherwise unverifiable. Never throws.
+   *
+   * This is THE single verified-claims source for the gate (#420): the
+   * rate-limit key derives from the returned `sub`, and the scope check runs
+   * only against a token this method has authenticated. Async because
+   * verification uses `crypto.subtle` (e.g. `@aihu/auth/server`'s HMAC path).
+   *
+   * OPTIONAL so existing third-party `AuthPlugin` implementations still
+   * typecheck — but a plugin without it cannot serve scoped or rate-limited
+   * tools: the gate FAILS CLOSED (401 `AUTH_UNVERIFIABLE`) rather than fall
+   * back to caller-supplied identity.
+   */
+  verify?(jwt: string): Promise<VerifiedClaims | null>
 }
 
 // ─── v0.3.0 — rate-limit plugin ──────────────────────────────────────────────
@@ -151,6 +203,14 @@ export interface AgentServiceOptions {
    * `@aihu/auth` dep. The host wires `getAuthState` (`@aihu/auth/server`).
    */
   resolveAuth?: (req: Request) => RequestContext | Promise<RequestContext>
+  /**
+   * Optional auth-discovery URL (e.g. the deployment's
+   * `/.well-known/oauth-protected-resource`) included as `authDiscoveryUrl`
+   * in every 401 envelope the gate returns, so an agent that is refused
+   * knows WHERE to obtain a credential. Purely informational — never a
+   * policy input. When unset, 401 envelopes carry no discovery field.
+   */
+  authDiscoveryUrl?: string
 }
 
 /**
@@ -166,9 +226,15 @@ export interface AgentService {
    * v0.3.0: full live-dispatch per RFC §5. Error ordering invariant:
    * 404 → 401 → 403 → 429 (Amendment 4 timing-channel invariant).
    *
+   * The gate is ASYNC end-to-end (#420): scoped/rate-limited tools require a
+   * signature-verified JWT (via `AuthPlugin.verify`, `crypto.subtle`-based),
+   * and verification completes before any scope or rate-limit consult.
+   *
    * @param toolName - `"<tag>/<actionName>"` or `"<tag>/<signalName>"`.
    * @param params - Action arguments or signal write value.
-   * @param requestContext - Auth context (userId, jwt). Required for scoped components.
+   * @param requestContext - Auth context. `jwt` is the credential and is
+   *   required for scoped/rate-limited components; `userId` is a hint the
+   *   gate never trusts (see {@link RequestContext}).
    */
   handleToolCall(
     toolName: string,

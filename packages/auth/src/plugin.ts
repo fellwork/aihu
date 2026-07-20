@@ -26,6 +26,13 @@ export interface AuthPluginOptions {
  * standard claim locations (`scope`, `scp`, `scopes`).
  *
  * Returns `false` — never throws — for malformed or unsigned tokens.
+ *
+ * DECODE-ONLY (#420): this plugin carries NO `verify` member, so the
+ * agent-service gate treats it as unable to signature-verify and FAILS
+ * CLOSED (401) on scoped or rate-limited tools. For those, use
+ * `createVerifiedAuthPlugin` from `@aihu/auth/server` — the decode-only
+ * path is a rejected design for gating, because a forged token decodes
+ * exactly like a genuine one.
  */
 export function createAuthPlugin(options?: AuthPluginOptions): AuthPlugin {
   const decode = options?.decodeJwt ?? decodeJwt

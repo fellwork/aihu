@@ -154,6 +154,7 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
     ...(options.authPlugin ? { authPlugin: options.authPlugin } : {}),
     ...(options.rateLimitPlugin ? { rateLimitPlugin: options.rateLimitPlugin } : {}),
     ...(options.resolveAuth ? { resolveAuth: options.resolveAuth } : {}),
+    ...(options.authDiscoveryUrl ? { authDiscoveryUrl: options.authDiscoveryUrl } : {}),
   })
 
   // ── Bridge state ───────────────────────────────────────────────────────────

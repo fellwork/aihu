@@ -14,9 +14,25 @@
 
 import { describe, expect, it } from 'vitest'
 import { createAgentService } from '../src/index.ts'
-import type { AuthPlugin, LiveBinding, RateLimitPlugin } from '../src/types.ts'
+import type { AuthPlugin, LiveBinding, RateLimitPlugin, VerifiedClaims } from '../src/types.ts'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * An `AuthPlugin` that can signature-"verify": `verify(jwt)` resolves the
+ * claims registered for that exact token string and `null` for anything else
+ * — the same observable contract as the real HMAC path (#420). `checkScope`
+ * defaults to the legacy substring convention used throughout this file.
+ */
+function makeVerifyingAuthPlugin(
+  tokens: Record<string, VerifiedClaims>,
+  checkScope: (jwt: string, scope: string) => boolean = () => true,
+): AuthPlugin {
+  return {
+    checkScope,
+    verify: async (jwt: string) => tokens[jwt] ?? null,
+  }
+}
 
 /** Build a minimal LiveBinding for testing. */
 function makeLiveBinding(
@@ -94,46 +110,52 @@ describe('AC10 — no live instance → 404', () => {
   })
 })
 
-// ─── AC9: userId cardinality ─────────────────────────────────────────────────
-// Per Amendment 3 §6.3: userId is required for auth-gated endpoints (those with
-// $scope or $rate-limit). Un-scoped, un-rate-limited components allow anonymous.
+// ─── AC9: verified principal required ────────────────────────────────────────
+// Since #420: auth-gated endpoints (those with $scope or $rate-limit) require a
+// signature-VERIFIED JWT; the principal is its `sub` claim. Caller-supplied
+// userId satisfies nothing. Un-scoped, un-rate-limited components allow
+// anonymous.
 
-describe('AC9 — userId missing → 401 for scoped components', () => {
-  it('returns 401 when userId is null (scoped component)', async () => {
+describe('AC9 — verified principal missing → 401 for scoped components', () => {
+  it('returns 401 when no JWT is presented (scoped component)', async () => {
     const binding = makeLiveBinding('weather-card', 'authenticated') // has scope
     const registry = makeRegistry('weather-card', binding)
-    const authPlugin = { checkScope: () => true }
+    const authPlugin = makeVerifyingAuthPlugin({ good: { sub: 'user-1' } })
     const svc = createAgentService({ getRegistry: () => registry, authPlugin })
     const res = (await svc.handleToolCall(
       'weather-card/fetchForecast',
       {},
       {
-        userId: null,
+        userId: 'user-1', // a caller-supplied identity is NOT a credential
       },
     )) as { error: string; code: number }
     expect(res.code).toBe(401)
-    expect(res.error).toContain('userId')
+    expect(res.error).toContain('AUTH_REQUIRED')
   })
 
-  it('returns 401 when userId is empty string (scoped component)', async () => {
+  it('returns 401 when the plugin cannot verify signatures (fail-closed)', async () => {
     const binding = makeLiveBinding('weather-card', 'authenticated')
     const registry = makeRegistry('weather-card', binding)
+    // Decode-only plugin: no `verify`. Must fail closed, never fall back to
+    // unverified claims or caller identity.
     const authPlugin = { checkScope: () => true }
     const svc = createAgentService({ getRegistry: () => registry, authPlugin })
     const res = (await svc.handleToolCall(
       'weather-card/fetchForecast',
       {},
       {
-        userId: '',
+        userId: 'user-1',
+        jwt: 'looks-fine',
       },
     )) as { error: string; code: number }
     expect(res.code).toBe(401)
+    expect(res.error).toContain('AUTH_UNVERIFIABLE')
   })
 
   it('returns 401 when requestContext is omitted for scoped component', async () => {
     const binding = makeLiveBinding('weather-card', 'authenticated')
     const registry = makeRegistry('weather-card', binding)
-    const authPlugin = { checkScope: () => true }
+    const authPlugin = makeVerifyingAuthPlugin({ good: { sub: 'user-1' } })
     const svc = createAgentService({ getRegistry: () => registry, authPlugin })
     const res = (await svc.handleToolCall('weather-card/fetchForecast', {})) as {
       error: string
@@ -142,15 +164,30 @@ describe('AC9 — userId missing → 401 for scoped components', () => {
     expect(res.code).toBe(401)
   })
 
-  it('returns 401 when userId is missing for rate-limited component', async () => {
+  it('returns 401 when no JWT is presented for a rate-limited component', async () => {
     const binding = makeLiveBinding('weather-card', null, '100/min')
     const registry = makeRegistry('weather-card', binding)
-    const svc = createAgentService({ getRegistry: () => registry })
+    const authPlugin = makeVerifyingAuthPlugin({ good: { sub: 'user-1' } })
+    const svc = createAgentService({ getRegistry: () => registry, authPlugin })
     const res = (await svc.handleToolCall('weather-card/fetchForecast', {})) as {
       error: string
       code: number
     }
     expect(res.code).toBe(401)
+  })
+
+  it('returns 401 when the verified JWT carries no sub claim', async () => {
+    const binding = makeLiveBinding('weather-card', 'authenticated')
+    const registry = makeRegistry('weather-card', binding)
+    const authPlugin = makeVerifyingAuthPlugin({ subless: { scope: 'authenticated' } })
+    const svc = createAgentService({ getRegistry: () => registry, authPlugin })
+    const res = (await svc.handleToolCall(
+      'weather-card/fetchForecast',
+      {},
+      { userId: 'user-1', jwt: 'subless' },
+    )) as { error: string; code: number }
+    expect(res.code).toBe(401)
+    expect(res.error).toContain('sub')
   })
 })
 
@@ -311,12 +348,16 @@ describe('AC11b — server-side allowlist is load-bearing', () => {
 // ─── AC5 + AC6: Scope enforcement ───────────────────────────────────────────
 
 describe('AC5 + AC6 — scope enforcement', () => {
-  const authPlugin: AuthPlugin = {
-    checkScope(jwt: string, scope: string): boolean {
-      // Simple: jwt contains the scope string
-      return jwt.includes(scope)
+  // Both tokens VERIFY (they are "signed"); only one carries the scope. The
+  // scope decision runs on verified claims — checkScope is consulted only
+  // after verify() authenticated the token (#420).
+  const authPlugin: AuthPlugin = makeVerifyingAuthPlugin(
+    {
+      'token-authenticated-xyz': { sub: 'user-1', scope: 'authenticated' },
+      'token-no-scope': { sub: 'user-1' },
     },
-  }
+    (jwt: string, scope: string): boolean => jwt.includes(scope),
+  )
 
   it('AC5: scope pass — JWT with authenticated claim → 200 result', async () => {
     const binding = makeLiveBinding('weather-card', 'authenticated')
@@ -394,8 +435,9 @@ describe('AC8 — rate-limit enforcement', () => {
       },
     }
 
-    const svc = createAgentService({ getRegistry: () => registry, rateLimitPlugin })
-    const ctx = { userId: 'user-1' }
+    const authPlugin = makeVerifyingAuthPlugin({ 'signed-token': { sub: 'user-1' } })
+    const svc = createAgentService({ getRegistry: () => registry, rateLimitPlugin, authPlugin })
+    const ctx = { userId: 'user-1', jwt: 'signed-token' }
 
     const r1 = await svc.handleToolCall('weather-card/fetchForecast', {}, ctx)
     const r2 = await svc.handleToolCall('weather-card/fetchForecast', {}, ctx)
@@ -410,7 +452,12 @@ describe('AC8 — rate-limit enforcement', () => {
     expect(r3.error).toContain('RATE_LIMITED')
   })
 
-  it('rate-limit key uses userId:tag format', async () => {
+  // ── The #420 pinning test, INVERTED, not deleted ──────────────────────────
+  // This test used to assert `userId:tag` — pinning the caller-supplied
+  // identity as the bucket key, i.e. pinning the vulnerability. It now pins
+  // the fix: the key is `sub:tag` from the signature-VERIFIED principal, and
+  // a caller-supplied userId that disagrees with the token is ignored.
+  it('rate-limit key uses verified-sub:tag format — caller userId is not the key', async () => {
     const binding = makeLiveBinding('weather-card', null, '100/min')
     const registry = makeRegistry('weather-card', binding)
 
@@ -422,9 +469,16 @@ describe('AC8 — rate-limit enforcement', () => {
       },
     }
 
-    const svc = createAgentService({ getRegistry: () => registry, rateLimitPlugin })
-    await svc.handleToolCall('weather-card/fetchForecast', {}, { userId: 'user-42' })
-    expect(usedKeys[0]).toBe('user-42:weather-card')
+    const authPlugin = makeVerifyingAuthPlugin({ 'signed-token': { sub: 'verified-sub-7' } })
+    const svc = createAgentService({ getRegistry: () => registry, rateLimitPlugin, authPlugin })
+    // The caller CLAIMS to be user-42; the verified token says otherwise.
+    await svc.handleToolCall(
+      'weather-card/fetchForecast',
+      {},
+      { userId: 'user-42', jwt: 'signed-token' },
+    )
+    expect(usedKeys[0]).toBe('verified-sub-7:weather-card')
+    expect(usedKeys[0]).not.toContain('user-42')
   })
 })
 
@@ -442,11 +496,11 @@ describe('AC14 — error ordering: 404 → 401 → 403 → 429', () => {
         return false // would return 429
       },
     }
-    const authPlugin: AuthPlugin = {
-      checkScope(): boolean {
-        return false // invalid scope → 403
-      },
-    }
+    // Token VERIFIES (so step 2 passes) but the scope check fails → 403.
+    const authPlugin: AuthPlugin = makeVerifyingAuthPlugin(
+      { 'no-scope-token': { sub: 'user-1' } },
+      () => false, // invalid scope → 403
+    )
 
     const svc = createAgentService({ getRegistry: () => registry, authPlugin, rateLimitPlugin })
     const res = (await svc.handleToolCall(
@@ -551,10 +605,17 @@ describe('GO1 under-enforcement — a declared control with its plugin ABSENT mu
 
     const binding = makePermissiveRateBinding('weather-card', null, '10/min')
     // No rateLimitPlugin. Pre-GO1 this dispatched, silently unlimited.
-    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+    // (#420: a verifying authPlugin + signed JWT are supplied so the gate
+    // reaches step 4 and the denial measured is specifically the
+    // rate-limit fail-closed, not the earlier 401 principal refusal.)
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      authPlugin: makeVerifyingAuthPlugin({ 'signed-token': { sub: 'user-1' } }),
+    })
 
     const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
       userId: 'user-1',
+      jwt: 'signed-token',
     })) as { error: string; code: number }
 
     expect(res.code).toBe(429)
@@ -583,7 +644,11 @@ describe('GO1 under-enforcement — a declared control with its plugin ABSENT mu
 
     const rateRes = (await createAgentService({
       getRegistry: () => makeRegistry('weather-card', rateOnly),
-    }).handleToolCall('weather-card/fetchForecast', [], { userId: 'u1' })) as { code: number }
+      authPlugin: makeVerifyingAuthPlugin({ 'signed-token': { sub: 'u1' } }),
+    }).handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'u1',
+      jwt: 'signed-token',
+    })) as { code: number }
     const scopeRes = (await createAgentService({
       getRegistry: () => makeRegistry('weather-card', scopeOnly),
     }).handleToolCall('weather-card/fetchForecast', [], { userId: 'u1', jwt: 'j' })) as {
@@ -634,10 +699,12 @@ describe('GO1 over-enforcement — a control that is NOT declared must still dis
     const svc = createAgentService({
       getRegistry: () => makeRegistry('weather-card', binding),
       rateLimitPlugin,
+      authPlugin: makeVerifyingAuthPlugin({ 'signed-token': { sub: 'user-1' } }),
     })
 
     const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
       userId: 'user-1',
+      jwt: 'signed-token',
     })) as { result: unknown; code?: number }
 
     expect(res.code).toBeUndefined()
