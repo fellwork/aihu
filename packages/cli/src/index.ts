@@ -166,9 +166,6 @@ export function appViteConfig(
 `
     : ''
   const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
-  // Skill ids are namespaced by the root component's custom-element tag, matching
-  // the `$action` entries authored in src/pages/index.aihu.
-  const tag = `${toSafe(appName)}-root`
   return `import { viteAihuPlugin } from '@aihu/app'
 import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig } from 'vite'
@@ -201,14 +198,13 @@ ${cssBlock}    }),
       // tool endpoint.
       endpoint: 'https://example.com/.well-known/mcp/server-card.json',
       mcpDiscovery: true,
-      // The live agent registry is populated in the browser/SSR at runtime, not
-      // during \`vite build\`, so the static card's tools are declared here and
-      // kept in sync with the \`$action\` entries in src/pages/index.aihu.
-      skills: [
-        { id: '${tag}.increment', name: 'increment', description: 'Add 1 to the value' },
-        { id: '${tag}.decrement', name: 'decrement', description: 'Subtract 1 from the value' },
-        { id: '${tag}.reset', name: 'reset', description: 'Set the value to 0' },
-      ],
+      // No hand-written skills list. The card's tools are DERIVED from the
+      // compiler-populated @aihu/agent registry — the same source
+      // @aihu/agent-server reads — so the MCP card can never drift from the
+      // \`$action\` entries in src/pages/index.aihu (thesis §2, Derived). A static
+      // client build has an empty registry at build time, so the card advertises
+      // no tools until the app runs under @aihu/server (SSR), where the registry
+      // is populated and the card reflects the live \`$action\` surface.
     }),
   ],
 })
@@ -303,20 +299,20 @@ export function appAihuConfig(): string {
 export function appIndexAihu(appName: string = 'app', withCssEngine = false): string {
   const tag = `${toSafe(appName)}-root`
   // The counter's actions are declared as `$action` entries so they are exposed
-  // as agent-callable tools (mirrored into vite.config's agentReadiness.skills).
-  // Template buttons reference them by name (string handler form) so the action
-  // name is the single source of truth.
+  // as agent-callable tools. Template buttons reference them by name (string
+  // handler form), so the `$action` block is the single source of truth for the
+  // agent surface.
   //
   // The `@route { name }` block registers the page under a HYPHENATED
   // custom-element tag. The router only mounts routes whose name is a valid
   // custom-element tag (must contain a hyphen); without this block the page is
   // registered under its filename stem (`index`, no hyphen) and never mounts —
-  // the app renders a blank `#outlet`. The tag MUST equal the one
-  // `appViteConfig` uses for agentReadiness skill ids so they stay aligned.
-  // The `$action` block is the single source of truth for the agent surface:
-  // the human buttons reference these actions by name (string-handler form), and
-  // vite.config's agentReadiness.skills mirrors the same three actions so the
-  // MCP server card matches the on-screen component exactly.
+  // the app renders a blank `#outlet`.
+  //
+  // The MCP server card's tools are DERIVED from this `$action` block at
+  // runtime (the compiler emits `registerAgentMetadata` from it; the
+  // agent-readiness plugin reads the registry), never hand-mirrored in
+  // vite.config — so the card cannot drift from the component.
   const stateBlock = `@state {
 import { signal } from '@aihu/signals'
 

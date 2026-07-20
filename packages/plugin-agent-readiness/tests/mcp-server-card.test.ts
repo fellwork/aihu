@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest'
-import { agentMetadataToSkills, generateMcpServerCard } from '../src/mcp-server-card.ts'
+import { afterEach, describe, expect, it } from 'vitest'
+import { __resetRegistryForTesting, registerAgentMetadata } from '../../agent/src/registry.ts'
+import {
+  agentMetadataToSkills,
+  generateMcpServerCard,
+  skillsFromRegistry,
+} from '../src/mcp-server-card.ts'
 
 describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
+  afterEach(() => {
+    __resetRegistryForTesting()
+  })
+
   it('AC-2: generateMcpServerCard produces valid MCP Server Card', () => {
     const card = generateMcpServerCard({
       name: 'Test MCP',
@@ -37,7 +46,7 @@ describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
   it('agentMetadataToSkills derives skills from actions', () => {
     const skills = agentMetadataToSkills({
       tag: 'x-btn',
-      actions: { click: { desc: 'Clicks' } },
+      actions: { click: { describe: 'Clicks' } },
     })
     expect(skills).toHaveLength(1)
     expect(skills[0]).toEqual({ id: 'x-btn.click', name: 'click', description: 'Clicks' })
@@ -46,6 +55,77 @@ describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
   it('agentMetadataToSkills returns empty array when no actions', () => {
     const skills = agentMetadataToSkills({ tag: 'x-empty' })
     expect(skills).toEqual([])
+  })
+
+  it('DE1: server-card tools are DERIVED from the registry $action entries, not hand-edited', () => {
+    // Simulate what the compiler emits from a component's `$action` block.
+    registerAgentMetadata({
+      tag: 'demo-root',
+      actions: {
+        increment: { returns: {}, describe: 'Add 1 to the value' },
+        reset: { returns: {}, describe: 'Set the value to 0' },
+      },
+    })
+
+    // No `skills` passed — the card must derive them from the live registry.
+    const card = generateMcpServerCard({
+      name: 'Demo',
+      version: '0.1.0',
+      endpoint: 'https://demo.example.com/mcp',
+    })
+    expect(card.tools?.map((t) => t.name).sort()).toEqual(['increment', 'reset'])
+    expect(card.tools?.find((t) => t.name === 'increment')?.description).toBe('Add 1 to the value')
+
+    // Remove an exposed action → the card changes WITHOUT touching config.
+    __resetRegistryForTesting()
+    registerAgentMetadata({
+      tag: 'demo-root',
+      actions: { increment: { returns: {}, describe: 'Add 1 to the value' } },
+    })
+    const after = generateMcpServerCard({
+      name: 'Demo',
+      version: '0.1.0',
+      endpoint: 'https://demo.example.com/mcp',
+    })
+    expect(after.tools?.map((t) => t.name)).toEqual(['increment'])
+  })
+
+  it('DE1: an empty registry yields a card with no tools (no hand-written fallback)', () => {
+    const card = generateMcpServerCard({
+      name: 'Empty',
+      version: '0.1.0',
+      endpoint: 'https://empty.example.com/mcp',
+    })
+    expect(card.tools).toBeUndefined()
+  })
+
+  it('DE1: explicitly declared skills merge with registry-derived ones (deduped by id)', () => {
+    registerAgentMetadata({
+      tag: 'demo-root',
+      actions: { increment: { returns: {}, describe: 'Add 1 to the value' } },
+    })
+    const card = generateMcpServerCard({
+      name: 'Demo',
+      version: '0.1.0',
+      endpoint: 'https://demo.example.com/mcp',
+      // A skill NOT in the registry is additive; a duplicate id defers to the
+      // registry-derived source of truth.
+      skills: [
+        { id: 'demo-root.increment', name: 'increment', description: 'SHADOWED' },
+        { id: 'other.thing', name: 'thing', description: 'A declared extra.' },
+      ],
+    })
+    const names = card.tools?.map((t) => t.name)
+    expect(names).toEqual(['increment', 'thing'])
+    // registry description wins over the shadowing declared duplicate
+    expect(card.tools?.find((t) => t.name === 'increment')?.description).toBe('Add 1 to the value')
+  })
+
+  it('skillsFromRegistry maps every registered component action to a skill', () => {
+    registerAgentMetadata({ tag: 'a-one', actions: { go: { returns: {}, describe: 'Go' } } })
+    registerAgentMetadata({ tag: 'b-two', actions: { stop: { returns: {}, describe: 'Stop' } } })
+    const skills = skillsFromRegistry()
+    expect(skills.map((s) => s.id).sort()).toEqual(['a-one.go', 'b-two.stop'])
   })
 
   it('generateMcpServerCard with description and homepage reflects in serverInfo', () => {
