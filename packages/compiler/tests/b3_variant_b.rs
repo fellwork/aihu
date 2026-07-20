@@ -332,6 +332,125 @@ const [myEl, setMyEl] = signal(null)
     );
 }
 
+// ─── #433 (FEL-270): $ref on a $if/$each-gated element is a silent-blank trap ─
+//
+// The ref's onMount is otherwise emitted INSIDE the boundary factory, which has
+// no component-setup owner → throws 'no owner' → the whole subtree blanks with
+// nothing surfaced. The compiler must reject this at build time (C562).
+
+#[test]
+fn c562_ref_with_if_on_same_element_rejects() {
+    let src = r#"@state {
+let proseEl: HTMLElement | null = null
+hasData: boolean = false
+}
+@template {
+  <article class="prose" $ref={proseEl} $if={hasData}>content</article>
+}"#;
+    let parsed = sfc::parse(src).expect("parse should succeed so we reach compile_full");
+    let err = compile_full(&parsed).expect_err("$ref + $if on one element must reject");
+    assert_eq!(err.code.as_deref(), Some("C562"), "expected C562, got {:?}", err.code);
+    // Rich-diagnostic shape: message + hint + fix (mirrors C560/C561).
+    assert!(err.hint.is_some(), "C562 must carry a hint: {:?}", err);
+    assert!(err.fix.is_some(), "C562 must carry a fix: {:?}", err);
+    assert!(
+        err.message.contains("no owner"),
+        "C562 message must name the 'no owner' failure: {}",
+        err.message
+    );
+}
+
+#[test]
+fn c562_ref_with_each_on_same_element_rejects() {
+    let src = r#"@state {
+let el: HTMLElement | null = null
+items: string[] = []
+}
+@template {
+  <li $ref={el} $each="items as it">{it}</li>
+}"#;
+    let parsed = sfc::parse(src).expect("parse should succeed so we reach compile_full");
+    let err = compile_full(&parsed).expect_err("$ref + $each on one element must reject");
+    assert_eq!(err.code.as_deref(), Some("C562"), "expected C562, got {:?}", err.code);
+}
+
+#[test]
+fn c562_does_not_overreach_ungated_ref_still_lowers() {
+    // Bidirectional guard: an UNGATED $ref must still lower to its setup-level
+    // onMount, unchanged — the diagnostic only fires on $if/$each co-occurrence.
+    let src = r#"@state {
+let stageEl: HTMLElement | null = null
+}
+@template {
+  <div $ref={stageEl}>x</div>
+}"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full(&parsed).expect("ungated $ref must still compile");
+    let js = emit(&unit, "x-ungated-ref").js;
+    assert!(
+        js.contains("onMount(") && js.contains("stageEl = _el"),
+        "ungated $ref must still emit its setup-level onMount setter: {}",
+        js
+    );
+}
+
+// ─── #432 (FEL-269): $ref-bound `let` keeps its type annotation in the sidecar ─
+//
+// The tsc surface (`compileSidecar` / `emit().sidecar_ts`) inlines the @state
+// body verbatim, so a typed `let stageEl: HTMLElement | null = null` must reach
+// tsc WITH its annotation — otherwise tsc's evolving-let infers constant `null`
+// and the `stageEl && stageEl.foo` guard collapses to `never`.
+
+fn compile_sidecar(source: &str, tag: &str) -> String {
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).expect("fixture must compile");
+    emit(&unit, tag).sidecar_ts.expect("a template SFC must emit a sidecar")
+}
+
+#[test]
+fn ref_bound_let_keeps_type_annotation_in_sidecar() {
+    let src = r#"@state {
+let stageEl: HTMLElement | null = null
+
+function check() {
+  return stageEl && stageEl.getRootNode()
+}
+}
+@template {
+  <div $ref={stageEl}>x</div>
+}"#;
+    let sidecar = compile_sidecar(src, "x-ref-typed");
+    assert!(
+        sidecar.contains("let stageEl: HTMLElement | null = null"),
+        "the $ref-bound `let` must keep its `: HTMLElement | null` annotation in the sidecar so \
+         tsc types it `HTMLElement | null`, not constant-`null`: {}",
+        sidecar
+    );
+}
+
+#[test]
+fn ref_bound_unannotated_let_gets_no_invented_annotation() {
+    // Bidirectional guard: a $ref on an UNannotated `let` is emitted unchanged —
+    // the compiler must not invent an annotation.
+    let src = r#"@state {
+let el = null
+}
+@template {
+  <div $ref={el}>x</div>
+}"#;
+    let sidecar = compile_sidecar(src, "x-ref-untyped");
+    assert!(
+        sidecar.contains("let el = null"),
+        "an unannotated $ref-bound `let` must be emitted unchanged (no invented type): {}",
+        sidecar
+    );
+    assert!(
+        !sidecar.contains("let el:"),
+        "the compiler must not invent an annotation for an unannotated $ref target: {}",
+        sidecar
+    );
+}
+
 // ─── Fixtures (full end-to-end SFC compilation) ──────────────────────────────
 
 #[test]
