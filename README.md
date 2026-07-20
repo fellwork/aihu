@@ -180,14 +180,14 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/signals` | 1.69 kB | 1970 B | pass |
 | `@aihu/arbor` | 2.70 kB | 2800 B | pass |
 | `@aihu/runtime` | 3.99 kB | 4100 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 1.26 kB | 1400 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 819 B | 950 B | pass |
-| `@aihu/app` | 1.67 kB | 1750 B | pass |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 1400 B | _no dist_ |
+| `@aihu/agent-acp` | — | 800 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 950 B | _no dist_ |
+| `@aihu/app` | — | 1750 B | _no dist_ |
 | `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | 430 B | 1 KB | pass |
@@ -206,9 +206,9 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
 | `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
 | `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

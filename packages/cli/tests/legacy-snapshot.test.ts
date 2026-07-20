@@ -54,8 +54,15 @@ afterEach(() => {
  * golden could not). The legacy scaffold's `.vscode/extensions.json` +
  * `settings.json` content is editor wiring, not part of the runnable-parity
  * contract this freeze guards; they are covered by the pure-generator tests.
+ *
+ * When walking the GOLDEN dir (`isGolden`), a top-level `README.md` is also
+ * skipped: it is the fixture's provenance annotation (why/when/from-what-SHA
+ * the golden was regenerated), not scaffold output. The skip is deliberately
+ * one-sided — if the scaffold ever starts emitting a top-level README.md the
+ * produced walk WILL include it and the file-set comparison fails loud,
+ * forcing an explicit harness decision instead of silently un-gating it.
  */
-function walkRel(root: string): string[] {
+function walkRel(root: string, isGolden = false): string[] {
   const out: string[] = []
   const stack: string[] = [root]
   while (stack.length > 0) {
@@ -68,6 +75,7 @@ function walkRel(root: string): string[] {
       } else if (st.isFile()) {
         const rel = relative(root, abs).replace(/\\/g, '/')
         if (rel.startsWith('.vscode/')) continue
+        if (isGolden && rel === 'README.md') continue
         out.push(rel)
       }
     }
@@ -99,6 +107,17 @@ describe('legacy-snapshot · backward-compat freeze (arch-6 §7.3)', () => {
     //    while keeping the golden tree as plain files in the source tree
     //    so a reviewer can scan the diff in code review.
     if (!existsSync(GOLDEN_DIR)) {
+      // #434 guard: in CI a missing golden means the fixture was deleted (or
+      // the checkout is broken) — auto-writing would make the freeze compare
+      // the tree against itself and pass vacuously. Fail hard instead; the
+      // bootstrap flow is a local-dev affordance only.
+      if (process.env.CI) {
+        throw new Error(
+          'legacy-snapshot.golden/ is missing and this is a CI run (process.env.CI is set). ' +
+            'Refusing to auto-write the golden in CI — a self-generated golden would pass ' +
+            'vacuously. Regenerate locally (delete the dir, run the test twice) and commit it.',
+        )
+      }
       mkdirSync(GOLDEN_DIR, { recursive: true })
       for (const rel of produced) {
         const src = join(producedRoot, rel)
@@ -116,7 +135,7 @@ describe('legacy-snapshot · backward-compat freeze (arch-6 §7.3)', () => {
       )
     }
 
-    const golden = walkRel(GOLDEN_DIR)
+    const golden = walkRel(GOLDEN_DIR, true)
 
     // 3. Compare file lists.
     expect(produced, 'produced file set must match golden file set').toEqual(golden)

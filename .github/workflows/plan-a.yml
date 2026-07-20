@@ -118,9 +118,21 @@ jobs:
       # is platform-agnostic and always runs.
       - if: runner.os != 'Windows'
         run: bun run test packages/cli/tests/scaffold-and-compile.test.ts
-      - run: bun run test packages/cli/tests/legacy-snapshot.test.ts
+      # legacy-snapshot (#434/#445): the root vitest config EXCLUDES this test
+      # (so the coverage run below doesn't double-run it), which used to defeat
+      # this step's explicit file filter — "No test files found, exiting 0", a
+      # vacuous pass that let the #395 golden drift land unnoticed. The gates
+      # config is the root config minus that exclude; passWithNoTests:false at
+      # root AND in the gates config makes a zero-test selection exit 1.
+      - run: bun run test packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts
       - run: bun run test --coverage
       - run: bun run build
+      # b3b-sidecar-tsc (#445 audit): excluded at root and previously invoked
+      # NOWHERE. It needs the built aihu-compile binary (staged above) AND
+      # packages/*/dist type surfaces (its tsc pass maps @aihu/* ->
+      # packages/*/dist/index.d.ts), so it runs here — after `bun run build` —
+      # via the gates config. 5/5 pass with those prerequisites.
+      - run: bun run test packages/compiler/tests/b3b-sidecar-tsc.test.ts --config vitest.gates.config.ts
       - run: bun run size
       # v0.2.4 — .size-limit.json row-policy lint. Flags any browser-eligible
       # package missing a row, or any server-side / build-dev-time-only package

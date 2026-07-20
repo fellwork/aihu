@@ -14,14 +14,26 @@ export default defineConfig({
       'tests/**/*.test.ts',
       'cookbook/**/*.test.ts',
     ],
-    // B3b sidecar-tsc tests require a separately compiled tsc binary pass — excluded until B3b lands.
-    // legacy-snapshot freeze is tracked separately (regeneration required after template changes).
+    // These two tests are NOT dead — they run in CI as dedicated plan-a.yml
+    // gate steps through vitest.gates.config.ts (root config minus this
+    // exclude). They are excluded HERE so the default `bun run test`
+    // [--coverage] run stays green in a fresh clone and does not double-run
+    // them (#434/#445):
+    //   - b3b-sidecar-tsc: needs the built aihu-compile binary AND
+    //     packages/signals/dist (its tsc pass maps @aihu/* -> packages/*/dist),
+    //     so its CI step runs AFTER `bun run build`.
+    //   - legacy-snapshot: the arch-6 §7.3 backward-compat freeze; its CI step
+    //     runs it exactly once (the coverage run would double it).
     exclude: [
       '**/node_modules/**',
       'packages/compiler/tests/b3b-sidecar-tsc.test.ts',
       'packages/cli/tests/legacy-snapshot.test.ts',
     ],
-    passWithNoTests: true,
+    // #445: a step that selects zero test files must FAIL, not exit 0. The
+    // legacy-snapshot CI gate no-opped for weeks because the exclude above
+    // defeated its explicit file filter and passWithNoTests let it exit 0
+    // ("No test files found"). Guarded by tests/ci-gate-config.test.ts.
+    passWithNoTests: false,
     // Per Director session-002 (.team/v1/director-notes/server-native-session-002.md §3):
     // set SCRIBE_NATIVE_SKIP=1 in the repo's test env so a fresh clone's
     // `bun run test` passes without a built native addon. The loader's
