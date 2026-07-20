@@ -315,12 +315,15 @@ Recorded so the reasoning isn't re-derived. **These are conclusions, not ratifie
 4. **Three independent mitigations, in priority order:**
    1. `<head>` metadata server-rendered (OG, Twitter, canonical, title/description,
       JSON-LD). DOM-independent, non-negotiable, fixes social unfurlers.
-   2. **Markdown content negotiation** — if an AI crawler asks for the page and receives
-      `text/markdown`, the DOM question is moot for that audience. This is already
-      `plugin-agent-readiness`'s job, and `MarkdownResolver` shipping as an interface with
-      **no implementation** is therefore the highest-leverage gap in the agent story.
-      Current negotiation is `Accept:`-header-only with **no UA sniffing**, which is
-      useless when AI crawlers don't send that header (cf. Next's `htmlLimitedBots`, §2.3).
+   2. **Markdown content negotiation on real page requests** — if an AI crawler fetches a
+      page and receives `text/markdown`, the DOM question is moot for that audience.
+      `MarkdownResolver` shipping as an interface with **no implementation** is the
+      highest-leverage gap in the agent story. Current negotiation is `Accept:`-header-only
+      with **no UA sniffing**, which is useless when AI crawlers don't send that header
+      (cf. Next's `htmlLimitedBots`, §2.3).
+      ⚠️ **Do not conflate this with llms.txt** — that manifest has ~zero verified adoption
+      (§5.1). This mitigation rides page fetches the crawler is *already making*, which is
+      why it survives the llms.txt finding intact.
    3. Light-DOM rendering for primary content (`shadowMode: 'none'` for page-level
       components) — the structural fix; also simplifies the shard track.
 5. **Four audiences, not two.** The inverted-defaults bug exists because both packages
@@ -336,10 +339,153 @@ Recorded so the reasoning isn't re-derived. **These are conclusions, not ratifie
 
 ---
 
-## 5. Open / pending
+## 5. GEO, llms.txt, and AI-surface optimization
 
-- **GEO + llms.txt adoption evidence** — research track still running at time of writing.
-  Bears on how much weight to put behind markdown-first serving. Append here when it lands.
+### 5.1 llms.txt has ~zero verified adoption **[VERIFIED]** ⚠️ deflates a common assumption
+
+[Google AI optimization guide](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide)
+(updated **2026-07-10**), verbatim:
+
+> "You don't need to create new machine readable files, AI text files, markup, or Markdown
+> to appear in Google Search (including its generative AI capabilities), as Google Search
+> itself doesn't use them."
+
+John Mueller, [Bluesky](https://bsky.app/profile/johnmu.com/post/3lrshm4gggs2v),
+**2025-06-17** (verified against the AT Protocol API, not trade press):
+
+> "FWIW no AI system currently uses llms.txt."
+
+And via [SEJ](https://www.searchenginejournal.com/google-says-llms-txt-comparable-to-keywords-meta-tag/544804/)
+(2025-04-17):
+
+> "AFAIK none of the AI services have said they're using LLMs.TXT (and you can tell when
+> you look at your server logs that they don't even check for it). To me, it's comparable
+> to the keywords meta tag."
+
+**Attribution warning:** the widely-circulated version of that quote is attributed to
+*Illyes on Bluesky*. It is **Mueller, on Reddit**. The `illyes.bsky.social` account was
+checked via AT Protocol — created 2026-03-23, 1 post, 0 followers, not credible. Likewise
+the Illyes "You don't need GEO, LLMO or anything else" line is a paraphrase laundered
+through one attendee's LinkedIn recap; it carries no quotation marks at source. **Do not
+repeat either as verbatim.**
+
+**Consequence for aihu:** `plugin-agent-readiness`'s llms.txt / llms-full.txt endpoints
+are **aspirational, not load-bearing**. Keep them (cheap, standards-adjacent, costs
+nothing to serve), but do not scope work as though they drive traffic.
+
+### 5.2 Page-level markdown negotiation is a *different* claim, and it survives **[INFERRED, high confidence]**
+
+Critically: §5.1 is about a *manifest file*. It does **not** bear on what happens when an
+AI crawler fetches an actual page. Those fetches are real and enormous — GPTBot 569M and
+ClaudeBot 370M per month (§1.2) — and none of those crawlers execute JS (§1.2), so what
+they receive from a shadow-DOM app is a shell.
+
+Serving `text/markdown` (or server-rendered light-DOM HTML) on those page requests
+therefore remains valuable **regardless of llms.txt adoption**, because the delivery
+mechanism is content negotiation on a request the crawler is already making, not a file
+it must be persuaded to read.
+
+Marked INFERRED because no study directly measures ingestion quality by content-type.
+The underlying facts (crawler volume, no JS execution) are VERIFIED.
+
+### 5.3 "GEO" is mostly vendor-driven **[VERIFIED, with a real caveat]**
+
+Google's consistent line across four documents and three spokespeople:
+
+- AI features doc (2025-12-10): *"There are no additional requirements to appear in AI
+  Overviews or AI Mode, nor other special optimizations necessary."*
+- Optimization guide (2026-07-10): *"optimizing for generative AI search is optimizing for
+  the search experience, and thus still SEO."*
+- Danny Sullivan, WordCamp US 2025-08-28: *"Good SEO is good GEO, or AEO, AI SEO, LLM SEO,
+  or LMNOPEO."*
+- Mueller, 2025-08-14: *"The higher the urgency, and the stronger the push of new acronyms,
+  the more likely they're just making spam and scamming."*
+
+Independent data supports this: **seoClarity** (362k queries, Oct 2025) found **94% of AI
+Overviews cited at least one top-20 source, 90% top-10**. **BrightEdge** found AIO/organic
+overlap *grew* 32.3% → 54.5% (May 2024 → Sept 2025) — converging toward classic ranking,
+not diverging.
+
+**The real caveat:** Google admits **query fan-out** — *"a set of concurrent, related
+queries generated by the model to request more information and fetch additional relevant
+search results."* That concedes the mechanism by which AI visibility *can* diverge from
+classic ranking, and it is exactly the gap GEO vendors sell into. The
+[Princeton/Georgia Tech GEO study](https://arxiv.org/abs/2311.09735) (KDD 2024) found
+quotations +41%, statistics +32%, inline citations +30% on generative citation visibility —
+real peer-reviewed work, but predating mature AI Overviews.
+
+⚠️ **Why vendor numbers don't reconcile:** they measure different units — "did *any* cited
+source rank top-10?" (inflates overlap) vs "what share of *all* citations rank top-10?"
+(deflates it). Most commentary doesn't disclose which. Claimed CTR declines span
+**15%–89%** across vendors; a 5× spread is evidence that methodology, not reality, drives
+the numbers.
+
+**Consequence for aihu: do not build "GEO features."** Solid fundamentals — server-rendered
+`<head>`, structured data, fast pages, crawlable content — are the documented answer.
+
+### 5.4 Google shipped a real AI opt-out, June 2026 **[VERIFIED]** — validates the audience model
+
+This obsoletes the long-standing "you cannot opt out of AI Overviews without leaving
+Search" constraint.
+
+Through May 2026: AI Overviews and AI Mode are Search features fed by **Googlebot**, and
+`Google-Extended` governed only Gemini Apps / Vertex AI grounding —
+[explicitly](https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers)
+*"Google-Extended does not impact a site's inclusion in Google Search."* So opting out of
+AI Overviews meant leaving Search. The UK CMA said publishers *"currently do not have
+sufficient choice."*
+
+**2026-06-03**, [Google blog](https://blog.google/products-and-platforms/products/search/new-controls-website-owners/):
+
+> "Sites that opt out will not receive traffic or impressions from our generative AI
+> features."
+> "This control will not be used as a ranking signal for search results outside of these
+> generative AI Search features."
+
+Rolling out **UK-first**. **[CONTESTED — causation]** Google frames this as product
+evolution; the timeline reads as compliance (Strategic Market Status Oct 2025 → CMA
+conduct-requirement proposals 28 Jan 2026 → control ships UK-first June 2026).
+
+**Why this matters for aihu's design:** Google now ships, in its own product, the exact
+distinction the four-audience model proposes (§4.5) — *search* separable from
+*AI-generative*, with an explicit guarantee that opting out of one does not penalize the
+other. The audience axis is no longer a bet; it's mirrored by the largest player.
+
+Granular controls remain blunt: `nosnippet`, `data-nosnippet`, `max-snippet`, `noindex`.
+`nosnippet` removes the ordinary search snippet too, and the new Search Console toggle is
+site-level all-or-nothing. **There is still no way to appear in AI Overviews on your own
+terms — only in, or out.**
+
+### 5.5 Traffic-impact evidence **[CONTESTED]**
+
+Recorded because it will come up, not because it drives a design decision.
+
+- **Google's claim is unsupported.** Liz Reid, [2025-08-06](https://blog.google/products-and-platforms/products/search/ai-search-driving-more-queries-higher-quality-clicks/):
+  *"total organic click volume... relatively stable year-over-year"* and *"slightly more
+  quality clicks."* The post contains **no charts, percentages, baseline period, geography,
+  or methodology**, and "quality clicks" is a Google-defined, unaudited metric with no
+  prior existence in the literature. Still unsupported eleven months later.
+- **Best independent counter-evidence:** [Pew](https://www.pewresearch.org/short-reads/2025/07/22/google-users-are-less-likely-to-click-on-links-when-an-ai-summary-appears-in-the-results/)
+  (900 US adults, 68,879 real searches, Mar 2025) — clicked a traditional result in **8%**
+  of visits with an AI summary vs **15%** without; clicked a link *inside* the summary in
+  **1%**. *Honest caveat critics omit: observational, not causal — Google chooses which
+  queries get AIOs, disproportionately informational ones that always had lower CTR.*
+- **Reuters Institute / Chartbeat:** 2,500+ sites, Google organic **−33% global, −38% US**
+  (Nov 2024→Nov 2025) — but *"hard news has been largely exempted from overviews"*; harm
+  concentrates in lifestyle/utility content.
+- **Penske Media v. Google** (1:25-cv-03192, D.D.C., filed 2025-09-12) pleads **antitrust,
+  not copyright**. Motion to dismiss fully briefed Mar 2026; no ruling, no discovery.
+  Untested allegations.
+
+**Three misattributions circulating widely — do not repeat:** (a) "58% click decline from
+the Penske filing" — the complaint cites 34.5%; 58% is a separate Feb 2026 Ahrefs study;
+(b) NMA's "90% of users never leave Google" — unsourced, inconsistent with Pew;
+(c) the llms.txt/meta-keywords quote attributed to Illyes on Bluesky (§5.1).
+
+---
+
+## 6. Open / pending
+
 - **DSD indexing by Googlebot** — no empirical test exists publicly (§1.4). Running one
   would be a genuine contribution.
 - **Microdata in shadow roots** — no evidence either way (§1.7).
