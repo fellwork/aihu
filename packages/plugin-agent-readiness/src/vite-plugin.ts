@@ -14,6 +14,11 @@ import type { AgentReadinessConfig } from './types.ts'
  * while remaining structurally compatible. `vite` is external in rolldown.config.ts.
  * @internal
  */
+/** A2A canonical discovery path (spec v0.3.0+). */
+const A2A_CANONICAL_PATH = '/.well-known/agent-card.json'
+/** A2A legacy discovery path — deprecated in v0.3.0, kept as an alias. */
+const A2A_LEGACY_PATH = '/.well-known/agent.json'
+
 interface VitePlugin {
   readonly name: string
   configureServer?: (server: {
@@ -107,7 +112,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
     })
   }
 
-  const a2aCard: RouteHandler = (_req) => {
+  const a2aCard: RouteHandler = (req) => {
     if (!config.a2aCard) return notFound()
     if (!config.siteUrl) return notFound()
     const a2aConfig = config.a2aCard === true ? {} : config.a2aCard
@@ -119,6 +124,21 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       ...(a2aConfig.capabilities !== undefined ? { capabilities: a2aConfig.capabilities } : {}),
       ...(a2aConfig.skills !== undefined ? { skills: a2aConfig.skills } : {}),
     })
+    // A2A v0.3.0 renamed the discovery path to /.well-known/agent-card.json.
+    // The old /.well-known/agent.json is served as a deprecated alias: same
+    // body, plus a `Deprecation` header (RFC 8594) and a `Link` to the
+    // canonical path, so existing consumers keep working but are nudged over.
+    const pathname = new URL(req.url).pathname
+    if (pathname === A2A_LEGACY_PATH) {
+      return new Response(JSON.stringify(card), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          Deprecation: 'true',
+          Link: `<${A2A_CANONICAL_PATH}>; rel="successor-version"`,
+        },
+      })
+    }
     return json(card)
   }
 
@@ -151,8 +171,9 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
 /**
  * The `viteAgentReadinessIntegration()` Vite plugin (v0.7.4 canonical name).
  *
- * configureServer (dev): serves /llms.txt, /llms-full.txt, /.well-known/mcp/server-card.json, /robots.txt
- * generateBundle (build): writes all four files as static assets to output dir
+ * configureServer (dev): serves /llms.txt, /llms-full.txt, /.well-known/mcp/server-card.json, /robots.txt,
+ *   /.well-known/agent-card.json (+ /.well-known/agent.json deprecated alias), /.well-known/mcp.json, /sitemap.xml
+ * generateBundle (build): writes those files as static assets to the output dir
  *
  * Route injection: does NOT inject into createRequestRouter automatically.
  * Use createAgentReadinessRoutes() for fetch-API integration.
@@ -167,9 +188,15 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
     const req = new Request(`http://localhost${path}`)
     const response = await handler(req, { params: {}, url: new URL(`http://localhost${path}`) })
     const body = await response.text()
-    const ct = response.headers.get('Content-Type') ?? 'text/plain'
     if (response.status === 404) return false
-    res.writeHead(response.status, { 'Content-Type': ct })
+    // Forward all response headers (Content-Type plus e.g. the A2A alias's
+    // Deprecation/Link headers), defaulting Content-Type when absent.
+    const headers: Record<string, string> = {}
+    response.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+    if (!headers['content-type']) headers['content-type'] = 'text/plain'
+    res.writeHead(response.status, headers)
     res.end(body)
     return true
   }
@@ -208,7 +235,9 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
           ['/llms-full.txt', routes.llmsFullTxt],
           ['/.well-known/mcp/server-card.json', routes.mcpServerCard],
           ['/robots.txt', routes.robotsTxt],
-          ['/.well-known/agent.json', routes.a2aCard],
+          [A2A_CANONICAL_PATH, routes.a2aCard],
+          // Deprecated A2A alias — kept so existing consumers don't break.
+          [A2A_LEGACY_PATH, routes.a2aCard],
           ['/.well-known/mcp.json', routes.mcpDiscovery],
           ['/sitemap.xml', routes.sitemapXml],
         ]
@@ -227,6 +256,8 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
         ['llms-full.txt', routes.llmsFullTxt],
         ['.well-known/mcp/server-card.json', routes.mcpServerCard],
         ['robots.txt', routes.robotsTxt],
+        ['.well-known/agent-card.json', routes.a2aCard],
+        // Deprecated A2A alias — emitted alongside the canonical card.
         ['.well-known/agent.json', routes.a2aCard],
         ['.well-known/mcp.json', routes.mcpDiscovery],
         ['sitemap.xml', routes.sitemapXml],

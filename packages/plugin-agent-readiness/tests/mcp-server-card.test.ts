@@ -169,7 +169,7 @@ describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
     expect(card.protocolVersion).toBe('2025-06-18')
   })
 
-  it('generateMcpServerCard auth block derives authorizationServer from tokenUrl origin', () => {
+  it('generateMcpServerCard auth block emits the AS issuer origin and no unserved well-knowns', () => {
     const card = generateMcpServerCard({
       name: 'Protected',
       version: '1.0.0',
@@ -181,11 +181,14 @@ describe('@aihu-plugin/agent-readiness mcp-server-card', () => {
         scopes: ['read'],
       },
     })
-    expect(card.auth?.authorizationServer).toBe(
-      'https://auth.example.com/.well-known/oauth-authorization-server',
-    )
-    expect(card.auth?.resourceMetadata).toBe(
-      'https://api.example.com/mcp/.well-known/oauth-protected-resource',
-    )
+    // authorizationServer is the OAuth issuer identifier (token endpoint origin),
+    // NOT a fabricated /.well-known metadata URL. Consumers do RFC 8414 discovery
+    // against the issuer themselves.
+    expect(card.auth?.authorizationServer).toBe('https://auth.example.com')
+    // Fix #423.3: we no longer advertise these unserved documents.
+    expect('resourceMetadata' in (card.auth ?? {})).toBe(false)
+    const json = JSON.stringify(card)
+    expect(json).not.toContain('/.well-known/oauth-protected-resource')
+    expect(json).not.toContain('/.well-known/oauth-authorization-server')
   })
 })

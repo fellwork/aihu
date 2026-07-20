@@ -1,7 +1,15 @@
 /**
  * MCP Server Card generator.
- * Schema: SEP-1649/SEP-2127, protocolVersion 2025-06-18.
+ *
+ * Emits aihu's OWN documented server-card shape — it is NOT a standardized MCP
+ * artifact. As of MCP revision 2025-11-25 no `/.well-known/mcp` server-card is
+ * specified: SEP-1649 (the original proposal) is CLOSED and SEP-2127 was moved
+ * off the Standards Track onto the Extensions Track. Do not describe this card
+ * as SEP-1649/spec compliant. The card is still useful for agents that know to
+ * look for it; we serve it, we just don't claim conformance to a dead proposal.
+ *
  * Discovery: GET /.well-known/mcp/server-card.json
+ * protocolVersion default: 2025-06-18.
  */
 
 import type { AgentMetadata } from '@aihu/agent'
@@ -49,8 +57,14 @@ export interface McpServerCard {
   }>
   readonly auth?: {
     readonly type: 'oauth2'
+    /**
+     * OAuth 2.0 authorization-server issuer identifier (the origin of the
+     * configured token endpoint). A consumer performs RFC 8414 metadata
+     * discovery against the issuer itself — we do NOT synthesize or advertise a
+     * `/.well-known/oauth-authorization-server` URL here: that document belongs
+     * on the authorization server, not on this MCP server, and we don't serve it.
+     */
     readonly authorizationServer: string
-    readonly resourceMetadata?: string
   }
 }
 
@@ -97,10 +111,15 @@ export function generateMcpServerCard(config: McpServerCardConfig): McpServerCar
 
   let auth: McpServerCard['auth']
   if (config.auth) {
+    // Emit only the authorization-server issuer identifier (the token endpoint
+    // origin). We deliberately do NOT advertise `/.well-known/oauth-protected-
+    // resource` (RFC 9728) or `/.well-known/oauth-authorization-server`
+    // (RFC 8414): the former is this server's responsibility but we don't serve
+    // it, and the latter belongs on the authorization server, not here. A
+    // dangling advertisement of an unserved well-known is worse than none —
+    // consumers do their own RFC 8414 discovery from the issuer below.
     const tokenUrl = new URL(config.auth.tokenUrl)
-    const authorizationServer = `${tokenUrl.origin}/.well-known/oauth-authorization-server`
-    const resourceMetadata = `${config.endpoint}/.well-known/oauth-protected-resource`
-    auth = { type: 'oauth2', authorizationServer, resourceMetadata }
+    auth = { type: 'oauth2', authorizationServer: tokenUrl.origin }
   }
 
   const serverInfo: McpServerCard['serverInfo'] = {

@@ -3,7 +3,11 @@ import { generateMcpServerCard } from '../../src/mcp-server-card.ts'
 
 const base = { name: 'Test', version: '1.0.0', endpoint: 'https://test.example.com/mcp' }
 
-describe('MCP Server Card SEP-1649 schema compliance', () => {
+// This suite validates aihu's OWN documented server-card shape. It intentionally
+// does NOT claim conformance to any MCP spec: as of revision 2025-11-25 no
+// `/.well-known/mcp` server-card is standardized — SEP-1649 is closed and
+// SEP-2127 moved to the Extensions Track. See mcp-server-card.ts header.
+describe('MCP Server Card — documented aihu shape', () => {
   it('$schema is the exact required string', () => {
     expect(generateMcpServerCard(base).$schema).toBe(
       'https://modelcontextprotocol.io/schemas/server-card/v1.0',
@@ -76,7 +80,10 @@ describe('MCP Server Card SEP-1649 schema compliance', () => {
     expect(() => new URL(card.auth?.authorizationServer)).not.toThrow()
   })
 
-  it('auth.resourceMetadata is a valid URL when present', () => {
+  it('does not advertise unserved OAuth well-known documents', () => {
+    // Fix #423.3: the card must never point at /.well-known/oauth-protected-resource
+    // (RFC 9728) or /.well-known/oauth-authorization-server (RFC 8414) — neither is
+    // served, and a dangling advertisement is worse than none.
     const card = generateMcpServerCard({
       ...base,
       auth: {
@@ -85,7 +92,10 @@ describe('MCP Server Card SEP-1649 schema compliance', () => {
         tokenUrl: 'https://auth.example.com/token',
       },
     })
-    expect(() => new URL(card.auth?.resourceMetadata ?? '')).not.toThrow()
+    const json = JSON.stringify(card)
+    expect(json).not.toContain('/.well-known/oauth-protected-resource')
+    expect(json).not.toContain('/.well-known/oauth-authorization-server')
+    expect('resourceMetadata' in (card.auth ?? {})).toBe(false)
   })
 
   it('no credential keys anywhere in JSON output', () => {

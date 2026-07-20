@@ -112,10 +112,16 @@ describe('@aihu-plugin/agent-readiness createAgentReadinessRoutes', () => {
 })
 
 describe('createAgentReadinessRoutes — a2aCard handler', () => {
-  const ctx = { params: {}, url: new URL('https://test.example.com/.well-known/agent.json') }
-  const req = new Request('https://test.example.com/.well-known/agent.json')
+  // Canonical A2A path (spec v0.3.0+).
+  const canonicalUrl = 'https://test.example.com/.well-known/agent-card.json'
+  const ctx = { params: {}, url: new URL(canonicalUrl) }
+  const req = new Request(canonicalUrl)
+  // Deprecated legacy alias.
+  const legacyUrl = 'https://test.example.com/.well-known/agent.json'
+  const legacyCtx = { params: {}, url: new URL(legacyUrl) }
+  const legacyReq = new Request(legacyUrl)
 
-  it('returns 200 JSON when a2aCard: true and siteUrl is set', async () => {
+  it('serves a valid A2A card at the canonical /.well-known/agent-card.json', async () => {
     const routes = createAgentReadinessRoutes({
       name: 'Test App',
       siteUrl: 'https://test.example.com',
@@ -124,10 +130,31 @@ describe('createAgentReadinessRoutes — a2aCard handler', () => {
     const res = await routes.a2aCard(req, ctx)
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Type')).toMatch(/application\/json/)
+    // Canonical path is NOT flagged deprecated.
+    expect(res.headers.get('Deprecation')).toBeNull()
     const body = await res.json()
     expect(body.name).toBe('Test App')
     expect(body.url).toBe('https://test.example.com')
     expect(body.capabilities).toEqual({ streaming: false, pushNotifications: false })
+  })
+
+  it('still serves the deprecated /.well-known/agent.json alias with a Deprecation header', async () => {
+    const routes = createAgentReadinessRoutes({
+      name: 'Test App',
+      siteUrl: 'https://test.example.com',
+      a2aCard: true,
+    })
+    const res = await routes.a2aCard(legacyReq, legacyCtx)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toMatch(/application\/json/)
+    // RFC 8594 deprecation signal + pointer to the successor path.
+    expect(res.headers.get('Deprecation')).toBe('true')
+    expect(res.headers.get('Link')).toContain('/.well-known/agent-card.json')
+    expect(res.headers.get('Link')).toContain('rel="successor-version"')
+    // Same body as the canonical card — the alias does not break consumers.
+    const body = await res.json()
+    expect(body.name).toBe('Test App')
+    expect(body.url).toBe('https://test.example.com')
   })
 
   it('returns 404 when a2aCard is absent', async () => {
@@ -143,6 +170,59 @@ describe('createAgentReadinessRoutes — a2aCard handler', () => {
     const routes = createAgentReadinessRoutes({ name: 'Test App', a2aCard: true })
     const res = await routes.a2aCard(req, ctx)
     expect(res.status).toBe(404)
+  })
+})
+
+describe('viteAgentReadinessIntegration — A2A dev-middleware wiring', () => {
+  // Drive the real configureServer middleware and capture what it writes, so we
+  // assert actual routing (fix #423.1), not source text.
+  async function fetchViaDevMiddleware(path: string): Promise<{
+    status: number
+    body: string
+    headers: Record<string, string>
+  } | null> {
+    const plugin = viteAgentReadinessIntegration({
+      name: 'Test App',
+      siteUrl: 'https://test.example.com',
+      a2aCard: true,
+    })
+    type Middleware = (
+      req: { url: string },
+      res: { writeHead(s: number, h: Record<string, string>): void; end(b: string): void },
+      next: () => void,
+    ) => void
+    let mw: Middleware | undefined
+    plugin.configureServer!({ middlewares: { use: (fn) => (mw = fn) } })
+    return await new Promise((resolve) => {
+      let status = 0
+      let headers: Record<string, string> = {}
+      let body = ''
+      const res = {
+        writeHead(s: number, h: Record<string, string>) {
+          status = s
+          headers = h
+        },
+        end(b: string) {
+          body = b
+          resolve({ status, body, headers })
+        },
+      }
+      mw!({ url: path }, res, () => resolve(null))
+    })
+  }
+
+  it('serves the canonical /.well-known/agent-card.json via the dev middleware', async () => {
+    const result = await fetchViaDevMiddleware('/.well-known/agent-card.json')
+    expect(result).not.toBeNull()
+    expect(result?.status).toBe(200)
+    expect(JSON.parse(result?.body ?? '{}').name).toBe('Test App')
+  })
+
+  it('still serves the deprecated /.well-known/agent.json alias via the dev middleware', async () => {
+    const result = await fetchViaDevMiddleware('/.well-known/agent.json')
+    expect(result).not.toBeNull()
+    expect(result?.status).toBe(200)
+    expect(JSON.parse(result?.body ?? '{}').name).toBe('Test App')
   })
 })
 
