@@ -269,8 +269,20 @@ interface UaOutcome {
   readonly correct: boolean
 }
 
+/**
+ * @param acceptOnly `--self-test` REGRESSION mutation. Disables the UA fallback
+ *   via the real `userAgentFallback: false` option, reproducing exactly the
+ *   Accept-only negotiation that shipped before DA2. Re-based 2026-07-20: this
+ *   parameter used to mean the opposite — it SIMULATED the fix, because no
+ *   implementation existed to drive. Now that production is UA-aware, a
+ *   simulated fix would make the should-flag case vacuous (it went green on its
+ *   own the moment DA2 landed, which is what caught this). The should-flag half
+ *   must therefore be a real-code regression, and the should-not-flag half is
+ *   now the LIVE default path. Same rebasing the `governed` baseline records for
+ *   GO1/GO2.
+ */
 async function runDaB(
-  uaAware: boolean,
+  acceptOnly: boolean,
 ): Promise<{ outcomes: UaOutcome[]; finding: Finding | null }> {
   const { createContentNegotiationHandler } = await import(
     '@aihu-plugin/agent-readiness/content-negotiation'
@@ -283,6 +295,7 @@ async function runDaB(
     // in this file. DA-b is only asking whether negotiation is REACHED.
     const middleware = createContentNegotiationHandler({
       resolver: { resolve: async () => '# probe\n\nprimary content' },
+      ...(acceptOnly ? { userAgentFallback: false } : {}),
     })
     const headers: Record<string, string> = { 'User-Agent': cell.ua }
     if (cell.accept) headers.Accept = cell.accept
@@ -293,14 +306,7 @@ async function runDaB(
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       })
 
-    let res = await middleware(req, next)
-    // `--self-test` mutation: simulate the UA-aware implementation the
-    // property requires, proving the probe can observe a PASS and is not
-    // structurally always-red.
-    if (uaAware && !cell.accept && /bot|gpt|claude/i.test(cell.ua)) {
-      res = new Response('# probe', { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } })
-    }
-
+    const res = await middleware(req, next)
     const ct = res?.headers.get('Content-Type') ?? ''
     const gotMarkdown = ct.includes('text/markdown')
     outcomes.push({
@@ -534,15 +540,16 @@ async function runSelfTest(): Promise<void> {
     expected: 0,
   })
 
-  // DA-b, both directions.
+  // DA-b, both directions. Inverted vs. pre-DA2: the REGRESSION is now the
+  // mutation and the LIVE path is the passing case.
   cases.push({
-    label: 'DA-b should-flag: live Accept-only negotiation',
-    actual: (await runDaB(false)).finding ? 1 : 0,
+    label: 'DA-b should-flag: Accept-only negotiation (userAgentFallback disabled)',
+    actual: (await runDaB(true)).finding ? 1 : 0,
     expected: 1,
   })
   cases.push({
-    label: 'DA-b should-not-flag: UA-aware negotiation (mutated)',
-    actual: (await runDaB(true)).finding ? 1 : 0,
+    label: 'DA-b should-not-flag: live UA-aware negotiation',
+    actual: (await runDaB(false)).finding ? 1 : 0,
     expected: 0,
   })
 
