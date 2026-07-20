@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist",
+    "baseUrl": ".",
     "paths": {
       "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],

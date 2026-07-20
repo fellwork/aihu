@@ -88,6 +88,28 @@ jobs:
       # `bun scripts/sync-readme.ts` to fix; pre-commit hook runs it locally.
       - run: bun scripts/sync-readme.ts --check
       - run: bun run typecheck
+      # Slice 0 — thesis invariants (docs/architecture/thesis.md §Invariants).
+      # Each converts a property from "true today if you check" into "cannot
+      # silently stop being true". All four FAIL against the tree today, at the
+      # counts committed in docs/plans/slice-0-invariants/baselines.json — and
+      # they gate anyway, because each exits 0 iff its finding count EQUALS its
+      # baseline. A count that rises is a new violation; a count that falls is
+      # also red, forcing the baseline decrement into the same PR as the fix.
+      # An invariant parked outside CI protects nothing, which is the failure
+      # mode check:emit-parses is in right now.
+      #
+      # Placed after typecheck and before test deliberately: these are cheaper
+      # than the coverage run and catch a class the suites cannot, so they
+      # should fail fast. Every check runs its own bidirectional self-test
+      # (should-flag AND should-not-flag) before it scans the real tree, and
+      # exits 1 on zero inputs rather than passing vacuously.
+      #
+      # check:agent-conformance is NOT here — it generates, builds and serves an
+      # app, and lands as its own job once its baseline is measured (spec §Phase 2).
+      - run: bun run check:derived
+      - run: bun run check:attributed
+      - run: bun run check:governed
+      - run: bun run check:dual-audience
       # CLI templates B1.3 — scaffold-and-compile harness exercises the
       # template against an isolated tmpdir and asserts typecheck passes
       # against the emitted scaffold. Skipped on Windows runners (matches

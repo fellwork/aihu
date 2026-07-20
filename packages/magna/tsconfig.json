@@ -4,6 +4,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu/magna": ["./src/index.ts"],
       "@aihu/context": ["../context/src/index.ts"],

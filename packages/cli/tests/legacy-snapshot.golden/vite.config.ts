@@ -30,14 +30,13 @@ export default defineConfig({
       // tool endpoint.
       endpoint: 'https://example.com/.well-known/mcp/server-card.json',
       mcpDiscovery: true,
-      // The live agent registry is populated in the browser/SSR at runtime, not
-      // during `vite build`, so the static card's tools are declared here and
-      // kept in sync with the `$action` entries in src/pages/index.aihu.
-      skills: [
-        { id: 'legacy-snapshot-root.increment', name: 'increment', description: 'Add 1 to the value' },
-        { id: 'legacy-snapshot-root.decrement', name: 'decrement', description: 'Subtract 1 from the value' },
-        { id: 'legacy-snapshot-root.reset', name: 'reset', description: 'Set the value to 0' },
-      ],
+      // No hand-written skills list. The card's tools are DERIVED from the
+      // compiler-populated @aihu/agent registry — the same source
+      // @aihu/agent-server reads — so the MCP card can never drift from the
+      // `$action` entries in src/pages/index.aihu (thesis §2, Derived). A static
+      // client build has an empty registry at build time, so the card advertises
+      // no tools until the app runs under @aihu/server (SSR), where the registry
+      // is populated and the card reflects the live `$action` surface.
     }),
   ],
 })

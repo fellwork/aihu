@@ -38,7 +38,16 @@ export function createServerRouter(routes: RouteDefinition[]): ServerRouter {
     const loaderData = mod.loader ? await mod.loader(params) : undefined
 
     const component = mod.default as (() => unknown) | { toHtml(): string }
-    const html = await renderToString(component)
+    // `hydratable: true` is REQUIRED here, not an optimization. Every
+    // `data-aihu-path` marker in `ssr.ts` is gated on `opts?.hydratable ?? false`,
+    // so calling this with no options ships markerless HTML — and this handler's
+    // output is not terminal, it is the document a live SPA hydrates into. Without
+    // markers the client walker finds nothing to adopt and rebuilds the tree beside
+    // the server's DOM, silently duplicating the page's content.
+    //
+    // `hydratable` is a property of the DESTINATION, not of the renderer, which is
+    // why it is explicit at every call site rather than defaulted from "this is SSR".
+    const html = await renderToString(component, { hydratable: true })
 
     const body =
       loaderData !== undefined

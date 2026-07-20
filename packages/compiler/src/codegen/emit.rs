@@ -1,5 +1,6 @@
 use crate::codegen::signals::{SignalMap, StateNames};
 use crate::expr::ExprParserMode;
+use std::collections::BTreeMap;
 use crate::parser::style_macros::{emit_style_macros, extract_global_reactives};
 use crate::types::{
     AgentBlock, AgentMacroDecl, Attr, BuildTarget, CollectionKind, CompileUnit, InputKind,
@@ -122,9 +123,33 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 
     let target = unit.target;
 
+    // A component is agent-enabled when it EXPOSES anything — an `@agent` block
+    // is not required.
+    //
+    // Previously every agent artifact was gated on `unit.source.agent.is_some()`,
+    // which contradicted the documented contract
+    // (docs/site/authoring-agents.md: "No `@agent` block needed") and, more
+    // concretely, meant `aihu create`'s scaffold and `cookbook/agent-weather.aihu`
+    // — both of which write `expose:` + `describe:` and NO `@agent` block —
+    // compiled to zero agent artifacts. The scaffold's own comment that
+    // "`$action` is the single source of truth for the agent surface" was false
+    // at the compiler level.
+    //
+    // This does not widen the exposed surface: `expose: { read: true }` is
+    // already an explicit, per-member author opt-in, and unexposed members are
+    // still excluded by `collect_agent_members`. Requiring a SECOND opt-in
+    // (`@agent`) only made the first one silently inert.
+    //
+    // `@agent` retains its v2 job: carrying policy (`$scope`, `$rate-limit`).
+    let has_exposed_members = {
+        let members = collect_agent_members(unit.source.script.unwrap_or(""));
+        !members.actions.is_empty() || !members.reads.is_empty() || !members.writes.is_empty()
+    };
+    let is_agent_component = unit.source.agent.is_some() || has_exposed_members;
+
     // v0.6.6: Server-artifact emission gates.
     // When target == Client, check for @agent block or $server macro references.
-    let elide_agent = target == BuildTarget::Client && unit.source.agent.is_some();
+    let elide_agent = target == BuildTarget::Client && is_agent_component;
     let elide_server_macro = target == BuildTarget::Client
         && unit.source.script.map_or(false, |s| s.contains("$server"));
     // v0.4.0: @stream block is server-only. Elide in client builds.
@@ -180,7 +205,13 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
                 "// [client build] @agent block elided\n{}\n{}",
                 with_reg, dispatcher
             )
-        } else if let Some(agent) = &unit.source.agent {
+        } else if is_agent_component {
+            // A component with exposed members but no `@agent` block carries no
+            // policy, so an empty AgentBlock is the correct stand-in: `$scope`
+            // and `$rate-limit` are absent, which the runtime reads as
+            // "unscoped, unthrottled" — exactly what declaring nothing means.
+            let empty_agent = AgentBlock::default();
+            let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
             // SERVER build of an @agent component. Unified path (fix:
             // server-agent-macro-lowering): `emit_function_form` already lowered
             // EVERY @state macro ($prop/$action/$computed/magna/$auth/...) and
@@ -195,10 +226,25 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
             //      componentInstanceRegistry — the headless `@aihu/agent-service`
             //      gate path. This mirrors the client T6 `_registerAgentDispatcher`
             //      but carries the FULL named binding + policy (server-only).
+            //  (3) the module-scope `registerAgentMetadata({ … })` that populates
+            //      the `@aihu/agent` registry. This is what `@aihu/agent-server`
+            //      reads to build MCP tool definitions — without it the registry
+            //      is empty and every tool ships undescribed. Pure data, so it is
+            //      safe at module scope (unlike `__agentBinding`, whose invoker
+            //      bodies close over setup locals).
             let raw_script = unit.source.script.unwrap_or("");
             let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
             let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
-            format!("{}\n{}\n", with_reg, agent_binding_export)
+            let agent_metadata = emit_agent_metadata_registration(tag_name, raw_script);
+            let with_metadata = if agent_metadata.is_empty() {
+                with_reg
+            } else {
+                format!(
+                    "import {{ registerAgentMetadata }} from '@aihu/agent'\n{}\n{}",
+                    with_reg, agent_metadata
+                )
+            };
+            format!("{}\n{}\n", with_metadata, agent_binding_export)
         } else if elide_server_macro {
             eprintln!("WARNING: $server macro reference elided — client-only build");
             format!("// [client build] $server macro reference elided\n{}", base_js)
@@ -210,8 +256,10 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // v0.6.6: Do NOT emit manifest_json for client-only builds.
     let manifest_json = if elide_agent {
         String::new()
-    } else if let Some(agent) = &unit.source.agent {
-        emit_manifest(tag_name, agent)
+    } else if is_agent_component {
+        let empty_agent = AgentBlock::default();
+        let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
+        emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""))
     } else {
         String::new()
     };
@@ -1785,6 +1833,15 @@ fn process_state_body(
                     | Some("context")
                     // v0.4.0
                     | Some("stream")
+                    // D5 — `$form` entries are lowered by emit_form_wiring() at
+                    // the SFC-body level, not per-entry. It still has to be
+                    // SKIPPED here: without this arm its body leaked into
+                    // plain_body, where the `name: type` declaration scanner
+                    // rewrote `value: () => value,` into
+                    // `let value: () => value,` and left a dangling `}`.
+                    // Every other CollectionKind variant is listed above; keep
+                    // this arm in sync when adding one.
+                    | Some("form")
             ) && stripped.contains(':');
             let is_preserved_macro = stripped.starts_with("effect.on(")
                 || matches!(macro_keyword, Some("watch"));
@@ -2062,11 +2119,71 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
     None
 }
 
-fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &SignalMap) -> String {
-    use crate::parser::state_macros::{arrow_args, arrow_body, meta_get, running_code};
+/// CO1: `$prop` name -> "the entry's `default:` is a numeric literal".
+///
+/// The key set is `collect_prop_entries`, NOT the `SignalMap` (spec §6.1):
+/// `process_state_body` registers prop names into `signal_map` alongside real
+/// `$computed` entries and lifted `signal()` bindings, so keying the write
+/// rewrite off it would rewrite a plain writable `let` and break working code.
+///
+/// The bool proves `ToNumeric` is identity for that prop, which is one of the
+/// two conditions for the `++`/`--` inline fast path.
+fn collect_prop_write_targets(
+    macros: &[crate::types::StateMacro],
+) -> std::collections::HashMap<String, bool> {
+    use crate::parser::state_macros::meta_get;
+    let mut out = std::collections::HashMap::new();
+    for entry in collect_prop_entries(macros) {
+        let numeric_default = meta_get(entry, "default")
+            .map(|d| d.trim().parse::<f64>().is_ok())
+            .unwrap_or(false);
+        out.insert(entry.name.clone(), numeric_default);
+    }
+    out
+}
+
+/// CO1: rewrite `$prop` writes inside one macro body, or return it unchanged.
+///
+/// Infallible by design. C560 (destructuring into a prop) is raised as a hard
+/// error by `validate_prop_writes` in `lib.rs`, which runs BEFORE emit and can
+/// return `Result`; by the time emit runs, such a body has already been
+/// rejected. Here an error can only mean the two passes disagreed, so the
+/// non-regressive move is to splice the body exactly as authored.
+fn rewrite_prop_writes_in(
+    body: &str,
+    params: &str,
+    is_async: bool,
+    props: &std::collections::HashMap<String, bool>,
+    needs_helper: &mut bool,
+) -> String {
+    let targets = crate::expr::PropWriteTargets { props };
+    match crate::expr::rewrite_prop_writes(body, params, is_async, &targets) {
+        Ok(Some(res)) => {
+            if res.needs_update_helper {
+                *needs_helper = true;
+            }
+            res.source
+        }
+        _ => body.to_string(),
+    }
+}
+
+/// Returns the emitted `@state` macro code and whether it needs the lazily
+/// declared `__aihu_prop_upd` helper (spec §4.5).
+fn emit_state_macro_code(
+    macros: &[crate::types::StateMacro],
+    signal_map: &SignalMap,
+) -> (String, bool) {
+    use crate::parser::state_macros::{
+        arrow_args, arrow_async_prefix, arrow_body, arrow_body_spliceable, meta_get, running_code,
+    };
     use crate::types::{CollectionKind, StateMacro};
     let mut lines: Vec<String> = Vec::new();
     let indent = "  ";
+    // CO1: collected once for the whole component, threaded into every
+    // imperative-position macro body below.
+    let prop_targets = collect_prop_write_targets(macros);
+    let mut needs_prop_upd_helper = false;
     for mac in macros {
         match mac {
             StateMacro::Collection { kind, entries } => {
@@ -2099,10 +2216,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let body = arrow_body_spliceable(thunk)
+                                .unwrap_or_else(|| thunk.to_string());
+                            let am = arrow_async_prefix(thunk);
                             lines.push(format!(
-                                "{indent}const {} = computed(() => {body});",
+                                "{indent}const {} = computed({am}() => {body});",
                                 entry.name
                             ));
                         }
@@ -2111,8 +2229,9 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 Some(t) => t,
                                 None => continue,
                             };
-                            let body =
-                                arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            let am = arrow_async_prefix(thunk);
+                            let body = arrow_body_spliceable(thunk)
+                                .unwrap_or_else(|| thunk.to_string());
                             // arch-3 M2 (RFC-003): magna-origin `$resource`
                             // (body is `data.X.query(...)`) lowers to
                             // `createMagnaResource`; everything else keeps the
@@ -2124,7 +2243,7 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                 ));
                             } else {
                                 lines.push(format!(
-                                    "{indent}const {} = createResource(() => {body});",
+                                    "{indent}const {} = createResource({am}() => {body});",
                                     entry.name
                                 ));
                             }
@@ -2150,13 +2269,51 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let args = arrow_args(arrow).unwrap_or_default();
                             let body = arrow_body(arrow).unwrap_or_default();
+                            let is_async = crate::parser::state_macros::arrow_is_async(arrow);
+                            // CO1: rewrite `$prop` writes FIRST (spec §4.11).
+                            // The `$announce(` replace below is a raw string
+                            // substitution that invalidates byte offsets, so it
+                            // MUST run after the span-based splice. `args` is
+                            // passed so the action's own params shadow
+                            // correctly — that shadow lives outside the body
+                            // text, and missing it silently corrupts
+                            // `(count) => { count = 5 }`.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                &args,
+                                is_async,
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
                             // arch-5 M1: rewrite $announce(...) call sites in
                             // action bodies to the runtime-imported alias.
                             let body = body.replace("$announce(", "__a11y_announce(");
-                            lines.push(format!(
-                                "{indent}function {}({args}) {{ return batch(() => {{ {body} }}) }}",
-                                entry.name
-                            ));
+                            if is_async {
+                                // Async handlers are NOT wrapped in `batch`.
+                                // Two reasons, both correctness rather than
+                                // preference:
+                                //  1. `batch` takes a plain arrow, so an
+                                //     `await` in the body is a syntax error.
+                                //  2. `batch` flushes synchronously, so even if
+                                //     it accepted an async callback it would
+                                //     cover only the prefix before the first
+                                //     `await` — the later writes would escape
+                                //     it silently. A partial batch is worse
+                                //     than none, because it looks atomic.
+                                // The return contract still holds: an async
+                                // function returns a promise, so `$action`
+                                // callers awaiting the result get the body's
+                                // value as before.
+                                lines.push(format!(
+                                    "{indent}async function {}({args}) {{ {body} }}",
+                                    entry.name
+                                ));
+                            } else {
+                                lines.push(format!(
+                                    "{indent}function {}({args}) {{ return batch(() => {{ {body} }}) }}",
+                                    entry.name
+                                ));
+                            }
                         }
                         CollectionKind::Effect => {
                             let thunk = match running_code(entry) {
@@ -2165,6 +2322,21 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            // CO1: `$effect` is an imperative position, so a
+                            // `$prop` write there is legitimate and rewritten.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                arrow_args(thunk).unwrap_or_default().as_str(),
+                                crate::parser::state_macros::arrow_is_async(thunk),
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
+                            // Async effects track dependencies only up to the
+                            // first `await` (the signals graph collects reads
+                            // synchronously). That is a real caveat, but it is
+                            // the author's to make — emitting a non-async arrow
+                            // around an awaiting body is just a syntax error.
+                            let am = arrow_async_prefix(thunk);
                             if let Some(deps_raw) = meta_get(entry, "on") {
                                 let deps_inner = deps_raw
                                     .trim()
@@ -2172,11 +2344,11 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                                     .and_then(|s| s.strip_suffix(']'))
                                     .unwrap_or(deps_raw);
                                 lines.push(format!(
-                                    "{indent}effect(() => {{ {dep}; {body} }});",
+                                    "{indent}effect({am}() => {{ {dep}; {body} }});",
                                     dep = deps_inner.trim()
                                 ));
                             } else {
-                                lines.push(format!("{indent}effect(() => {{ {body} }});"));
+                                lines.push(format!("{indent}effect({am}() => {{ {body} }});"));
                             }
                         }
                         CollectionKind::Lifecycle => {
@@ -2193,13 +2365,27 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+                            // CO1: `$lifecycle` callbacks are imperative
+                            // positions too — `cookbook/ssr-hydration.aihu`
+                            // writes `greeting`/`name` from `mount`. The
+                            // callback's own params are passed so
+                            // `attributeChange(name, old, new)` shadows a
+                            // like-named prop correctly.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                arrow_args(arrow).unwrap_or_default().as_str(),
+                                crate::parser::state_macros::arrow_is_async(arrow),
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
+                            let am = arrow_async_prefix(arrow);
                             match entry.name.as_str() {
                                 "mount" => lines
-                                    .push(format!("{indent}onMount(() => {{ {body} }});")),
+                                    .push(format!("{indent}onMount({am}() => {{ {body} }});")),
                                 "dispose" => lines
-                                    .push(format!("{indent}onCleanup(() => {{ {body} }});")),
+                                    .push(format!("{indent}onCleanup({am}() => {{ {body} }});")),
                                 "adopt" => lines
-                                    .push(format!("{indent}onAdopt(() => {{ {body} }});")),
+                                    .push(format!("{indent}onAdopt({am}() => {{ {body} }});")),
                                 "attributeChange" => {
                                     // Preserve the user-supplied param list so
                                     // names match what the user authored.
@@ -2387,11 +2573,12 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
-    if lines.is_empty() {
+    let code = if lines.is_empty() {
         String::new()
     } else {
         lines.join("\n") + "\n"
-    }
+    };
+    (code, needs_prop_upd_helper)
 }
 
 // ─── R1 — $prop options-form lowering helpers ───────────────────────────────
@@ -2973,8 +3160,16 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     let uses_ctx = uses_options_form;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
-    let macro_code = emit_state_macro_code(&macros, &signal_map);
+    let (macro_code, needs_prop_upd_helper) = emit_state_macro_code(&macros, &signal_map);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
+    // CO1 §4.5: the `++`/`--` ToNumeric helper, declared once per component and
+    // ONLY when some emitted form actually calls it. `cookbook/aihu-counter`
+    // takes the inline fast path, so it never loads this.
+    let prop_upd_decl = if needs_prop_upd_helper {
+        format!("  {}\n", crate::expr::UPDATE_HELPER_DECL)
+    } else {
+        String::new()
+    };
 
     let body = {
         let mut b = String::new();
@@ -2993,6 +3188,10 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
         // case (#279) and the Bug 8 const-initializer TDZ, because the prop getter
         // is now declared before any synchronously-running @state statement reads
         // it. The binding is no longer emitted from emit_state_macro_code.
+        // CO1: declared above the prop bindings that its call sites close
+        // over. `const` in the same body scope; every caller is a function
+        // invoked later, so there is no TDZ hazard.
+        b.push_str(&prop_upd_decl);
         let prop_bindings = emit_prop_bindings(&prop_entries, "  ");
         if !prop_bindings.is_empty() {
             b.push_str(&prop_bindings);
@@ -3440,6 +3639,15 @@ struct AgentMembers {
     actions: Vec<String>,
     reads: Vec<String>,
     writes: Vec<String>,
+    /// Member name → the entry's `describe:` value, stored as the RAW JS string
+    /// literal (quotes included) exactly as authored. Kept as a side map rather
+    /// than widening the three `Vec<String>`s above, because those feed the
+    /// invoker-map emitters whose bodies are byte-aligned across the server
+    /// export, the server registration, and the client opaque-ID dispatcher.
+    ///
+    /// Only populated for members that survive the `expose` gate — an
+    /// unexposed member's description must never reach a public artifact.
+    describes: BTreeMap<String, String>,
 }
 
 /// Walk the `@state` collections of an SFC and collect the names of members
@@ -3481,6 +3689,18 @@ fn collect_agent_members(raw_script: &str) -> AgentMembers {
                     }
                     _ => {}
                 }
+
+                // Record the description only for members that cleared the
+                // gate above. Gating on (has_read || has_write) rather than on
+                // the match arm keeps unexposed members — and their prose,
+                // which may describe internals — out of every emitted artifact.
+                if has_read || has_write {
+                    if let Some(desc) = meta_get(entry, "describe") {
+                        members
+                            .describes
+                            .insert(entry.name.clone(), desc.trim().to_string());
+                    }
+                }
             }
         }
     }
@@ -3512,6 +3732,70 @@ fn fnv1a_64(input: &str) -> u64 {
 fn opaque_member_id(tag_name: &str, member_name: &str) -> String {
     let key = format!("{}:{}", tag_name, member_name);
     format!("a_{:016x}", fnv1a_64(&key))
+}
+
+/// Emit the `registerAgentMetadata({...})` call that populates the
+/// `@aihu/agent` registry — the ONLY source `@aihu/agent-server`'s
+/// `buildToolDefinitions` reads when constructing MCP tool definitions.
+///
+/// Before this existed the compiler emitted no such call anywhere, so the
+/// registry was empty in every real app and every action tool shipped with a
+/// synthesized description and an untyped `args: { type: 'array' }` schema.
+/// `describe:` was parsed, validated, and then dropped — it reached no artifact.
+///
+/// Unlike `__agentBinding`, this payload is PURE DATA: it closes over no setup
+/// locals, so emitting it at module scope is safe and it can be read on import
+/// without a live component instance.
+///
+/// Only `read`-exposed members are advertised. Write-exposed props are
+/// deliberately omitted: the dispatch path to `setSignal` is closed by design
+/// (`agent-service` proves this with a test), so advertising a write tool would
+/// promise a capability the server refuses to serve.
+fn emit_agent_metadata_registration(tag_name: &str, raw_script: &str) -> String {
+    let members = collect_agent_members(raw_script);
+    if members.actions.is_empty() && members.reads.is_empty() {
+        return String::new();
+    }
+
+    // state: { name: '<describe>' } — Record<string, string>. Every read member
+    // appears, described or not, so the read tool is generated either way; the
+    // value is the description when authored and '' when not (agent-server
+    // falls back to a synthesized string on empty).
+    let state_entries: Vec<String> = members
+        .reads
+        .iter()
+        .map(|name| {
+            let desc = members.describes.get(name).map_or("''", String::as_str);
+            format!("    {}: {}", name, desc)
+        })
+        .collect();
+
+    // actions: { name: { describe: '<describe>', returns: {} } }
+    // `returns` is present-but-empty: the v2 `@state` form carries no return
+    // shape (only the retired v1 `@agent { action ... -> {...} }` did), and
+    // ActionSchema requires the key.
+    let action_entries: Vec<String> = members
+        .actions
+        .iter()
+        .map(|name| match members.describes.get(name) {
+            Some(desc) => format!("    {}: {{ describe: {}, returns: {{}} }}", name, desc),
+            None => format!("    {}: {{ returns: {{}} }}", name),
+        })
+        .collect();
+
+    let mut out = String::from("registerAgentMetadata({\n");
+    out.push_str(&format!("  tag: '{}',\n", tag_name));
+    if !state_entries.is_empty() {
+        out.push_str(&format!("  state: {{\n{}\n  }},\n", state_entries.join(",\n")));
+    }
+    if !action_entries.is_empty() {
+        out.push_str(&format!(
+            "  actions: {{\n{}\n  }},\n",
+            action_entries.join(",\n")
+        ));
+    }
+    out.push_str("})\n");
+    out
 }
 
 fn emit_agent_binding_export(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
@@ -3961,8 +4245,32 @@ fn emit_agent_bindings(agent: &AgentBlock) -> String {
 
 // ─── Manifest JSON emission ───────────────────────────────────────────────────
 
-fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
-    if agent.inputs.is_empty() && agent.actions.is_empty() && agent.agent_macros.is_empty() {
+/// Convert an authored JS string literal (`'foo'` / `"foo"`, quotes included,
+/// as `meta_get` returns it) into the body of a JSON string. Returns `None` for
+/// anything not quote-delimited — a computed or interpolated `describe:` has no
+/// compile-time text, so it is omitted rather than emitted wrong.
+fn js_literal_to_json_body(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    let inner = t
+        .strip_prefix('\'')
+        .and_then(|s| s.strip_suffix('\''))
+        .or_else(|| t.strip_prefix('"').and_then(|s| s.strip_suffix('"')))?;
+    Some(inner.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn emit_manifest(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+    // v2 members live on `@state` entries, not on the `@agent` block. Collected
+    // from the SAME walk that feeds `__agentBinding` and
+    // `registerAgentMetadata`, so the sidecar cannot drift from the live
+    // registry the way it did when it read only the retired v1 keywords.
+    let members = collect_agent_members(raw_script);
+
+    if agent.inputs.is_empty()
+        && agent.actions.is_empty()
+        && agent.agent_macros.is_empty()
+        && members.actions.is_empty()
+        && members.reads.is_empty()
+    {
         return String::new();
     }
 
@@ -4005,11 +4313,10 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
         format!("{{\n{}\n    }}", input_entries.join(",\n"))
     };
 
-    // Build actions JSON
-    let actions_json = if agent.actions.is_empty() {
-        "{}".to_string()
-    } else {
-        let action_entries: Vec<String> = agent
+    // Build actions JSON — v1 `@agent { action ... }` entries first, then v2
+    // `$action` entries that cleared the `expose` gate.
+    let actions_json = {
+        let mut action_entries: Vec<String> = agent
             .actions
             .iter()
             .map(|act| {
@@ -4037,7 +4344,48 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
                 )
             })
             .collect();
-        format!("{{\n{}\n    }}", action_entries.join(",\n"))
+
+        for name in &members.actions {
+            let describe_part = members
+                .describes
+                .get(name)
+                .and_then(|raw| js_literal_to_json_body(raw))
+                .map(|body| format!(",\n        \"describe\": \"{}\"", body))
+                .unwrap_or_default();
+            action_entries.push(format!(
+                "      \"{}\": {{\n        \"returns\": {{}}{}\n      }}",
+                name, describe_part
+            ));
+        }
+
+        if action_entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", action_entries.join(",\n"))
+        }
+    };
+
+    // Build state JSON from v2 read-exposed members, mirroring the
+    // `registerAgentMetadata` payload so the sidecar and the live registry
+    // describe the same surface.
+    let state_json = {
+        let entries: Vec<String> = members
+            .reads
+            .iter()
+            .map(|name| {
+                let body = members
+                    .describes
+                    .get(name)
+                    .and_then(|raw| js_literal_to_json_body(raw))
+                    .unwrap_or_default();
+                format!("      \"{}\": \"{}\"", name, body)
+            })
+            .collect();
+        if entries.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{\n{}\n    }}", entries.join(",\n"))
+        }
     };
 
     // Build agent macros extras (v2: only $scope and $rate-limit survive).
@@ -4061,8 +4409,8 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock) -> String {
     }
 
     format!(
-        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {}{}\n  }}]\n}}",
-        tool_name, tag_name, inputs_json, actions_json, extra_fields
+        "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {},\n    \"state\": {}{}\n  }}]\n}}",
+        tool_name, tag_name, inputs_json, actions_json, state_json, extra_fields
     )
 }
 
@@ -6242,13 +6590,12 @@ fn emit_macro_effects(
                 // Parse "list as item" or "list as item, idx"
                 if let Some((list_part, rest)) = raw.split_once(" as ") {
                     each_items = list_part.trim().to_string();
-                    if let Some((item, idx)) = rest.split_once(',') {
-                        item_alias = item.trim().to_string();
-                        idx_alias = idx.trim().to_string();
-                    } else {
-                        item_alias = rest.trim().to_string();
-                        idx_alias = "i".to_string();
-                    }
+                    // Depth-aware split: `as [name, desc]` must not tear at the
+                    // comma inside its own destructuring pattern. Tearing here
+                    // produced a key function of `([name) => name`.
+                    let (item, idx) = crate::parser::directives::split_each_alias(rest);
+                    item_alias = item;
+                    idx_alias = idx.unwrap_or_else(|| "i".to_string());
                 } else {
                     // fallback for old form (should have been caught by parser, but be safe)
                     each_items = raw;

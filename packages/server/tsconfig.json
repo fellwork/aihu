@@ -4,6 +4,7 @@
     "lib": ["ES2022"],
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu/plugin": ["../plugin/src/index.ts"]
     }

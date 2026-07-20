@@ -4,6 +4,7 @@
     "outDir": "dist",
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
     "paths": {
       "@aihu/signals": ["../signals/src/index.ts"]
     }

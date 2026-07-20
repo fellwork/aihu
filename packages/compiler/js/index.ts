@@ -631,9 +631,18 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
 
   // Shape 2 — no @style block. Inject a fresh stylesheet + adoption.
   // Bail (no-op) if the expected defineComponent setup shape is absent.
-  const setupRe = /defineComponent\(\s*\((_ctx|ctx)\)\s*=>\s*\{/
+  // The setup param is NOT always `ctx`/`_ctx`: an agent component (one with an
+  // exposed member) emits `(__aihu_ctx__)` so `_registerAgentServerBinding`
+  // can read `__aihu_ctx__?.element`. Capture whatever the param is and inject
+  // against it — a literal `(ctx)` anchor silently no-ops on agent components,
+  // which shipped scoped utility CSS with no adopted stylesheet.
+  const setupRe = /defineComponent\(\s*\((__?[A-Za-z0-9_]+)\)\s*=>\s*\{/
   const m = setupRe.exec(compiledCode)
   if (m == null) return compiledCode
+  // `_ctx` is codegen's "unused ctx" marker; the injected adoption uses it, so
+  // normalize to `ctx`. Any other name (`ctx`, `__aihu_ctx__`) is referenced
+  // elsewhere in the setup body and MUST be preserved verbatim.
+  const setupParam = m[1] === '_ctx' ? 'ctx' : m[1]
 
   // Inject the module-level stylesheet declaration after the last import line.
   const lines = compiledCode.split('\n')
@@ -653,11 +662,13 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
   }
   let withDecl = lines.join('\n')
 
-  // Rename the setup param to `ctx` (codegen emits `_ctx` when no @style/ctx
-  // usage) and inject the adoption as the first statement of the setup body.
+  // Inject the adoption as the first statement of the setup body, using the
+  // ACTUAL setup param (`ctx` for a plain component, `__aihu_ctx__` for an
+  // agent component). `_ctx` is normalized to `ctx` above since the injected
+  // statement now references it.
   withDecl = withDecl.replace(
-    /defineComponent\(\s*\((?:_ctx|ctx)\)\s*=>\s*\{/,
-    'defineComponent((ctx) => {\n  (ctx.host as ShadowRoot).adoptedStyleSheets = [__style__];',
+    setupRe,
+    `defineComponent((${setupParam}) => {\n  (${setupParam}.host as ShadowRoot).adoptedStyleSheets = [__style__];`,
   )
   return withDecl
 }

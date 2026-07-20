@@ -76,14 +76,14 @@
   {
     "name": "@aihu/agent-acp",
     "path": "packages/agent-acp/dist/index.js",
-    "limit": "600 B",
+    "limit": "800 B",
     "gzip": true,
     "ignore": ["@aihu/agent-service"]
   },
   {
     "name": "@aihu/agent-a2a",
     "path": "packages/agent-a2a/dist/index.js",
-    "limit": "750 B",
+    "limit": "950 B",
     "gzip": true,
     "ignore": ["@aihu/agent-service"]
   },

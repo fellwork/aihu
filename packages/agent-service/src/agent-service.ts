@@ -144,10 +144,34 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
 
     // AC11: action allowlist check (against live binding)
     const binding = bindings[0]!
-    // Check if the action exists in the binding's reads or actions
-    const hasAction = typeof (binding as { callAction: unknown }).callAction === 'function'
-    if (!hasAction) {
-      return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+
+    // The previous check here was `typeof binding.callAction === 'function'`,
+    // which is ALWAYS true for a LiveBinding — so the allowlist was dead code
+    // on the only branch that can succeed, and enforcement was displaced to
+    // the browser's opaque-ID map. That made the CLIENT the allowlist
+    // authority, inverting this module's stated design that the server-side
+    // gate is load-bearing.
+    //
+    // LiveBinding deliberately exposes no action list (it is a set of
+    // invokers, not a manifest), so the authority is the compiler-emitted
+    // metadata registered for this tag. `registerAgentMetadata` is emitted for
+    // every server/universal build of an @agent component, so `meta` is
+    // present for any properly compiled component.
+    //
+    // When metadata IS present it is enforced: an action must be advertised in
+    // `actions`, or be a readable member in `state` (handleToolCall falls
+    // through to getSignal for those). When it is ABSENT we cannot enforce —
+    // there is nothing to enforce against — so the call proceeds to the
+    // downstream invoker, which rejects unknown names on its own. Closing that
+    // remaining gap means giving LiveBinding an advertised surface, tracked
+    // separately; it is not reachable by any component compiled from source.
+    const meta = byTag.get(tag)
+    if (meta) {
+      const inActions = meta.actions ? action in meta.actions : false
+      const inState = meta.state ? action in meta.state : false
+      if (!inActions && !inState) {
+        return { ok: false, envelope: jsonrpcError(404, `no action: ${action}`) }
+      }
     }
 
     // ── Step 2: 401 — userId cardinality (Amendment 3 / §6.3) ────────────
@@ -188,7 +212,46 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
     }
 
     // ── Step 4: 429 — rate limit ──────────────────────────────────────────
-    if (rateLimitSpec !== null && rateLimitPlugin) {
+    //
+    // Fail-closed, mirroring Step 3's `$scope` posture (Amendment 2 / §6.1).
+    //
+    // This branch used to read `if (rateLimitSpec !== null && rateLimitPlugin)`,
+    // which made the plugin's ABSENCE silently disable the control: declare
+    // `$rate-limit`, omit the plugin, and every call dispatched unlimited. That
+    // is precisely the thesis §3 failure mode "a declared control that silently
+    // no-ops when its plugin is absent". A declaration is a REQUEST FOR
+    // ENFORCEMENT; when the server cannot enforce it, the call must be refused,
+    // not waved through — otherwise the deployment topology (which plugins
+    // happen to be wired) becomes the policy authority instead of the
+    // declaration.
+    //
+    // Note the guard is `rateLimitSpec !== null`, NOT "always deny". A member
+    // that declares no `$rate-limit` still dispatches normally with no plugin
+    // present; over-enforcing here would break every un-rate-limited component.
+    // Both directions are covered by named tests in
+    // `tests/live-dispatch.test.ts` (§GO1).
+    //
+    // KNOWN GAP, deliberately not fixed here (see
+    // docs/plans/governed-track/build-manifest.md §"Surfaced decision"): the
+    // key's `userId` is caller-supplied over MCP (`mcp-server.ts` reads it from
+    // `request.params.arguments.context`) and is never cross-checked against
+    // the JWT `sub`, so a caller can reset its own quota by rotating `userId`.
+    // Closing it requires either extending `AuthPlugin` with a verified
+    // `subject(jwt)` (an interface change reaching `@aihu/auth`, out of this
+    // slice's scope) or refusing caller-supplied context at the MCP boundary
+    // (a breaking change to every current caller). Both are product decisions;
+    // a half-fix here would be worse than an accurately labelled gap.
+    if (rateLimitSpec !== null) {
+      if (!rateLimitPlugin) {
+        return {
+          ok: false,
+          envelope: jsonrpcError(
+            429,
+            'RATE_LIMIT_MISSING: component declares $rate-limit but no rate-limit plugin ' +
+              'is registered; refusing to serve an unenforceable quota',
+          ),
+        }
+      }
       const rateLimitKey = `${userId}:${tag}`
       if (!rateLimitPlugin.checkRateLimit(rateLimitSpec, rateLimitKey)) {
         return {

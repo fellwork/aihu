@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist",
+    "baseUrl": ".",
     "paths": {
       "@aihu/plugin": ["../plugin/src/index.ts"],
       "@aihu/signals": ["../signals/src/index.ts"],

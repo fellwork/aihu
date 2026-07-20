@@ -29,11 +29,11 @@
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
   },
   "optionalDependencies": {
-    "@aihu/compiler-darwin-arm64": "0.1.6",
-    "@aihu/compiler-darwin-x64": "0.1.6",
-    "@aihu/compiler-linux-x64-gnu": "0.1.6",
-    "@aihu/compiler-linux-arm64-gnu": "0.1.6",
-    "@aihu/compiler-win32-x64-msvc": "0.1.6"
+    "@aihu/compiler-darwin-arm64": "0.1.7",
+    "@aihu/compiler-darwin-x64": "0.1.7",
+    "@aihu/compiler-linux-x64-gnu": "0.1.7",
+    "@aihu/compiler-linux-arm64-gnu": "0.1.7",
+    "@aihu/compiler-win32-x64-msvc": "0.1.7"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
@@ -46,7 +46,7 @@
   "devDependencies": {
     "@aihu/css-engine": "workspace:*"
   },
-  "description": "Single File Component (.aihu) compiler — Rust binary + JS glue.",
+  "description": "Single File Component (.aihu) compiler \u2014 Rust binary + JS glue.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",

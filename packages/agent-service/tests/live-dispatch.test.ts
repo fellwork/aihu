@@ -222,6 +222,92 @@ describe('AC11 — undeclared action → 404', () => {
   })
 })
 
+// ─── AC11b: the gate itself must enforce, not the invoker ───────────────────
+//
+// AC11 above passes even with NO server-side allowlist, because
+// `makeLiveBinding.callAction` throws `no action: …` and the handler maps that
+// to a 404. It therefore asserts the INVOKER's rejection, not the gate's — the
+// same inversion that let `typeof binding.callAction === 'function'` stand in
+// for an allowlist check on the only branch that can succeed.
+//
+// These tests are constructed so the invoker WOULD succeed. Only a real
+// server-side check can produce a 404.
+
+describe('AC11b — server-side allowlist is load-bearing', () => {
+  /** A binding whose callAction succeeds for ANY name. */
+  function makePermissiveBinding(tag: string): LiveBinding {
+    return {
+      rootId: 1,
+      tag,
+      getSignal: () => 'readable',
+      setSignal: () => {},
+      callAction: async (name: string) => ({ called: name }),
+      scope: () => null,
+      rateLimit: () => null,
+      dispose$: () => true,
+    }
+  }
+
+  it('denies an action the metadata does not advertise, even though the binding would run it', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [
+        {
+          tag: 'weather-card',
+          actions: { fetchForecast: { returns: {} } },
+          state: { forecast: 'The current forecast' },
+        },
+      ],
+    })
+
+    // Sanity: the binding really would have run it.
+    await expect(binding.callAction('wipeDatabase', [])).resolves.toEqual({
+      called: 'wipeDatabase',
+    })
+
+    const res = (await svc.handleToolCall('weather-card/wipeDatabase', {}, { userId: 'u1' })) as {
+      error: string
+      code: number
+    }
+    expect(res.code).toBe(404)
+    expect(res.error).toContain('wipeDatabase')
+  })
+
+  it('allows an advertised action', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [{ tag: 'weather-card', actions: { fetchForecast: { returns: {} } } }],
+    })
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', {}, { userId: 'u1' })) as {
+      result: unknown
+    }
+    expect(res.result).toBeDefined()
+  })
+
+  it('allows a readable state member (handleToolCall falls through to getSignal)', async () => {
+    const binding = makePermissiveBinding('weather-card')
+    const registry = makeRegistry('weather-card', binding)
+    const svc = createAgentService({
+      getRegistry: () => registry,
+      manifests: [
+        {
+          tag: 'weather-card',
+          actions: { fetchForecast: { returns: {} } },
+          state: { forecast: 'The current forecast' },
+        },
+      ],
+    })
+    const res = (await svc.handleToolCall('weather-card/forecast', {}, { userId: 'u1' })) as {
+      result: unknown
+    }
+    expect(res.result).toBeDefined()
+  })
+})
+
 // ─── AC5 + AC6: Scope enforcement ───────────────────────────────────────────
 
 describe('AC5 + AC6 — scope enforcement', () => {
@@ -402,5 +488,174 @@ describe('backward compat — Plan 5.2 behavior preserved', () => {
       manifests: [{ tag: 'x-counter', describes: 'A counter' }],
     })
     expect(svc.getManifest().tools).toHaveLength(1)
+  })
+})
+
+// ─── GO1: rate limiting fails CLOSED ─────────────────────────────────────────
+//
+// Thesis §3: "capability, authority, and rate are declared per-member and
+// enforced by the server", and the named failure mode "a declared control that
+// silently no-ops when its plugin is absent".
+//
+// The gate used to read `if (rateLimitSpec !== null && rateLimitPlugin)`, so
+// declaring `$rate-limit` and omitting the plugin made the whole branch
+// unreachable and the call dispatched, silently unlimited.
+//
+// ANTI-AC11 CONSTRUCTION: every binding below is PERMISSIVE — its `callAction`
+// succeeds for any name. `makeLiveBinding` throws `no action: …` for anything
+// but `fetchForecast`, which the handler maps to a 404, so a test built on it
+// can pass with NO server-side check at all by asserting the INVOKER's
+// rejection. These assert the GATE's own envelope code (429 / 401), and pair
+// every denial with a proof that the action did not run.
+//
+// BIDIRECTIONAL by construction: the `describe` blocks are under-enforcement
+// (declared control must DENY when unenforceable) and over-enforcement
+// (undeclared control must still DISPATCH). A fix that only satisfied the first
+// would turn the gate into "deny everything" and is caught by the second.
+
+/**
+ * A binding whose `callAction` succeeds for ANY name and records that it ran.
+ * If the gate lets a call through, `ran` flips — so "did the gate deny" is
+ * answered by observed behaviour, not by a return shape alone.
+ */
+function makePermissiveRateBinding(
+  tag: string,
+  scopeStr: string | null,
+  rateLimitStr: string | null,
+): LiveBinding & { ran(): boolean } {
+  let ran = false
+  return {
+    rootId: 1,
+    tag,
+    getSignal: () => undefined,
+    setSignal: () => {},
+    async callAction(name: string): Promise<unknown> {
+      ran = true
+      return { called: name }
+    },
+    scope: () => scopeStr,
+    rateLimit: () => rateLimitStr,
+    dispose$: () => true,
+    ran: () => ran,
+  }
+}
+
+describe('GO1 under-enforcement — a declared control with its plugin ABSENT must deny', () => {
+  it('$rate-limit declared + rateLimitPlugin absent → 429 RATE_LIMIT_MISSING, action never runs', async () => {
+    // Sanity, on a throwaway twin: the invoker itself would happily have run
+    // this action, so any denial below can only have come from the gate.
+    const twin = makePermissiveRateBinding('weather-card', null, '10/min')
+    await expect(twin.callAction('fetchForecast', [])).resolves.toEqual({
+      called: 'fetchForecast',
+    })
+
+    const binding = makePermissiveRateBinding('weather-card', null, '10/min')
+    // No rateLimitPlugin. Pre-GO1 this dispatched, silently unlimited.
+    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'user-1',
+    })) as { error: string; code: number }
+
+    expect(res.code).toBe(429)
+    expect(res.error).toContain('RATE_LIMIT_MISSING')
+    // The control did not merely report a denial — it prevented execution.
+    expect(binding.ran()).toBe(false)
+  })
+
+  it('$scope declared + authPlugin absent → 401 AUTH_MISSING (the posture GO1 mirrors)', async () => {
+    const binding = makePermissiveRateBinding('weather-card', 'admin', null)
+    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'user-1',
+      jwt: 'j',
+    })) as { error: string; code: number }
+
+    expect(res.code).toBe(401)
+    expect(res.error).toContain('AUTH_MISSING')
+    expect(binding.ran()).toBe(false)
+  })
+
+  it('the two absent-plugin denials are DISTINCT codes, not one blanket rule', async () => {
+    const rateOnly = makePermissiveRateBinding('weather-card', null, '10/min')
+    const scopeOnly = makePermissiveRateBinding('weather-card', 'admin', null)
+
+    const rateRes = (await createAgentService({
+      getRegistry: () => makeRegistry('weather-card', rateOnly),
+    }).handleToolCall('weather-card/fetchForecast', [], { userId: 'u1' })) as { code: number }
+    const scopeRes = (await createAgentService({
+      getRegistry: () => makeRegistry('weather-card', scopeOnly),
+    }).handleToolCall('weather-card/fetchForecast', [], { userId: 'u1', jwt: 'j' })) as {
+      code: number
+    }
+
+    // Each declaration is enforced on its own terms. Identical codes would mean
+    // the gate collapsed both controls into a single "declared ⇒ deny" rule.
+    expect(rateRes.code).toBe(429)
+    expect(scopeRes.code).toBe(401)
+    expect(rateRes.code).not.toBe(scopeRes.code)
+  })
+})
+
+describe('GO1 over-enforcement — a control that is NOT declared must still dispatch', () => {
+  it('no $rate-limit, no plugin → dispatches normally', async () => {
+    const binding = makePermissiveRateBinding('weather-card', null, null)
+    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'user-1',
+    })) as { result: unknown; code?: number }
+
+    expect(res.code).toBeUndefined()
+    expect(res.result).toEqual({ called: 'fetchForecast' })
+    expect(binding.ran()).toBe(true)
+  })
+
+  it('no $rate-limit and no $scope and NO request context at all → still dispatches', async () => {
+    // The unscoped/unlimited path must stay reachable by adapters that carry no
+    // auth context (a2a/acp, v0.3.0 back-compat). Requiring a userId here would
+    // be over-enforcement of a control nobody declared.
+    const binding = makePermissiveRateBinding('weather-card', null, null)
+    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [])) as {
+      result: unknown
+      code?: number
+    }
+
+    expect(res.code).toBeUndefined()
+    expect(binding.ran()).toBe(true)
+  })
+
+  it('$rate-limit declared WITH a permissive plugin → dispatches (declared ≠ denied)', async () => {
+    const binding = makePermissiveRateBinding('weather-card', null, '10/min')
+    const rateLimitPlugin: RateLimitPlugin = { checkRateLimit: () => true }
+    const svc = createAgentService({
+      getRegistry: () => makeRegistry('weather-card', binding),
+      rateLimitPlugin,
+    })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'user-1',
+    })) as { result: unknown; code?: number }
+
+    expect(res.code).toBeUndefined()
+    expect(binding.ran()).toBe(true)
+  })
+
+  it('fail-closed did not displace the ordering invariant: 403 still beats 429', async () => {
+    // A scoped + rate-limited component with NEITHER plugin must report the
+    // scope failure (401), not the rate-limit one — Step 3 precedes Step 4.
+    const binding = makePermissiveRateBinding('weather-card', 'admin', '10/min')
+    const svc = createAgentService({ getRegistry: () => makeRegistry('weather-card', binding) })
+
+    const res = (await svc.handleToolCall('weather-card/fetchForecast', [], {
+      userId: 'u1',
+      jwt: 'j',
+    })) as { code: number; error: string }
+
+    expect(res.code).toBe(401)
+    expect(res.error).toContain('AUTH_MISSING')
   })
 })

@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist",
+    "baseUrl": ".",
     "paths": {
       "@aihu/arbor": ["../arbor/src/index.ts"],
       "@aihu/runtime": ["../runtime/src/index.ts"],

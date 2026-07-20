@@ -1,5 +1,6 @@
 pub mod ast_export;
 pub mod codegen;
+pub mod diagnostics;
 // W2 (advanced-js-template-expressions): oxc-backed expression validation
 // behind `--expr-parser <legacy|ast>`. ALL oxc types are contained in this
 // module (plan §Risks 1 — oxc AST churn stays localized).
@@ -95,7 +96,12 @@ pub fn compile_full_with_options<'a>(
     // parsed AST is discarded here — emit re-parses for codegen — but
     // any error short-circuits the pipeline at compile_full boundary.
     if let Some(script) = source.script {
-        let _ = parser::state_macros::parse_state_macros(script)?;
+        let macros = parser::state_macros::parse_state_macros(script)?;
+
+        // CO1: `$prop` write diagnostics. These run HERE rather than in emit
+        // because emit's lowering chain returns `String`, not `Result` — this
+        // is the pipeline's error boundary, and it runs before any codegen.
+        validate_prop_writes(&macros)?;
 
         // Bug 8 (06cb46b1 / 17f5394b, defect #3): a plain `@state` const/let
         // whose initializer reads a `$prop:` name TDZ-throws at runtime (the
@@ -193,6 +199,98 @@ fn validate_component_tags(nodes: &[TemplateNode]) -> Result<(), CompileError> {
             TemplateNode::Text(_)
             | TemplateNode::Interpolation(_)
             | TemplateNode::HtmlBlock { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+
+/// CO1 — `$prop` write diagnostics (C560 / C561).
+///
+/// The rewrite itself lives in `expr::prop_write` and is applied during emit.
+/// The two hard errors are raised here, at the `compile_full` boundary, so a
+/// bad write fails the build with a code and a fix hint rather than reaching
+/// codegen and emitting the exact defect CO1 exists to repair.
+///
+/// * **C560** — a destructuring / `for-of` / `for-in` target is a `$prop`. This
+///   is the one shape that cannot be rewritten soundly: a correct desugar needs
+///   a temporary (`arr` may be any iterable, so `arr[0]` is not equivalent) and
+///   a block statement, which cannot be spliced into expression position.
+/// * **C561** — a write to a `$prop` inside `$computed` / `$resource`. Those are
+///   DECLARED-DERIVATION positions; a write there is a category error. Without
+///   this, the same authored line would mean different things in different
+///   macros. C561 moves today's runtime `TypeError` to compile time.
+fn validate_prop_writes(macros: &[StateMacro]) -> Result<(), CompileError> {
+    use parser::state_macros::{arrow_args, arrow_body, arrow_is_async, running_code};
+    use std::collections::{HashMap, HashSet};
+
+    // Key set = `$prop` names only. NOT the SignalMap, which also holds
+    // `$computed` entries and lifted `signal()` bindings.
+    let mut prop_names: HashSet<String> = HashSet::new();
+    for m in macros {
+        if let StateMacro::Collection { kind: CollectionKind::Prop, entries } = m {
+            for e in entries {
+                prop_names.insert(e.name.clone());
+            }
+        }
+    }
+    if prop_names.is_empty() {
+        return Ok(());
+    }
+    let props: HashMap<String, bool> = prop_names.iter().map(|n| (n.clone(), false)).collect();
+    let targets = expr::PropWriteTargets { props: &props };
+
+    for m in macros {
+        let StateMacro::Collection { kind, entries } = m else { continue };
+        for entry in entries {
+            let Some(arrow) = running_code(entry) else { continue };
+            let body = arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+            let args = arrow_args(arrow).unwrap_or_default();
+            let is_async = arrow_is_async(arrow);
+
+            match kind {
+                // Imperative positions: the rewrite applies, so only the
+                // unsound destructuring shape is an error.
+                CollectionKind::Action | CollectionKind::Lifecycle | CollectionKind::Effect => {
+                    expr::rewrite_prop_writes(&body, &args, is_async, &targets)?;
+                }
+                // Declared-derivation positions: ANY write is C561.
+                CollectionKind::Computed | CollectionKind::Resource => {
+                    let macro_name = if *kind == CollectionKind::Computed {
+                        "$computed"
+                    } else {
+                        "$resource"
+                    };
+                    if let Some(name) =
+                        expr::detect_prop_writes(&body, &args, is_async, &prop_names).first()
+                    {
+                        return Err(CompileError {
+                            message: format!(
+                                "C561: `{macro_name}` bodies are derivations and must not write \
+                                 `$prop` `{name}` (in `{entry_name}`). Move the write to an \
+                                 `$action`, or read with `{name}()`.",
+                                entry_name = entry.name,
+                            ),
+                            line: 0,
+                            col: 0,
+                            code: Some("C561".to_string()),
+                            hint: Some(format!(
+                                "a `{macro_name}` entry declares how a value is DERIVED; writing \
+                                 state from it would make a derivation silently mutate the \
+                                 component"
+                            )),
+                            fix: Some(format!(
+                                "read the prop instead (`{name}()`), and move the write into an \
+                                 `$action` entry"
+                            )),
+                            from: Some(format!("{name} = …")),
+                            to: Some(format!("$action: {{ set{name}: (v) => {{ {name}.set(v) }} }}")),
+                            ..Default::default()
+                        });
+                    }
+                }
+                _ => {}
+            }
         }
     }
     Ok(())

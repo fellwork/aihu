@@ -486,6 +486,455 @@ fn agent_airtime_quote_manifest() {
     assert!(result.manifest_json.contains("\"amount\""), "input");
 }
 
+// ─── v2 manifest emission: `expose` / `describe` on @state entries ────────
+//
+// The v1 `@agent { input / action }` keywords above are the only shape
+// `agent_airtime_quote_manifest` exercises. v2 (agent_macros.rs) gutted the
+// block to `$scope` / `$rate-limit` and moved per-name metadata onto `@state`
+// collection entries — which `collect_agent_members` reads and `emit_manifest`
+// does not. These tests pin the v2 path.
+
+fn v2_exposed_source() -> &'static str {
+    r#"@agent {
+$scope "user:write"
+$rate-limit 30
+}
+@state {
+import { signal, computed } from '@aihu/signals'
+
+$prop: {
+  label: { default: 'hi', describe: 'The visible label', expose: { read: true, write: true } },
+}
+
+$computed: {
+  shout: { describe: 'Label in upper case', expose: { read: true }, value: () => label().toUpperCase() },
+}
+
+$action: {
+  bump: { describe: 'Increment the counter by one', expose: { read: true }, handler: () => setCount(count() + 1) },
+}
+
+const [count, setCount] = signal(0)
+}
+@template {
+  <div>{label}</div>
+}"#
+}
+
+/// The exposed members collected by `collect_agent_members` (and proven present
+/// in `__agentBinding`) must also reach the manifest sidecar.
+#[test]
+fn v2_exposed_members_reach_manifest() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    // Sanity: the binding path already works. If this fails, the fixture is bad,
+    // not the manifest.
+    assert!(
+        result.js.contains("bump: (args) => bump(args)"),
+        "precondition: action should reach __agentBinding\n{}",
+        result.js
+    );
+
+    assert!(
+        !result.manifest_json.is_empty(),
+        "manifest should be non-empty"
+    );
+    assert!(
+        result.manifest_json.contains("\"bump\""),
+        "exposed $action missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("\"label\""),
+        "exposed $prop missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("\"shout\""),
+        "exposed $computed missing from manifest:\n{}",
+        result.manifest_json
+    );
+}
+
+/// The compiler must emit `registerAgentMetadata` — it is the ONLY input to
+/// `@aihu/agent-server`'s `buildToolDefinitions`. Before this test existed the
+/// call was emitted nowhere, so the registry was empty in every real app and
+/// MCP tools were generated from nothing.
+#[test]
+fn v2_emits_agent_metadata_registration() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        result
+            .js
+            .contains("import { registerAgentMetadata } from '@aihu/agent'"),
+        "registry import missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("registerAgentMetadata({"),
+        "registerAgentMetadata call missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("Increment the counter by one"),
+        "$action describe missing from metadata:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("The visible label"),
+        "$prop describe missing from metadata:\n{}",
+        result.js
+    );
+}
+
+/// Client builds elide the agent surface entirely; the metadata registration
+/// must go with it, or a client bundle would advertise a server capability.
+#[test]
+fn v2_client_build_elides_agent_metadata() {
+    use aihu_compiler::types::BuildTarget;
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = BuildTarget::Client;
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "client build leaked agent metadata:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("Increment the counter by one"),
+        "client build leaked describe text:\n{}",
+        result.js
+    );
+}
+
+/// `describe:` is the LLM-facing tool description. It is parsed and validated,
+/// then currently dropped — it appears in no emitted artifact, which is why
+/// every MCP action tool ships with an untyped, undescribed schema.
+#[test]
+fn v2_describe_reaches_manifest() {
+    let parsed = sfc::parse(v2_exposed_source()).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-exposed");
+
+    assert!(
+        result
+            .manifest_json
+            .contains("Increment the counter by one"),
+        "$action describe missing from manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        result.manifest_json.contains("The visible label"),
+        "$prop describe missing from manifest:\n{}",
+        result.manifest_json
+    );
+}
+
+/// Unexposed members must stay out of the manifest — the manifest is a public
+/// artifact and is the discovery surface an agent reads.
+#[test]
+fn v2_unexposed_members_absent_from_manifest() {
+    let source = r#"@agent {
+$scope "user:read"
+}
+@state {
+import { signal } from '@aihu/signals'
+
+$action: {
+  secret: { describe: 'Must never be advertised', handler: () => {} },
+}
+
+const [count, setCount] = signal(0)
+}
+@template {
+  <div>{count}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "v2-unexposed");
+
+    assert!(
+        !result.manifest_json.contains("\"secret\""),
+        "action without `expose` leaked into manifest:\n{}",
+        result.manifest_json
+    );
+    assert!(
+        !result.manifest_json.contains("Must never be advertised"),
+        "unexposed describe leaked into manifest:\n{}",
+        result.manifest_json
+    );
+}
+
+// ─── Emitted-JS validity regressions ──────────────────────────────────────
+//
+// Five separate bugs, all found by syntax-checking every cookbook/ and
+// examples/ component with esbuild rather than by any test. Each produced
+// output that parsed as nothing — the compiler reported success and the build
+// failed later, or silently shipped broken code.
+
+/// `handler: async () => …` lowered to `function name(async ()) { … }`.
+/// `arrow_args` saw a leading `a` rather than `(`, took the single-identifier
+/// branch, and returned everything before `=>`.
+#[test]
+fn async_action_lowers_to_async_function() {
+    let source = r#"@state {
+$action: {
+  load: { handler: async () => { const r = await fetch('/x'); return r.ok } },
+}
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "async-action");
+
+    assert!(
+        !result.js.contains("(async ())"),
+        "async arrow parsed as a parameter list:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("async function load()"),
+        "expected `async function load()`:\n{}",
+        result.js
+    );
+    // `batch` takes a plain arrow, so an awaiting body must not be wrapped.
+    assert!(
+        !result.js.contains("async function load() { return batch"),
+        "async handler must not be wrapped in batch (await would be a syntax error):\n{}",
+        result.js
+    );
+}
+
+/// A block-bodied `$computed` lost its braces: `arrow_body` strips them (which
+/// `$action` wants, since it re-wraps) but the computed emitter splices into
+/// `() => <expr>`, producing `computed(() => if (x) return y)`.
+#[test]
+fn block_bodied_computed_keeps_its_braces() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+const [n, setN] = signal(0)
+
+$computed: {
+  label: { value: () => { if (n() < 1) return 'none'; return 'some' } },
+}
+}
+@template {
+  <div>{label}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "block-computed");
+
+    assert!(
+        result.js.contains("computed(() => {"),
+        "block body must stay braced:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("computed(() => if"),
+        "bare statements spliced into expression position:\n{}",
+        result.js
+    );
+}
+
+/// An async `$resource` lost both its braces and its `async`, so the awaiting
+/// body landed in a non-async arrow.
+#[test]
+fn async_resource_keeps_async_and_braces() {
+    let source = r#"@state {
+$resource: {
+  data: async () => { const r = await fetch('/x'); return r.json() },
+}
+}
+@template {
+  <div></div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "async-resource");
+
+    assert!(
+        result.js.contains("createResource(async () => {"),
+        "expected `createResource(async () => {{`:\n{}",
+        result.js
+    );
+}
+
+/// `$form` was the one CollectionKind missing from the plain-body skip list,
+/// so its body leaked into `plain_body`, where the `name: type` declaration
+/// scanner rewrote `value: () => value,` into `let value: () => value,` and
+/// left a dangling `}`.
+#[test]
+fn form_collection_does_not_leak_into_plain_body() {
+    let source = r#"@state {
+value: string = ''
+
+$form: {
+  value: () => value,
+  validity: () => ({ valueMissing: !value.trim() }),
+}
+}
+@template {
+  <input>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "form-leak");
+
+    assert!(
+        !result.js.contains("let value: () =>"),
+        "$form body leaked into plain_body as a declaration:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("let validity:"),
+        "$form entry leaked as a declaration:\n{}",
+        result.js
+    );
+}
+
+/// A destructured `$each` alias tore at the comma inside its own pattern:
+/// `as [name, desc]` split into `[name` + `desc]`, emitting `([name) => name`.
+/// The split existed in THREE places; the emit.rs copy was the one reached by
+/// the `$each="…"` attribute form.
+#[test]
+fn destructured_each_alias_does_not_tear() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+const [rows, setRows] = signal([])
+}
+@template {
+  <ul>
+    <li $each="rows as [name, desc]" $key="name">{name}</li>
+  </ul>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "each-destructure");
+
+    assert!(
+        !result.js.contains("([name)"),
+        "alias torn at the comma inside its destructuring pattern:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("([name, desc])"),
+        "expected an intact destructured alias:\n{}",
+        result.js
+    );
+}
+
+// ─── Agent gating: `expose:` is the opt-in, `@agent` is policy ────────────
+
+/// A component with exposed members and NO `@agent` block must still emit the
+/// agent surface. Gating on the block contradicted the documented contract
+/// ("No `@agent` block needed") and meant the `aihu create` scaffold and
+/// `cookbook/agent-weather.aihu` — both of which write `expose:` and no block
+/// — compiled to zero agent artifacts.
+#[test]
+fn exposed_members_without_agent_block_still_emit_agent_surface() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+
+$prop: {
+  city: { default: 'London', describe: 'City to look up', expose: { read: true } },
+}
+
+$action: {
+  refresh: { describe: 'Reload the forecast', expose: { read: true }, handler: () => {} },
+}
+
+const [n, setN] = signal(0)
+}
+@template {
+  <div>{city}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    assert!(
+        parsed.agent.is_none(),
+        "fixture must have no @agent block, or it proves nothing"
+    );
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "no-block-agent");
+
+    assert!(
+        result.js.contains("registerAgentMetadata({"),
+        "no metadata emitted without an @agent block:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("Reload the forecast"),
+        "describe missing:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export const __agentBinding"),
+        "no binding emitted:\n{}",
+        result.js
+    );
+    assert!(
+        !result.manifest_json.is_empty(),
+        "no manifest emitted without an @agent block"
+    );
+    // No @agent block means no policy — absent, not defaulted to something.
+    assert!(
+        result.js.contains("scope: undefined"),
+        "expected absent scope:\n{}",
+        result.js
+    );
+}
+
+/// The converse: a component that exposes NOTHING must stay inert, block or
+/// no block. `expose:` is the opt-in, and it is per-member.
+#[test]
+fn component_with_no_exposed_members_emits_no_agent_surface() {
+    let source = r#"@state {
+import { signal } from '@aihu/signals'
+
+$action: {
+  internalOnly: { describe: 'Not for agents', handler: () => {} },
+}
+
+const [n, setN] = signal(0)
+}
+@template {
+  <div>{n}</div>
+}"#;
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full(&parsed).unwrap();
+    let result = emit(&unit, "inert-component");
+
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "unexposed component emitted agent metadata:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("__agentBinding"),
+        "unexposed component emitted a binding:\n{}",
+        result.js
+    );
+    assert!(
+        !result.js.contains("Not for agents"),
+        "unexposed describe leaked:\n{}",
+        result.js
+    );
+    assert!(
+        result.manifest_json.is_empty(),
+        "unexposed component emitted a manifest: {}",
+        result.manifest_json
+    );
+}
+
 #[test]
 fn no_agent_block_manifest_empty() {
     let source = include_str!("../fixtures/vite-counter/counter.aihu");

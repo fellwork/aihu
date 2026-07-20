@@ -32,7 +32,7 @@ interface AgentMetadataLike {
  * Minimal shape used for the `## Components` section. Structurally compatible
  * with @aihu/agent `AgentMetadata` (tag/describes/state/actions).
  */
-interface ComponentMetaLike {
+export interface ComponentMetaLike {
   readonly tag: string
   readonly describes?: string
   readonly state?: Record<string, string>
@@ -51,8 +51,13 @@ const renderActionReturns = (returns?: Record<string, { type: string }>): string
   return `{ ${entries.map(([field, schema]) => `${field}: ${schema.type}`).join(', ')} }`
 }
 
-/** Render one component as markdown lines: heading, describes, actions, state. */
-const renderComponent = (meta: ComponentMetaLike): string[] => {
+/**
+ * Render one component as markdown lines: heading, describes, actions, state.
+ *
+ * Exported so `markdown-resolver.ts` projects components identically to
+ * llms.txt — one renderer, so the two agent surfaces cannot drift.
+ */
+export const renderComponentMarkdown = (meta: ComponentMetaLike): string[] => {
   const lines: string[] = [`### ${meta.tag}`]
   if (meta.describes) lines.push(meta.describes)
   const actions = meta.actions ? Object.entries(meta.actions) : []
@@ -85,7 +90,7 @@ const renderDocument = (config: LlmsTxtConfig, optionalHeading: string): string 
   if (config.components?.length) {
     lines.push('## Components', '')
     for (const meta of config.components) {
-      lines.push(...renderComponent(meta), '')
+      lines.push(...renderComponentMarkdown(meta), '')
     }
   }
   if (config.optional?.length) {

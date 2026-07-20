@@ -32,6 +32,8 @@ This split is the single most important rule in the playbook. Lesson #11 in `ref
 
 The team's durable knowledge — director-notes, topic summaries, retros, investigations, build-manifests — lives in **[GBrain](https://github.com/garrytan/gbrain)**, a Supabase + pgvector wiki-style brain that exposes ~74 MCP tools over stdio. Agents query it mid-dispatch via `mcp__gbrain__search` and write outputs via `mcp__gbrain__put_page` at handoff.
 
+> **Substrate is optional; the methodology is not.** GBrain is one home for durable artifacts, not a requirement. When GBrain is absent, unreachable, or deliberately skipped (a valid, common choice), the **file substrate is first-class**: durable artifacts live under `docs/` — `docs/plans/<slice>/` for delta (build-manifests, architecture-specs, director-notes, verification-reports), `docs/domain-hints/` and `docs/lessons/` for user-layer, `docs/architecture/` for base. The roster, modes, spine, promotion discipline, and every lesson are identical either way — only the read/write verb changes (`Read`/`Write` a file vs. `mcp__gbrain__get_page`/`put_page`). Do not block a session on GBrain setup; pick the substrate that exists and proceed. Verify STATUS against whichever substrate is in use (a committed file on the branch is as good as a page).
+
 This is **middleware, not a methodology change** — the roster, modes, spine, and lessons all stand. GBrain just gives the durable artifacts a queryable home, which:
 
 - Cuts brief size by ~10× (search guidance vs inlined context)
@@ -121,6 +123,8 @@ The 10 universal spawn principles:
 - ☐ Domain-knowledge cache (if the project has one) referenced where relevant?
 - ☐ Acceptance criteria are runnable (script or precise check), not interpretive prose?
 - ☐ Single-defect (or single-direction) scope? Multi-defect dispatches converge slowly.
+- ☐ **Repo topology confirmed?** Does the session's working dir belong to the *target* repo? If the target lives in a sibling worktree/repo, `isolation: "worktree"` builds the WRONG repo's worktree — pre-create the target worktree and hand the Builder its literal path instead. (Lesson #12.)
+- ☐ **Will you be able to score the result unambiguously?** A bare `grep` can match a substring of a *failure* message and read as a pass — assert on exit code or a full anchored line. (Lesson #13.)
 
 ---
 

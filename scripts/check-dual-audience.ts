@@ -1,0 +1,638 @@
+#!/usr/bin/env bun
+/**
+ * check:dual-audience — thesis §1: humans and agents are both first-class
+ * audiences of ONE codebase, and the agent axis is a real projection rather
+ * than the UI re-serialized.
+ *
+ * "Any content reachable only by executing the site's presentation logic is
+ * unavailable to the agent axis entirely."
+ *
+ * The furthest property: the scorecard measures 0/4. Four sub-checks, each
+ * one finding:
+ *
+ *   DA-a  A markdown representation can be PRODUCED. `MarkdownResolver` must
+ *         have a real implementation — a VALUE, exported from a package public
+ *         entry. Today every reference is the interface declaration, the config
+ *         field, a `dist/*.d.ts` re-export, or a test mock.
+ *
+ *   DA-b  Negotiation reaches non-`Accept` clients. Behavioral: build the real
+ *         middleware, send a request with NO `Accept` header and a crawler
+ *         user-agent, expect markdown. Today `content-negotiation.ts` reads
+ *         `Accept` and nothing else, and AI crawlers do not send it.
+ *
+ *   DA-c  Primary content is retrievable without JS. Behavioral: drive the real
+ *         `createServerRouter(...).handle(req)` and look for the content and the
+ *         hydration markers in the raw body. Today `router/src/server.ts:41`
+ *         calls `renderToString(component)` with NO options, and every marker in
+ *         `ssr.ts` is gated on `opts?.hydratable ?? false`.
+ *
+ *   DA-d  The SAME assertion against the PRERENDER (SSG) path. Behavioral:
+ *         drive the real `runPrerender(...)` over a temp fixture and read the
+ *         HTML it actually writes to disk. `packages/app/src/prerender.ts:283`
+ *         and `:382` call `renderToString(...)` with NO options — the identical
+ *         defect class as `router/src/server.ts:41`, in a second reachable
+ *         production path.
+ *
+ * ⚠️ DA-d is a SCOPE DECISION, not a newly introduced defect. The prerender
+ * path was always broken this way; the check simply did not look at it. The
+ * founder ruled prerender in scope on 2026-07-19, so this check went from
+ * measuring 3 to measuring 4. NOTHING IS FIXED by adding it — the baseline
+ * moves 3 → 4 because the check now SEES a defect that was already shipping,
+ * and `check:dual-audience` must still fail. `baselines.json` carries that
+ * reason; the scorecard row moves 0/3 → 0/4 for the same reason.
+ *
+ * DA-c and DA-d are separate findings because they are separate defects in
+ * separate files with separate fixes: DA3 repairing the router does not repair
+ * the SSG writer. Grouping them would let one fix silently decrement a baseline
+ * that covered two live defects.
+ *
+ * DA-a's exclusions are the load-bearing part of this check. The four
+ * `tests/compliance/` suites report green precisely because THE TEST SUPPLIES
+ * THE THING THAT DOES NOT EXIST — `isitagentready.test.ts` injects its own mock
+ * `mdResolver`. So DA-a refuses to count test mocks, refuses `dist/`, refuses a
+ * TYPE (a re-exported interface is not an implementation), and refuses a
+ * resolver constructed inside this check.
+ *
+ * DA-c asserts the PRESENCE OF MARKERS and the REACHABILITY OF TEXT, never an
+ * exact markup string — the explicit anti-`hydrate.test.ts` guard, that suite
+ * having hand-written the `hydrate.0` markup it then asserted.
+ *
+ * NO suppression comments are supported.
+ *
+ * Wired into CI (plan-a.yml `check` job). Run via the npm script, NOT bare bun:
+ *   bun run check:dual-audience
+ *
+ * `SCRIBE_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
+ * correct"), matching what `vitest.config.ts` sets for the same reason; the
+ * native renderer binary is not built in a plain checkout.
+ *
+ * ⚠️ This script previously also passed `--tsconfig-override ./tsconfig.json`,
+ * to force the ROOT `paths` map onto every file because the per-package
+ * tsconfigs declared `paths` with no `baseUrl` and bun therefore ignored them.
+ * That override was REMOVED: it forced an INCOMPLETE map onto package sources
+ * and broke resolution it was meant to fix — the root map has no
+ * `@aihu/router/plugin` entry, so `packages/app/src/prerender.ts` (which DA-d
+ * drives) failed to resolve under it. The per-package tsconfigs now carry
+ * `baseUrl`, so their own already-correct maps apply. Removing it also silences
+ * the `Internal error: directory mismatch` Bun emits for that flag.
+ */
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { Glob } from 'bun'
+import ts from 'typescript'
+import {
+  expectCount,
+  expectedFrom,
+  type Finding,
+  isExcluded,
+  ROOT,
+  refuseVacuous,
+  selfTest,
+} from './lib/invariant.ts'
+
+const NAME = 'check:dual-audience'
+
+// ─── DA-a: a MarkdownResolver implementation exists ──────────────────────────
+
+/** The structural contract: `resolve(path: string): Promise<string | null>`. */
+const RESOLVER_METHOD = 'resolve'
+
+function parse(source: string, fileName: string): ts.SourceFile {
+  return ts.createSourceFile(fileName, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS)
+}
+
+/**
+ * Does this node declare a VALUE that structurally satisfies MarkdownResolver?
+ *
+ * A type or interface never qualifies, however perfectly it matches — an
+ * interface is the declaration of the gap, not its filling. This is the direct
+ * counter to the scorecard's finding that all nine `MarkdownResolver` hits are
+ * declarations, config fields, `dist` re-exports, or mocks.
+ */
+function declaresResolverValue(node: ts.Node): boolean {
+  // class X { async resolve(p: string) { … } }
+  if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+    return node.members.some(
+      (m) =>
+        (ts.isMethodDeclaration(m) || ts.isPropertyDeclaration(m)) &&
+        m.name !== undefined &&
+        ts.isIdentifier(m.name) &&
+        m.name.text === RESOLVER_METHOD,
+    )
+  }
+  // const x = { resolve(p) { … } } / { resolve: async (p) => … }
+  if (ts.isObjectLiteralExpression(node)) {
+    return node.properties.some(
+      (p) =>
+        p.name !== undefined &&
+        ts.isIdentifier(p.name) &&
+        p.name.text === RESOLVER_METHOD &&
+        (ts.isMethodDeclaration(p) ||
+          (ts.isPropertyAssignment(p) &&
+            (ts.isArrowFunction(p.initializer) || ts.isFunctionExpression(p.initializer)))),
+    )
+  }
+  return false
+}
+
+/** Exported value declarations in a file that satisfy the resolver shape. */
+function findResolverValues(rel: string, source: string): string[] {
+  const sf = parse(source, rel)
+  const hits: string[] = []
+
+  const isExported = (node: ts.Node): boolean =>
+    ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+
+  const at = (node: ts.Node): string =>
+    `${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isClassDeclaration(node) && isExported(node) && declaresResolverValue(node)) {
+      hits.push(at(node))
+    }
+    if (ts.isVariableStatement(node) && isExported(node)) {
+      for (const d of node.declarationList.declarations) {
+        if (!d.initializer) continue
+        // `const r: MarkdownResolver = { resolve … }` or a factory's return
+        // is not followed here — a factory is only an implementation once
+        // something exports its result, which the object-literal case covers.
+        if (declaresResolverValue(d.initializer)) hits.push(at(d))
+        else if (
+          (ts.isAsExpression(d.initializer) || ts.isSatisfiesExpression(d.initializer)) &&
+          declaresResolverValue(d.initializer.expression)
+        ) {
+          hits.push(at(d))
+        }
+      }
+    }
+    // A factory function whose body returns a resolver object literal is a
+    // real implementation the moment it is exported.
+    if (
+      (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node)) &&
+      isExported(node) &&
+      node.body
+    ) {
+      let returnsResolver = false
+      const scan = (n: ts.Node): void => {
+        if (ts.isReturnStatement(n) && n.expression && declaresResolverValue(n.expression)) {
+          returnsResolver = true
+        }
+        ts.forEachChild(n, scan)
+      }
+      scan(node.body)
+      if (returnsResolver) hits.push(at(node))
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return hits
+}
+
+/**
+ * Package public entries: `packages/<pkg>/src/index.ts` plus the source files
+ * named by each package's `exports` map. Only code REACHABLE FROM A PUBLIC
+ * ENTRY counts — a resolver buried in an unexported internal module is not a
+ * representation any agent can obtain.
+ */
+function publicEntrySources(base = ROOT): Array<{ rel: string; source: string }> {
+  const out: Array<{ rel: string; source: string }> = []
+  const seen = new Set<string>()
+
+  const add = (rel: string): void => {
+    const norm = rel.replaceAll('\\', '/')
+    if (seen.has(norm) || isExcluded(norm)) return
+    const abs = join(base, norm)
+    if (!existsSync(abs)) return
+    seen.add(norm)
+    out.push({ rel: norm, source: readFileSync(abs, 'utf8') })
+  }
+
+  for (const pkgJson of new Glob('packages/*/package.json').scanSync(base)) {
+    const rel = pkgJson.replaceAll('\\', '/')
+    if (isExcluded(rel)) continue
+    const dir = rel.slice(0, rel.lastIndexOf('/'))
+    add(`${dir}/src/index.ts`)
+    // Follow the whole src tree of any package that mentions MarkdownResolver,
+    // so an implementation placed beside the interface is still discoverable.
+    for (const f of new Glob(`${dir}/src/**/*.ts`).scanSync(base)) add(f)
+  }
+  return out
+}
+
+function runDaA(files: ReadonlyArray<{ rel: string; source: string }>): {
+  hits: string[]
+  finding: Finding | null
+} {
+  const hits = files.flatMap((f) => findResolverValues(f.rel, f.source))
+  if (hits.length > 0) return { hits, finding: null }
+  return {
+    hits,
+    finding: {
+      where: 'packages/plugin-agent-readiness/src/content-negotiation.ts:13',
+      rule: 'DA-a',
+      message:
+        'no `MarkdownResolver` IMPLEMENTATION is exported from any package public entry — only ' +
+        'the interface declaration, the config field, `dist/*.d.ts` re-exports, and test mocks. ' +
+        'A markdown representation cannot be produced in production, so the agent axis has no ' +
+        'content to negotiate for. (Test mocks are deliberately not counted: the compliance ' +
+        'suites report green because they supply the thing that does not exist.)',
+    },
+  }
+}
+
+// ─── DA-b: negotiation reaches non-`Accept` clients ──────────────────────────
+
+/** Crawler UAs that do not send `Accept: text/markdown`, plus a human cell. */
+const UA_MATRIX = [
+  { label: 'GPTBot, no Accept header', ua: 'GPTBot/1.0', accept: null, wantMarkdown: true },
+  {
+    label: 'ClaudeBot, no Accept header',
+    ua: 'ClaudeBot/1.0',
+    accept: null,
+    wantMarkdown: true,
+  },
+  // The must-not-flag cell. Demanding markdown for a browser would break the
+  // HUMAN axis — a thesis violation in the opposite direction, and just as
+  // real. "A human receives an experience."
+  {
+    label: 'a normal browser UA (must stay HTML)',
+    ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+    accept: 'text/html,application/xhtml+xml',
+    wantMarkdown: false,
+  },
+] as const
+
+interface UaOutcome {
+  readonly label: string
+  readonly gotMarkdown: boolean
+  readonly correct: boolean
+}
+
+/**
+ * @param acceptOnly `--self-test` REGRESSION mutation. Disables the UA fallback
+ *   via the real `userAgentFallback: false` option, reproducing exactly the
+ *   Accept-only negotiation that shipped before DA2. Re-based 2026-07-20: this
+ *   parameter used to mean the opposite — it SIMULATED the fix, because no
+ *   implementation existed to drive. Now that production is UA-aware, a
+ *   simulated fix would make the should-flag case vacuous (it went green on its
+ *   own the moment DA2 landed, which is what caught this). The should-flag half
+ *   must therefore be a real-code regression, and the should-not-flag half is
+ *   now the LIVE default path. Same rebasing the `governed` baseline records for
+ *   GO1/GO2.
+ */
+async function runDaB(
+  acceptOnly: boolean,
+): Promise<{ outcomes: UaOutcome[]; finding: Finding | null }> {
+  const { createContentNegotiationHandler } = await import(
+    '@aihu-plugin/agent-readiness/content-negotiation'
+  ).catch(() => import('@aihu-plugin/agent-readiness'))
+
+  const outcomes: UaOutcome[] = []
+  for (const cell of UA_MATRIX) {
+    // The resolver here belongs to the PROBE, not to production — DA-a is what
+    // asserts a production implementation exists, and it counts nothing built
+    // in this file. DA-b is only asking whether negotiation is REACHED.
+    const middleware = createContentNegotiationHandler({
+      resolver: { resolve: async () => '# probe\n\nprimary content' },
+      ...(acceptOnly ? { userAgentFallback: false } : {}),
+    })
+    const headers: Record<string, string> = { 'User-Agent': cell.ua }
+    if (cell.accept) headers.Accept = cell.accept
+
+    const req = new Request('https://example.test/docs/page', { headers })
+    const next = async () =>
+      new Response('<html><body>ui</body></html>', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
+
+    const res = await middleware(req, next)
+    const ct = res?.headers.get('Content-Type') ?? ''
+    const gotMarkdown = ct.includes('text/markdown')
+    outcomes.push({
+      label: cell.label,
+      gotMarkdown,
+      correct: gotMarkdown === cell.wantMarkdown,
+    })
+  }
+
+  const bad = outcomes.filter((o) => !o.correct)
+  if (bad.length === 0) return { outcomes, finding: null }
+  return {
+    outcomes,
+    finding: {
+      where: 'packages/plugin-agent-readiness/src/content-negotiation.ts:49',
+      rule: 'DA-b',
+      message:
+        `content negotiation ignores the user-agent — ${bad.length}/${outcomes.length} cells wrong ` +
+        `(${bad.map((b) => b.label).join('; ')}). The middleware reads \`Accept\` and nothing ` +
+        'else, and only a minority of agent clients send `Accept: text/markdown`. Format ' +
+        'selection is supposed to move to the client; for a crawler it never gets the chance.',
+    },
+  }
+}
+
+// ─── DA-c: primary content retrievable without JS ────────────────────────────
+
+const PRIMARY_TEXT = 'PRIMARY-CONTENT-REACHABLE-WITHOUT-JS'
+
+/**
+ * Which direction a DA-c/DA-d probe is being run in.
+ *
+ * `live` drives the real production path and is what the REAL SCAN uses.
+ * `regressed` re-creates the pre-DA3 defect — the identical render minus the
+ * options object DA3/DA3b added — and is the self-test's should-flag control.
+ *
+ * The polarity flipped when DA3 landed. While the defect shipped, `live` WAS
+ * the should-flag arm; now that it is fixed, `live` is the should-NOT-flag arm
+ * and the positive control has to be simulated. A boolean named `hydratable`
+ * could not express that inversion without reading backwards, hence the enum.
+ */
+type ProbeMode = 'live' | 'regressed'
+
+async function runDaC(mode: ProbeMode): Promise<{ body: string; finding: Finding | null }> {
+  const { createServerRouter } = await import('@aihu/router/server')
+  const { branch, leaf } = await import('@aihu/arbor')
+  const { renderToString } = await import('@aihu/server')
+
+  // A fixture route whose component renders known text. We assert the text is
+  // REACHABLE and the hydration markers are PRESENT — never an exact markup
+  // blob. `hydrate.test.ts` hand-wrote the root-path markup it then asserted
+  // and measured nothing; this must not repeat that.
+  //
+  // `leaf` takes `Signal<string> | string`; a plain string is used deliberately.
+  // Passing a bare signal GETTER stringifies the accessor's source into the
+  // markup instead of its value, which silently made the primary text
+  // unfindable and the should-not-flag half of this probe impossible to satisfy.
+  const component = () =>
+    branch('main', { id: 'page' }, [branch('article', {}, [leaf(PRIMARY_TEXT)])])
+
+  const routes = [
+    {
+      pattern: '/probe',
+      segments: [{ type: 'static' as const, value: 'probe' }],
+      module: async () => ({ default: component }),
+    },
+  ] as unknown as Parameters<typeof createServerRouter>[0]
+
+  let body: string
+  if (mode === 'live') {
+    const router = createServerRouter(routes)
+    const res = await router.handle(new Request('https://example.test/probe'))
+    body = await res.text()
+  } else {
+    // `--self-test` should-FLAG arm, re-based by DA3.
+    //
+    // Before DA3 this arm WAS the live router: the production defect supplied
+    // the positive control. DA3 repaired the router, so that control now
+    // reports clean and the self-test would exit 1 before the real scan ever
+    // ran — the check would read as broken rather than as passing.
+    //
+    // So the positive control is now a simulated REGRESSION: the SAME
+    // component through the SAME renderer the router uses, differing ONLY in
+    // the options object DA3 added. That is precisely the edit that would
+    // reintroduce the defect, so the probe still discriminates on the thing it
+    // governs. Deliberately not a string patch of the live body — a mutation
+    // that fakes the output proves nothing about whether these assertions can
+    // recognize genuinely non-hydratable markup.
+    body = await renderToString(component, { hydratable: false })
+  }
+
+  const hasText = body.includes(PRIMARY_TEXT)
+  const hasMarkers = body.includes('data-aihu-path')
+  // Content sealed inside a declarative shadow root is unreachable to a
+  // non-JS extractor even when it is technically in the byte stream.
+  const shadowStart = body.indexOf('shadowrootmode')
+  const textIndex = body.indexOf(PRIMARY_TEXT)
+  const textInShadow = shadowStart !== -1 && textIndex > shadowStart
+
+  if (hasText && hasMarkers && !textInShadow) return { body, finding: null }
+
+  const reasons: string[] = []
+  if (!hasText) reasons.push('primary text absent from the raw body')
+  if (!hasMarkers) {
+    reasons.push(
+      'no `data-aihu-path` markers — `router/src/server.ts:41` calls `renderToString(component)` ' +
+        'with no options, and every marker in `ssr.ts` is gated on `opts?.hydratable ?? false`, ' +
+        'so the production path emits non-hydratable output',
+    )
+  }
+  if (textInShadow) reasons.push('primary text sits inside a declarative shadow root')
+
+  // ONE finding covering both assertions: one defect (the missing options
+  // object). Splitting them inflates dual-audience past 3.
+  return {
+    body,
+    finding: {
+      where: 'packages/router/src/server.ts:41',
+      rule: 'DA-c',
+      message: `primary content is not fully retrievable without JS — ${reasons.join('; ')}.`,
+    },
+  }
+}
+
+// ─── DA-d: the prerender (SSG) path emits the same non-hydratable output ─────
+
+/**
+ * Drive the REAL `runPrerender` over a temp fixture and read the HTML it writes.
+ *
+ * Deliberately not a source scan for `renderToString(component)`. A grep would
+ * pass the moment someone reformatted the call, and it would not prove the
+ * written file lacks the markers. This mounts the actual SSG pipeline — route
+ * derivation, render, template head-injection, outlet content-injection, file
+ * write — and inspects the bytes on disk, which is what a crawler receives.
+ *
+ * `loadModule` is injected (the same seam `packages/app/tests/prerender.test.ts`
+ * uses) so the probe does not need the Rust SFC compiler to be built. That is
+ * NOT the DA-a class of mock: the injected module supplies the ROUTE, which is
+ * app-author input, while the thing under test — whether the renderer is asked
+ * for hydratable output — remains entirely production code.
+ */
+async function runDaD(mode: ProbeMode): Promise<{ body: string; finding: Finding | null }> {
+  const { mkdir, mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { runPrerender } = await import('../packages/app/src/prerender.ts')
+  const { branch, leaf } = await import('@aihu/arbor')
+  const { renderToString } = await import('@aihu/server')
+
+  const component = () =>
+    branch('main', { id: 'page' }, [branch('article', {}, [leaf(PRIMARY_TEXT)])])
+
+  const root = await mkdtemp(join(tmpdir(), 'aihu-da-d-'))
+  try {
+    const outDir = join(root, 'dist')
+    await mkdir(join(root, 'pages'), { recursive: true })
+    await mkdir(outDir, { recursive: true })
+    // The "built" SPA shell the prerenderer uses as its template. Kept in a
+    // variable because `runPrerender` OVERWRITES this file with the composed
+    // page — the mutation below needs the original shell, not the output.
+    const template =
+      '<!doctype html><html><head><title>t</title></head><body><div id="outlet"></div></body></html>'
+    await writeFile(join(outDir, 'index.html'), template)
+    await writeFile(join(root, 'pages', 'index.ts'), '// route stub\n')
+
+    await runPrerender({
+      resolvedViteConfig: { root, build: { outDir: 'dist' } } as never,
+      config: undefined,
+      loadModule: async () => ({ default: component }),
+      warn: () => {},
+    })
+
+    // The bytes `runPrerender` actually wrote to disk — what a crawler receives.
+    let body = await readFile(join(outDir, 'index.html'), 'utf8')
+    if (mode === 'regressed') {
+      // `--self-test` should-FLAG arm, re-based by DA3b, for the same reason as
+      // DA-c's: before DA3b the live SSG writer supplied the positive control,
+      // and repairing it would leave this probe one-sided and exit the
+      // self-test before the real scan.
+      //
+      // The control is now a simulated REGRESSION composed the way
+      // `runPrerender` composes — same component, same renderer, same template,
+      // injected into the same outlet — differing ONLY in the options object
+      // DA3b added. Composed from the ORIGINAL template rather than patched
+      // into the written output, because the written output no longer contains
+      // an empty outlet to patch. A mutation that faked the markup would prove
+      // nothing about whether these assertions can recognize genuinely
+      // non-hydratable prerendered HTML.
+      const rendered = await renderToString(component, { hydratable: false })
+      body = template.replace('<div id="outlet"></div>', `<div id="outlet">${rendered}</div>`)
+    }
+
+    const hasText = body.includes(PRIMARY_TEXT)
+    const hasMarkers = body.includes('data-aihu-path')
+    const shadowStart = body.indexOf('shadowrootmode')
+    const textIndex = body.indexOf(PRIMARY_TEXT)
+    const textInShadow = shadowStart !== -1 && textIndex > shadowStart
+
+    if (hasText && hasMarkers && !textInShadow) return { body, finding: null }
+
+    const reasons: string[] = []
+    if (!hasText) reasons.push('primary text absent from the written HTML')
+    if (!hasMarkers) {
+      reasons.push(
+        'no `data-aihu-path` markers in the file written to disk — ' +
+          '`packages/app/src/prerender.ts:283` and `:382` call `renderToString(...)` with no ' +
+          'options, so every statically generated page ships non-hydratable output',
+      )
+    }
+    if (textInShadow) reasons.push('primary text sits inside a declarative shadow root')
+
+    // ONE finding: one defect (the missing options object in the SSG writer),
+    // distinct from DA-c's defect in the router.
+    return {
+      body,
+      finding: {
+        where: 'packages/app/src/prerender.ts:382',
+        rule: 'DA-d',
+        message: `statically prerendered content is not fully retrievable without JS — ${reasons.join('; ')}.`,
+      },
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
+// ─── Self-test ───────────────────────────────────────────────────────────────
+
+/** A fixture that DOES implement the resolver — DA-a's should-not-flag half. */
+const RESOLVER_FIXTURE = `
+  export class FileMarkdownResolver {
+    async resolve(path: string): Promise<string | null> {
+      return path.endsWith('.md') ? '# hi' : null
+    }
+  }
+`
+/** Shapes DA-a must REFUSE: a type, a mock, a config field. */
+const NON_RESOLVER_FIXTURE = `
+  export interface MarkdownResolver {
+    resolve(path: string): Promise<string | null>
+  }
+  export type { MarkdownResolver as Resolver }
+  export interface ContentNegotiationOptions {
+    readonly resolver: MarkdownResolver
+  }
+  const notExported = { resolve: async () => null }
+`
+
+async function runSelfTest(): Promise<void> {
+  const cases: Array<{ label: string; actual: number; expected: number }> = []
+
+  // DA-a, both directions.
+  cases.push({
+    label: 'DA-a should-flag: only a type declaration + an unexported mock',
+    actual: runDaA([{ rel: 'fixture/types.ts', source: NON_RESOLVER_FIXTURE }]).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-a should-not-flag: a real exported resolver class',
+    actual: runDaA([{ rel: 'fixture/impl.ts', source: RESOLVER_FIXTURE }]).finding ? 1 : 0,
+    expected: 0,
+  })
+
+  // DA-b, both directions. Inverted vs. pre-DA2: the REGRESSION is now the
+  // mutation and the LIVE path is the passing case.
+  cases.push({
+    label: 'DA-b should-flag: Accept-only negotiation (userAgentFallback disabled)',
+    actual: (await runDaB(true)).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-b should-not-flag: live UA-aware negotiation',
+    actual: (await runDaB(false)).finding ? 1 : 0,
+    expected: 0,
+  })
+
+  // DA-c, both directions. Polarity inverted by DA3: the live router is now
+  // the should-NOT-flag control, and the regression is simulated.
+  cases.push({
+    label: 'DA-c should-flag: non-hydratable render (the pre-DA3 regression)',
+    actual: (await runDaC('regressed')).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-c should-not-flag: live router, now passing hydratable: true',
+    actual: (await runDaC('live')).finding ? 1 : 0,
+    expected: 0,
+  })
+
+  // DA-d, both directions. Same inversion, landed by DA3b.
+  cases.push({
+    label: 'DA-d should-flag: non-hydratable prerender (the pre-DA3b regression)',
+    actual: (await runDaD('regressed')).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-d should-not-flag: live runPrerender, now passing hydratable: true',
+    actual: (await runDaD('live')).finding ? 1 : 0,
+    expected: 0,
+  })
+
+  selfTest(NAME, cases)
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+await runSelfTest()
+
+const entries = publicEntrySources()
+refuseVacuous(entries, NAME, 'package public entry sources')
+
+const findings: Finding[] = []
+
+const daA = runDaA(entries)
+if (daA.finding) findings.push(daA.finding)
+
+const daB = await runDaB(false)
+if (daB.finding) findings.push(daB.finding)
+
+const daC = await runDaC('live')
+if (daC.finding) findings.push(daC.finding)
+
+const daD = await runDaD('live')
+if (daD.finding) findings.push(daD.finding)
+
+console.log(
+  `${NAME} — scanned ${entries.length} public-entry source file(s); ran ${UA_MATRIX.length} ` +
+    'negotiation cells, 1 SSR render and 1 SSG prerender.',
+)
+expectCount(findings, expectedFrom(process.argv, 'dual-audience'), NAME)

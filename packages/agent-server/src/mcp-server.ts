@@ -48,10 +48,16 @@ function buildToolDefinitions(metas: AgentMetadata[]): Array<{
   for (const meta of metas) {
     const actions = meta.actions ?? {}
     for (const action of Object.keys(actions)) {
+      // Prefer the authored `describe:` from the component's $action entry —
+      // it is written for an LLM audience. Fall back to the synthesized string
+      // only when the action carries no description.
+      const authored = actions[action]?.describe
       tools.push({
         name: `${meta.tag}/${action}`,
         description:
-          `Invoke the \`${action}\` action on a live <${meta.tag}> instance.` +
+          (authored && authored.length > 0
+            ? authored
+            : `Invoke the \`${action}\` action on a live <${meta.tag}> instance.`) +
           (meta.describes ? ` Component: ${meta.describes}` : ''),
         inputSchema: {
           type: 'object',
@@ -66,10 +72,17 @@ function buildToolDefinitions(metas: AgentMetadata[]): Array<{
     }
     // Expose read-only state signals as zero-arg tools too (handleToolCall
     // falls through to getSignal when callAction reports "no action").
-    for (const stateName of Object.keys(meta.state ?? {})) {
+    const state = meta.state ?? {}
+    for (const stateName of Object.keys(state)) {
+      // The map VALUE is the authored `describe:` for that member (the compiler
+      // emits '' when none was written). It was previously ignored entirely.
+      const authored = state[stateName]
       tools.push({
         name: `${meta.tag}/${stateName}`,
-        description: `Read the \`${stateName}\` state of a live <${meta.tag}> instance.`,
+        description:
+          authored && authored.length > 0
+            ? authored
+            : `Read the \`${stateName}\` state of a live <${meta.tag}> instance.`,
         inputSchema: { type: 'object', properties: {} },
       })
     }

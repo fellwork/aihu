@@ -121,7 +121,7 @@ describe('Hydration integration — _build() and hydration path', () => {
 
     // Set up the snapshot
     ;(globalThis as Record<string, unknown>).__aihu_state__ = {
-      [tag]: { 'hydrate.0.text': 'hydrate-me' },
+      [tag]: { '0.text': 'hydrate-me' },
     }
 
     const el = document.createElement(tag)
@@ -181,7 +181,7 @@ describe('Hydration integration — _build() and hydration path', () => {
     defineElement(tag, Cmp)
 
     ;(globalThis as Record<string, unknown>).__aihu_state__ = {
-      [tag]: { 'hydrate.0.text': 'no-hydrate' },
+      [tag]: { '0.text': 'no-hydrate' },
     }
 
     const el = document.createElement(tag)

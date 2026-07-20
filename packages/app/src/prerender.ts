@@ -280,7 +280,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       try {
         const layoutComponent = resolveComponent(await loadModule(layoutFile))
         if (layoutComponent) {
-          shell = await renderToString(layoutComponent)
+          // See the `hydratable` note on the page render below — the layout
+          // shell is part of the same prerendered document and must carry
+          // markers too, or the client adopts the page and rebuilds its wrapper.
+          shell = await renderToString(layoutComponent, { hydratable: true })
         } else {
           pushWarn(
             `[@aihu/app] static output: layout "${name}" has no SSR-renderable default export — ` +
@@ -379,7 +382,17 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
 
       let content: string
       try {
-        content = await renderToString(component)
+        // `hydratable: true` is REQUIRED, not an optimization. Every
+        // `data-aihu-path` marker in `ssr.ts` is gated on
+        // `opts?.hydratable ?? false`, so no options means markerless HTML.
+        //
+        // "Static" here names WHEN the page is rendered, not whether it
+        // hydrates: an SSG page is still the document a live SPA boots into.
+        // Without markers the client walker has nothing to adopt and rebuilds
+        // the tree beside the prerendered DOM, silently duplicating every
+        // statically generated page's content on first load. `hydratable` is a
+        // property of the DESTINATION, not of the renderer.
+        content = await renderToString(component, { hydratable: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         pushWarn(`[@aihu/app] static output: render failed for ${concretePath}: ${msg}`)
