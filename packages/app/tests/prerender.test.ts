@@ -154,9 +154,17 @@ describe('runPrerender — static routes', () => {
     expect(homeHtml).toContain('<title>Home</title>')
     expect(homeHtml).not.toContain('<title>Scaffold Default</title>')
     expect(homeHtml).toContain('<meta name="description" content="Welcome home">')
-    expect(homeHtml).toContain('<h1>Home Content</h1>')
-    // Client bundle script preserved → page hydrates into SPA
+    // Assert the CONTENT is reachable, not an exact markup blob: since DA3b the
+    // prerenderer renders with `hydratable: true`, so elements legitimately
+    // carry `data-aihu-path` markers and `<h1>Home Content</h1>` no longer
+    // appears verbatim. Pinning the blob would have made this test fail on the
+    // fix rather than on a regression.
+    expect(homeHtml).toMatch(/<h1[^>]*>Home Content<\/h1>/)
+    // Client bundle script preserved → page hydrates into SPA. That is exactly
+    // why the markers must be present: without them the client walker has
+    // nothing to adopt and rebuilds the tree beside the prerendered DOM.
     expect(homeHtml).toContain('src="/assets/main-abc123.js"')
+    expect(homeHtml).toContain('data-aihu-path')
 
     // About route — full head surface + absolute URL resolution
     const aboutHtml = await readFile(join(fx.outDir, 'about', 'index.html'), 'utf8')

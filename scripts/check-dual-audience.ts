@@ -330,14 +330,28 @@ async function runDaB(
 
 const PRIMARY_TEXT = 'PRIMARY-CONTENT-REACHABLE-WITHOUT-JS'
 
-async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Finding | null }> {
+/**
+ * Which direction a DA-c/DA-d probe is being run in.
+ *
+ * `live` drives the real production path and is what the REAL SCAN uses.
+ * `regressed` re-creates the pre-DA3 defect — the identical render minus the
+ * options object DA3/DA3b added — and is the self-test's should-flag control.
+ *
+ * The polarity flipped when DA3 landed. While the defect shipped, `live` WAS
+ * the should-flag arm; now that it is fixed, `live` is the should-NOT-flag arm
+ * and the positive control has to be simulated. A boolean named `hydratable`
+ * could not express that inversion without reading backwards, hence the enum.
+ */
+type ProbeMode = 'live' | 'regressed'
+
+async function runDaC(mode: ProbeMode): Promise<{ body: string; finding: Finding | null }> {
   const { createServerRouter } = await import('@aihu/router/server')
   const { branch, leaf } = await import('@aihu/arbor')
   const { renderToString } = await import('@aihu/server')
 
   // A fixture route whose component renders known text. We assert the text is
   // REACHABLE and the hydration markers are PRESENT — never an exact markup
-  // blob. `hydrate.test.ts` hand-wrote the `hydrate.0` markup it then asserted
+  // blob. `hydrate.test.ts` hand-wrote the root-path markup it then asserted
   // and measured nothing; this must not repeat that.
   //
   // `leaf` takes `Signal<string> | string`; a plain string is used deliberately.
@@ -356,17 +370,26 @@ async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Fin
   ] as unknown as Parameters<typeof createServerRouter>[0]
 
   let body: string
-  if (hydratable) {
-    // `--self-test` mutation: render the SAME component through the SAME
-    // renderer the router uses, differing ONLY in the options object the
-    // router fails to pass. Deliberately not a string patch of the live body —
-    // a mutation that fakes the output proves nothing about whether the
-    // assertions can recognize genuinely hydratable markup.
-    body = await renderToString(component, { hydratable: true })
-  } else {
+  if (mode === 'live') {
     const router = createServerRouter(routes)
     const res = await router.handle(new Request('https://example.test/probe'))
     body = await res.text()
+  } else {
+    // `--self-test` should-FLAG arm, re-based by DA3.
+    //
+    // Before DA3 this arm WAS the live router: the production defect supplied
+    // the positive control. DA3 repaired the router, so that control now
+    // reports clean and the self-test would exit 1 before the real scan ever
+    // ran — the check would read as broken rather than as passing.
+    //
+    // So the positive control is now a simulated REGRESSION: the SAME
+    // component through the SAME renderer the router uses, differing ONLY in
+    // the options object DA3 added. That is precisely the edit that would
+    // reintroduce the defect, so the probe still discriminates on the thing it
+    // governs. Deliberately not a string patch of the live body — a mutation
+    // that fakes the output proves nothing about whether these assertions can
+    // recognize genuinely non-hydratable markup.
+    body = await renderToString(component, { hydratable: false })
   }
 
   const hasText = body.includes(PRIMARY_TEXT)
@@ -419,7 +442,7 @@ async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Fin
  * app-author input, while the thing under test — whether the renderer is asked
  * for hydratable output — remains entirely production code.
  */
-async function runDaD(hydratable: boolean): Promise<{ body: string; finding: Finding | null }> {
+async function runDaD(mode: ProbeMode): Promise<{ body: string; finding: Finding | null }> {
   const { mkdir, mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises')
   const { tmpdir } = await import('node:os')
   const { runPrerender } = await import('../packages/app/src/prerender.ts')
@@ -449,17 +472,23 @@ async function runDaD(hydratable: boolean): Promise<{ body: string; finding: Fin
       warn: () => {},
     })
 
+    // The bytes `runPrerender` actually wrote to disk — what a crawler receives.
     let body = await readFile(join(outDir, 'index.html'), 'utf8')
-    if (hydratable) {
-      // `--self-test` mutation: compose the page the way `runPrerender` does —
-      // same component, same renderer, same template, injected into the same
-      // outlet — differing ONLY in the options object the prerenderer fails to
-      // pass. Composed from the ORIGINAL template rather than patched into the
-      // written output, because the written output no longer contains an empty
-      // outlet to patch. A mutation that faked the markup would prove nothing
-      // about whether these assertions can recognize genuinely hydratable
-      // prerendered HTML.
-      const rendered = await renderToString(component, { hydratable: true })
+    if (mode === 'regressed') {
+      // `--self-test` should-FLAG arm, re-based by DA3b, for the same reason as
+      // DA-c's: before DA3b the live SSG writer supplied the positive control,
+      // and repairing it would leave this probe one-sided and exit the
+      // self-test before the real scan.
+      //
+      // The control is now a simulated REGRESSION composed the way
+      // `runPrerender` composes — same component, same renderer, same template,
+      // injected into the same outlet — differing ONLY in the options object
+      // DA3b added. Composed from the ORIGINAL template rather than patched
+      // into the written output, because the written output no longer contains
+      // an empty outlet to patch. A mutation that faked the markup would prove
+      // nothing about whether these assertions can recognize genuinely
+      // non-hydratable prerendered HTML.
+      const rendered = await renderToString(component, { hydratable: false })
       body = template.replace('<div id="outlet"></div>', `<div id="outlet">${rendered}</div>`)
     }
 
@@ -546,27 +575,28 @@ async function runSelfTest(): Promise<void> {
     expected: 0,
   })
 
-  // DA-c, both directions.
+  // DA-c, both directions. Polarity inverted by DA3: the live router is now
+  // the should-NOT-flag control, and the regression is simulated.
   cases.push({
-    label: 'DA-c should-flag: live router, renderToString with no options',
-    actual: (await runDaC(false)).finding ? 1 : 0,
+    label: 'DA-c should-flag: non-hydratable render (the pre-DA3 regression)',
+    actual: (await runDaC('regressed')).finding ? 1 : 0,
     expected: 1,
   })
   cases.push({
-    label: 'DA-c should-not-flag: hydratable output (mutated)',
-    actual: (await runDaC(true)).finding ? 1 : 0,
+    label: 'DA-c should-not-flag: live router, now passing hydratable: true',
+    actual: (await runDaC('live')).finding ? 1 : 0,
     expected: 0,
   })
 
-  // DA-d, both directions.
+  // DA-d, both directions. Same inversion, landed by DA3b.
   cases.push({
-    label: 'DA-d should-flag: live runPrerender, renderToString with no options',
-    actual: (await runDaD(false)).finding ? 1 : 0,
+    label: 'DA-d should-flag: non-hydratable prerender (the pre-DA3b regression)',
+    actual: (await runDaD('regressed')).finding ? 1 : 0,
     expected: 1,
   })
   cases.push({
-    label: 'DA-d should-not-flag: hydratable prerendered output (mutated)',
-    actual: (await runDaD(true)).finding ? 1 : 0,
+    label: 'DA-d should-not-flag: live runPrerender, now passing hydratable: true',
+    actual: (await runDaD('live')).finding ? 1 : 0,
     expected: 0,
   })
 
@@ -588,10 +618,10 @@ if (daA.finding) findings.push(daA.finding)
 const daB = await runDaB(false)
 if (daB.finding) findings.push(daB.finding)
 
-const daC = await runDaC(false)
+const daC = await runDaC('live')
 if (daC.finding) findings.push(daC.finding)
 
-const daD = await runDaD(false)
+const daD = await runDaD('live')
 if (daD.finding) findings.push(daD.finding)
 
 console.log(

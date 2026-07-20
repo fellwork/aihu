@@ -38,13 +38,25 @@
       "ratchet": "CLOSED at 0 by AT1. Any regression to an anonymous transport call site turns this red."
     },
     "dual-audience": {
-      "expect": 4,
-      "reason": "Scorecard §Dual-audience 0/4 — all four rows ❌. (DA-a) 'A markdown representation can be produced — ❌ — MarkdownResolver has zero production implementations. Every reference is the interface declaration (content-negotiation.ts:13), the config field (:22), or a test mock'. (DA-b) 'Negotiation reaches non-Accept clients — ❌ — no user-agent handling in content-negotiation.ts — Accept-header only, and AI crawlers don't send it'. (DA-c) 'Primary content retrievable without JS — ❌ — packages/router/src/server.ts:41 — renderToString(component) with no options, so the production path emits non-hydratable output' (one finding covering both DA-c assertions: one defect, the missing options object). (DA-d) 'Statically prerendered content retrievable without JS — ❌ — packages/app/src/prerender.ts:283 and :382 — renderToString(...) with no options, so every SSG page ships non-hydratable output' (one finding: one defect, the missing options object in the SSG writer).",
-      "expectChangedFrom": 3,
-      "expectChangedOn": "2026-07-19",
-      "expectChangedReason": "FOUNDER SCOPE DECISION (2026-07-19) — not a regression, and not a newly introduced defect. Prerender was ruled IN SCOPE for the dual-audience property, so check:dual-audience gained the DA-d probe and now measures 4 where it measured 3. NOTHING WAS FIXED by this change and nothing broke: packages/app/src/prerender.ts:283/:382 have always called renderToString(...) with no options — the check simply did not look at the SSG path, so a shipping defect went unmeasured. Verified after the change: check:dual-audience reports 4 findings and still FAILS, as it must. DA-d is a SEPARATE finding from DA-c rather than a widening of it, because they are separate defects in separate files with separate fixes — DA3 repairing packages/router/src/server.ts does not repair the SSG writer, and grouping them would let one fix silently decrement a baseline covering two live defects.",
-      "blockedBy": ["DA1", "DA2", "DA3", "DA3b"],
-      "ratchet": "DA1 (MarkdownResolver) takes 4→3; DA2 (UA negotiation) takes 3→2; DA3 (after CO5, path keys must agree first) takes 2→1; DA3b (hydratable options in the SSG writer, packages/app/src/prerender.ts) takes 1→0. DA3 and DA3b are tracked separately on purpose: the router fix and the prerender fix are independent edits."
+      "expect": 2,
+      "reason": "Scorecard §Dual-audience 2/4 — the two remaining ❌ rows are both in packages/plugin-agent-readiness/src/content-negotiation.ts. (DA-a) 'A markdown representation can be produced — ❌ — MarkdownResolver has zero production implementations. Every reference is the interface declaration (content-negotiation.ts:13), the config field (:22), or a test mock'. (DA-b) 'Negotiation reaches non-Accept clients — ❌ — no user-agent handling in content-negotiation.ts — Accept-header only, and AI crawlers don't send it' (2/3 cells wrong: GPTBot and ClaudeBot, neither sending an Accept header). DA-c and DA-d are CLEARED — see expectChangedReason.",
+      "expectChangedFrom": 4,
+      "expectChangedOn": "2026-07-20",
+      "expectChangedReason": "CLEARED BY FIX (2026-07-20), 4→2, both defects repaired in the commit that carries this decrement. (DA-c) packages/router/src/server.ts now calls renderToString(component, { hydratable: true }); (DA-d) packages/app/src/prerender.ts does the same at both the layout-shell render and the page render. Every data-aihu-path marker in ssr.ts is gated on `opts?.hydratable ?? false`, so the missing options object was the whole defect at each site. These two decrements are counted separately, as baselines.json required: the router edit and the SSG-writer edit are independent, and either alone would have moved this by exactly 1. PREREQUISITE: CO5 landed first (commit ec6aee60) — before it, emitting markers would not have helped, because @aihu/server seeded its path walk with '0' while @aihu/arbor's hydrate() hardcoded 'hydrate.0', so no marker could ever be matched. SELF-TEST RE-BASED IN THE SAME COMMIT, following the GO1/GO2 precedent: DA-c's and DA-d's should-flag arms USED to drive the live production path, so repairing production would have made the self-test exit 1 before the real scan and the check would have read as broken rather than as passing. Both positive controls are now simulated regressions — the identical component through the identical renderer with `{ hydratable: false }`, i.e. exactly the edit that would reintroduce the defect — while the live path became the should-not-flag control. The probes still assert marker PRESENCE and text REACHABILITY, never an exact markup blob. Verified after the change: 8 self-test cases pass in both directions, 196 public-entry sources scanned, 2 findings (DA-a, DA-b).",
+      "expectHistory": [
+        {
+          "on": "2026-07-19",
+          "change": "3→4",
+          "why": "FOUNDER SCOPE DECISION — not a regression and not a new defect. Prerender was ruled IN SCOPE, so the check gained the DA-d probe and measured 4 where it measured 3. Nothing was fixed and nothing broke: packages/app/src/prerender.ts:283/:382 had always called renderToString(...) with no options; the check simply had not looked at the SSG path, so a shipping defect went unmeasured."
+        },
+        {
+          "on": "2026-07-20",
+          "change": "4→2",
+          "why": "DA3 + DA3b landed together: hydratable options threaded into the router SSR handler and both SSG writer call sites, on top of CO5's path-key unification."
+        }
+      ],
+      "blockedBy": ["DA1", "DA2"],
+      "ratchet": "DA1 (MarkdownResolver implementation) takes 2→1; DA2 (UA-aware negotiation) takes 1→0. Both remaining defects live in the same file but are separate findings with separate fixes — a resolver implementation does not make negotiation UA-aware. DA3 (router) and DA3b (SSG writer) are DONE."
     }
   },
   "stagedChecks": {
