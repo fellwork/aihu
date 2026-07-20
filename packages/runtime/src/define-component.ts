@@ -120,18 +120,23 @@ function _tagOf(el: HTMLElement): string {
 /**
  * Bug D — light-DOM slot projection helper. Under `shadowMode: 'none'` the
  * browser does not run native <slot> projection, so the compiled-to-DOM
- * `<slot>` element from `<$slot>` is inert. After the layout template has
- * been mounted into `host`, find the default <slot> placeholder and replace
- * it with the carved light-DOM children. If the layout exposes no slot,
- * append the children back to the host as a graceful fallback — this
- * preserves prior behavior for components that don't author a slot at all.
+ * `<slot>` element(s) from `<$slot>` are inert. After the layout template has
+ * been mounted into `host`, this hand-rolls the projection to match Shadow-DOM
+ * `<slot>` semantics:
  *
- * TODO(architect): named slots (`<slot name="foo">`) + default fallback
- * content (`<slot>fallback</slot>`) are NOT YET HANDLED. Named-slot routing
- * needs to match children with `slot="foo"` to the corresponding placeholder
- * (Shadow-DOM semantics). Default fallback should keep the slot's existing
- * rendered children when there are no projected nodes. Both are out of scope
- * for the v0 light-DOM fix; track as a follow-up.
+ *   - Named slots: every carved child carrying `slot="foo"` is routed to the
+ *     `<slot name="foo">` placeholder; children with no `slot=` attribute (and
+ *     all text nodes) go to the default (unnamed) slot.
+ *   - Assigned nodes win: a slot with matching children is replaced by them,
+ *     and the slot's own children (its fallback content) are discarded.
+ *   - Default fallback: a slot with NO matching children is unwrapped to its
+ *     existing children (`<slot name="x">fallback</slot>` → `fallback`); an
+ *     empty slot simply disappears.
+ *   - No slot in the layout: the children are reattached to the host as a
+ *     graceful fallback — preserves prior behavior for components that don't
+ *     author a slot at all. Children whose `slot=` name matches no placeholder
+ *     are likewise reattached to the host (preserve-not-drop) rather than
+ *     silently discarded.
  */
 /** Bug D — safe `is-real-Element` check for the light-DOM slot carve. Some
  * existing tests invoke `connectedCallback()` directly on an
@@ -149,17 +154,61 @@ function _isRealElement(el: HTMLElement): boolean {
   }
 }
 
+/** Bug D — the target slot name for a carved child. Only element children can
+ * carry a `slot=` attribute; text/comment nodes always route to the default
+ * (unnamed) slot, keyed here as the empty string. */
+function _slotNameOfChild(c: ChildNode): string {
+  if (c.nodeType === 1 /* ELEMENT_NODE */) {
+    return (c as Element).getAttribute('slot') ?? ''
+  }
+  return ''
+}
+
 function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
   if (children.length === 0) return
-  const slotEl = host.querySelector('slot:not([name])')
-  if (slotEl !== null) {
-    slotEl.replaceWith(...children)
+  const slots = Array.from(host.querySelectorAll('slot'))
+  if (slots.length === 0) {
+    // No slot in the layout — reattach the children to the host so they remain
+    // observable (no errors, no data loss). This preserves the prior behavior
+    // of plain custom elements that simply contained children.
+    for (const c of children) host.appendChild(c)
     return
   }
-  // No slot in the layout — reattach the children to the host so they remain
-  // observable (no errors, no data loss). This preserves the prior behavior
-  // of plain custom elements that simply contained children.
-  for (const c of children) host.appendChild(c)
+
+  // Route each child to its target slot name (Shadow-DOM semantics). Default
+  // slot is keyed '' — element children with no `slot=` attr and every text
+  // node land there.
+  const byName = new Map<string, ChildNode[]>()
+  for (const c of children) {
+    const name = _slotNameOfChild(c)
+    const bucket = byName.get(name)
+    if (bucket === undefined) byName.set(name, [c])
+    else bucket.push(c)
+  }
+
+  // Resolve each placeholder in document order. `name=""` and an absent `name`
+  // both denote the default slot. A duplicate same-named slot finds its bucket
+  // already consumed and falls through to its own fallback content.
+  for (const slotEl of slots) {
+    const name = slotEl.getAttribute('name') ?? ''
+    const assigned = byName.get(name)
+    if (assigned !== undefined && assigned.length > 0) {
+      // Assigned nodes win — replace the slot with them; the slot's own
+      // children (its fallback content) are discarded.
+      slotEl.replaceWith(...assigned)
+      byName.delete(name)
+    } else {
+      // No assigned nodes — unwrap the slot to reveal its fallback content
+      // (the slot's existing children stay in the tree; an empty slot vanishes).
+      slotEl.replaceWith(...slotEl.childNodes)
+    }
+  }
+
+  // Children whose `slot=` name matched no placeholder do not render in real
+  // Shadow DOM; preserve-not-drop them onto the host (mirrors the no-slot path).
+  for (const bucket of byName.values()) {
+    for (const c of bucket) host.appendChild(c)
+  }
 }
 
 export function defineComponent(setup: Setup): typeof HTMLElement
