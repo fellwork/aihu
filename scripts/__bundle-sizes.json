@@ -51,8 +51,8 @@
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 819,
-    "limit": "950 B"
+    "bytes": 2680,
+    "limit": "3000 B"
   },
   {
     "name": "@aihu/app",

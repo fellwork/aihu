@@ -1,6 +1,13 @@
 # @aihu/agent-acp
 
-`@aihu/agent-acp` is the Agent Communication Protocol (ACP) adapter for aihu. It bridges an `AgentService` (from `@aihu/agent-service`) to ACP message transport, enabling AI orchestration platforms to call component actions and read state via the ACP wire protocol.
+> DEPRECATED — use `@aihu/agent-a2a` instead. The BeeAI ACP protocol merged
+> into the A2A protocol under the Linux Foundation in August 2025; there is no
+> independent ACP spec left to conform to. This package is frozen at `0.1.x`
+> (it still compiles and runs, but receives no further features). Mount
+> `mountA2aAdapter` from `@aihu/agent-a2a` on the same `AgentService` to get
+> the A2A v1.0.1 JSON-RPC binding with the same `resolveAuth` attribution.
+
+`@aihu/agent-acp` is the deprecated ACP adapter for aihu. It bridges an `AgentService` (from `@aihu/agent-service`) to a pre-consolidation ACP-style message transport. New integrations should use `@aihu/agent-a2a`.
 
 The package ships as ≤ 600 B gzipped (excluding `@aihu/agent-service`). Use it when your aihu app needs to participate in an ACP-based multi-agent system.
 

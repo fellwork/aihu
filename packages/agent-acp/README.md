@@ -2,12 +2,26 @@
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-ACP (Agent Control Protocol) bindings for @aihu/agent-service.
+DEPRECATED — use [`@aihu/agent-a2a`](../agent-a2a). The ACP protocol merged into A2A under the Linux Foundation (Aug 2025).
 
 Part of the **agent surface** layer of Aihu. Every Aihu component exposes its agent surface via the `@agent` block; this package implements one slice of the dispatch + protocol surface that connects `@agent` actions to live runtime signals (per the [Live-Binding RFC](../../docs/superpowers/specs/2026-05-05-spec-live-binding.md)).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
-_(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
+> [!WARNING]
+> **DEPRECATED — use [`@aihu/agent-a2a`](../agent-a2a) instead.**
+>
+> This package is frozen at `0.1.x` and will receive no further features. The
+> ACP protocol it targeted (BeeAI ACP) **merged into the A2A protocol under the
+> Linux Foundation in August 2025** — its maintainers migrated, and there is no
+> independent ACP spec left to conform to. (The name "ACP" now belongs to Zed's
+> unrelated editor↔agent Agent Client Protocol, which this package never
+> implemented.)
+>
+> **Migration:** mount [`mountA2aAdapter`](../agent-a2a) from `@aihu/agent-a2a`
+> on the same `AgentService`. The A2A adapter speaks the A2A v1.0.1 JSON-RPC
+> binding (agent card at `/.well-known/agent-card.json`, `SendMessage`,
+> `GetTask`, …) and carries the same tier-0 `RequestContext` attribution via
+> `resolveAuth`.
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install
@@ -33,7 +47,7 @@ bun add @aihu/agent-acp
 | | |
 |---|---|
 | **Version** | `0.1.2` |
-| **Tier** | C — Agent surface — ACP (Agent Control Protocol) protocol |
+| **Tier** | C — Agent surface — DEPRECATED; use @aihu/agent-a2a (ACP merged into A2A, Aug 2025) |
 | **Bundle size** | 675 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |

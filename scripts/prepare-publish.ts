@@ -49,8 +49,9 @@ const DESCRIPTIONS: Record<string, string> = {
   agent: 'Agent primitives — the foundation of aihu agent-readiness.',
   'agent-service': 'Service-side agent runtime (server-hosted agent endpoints).',
   'agent-readiness': 'Discovery + readiness manifest emitter so agents can introspect aihu apps.',
-  'agent-a2a': 'A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service.',
-  'agent-acp': 'ACP (Agent Control Protocol) bindings for @aihu/agent-service.',
+  'agent-a2a':
+    'A2A (Agent2Agent) protocol bindings (spec v1.0.1, JSON-RPC) for @aihu/agent-service.',
+  'agent-acp': 'DEPRECATED — use @aihu/agent-a2a (ACP merged into A2A, Aug 2025).',
   compiler: 'Single File Component (.aihu) compiler — Rust binary + JS glue.',
   cli: 'Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.',
   plugin: 'Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface.',

@@ -1,6 +1,6 @@
 # @aihu/agent-a2a
 
-Wraps an `AgentService` with Agent-to-Agent (A2A) protocol routes. The adapter exposes a discovery card and task-dispatch endpoints that comply with the A2A wire format, and integrates with any fetch-API server via a single middleware function.
+Wraps an `AgentService` with the [Agent2Agent (A2A) Protocol Specification v1.0.1](https://a2a-protocol.org/v1.0.1/specification) JSON-RPC 2.0 binding. The adapter serves the spec agent card and a JSON-RPC endpoint, persists tasks to a swappable store, streams over SSE, and integrates with any fetch-API server via a single middleware function.
 
 ## Install
 
@@ -17,8 +17,11 @@ bun add @aihu/agent-a2a
 | Name | Kind | Description |
 |------|------|-------------|
 | `mountA2aAdapter` | function | Create an A2A adapter around an AgentService |
+| `createInMemoryTaskStore` | function | The default in-memory `TaskStore` (also exported for reuse) |
 | `A2aAdapter` | interface | Object returned by `mountA2aAdapter` |
 | `A2aAdapterOptions` | interface | Options accepted by `mountA2aAdapter` |
+| `TaskStore` | interface | Persistence boundary for tasks (`get`/`save`/`list`) |
+| `Task`, `Message`, `Part`, `AgentCard`, … | types | A2A v1.0.1 data-model types (camelCase JSON, ProtoJSON enums) |
 
 ## Functions
 
@@ -31,7 +34,7 @@ function mountA2aAdapter(
 ): A2aAdapter
 ```
 
-Creates an A2A adapter that wraps the given `AgentService`. The returned `A2aAdapter` exposes an `asMiddleware()` method that returns a fetch-API handler function. Calling `asMiddleware()` multiple times on the same adapter is safe — each call returns a new handler closure over the same service and options.
+Creates an A2A adapter that wraps the given `AgentService`. The returned `A2aAdapter` exposes an `asMiddleware()` method that returns a fetch-API handler function. The handler returns a `Response` for any path it owns, and `null` for paths it does not recognize — allowing you to chain multiple adapters or fall through to a 404 handler.
 
 **Parameters**
 
@@ -44,41 +47,43 @@ Creates an A2A adapter that wraps the given `AgentService`. The returned `A2aAda
 
 ## Types
 
-### A2aAdapter
-
-```typescript
-interface A2aAdapter {
-  asMiddleware(): (req: Request) => Promise<Response | null>
-}
-```
-
-The object returned by `mountA2aAdapter`. Call `asMiddleware()` to obtain a handler that processes incoming requests. The handler returns a `Response` for any path it owns, and `null` for paths it does not recognize — allowing you to chain multiple adapters or fall through to a 404 handler.
-
-**Fields**
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `asMiddleware` | `() => (req: Request) => Promise<Response \| null>` | Yes | Returns a fetch-API middleware function. |
-
----
-
 ### A2aAdapterOptions
 
 ```typescript
 interface A2aAdapterOptions {
   prefix?: string
   name?: string
+  description?: string
+  version?: string
+  url?: string
+  taskStore?: TaskStore
+  resolveAuth?: (req: Request) => RequestContext | Promise<RequestContext>
 }
 ```
-
-Configuration options for `mountA2aAdapter`.
 
 **Fields**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `prefix` | `string` | No | URL prefix prepended to all route paths. Default: `''`. |
-| `name` | `string` | No | Agent name included in the discovery card response. Default: `'aihu-agent-service'`. |
+| `name` | `string` | No | Agent name in the agent card. Default: `'aihu-agent-service'`. |
+| `description` | `string` | No | Agent description in the agent card. |
+| `version` | `string` | No | Agent version in the agent card. Default: `'1.0.0'`. |
+| `url` | `string` | No | Absolute public URL of the JSON-RPC endpoint, advertised in `supportedInterfaces[0].url`. Defaults to the relative `{prefix}/a2a`; production cards should set it (the spec requires an absolute HTTPS URL). |
+| `taskStore` | `TaskStore` | No | Swap the task store. Default: a per-adapter in-memory store. |
+| `resolveAuth` | `(req) => RequestContext` | No | Per-request auth resolver — the tier-0 attribution injection point. Absent or throwing resolvers degrade to an explicit anonymous context, which still fails closed on scoped bindings. |
+
+### TaskStore
+
+```typescript
+interface TaskStore {
+  get(id: string): Task | undefined | Promise<Task | undefined>
+  save(task: Task): void | Promise<void>
+  list(): Task[] | Promise<Task[]>
+}
+```
+
+Persistence boundary for tasks, making `GetTask` / `ListTasks` / `CancelTask` implementable. Inject a KV- or DB-backed implementation for durable deployments.
 
 ## Routes
 
@@ -86,11 +91,33 @@ The middleware returned by `asMiddleware()` owns the following paths (relative t
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/.well-known/agent.json` | A2A agent discovery card. Returns JSON with `name`, `version`, `capabilities`, and a `skills` array derived from the service manifest. |
-| `POST` | `/a2a/tasks/send` | Submit a task. Body: `{ taskId?, message: string, params? }`. Returns JSON `{ taskId, status, result \| error }`. |
-| `POST` | `/a2a/tasks/sendSubscribe` | Submit a task with SSE streaming response. Same request body as `/a2a/tasks/send`. Returns `text/event-stream` ending with `data: [DONE]`. |
+| `GET` | `/.well-known/agent-card.json` | A2A agent card (spec §4.4.1): `name`, `description`, `version`, `supportedInterfaces` (`JSONRPC`, protocol version `1.0`), `capabilities` (`streaming: true`, `pushNotifications: false`), and a `skills` array derived from the service manifest. |
+| `POST` | `/a2a` | JSON-RPC 2.0 endpoint. Methods: `SendMessage`, `SendStreamingMessage` (SSE), `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, the push-notification config methods (`-32003`), `GetExtendedAgentCard` (`-32007`). |
 
-All paths not matching one of these three return `null` from the middleware.
+All other paths return `null` from the middleware.
+
+## Invoking a skill
+
+Every exposed aihu action is an A2A skill with id `"<tag>/<action>"`. A `Message` invokes one with a **data part**:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "messageId": "m-1",
+      "role": "ROLE_USER",
+      "parts": [{ "data": { "skill": "x-counter/increment", "params": { "by": 2 } } }]
+    }
+  }
+}
+```
+
+or with a text part whose text is the skill id (params then come from the first data part, if any). The response is `{ "result": { "task": { … } } }`; the dispatch result rides in `task.artifacts[0].parts[0].data`.
+
+Gate verdicts map onto task state: 401 `AUTH_REQUIRED` → `TASK_STATE_AUTH_REQUIRED` (resumable — re-send with `message.taskId` and credentials), 403 `SCOPE_DENIED` → `TASK_STATE_REJECTED`; the full gate envelope (`error`, `code`) is carried in a status-message data part for audit.
 
 ## Usage
 
@@ -105,8 +132,8 @@ const service = createAgentService({
 })
 
 const a2a = mountA2aAdapter(service, {
-  prefix: '',
   name: 'my-app',
+  url: 'https://my-app.example.com/a2a',
 })
 
 const router = createRequestRouter({
@@ -121,4 +148,13 @@ const router = createRequestRouter({
 export default router
 ```
 
-The `prefix` option is useful when mounting the adapter under a path namespace, e.g. `prefix: '/api'` shifts all routes to `GET /api/.well-known/agent.json`, `POST /api/a2a/tasks/send`, and `POST /api/a2a/tasks/sendSubscribe`.
+## Migrating from 0.1.x
+
+The 0.1.x wire is removed (semver-major):
+
+| 0.1.x | Now |
+|---|---|
+| `GET /.well-known/agent.json` | `GET /.well-known/agent-card.json` |
+| `POST /a2a/tasks/send` with `{ taskId?, message: "tag/action", params }` | `POST /a2a` JSON-RPC `SendMessage` with a `Message` (`parts`) |
+| `POST /a2a/tasks/sendSubscribe`, SSE ending `data: [DONE]` | `POST /a2a` JSON-RPC `SendStreamingMessage`; frames are JSON-RPC responses, terminality is the task state |
+| `{ taskId, status: 'completed', result }` response | `{ result: { task } }` with `TASK_STATE_*` states and artifacts |

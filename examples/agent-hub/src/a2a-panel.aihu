@@ -5,20 +5,32 @@
 
   $action: {
     sendA2aRequest: {
-      describe: 'Send a ping A2A sendSubscribe request and store the first SSE data frame',
+      describe: 'Send an A2A SendStreamingMessage JSON-RPC request and show the terminal SSE task status',
       expose: { read: true, write: true },
       handler: async () => {
         setLoading(true)
         try {
-          const res = await fetch('/a2a/tasks/sendSubscribe', {
+          // A2A v1.0.1 JSON-RPC binding: SendStreamingMessage over SSE.
+          const res = await fetch('/a2a', {
             method: 'POST',
-            body: JSON.stringify({ message: 'ping', params: null }),
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'SendStreamingMessage',
+              params: {
+                message: {
+                  messageId: crypto.randomUUID(),
+                  role: 'ROLE_USER',
+                  parts: [{ text: 'ping' }],
+                },
+              },
+            }),
             headers: { 'Content-Type': 'application/json' },
           })
           const text = await res.text()
-          // Parse first `data:` line from the SSE response
-          const firstDataLine = text.split('\n').find(l => l.startsWith('data:'))
-          const payload = firstDataLine ? firstDataLine.slice(5).trim() : text
+          // Show the last SSE frame — the terminal task status update.
+          const dataLines = text.split('\n').filter(l => l.startsWith('data:'))
+          const payload = dataLines.length > 0 ? dataLines[dataLines.length - 1].slice(5).trim() : text
           setResult(payload)
         } catch (err) {
           setResult(`Error: ${err}`)
@@ -31,7 +43,7 @@
 
   $lifecycle: {
     mount: () => {
-      fetch('/.well-known/agent.json')
+      fetch('/.well-known/agent-card.json')
         .then(r => r.json())
         .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
         .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
@@ -51,7 +63,7 @@
   <div class="a2a-panel">
     <h2 class="panel-heading">A2A Protocol</h2>
 
-    <span class="protocol-badge a2a-badge">A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)</span>
+    <span class="protocol-badge a2a-badge">A2A v1.0.0: JSON-RPC SendStreamingMessage over SSE</span>
 
     <section class="discovery-section" aria-label="A2A Discovery">
       <h3 class="subsection-heading">A2A Discovery</h3>

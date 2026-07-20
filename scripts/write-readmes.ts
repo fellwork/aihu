@@ -163,7 +163,7 @@ const service = createAgentService({ agents, bindings: [a2aBinding()] });`,
   {
     name: 'agent-acp',
     pkg: '@aihu/agent-acp',
-    purpose: 'ACP (Agent Control Protocol) bindings for @aihu/agent-service.',
+    purpose: 'DEPRECATED — use @aihu/agent-a2a (ACP merged into A2A, Aug 2025).',
     usage: `import { acpBinding } from '@aihu/agent-acp';
 import { createAgentService } from '@aihu/agent-service';
 

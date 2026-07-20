@@ -7,7 +7,7 @@
  *   A5-3:  hub-root.aihu source contains `provide`
  *   A5-4:  hub-root.aihu source contains `@agent`
  *   A5-5:  hub-root.aihu source contains `$expose`
- *   A5-6:  a2a-panel.aihu source contains "A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)"
+ *   A5-6:  a2a-panel.aihu source contains "A2A v1.0.0: JSON-RPC SendStreamingMessage over SSE"
  *   A5-7:  acp-panel.aihu source contains "ACP: live"
  *   A5-8:  server.ts source contains `mountA2aAdapter`
  *   A5-9:  server.ts source contains `mountAcpAdapter`
@@ -15,7 +15,7 @@
  *   A5-11: registerAgentMetadata() can be called without throwing
  *          (registry simulation — same pattern as EX-06 weather-card A5-1)
  *   A5-12: a2a-panel.aihu source contains `inject`
- *   A5-13: a2a-panel.aihu source contains `/a2a/tasks/sendSubscribe`
+ *   A5-13: a2a-panel.aihu source speaks the A2A v1.0.0 JSON-RPC wire
  *   A5-14: acp-panel.aihu source contains `inject`
  *   A5-15: acp-panel.aihu source contains `/acp/messages`
  *
@@ -61,8 +61,10 @@ describe('EX-07 agent-hub — hub-root.aihu source-text checks', () => {
     expect(sfcSrc).toContain('@agent')
   })
 
-  it('A5-5: hub-root.aihu contains $expose', () => {
-    expect(sfcSrc).toContain('$expose')
+  it('A5-5: hub-root.aihu exposes agent metadata via v2 collection form', () => {
+    // v2 (#425) retired the `$expose name` form; exposure now rides on a
+    // collection entry as `expose: { read | write }`.
+    expect(sfcSrc).toContain('expose:')
   })
 })
 
@@ -73,7 +75,7 @@ describe('EX-07 agent-hub — hub-root.aihu source-text checks', () => {
 describe('EX-07 agent-hub — panel badge text checks', () => {
   it('A5-6: a2a-panel.aihu contains A2A badge text', () => {
     const src = readFileSync(A2A_PANEL_PATH, 'utf8')
-    expect(src).toContain('A2A: single-shot SSE (multi-frame streaming pending Plan 5.3)')
+    expect(src).toContain('A2A v1.0.0: JSON-RPC SendStreamingMessage over SSE')
   })
 
   it('A5-7: acp-panel.aihu contains ACP badge text', () => {
@@ -113,8 +115,10 @@ describe('EX-07 agent-hub — a2a-panel.aihu source-text checks', () => {
     expect(src).toContain('inject')
   })
 
-  it('A5-13: a2a-panel.aihu contains /a2a/tasks/sendSubscribe', () => {
-    expect(src).toContain('/a2a/tasks/sendSubscribe')
+  it('A5-13: a2a-panel.aihu speaks the A2A v1.0.0 JSON-RPC wire', () => {
+    expect(src).toContain('SendStreamingMessage')
+    expect(src).toContain("fetch('/a2a'")
+    expect(src).toContain('/.well-known/agent-card.json')
   })
 })
 

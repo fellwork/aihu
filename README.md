@@ -186,7 +186,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/router` | 1.71 kB | 2400 B | pass |
 | `@aihu/agent-service` | 1.45 kB | 1600 B | pass |
 | `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 819 B | 950 B | pass |
+| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
 | `@aihu/app` | 1.67 kB | 1750 B | pass |
 | `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
@@ -244,8 +244,8 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `5.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
 | [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `5.0.0` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.1.0` | Agent primitives — the foundation of aihu agent-readiness. |
-| [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.2` | A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service. |
-| [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.2` | ACP (Agent Control Protocol) bindings for @aihu/agent-service. |
+| [`@aihu/agent-a2a`](./packages/agent-a2a) | `0.1.2` | A2A (Agent2Agent) protocol bindings (spec v1.0.1, JSON-RPC) for @aihu/agent-service. |
+| [`@aihu/agent-acp`](./packages/agent-acp) | `0.1.2` | DEPRECATED — use @aihu/agent-a2a. BeeAI ACP merged into A2A under the Linux Foundation (Aug 2025); this adapter's invented ACP shape has no spec to conform to. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
 | [`@aihu/agent-server`](./packages/agent-server) | `0.3.1` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.2.0` | Service-side agent runtime (server-hosted agent endpoints). |
