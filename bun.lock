@@ -639,11 +639,11 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.6",
-        "@aihu/compiler-darwin-x64": "0.1.6",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.6",
-        "@aihu/compiler-linux-x64-gnu": "0.1.6",
-        "@aihu/compiler-win32-x64-msvc": "0.1.6",
+        "@aihu/compiler-darwin-arm64": "0.1.7",
+        "@aihu/compiler-darwin-x64": "0.1.7",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.7",
+        "@aihu/compiler-linux-x64-gnu": "0.1.7",
+        "@aihu/compiler-win32-x64-msvc": "0.1.7",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -948,16 +948,6 @@
     "@aihu/cli": ["@aihu/cli@workspace:packages/cli"],
 
     "@aihu/compiler": ["@aihu/compiler@workspace:packages/compiler"],
-
-    "@aihu/compiler-darwin-arm64": ["@aihu/compiler-darwin-arm64@0.1.6", "", { "os": "darwin", "cpu": "arm64" }, "sha512-Hmp1+1XLDY8CVm3EFASkIwbIHq9I/PGEZicKCLVlesJMGVwChGPmLoUXOiW8wZMl/0J5fa7F989YFLKYSqgBZw=="],
-
-    "@aihu/compiler-darwin-x64": ["@aihu/compiler-darwin-x64@0.1.6", "", { "os": "darwin", "cpu": "x64" }, "sha512-hbzUClXFnPmz6Q9Odxrwr9RM33f7QbK+VjNuDeWy3fG7R+4dzq2UKAFQg7EsvS9XJrMMBOAAXUQX3VKFStrINw=="],
-
-    "@aihu/compiler-linux-arm64-gnu": ["@aihu/compiler-linux-arm64-gnu@0.1.6", "", { "os": "linux", "cpu": "arm64" }, "sha512-8+l8mZRNjf9T3wjzvSJ4SOn//egtePLgwG+COIeOsgxm5bcqDV+X8qhTV6BqeRlzWLyXhZ9tyLXbCjjhV/xzdQ=="],
-
-    "@aihu/compiler-linux-x64-gnu": ["@aihu/compiler-linux-x64-gnu@0.1.6", "", { "os": "linux", "cpu": "x64" }, "sha512-UZ0+5GhGo03SxFHhJ0MVSowLSLU8W3c6/n6MW8thppEcBTJNbNuTM69elPDlFrzjNjBXNqFfTsK7m383VvQm5A=="],
-
-    "@aihu/compiler-win32-x64-msvc": ["@aihu/compiler-win32-x64-msvc@0.1.6", "", { "os": "win32", "cpu": "x64" }, "sha512-qaMXdu0NHLMR8ZSG9AsoNZtoX3zGRcAOIjw7x/FCJBdlzqqlBSN4b2PcNQixjKbY4BI10h3F0cl3qMSpOEb6Ew=="],
 
     "@aihu/context": ["@aihu/context@workspace:packages/context"],
 
