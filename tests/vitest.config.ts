@@ -14,12 +14,20 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['tests/integration/**/*.test.ts'],
     passWithNoTests: false,
+    // `@aihu/server` selects its TypeScript SSR fallback rather than requiring a
+    // built native addon — the same reason the root `vitest.config.ts` sets it.
+    env: { SCRIBE_NATIVE_SKIP: '1' },
   },
   resolve: {
     alias: {
       '@aihu/signals': new URL('../packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('../packages/arbor/src/index.ts', import.meta.url).pathname,
       '@aihu/runtime': new URL('../packages/runtime/src/index.ts', import.meta.url).pathname,
+      // Added for `ssr-hydrate-path-parity.test.ts`, which is cross-package by
+      // nature: it pipes real `@aihu/server` output into `@aihu/arbor`'s
+      // `hydrate()`. Without this alias that suite cannot resolve here (it also
+      // runs under the root config, which aliases every package).
+      '@aihu/server': new URL('../packages/server/src/index.ts', import.meta.url).pathname,
     },
   },
 })

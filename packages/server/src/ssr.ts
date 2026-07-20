@@ -195,8 +195,19 @@ function renderLeaf(obj: Record<string, unknown>): string {
  * interleaved comment keeps them as separate Text nodes and is skipped by the
  * walker, so it is invisible to both render and hydrate. Only element/branch
  * children wrap in tags, so only text-leaf pairs need this. Emitted in
- * hydratable output only — static SSR never hydrates, so the extra bytes would
- * be dead weight.
+ * hydratable output only.
+ *
+ * "Hydratable output only" is a narrower claim than it used to make. This
+ * comment previously justified the gate with "static SSR never hydrates, so the
+ * extra bytes would be dead weight" — true only of output that is genuinely
+ * terminal (a feed, an email body, a snapshot for an extractor). It was NOT
+ * true of the two callers that dominate real traffic: `@aihu/router`'s SSR
+ * handler and `@aihu/app`'s SSG prerenderer both produce HTML that a live SPA
+ * hydrates into, and both formerly called `renderToString(...)` with no options
+ * and therefore shipped markerless HTML. That is fixed at those call sites; the
+ * gate itself is correct and stays. The lesson it encodes: `hydratable` is a
+ * property of the DESTINATION, not of the renderer, so it must be explicit at
+ * every call site rather than defaulted from what "SSR" seems to imply.
  */
 const TEXT_LEAF_BOUNDARY = '<!--|-->'
 
@@ -213,6 +224,26 @@ function _textBoundaryBefore(children: unknown[], i: number, hydratable: boolean
     ? TEXT_LEAF_BOUNDARY
     : ''
 }
+
+/**
+ * The root path key seeded into the `data-aihu-path` walk.
+ *
+ * A WIRE-PROTOCOL constant shared with two other implementations of the same
+ * scheme: the client walker (`@aihu/arbor`'s `hydrate.ts`, `_ROOT_PATH`) and
+ * the Rust renderer (`src-native/src/render.rs`, asserted in its `data-aihu-path="0"`
+ * test). It is a fixed literal rather than a counter because the server renders
+ * from a long-lived process and the client starts fresh each page load — no
+ * counter can agree across that split. If this diverges from the client's root,
+ * every branch lookup misses and hydration silently rebuilds the tree beside the
+ * server's DOM instead of adopting it (no error is thrown; content duplicates).
+ *
+ * Not imported from `@aihu/arbor`: that is the client runtime and pulling it in
+ * here would be a server-bundle leak. Agreement is enforced behaviorally by
+ * `tests/integration/ssr-hydrate-path-parity.test.ts` and
+ * `scripts/check-hydration-adoption.ts`, which is stronger than a shared import
+ * anyway — a shared TS constant could not cover the Rust implementation at all.
+ */
+const ROOT_PATH = '0'
 
 function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   if (typeof node !== 'object' || node === null) return ''
@@ -437,7 +468,7 @@ export function renderToStream(
       }
 
       // Kick off async tree walk
-      renderNodeAsync(root, '0', opts?.hydratable ?? false, controller, pendingState)
+      renderNodeAsync(root, ROOT_PATH, opts?.hydratable ?? false, controller, pendingState)
         .then(() => {
           pendingState.walkDone = true
           if (pendingState.count === 0) {
