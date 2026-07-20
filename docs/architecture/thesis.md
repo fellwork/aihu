@@ -25,7 +25,7 @@ that drift is structurally impossible rather than merely discouraged.
 
 ## The four properties
 
-### 1. Dual-audience — the site composes the experience; the agent negotiates the representation
+### 1. Dual-audience — different by nature, not merely by format
 
 Humans and agents are both first-class, but **not symmetric**, and the asymmetry is the
 point:
@@ -39,9 +39,32 @@ point:
 So content negotiation is not a fallback path bolted on for crawlers. For the agent
 audience it **is** the interface.
 
-This has a hard consequence: any content that exists only as rendered UX — reachable only
-by executing the site's own presentation logic — is not available to the agent audience at
-all. Primary content must be projectable into a representation the agent asked for.
+**But the divergence runs deeper than format.** The two axes of service are expected to
+*function differently*, because their consumers differ in kind. Derivation produces
+**different shapes from one source** — not one shape rendered twice. An agent surface that
+is merely the UI re-serialized has failed this property, not satisfied it.
+
+| Concern | Human nature | Agent nature |
+|---|---|---|
+| Consumption | Sequential, attention-bounded | Parallel, context-bounded |
+| Discovery | Browses; benefits from serendipity | Queries; wants completeness |
+| Structure | Progressive disclosure, visual hierarchy | Flat, complete, explicitly typed |
+| Volume | Pagination | Cursors, bulk, streaming |
+| Confirmation | "Are you sure?" dialog | Idempotency key, declared limit |
+| Errors | Visual feedback, recoverable in place | Explicit codes, machine-branchable |
+| Rate limits | Invisible; never encountered | **A first-class budget to plan against** |
+| Trust | Design cues, brand, social proof | Verification, schema, deterministic contract |
+
+Two consequences worth stating plainly, because both are easy to get wrong:
+
+1. **Some capabilities are agent-only and some are human-only, and that is correct.** Bulk
+   export and structured query have no sensible UI. Visual comparison and exploratory
+   browsing have no sensible tool call. Forcing either to project is a design error. This
+   is why `expose:` is an explicit per-member opt-in rather than automatic — the author
+   decides what belongs on the agent axis, and the default is "nothing."
+2. **Any content reachable only by executing the site's presentation logic is unavailable
+   to the agent axis entirely.** Primary content must be projectable into a representation
+   the agent asked for, independent of the UI that renders it for a person.
 
 ⚠️ **Directional, and honestly ahead of adoption.** Today only a minority of agent clients
 negotiate format at all (see `docs/domain-hints/seo-and-agent-discoverability.md` §7.5:
