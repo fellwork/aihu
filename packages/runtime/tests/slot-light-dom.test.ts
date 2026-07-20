@@ -18,8 +18,9 @@
  * The Shadow-DOM path MUST remain untouched (regression guard below).
  *
  * Named slots (`<slot name="foo">`) + default fallback content
- * (`<slot>fallback</slot>`) are explicitly OUT OF SCOPE for this fix —
- * flagged as TODO(architect) in `define-component.ts`.
+ * (`<slot>fallback</slot>`) are now handled with full Shadow-DOM parity —
+ * see the "#436 — named slots + default fallback" describe block below for
+ * the acceptance-criteria (A–F) coverage.
  */
 
 import { branch, leaf, mount, slot } from '@aihu/arbor'
@@ -116,6 +117,140 @@ describe('Bug D — light-DOM <$slot> projection (shadowMode: "none")', () => {
     // the host (fallback path, preserves the child rather than dropping).
     expect(host.children.length).toBe(2)
     expect((host.children[0] as HTMLElement).tagName).toBe('DIV')
+    expect((host.children[0] as HTMLElement).getAttribute('class')).toBe('no-slot')
+    expect((host.children[1] as HTMLElement).tagName).toBe('SPAN')
+    expect((host.children[1] as HTMLElement).textContent).toBe('orphan')
+
+    host.remove()
+  })
+})
+
+describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
+  // A: a named-slot placeholder + a child carrying the matching `slot="foo"`
+  // → the child lands where the named slot was; unmatched children do not.
+  it('A: routes a child with slot="foo" to <slot name="foo">', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot('foo')]))
+    defineElement('x-436-a', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-a')
+    // The <span slot="foo"> must land in the named slot; the bare <p> has no
+    // default slot to fall into and so must NOT appear inside the layout div.
+    host.innerHTML = '<span slot="foo">named</span><p>orphan</p>'
+    document.body.appendChild(host)
+
+    const div = host.firstElementChild as HTMLElement
+    expect(div.tagName).toBe('DIV')
+    expect([...div.children].map((c) => c.tagName)).toEqual(['SPAN'])
+    expect(div.querySelector('span')?.textContent).toBe('named')
+    expect(div.querySelector('slot')).toBeNull()
+    // The unmatched <p> is preserved on the host (preserve-not-drop).
+    expect(host.querySelector(':scope > p')?.textContent).toBe('orphan')
+
+    host.remove()
+  })
+
+  // B: the unnamed default slot still works exactly as before — default
+  // children (no `slot=` attr) land in order at the default-slot position.
+  it('B: unnamed <slot> receives the default children in order', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot()]))
+    defineElement('x-436-b', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-b')
+    host.innerHTML = '<h1>a</h1><p>b</p>'
+    document.body.appendChild(host)
+
+    const div = host.firstElementChild as HTMLElement
+    expect([...div.children].map((c) => c.tagName)).toEqual(['H1', 'P'])
+    expect(div.querySelector('slot')).toBeNull()
+
+    host.remove()
+  })
+
+  // C: a named slot with fallback content and NO matching child → the
+  // fallback renders and the slot element itself is unwrapped.
+  it('C: <slot name="x">DEFAULT</slot> with no match preserves the fallback', () => {
+    const Cmp = defineComponent(() =>
+      branch('div', { class: 'layout' }, [
+        branch('slot', { name: 'x' }, [branch('span', { class: 'fb' }, [leaf('DEFAULT')])]),
+      ]),
+    )
+    defineElement('x-436-c', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-c')
+    // A child that does NOT target slot "x" — leaves the named slot unassigned.
+    host.innerHTML = '<em slot="other">nope</em>'
+    document.body.appendChild(host)
+
+    const div = host.firstElementChild as HTMLElement
+    // Fallback preserved, slot unwrapped.
+    expect(div.querySelector('slot')).toBeNull()
+    const fb = div.querySelector('span.fb')
+    expect(fb).not.toBeNull()
+    expect(fb?.textContent).toBe('DEFAULT')
+    // Unmatched child preserved on the host.
+    expect(host.querySelector(':scope > em')?.textContent).toBe('nope')
+
+    host.remove()
+  })
+
+  // D: a default slot with fallback AND at least one matching default child →
+  // the children win and the fallback content is discarded.
+  it('D: <slot>DEFAULT</slot> with a default child discards the fallback', () => {
+    const Cmp = defineComponent(() =>
+      branch('div', { class: 'layout' }, [
+        branch('slot', undefined, [branch('span', { class: 'fb' }, [leaf('DEFAULT')])]),
+      ]),
+    )
+    defineElement('x-436-d', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-d')
+    host.innerHTML = '<p>real</p>'
+    document.body.appendChild(host)
+
+    const div = host.firstElementChild as HTMLElement
+    expect([...div.children].map((c) => c.tagName)).toEqual(['P'])
+    expect(div.querySelector('p')?.textContent).toBe('real')
+    expect(div.querySelector('span.fb')).toBeNull()
+    expect(div.querySelector('slot')).toBeNull()
+
+    host.remove()
+  })
+
+  // E: multiple named slots + a default slot in one layout all route in a
+  // single projection pass, each to its own placeholder position.
+  it('E: multiple named slots + default all route correctly in one pass', () => {
+    const Cmp = defineComponent(() =>
+      branch('div', { class: 'layout' }, [slot('header'), slot(), slot('footer')]),
+    )
+    defineElement('x-436-e', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-e')
+    host.innerHTML = '<h1 slot="header">H</h1><p>d1</p><nav slot="footer">F</nav><p>d2</p>'
+    document.body.appendChild(host)
+
+    const div = host.firstElementChild as HTMLElement
+    // Placeholder order: header, default, footer → H, [d1, d2], F.
+    expect([...div.children].map((c) => c.tagName)).toEqual(['H1', 'P', 'P', 'NAV'])
+    expect(div.children[0]?.textContent).toBe('H')
+    expect(div.children[1]?.textContent).toBe('d1')
+    expect(div.children[2]?.textContent).toBe('d2')
+    expect(div.children[3]?.textContent).toBe('F')
+    expect(div.querySelector('slot')).toBeNull()
+
+    host.remove()
+  })
+
+  // F: a component authoring NO slot at all is unchanged — the children
+  // reattach to the host after the layout template.
+  it('F: no slot in the layout reattaches children to the host', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'no-slot' }, []))
+    defineElement('x-436-f', Cmp, { shadowMode: 'none' })
+
+    const host = document.createElement('x-436-f')
+    host.innerHTML = '<span>orphan</span>'
+    document.body.appendChild(host)
+
+    expect(host.children.length).toBe(2)
     expect((host.children[0] as HTMLElement).getAttribute('class')).toBe('no-slot')
     expect((host.children[1] as HTMLElement).tagName).toBe('SPAN')
     expect((host.children[1] as HTMLElement).textContent).toBe('orphan')
