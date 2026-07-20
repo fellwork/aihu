@@ -12,7 +12,7 @@
 
 import { signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
-import { hydrate } from '../src/hydrate.ts'
+import { _ROOT_PATH, hydrate } from '../src/hydrate.ts'
 import { branch, leaf } from '../src/index.ts'
 import { mount } from '../src/mount.ts'
 
@@ -98,10 +98,10 @@ describe('MountScope.serialize() — Plan 3.2', () => {
 describe('hydrate() — happy path', () => {
   it('T2a: hydrate attaches reactive text without changing innerHTML', () => {
     // Set up a pre-rendered host (simulating SSR output).
-    // The <p> is the root branch, so it gets the root path 'hydrate.0'.
+    // The <p> is the root branch, so it gets the root path `_ROOT_PATH`.
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     p.appendChild(document.createTextNode('hello'))
     host.appendChild(p)
     const innerBefore = host.innerHTML
@@ -125,8 +125,8 @@ describe('hydrate() — happy path', () => {
   it('T2b: hydrate wires reactive attr to existing element', () => {
     const host = document.createElement('div')
     const span = document.createElement('span')
-    // The <span> is the root branch, so it gets the root path 'hydrate.0'.
-    span.setAttribute('data-aihu-path', 'hydrate.0')
+    // The <span> is the root branch, so it gets the root path `_ROOT_PATH`.
+    span.setAttribute('data-aihu-path', _ROOT_PATH)
     span.setAttribute('data-color', 'red')
     host.appendChild(span)
     const innerBefore = host.innerHTML
@@ -148,7 +148,7 @@ describe('hydrate() — happy path', () => {
   it('T2c: hydrate returns a MountScope with dispose and serialize', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     p.appendChild(document.createTextNode('test'))
     host.appendChild(p)
 
@@ -232,10 +232,10 @@ describe('serialize → hydrate round-trip', () => {
     const setClientText = clientSig[1]
 
     // Pre-rendered DOM (simulates what SSR would have rendered).
-    // The <p> is the root branch so it gets path 'hydrate.0'.
+    // The <p> is the root branch so it gets path `_ROOT_PATH`.
     const clientHost = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     p.appendChild(document.createTextNode(restoredValue))
     clientHost.appendChild(p)
 
@@ -264,7 +264,7 @@ describe('hydrate().dispose()', () => {
   it('T5: after dispose, signal writes do not update the DOM', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     p.appendChild(document.createTextNode('before'))
     host.appendChild(p)
 
@@ -286,7 +286,7 @@ describe('hydrate().dispose()', () => {
   it('T5b: dispose is idempotent', () => {
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     p.appendChild(document.createTextNode('x'))
     host.appendChild(p)
 
@@ -309,7 +309,7 @@ describe('hydrate() — adjacent reactive text leaves', () => {
     // (as produced by SSR marker-comment emission, or any non-coalesced DOM).
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     const t1 = document.createTextNode('1')
     const t2 = document.createTextNode('2')
     p.appendChild(t1)
@@ -342,7 +342,7 @@ describe('hydrate() — adjacent reactive text leaves', () => {
     // template `{a()} {b()}` — comments prevent parser coalescing.
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     const t1 = document.createTextNode('1')
     const tStatic = document.createTextNode(' ')
     const t2 = document.createTextNode('2')
@@ -385,7 +385,7 @@ describe('hydrate() — adjacent reactive text leaves', () => {
     // the text nodes; the walker cursor must not rebind b to the first node.
     const host = document.createElement('div')
     const p = document.createElement('p')
-    p.setAttribute('data-aihu-path', 'hydrate.0')
+    p.setAttribute('data-aihu-path', _ROOT_PATH)
     const t1 = document.createTextNode('1')
     const t2 = document.createTextNode('2')
     p.appendChild(t1)

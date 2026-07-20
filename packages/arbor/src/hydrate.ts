@@ -33,6 +33,38 @@ import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types
 // Injected by Rolldown (production: false) or vitest define (tests: true).
 declare const __DEV__: boolean
 
+/**
+ * The root path key of the `data-aihu-path` addressing scheme.
+ *
+ * This is a WIRE-PROTOCOL constant, not a local convention: it must equal the
+ * root path the server seeds its render walk with. There are three independent
+ * implementations of the scheme — this walker, `@aihu/server`'s `ssr.ts`, and
+ * the Rust renderer in `packages/server/src-native/src/render.rs` — and a
+ * disagreement at the root makes EVERY branch lookup miss. The failure is
+ * silent: `_hydrateNode` treats a miss as a DOM mismatch and falls back to
+ * `_materialize`, which builds a second copy of the tree beside the server's
+ * DOM. Nothing throws; the user just sees duplicated content.
+ *
+ * Deliberately NOT the counter-based `rootId` that `mount()` assigns. That
+ * counter is mutable per-process module state — it advances once per `mount()`
+ * call on the client and resets on every page load, while the server renders
+ * from a long-lived process shared across requests. No counter value can be
+ * reproduced on both sides of a server/client split, so the root key must be a
+ * fixed constant. `mount()` keeps its counter, which is correct: a client-only
+ * mount never crosses the boundary, and each scope owns its own
+ * `signalRegistry`, so the two namespaces cannot collide.
+ *
+ * Every path BELOW the root is already positional (`parent.childIndex`) in both
+ * the renderer and this walker, so the root was the only point of disagreement.
+ *
+ * Enforced behaviorally, not by comment, by
+ * `tests/integration/ssr-hydrate-path-parity.test.ts` and by
+ * `scripts/check-hydration-adoption.ts`.
+ *
+ * @internal
+ */
+export const _ROOT_PATH = '0'
+
 // ---------------------------------------------------------------------------
 // Internal recursive hydration walker
 // ---------------------------------------------------------------------------
@@ -231,7 +263,7 @@ export function hydrate(
   options?: MountOptions,
 ): ReturnType<typeof mount> {
   // Signal pre-seeding design note (deferred):
-  // `snapshot` maps path keys (e.g. `hydrate.0.text`) to their last-known
+  // `snapshot` maps path keys (e.g. `0.text`) to their last-known
   // signal values. Pre-seeding would initialize signal state before wiring
   // effects so the first reactive run reflects SSR values instead of defaults.
   //
@@ -272,8 +304,7 @@ export function hydrate(
     throw err
   }
 
-  // Use fixed path prefix for hydration (not the counter-based rootId from mount()).
-  const pathBase = 'hydrate.0'
+  const pathBase = _ROOT_PATH
 
   _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler, { i: 0 })
 
