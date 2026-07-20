@@ -39,12 +39,12 @@ const REPO_ROOT = resolve(_dir, '../../..')
 // that cannot be falsified proves nothing.
 const COMPILER =
   process.env.AIHU_COMPILE_BIN ??
-  ([
+  [
     resolve(REPO_ROOT, 'target/debug/aihu-compile'),
     resolve(REPO_ROOT, 'target/release/aihu-compile'),
     resolve(_dir, '../bin/aihu-compile'),
   ].find((p) => existsSync(p)) ??
-    '')
+  ''
 const HAVE_COMPILER = COMPILER !== ''
 const TMP_DIR = resolve(_dir, '.tmp-prop-write-drive')
 
@@ -168,14 +168,12 @@ describe('CO1 — $prop writes drive real state at runtime', () => {
     },
   )
 
-  it.skipIf(!HAVE_COMPILER)(
-    'double_increment_in_one_batch_increments_twice',
-    async () => {
-      // Spec §4.10: `batch` defers subscriber NOTIFICATION, not the write —
-      // the value is stored immediately, so read-after-write inside one batch
-      // is safe and two increments advance by two. If `batch` deferred the
-      // WRITE, both `count()` reads would see 0 and this would land on 1.
-      const src = `@state {
+  it.skipIf(!HAVE_COMPILER)('double_increment_in_one_batch_increments_twice', async () => {
+    // Spec §4.10: `batch` defers subscriber NOTIFICATION, not the write —
+    // the value is stored immediately, so read-after-write inside one batch
+    // is safe and two increments advance by two. If `batch` deferred the
+    // WRITE, both `count()` reads would see 0 and this would land on 1.
+    const src = `@state {
   $prop: { count: { type: Number, default: 0 } }
   $action: { bump2: () => { count++; count++ } }
 }
@@ -187,15 +185,14 @@ describe('CO1 — $prop writes drive real state at runtime', () => {
   </div>
 }
 `
-      const compiled = compile(src, 'drive-batch')
-      await load(compiled, 'drive-batch')
-      const el = mountEl('drive-batch')
+    const compiled = compile(src, 'drive-batch')
+    await load(compiled, 'drive-batch')
+    const el = mountEl('drive-batch')
 
-      expect(countText(el)).toBe('0')
-      click(el, 'go')
-      expect(countText(el)).toBe('2')
-    },
-  )
+    expect(countText(el)).toBe('0')
+    click(el, 'go')
+    expect(countText(el)).toBe('2')
+  })
 
   it.skipIf(!HAVE_COMPILER)(
     'over_application_drive: a shadowed local sharing a prop name is untouched',
