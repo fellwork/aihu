@@ -32,10 +32,10 @@
       "ratchet": "GO1 (rate-limit fail closed) takes 2→1; GO2 (bridge handshake) takes 1→0."
     },
     "attributed": {
-      "expect": 2,
-      "reason": "Scorecard §Attributed (tier 0) 1/3 — the two ❌ transports. (1) 'agent-a2a — ❌ — a2a-adapter.ts:59 — `service.handleToolCall((msg as string) ?? '', body.params ?? null)` — two args, no ctx'. (2) 'agent-acp — ❌ — acp-adapter.ts:57 — `service.handleToolCall(toolName, null)` — two args, no ctx, and params hardcoded null'. agent-server PASSES (agent-server.ts:279), and that required pass is the anti-vacuity guard: a rule flagging all three would be indistinguishable from a rule flagging everything.",
-      "blockedBy": ["AT1"],
-      "ratchet": "AT1 (thread RequestContext through a2a and acp) takes 2→0 in one PR."
+      "expect": 0,
+      "reason": "Scorecard §Attributed (tier 0) 3/3 — CLOSED by AT1. All three transports now thread a RequestContext into `handleToolCall`: agent-server (agent-server.ts:279, unchanged), agent-a2a and agent-acp (both now derive a ctx from the inbound Request via an injected `resolveAuth`, falling back to an EXPLICIT anonymous context `{ userId: null }` rather than passing nothing). agent-acp additionally stopped hardcoding params to null. The in-source ANONYMOUS-ONLY waiver comments were deleted with the fix. Anti-vacuity guard still holds — the check requires >=1 passing transport, and now all 3 pass.",
+      "blockedBy": [],
+      "ratchet": "CLOSED at 0 by AT1. Any regression to an anonymous transport call site turns this red."
     },
     "dual-audience": {
       "expect": 3,

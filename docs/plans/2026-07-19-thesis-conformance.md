@@ -28,7 +28,7 @@ to prevent, and it happened on the first attempt.
 |---|---|---|---|
 | **Derived** | 3 / 5 | 60% | closest |
 | **Governed** | 2 / 4 | 50% | |
-| **Attributed** | 1 / 3 | 33% | |
+| **Attributed** | **3 / 3** | **100%** | **closed (AT1)** |
 | **Dual-audience** | **0 / 3** | **0%** | **furthest** |
 
 ### Derived — 3/5
@@ -54,19 +54,35 @@ boundaries with a sync comment on each copy. Note the second file claims to mirr
 | Rate limiting fails closed | ❌ | `agent-service.ts:215` — `if (rateLimitSpec !== null && rateLimitPlugin)`. Declare `$rate-limit`, omit the plugin, get silently unlimited |
 | Bridge handshake verified | ❌ | `BRIDGE_PROTOCOL_VERSION` is **sent** (`bridge-client.ts:67`) and **exported** (`index.ts:15`) — and never checked server-side. Nothing validates it |
 
-### Attributed (tier 0) — 1/3
+### Attributed (tier 0) — 3/3 — CLOSED by AT1
 
 | Transport | Forwards `RequestContext`? | Evidence |
 |---|---|---|
-| `agent-server` (MCP) | ✅ | `agent-server.ts:279` — `service.handleToolCall(toolName, params, ctx)` |
-| `agent-a2a` | ❌ | `a2a-adapter.ts:59` — `service.handleToolCall((msg as string) ?? '', body.params ?? null)` — **two args, no ctx** |
-| `agent-acp` | ❌ | `acp-adapter.ts:57` — `service.handleToolCall(toolName, null)` — **two args, no ctx, and params hardcoded null** |
+| `agent-server` (MCP) | ✅ | `agent-server.ts:279` — `service.handleToolCall(toolName, params, ctx)` (unchanged reference implementation) |
+| `agent-a2a` | ✅ | `a2a-adapter.ts` — `service.handleToolCall((msg as string) ?? '', body.params ?? null, ctx)`, where `ctx = await contextFor(req)` |
+| `agent-acp` | ✅ | `acp-adapter.ts` — `service.handleToolCall(toolName, params, ctx)`; `params` is read from the message instead of being hardcoded `null` |
 
-Reference counts corroborate: `agent-service` 12, `agent-server` 6, **`agent-a2a` 1,
-`agent-acp` 1** — and the single reference in each is a type import, not a use.
+Both adapters derive `ctx` from the inbound `Request` via an injected
+`resolveAuth` — the same option `agent-service.asMiddleware()` uses and
+`agent-server` forwards verbatim — and fall back to an **explicit anonymous
+context** (`{ userId: null }`) when no resolver is wired or a resolver throws.
+Tier 0 is "the request carries an identity context at all, even if anonymous is
+the answer," so passing nothing was the defect; passing an explicit anonymous
+context is the fix. Fail-closed is preserved: an anonymous context still yields
+401 `AUTH_REQUIRED` on any scoped or rate-limited binding.
 
-**Two of three transports fail tier 0.** Per the thesis this is a violation regardless of
-whether they transact, because the gate downstream has nothing to decide against.
+The in-source `v1: … ANONYMOUS-ONLY … fail closed (401)` waiver comments at both
+call sites were **deleted**. The thesis rejects that reasoning explicitly (the
+failure stands "regardless of whether they transact") and
+`scripts/check-attributed.ts` ignores suppression comments entirely, so leaving
+them would have documented a policy the code no longer follows.
+
+`bun run check:attributed`: **2 findings → 0**; baseline `attributed.expect`
+decremented 2 → 0 in the same commit.
+
+**Still open (AT2, not AT1):** full a2a/ACP spec conformance — the JSON-RPC 2.0
+envelope, the task store, and the `agent-card.json` path. AT1 closed tier-0
+attribution only.
 
 ### Dual-audience — 0/3
 
@@ -173,11 +189,11 @@ is measuring nothing — treat that as a defect in the check, not a win.
 DA4 is the largest single lever on the furthest property and remains unanswered. It also
 simplifies the shard track independently.
 
-### Track AT — Attributed (1/3)
+### Track AT — Attributed (3/3 — AT1 done)
 
 | Slice | What | Branch |
 |---|---|---|
-| **AT1** | Thread `RequestContext` through a2a and acp | `fix/a2a-acp-request-context` |
+| ~~**AT1**~~ | ~~Thread `RequestContext` through a2a and acp~~ — **DONE** | `fix/attributed-tier0` |
 | **AT2** | Full a2a/acp spec conformance (decision 2b) | `feat/a2a-acp-spec-conformance` |
 
 **AT1 splits out of AT2 deliberately.** Tier-0 attribution is a thesis violation and a live

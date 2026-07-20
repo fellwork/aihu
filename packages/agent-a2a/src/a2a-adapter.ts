@@ -1,8 +1,32 @@
-import type { AgentService } from '@aihu/agent-service'
+import type { AgentService, RequestContext } from '@aihu/agent-service'
 import type { A2aAdapter, A2aAdapterOptions } from './types.ts'
+
+/**
+ * Thesis §4 tier 0: the request must carry an identity context AT ALL, even
+ * when anonymous is the answer. An explicit anonymous context is what the gate
+ * decides against; passing nothing leaves it with nothing to decide against
+ * and makes the omission invisible to audit.
+ */
+const ANONYMOUS: RequestContext = { userId: null }
 
 export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptions): A2aAdapter {
   const prefix = options?.prefix ?? ''
+
+  /**
+   * Build the `RequestContext` for an inbound HTTP request. Mirrors
+   * `agent-service.asMiddleware()`'s resolver call rather than inventing a
+   * second derivation. A throwing resolver degrades to anonymous — a broken
+   * auth backend must not 500 the transport, and anonymous still fails closed
+   * on any scoped binding.
+   */
+  const contextFor = async (req: Request): Promise<RequestContext> => {
+    if (!options?.resolveAuth) return ANONYMOUS
+    try {
+      return (await options.resolveAuth(req)) ?? ANONYMOUS
+    } catch {
+      return ANONYMOUS
+    }
+  }
   const APP_JSON = 'application/json'
   const sendPath = `${prefix}/a2a/tasks/send`
   const subPath = `${sendPath}Subscribe`
@@ -48,19 +72,24 @@ export function mountA2aAdapter(service: AgentService, options?: A2aAdapterOptio
         const msg = body.message
 
         let error: string | undefined
+        let code: number | undefined
         let result: unknown
         if (!isSub && typeof msg !== 'string') {
           error = 'bad message'
+          code = 400
         } else {
-          // v1: a2a adapter is ANONYMOUS-ONLY — no RequestContext is forwarded,
-          // so scoped/$rate-limited tools fail closed (401) through this path.
-          // Auth wiring for a2a is deferred to M3 (see G6f / asMiddleware which
-          // IS auth-wired). Do not add auth here without the M3 review.
-          result = await service.handleToolCall((msg as string) ?? '', body.params ?? null)
-          error = (result as { error?: string })?.error
+          const ctx = await contextFor(req)
+          result = await service.handleToolCall((msg as string) ?? '', body.params ?? null, ctx)
+          const envelope = result as { error?: string; code?: number } | undefined
+          error = envelope?.error
+          code = envelope?.code
         }
+        // The gate's HTTP code travels with the failure. Without it a caller
+        // (and any audit) cannot distinguish 401 AUTH_REQUIRED from 403
+        // SCOPE_DENIED from a 404 — the verdict the gate reached would be
+        // unobservable at the transport boundary.
         const task = error
-          ? { taskId, status: 'failed', error }
+          ? { taskId, status: 'failed', error, ...(code === undefined ? {} : { code }) }
           : { taskId, status: 'completed', result }
 
         if (!isSub) return json(task)
