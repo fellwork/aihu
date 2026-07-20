@@ -199,6 +199,21 @@
 - **Why it matters:** descriptions now reach agents, which fixes tool SELECTION. This is what's left for tool USE — an LLM still has to guess argument shape.
 - **Fix:** extract handler signatures (arity + types off the `handler:` arrow) in the compiler and thread them into `ActionSchema`. Interacts with the `$prop`-mutation decision above, since both touch action-body/handler parsing.
 
+### plugin-agent-readiness serves deprecated / non-spec discovery endpoints (bug)
+- **Verified against the specs and against our own source.** Three separate problems:
+  1. **`/.well-known/agent.json` is the DEPRECATED A2A path.** Spec v0.3.0 (2025-07-30) renamed it to **`/.well-known/agent-card.json`** — flagged breaking, rationale was IANA feedback that `agent.json` was too generic. Current spec is v1.0.1 (2026-05-28, Linux Foundation). SDKs serve both with a deprecation warning; we serve only the old one. See `src/a2a-card.ts:3`, `src/types.ts:63`, `src/vite-plugin.ts:211`.
+  2. **`/.well-known/mcp.json` and `/.well-known/mcp/server-card.json` are in NO MCP spec.** Revision `2025-11-25` defines neither. The proposals are unmerged: **SEP-1649 is CLOSED**; SEP-2127 was moved **off the Standards Track onto the Extensions Track**. Our `tests/compliance/mcp-server-card-schema.test.ts` validates "SEP-1649 compliance" against a closed proposal — a test that pins us to a dead spec. See `src/mcp-discovery.ts:3,27`, `src/mcp-server-card.ts:4`.
+  3. **The one thing MCP *does* specify, we don't serve.** `mcp-server-card.ts:84-85` advertises `/.well-known/oauth-protected-resource` (RFC 9728) and `/.well-known/oauth-authorization-server` (RFC 8414) and **nothing serves either**. Note RFC 8414's document belongs on the **authorization server**, not the MCP server.
+- **Also:** `llms-full.txt` is a **Mintlify invention**, not in llmstxt.org (which defines `llms-ctx.txt` / `llms-ctx-full.txt`). Harmless and widely copied — just don't call it spec compliance.
+- **Fix:** serve `agent-card.json` (keep `agent.json` as a deprecated alias), stop claiming SEP-1649 compliance, and either serve the OAuth well-knowns or stop advertising them.
+- **Context:** full evidence in `docs/domain-hints/seo-and-agent-discoverability.md` §6.
+
+### Adopt ARD (`/.well-known/ai-catalog.json` + robots.txt `Agentmap:`)
+- **What:** [Agentic Resource Discovery](https://agenticresourcediscovery.org/spec), announced 2026-06-17 by Google, Microsoft, GitHub, Hugging Face, Cisco, Databricks, NVIDIA, Salesforce, ServiceNow, Snowflake. A `/.well-known/ai-catalog.json` listing `application/a2a-agent-card+json` and `application/mcp-server-card+json` entries, plus an **`Agentmap:` robots.txt directive mirroring `Sitemap:`**.
+- **Why it matters here:** `Agentmap:` is the single clearest technical convergence point between the crawler and agent worlds — the one place the two audiences share a mechanism *by design* rather than by our construction. It is the standards-backed version of the unified-discoverability surface we were about to design ourselves.
+- **Status:** v0.9 draft, one month old, Apache-2.0. Real backing, but do not over-index. Track it; don't bet the design on it yet.
+- **Depends on:** the endpoint-correctness item above (ARD entries reference the A2A and MCP cards, so those paths must be right first).
+
 ### Bare boolean attributes are stripped in templates (bug)
 - **What:** A bare HTML boolean attribute in `@template` (e.g. `<button disabled>`)
   is dropped from the emitted element — authors must write `$disabled={true}` to

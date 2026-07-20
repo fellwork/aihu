@@ -484,10 +484,311 @@ the Penske filing" — the complaint cites 34.5%; 58% is a separate Feb 2026 Ahr
 
 ---
 
-## 6. Open / pending
+## 6. Discovery standards — what aihu actually serves vs. what exists
+
+⚠️ **This section contains three concrete defects in `plugin-agent-readiness`.** aihu
+currently serves endpoints that are deprecated, non-spec, or from a closed proposal.
+
+### 6.1 `/.well-known/mcp.json` is not in any MCP spec **[VERIFIED]**
+
+MCP spec revision `2025-11-25` defines **no** `/.well-known/mcp` or
+`/.well-known/mcp.json`. What exists is OAuth discovery:
+`/.well-known/oauth-protected-resource` (RFC 9728, on the MCP server — and one of *two*
+permitted mechanisms; a 401 with `WWW-Authenticate` is the other) and
+`/.well-known/oauth-authorization-server` (RFC 8414, on the **authorization server**, not
+the MCP server).
+
+The `mcp.json` proposals are **not merged**: **SEP-1649 is CLOSED**; SEP-2127 is open but
+maintainers **moved it off the Standards Track onto the Extensions Track** — a meaningful
+downgrade. `registry.modelcontextprotocol.io` is preview, not GA.
+
+**aihu defect:** `plugin-agent-readiness` serves `/.well-known/mcp.json` and
+`/.well-known/mcp/server-card.json`, and its test suite validates "SEP-1649 compliance"
+against a **closed proposal**. Separately, `mcp-server-card.ts:84-85` advertises both
+OAuth well-knowns and **nothing serves either** — so the one part that *is* specified is
+the part that 404s.
+
+### 6.2 A2A path is deprecated **[VERIFIED]**
+
+A2A spec **v1.0.1 (2026-05-28)**, Linux Foundation. The path changed in **v0.3.0
+(2025-07-30)** from `/.well-known/agent.json` → **`/.well-known/agent-card.json`**,
+flagged as breaking; stated rationale was IANA feedback that `agent.json` was too generic.
+No spec-mandated fallback (SDKs serve both with a deprecation warning).
+
+**aihu defect:** serves `/.well-known/agent.json` — the deprecated path.
+
+### 6.3 `llms-full.txt` is not in the llms.txt spec **[VERIFIED]**
+
+[llmstxt.org](https://llmstxt.org/) defines `llms-ctx.txt` and `llms-ctx-full.txt`.
+**`llms-full.txt` is a Mintlify invention** (rolled out 2024-11-20), which is why
+Anthropic, Cursor, Pinecone and Windsurf all acquired the file simultaneously. Mintlify
+claims it "was officially adopted into the llmstxt.org standard" — **[CONTESTED]**, the
+current spec text doesn't mention it.
+
+**aihu:** serves `llms-full.txt`. Harmless, widely-copied, but not standards-backed —
+don't describe it as spec compliance.
+
+### 6.4 ⭐ ARD — the actual convergence standard **[VERIFIED]**
+
+[Agentic Resource Discovery](https://developers.googleblog.com/announcing-the-agentic-resource-discovery-specification/),
+**2026-06-17** — Google, Microsoft, GitHub, Hugging Face, Cisco, Databricks, GoDaddy,
+NVIDIA, Salesforce, ServiceNow, Snowflake.
+
+Path: **`https://{domain}/.well-known/ai-catalog.json`**. Contents: `specVersion`, `host`,
+and `entries` referencing `application/a2a-agent-card+json`,
+`application/mcp-server-card+json`, `application/ai-catalog+json` (nested),
+`application/ai-registry+json`. Registries *"crawl published catalogs, index their
+contents, and make them searchable."*
+
+**The design-critical part:** ARD specifies an **`Agentmap:` directive in robots.txt**,
+directly mirroring `Sitemap:`. **That is the single clearest technical convergence point
+between the crawler and agent worlds found in this research** — the one place the two
+audiences share a mechanism by design rather than by our construction.
+
+⚠️ Status: **v0.9 draft**, Apache-2.0, [ards-project/ard-spec](https://github.com/ards-project/ard-spec),
+one month old. Real backing, but do not over-index yet.
+
+### 6.5 Other conventions — status table **[VERIFIED unless noted]**
+
+| Proposal | Status | Real adoption |
+|---|---|---|
+| **agents.json** (Wildcard AI) | **Dormant** — 1,315 stars, last substantive commit 2025-05-16, final commits are README/LICENSE wind-down | None |
+| **IETF AIPREF** | `vocab-06` carries *"contents DO NOT REFLECT CONSENSUS"*; **`attach-04`, the deployable half defining `Content-Usage`, is EXPIRED** | None. Shipping `Content-Usage:` implements an expired draft |
+| **Cloudflare Content Signals** | `search` / `ai-input` / `ai-train` in robots.txt (2025-09-24) | ⚠️ the "3.8M domains" figure is *managed-robots.txt* adoption, **not** Content Signals adoption. Cloudflare concedes they *"are not technical countermeasures"* |
+| **RSL** | Uniquely expresses a **price**. Blue-chip roster (Reddit, Yahoo, Ziff Davis) | **No known payer.** Seller side posting prices with no buyer |
+| **TDMRep** (W3C CG) | `/.well-known/tdmrep.json` — a well-known JSON file, **not** robots.txt directives (commonly misstated) | ⭐ **Best real adoption** — Elsevier, Springer Nature, IEEE, AAAS, Taylor & Francis. Works because it has **legal force** (EU DSM Art. 4), not technical traction |
+| **NLWeb** | `github.com/microsoft/NLWeb` **now redirects to `nlweb-ai/NLWeb`** — moved out of the Microsoft org, no announcement. "No releases published" | No named production adopters |
+| **ai.txt** (Spawning) | **[CONTESTED]** no formal spec, a vendor generator; both spawning.ai endpoints returned "Under Maintenance" during research | Voluntary |
+| **schema.org** | v28.0→v30.0 (2026-03-19): **no AI/agent/licensing terms added at all** | Discount all "schema for AI search" content |
+
+### 6.6 ⭐ AGENTS.md — the counterexample that explains the whole field **[VERIFIED]**
+
+OpenAI, Aug 2025 → Linux Foundation Agentic AI Foundation. **60,000+ repos** by May 2026.
+Supported in Codex, Cursor, Copilot, Gemini CLI, VS Code, Devin, Aider, Zed, JetBrains
+Junie. Adopters include Sentry, Apache Airflow, Temporal, Cloudflare Workers SDK.
+
+**It succeeded because the consuming side shipped support first, and the file is read at
+the moment of use.** llms.txt, Content Signals, RSL, and agents.json all shipped emitters
+into a void.
+
+**Design rule extracted: prioritize artifacts with a demonstrated reader.**
+
+---
+
+## 7. Control planes — why a unified config is partly impossible
+
+Seven divergences where a single "discoverability config" would emit the *wrong thing*.
+
+### 7.1 ⭐ The user-initiated exemption breaks robots.txt as an AI control **[VERIFIED]**
+
+Each vendor's own documentation:
+
+| Vendor | Obeys robots.txt | **Ignores robots.txt** |
+|---|---|---|
+| OpenAI | GPTBot, OAI-SearchBot | **ChatGPT-User** — *"Because these actions are initiated by a user, robots.txt rules may not apply."* |
+| Perplexity | PerplexityBot | **Perplexity-User** — *"Since a user requested the fetch, this fetcher generally ignores robots.txt rules."* |
+| Google | Googlebot, Google-Extended | **user-triggered fetchers** (`Google-Agent`, `Google-GeminiNotebook`) — *"generally ignore robots.txt rules."* |
+| Meta | Meta-ExternalAgent, Meta-WebIndexer | **Meta-ExternalFetcher** — *"may bypass robots.txt rules"* |
+| **Anthropic** | **ClaudeBot, Claude-User, Claude-SearchBot — all three obey** | — sole documented holdout |
+| Amazon | Amazonbot, Amzn-SearchBot, Amzn-User | — uniquely treats `noarchive` as a training opt-out |
+| Apple | Applebot, Applebot-Extended | — **follows Googlebot rules if Applebot unmentioned** |
+| ByteDance | **[UNVERIFIED]** — no official English webmaster docs exist | |
+
+**Consequence for the four-audience model (§4.5):** the `ai-assistant` audience
+(ChatGPT-User, Perplexity-User) **cannot be controlled via robots.txt at all**. The model
+is still correct as a description of *intent*, but robots.txt is not the enforcement
+mechanism for that row. Anthropic is the only vendor where it works.
+
+### 7.2 ⭐ The AI opt-out is an account toggle, not a file **[VERIFIED]**
+
+UK CMA designated Google with Strategic Market Status and on
+[2026-06-03](https://www.gov.uk/government/news/cma-secures-fairer-deal-for-publishers-and-improves-google-search-services-in-uk)
+imposed conduct requirements giving publishers *"effective tools to prevent their content
+being used to power AI features in search"* — and Google must not downrank opt-outs.
+
+**The mechanism is a Google Search Console toggle**, covering AI Overviews, AI Mode, and
+AI Overviews in Discover.
+
+> **Design consequence:** the single most consequential AI-vs-search control in existence
+> is an **account-level setting in a vendor dashboard**. No build step can emit it. A
+> framework config with `ai: { overviews: false }` would be a **lie** — generating files
+> while the actual control sits untouched in Search Console.
+
+### 7.3 `nosnippet` has an unavoidable blast radius **[VERIFIED]**
+
+[Google robots meta docs](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag):
+
+> "This applies to all forms of search results (at Google: web search, Google Images,
+> Discover, AI Overviews, AI Mode) and will also prevent the content from being used as a
+> direct input for AI Overviews and AI Mode."
+
+**There is no way to allow ordinary search snippets while disallowing AI Overviews use.**
+A unified `blockAI: true` that emits `nosnippet` silently destroys your normal search
+snippet — a severe SEO regression from an AI-motivated flag.
+
+### 7.4 Google-Extended does not do what its name implies **[VERIFIED]**
+
+It covers Gemini Apps, Vertex AI, and grounding, and **explicitly does not affect Search
+inclusion or ranking**. AI Overviews and AI Mode run on **Googlebot**.
+
+> A config emitting `User-agent: Google-Extended / Disallow: /` for `ai.training: "deny"`
+> looks like it opted you out of Google's AI. It didn't touch AI Overviews. **Silent
+> failure — the worst outcome for a config abstraction.**
+
+### 7.5 ⚠️ Markdown negotiation — weaker than it looks **[VERIFIED]** — CORRECTS §4.4.2
+
+[Cloudflare Markdown for Agents](https://blog.cloudflare.com/markdown-for-agents/)
+(2026-02-12, beta, free on Pro/Business/Enterprise) converts HTML→markdown **at the edge**
+on `Accept: text/markdown`, claiming ~80% token reduction (16,180 → 3,150).
+
+But the [Checkly analysis](https://www.checklyhq.com/blog/state-of-ai-agent-content-negotation/)
+is an advocacy essay, not a measurement study. Its one real datum: of **7 agents tested,
+only 3 send `Accept: text/markdown`** — **Claude Code, Cursor, OpenCode**. OpenAI Codex,
+Gemini CLI, Copilot, and Windsurf do not.
+
+> **The audiences are disjoint.** The clients requesting markdown are **coding agents**,
+> not the AI *search* crawlers llms.txt targets. And Cloudflare solves it at the **network
+> layer** — one toggle, no build step, every page. A framework emitting static `.md`
+> mirrors does more work for a narrower audience.
+>
+> **This materially weakens the §4.4.2 recommendation.** Page-level markdown remains
+> defensible, but it is not the high-leverage agent-visibility fix it was framed as. The
+> §1.2 crawler-volume argument still stands on its own; the *format* argument does not.
+
+### 7.6 Capabilities are runtime, not build-time **[VERIFIED]**
+
+- **WebMCP** ([Chrome origin trial, 2026-06-09](https://developer.chrome.com/blog/ai-webmcp-origin-trial),
+  Chrome 149; W3C Web ML CG draft, **not Standards Track**) exposes `navigator.modelContext`
+  so pages register tools **in JavaScript, reflecting live page state**.
+- **Web Bot Auth** ([draft-meunier-web-bot-auth-architecture](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture),
+  ⚠️ **v05 EXPIRED**, replaced by `draft-meunier-webbotauth-httpsig-protocol`) authenticates
+  via **RFC 9421 signatures per request** with a `Signature-Agent` header. The draft
+  **never mentions robots.txt**.
+
+> A static tool manifest cannot represent a cart that exists only after login, or tools
+> that change with page state. **Emitting WebMCP tools statically is a category error.**
+> Relevant to aihu: `expose:`/`$action` is a *build-time* declaration of a *runtime*
+> capability — closer to WebMCP's model than to a static card.
+
+### 7.7 Agentic commerce has nothing to emit yet **[VERIFIED]**
+
+From [agenticcommerce.dev](https://www.agenticcommerce.dev/) (ACP, Stripe + OpenAI):
+*"We're working to create discovery mechanisms for AI platforms to identify businesses
+that have implemented ACP."* No well-known URL, no manifest. **Don't design a slot for it.**
+
+### 7.8 Freshness claims are the thinnest evidence in the field **[UNVERIFIED]**
+
+"GPTBot revisits every 2.4 days," "ClaudeBot 6.8 days," "82% citation rate under 30 days,"
+"1-year half-life" — **none cite methodology or primary data**. No credible primary
+measurement of AI recrawl cadence exists. Treat every freshness claim as marketing.
+
+### 7.9 The summary that should govern the design
+
+**Six control planes, four of which no build step can reach:**
+
+| Control | Operates by | Build-time emittable? |
+|---|---|---|
+| robots.txt | user-agent | ✅ (but §7.1 — not for user-initiated) |
+| ARD `Agentmap:` / ai-catalog.json | well-known catalog | ✅ |
+| Search Console AI opt-out | **account** | ❌ |
+| `nosnippet` | page, **hits both audiences** | ⚠️ dangerous |
+| Web Bot Auth | **per-request signature** | ❌ |
+| WebMCP | **runtime JS** | ❌ |
+
+---
+
+## 8. GEO — the replication failed **[VERIFIED]**, supersedes §5.3
+
+§5.3 recorded that GEO looked vendor-driven. The evidence is stronger than that.
+
+**The original paper doesn't measure what it's cited for.** Aggarwal et al.
+([arXiv:2311.09735](https://arxiv.org/abs/2311.09735), KDD '24) uses **share-of-response**
+(position-adjusted word count) against a **GPT-3.5 simulator reading five scraped Google
+results** — no ChatGPT Search, no AI Overviews, no Gemini, no Perplexity retrieval. The
+headline "+41% for quotations" is **relative on a ~19-point base** — absolute movement is
+19.3 → 27.2, i.e. **+7.9 points** — and the metric is **zero-sum by construction**
+(impressions sum to 1). Keyword stuffing scored **−8%, worse than doing nothing**. Most
+damning: Table 2 shows Cite Sources moves rank-1 **−30.3%** while moving rank-5 **+115.1%**
+— **GEO helps only if you're already retrieved, and hurts if you're first.**
+
+**The serious replication came back negative.** C-SEO Bench
+([arXiv:2506.11097](https://arxiv.org/abs/2506.11097), Parameter Lab / NAVER AI Lab, June
+2025) tested all seven transformations by name across 1.9k queries / 16.3k docs on
+GPT-4o-mini and Claude 3.5 Haiku **with Holm-Bonferroni correction**:
+
+> "Out of 54 cases, we uncover **only three** where the ranking improvements are
+> statistically significant."
+> "most current C-SEO methods are not only largely ineffective but also **frequently have
+> a negative impact** on document ranking."
+> "This finding **challenges the core assumptions of Aggarwal et al. (2024)**."
+
+Simply moving a document earlier in the LLM context beat the best content tactic by **~8x**.
+The original ran **no significance testing** on its main table.
+
+⚠️ One C-SEO Bench overreach: it claims Aggarwal's position-adjusted numbers "show a
+general decrease." Reading Table 1 directly, they go *up*. Their experiment stands; that
+reconciliation argument doesn't.
+
+**The honest steelman:** [Ahrefs](https://ahrefs.com/blog/ai-overview-citations-top-10/)
+(863k SERPs, 4M AIO URLs, 2026-03-02) found only **37.9%** of AI Overview citations come
+from the top 10, and 31% from beyond position 100 — Google is *"selecting far fewer pages
+straight from the original SERP (~76% in July 2025 vs ~38% today)."* That's real
+divergence. **But it argues against GEO-as-tactics**: if citations come from fan-out SERPs,
+the answer is rank for more queries — which is SEO, harder. GEO tactics operate strictly
+*after* retrieval.
+
+⚠️ **Vendor instability:** AI-citation/top-10 overlap estimates span **6.8% to 76%**
+depending on who is selling what (Ahrefs sells Brand Radar; Semrush sells AI Toolkit and
+publishes figures from 6.82% to 54.5%). **The single most basic empirical question in this
+field has a 10x spread.** That instability is the honest summary.
+
+**Residual honest finding:** cite sources, include statistics, use quotes, write fluently,
+don't keyword-stuff. That is editorial practice predating LLMs by a century. That it is
+the strongest signal in the literature is the tell.
+
+---
+
+## 9. Prior art for a unified config — validated but unclaimed **[VERIFIED]**
+
+- **Nuxt SEO** — ⚠️ "one site config" is **marketing, not architecture**. `nuxt-site-config`
+  (288k/wk) unifies **identity only**; each artifact keeps its own module, and llms.txt
+  lives in a *different suite* (`nuxt-llms`, last release Jan 2026, six months stale).
+  Tempers §2.2.
+- ⭐ **[nuxt-ai-ready](https://github.com/harlan-zw/nuxt-ai-ready)** — closest prior art.
+  103 releases but **12 stars / 1,706 weekly downloads**. Emits llms.txt, `.md` route
+  variants, an MCP server, Content Signals, sitemap, IndexNow. **Separate install from
+  `@nuxtjs/seo`; publishes no MCP card and no A2A card.**
+- ⭐ **[@vercel/agent-readability](https://vercel.com/kb/guide/agent-readability-spec)** —
+  most credible unifying artifact, spans both categories. **But it is a
+  detector/auditor/scorer, not a declarative emitter.** It scores you; it doesn't take one
+  config block and generate files. **That is precisely the gap.**
+- **llms.txt generation is a *docs-framework* phenomenon:** VitePress plugin 46k/wk, Astro
+  Starlight 35k/wk, Docusaurus 17.7k/wk (community only). **Next.js has essentially
+  nothing** (364/wk).
+- **Mintlify** auto-hosts an MCP server at `/mcp` for every site, zero-config.
+- **Genuinely empty quadrants:** no web framework emits an **A2A agent card** (only *agent*
+  frameworks do, e.g. Google ADK's `to_a2a()`); Next.js/React ecosystem; Rails/Django/
+  Laravel entirely absent; and **one declaration feeding both outputs** rather than an
+  auditor scoring you.
+
+⚠️ **Sobering caveat:** the empty quadrants may be empty partly because **demand hasn't
+materialized**, not only because nobody tried. `nuxt-ai-ready` has 103 releases and 12
+stars.
+
+---
+
+## 10. Open / pending
 
 - **DSD indexing by Googlebot** — no empirical test exists publicly (§1.4). Running one
   would be a genuine contribution.
+- **Fresh replication of the JS-rendering finding** — everything traces to Vercel/MERJ
+  Dec 2024 (§1.2). No 2026 primary source found.
+- **Any credible freshness/recrawl measurement** (§7.8).
+- **Perplexity/BrowserBase attribution** — Cloudflare's negative-control experiment proves
+  *something* fetched disallowed content from never-linked domains; attribution unresolved,
+  no independent replication.
+- **Google's "higher quality clicks" underlying data** — still unpublished (§5.5).
+- **Reconciling Semrush's mutually inconsistent overlap figures** (§8).
 - **Microdata in shadow roots** — no evidence either way (§1.7).
 - **AI crawler JS execution** — recheck the Dec 2024 Vercel/MERJ finding periodically;
   it's the single most load-bearing external fact here and it is ~19 months old.
