@@ -39,6 +39,14 @@ pub use rewrite::{rewrite_signal_reads, RewriteResult};
 pub mod harvest;
 pub use harvest::{alias_bound_idents, referenced_idents};
 
+// CO1/DE5 — the shared synthetic-function-wrapper parse for macro handler
+// bodies. Factored OUT of `prop_write` so DE5 (typed MCP parameter schemas)
+// derives its signatures from the same parse CO1 rewrites through: two parsers
+// over one handler signature is a "kept in sync" seam, which thesis §2
+// (Derived) forbids.
+pub mod handler_parse;
+pub use handler_parse::{handler_params, HandlerParam, HandlerSource};
+
 // CO1 — `$prop` WRITE rewriting (scope-aware, span-spliced). Same containment
 // rule as `rewrite`: oxc types stay inside `src/expr/`.
 pub mod prop_write;

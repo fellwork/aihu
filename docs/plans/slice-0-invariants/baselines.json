@@ -38,10 +38,13 @@
       "ratchet": "CLOSED at 0 by AT1. Any regression to an anonymous transport call site turns this red."
     },
     "dual-audience": {
-      "expect": 3,
-      "reason": "Scorecard §Dual-audience 0/3 — all three rows ❌. (DA-a) 'A markdown representation can be produced — ❌ — MarkdownResolver has zero production implementations. Every reference is the interface declaration (content-negotiation.ts:13), the config field (:22), or a test mock'. (DA-b) 'Negotiation reaches non-Accept clients — ❌ — no user-agent handling in content-negotiation.ts — Accept-header only, and AI crawlers don't send it'. (DA-c) 'Primary content retrievable without JS — ❌ — packages/router/src/server.ts:41 — renderToString(component) with no options, so the production path emits non-hydratable output' (one finding covering both DA-c assertions: one defect, the missing options object).",
-      "blockedBy": ["DA1", "DA2", "DA3"],
-      "ratchet": "DA1 (MarkdownResolver) takes 3→2; DA2 (UA negotiation) takes 2→1; DA3 (after CO5, path keys must agree first) takes 1→0."
+      "expect": 4,
+      "reason": "Scorecard §Dual-audience 0/4 — all four rows ❌. (DA-a) 'A markdown representation can be produced — ❌ — MarkdownResolver has zero production implementations. Every reference is the interface declaration (content-negotiation.ts:13), the config field (:22), or a test mock'. (DA-b) 'Negotiation reaches non-Accept clients — ❌ — no user-agent handling in content-negotiation.ts — Accept-header only, and AI crawlers don't send it'. (DA-c) 'Primary content retrievable without JS — ❌ — packages/router/src/server.ts:41 — renderToString(component) with no options, so the production path emits non-hydratable output' (one finding covering both DA-c assertions: one defect, the missing options object). (DA-d) 'Statically prerendered content retrievable without JS — ❌ — packages/app/src/prerender.ts:283 and :382 — renderToString(...) with no options, so every SSG page ships non-hydratable output' (one finding: one defect, the missing options object in the SSG writer).",
+      "expectChangedFrom": 3,
+      "expectChangedOn": "2026-07-19",
+      "expectChangedReason": "FOUNDER SCOPE DECISION (2026-07-19) — not a regression, and not a newly introduced defect. Prerender was ruled IN SCOPE for the dual-audience property, so check:dual-audience gained the DA-d probe and now measures 4 where it measured 3. NOTHING WAS FIXED by this change and nothing broke: packages/app/src/prerender.ts:283/:382 have always called renderToString(...) with no options — the check simply did not look at the SSG path, so a shipping defect went unmeasured. Verified after the change: check:dual-audience reports 4 findings and still FAILS, as it must. DA-d is a SEPARATE finding from DA-c rather than a widening of it, because they are separate defects in separate files with separate fixes — DA3 repairing packages/router/src/server.ts does not repair the SSG writer, and grouping them would let one fix silently decrement a baseline covering two live defects.",
+      "blockedBy": ["DA1", "DA2", "DA3", "DA3b"],
+      "ratchet": "DA1 (MarkdownResolver) takes 4→3; DA2 (UA negotiation) takes 3→2; DA3 (after CO5, path keys must agree first) takes 2→1; DA3b (hydratable options in the SSG writer, packages/app/src/prerender.ts) takes 1→0. DA3 and DA3b are tracked separately on purpose: the router fix and the prerender fix are independent edits."
     }
   },
   "stagedChecks": {

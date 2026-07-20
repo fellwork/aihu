@@ -21,10 +21,15 @@
 //! which PASSES a parse check and fails only at runtime, so parse-checking
 //! alone cannot catch over-application.
 //!
-//! ## Parse strategy (spec §4.2)
+//! ## Parse strategy (spec §4.2) — see [`super::handler_parse`]
 //!
 //! A macro body is a STATEMENT LIST, not an expression, so `parse_expression`
-//! does not apply. The body is wrapped:
+//! does not apply. The body is wrapped in a synthetic function and parsed as a
+//! Program. That wrapper, its span arithmetic, and the signature extraction
+//! built on it now live in [`super::handler_parse`], because DE5 (typed MCP
+//! parameter schemas) must read the SAME handler signature this module
+//! rewrites through — two parsers over one signature would be a "kept in sync"
+//! seam, which thesis §2 (Derived) forbids.
 //!
 //! ```text
 //! {async }function __aihu_pw(<params>) {
@@ -55,9 +60,11 @@ use oxc_ast::ast::{
     UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarationKind,
 };
 use oxc_ast_visit::{walk, Visit};
-use oxc_parser::Parser;
-use oxc_span::{GetSpan, SourceType};
+use oxc_span::GetSpan;
 use oxc_syntax::scope::{ScopeFlags, ScopeId};
+
+// The synthetic-function-wrapper parse lives in `handler_parse` (DE5 shares it).
+use super::handler_parse::HandlerSource;
 
 /// Names declared by `$prop:` in this component, mapped to whether the entry's
 /// `default:` is a NUMERIC LITERAL.
@@ -105,17 +112,16 @@ pub fn rewrite_prop_writes(
         return Ok(None);
     }
 
-    let (src, prefix_len) = wrap(body, params, is_async);
+    let wrapped = HandlerSource::wrap(body, params, is_async);
 
     let allocator = oxc_allocator::Allocator::default();
-    let parsed = Parser::new(&allocator, &src, SourceType::ts()).parse();
     // Parse failure -> Ok(None). Strictly non-regressive: emit never panics on
     // a body oxc cannot model, it just leaves it exactly as authored.
-    if parsed.panicked || !parsed.diagnostics.is_empty() {
+    let Some(parsed) = wrapped.parse(&allocator) else {
         return Ok(None);
-    }
+    };
 
-    let mut visitor = PropWriteVisitor::new(&src, targets);
+    let mut visitor = PropWriteVisitor::new(wrapped.source(), targets);
     // `var` / function-declaration hoisting (spec §4.6): a function-scoped
     // `var count` shadows the prop across the WHOLE body, including textually
     // before its declaration. Seed those names before walking.
@@ -126,21 +132,16 @@ pub fn rewrite_prop_writes(
         return Err(err);
     }
     for name in &visitor.member_write_warnings {
-        eprintln!(
-            "warning: `{name}.… = …` writes a property on the `{name}` getter function, not the \
-             prop value. Did you mean `{name}.set({{ ...{name}(), … }})`?"
-        );
+        crate::diagnostics::emit_warning(&member_write_warning(name));
     }
 
-    let body_start = prefix_len;
-    let body_end = prefix_len + body.len();
     let mut edits: Vec<Edit> = visitor
         .edits
         .into_iter()
-        .filter(|e| e.start >= body_start && e.end <= body_end)
+        .filter(|e| wrapped.span_in_body(e.start, e.end))
         .map(|e| Edit {
-            start: e.start - body_start,
-            end: e.end - body_start,
+            start: e.start - wrapped.body_start(),
+            end: e.end - wrapped.body_start(),
             text: e.text,
         })
         .collect();
@@ -192,26 +193,59 @@ pub fn detect_prop_writes(
     let props: HashMap<String, bool> = prop_names.iter().map(|n| (n.clone(), false)).collect();
     let targets = PropWriteTargets { props: &props };
 
-    let (src, prefix_len) = wrap(body, params, is_async);
+    let wrapped = HandlerSource::wrap(body, params, is_async);
     let allocator = oxc_allocator::Allocator::default();
-    let parsed = Parser::new(&allocator, &src, SourceType::ts()).parse();
-    if parsed.panicked || !parsed.diagnostics.is_empty() {
+    let Some(parsed) = wrapped.parse(&allocator) else {
         return Vec::new();
-    }
+    };
 
-    let mut visitor = PropWriteVisitor::new(&src, &targets);
+    let mut visitor = PropWriteVisitor::new(wrapped.source(), &targets);
     visitor.detect_only = true;
     visitor.hoisted = collect_hoisted_shadows(&parsed.program.body);
     visitor.visit_program(&parsed.program);
 
-    let body_end = prefix_len + body.len();
     let mut seen: Vec<String> = Vec::new();
     for (offset, name) in visitor.written {
-        if offset >= prefix_len && offset <= body_end && !seen.contains(&name) {
+        if wrapped.to_body_offset(offset).is_some() && !seen.contains(&name) {
             seen.push(name);
         }
     }
     seen
+}
+
+/// **W562** — `count.foo = x` where `count` is a `$prop`.
+///
+/// Not rewritten, by design (spec §4.8): this is a member assignment, not an
+/// assignment to the prop binding. Today it sets a property on the getter
+/// FUNCTION OBJECT — almost certainly not what the author meant — but it is
+/// legal JS that does not throw, and rewriting it to `count().foo = x` would
+/// be a READ rewrite, which the founder's decision excludes from CO1. So it
+/// warns rather than erroring, and the warning carries the machine rewrite.
+///
+/// Built as a `CompileError` and rendered through `crate::diagnostics` so it
+/// gets the same `hint:` / `fix:` / `replace:` / `with:` shape as C560/C561
+/// rather than the bare one-line `eprintln!` it originally shipped as.
+fn member_write_warning(name: &str) -> CompileError {
+    CompileError {
+        message: format!(
+            "`{name}.… = …` writes a property on the `{name}` getter function, not the `$prop` \
+             value."
+        ),
+        line: 0,
+        col: 0,
+        code: Some("W562".to_string()),
+        hint: Some(format!(
+            "a `$prop` binding is a callable getter carrying a `.set` writer; assigning a member \
+             on it mutates the function object, so the component never re-renders and the prop \
+             value is unchanged"
+        )),
+        fix: Some(format!(
+            "write the whole prop value through `.set(…)`, deriving it from the current value"
+        )),
+        from: Some(format!("{name}.foo = x")),
+        to: Some(format!("{name}.set({{ ...{name}(), foo: x }})")),
+        ..Default::default()
+    }
 }
 
 /// The lazily-emitted module helper for `++`/`--` outside the fast path.
@@ -231,16 +265,6 @@ struct Edit {
     start: usize,
     end: usize,
     text: String,
-}
-
-fn wrap(body: &str, params: &str, is_async: bool) -> (String, usize) {
-    let head = format!(
-        "{}function __aihu_pw({}) {{\n",
-        if is_async { "async " } else { "" },
-        params
-    );
-    let prefix_len = head.len();
-    (format!("{head}{body}\n}}"), prefix_len)
 }
 
 /// Collect `var` and function-declaration names from the WRAPPER function's own
@@ -952,6 +976,33 @@ mod tests {
         // would break a form no fixture uses.
         assert_eq!(rw("count.foo = 5"), "count.foo = 5");
         assert_eq!(rw("count[k] = 5"), "count[k] = 5");
+    }
+
+    #[test]
+    fn member_write_warning_is_structured_like_the_c_codes() {
+        // The warning originally shipped as a bare one-line `eprintln!` with
+        // no code, no hint, and no machine rewrite, while C560/C561 two
+        // functions away carried the full shape. It now goes through the same
+        // renderer as the errors; this locks the shape so it cannot regress to
+        // a hand-rolled `eprintln!` again.
+        let w = member_write_warning("count");
+        assert_eq!(w.code.as_deref(), Some("W562"));
+        assert!(w.hint.is_some(), "a warning without a hint is a bare print");
+        assert!(w.fix.is_some());
+        assert_eq!(w.from.as_deref(), Some("count.foo = x"));
+        assert_eq!(
+            w.to.as_deref(),
+            Some("count.set({ ...count(), foo: x })"),
+            "the machine rewrite must be applicable, not illustrative"
+        );
+
+        let mut buf: Vec<u8> = Vec::new();
+        crate::diagnostics::write_warning(&mut buf, &w);
+        let out = String::from_utf8(buf).unwrap();
+        assert!(out.starts_with("warning: W562: "));
+        for line in ["  hint: ", "  fix:  ", "  replace: ", "  with:    "] {
+            assert!(out.contains(line), "missing `{line}` in:\n{out}");
+        }
     }
 
     #[test]

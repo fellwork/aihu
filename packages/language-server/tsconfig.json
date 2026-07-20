@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu/compiler": ["../compiler/js/index.ts"]
     }

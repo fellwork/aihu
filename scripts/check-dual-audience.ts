@@ -7,7 +7,7 @@
  * "Any content reachable only by executing the site's presentation logic is
  * unavailable to the agent axis entirely."
  *
- * The furthest property: the scorecard measures 0/3. Three sub-checks, each
+ * The furthest property: the scorecard measures 0/4. Four sub-checks, each
  * one finding:
  *
  *   DA-a  A markdown representation can be PRODUCED. `MarkdownResolver` must
@@ -26,6 +26,26 @@
  *         calls `renderToString(component)` with NO options, and every marker in
  *         `ssr.ts` is gated on `opts?.hydratable ?? false`.
  *
+ *   DA-d  The SAME assertion against the PRERENDER (SSG) path. Behavioral:
+ *         drive the real `runPrerender(...)` over a temp fixture and read the
+ *         HTML it actually writes to disk. `packages/app/src/prerender.ts:283`
+ *         and `:382` call `renderToString(...)` with NO options — the identical
+ *         defect class as `router/src/server.ts:41`, in a second reachable
+ *         production path.
+ *
+ * ⚠️ DA-d is a SCOPE DECISION, not a newly introduced defect. The prerender
+ * path was always broken this way; the check simply did not look at it. The
+ * founder ruled prerender in scope on 2026-07-19, so this check went from
+ * measuring 3 to measuring 4. NOTHING IS FIXED by adding it — the baseline
+ * moves 3 → 4 because the check now SEES a defect that was already shipping,
+ * and `check:dual-audience` must still fail. `baselines.json` carries that
+ * reason; the scorecard row moves 0/3 → 0/4 for the same reason.
+ *
+ * DA-c and DA-d are separate findings because they are separate defects in
+ * separate files with separate fixes: DA3 repairing the router does not repair
+ * the SSG writer. Grouping them would let one fix silently decrement a baseline
+ * that covered two live defects.
+ *
  * DA-a's exclusions are the load-bearing part of this check. The four
  * `tests/compliance/` suites report green precisely because THE TEST SUPPLIES
  * THE THING THAT DOES NOT EXIST — `isitagentready.test.ts` injects its own mock
@@ -42,14 +62,19 @@
  * Wired into CI (plan-a.yml `check` job). Run via the npm script, NOT bare bun:
  *   bun run check:dual-audience
  *
- * The script carries two settings this check does not work without.
- * `--tsconfig-override ./tsconfig.json` forces the root `paths` map onto every
- * file, because the per-package tsconfigs omit `baseUrl` and bun therefore
- * ignores their `paths` — without it a transitive `@aihu/*` import throws and
- * this check crashes instead of reporting. `SCRIBE_NATIVE_SKIP=1` selects the
- * TypeScript SSR fallback ("slower, always correct"), matching what
- * `vitest.config.ts` sets for the same reason; the native renderer binary is
- * not built in a plain checkout.
+ * `SCRIBE_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
+ * correct"), matching what `vitest.config.ts` sets for the same reason; the
+ * native renderer binary is not built in a plain checkout.
+ *
+ * ⚠️ This script previously also passed `--tsconfig-override ./tsconfig.json`,
+ * to force the ROOT `paths` map onto every file because the per-package
+ * tsconfigs declared `paths` with no `baseUrl` and bun therefore ignored them.
+ * That override was REMOVED: it forced an INCOMPLETE map onto package sources
+ * and broke resolution it was meant to fix — the root map has no
+ * `@aihu/router/plugin` entry, so `packages/app/src/prerender.ts` (which DA-d
+ * drives) failed to resolve under it. The per-package tsconfigs now carry
+ * `baseUrl`, so their own already-correct maps apply. Removing it also silences
+ * the `Internal error: directory mismatch` Bun emits for that flag.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -377,6 +402,101 @@ async function runDaC(hydratable: boolean): Promise<{ body: string; finding: Fin
   }
 }
 
+// ─── DA-d: the prerender (SSG) path emits the same non-hydratable output ─────
+
+/**
+ * Drive the REAL `runPrerender` over a temp fixture and read the HTML it writes.
+ *
+ * Deliberately not a source scan for `renderToString(component)`. A grep would
+ * pass the moment someone reformatted the call, and it would not prove the
+ * written file lacks the markers. This mounts the actual SSG pipeline — route
+ * derivation, render, template head-injection, outlet content-injection, file
+ * write — and inspects the bytes on disk, which is what a crawler receives.
+ *
+ * `loadModule` is injected (the same seam `packages/app/tests/prerender.test.ts`
+ * uses) so the probe does not need the Rust SFC compiler to be built. That is
+ * NOT the DA-a class of mock: the injected module supplies the ROUTE, which is
+ * app-author input, while the thing under test — whether the renderer is asked
+ * for hydratable output — remains entirely production code.
+ */
+async function runDaD(hydratable: boolean): Promise<{ body: string; finding: Finding | null }> {
+  const { mkdir, mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { runPrerender } = await import('../packages/app/src/prerender.ts')
+  const { branch, leaf } = await import('@aihu/arbor')
+  const { renderToString } = await import('@aihu/server')
+
+  const component = () =>
+    branch('main', { id: 'page' }, [branch('article', {}, [leaf(PRIMARY_TEXT)])])
+
+  const root = await mkdtemp(join(tmpdir(), 'aihu-da-d-'))
+  try {
+    const outDir = join(root, 'dist')
+    await mkdir(join(root, 'pages'), { recursive: true })
+    await mkdir(outDir, { recursive: true })
+    // The "built" SPA shell the prerenderer uses as its template. Kept in a
+    // variable because `runPrerender` OVERWRITES this file with the composed
+    // page — the mutation below needs the original shell, not the output.
+    const template =
+      '<!doctype html><html><head><title>t</title></head><body><div id="outlet"></div></body></html>'
+    await writeFile(join(outDir, 'index.html'), template)
+    await writeFile(join(root, 'pages', 'index.ts'), '// route stub\n')
+
+    await runPrerender({
+      resolvedViteConfig: { root, build: { outDir: 'dist' } } as never,
+      config: undefined,
+      loadModule: async () => ({ default: component }),
+      warn: () => {},
+    })
+
+    let body = await readFile(join(outDir, 'index.html'), 'utf8')
+    if (hydratable) {
+      // `--self-test` mutation: compose the page the way `runPrerender` does —
+      // same component, same renderer, same template, injected into the same
+      // outlet — differing ONLY in the options object the prerenderer fails to
+      // pass. Composed from the ORIGINAL template rather than patched into the
+      // written output, because the written output no longer contains an empty
+      // outlet to patch. A mutation that faked the markup would prove nothing
+      // about whether these assertions can recognize genuinely hydratable
+      // prerendered HTML.
+      const rendered = await renderToString(component, { hydratable: true })
+      body = template.replace('<div id="outlet"></div>', `<div id="outlet">${rendered}</div>`)
+    }
+
+    const hasText = body.includes(PRIMARY_TEXT)
+    const hasMarkers = body.includes('data-aihu-path')
+    const shadowStart = body.indexOf('shadowrootmode')
+    const textIndex = body.indexOf(PRIMARY_TEXT)
+    const textInShadow = shadowStart !== -1 && textIndex > shadowStart
+
+    if (hasText && hasMarkers && !textInShadow) return { body, finding: null }
+
+    const reasons: string[] = []
+    if (!hasText) reasons.push('primary text absent from the written HTML')
+    if (!hasMarkers) {
+      reasons.push(
+        'no `data-aihu-path` markers in the file written to disk — ' +
+          '`packages/app/src/prerender.ts:283` and `:382` call `renderToString(...)` with no ' +
+          'options, so every statically generated page ships non-hydratable output',
+      )
+    }
+    if (textInShadow) reasons.push('primary text sits inside a declarative shadow root')
+
+    // ONE finding: one defect (the missing options object in the SSG writer),
+    // distinct from DA-c's defect in the router.
+    return {
+      body,
+      finding: {
+        where: 'packages/app/src/prerender.ts:382',
+        rule: 'DA-d',
+        message: `statically prerendered content is not fully retrievable without JS — ${reasons.join('; ')}.`,
+      },
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 /** A fixture that DOES implement the resolver — DA-a's should-not-flag half. */
@@ -438,6 +558,18 @@ async function runSelfTest(): Promise<void> {
     expected: 0,
   })
 
+  // DA-d, both directions.
+  cases.push({
+    label: 'DA-d should-flag: live runPrerender, renderToString with no options',
+    actual: (await runDaD(false)).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-d should-not-flag: hydratable prerendered output (mutated)',
+    actual: (await runDaD(true)).finding ? 1 : 0,
+    expected: 0,
+  })
+
   selfTest(NAME, cases)
 }
 
@@ -459,8 +591,11 @@ if (daB.finding) findings.push(daB.finding)
 const daC = await runDaC(false)
 if (daC.finding) findings.push(daC.finding)
 
+const daD = await runDaD(false)
+if (daD.finding) findings.push(daD.finding)
+
 console.log(
   `${NAME} — scanned ${entries.length} public-entry source file(s); ran ${UA_MATRIX.length} ` +
-    'negotiation cells and 1 SSR render.',
+    'negotiation cells, 1 SSR render and 1 SSG prerender.',
 )
 expectCount(findings, expectedFrom(process.argv, 'dual-audience'), NAME)

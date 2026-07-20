@@ -1,5 +1,6 @@
 pub mod ast_export;
 pub mod codegen;
+pub mod diagnostics;
 // W2 (advanced-js-template-expressions): oxc-backed expression validation
 // behind `--expr-parser <legacy|ast>`. ALL oxc types are contained in this
 // module (plan §Risks 1 — oxc AST churn stays localized).

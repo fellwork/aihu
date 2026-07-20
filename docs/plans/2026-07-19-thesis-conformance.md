@@ -33,8 +33,8 @@ to prevent, and it happened on the first attempt.
 
 Governed cleared via GO1 + GO2 (branch `fix/governed-track`). `check:governed` went
 **2 findings → 0**, and `baselines.json` `governed.expect` was decremented 2 → 0 in the
-same commit. It is the first property to reach zero; the ranking above now describes the
-remaining three.
+same commit. Governed and Attributed both reached zero on 2026-07-19; the ranking above now
+describes the two that remain.
 
 ### Derived — 3/5
 
@@ -117,13 +117,20 @@ decremented 2 → 0 in the same commit.
 envelope, the task store, and the `agent-card.json` path. AT1 closed tier-0
 attribution only.
 
-### Dual-audience — 0/3
+### Dual-audience — 0/4
+
+⚠️ **Scope amended 2026-07-19 (founder decision): the prerender path is IN SCOPE.**
+This row read 0/3 when first measured. The SSG writer was never examined, so a defect
+identical in class to the DA-c row was shipping unmeasured. Adding the DA-d row fixes
+nothing — it makes an existing defect visible. `check:dual-audience` accordingly measures
+4 and still fails; `baselines.json` records the 3 → 4 change and its reason.
 
 | Check | Result | Evidence |
 |---|---|---|
 | A markdown representation can be produced | ❌ | `MarkdownResolver` has **zero production implementations**. Every reference is the interface declaration (`content-negotiation.ts:13`), the config field (`:22`), or a test mock |
 | Negotiation reaches non-`Accept` clients | ❌ | no user-agent handling in `content-negotiation.ts` — `Accept`-header only, and AI crawlers don't send it |
 | Primary content retrievable without JS | ❌ | `packages/router/src/server.ts:41` — `renderToString(component)` with **no options**, so the production path emits non-hydratable output; combined with shadow-DOM-invisible-to-non-JS-extractors, content does not reach the agent axis |
+| Prerendered (SSG) content retrievable without JS | ❌ | `packages/app/src/prerender.ts:283` and `:382` — `renderToString(...)` with **no options**, the same defect class as the row above, in a second reachable production path. Measured behaviorally: driving the real `runPrerender` and reading the written file shows no `data-aihu-path` markers |
 
 **Zero passing.** The furthest property, and the measurement agrees with the prior estimate.
 
