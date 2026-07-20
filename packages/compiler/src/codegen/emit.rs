@@ -2119,13 +2119,71 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
     None
 }
 
-fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &SignalMap) -> String {
+/// CO1: `$prop` name -> "the entry's `default:` is a numeric literal".
+///
+/// The key set is `collect_prop_entries`, NOT the `SignalMap` (spec §6.1):
+/// `process_state_body` registers prop names into `signal_map` alongside real
+/// `$computed` entries and lifted `signal()` bindings, so keying the write
+/// rewrite off it would rewrite a plain writable `let` and break working code.
+///
+/// The bool proves `ToNumeric` is identity for that prop, which is one of the
+/// two conditions for the `++`/`--` inline fast path.
+fn collect_prop_write_targets(
+    macros: &[crate::types::StateMacro],
+) -> std::collections::HashMap<String, bool> {
+    use crate::parser::state_macros::meta_get;
+    let mut out = std::collections::HashMap::new();
+    for entry in collect_prop_entries(macros) {
+        let numeric_default = meta_get(entry, "default")
+            .map(|d| d.trim().parse::<f64>().is_ok())
+            .unwrap_or(false);
+        out.insert(entry.name.clone(), numeric_default);
+    }
+    out
+}
+
+/// CO1: rewrite `$prop` writes inside one macro body, or return it unchanged.
+///
+/// Infallible by design. C560 (destructuring into a prop) is raised as a hard
+/// error by `validate_prop_writes` in `lib.rs`, which runs BEFORE emit and can
+/// return `Result`; by the time emit runs, such a body has already been
+/// rejected. Here an error can only mean the two passes disagreed, so the
+/// non-regressive move is to splice the body exactly as authored.
+fn rewrite_prop_writes_in(
+    body: &str,
+    params: &str,
+    is_async: bool,
+    props: &std::collections::HashMap<String, bool>,
+    needs_helper: &mut bool,
+) -> String {
+    let targets = crate::expr::PropWriteTargets { props };
+    match crate::expr::rewrite_prop_writes(body, params, is_async, &targets) {
+        Ok(Some(res)) => {
+            if res.needs_update_helper {
+                *needs_helper = true;
+            }
+            res.source
+        }
+        _ => body.to_string(),
+    }
+}
+
+/// Returns the emitted `@state` macro code and whether it needs the lazily
+/// declared `__aihu_prop_upd` helper (spec §4.5).
+fn emit_state_macro_code(
+    macros: &[crate::types::StateMacro],
+    signal_map: &SignalMap,
+) -> (String, bool) {
     use crate::parser::state_macros::{
         arrow_args, arrow_async_prefix, arrow_body, arrow_body_spliceable, meta_get, running_code,
     };
     use crate::types::{CollectionKind, StateMacro};
     let mut lines: Vec<String> = Vec::new();
     let indent = "  ";
+    // CO1: collected once for the whole component, threaded into every
+    // imperative-position macro body below.
+    let prop_targets = collect_prop_write_targets(macros);
+    let mut needs_prop_upd_helper = false;
     for mac in macros {
         match mac {
             StateMacro::Collection { kind, entries } => {
@@ -2211,10 +2269,26 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let args = arrow_args(arrow).unwrap_or_default();
                             let body = arrow_body(arrow).unwrap_or_default();
+                            let is_async = crate::parser::state_macros::arrow_is_async(arrow);
+                            // CO1: rewrite `$prop` writes FIRST (spec §4.11).
+                            // The `$announce(` replace below is a raw string
+                            // substitution that invalidates byte offsets, so it
+                            // MUST run after the span-based splice. `args` is
+                            // passed so the action's own params shadow
+                            // correctly — that shadow lives outside the body
+                            // text, and missing it silently corrupts
+                            // `(count) => { count = 5 }`.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                &args,
+                                is_async,
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
                             // arch-5 M1: rewrite $announce(...) call sites in
                             // action bodies to the runtime-imported alias.
                             let body = body.replace("$announce(", "__a11y_announce(");
-                            if crate::parser::state_macros::arrow_is_async(arrow) {
+                            if is_async {
                                 // Async handlers are NOT wrapped in `batch`.
                                 // Two reasons, both correctness rather than
                                 // preference:
@@ -2248,6 +2322,15 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
+                            // CO1: `$effect` is an imperative position, so a
+                            // `$prop` write there is legitimate and rewritten.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                arrow_args(thunk).unwrap_or_default().as_str(),
+                                crate::parser::state_macros::arrow_is_async(thunk),
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
                             // Async effects track dependencies only up to the
                             // first `await` (the signals graph collects reads
                             // synchronously). That is a real caveat, but it is
@@ -2282,6 +2365,19 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
                             };
                             let body =
                                 arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
+                            // CO1: `$lifecycle` callbacks are imperative
+                            // positions too — `cookbook/ssr-hydration.aihu`
+                            // writes `greeting`/`name` from `mount`. The
+                            // callback's own params are passed so
+                            // `attributeChange(name, old, new)` shadows a
+                            // like-named prop correctly.
+                            let body = rewrite_prop_writes_in(
+                                &body,
+                                arrow_args(arrow).unwrap_or_default().as_str(),
+                                crate::parser::state_macros::arrow_is_async(arrow),
+                                &prop_targets,
+                                &mut needs_prop_upd_helper,
+                            );
                             let am = arrow_async_prefix(arrow);
                             match entry.name.as_str() {
                                 "mount" => lines
@@ -2477,11 +2573,12 @@ fn emit_state_macro_code(macros: &[crate::types::StateMacro], signal_map: &Signa
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
         }
     }
-    if lines.is_empty() {
+    let code = if lines.is_empty() {
         String::new()
     } else {
         lines.join("\n") + "\n"
-    }
+    };
+    (code, needs_prop_upd_helper)
 }
 
 // ─── R1 — $prop options-form lowering helpers ───────────────────────────────
@@ -3063,8 +3160,16 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     let uses_ctx = uses_options_form;
     let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
 
-    let macro_code = emit_state_macro_code(&macros, &signal_map);
+    let (macro_code, needs_prop_upd_helper) = emit_state_macro_code(&macros, &signal_map);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
+    // CO1 §4.5: the `++`/`--` ToNumeric helper, declared once per component and
+    // ONLY when some emitted form actually calls it. `cookbook/aihu-counter`
+    // takes the inline fast path, so it never loads this.
+    let prop_upd_decl = if needs_prop_upd_helper {
+        format!("  {}\n", crate::expr::UPDATE_HELPER_DECL)
+    } else {
+        String::new()
+    };
 
     let body = {
         let mut b = String::new();
@@ -3083,6 +3188,10 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
         // case (#279) and the Bug 8 const-initializer TDZ, because the prop getter
         // is now declared before any synchronously-running @state statement reads
         // it. The binding is no longer emitted from emit_state_macro_code.
+        // CO1: declared above the prop bindings that its call sites close
+        // over. `const` in the same body scope; every caller is a function
+        // invoked later, so there is no TDZ hazard.
+        b.push_str(&prop_upd_decl);
         let prop_bindings = emit_prop_bindings(&prop_entries, "  ");
         if !prop_bindings.is_empty() {
             b.push_str(&prop_bindings);

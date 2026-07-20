@@ -132,12 +132,31 @@
 - **NOT wired into `plan-a.yml` yet** — 16 of 59 fixtures still fail, so adding it would red the build. Wire it in once the two lists below are clear.
 - **Gotcha baked into the script:** it picks the NEWEST of `packages/compiler/bin` / `target/release` / `target/debug`, not the Vite plugin's fixed precedence. The fixed order silently reads a stale `target/release` and reports already-fixed bugs as live — which it did to me on the first run.
 
-### 5 components still emit invalid JS — `$action` bodies assigning to a `$prop`
-- **Files:** `cookbook/aihu-counter.aihu`, `cookbook/aihu-modal.aihu`, `cookbook/ssr-hydration.aihu`, `examples/_shared/macro-test.aihu`, `examples/hacker-news/src/pages/item/[id].aihu`.
-- **What:** `$prop` lowers to `const count = ctx.props.count` (a callable getter with `.set`). An `$action` body that writes the prop directly — `count++`, `count = 0`, as `aihu-counter` authors it — emits assignment to a `const`. That is a hard runtime `TypeError: Assignment to constant variable`, so **the cookbook counter's increment/decrement/reset are all broken**, and it is probably the most-copied example in the repo.
-- **Same class as a bug already marked fixed:** the `$prop` write INVOKER was corrected to `(v) => name.set(v)` (see the dispatcher-lowering entry above). User-authored action bodies were never given the same treatment.
-- **Decision needed — this is a semantics call, not a mechanical fix:** either (a) the compiler rewrites `prop = x` / `prop++` inside action bodies to `prop.set(…)`, making the authored form work as written; or (b) writing a `$prop` locally is declared an anti-pattern (a prop is an input from the parent) and these fixtures move to `signal()`, with a compile error pointing the way. (a) matches what authors clearly expect and what the cookbook already teaches; (b) is more principled about data flow. Do not leave it as-is: today it type-checks, compiles, ships, and throws on first click.
+### ~~Components emit invalid JS — macro bodies assigning to a `$prop`~~ — FIXED (CO1, `fix/prop-write-rewrite`)
+- **What:** `$prop` lowers to `const count = ctx.props.count` (a callable getter with `.set`). A macro body that writes the prop directly — `count++`, `count = 0`, as `aihu-counter` authors it — emitted assignment to a `const`. That is a hard runtime `TypeError: Assignment to constant variable`, so **the cookbook counter's increment/decrement/reset were all broken**, on probably the most-copied example in the repo.
+- **Resolved via option (a):** the compiler now rewrites writes to `$prop` bindings into `.set(…)` inside `$action`, `$lifecycle` and `$effect` bodies — `packages/compiler/src/expr/prop_write.rs`, an oxc AST pass with span-based splicing into the original body text. Reads are deliberately NOT touched: `count()` and bare `count` pass through byte-identical.
+- **Corrected file set — the original list here was wrong in one entry, and it mattered.** `examples/hacker-news/src/pages/item/[id].aihu` **writes no prop at all**; its failure is the unrelated `$afterNavigate` bug filed directly below. The true affected set was `cookbook/aihu-counter.aihu`, `cookbook/aihu-modal.aihu`, `cookbook/ssr-hydration.aihu`, `examples/_shared/macro-test.aihu`, and `packages/compiler/tests/codemods/fixtures/todo-mvc.expected.aihu` — plus a **sixth found by diffing every `.aihu` emit in the repo pre/post fix**, `packages/templates/cf-team/template/apps/web/src/components/live-counter.aihu`, which sits outside the `check:emit-parses` glob and had therefore never been surveyed.
+- **`$lifecycle` was in scope too, not just `$action`:** `cookbook/ssr-hydration.aihu` writes its props from `$lifecycle.mount`. An `$action`-only fix would have left it broken.
+- **Still broken in `todo-mvc.expected.aihu`, by design:** `todos = [...todos, …]` becomes `todos.set([...todos, …])`, but the RHS read `...todos` still spreads the getter *function*. That is the separate bare-read defect in `docs/domain-hints/prop-read-form.md`, out of CO1's scope.
+- **Diagnosed rather than rewritten:** destructuring / `for-of` / `for-in` into a prop is **C560** (no sound desugar without a temporary and a statement split); a prop write inside `$computed`/`$resource` is **C561** (a derivation must not mutate); `count.foo = x` warns rather than rewriting, since fixing it would require a *read* rewrite.
 - **Why esbuild missed it:** `esbuild --loader=ts` transform does not perform const-assignment analysis. `Bun.Transpiler` does. The earlier 32-component sweep passed all of these.
+
+### `$afterNavigate` lowering strips its call head, leaving a dangling `})` (bug)
+- **File:** `examples/hacker-news/src/pages/item/[id].aihu` — after CO1, the only remaining `(parse)` failure in `bun run check:emit-parses`.
+- **What:** the `$afterNavigate((to) => {` head — the call expression *and* its arrow prefix — is stripped during lowering, but the body and its closing `})` are spliced through. The emit ends up as:
+
+  ```js
+  88:     // arch-5 M1: post-navigation analytics — runs after each successful nav.
+  89:       if (typeof window !== 'undefined' && (window as any).analytics?.pageview) {
+  90:         (window as any).analytics.pageview(to.pathname)
+  91:       }
+  92:     })          // ← dangling: the `$afterNavigate((to) => {` head was stripped
+  ```
+
+  The orphaned `})` is a syntax error, so the whole module fails to parse. The arrow's `to` parameter is left unbound as well.
+- **NOT a `$prop` write bug.** This file writes no prop. It was mis-attributed to the prop-write defect above; CO1 deliberately left it alone, and the negative-control test `hacker_news_item_is_unchanged_by_co1` pins that its emit is untouched. Substituting it into a prop-write brief's acceptance set would have made that slice unfalsifiable.
+- **Start at:** the router-macro lowering for `$afterNavigate` / `$beforeNavigate` in `packages/compiler/src/codegen/emit.rs` — compare against how `$lifecycle` callbacks correctly keep their head and args.
+- **Depends on:** nothing.
 
 ### 11 example components no longer compile (stale v1 syntax)
 - **Files:** all three `examples/agent-hub/src/*`, all three `examples/storefront/src/*`, `examples/blog-loader/src/pages/posts/[slug].aihu`, `examples/cf-adapter`, `examples/plugin-demo`, `examples/realtime-scores`, `examples/archived/markdown-preview`.
