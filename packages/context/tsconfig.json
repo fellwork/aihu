@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu/context": ["./src/index.ts"],
       "@aihu/context/ssr": ["./src/ssr.ts"]

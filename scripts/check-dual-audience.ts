@@ -62,14 +62,19 @@
  * Wired into CI (plan-a.yml `check` job). Run via the npm script, NOT bare bun:
  *   bun run check:dual-audience
  *
- * The script carries two settings this check does not work without.
- * `--tsconfig-override ./tsconfig.json` forces the root `paths` map onto every
- * file, because the per-package tsconfigs omit `baseUrl` and bun therefore
- * ignores their `paths` — without it a transitive `@aihu/*` import throws and
- * this check crashes instead of reporting. `SCRIBE_NATIVE_SKIP=1` selects the
- * TypeScript SSR fallback ("slower, always correct"), matching what
- * `vitest.config.ts` sets for the same reason; the native renderer binary is
- * not built in a plain checkout.
+ * `SCRIBE_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
+ * correct"), matching what `vitest.config.ts` sets for the same reason; the
+ * native renderer binary is not built in a plain checkout.
+ *
+ * ⚠️ This script previously also passed `--tsconfig-override ./tsconfig.json`,
+ * to force the ROOT `paths` map onto every file because the per-package
+ * tsconfigs declared `paths` with no `baseUrl` and bun therefore ignored them.
+ * That override was REMOVED: it forced an INCOMPLETE map onto package sources
+ * and broke resolution it was meant to fix — the root map has no
+ * `@aihu/router/plugin` entry, so `packages/app/src/prerender.ts` (which DA-d
+ * drives) failed to resolve under it. The per-package tsconfigs now carry
+ * `baseUrl`, so their own already-correct maps apply. Removing it also silences
+ * the `Internal error: directory mismatch` Bun emits for that flag.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -484,8 +489,7 @@ async function runDaD(hydratable: boolean): Promise<{ body: string; finding: Fin
       finding: {
         where: 'packages/app/src/prerender.ts:382',
         rule: 'DA-d',
-        message:
-          `statically prerendered content is not fully retrievable without JS — ${reasons.join('; ')}.`,
+        message: `statically prerendered content is not fully retrievable without JS — ${reasons.join('; ')}.`,
       },
     }
   } finally {

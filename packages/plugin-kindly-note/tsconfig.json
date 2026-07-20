@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu-plugin/kindly-note": ["./src/index.ts"],
       "@aihu/plugin": ["../plugin/src/index.ts"],

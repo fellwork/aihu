@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist",
+    "baseUrl": ".",
     "paths": {
       "@aihu/app": ["../app/src/index.ts"],
       "@aihu/compiler": ["../compiler/js/index.ts"],

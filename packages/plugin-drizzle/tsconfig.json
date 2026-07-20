@@ -6,6 +6,7 @@
     "declaration": true,
     "declarationDir": "./dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu-plugin/drizzle": ["./src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],

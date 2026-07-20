@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@aihu/agent-service": ["../agent-service/src/index.ts"],
       "@aihu/agent": ["../agent/src/index.ts"]
