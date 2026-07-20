@@ -1,10 +1,12 @@
 # Agent Discovery & MCP Compliance
 
-aihu is designed from the ground up for the agentic web. Every aihu application automatically exposes standard discovery endpoints that let AI agents find, understand, and call your components as tools — with no manual configuration.
+aihu is designed for the agentic web. When you opt in to the `@aihu-plugin/agent-readiness` integration, an aihu app can expose a set of standard discovery endpoints that let AI agents find, understand, and call your components as tools.
+
+> **🚧 Opt-in, not automatic.** These endpoints are **not** exposed by default and there is no zero-config path today. You must add the `@aihu-plugin/agent-readiness` integration and either use its Vite plugin (`viteAgentReadinessIntegration()`) or hand-wire its route handlers (shown below).
 
 ## How AI agents discover aihu apps
 
-Aihu apps expose four discovery endpoints that agents and crawlers check:
+With the integration enabled, an aihu app can serve four core discovery endpoints that agents and crawlers check:
 
 | Endpoint | Purpose |
 |---|---|
@@ -13,7 +15,7 @@ Aihu apps expose four discovery endpoints that agents and crawlers check:
 | `/.well-known/mcp/server-card.json` | Machine-readable MCP server card (SEP-1649) |
 | `/robots.txt` | Agent-friendly crawl directives (RFC 9309) |
 
-All four are generated automatically by `@aihu-plugin/agent-readiness` from a single config object. The minimum viable setup is:
+These four endpoints are produced by `@aihu-plugin/agent-readiness`. In a Vite app, `viteAgentReadinessIntegration()` serves them automatically in dev and emits them as static assets at build. For a server/edge app there is no auto-wiring — you hand-wire each route yourself. The minimum viable setup is:
 
 ```ts
 import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
@@ -38,27 +40,33 @@ This works on Cloudflare Workers, Bun, and Deno — anywhere with a fetch-API re
 
 ## The MCP Server Card
 
-The MCP Server Card is a machine-readable JSON document at `/.well-known/mcp/server-card.json` that describes your application's agent capabilities per the SEP-1649 schema.
+The MCP Server Card is a machine-readable JSON document at `/.well-known/mcp/server-card.json` that describes your application's agent capabilities.
+
+> **⚠️ Not a ratified spec artifact.** Earlier drafts of these docs described this card as "SEP-1649 compliant." That is inaccurate: SEP-1649 is a **closed** proposal and its successor (SEP-2127) has been moved off the MCP Standards Track. This card is aihu's **own** documented shape — useful to agents that know to look for it, but do not describe it as MCP-spec compliant.
 
 A minimal server card looks like:
 
 ```json
 {
-  "schema_version": "1.0",
-  "name": "My App",
-  "summary": "A aihu-powered app.",
-  "mcp_endpoint": "https://myapp.workers.dev/mcp",
-  "skills": [
-    {
-      "id": "my-counter",
-      "name": "Live Counter",
-      "description": "Read and increment a counter"
-    }
-  ]
+  "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
+  "version": "1.0",
+  "protocolVersion": "2025-06-18",
+  "serverInfo": {
+    "name": "My App",
+    "version": "0.0.0",
+    "description": "A aihu-powered app."
+  },
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://myapp.workers.dev/mcp"
+  },
+  "capabilities": { "tools": true, "resources": false, "prompts": false }
 }
 ```
 
-The `skills` array is auto-populated from the `@agent` blocks in your SFCs — the compiler emits an MCP tool schema alongside each compiled component, and `@aihu-plugin/agent-readiness` aggregates them at build time.
+When skills are present, they are emitted under a top-level `tools` array (each entry is `{ "name", "description" }`). There is no top-level `skills`, `mcp_endpoint`, or `schema_version` key in the emitted output — the MCP endpoint URL lives at `transport.url`.
+
+> **🚧 Partial — skills are not yet auto-aggregated at build time (tracked in #430 / DE4).** The generator derives its `tools` from the `@aihu/agent` runtime registry (`skillsFromRegistry()`), which is populated only when your compiled component modules are evaluated in the same process. The standard Vite build path does **not** import your components while emitting the card, and nothing yet reads the compiler's `agent-manifest.json` sidecar — so in practice you declare skills explicitly in config (they are hand-mirrored, e.g. in `vite.config.ts`). Build-time auto-population from `@agent` blocks is **planned, not shipped**.
 
 To configure the server card, pass `AgentReadinessConfig` to `createAgentReadinessRoutes`:
 
@@ -68,7 +76,8 @@ const ar = createAgentReadinessRoutes({
   version: '1.0.0',
   summary: 'A aihu-powered app.',
   endpoint: 'https://myapp.workers.dev/mcp',
-  // Optional: declare skills explicitly (merged with auto-derived from @agent blocks)
+  // Declare skills explicitly — today this is the source of truth for the card.
+  // (Auto-derivation from @agent blocks at build time is planned — #430.)
   skills: [
     { id: 'counter', name: 'Counter', description: 'Read and set counter value' },
   ],
@@ -220,36 +229,35 @@ Add an `@agent` block and expose actions from `@state`:
 }
 ```
 
-**Step 2 — Compiler emits `.mcp.json`**
+**Step 2 — Compiler emits `agent-manifest.json`**
 
-When the Rust SFC compiler processes this file with `BuildTarget.Server` or `BuildTarget.Universal`, it emits a `.mcp.json` sidecar describing the exposed tools:
+When the Rust SFC compiler processes this file with `BuildTarget.Server` or `BuildTarget.Universal`, it emits an `agent-manifest.json` sidecar (one per output directory) describing the exposed surface. The real shape is aihu's own — it is **not** an MCP `.mcp.json` document:
 
 ```json
 {
   "tools": [
     {
-      "name": "increment",
-      "description": "Increment the counter by one",
-      "inputSchema": { "type": "object", "properties": {} }
+      "name": "live_counter",
+      "tag": "live-counter",
+      "inputs": {},
+      "actions": {
+        "increment": { "returns": {}, "describe": "Increment the counter by one" }
+      },
+      "state": { "count": "Current counter value" }
     }
-  ],
-  "resources": [
-    { "name": "count", "description": "Current counter value", "type": "number" }
   ]
 }
 ```
 
+> **🚧 `agent-manifest.json` currently has no consumers.** The compiler emits this sidecar, but nothing in the runtime or the agent-readiness build path reads it yet. The live agent surface is wired instead through the `registerAgentMetadata(...)` call the compiler also emits (see [Authoring Agents](./authoring-agents.md) §3) and the `__agentBinding` server export. Giving this file a consumer — and using it to auto-populate the server card's skills — is planned (#430).
+
 Note: with `BuildTarget.Client`, the `@agent` block is fully elided — no manifest JSON is emitted and no agent code reaches the browser bundle.
 
-**Step 3 — `@aihu/agent-service` exposes via `aihu mcp serve`**
+**Step 3 — `@aihu/agent-service` exposes tools over HTTP**
 
-The `@aihu/agent-service` package reads the aggregated tool schemas and exposes them over the MCP protocol. Run:
+The `@aihu/agent-service` package reads the aggregated tool schemas (from the `@aihu/agent` registry) and dispatches agent tool calls to live components. You expose it by mounting its middleware — `service.asMiddleware()` handles `POST /__aihu/tools/call` — or by wrapping it with the A2A / ACP protocol adapters (see [Authoring Agents](./authoring-agents.md) §4, §9).
 
-```bash
-aihu mcp serve
-```
-
-This starts an MCP-compatible server that AI agents (Claude, GPT, Gemini, etc.) can connect to and call your component actions as tools.
+> **⚠️ `aihu mcp serve` does NOT serve your component actions.** That command starts an unrelated authoring-helper stdio server whose only tools are `aihu_example` and `aihu_validate` (see [Authoring Agents](./authoring-agents.md) §8). It exists for AI coding assistants writing `.aihu` files — it is not a runtime bridge to your running components.
 
 **Step 4 — Live-binding connects tools to the running component**
 
@@ -262,7 +270,7 @@ All compliance checks are backed by vitest test suites that run as part of `bun 
 | Suite | File | Tests |
 |---|---|---|
 | llms.txt format | `packages/plugin-agent-readiness/tests/compliance/llms-txt-spec.test.ts` | 9 |
-| MCP Server Card (SEP-1649) | `packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | 14 |
+| MCP Server Card (aihu shape) | `packages/plugin-agent-readiness/tests/compliance/mcp-server-card-schema.test.ts` | 14 |
 | robots.txt (RFC 9309) | `packages/plugin-agent-readiness/tests/compliance/robots-rfc9309.test.ts` | 7 |
 | isitagentready.com checklist | `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts` | 7 |
 | SSR output structure | `packages/server/tests/compliance/ssr-output.test.ts` | 12 |
@@ -276,12 +284,14 @@ bun run test:quality   # Lighthouse gate (≥ 90 on perf/a11y/best-practices/seo
 
 ## isitagentready.com
 
-Aihu passes all 7 checks on [isitagentready.com](https://isitagentready.com). The checks are exercised by the compliance test suite at `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts`. The seven gates are:
+The compliance test suite at `packages/plugin-agent-readiness/tests/compliance/isitagentready.test.ts` exercises the generated endpoints. What that suite actually asserts today:
 
-1. `llms.txt` present at root
-2. `llms.txt` first line is `# <Name>`
-3. `/.well-known/mcp/server-card.json` returns valid JSON
-4. MCP server card contains `mcp_endpoint`
-5. `robots.txt` present and allows AI agents
-6. App sets `X-Agent-Friendly: true` response header
-7. MCP endpoint responds to `POST` with a valid tool-list response
+1. `GET /llms.txt` → 200 `text/plain`, first line `# <Name>`
+2. `GET /llms-full.txt` → 200, no `## Optional` heading
+3. `GET /.well-known/mcp/server-card.json` → 200 JSON, valid against the (aihu-shape) `McpServerCard`
+4. `GET /robots.txt` → 200 `text/plain` with `User-agent` entries
+5. `GET /about` with `Accept: text/markdown` → `text/markdown` (content negotiation)
+6. `GET /about` with `Accept: text/html` → falls through to the HTML route
+7. `GET /.well-known/mcp/server-card.json` → 404 when no `endpoint` is configured
+
+> **⚠️ Corrected.** Earlier drafts listed gates that do not exist in the code — an `X-Agent-Friendly: true` response header and an `mcp_endpoint` field on the card (the real field is `transport.url`), plus a `POST` tool-list gate. No `X-Agent-Friendly` header is emitted anywhere in the codebase; do not rely on it. The claim that aihu "passes all 7 checks on [isitagentready.com](https://isitagentready.com)" is **unverified against the live service** — it is asserted only by the in-repo test suite above.
