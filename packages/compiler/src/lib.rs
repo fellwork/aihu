@@ -90,6 +90,25 @@ pub fn compile_full_with_options<'a>(
         validate_component_tags(ast)?;
     }
 
+    // #433 (FEL-270): `$ref` co-located with a `$if`/`$each` directive on the
+    // SAME element is a silent-blank trap. `$ref` lowers to an `onMount(...)`
+    // wrapped IN the element node; `$if`/`$each` wrap that node again inside a
+    // `createIfBoundary(...)` / `each(...)` FACTORY. Those factories run with no
+    // component-setup owner, so the ref's `onMount` throws 'no owner' — and
+    // because the throw unwinds inside the boundary, the element and its whole
+    // subtree render blank with nothing surfaced (a live reading column went
+    // blank in the web app). Emitting the ownerless `onMount` at setup level is
+    // not clean here: the node is created CONDITIONALLY inside the boundary
+    // factory and does not exist at setup time, and arbor's boundary factories
+    // are owner-agnostic by construction (see `createLinkBoundary`, which wraps
+    // its own `onMount` in try/catch for exactly this reason). So this is a hard
+    // compile-time diagnostic that steers the author to a supported pattern,
+    // per the issue's own suggestion — turning a silent blank into an obvious
+    // error at build time.
+    if let Some(ref ast) = template_ast {
+        validate_ref_gating(ast)?;
+    }
+
     // v2 (B6.3): validate `@state` macro grammar at compile time so v1
     // syntax surfaces as a hard error (C440 / C441 / C442 / C443 / C444)
     // rather than being silently elided by the downstream emit pass. The
@@ -169,6 +188,93 @@ fn validate_component_tags(nodes: &[TemplateNode]) -> Result<(), CompileError> {
                 validate_component_tags(body)?;
                 if let Some(empty) = empty_body {
                     validate_component_tags(empty)?;
+                }
+            }
+            TemplateNode::Text(_)
+            | TemplateNode::Interpolation(_)
+            | TemplateNode::HtmlBlock { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+/// #433 (FEL-270) — reject `$ref` co-located with a `$if`/`$each` directive on
+/// the SAME element (C562).
+///
+/// `$ref` lowers to an `onMount(...)` wrapped around the element node; `$if` and
+/// `$each` wrap that node again inside a `createIfBoundary(...)` / `each(...)`
+/// FACTORY. Those factories run with no component-setup owner, so the ref's
+/// `onMount` throws 'no owner' — and because the throw unwinds inside the
+/// boundary, the element and its whole subtree render blank with nothing
+/// surfaced. This diagnostic converts that silent blank into a build error that
+/// names the fix. Only the DIRECTIVE co-occurrence on one element is rejected;
+/// an UNGATED `$ref` still lowers to its existing setup-level `onMount`.
+fn validate_ref_gating(nodes: &[TemplateNode]) -> Result<(), CompileError> {
+    /// The name of the first gating directive (`if`/`each`) on `attrs`, if the
+    /// element ALSO carries a `$ref` directive; `None` otherwise.
+    fn ref_gate_conflict(attrs: &[Attr]) -> Option<&'static str> {
+        let has_ref = attrs
+            .iter()
+            .any(|a| matches!(a, Attr::Macro { name, .. } if name == "ref"));
+        if !has_ref {
+            return None;
+        }
+        attrs.iter().find_map(|a| match a {
+            Attr::Macro { name, .. } if name == "if" => Some("if"),
+            Attr::Macro { name, .. } if name == "each" => Some("each"),
+            _ => None,
+        })
+    }
+
+    fn ref_gating_error(gate: &str, tag: &str) -> CompileError {
+        CompileError {
+            message: format!(
+                "C562: `$ref` cannot be combined with `${gate}` on the same element \
+                 (`<{tag}>`). The ref's `onMount` is emitted INSIDE the `${gate}` boundary \
+                 factory, which runs with no component-setup owner, so it throws 'no owner' \
+                 at runtime and the element and its whole subtree render blank — silently."
+            ),
+            line: 0,
+            col: 0,
+            code: Some("C562".to_string()),
+            hint: Some(format!(
+                "a `${gate}` boundary factory is owner-agnostic by construction; an `onMount` \
+                 registered inside it throws, and because the throw unwinds inside the boundary \
+                 the subtree blanks with nothing surfaced"
+            )),
+            fix: Some(format!(
+                "move `$ref` to an always-present ancestor (e.g. the `@template` root or a \
+                 wrapping element) so its `onMount` runs at setup-owner level, then read the \
+                 `${gate}`-gated element from that ref"
+            )),
+            from: Some(format!("<{tag} $ref={{…}} ${gate}=…>")),
+            to: Some(format!("<{tag} ${gate}=…> inside an ancestor that carries `$ref`")),
+        }
+    }
+
+    for node in nodes {
+        match node {
+            TemplateNode::Element { tag, attrs, children } => {
+                if let Some(gate) = ref_gate_conflict(attrs) {
+                    return Err(ref_gating_error(gate, tag));
+                }
+                validate_ref_gating(children)?;
+            }
+            TemplateNode::MacroElement { name, attrs, children } => {
+                if let Some(gate) = ref_gate_conflict(attrs) {
+                    return Err(ref_gating_error(gate, &format!("${name}")));
+                }
+                validate_ref_gating(children)?;
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches {
+                    validate_ref_gating(body)?;
+                }
+            }
+            TemplateNode::EachBlock { body, empty_body, .. } => {
+                validate_ref_gating(body)?;
+                if let Some(empty) = empty_body {
+                    validate_ref_gating(empty)?;
                 }
             }
             TemplateNode::Text(_)
