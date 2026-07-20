@@ -29,7 +29,7 @@ to prevent, and it happened on the first attempt.
 | **Derived** | 3 / 5 | 60% | closest |
 | **Governed** | 2 / 4 | 50% | |
 | **Attributed** | 1 / 3 | 33% | |
-| **Dual-audience** | **0 / 3** | **0%** | **furthest** |
+| **Dual-audience** | **0 / 4** | **0%** | **furthest** |
 
 ### Derived — 3/5
 
@@ -68,13 +68,20 @@ Reference counts corroborate: `agent-service` 12, `agent-server` 6, **`agent-a2a
 **Two of three transports fail tier 0.** Per the thesis this is a violation regardless of
 whether they transact, because the gate downstream has nothing to decide against.
 
-### Dual-audience — 0/3
+### Dual-audience — 0/4
+
+⚠️ **Scope amended 2026-07-19 (founder decision): the prerender path is IN SCOPE.**
+This row read 0/3 when first measured. The SSG writer was never examined, so a defect
+identical in class to the DA-c row was shipping unmeasured. Adding the DA-d row fixes
+nothing — it makes an existing defect visible. `check:dual-audience` accordingly measures
+4 and still fails; `baselines.json` records the 3 → 4 change and its reason.
 
 | Check | Result | Evidence |
 |---|---|---|
 | A markdown representation can be produced | ❌ | `MarkdownResolver` has **zero production implementations**. Every reference is the interface declaration (`content-negotiation.ts:13`), the config field (`:22`), or a test mock |
 | Negotiation reaches non-`Accept` clients | ❌ | no user-agent handling in `content-negotiation.ts` — `Accept`-header only, and AI crawlers don't send it |
 | Primary content retrievable without JS | ❌ | `packages/router/src/server.ts:41` — `renderToString(component)` with **no options**, so the production path emits non-hydratable output; combined with shadow-DOM-invisible-to-non-JS-extractors, content does not reach the agent axis |
+| Prerendered (SSG) content retrievable without JS | ❌ | `packages/app/src/prerender.ts:283` and `:382` — `renderToString(...)` with **no options**, the same defect class as the row above, in a second reachable production path. Measured behaviorally: driving the real `runPrerender` and reading the written file shows no `data-aihu-path` markers |
 
 **Zero passing.** The furthest property, and the measurement agrees with the prior estimate.
 
