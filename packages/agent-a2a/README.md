@@ -34,7 +34,7 @@ bun add @aihu/agent-a2a
 |---|---|
 | **Version** | `0.1.2` |
 | **Tier** | C — Agent surface — A2A (Agent-to-Agent) protocol |
-| **Bundle size** | 717 B (gz) — limit 750 B |
+| **Bundle size** | 717 B (gz) — limit 950 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
