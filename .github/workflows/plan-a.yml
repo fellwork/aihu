@@ -110,6 +110,22 @@ jobs:
       - run: bun run check:attributed
       - run: bun run check:governed
       - run: bun run check:dual-audience
+      # emit-parses (#453) — compile EVERY cookbook + examples/**/ .aihu fixture
+      # and assert the emitted JS actually parses. The compiler test suites only
+      # assert emitted output *contains* substrings; nothing proved it parsed,
+      # which let five invalid-output bugs ship at once (see the script header).
+      # As of #425/#449 the baseline is 0 compile / 0 parse across 58 components,
+      # so it gates at --expect-parse 0 --expect-compile 0: any example or
+      # component that stops compiling — or any emitter regression that produces
+      # unparseable JS — fails the build, and a count that drifts either way is
+      # red. Parked outside CI until now (investigation note in #445); an
+      # invariant not wired in protects nothing.
+      #
+      # Runs here with the rest of the Slice-0-style compile invariants: it needs
+      # the aihu-compile binary, staged at packages/compiler/bin above (resolved
+      # newest-first by the script), and no built dist, so it can fail fast
+      # before the coverage run.
+      - run: bun scripts/check-emit-parses.ts --expect-parse 0 --expect-compile 0
       # CLI templates B1.3 — scaffold-and-compile harness exercises the
       # template against an isolated tmpdir and asserts typecheck passes
       # against the emitted scaffold. Skipped on Windows runners (matches
@@ -363,13 +379,28 @@ jobs:
         run: |
           # Build only the polished examples that are also tested.
           # blog-loader (no index.html) and blog-router (.aihu without plugin) are WIP.
+          # The agent-feature showcases (agent-hub, storefront) are NOT in this
+          # `vite build` set: their app scaffolding uses dev-server-only wiring
+          # (agent-hub's index.html references the /@shared/ URL form that rollup
+          # cannot resolve at build; storefront aliases @aihu/arbor to a path it
+          # doesn't declare/install), unrelated to .aihu compile-correctness. Their
+          # SFC compile is guarded instead by check:emit-parses (#453), which
+          # compiles every examples/**/*.aihu (both showcases included) at 0/0, and
+          # their shape/API/wire contracts by the smoke suites in the test loop
+          # below (#454).
           for dir in examples/live-counter examples/temperature-converter examples/timer examples/todo-mvc examples/color-theme; do
             echo "Building ${dir}..."
             (cd "${dir}" && bun run build) || exit 1
           done
       - name: Test examples
         run: |
-          for dir in examples/live-counter examples/temperature-converter examples/timer examples/todo-mvc examples/color-theme; do
+          # agent-hub + storefront (#454): the agent-feature showcases. They went
+          # green after #425 but were outside the built+tested set, so they could
+          # regress silently again (which is how they broke originally). Their smoke
+          # suites (source-text + agent-registry simulation; offline, no dev server)
+          # run here so a shape/API/wire regression on either fails CI. Actual SFC
+          # compile regressions are caught upstream by check:emit-parses (#453).
+          for dir in examples/live-counter examples/temperature-converter examples/timer examples/todo-mvc examples/color-theme examples/agent-hub examples/storefront; do
             if [ -f "${dir}/tests/smoke.test.ts" ]; then
               echo "Testing ${dir}..."
               (cd "${dir}" && bun run test) || exit 1

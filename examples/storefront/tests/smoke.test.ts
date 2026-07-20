@@ -6,11 +6,11 @@
  *   A6-2:  storefront-root.aihu contains `createResourceStore`
  *   A6-3:  storefront-root.aihu contains `provide`
  *   A6-4:  storefront-root.aihu contains `CartContext`
- *   A6-5:  storefront-root.aihu contains `@agent`
+ *   A6-5:  storefront-root.aihu exposes agent metadata via v2 `expose:` collection form
  *   A6-6:  product-list.aihu contains `createResource`
  *   A6-7:  product-list.aihu contains `@aihu-plugin/data`
  *   A6-8:  product-list.aihu contains `inject`
- *   A6-9:  product-list.aihu contains `$expose`
+ *   A6-9:  product-list.aihu exposes state via v2 `expose:` collection form
  *   A6-10: cart-drawer.aihu contains `inject`
  *   A6-11: cart-drawer.aihu contains `checkout`
  *   A6-12: cart-drawer.aihu contains `Authorization`
@@ -62,8 +62,10 @@ describe('EX-13 storefront — storefront-root.aihu source-text checks', () => {
     expect(sfcSrc).toContain('CartContext')
   })
 
-  it('A6-5: storefront-root.aihu contains @agent block', () => {
-    expect(sfcSrc).toContain('@agent')
+  it('A6-5: storefront-root.aihu exposes agent metadata via v2 collection form', () => {
+    // v2 (#425) retired the `@agent { … }` / `$expose name` forms; agent
+    // exposure now rides on a collection entry as `expose: { read | write }`.
+    expect(sfcSrc).toContain('expose:')
   })
 })
 
@@ -86,8 +88,10 @@ describe('EX-13 storefront — product-list.aihu source-text checks', () => {
     expect(sfcSrc).toContain('inject')
   })
 
-  it('A6-9: product-list.aihu contains $expose', () => {
-    expect(sfcSrc).toContain('$expose')
+  it('A6-9: product-list.aihu exposes state via v2 collection form', () => {
+    // v2 (#425) retired `$expose name`; exposure rides on a collection entry
+    // as `expose: { read | write }`.
+    expect(sfcSrc).toContain('expose:')
   })
 })
 
