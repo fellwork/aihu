@@ -121,7 +121,33 @@ Each lesson includes its mitigation, tied to a universal principle in `SKILL.md`
 
 ---
 
-## Meta-pattern across all 11 lessons
+### 12. Worktree dispatch follows the SESSION's repo, not the target repo
+
+**What happened:** The session's working directory was one repo (`fellwork/data`) while all the work targeted a sibling repo (`fellwork/aihu`) in a separate worktree. Two Builders dispatched with `isolation: "worktree"` were handed auto-created worktrees **of the session repo** — the wrong repository, with no `packages/` dir and no target branch. Both reported BLOCKED. Earlier Builders had silently masked the defect by manually creating their own target-repo worktrees, so the Team Lead never diagnosed it and instead hardened the *wrong* thing (adding sterner "stay in your worktree" language to briefs that were pointing at the wrong repo entirely).
+
+**Mitigation — orchestration preflight, before ANY worktree dispatch:**
+- Confirm `git -C <session-cwd> remote get-url origin` equals the target repo's origin. If they differ, **`isolation: "worktree"` is unsafe** — it will build a worktree of the session repo.
+- When they differ: the Team Lead **pre-creates** the target-repo worktree (`git -C <target-repo> worktree add <path> -b <branch> <base>`) and hands the Builder the **literal path** plus `git rev-parse --show-toplevel` as its first check. Do not pass `isolation: "worktree"` in this case.
+- Never diagnose a repo-topology failure as an isolation-discipline failure. If an agent lands in a repo with no expected files, the dispatch was wrong, not the agent.
+
+**Recognition signal:** an agent reports "no `packages/` directory" / "branch doesn't exist" / "commit not found." That is a wrong-repo dispatch, not a lost agent — check topology before re-briefing.
+
+---
+
+### 13. The Team Lead's own verification must itself be verified
+
+**What happened:** Twice, a mutation test (revert the fix, confirm the check goes red) was scored with `bun run check:X 2>&1 | grep "0 finding"`. The grep matched the substring `0 finding` inside the failure line `expected 0 finding(s), got 1` — a **false PASS**. The Team Lead nearly reported a sound check as broken, and separately nearly reported a broken mutation as a valid negative control, because the *verification command itself* was wrong (the mutation didn't apply; the script printed `mutated: False`, which was ignored).
+
+**Mitigation:**
+- A grep that can match a substring of the *failure* message is not a pass test. Assert on exit code, or on a full anchored line (`^check:X — 0 finding`), never a bare substring.
+- Any mutation/negative-control step must first confirm the mutation *applied* (assert the needle existed; print the changed line) before interpreting the downstream result. A no-op mutation that leaves the check green proves nothing.
+- The self-test-refuses-to-run pattern is the gold standard: a check that emits `SELF-TEST FAILED … was not computed` when it cannot discriminate is safer than one that returns a number, because it cannot be misread by a sloppy grep.
+
+**Recognition signal:** if you are about to conclude "the fix is broken / the check is broken" from a one-line grep, stop and read the full output. Three of this session's near-misses were the Team Lead's verifier, not the work.
+
+---
+
+## Meta-pattern across all 13 lessons
 
 A common shape:
 
