@@ -20,7 +20,6 @@
   "measuredOn": "ci/thesis-invariants",
   "checks": {
     "derived": {
-      "expect": 1,
       "expect": 0,
       "reason": "Scorecard \u00a7Derived 5/5 \u2014 CLOSED 2026-07-20. Both findings fixed, neither re-scoped. (D2) DE1: the scaffold's hand-written `skills` literal in packages/cli/src/index.ts and its three 'kept in sync' comments are deleted; the MCP server card now DERIVES its tools from the compiler-populated @aihu/agent registry via skillsFromRegistry(), the same source @aihu/agent-server's buildToolDefinitions reads, so it cannot drift from a component's $action entries. DE1 also fixed a latent bug: agentMetadataToSkills read action.desc where the field is describe, so derived descriptions were silently empty. (D1) DE2: AgentReadinessConfig is single-sourced \u2014 @aihu/server owns it, packages/plugin-agent-readiness/src/types.ts re-exports via `export type ... from '@aihu/server'`, following the existing plugin->server dependency arrow with no new edge or cycle. Both verified in-worktree before merge: check:derived went 2->1 (DE1, D2 gone) and 1->0 (DE2, D1 gone), each with a bidirectional test.",
       "expectChangedFrom": 1,
@@ -68,11 +67,7 @@
       "expectCompile": 11,
       "expectParse": 5,
       "reason": "Measured 2026-07-19 against a freshly built target/release/aihu-compile: 16/59 fixtures fail, 11 compile + 5 parse. The 11 compile failures are stale v1 fixture syntax; the 5 parse failures are live emitter bugs producing invalid JS. This measurement corrects the 4 parse / 12 compile figure carried in the Slice-0 dispatch brief, and agrees with the script's own header ('16 fixtures still fail (11 stale-syntax examples, 5 emitted-JS bugs)').",
-      "blockedBy": [
-        "CO3",
-        "CO1",
-        "CO4"
-      ],
+      "blockedBy": ["CO3", "CO1", "CO4"],
       "ratchet": "CO3 (migrate 11 stale examples) takes compile 11\u21920 \u2014 the counts match exactly. CO1 ($prop write rewriting) removes at least the assignment-to-const parse failures. CO4 wires the gate once both have landed."
     }
   }
