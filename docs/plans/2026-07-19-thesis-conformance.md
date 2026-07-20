@@ -98,6 +98,61 @@ tests catch instances.**
 | `check:governed` | a reachable dispatch path bypasses the gate; a declared control no-ops when its plugin is absent | the dead allowlist; rate-limit fail-open |
 | `check:attributed` | any transport reaches an action invoker without a `RequestContext` | a2a and acp, on the day they landed |
 | `check:dual-audience` | a route's primary content is absent from a scriptless fetch | the shadow-DOM gap, structurally |
+| **`check:agent-conformance`** | **a freshly generated app, built and served with zero manual config, fails the SEO / agent-readiness checklist** | **everything below** |
+
+#### `check:agent-conformance` — the OOB bar
+
+**The existing compliance suites are green and measure nothing.** Measured 2026-07-19:
+115/115 passing across 13 files, including four `tests/compliance/` suites — and:
+
+| Suite | What it actually exercises |
+|---|---|
+| `isitagentready.test.ts` | **hand-wires its own router** via `defineRoute`, and **injects its own mock** `mdResolver` |
+| `llms-txt-spec.test.ts` | calls the generator directly; never touches an app |
+| `mcp-server-card-schema.test.ts` | same — and validates against **closed SEP-1649** |
+| `robots-rfc9309.test.ts` | same |
+
+**No test starts from a generated app.** All three `MarkdownResolver` instances in the test
+tree are inline mocks, which is exactly why content negotiation reports green while
+measuring 0/3 in production — *the test supplies the thing that does not exist*. The only
+well-known path any compliance test asserts is `well-known/mcp/server-card.json`, which is
+in no MCP spec.
+
+This is the same shape as `hydrate.test.ts` hand-writing `hydrate.0` markup, `AC11`
+asserting the invoker's rejection rather than the gate's, and the compiler suites asserting
+substrings rather than validity. **Four green suites, four things not measured.**
+
+What a generated app ships today (`packages/cli/src/index.ts`): non-spec
+`/.well-known/mcp/server-card.json`, a placeholder `endpoint`, and a hand-written `skills`
+array carrying **three separate comments** (lines 306, 315, 318) about keeping it mirrored
+with the `$action` entries. No sitemap, no `agent-card.json`, no `MarkdownResolver`, no ARD
+catalog.
+
+**The harness:**
+
+1. `aihu create` a fresh app into a temp dir — **no manual configuration whatsoever**
+2. `bun run build`
+3. Serve the built output
+4. Run the conformance checklist against the **served app over HTTP**
+5. Repeat across `examples/`
+6. Fail on any gap
+
+**Rules, because the failure mode here is well-documented:**
+- **No mocks.** If `MarkdownResolver` must exist in production, the harness may not supply one.
+- **No hand-wired routers.** Routes come from the app's own build output.
+- **Validate against current specs**, not the ones we happen to serve: `agent-card.json`
+  (not `agent.json`), no SEP-1649 claim, OAuth well-knowns either served or not advertised.
+- **Assert the SEO half too** — server-rendered `<head>` (title, description, canonical,
+  OG), a sitemap with real `lastmod` (never build-date stamped), and JSON-LD in `<head>`
+  or light DOM.
+
+**This invariant subsumes the other four in practice.** A generated app cannot pass unless
+the surface is genuinely derived, the paths genuinely correct, and the content genuinely
+reachable without JS. It is the only check that measures what a **user** receives rather
+than what a fixture provides.
+
+**Acceptance:** it must **fail** against the current scaffold on first run. If it passes
+immediately, the harness is wrong — rewrite it, don't celebrate.
 
 Mode 2, Architect → Builder → Verifier. Branch `ci/thesis-invariants`. These four are worth
 more than most of the feature work below.
@@ -196,8 +251,13 @@ From `2026-07-19-twenty-issue-remediation.md`, still binding:
 
 ## Definition of done
 
-- All four invariants exist, gate in CI, and pass.
+- All **five** invariants exist, gate in CI, and pass.
+- `check:agent-conformance` passes against a **freshly generated app with zero manual
+  config**, and across `examples/` — the OOB bar.
 - Scorecard reads 5/5, 4/4, 3/3, 3/3.
+- The four existing `tests/compliance/` suites are rewritten to exercise the real pipeline,
+  or deleted. A suite that injects the resolver it is meant to be testing is worse than no
+  suite, because it reports coverage that does not exist.
 - All 20 catalogued issues fixed or explicitly closed with rationale in `TODOS.md`.
 - No fixture edited to dodge a compiler bug.
 - Retro written, findings promoted, fresh GBrain sync on `main`.
