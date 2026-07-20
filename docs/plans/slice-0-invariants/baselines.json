@@ -20,10 +20,13 @@
   "measuredOn": "ci/thesis-invariants",
   "checks": {
     "derived": {
-      "expect": 2,
-      "reason": "Scorecard §Derived 3/5 — the two ❌ rows. (1) 'MCP server-card `skills` generated — ❌ — packages/cli/src/index.ts:206 — \"kept in sync with the `$action` entries\", hand-written in the scaffold' (rule D2, one finding: the scaffold carries three comments at :206/:306/:318 describing the single literal at :207-211, and grouping is by defect, not by comment). (2) '`AgentReadinessConfig` single-sourced — ❌ — mirrored in two files, both carrying \"Mirror of … keep in sync\": packages/server/src/agent-readiness-config.ts:1 and packages/plugin-agent-readiness/src/types.ts:1' (rule D1, one finding, keyed on the structural hash because the second comment wrongly claims to mirror itself).",
-      "blockedBy": ["DE1", "DE2"],
-      "ratchet": "DE1 (skills from registry) takes 2→1; DE2 (single-source config) takes 1→0."
+      "expect": 1,
+      "reason": "Scorecard §Derived — the remaining ❌ row after DE1. (D1, still present) '`AgentReadinessConfig` single-sourced — ❌ — mirrored in two files, both carrying \"Mirror of … keep in sync\": packages/server/src/agent-readiness-config.ts:1 and packages/plugin-agent-readiness/src/types.ts:1' (one finding, keyed on the structural hash because the second comment wrongly claims to mirror itself). DE2 owns this one and takes 1→0. (D2, CLEARED 2026-07-20 by DE1) 'MCP server-card `skills` generated' — the scaffold's hand-written `skills` literal at packages/cli/src/index.ts:207 (with three \"kept in sync\" comments at :206/:306/:318) is deleted; the MCP server card now DERIVES its tools from the compiler-populated @aihu/agent registry via `skillsFromRegistry()` in generateMcpServerCard — the same source @aihu/agent-server's buildToolDefinitions reads — so the card cannot drift from a component's `$action` entries. Proven by a bidirectional test (add/remove an exposed action → card tools change with no config edit).",
+      "expectChangedFrom": 2,
+      "expectChangedOn": "2026-07-20",
+      "expectChangedReason": "RATCHET DECREMENT 2→1 by DE1 (skills from registry). Only the D2 finding (the scaffold skills literal) was fixed; the D1 finding (duplicated AgentReadinessConfig) is DE2's and remains, so the honest value is 1, not 0. Fix landed with the deletion of the literal + all three sync comments and a runtime derivation; check:derived output confirms D2 gone, D1 present.",
+      "blockedBy": ["DE2"],
+      "ratchet": "DE2 (single-source config) takes 1→0."
     },
     "governed": {
       "expect": 0,

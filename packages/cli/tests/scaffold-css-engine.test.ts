@@ -69,11 +69,14 @@ describe('scaffold css-engine · vite.config.ts', () => {
     const cfg = appViteConfig('demo')
     // Gap 1: dev-server fix — @aihu/app must be excluded from esbuild pre-bundle.
     expect(cfg).toContain("optimizeDeps: { exclude: ['@aihu/app'] }")
-    // Gap 2: the agent surface is enabled by default with the counter skills.
+    // Gap 2: the agent surface is enabled by default. Its skills are DERIVED
+    // from the @aihu/agent registry at runtime, NOT a hand-written literal —
+    // so the emitted config carries no `skills:` array (thesis §2, Derived).
     expect(cfg).toContain('viteAgentReadinessIntegration(')
     expect(cfg).toContain("from '@aihu-plugin/agent-readiness'")
     expect(cfg).toContain("name: 'demo'")
-    expect(cfg).toContain("name: 'increment'")
+    expect(cfg).not.toContain('skills:')
+    expect(cfg).not.toContain("name: 'increment'")
     expect(cfg).toContain("dir: { pages: 'src/pages' }")
     // css off → no shadowMode block and no css-engine comment.
     expect(cfg).not.toContain('      css: { shadowMode')
