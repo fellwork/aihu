@@ -327,20 +327,22 @@ Both are optional. The entire block may be omitted. For full agent authoring det
 
 ## Common diagnostics
 
-The compiler enforces the v1 grammar with named diagnostics. The hard errors `C304` (Vue-shape `:attr=`), `C305` (colon-form event/bind alias), `C306` (plain-curly attribute binding), and `C107` (HTML-tag SFC framing) are covered by the Amendment 04 callout under [@template](#authoring-components). Three more are easy to hit and worth calling out:
+The compiler enforces the v1 grammar with named diagnostics. The hard errors `C304` (Vue-shape `:attr=`), `C305` (colon-form event/bind alias), `C306` (plain-curly attribute binding), and `C107` (HTML-tag SFC framing) are covered by the Amendment 04 callout under [@template](#authoring-components). Two more are easy to hit and worth calling out:
 
-### C205 — reading a `$prop` in a bare `@state` const (the common one)
+### Reading a `$prop` in a bare `@state` const
 
-A plain `@state` `const`/`let` is emitted *before* the prop bindings, so reading a prop there throws at runtime (temporal dead zone). The compiler rejects it with **C205** and steers you to `$computed`, where the read happens inside a thunk:
+Reading a prop inside a plain `@state` `const`/`let` **compiles** — the prop getter (`const name = ctx.props.name`) is hoisted above the `@state` body, so there is no temporal-dead-zone hazard. (An earlier compiler release rejected this with a `C205` error on the premise that the binding was emitted *after* the body; that ordering was fixed and the diagnostic retired.)
+
+The remaining reason to prefer `$computed` is reactivity, not compilation: a bare `const` captures the prop's value **once** at setup and never updates, whereas `$computed` re-reads the prop inside a thunk and stays reactive:
 
 ```
-// ✗ C205 — prop read in a plain const
+// compiles, but greeting is captured once and will not track prop changes
 @state {
   $prop: { name: { default: 'world', type: 'string' } }
   const greeting = `Hello, ${name()}!`
 }
 
-// ✓ read the prop inside $computed
+// reactive — re-reads the prop whenever it changes
 @state {
   $prop: { name: { default: 'world', type: 'string' } }
   $computed: {
@@ -348,8 +350,6 @@ A plain `@state` `const`/`let` is emitted *before* the prop bindings, so reading
   }
 }
 ```
-
-aihu does not re-order codegen to hide this — `$computed` is the supported path for any value derived from a prop.
 
 ### C204 — unknown `@block`
 

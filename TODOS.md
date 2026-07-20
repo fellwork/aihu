@@ -198,10 +198,9 @@
 - **Also:** `_rootIdCounter` is a mutable module global, so path keys are stable only within one page's mount ordering — not across a server and client render.
 - **Depends on:** nothing. Blocks any real SSR story, and blocks shards entirely.
 
-### C205 is a stale hard error rejecting valid code
-- **What:** `lib.rs:109-136` fires C205 when a plain `@state` const reads a `$prop`, on the premise that the prop shadow is emitted AFTER the plain body. Issue #279 hoisted prop bindings ABOVE the plain body (`emit.rs:2987-2995`, whose comment says so explicitly), which fixed the TDZ this guards against. Confirmed empirically: `const label = ctx.props.label` now emits before the plain body.
-- **Net:** code that would compile correctly today is rejected at build time. `cross_block_decls.rs:70-85` locks the obsolete rejection in, and four docs pages repeat the stale claim.
-- **Fix:** delete the check + its test, update docs. Small.
+### C205 is a stale hard error rejecting valid code — DONE (#424)
+- **What:** `lib.rs` fired C205 when a plain `@state` const read a `$prop`, on the premise that the prop shadow is emitted AFTER the plain body. Issue #279 hoisted prop bindings ABOVE the plain body, which fixed the TDZ this guarded against. Confirmed empirically: `const label = ctx.props.label` now emits before the plain body.
+- **Resolution:** deleted the C205 emission in `lib.rs`; replaced the rejection-locking test in `cross_block_decls.rs` with two `issue424_*` tests (prop read now compiles + prop binding emitted before the plain body); updated the four docs pages. The `find_plain_const_prop_read` helper in `signals.rs` is retained (its own unit tests still pass) but is no longer wired into the pipeline. No genuinely TDZ-unsafe construct depended on this guard.
 
 ### Shard prerequisites (only if pursuing topcoat-style server fragments)
 - Ordered; each blocks the next. Recorded from the feasibility pass so the shape isn't re-derived.
