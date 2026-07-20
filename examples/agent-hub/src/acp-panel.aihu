@@ -3,34 +3,45 @@
   import { HubServiceContext } from './hub-context'
   import { signal } from '@aihu/signals'
 
+  $action: {
+    sendAcpMessage: {
+      describe: 'Send a ping ACP message and store the response',
+      expose: { read: true, write: true },
+      handler: async () => {
+        setLoading(true)
+        try {
+          const res = await fetch('/acp/messages', {
+            method: 'POST',
+            body: JSON.stringify({ role: 'user', content: 'ping', parts: [] }),
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await res.json()
+          setResult(JSON.stringify(data, null, 2))
+        } catch (err) {
+          setResult(`Error: ${err}`)
+        } finally {
+          setLoading(false)
+        }
+      },
+    },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      fetch('/.well-known/acp-agent')
+        .then(r => r.json())
+        .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
+        .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
+    },
+  }
+
   const _service = inject(HubServiceContext)
+
   const [discoveryCard, setDiscoveryCard] = signal<string | null>(null)
+
   const [result, setResult] = signal<string | null>(null)
+
   const [loading, setLoading] = signal(false)
-
-  $lifecycle.mount: {
-    fetch('/.well-known/acp-agent')
-      .then(r => r.json())
-      .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
-      .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
-  }
-
-  $action sendAcpMessage: async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/acp/messages', {
-        method: 'POST',
-        body: JSON.stringify({ role: 'user', content: 'ping', parts: [] }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const data = await res.json()
-      setResult(JSON.stringify(data, null, 2))
-    } catch (err) {
-      setResult(`Error: ${err}`)
-    } finally {
-      setLoading(false)
-    }
-  }
 }
 
 @template {
@@ -48,8 +59,8 @@
       <button
         class="send-btn"
         $on.click={sendAcpMessage}
-        $attr.disabled={loading}
-        aria-busy={loading}
+        $disabled={loading}
+        $aria-busy={loading}
       >
         {loading ? 'Sending...' : 'Send ACP Message'}
       </button>
@@ -64,12 +75,6 @@
       No result yet — click "Send ACP Message" to make a request.
     </p>
   </div>
-}
-
-@agent {
-  $expose result: last ACP message response
-  $expose loading: whether a request is in-progress
-  getDiscoveryCard: { description: "Return the ACP discovery card" }
 }
 
 @style {

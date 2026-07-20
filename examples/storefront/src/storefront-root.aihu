@@ -4,24 +4,30 @@
   import { signal } from '@aihu/signals'
   import { createResourceSerializer, createResourceStore } from '@aihu-plugin/data'
 
+  // TODO (M3): pass serialize to renderToString SSR options; dehydrate products into
+  // <script id="__aihu_state__"> for client rehydration (arch-2 §M3)
+  $computed: {
+    cartCount: {
+      describe: 'Total items in cart',
+      expose: { read: true },
+      value: () => cartItems().length,
+    },
+  }
+
   const [cartItems, setCartItems] = signal([])
+
   provide(CartContext, [cartItems, setCartItems])
 
   const store = createResourceStore()
-  const serialize = createResourceSerializer(store)
-  // TODO (M3): pass serialize to renderToString SSR options; dehydrate products into
-  // <script id="__aihu_state__"> for client rehydration (arch-2 §M3)
 
-  $computed: {
-    cartCount: () => cartItems().length,
-  }
+  const serialize = createResourceSerializer(store)
 }
 
 @template {
   <div class="storefront-root">
     <header class="storefront-header">
       <span class="site-name">aihu Storefront</span>
-      <div class="cart-badge" $if={cartCount > 0} aria-label={"Cart: " + cartCount + " items"}>
+      <div class="cart-badge" $if={cartCount > 0} $aria-label={"Cart: " + cartCount + " items"}>
         <span class="cart-icon">🛒</span>
         <span class="cart-count">{cartCount}</span>
       </div>
@@ -39,10 +45,6 @@
 
     <agent-panel></agent-panel>
   </div>
-}
-
-@agent {
-  $expose cartCount: total items in cart
 }
 
 @style {

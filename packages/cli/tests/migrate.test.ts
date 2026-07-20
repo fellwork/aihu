@@ -314,6 +314,44 @@ describe('migrateInlineAttrs — C306 plain-curly rewrite (v1.0.8 / Amendment 04
   $class={todo.done ? 'completed' : ''}
 >`)
   })
+
+  it('rewrites onclick={expr} event handlers to $on.click={expr} (#425 c)', () => {
+    // Defect (#425 c): DOM event-handler attributes in curly form hit the
+    // C306 compile error but were missing from the migrator — neither the
+    // allowlist nor a dedicated rewrite covered them. They now rewrite to
+    // the canonical `$on.<event>` form used across the corpus.
+    const input = `<button class="demo-btn" onclick={() => setCount(n => n + 1)}>+1</button>`
+    const result = migrateInlineAttrs(input)
+    expect(result).toBe(
+      `<button class="demo-btn" $on.click={() => setCount(n => n + 1)}>+1</button>`,
+    )
+    // Other events map the same way, and the pass is idempotent.
+    expect(migrateInlineAttrs(`<input oninput={onType}>`)).toBe(`<input $on.input={onType}>`)
+    expect(migrateInlineAttrs(result)).toBe(result)
+    // Inline-string handlers (`onclick="…"`) are valid HTML and untouched.
+    expect(migrateInlineAttrs(`<button onclick="legacy()">x</button>`)).toBe(
+      `<button onclick="legacy()">x</button>`,
+    )
+  })
+
+  it('converts quoted $let="…" to curly $let={…} (#425 b)', () => {
+    // Defect (#425 b): `$let="product"` is rejected in v2 (C500 — the quoted
+    // `$`-prefixed form is reserved for built-in macros); `$let` passes a
+    // prop value and must use the curly form.
+    const input = `<product-card
+  $each="products as product"
+  $let="product"
+  $key="product.id"
+></product-card>`
+    const result = migrateInlineAttrs(input)
+    expect(result).toBe(`<product-card
+  $each="products as product"
+  $let={product}
+  $key="product.id"
+></product-card>`)
+    // Idempotent — the curly form never re-matches.
+    expect(migrateInlineAttrs(result)).toBe(result)
+  })
 })
 
 describe('migrateInlineAttrs — combined / cross-cutting cases (v1.0.8)', () => {

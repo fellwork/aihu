@@ -5,6 +5,13 @@
 }
 
 @state {
+  // Inject ReadingContext — a parallel data channel provided server-side in
+  // [slug].loader.ts via @aihu/context/ssr runWithContext + provide.
+  // This demonstrates @aihu/context alongside route.data; it is NOT a
+  // replacement for route.data but an additive context slot.
+  import { inject } from '@aihu/context'
+  import { ReadingContextToken } from './[slug].loader.ts'
+
   // The loader runs server-side (see [slug].loader.ts) and the resolved
   // payload is injected as the `route.data` prop. See:
   //   docs/site/data-fetching.md → "Server loaders → SFC handoff"
@@ -13,13 +20,6 @@
       type: { params: { slug: string } data: { title: string; body: string; readingTimeMs: number } },
     },
   }
-
-  // Inject ReadingContext — a parallel data channel provided server-side in
-  // [slug].loader.ts via @aihu/context/ssr runWithContext + provide.
-  // This demonstrates @aihu/context alongside route.data; it is NOT a
-  // replacement for route.data but an additive context slot.
-  import { inject } from '@aihu/context'
-  import { ReadingContextToken } from './[slug].loader.ts'
   const readingCtx = inject(ReadingContextToken)
 }
 
@@ -67,25 +67,5 @@
   @media (max-width: 480px) {
     article { margin: 1rem; }
     .context-badge { font-size: 0.75em; }
-  }
-}
-
-@agent {
-  // Agent surface for blog-loader-post — exposes the currently rendered post
-  // and a list of known slugs for agent discoverability.
-  // Arch-2 §0: every example demonstrates BOTH a human UX and an agent surface.
-
-  expose: {
-    getPost: {
-      // Returns the current post's title, body, and readingTimeMs
-      // sourced from the route.data prop (the loader handoff).
-      title: route.data.title,
-      body: route.data.body,
-      readingTimeMs: route.data.readingTimeMs,
-    },
-    listPosts: {
-      // Mirrors POSTS keys in [slug].loader.ts — update both if posts change.
-      slugs: ["hello", "meta", "agents"],
-    },
   }
 }

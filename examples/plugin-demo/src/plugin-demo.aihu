@@ -4,20 +4,14 @@
 
 @state {
   import { signal, computed } from '@aihu/signals'
-
   const [count, setCount] = signal(0)
+
   const doubled = computed(() => count() * 2)
 
   // $greeting: { name: "aihu" }
   // ^^ Macro contribution demo — $greeting is declared by @aihu/plugin-demo.
   // The compiler dispatcher is a no-op at v0.2.x; the contribution SHAPE
   // exercises the macro slot.
-}
-
-@agent {
-  $expose count
-  $expose doubled
-  getCount: { description: "Return current counter value" }
 }
 
 @template {
@@ -29,7 +23,7 @@
       <p class="demo-value">{count()}</p>
       <p class="demo-label">Doubled</p>
       <p class="demo-value demo-muted">{doubled()}</p>
-      <button class="demo-btn" onclick={() => setCount(n => n + 1)}>
+      <button class="demo-btn" $on.click={() => setCount(n => n + 1)}>
         Increment
       </button>
     </div>

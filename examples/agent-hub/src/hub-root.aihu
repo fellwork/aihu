@@ -4,16 +4,20 @@
   import { HubServiceContext } from './hub-context'
   import { signal } from '@aihu/signals'
 
+  $computed: {
+    agentList: () => getAllAgentMetadata(),
+    agentCount: {
+      describe: 'Number of sub-agents registered',
+      expose: { read: true },
+      value: () => agentList.length,
+    },
+  }
+
   // Context token — imported from hub-context.ts so panel SFCs can inject the
   // same token reference. createContext is kept in scope for API-pattern demo.
   // provide() is a no-op when no context map is active (client-side); included
   // here to demonstrate the @aihu/context API pattern.
   provide(HubServiceContext, null)
-
-  $computed: {
-    agentList: () => getAllAgentMetadata(),
-    agentCount: () => agentList.length,
-  }
 
   const [activeTab, setActiveTab] = signal<'a2a' | 'acp'>('a2a')
 }
@@ -279,11 +283,4 @@
       gap: 0.25rem;
     }
   }
-}
-
-@agent {
-  $expose agentCount: number of sub-agents registered
-  $expose activeTab: currently active protocol tab
-
-  getAgentList: { description: "Return all registered agent metadata" }
 }

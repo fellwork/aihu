@@ -158,11 +158,9 @@
 - **Start at:** the router-macro lowering for `$afterNavigate` / `$beforeNavigate` in `packages/compiler/src/codegen/emit.rs` — compare against how `$lifecycle` callbacks correctly keep their head and args.
 - **Depends on:** nothing.
 
-### 11 example components no longer compile (stale v1 syntax)
-- **Files:** all three `examples/agent-hub/src/*`, all three `examples/storefront/src/*`, `examples/blog-loader/src/pages/posts/[slug].aihu`, `examples/cf-adapter`, `examples/plugin-demo`, `examples/realtime-scores`, `examples/archived/markdown-preview`.
-- **What:** they use retired syntax — `$expose` in `@agent` (C440), bare `expose:`/`getX:` keywords inside `@agent`, and one HTML-tag `<style>` block (C107). The v2 macro-vocabulary migration landed a codemod (`packages/compiler/js/codemods/macro-simplification/migrate.ts`) and these were never run through it.
-- **Note:** `examples/archived/` is explicitly archived; the other ten are not. `examples/agent-hub` and `examples/storefront` are the two showcase apps for the agent feature and neither compiles today.
-- **Fix:** run the codemod, or delete what is genuinely dead. Cheap and mechanical; the blocker is deciding which examples are still wanted.
+### ~~11 example components no longer compile (stale v1 syntax)~~ — FIXED (#425)
+- **Resolved:** all ten non-archived files migrated to v2 (`aihu migrate --v2` chain + hand edits for the `$action name: <arrow>` colon form and stale template macros); `examples/archived/` deleted (git history is the archive). `bun run check:emit-parses` is at **0 compile / 0 parse** failures across all 58 components — including `examples/hacker-news`, whose `$afterNavigate` emit bug (above) no longer reproduces against current `main`.
+- **Codemod defects fixed in the same slice:** `$lifecycle.mount: { … }` colon form, quoted `$let="…"`, `onclick={…}`-family C306 event handlers, async-arrow round-trip on the v2 idempotency path, statement-aware `@state` passthrough, trailing-comment preservation. The macro-simplification pass is now reachable via `aihu migrate --v2` (plus `--dry-run` on the standalone runner).
 
 ### ~~agent-service gate authorizes by tag, not action name~~ — FIXED
 - **Resolved:** `runGate` now checks the requested action against the metadata registered for the tag — it must appear in `actions`, or in `state` (handleToolCall falls through to `getSignal` for those). The old check, `typeof binding.callAction === 'function'`, was always true, so the allowlist was dead code on the only branch that can succeed and the CLIENT was the de-facto authority.

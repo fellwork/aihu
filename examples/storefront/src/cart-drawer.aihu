@@ -3,32 +3,47 @@
   import { CartContext } from './cart-context'
   import { signal } from '@aihu/signals'
 
-  const cartSignal = inject(CartContext)
-  const [getCart, _setCart] = cartSignal ?? [() => [], () => {}]
-
   $computed: {
-    cartItems: () => getCart(),
+    cartItems: {
+      describe: 'Current cart items',
+      expose: { read: true },
+      value: () => getCart(),
+    },
     total: () => cartItems.reduce((s, i) => s + i.price, 0),
-    cartCount: () => cartItems.length,
+    cartCount: {
+      describe: 'Number of items in cart',
+      expose: { read: true },
+      value: () => cartItems.length,
+    },
   }
+
+  const cartSignal = inject(CartContext)
+
+  const [getCart, _setCart] = cartSignal ?? [() => [], () => {}]
 
   const [checkoutStatus, setCheckoutStatus] = signal('idle')
 
-  async function checkout() {
-    setCheckoutStatus('pending')
-    try {
-      const r = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer demo-token-xyz',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: cartItems }),
-      })
-      setCheckoutStatus(r.ok ? 'ok' : 'error')
-    } catch {
-      setCheckoutStatus('error')
-    }
+  $action: {
+    checkout: {
+      describe: 'Initiate checkout with current cart items',
+      expose: { read: true, write: true },
+      handler: async () => {
+        setCheckoutStatus('pending')
+        try {
+          const r = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer demo-token-xyz',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ items: cartItems }),
+          })
+          setCheckoutStatus(r.ok ? 'ok' : 'error')
+        } catch {
+          setCheckoutStatus('error')
+        }
+      },
+    },
   }
 }
 
@@ -52,7 +67,7 @@
         class="cart-item"
         $each={cartItems}
         $key="id"
-        $let="item"
+        $let={item}
       >
         <span class="item-name">{item.name}</span>
         <span class="item-price">${item.price.toFixed(2)}</span>
@@ -68,7 +83,7 @@
       class="checkout-btn"
       $if={cartCount > 0}
       $on.click={checkout}
-      $attr.disabled={checkoutStatus() === 'pending'}
+      $disabled={checkoutStatus() === 'pending'}
       aria-label="Proceed to checkout"
     >
       {checkoutStatus() === 'pending' ? 'Processing…' : 'Checkout'}
@@ -82,13 +97,6 @@
       Checkout failed. Please try again.
     </div>
   </aside>
-}
-
-@agent {
-  $expose cartItems: current cart items
-  $expose cartCount: number of items in cart
-  $expose checkoutStatus: idle | pending | ok | error
-  checkout: { description: "Initiate checkout with current cart items" }
 }
 
 @style {

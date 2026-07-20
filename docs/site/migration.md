@@ -1,4 +1,4 @@
-# Migration (v0 → v1)
+# Migration (v0 → v1 → v2)
 
 aihu v1 (shipped 2026-05-03, grammar Amendment 04 at v1.0.8) finalized the `.aihu` SFC grammar. Pre-v1 sources written against the older HTML-tag framing or the v0 macro forms will not compile against the current `@aihu/compiler`. This page consolidates every breaking change and maps each old form to its v1 replacement.
 
@@ -118,6 +118,63 @@ The v0 `@agent`-level macros are removed. `$expose`, `$expose.write`, agent-bare
 
 `@agent` now holds only cross-cutting declarations (`$scope`, `$rate-limit`).
 
+## 7. Migration (v1 → v2) — the macro-vocabulary pass
+
+v2 (spec 2026-05-05, "macro vocabulary v2") collapses the per-declaration `$macro name …` forms inside `@state` into **collection form** — one `$<macro>: { … }` object per macro kind — and finishes the `@agent` fold-in started in §6. Sources written against the transitional v1 forms fail with **C440** (retired `@state`/`@agent` macro forms), **C001** (`unknown keyword` inside `@agent`), or **C500** (quoted-form `$`-attr reserved for built-ins).
+
+**Codemod first, again.** The macro-simplification codemod is wired into the CLI:
+
+```sh
+npx aihu migrate --v2 <files...>          # v0→v1 passes, then the v1→v2 macro pass
+npx aihu migrate --v2 --dry-run <files...>  # preview without writing
+```
+
+The same pass can be run standalone from a checkout via
+`bun packages/compiler/js/codemods/macro-simplification/run-migration.ts [--dry-run] <files...>`.
+Both are idempotent — re-running on already-v2 source is a no-op.
+
+What the pass rewrites (each of these appeared in the examples corpus):
+
+**`$lifecycle` — colon and call forms → one collection.**
+
+```
+// before (v1 — either form)
+$lifecycle.mount: {
+  connect()
+}
+$lifecycle.dispose(() => disconnect())
+
+// after (v2)
+$lifecycle: {
+  mount: () => {
+    connect()
+  },
+  dispose: () => disconnect(),
+}
+```
+
+**`@agent` per-name macros → `describe:` / `expose:` on `@state` entries.** `$expose name`, `$expose name: <description>`, `$describe`, agent-bare `$action`, and ad-hoc tool declarations (`getX: { description: "…" }`) are all retired; the `@agent` block is dropped entirely when nothing but `$scope` / `$rate-limit` remains. See §6 for the target shape.
+
+**Quoted `$let` → curly form (C500).** The quoted `$attr="…"` form is reserved for built-in macros; `$let` passes a prop value and must use the curly form:
+
+```
+// before (v1 → C500)          // after (v2)
+<item-card $let="item" />      <item-card $let={item} />
+```
+
+**Curly-form DOM event handlers → `$on.<event>` (C306).**
+
+```
+// before (v1 → C306)                       // after (v2)
+<button onclick={() => bump()}>+1</button>  <button $on.click={() => bump()}>+1</button>
+```
+
+### Cases the codemod cannot resolve (hand-edit)
+
+- **`$action name: <arrow>` colon form** (e.g. `$action send: async () => { … }`) — rewrite by hand to a collection entry: `$action: { send: { describe: '…', expose: { read: true, write: true }, handler: async () => { … } } }`.
+- **`@agent` metadata naming a plain `signal()` binding** — `expose:`/`describe:` attach to *collection entries* (`$prop` / `$computed` / `$action` / `$resource`). A raw `const [x, setX] = signal(…)` has no entry to carry them; either wrap the value in a `$computed` entry or accept that the name is not agent-exposed. Plain `function f() { … }` helpers that should stay agent-callable are worth converting to `$action` entries by hand.
+- **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → `$<name>={…}` (e.g. `$attr.disabled` → `$disabled`), and dot-form class toggles `$class.name={…}` → the colon-namespaced `$class:name={…}`.
+
 ## Diagnostic quick reference
 
 | Code | Meaning | Fix |
@@ -128,6 +185,7 @@ The v0 `@agent`-level macros are removed. `$expose`, `$expose.write`, agent-bare
 | C305 | colon-form event/bind alias | `$on.click=…`, `$bind.value=…` |
 | C306 | plain-curly attribute binding (`class={…}`) | `$class={…}` |
 | C440 | removed v1 agent macros (`$expose`, `$describe`, …) | per-name `describe:` / `expose:` on collection entries |
+| C500 | quoted `$`-attr that is not a built-in macro (`$let="x"`) | curly form: `$let={x}` |
 | W210 | `$on.<non-event>` → dead handler | use `$html` for innerHTML, or a real event |
 
 ## See also

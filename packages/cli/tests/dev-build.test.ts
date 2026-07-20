@@ -55,7 +55,7 @@ describe('bin.ts dispatcher', () => {
     const src = readFileSync(join(__dirname, '..', 'src', 'bin.ts'), 'utf8')
     expect(src).toContain("if (cmd === 'migrate')")
     expect(src).toContain("await import('./commands/migrate.js')")
-    expect(src).toContain('migrateFiles(files, dryRun, process.cwd())')
+    expect(src).toContain('migrateFiles(files, dryRun, process.cwd(), v2)')
   })
 
   it('lists migrate in the top-level usage text (bug 9c)', async () => {
