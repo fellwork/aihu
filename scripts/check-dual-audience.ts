@@ -532,6 +532,57 @@ async function runDaD(mode: ProbeMode): Promise<{ body: string; finding: Finding
   }
 }
 
+// ─── DA-e (INFORMATIONAL, #437): route components without `$shadow` ──────────
+//
+// DA4 phase-1 ratchet PREP, not a finding. The founder-ratified classifier
+// (`docs/architecture/thesis.md` §DA4) makes `@route`-block components pages,
+// and pages default to `shadowMode: 'none'` at the next MAJOR. Until that flip
+// lands, a route component with no explicit `$shadow` is future-behavior-
+// changing but not yet wrong — so this scan REPORTS the count and never
+// contributes to `findings`. When the flip PR lands, this count becomes an
+// enforced finding class (content extractability, per ratification amendment
+// 4) and joins the `expectCount` contract like DA-a..DA-d.
+//
+// The detector mirrors the compiler's W472 (`route_shadow_flip_warning` in
+// packages/compiler/src/lib.rs): `@route` block present AND no `$shadow`
+// macro. Text-shape match rather than a compiler invocation, deliberately —
+// this check must run on a plain checkout with no Rust binary built, and an
+// informational count does not warrant spawning the compiler per file.
+
+/** Where shipped `.aihu` sources live. Fixtures/bench corpora are not shipped
+ * code and are excluded (tests via GLOBAL_EXCLUDES, bench by omission). */
+const AIHU_SOURCE_GLOBS = [
+  'packages/**/*.aihu',
+  'apps/**/*.aihu',
+  'examples/**/*.aihu',
+  'cookbook/**/*.aihu',
+] as const
+
+/** The W472 shape: an `@route` block with no `$shadow` declaration. */
+function isRouteComponentWithoutShadow(source: string): boolean {
+  const hasRoute = /^@route\s*\{/m.test(source)
+  const hasShadow = /^\s*\$shadow\b/m.test(source)
+  return hasRoute && !hasShadow
+}
+
+function runDaE(files: ReadonlyArray<{ rel: string; source: string }>): string[] {
+  return files.filter((f) => isRouteComponentWithoutShadow(f.source)).map((f) => f.rel)
+}
+
+function aihuSources(base = ROOT): Array<{ rel: string; source: string }> {
+  const out: Array<{ rel: string; source: string }> = []
+  const seen = new Set<string>()
+  for (const pattern of AIHU_SOURCE_GLOBS) {
+    for (const m of new Glob(pattern).scanSync(base)) {
+      const rel = m.replaceAll('\\', '/')
+      if (seen.has(rel) || isExcluded(rel)) continue
+      seen.add(rel)
+      out.push({ rel, source: readFileSync(join(base, rel), 'utf8') })
+    }
+  }
+  return out.sort((a, b) => a.rel.localeCompare(b.rel))
+}
+
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 /** A fixture that DOES implement the resolver — DA-a's should-not-flag half. */
@@ -595,6 +646,34 @@ async function runSelfTest(): Promise<void> {
     expected: 0,
   })
 
+  // DA-e detector, both directions. Informational today, but a detector that
+  // cannot discriminate would report a meaningless count — same bar as the
+  // enforced rules. `$shadow: 'none'` and `$shadow: 'open'` must BOTH count as
+  // pinned (the macro always wins in the ratified classifier), and a leaf with
+  // no `@route` must never count.
+  cases.push({
+    label: 'DA-e should-flag: @route block, no $shadow',
+    actual: runDaE([
+      {
+        rel: 'fixture/page.aihu',
+        source: '@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n',
+      },
+    ]).length,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-e should-not-flag: $shadow pinned, and a routeless leaf',
+    actual: runDaE([
+      {
+        rel: 'fixture/pinned.aihu',
+        source:
+          "@state {\n  $shadow: 'open'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n",
+      },
+      { rel: 'fixture/leaf.aihu', source: '@template {\n  <button>ok</button>\n}\n' },
+    ]).length,
+    expected: 0,
+  })
+
   // DA-d, both directions. Same inversion, landed by DA3b.
   cases.push({
     label: 'DA-d should-flag: non-hydratable prerender (the pre-DA3b regression)',
@@ -630,6 +709,17 @@ if (daC.finding) findings.push(daC.finding)
 
 const daD = await runDaD('live')
 if (daD.finding) findings.push(daD.finding)
+
+// DA-e — reported, NEVER pushed to `findings` in this phase (#437 phase 1).
+const aihuFiles = aihuSources()
+const daE = runDaE(aihuFiles)
+console.log(
+  `${NAME} — informational (DA-e, #437 DA4 prep): ${daE.length} route component(s) without an ` +
+    `explicit $shadow, of ${aihuFiles.length} shipped .aihu file(s) scanned. These flip to ` +
+    'light DOM at the DA4 major (compiler warns W472 now). NOT enforced in this phase; becomes ' +
+    'a ratcheted finding when the default flips.',
+)
+for (const rel of daE) console.log(`  ${rel}  [DA-e informational]`)
 
 console.log(
   `${NAME} — scanned ${entries.length} public-entry source file(s); ran ${UA_MATRIX.length} ` +

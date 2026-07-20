@@ -3,6 +3,8 @@
 }
 
 @state {
+$shadow: 'none'
+
 import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)

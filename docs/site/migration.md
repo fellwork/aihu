@@ -175,6 +175,42 @@ $lifecycle: {
 - **`@agent` metadata naming a plain `signal()` binding** — `expose:`/`describe:` attach to *collection entries* (`$prop` / `$computed` / `$action` / `$resource`). A raw `const [x, setX] = signal(…)` has no entry to carry them; either wrap the value in a `$computed` entry or accept that the name is not agent-exposed. Plain `function f() { … }` helpers that should stay agent-callable are worth converting to `$action` entries by hand.
 - **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → `$<name>={…}` (e.g. `$attr.disabled` → `$disabled`), and dot-form class toggles `$class.name={…}` → the colon-namespaced `$class:name={…}`.
 
+## 8. Preparing for light-DOM pages (W472)
+
+> **Forward-looking.** Unlike the sections above, nothing here is broken today. This section describes a default that changes at the **next major** and how to opt in (or out) now.
+
+At the next major release, **page-level components — those with an `@route` block — will default to `shadowMode: 'none'` (light DOM)**. Leaf components (buttons, inputs, design-system primitives — anything without `@route`) keep shadow DOM. The classifier is:
+
+1. An explicit `$shadow` macro always wins.
+2. Otherwise, an `@route` block makes the component a **page** → `shadowMode: 'none'`.
+3. Otherwise it is a **leaf** → `shadowMode: 'open'` (unchanged).
+
+**Why.** AI crawlers do not execute JavaScript, so a page's primary content must reach them as server-rendered *light* DOM. Declarative Shadow DOM does not reliably fix this — spec-compliant extractors read a `<template shadowrootmode>` subtree as empty. Light DOM for page content is the structural fix, and it independently simplifies hydration.
+
+**The warning.** Starting with this release, compiling a component that has an `@route` block but no `$shadow` macro emits **W472** (a warning — the build still succeeds):
+
+```
+warning: W472: this page-level component will default to shadowMode 'none' (light DOM)
+in the next major; write `$shadow open` to keep shadow DOM, or `$shadow none` to adopt
+light DOM now
+```
+
+**The escape hatches.** Pin the mode explicitly in `@state` and the flip can never change your component's behavior (and W472 goes quiet):
+
+```
+// keep today's behavior — this page stays shadow DOM through the flip
+@state {
+  $shadow: 'open'
+}
+
+// adopt the future default now — this page goes light DOM immediately
+@state {
+  $shadow: 'none'
+}
+```
+
+Both work per-file today, end to end: the macro emits a `// @aihu:shadow <mode>` marker that the Vite plugin reads to override its global `shadowMode` for that file. New apps scaffolded with `aihu app` now pin `$shadow: 'none'` on the generated index page, so fresh projects are on the future default from day one.
+
 ## Diagnostic quick reference
 
 | Code | Meaning | Fix |
@@ -187,6 +223,7 @@ $lifecycle: {
 | C440 | removed v1 agent macros (`$expose`, `$describe`, …) | per-name `describe:` / `expose:` on collection entries |
 | C500 | quoted `$`-attr that is not a built-in macro (`$let="x"`) | curly form: `$let={x}` |
 | W210 | `$on.<non-event>` → dead handler | use `$html` for innerHTML, or a real event |
+| W472 | `@route` component without `$shadow` — defaults to light DOM at the next major | pin the mode: `$shadow: 'open'` or `$shadow: 'none'` |
 
 ## See also
 

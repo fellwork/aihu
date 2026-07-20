@@ -136,11 +136,77 @@ pub fn compile_full_with_options<'a>(
         // remain safe. No genuinely TDZ-unsafe construct depended on this guard.
     }
 
+    // DA4 phase 1 (#437) — W472: a route (page-level) component that does not
+    // pin its shadow mode with `$shadow` changes behavior at the ratified DA4
+    // default flip (next MAJOR): pages default to shadowMode 'none' (light
+    // DOM) so server-rendered page content is reachable by non-JS crawlers.
+    // This runs AFTER the script-macro validation block above so a hard parse
+    // error in `@state` wins over the advisory warning, and it is non-fatal by
+    // construction — it flows through `diagnostics::emit_warning` (stderr),
+    // never the `Result` channel, so the build cannot fail on it.
+    if let Some(w) = route_shadow_flip_warning(source) {
+        crate::diagnostics::emit_warning(&w);
+    }
+
     Ok(CompileUnit {
         source: source.clone(),
         template_ast,
         target,
         expr_parser,
+    })
+}
+
+/// DA4 phase 1 (#437) — the W472 decision, as a pure function so the
+/// precedence triple is directly testable (emission itself goes to stderr and
+/// cannot be asserted from an integration test).
+///
+/// Classifier (founder-ratified, `docs/architecture/thesis.md` §DA4):
+/// `$shadow` always wins; else an `@route` block makes the component a PAGE
+/// (future default `shadowMode: 'none'`); else it is a LEAF (stays `'open'`).
+/// The flip is semver-major and is preceded by exactly this warning release —
+/// this function only WARNS about the upcoming page default; it changes no
+/// emitted output.
+///
+/// Returns `Some(warning)` iff the unit has an `@route` block and no `$shadow`
+/// macro. Any `$shadow` mode (`open`/`closed`/`none`) suppresses it — the
+/// author has pinned the mode, so the flip cannot change their behavior. A
+/// script that fails to parse is treated as "no `$shadow`", which is fine
+/// because `compile_full_with_options` surfaces the hard parse error first and
+/// never reaches the warning.
+pub fn route_shadow_flip_warning(source: &AihuSource) -> Option<CompileError> {
+    source.route.as_ref()?;
+    let has_shadow = source.script.is_some_and(|script| {
+        parser::state_macros::parse_state_macros(script).is_ok_and(|macros| {
+            macros
+                .iter()
+                .any(|m| matches!(m, StateMacro::Shadow { .. }))
+        })
+    });
+    if has_shadow {
+        return None;
+    }
+    Some(CompileError {
+        message: "this page-level component will default to shadowMode 'none' (light DOM) in the \
+                  next major; write `$shadow open` to keep shadow DOM, or `$shadow none` to adopt \
+                  light DOM now"
+            .to_string(),
+        line: 0,
+        col: 0,
+        code: Some("W472".to_string()),
+        hint: Some(
+            "DA4: components with an `@route` block are pages, and pages become light DOM by \
+             default so server-rendered content is reachable by non-JS crawlers; leaf components \
+             keep shadow DOM"
+                .to_string(),
+        ),
+        fix: Some(
+            "pin the mode in `@state`: `$shadow: 'open'` keeps today's behavior, `$shadow: 'none'` \
+             adopts the future default now and silences this warning"
+                .to_string(),
+        ),
+        from: Some("@state {".to_string()),
+        to: Some("@state {\n  $shadow: 'open'".to_string()),
+        ..Default::default()
     })
 }
 

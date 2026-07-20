@@ -313,8 +313,18 @@ export function appIndexAihu(appName: string = 'app', withCssEngine = false): st
   // runtime (the compiler emits `registerAgentMetadata` from it; the
   // agent-readiness plugin reads the registry), never hand-mirrored in
   // vite.config — so the card cannot drift from the component.
+  //
+  // DA4 (#437): the plain scaffold pins `$shadow: 'none'` — pages default to
+  // light DOM at the next major so non-JS crawlers can read server-rendered
+  // content; new apps adopt that now, and the pin silences the W472 warning a
+  // fresh scaffold would otherwise compile with. The css-engine scaffold does
+  // NOT pin: its shadow mode is the user's `--shadow` wizard choice, carried
+  // as the PLUGIN-GLOBAL `css: { shadowMode }` in vite.config.ts, and a
+  // per-file `$shadow` marker would override that choice (the `--shadow`
+  // semantics change belongs to the flip PR, not the warning release).
+  const shadowPin = withCssEngine ? '' : "$shadow: 'none'\n\n"
   const stateBlock = `@state {
-import { signal } from '@aihu/signals'
+${shadowPin}import { signal } from '@aihu/signals'
 
 const [count, setCount] = signal(0)
 
