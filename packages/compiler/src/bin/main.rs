@@ -146,18 +146,11 @@ fn render_human_error(e: &aihu_compiler::CompileError, file_label: &str, source:
         }
     }
 
-    if let Some(hint) = e.hint.as_deref() {
-        let _ = writeln!(w, "  hint: {}", hint);
-    }
-    if let Some(fix) = e.fix.as_deref() {
-        let _ = writeln!(w, "  fix:  {}", fix);
-    }
-    // Surface the machine rewrite for humans/AIs too (the LSP reads the JSON
-    // form, but the plain-text form is useful in stderr/dev-overlay).
-    if let (Some(from), Some(to)) = (e.from.as_deref(), e.to.as_deref()) {
-        let _ = writeln!(w, "  replace: {}", from);
-        let _ = writeln!(w, "  with:    {}", to);
-    }
+    // The `hint:` / `fix:` / `replace:` / `with:` tail is shared with the
+    // WARNING channel (`crate::diagnostics::emit_warning`), so the two shapes
+    // cannot drift. Only the header and codeframe above are error-specific — a
+    // parse-time warning has no file/line/col to anchor a codeframe to.
+    aihu_compiler::diagnostics::write_tail(&mut w, e);
 }
 
 /// O1a (tag naming): normalize the resolved define-name (`@meta name` →

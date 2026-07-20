@@ -122,10 +122,12 @@ fn is_suspicious_event_name(event: &str) -> bool {
 /// exact failure mode in the bug report cb666cc2).
 fn warn_unknown_event(event: &str) {
     // Rich-diagnostic warning (r2 dx-tooling): message + hint + fix on
-    // separate lines, mirroring the human-error renderer in `bin/main.rs`.
-    // W210 is a non-fatal warning emitted during parse, so it does not flow
-    // through the `CompileError` Result path — we format it inline here so it
-    // shares the same visual shape as the rich errors.
+    // separate lines. W210 is a non-fatal warning emitted during parse, so it
+    // does not flow through the `CompileError` Result path — but it is
+    // RENDERED by the same writer the error path uses
+    // (`crate::diagnostics::write_tail`), so the two shapes cannot drift.
+    // This previously hand-formatted its own `eprintln!` block, which is
+    // exactly how CO1's member-write warning ended up shipping without one.
     let (hint, fix) = if event == "html" || event == "innerhtml" {
         (
             format!(
@@ -143,12 +145,18 @@ fn warn_unknown_event(event: &str) {
             "Did you mean a real DOM event (e.g. `$on.click`)?".to_string(),
         )
     };
-    eprintln!(
-        "warning: W210: `$on.{}` references '{}', which is not a known DOM event.",
-        event, event
-    );
-    eprintln!("  hint: {}", hint);
-    eprintln!("  fix:  {}", fix);
+    crate::diagnostics::emit_warning(&CompileError {
+        message: format!(
+            "`$on.{}` references '{}', which is not a known DOM event.",
+            event, event
+        ),
+        line: 0,
+        col: 0,
+        code: Some("W210".to_string()),
+        hint: Some(hint),
+        fix: Some(fix),
+        ..Default::default()
+    });
 }
 
 /// Returns `true` when `name` (an internal-AST macro name, post colon-normalization)
