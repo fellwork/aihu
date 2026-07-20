@@ -26,10 +26,15 @@ to prevent, and it happened on the first attempt.
 
 | Property | Passing | Distance | Rank |
 |---|---|---|---|
-| **Derived** | 3 / 5 | 60% | closest |
-| **Governed** | 2 / 4 | 50% | |
-| **Attributed** | **3 / 3** | **100%** | **closed (AT1)** |
-| **Dual-audience** | **0 / 3** | **0%** | **furthest** |
+| **Derived** | 3 / 5 | 60% | **closest remaining** |
+| **Governed** | **4 / 4** | **100%** | **cleared 2026-07-19 (GO1 + GO2)** |
+| **Attributed** | **3 / 3** | **100%** | **cleared 2026-07-19 (AT1)** |
+| **Dual-audience** | **0 / 4** | **0%** | **furthest** — now 4, prerender ruled in scope |
+
+Governed cleared via GO1 + GO2 (branch `fix/governed-track`). `check:governed` went
+**2 findings → 0**, and `baselines.json` `governed.expect` was decremented 2 → 0 in the
+same commit. It is the first property to reach zero; the ranking above now describes the
+remaining three.
 
 ### Derived — 3/5
 
@@ -45,14 +50,42 @@ to prevent, and it happened on the first attempt.
 boundaries with a sync comment on each copy. Note the second file claims to mirror *itself*
 — a copy-paste artifact that suggests the duplication was never deliberate.
 
-### Governed — 2/4
+### Governed — 4/4 ✅
 
 | Check | Result | Evidence |
 |---|---|---|
-| Gate is universal across entry points | ✅ | `agent-service.ts:238` (`handleToolCall`) and `:271` (`authorize`) both call `runGate` |
-| Action allowlist enforced server-side | ✅ | fixed today; `AC11b` proves a permissive binding is still denied |
-| Rate limiting fails closed | ❌ | `agent-service.ts:215` — `if (rateLimitSpec !== null && rateLimitPlugin)`. Declare `$rate-limit`, omit the plugin, get silently unlimited |
-| Bridge handshake verified | ❌ | `BRIDGE_PROTOCOL_VERSION` is **sent** (`bridge-client.ts:67`) and **exported** (`index.ts:15`) — and never checked server-side. Nothing validates it |
+| Gate is universal across entry points | ✅ | `agent-service.ts` — `handleToolCall` and `authorize` both call `runGate` |
+| Action allowlist enforced server-side | ✅ | `AC11b` proves a permissive binding is still denied |
+| Rate limiting fails closed | ✅ | **GO1** — the guard was split: `$rate-limit` declared with no `rateLimitPlugin` now returns **429 `RATE_LIMIT_MISSING`** instead of dispatching, mirroring the `$scope`/401 `AUTH_MISSING` posture |
+| Bridge handshake verified | ✅ | **GO2** — `callTool` refuses to delegate to a channel that has not completed a valid `hello` (**503 `BRIDGE_UNVERIFIED`**); `BRIDGE_PROTOCOL_VERSION` is now compared, not merely sent |
+
+Both were closed on 2026-07-19 (branch `fix/governed-track`); `check:governed` reports
+**0 findings**, down from 2.
+
+**What each fix had to avoid.** The thesis names two failure modes, and they pull in
+opposite directions — under-enforcement (*"a declared control that silently no-ops when
+its plugin is absent"*) and over-enforcement, its mirror, where a fix degenerates into
+"deny everything" and is indistinguishable from a broken gate. Both slices are therefore
+pinned by **bidirectional named tests**:
+
+- GO1 — a declared control with its plugin absent **denies** (429/401), *and* an undeclared
+  control **still dispatches**, *and* the two declared controls deny with **distinct codes**
+  (401 vs 429), proving two separate checks rather than one blanket rule.
+- GO2 — three channels are **rejected** (no `hello`; mismatched protocol; non-numeric
+  protocol), *and* a validly-handshaken channel **is delegated to**, *and* the no-bridge
+  headless/CI path still dispatches with **no handshake at all**.
+
+**Scope note.** GO2's verification governs *channel-attached delegation only*. The
+no-bridge path has no channel to verify, and requiring a handshake there would have broken
+every bridge-less consumer — an explicit non-goal.
+
+⚠️ **Open, needs a product decision — not fixed by GO1.** The rate-limit key is
+`` `${userId}:${tag}` ``, and `userId` arrives **caller-supplied** over MCP
+(`mcp-server.ts` reads it from `request.params.arguments.context`) with no cross-check
+against the JWT `sub`. A caller can reset its own quota by rotating `userId`. GO1 makes the
+control *impossible to silently disable*; it does not make the *identity* trustworthy. See
+`docs/plans/governed-track/build-manifest.md` §"Surfaced decision" for the two candidate
+fixes and why each needs a decision above this slice.
 
 ### Attributed (tier 0) — 3/3 — CLOSED by AT1
 
@@ -200,14 +233,30 @@ simplifies the shard track independently.
 security hole; spec conformance is a large, multi-round slice. Do not let the security fix
 wait on the rewrite.
 
-### Track GO — Governed (2/4)
+### Track GO — Governed (4/4 ✅ — landed 2026-07-19, branch `fix/governed-track`)
 
-| Slice | What | Branch |
+| Slice | What | Status |
 |---|---|---|
-| **GO1** | Rate limiting fails closed; keys not caller-derived | `fix/ratelimit-fail-closed` |
-| **GO2** | Bridge verifies the handshake it already sends | `fix/bridge-auth` |
+| **GO1** | Rate limiting fails closed | ✅ landed — 429 `RATE_LIMIT_MISSING` when the plugin is absent |
+| **GO1a** | Rate-limit keys not caller-derived | ⚠️ **open — needs a product decision**, see below |
+| **GO2** | Bridge verifies the handshake it already sends | ✅ landed — 503 `BRIDGE_UNVERIFIED` for an unhandshaken channel |
 
-### Track DE — Derived (3/5, closest)
+Both landed slices carry bidirectional tests (deny when unenforceable / still dispatch when
+undeclared). `check:governed` 2 → 0; `baselines.json` `governed.expect` 2 → 0 in the same
+commit.
+
+**GO1a was split out of GO1 mid-slice.** The original GO1 line bundled "fails closed" with
+"keys not caller-derived" as one slice. They are not one slice: the first is a fail-closed
+guard with an obvious correct answer, the second is an *identity provenance* question with
+no answer available below this track. `userId` is caller-supplied over MCP and never checked
+against the JWT `sub`, so quotas are evaded by rotating it. The two candidate fixes —
+extending `AuthPlugin` with a verified `subject(jwt)` (reaches `@aihu/auth`, and forces a
+decision about rate-limited-but-unscoped components that carry no JWT), or refusing
+caller-supplied context at the MCP boundary (breaks every current caller) — are both
+decisions, not implementations. Rather than half-fix it, GO1 shipped the guard and the gap
+is recorded here, in `baselines.json`, at the call site, and in the build manifest.
+
+### Track DE — Derived (3/5, closest remaining)
 
 | Slice | What | Branch |
 |---|---|---|

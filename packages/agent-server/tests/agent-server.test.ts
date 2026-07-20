@@ -31,6 +31,7 @@ import { createAgentServer } from '../src/agent-server.ts'
 import { createComponentMcpServer } from '../src/mcp-server.ts'
 import { opaqueActionId } from '../src/opaque-id.ts'
 import type { AgentServer, BridgeChannel } from '../src/types.ts'
+import { BRIDGE_PROTOCOL_VERSION } from '../src/types.ts'
 
 // ─── A real reactive counter component + its server agent-binding ────────────
 
@@ -244,9 +245,19 @@ describe('security gate is preserved through callTool', () => {
 
 // ─── WS capability-bridge contract ───────────────────────────────────────────
 
-/** Minimal in-memory bridge whose outbound frames are captured by `onSend`. */
+/**
+ * Minimal in-memory bridge whose outbound frames are captured by `onSend`.
+ *
+ * `handshake()` sends the `hello` frame a real `createBridgeClient` sends on
+ * connect. Since GO2 the server refuses to delegate to a channel that has not
+ * completed one, so any test expecting forwarding must call it. It is explicit
+ * at each call site rather than folded into construction, because the handshake
+ * is now security-relevant: a fixture that silently handshakes would hide
+ * exactly the property these tests exist to pin.
+ */
 function makeFakeBridge(onSend: (data: string) => void): BridgeChannel & {
   reply(data: string): void
+  handshake(): void
   fireClose(): void
 } {
   let msgHandler: ((d: string) => void) | null = null
@@ -273,6 +284,9 @@ function makeFakeBridge(onSend: (data: string) => void): BridgeChannel & {
     },
     reply(data: string) {
       msgHandler?.(data)
+    },
+    handshake() {
+      msgHandler?.(JSON.stringify({ type: 'hello', protocol: BRIDGE_PROTOCOL_VERSION }))
     },
     fireClose() {
       open = false
@@ -381,6 +395,9 @@ describe('WS capability bridge', () => {
       )
     })
     server.attachBridge(bridge)
+    // The browser client completes the protocol handshake on connect; without
+    // it the server would refuse to delegate (GO2).
+    bridge.handshake()
 
     // callTool takes the positional args array directly (the MCP layer unwraps
     // `.args` before calling it; here we call callTool directly).
@@ -419,6 +436,9 @@ describe('WS capability bridge', () => {
       bridge.fireClose()
     })
     server.attachBridge(bridge)
+    // A verified channel — so the 503 below is provably the DISCONNECT, not the
+    // handshake refusal (which also returns 503, with a different message).
+    bridge.handshake()
 
     const res = (await server.callTool(`${TAG}/increment`, [1], { userId: 'u1' })) as {
       code: number
@@ -426,5 +446,226 @@ describe('WS capability bridge', () => {
     }
     expect(res.code).toBe(503)
     expect(res.error).toContain('BRIDGE_ERROR')
+  })
+})
+
+// ─── GO2: the bridge must VERIFY the handshake it already sends ──────────────
+//
+// Thesis §3: "The client is never the policy authority", and the named failure
+// mode "a check that is structurally always-true".
+//
+// `BRIDGE_PROTOCOL_VERSION` was defined, sent by `bridge-client.ts`, imported
+// AND re-exported by `agent-server.ts` — and never once appeared on the
+// right-hand side of a comparison anywhere in the tree. `attachBridge` accepted
+// any channel, and `callTool` delegated execution to it. A channel that
+// receives `invoke` frames IS the execution authority; it must prove which
+// protocol it speaks before becoming one.
+//
+// Every test here asserts the GATE's envelope (503 BRIDGE_UNVERIFIED) AND that
+// no `invoke` frame reached the wire — never merely that the call failed.
+//
+// BIDIRECTIONAL: three rejection cases, then a must-delegate case and the
+// no-bridge headless path. Without those last two, "refuse every channel" would
+// score identically to a correct fix while breaking the bridge outright.
+
+describe('GO2 under-enforcement — an unverified channel must never be delegated to', () => {
+  /** Attach a bridge, optionally send `hello`, invoke, and report what happened. */
+  async function probe(hello: unknown | undefined): Promise<{
+    res: { code?: number; error?: string; result?: unknown }
+    invokes: string[]
+  }> {
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      // Keep the no-`hello` case from waiting out the full default timeout.
+      bridgeHandshakeTimeoutMs: 50,
+    })
+    const sent: string[] = []
+    const bridge = makeFakeBridge((data) => {
+      sent.push(data)
+      // A cooperative browser would answer; if the server ever forwards, the
+      // call resolves rather than hanging, so a failure reads as a wrong CODE.
+      const frame = JSON.parse(data) as { callId: string }
+      bridge.reply(JSON.stringify({ type: 'result', callId: frame.callId, result: 1 }))
+    })
+    server.attachBridge(bridge)
+    if (hello !== undefined) bridge.reply(JSON.stringify(hello))
+
+    const res = (await server.callTool(`${TAG}/increment`, [1], { userId: 'u1' })) as {
+      code?: number
+      error?: string
+    }
+    return { res, invokes: sent.filter((s) => s.includes('"invoke"')) }
+  }
+
+  it('(a) an invoke with NO prior hello → 503 BRIDGE_UNVERIFIED, nothing forwarded', async () => {
+    const { res, invokes } = await probe(undefined)
+    expect(res.code).toBe(503)
+    expect(res.error).toContain('BRIDGE_UNVERIFIED')
+    expect(invokes).toHaveLength(0)
+  })
+
+  it('(b) hello with a MISMATCHED protocol version → 503, nothing forwarded', async () => {
+    const { res, invokes } = await probe({
+      type: 'hello',
+      protocol: BRIDGE_PROTOCOL_VERSION + 1,
+    })
+    expect(res.code).toBe(503)
+    expect(res.error).toContain('BRIDGE_UNVERIFIED')
+    expect(res.error).toContain('mismatch')
+    expect(invokes).toHaveLength(0)
+  })
+
+  it('(c) hello with a NON-NUMERIC protocol value → 503, nothing forwarded', async () => {
+    const { res, invokes } = await probe({ type: 'hello', protocol: 'not-a-number' })
+    expect(res.code).toBe(503)
+    expect(res.error).toContain('BRIDGE_UNVERIFIED')
+    expect(invokes).toHaveLength(0)
+  })
+
+  it("a stringified protocol ('1') is not coerced into agreement", async () => {
+    // `'1' == 1` is true under loose equality; the check is strict on purpose.
+    const { res, invokes } = await probe({ type: 'hello', protocol: '1' })
+    expect(res.code).toBe(503)
+    expect(invokes).toHaveLength(0)
+  })
+
+  it('an unverified channel cannot resolve calls or overwrite serialize() state', async () => {
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+    })
+    const bridge = makeFakeBridge(() => {})
+    server.attachBridge(bridge)
+
+    // A peer that never identified itself pushes a snapshot. Honouring it would
+    // let an unverified channel dictate what the server reports as state.
+    bridge.reply(JSON.stringify({ type: 'snapshot', snapshot: { count: 9999 } }))
+
+    expect(server.serialize()).not.toMatchObject({ count: 9999 })
+  })
+
+  it('attaching a NEW channel resets verification — status is never inherited', async () => {
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      bridgeHandshakeTimeoutMs: 50,
+    })
+
+    const good = makeFakeBridge(() => {})
+    server.attachBridge(good)
+    good.handshake()
+
+    // A second peer takes over the bridge without handshaking. If verification
+    // were global rather than per-channel, it would inherit `good`'s status.
+    const sent: string[] = []
+    const impostor = makeFakeBridge((d) => sent.push(d))
+    server.attachBridge(impostor)
+
+    const res = (await server.callTool(`${TAG}/increment`, [1], { userId: 'u1' })) as {
+      code?: number
+    }
+    expect(res.code).toBe(503)
+    expect(sent.filter((s) => s.includes('"invoke"'))).toHaveLength(0)
+  })
+})
+
+describe('GO2 over-enforcement — verification must not break the working paths', () => {
+  it('a channel that sends a VALID hello IS delegated to', async () => {
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+    })
+    const sent: string[] = []
+    const bridge = makeFakeBridge((data) => {
+      sent.push(data)
+      const frame = JSON.parse(data) as { callId: string }
+      bridge.reply(JSON.stringify({ type: 'result', callId: frame.callId, result: { ok: 1 } }))
+    })
+    server.attachBridge(bridge)
+    bridge.handshake()
+
+    const res = (await server.callTool(`${TAG}/increment`, [1], { userId: 'u1' })) as {
+      result: unknown
+      code?: number
+    }
+    expect(res.code).toBeUndefined()
+    expect(res.result).toEqual({ ok: 1 })
+    expect(sent.filter((s) => s.includes('"invoke"'))).toHaveLength(1)
+  })
+
+  it('a hello arriving AFTER callTool starts still verifies (the attach/connect race)', async () => {
+    // Over a real socket `attachBridge` returns before the client's `hello`
+    // lands. Denying that would turn a normal startup race into a spurious
+    // failure, so the wait is bounded rather than instantaneous.
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+    })
+    const sent: string[] = []
+    const bridge = makeFakeBridge((data) => {
+      sent.push(data)
+      const frame = JSON.parse(data) as { callId: string }
+      bridge.reply(JSON.stringify({ type: 'result', callId: frame.callId, result: 7 }))
+    })
+    server.attachBridge(bridge)
+
+    const call = server.callTool(`${TAG}/increment`, [1], { userId: 'u1' })
+    // Handshake lands a tick later, while the call is already in flight.
+    await Promise.resolve()
+    bridge.handshake()
+
+    const res = (await call) as { result: unknown; code?: number }
+    expect(res.code).toBeUndefined()
+    expect(res.result).toBe(7)
+    expect(sent.filter((s) => s.includes('"invoke"'))).toHaveLength(1)
+  })
+
+  it('the NO-BRIDGE headless path needs no handshake at all', async () => {
+    // agent-server.ts's no-bridge branch (headless / CI dispatch) has no
+    // channel to verify. Requiring a handshake there would break every
+    // bridge-less consumer — the explicit non-goal of this slice.
+    const counter = makeCounter()
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+    })
+
+    const res = (await server.callTool(`${TAG}/increment`, [5], { userId: 'u1' })) as {
+      result: unknown
+      code?: number
+    }
+    expect(res.code).toBeUndefined()
+    // Dispatched on the server-mounted instance, as the headless path must.
+    expect(counter.readCount()).toBe(5)
+  })
+
+  it('a gate rejection still reports its OWN code, not the transport error', async () => {
+    // Ordering: the agent-service gate runs before channel verification, so an
+    // unauthorized call is denied for its own reason (403) and is still never
+    // forwarded — the handshake check must not mask 404/401/403/429.
+    const counter = makeCounter({ scope: 'admin' })
+    const server = spawn({
+      target: { node: counter.node, agentBinding: counter.agentBinding },
+      createHost: host,
+      authPlugin: { checkScope: (jwt, scope) => jwt.includes(scope) },
+      bridgeHandshakeTimeoutMs: 50,
+    })
+    const sent: string[] = []
+    server.attachBridge(makeFakeBridge((d) => sent.push(d))) // never handshakes
+
+    const res = (await server.callTool(`${TAG}/increment`, [1], {
+      userId: 'u1',
+      jwt: 'nope',
+    })) as { code: number; error: string }
+
+    expect(res.code).toBe(403)
+    expect(res.error).toContain('SCOPE_DENIED')
+    expect(sent.filter((s) => s.includes('"invoke"'))).toHaveLength(0)
   })
 })

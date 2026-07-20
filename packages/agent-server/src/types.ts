@@ -63,13 +63,30 @@ export interface AgentServerOptions {
    * Lets scoped/rate-limited tools be reachable over the bundled HTTP path.
    */
   resolveAuth?: AgentServiceOptions['resolveAuth']
+  /**
+   * How long (ms) `callTool` waits for an attached bridge channel to complete
+   * its `hello` handshake before refusing to delegate to it (503
+   * `BRIDGE_UNVERIFIED`). Defaults to 1000ms.
+   *
+   * The wait exists only to absorb the attach/connect race over a real socket;
+   * it is not a grace period. A channel that sends a MISMATCHED or non-numeric
+   * protocol version is rejected immediately, without waiting out this timeout.
+   */
+  bridgeHandshakeTimeoutMs?: number
 }
 
 // ─── WS capability-bridge contract (T2 → T3) ─────────────────────────────────
 
 /**
  * Protocol version for the capability bridge. Bumped on any breaking change to
- * the message shapes below so a stale browser client can refuse to connect.
+ * the message shapes below.
+ *
+ * ENFORCED SERVER-SIDE: `createAgentServer` compares an attached channel's
+ * `hello.protocol` against this constant and refuses to delegate any invocation
+ * to a channel that did not send a matching numeric value (503
+ * `BRIDGE_UNVERIFIED`). A stale browser client may also refuse to connect, but
+ * the server never relies on it to — per thesis §3, the client is never the
+ * policy authority.
  */
 export const BRIDGE_PROTOCOL_VERSION = 1 as const
 
@@ -194,6 +211,13 @@ export interface AgentServer {
    * Attach a browser bridge channel. Approved invocations are forwarded to it;
    * `result`/`error`/`snapshot` frames from it resolve pending `callTool`
    * promises. Returns a detach function.
+   *
+   * The channel MUST complete the `hello` handshake (see
+   * {@link BRIDGE_PROTOCOL_VERSION}) before anything is delegated to it. Until
+   * it does, `hello` is the only frame it may send, and `callTool` refuses to
+   * forward — an unverified channel never becomes the execution authority.
+   * Attaching a new channel always resets this state; verified status is never
+   * inherited from a previous peer.
    */
   attachBridge(channel: BridgeChannel): () => void
 

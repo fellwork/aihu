@@ -44,6 +44,14 @@ interface PendingBridgeCall {
 let _callIdCounter = 0
 
 /**
+ * How long a `callTool` waits for an attached channel's `hello` before
+ * refusing to delegate to it. Generous relative to a localhost WS round trip
+ * (single-digit ms) so a normal attach/connect race never denies, short enough
+ * that a channel which will never handshake fails fast and loudly.
+ */
+const DEFAULT_BRIDGE_HANDSHAKE_TIMEOUT_MS = 1000
+
+/**
  * Detect a gate-rejection envelope from `handleToolCall`. The agent-service
  * returns `{ error, code, jsonrpc }` for 404/401/403/429 and `{ result }` on
  * success. We forward to the bridge ONLY when there is no rejection `code`.
@@ -111,6 +119,7 @@ function ensureServerDom(): void {
  */
 export function createAgentServer(options: AgentServerOptions): AgentServer {
   const { target } = options
+  const handshakeTimeoutMs = options.bridgeHandshakeTimeoutMs ?? DEFAULT_BRIDGE_HANDSHAKE_TIMEOUT_MS
 
   // ── Step 1: mount server-side so the LiveBinding registers ─────────────────
   let scope: MountScope
@@ -153,6 +162,62 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
   const pending = new Map<string, PendingBridgeCall>()
   let lastBridgeSnapshot: Snapshot | null = null
 
+  // ── Bridge handshake state (thesis §3: the client is never the authority) ──
+  //
+  // `BRIDGE_PROTOCOL_VERSION` was defined, sent by the client, imported by the
+  // server, and re-exported — but never once appeared on the right-hand side of
+  // a comparison anywhere in the tree. The constant existed for a check nobody
+  // wrote, so `attachBridge` accepted ANY channel and `callTool` would delegate
+  // execution to it. An unverified channel that receives `invoke` frames IS the
+  // execution authority; letting it become one without proving which protocol
+  // it speaks is the thesis §3 failure mode "a check that is structurally
+  // always-true", in its most literal form — a check that does not exist.
+  //
+  // Verification is a precondition for DELEGATION only. It is deliberately NOT
+  // a precondition for the no-bridge path below (headless/CI dispatch), which
+  // has no channel to verify and must keep working untouched.
+  type HandshakeState = 'pending' | 'verified' | 'rejected'
+  let handshake: HandshakeState = 'pending'
+  let handshakeReason = ''
+  /** Woken when `handshake` leaves `'pending'`. */
+  let handshakeWaiters: Array<() => void> = []
+
+  function settleHandshake(state: 'verified' | 'rejected', reason: string): void {
+    if (handshake !== 'pending') return
+    handshake = state
+    handshakeReason = reason
+    const waiters = handshakeWaiters
+    handshakeWaiters = []
+    for (const w of waiters) w()
+  }
+
+  /**
+   * Validate a `hello` frame's protocol field.
+   *
+   * Strict: the value must be a finite `number` EQUAL to
+   * {@link BRIDGE_PROTOCOL_VERSION}. `BridgeHelloMessage.protocol` is typed
+   * `number`, but this value arrives as untyped JSON off a socket, so the
+   * runtime `typeof` guard is load-bearing rather than redundant — `"1"`, `null`
+   * and `NaN` are all rejected here, not coerced into agreement.
+   */
+  function checkHelloProtocol(raw: unknown): { ok: true } | { ok: false; reason: string } {
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      return {
+        ok: false,
+        reason:
+          `bridge client sent a non-numeric protocol value (${JSON.stringify(raw)}); ` +
+          `expected ${BRIDGE_PROTOCOL_VERSION}`,
+      }
+    }
+    if (raw !== BRIDGE_PROTOCOL_VERSION) {
+      return {
+        ok: false,
+        reason: `bridge protocol mismatch: client speaks ${raw}, server speaks ${BRIDGE_PROTOCOL_VERSION}`,
+      }
+    }
+    return { ok: true }
+  }
+
   function handleBridgeFrame(data: string): void {
     let msg: BridgeClientMessage
     try {
@@ -160,11 +225,20 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
     } catch {
       return // ignore malformed frames
     }
+    // Until the channel has proved its protocol, `hello` is the ONLY frame it
+    // may send. Honouring `result`/`error`/`snapshot` from an unverified peer
+    // would let it resolve calls and overwrite `serialize()` state without ever
+    // having identified itself.
+    if (handshake !== 'verified' && msg.type !== 'hello') return
     switch (msg.type) {
-      case 'hello':
-        // The client may also gate on version; we just record it. A mismatch is
-        // surfaced by the client refusing to connect, not by the server here.
+      case 'hello': {
+        const verdict = checkHelloProtocol((msg as { protocol?: unknown }).protocol)
+        settleHandshake(
+          verdict.ok ? 'verified' : 'rejected',
+          verdict.ok ? '' : (verdict as { reason: string }).reason,
+        )
         return
+      }
       case 'snapshot':
         lastBridgeSnapshot = msg.snapshot
         if (msg.callId) {
@@ -198,10 +272,54 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
     pending.clear()
   }
 
+  /**
+   * Wait for the attached channel to complete its handshake.
+   *
+   * A bounded wait rather than an instantaneous check, because `attachBridge`
+   * and the client's `hello` are inherently racy over a real socket: the demo
+   * server attaches the channel and an agent may call a tool before the first
+   * frame has crossed the wire. Failing instantly there would turn a normal
+   * startup race into a spurious denial. The wait is bounded so an unverified
+   * channel produces a prompt, loud 503 instead of hanging — a bridge that
+   * hangs looks like infrastructure flake; one that denies looks like the
+   * defect it is.
+   *
+   * A `rejected` handshake short-circuits: there is nothing left to wait for.
+   */
+  function awaitHandshake(): Promise<HandshakeState> {
+    if (handshake !== 'pending') return Promise.resolve(handshake)
+    return new Promise<HandshakeState>((resolve) => {
+      let done = false
+      const finish = (): void => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        resolve(handshake)
+      }
+      const timer = setTimeout(() => {
+        settleHandshake(
+          'rejected',
+          `bridge client sent no \`hello\` within ${handshakeTimeoutMs}ms; ` +
+            'an unverified channel is not delegated to',
+        )
+        finish()
+      }, handshakeTimeoutMs)
+      // `unref` where available so a pending handshake timer never holds a
+      // Node/Bun process (or a vitest worker) open past its work.
+      ;(timer as unknown as { unref?: () => void }).unref?.()
+      handshakeWaiters.push(finish)
+    })
+  }
+
   function attachBridge(channel: BridgeChannel): () => void {
     // Replace any prior bridge.
     detachBridge?.()
     bridge = channel
+    // A new channel is a new peer: it must prove its protocol on its own, and
+    // must never inherit the previous channel's verified status.
+    handshake = 'pending'
+    handshakeReason = ''
+    handshakeWaiters = []
     const offMsg = channel.onMessage(handleBridgeFrame)
     const offClose = channel.onClose(() => {
       rejectAllPending('bridge disconnected')
@@ -259,6 +377,15 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
       // dispatcher; the gate carries no policy info onto the wire.
       const verdict = await service.authorize(toolName, params, ctx)
       if (isGateRejection(verdict)) return verdict
+
+      // The agent-service gate has approved the CALL; this verifies the
+      // CHANNEL. Deliberately ordered after `authorize` so the security
+      // ordering invariant (404 → 401 → 403 → 429) still wins: an unauthorized
+      // call is refused for its own reason, not masked by a transport error,
+      // and is still never forwarded.
+      if ((await awaitHandshake()) !== 'verified') {
+        return { error: `BRIDGE_UNVERIFIED: ${handshakeReason}`, code: 503 }
+      }
 
       const opaqueActionId = opaqueActionIdForTool(toolName)
       if (!opaqueActionId) return { error: `bad tool: ${toolName}`, code: 400 }
