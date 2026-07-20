@@ -237,7 +237,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.0.4` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
+| [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.1.0` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.2` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.1` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.2` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
@@ -267,7 +267,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/router`](./packages/router) | `0.3.0` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `2.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.1.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
-| [`@aihu/seo`](./packages/seo) | `0.2.1` | aihu SEO plugin: sitemap.xml, robots.txt, llms.txt, JSON-LD injection via afterParse hook. |
+| [`@aihu/seo`](./packages/seo) | `1.0.0` | DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD). |
 | [`@aihu/server`](./packages/server) | `0.2.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.3.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |

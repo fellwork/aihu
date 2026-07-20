@@ -48,8 +48,16 @@ export interface AgentReadinessConfig {
   }>
 
   // ── robots.txt ───────────────────────────────────────────────────────
-  /** Default: 'allow-all'. */
+  /**
+   * AI-agent crawl policy. Default: `'allow-agents'` (tiered, since
+   * @aihu-plugin/agent-readiness 2.1.0 / #430) — user-delegated fetchers
+   * (ChatGPT-User, OAI-SearchBot, DuckAssistBot, Applebot) are allowed;
+   * training/scraping crawlers (GPTBot, CCBot, Bytespider, …) are disallowed
+   * and must be opted in explicitly via `'allow-all'` or rules.
+   * Any other string value throws at robots.txt generation time.
+   */
   readonly aiAgents?:
+    | 'allow-agents'
     | 'allow-all'
     | 'deny-all'
     | ReadonlyArray<{
@@ -65,6 +73,12 @@ export interface AgentReadinessConfig {
     readonly crawlDelay?: number
   }>
   readonly sitemap?: string
+  /**
+   * robots.txt always ends with a `User-agent: * / Allow: /` block for
+   * predictable output. Set `false` to suppress it. (It is also skipped
+   * automatically when one of your own rules already targets `*`.)
+   */
+  readonly wildcard?: boolean
 
   // ── Skills ───────────────────────────────────────────────────────────
   /** Manually declared MCP skills, merged with auto-derived from AgentMetadata.actions. */

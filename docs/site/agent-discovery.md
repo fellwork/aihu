@@ -171,35 +171,66 @@ The `llmsSections` and `llmsOptional` fields on `AgentReadinessConfig` feed dire
 
 ## robots.txt
 
-Aihu generates an agent-friendly `robots.txt` per RFC 9309. The default (`aiAgents: 'allow-all'`) produces directives that permit all compliant AI agents to crawl your app:
+Aihu generates an agent-friendly `robots.txt` per RFC 9309. The `aiAgents` config accepts exactly four shapes:
 
-```
-User-agent: *
-Allow: /
+| Value | Behavior |
+|---|---|
+| `'allow-agents'` | **Default** (tiered, since `@aihu-plugin/agent-readiness` 2.1.0). User-delegated fetchers get `Allow: /`; training/scraping crawlers get `Disallow: /`. |
+| `'allow-all'` | Every known AI bot gets `Allow: /`. |
+| `'deny-all'` | Every known AI bot gets `Disallow: /` (humans are never blocked — the wildcard block stays `Allow`). |
+| `RobotsRule[]` | Per-bot rules, rendered verbatim. |
 
-User-agent: GPTBot
-Allow: /
+Any other string throws at generation time with an error naming the valid options.
 
-User-agent: ClaudeBot
-Allow: /
+> **⚠️ Corrected.** Earlier drafts of this page documented `aiAgents: 'disallow-all'` and `'allow-verified'`. Those values were never implemented — and before 2.1.0 an unknown string silently fell into the rules branch and iterated its *characters* as rules. Use `'deny-all'` or a rules array instead; unknown strings now fail loudly.
 
-User-agent: anthropic-ai
-Allow: /
-```
+### The tiered default: `'allow-agents'`
 
-To restrict AI agent access, set `aiAgents: 'disallow-all'` or `aiAgents: 'allow-verified'`. You can also add custom rules for specific bots via `standardBots`:
+The 13 known AI bots are classified by what each one actually is. Under the default, user-delegated fetchers and cited-search agents are allowed, while autonomous training/scraping crawlers are explicit opt-in:
+
+| User agent | Tier | What it is |
+|---|---|---|
+| `ChatGPT-User` | fetcher — allowed | OpenAI; fetches a page when a ChatGPT user asks for it |
+| `OAI-SearchBot` | fetcher — allowed | OpenAI; ChatGPT search index, surfaces cited links, not used for training |
+| `DuckAssistBot` | fetcher — allowed | DuckDuckGo; fetches sources for cited DuckAssist answers to user queries |
+| `Applebot` | fetcher — allowed | Apple; Siri/Spotlight search index (training is the separate `Applebot-Extended` token) |
+| `GPTBot` | trainer — opt-in | OpenAI model-training crawler |
+| `ClaudeBot` | trainer — opt-in | Anthropic training crawler |
+| `PerplexityBot` | trainer — opt-in | Perplexity autonomous index crawler (the user-delegated `Perplexity-User` is not in the list) |
+| `Googlebot-Extended` | trainer — opt-in | Variant token of `Google-Extended` |
+| `CCBot` | trainer — opt-in | Common Crawl; corpus widely used for LLM training |
+| `anthropic-ai` | trainer — opt-in | Legacy Anthropic training token |
+| `Google-Extended` | trainer — opt-in | Google's Gemini/Vertex training control token |
+| `Bytespider` | trainer — opt-in | ByteDance LLM-training scraper |
+| `cohere-ai` | trainer — opt-in | Cohere training token |
+
+The two tiers are exported as `AI_USER_FETCHER_BOTS` and `AI_TRAINING_CRAWLER_BOTS` (both derived from one classified registry; `AI_BOT_LIST` is their union). To opt in to training crawlers, set `aiAgents: 'allow-all'` or pass explicit rules.
+
+Custom rules for specific non-AI bots go in `standardBots` on the config passed to `createAgentReadinessRoutes` / `viteAgentReadinessIntegration` (the low-level `generateRobotsTxt(RobotsConfig)` names the same field `standard`):
 
 ```ts
 const ar = createAgentReadinessRoutes({
   name: 'My App',
   endpoint: 'https://myapp.workers.dev/mcp',
-  aiAgents: 'allow-all',
+  aiAgents: 'allow-agents',
   standardBots: [
     { userAgent: 'Googlebot', allow: ['/'], disallow: ['/admin'] },
   ],
   sitemap: 'https://myapp.com/sitemap.xml',
 })
 ```
+
+### The wildcard block
+
+The generated file **always ends with** `User-agent: * / Allow: /` — predictable output regardless of which `aiAgents` shape you chose. Two things suppress it: setting `wildcard: false`, or one of your own rules already targeting `*` (your rule is then the wildcard decision; emitting a second block would contradict it). A blanket `User-agent: * / Disallow: /` is never emitted — that blocks human-facing crawlers, not just AI ones.
+
+### robots.txt is advisory
+
+`robots.txt` is a voluntary convention: compliant crawlers honor it, but nothing enforces it, and infrastructure ahead of your origin can override it in either direction. In particular, CDN-layer controls — e.g. Cloudflare's default AI-crawler blocking — can block agents your robots.txt allows (or serve challenges your `Allow: /` never sees). Treat the file as a published policy statement, and check your CDN/WAF settings when an allowed agent cannot actually reach the app.
+
+### Migrating from `@aihu/seo`
+
+`@aihu/seo` is now a deprecated shim over this package (#430). Its historical default blocked **all** AI bots: entering through the shim with `robotsOptions.disallowAiBots` absent still behaves as `'deny-all'` (no silent flip for published consumers) and logs a deprecation warning; explicit `disallowAiBots: true` maps to `'deny-all'` and `false` to `'allow-all'`. New apps should configure `aiAgents` here directly.
 
 ## Calling aihu components as MCP tools
 

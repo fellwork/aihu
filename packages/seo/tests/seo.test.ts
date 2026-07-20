@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import {
+  AI_BOT_LIST,
+  AI_TRAINING_CRAWLER_BOTS,
+  AI_USER_FETCHER_BOTS,
+  generateJsonLd,
+} from '@aihu-plugin/agent-readiness'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SeoConfig, SeoRoutes } from '../src/index.js'
 import { createSeoRoutes, seo, seoLlmsSections } from '../src/index.js'
-import { generateJsonLd } from '../src/json-ld.js'
 
 const BASE_CONFIG: SeoConfig = {
   siteName: 'My App',
@@ -97,6 +102,104 @@ describe('SAMPLE-S06 — robots.txt includes AI bot directives', () => {
 
     expect(body).toContain('User-agent: GPTBot')
     expect(body).toContain('Disallow:')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #430 — the shim preserves the legacy robots default and maps explicitly
+// ---------------------------------------------------------------------------
+describe('#430 — shim robots mapping (deprecated @aihu/seo entry)', () => {
+  const req = new Request('https://x.test/robots.txt')
+  const ctx = { params: {}, url: new URL('https://x.test/robots.txt') }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('absent disallowAiBots → deny-all (legacy default) + deprecation warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes(BASE_CONFIG)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('[@aihu/seo] deprecated')
+    expect(warn.mock.calls[0]![0]).toContain("'allow-agents'")
+
+    const body = await (await routes.robotsTxt(req, ctx)).text()
+    for (const bot of AI_BOT_LIST) {
+      expect(body).toContain(`User-agent: ${bot}\nDisallow: /`)
+    }
+    expect(body).toContain('User-agent: *\nAllow: /')
+    expect(body).not.toContain('User-agent: *\nDisallow: /')
+  })
+
+  it('explicit disallowAiBots: true → deny-all, no vocabulary warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes({ ...BASE_CONFIG, robotsOptions: { disallowAiBots: true } })
+    expect(warn).not.toHaveBeenCalled()
+
+    const body = await (await routes.robotsTxt(req, ctx)).text()
+    for (const bot of AI_BOT_LIST) {
+      expect(body).toContain(`User-agent: ${bot}\nDisallow: /`)
+    }
+    expect(body).toContain('User-agent: *\nAllow: /')
+  })
+
+  it('explicit disallowAiBots: false → allow-all, no vocabulary warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes({ ...BASE_CONFIG, robotsOptions: { disallowAiBots: false } })
+    expect(warn).not.toHaveBeenCalled()
+
+    const body = await (await routes.robotsTxt(req, ctx)).text()
+    for (const bot of AI_BOT_LIST) {
+      expect(body).toContain(`User-agent: ${bot}\nAllow: /`)
+    }
+    expect(body).not.toContain('Disallow:')
+  })
+
+  it('the NEW tiered default never leaks through the shim (fetchers are still denied)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes(BASE_CONFIG)
+    const body = await (await routes.robotsTxt(req, ctx)).text()
+    // Under 'allow-agents' these would be allowed; the shim must deny them.
+    for (const bot of AI_USER_FETCHER_BOTS) {
+      expect(body).toContain(`User-agent: ${bot}\nDisallow: /`)
+    }
+    for (const bot of AI_TRAINING_CRAWLER_BOTS) {
+      expect(body).toContain(`User-agent: ${bot}\nDisallow: /`)
+    }
+  })
+
+  it('additionalRules are emitted before the AI-bot blocks (legacy order)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes({
+      ...BASE_CONFIG,
+      robotsOptions: {
+        disallowAiBots: true,
+        additionalRules: [{ userAgent: 'Googlebot', disallow: ['/admin'] }],
+      },
+    })
+    const body = await (await routes.robotsTxt(req, ctx)).text()
+    expect(body.indexOf('User-agent: Googlebot')).toBeGreaterThanOrEqual(0)
+    expect(body.indexOf('User-agent: Googlebot')).toBeLessThan(body.indexOf('User-agent: GPTBot'))
+    expect(body).toContain('Disallow: /admin')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #430 — the shim sitemap now XML-escapes (regression: & in a path)
+// ---------------------------------------------------------------------------
+describe('#430 — shim sitemap XML-escapes', () => {
+  it('escapes & in a source path to &amp;', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const routes = createSeoRoutes({
+      ...BASE_CONFIG,
+      sitemapSources: [{ path: '/search?a=1&b=2' }],
+    })
+    const req = new Request('https://x.test/sitemap.xml')
+    const ctx = { params: {}, url: new URL('https://x.test/sitemap.xml') }
+    const body = await (await routes.sitemapXml(req, ctx)).text()
+    expect(body).toContain('<loc>https://x.test/search?a=1&amp;b=2</loc>')
+    expect(body).not.toContain('&b=2')
+    vi.restoreAllMocks()
   })
 })
 

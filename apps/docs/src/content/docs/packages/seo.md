@@ -1,5 +1,7 @@
 # @aihu/seo
 
+> **⚠️ Deprecated (v1.0.0, #430).** `@aihu/seo` is now a thin compatibility shim over `@aihu-plugin/agent-readiness` — the name is kept for discoverability, but all capability lives in the sibling. New apps should use `createAgentReadinessRoutes` / `viteAgentReadinessIntegration` directly (see the [agent discovery guide](/docs/guides/agent-discovery)). The shim preserves this package's historical robots.txt default: with `robotsOptions.disallowAiBots` absent it still blocks all AI bots (`deny-all`) and logs a deprecation warning asking you to state your choice in the new `aiAgents` vocabulary (`'allow-agents'` — the new package's tiered default — `'allow-all'`, `'deny-all'`, or rules). The sitemap now XML-escapes URLs via the shared generator.
+
 aihu SEO plugin: `sitemap.xml`, `robots.txt`, and `llms.txt` route handlers plus JSON-LD structured-data injection via the `afterParse` compiler hook. Routes are framework-agnostic `RouteHandler`s, and the `llms.txt` sections compose cleanly into `@aihu-plugin/agent-readiness` (see the [agent discovery guide](/docs/guides/agent-discovery)).
 
 ## Install
