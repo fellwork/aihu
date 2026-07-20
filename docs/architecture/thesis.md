@@ -199,3 +199,31 @@ Stating the negative space, so scope arguments are short:
 - `docs/plans/2026-07-19-twenty-issue-remediation.md` — the remediation plan, to be
   restructured underneath these four properties.
 - `TODOS.md` — live defect catalogue.
+
+---
+
+## Ratified sub-decisions
+
+### DA4 — page-level components default to `shadowMode: 'none'` (2026-07-20)
+
+**Decision (founder):** route/page-level components default to light DOM
+(`shadowMode: 'none'`); leaf/design-system components keep shadow encapsulation.
+
+**Why.** AI crawlers do not execute JavaScript (§ evidence in
+`docs/domain-hints/seo-and-agent-discoverability.md` §1.2), so primary content
+must reach them as server-rendered *light* DOM. Declarative Shadow DOM does not
+reliably solve this — spec-compliant extractors read a `<template shadowrootmode>`
+subtree as empty (§1.3). Light DOM for page content is the structural fix, and it
+independently simplifies hydration (no server-light-DOM vs client-shadow-root
+tree mismatch) and the shard track (which already wants `none`).
+
+**Scope.** Page-level only. Leaf components (buttons, inputs, design-system
+primitives) keep shadow DOM — encapsulation still matters where the component is
+not the crawlable content.
+
+**Prerequisite — gates implementation.** Light-DOM slot projection is
+**unimplemented** (`packages/runtime/src/define-component.ts` `TODO(architect):
+named slots + default fallback`). Flipping the page-level default before that
+lands would break slotted content. Sequence: implement light-DOM slots first,
+then flip the default. Both are tracked as their own issues; this decision does
+NOT ship in the thesis-conformance PR.
