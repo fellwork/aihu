@@ -27,8 +27,8 @@ Aihu lets you build whole apps, not just components. `@aihu/signals` (reactive p
 | `@aihu/context` | Async-context-friendly request/SSR context primitives | 248 B gz |
 | `@aihu/agent` | Agent/MCP registration primitives | 142 B gz |
 | `@aihu/agent-service` | Server-side agent runtime (live signal bindings) | 1.06 kB gz |
-| `@aihu/agent-a2a` | A2A (Agent-to-Agent) protocol bindings | 721 B gz |
-| `@aihu/agent-acp` | ACP (Agent Control Protocol) bindings | 591 B gz |
+| `@aihu/agent-a2a` | A2A (Agent2Agent) protocol bindings — spec v1.0.1, JSON-RPC | 2.62 kB gz |
+| `@aihu/agent-acp` | **Deprecated — use `@aihu/agent-a2a`** (ACP merged into A2A, Aug 2025) | 675 B gz |
 | `@aihu-plugin/agent-readiness` | llms.txt, MCP Server Card, robots.txt emitter | build-time |
 | `@aihu-plugin/data` | Reactive resource and loader protocol | 774 B gz |
 | `@aihu/router` | File-based router with Vite plugin | 2.02 kB gz |

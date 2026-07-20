@@ -24,7 +24,7 @@
   "dependencies": {
     "@aihu/agent-service": "workspace:*"
   },
-  "description": "A2A (Agent-to-Agent) protocol bindings for @aihu/agent-service.",
+  "description": "A2A (Agent2Agent) protocol bindings (spec v1.0.1, JSON-RPC) for @aihu/agent-service.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",

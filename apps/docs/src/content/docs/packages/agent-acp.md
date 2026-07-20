@@ -1,6 +1,8 @@
 # @aihu/agent-acp
 
-Wraps an `AgentService` with Agent Communication Protocol (ACP) routes. The adapter exposes a discovery card and a message-routing endpoint that comply with the ACP wire format, and integrates with any fetch-API server via a single middleware function.
+> **DEPRECATED — use [`@aihu/agent-a2a`](/docs/packages/agent-a2a) instead.** The ACP protocol (BeeAI ACP) merged into the A2A protocol under the Linux Foundation in August 2025; there is no independent ACP spec left to conform to. This package is frozen at `0.1.x` — it still compiles and its routes still respond, but no further features will land. Migrate by mounting `mountA2aAdapter` on the same `AgentService`.
+
+Wraps an `AgentService` with ACP-style routes (a discovery card and a message-routing endpoint) and integrates with any fetch-API server via a single middleware function.
 
 ## Install
 

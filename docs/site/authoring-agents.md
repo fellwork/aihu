@@ -503,20 +503,23 @@ To add the aihu MCP server to Claude Code or another MCP client:
 
 ---
 
-## 9. A2A and ACP protocol adapters
+## 9. A2A protocol adapter (and the deprecated ACP adapter)
 
-aihu ships two in-tree protocol adapters for agent-to-agent communication.
+aihu ships one in-tree protocol adapter for agent-to-agent communication.
 
-### `@aihu/agent-a2a` — Agent-to-Agent protocol
+### `@aihu/agent-a2a` — Agent2Agent (A2A) protocol
 
-`mountA2aAdapter` wraps an `AgentService` with A2A protocol routes:
+`mountA2aAdapter` wraps an `AgentService` with the [A2A Protocol Specification v1.0.1](https://a2a-protocol.org/v1.0.1/specification) JSON-RPC 2.0 binding:
 
 ```typescript
 import { mountA2aAdapter } from '@aihu/agent-a2a'
 
 const a2a = mountA2aAdapter(service, {
-  prefix: '',          // URL prefix for all routes. Default: ''
-  name: 'my-app',     // Agent name in the discovery card. Default: 'aihu-agent-service'
+  prefix: '',                              // URL prefix for all routes. Default: ''
+  name: 'my-app',                          // Agent name in the agent card
+  url: 'https://my-app.example.com/a2a',   // Absolute endpoint URL advertised in the card
+  resolveAuth: (req) => getAuthState(req), // RequestContext per request (tier-0 attribution)
+  // taskStore: myStore,                   // Swap the default in-memory TaskStore
 })
 
 // Wire the middleware
@@ -534,59 +537,22 @@ Routes exposed:
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/.well-known/agent.json` | A2A agent discovery card (capabilities, skills) |
-| `POST` | `/a2a/tasks/send` | Submit a task (returns JSON result) |
-| `POST` | `/a2a/tasks/sendSubscribe` | Submit a task with SSE streaming response |
+| `GET` | `/.well-known/agent-card.json` | A2A agent card (spec §4.4.1): `supportedInterfaces`, `capabilities`, `skills` |
+| `POST` | `/a2a` | JSON-RPC 2.0 endpoint: `SendMessage`, `SendStreamingMessage` (SSE), `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, `GetExtendedAgentCard` |
 
-### `@aihu/agent-acp` — Agent Communication Protocol
+Every exposed action is an A2A skill with id `"<tag>/<action>"`. A `Message` invokes one with a data part — `{ "data": { "skill": "x-counter/increment", "params": { … } } }` — or a text part whose text is the skill id. Results persist to a `TaskStore` (in-memory by default, injectable), so `GetTask`/`ListTasks`/`CancelTask` are real; `SendStreamingMessage` streams JSON-RPC-wrapped `StreamResponse` frames over SSE, and terminality is the task state (no `[DONE]` sentinel).
 
-`mountAcpAdapter` wraps an `AgentService` with ACP protocol routes:
+> **Breaking change (semver-major):** the 0.1.x REST wire (`POST /a2a/tasks/send`, `POST /a2a/tasks/sendSubscribe`, `GET /.well-known/agent.json`, `body.message` as a `"tag/action"` string) is removed.
 
-```typescript
-import { mountAcpAdapter } from '@aihu/agent-acp'
+### `@aihu/agent-acp` — deprecated; use A2A
 
-const acp = mountAcpAdapter(service, {
-  prefix: '',
-  agentId: 'my-app',
-})
-
-const router = createRouter({
-  routes: [
-    defineRoute('/*', async (req) => {
-      const res = await acp.asMiddleware()(req)
-      return res ?? notFound()
-    }),
-  ],
-})
-```
-
-Routes exposed:
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/.well-known/acp-agent` | ACP agent discovery card |
-| `POST` | `/acp/messages` | ACP message routing — routes tool calls from `parts[0].content.tool` or message content |
-
-### Combining adapters
-
-Both adapters coexist on the same service instance:
-
-```typescript
-const service = createAgentService({ manifests: getAllAgentMetadata(), getRegistry })
-const a2a = mountA2aAdapter(service)
-const acp = mountAcpAdapter(service)
-
-const mw = async (req: Request) =>
-  (await a2a.asMiddleware()(req)) ??
-  (await acp.asMiddleware()(req)) ??
-  notFound()
-```
+**`@aihu/agent-acp` is deprecated — use `@aihu/agent-a2a`.** The ACP protocol (BeeAI ACP) merged into A2A under the Linux Foundation in August 2025, so there is no independent ACP spec left to target. The package is frozen at `0.1.x`: it still compiles and its routes (`GET /.well-known/acp-agent`, `POST /acp/messages`) still respond, but no further features will land. Migrate by mounting `mountA2aAdapter` on the same service instance.
 
 ---
 
 ## 10. Agent compliance checklist
 
-> **🚧 Opt-in, not "by contract."** These capabilities are **not** shipped by every aihu app automatically. The `llms.txt` / `llms-full.txt` / server-card / `robots.txt` endpoints require the `@aihu-plugin/agent-readiness` integration (§6). The A2A and ACP discovery routes require mounting their respective adapters (§9). `aihu mcp serve` is a separate authoring stdio server (§8), **not** an app endpoint. Treat this as a checklist of what you can enable, not a description of defaults.
+> **🚧 Opt-in, not "by contract."** These capabilities are **not** shipped by every aihu app automatically. The `llms.txt` / `llms-full.txt` / server-card / `robots.txt` endpoints require the `@aihu-plugin/agent-readiness` integration (§6). The A2A routes require mounting the adapter (§9). `aihu mcp serve` is a separate authoring stdio server (§8), **not** an app endpoint. Treat this as a checklist of what you can enable, not a description of defaults.
 
 | Capability | Endpoint / command | Standard | How to enable |
 |---|---|---|---|
@@ -594,8 +560,8 @@ const mw = async (req: Request) =>
 | llms-full.txt | `GET /llms-full.txt` | llmstxt.org | agent-readiness (§6) |
 | MCP Server Card | `GET /.well-known/mcp/server-card.json` | aihu shape (not MCP-spec) | agent-readiness (§6) |
 | robots.txt | `GET /robots.txt` | RFC 9309 | agent-readiness (§6) |
-| A2A discovery | `GET /.well-known/agent.json` | A2A protocol | `mountA2aAdapter` (§9) |
-| ACP discovery | `GET /.well-known/acp-agent` | ACP protocol | `mountAcpAdapter` (§9) |
+| A2A agent card | `GET /.well-known/agent-card.json` | [A2A v1.0.1](https://a2a-protocol.org/v1.0.1/specification) | `mountA2aAdapter` (§9) |
+| A2A JSON-RPC endpoint | `POST /a2a` | A2A v1.0.1 §9 (JSON-RPC 2.0 binding) | `mountA2aAdapter` (§9) |
 | Authoring MCP stdio server | `aihu mcp serve` | MCP SDK | CLI (§8) — authoring helper only |
 
 ### isitagentready.com checklist

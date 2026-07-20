@@ -570,7 +570,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
   },
   '@aihu/agent-a2a': {
     tier: 'C',
-    label: 'Agent surface — A2A (Agent-to-Agent) protocol',
+    label: 'Agent surface — A2A (Agent2Agent) protocol, spec v1.0.1 JSON-RPC binding',
     seeAlso: [
       { label: '@aihu/agent-service', href: '../agent-service' },
       { label: '@aihu/agent', href: '../agent' },
@@ -578,7 +578,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
   },
   '@aihu/agent-acp': {
     tier: 'C',
-    label: 'Agent surface — ACP (Agent Control Protocol) protocol',
+    label: 'Agent surface — DEPRECATED; use @aihu/agent-a2a (ACP merged into A2A, Aug 2025)',
     seeAlso: [
       { label: '@aihu/agent-service', href: '../agent-service' },
       { label: '@aihu/agent', href: '../agent' },
