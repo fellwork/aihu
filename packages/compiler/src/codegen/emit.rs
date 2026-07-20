@@ -3682,13 +3682,20 @@ struct AgentMembers {
     /// Only populated for members that survive the `expose` gate — an
     /// unexposed member's description must never reach a public artifact.
     describes: BTreeMap<String, String>,
+    /// Action name → the MCP `params` object-literal fragment derived from the
+    /// handler's signature (DE5). Present only for exposed actions whose
+    /// handler parsed and every parameter could be named; absent otherwise, so
+    /// the server falls back to the legacy positional `args` schema.
+    action_params: BTreeMap<String, String>,
 }
 
 /// Walk the `@state` collections of an SFC and collect the names of members
 /// exposed to agents. Shared by the server `__agentBinding` export and the
 /// client opaque-ID dispatcher so the two stay structurally in sync.
 fn collect_agent_members(raw_script: &str) -> AgentMembers {
-    use crate::parser::state_macros::{meta_get, parse_state_macros};
+    use crate::parser::state_macros::{
+        arrow_args, arrow_is_async, meta_get, parse_state_macros, running_code,
+    };
     use crate::types::{CollectionKind, StateMacro};
 
     let macros = parse_state_macros(raw_script).unwrap_or_default();
@@ -3705,6 +3712,28 @@ fn collect_agent_members(raw_script: &str) -> AgentMembers {
                     CollectionKind::Action => {
                         if has_read {
                             members.actions.push(entry.name.clone());
+                            // DE5 — derive the MCP param schema from the SAME
+                            // handler arrow CO1's prop-write pass parses, so the
+                            // agent-facing schema cannot drift from the code.
+                            // Any step that cannot be done confidently (handler
+                            // does not parse, a param cannot be named) leaves
+                            // the entry absent, and the server keeps the legacy
+                            // positional `args` schema — a graceful degrade.
+                            if let Some(arrow) = running_code(entry) {
+                                let params = arrow_args(arrow).unwrap_or_default();
+                                let is_async = arrow_is_async(arrow);
+                                if let Some(hps) =
+                                    crate::expr::handler_params(&params, is_async)
+                                {
+                                    if let Some(schema) =
+                                        crate::codegen::mcp_schema::param_schema_json(&hps)
+                                    {
+                                        members
+                                            .action_params
+                                            .insert(entry.name.clone(), schema);
+                                    }
+                                }
+                            }
                         }
                     }
                     CollectionKind::Prop => {
@@ -3804,16 +3833,25 @@ fn emit_agent_metadata_registration(tag_name: &str, raw_script: &str) -> String 
         })
         .collect();
 
-    // actions: { name: { describe: '<describe>', returns: {} } }
+    // actions: { name: { describe: '<describe>', returns: {}, params: {…} } }
     // `returns` is present-but-empty: the v2 `@state` form carries no return
     // shape (only the retired v1 `@agent { action ... -> {...} }` did), and
-    // ActionSchema requires the key.
+    // ActionSchema requires the key. `params` (DE5) is the derived MCP
+    // input-schema fragment; omitted when the handler could not be modeled, so
+    // the server degrades to the legacy positional `args` shape for that tool.
     let action_entries: Vec<String> = members
         .actions
         .iter()
-        .map(|name| match members.describes.get(name) {
-            Some(desc) => format!("    {}: {{ describe: {}, returns: {{}} }}", name, desc),
-            None => format!("    {}: {{ returns: {{}} }}", name),
+        .map(|name| {
+            let describe = match members.describes.get(name) {
+                Some(desc) => format!("describe: {}, ", desc),
+                None => String::new(),
+            };
+            let params = match members.action_params.get(name) {
+                Some(schema) => format!(", params: {}", schema),
+                None => String::new(),
+            };
+            format!("    {}: {{ {}returns: {{}}{} }}", name, describe, params)
         })
         .collect();
 
@@ -6840,5 +6878,76 @@ mod sidecar_alias_tests {
         // Empty / punctuation-only parts contribute nothing (no panic).
         assert!(idents("[]").is_empty());
         assert!(idents("").is_empty());
+    }
+}
+
+// ─── DE5 — derived MCP param schema reaches the registration ──────────────────
+//
+// End-to-end over `emit_agent_metadata_registration`: proves the derived
+// `params` fragment (built in `codegen::mcp_schema`) is threaded from the
+// authored handler signature all the way into `registerAgentMetadata`. The
+// per-mapping matrix lives in `mcp_schema::tests`; this pins the plumbing.
+#[cfg(test)]
+mod agent_metadata_param_schema_tests {
+    use super::emit_agent_metadata_registration;
+
+    fn script(action_entry: &str) -> String {
+        format!(
+            "@state {{\n$action: {{\n  {}\n}}\n}}",
+            action_entry
+        )
+    }
+
+    #[test]
+    fn typed_required_params_reach_the_registration() {
+        // (a) — `(id: string, count: number)` → named, typed, both required.
+        let s = script(
+            "save: { expose: { read: true }, handler: (id: string, count: number) => persist(id, count) }",
+        );
+        let out = emit_agent_metadata_registration("my-el", &s);
+        assert!(
+            out.contains(
+                "params: { properties: { id: { type: 'string' }, count: { type: 'number' } }, \
+                 required: ['id', 'count'] }"
+            ),
+            "typed params must reach the registration:\n{out}"
+        );
+    }
+
+    #[test]
+    fn optional_param_is_present_but_not_required() {
+        // (b) — `(x?: string)` is a named property, absent from `required`.
+        let s = script("go: { expose: { read: true }, handler: (x?: string) => run(x) }");
+        let out = emit_agent_metadata_registration("my-el", &s);
+        assert!(
+            out.contains("params: { properties: { x: { type: 'string' } }, required: [] }"),
+            "optional param must be present but not required:\n{out}"
+        );
+    }
+
+    #[test]
+    fn non_mappable_param_degrades_to_permissive_without_a_shape() {
+        // (c) — a union-typed param keeps its name and stays required, but its
+        // schema degrades to permissive `{}` — never an invented enum shape.
+        let s = script(
+            "filter: { expose: { read: true }, handler: (mode: 'all' | 'done') => setMode(mode) }",
+        );
+        let out = emit_agent_metadata_registration("my-el", &s);
+        assert!(
+            out.contains("params: { properties: { mode: {} }, required: ['mode'] }"),
+            "non-mappable param must degrade to permissive, not a guessed shape:\n{out}"
+        );
+        assert!(
+            !out.contains("'all'") && !out.contains("'done'"),
+            "the union members must NOT be materialized as an invented enum:\n{out}"
+        );
+    }
+
+    #[test]
+    fn unexposed_action_emits_nothing() {
+        // No `read` expose → no registration at all (nothing leaks).
+        let s = script("secret: { handler: (x: string) => run(x) }");
+        let out = emit_agent_metadata_registration("my-el", &s);
+        assert!(out.is_empty(), "unexposed action must not register:\n{out}");
     }
 }

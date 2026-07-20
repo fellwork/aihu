@@ -21,10 +21,35 @@ import type { AgentServer } from './types.ts'
 
 /** A `tools/call` argument shape: positional args + optional auth context. */
 interface ComponentToolArgs {
-  /** Positional arguments forwarded to the action. */
+  /** Positional arguments forwarded to the action (legacy positional form). */
   args?: unknown[]
   /** Optional auth context (userId, jwt) for scoped/rate-limited tools. */
   context?: RequestContext
+}
+
+/**
+ * The declared parameter ORDER for each `"<tag>/<action>"` tool whose schema
+ * was derived (DE5). Built from the compiler-emitted `params.properties` key
+ * order, which is the authored parameter order. Tools without a derived schema
+ * (legacy positional `args`) are absent.
+ *
+ * The runtime action is invoked positionally (`(args) => name(args)`), so when
+ * an MCP client sends NAMED arguments against a derived schema, they must be
+ * marshalled back into this order to preserve the dispatch convention — only
+ * the schema changed, not how the handler is called.
+ */
+function buildParamOrder(metas: AgentMetadata[]): Map<string, string[]> {
+  const order = new Map<string, string[]>()
+  for (const meta of metas) {
+    const actions = meta.actions ?? {}
+    for (const action of Object.keys(actions)) {
+      const params = actions[action]?.params
+      if (params) {
+        order.set(`${meta.tag}/${action}`, Object.keys(params.properties))
+      }
+    }
+  }
+  return order
 }
 
 /**
@@ -32,18 +57,21 @@ interface ComponentToolArgs {
  * `<tag>/<action>`, named `"<tag>/<action>"` to match the agent-service tool
  * naming (so `callTool` routes correctly).
  */
+interface ToolInputSchema {
+  type: 'object'
+  properties: Record<string, unknown>
+  required?: string[]
+}
+
 function buildToolDefinitions(metas: AgentMetadata[]): Array<{
   name: string
   description: string
-  inputSchema: {
-    type: 'object'
-    properties: Record<string, unknown>
-  }
+  inputSchema: ToolInputSchema
 }> {
   const tools: Array<{
     name: string
     description: string
-    inputSchema: { type: 'object'; properties: Record<string, unknown> }
+    inputSchema: ToolInputSchema
   }> = []
   for (const meta of metas) {
     const actions = meta.actions ?? {}
@@ -51,7 +79,29 @@ function buildToolDefinitions(metas: AgentMetadata[]): Array<{
       // Prefer the authored `describe:` from the component's $action entry —
       // it is written for an LLM audience. Fall back to the synthesized string
       // only when the action carries no description.
-      const authored = actions[action]?.describe
+      const schema = actions[action]
+      const authored = schema?.describe
+      // DE5 — the input schema is DERIVED from the handler signature when the
+      // compiler could model it (`params` present): real parameter names and
+      // types, so the LLM does not have to guess arity or shape. When absent
+      // (unparseable handler, or a destructuring param the compiler could not
+      // name), fall back to the legacy positional `args: { type: 'array' }`
+      // shape — the runtime dispatch is identical either way.
+      const inputSchema: ToolInputSchema = schema?.params
+        ? {
+            type: 'object',
+            properties: schema.params.properties,
+            required: schema.params.required,
+          }
+        : {
+            type: 'object',
+            properties: {
+              args: {
+                type: 'array',
+                description: `Positional arguments for ${action}.`,
+              },
+            },
+          }
       tools.push({
         name: `${meta.tag}/${action}`,
         description:
@@ -59,15 +109,7 @@ function buildToolDefinitions(metas: AgentMetadata[]): Array<{
             ? authored
             : `Invoke the \`${action}\` action on a live <${meta.tag}> instance.`) +
           (meta.describes ? ` Component: ${meta.describes}` : ''),
-        inputSchema: {
-          type: 'object',
-          properties: {
-            args: {
-              type: 'array',
-              description: `Positional arguments for ${action}.`,
-            },
-          },
-        },
+        inputSchema,
       })
     }
     // Expose read-only state signals as zero-arg tools too (handleToolCall
@@ -108,13 +150,24 @@ export function createComponentMcpServer(
   )
 
   const toolDefs = buildToolDefinitions(metas)
+  const paramOrder = buildParamOrder(metas)
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefs }))
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: rawArgs } = request.params
-    const input = (rawArgs ?? {}) as ComponentToolArgs
-    const params = input.args ?? []
+    const input = (rawArgs ?? {}) as ComponentToolArgs & Record<string, unknown>
+
+    // Marshal the tool arguments into the positional array the runtime dispatch
+    // expects. Two shapes are accepted:
+    //   • DERIVED schema (DE5): the client sends named arguments; reassemble
+    //     them in the declared parameter order.
+    //   • LEGACY schema: the client sends `{ args: [...] }` positionally.
+    // A derived tool always has a param order entry (possibly empty), so it is
+    // checked first; only tools without one read the positional `args` array.
+    const order = paramOrder.get(name)
+    const params =
+      order !== undefined ? order.map((paramName) => input[paramName]) : (input.args ?? [])
 
     // Route through the gated callTool. The envelope is `{ result }` on success
     // or `{ error, code, jsonrpc }` on a gate rejection (404/401/403/429/503).

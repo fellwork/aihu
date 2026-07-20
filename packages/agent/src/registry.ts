@@ -21,6 +21,25 @@ export interface InputSchema {
 }
 
 /**
+ * The MCP `inputSchema` fragment for an action's parameters, DERIVED by the
+ * compiler from the `$action` handler's own signature (DE5). `properties` is
+ * keyed by the real parameter names; each value is a JSON-Schema type object
+ * (`{ type: 'string' }`, `{ type: 'array', items: … }`, or the permissive `{}`
+ * when the TS type was not trivially mappable). `required` lists the parameters
+ * that are neither optional (`x?`) nor defaulted (`x = …`).
+ *
+ * Property VALUES are intentionally `unknown`: the compiler emits arbitrary
+ * JSON-Schema fragments, and this type must not constrain them to a closed set.
+ * The property KEY ORDER is the declared parameter order — `@aihu/agent-server`
+ * relies on it to marshal named arguments back into the positional array the
+ * runtime dispatch expects.
+ */
+export interface ActionParamsSchema {
+  properties: Record<string, unknown>
+  required: string[]
+}
+
+/**
  * Schema for a single callable action on a component.
  * `returns` maps return field names to their type schemas.
  */
@@ -33,6 +52,13 @@ export interface ActionSchema {
    * call the tool, so its absence degrades tool selection, not just docs.
    */
   describe?: string
+  /**
+   * Derived MCP parameter schema (DE5). Present when the compiler could model
+   * the handler signature; absent when it could not (an unparseable handler or
+   * an unnameable destructuring parameter), in which case the server falls back
+   * to the legacy positional `args: { type: 'array' }` schema for this tool.
+   */
+  params?: ActionParamsSchema
 }
 
 /**
