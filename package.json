@@ -53,7 +53,8 @@
     "check:attributed": "bun scripts/check-attributed.ts",
     "check:governed": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-governed.ts",
     "check:dual-audience": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-dual-audience.ts",
-    "check:thesis": "bun run check:derived && bun run check:attributed && bun run check:governed && bun run check:dual-audience"
+    "check:hydration-adoption": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-hydration-adoption.ts",
+    "check:thesis": "bun run check:derived && bun run check:attributed && bun run check:governed && bun run check:dual-audience && bun run check:hydration-adoption"
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "workspace:*",
