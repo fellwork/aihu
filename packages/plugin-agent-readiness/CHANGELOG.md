@@ -1,5 +1,15 @@
 # @aihu/agent-readiness
 
+## 2.1.0
+
+### Minor Changes
+
+- [#430](https://github.com/fellwork/aihu/issues/430) Consolidate `@aihu/seo` into this package; tiered AI-bot robots.txt default.
+  - **New default `aiAgents: 'allow-agents'`** (was `'allow-all'`): the 13-bot list is now classified per bot — user-delegated fetchers / cited-search agents (`ChatGPT-User`, `OAI-SearchBot`, `DuckAssistBot`, `Applebot`) get `Allow: /`; training/scraping crawlers (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Googlebot-Extended`, `CCBot`, `anthropic-ai`, `Google-Extended`, `Bytespider`, `cohere-ai`) get `Disallow: /` and are explicit opt-in. New exports `AI_USER_FETCHER_BOTS` / `AI_TRAINING_CRAWLER_BOTS` (both derived from one classified registry). `'allow-all'`, `'deny-all'`, and rule arrays keep working.
+  - **Runtime value guard**: an unknown `aiAgents` string (e.g. the phantom documented values `'disallow-all'` / `'allow-verified'`) now throws a helpful error naming the valid options instead of silently iterating the string's characters as rules.
+  - **Wildcard block policy**: robots.txt always ends with `User-agent: * / Allow: /` (predictable output, now also in the rules-array branch) unless `wildcard: false` suppresses it or one of your own rules already targets `*`.
+  - **Ported from `@aihu/seo`**: `seoLlmsSections` (llms.txt composition sugar) and the JSON-LD helpers (`JsonLdPage`, `generateJsonLd`).
+
 ## 2.0.4
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 import type { RouteHandler } from '@aihu/server'
+import type { JsonLdPage } from '@aihu-plugin/agent-readiness'
 
+/**
+ * @deprecated `@aihu/seo` is a thin compatibility shim over
+ * `@aihu-plugin/agent-readiness` (#430). `JsonLdPage` now lives there; this
+ * re-export is kept so existing imports keep compiling.
+ */
+export type { JsonLdPage } from '@aihu-plugin/agent-readiness'
+
+/**
+ * @deprecated Configure `@aihu-plugin/agent-readiness` instead
+ * (`AgentReadinessConfig`): `siteName` → `name`, `baseUrl` → `siteUrl`,
+ * `sitemapSources` → `sitemapPages`, `robotsOptions` → `aiAgents`/`standardBots`.
+ */
 export interface SeoConfig {
   readonly siteName: string
   readonly baseUrl: string // e.g., 'https://example.com' (no trailing slash)
@@ -8,6 +21,7 @@ export interface SeoConfig {
   readonly robotsOptions?: RobotsOptions
 }
 
+/** @deprecated Use `SitemapUrl` from `@aihu-plugin/agent-readiness` (absolute `url` instead of `path`). */
 export interface SitemapSource {
   readonly path: string // e.g., '/about', '/docs/getting-started'
   readonly lastmod?: string // ISO date
@@ -15,17 +29,17 @@ export interface SitemapSource {
   readonly priority?: number // 0.0–1.0
 }
 
-export interface JsonLdPage {
-  readonly '@context': string // 'https://schema.org'
-  readonly '@type': string // 'WebPage', 'Article', etc.
-  readonly name?: string
-  readonly description?: string
-  readonly url?: string
-  [key: string]: unknown
-}
-
+/**
+ * @deprecated Use `aiAgents` on `@aihu-plugin/agent-readiness` instead:
+ * `disallowAiBots: true` → `aiAgents: 'deny-all'`, `disallowAiBots: false` →
+ * `aiAgents: 'allow-all'`, and the new tiered `aiAgents: 'allow-agents'`
+ * (user-delegated fetchers allowed, training crawlers disallowed) is the
+ * new package's default. Through THIS deprecated entry the historical
+ * block-everything default (`deny-all`) is preserved when `disallowAiBots`
+ * is absent — with a deprecation warning asking you to state your choice.
+ */
 export interface RobotsOptions {
-  readonly disallowAiBots?: boolean // default: true
+  readonly disallowAiBots?: boolean // legacy default when absent: true (deny-all)
   readonly additionalRules?: ReadonlyArray<{
     userAgent: string
     allow?: string[]
@@ -33,6 +47,7 @@ export interface RobotsOptions {
   }>
 }
 
+/** @deprecated Use `createAgentReadinessRoutes` from `@aihu-plugin/agent-readiness`. */
 export interface SeoRoutes {
   readonly sitemapXml: RouteHandler
   readonly robotsTxt: RouteHandler

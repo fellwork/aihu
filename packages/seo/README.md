@@ -9,6 +9,12 @@ Held-private workspace package. Not yet published to npm.
 > **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
+> **Deprecated (v1.0.0, #430).** `@aihu/seo` is now a thin compatibility shim over
+> `@aihu-plugin/agent-readiness` — use that package directly. The shim preserves this
+> package's historical robots.txt default (absent `disallowAiBots` still blocks all AI
+> bots, with a deprecation warning); the new tiered `aiAgents: 'allow-agents'` default
+> lives in the new package. The sitemap now XML-escapes URLs via the shared generator.
+
 aihu SEO plugin: sitemap.xml, robots.txt, llms.txt, JSON-LD.
 
 ```bash
@@ -29,7 +35,7 @@ npm install @aihu/seo
 bun add @aihu/seo
 ```
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -40,12 +46,12 @@ bun add @aihu/seo
 
 | | |
 |---|---|
-| **Version** | `0.2.1` |
+| **Version** | `1.0.0` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -58,7 +64,7 @@ bun add @aihu/seo
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -73,7 +79,7 @@ bun add @aihu/seo
 - `@aihu/server` — `workspace:*`
 - `@aihu-plugin/agent-readiness` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -85,7 +91,7 @@ bun add @aihu/seo
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -96,6 +102,6 @@ bun add @aihu/seo
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/seo@0.2.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/seo@1.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

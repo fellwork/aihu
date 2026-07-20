@@ -1,7 +1,7 @@
 [
   {
     "name": "@aihu-plugin/agent-readiness",
-    "version": "2.0.4",
+    "version": "2.1.0",
     "dir": "packages/plugin-agent-readiness",
     "isPlatform": false
   },
@@ -235,7 +235,7 @@
   },
   {
     "name": "@aihu/seo",
-    "version": "0.2.1",
+    "version": "1.0.0",
     "dir": "packages/seo",
     "isPlatform": false
   },

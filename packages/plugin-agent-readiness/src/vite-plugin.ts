@@ -105,6 +105,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       ...(config.aiAgents !== undefined ? { aiAgents: config.aiAgents } : {}),
       ...(config.standardBots !== undefined ? { standard: config.standardBots } : {}),
       ...(config.sitemap !== undefined ? { sitemap: config.sitemap } : {}),
+      ...(config.wildcard !== undefined ? { wildcard: config.wildcard } : {}),
     })
     return new Response(txt, {
       status: 200,

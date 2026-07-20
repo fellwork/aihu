@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { generateLlmsFullTxt, generateLlmsTxt } from '../src/index.ts'
+import {
+  generateJsonLd,
+  generateLlmsFullTxt,
+  generateLlmsTxt,
+  seoLlmsSections,
+} from '../src/index.ts'
 import { agentMetadataToLlmsTxtLink } from '../src/llms-txt.ts'
 
 describe('@aihu-plugin/agent-readiness llms txt', () => {
@@ -147,5 +152,40 @@ describe('@aihu-plugin/agent-readiness llms txt', () => {
       url: 'https://aihu.dev/components#x-pane',
     })
     expect(agentMetadataToLlmsTxtLink({ tag: 'x-empty' }, 'https://aihu.dev')).toBeNull()
+  })
+})
+
+describe('#430 — ported seoLlmsSections + JSON-LD helpers', () => {
+  it('seoLlmsSections builds one section titled after the site from sitemap sources', () => {
+    const sections = seoLlmsSections({
+      siteName: 'My App',
+      baseUrl: 'https://x.test',
+      sitemapSources: [{ path: '/docs' }, { path: '/about' }],
+    })
+    expect(sections).toEqual([
+      {
+        title: 'My App',
+        links: [
+          { title: '/docs', url: 'https://x.test/docs' },
+          { title: '/about', url: 'https://x.test/about' },
+        ],
+      },
+    ])
+  })
+
+  it('seoLlmsSections with no sources yields an empty-links section (skipped by the renderer)', () => {
+    const sections = seoLlmsSections({ siteName: 'My App', baseUrl: 'https://x.test' })
+    expect(sections[0]!.links).toHaveLength(0)
+    expect(generateLlmsTxt({ name: 'My App', sections })).toBe('# My App')
+  })
+
+  it('generateJsonLd merges page overrides over schema.org WebPage defaults', () => {
+    const parsed = JSON.parse(generateJsonLd({ '@type': 'Article', name: 'T' })) as Record<
+      string,
+      unknown
+    >
+    expect(parsed['@context']).toBe('https://schema.org')
+    expect(parsed['@type']).toBe('Article')
+    expect(parsed.name).toBe('T')
   })
 })

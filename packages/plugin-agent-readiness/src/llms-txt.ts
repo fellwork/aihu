@@ -116,3 +116,33 @@ export function agentMetadataToLlmsTxtLink(
   if (!meta.describes) return null
   return { title: meta.tag, url: `${baseUrl}/components#${meta.tag}` }
 }
+
+/** Config for {@link seoLlmsSections}. Structurally compatible with `@aihu/seo`'s `SeoConfig`. */
+export interface SeoLlmsSectionsConfig {
+  readonly siteName: string
+  readonly baseUrl: string // e.g. 'https://example.com' (no trailing slash)
+  readonly sitemapSources?: ReadonlyArray<{ readonly path: string }>
+}
+
+/**
+ * Returns an array of LlmsTxtSection entries for composition into the
+ * `llmsSections` config field — one section titled after the site, linking
+ * each sitemap source path.
+ *
+ * Ported from `@aihu/seo` in the #430 consolidation (the deprecated shim
+ * re-exports this function).
+ *
+ * Usage:
+ *   llmsSections: [...userSections, ...seoLlmsSections(config)]
+ */
+export function seoLlmsSections(config: SeoLlmsSectionsConfig): ReadonlyArray<LlmsTxtSection> {
+  return [
+    {
+      title: config.siteName,
+      links: (config.sitemapSources ?? []).map((s) => ({
+        title: s.path,
+        url: config.baseUrl + s.path,
+      })),
+    },
+  ]
+}
