@@ -8,6 +8,10 @@
       "@aihu/runtime": ["./packages/runtime/src/index.ts"],
       "@aihu/agent": ["./packages/agent/src/index.ts"],
       "@aihu/server": ["./packages/server/src/index.ts"],
+      "@aihu/router": ["./packages/router/src/index.ts"],
+      "@aihu/router/server": ["./packages/router/src/server.ts"],
+      "@aihu/agent-service": ["./packages/agent-service/src/index.ts"],
+      "@aihu/agent-server": ["./packages/agent-server/src/index.ts"],
       "@aihu-plugin/agent-readiness": ["./packages/plugin-agent-readiness/src/index.ts"],
       "@aihu/plugin": ["./packages/plugin/src/index.ts"]
     }
