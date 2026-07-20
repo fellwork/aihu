@@ -1,6 +1,6 @@
 # Authoring Agents
 
-aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, and the Rust compiler emits both a Web Component and an MCP tool schema from the same source file. The result is a three-layer stack — component-level `@agent` declarations, the `@aihu/agent` static registry, and the `@aihu/agent-service` live execution engine — that makes every aihu app natively callable by MCP-compatible AI agents.
+aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, and the Rust compiler emits both a Web Component and an `agent-manifest.json` sidecar (aihu's own shape — not an MCP `.mcp.json` document) from the same source file. The result is a three-layer stack — component-level `@agent` declarations, the `@aihu/agent` static registry, and the `@aihu/agent-service` live execution engine — that lets an aihu app be made callable by MCP-compatible AI agents once the agent surface is wired up (the discovery and serving pieces are opt-in, not automatic — see §6 and §10).
 
 ---
 
@@ -17,7 +17,7 @@ aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, 
 ### Key properties
 
 - **Agent code is fully elided from client builds.** When compiling with `BuildTarget.Client`, the `@agent` block produces a `// [client build] @agent block elided` comment and zero runtime bytes. Agent schemas never reach the browser bundle.
-- **The Rust compiler emits a `.mcp.json` sidecar** for every SFC that has an `@agent` block. The schema is derived directly from `describe:` and `expose:` metadata in `@state` entries.
+- **The Rust compiler emits an `agent-manifest.json` sidecar** for every SFC with an exposed agent surface (`expose:` on `@state` entries, or a legacy `@agent` block). The schema is derived directly from `describe:` and `expose:` metadata in `@state` entries. Note: this is aihu's own shape, not `.mcp.json`, and it currently has **no consumers** — see §7.
 - **Live-binding (v0.3.0+)** wires agent tool calls to the actual signal graph of mounted components, so an AI agent invoking `live-counter/increment` triggers the same reactive path as a user clicking the button.
 
 ---
@@ -341,7 +341,7 @@ const ar = createAgentReadinessRoutes({
 })
 ```
 
-The generated MCP server card includes public OAuth URLs only — client secrets are never emitted.
+The generated MCP server card advertises **only** the authorization-server issuer origin (derived from `tokenUrl`) as `auth.authorizationServer` — not the full authorization/token URLs or scopes, and never client secrets. It deliberately does **not** advertise `/.well-known/oauth-authorization-server` (RFC 8414) or `/.well-known/oauth-protected-resource` (RFC 9728) documents; consumers perform their own RFC 8414 discovery from the issuer.
 
 ### Vite integration (dev + build)
 
@@ -369,41 +369,29 @@ Note: `viteAgentReadinessIntegration()` does NOT inject routes into `createRoute
 
 ---
 
-## 7. MCP tool schema generation
+## 7. Compiler-emitted agent manifest
 
-The Rust compiler emits a `.mcp.json` sidecar alongside the compiled JS for every SFC that has exposed state or actions. The schema is derived from `describe:` and `expose:` metadata in `@state` entries.
+The Rust compiler emits an `agent-manifest.json` sidecar alongside the compiled JS for every SFC that has exposed state or actions. The shape is aihu's own — it is **not** an MCP `.mcp.json` document. It is derived from `describe:` and `expose:` metadata in `@state` entries.
 
-### Emitted schema for `live-counter.aihu`
+> **🚧 `agent-manifest.json` has no consumers yet.** The file is emitted but nothing reads it. The operational agent surface is instead carried by the `registerAgentMetadata(...)` module-scope call (§3) and the `__agentBinding` server export (below). Wiring `agent-manifest.json` into the server-card skills generation is planned (#430).
+
+### Emitted manifest for `live-counter.aihu`
 
 Given the live-counter example from §2, the compiler emits approximately:
 
 ```json
 {
-  "tag": "live-counter",
   "tools": [
     {
-      "name": "live-counter/increment",
-      "description": "Add 1 to the counter",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      }
-    },
-    {
-      "name": "live-counter/decrement",
-      "description": "Subtract 1 from the counter",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      }
-    },
-    {
-      "name": "live-counter/reset",
-      "description": "Reset the counter to 0",
-      "inputSchema": {
-        "type": "object",
-        "properties": {}
-      }
+      "name": "live_counter",
+      "tag": "live-counter",
+      "inputs": {},
+      "actions": {
+        "increment": { "returns": {}, "describe": "Add 1 to the counter" },
+        "decrement": { "returns": {}, "describe": "Subtract 1 from the counter" },
+        "reset": { "returns": {}, "describe": "Reset the counter to 0" }
+      },
+      "state": {}
     }
   ]
 }
@@ -598,17 +586,17 @@ const mw = async (req: Request) =>
 
 ## 10. Agent compliance checklist
 
-Every aihu application ships these agent-readiness endpoints by contract. Use this checklist before deploying.
+> **🚧 Opt-in, not "by contract."** These capabilities are **not** shipped by every aihu app automatically. The `llms.txt` / `llms-full.txt` / server-card / `robots.txt` endpoints require the `@aihu-plugin/agent-readiness` integration (§6). The A2A and ACP discovery routes require mounting their respective adapters (§9). `aihu mcp serve` is a separate authoring stdio server (§8), **not** an app endpoint. Treat this as a checklist of what you can enable, not a description of defaults.
 
-| Requirement | Endpoint | Standard |
-|---|---|---|
-| llms.txt discovery | `GET /llms.txt` | [llmstxt.org](https://llmstxt.org) |
-| llms-full.txt | `GET /llms-full.txt` | llmstxt.org |
-| MCP Server Card | `GET /.well-known/mcp/server-card.json` | SEP-1649 (MCP 2025-06-18) |
-| robots.txt | `GET /robots.txt` | RFC 9309 |
-| A2A discovery | `GET /.well-known/agent.json` | A2A protocol |
-| ACP discovery | `GET /.well-known/acp-agent` | ACP protocol |
-| MCP stdio server | `aihu mcp serve` | MCP SDK |
+| Capability | Endpoint / command | Standard | How to enable |
+|---|---|---|---|
+| llms.txt discovery | `GET /llms.txt` | [llmstxt.org](https://llmstxt.org) | agent-readiness (§6) |
+| llms-full.txt | `GET /llms-full.txt` | llmstxt.org | agent-readiness (§6) |
+| MCP Server Card | `GET /.well-known/mcp/server-card.json` | aihu shape (not MCP-spec) | agent-readiness (§6) |
+| robots.txt | `GET /robots.txt` | RFC 9309 | agent-readiness (§6) |
+| A2A discovery | `GET /.well-known/agent.json` | A2A protocol | `mountA2aAdapter` (§9) |
+| ACP discovery | `GET /.well-known/acp-agent` | ACP protocol | `mountAcpAdapter` (§9) |
+| Authoring MCP stdio server | `aihu mcp serve` | MCP SDK | CLI (§8) — authoring helper only |
 
 ### isitagentready.com checklist
 
@@ -616,7 +604,7 @@ The full checklist at [isitagentready.com](https://isitagentready.com) verifies:
 
 - `llms.txt` present and parseable (H1 name, optional blockquote, H2 sections, link format)
 - `robots.txt` includes explicit `Allow: /` for major AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Googlebot-Extended, CCBot, anthropic-ai, Google-Extended, Bytespider, cohere-ai)
-- MCP server card present at `/.well-known/mcp/server-card.json` and valid against the SEP-1649 schema
+- MCP server card present at `/.well-known/mcp/server-card.json` and valid against the aihu `McpServerCard` shape (this is aihu's own shape, **not** an MCP spec — SEP-1649 is closed)
 - MCP endpoint responds to tool calls
 
 ### AI bot policy in `robots.txt`
