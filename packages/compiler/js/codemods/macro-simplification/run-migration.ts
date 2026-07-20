@@ -1,14 +1,17 @@
 /**
  * B6.4 corpus migration runner
- * Usage: bun run-migration.ts [file1.aihu file2.aihu ...]
+ * Usage: bun run-migration.ts [--dry-run] [file1.aihu file2.aihu ...]
  * Applies migrate() in-place to each file. Idempotent.
+ * `--dry-run` (#425): print which files WOULD change without writing anything.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { migrate } from './migrate.ts'
 
-const files = process.argv.slice(2)
+const args = process.argv.slice(2)
+const dryRun = args.includes('--dry-run')
+const files = args.filter((a) => a !== '--dry-run')
 if (files.length === 0) {
-  console.error('usage: bun run-migration.ts <file1.aihu> [file2.aihu ...]')
+  console.error('usage: bun run-migration.ts [--dry-run] <file1.aihu> [file2.aihu ...]')
   process.exit(1)
 }
 
@@ -29,8 +32,12 @@ for (const filePath of files) {
       continue
     }
     if (rewritten !== src) {
-      writeFileSync(filePath, rewritten, 'utf8')
-      console.log(`MODIFIED: ${filePath}`)
+      if (dryRun) {
+        console.log(`WOULD-MODIFY: ${filePath}`)
+      } else {
+        writeFileSync(filePath, rewritten, 'utf8')
+        console.log(`MODIFIED: ${filePath}`)
+      }
       modified++
       if (warnings.length > 0) {
         for (const w of warnings) console.warn(`  WARN: ${w}`)
@@ -46,7 +53,7 @@ for (const filePath of files) {
 }
 
 console.log(
-  `\nSummary: ${modified} modified, ${unchanged} unchanged, ${parseFails.length} parse-fail`,
+  `\nSummary: ${modified} ${dryRun ? 'would-modify' : 'modified'}, ${unchanged} unchanged, ${parseFails.length} parse-fail${dryRun ? ' (dry-run: nothing written)' : ''}`,
 )
 if (parseFails.length > 0) {
   console.log('Parse-fail files:')

@@ -21,9 +21,9 @@
  *   `compile` — the .aihu itself no longer compiles (stale v1 syntax)
  *   `parse`   — it compiled, but the emitted JS is not valid
  *
- * NOT yet wired into CI: 16 fixtures still fail (11 stale-syntax examples, 5
- * emitted-JS bugs including assignment-to-const in `$action` bodies that write
- * a `$prop`). Wire it into `plan-a.yml` once those are resolved — see TODOS.md.
+ * NOT yet wired into CI. As of #425 (examples migrated to v2) the baseline is
+ * 0 compile / 0 parse failures — wire it into `plan-a.yml` with
+ * `--expect-compile 0 --expect-parse 0` so it can ratchet. See TODOS.md.
  * Run manually: `bun run check:emit-parses`
  */
 import { execFileSync } from 'node:child_process'

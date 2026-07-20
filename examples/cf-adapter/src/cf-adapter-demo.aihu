@@ -4,17 +4,11 @@
 
 @state {
   import { signal, computed } from '@aihu/signals'
-
   const [workerName, setWorkerName] = signal('cf-adapter-demo')
+
   const [deployMode, setDeployMode] = signal('workers')
 
   const statusLabel = computed(() => 'Ready to deploy')
-}
-
-@agent {
-  $expose workerName
-  $expose deployMode
-  getConfig: { description: "Return the adapter config" }
 }
 
 @template {

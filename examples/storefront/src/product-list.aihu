@@ -3,8 +3,8 @@
   import { inject } from '@aihu/context'
   import { signal } from '@aihu/signals'
   import { CartContext } from './cart-context'
-
   const [resourceKey] = signal('products')
+
   const products = createResource(
     resourceKey,
     async () => {
@@ -16,11 +16,17 @@
 
   const cartSignal = inject(CartContext)
 
-  function addToCart(item) {
-    if (cartSignal) {
-      const [get, set] = cartSignal
-      set([...get(), item])
-    }
+  $action: {
+    addToCart: {
+      describe: 'Add a product to the cart by id',
+      expose: { read: true, write: true },
+      handler: (item) => {
+        if (cartSignal) {
+          const [get, set] = cartSignal
+          set([...get(), item])
+        }
+      },
+    },
   }
 }
 
@@ -41,7 +47,7 @@
         class="product-card"
         $each={products.state().data}
         $key="id"
-        $let="product"
+        $let={product}
       >
         <div class="product-info">
           <h3 class="product-name">{product.name}</h3>
@@ -51,7 +57,7 @@
         <button
           class="add-btn"
           $on.click={() => addToCart(product)}
-          aria-label={"Add " + product.name + " to cart"}
+          $aria-label={"Add " + product.name + " to cart"}
         >
           Add to cart
         </button>
@@ -62,11 +68,6 @@
       No products yet.
     </div>
   </section>
-}
-
-@agent {
-  $expose products: current products resource state
-  addToCart: { description: "Add a product to the cart by id" }
 }
 
 @style {

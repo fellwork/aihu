@@ -7,25 +7,6 @@
   import { signal } from '@aihu/signals'
   import { createResource } from '@aihu-plugin/data'
 
-  // Score shape: { id: string, team: string, score: number }
-  const [scores, setScores] = signal([])
-  const [connected, setConnected] = signal(false)
-
-  let ws: WebSocket | null = null
-
-  // createResource for initial fetch — base layer before first WS push.
-  // Key is a static signal; fetcher hits the local /api/initial-scores route
-  // served by the Vite configureServer middleware.
-  const [resourceKey] = signal('initial-scores')
-  const initialScores = createResource(
-    resourceKey,
-    async (_key: string) => {
-      const resp = await fetch('/api/initial-scores')
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      return resp.json()
-    },
-  )
-
   $lifecycle: {
     mount: () => {
       ws = new WebSocket('ws://localhost:5172')
@@ -62,13 +43,34 @@
       }
     },
   }
+
+  // Score shape: { id: string, team: string, score: number }
+  const [scores, setScores] = signal([])
+
+  const [connected, setConnected] = signal(false)
+
+  let ws: WebSocket | null = null
+
+  // createResource for initial fetch — base layer before first WS push.
+  // Key is a static signal; fetcher hits the local /api/initial-scores route
+  // served by the Vite configureServer middleware.
+  const [resourceKey] = signal('initial-scores')
+
+  const initialScores = createResource(
+    resourceKey,
+    async (_key: string) => {
+      const resp = await fetch('/api/initial-scores')
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      return resp.json()
+    },
+  )
 }
 
 @template {
   <section class="realtime-scores">
     <header class="header">
       <h1>Live Scores</h1>
-      <span class="badge" $class.connected={connected}>
+      <span class="badge" $class:connected={connected}>
         {connected ? 'Connected' : 'Connecting...'}
       </span>
     </header>
@@ -105,7 +107,7 @@
           $if={scores().length > 0}
           $each={scores()}
           $key="id"
-          $let="row"
+          $let={row}
         >
           <tr>
             <td>{row.team}</td>
@@ -118,7 +120,7 @@
           $if={scores().length === 0 && initialScores.state().status === 'ready'}
           $each={initialScores.state().data}
           $key="id"
-          $let="row"
+          $let={row}
         >
           <tr>
             <td>{row.team}</td>
@@ -133,12 +135,6 @@
       </tbody>
     </table>
   </section>
-}
-
-@agent {
-  $expose scores: current scores array
-  $expose connected: WebSocket connection state
-  getScores: { description: "Return current live scores" }
 }
 
 @style {

@@ -110,7 +110,7 @@ function usage(): never {
       '  aihu plugin <name>      Scaffold a plugin package',
       '  aihu dev [options]      Start dev server',
       '  aihu build [options]    Production build',
-      '  aihu migrate <files...> Migrate legacy SFC syntax to v1.0+ (--dry-run to preview)',
+      '  aihu migrate <files...> Migrate legacy SFC syntax to v1.0+ (--v2: also v1→v2 macros; --dry-run to preview)',
       '  aihu add <names...>     Copy styled recipes from @aihu/ui into ui.target',
       '      [--prefix p]            Override the custom-element tag prefix',
       '      [--dry-run]             Print the plan; write nothing',
@@ -454,19 +454,23 @@ async function main(): Promise<void> {
     // here we only parse argv and call its file-driving entry.
     const { migrateFiles } = await import('./commands/migrate.js')
     const dryRun = hasFlag(rest, 'dry-run')
+    // #425 — `--v2` chains the v1→v2 macro-simplification pass after the
+    // v0→v1 passes, giving external devs a CLI path to the v2 vocabulary.
+    const v2 = hasFlag(rest, 'v2')
     const files = rest.filter((a) => !a.startsWith('--'))
     if (files.length === 0) {
       process.stderr.write(
         [
           'Usage:',
           '  aihu migrate <files...>   Migrate legacy SFC syntax to v1.0+ canonical forms',
+          '  aihu migrate --v2 <files...>   Also migrate v1 macro forms to the v2 vocabulary',
           '  aihu migrate --dry-run <files...>   Preview changes without writing',
           '',
         ].join('\n'),
       )
       process.exit(1)
     }
-    migrateFiles(files, dryRun, process.cwd())
+    migrateFiles(files, dryRun, process.cwd(), v2)
     return
   }
   if (cmd === 'add') {

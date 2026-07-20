@@ -32,6 +32,9 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
+// v1→v2 macro-vocabulary pass (#425). Relative source import — rolldown
+// bundles it into the CLI dist, so the published package stays self-contained.
+import { migrate as migrateMacrosV2 } from '../../../compiler/js/codemods/macro-simplification/migrate.ts'
 
 type BlockConversion = {
   readonly open: RegExp
@@ -74,6 +77,13 @@ export function migrateInlineAttrs(content: string): string {
   // Quote style is preserved.
   result = result.replace(/(\s)@([a-zA-Z][\w-]*)=(["'])/g, '$1$$on.$2=$3')
   result = result.replace(/(\s)@([a-zA-Z][\w-]*)=\{/g, '$1$$on.$2={')
+
+  // Defect fix (#425 b) — quoted `$let="expr"` / `$let='expr'` → `$let={expr}`.
+  // The quoted `$`-prefixed form is reserved for built-in macros (C500 in v2);
+  // `$let` passes a prop value and must use the curly form. Idempotent: the
+  // curly form contains no quote after `=` so it never re-matches.
+  result = result.replace(/\$let="([^"]*)"/g, '$$let={$1}')
+  result = result.replace(/\$let='([^']*)'/g, '$$let={$1}')
 
   // C306 — plain `attr={x}` on lowercase HTML tags → `$attr={x}`.
   // Allowlist of common HTML attribute names. Component prop-passing
@@ -246,9 +256,79 @@ const C306_ATTR_ALLOWLIST = new Set<string>([
 ])
 
 /**
+ * Defect fix (#425 c) — DOM event-handler attributes in curly form
+ * (`onclick={expr}`, `oninput={expr}`, …) were missing from the C306 pass:
+ * they hit the C306 compile error but the migrator left them untouched.
+ * They are rewritten to the canonical event form `$on.<event>={expr}` (the
+ * corpus dialect), not `$onclick={expr}`. Curated name set so that
+ * non-event `on…`-shaped attributes are never misrewritten.
+ */
+const C306_EVENT_HANDLER_ATTRS = new Set<string>([
+  'onclick',
+  'ondblclick',
+  'oninput',
+  'onchange',
+  'onsubmit',
+  'onreset',
+  'onkeydown',
+  'onkeyup',
+  'onkeypress',
+  'onfocus',
+  'onblur',
+  'onmousedown',
+  'onmouseup',
+  'onmouseover',
+  'onmouseout',
+  'onmouseenter',
+  'onmouseleave',
+  'onmousemove',
+  'oncontextmenu',
+  'onwheel',
+  'onscroll',
+  'ondrag',
+  'ondragstart',
+  'ondragend',
+  'ondragenter',
+  'ondragleave',
+  'ondragover',
+  'ondrop',
+  'ontouchstart',
+  'ontouchend',
+  'ontouchmove',
+  'ontouchcancel',
+  'onpointerdown',
+  'onpointerup',
+  'onpointermove',
+  'onpointerenter',
+  'onpointerleave',
+  'onpointercancel',
+  'onload',
+  'onerror',
+  'onabort',
+  'oncanplay',
+  'onplay',
+  'onpause',
+  'onended',
+  'ontimeupdate',
+  'onvolumechange',
+  'onselect',
+  'oncopy',
+  'oncut',
+  'onpaste',
+  'ontoggle',
+  'onclose',
+  'oninvalid',
+  'onanimationend',
+  'onanimationstart',
+  'onanimationiteration',
+  'ontransitionend',
+])
+
+/**
  * Within a single opening tag's attribute region (e.g. ` class={cls} id="x" `),
  * rewrite each plain `attr={expr}` to `$attr={expr}` when `attr` is in the
- * C306 allowlist OR matches the `aria-*` / `data-*` family.
+ * C306 allowlist OR matches the `aria-*` / `data-*` family. Event-handler
+ * names (`onclick` etc.) rewrite to `$on.<event>={expr}` instead (#425 c).
  */
 function rewriteAttrsInRegion(attrsRegion: string): string {
   // Per-attribute regex: leading whitespace (or start of region), no `$`/`:`/`@`
@@ -331,7 +411,10 @@ function rewriteAttrsInRegion(attrsRegion: string): string {
       const expr = attrsRegion.slice(afterName + 2, closeIdx)
       const isAllowed =
         C306_ATTR_ALLOWLIST.has(name) || /^aria-[a-z]+/.test(name) || /^data-[a-z]+/.test(name)
-      if (isAllowed) {
+      if (C306_EVENT_HANDLER_ATTRS.has(name)) {
+        // #425 c — event handlers take the canonical `$on.<event>` form.
+        result += `$on.${name.slice(2)}={${expr}}`
+      } else if (isAllowed) {
         result += `$${name}={${expr}}`
       } else {
         result += `${name}={${expr}}`
@@ -482,14 +565,49 @@ export function migrateFile(content: string): string {
 }
 
 /**
- * Read each file in `files`, convert it, then either write it back in-place
- * or print a diff-like preview if `dryRun` is true.
+ * Convert a single SFC file from legacy syntax all the way to v2
+ * macro-vocabulary form (#425): the three v0→v1 passes of `migrateFile`,
+ * then the v1→v2 macro-simplification codemod (`@state` collection-form,
+ * `@agent` $expose/$describe folding, $lifecycle collection).
+ *
+ * Pure function — does not perform any I/O. Idempotent.
+ * Returns the rewritten content plus any codemod warnings (e.g. `@agent`
+ * references that could not be resolved to an `@state` declaration).
  */
-export function migrateFiles(files: ReadonlyArray<string>, dryRun: boolean, cwd: string): void {
+export function migrateFileV2(content: string): {
+  readonly content: string
+  readonly warnings: readonly string[]
+} {
+  const v1 = migrateFile(content)
+  const { rewritten, warnings } = migrateMacrosV2(v1)
+  return { content: rewritten, warnings }
+}
+
+/**
+ * Read each file in `files`, convert it, then either write it back in-place
+ * or print a diff-like preview if `dryRun` is true. When `v2` is true the
+ * v1→v2 macro-simplification pass runs after the v0→v1 passes (#425);
+ * default behavior (v0→v1 only) is unchanged.
+ */
+export function migrateFiles(
+  files: ReadonlyArray<string>,
+  dryRun: boolean,
+  cwd: string,
+  v2 = false,
+): void {
   for (const file of files) {
     const filePath = isAbsolute(file) ? file : join(cwd, file)
     const original = readFileSync(filePath, 'utf8')
-    const converted = migrateFile(original)
+    let converted: string
+    if (v2) {
+      const { content, warnings } = migrateFileV2(original)
+      converted = content
+      for (const w of warnings) {
+        process.stderr.write(`  warn: ${file}: ${w}\n`)
+      }
+    } else {
+      converted = migrateFile(original)
+    }
 
     if (converted === original) {
       process.stdout.write(`  (unchanged) ${file}\n`)

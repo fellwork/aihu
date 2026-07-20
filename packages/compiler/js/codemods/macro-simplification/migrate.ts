@@ -43,6 +43,7 @@ interface FunctionishEntry {
   describe: string | undefined
   expose: { read: boolean; write: boolean } | undefined
   leading: string
+  isAsync?: boolean
 }
 
 interface ValueEntry {
@@ -51,12 +52,14 @@ interface ValueEntry {
   describe: string | undefined
   expose: { read: boolean; write: boolean } | undefined
   leading: string
+  isAsync?: boolean
 }
 
 interface AnonEffect {
   body: string
   leading: string
   position: number
+  isAsync?: boolean
 }
 
 interface LifecycleHook {
@@ -64,6 +67,7 @@ interface LifecycleHook {
   body: string
   leading: string
   position: number
+  isAsync?: boolean
 }
 
 interface PlainDecl {
@@ -475,6 +479,21 @@ function walkState(body: string, sidecar: Map<string, Sidecar>, warnings: string
       continue
     }
 
+    // Defect fix (#425 a): colon form — `$lifecycle.mount: { ... }` (bare
+    // block) and `$lifecycle.mount: () => { ... }` (arrow). Previously fell
+    // through to the bare-`$macro <ident>` passthrough, which consumed only
+    // the header line and left the orphaned body braces to mangle the file.
+    if (/^\$lifecycle\.(mount|dispose)\s*:/.test(trimmed)) {
+      const handled = handleLifecycleColon(body, trimStart, buckets, leading, position++)
+      if (handled !== null) {
+        i = handled
+        continue
+      }
+      buckets.passthrough.push({ raw: trimmed, leading, position: position++ })
+      i = lineEndIdx + 1
+      continue
+    }
+
     if (trimmed.startsWith('$effect(')) {
       const handled = handleEffectAnon(body, trimStart, buckets, leading, position++, warnings)
       if (handled !== null) {
@@ -543,8 +562,22 @@ function walkState(body: string, sidecar: Map<string, Sidecar>, warnings: string
       continue
     }
 
-    buckets.passthrough.push({ raw: trimmed, leading, position: position++ })
-    i = lineEndIdx + 1
+    // Statement-aware passthrough (#425): consume the WHOLE statement —
+    // through any open `(`/`{`/`[` — not just the first line. The previous
+    // line-by-line fallback shredded multi-line `const x = call(\n…\n)` and
+    // `function f() { … }` statements into one passthrough entry per line,
+    // scrambling the emitted @state body.
+    const stmtEnd = consumeBalancedStatement(body, trimStart)
+    const raw = body.slice(trimStart, stmtEnd).replace(/\n+$/, '')
+    buckets.passthrough.push({ raw, leading, position: position++ })
+    i = stmtEnd
+  }
+
+  // Trailing comments at the end of @state (accumulated into leadingBuf with
+  // no following statement to attach to) were silently discarded (#425).
+  // Preserve them as a final passthrough entry.
+  if (leadingBuf.trim()) {
+    buckets.passthrough.push({ raw: rstrip(leadingBuf), leading: '', position: position++ })
   }
 
   return buckets
@@ -716,10 +749,54 @@ function handleLifecycle(
     body: fn ? fn.body : cb,
     leading,
     position,
+    isAsync: fn?.isAsync ?? false,
   })
   let cursor = parenClose + 1
   if (body[cursor] === ';' || body[cursor] === '\n') cursor++
   return cursor
+}
+
+// Colon form (#425 defect a): `$lifecycle.mount: { ... }` or
+// `$lifecycle.mount: () => { ... }` (arrow, optionally async). Returns the
+// index just past the consumed statement, or null when the form is not
+// recognized (caller falls back to passthrough).
+function handleLifecycleColon(
+  body: string,
+  start: number,
+  buckets: Buckets,
+  leading: string,
+  position: number,
+): number | null {
+  const m = /^\$lifecycle\.(mount|dispose)\s*:\s*/.exec(body.slice(start))
+  if (!m) return null
+  const kind = m[1] as 'mount' | 'dispose'
+  const cursor = start + m[0].length
+  if (body[cursor] === '(' || body.slice(cursor, cursor + 5) === 'async') {
+    // Arrow form: `() => { ... }` / `async () => { ... }`.
+    const fn = parseArrowOrFunctionExpr(body.slice(cursor))
+    if (!fn) return null
+    const end = scanArrowExprEnd(body, cursor)
+    if (end < 0) return null
+    buckets.lifecycle.push({ kind, body: fn.body, leading, position, isAsync: fn.isAsync })
+    let c = end
+    if (body[c] === ';') c++
+    if (body[c] === '\n') c++
+    return c
+  }
+  if (body[cursor] !== '{') return null
+  // Bare-block form: `$lifecycle.mount: { ... }`.
+  const close = matchBrace(body, cursor)
+  if (close < 0) return null
+  buckets.lifecycle.push({
+    kind,
+    body: body.slice(cursor + 1, close),
+    leading,
+    position,
+  })
+  let c = close + 1
+  if (body[c] === ';') c++
+  if (body[c] === '\n') c++
+  return c
 }
 
 function handleEffectAnon(
@@ -740,10 +817,41 @@ function handleEffectAnon(
     body: fn ? fn.body : cb,
     leading,
     position,
+    isAsync: fn?.isAsync ?? false,
   })
   let cursor = parenClose + 1
   if (body[cursor] === ';' || body[cursor] === '\n') cursor++
   return cursor
+}
+
+// Consume a complete statement starting at `start`: scan forward (string/
+// comment aware) and stop at the first newline where all bracket depths are
+// balanced. Returns the index just past that newline (or body.length).
+function consumeBalancedStatement(body: string, start: number): number {
+  let depth = 0
+  let j = start
+  while (j < body.length) {
+    const c = body[j]!
+    if (c === '/' && body[j + 1] === '/') {
+      const nl = body.indexOf('\n', j)
+      j = nl < 0 ? body.length : nl
+      continue
+    }
+    if (c === '/' && body[j + 1] === '*') {
+      const end = body.indexOf('*/', j + 2)
+      j = end < 0 ? body.length : end + 2
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      j = skipString(body, j)
+      continue
+    }
+    if (c === '(' || c === '{' || c === '[') depth++
+    else if (c === ')' || c === '}' || c === ']') depth--
+    else if (c === '\n' && depth <= 0) return j + 1
+    j++
+  }
+  return body.length
 }
 
 function consumePassthroughCall(body: string, start: number): number {
@@ -803,10 +911,25 @@ interface ParsedFn {
   body: string
   retType: string | undefined
   isArrow: boolean
+  isAsync: boolean
 }
 
 function parseArrowOrFunctionExpr(s: string): ParsedFn | null {
   s = s.trim()
+  // #425 — `async` arrows/functions were unrecognized, which silently DROPPED
+  // async entries on the v2 idempotency re-parse path. Strip the prefix here
+  // and carry the flag so emit can restore it.
+  let isAsync = false
+  if (/^async[\s(]/.test(s)) {
+    isAsync = true
+    s = s.slice(5).trim()
+  }
+  const inner = parseArrowOrFunctionExprInner(s)
+  if (!inner) return null
+  return { ...inner, isAsync }
+}
+
+function parseArrowOrFunctionExprInner(s: string): Omit<ParsedFn, 'isAsync'> | null {
   if (s.startsWith('(')) {
     const closeIdx = matchParen(s, 0)
     if (closeIdx < 0) return null
@@ -1133,20 +1256,21 @@ function emitValueCollection(macro: string, entries: ValueEntry[]): string {
 function formatValueEntry(e: ValueEntry): string {
   const baseIndent = INDENT.length * 2
   const linePrefix = ' '.repeat(baseIndent)
+  const thunkPrefix = `${e.isAsync ? 'async ' : ''}() => `
   if (!e.describe && !e.expose) {
     if (!e.expr.includes('\n')) {
-      const inline = `${linePrefix}${e.name}: () => ${e.expr},`
+      const inline = `${linePrefix}${e.name}: ${thunkPrefix}${e.expr},`
       if (inline.length <= 100) return inline
     }
     const indented = reindentExpr(e.expr, baseIndent + INDENT.length)
-    return `${linePrefix}${e.name}: () => ${indented},`
+    return `${linePrefix}${e.name}: ${thunkPrefix}${indented},`
   }
   const keys: { k: string; v: string }[] = []
   if (e.describe) keys.push({ k: 'describe', v: quoteSingle(e.describe) })
   if (e.expose) keys.push({ k: 'expose', v: formatExpose(e.expose) })
   const valueExpr = e.expr.includes('\n')
-    ? `() => ${reindentExpr(e.expr, baseIndent + INDENT.length * 2)}`
-    : `() => ${e.expr}`
+    ? `${thunkPrefix}${reindentExpr(e.expr, baseIndent + INDENT.length * 2)}`
+    : `${thunkPrefix}${e.expr}`
   keys.push({ k: 'value', v: valueExpr })
 
   const lines: string[] = [`${linePrefix}${e.name}: {`]
@@ -1178,7 +1302,7 @@ function emitAction(entries: FunctionishEntry[]): string {
 
 function formatActionEntry(e: FunctionishEntry): string {
   const ret = e.retType ? `: ${e.retType}` : ''
-  const arrow = `(${e.args})${ret} => `
+  const arrow = `${e.isAsync ? 'async ' : ''}(${e.args})${ret} => `
   const baseIndent = INDENT.length * 2
   const linePrefix = ' '.repeat(baseIndent)
   if (e.describe || e.expose) {
@@ -1210,7 +1334,7 @@ function emitLifecycle(hooks: LifecycleHook[]): string {
       inner.push(rstrip(indentBlock(h.leading, linePrefix)))
     }
     const bodyIndented = reindentBlockBody(h.body, baseIndent + INDENT.length)
-    inner.push(`${linePrefix}${h.kind}: () => {${bodyIndented}},`)
+    inner.push(`${linePrefix}${h.kind}: ${h.isAsync ? 'async ' : ''}() => {${bodyIndented}},`)
   }
   const lines: string[] = []
   if (headerLeading) lines.push(rstrip(headerLeading))
@@ -1228,7 +1352,7 @@ function emitEffectAnon(effects: AnonEffect[]): string {
     if (idx > 0) out.push('')
     if (e.leading.trim()) out.push(rstrip(e.leading))
     const bodyIndented = reindentBlockBody(e.body, baseIndent + INDENT.length)
-    out.push(`${linePrefix}$effect: () => {${bodyIndented}}`)
+    out.push(`${linePrefix}$effect: ${e.isAsync ? 'async ' : ''}() => {${bodyIndented}}`)
   }
   return out.join('\n')
 }
@@ -1417,13 +1541,11 @@ function tryParseV2AnonEffect(
   if (colonIdx < 0) return null
   let cursor = colonIdx + 1
   while (cursor < body.length && /[ \t]/.test(body[cursor]!)) cursor++
-  // Allow `async` prefix.
-  if (body.slice(cursor, cursor + 5) === 'async') cursor += 5
-  while (cursor < body.length && /[ \t]/.test(body[cursor]!)) cursor++
-  if (body[cursor] !== '(') return null
   const exprStart = cursor
+  if (body[exprStart] !== '(' && body.slice(exprStart, exprStart + 5) !== 'async') return null
   // Consume the rest of the line up to the matching brace (or end of expr).
   // Simplest: parse the arrow expression by finding `=>` and then the body.
+  // parseArrowOrFunctionExpr handles an `async` prefix and reports it (#425).
   const fn = parseArrowOrFunctionExpr(body.slice(exprStart))
   if (!fn) return null
   // Compute end position: scan from exprStart forward consuming the arrow body.
@@ -1431,16 +1553,21 @@ function tryParseV2AnonEffect(
   // by counting through the same structure here.
   const closeIdx = scanArrowExprEnd(body, exprStart)
   if (closeIdx < 0) return null
-  buckets.effectAnon.push({ body: fn.body, leading, position })
+  buckets.effectAnon.push({ body: fn.body, leading, position, isAsync: fn.isAsync })
   let c = closeIdx
   if (body[c] === ';') c++
   if (body[c] === '\n') c++
   return c
 }
 
-// Helper: scan past an arrow-function expression starting at `(`, return idx
-// just past the closing brace (or end-of-expr).
+// Helper: scan past an arrow-function expression starting at `(` (optionally
+// prefixed with `async`), return idx just past the closing brace (or
+// end-of-expr).
 function scanArrowExprEnd(s: string, start: number): number {
+  if (s.slice(start, start + 5) === 'async') {
+    start += 5
+    while (start < s.length && /[ \t]/.test(s[start]!)) start++
+  }
   if (s[start] !== '(') return -1
   const parenClose = matchParen(s, start)
   if (parenClose < 0) return -1
@@ -1632,19 +1759,26 @@ function routeV2Entry(
     return
   }
   if (macro === 'computed' || macro === 'resource') {
-    let expr: string
+    let thunk: { expr: string; isAsync: boolean }
     let describe: string | undefined
     let expose: { read: boolean; write: boolean } | undefined
     if (entry.isWrapped) {
       const f = parseWrappedFields(entry.rhs)
-      expr = stripThunk(f.value ?? '')
+      thunk = stripThunk(f.value ?? '')
       describe = f.describe
       expose = f.expose
     } else {
-      expr = stripThunk(entry.rhs)
+      thunk = stripThunk(entry.rhs)
     }
     const target = macro === 'computed' ? buckets.computed : buckets.resource
-    target.push({ name: entry.name, expr, describe, expose, leading })
+    target.push({
+      name: entry.name,
+      expr: thunk.expr,
+      describe,
+      expose,
+      leading,
+      isAsync: thunk.isAsync,
+    })
     return
   }
   if (macro === 'action') {
@@ -1669,22 +1803,30 @@ function routeV2Entry(
       describe,
       expose,
       leading,
+      isAsync: fn.isAsync,
     })
     return
   }
   if (macro === 'effect') {
-    let expr: string
+    let thunk: { expr: string; isAsync: boolean }
     let describe: string | undefined
     let expose: { read: boolean; write: boolean } | undefined
     if (entry.isWrapped) {
       const f = parseWrappedFields(entry.rhs)
-      expr = stripThunk(f.value ?? '')
+      thunk = stripThunk(f.value ?? '')
       describe = f.describe
       expose = f.expose
     } else {
-      expr = stripThunk(entry.rhs)
+      thunk = stripThunk(entry.rhs)
     }
-    buckets.effectNamed.push({ name: entry.name, expr, describe, expose, leading })
+    buckets.effectNamed.push({
+      name: entry.name,
+      expr: thunk.expr,
+      describe,
+      expose,
+      leading,
+      isAsync: thunk.isAsync,
+    })
     return
   }
   if (macro === 'lifecycle') {
@@ -1697,23 +1839,26 @@ function routeV2Entry(
       body: fn.body,
       leading,
       position: nextPosition(),
+      isAsync: fn.isAsync,
     })
     return
   }
 }
 
-// Strip a leading `() =>` from a thunk if present, returning the inner expr.
+// Strip a leading `() =>` (or `async () =>`, #425) from a thunk if present,
+// returning the inner expr plus the async flag so re-emit can restore it.
 // For wrapped `value: () => expr`, we want to round-trip the bare arrow form
 // so re-emit produces `name: () => expr` identically.
-function stripThunk(s: string): string {
+function stripThunk(s: string): { expr: string; isAsync: boolean } {
   s = s.trim()
-  const m = /^\(\s*\)\s*(?::\s*[^=]+)?=>\s*/.exec(s)
-  if (!m) return s
+  const m = /^(async\s+)?\(\s*\)\s*(?::\s*[^=]+)?=>\s*/.exec(s)
+  if (!m) return { expr: s, isAsync: false }
+  const isAsync = !!m[1]
   const rest = s.slice(m[0].length)
   if (rest.startsWith('{')) {
     const close = matchBrace(rest, 0)
-    if (close < 0) return rest
-    return rest.slice(1, close).trim()
+    if (close < 0) return { expr: rest, isAsync }
+    return { expr: rest.slice(1, close).trim(), isAsync }
   }
-  return rest.trim()
+  return { expr: rest.trim(), isAsync }
 }

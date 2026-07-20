@@ -3,37 +3,48 @@
   import { HubServiceContext } from './hub-context'
   import { signal } from '@aihu/signals'
 
+  $action: {
+    sendA2aRequest: {
+      describe: 'Send a ping A2A sendSubscribe request and store the first SSE data frame',
+      expose: { read: true, write: true },
+      handler: async () => {
+        setLoading(true)
+        try {
+          const res = await fetch('/a2a/tasks/sendSubscribe', {
+            method: 'POST',
+            body: JSON.stringify({ message: 'ping', params: null }),
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const text = await res.text()
+          // Parse first `data:` line from the SSE response
+          const firstDataLine = text.split('\n').find(l => l.startsWith('data:'))
+          const payload = firstDataLine ? firstDataLine.slice(5).trim() : text
+          setResult(payload)
+        } catch (err) {
+          setResult(`Error: ${err}`)
+        } finally {
+          setLoading(false)
+        }
+      },
+    },
+  }
+
+  $lifecycle: {
+    mount: () => {
+      fetch('/.well-known/agent.json')
+        .then(r => r.json())
+        .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
+        .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
+    },
+  }
+
   const _service = inject(HubServiceContext)   // null in client context; API pattern demo
+
   const [discoveryCard, setDiscoveryCard] = signal<string | null>(null)
+
   const [result, setResult] = signal<string | null>(null)
+
   const [loading, setLoading] = signal(false)
-
-  $lifecycle.mount: {
-    fetch('/.well-known/agent.json')
-      .then(r => r.json())
-      .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
-      .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
-  }
-
-  $action sendA2aRequest: async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/a2a/tasks/sendSubscribe', {
-        method: 'POST',
-        body: JSON.stringify({ message: 'ping', params: null }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const text = await res.text()
-      // Parse first `data:` line from the SSE response
-      const firstDataLine = text.split('\n').find(l => l.startsWith('data:'))
-      const payload = firstDataLine ? firstDataLine.slice(5).trim() : text
-      setResult(payload)
-    } catch (err) {
-      setResult(`Error: ${err}`)
-    } finally {
-      setLoading(false)
-    }
-  }
 }
 
 @template {
@@ -51,8 +62,8 @@
       <button
         class="send-btn"
         $on.click={sendA2aRequest}
-        $attr.disabled={loading}
-        aria-busy={loading}
+        $disabled={loading}
+        $aria-busy={loading}
       >
         {loading ? 'Sending...' : 'Send A2A Request'}
       </button>
@@ -67,12 +78,6 @@
       No result yet — click "Send A2A Request" to make a request.
     </p>
   </div>
-}
-
-@agent {
-  $expose result: last A2A task result from sendSubscribe
-  $expose loading: whether a request is in-progress
-  getDiscoveryCard: { description: "Return the A2A agent.json discovery card" }
 }
 
 @style {
