@@ -53,6 +53,12 @@ function permissiveBinding(scope: string | null, seen: { args?: unknown[] } = {}
 }
 
 const authPlugin: AuthPlugin = {
+  // A verify-capable plugin: any presented JWT is treated as signature-valid in
+  // this fixture. The gate calls `verify` before `checkScope` — a scoped
+  // transport must supply a verify-capable plugin or it fails closed with
+  // AUTH_UNVERIFIABLE (#420). `sub` is the verified principal; scope is still
+  // consulted via `checkScope` on the now-authenticated token.
+  verify: async (jwt: string) => (jwt ? { sub: 'acp-caller' } : null),
   checkScope: (jwt: string, scope: string) => jwt.split(' ').includes(scope),
 }
 

@@ -27,6 +27,17 @@ import type { LiveBinding, RequestContext } from '@aihu/agent-service'
  *   mismatched protocol; non-numeric protocol) and one — a channel that sent a
  *   valid `hello` — must be DELEGATED to.
  *
+ * G3 — rate-limit KEY PROVENANCE (#420 / GO1a). The bucket key must derive
+ *   from the signature-VERIFIED JWT `sub` (via `AuthPlugin.verify`), never
+ *   from caller-supplied `context.userId`. The probe replays the reported
+ *   attack: one credential, rotated caller identities → the SAME bucket,
+ *   keyed by the verified sub; an unverifiable credential → 401 with the
+ *   limiter never consulted. This is the behavioral form of the "key
+ *   provenance" check `check:governed` was explicitly documented NOT to
+ *   catch before #420 landed. Verified to FAIL against the pre-fix tree
+ *   (git stash of packages/ → self-test's should-not-flag G3 case reports
+ *   caller-keyed buckets and the run exits 1).
+ *
  * ─── Both slices have LANDED (GO1, GO2, 2026-07-19). ────────────────────────
  *
  * This file was updated in the same commit as the fix, because the self-test
@@ -215,6 +226,17 @@ async function runG1Cell(cell: G1Cell, regressed: boolean): Promise<ProbeOutcome
   const registry = new Map<string, LiveBinding[]>([[TAG, [binding]]])
   const regressRateLimit = regressed && cell.rateLimit !== null && !cell.plugin
 
+  // #420: the gate requires a signature-VERIFIED principal before it will even
+  // consult a rate limit. Rate-limit-only cells get a verify-capable
+  // authPlugin so the outcome they measure is specifically the RATE-LIMIT
+  // control (429 when its plugin is absent), not the earlier 401 principal
+  // refusal — which also keeps the discrimination proof's distinct-codes axis
+  // honest. Scope cells keep their declared authPlugin absence.
+  const verifyingAuth = {
+    checkScope: () => true,
+    verify: async (jwt: string) => (jwt === 'probe-jwt' ? { sub: 'probe-user' } : null),
+  }
+
   // The action IS advertised in metadata, so the 404 "unknown action" branch
   // cannot fire. This is the explicit anti-AC11 guard: we assert the GATE's
   // 401/429, never merely `ok === false`, and never the invoker's own
@@ -223,6 +245,7 @@ async function runG1Cell(cell: G1Cell, regressed: boolean): Promise<ProbeOutcome
     manifests: [{ tag: TAG, describes: 'probe', actions: { [ACTION]: { returns: {} } } }],
     getRegistry: () => registry,
     ...(cell.plugin && cell.scope ? { authPlugin: { checkScope: () => true } } : {}),
+    ...(cell.scope === null && cell.rateLimit !== null ? { authPlugin: verifyingAuth } : {}),
     ...((cell.plugin && cell.rateLimit) || regressRateLimit
       ? { rateLimitPlugin: { checkRateLimit: () => true } }
       : {}),
@@ -445,6 +468,99 @@ async function runG2(regressed: boolean): Promise<ProbeOutcome[]> {
   return out
 }
 
+// ─── G3: rate-limit key provenance (#420) ────────────────────────────────────
+//
+// The reported attack: rate-limit keys were `${context.userId}:${tag}` with
+// `userId` caller-supplied and never cross-checked against the JWT `sub`, so
+// rotating `userId` reset the caller's own quota. The fix derives the key
+// from the signature-verified principal (`AuthPlugin.verify(jwt).sub`).
+//
+// BEHAVIORAL, like G1/G2 (the issue allowed a static probe; a behavioral one
+// is strictly stronger — it measures what the gate DOES, not what its source
+// mentions). The probe replays the attack against a real `AgentService` and
+// observes the keys the rate-limit plugin is actually consulted with:
+//   1. one credential, two rotated caller userIds → BOTH calls must land in
+//      the SAME bucket, keyed by the verified sub — and neither rotated
+//      identity may appear in any key; and
+//   2. an unverifiable credential → 401, with the limiter NEVER consulted
+//      (no fall-through to caller claims).
+//
+// `--self-test` REGRESSION (real code path, no shim): the regressed plugin's
+// `verify` ECHOES the caller-supplied identity as `sub`. The gate then keys
+// buckets off whatever the caller claimed — observationally identical to the
+// pre-#420 `${userId}:${tag}` derivation — and the probe must flag it.
+
+const G3_SUB = 'g3-verified-principal'
+const G3_JWT = 'g3-signed-token'
+
+async function runG3(regressed: boolean): Promise<ProbeOutcome[]> {
+  const binding = makeBinding(null, '100/min')
+  const registry = new Map<string, LiveBinding[]>([[TAG, [binding]]])
+  const usedKeys: string[] = []
+  let callerIdentity = ''
+
+  const service = createAgentService({
+    manifests: [{ tag: TAG, describes: 'probe', actions: { [ACTION]: { returns: {} } } }],
+    getRegistry: () => registry,
+    authPlugin: {
+      checkScope: () => true,
+      verify: async (jwt: string) => {
+        if (regressed) return { sub: callerIdentity } // caller controls the principal
+        return jwt === G3_JWT ? { sub: G3_SUB } : null
+      },
+    },
+    rateLimitPlugin: {
+      checkRateLimit: (_spec: string, key: string) => {
+        usedKeys.push(key)
+        return true
+      },
+    },
+  })
+
+  // The attack: same credential, rotated caller identity.
+  for (const caller of ['rotated-a', 'rotated-b']) {
+    callerIdentity = caller
+    await service.handleToolCall(`${TAG}/${ACTION}`, [], { userId: caller, jwt: G3_JWT })
+  }
+  const rotationKeys = [...usedKeys]
+
+  // An unverifiable credential must be refused before the limiter is touched.
+  callerIdentity = 'rotated-c'
+  const forgedEnv = (await service.handleToolCall(`${TAG}/${ACTION}`, [], {
+    userId: 'rotated-c',
+    jwt: 'not-a-signed-token',
+  })) as Envelope
+  const forgedDenied401 = forgedEnv.code === 401
+  const limiterUntouchedByForged = usedKeys.length === rotationKeys.length
+
+  const expectedKey = `${G3_SUB}:${TAG}`
+  const sameVerifiedBucket =
+    rotationKeys.length === 2 && rotationKeys.every((k) => k === expectedKey)
+  const callerLeaked = rotationKeys.some((k) => k.includes('rotated-'))
+
+  const correct = sameVerifiedBucket && !callerLeaked && forgedDenied401 && limiterUntouchedByForged
+  return [
+    {
+      label: 'rate-limit key derives from the VERIFIED principal, not caller context',
+      denied: forgedDenied401,
+      code: forgedEnv.code,
+      dispatched: binding.dispatched(),
+      correct,
+      detail: correct
+        ? `both rotated-identity calls keyed ${expectedKey}; unverifiable credential got 401 ` +
+          'with the limiter untouched'
+        : callerLeaked || !sameVerifiedBucket
+          ? `CALLER CONTROLS THE BUCKET KEY — observed keys [${rotationKeys.join(', ')}], ` +
+            `expected [${expectedKey}, ${expectedKey}]. A caller that rotates its ` +
+            'context.userId mints itself a fresh quota; the key must come from the ' +
+            'signature-verified JWT `sub`, never from caller-supplied context.'
+          : `unverifiable credential was not refused cleanly (code ${forgedEnv.code}, limiter ` +
+            `consulted ${usedKeys.length - rotationKeys.length} extra time(s)) — verification ` +
+            'must complete, and fail closed, before any quota is consumed',
+    },
+  ]
+}
+
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 async function runSelfTest(): Promise<void> {
@@ -452,11 +568,14 @@ async function runSelfTest(): Promise<void> {
   // this must be clean — and it is the REAL server producing that, not a shim.
   const g1Live = await runG1(false)
   const g2Live = await runG2(false)
+  const g3Live = await runG3(false)
   // Should-flag half: the same real code paths, regressed to their pre-fix
-  // behaviour (permissive rate-limit plugin / pre-sent valid handshake). The
-  // probes must still see the violations they were written for.
+  // behaviour (permissive rate-limit plugin / pre-sent valid handshake /
+  // caller-echoing principal). The probes must still see the violations they
+  // were written for.
   const g1Regressed = await runG1(true)
   const g2Regressed = await runG2(true)
+  const g3Regressed = await runG3(true)
 
   selfTest(NAME, [
     {
@@ -470,6 +589,11 @@ async function runSelfTest(): Promise<void> {
       expected: 0,
     },
     {
+      label: 'should-not-flag: verified-principal rate-limit keys (live tree, #420 landed)',
+      actual: g3Live.filter((o) => !o.correct).length,
+      expected: 0,
+    },
+    {
       label: 'should-flag: rate-limit control that does not enforce (regressed)',
       actual: g1Regressed.filter((o) => !o.correct).length,
       expected: 1,
@@ -478,6 +602,11 @@ async function runSelfTest(): Promise<void> {
       label: 'should-flag: bridge sub-probes delegated unverified (regressed)',
       actual: g2Regressed.filter((o) => !o.correct).length,
       expected: 3,
+    },
+    {
+      label: 'should-flag: caller-controlled rate-limit key (regressed)',
+      actual: g3Regressed.filter((o) => !o.correct).length,
+      expected: 1,
     },
   ])
 
@@ -537,7 +666,8 @@ if (SELF_TEST) process.exit(0)
 
 const g1 = await runG1(false)
 const g2 = await runG2(false)
-refuseVacuous([...g1, ...g2], NAME, 'governance probes')
+const g3 = await runG3(false)
+refuseVacuous([...g1, ...g2, ...g3], NAME, 'governance probes')
 
 const findings: Finding[] = []
 
@@ -546,6 +676,15 @@ for (const o of g1.filter((x) => !x.correct)) {
   findings.push({
     where: 'packages/agent-service/src/agent-service.ts:215',
     rule: 'G1',
+    message: `${o.label} — ${o.detail}`,
+  })
+}
+
+// G3 — one finding: one defect (key provenance), one finding.
+for (const o of g3.filter((x) => !x.correct)) {
+  findings.push({
+    where: 'packages/agent-service/src/agent-service.ts',
+    rule: 'G3',
     message: `${o.label} — ${o.detail}`,
   })
 }
@@ -564,5 +703,8 @@ if (g2Bad.length > 0) {
   })
 }
 
-console.log(`${NAME} — ran ${g1.length} G1 cells and ${g2.length} G2 sub-probes.`)
+console.log(
+  `${NAME} — ran ${g1.length} G1 cells, ${g2.length} G2 sub-probes, and ${g3.length} G3 ` +
+    'key-provenance probe(s).',
+)
 expectCount(findings, expectedFrom(process.argv, 'governed'), NAME)

@@ -264,7 +264,12 @@ describe('asMiddleware — live registry + auth (G6f)', () => {
       headers: { 'content-type': 'application/json' },
     })
 
-  const passAuth: AuthPlugin = { checkScope: () => true }
+  // #420: scoped/rate-limited tools require a plugin that can VERIFY. These
+  // stubs verify any non-empty token to `sub: 'u1'`.
+  const passAuth: AuthPlugin = {
+    checkScope: () => true,
+    verify: async (jwt) => (jwt.length > 0 ? { sub: 'u1' } : null),
+  }
 
   // AC1: scoped binding + valid auth context (userId + jwt) + passing authPlugin
   //      → 200 with the REAL result, NOT double-wrapped.
@@ -301,7 +306,10 @@ describe('asMiddleware — live registry + auth (G6f)', () => {
 
   it('AC2: insufficient scope → 403', async () => {
     const binding = makeLiveBinding('weather-card', 'authenticated')
-    const failAuth: AuthPlugin = { checkScope: () => false }
+    const failAuth: AuthPlugin = {
+      checkScope: () => false,
+      verify: async (jwt) => (jwt.length > 0 ? { sub: 'u1' } : null),
+    }
     const svc = createAgentService({
       getRegistry: () => makeRegistry('weather-card', binding),
       authPlugin: failAuth,
@@ -330,7 +338,8 @@ describe('asMiddleware — live registry + auth (G6f)', () => {
     const svc = createAgentService({
       getRegistry: () => makeRegistry('weather-card', binding),
       rateLimitPlugin,
-      resolveAuth: () => ({ userId: 'u1' }),
+      authPlugin: passAuth,
+      resolveAuth: () => ({ userId: 'u1', jwt: 'token-authenticated' }),
     })
     const res = await svc.asMiddleware()(post({ tool: 'weather-card/fetchForecast', params: {} }))
     expect(res?.status).toBe(429)

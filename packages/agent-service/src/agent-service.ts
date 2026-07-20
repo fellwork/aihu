@@ -41,7 +41,13 @@ const TOOL_CALL_PATH = '/__aihu/tools/call'
 function jsonrpcError(
   code: 400 | 401 | 403 | 404 | 429 | 503,
   message: string,
-): { error: string; code: number; jsonrpc?: { code: number; message: string } } {
+  authDiscoveryUrl?: string,
+): {
+  error: string
+  code: number
+  jsonrpc?: { code: number; message: string }
+  authDiscoveryUrl?: string
+} {
   const rpcCode =
     code === 404
       ? -32601
@@ -58,6 +64,10 @@ function jsonrpcError(
     error: message,
     code,
     jsonrpc: { code: rpcCode, message },
+    // #420: a 401 is actionable only if the agent learns WHERE to obtain a
+    // credential. Included when the host configured `authDiscoveryUrl`
+    // (e.g. its /.well-known/oauth-protected-resource). Informational only.
+    ...(authDiscoveryUrl !== undefined ? { authDiscoveryUrl } : {}),
   }
 }
 
@@ -98,11 +108,17 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
   const authPlugin = options?.authPlugin
   const rateLimitPlugin = options?.rateLimitPlugin
   const getRegistry = options?.getRegistry
+  const authDiscoveryUrl = options?.authDiscoveryUrl
 
   /**
    * Run the security gate (RFC §5 steps 1-4: 404 → 401 → 403 → 429) WITHOUT
    * dispatching. Returns the resolved live binding + parsed names on success,
    * or the JSON-RPC rejection envelope to return verbatim.
+   *
+   * ASYNC since #420: step 2 signature-verifies the JWT via
+   * `AuthPlugin.verify` (`crypto.subtle`, inherently async). Verification
+   * COMPLETES before the scope consult (step 3) and the rate-limit consult
+   * (step 4) — both operate only on the verified principal.
    *
    * Single source of truth for the error-ordering invariant: both
    * `handleToolCall` (which then dispatches on the server-mounted instance) and
@@ -110,12 +126,13 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
    * path so the VISIBLE browser instance is the sole executor) call this — so
    * the security ordering can never diverge between the two entry points.
    */
-  function runGate(
+  async function runGate(
     toolName: string,
     requestContext?: RequestContext,
-  ):
+  ): Promise<
     | { ok: true; binding: LiveBinding; tag: string; action: string }
-    | { ok: false; envelope: ReturnType<typeof jsonrpcError> } {
+    | { ok: false; envelope: ReturnType<typeof jsonrpcError> }
+  > {
     const slash = toolName.indexOf('/')
     if (slash === -1) return { ok: false, envelope: jsonrpcError(400, `bad tool: ${toolName}`) }
     const tag = toolName.slice(0, slash)
@@ -174,36 +191,93 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       }
     }
 
-    // ── Step 2: 401 — userId cardinality (Amendment 3 / §6.3) ────────────
-    // `userId` MUST be non-null, non-empty from verified JWT `sub` claim
-    // when the component has a $scope or $rate-limit (auth-gated endpoints).
-    // For un-scoped, un-rate-limited components, userId is not required
+    // ── Step 2: 401 — verified principal (#420, supersedes Amendment 3) ───
+    //
+    // A component with a `$scope` or `$rate-limit` is an auth-gated endpoint,
+    // and its principal comes EXCLUSIVELY from the signature-verified JWT
+    // `sub` claim. The caller-supplied `requestContext.userId` is never a
+    // policy input: it used to key the rate-limit bucket directly, so a
+    // caller reset its own quota by rotating it (issue #420).
+    //
+    // Fail-closed chain — every rung that cannot produce a verified
+    // principal refuses with 401 (never falls back to caller identity):
+    //   no authPlugin            → AUTH_MISSING       (Amendment 2 posture)
+    //   plugin without `verify`  → AUTH_UNVERIFIABLE  (cannot check signatures)
+    //   no JWT presented         → AUTH_REQUIRED
+    //   signature/format invalid → AUTH_INVALID       (verify returned null)
+    //   verified but no `sub`    → AUTH_INVALID
+    //
+    // Un-scoped, un-rate-limited components still require nothing
     // (backward-compatible with adapters that don't carry auth context, e.g.
-    // the a2a/acp adapters in v0.3.0). AC9 tests the scoped case.
+    // the a2a/acp adapters in v0.3.0).
     const scopeRequired = binding.scope()
     const rateLimitSpec = binding.rateLimit()
-    const needsUserId = scopeRequired !== null || rateLimitSpec !== null
-    const userId = requestContext?.userId
-    if (needsUserId && !userId) {
-      return {
-        ok: false,
-        envelope: jsonrpcError(401, 'AUTH_REQUIRED: userId (JWT sub) is missing or empty'),
-      }
-    }
-
-    // ── Step 3: 403 / 401 AUTH_MISSING — scope check ─────────────────────
-    if (scopeRequired !== null) {
-      // Amendment 2 (§6.1 fail-closed): if @aihu/auth middleware is not
-      // registered, return 401 AUTH_MISSING (not 403 — auth is absent, not
-      // scope-fail). AC7 validates this invariant.
+    const needsPrincipal = scopeRequired !== null || rateLimitSpec !== null
+    let verifiedSub: string | null = null
+    if (needsPrincipal) {
       if (!authPlugin) {
         return {
           ok: false,
-          envelope: jsonrpcError(401, 'AUTH_MISSING: @aihu/auth middleware is not registered'),
+          envelope: jsonrpcError(
+            401,
+            'AUTH_MISSING: @aihu/auth middleware is not registered',
+            authDiscoveryUrl,
+          ),
         }
       }
+      if (typeof authPlugin.verify !== 'function') {
+        // The registered plugin cannot signature-verify a credential. Falling
+        // back to decode-only claims (or to caller-supplied userId) would
+        // ship the #420 hole laundered through a "verified" API — refuse.
+        return {
+          ok: false,
+          envelope: jsonrpcError(
+            401,
+            'AUTH_UNVERIFIABLE: auth plugin cannot signature-verify JWTs; refusing unverified claims',
+            authDiscoveryUrl,
+          ),
+        }
+      }
+      const jwt = requestContext?.jwt
+      if (typeof jwt !== 'string' || jwt === '') {
+        return {
+          ok: false,
+          envelope: jsonrpcError(
+            401,
+            'AUTH_REQUIRED: a signed JWT is required for this tool',
+            authDiscoveryUrl,
+          ),
+        }
+      }
+      // Verification COMPLETES here — before the scope consult (step 3) and
+      // the rate-limit consult (step 4). Both read only this verified result.
+      const claims = await authPlugin.verify(jwt)
+      const sub = claims === null ? undefined : claims.sub
+      if (typeof sub !== 'string' || sub === '') {
+        return {
+          ok: false,
+          envelope: jsonrpcError(
+            401,
+            claims === null
+              ? 'AUTH_INVALID: JWT signature verification failed'
+              : 'AUTH_INVALID: verified JWT carries no usable `sub` claim',
+            authDiscoveryUrl,
+          ),
+        }
+      }
+      verifiedSub = sub
+    }
+
+    // ── Step 3: 403 — scope check (verified claims only) ─────────────────
+    // Reached only after step 2 authenticated the token, so `checkScope`'s
+    // decode reads the SAME claims `verify` just authenticated — a forged
+    // `scope` claim now requires a forged signature, which step 2 rejects.
+    if (scopeRequired !== null) {
       const jwt = requestContext?.jwt ?? ''
-      if (!authPlugin.checkScope(jwt, scopeRequired)) {
+      // `authPlugin` is guaranteed by step 2 (scoped ⇒ needsPrincipal ⇒ the
+      // AUTH_MISSING return already fired if it were absent); the optional
+      // chain keeps this fail-closed rather than asserting.
+      if (authPlugin?.checkScope(jwt, scopeRequired) !== true) {
         return {
           ok: false,
           envelope: jsonrpcError(403, `SCOPE_DENIED: JWT lacks required scope '${scopeRequired}'`),
@@ -231,16 +305,13 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
     // Both directions are covered by named tests in
     // `tests/live-dispatch.test.ts` (§GO1).
     //
-    // KNOWN GAP, deliberately not fixed here (see
-    // docs/plans/governed-track/build-manifest.md §"Surfaced decision"): the
-    // key's `userId` is caller-supplied over MCP (`mcp-server.ts` reads it from
-    // `request.params.arguments.context`) and is never cross-checked against
-    // the JWT `sub`, so a caller can reset its own quota by rotating `userId`.
-    // Closing it requires either extending `AuthPlugin` with a verified
-    // `subject(jwt)` (an interface change reaching `@aihu/auth`, out of this
-    // slice's scope) or refusing caller-supplied context at the MCP boundary
-    // (a breaking change to every current caller). Both are product decisions;
-    // a half-fix here would be worse than an accurately labelled gap.
+    // KEY PROVENANCE (#420, closes the gap formerly documented here): the
+    // bucket key derives from `verifiedSub` — the `sub` claim of the
+    // signature-VERIFIED JWT resolved in step 2 — never from the
+    // caller-supplied `requestContext.userId`. Rotating `userId` therefore
+    // no longer moves a caller into a fresh bucket; only a differently-SIGNED
+    // token can. Guarded by the G3 key-provenance probe in
+    // `scripts/check-governed.ts`.
     if (rateLimitSpec !== null) {
       if (!rateLimitPlugin) {
         return {
@@ -252,7 +323,7 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
           ),
         }
       }
-      const rateLimitKey = `${userId}:${tag}`
+      const rateLimitKey = `${verifiedSub}:${tag}`
       if (!rateLimitPlugin.checkRateLimit(rateLimitSpec, rateLimitKey)) {
         return {
           ok: false,
@@ -274,7 +345,7 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       params: unknown,
       requestContext?: RequestContext,
     ): Promise<unknown> {
-      const gated = runGate(toolName, requestContext)
+      const gated = await runGate(toolName, requestContext)
       if (!gated.ok) return gated.envelope
       const { binding, action } = gated
 
@@ -307,7 +378,7 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       // Gate-only: run steps 1-4 and report the verdict WITHOUT executing the
       // action. Used by the capability bridge so the visible browser instance
       // is the sole executor while the server stays the policy authority.
-      const gated = runGate(toolName, requestContext)
+      const gated = await runGate(toolName, requestContext)
       return gated.ok ? { authorized: true } : gated.envelope
     },
 

@@ -116,8 +116,16 @@ function base64urlToUint8Array(s: string): Uint8Array<ArrayBuffer> {
  *
  * Returns the decoded payload claims on success, or `null` on any failure
  * (malformed token, wrong secret, expired, etc.). Never throws.
+ *
+ * Exported (#420): this is THE signature-verifying primitive backing
+ * `createVerifiedAuthPlugin` — the verified-claims source for the
+ * agent-service gate's rate-limit keys and scope checks. The decode-only
+ * path (`decodeJwt` in `jwt.ts`) must never stand in for it.
  */
-async function verifyJwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
+export async function verifyJwt(
+  token: string,
+  secret: string,
+): Promise<Record<string, unknown> | null> {
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return null
