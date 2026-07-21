@@ -264,7 +264,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
             let raw_script = unit.source.script.unwrap_or("");
             let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
             let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
-            let agent_metadata = emit_agent_metadata_registration(tag_name, raw_script);
+            let agent_metadata = emit_agent_metadata_registration(tag_name, raw_script, &extract);
             let with_metadata = if agent_metadata.is_empty() {
                 with_reg
             } else {
@@ -4162,7 +4162,18 @@ fn opaque_member_id(tag_name: &str, member_name: &str) -> String {
 /// deliberately omitted: the dispatch path to `setSignal` is closed by design
 /// (`agent-service` proves this with a test), so advertising a write tool would
 /// promise a capability the server refuses to serve.
-fn emit_agent_metadata_registration(tag_name: &str, raw_script: &str) -> String {
+///
+/// GX #468 — the payload also carries the resolved `extract` policy, rendered
+/// via the SAME `ResolvedExtract::json_object()` the agent-meta sidecar and
+/// `.route.json` use (JSON is valid JS), so a deployment reading the LIVE
+/// registry (`getAgentMetadata(tag).extract`) sees byte-identical policy to a
+/// deployment reading the sidecar — the gate no longer defaults to
+/// `'anonymous'` on the runtime-registry path for governed surfaces.
+fn emit_agent_metadata_registration(
+    tag_name: &str,
+    raw_script: &str,
+    extract: &crate::extract::ResolvedExtract,
+) -> String {
     let members = collect_agent_members(raw_script);
     if members.actions.is_empty() && members.reads.is_empty() {
         return String::new();
@@ -4214,6 +4225,10 @@ fn emit_agent_metadata_registration(tag_name: &str, raw_script: &str) -> String 
             action_entries.join(",\n")
         ));
     }
+    // The resolved `extract` policy — rendered from the same
+    // `ResolvedExtract::json_object()` string as the sidecars (DA-f2), so the
+    // live registry provably cannot drift from the agent-meta artifact.
+    out.push_str(&format!("  extract: {},\n", extract.json_object()));
     out.push_str("})\n");
     out
 }
@@ -7258,13 +7273,24 @@ mod agent_metadata_param_schema_tests {
         )
     }
 
+    /// The ratified default posture (`read: 'agents'`, `call: 'anonymous'`) —
+    /// what `resolve_extract` yields for a source with no declaration.
+    fn default_extract() -> crate::extract::ResolvedExtract {
+        crate::extract::ResolvedExtract {
+            read: crate::types::ExtractRead::Agents,
+            call: crate::types::ExtractCall::Anonymous,
+            read_origin: crate::extract::ExtractOrigin::Default,
+            call_origin: crate::extract::ExtractOrigin::Default,
+        }
+    }
+
     #[test]
     fn typed_required_params_reach_the_registration() {
         // (a) — `(id: string, count: number)` → named, typed, both required.
         let s = script(
             "save: { expose: { read: true }, handler: (id: string, count: number) => persist(id, count) }",
         );
-        let out = emit_agent_metadata_registration("my-el", &s);
+        let out = emit_agent_metadata_registration("my-el", &s, &default_extract());
         assert!(
             out.contains(
                 "params: { properties: { id: { type: 'string' }, count: { type: 'number' } }, \
@@ -7278,7 +7304,7 @@ mod agent_metadata_param_schema_tests {
     fn optional_param_is_present_but_not_required() {
         // (b) — `(x?: string)` is a named property, absent from `required`.
         let s = script("go: { expose: { read: true }, handler: (x?: string) => run(x) }");
-        let out = emit_agent_metadata_registration("my-el", &s);
+        let out = emit_agent_metadata_registration("my-el", &s, &default_extract());
         assert!(
             out.contains("params: { properties: { x: { type: 'string' } }, required: [] }"),
             "optional param must be present but not required:\n{out}"
@@ -7292,7 +7318,7 @@ mod agent_metadata_param_schema_tests {
         let s = script(
             "filter: { expose: { read: true }, handler: (mode: 'all' | 'done') => setMode(mode) }",
         );
-        let out = emit_agent_metadata_registration("my-el", &s);
+        let out = emit_agent_metadata_registration("my-el", &s, &default_extract());
         assert!(
             out.contains("params: { properties: { mode: {} }, required: ['mode'] }"),
             "non-mappable param must degrade to permissive, not a guessed shape:\n{out}"
@@ -7307,7 +7333,38 @@ mod agent_metadata_param_schema_tests {
     fn unexposed_action_emits_nothing() {
         // No `read` expose → no registration at all (nothing leaks).
         let s = script("secret: { handler: (x: string) => run(x) }");
-        let out = emit_agent_metadata_registration("my-el", &s);
+        let out = emit_agent_metadata_registration("my-el", &s, &default_extract());
         assert!(out.is_empty(), "unexposed action must not register:\n{out}");
+    }
+
+    // GX #468 — the registration payload carries the resolved `extract` policy,
+    // rendered VERBATIM from `ResolvedExtract::json_object()` (the same string
+    // both sidecars embed), so the live registry cannot drift from the
+    // agent-meta artifact.
+    #[test]
+    fn resolved_extract_reaches_the_registration_verbatim() {
+        let s = script("save: { expose: { read: true }, handler: (id: string) => persist(id) }");
+        let ex = default_extract();
+        let out = emit_agent_metadata_registration("my-el", &s, &ex);
+        assert!(
+            out.contains(&format!("  extract: {},", ex.json_object())),
+            "registration must carry the sidecar-identical extract object:\n{out}"
+        );
+    }
+
+    #[test]
+    fn scoped_extract_reaches_the_registration_verbatim() {
+        let s = script("save: { expose: { read: true }, handler: (id: string) => persist(id) }");
+        let ex = crate::extract::ResolvedExtract {
+            read: crate::types::ExtractRead::Scope("dash:read".to_string()),
+            call: crate::types::ExtractCall::Verified,
+            read_origin: crate::extract::ExtractOrigin::Declared,
+            call_origin: crate::extract::ExtractOrigin::Declared,
+        };
+        let out = emit_agent_metadata_registration("my-el", &s, &ex);
+        assert!(
+            out.contains("extract: { \"read\": { \"scope\": \"dash:read\" }, \"call\": \"verified\" },"),
+            "scope-shaped policy must render exactly as the sidecar does:\n{out}"
+        );
     }
 }
