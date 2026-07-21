@@ -25,7 +25,7 @@ defineElement('x-msg', defineComponent((_ctx) => {
 }))
 `
 
-const COMPILED_SCOPED = `// @aihu:shadow none
+const COMPILED_SCOPED = `// @aihu:shadow light
 // @aihu:extract read=scope:reports:read call=verified
 import { defineComponent, defineElement } from '@aihu/runtime'
 `

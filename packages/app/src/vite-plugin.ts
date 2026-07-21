@@ -243,7 +243,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // `css.shadowMode` (when set) forwards to the compiler's per-plugin
     // shadowMode injection — required for consumers using `@aihu/css-engine`
     // utility classes (or any cascade-dependent CSS framework) which need
-    // `'none'` so styles aren't trapped in shadow roots.
+    // `'light'` so styles aren't trapped in shadow roots.
     aihuCompilerPlugin({
       islands: false,
       // Compile layouts (under the same dir the router scans) in layout mode:

@@ -204,10 +204,16 @@ Stating the negative space, so scope arguments are short:
 
 ## Ratified sub-decisions
 
-### DA4 — page-level components default to `shadowMode: 'none'` (2026-07-20)
+### DA4 — page-level components default to `shadowMode: 'light'` (2026-07-20; landed 2026-07-21 with the binary vocabulary)
 
 **Decision (founder):** route/page-level components default to light DOM
-(`shadowMode: 'none'`); leaf/design-system components keep shadow encapsulation.
+(`shadowMode: 'light'`); leaf/design-system components keep shadow encapsulation
+(`'shadow'`). Ratified amendment at the flip: the value set is BINARY —
+`ShadowMode = 'light' | 'shadow'`. `'open'`/`'closed'`/`'none'` are retired;
+`'closed'` was self-contradictory in aihu (a closed root makes
+`this.shadowRoot === null`, so light-DOM detection misclassified it and content
+rendered into the host anyway), and `'shadow'` attaches an OPEN root — the only
+browser mode composition/hydration can use.
 
 **Why.** AI crawlers do not execute JavaScript (§ evidence in
 `docs/domain-hints/seo-and-agent-discoverability.md` §1.2), so primary content
@@ -215,7 +221,7 @@ must reach them as server-rendered *light* DOM. Declarative Shadow DOM does not
 reliably solve this — spec-compliant extractors read a `<template shadowrootmode>`
 subtree as empty (§1.3). Light DOM for page content is the structural fix, and it
 independently simplifies hydration (no server-light-DOM vs client-shadow-root
-tree mismatch) and the shard track (which already wants `none`).
+tree mismatch) and the shard track (which already wants light DOM).
 
 **Scope.** Page-level only. Leaf components (buttons, inputs, design-system
 primitives) keep shadow DOM — encapsulation still matters where the component is

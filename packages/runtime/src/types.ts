@@ -13,20 +13,18 @@ import type { Branch, Leaf, MountOptions, MountScope } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'
 
 /**
- * Shadow DOM mode for the custom element.
+ * Rendering mode for the custom element — a BINARY choice (DA4 #437).
  *
- * - `'open'`   → `attachShadow({ mode: 'open' })`. `this.shadowRoot`
- *                accessible externally. **Default.**
- * - `'closed'` → `attachShadow({ mode: 'closed' })`. `this.shadowRoot`
- *                returns `null` externally. Runtime stores root on
- *                `SHADOW_ROOT_SYM`. **v0 LIMITATION:** compiler-emitted
- *                code reads `this.shadowRoot`, which returns `null` for
- *                closed roots. Fully functional in v1 when compiler
- *                gains `SHADOW_ROOT_SYM` awareness.
- * - `'none'`   → No shadow root. `mount()` is called with `this` (the
- *                element itself) as host. No style scoping.
+ * - `'shadow'` → `attachShadow({ mode: 'open' })`. `this.shadowRoot` is the
+ *                root (non-null). Open is the only browser mode aihu uses:
+ *                composition and hydration read `this.shadowRoot`, which a
+ *                closed root nulls out — that is why no `'closed'` value
+ *                exists. **Default for leaf components.**
+ * - `'light'`  → No shadow root; content renders into the element itself.
+ *                `this.shadowRoot` is `null` — detection is unambiguous.
+ *                No style scoping. **Default for pages and layouts.**
  */
-export type ShadowMode = 'open' | 'closed' | 'none'
+export type ShadowMode = 'light' | 'shadow'
 
 export interface DefineOptions {
   shadowMode?: ShadowMode
@@ -37,9 +35,9 @@ export interface DefineOptions {
 /**
  * Context passed to a `defineComponent` setup function.
  *
- * - `host` — the DOM target for `mount()`: a `ShadowRoot` for the
- *   default `'open'`/`'closed'` modes, or the `HTMLElement` itself
- *   for `shadowMode: 'none'`.
+ * - `host` — the DOM target for `mount()`: a `ShadowRoot` for
+ *   `shadowMode: 'shadow'`, or the `HTMLElement` itself for
+ *   `shadowMode: 'light'`.
  * - `element` — the custom element instance (`this` inside the
  *   constructor).
  */

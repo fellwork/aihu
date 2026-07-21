@@ -10,7 +10,7 @@
 // The two padding classes (p-4 / p-6) share a conflict group, so cn() keeps only
 // the last one applied — last-wins resolution from the engine runtime.
 //
-// Rendered with shadowMode: 'none' (set in vite.config.ts) so the engine global
+// Rendered with shadowMode: 'light' (set in vite.config.ts) so the engine global
 // utility cascade applies — the documented mode for utility-class frameworks.
 
 @state {

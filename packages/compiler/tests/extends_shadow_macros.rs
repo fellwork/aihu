@@ -3,7 +3,7 @@
 //! Acceptance:
 //!   #1 `$extends: Ident` parses (NO C440) and threads `base: Ident` into the
 //!      emitted `defineComponent({ base: Ident, ... })`.
-//!   #2 `$shadow: 'none'` emits a leading `// @aihu:shadow none` marker.
+//!   #2 `$shadow: 'light'` emits a leading `// @aihu:shadow light` marker.
 //!   #3 `$extends` forces the options-form even with no `$prop`.
 //!   #4 malformed `$extends` / `$shadow` are rejected (C470 / C471).
 //!   #5 neither macro emits any setup-body JS (declaration-only).
@@ -28,7 +28,7 @@ fn emit_sfc(sfc_src: &str, tag: &str) -> String {
 const RECIPE: &str = r#"@state {
   import { AihuCheckboxRoot } from '@aihu/primitives/checkbox'
   $extends: AihuCheckboxRoot
-  $shadow: 'none'
+  $shadow: 'light'
 }
 @template {
   <span class="indicator"></span>
@@ -52,8 +52,8 @@ fn ac1_extends_threads_base_into_options() {
 fn ac2_shadow_emits_leading_marker() {
     let js = emit_sfc(RECIPE, "aihu-checkbox");
     assert!(
-        js.starts_with("// @aihu:shadow none\n"),
-        "expected leading `// @aihu:shadow none` marker; got:\n{}",
+        js.starts_with("// @aihu:shadow light\n"),
+        "expected leading `// @aihu:shadow light` marker; got:\n{}",
         &js[..js.len().min(80)]
     );
 }

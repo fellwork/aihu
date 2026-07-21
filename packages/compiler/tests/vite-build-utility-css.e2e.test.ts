@@ -67,7 +67,7 @@ const TEST_FIXTURE_SFC = resolve(EXAMPLE_ROOT, 'src', '__bug6_test_widget.aihu')
 const TEST_FIXTURE_ENTRY = resolve(EXAMPLE_ROOT, 'src', '__bug6_test_main.ts')
 const TEST_VITE_CONFIG = resolve(EXAMPLE_ROOT, '__bug6_test_vite.config.ts')
 
-describe("Bug 6 — Vite build emits utility CSS into bundle when shadowMode='none'", () => {
+describe("Bug 6 — Vite build emits utility CSS into bundle when shadowMode='light'", () => {
   it.runIf(cssCoreBin && existsSync(EXAMPLE_ROOT) && existsSync(compilerBin))(
     'emits `.flex { display: flex }` into a CSS asset in dist/',
     () => {
@@ -87,15 +87,15 @@ describe("Bug 6 — Vite build emits utility CSS into bundle when shadowMode='no
         writeFileSync(TEST_FIXTURE_ENTRY, `import './__bug6_test_widget.aihu'\n`, 'utf8')
 
         // A minimal vite.config.ts that wires JUST the compiler plugin with
-        // `shadowMode: 'none'` + `islands: false` — the exact production
-        // shape forwarded by `viteAihuPlugin({ css: { shadowMode: 'none' }})`.
+        // `shadowMode: 'light'` + `islands: false` — the exact production
+        // shape forwarded by `viteAihuPlugin({ css: { shadowMode: 'light' }})`.
         writeFileSync(
           TEST_VITE_CONFIG,
           `import { defineConfig } from 'vite'
 import { aihuCompilerPlugin } from '@aihu/compiler'
 
 export default defineConfig({
-  plugins: [aihuCompilerPlugin({ islands: false, shadowMode: 'none' })],
+  plugins: [aihuCompilerPlugin({ islands: false, shadowMode: 'light' })],
   build: {
     outDir: '${TEST_DIST}',
     emptyOutDir: true,

@@ -22,7 +22,7 @@
 }
 
 @template {
-  <main>
+  <main class="blog-index">
     <h1>The aihu blog</h1>
     <ul>
       <li $each="posts as item" $key={item.slug}>
@@ -34,10 +34,13 @@
 }
 
 @style {
-  main { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; }
-  h1   { margin-bottom: 1rem; }
-  ul   { list-style: none; padding: 0; }
-  li   { padding: 0.25rem 0; }
-  a    { color: #0070f3; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  /* DA4: pages are light DOM by default, so this @style joins the GLOBAL
+     cascade — every selector is scoped under the page root class so bare
+     element selectors (main, h1, a, ...) don't bleed into other pages. */
+  .blog-index { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; }
+  .blog-index h1 { margin-bottom: 1rem; }
+  .blog-index ul { list-style: none; padding: 0; }
+  .blog-index li { padding: 0.25rem 0; }
+  .blog-index a { color: #0070f3; text-decoration: none; }
+  .blog-index a:hover { text-decoration: underline; }
 }

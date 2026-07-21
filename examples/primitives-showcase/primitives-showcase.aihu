@@ -1,7 +1,7 @@
 // aihu/primitives showcase — headless behavior from the published package, styled here.
 // Wires defineButton (APG Button), defineDialog (APG Dialog Modal), and defineTooltip
 // (APG Tooltip). The primitives emit zero CSS; all styling targets their data-state attr.
-// See README.md for the full breakdown. shadowMode none is set in vite.config.ts.
+// See README.md for the full breakdown. shadowMode light is set in vite.config.ts.
 
 @state {
   import { signal } from '@aihu/signals'

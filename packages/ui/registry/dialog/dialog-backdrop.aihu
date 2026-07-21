@@ -3,7 +3,7 @@
 
   `<aihu-dialog-backdrop>` EXTENDS the headless AihuDialogBackdrop primitive
   (click-outside dismissal, reflects `data-state`) via the compiler's
-  `$extends:` macro. Light DOM (`$shadow: 'none'`). The translucent scrim covers
+  `$extends:` macro. Light DOM (`$shadow: 'light'`). The translucent scrim covers
   the viewport while open and is removed from layout while closed.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -13,7 +13,7 @@
   import { AihuDialogBackdrop } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogBackdrop
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

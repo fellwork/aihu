@@ -3,11 +3,11 @@ import { aihuCompilerPlugin } from '@aihu/compiler'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // shadowMode: 'none' — emits the utility CSS to the light DOM for this demo.
+  // shadowMode: 'light' — emits the utility CSS to the light DOM for this demo.
   // Not required for css-engine in general: it is scoped and works in any
   // shadow mode (the default `'open'` folds utilities into each component's
   // shadow style). Use `'none'` to reach light-DOM / external children.
-  plugins: [aihuCompilerPlugin({ shadowMode: 'none' })],
+  plugins: [aihuCompilerPlugin({ shadowMode: 'light' })],
   resolve: {
     alias: {
       '@shared': resolve(__dirname, '../_shared'),

@@ -3,7 +3,7 @@
 
   `<aihu-dialog-description>` EXTENDS the headless AihuDialogDescription primitive
   (registers its id as the content's `aria-describedby`) via the compiler's
-  `$extends:` macro. Light DOM (`$shadow: 'none'`).
+  `$extends:` macro. Light DOM (`$shadow: 'light'`).
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
 -->
@@ -12,7 +12,7 @@
   import { AihuDialogDescription } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogDescription
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

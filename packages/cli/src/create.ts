@@ -109,7 +109,7 @@ function cssFromArgv(): CssChoice | undefined {
 /** Resolve the shadow-mode choice from argv, or `undefined` to prompt. */
 function shadowFromArgv(): ShadowChoice | undefined {
   const raw = extractFlag('shadow')
-  if (raw === 'open' || raw === 'closed' || raw === 'none') return raw
+  if (raw === 'light' || raw === 'shadow') return raw
   return undefined
 }
 
@@ -154,7 +154,7 @@ export function resolveCreateOptions(opts: {
   detected: PkgManager
 }): ResolvedCreateOptions {
   const css: CssChoice = opts.css ?? 'none'
-  const shadowMode: ShadowChoice = css === 'engine' ? (opts.shadow ?? 'open') : 'open'
+  const shadowMode: ShadowChoice = css === 'engine' ? (opts.shadow ?? 'shadow') : 'shadow'
   return {
     template: opts.template ?? 'minimal',
     pm: opts.pm ?? opts.detected,
@@ -310,7 +310,7 @@ async function main(): Promise<void> {
   }
 
   // Shadow mode only matters when css-engine is on.
-  let shadowMode: ShadowChoice = 'open'
+  let shadowMode: ShadowChoice = 'shadow'
   if (css === 'engine') {
     const shadowArg = shadowFromArgv()
     if (shadowArg !== undefined) {
@@ -320,23 +320,20 @@ async function main(): Promise<void> {
       process.stdout.write('\n')
       process.stdout.write(`${dim('  Shadow mode:')}\n`)
       process.stdout.write(
-        `    ${cyan('1)')} open    ${dim('(default, scoped — utilities fold into the shadow style)')}\n`,
+        `    ${cyan('1)')} shadow  ${dim('(default, scoped — utilities fold into the shadow style)')}\n`,
       )
-      process.stdout.write(`    ${cyan('2)')} closed  ${dim('(scoped, externally hidden)')}\n`)
       process.stdout.write(
-        `    ${cyan('3)')} none    ${dim('(light DOM — style slotted / external children)')}\n`,
+        `    ${cyan('2)')} light   ${dim('(light DOM — global cascade; style slotted / external children)')}\n`,
       )
       const shadowAnswer = await prompt(rl, `  ${dim('Shadow mode [1]:')} `)
       const shadowMap: Record<string, ShadowChoice> = {
-        '': 'open',
-        '1': 'open',
-        open: 'open',
-        '2': 'closed',
-        closed: 'closed',
-        '3': 'none',
-        none: 'none',
+        '': 'shadow',
+        '1': 'shadow',
+        shadow: 'shadow',
+        '2': 'light',
+        light: 'light',
       }
-      shadowMode = shadowMap[shadowAnswer.trim().toLowerCase()] ?? 'open'
+      shadowMode = shadowMap[shadowAnswer.trim().toLowerCase()] ?? 'shadow'
     }
   }
 

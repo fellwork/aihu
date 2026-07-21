@@ -3,7 +3,7 @@
 
   `<aihu-tooltip-trigger>` EXTENDS the headless AihuTooltipTrigger primitive
   (hover/focus open, Escape dismiss, `aria-describedby` the content) via the
-  compiler's `$extends:` macro. Light DOM (`$shadow: 'none'`) so context
+  compiler's `$extends:` macro. Light DOM (`$shadow: 'light'`) so context
   injection reaches the ancestor root.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -13,7 +13,7 @@
   import { AihuTooltipTrigger } from '@aihu/primitives/tooltip'
 
   $extends: AihuTooltipTrigger
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

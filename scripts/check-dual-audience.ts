@@ -581,20 +581,21 @@ async function runDaD(mode: ProbeMode): Promise<{ body: string; finding: Finding
 
 // ─── DA-e (INFORMATIONAL, #437): route components without `$shadow` ──────────
 //
-// DA4 phase-1 ratchet PREP, not a finding. The founder-ratified classifier
+// The DA4 flip LANDED: the founder-ratified classifier
 // (`docs/architecture/thesis.md` §DA4) makes `@route`-block components pages,
-// and pages default to `shadowMode: 'none'` at the next MAJOR. Until that flip
-// lands, a route component with no explicit `$shadow` is future-behavior-
-// changing but not yet wrong — so this scan REPORTS the count and never
-// contributes to `findings`. When the flip PR lands, this count becomes an
-// enforced finding class (content extractability, per ratification amendment
-// 4) and joins the `expectCount` contract like DA-a..DA-d.
+// and pages now DEFAULT to `shadowMode: 'light'` — the compiler emits a
+// `// @aihu:shadow-default light` marker for an unpinned page, and
+// W472 (the phase-1 advisory) is retired. An unpinned page is therefore no
+// longer future-behavior-changing; this scan remains an informational census
+// of pages riding the implicit default (vs pinning it explicitly). Promoting
+// it to an enforced finding class (ratification amendment 4 contemplated
+// this) is a follow-up decision, not automatic at the flip.
 //
-// The detector mirrors the compiler's W472 (`route_shadow_flip_warning` in
-// packages/compiler/src/lib.rs): `@route` block present AND no `$shadow`
-// macro. Text-shape match rather than a compiler invocation, deliberately —
-// this check must run on a plain checkout with no Rust binary built, and an
-// informational count does not warrant spawning the compiler per file.
+// The detector mirrors the compiler's page classifier (emit.rs): `@route`
+// block present AND no `$shadow` macro. Text-shape match rather than a
+// compiler invocation, deliberately — this check must run on a plain checkout
+// with no Rust binary built, and an informational count does not warrant
+// spawning the compiler per file.
 
 /** Where shipped `.aihu` sources live. Fixtures/bench corpora are not shipped
  * code and are excluded (tests via GLOBAL_EXCLUDES, bench by omission). */
@@ -605,7 +606,7 @@ const AIHU_SOURCE_GLOBS = [
   'cookbook/**/*.aihu',
 ] as const
 
-/** The W472 shape: an `@route` block with no `$shadow` declaration. */
+/** The unpinned-page shape: an `@route` block with no `$shadow` declaration. */
 function isRouteComponentWithoutShadow(source: string): boolean {
   const hasRoute = /^@route\s*\{/m.test(source)
   const hasShadow = /^\s*\$shadow\b/m.test(source)
@@ -1052,7 +1053,7 @@ async function runSelfTest(): Promise<void> {
 
   // DA-e detector, both directions. Informational today, but a detector that
   // cannot discriminate would report a meaningless count — same bar as the
-  // enforced rules. `$shadow: 'none'` and `$shadow: 'open'` must BOTH count as
+  // enforced rules. `$shadow: 'light'` and `$shadow: 'shadow'` must BOTH count as
   // pinned (the macro always wins in the ratified classifier), and a leaf with
   // no `@route` must never count.
   cases.push({
@@ -1071,7 +1072,7 @@ async function runSelfTest(): Promise<void> {
       {
         rel: 'fixture/pinned.aihu',
         source:
-          "@state {\n  $shadow: 'open'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n",
+          "@state {\n  $shadow: 'shadow'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n",
       },
       { rel: 'fixture/leaf.aihu', source: '@template {\n  <button>ok</button>\n}\n' },
     ]).length,
@@ -1206,14 +1207,14 @@ console.log(
     'shipped surface yet; that leg activates when one lands.',
 )
 
-// DA-e — reported, NEVER pushed to `findings` in this phase (#437 phase 1).
+// DA-e — reported, NEVER pushed to `findings` (informational census).
 const aihuFiles = aihuSources()
 const daE = runDaE(aihuFiles)
 console.log(
-  `${NAME} — informational (DA-e, #437 DA4 prep): ${daE.length} route component(s) without an ` +
-    `explicit $shadow, of ${aihuFiles.length} shipped .aihu file(s) scanned. These flip to ` +
-    'light DOM at the DA4 major (compiler warns W472 now). NOT enforced in this phase; becomes ' +
-    'a ratcheted finding when the default flips.',
+  `${NAME} — informational (DA-e, #437 DA4): ${daE.length} route component(s) without an ` +
+    `explicit $shadow, of ${aihuFiles.length} shipped .aihu file(s) scanned. The DA4 flip ` +
+    'LANDED: these ARE light DOM now by default (W472 retired with the flip). This census ' +
+    'tracks unpinned pages; ratcheting it into a finding class is a follow-up decision.',
 )
 for (const rel of daE) console.log(`  ${rel}  [DA-e informational]`)
 

@@ -53,36 +53,35 @@ These stack with the other variants left-to-right, e.g. `md:group-hover:bg-prima
 
 ## Light DOM vs Shadow DOM (and using css-engine)
 
-By default every `.aihu` component renders into an **open shadow root** (`shadowMode: 'open'`). `@aihu/css-engine` is built for this: it compiles each SFC's utility classes to a scoped stylesheet and folds it into that component's shadow `<style>`. **css-engine needs no special configuration to work behind a shadow root** — `shadowMode: 'none'` is *not* required. (That requirement is real only for global-cascade frameworks like Tailwind, UnoCSS, or Pico, which emit one global sheet that a shadow root would block.)
+The rendering mode is a **binary choice** — `shadowMode: 'light' | 'shadow'`. Leaf components default to `'shadow'` (an open shadow root; open is the only browser mode aihu's composition/hydration can use, which is why no `'closed'` value exists). Pages (`@route`) and layouts default to `'light'` (DA4: server-rendered page content must be reachable by non-JS crawlers). `@aihu/css-engine` works in either mode: under `'shadow'` it compiles each SFC's utility classes to a scoped stylesheet and folds it into that component's shadow `<style>`. **css-engine needs no special configuration to work behind a shadow root** — `shadowMode: 'light'` is *not* required. (That requirement is real only for global-cascade frameworks like Tailwind, UnoCSS, or Pico, which emit one global sheet that a shadow root would block.)
 
-If you do want your components in the **light DOM** — for example to style external/slotted children, or to emit a single global utility sheet — flip one knob:
+If you want **every** component in the light DOM — for example to style external/slotted children, or to emit a single global utility sheet — flip one knob:
 
 ```ts
 // vite.config.ts
 viteAihuPlugin({
   dir: { pages: 'src/pages' },
-  css: { shadowMode: 'none' },   // light DOM — utility CSS lands in dist/assets/*.css
+  css: { shadowMode: 'light' },  // light DOM — utility CSS lands in dist/assets/*.css
 })
 ```
 
 What changes when you cross the shadow boundary:
 
-- **Open / closed (default).** Utility CSS folds into each component's shadow `<style>` via `adoptedStyleSheets`. External / global stylesheets do **not** pierce in; theme tokens still cascade in through `:host` because custom properties inherit across the boundary. To deliberately reach across, use the WC-native variants — `host:`, `slotted:`, and `part-*:`.
-- **None (light DOM).** There is no shadow root, so the engine routes the per-SFC utility CSS through Vite's CSS pipeline and it lands in the bundled `dist/assets/*.css`. Now ordinary descendant selectors and global sheets reach your elements (and external children) normally.
+- **`'shadow'`.** Utility CSS folds into each component's shadow `<style>` via `adoptedStyleSheets`. External / global stylesheets do **not** pierce in; theme tokens still cascade in through `:host` because custom properties inherit across the boundary. To deliberately reach across, use the WC-native variants — `host:`, `slotted:`, and `part-*:`.
+- **`'light'`.** There is no shadow root (`this.shadowRoot === null`), so the engine routes the per-SFC utility CSS through Vite's CSS pipeline and it lands in the bundled `dist/assets/*.css`. Now ordinary descendant selectors and global sheets reach your elements (and external children) normally.
 
-**Verification gotcha.** "I switched to shadow mode and `grep dist/assets/*.css` finds nothing" is expected — in open/closed mode the utilities are folded into each component's `<style>`, not the global CSS asset. Grep the *compiled component* (the emitted `__style__.replaceSync(...)` stylesheet) instead. Only in `shadowMode: 'none'` do the utilities appear in `dist/assets/*.css`.
+**Verification gotcha.** "I switched to shadow mode and `grep dist/assets/*.css` finds nothing" is expected — in `'shadow'` mode the utilities are folded into each component's `<style>`, not the global CSS asset. Grep the *compiled component* (the emitted `__style__.replaceSync(...)` stylesheet) instead. Only in `shadowMode: 'light'` do the utilities appear in `dist/assets/*.css`.
 
 ## Scaffolding with css-engine
 
 `@aihu/cli` can wire `@aihu/css-engine` into a fresh project out of the box:
 
 ```bash
-aihu app myapp --css engine                  # css-engine, shadow/open (default, scoped)
-aihu app myapp --css engine --shadow none     # css-engine, light DOM
-aihu app myapp --css engine --shadow closed    # css-engine, closed shadow root
+aihu app myapp --css engine                  # css-engine, shadow (default, scoped)
+aihu app myapp --css engine --shadow light    # css-engine, light DOM
 ```
 
-`--css engine` adds `@aihu/css-engine` to `dependencies` and emits a starter page that uses utility classes (`flex gap-4 max-w-7xl mx-auto p-8`, `text-3xl font-bold`, …) instead of a hand-written `@style` block. The default shadow mode is `open` — so the default css-engine scaffold writes **no** `css` block at all (open is the compiler default); only `--shadow closed|none` emit an explicit `css: { shadowMode }`. The interactive `create-aihu` wizard (`npm create aihu@latest`) asks the same two questions — *"Include @aihu/css-engine?"* and, if yes, a shadow-mode select.
+`--css engine` adds `@aihu/css-engine` to `dependencies` and emits a starter page that uses utility classes (`flex gap-4 max-w-7xl mx-auto p-8`, `text-3xl font-bold`, …) instead of a hand-written `@style` block. Every css-engine scaffold writes an explicit `css: { shadowMode }` block carrying the wizard's `--shadow` choice (default `shadow`) — pages default to light DOM, so the plugin-global config is how the choice survives the DA4 default. The interactive `create-aihu` wizard (`npm create aihu@latest`) asks the same two questions — *"Include @aihu/css-engine?"* and, if yes, a shadow-mode select.
 
 ## Style packs
 

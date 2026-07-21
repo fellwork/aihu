@@ -19,10 +19,10 @@ By default the compiler emits components into a **shadow root** (`shadowMode:
 classes are global by design — so this example sets:
 
 ```ts
-viteAihuPlugin({ css: { shadowMode: 'none' } })
+viteAihuPlugin({ css: { shadowMode: 'light' } })
 ```
 
-…which forwards through to `aihuCompilerPlugin({ shadowMode: 'none' })` and
+…which forwards through to `aihuCompilerPlugin({ shadowMode: 'light' })` and
 lets the utility CSS land in the document-level `<style>` (visible in
 `dist/assets/index-*.css`).
 

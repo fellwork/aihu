@@ -118,7 +118,7 @@ function _tagOf(el: HTMLElement): string {
 }
 
 /**
- * Bug D — light-DOM slot projection helper. Under `shadowMode: 'none'` the
+ * Bug D — light-DOM slot projection helper. Under `shadowMode: 'light'` the
  * browser does not run native <slot> projection, so the compiled-to-DOM
  * `<slot>` element(s) from `<$slot>` are inert. After the layout template has
  * been mounted into `host`, this hand-rolls the projection to match Shadow-DOM
@@ -248,7 +248,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         // attributable signal, then re-throw to preserve fail-loud behavior
         // (so SCR-R0002/0003 invariants and any other throw still propagate).
         try {
-          // Bug D — light-DOM slot projection. Under `shadowMode: 'none'` the
+          // Bug D — light-DOM slot projection. Under `shadowMode: 'light'` the
           // host has no shadow root, so the browser's native <slot> projection
           // does not run. Carve any existing light-DOM children BEFORE _mount
           // appends the layout template (otherwise the layout's nodes land
@@ -533,7 +533,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         _baseProto.connectedCallback?.call(this)
         // Bug D — light-DOM slot projection (see function-form for the full
         // rationale). Mirrored here so options/props-form components behave
-        // identically under `shadowMode: 'none'`.
+        // identically under `shadowMode: 'light'`.
         const isLightDom = _isRealElement(this) && this.shadowRoot === null
         const lightDomChildren: ChildNode[] | null = isLightDom ? Array.from(this.childNodes) : null
         if (lightDomChildren !== null) {

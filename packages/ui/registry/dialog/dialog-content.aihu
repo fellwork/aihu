@@ -4,7 +4,7 @@
   `<aihu-dialog-content>` EXTENDS the headless AihuDialogContent primitive
   (`role=dialog`, `aria-modal`, focus-trap + return-focus, Escape-to-close,
   `aria-labelledby`/`aria-describedby`) via the compiler's `$extends:` macro.
-  Light DOM (`$shadow: 'none'`) is required so the focus trap can see the
+  Light DOM (`$shadow: 'light'`) is required so the focus trap can see the
   consumer's children. Only the DEFAULT `<slot/>` projects in light DOM, so the
   consumer composes the title/description/close as plain children.
 
@@ -15,7 +15,7 @@
   import { AihuDialogContent } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogContent
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

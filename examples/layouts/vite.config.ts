@@ -8,7 +8,7 @@ export default defineConfig({
       // Light-DOM rendering: layouts + pages share the global cascade, and SPA
       // link interception works for `<a>` inside the layout shell. (With the
       // default shadow mode each component is encapsulated.)
-      css: { shadowMode: 'none' },
+      css: { shadowMode: 'light' },
     }),
   ],
 })

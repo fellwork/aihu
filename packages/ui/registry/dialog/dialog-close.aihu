@@ -3,7 +3,7 @@
 
   `<aihu-dialog-close>` EXTENDS the headless AihuDialogClose primitive (closes
   the dialog on activation, `role=button` when not a native button) via the
-  compiler's `$extends:` macro. Light DOM (`$shadow: 'none'`). Positioned at the
+  compiler's `$extends:` macro. Light DOM (`$shadow: 'light'`). Positioned at the
   top-right corner of the content panel.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -13,7 +13,7 @@
   import { AihuDialogClose } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogClose
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

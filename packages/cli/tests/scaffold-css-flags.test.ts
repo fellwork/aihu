@@ -7,7 +7,7 @@
  * top-level `main()`. Covers:
  *   --css engine            → css-engine dep + utility starter + no css block
  *   --css-engine (alias)    → same as --css engine
- *   --shadow none|closed    → explicit css block
+ *   --shadow light|shadow   → explicit css block (binary vocabulary, DA4)
  *   --shadow without --css  → warned + ignored (plain output)
  *   no flags                → plain output (byte-stable path)
  */
@@ -44,14 +44,16 @@ function read(appName: string, rel: string): string {
 }
 
 describe('aihu app · OOTB css-engine flags', () => {
-  it('--css engine: dep + utility starter + no css block (open default)', () => {
+  it('--css engine: dep + utility starter + explicit shadow css block (DA4)', () => {
     const { status } = run(['a', '--css', 'engine'])
     expect(status).toBe(0)
     const pkg = JSON.parse(read('a', 'package.json')) as {
       dependencies: Record<string, string>
     }
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
-    expect(read('a', 'vite.config.ts')).not.toContain('      css: { shadowMode')
+    // DA4: pages default to light DOM, so the shadow wizard choice is carried
+    // as an explicit plugin-global block (it outranks the page default).
+    expect(read('a', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
     const sfc = read('a', 'src/pages/index.aihu')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
@@ -66,20 +68,27 @@ describe('aihu app · OOTB css-engine flags', () => {
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
   })
 
-  it('--css engine --shadow none: explicit css block', () => {
-    const { status } = run(['c', '--css', 'engine', '--shadow', 'none'])
+  it('--css engine --shadow light: explicit css block', () => {
+    const { status } = run(['c', '--css', 'engine', '--shadow', 'light'])
     expect(status).toBe(0)
-    expect(read('c', 'vite.config.ts')).toContain("css: { shadowMode: 'none' },")
+    expect(read('c', 'vite.config.ts')).toContain("css: { shadowMode: 'light' },")
   })
 
-  it('--css engine --shadow closed: explicit css block', () => {
-    const { status } = run(['d', '--css', 'engine', '--shadow', 'closed'])
+  it('--css engine --shadow shadow: explicit css block', () => {
+    const { status } = run(['d', '--css', 'engine', '--shadow', 'shadow'])
     expect(status).toBe(0)
-    expect(read('d', 'vite.config.ts')).toContain("css: { shadowMode: 'closed' },")
+    expect(read('d', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+  })
+
+  it('a retired token (--shadow none) is rejected: falls back to the default', () => {
+    const { status, stderr } = run(['g', '--css', 'engine', '--shadow', 'none'])
+    expect(status).toBe(0)
+    expect(stderr).toContain("Unknown --shadow value 'none'")
+    expect(read('g', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
   })
 
   it('--shadow without --css engine: warns and ignores (plain output)', () => {
-    const { status, stderr } = run(['e', '--shadow', 'none'])
+    const { status, stderr } = run(['e', '--shadow', 'light'])
     expect(status).toBe(0)
     expect(stderr).toContain('--shadow has no effect without --css engine')
     const pkg = JSON.parse(read('e', 'package.json')) as {

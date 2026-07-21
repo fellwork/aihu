@@ -51,7 +51,7 @@ const config: StorybookConfig = {
       // islands: false — stories exercise full interactivity, and the
       // static-island fast path does not support options-form (props)
       // components (see compiler _buildStaticIsland).
-      plugins: [aihuCompilerPlugin({ shadowMode: 'open', islands: false }), aihuTsStripPlugin()],
+      plugins: [aihuCompilerPlugin({ shadowMode: 'shadow', islands: false }), aihuTsStripPlugin()],
       resolve: {
         alias: {
           // Recipe stories import '@storybook-recipes/aihu-<name>.aihu'.

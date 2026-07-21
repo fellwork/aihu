@@ -1,7 +1,6 @@
 import type { MountScope } from '@aihu/arbor'
 import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
 
-export const SHADOW_ROOT_SYM: unique symbol = Symbol()
 const _HS = Symbol()
 
 type HydrateFn = (
@@ -23,20 +22,21 @@ function wrapClass(
   name: string,
   enableHydration: boolean,
 ): typeof HTMLElement {
-  if (mode === 'none' && !enableHydration) return Ctor
-  const isClosed = mode === 'closed'
-  const attachMode: ShadowRootMode = isClosed ? 'closed' : 'open'
-  const attachShadow = mode !== 'none'
+  // DA4 (#437): the mode is BINARY. `'shadow'` attaches an OPEN root — open
+  // is the only browser mode aihu can use, because composition and hydration
+  // read `this.shadowRoot` (a closed root nulls it and would be misdetected
+  // as light DOM). `'light'` attaches nothing, so `this.shadowRoot === null`
+  // is an unambiguous light-DOM detection.
+  if (mode === 'light' && !enableHydration) return Ctor
+  const attachShadow = mode === 'shadow'
 
   class Wrapped extends Ctor {
-    [SHADOW_ROOT_SYM]: ShadowRoot | null = null;
     [_HS]: MountScope | null = null
 
     constructor() {
       super()
       if (attachShadow) {
-        const root = this.attachShadow({ mode: attachMode })
-        if (isClosed) this[SHADOW_ROOT_SYM] = root
+        this.attachShadow({ mode: 'open' })
       }
     }
 
@@ -80,7 +80,9 @@ export function defineElement(
   if (customElements.get(name)) {
     throw new RuntimeError('SCR-R0001', `already: ${name}`)
   }
-  const mode: ShadowMode = options?.shadowMode ?? 'open'
+  // Leaf default: 'shadow'. Pages/layouts receive an explicit
+  // `{ shadowMode: 'light' }` from the compiler plugin (DA4 #437).
+  const mode: ShadowMode = options?.shadowMode ?? 'shadow'
   const enableHydration = options?.hydrate === true
   const Wrapped = wrapClass(Ctor, mode, name, enableHydration)
   customElements.define(name, Wrapped)

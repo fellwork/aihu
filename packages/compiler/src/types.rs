@@ -555,7 +555,8 @@ pub enum StateMacro {
     /// A dedicated `:`-shorthand, NOT collection-form (not subject to C440).
     /// Malformed → C470.
     Extends { base: String },
-    /// `$shadow: 'open' | 'closed' | 'none'` — per-file shadow mode override.
+    /// `$shadow: 'light' | 'shadow'` — per-file shadow mode override (binary
+    /// vocabulary, DA4 #437: 'shadow' = open root, 'light' = no root).
     /// Emits a `// @aihu:shadow <mode>` marker the Vite plugin reads to drive
     /// both shadow attachment and the css-engine light-DOM fold, overriding the
     /// plugin's global `shadowMode`. Malformed → C471.

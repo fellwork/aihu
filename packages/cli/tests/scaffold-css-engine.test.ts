@@ -2,19 +2,21 @@
  * scaffold-css-engine — OOTB `@aihu/css-engine` scaffold option.
  *
  * Covers the Director-specified acceptance for the legacy `scaffoldApp()`
- * css-engine path:
- *   - `{ css: 'engine' }` (default open) → `@aihu/css-engine` in deps, NO `css`
- *     block in vite.config (open is the compiler default), utility-class starter
- *     with no `@style` block.
- *   - `{ css: 'engine', shadowMode: 'none' | 'closed' }` → explicit
- *     `css: { shadowMode }` block emitted.
- *   - `{ css: 'engine', shadowMode: 'open' }` (explicit) → still NO `css` block.
+ * css-engine path (updated at the DA4 flip — pages default to light DOM, so
+ * shadow is no longer implicit and EVERY css-engine scaffold emits its chosen
+ * mode as the explicit plugin-global `css: { shadowMode }` block):
+ *   - `{ css: 'engine' }` (default shadow) → `@aihu/css-engine` in deps,
+ *     explicit `css: { shadowMode: 'shadow' }` block in vite.config (carries
+ *     the choice OVER the DA4 page default), utility-class starter with no
+ *     `@style` block.
+ *   - `{ css: 'engine', shadowMode: 'light' }` → explicit
+ *     `css: { shadowMode: 'light' }` block emitted.
  *   - Default (no opts) scaffold is byte-identical to the no-css path (the
  *     legacy-snapshot.golden test is the cross-process gate; here we assert the
  *     pure generators are unchanged).
  *   - The css-engine starter ACTUALLY EMITS utility CSS — proved by running the
  *     real compiler plugin transform and asserting the scoped declarations fold
- *     into the shadow `__style__` (open) / route to a virtual CSS import (none).
+ *     into the shadow `__style__` ('shadow') / route to a virtual CSS import ('light').
  *     Tests-pass-alone is insufficient (project lesson); this is the
  *     user-visible behavioural check.
  *   - Flag parsing for `--css engine|none`, `--css-engine`, `--shadow …`.
@@ -49,20 +51,15 @@ describe('scaffold css-engine · package.json', () => {
 })
 
 describe('scaffold css-engine · vite.config.ts', () => {
-  it('open mode (default) emits NO css block but adds the clarifying comment', () => {
-    const cfg = appViteConfig('demo', true, 'open')
-    expect(cfg).not.toContain('      css: { shadowMode')
+  it('shadow mode (default) emits an explicit css block (DA4: the page default is light)', () => {
+    const cfg = appViteConfig('demo', true, 'shadow')
+    expect(cfg).toContain("css: { shadowMode: 'shadow' },")
     expect(cfg).toContain('fold into each')
   })
 
-  it('shadowMode: none emits an explicit css block', () => {
-    const cfg = appViteConfig('demo', true, 'none')
-    expect(cfg).toContain("css: { shadowMode: 'none' },")
-  })
-
-  it('shadowMode: closed emits an explicit css block', () => {
-    const cfg = appViteConfig('demo', true, 'closed')
-    expect(cfg).toContain("css: { shadowMode: 'closed' },")
+  it('shadowMode: light emits an explicit css block', () => {
+    const cfg = appViteConfig('demo', true, 'light')
+    expect(cfg).toContain("css: { shadowMode: 'light' },")
   })
 
   it('css off (default) emits the base config: optimizeDeps + agentReadiness, no css block', () => {
@@ -113,7 +110,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     if (dir) rmSync(dir, { recursive: true, force: true })
   })
 
-  it('css: engine (default open) — deps + no css block + utility starter', () => {
+  it('css: engine (default shadow) — deps + explicit shadow css block + utility starter', () => {
     scaffoldApp('app', dir, { css: 'engine' })
     const root = join(dir, 'app')
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -122,7 +119,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
 
     const vite = readFileSync(join(root, 'vite.config.ts'), 'utf8')
-    expect(vite).not.toContain('      css: { shadowMode')
+    expect(vite).toContain("css: { shadowMode: 'shadow' },")
 
     const sfc = readFileSync(join(root, 'src/pages/index.aihu'), 'utf8')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
@@ -130,9 +127,9 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
   })
 
   it('css: engine + shadowMode none — explicit css block', () => {
-    scaffoldApp('app', dir, { css: 'engine', shadowMode: 'none' })
+    scaffoldApp('app', dir, { css: 'engine', shadowMode: 'light' })
     const vite = readFileSync(join(dir, 'app', 'vite.config.ts'), 'utf8')
-    expect(vite).toContain("css: { shadowMode: 'none' },")
+    expect(vite).toContain("css: { shadowMode: 'light' },")
   })
 
   it('default (no opts) does not emit css-engine — byte-stable plain path', () => {
@@ -154,8 +151,8 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
 //
 // Gate on the css-core binary the same way css-engine-hook.test.ts does. When
 // it resolves, run the REAL compiler plugin transform over the scaffolded
-// open-mode starter and assert the scoped utility CSS folds into the shadow
-// `__style__`; for `none`, assert it routes to a virtual CSS import instead.
+// shadow-mode starter and assert the scoped utility CSS folds into the shadow
+// `__style__`; for `light`, assert it routes to a virtual CSS import instead.
 
 const ext = process.platform === 'win32' ? '.exe' : ''
 const compilerBin = resolve(HERE, `../../compiler/bin/aihu-compile${ext}`)
@@ -194,9 +191,12 @@ describe('scaffold css-engine · utilities actually emit (compiler transform)', 
   const starter = appIndexAihu('myapp', true)
 
   it.runIf(cssCoreBin)(
-    'open mode folds scoped utility CSS into the component shadow __style__',
+    'shadow mode folds scoped utility CSS into the component shadow __style__',
     async () => {
-      const out = await transformStarter(starter)
+      // DA4: the starter page defaults to light DOM, so shadow mode means
+      // the scaffold's explicit plugin-global config (appViteConfig emits
+      // `css: { shadowMode: 'shadow' }` for that wizard choice) — mirror it.
+      const out = await transformStarter(starter, { shadowMode: 'shadow' })
       expect(out).toContain('new CSSStyleSheet()')
       expect(out).toContain('adoptedStyleSheets')
       // flex → display: flex; p-8 → padding: 2rem; max-w-7xl → max-width: 80rem
@@ -206,8 +206,8 @@ describe('scaffold css-engine · utilities actually emit (compiler transform)', 
     },
   )
 
-  it.runIf(cssCoreBin)('none mode routes utility CSS to a virtual CSS import', async () => {
-    const out = await transformStarter(starter, { shadowMode: 'none' })
+  it.runIf(cssCoreBin)('light mode routes utility CSS to a virtual CSS import', async () => {
+    const out = await transformStarter(starter, { shadowMode: 'light' })
     expect(out).toContain('virtual:aihu-utility')
   })
 })

@@ -1,8 +1,8 @@
 /**
- * Bug D — light-DOM <$slot> projection under `shadowMode: 'none'`.
+ * Bug D — light-DOM <$slot> projection under `shadowMode: 'light'`.
  *
  * Spec (investigation §8 + Architect brief): when a custom element is
- * registered with `shadowMode: 'none'` the browser does NOT run native
+ * registered with `shadowMode: 'light'` the browser does NOT run native
  * <slot> projection; the compiler still emits a real <slot> DOM element
  * from `<$slot>`. Pre-fix, the layout's template was appended AFTER the
  * page's light-DOM children, producing the wrong order; the <slot>
@@ -30,12 +30,12 @@ import { defineElement } from '../src/define-element.ts'
 
 _setMount(mount)
 
-describe('Bug D — light-DOM <$slot> projection (shadowMode: "none")', () => {
+describe('Bug D — light-DOM <$slot> projection (shadowMode: "light")', () => {
   it('projects light-DOM children at the <slot> position', () => {
     const Cmp = defineComponent(() =>
       branch('div', { class: 'layout' }, [leaf.element('nav', undefined), slot()]),
     )
-    defineElement('x-bugd-light-1', Cmp, { shadowMode: 'none' })
+    defineElement('x-bugd-light-1', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-bugd-light-1')
     host.innerHTML = '<h1>Waves</h1><p>p</p>'
@@ -56,7 +56,7 @@ describe('Bug D — light-DOM <$slot> projection (shadowMode: "none")', () => {
 
   it('preserves text nodes among the projected children', () => {
     const Cmp = defineComponent(() => branch('section', undefined, [slot()]))
-    defineElement('x-bugd-light-2', Cmp, { shadowMode: 'none' })
+    defineElement('x-bugd-light-2', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-bugd-light-2')
     // Mix element + text nodes — childNodes (not children) must be carved.
@@ -80,7 +80,7 @@ describe('Bug D — light-DOM <$slot> projection (shadowMode: "none")', () => {
     const Cmp = defineComponent(() =>
       branch('div', { class: 'layout' }, [leaf.element('nav', undefined), slot()]),
     )
-    defineElement('x-bugd-shadow-1', Cmp, { shadowMode: 'open' })
+    defineElement('x-bugd-shadow-1', Cmp, { shadowMode: 'shadow' })
 
     const host = document.createElement('x-bugd-shadow-1')
     host.innerHTML = '<h1>Waves</h1><p>p</p>'
@@ -103,11 +103,11 @@ describe('Bug D — light-DOM <$slot> projection (shadowMode: "none")', () => {
     host.remove()
   })
 
-  it('edge case: shadowMode "none" with no <slot> in the layout — children fall back onto the host', () => {
+  it('edge case: shadowMode "light" with no <slot> in the layout — children fall back onto the host', () => {
     // Layout has no slot — the carve-and-reinsert should append the
     // buffered children back to the host (no errors, no data loss).
     const Cmp = defineComponent(() => branch('div', { class: 'no-slot' }, []))
-    defineElement('x-bugd-light-3', Cmp, { shadowMode: 'none' })
+    defineElement('x-bugd-light-3', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-bugd-light-3')
     host.innerHTML = '<span>orphan</span>'
@@ -130,7 +130,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
   // → the child lands where the named slot was; unmatched children do not.
   it('A: routes a child with slot="foo" to <slot name="foo">', () => {
     const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot('foo')]))
-    defineElement('x-436-a', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-a', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-a')
     // The <span slot="foo"> must land in the named slot; the bare <p> has no
@@ -153,7 +153,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
   // children (no `slot=` attr) land in order at the default-slot position.
   it('B: unnamed <slot> receives the default children in order', () => {
     const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot()]))
-    defineElement('x-436-b', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-b', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-b')
     host.innerHTML = '<h1>a</h1><p>b</p>'
@@ -174,7 +174,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
         branch('slot', { name: 'x' }, [branch('span', { class: 'fb' }, [leaf('DEFAULT')])]),
       ]),
     )
-    defineElement('x-436-c', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-c', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-c')
     // A child that does NOT target slot "x" — leaves the named slot unassigned.
@@ -201,7 +201,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
         branch('slot', undefined, [branch('span', { class: 'fb' }, [leaf('DEFAULT')])]),
       ]),
     )
-    defineElement('x-436-d', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-d', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-d')
     host.innerHTML = '<p>real</p>'
@@ -222,7 +222,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
     const Cmp = defineComponent(() =>
       branch('div', { class: 'layout' }, [slot('header'), slot(), slot('footer')]),
     )
-    defineElement('x-436-e', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-e', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-e')
     host.innerHTML = '<h1 slot="header">H</h1><p>d1</p><nav slot="footer">F</nav><p>d2</p>'
@@ -244,7 +244,7 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
   // reattach to the host after the layout template.
   it('F: no slot in the layout reattaches children to the host', () => {
     const Cmp = defineComponent(() => branch('div', { class: 'no-slot' }, []))
-    defineElement('x-436-f', Cmp, { shadowMode: 'none' })
+    defineElement('x-436-f', Cmp, { shadowMode: 'light' })
 
     const host = document.createElement('x-436-f')
     host.innerHTML = '<span>orphan</span>'

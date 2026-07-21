@@ -870,7 +870,7 @@ describe('defineComponent — §9.4 recipe class-extension (base option)', () =>
         return leaf('content')
       },
     })
-    defineElement('x-ext-1', Cmp, { shadowMode: 'none' })
+    defineElement('x-ext-1', Cmp, { shadowMode: 'light' })
     const el = document.createElement('x-ext-1')
     document.body.appendChild(el)
     // Base CC runs BEFORE setup (so a context-providing primitive registers
@@ -895,7 +895,7 @@ describe('defineComponent — §9.4 recipe class-extension (base option)', () =>
     const observed = (Cmp as unknown as { observedAttributes: string[] }).observedAttributes
     expect(observed).toContain('size')
     expect(observed).toContain('checked')
-    defineElement('x-ext-2', Cmp, { shadowMode: 'none' })
+    defineElement('x-ext-2', Cmp, { shadowMode: 'light' })
     const el = document.createElement('x-ext-2')
     document.body.appendChild(el)
     log.length = 0

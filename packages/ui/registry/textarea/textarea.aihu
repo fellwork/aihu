@@ -2,13 +2,13 @@
   aihu-textarea — presentational styled recipe (Phase 2, master spec §9.7).
 
   Wraps a NATIVE <textarea> and forwards props. NO `$extends` — the native
-  control plus light DOM is enough for forms. `$shadow: 'none'` so the native
+  control plus light DOM is enough for forms. `$shadow: 'light'` so the native
   <textarea> joins the outer <form>, and the recipe's class-scoped CSS reaches
   the global cascade. `aihu add` rewrites the `aihu-` prefix at copy time.
 -->
 
 @state {
-  $shadow: 'none'
+  $shadow: 'light'
 
   $prop: {
     placeholder: { type: String, default: '' },

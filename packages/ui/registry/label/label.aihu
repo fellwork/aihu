@@ -2,12 +2,12 @@
   aihu-label — presentational styled recipe (Phase 2, master spec §9.7).
 
   Wraps a NATIVE <label> and forwards its `for` association. NO `$extends`.
-  `$shadow: 'none'` so the recipe's class-scoped CSS reaches the global cascade.
+  `$shadow: 'light'` so the recipe's class-scoped CSS reaches the global cascade.
   `aihu add` rewrites the `aihu-` prefix at copy time.
 -->
 
 @state {
-  $shadow: 'none'
+  $shadow: 'light'
 
   $prop: {
     htmlFor: { type: String, default: '' },
