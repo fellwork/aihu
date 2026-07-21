@@ -40,7 +40,7 @@
 @template {
   <div class="smoke-bench">
     <header>
-      <h1>Hello, {{ greeting }}!</h1>
+      <h1>Hello, {greeting}!</h1>
       <p>Count: {{ count() }} (doubled: {{ doubled() }})</p>
     </header>
     <nav>
@@ -48,9 +48,9 @@
       <button $on:click={reset}>Reset</button>
       <button $on:click={toggle}>Toggle</button>
     </nav>
-    <p $if={active}>Active state is ON</p>
+    <p if={active}>Active state is ON</p>
     <ul>
-      <li $each={items as item}>{{ item }}</li>
+      <li each={item of items}>{item}</li>
     </ul>
   </div>
 }

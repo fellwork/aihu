@@ -13,7 +13,7 @@ bun run dev    # http://localhost:5104
 
 ## Concepts shown
 
-- `$each="visible as todo"` + `$key="todo.id"` — keyed list reconciliation
+- `each={todo of visible}` + `key={todo.id}` — keyed list reconciliation
 - Multiple `$computed` derivations off one source-of-truth array
 - `$bind:value` for the draft input + `$on:keydown` for Enter key
 - **v1.1 fix:** `$lifecycle.mount` hydrates from localStorage; `$effect` persists on every change

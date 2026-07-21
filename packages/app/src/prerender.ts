@@ -348,7 +348,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     let layoutShell = layoutName ? await renderLayoutShell(layoutName, route.pattern) : null
     if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
       pushWarn(
-        `[@aihu/app] static output: layout "${layoutName}" renders no <$outlet> ` +
+        `[@aihu/app] static output: layout "${layoutName}" renders no <outlet> ` +
           `(data-aihu-outlet) marker — route ${route.pattern} prerendered without the layout.`,
       )
       layoutShell = null

@@ -27,7 +27,7 @@
   <div class="storefront-root">
     <header class="storefront-header">
       <span class="site-name">aihu Storefront</span>
-      <div class="cart-badge" $if={cartCount > 0} $aria-label={"Cart: " + cartCount + " items"}>
+      <div class="cart-badge" if={cartCount > 0} aria-label={"Cart: " + cartCount + " items"}>
         <span class="cart-icon">🛒</span>
         <span class="cart-count">{cartCount}</span>
       </div>

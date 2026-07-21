@@ -116,9 +116,9 @@ pub struct SfcIfBranch {
 pub enum SfcAttr {
     /// Form A — `class="btn primary"`.
     Static { name: String, value: String },
-    /// Form B — `$class={expr}` (and array `$class={[a, b]}`).
+    /// Form B — `class={expr}` (and array `class={[a, b]}`).
     Binding { name: String, expr: String },
-    /// Form C — `$class:active={cond}` (and `on:`/`bind:`/`emit:`/`if`/…).
+    /// Form C — `class:active={cond}` (and `on:`/`bind:`/`emit:`/`if`/…).
     Macro {
         name: String,
         #[allow(dead_code)]

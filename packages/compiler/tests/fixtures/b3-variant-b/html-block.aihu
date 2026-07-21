@@ -1,4 +1,4 @@
-// B3 Variant B — `{@html expr}` Svelte-style raw HTML block.
+// B3 Variant B — `<span html={expr}></span>` Svelte-style raw HTML block.
 
 @state {
   $prop: {
@@ -8,6 +8,6 @@
 
 @template {
   <article class="content">
-    {@html rawText}
+    <span html={rawText}></span>
   </article>
 }

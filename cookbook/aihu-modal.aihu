@@ -23,15 +23,15 @@
 @template {
   <div
     class="modal-root"
-    $show={open}
-    $on.keydown={onKeydown}
+    show={open}
+    on:keydown={onKeydown}
     tabindex="-1"
   >
-    <div class="backdrop" $on.click={hide}></div>
+    <div class="backdrop" on:click={hide}></div>
     <div class="modal-box" role="document">
-      <button class="close-btn" $on.click={hide} aria-label="Close dialog">×</button>
+      <button class="close-btn" on:click={hide} aria-label="Close dialog">×</button>
       <div class="modal-content">
-        <$slot />
+        <slot />
       </div>
     </div>
   </div>

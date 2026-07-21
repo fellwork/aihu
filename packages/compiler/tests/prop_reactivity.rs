@@ -56,7 +56,7 @@ fn r1_ac1_no_prop_sfc_stays_function_form() {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
-@template { <span>{{ count }}</span> }"#;
+@template { <span>{count}</span> }"#;
     let js = compile_to_js(src, "x-r1-noprop");
     assert!(
         js.contains("defineComponent((_ctx)") || js.contains("defineComponent((ctx)"),

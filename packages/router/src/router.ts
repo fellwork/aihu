@@ -132,7 +132,7 @@ export type Router = {
   /**
    * Run the registered before-guard chain. Returns the final navigation
    * decision: 'continue', 'cancel', or { redirect: string }.
-   * @internal — used by `<$link>` and `<$navigate>`.
+   * @internal — used by `<a>` and `<navigate>`.
    */
   runBeforeGuards(
     to: MatchResult,
@@ -140,7 +140,7 @@ export type Router = {
   ): Promise<'continue' | 'cancel' | { redirect: string }>
   /**
    * Run the registered after-guard chain.
-   * @internal — used by `<$router>`.
+   * @internal — used by `<router>`.
    */
   runAfterGuards(to: MatchResult, from: MatchResult | null): void
 }

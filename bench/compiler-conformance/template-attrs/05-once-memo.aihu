@@ -1,6 +1,6 @@
 @template {
   <div>
-    <header $once><h1>Static Header</h1></header>
-    <section $memo={[count, name]}><p>memoized</p></section>
+    <header once><h1>Static Header</h1></header>
+    <section memo={[count, name]}><p>memoized</p></section>
   </div>
 }

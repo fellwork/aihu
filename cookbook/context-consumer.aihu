@@ -10,11 +10,11 @@
 }
 
 @template {
-  <div $class={['consumer', theme]}>
+  <div class={['consumer', theme]}>
     <p class="theme-label">
       Active theme: <strong>{theme}</strong>
     </p>
-    <div $class={['swatch', theme === 'dark' ? 'swatch-dark' : 'swatch-light']}></div>
+    <div class={['swatch', theme === 'dark' ? 'swatch-dark' : 'swatch-light']}></div>
   </div>
 }
 

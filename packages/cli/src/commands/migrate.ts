@@ -35,6 +35,11 @@ import { isAbsolute, join } from 'node:path'
 // v1→v2 macro-vocabulary pass (#425). Relative source import — rolldown
 // bundles it into the CLI dist, so the published package stays self-contained.
 import { migrate as migrateMacrosV2 } from '../../../compiler/js/codemods/macro-simplification/migrate.ts'
+// Template grammar v2 (the prefix-less template): the `$` attribute layer,
+// block tags, `<$…>` macro elements, and `{{…}}` all migrate to the naked
+// grammar as the FINAL pass — the v0→v1 passes above stay byte-identical and
+// keep producing v1 forms as their intermediate representation.
+import { migrateTemplateGrammar } from '../../../compiler/js/codemods/template-grammar-v2/migrate.ts'
 
 type BlockConversion = {
   readonly open: RegExp
@@ -580,7 +585,10 @@ export function migrateFileV2(content: string): {
 } {
   const v1 = migrateFile(content)
   const { rewritten, warnings } = migrateMacrosV2(v1)
-  return { content: rewritten, warnings }
+  // Grammar v2 — the prefix-less template (40-spec §4): retire the `$`
+  // template-attribute layer, block tags, `<$…>` elements, and `{{…}}`.
+  const { rewritten: v2 } = migrateTemplateGrammar(rewritten)
+  return { content: v2, warnings }
 }
 
 /**

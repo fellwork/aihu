@@ -4,7 +4,7 @@
  * A layout SFC under the layouts dir is compiled with:
  *   1. a namespaced `aihu-layout-<stem>` tag (a bare stem like `app` is not a
  *      valid custom-element name), and
- *   2. a PASSIVE `<$outlet>` marker — the reactive route-driven boundary the
+ *   2. a PASSIVE `<outlet>` marker — the reactive route-driven boundary the
  *      codegen emits would clear the marker on mount under @aihu/app's
  *      imperative client renderer, wiping the page.
  *
@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest'
 import { _isLayoutFile, _layoutTag, _passivizeOutlet } from '../js/index.ts'
 
-// The exact reactive boundary the Rust codegen emits for `<$outlet>`
+// The exact reactive boundary the Rust codegen emits for `<outlet>`
 // (packages/compiler/src/codegen/emit.rs). Mirrored verbatim so the regex in
 // _passivizeOutlet is tested against the real shape.
 const COMPILED_LAYOUT = `import { branch, leaf, slot } from '@aihu/arbor'
@@ -101,7 +101,7 @@ describe('_passivizeOutlet', () => {
     expect(out).toContain("defineElement('aihu-layout-app'")
   })
 
-  it('is a no-op when the layout declares no <$outlet>', () => {
+  it('is a no-op when the layout declares no <outlet>', () => {
     const noOutlet = `import { branch, leaf } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'
 

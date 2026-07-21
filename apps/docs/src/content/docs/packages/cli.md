@@ -141,9 +141,9 @@ component tags (`<UserCard user={u} />`) and XML namespace prefixes (`xmlns:`,
 
 | Legacy form        | v1.0 canonical form                       |
 |--------------------|-------------------------------------------|
-| `:attr="expr"`     | `$attr={expr}` (or `$bind.attr=` two-way) |
-| `@event="fn"`      | `$on.event="fn"` (dot-form per B3c)       |
-| `attr={expr}`      | `$attr={expr}`                            |
+| `:attr="expr"`     | `attr={expr}` (or `$bind.attr=` two-way) |
+| `@event="fn"`      | `on:event={fn}` (dot-form per B3c)       |
+| `attr={expr}`      | `attr={expr}`                            |
 
 #### Pass 3 — package-name renames (v1.0.9 / Naming Scheme A)
 
@@ -167,9 +167,9 @@ run `npx aihu migrate <file>` to obtain the mechanical rewrite.
 | Code | Rejected form                                                              | Removed in | Canonical migration target                              |
 |------|----------------------------------------------------------------------------|------------|---------------------------------------------------------|
 | C107 | `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag SFC framing | v1.0.7     | `@state { … }` / `@template { … }` / `@style { … }` / `@agent { … }` |
-| C304 | `:attr="expr"` Vue-shape one-way binding alias                              | v1.0.8     | `$attr={expr}` (or `$bind.attr=` for two-way)           |
-| C305 | `@event="fn"` Vue-shape event alias                                         | v1.0.8     | `$on.event="fn"` (dot-form)                             |
-| C306 | `attr={expr}` plain-curly HTML attribute binding (no `$`)                   | v1.0.8     | `$attr={expr}`                                          |
+| C304 | `:attr="expr"` Vue-shape one-way binding alias                              | v1.0.8     | `attr={expr}` (or `$bind.attr=` for two-way)           |
+| C305 | `@event="fn"` Vue-shape event alias                                         | v1.0.8     | `on:event={fn}` (dot-form)                             |
+| C306 | `attr={expr}` plain-curly HTML attribute binding (no `$`)                   | v1.0.8     | `attr={expr}`                                          |
 
 ## Dev → build → preview cycle
 

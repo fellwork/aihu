@@ -14,7 +14,7 @@ Each compiles cleanly through the aihu Rust compiler; the harness exits 1 on any
 | `context-consumer.aihu` | `$context consume:` — reads the theme from an ancestor provider |
 | `aihu-controller.aihu` | `$controller` with a `ResizeObserver` — `mount`/`disconnect` lifecycle hooks |
 | `agent-weather.aihu` | `$prop city` + `$action fetchForecast` with `expose`/`describe` for agent introspection |
-| `guard-ui.aihu` | `<$guard scope="admin">` — content only renders when the scope is verified |
+| `guard-ui.aihu` | `<guard scope="admin">` — content only renders when the scope is verified |
 | `form-validation.aihu` | `$form` value + validity for a form-associated custom element with live validation |
 | `ssr-hydration.aihu` | `$lifecycle.mount` hydrates from `dataset` — SSR-safe prop bootstrapping pattern |
 | `tailwind-style.aihu` | Tailwind 4 utility classes in template + scoped `@style` block coexistence |

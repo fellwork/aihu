@@ -24,13 +24,13 @@
 @template {
   <textarea
     class="aihu-textarea"
-    $placeholder={placeholder}
-    $name={name}
-    $value={value}
-    $rows={rows}
-    $aria-label={ariaLabel}
-    $disabled={disabled}
-    $required={required}></textarea>
+    placeholder={placeholder}
+    name={name}
+    value={value}
+    rows={rows}
+    aria-label={ariaLabel}
+    disabled={disabled}
+    required={required}></textarea>
 }
 
 @style {

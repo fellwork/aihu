@@ -143,7 +143,7 @@ The `@template` block defines the DOM output using aihu's template DSL.
 
 > **Tag naming.** Components compile to native custom elements, so every component tag must normalize to a hyphenated name: multi-word PascalCase kebab-cases automatically (`<UserCard>` → `user-card`), hyphenated tags pass through lowercased, and **referencing a single-word component tag is a hard compile error (C450)** (`<Comment>`) — use a hyphenated tag (e.g. `<x-comment>`) or an explicit hyphenated `@meta name`. Full rules and examples: [Composition guide, "Tag naming"](composition.md#tag-naming).
 
-> **Amendment 04 (v1.0.8) — `$`-prefixed reactive bindings.** Every reactive HTML attribute binding is `$`-prefixed: `$class={…}`, `$href={…}`, `$on.click=…`, `$bind.value=…`. The legacy colon-form event/bind aliases (`$on` + colon + event, error **C305**), the Vue-shape `:attr=` alias (**C304**), and plain-curly attribute bindings (`class={…}` without `$`, **C306**) are hard parse errors in v1.0. Component prop-passing (`<UserCard user={u} />`) keeps the plain-curly form and is unaffected. Run `npx aihu migrate <file>` to mechanically rewrite pre-v1.0.8 sources.
+> **Amendment 04 (v1.0.8) — `$`-prefixed reactive bindings.** Every reactive HTML attribute binding is `$`-prefixed: `class={…}`, `href={…}`, `$on.click=…`, `$bind.value=…`. The legacy colon-form event/bind aliases (`$on` + colon + event, error **C305**), the Vue-shape `:attr=` alias (**C304**), and plain-curly attribute bindings (`class={…}` without `$`, **C306**) are hard parse errors in v1.0. Component prop-passing (`<UserCard user={u} />`) keeps the plain-curly form and is unaffected. Run `npx aihu migrate <file>` to mechanically rewrite pre-v1.0.8 sources.
 
 ### Text interpolation
 
@@ -151,112 +151,112 @@ The `@template` block defines the DOM output using aihu's template DSL.
 
 ### Event handlers
 
-- `$on.click="handlerName"` — attach an event listener (quoted identifier reference).
-- `$on.click={() => expr}` — attach an inline handler (curly expression).
+- `on:click={handlerName}` — attach an event listener (quoted identifier reference).
+- `on:click={() => expr}` — attach an inline handler (curly expression).
 
 A dot separates the directive from the event name: `$on.<event>`.
 
 ### Two-way binding
 
-- `$bind.value="signalName"` — two-way bind a writable signal to a form element. The name after the dot is the attribute: `$bind.value`, `$bind.checked`, etc.
+- `bind:value={signalName}` — two-way bind a writable signal to a form element. The name after the dot is the attribute: `$bind.value`, `$bind.checked`, etc.
 
 Signal name must be a quoted identifier reference (not curly form).
 
 ### Conditional rendering
 
-- `$if="cond"` — remove/insert element from DOM based on a boolean signal or expression.
-- `$if={expr}` — curly expression form for non-signal conditions.
-- `$show="cond"` — toggle visibility without removing from DOM.
+- `if={cond}` — remove/insert element from DOM based on a boolean signal or expression.
+- `if={expr}` — curly expression form for non-signal conditions.
+- `show={cond}` — toggle visibility without removing from DOM.
 
 ### List rendering
 
-- `$each="items as item, i"` — render a list. Uses quoted iteration syntax. Pair with `$key` for stable reconciliation:
+- `each={item, i of items}` — render a list. Uses quoted iteration syntax. Pair with `$key` for stable reconciliation:
 
 ```html
-<li $each="todos as todo" $key="todo.id">{todo.text}</li>
+<li each={todo of todos} key={todo.id}>{todo.text}</li>
 ```
 
 ### HTML output
 
-- `$html="expr"` — render raw HTML from a signal/identifier reference.
-- `$html={expr}` — render raw HTML from an expression.
+- `html={expr}` — render raw HTML from a signal/identifier reference.
+- `html={expr}` — render raw HTML from an expression.
 
 ### Memoization and DOM stability
 
-- `$key="expr"` — key for list reconciliation (use inside `$each`).
-- `$memo={expr}` — memoize a subtree; only re-renders when expr changes. Requires curly form.
+- `key={expr}` — key for list reconciliation (use inside `$each`).
+- `memo={expr}` — memoize a subtree; only re-renders when expr changes. Requires curly form.
 - `$once` — boolean attribute; renders once and never re-renders.
 - `$raw` — boolean attribute; treat content as raw HTML (no escaping).
 
 ### Class bindings
 
-- `$class={cond ? 'active' : ''}` — `$`-prefixed curly expression for dynamic classes. Plain `class={…}` (no `$`) is a hard parse error (C306) in v1.0.
+- `class={cond ? 'active' : ''}` — `$`-prefixed curly expression for dynamic classes. Plain `class={…}` (no `$`) is a hard parse error (C306) in v1.0.
 
 ### Special elements
 
-**`<$slot>`** — inserts slotted children provided by the parent:
+**`<slot>`** — inserts slotted children provided by the parent:
 
 ```html
-<$slot name="header" />
+<slot name="header" />
 ```
 
 Use `expose` to pass context to slot consumers:
 
 ```html
 <!-- In UserList.aihu -->
-<$slot name="row" expose="user, index">
+<slot name="row" expose="user, index">
   <!-- default content -->
-</$slot>
+</slot>
 ```
 
-**`<$suspense>`** — wraps an async resource with a loading fallback:
+**`<suspense>`** — wraps an async resource with a loading fallback:
 
 ```html
 <!-- Simple: fallback attribute (component name) -->
-<$suspense fallback="Skeleton">
+<suspense fallback="Skeleton">
   <UserProfile />
-</$suspense>
+</suspense>
 
 <!-- Context-aware: slot form -->
-<$suspense>
+<suspense>
   <UserProfile />
-  <$slot name="fallback">
+  <slot name="fallback">
     {loadAttempts > 3 ? <SlowConnection /> : <Spinner />}
-  </$slot>
-</$suspense>
+  </slot>
+</suspense>
 ```
 
-The `fallback` attribute takes a component name (quoted string); `fallbackProps` may be added for static props. `fallback` attribute and `<$slot name="fallback">` are mutually exclusive.
+The `fallback` attribute takes a component name (quoted string); `fallbackProps` may be added for static props. `fallback` attribute and `<slot name="fallback">` are mutually exclusive.
 
-**`<$shield>`** — isolates a subtree behind an error boundary:
+**`<shield>`** — isolates a subtree behind an error boundary:
 
 ```html
-<$shield>
+<shield>
   <UserProfile />
-  <$slot name="fallback">
+  <slot name="fallback">
     <ErrorPage error="shield.error" retry="shield.retry" />
-  </$slot>
-</$shield>
+  </slot>
+</shield>
 ```
 
 Exposes `shield.error` (Error) and `shield.retry` (function) to the fallback slot.
 
-**`<$guard>`** — conditionally renders based on an auth scope:
+**`<guard>`** — conditionally renders based on an auth scope:
 
 ```html
-<$guard scope="admin" fallback="UnauthorizedPage">
+<guard scope="admin" fallback="UnauthorizedPage">
   <AdminPanel />
-</$guard>
+</guard>
 ```
 
 Attributes: `scope` (scope-name), `permissions`, `rateLimit`, `fallback` (component-ref), `redirect` (path), `onDeny` (function-ref). Exposes `guard.user`, `guard.reason`, `guard.path` to the fallback slot.
 
-**`<$warp>`** — renders children into a portal target:
+**`<warp>`** — renders children into a portal target:
 
 ```html
-<$warp to="#modal-root">
+<warp to="#modal-root">
   <div>Portal content</div>
-</$warp>
+</warp>
 ```
 
 ### Attribute value forms
@@ -265,8 +265,8 @@ Every attribute value must be in one of two forms — bare unquoted values are f
 
 ```
 ✗ <button $on.click=save>            ← parse error
-✓ <button $on.click="save">          ← quoted identifier reference
-✓ <button $on.click={() => save()}>  ← curly expression
+✓ <button on:click={save}>          ← quoted identifier reference
+✓ <button on:click={() => save()}>  ← curly expression
 ```
 
 Some attributes are boolean-only (present-or-absent): `$once`, `$raw`, `disabled`, `required`, etc.
@@ -385,10 +385,10 @@ See [Composition guide, "Tag naming"](composition.md#tag-naming) for the full no
 
 ```
 // ✗ W210 — $on.innerHTML is not a DOM event → dead handler
-<div $on.innerHTML="markup"></div>
+<div on:innerHTML={markup}></div>
 
 // ✓ use $html
-<div $html="markup"></div>
+<div html={markup}></div>
 ```
 
 For the full v0 → v1 mapping of every diagnostic, see the [Migration guide](migration.md).

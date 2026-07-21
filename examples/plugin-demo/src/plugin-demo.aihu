@@ -23,7 +23,7 @@
       <p class="demo-value">{count()}</p>
       <p class="demo-label">Doubled</p>
       <p class="demo-value demo-muted">{doubled()}</p>
-      <button class="demo-btn" $on.click={() => setCount(n => n + 1)}>
+      <button class="demo-btn" on:click={() => setCount(n => n + 1)}>
         Increment
       </button>
     </div>

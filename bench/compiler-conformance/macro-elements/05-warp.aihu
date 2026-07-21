@@ -1,5 +1,5 @@
 @template {
-  <$warp target="portal-root">
+  <warp target="portal-root">
     <p>Teleported content</p>
-  </$warp>
+  </warp>
 }

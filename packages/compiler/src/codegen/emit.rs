@@ -5112,6 +5112,14 @@ fn emit_node(
             // Check for `raw` — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
+            // W3 d03 — an element-level `each` scopes its binders over the
+            // element's own attrs, effects, and children (shadowing signals).
+            let scoped = each_scoped_maps(attrs, signal_map, state_names, mode);
+            let (inner_signal_map, inner_state_names): (&SignalMap, &StateNames) = match &scoped {
+                Some((sm, sn)) => (sm, sn),
+                None => (signal_map, state_names),
+            };
+
             // A plain (opted-out) <a> must not render the framework-only
             // vocabulary words (`reload`, `prefetch`, `replace`) as DOM attrs.
             let filtered_anchor_attrs: Vec<Attr>;
@@ -5125,7 +5133,7 @@ fn emit_node(
             } else {
                 attrs
             };
-            let attrs_str = emit_attrs(attrs_for_emit, state_names, signal_map, mode);
+            let attrs_str = emit_attrs(attrs_for_emit, inner_state_names, inner_signal_map, mode);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -5136,7 +5144,7 @@ fn emit_node(
             } else {
                 children
                     .iter()
-                    .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
+                    .map(|c| emit_node(c, inner_signal_map, inner_state_names, &next_indent, mode))
                     .filter(|s| !s.is_empty())
                     .collect()
             };
@@ -5176,8 +5184,11 @@ fn emit_node(
                 format!("branch('{}', {}, [{}])", tag, attrs_str, inline)
             };
 
-            // Emit macro effects (wrapping/side-effect macros).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
+            // Emit macro effects (wrapping/side-effect macros). Per-item
+            // positions use the loop-scoped map; the each LIST uses the outer.
+            let effects = emit_macro_effects_scoped(
+                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode,
+            );
             if effects.is_empty() {
                 base
             } else {
@@ -5186,12 +5197,21 @@ fn emit_node(
             }
         }
         TemplateNode::MacroElement { name, attrs, children } => {
-            let base = emit_macro_element(name, attrs, children, signal_map, state_names, child_indent, mode);
-            // Apply structural/effect directives ($each/$if/$key/$show/$class:)
+            // W3 d03 — `each` on a framework element (`<group each={…}>`)
+            // scopes its binders over the element's subtree.
+            let scoped = each_scoped_maps(attrs, signal_map, state_names, mode);
+            let (inner_signal_map, inner_state_names): (&SignalMap, &StateNames) = match &scoped {
+                Some((sm, sn)) => (sm, sn),
+                None => (signal_map, state_names),
+            };
+            let base = emit_macro_element(name, attrs, children, inner_signal_map, inner_state_names, child_indent, mode);
+            // Apply structural/effect directives (each/if/key/show/class:)
             // that wrap or affect the element — same as the plain Element arm
-            // above. Without this, directives on macro elements like <$link>
-            // were silently dropped (e.g. `$each` left a dangling loop var).
-            let effects = emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
+            // above. Without this, directives on macro elements were silently
+            // dropped (e.g. `each` left a dangling loop var).
+            let effects = emit_macro_effects_scoped(
+                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode,
+            );
             if effects.is_empty() {
                 base
             } else {
@@ -7147,12 +7167,75 @@ impl ElemEffect {
 ///       → $once / $memo / $if (structural boundaries)
 ///         → $each (iteration — OUTERMOST so its factory's loop alias scopes
 ///                  every inner wrapper and every descendant handler)
+/// W3 d03 (grammar v2, attribute form) — when an element carries `each`, its
+/// loop binders SHADOW same-named signals/state for everything evaluated
+/// per-item (the element's own attrs, effects, `if`/`key` values, and its
+/// children). Returns filtered map copies when a collision exists.
+fn each_scoped_maps(
+    attrs: &[Attr],
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    mode: ExprParserMode,
+) -> Option<(SignalMap, StateNames)> {
+    if mode != ExprParserMode::Ast {
+        return None;
+    }
+    let head = attrs.iter().find_map(|a| match a {
+        Attr::Macro { name, value } if name == "each" => Some(macro_value_expr(value)),
+        _ => None,
+    })?;
+    let head = crate::parser::directives::parse_each_of_head(&head).ok()?;
+    let mut alias_names = std::collections::BTreeSet::new();
+    extract_pattern_idents(&head.item, &mut alias_names);
+    if let Some(ref idx) = head.idx {
+        extract_pattern_idents(idx, &mut alias_names);
+    }
+    if !alias_names
+        .iter()
+        .any(|n| signal_map.0.contains_key(n) || state_names.contains(n))
+    {
+        return None;
+    }
+    let filtered_signal_map = SignalMap(
+        signal_map
+            .0
+            .iter()
+            .filter(|(k, _)| !alias_names.contains(*k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+    );
+    let filtered_state_names = StateNames(
+        state_names
+            .0
+            .iter()
+            .filter(|n| !alias_names.contains(*n))
+            .cloned()
+            .collect(),
+    );
+    Some((filtered_signal_map, filtered_state_names))
+}
+
 fn emit_macro_effects(
     attrs: &[Attr],
     _el_var: &str,
     subtree: &str,
     indent: &str,
     signal_map: &SignalMap,
+    mode: ExprParserMode,
+) -> Vec<String> {
+    emit_macro_effects_scoped(attrs, _el_var, subtree, indent, signal_map, signal_map, mode)
+}
+
+/// `signal_map` scopes per-item positions (`if`/`key`/effects — loop binders
+/// shadow); `list_signal_map` scopes the `each` LIST expression, which
+/// evaluates in the OUTER scope (alias-shadows-iterable).
+fn emit_macro_effects_scoped(
+    attrs: &[Attr],
+    _el_var: &str,
+    subtree: &str,
+    indent: &str,
+    signal_map: &SignalMap,
+    list_signal_map: &SignalMap,
     mode: ExprParserMode,
 ) -> Vec<String> {
     let mut elem_effects: Vec<ElemEffect> = Vec::new();
@@ -7351,8 +7434,8 @@ fn emit_macro_effects(
         // `items[0]` an undefined string-indexed access on a function value).
         // For computed signals (no setter) pass `[items]` — index-0 read still works.
         // Plain class-property arrays (no signal) wrap in a `[() => list]` thunk.
-        if signal_map.is_reactive(&each_items) {
-            let items_arg = if let Some(setter) = signal_map.0.get(&each_items) {
+        if list_signal_map.is_reactive(&each_items) {
+            let items_arg = if let Some(setter) = list_signal_map.0.get(&each_items) {
                 if !setter.is_empty() {
                     format!("[{}, {}]", each_items, setter)
                 } else {
@@ -7367,12 +7450,13 @@ fn emit_macro_effects(
             );
         } else {
             // FEL-172: a complex list expr may read a prop/signal getter
-            // (`$each="section.data as it"` → `section().data`); without the
+            // (`each={it of section.data}` → `section().data`); without the
             // rewrite the thunk reads `.data` off the signal FUNCTION →
-            // undefined → the loop renders nothing.
+            // undefined → the loop renders nothing. The LIST evaluates in the
+            // OUTER scope (loop binders do not shadow their own iterable).
             current = format!(
                 "createEachBoundary([() => ({})], {}, ({}, {}) => {{ return {} }})",
-                rewrite_template_expr(&each_items, signal_map, mode).source,
+                rewrite_template_expr(&each_items, list_signal_map, mode).source,
                 key_part,
                 item_alias,
                 idx_alias,

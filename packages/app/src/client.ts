@@ -102,7 +102,7 @@ function registerComponents(tags: readonly string[] | undefined): Promise<unknow
     .filter((load): load is () => Promise<unknown> => typeof load === 'function')
     .map((load) => load())
 }
-// F1: publish the registrar for compiler-emitted code. The nested `<$outlet>`
+// F1: publish the registrar for compiler-emitted code. The nested `<outlet>`
 // boundary (`createOutletBoundary` in packages/compiler/src/codegen/emit.rs) is
 // emitted JS with no build-graph import, so it cannot import
 // virtual:aihu-components itself — instead it calls this global optional-chained
@@ -265,9 +265,9 @@ export function createApp(config?: AppConfig): AppHandle {
       if (marker) {
         marker.replaceChildren(el)
       } else {
-        // Misconfigured layout (no <$outlet>) — keep it visible + surface it
+        // Misconfigured layout (no <outlet>) — keep it visible + surface it
         // rather than silently dropping the page.
-        console.warn(`[@aihu/app] layout "${layoutName}" has no <$outlet>`)
+        console.warn(`[@aihu/app] layout "${layoutName}" has no <outlet>`)
         root.appendChild(el)
       }
       return

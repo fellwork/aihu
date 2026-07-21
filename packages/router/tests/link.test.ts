@@ -1,7 +1,7 @@
 /**
- * arch-5 M1 — `<$link>` runtime behaviour (RFC-A5-012).
+ * arch-5 M1 — `<a>` runtime behaviour (RFC-A5-012).
  *
- * The `<$link>` boundary is emitted by the compiler as a runtime helper that
+ * The `<a>` boundary is emitted by the compiler as a runtime helper that
  * delegates to `@aihu/router` exports (`navigate`, `useRoute`,
  * `createPrefetcher`). These tests exercise the runtime exports directly —
  * the compiler emit is covered by `packages/compiler/tests/route_macros.rs`.
@@ -55,7 +55,7 @@ function clearHead(): void {
   while (document.head.firstChild) document.head.removeChild(document.head.firstChild)
 }
 
-describe('<$link> — click intercepts and SPA-navigates', () => {
+describe('<a> — click intercepts and SPA-navigates', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/')
   })

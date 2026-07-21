@@ -41,25 +41,25 @@
 @template {
   <main>
     <header>
-      <$link href="/">&larr; back to top</$link>
+      <a href="/">&larr; back to top</a>
     </header>
 
     <article class="story">
       <h1>
-        <a $href={route.data.story.url ?? `/item/${route.data.story.id}`}>{route.data.story.title}</a>
-        <span class="host" $if={!!route.data.story.url}> ({hostname(route.data.story.url)})</span>
+        <a href={route.data.story.url ?? `/item/${route.data.story.id}`}>{route.data.story.title}</a>
+        <span class="host" if={!!route.data.story.url}> ({hostname(route.data.story.url)})</span>
       </h1>
       <div class="meta">
         {route.data.story.score ?? 0} points by
-        <$link href={`/user/${route.data.story.by}`} prefetch="hover">{route.data.story.by}</$link>
+        <a href={`/user/${route.data.story.by}`} prefetch="hover">{route.data.story.by}</a>
         {ago(route.data.story.time)} | {route.data.story.descendants ?? 0} comments
       </div>
-      <div class="text" $if={!!route.data.story.text} $html="route.data.story.text"></div>
+      <div class="text" if={!!route.data.story.text} html={route.data.story.text}></div>
     </article>
 
     <section class="comments">
-      <h2 $if={route.data.comments.length > 0}>Comments</h2>
-      <Comment $each="route.data.comments as item" $key={item.id} comment={item} />
+      <h2 if={route.data.comments.length > 0}>Comments</h2>
+      <Comment each={item of route.data.comments} key={item.id} comment={item} />
     </section>
   </main>
 }

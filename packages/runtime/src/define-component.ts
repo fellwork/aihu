@@ -120,7 +120,7 @@ function _tagOf(el: HTMLElement): string {
 /**
  * Bug D — light-DOM slot projection helper. Under `shadowMode: 'light'` the
  * browser does not run native <slot> projection, so the compiled-to-DOM
- * `<slot>` element(s) from `<$slot>` are inert. After the layout template has
+ * `<slot>` element(s) from `<slot>` are inert. After the layout template has
  * been mounted into `host`, this hand-rolls the projection to match Shadow-DOM
  * `<slot>` semantics:
  *

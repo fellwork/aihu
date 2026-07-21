@@ -1,14 +1,14 @@
 //! B3 — Variant B template syntax acceptance tests.
 //!
-//! Covers:
-//! - {#if}/{:else if}/{:else}/{/if} block-tag conditional
-//! - {#each list as item, idx (key)}/{:empty}/{/each} block-tag iteration
-//! - {@html expr} Svelte-style raw HTML
-//! - $on.click / $bind.value dot-form (Variant B namespace separator)
+//! Covers (grammar v2 — the prefix-less template):
+//! - if={…}/elseif={…}/else attribute chains (assembled IfBlock lowering)
+//! - each={item, idx of list} key={…} + `empty` sibling (EachBlock lowering)
+//! - html={expr} raw-HTML attribute
+//! - on:click / bind:value colon directives
 //! - class={[...]} array form (clsx-shaped)
-//! - R4 typed-conv at $bind.value write-back site
-//! - C500 reserved error code surface for unknown $-directives
-//! - $ref={signal} write-on-mount lowering
+//! - R4 typed-conv at bind:value write-back site
+//! - C606/C607 retirement surface for `$`-prefixed attributes
+//! - ref={signal} write-on-mount lowering
 //!
 //! Each test compiles end-to-end and spot-checks the emitted JS shape.
 
@@ -25,9 +25,7 @@ fn compile_fixture(source: &str, tag: &str) -> String {
 #[test]
 fn b3_ac5_block_if_lowers_to_when() {
     let src = r#"@template {
-  {#if cond}
-    <span>yes</span>
-  {/if}
+  <span if={cond}>yes</span>
 }"#;
     let js = compile_fixture(src, "x-b3-if");
     assert!(
@@ -45,13 +43,9 @@ fn b3_ac5_block_if_lowers_to_when() {
 #[test]
 fn b3_ac5_block_if_else_chain_lowers_to_negated_when_siblings() {
     let src = r#"@template {
-  {#if a}
-    <span>A</span>
-  {:else if b}
-    <span>B</span>
-  {:else}
-    <span>D</span>
-  {/if}
+  <span if={a}>A</span>
+  <span elseif={b}>B</span>
+  <span else>D</span>
 }"#;
     let js = compile_fixture(src, "x-b3-elif");
     // The else-if chain should produce 3 sibling createIfBoundary calls
@@ -69,9 +63,7 @@ fn b3_ac5_block_if_else_chain_lowers_to_negated_when_siblings() {
 fn b3_ac5_block_each_lowers_to_each_call() {
     let src = r#"@template {
   <ul>
-    {#each items as item, idx (item.id)}
-      <li>{idx}: {item.title}</li>
-    {/each}
+    <li each={item, idx of items} key={item.id}>{idx}: {item.title}</li>
   </ul>
 }"#;
     let js = compile_fixture(src, "x-b3-each");
@@ -91,11 +83,8 @@ fn b3_ac5_block_each_lowers_to_each_call() {
 #[test]
 fn b3_ac5_block_each_with_empty_emits_dual_when() {
     let src = r#"@template {
-  {#each items as item (item.id)}
-    <li>{item.title}</li>
-  {:empty}
-    <li class="empty">none</li>
-  {/each}
+  <li each={item of items} key={item.id}>{item.title}</li>
+  <li empty class="empty">none</li>
 }"#;
     let js = compile_fixture(src, "x-b3-empty");
     // Two createIfBoundary calls (populated + empty branches)
@@ -113,9 +102,7 @@ fn b3_ac5_block_each_lambda_lhs_unhoisted() {
     // The hidden landmine — Variant B accepts the lambda-LHS without forcing
     // a hoist-to-$computed.
     let src = r#"@template {
-  {#each events.filter(e => e.ok) as evt (evt.id)}
-    <li>{evt.title}</li>
-  {/each}
+  <li each={evt of events.filter(e => e.ok)} key={evt.id}>{evt.title}</li>
 }"#;
     let js = compile_fixture(src, "x-b3-lambda");
     assert!(
@@ -130,7 +117,7 @@ fn b3_ac5_block_each_lambda_lhs_unhoisted() {
 #[test]
 fn b3_ac6_dot_form_on_click_lowers_to_onclick_attr() {
     let src = r#"@template {
-  <button $on.click={handle}>X</button>
+  <button on:click={handle}>X</button>
 }"#;
     let js = compile_fixture(src, "x-b3-dot-on");
     assert!(
@@ -146,7 +133,7 @@ fn b3_ac6_dot_form_bind_value_lowers_with_writeback() {
 const [text, setText] = signal('')
 }
 @template {
-  <input $bind.value={text} />
+  <input bind:value={text} />
 }"#;
     let js = compile_fixture(src, "x-b3-dot-bind");
     assert!(
@@ -173,28 +160,28 @@ const [text, setText] = signal('')
 }"#;
     let parsed = aihu_compiler::sfc::parse(src).unwrap();
     let err = aihu_compiler::compile_full(&parsed)
-        .expect_err("colon-form must produce a compile error");
+        .expect_err("`$`-prefixed form must produce a compile error");
     assert_eq!(
         err.code.as_deref(),
-        Some("C500"),
-        "expected C500 error code for colon-form; got: {:?}",
+        Some("C607"),
+        "expected C607 retirement code for `$bind:`; got: {:?}",
         err.code
     );
 }
 
 #[test]
-fn b3_ac16_phase2_colon_form_error_message_cites_codemod() {
-    // Companion test: the C500 error message must guide users to the migration
-    // tool via the codemod:template-syntax script alias (AC6/B3c.2).
+fn b3_ac16_phase2_colon_form_error_message_cites_fix() {
+    // Companion test: the C607 retirement error must carry the exact
+    // migration target in its fix hint (the C471 pattern).
     let src = r#"@template {
   <button $on:click={handle}>x</button>
 }"#;
     let parsed = aihu_compiler::sfc::parse(src).unwrap();
     let err = aihu_compiler::compile_full(&parsed)
-        .expect_err("colon-form must produce a compile error");
+        .expect_err("`$`-prefixed form must produce a compile error");
     assert!(
-        err.message.contains("codemod:template-syntax"),
-        "C500 error message must cite codemod:template-syntax migration tool; got: {}",
+        err.message.contains("on:click={handle}"),
+        "C607 error message must carry the migrated form; got: {}",
         err.message
     );
 }
@@ -203,13 +190,13 @@ fn b3_ac16_phase2_colon_form_error_message_cites_codemod() {
 
 #[test]
 fn b3_ac7_class_array_form_lowers_with_helper() {
-    // v1.0.8 — Amendment 04: canonical form is `$class={…}`.
+    // v1.0.8 — Amendment 04: canonical form is `class={…}`.
     // Plain `class={…}` is C306.
     let src = r#"@state {
   active: boolean = false
 }
 @template {
-  <div $class={['box', active && 'on']}></div>
+  <div class={['box', active && 'on']}></div>
 }"#;
     let js = compile_fixture(src, "x-b3-class-array");
     assert!(
@@ -226,15 +213,15 @@ fn b3_ac7_class_array_form_lowers_with_helper() {
 
 #[test]
 fn b3_ac7_class_string_unchanged() {
-    // Regression: when `$class={…}` is NOT an array, the new helper is not invoked.
-    // v1.0.8 — Amendment 04: canonical form is `$class={…}`.
+    // Regression: when `class={…}` is NOT an array, the new helper is not invoked.
+    // v1.0.8 — Amendment 04: canonical form is `class={…}`.
     let src = r#"@template {
-  <div $class={cond ? 'a' : 'b'}></div>
+  <div class={cond ? 'a' : 'b'}></div>
 }"#;
     let js = compile_fixture(src, "x-b3-class-string");
     assert!(
         !js.contains("__aihu_cls(["),
-        "non-array $class={{}} should not invoke __aihu_cls: {}",
+        "non-array class={{}} should not invoke __aihu_cls: {}",
         js
     );
 }
@@ -247,7 +234,7 @@ fn b3_ac8_html_block_lowers_with_effect() {
   raw: string = '<em>x</em>'
 }
 @template {
-  <article>{@html raw}</article>
+  <article html={raw}></article>
 }"#;
     let js = compile_fixture(src, "x-b3-html-block");
     assert!(
@@ -265,7 +252,7 @@ fn b3_ac11_typed_conv_helper_emitted_for_value_bind() {
 const [count, setCount] = signal(0)
 }
 @template {
-  <input type="number" $bind.value={count} />
+  <input type="number" bind:value={count} />
 }"#;
     let js = compile_fixture(src, "x-b3-typed-conv");
     assert!(
@@ -293,7 +280,7 @@ fn b3_ac11_typed_conv_skipped_for_checked_bind() {
 const [done, setDone] = signal(false)
 }
 @template {
-  <input type="checkbox" $bind.checked={done} />
+  <input type="checkbox" bind:checked={done} />
 }"#;
     let js = compile_fixture(src, "x-b3-bind-checked");
     assert!(
@@ -308,7 +295,7 @@ const [done, setDone] = signal(false)
     );
 }
 
-// ─── $ref={signal} closure of long-standing silent-drop bug (Scout D1.4) ────
+// ─── ref={signal} closure of long-standing silent-drop bug (Scout D1.4) ────
 
 #[test]
 fn b3_ref_signal_lowers_to_setter_call_at_mount() {
@@ -316,7 +303,7 @@ fn b3_ref_signal_lowers_to_setter_call_at_mount() {
 const [myEl, setMyEl] = signal(null)
 }
 @template {
-  <div $ref={myEl}>x</div>
+  <div ref={myEl}>x</div>
 }"#;
     let js = compile_fixture(src, "x-b3-ref");
     // Either signal-setter call (registered signal) or plain assignment.
@@ -345,7 +332,7 @@ let proseEl: HTMLElement | null = null
 hasData: boolean = false
 }
 @template {
-  <article class="prose" $ref={proseEl} $if={hasData}>content</article>
+  <article class="prose" ref={proseEl} if={hasData}>content</article>
 }"#;
     let parsed = sfc::parse(src).expect("parse should succeed so we reach compile_full");
     let err = compile_full(&parsed).expect_err("$ref + $if on one element must reject");
@@ -367,7 +354,7 @@ let el: HTMLElement | null = null
 items: string[] = []
 }
 @template {
-  <li $ref={el} $each="items as it">{it}</li>
+  <li ref={el} each={it of items}>{it}</li>
 }"#;
     let parsed = sfc::parse(src).expect("parse should succeed so we reach compile_full");
     let err = compile_full(&parsed).expect_err("$ref + $each on one element must reject");
@@ -382,7 +369,7 @@ fn c562_does_not_overreach_ungated_ref_still_lowers() {
 let stageEl: HTMLElement | null = null
 }
 @template {
-  <div $ref={stageEl}>x</div>
+  <div ref={stageEl}>x</div>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).expect("ungated $ref must still compile");
@@ -417,7 +404,7 @@ function check() {
 }
 }
 @template {
-  <div $ref={stageEl}>x</div>
+  <div ref={stageEl}>x</div>
 }"#;
     let sidecar = compile_sidecar(src, "x-ref-typed");
     assert!(
@@ -436,7 +423,7 @@ fn ref_bound_unannotated_let_gets_no_invented_annotation() {
 let el = null
 }
 @template {
-  <div $ref={el}>x</div>
+  <div ref={el}>x</div>
 }"#;
     let sidecar = compile_sidecar(src, "x-ref-untyped");
     assert!(
@@ -513,11 +500,8 @@ const [count, setCount] = signal(0)
 const [view, setView] = signal('list')
 }
 @template {
-  {#if view === 'list'}
-    <div>{count}</div>
-  {:else}
-    <div>none</div>
-  {/if}
+  <div if={view === 'list'}>{count}</div>
+  <div else>none</div>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -729,7 +713,7 @@ const [open, setOpen] = signal(false)
 const toggle = () => setOpen(!open())
 const label = computed(() => open() ? 'Close' : 'Open')
 }
-@template { <button $on.click={toggle}>{label()}</button> }"#;
+@template { <button on:click={toggle}>{label()}</button> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-sidecar-state");
@@ -768,7 +752,7 @@ fn sidecar_declares_prop_and_computed_collection_names() {
   $prop: { active: { default: '', type: string } }
   $computed: { cls: () => active() === 'home' ? 'on' : '' }
 }
-@template { <a $class={cls()}>{active()}</a> }"#;
+@template { <a class={cls()}>{active()}</a> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-sidecar-prop");
@@ -801,10 +785,10 @@ const chaptersOf = (bk: string) => []
 }
 @template {
   <ul>
-    <li $each="sections() as s">
-      <span $each="s.books as b" $on.click={() => setSel(b.id)}>{b.name}</span>
-      <i $each="chaptersOf(selBook()) as c">{c}</i>
-      <button $on.click={closeNav}>{activeStudy()}</button>
+    <li each={s of sections()}>
+      <span each={b of s.books} on:click={() => setSel(b.id)}>{b.name}</span>
+      <i each={c of chaptersOf(selBook())}>{c}</i>
+      <button on:click={closeNav}>{activeStudy()}</button>
     </li>
   </ul>
 }"#;
@@ -849,10 +833,10 @@ const openTerm = (e: Event, t: unknown) => {}
 }
 @template {
   <div>
-    <button $on.click={() => closeNav()}>x</button>
-    <button $on.click={() => toggleTheme()}>t</button>
-    {#if showLine}<hr />{/if}
-    <a $on.click={(e) => openTerm(e, showLine())}>go</a>
+    <button on:click={() => closeNav()}>x</button>
+    <button on:click={() => toggleTheme()}>t</button>
+    <hr if={showLine} />
+    <a on:click={(e) => openTerm(e, showLine())}>go</a>
   </div>
 }"#;
     let parsed = sfc::parse(src).unwrap();
@@ -903,7 +887,7 @@ const [items, setItems] = signal(['a'])
 @template {
   <span>{`Count: ${count}`}</span>
   <b>{Math.max(...nums)}</b>
-  <i $class={[...items, 'x']}>y</i>
+  <i class={[...items, 'x']}>y</i>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -979,9 +963,7 @@ const [pairs, setPairs] = signal([['a', 1]])
 }
 @template {
   <ul>
-    {#each pairs as [k, v], i (k)}
-      <li>{k}: {v} #{i}</li>
-    {/each}
+    <li each={[k, v], i of pairs} key={k}>{k}: {v} #{i}</li>
   </ul>
 }"#;
     let parsed = sfc::parse(src).unwrap();
@@ -1009,7 +991,7 @@ import { signal } from '@aihu/signals'
 const [users, setUsers] = signal([])
 }
 @template {
-  <li $each="users as { name, id: rid }">{name}: {rid}</li>
+  <li each={{ name, id: rid } of users}>{name}: {rid}</li>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -1102,7 +1084,7 @@ fn comma_less_collection_entries_error_c447_not_silent_drop() {
     reset:     { handler: () => { count = 0 }, describe: 'c' }
   }
 }
-@template { <button $on.click={increment}>+</button> }"#;
+@template { <button on:click={increment}>+</button> }"#;
     let parsed = aihu_compiler::sfc::parse(src).unwrap();
     let err = aihu_compiler::compile_full(&parsed)
         .expect_err("comma-less collection entries must error, not silently drop");
@@ -1126,7 +1108,7 @@ fn comma_separated_collection_entries_compile_clean() {
     decrement: { handler: () => { count-- }, describe: 'b' },
   }
 }
-@template { <button $on.click={increment}>+</button><button $on.click={decrement}>-</button> }"#;
+@template { <button on:click={increment}>+</button><button on:click={decrement}>-</button> }"#;
     let parsed = aihu_compiler::sfc::parse(src).unwrap();
     let js = aihu_compiler::compile_full(&parsed)
         .map(|u| aihu_compiler::emit(&u, "x-actions").js)
@@ -1236,7 +1218,7 @@ fn b3b_ac9_emit_lowers_to_dispatch_custom_event() {
 const day = new Date()
 }
 @template {
-  <button $on.click={() => $emit.dayjump({ day })}>x</button>
+  <button on:click={() => $emit.dayjump({ day })}>x</button>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -1267,7 +1249,7 @@ const day = new Date()
 #[test]
 fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
     let src = r#"@template {
-  <button $on.click={() => $emit.ping()}>x</button>
+  <button on:click={() => $emit.ping()}>x</button>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -1287,10 +1269,8 @@ fn b3b_ac9_emit_no_args_lowers_with_undefined_detail() {
 
 // ─── AC16-Ph2 binary C500 error test ────────────────────────────────────────
 //
-// B3c Phase 2: colon-form `$on:click` must now cause the compiler binary to
-// exit non-zero and emit a C500 error to stderr. Previously this was a soft
-// W202 deprecation warning; the corpus is now migrated and the transition
-// window is closed.
+// Grammar v2: any `$`-prefixed attribute must cause the compiler binary to
+// exit non-zero and emit the C607 retirement error to stderr.
 
 #[test]
 fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
@@ -1353,16 +1333,16 @@ fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
         .write_all(src)
         .expect("write source");
     let output = child.wait_with_output().expect("wait child");
-    // B3c: colon-form is a hard compile error; binary must exit non-zero.
+    // Grammar v2: the `$` layer is a hard compile error; binary must exit non-zero.
     assert!(
         !output.status.success(),
-        "expected non-zero exit for C500 colon-form; exit code: {:?}",
+        "expected non-zero exit for the C607 retirement; exit code: {:?}",
         output.status.code()
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("C500") || stderr.contains("codemod:template-syntax"),
-        "expected C500 or codemod hint in stderr; got: {}\n(stdout: {})",
+        stderr.contains("C607"),
+        "expected C607 retirement error in stderr; got: {}\n(stdout: {})",
         stderr,
         String::from_utf8_lossy(&output.stdout),
     );
@@ -1370,7 +1350,7 @@ fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
 
 // ─── AC10 — Listener `$on.<custom-event>` with payload typing surface ────────
 //
-// At the lowering level a custom-event listener (e.g. `$on.dayjump={…}`) is
+// At the lowering level a custom-event listener (e.g. `on:dayjump={…}`) is
 // emitted byte-identically to a DOM listener (`onDayjump: …`). The
 // distinction surfaces at the SIDECAR / tsc layer through the typed
 // `$emit`/`$event` declarations the SFC exports. This test covers the
@@ -1381,7 +1361,7 @@ fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
 #[test]
 fn b3b_ac10_listener_dot_form_custom_event_lowers_attribute() {
     let src = r#"@template {
-  <calendar-grid $on.dayjump={(e) => focusDate(e.detail.day)}></calendar-grid>
+  <calendar-grid on:dayjump={(e) => focusDate(e.detail.day)}></calendar-grid>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();

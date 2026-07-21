@@ -4,23 +4,21 @@ expression: result
 ---
 Ok(
     [
-        EachBlock {
-            list_expr: "['}']",
-            item_alias: "it",
-            idx_alias: None,
-            key_expr: None,
-            body: [
-                Element {
-                    tag: "li",
-                    attrs: [],
-                    children: [
-                        Text(
-                            "x",
-                        ),
-                    ],
+        Element {
+            tag: "li",
+            attrs: [
+                Macro {
+                    name: "each",
+                    value: Curly(
+                        "it of ['}']",
+                    ),
                 },
             ],
-            empty_body: None,
+            children: [
+                Text(
+                    "x",
+                ),
+            ],
         },
     ],
 )

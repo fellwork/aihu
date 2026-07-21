@@ -25,9 +25,9 @@ const FIXTURE = [
   '  $lifecycle: { mount: () => {}, dispose: () => {} }',
   '}',
   '@template {',
-  '  <div $if={count > 0}>',
-  '    <li $each="items as item" $key="item.id">{item.label}</li>',
-  '    <$slot name="header" />',
+  '  <div if={count > 0}>',
+  '    <li each={item of items} key={item.id}>{item.label}</li>',
+  '    <slot name="header" />',
   '  </div>',
   '}',
   '@style {',
@@ -46,9 +46,9 @@ const PROBES: Array<{ line: number; ch: number; label: string }> = [
   { line: 1, ch: 4, label: '$prop' }, // "  $prop: {"
   { line: 4, ch: 4, label: '$watch' }, // "  $watch(...)"
   { line: 5, ch: 4, label: '$effect.on' }, // "  $effect.on(...)"
-  { line: 10, ch: 11, label: '$if' }, // "  <div $if={..."
+  { line: 10, ch: 11, label: '$if' }, // "  <div if={..."
   { line: 11, ch: 9, label: '$each' }, // "    <li $each=..."
-  { line: 12, ch: 5, label: '<$slot>' }, // "    <$slot ..."
+  { line: 12, ch: 5, label: '<slot>' }, // "    <slot ..."
 ]
 
 const ITERATIONS = 100

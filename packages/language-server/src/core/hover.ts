@@ -153,7 +153,7 @@ const HOVER_TABLE: Record<string, string> = {
     'element.addEventListener("event", handler)',
     '```',
     '',
-    'Usage: `$on.click={handler}`',
+    'Usage: `on:click={handler}`',
     '',
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
@@ -169,7 +169,7 @@ const HOVER_TABLE: Record<string, string> = {
     'el.addEventListener("input", e => setSignal(e.target.value))',
     '```',
     '',
-    'Usage: `$bind.value={signal}`',
+    'Usage: `bind:value={signal}`',
     '',
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
@@ -315,7 +315,7 @@ const HOVER_TABLE: Record<string, string> = {
     'createEachBoundary({ key: (item) => keyExpr, ... })',
     '```',
     '',
-    'Usage: `<li $each="users as u" $key="u.id">{u.name}</li>`',
+    'Usage: `<li each={u of users} key={u.id}>{u.name}</li>`',
     '',
     '[v1 spec §3.6](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
@@ -329,7 +329,7 @@ const HOVER_TABLE: Record<string, string> = {
     'Interpolations like `{x}`, macros, and bindings inside are NOT processed —',
     'the subtree renders as static content.',
     '',
-    "Usage: `<pre $raw>{this looks like interpolation but isn't}</pre>`",
+    "Usage: `<pre raw>{this looks like interpolation but isn't}</pre>`",
     '',
     '[v1 spec §3.8](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
@@ -361,14 +361,14 @@ const HOVER_TABLE: Record<string, string> = {
     'createMemoBoundary({ deps: () => [dep1, dep2], build: () => subtree })',
     '```',
     '',
-    'Usage: `<ExpensiveChart $memo={[data, settings]} />`',
+    'Usage: `<ExpensiveChart memo={[data, settings]} />`',
     '',
     '[v1 spec §3.10](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.12 lines 1141-1194
-  '<$slot>': [
-    '**aihu template element: `<$slot>`**',
+  '<slot>': [
+    '**aihu template element: `<slot>`**',
     '',
     'Children passthrough or named slot.',
     '',
@@ -378,15 +378,15 @@ const HOVER_TABLE: Record<string, string> = {
     'slotN.render({ exposed: { user, index } })',
     '```',
     '',
-    'Usage: `<$slot />`, `<$slot name="header">default</$slot>`,',
-    '`<$slot name="row" expose="user, index" />`',
+    'Usage: `<slot />`, `<slot name="header">default</slot>`,',
+    '`<slot name="row" expose="user, index" />`',
     '',
     '[v1 spec §3.12](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.13 lines 1196-1244
-  '<$suspense>': [
-    '**aihu template element: `<$suspense>`**',
+  '<suspense>': [
+    '**aihu template element: `<suspense>`**',
     '',
     'Loading boundary for async data (`$resource`).',
     '',
@@ -402,8 +402,8 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.14 lines 1246-1290
-  '<$shield>': [
-    '**aihu template element: `<$shield>`**',
+  '<shield>': [
+    '**aihu template element: `<shield>`**',
     '',
     'Error boundary.',
     '',
@@ -419,8 +419,8 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.15 lines 1292-1349
-  '<$guard>': [
-    '**aihu template element: `<$guard>`**',
+  '<guard>': [
+    '**aihu template element: `<guard>`**',
     '',
     'Access-control boundary (scope, permissions, rate limit).',
     '',
@@ -429,15 +429,15 @@ const HOVER_TABLE: Record<string, string> = {
     'createGuardBoundary({ scope, permissions, rateLimit, fallback, redirect, onDeny, build })',
     '```',
     '',
-    'Usage: `<$guard scope="authenticated" fallback="LoginPrompt"><Page /></$guard>`',
+    'Usage: `<guard scope="authenticated" fallback="LoginPrompt"><Page /></guard>`',
     'Slot context: `guard.user`, `guard.reason`, `guard.path`.',
     '',
     '[v1 spec §3.15](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.16 lines 1351-1397
-  '<$warp>': [
-    '**aihu template element: `<$warp>`**',
+  '<warp>': [
+    '**aihu template element: `<warp>`**',
     '',
     'Render content into a different DOM location (portal).',
     '',
@@ -446,7 +446,7 @@ const HOVER_TABLE: Record<string, string> = {
     'createWarpBoundary({ target: () => to, condition: () => $if, build })',
     '```',
     '',
-    'Usage: `<$warp to="#modal-root"><Dialog /></$warp>`',
+    'Usage: `<warp to="#modal-root"><Dialog /></warp>`',
     '',
     '[v1 spec §3.16](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
@@ -618,8 +618,8 @@ export function getBlockContext(
 
 export function getMacroAtPosition(lineText: string, character: number): string | null {
   let m: RegExpExecArray | null
-  // Template-element forms: <$slot>, <$suspense>, <$shield>, <$guard>, <$warp>.
-  // Returns the bracketed form (e.g. `<$slot>`) so HOVER_TABLE entries keyed
+  // Template-element forms: <slot>, <suspense>, <shield>, <guard>, <warp>.
+  // Returns the bracketed form (e.g. `<slot>`) so HOVER_TABLE entries keyed
   // with the angle-bracketed form (per director-note §3.3) resolve correctly.
   const elementRe = /<\$(slot|suspense|shield|guard|warp)\b/g
   while ((m = elementRe.exec(lineText)) !== null) {

@@ -183,14 +183,14 @@ describe('readAihuLayoutComponents()', () => {
           '  <div class="shell">',
           '    <some-widget size="lg" />',
           '    <OtherThing label="x">nested</OtherThing>',
-          '    <header><$outlet /></header>',
+          '    <header><outlet /></header>',
           '  </div>',
           '}',
           '',
         ].join('\n'),
       )
       // Sorted, deduped, normalized (OtherThing → other-thing); plain HTML
-      // tags (div, header) and the <$outlet> marker are never collected.
+      // tags (div, header) and the <outlet> marker are never collected.
       expect(readAihuLayoutComponents(f)).toEqual(['other-thing', 'some-widget'])
     } finally {
       rmSync(tmp, { recursive: true, force: true })
@@ -215,7 +215,7 @@ describe('readAihuLayoutComponents()', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-layout-comps-empty-'))
     try {
       const plain = join(tmp, 'plain.aihu')
-      writeFileSync(plain, '@template {\n  <div><header/><$outlet /></div>\n}\n')
+      writeFileSync(plain, '@template {\n  <div><header/><outlet /></div>\n}\n')
       expect(readAihuLayoutComponents(plain)).toEqual([])
       const noTemplate = join(tmp, 'meta-only.aihu')
       writeFileSync(noTemplate, '@meta {\n  name: "whatever"\n}\n')
@@ -233,9 +233,9 @@ describe('genL() — layout entries carry `components`', () => {
     try {
       writeFileSync(
         join(tmp, 'app.aihu'),
-        '@template {\n  <some-widget />\n  <OtherThing />\n  <$outlet />\n}\n',
+        '@template {\n  <some-widget />\n  <OtherThing />\n  <outlet />\n}\n',
       )
-      writeFileSync(join(tmp, 'bare.aihu'), '@template {\n  <div><$outlet /></div>\n}\n')
+      writeFileSync(join(tmp, 'bare.aihu'), '@template {\n  <div><outlet /></div>\n}\n')
       const content = genL(tmp)
       expect(content).toContain('// AUTO-GENERATED')
       // Entry shape: { tag, load, components } — components normalized+sorted.

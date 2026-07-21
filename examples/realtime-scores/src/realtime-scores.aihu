@@ -70,7 +70,7 @@
   <section class="realtime-scores">
     <header class="header">
       <h1>Live Scores</h1>
-      <span class="badge" $class:connected={connected}>
+      <span class="badge" class:connected={connected}>
         {connected ? 'Connected' : 'Connecting...'}
       </span>
     </header>
@@ -78,7 +78,7 @@
     <!-- Initial fetch loading state -->
     <div
       class="loading-bar"
-      $if={initialScores.state().status === 'loading'}
+      if={initialScores.state().status === 'loading'}
       aria-live="polite"
     >
       Loading initial scores…
@@ -87,7 +87,7 @@
     <!-- Non-blocking error from initial fetch -->
     <div
       class="error-pill"
-      $if={initialScores.state().status === 'error'}
+      if={initialScores.state().status === 'error'}
       aria-live="polite"
     >
       Could not load initial scores — waiting for live data.
@@ -104,10 +104,10 @@
       <tbody>
         <!-- Live WS scores take priority when the signal is populated -->
         <template
-          $if={scores().length > 0}
-          $each={scores()}
-          $key="id"
-          $let={row}
+          if={scores().length > 0}
+          each={item of scores()}
+          key={id}
+          let={row}
         >
           <tr>
             <td>{row.team}</td>
@@ -117,11 +117,9 @@
 
         <!-- Fallback: show initial fetch data while WS hasn't pushed yet -->
         <template
-          $if={scores().length === 0 && initialScores.state().status === 'ready'}
-          $each={initialScores.state().data}
-          $key="id"
-          $let={row}
-        >
+          if={scores().length === 0 && initialScores.state().status === 'ready'}
+          each={row of initialScores.state().data}
+          key={id}>
           <tr>
             <td>{row.team}</td>
             <td class="score">{row.score}</td>
@@ -129,7 +127,7 @@
         </template>
 
         <!-- Empty state -->
-        <tr $if={scores().length === 0 && initialScores.state().status !== 'ready' && initialScores.state().status !== 'loading'}>
+        <tr if={scores().length === 0 && initialScores.state().status !== 'ready' && initialScores.state().status !== 'loading'}>
           <td colspan="2" class="empty">No scores yet — waiting for live data.</td>
         </tr>
       </tbody>

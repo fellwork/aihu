@@ -16,7 +16,7 @@ bun run dev    # http://localhost:5103
 - `$lifecycle.mount` / `$lifecycle.dispose` — paired setup/teardown
 - Multiple `$computed` derivations sharing a single signal source
 - `$bind:value` on `<input type="range">` — slider as writable signal
-- `$if={done}` conditional rendering of "Done." status
+- `if={done}` conditional rendering of "Done." status
 - `@agent` block: `$expose elapsed/duration/progress` + `$action reset`
 - Dark-mode tokens throughout `@style`
 

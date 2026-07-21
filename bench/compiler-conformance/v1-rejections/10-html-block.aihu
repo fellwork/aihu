@@ -1,0 +1,3 @@
+@template {
+  <article>{@html raw}</article>
+}

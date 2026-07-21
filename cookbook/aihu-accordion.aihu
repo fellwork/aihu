@@ -23,21 +23,21 @@
 
 @template {
   <div class="accordion" role="list">
-    {#each items as item (item.id)}
+    <group each={item of items} key={item.id}>
       <div class="accordion-item" role="listitem">
         <button
-          $class={['accordion-header', openId === item.id && 'open']}
-          $on.click={() => toggle(item.id)}
-          $aria-expanded={openId === item.id}
+          class={['accordion-header', openId === item.id && 'open']}
+          on:click={() => toggle(item.id)}
+          aria-expanded={openId === item.id}
         >
           <span>{item.title}</span>
           <span class="chevron">{openId === item.id ? '▲' : '▼'}</span>
         </button>
-        <div $show={openId === item.id} class="accordion-body">
+        <div show={openId === item.id} class="accordion-body">
           <p>{item.content}</p>
         </div>
       </div>
-    {/each}
+    </group>
   </div>
 }
 

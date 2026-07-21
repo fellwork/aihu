@@ -38,16 +38,16 @@
 @template {
   <div class="weather-agent">
     <h2 class="title">Weather — {city}</h2>
-    {#if loading}
+    <group if={loading}>
       <p class="loading">Fetching forecast…</p>
-    {:else if errorMsg}
+    </group><group elseif={errorMsg}>
       <p class="error">{errorMsg}</p>
-    {:else if forecast}
+    </group><group elseif={forecast}>
       <p class="forecast">{forecast}</p>
-    {:else}
+    </group><group else>
       <p class="prompt">Press Refresh to load forecast.</p>
-    {/if}
-    <button $on.click={fetchForecast} class="refresh-btn" $disabled={loading}>
+    </group>
+    <button on:click={fetchForecast} class="refresh-btn" disabled={loading}>
       Refresh
     </button>
   </div>

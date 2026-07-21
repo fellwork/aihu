@@ -18,12 +18,12 @@
 @template {
   <div class="comment">
     <div class="meta">
-      <a $href={`/user/${comment().by}`}>{comment().by}</a>
+      <a href={`/user/${comment().by}`}>{comment().by}</a>
       {ago(comment().time)}
     </div>
-    <div class="text" $html={comment().text}></div>
-    <div class="replies" $if={comment().children.length > 0}>
-      <hn-comment $each="comment().children as item" $key={item.id} $comment={item} />
+    <div class="text" html={comment().text}></div>
+    <div class="replies" if={comment().children.length > 0}>
+      <hn-comment each={item of comment().children} key={item.id} comment={item} />
     </div>
   </div>
 }

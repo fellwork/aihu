@@ -16,7 +16,7 @@
       <span class="label">Providing theme: <strong>light</strong></span>
     </div>
     <div class="slot-area">
-      <$slot />
+      <slot />
     </div>
   </div>
 }

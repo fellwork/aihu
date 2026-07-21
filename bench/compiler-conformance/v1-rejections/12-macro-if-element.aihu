@@ -1,0 +1,3 @@
+@template {
+  <$if test={cond}><p>yes</p></$if>
+}

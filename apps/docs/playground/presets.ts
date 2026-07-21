@@ -31,9 +31,9 @@ const COUNTER = `@state {
 @template {
   <div class="demo">
     <h1>Hello from aihu</h1>
-    <p>Count: {{ count }}</p>
-    <button $on.click={() => setCount(count() + 1)}>+</button>
-    <button $on.click={() => setCount(count() - 1)}>-</button>
+    <p>Count: {count}</p>
+    <button on:click={() => setCount(count() + 1)}>+</button>
+    <button on:click={() => setCount(count() - 1)}>-</button>
   </div>
 }
 
@@ -64,10 +64,10 @@ const TODO = `@state {
 @template {
   <section class="todo">
     <h1>Todos</h1>
-    <input $value={draft} $on.input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
-    <button $on.click={() => add()}>Add</button>
+    <input value={draft} on:input={(e) => setDraft(e.target.value)} placeholder="What needs to be done?">
+    <button on:click={() => add()}>Add</button>
     <ul>
-      <li $each="todos as t" $key="t.id">{t.text}</li>
+      <li each={t of todos} key={t.id}>{t.text}</li>
     </ul>
   </section>
 }
@@ -87,9 +87,9 @@ const AGENT_BLOCK = `@state {
 @template {
   <div class="card">
     <h1>Thermostat</h1>
-    <p>Target: {{ temp }}°C</p>
-    <button $on.click={() => setTemp(temp() + 1)}>Warmer</button>
-    <button $on.click={() => setTemp(temp() - 1)}>Cooler</button>
+    <p>Target: {temp}°C</p>
+    <button on:click={() => setTemp(temp() + 1)}>Warmer</button>
+    <button on:click={() => setTemp(temp() - 1)}>Cooler</button>
     <p class="hint">An @agent block (below) exposes this component to MCP-compatible AI agents.</p>
   </div>
 }
@@ -119,7 +119,7 @@ const SSR = `@state {
 @template {
   <div class="clock">
     <h1>Server-rendered clock</h1>
-    <time>{{ now }}</time>
+    <time>{now}</time>
     <p class="hint">Compiles to a custom element. Server renders the initial HTML; the client picks up reactivity on hydration.</p>
   </div>
 }
@@ -141,13 +141,13 @@ const ROUTE = `@state {
 
 @template {
   <nav>
-    <button $on.click={() => setPage('home')}>Home</button>
-    <button $on.click={() => setPage('about')}>About</button>
-    <button $on.click={() => setPage('contact')}>Contact</button>
+    <button on:click={() => setPage('home')}>Home</button>
+    <button on:click={() => setPage('about')}>About</button>
+    <button on:click={() => setPage('contact')}>Contact</button>
   </nav>
   <section class="page">
-    <h1>{{ heading }}</h1>
-    <p>You are viewing <code>/{{ page }}</code>. In a real app, @aihu/router maps file paths to routes.</p>
+    <h1>{heading}</h1>
+    <p>You are viewing <code>/{page}</code>. In a real app, @aihu/router maps file paths to routes.</p>
   </section>
 }
 
@@ -171,8 +171,8 @@ const PLUGIN = `// Plugins are registered at the app level (aihu.config.ts):
 
 @template {
   <article>
-    <h1>{{ title }}</h1>
-    <input $value={title()} $on.input={(e) => setTitle(e.target.value)}>
+    <h1>{title}</h1>
+    <input value={title()} on:input={(e) => setTitle(e.target.value)}>
     <p class="hint">
       If <code>@aihu/seo</code> is registered, this title flows to
       <code>&lt;title&gt;</code>, OG tags, and JSON-LD automatically.

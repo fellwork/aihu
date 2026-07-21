@@ -1,0 +1,3 @@
+@template {
+  <li $each="items as item" $key="id">{item}</li>
+}

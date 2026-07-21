@@ -97,13 +97,13 @@ const router = createRouter(routes)
 
 ## Layouts
 
-Layouts live under `src/layouts/`. The default layout is `src/layouts/default.aihu`. A layout wraps the page's rendered output via `<$slot>`:
+Layouts live under `src/layouts/`. The default layout is `src/layouts/default.aihu`. A layout wraps the page's rendered output via `<slot>`:
 
 ```
 @template {
   <header>My App</header>
   <main>
-    <$slot />
+    <slot />
   </main>
   <footer>Footer</footer>
 }

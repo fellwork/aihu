@@ -35,18 +35,18 @@
         <span class="agent-count-badge">{agentCount}</span>
       </h2>
 
-      <ul class="agent-list" $if={agentCount > 0}>
+      <ul class="agent-list" if={agentCount > 0}>
         <li
-          $each="agentList as agent"
-          $key="agent.tag"
+          each={agent of agentList}
+          key={agent.tag}
           class="agent-entry"
         >
           <code class="agent-tag">&lt;{agent.tag}&gt;</code>
-          <span class="agent-describes" $if={!!agent.describes}>{agent.describes}</span>
+          <span class="agent-describes" if={!!agent.describes}>{agent.describes}</span>
         </li>
       </ul>
 
-      <p class="no-agents-msg" $if={agentCount === 0}>
+      <p class="no-agents-msg" if={agentCount === 0}>
         No agents registered. Load an .aihu component with an @agent block.
       </p>
     </section>
@@ -56,26 +56,26 @@
         <button
           class="tab-btn"
           role="tab"
-          $aria-selected={activeTab === 'a2a'}
-          $on.click={() => setActiveTab('a2a')}
+          aria-selected={activeTab === 'a2a'}
+          on:click={() => setActiveTab('a2a')}
         >
           A2A
         </button>
         <button
           class="tab-btn"
           role="tab"
-          $aria-selected={activeTab === 'acp'}
-          $on.click={() => setActiveTab('acp')}
+          aria-selected={activeTab === 'acp'}
+          on:click={() => setActiveTab('acp')}
         >
           ACP
         </button>
       </div>
 
-      <div class="tab-panel" $if={activeTab === 'a2a'} role="tabpanel" aria-label="A2A panel">
+      <div class="tab-panel" if={activeTab === 'a2a'} role="tabpanel" aria-label="A2A panel">
         <a2a-panel></a2a-panel>
       </div>
 
-      <div class="tab-panel" $if={activeTab === 'acp'} role="tabpanel" aria-label="ACP panel">
+      <div class="tab-panel" if={activeTab === 'acp'} role="tabpanel" aria-label="ACP panel">
         <acp-panel></acp-panel>
       </div>
     </section>

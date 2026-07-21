@@ -32,20 +32,20 @@
       <input
         type="search"
         class="search-input"
-        $bind.value={query}
+        bind:value={query}
         placeholder="Type to search…"
         aria-label="Search fruits"
       />
     </label>
-    {#if query && results.length === 0}
+    <group if={query && results.length === 0}>
       <p class="no-results">No results for "<strong>{query}</strong>"</p>
-    {:else if results.length > 0}
+    </group><group elseif={results.length > 0}>
       <ul class="result-list">
-        {#each results as item (item)}
+        <group each={item of results} key={item}>
           <li class="result-item">{item}</li>
-        {/each}
+        </group>
       </ul>
-    {/if}
+    </group>
   </div>
 }
 

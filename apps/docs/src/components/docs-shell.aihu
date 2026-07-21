@@ -95,60 +95,60 @@
 
       <span class="nav-group-label">Getting Started</span>
       <ul>
-        <li><a class="nav-link" href="#introduction" $class:active={activePage() === 'introduction'}>Introduction</a></li>
-        <li><a class="nav-link" href="#installation" $class:active={activePage() === 'installation'}>Installation</a></li>
-        <li><a class="nav-link" href="#getting-started" $class:active={activePage() === 'getting-started'}>Getting Started</a></li>
-        <li><a class="nav-link" href="#playground" $class:active={activePage() === 'playground'}>Playground</a></li>
+        <li><a class="nav-link" href="#introduction" class:active={activePage() === 'introduction'}>Introduction</a></li>
+        <li><a class="nav-link" href="#installation" class:active={activePage() === 'installation'}>Installation</a></li>
+        <li><a class="nav-link" href="#getting-started" class:active={activePage() === 'getting-started'}>Getting Started</a></li>
+        <li><a class="nav-link" href="#playground" class:active={activePage() === 'playground'}>Playground</a></li>
       </ul>
 
       <span class="nav-group-label">Guides</span>
       <ul>
-        <li><a class="nav-link" href="#guides/authoring-components" $class:active={activePage() === 'guides/authoring-components'}>Authoring Components</a></li>
-        <li><a class="nav-link" href="#guides/reactivity" $class:active={activePage() === 'guides/reactivity'}>Reactivity</a></li>
-        <li><a class="nav-link" href="#guides/composition" $class:active={activePage() === 'guides/composition'}>Composition &amp; Injection</a></li>
-        <li><a class="nav-link" href="#guides/authoring-agents" $class:active={activePage() === 'guides/authoring-agents'}>Authoring Agents</a></li>
-        <li><a class="nav-link" href="#guides/styling" $class:active={activePage() === 'guides/styling'}>Styling</a></li>
-        <li><a class="nav-link" href="#guides/theming" $class:active={activePage() === 'guides/theming'}>Theming</a></li>
-        <li><a class="nav-link" href="#guides/utility-classes" $class:active={activePage() === 'guides/utility-classes'}>Utility Classes</a></li>
-        <li><a class="nav-link" href="#guides/primitives" $class:active={activePage() === 'guides/primitives'}>Primitives</a></li>
-        <li><a class="nav-link" href="#guides/routing-layouts" $class:active={activePage() === 'guides/routing-layouts'}>Routing &amp; Layouts</a></li>
-        <li><a class="nav-link" href="#guides/data-fetching" $class:active={activePage() === 'guides/data-fetching'}>Data Fetching</a></li>
-        <li><a class="nav-link" href="#guides/ssr-hydration" $class:active={activePage() === 'guides/ssr-hydration'}>SSR &amp; Hydration</a></li>
-        <li><a class="nav-link" href="#guides/agent-discovery" $class:active={activePage() === 'guides/agent-discovery'}>Agent Discovery</a></li>
-        <li><a class="nav-link" href="#guides/authoring-plugins" $class:active={activePage() === 'guides/authoring-plugins'}>Authoring Plugins</a></li>
-        <li><a class="nav-link" href="#guides/deployment" $class:active={activePage() === 'guides/deployment'}>Deployment</a></li>
+        <li><a class="nav-link" href="#guides/authoring-components" class:active={activePage() === 'guides/authoring-components'}>Authoring Components</a></li>
+        <li><a class="nav-link" href="#guides/reactivity" class:active={activePage() === 'guides/reactivity'}>Reactivity</a></li>
+        <li><a class="nav-link" href="#guides/composition" class:active={activePage() === 'guides/composition'}>Composition &amp; Injection</a></li>
+        <li><a class="nav-link" href="#guides/authoring-agents" class:active={activePage() === 'guides/authoring-agents'}>Authoring Agents</a></li>
+        <li><a class="nav-link" href="#guides/styling" class:active={activePage() === 'guides/styling'}>Styling</a></li>
+        <li><a class="nav-link" href="#guides/theming" class:active={activePage() === 'guides/theming'}>Theming</a></li>
+        <li><a class="nav-link" href="#guides/utility-classes" class:active={activePage() === 'guides/utility-classes'}>Utility Classes</a></li>
+        <li><a class="nav-link" href="#guides/primitives" class:active={activePage() === 'guides/primitives'}>Primitives</a></li>
+        <li><a class="nav-link" href="#guides/routing-layouts" class:active={activePage() === 'guides/routing-layouts'}>Routing &amp; Layouts</a></li>
+        <li><a class="nav-link" href="#guides/data-fetching" class:active={activePage() === 'guides/data-fetching'}>Data Fetching</a></li>
+        <li><a class="nav-link" href="#guides/ssr-hydration" class:active={activePage() === 'guides/ssr-hydration'}>SSR &amp; Hydration</a></li>
+        <li><a class="nav-link" href="#guides/agent-discovery" class:active={activePage() === 'guides/agent-discovery'}>Agent Discovery</a></li>
+        <li><a class="nav-link" href="#guides/authoring-plugins" class:active={activePage() === 'guides/authoring-plugins'}>Authoring Plugins</a></li>
+        <li><a class="nav-link" href="#guides/deployment" class:active={activePage() === 'guides/deployment'}>Deployment</a></li>
       </ul>
 
       <span class="nav-group-label">Packages</span>
       <ul>
-        <li><a class="nav-link" href="#packages/context" $class:active={activePage() === 'packages/context'}>@aihu/context</a></li>
-        <li><a class="nav-link" href="#packages/agent-a2a" $class:active={activePage() === 'packages/agent-a2a'}>@aihu/agent-a2a</a></li>
-        <li><a class="nav-link" href="#packages/agent-acp" $class:active={activePage() === 'packages/agent-acp'}>@aihu/agent-acp</a></li>
-        <li><a class="nav-link" href="#packages/agent-server" $class:active={activePage() === 'packages/agent-server'}>@aihu/agent-server</a></li>
-        <li><a class="nav-link" href="#packages/auth" $class:active={activePage() === 'packages/auth'}>@aihu/auth</a></li>
-        <li><a class="nav-link" href="#packages/cli" $class:active={activePage() === 'packages/cli'}>@aihu/cli</a></li>
-        <li><a class="nav-link" href="#packages/language-server" $class:active={activePage() === 'packages/language-server'}>@aihu/language-server</a></li>
-        <li><a class="nav-link" href="#packages/magna" $class:active={activePage() === 'packages/magna'}>@aihu/magna</a></li>
-        <li><a class="nav-link" href="#packages/scraping" $class:active={activePage() === 'packages/scraping'}>@aihu/scraping</a></li>
-        <li><a class="nav-link" href="#packages/seo" $class:active={activePage() === 'packages/seo'}>@aihu/seo</a></li>
-        <li><a class="nav-link" href="#packages/tsc" $class:active={activePage() === 'packages/tsc'}>@aihu/tsc</a></li>
-        <li><a class="nav-link" href="#packages/ui" $class:active={activePage() === 'packages/ui'}>@aihu/ui</a></li>
-        <li><a class="nav-link" href="#packages/adapter-cloudflare" $class:active={activePage() === 'packages/adapter-cloudflare'}>@aihu/adapter-cloudflare</a></li>
-        <li><a class="nav-link" href="#packages/adapter-vercel" $class:active={activePage() === 'packages/adapter-vercel'}>@aihu/adapter-vercel</a></li>
+        <li><a class="nav-link" href="#packages/context" class:active={activePage() === 'packages/context'}>@aihu/context</a></li>
+        <li><a class="nav-link" href="#packages/agent-a2a" class:active={activePage() === 'packages/agent-a2a'}>@aihu/agent-a2a</a></li>
+        <li><a class="nav-link" href="#packages/agent-acp" class:active={activePage() === 'packages/agent-acp'}>@aihu/agent-acp</a></li>
+        <li><a class="nav-link" href="#packages/agent-server" class:active={activePage() === 'packages/agent-server'}>@aihu/agent-server</a></li>
+        <li><a class="nav-link" href="#packages/auth" class:active={activePage() === 'packages/auth'}>@aihu/auth</a></li>
+        <li><a class="nav-link" href="#packages/cli" class:active={activePage() === 'packages/cli'}>@aihu/cli</a></li>
+        <li><a class="nav-link" href="#packages/language-server" class:active={activePage() === 'packages/language-server'}>@aihu/language-server</a></li>
+        <li><a class="nav-link" href="#packages/magna" class:active={activePage() === 'packages/magna'}>@aihu/magna</a></li>
+        <li><a class="nav-link" href="#packages/scraping" class:active={activePage() === 'packages/scraping'}>@aihu/scraping</a></li>
+        <li><a class="nav-link" href="#packages/seo" class:active={activePage() === 'packages/seo'}>@aihu/seo</a></li>
+        <li><a class="nav-link" href="#packages/tsc" class:active={activePage() === 'packages/tsc'}>@aihu/tsc</a></li>
+        <li><a class="nav-link" href="#packages/ui" class:active={activePage() === 'packages/ui'}>@aihu/ui</a></li>
+        <li><a class="nav-link" href="#packages/adapter-cloudflare" class:active={activePage() === 'packages/adapter-cloudflare'}>@aihu/adapter-cloudflare</a></li>
+        <li><a class="nav-link" href="#packages/adapter-vercel" class:active={activePage() === 'packages/adapter-vercel'}>@aihu/adapter-vercel</a></li>
       </ul>
 
       <span class="nav-group-label">Reference</span>
       <ul>
-        <li><a class="nav-link" href="#migration" $class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
-        <li><a class="nav-link" href="#api-reference" $class:active={activePage() === 'api-reference'}>API Reference</a></li>
+        <li><a class="nav-link" href="#migration" class:active={activePage() === 'migration'}>Migration (v0 → v1)</a></li>
+        <li><a class="nav-link" href="#api-reference" class:active={activePage() === 'api-reference'}>API Reference</a></li>
       </ul>
 
     </nav>
     <main class="docs-content">
-      <div class="doc-page-wrapper" $class:is-active={activePage() !== 'playground'}>
-        <article>{@html activeHtml()}</article>
+      <div class="doc-page-wrapper" class:is-active={activePage() !== 'playground'}>
+        <article><span html={activeHtml()}></span></article>
       </div>
-      <div class="playground-page" $class:is-active={activePage() === 'playground'}>
+      <div class="playground-page" class:is-active={activePage() === 'playground'}>
         <h1>Playground</h1>
         <p class="playground-intro">Edit. Compile. Inspect. All in your browser — powered by the WASM build of <code>aihu-compile</code>.</p>
         <playground-embed></playground-embed>

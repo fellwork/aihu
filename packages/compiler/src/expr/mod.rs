@@ -201,10 +201,22 @@ fn validate_attr(attr: &Attr) -> Result<(), CompileError> {
             name,
             value: MacroValue::Curly(expr),
         } => {
-            // `$on.click` is normalized to `on:click` by the directive parser
-            // (directives.rs) before it reaches the template AST.
+            // §3.2 — the `each` head is a HEAD, not a TS expression: it must
+            // never be handed whole to the parser (`of` misparses). Split it
+            // and validate only the LIST side; the binder side is validated
+            // as a BindingPattern at parse time (directives.rs).
+            if name == "each" {
+                return match crate::parser::directives::parse_each_of_head(expr) {
+                    Ok(head) => validate_expr(&head.list, ExprPosition::EachList),
+                    // Malformed heads are rejected at parse time; nothing to
+                    // validate here.
+                    Err(_) => Ok(()),
+                };
+            }
             let pos = if name.starts_with("on:") {
                 ExprPosition::Handler
+            } else if name == "key" {
+                ExprPosition::EachKey
             } else {
                 ExprPosition::AttrBinding
             };

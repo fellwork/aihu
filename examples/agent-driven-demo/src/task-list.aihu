@@ -55,7 +55,7 @@
       <span class="tl-count">{tasks.length}</span>
     </header>
     <ul class="tl-items">
-      <li $each="tasks as task" $key="task.id" class="tl-item" $data-done={task.done}>
+      <li each={task of tasks} key={task.id} class="tl-item" data-done={task.done}>
         <span class="tl-text">{task.text}</span>
       </li>
     </ul>

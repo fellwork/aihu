@@ -8,7 +8,7 @@
       </nav>
     </header>
     <main class="app-main">
-      <$outlet></$outlet>
+      <outlet></outlet>
     </main>
     <footer class="app-footer">rendered inside the <code>app</code> layout</footer>
   </div>

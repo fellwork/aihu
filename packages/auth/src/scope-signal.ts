@@ -1,7 +1,7 @@
 /**
- * `@aihu/auth` — client-side scope signal for `<$guard>` consumption.
+ * `@aihu/auth` — client-side scope signal for `<guard>` consumption.
  *
- * The compiler lowers `<$guard scope="authenticated">` to:
+ * The compiler lowers `<guard scope="authenticated">` to:
  *   `when(getScopeSignal('authenticated'), () => branch(...))`
  *
  * This module provides the reactive primitive that bridges an auth session

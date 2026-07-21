@@ -286,7 +286,7 @@ describe('runPrerender — layout composition', () => {
     expect(result.warnings.join('\n')).toMatch(/no SSR-renderable default/)
   })
 
-  it('warns and ships the page unwrapped when the layout has no <$outlet> marker', async () => {
+  it('warns and ships the page unwrapped when the layout has no <outlet> marker', async () => {
     fx = await makeFixture()
     await writeRoute(fx.root, 'index.ts', { name: 'home-page', layout: 'broken' })
     await writeLayout(fx.root, 'broken')

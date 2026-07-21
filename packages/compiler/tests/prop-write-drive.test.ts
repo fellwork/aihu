@@ -181,7 +181,7 @@ describe('CO1 — $prop writes drive real state at runtime', () => {
 @template {
   <div>
     <output class="count">{count}</output>
-    <button $on.click={bump2}>go</button>
+    <button on:click={bump2}>go</button>
   </div>
 }
 `
@@ -212,7 +212,7 @@ describe('CO1 — $prop writes drive real state at runtime', () => {
 @template {
   <div>
     <output class="count">{count}</output>
-    <button $on.click={probe}>probe</button>
+    <button on:click={probe}>probe</button>
   </div>
 }
 `

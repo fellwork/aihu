@@ -53,7 +53,7 @@ The whole `@state` block: your bindings carry their real types, your imports res
 
 Two things are still `any`:
 
-- **Loop aliases.** `{#each xs as m}` binds `m` in the template, so there is no declaration to take a type from. Deriving the element type from the iterable is planned.
+- **Loop aliases.** `<group each={m of xs}>` binds `m` in the template, so there is no declaration to take a type from. Deriving the element type from the iterable is planned.
 - **Macro bodies.** `$prop:` / `$action:` / `$computed:` blocks are aihu syntax, not TypeScript, so their bodies are not yet checked. What they *bind* is declared — and a `$prop` carries the type you declared for it.
 
 ## Implicit `any`

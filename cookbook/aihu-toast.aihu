@@ -29,13 +29,13 @@
 
 @template {
   <div
-    $class={['toast', visible && 'toast-visible']}
+    class={['toast', visible && 'toast-visible']}
     role="status"
     aria-live="polite"
-    $show={visible}
+    show={visible}
   >
     <span class="toast-msg">{message}</span>
-    <button class="toast-close" $on.click={dismiss} aria-label="Dismiss">×</button>
+    <button class="toast-close" on:click={dismiss} aria-label="Dismiss">×</button>
   </div>
 }
 

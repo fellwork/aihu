@@ -39,9 +39,9 @@
   <div
     data-slot="separator"
     role="separator"
-    $aria-orientation={orientation}
-    $data-orientation={orientation}
-    $class={cn('aihu-separator')}></div>
+    aria-orientation={orientation}
+    data-orientation={orientation}
+    class={cn('aihu-separator')}></div>
 }
 
 @style {

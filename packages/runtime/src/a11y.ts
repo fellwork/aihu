@@ -1,13 +1,13 @@
 /**
  * arch-5 M1 a11y primitive runtime — RFC-A5-017..021 (arch-5 §2.6).
  *
- * Tree-shakable: an SFC that uses only `<$visuallyHidden>` imports
- * `_ensureA11yStyles`; `<$focusTrap>` users import `createFocusTrap`;
+ * Tree-shakable: an SFC that uses only `<visuallyHidden>` imports
+ * `_ensureA11yStyles`; `<focusTrap>` users import `createFocusTrap`;
  * `$announce(...)` action sites import `announce`.
  *
  * Budget: arch-5 §2.6 caps the total compiled-runtime cost across the 5
- * primitives at ~800 bytes. `<$liveRegion>`, `<$skipLink>`, and
- * `<$visuallyHidden>` lower to plain `branch()` calls; only the CSS
+ * primitives at ~800 bytes. `<liveRegion>`, `<skipLink>`, and
+ * `<visuallyHidden>` lower to plain `branch()` calls; only the CSS
  * injector + announce singleton + focus-trap helper add JS.
  */
 
@@ -18,7 +18,7 @@ import { branch } from '@aihu/arbor'
 
 let _stylesInjected = false
 
-/** @internal — idempotent style injection used by `<$visuallyHidden>` and `<$skipLink>`. */
+/** @internal — idempotent style injection used by `<visuallyHidden>` and `<skipLink>`. */
 export function _ensureA11yStyles(): void {
   if (_stylesInjected || typeof document === 'undefined') return
   _stylesInjected = true
@@ -74,7 +74,7 @@ export function _resetAnnounceForTests(): void {
   document.querySelectorAll('style[data-aihu-a11y]').forEach((n) => n.remove())
 }
 
-// ─── <$focusTrap> — RFC-A5-018 ────────────────────────────────────────────────
+// ─── <focusTrap> — RFC-A5-018 ────────────────────────────────────────────────
 
 const _Q =
   'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])'

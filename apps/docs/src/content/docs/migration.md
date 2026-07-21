@@ -73,9 +73,9 @@ Amendment 04 requires every reactive HTML attribute binding to be `$`-prefixed. 
 
 | Old form | v1 form | Error if left unmigrated |
 |----------|---------|--------------------------|
-| `:href="expr"` (Vue-shape colon attr) | `$href={expr}` | **C304** |
+| `:href="expr"` (Vue-shape colon attr) | `href={expr}` | **C304** |
 | `:on` + colon-form event/bind aliases | `$on.click=…`, `$bind.value=…` | **C305** |
-| `class={cond ? 'a' : ''}` (plain curly attr) | `$class={cond ? 'a' : ''}` | **C306** |
+| `class={cond ? 'a' : ''}` (plain curly attr) | `class={cond ? 'a' : ''}` | **C306** |
 
 Component prop-passing keeps the plain-curly form (`<UserCard user={u} />`) and is unaffected.
 
@@ -85,10 +85,10 @@ To set element innerHTML reactively, use the `$html` binding — not an `$on.<na
 
 ```
 // wrong — $on.innerHTML is not a DOM event → W210 (dead handler)
-<div $on.innerHTML="markup"></div>
+<div on:innerHTML={markup}></div>
 
 // right
-<div $html="markup"></div>     // or $html={expr}
+<div html={markup}></div>     // or html={expr}
 ```
 
 `$on.<name>` referencing anything that is not a real DOM event compiles to a dead `on<name>` handler that never fires; the compiler warns with **W210**.
@@ -159,21 +159,21 @@ $lifecycle: {
 
 ```
 // before (v1 → C500)          // after (v2)
-<item-card $let="item" />      <item-card $let={item} />
+<item-card $let="item" />      <item-card let={item} />
 ```
 
 **Curly-form DOM event handlers → `$on.<event>` (C306).**
 
 ```
 // before (v1 → C306)                       // after (v2)
-<button onclick={() => bump()}>+1</button>  <button $on.click={() => bump()}>+1</button>
+<button onclick={() => bump()}>+1</button>  <button on:click={() => bump()}>+1</button>
 ```
 
 ### Cases the codemod cannot resolve (hand-edit)
 
 - **`$action name: <arrow>` colon form** (e.g. `$action send: async () => { … }`) — rewrite by hand to a collection entry: `$action: { send: { describe: '…', expose: { read: true, write: true }, handler: async () => { … } } }`.
 - **`@agent` metadata naming a plain `signal()` binding** — `expose:`/`describe:` attach to *collection entries* (`$prop` / `$computed` / `$action` / `$resource`). A raw `const [x, setX] = signal(…)` has no entry to carry them; either wrap the value in a `$computed` entry or accept that the name is not agent-exposed. Plain `function f() { … }` helpers that should stay agent-callable are worth converting to `$action` entries by hand.
-- **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → `$<name>={…}` (e.g. `$attr.disabled` → `$disabled`), and dot-form class toggles `$class.name={…}` → the colon-namespaced `$class:name={…}`.
+- **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → `$<name>={…}` (e.g. `$attr.disabled` → `$disabled`), and dot-form class toggles `$class.name={…}` → the colon-namespaced `class:name={…}`.
 
 ## 8. The binary shadow API and light-DOM pages (the DA4 flip)
 
@@ -212,11 +212,11 @@ Under the hood, an unpinned page compiles with a `// @aihu:shadow-default light`
 |------|---------|-----|
 | C107 | HTML-tag SFC framing (`<template>`, `<script setup>`) | use `@state` / `@template` / `@style` blocks |
 | C204 | unknown `@block` (e.g. `@props`) | use a recognized block; declare props via `$prop:` in `@state` |
-| C304 | Vue-shape `:attr=` alias | `$attr={expr}` |
+| C304 | Vue-shape `:attr=` alias | `attr={expr}` |
 | C305 | colon-form event/bind alias | `$on.click=…`, `$bind.value=…` |
-| C306 | plain-curly attribute binding (`class={…}`) | `$class={…}` |
+| C306 | plain-curly attribute binding (`class={…}`) | `class={…}` |
 | C440 | removed v1 agent macros (`$expose`, `$describe`, …) | per-name `describe:` / `expose:` on collection entries |
-| C500 | quoted `$`-attr that is not a built-in macro (`$let="x"`) | curly form: `$let={x}` |
+| C500 | quoted `$`-attr that is not a built-in macro (`$let="x"`) | curly form: `let={x}` |
 | W210 | `$on.<non-event>` → dead handler | use `$html` for innerHTML, or a real event |
 
 ## See also

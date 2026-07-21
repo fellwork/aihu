@@ -4,7 +4,7 @@
 //! - `$route currentRoute` lowers to `useRoute()` from `@aihu/router`.
 //! - `$beforeNavigate(fn)` lowers to a guard registration call.
 //! - `$afterNavigate(fn)` lowers to an after-guard registration call.
-//! - `<$router>`, `<$link>`, `<$outlet>`, `<$navigate>` macro elements emit
+//! - `<router>`, `<a>`, `<outlet>`, `<navigate>` macro elements emit
 //!   the expected boundary helpers and the `@aihu/router` namespace import.
 //!
 //! These tests exercise the full pipeline (`compile_full` + `emit`) without
@@ -76,22 +76,22 @@ fn after_navigate_macro_lowers_to_register_call() {
 #[test]
 fn router_element_emits_boundary_and_import() {
     let source = r#"@template {
-  <$router router={myRouter}>
-    <$outlet></$outlet>
-  </$router>
+  <router router={myRouter}>
+    <outlet></outlet>
+  </router>
 }"#;
     let js = compile(source, "x-app");
     assert!(
         js.contains("import * as __aihuRouter from '@aihu/router'"),
-        "<$router> should pull in router namespace, got:\n{js}"
+        "<router> should pull in router namespace, got:\n{js}"
     );
     assert!(
         js.contains("createRouterBoundary(myRouter"),
-        "<$router> should call createRouterBoundary, got:\n{js}"
+        "<router> should call createRouterBoundary, got:\n{js}"
     );
     assert!(
         js.contains("createOutletBoundary()"),
-        "<$outlet> should call createOutletBoundary, got:\n{js}"
+        "<outlet> should call createOutletBoundary, got:\n{js}"
     );
 }
 
@@ -103,26 +103,26 @@ fn outlet_boundary_registers_route_components_via_global_hook() {
     // import), so it calls the hook @aihu/app publishes on globalThis —
     // optional-chained, so a standalone @aihu/router app just skips it.
     let source = r#"@template {
-  <$outlet></$outlet>
+  <outlet></outlet>
 }"#;
     let js = compile(source, "x-layout");
     assert!(
         js.contains(
             "Promise.all([m.route.module(), ...(globalThis.__aihuRegisterRouteComponents?.(m.route) ?? [])]).then(async ([mod]) => {"
         ),
-        "<$outlet> boundary should await the route module AND the route's components via the global hook, got:\n{js}"
+        "<outlet> boundary should await the route module AND the route's components via the global hook, got:\n{js}"
     );
 }
 
 #[test]
 fn link_element_emits_boundary_with_attrs() {
     let source = r#"@template {
-  <$link href="/users/42" prefetch="hover" replace>Profile</$link>
+  <a href="/users/42" prefetch="hover" replace>Profile</a>
 }"#;
     let js = compile(source, "x-link-test");
     assert!(
         js.contains("createLinkBoundary("),
-        "<$link> should call createLinkBoundary, got:\n{js}"
+        "<a> should call createLinkBoundary, got:\n{js}"
     );
     // href is a static attr — emitted as quoted form.
     assert!(
@@ -138,14 +138,14 @@ fn link_element_emits_boundary_with_attrs() {
 
 #[test]
 fn link_forwards_class_and_event_attrs() {
-    // Regression: `<$link>` used to forward ONLY href, silently dropping
+    // Regression: `<a>` used to forward ONLY href, silently dropping
     // class / $class / $on.click (and pruning their now-"unused" imports).
     let source = r#"@state {
   close: () => void = () => {}
   isActive: (r: string) => boolean = () => false
 }
 @template {
-  <$link href="/read/Gen.1" id="home" $class={isActive("Gen.1") ? "row on" : "row"} $on.click={() => close()}>Genesis</$link>
+  <a href="/read/Gen.1" id="home" class={isActive("Gen.1") ? "row on" : "row"} on:click={() => close()}>Genesis</a>
 }"#;
     let js = compile(source, "x-link-attrs");
     assert!(
@@ -169,16 +169,16 @@ fn link_forwards_class_and_event_attrs() {
 
 #[test]
 fn each_on_link_wraps_in_each_boundary() {
-    // Regression: `$each` on a `<$link>` was dropped entirely, leaving the loop
+    // Regression: `$each` on a `<a>` was dropped entirely, leaving the loop
     // var dangling (`ReferenceError: b is not defined`).
     let source = r#"@state { books: Array<{ ref: string; name: string }> = [] }
 @template {
-  <ul><$link $each="books as b" $key={b.ref} href={"/read/" + b.ref}>{b.name}</$link></ul>
+  <ul><a each={b of books} key={b.ref} href={"/read/" + b.ref}>{b.name}</a></ul>
 }"#;
     let js = compile(source, "x-each-link");
     assert!(
         js.contains("createEachBoundary("),
-        "$each on <$link> must wrap in createEachBoundary, got:\n{js}"
+        "$each on <a> must wrap in createEachBoundary, got:\n{js}"
     );
     // The link boundary must be INSIDE the each item function (so `b` is bound).
     let each_pos = js.find("createEachBoundary(").unwrap();
@@ -192,24 +192,24 @@ fn each_on_link_wraps_in_each_boundary() {
 #[test]
 fn if_on_link_wraps_in_if_boundary() {
     let source = r#"@state { show: boolean = true }
-@template { <div><$link $if={show} href="/x">go</$link></div> }"#;
+@template { <div><a if={show} href="/x">go</a></div> }"#;
     let js = compile(source, "x-if-link");
     assert!(
         js.contains("createIfBoundary("),
-        "$if on <$link> must wrap in createIfBoundary, got:\n{js}"
+        "$if on <a> must wrap in createIfBoundary, got:\n{js}"
     );
 }
 
 #[test]
 fn each_on_link_emits_each_boundary_definition() {
-    // FEL-230: when the ONLY `$each` in a module sits on a `<$link>`, the
+    // FEL-230: when the ONLY `$each` in a module sits on a `<a>`, the
     // compiler emitted the `createEachBoundary(...)` call site but never the
     // inlined `const createEachBoundary = ...` definition (the helper collector
     // scanned only plain Element attrs, not MacroElement attrs) →
     // `ReferenceError: createEachBoundary is not defined`, blank page.
     let source = r#"@state { studies: Array<{ ref: string; name: string }> = [] }
 @template {
-  <div><$link $each="studies as s" $key={s.ref} href={"/read/" + s.ref}>{s.name}</$link></div>
+  <div><a each={s of studies} key={s.ref} href={"/read/" + s.ref}>{s.name}</a></div>
 }"#;
     let js = compile(source, "x-each-link-only");
     assert!(
@@ -219,7 +219,7 @@ fn each_on_link_emits_each_boundary_definition() {
     assert!(
         js.contains("const createEachBoundary ="),
         "FEL-230: helper DEFINITION must be emitted when the only $each is on \
-         <$link>, else createEachBoundary is undefined at runtime, got:\n{js}"
+         <a>, else createEachBoundary is undefined at runtime, got:\n{js}"
     );
     // The definition must precede its first call site in module order.
     let def_pos = js.find("const createEachBoundary =").unwrap();
@@ -235,20 +235,20 @@ fn if_on_link_emits_if_boundary_definition() {
     // FEL-230 sibling: `$if` on a macro element must also collect its helper
     // definition, not just emit the call site.
     let source = r#"@state { show: boolean = true }
-@template { <div><$link $if={show} href="/x">go</$link></div> }"#;
+@template { <div><a if={show} href="/x">go</a></div> }"#;
     let js = compile(source, "x-if-link-only");
     assert!(
         js.contains("const createIfBoundary ="),
-        "FEL-230: $if on <$link> must emit createIfBoundary definition, got:\n{js}"
+        "FEL-230: $if on <a> must emit createIfBoundary definition, got:\n{js}"
     );
 }
 
 #[test]
 fn link_onclick_defers_when_no_router_context() {
     // The link's click handler must NOT hard-navigate when there is no reactive
-    // <$router> context — it guards on useRouter() and lets the click bubble to
+    // <router> context — it guards on useRouter() and lets the click bubble to
     // @aihu/app's document delegation instead.
-    let source = r#"@template { <$link href="/x">go</$link> }"#;
+    let source = r#"@template { <a href="/x">go</a> }"#;
     let js = compile(source, "x-link-guard");
     assert!(
         js.contains("__aihuRouter.useRouter()"),
@@ -258,11 +258,11 @@ fn link_onclick_defers_when_no_router_context() {
 
 #[test]
 fn link_click_is_owner_agnostic_attr_not_onmount() {
-    // Bug B regression: <$link> inside $each/$if threw "onMount: no owner"
+    // Bug B regression: <a> inside $each/$if threw "onMount: no owner"
     // because createLinkBoundary wired the click via addEventListener inside
     // onMount (which needs the component-setup owner — absent in an each/if
     // item factory). Click is now an arbor event attr (owner-agnostic).
-    let source = r#"@template { <$link href="/x">go</$link> }"#;
+    let source = r#"@template { <a href="/x">go</a> }"#;
     let js = compile(source, "x-link-click");
     assert!(
         js.contains("'data-aihu-link': '', onClick"),
@@ -281,10 +281,10 @@ fn link_click_is_owner_agnostic_attr_not_onmount() {
 
 #[test]
 fn link_composes_author_on_click_with_navigation() {
-    // <$link $on.click={fn}> must run the author handler AND navigate (and keep
+    // <a on:click={fn}> must run the author handler AND navigate (and keep
     // `fn` referenced so its import is not pruned).
     let source = r#"@state { close: () => void = () => {} }
-@template { <$link href="/x" $on.click={close}>go</$link> }"#;
+@template { <a href="/x" on:click={close}>go</a> }"#;
     let js = compile(source, "x-link-compose");
     assert!(
         js.contains("_userClick"),
@@ -298,7 +298,7 @@ fn complex_attr_binding_is_thunk_wrapped_for_reactivity() {
     // Bug A regression: a complex attr binding (e.g. $class calling a reactive
     // getter the compiler can't see in @state) compiled eager and never
     // re-ran. Complex binding exprs are now thunk-wrapped like $if/$show.
-    let source = r#"@template { <div $class={activeStudy() ? "a" : "b"}>x</div> }"#;
+    let source = r#"@template { <div class={activeStudy() ? "a" : "b"}>x</div> }"#;
     let js = compile(source, "x-cls-reactive");
     assert!(
         js.contains("class: [() => (activeStudy()"),
@@ -320,7 +320,7 @@ fn static_literal_attr_stays_eager() {
 #[test]
 fn navigate_element_emits_boundary() {
     let source = r#"@template {
-  <$navigate to="/login" replace></$navigate>
+  <navigate to="/login" replace></navigate>
 }"#;
     let parsed = sfc::parse(source).expect("parse");
     let unit = compile_full(&parsed).expect("compile_full");
@@ -328,26 +328,26 @@ fn navigate_element_emits_boundary() {
     let js = result.js;
     assert!(
         js.contains("createNavigateBoundary("),
-        "<$navigate> should call createNavigateBoundary, got:\n{js}"
+        "<navigate> should call createNavigateBoundary, got:\n{js}"
     );
 }
 
-// ─── <$link href> reactivity ──────────────────────────────────────────────────
+// ─── <a href> reactivity ──────────────────────────────────────────────────
 
 #[test]
 fn link_dynamic_href_is_reactive_thunk() {
-    // Confirmed bug: `<$link href={readHref()}>` passed the EVALUATED string to
+    // Confirmed bug: `<a href={readHref()}>` passed the EVALUATED string to
     // createLinkBoundary (`createLinkBoundary(readHref(), …)`), so the boundary
     // baked the href once at mount and the rendered <a> never tracked the
     // selection signal — Read/Study links stayed on the chapter regardless of
     // verse selection. A dynamic href must be passed as a THUNK so the boundary
-    // binds it reactively (mirroring a plain `<a $href={…}>`).
+    // binds it reactively (mirroring a plain `<a href={…}>`).
     let source = r#"@state {
 import { signal, computed } from '@aihu/signals'
 const [verse, setVerse] = signal(1)
 const readHref = computed(() => `/read/${verse()}`)
 }
-@template { <$link href={readHref()}>Read</$link> }"#;
+@template { <a href={readHref()}>Read</a> }"#;
     let js = compile(source, "x-link-dyn-href");
     assert!(
         js.contains("createLinkBoundary(() => (readHref())"),
@@ -377,7 +377,7 @@ const readHref = computed(() => `/read/${verse()}`)
 fn link_static_href_stays_eager_string() {
     // Guard against over-wrapping: a static href is a plain quoted string, so
     // the link pays no per-link effect and renders the attribute directly.
-    let source = r#"@template { <$link href="/about">About</$link> }"#;
+    let source = r#"@template { <a href="/about">About</a> }"#;
     let js = compile(source, "x-link-static-href");
     assert!(
         js.contains("createLinkBoundary('/about'"),
@@ -396,7 +396,7 @@ fn link_dynamic_href_prop_read_is_rewritten() {
     let source = r#"@state {
   $prop: { study: { default: null, type: object } }
 }
-@template { <$link href={study.url}>Open</$link> }"#;
+@template { <a href={study.url}>Open</a> }"#;
     let js = compile(source, "x-link-prop-href");
     assert!(
         js.contains("createLinkBoundary(() => (study().url)")

@@ -91,7 +91,7 @@ fn accepted_grammar_emits_byte_identically_under_both_modes() {
         "<p>{count ?? 0}</p>",
         "<p>{JSON.stringify({ a: 1 })}</p>",
         "<p>{new Date().getFullYear()}</p>",
-        "<p>{{count}}</p>",
+        "<p>{count}</p>",
     ] {
         assert_identical_both_modes(body);
     }
@@ -100,18 +100,18 @@ fn accepted_grammar_emits_byte_identically_under_both_modes() {
 #[test]
 fn accepted_attr_handler_and_block_positions_emit_identically() {
     for body in [
-        // b-series: attribute bindings + handlers. (`$class={[...]}` moved to
+        // b-series: attribute bindings + handlers. (`class={[...]}` moved to
         // the W3 fix-class tests — the class array is now rewritten under ast.)
-        "<p $if={count > 0 && !loading}>yes</p>",
-        "<button $on.click={() => setCount(count() + 1)}>+</button>",
-        "<button $on.click={(e) => { setCount(count() + 1); e.preventDefault() }}>+</button>",
-        "<p $title={/a/.test(user.name) ? 'y' : 'n'}>t</p>",
-        // c-series: block heads (block tags on their own lines, matching the
+        "<p if={count > 0 && !loading}>yes</p>",
+        "<button on:click={() => setCount(count() + 1)}>+</button>",
+        "<button on:click={(e) => { setCount(count() + 1); e.preventDefault() }}>+</button>",
+        "<p title={/a/.test(user.name) ? 'y' : 'n'}>t</p>",
+        // c-series: control-flow heads (grammar-v2 attribute form).
         // established b3_variant_b fixture style).
-        "{#if count > 0}\n  <p>{count}</p>\n  {:else if loading}\n  <p>load</p>\n  {:else}\n  <p>0</p>\n  {/if}",
-        "{#each items.filter(e => e.ok) as x (x.id)}\n  <p>{x.label}</p>\n  {/each}",
-        "{#each Array.from({ length: count }, (_, i) => i) as n}\n  <p>{n}</p>\n  {/each}",
-        "{@html user.name}",
+        "<p if={count > 0}>{count}</p>\n  <p elseif={loading}>load</p>\n  <p else>0</p>",
+        "<p each={x of items.filter(e => e.ok)} key={x.id}>{x.label}</p>",
+        "<p each={n of Array.from({ length: count }, (_, i) => i)}>{n}</p>",
+        "<div html={user.name}></div>",
     ] {
         assert_identical_both_modes(body);
     }
@@ -126,18 +126,18 @@ fn syntax_garbage_is_c320_with_flag_only() {
     // time. Each probes a different capture position.
     assert_flag_only_rejection("<p>{count +}</p>", "C320"); // interpolation
     assert_flag_only_rejection("<p>{items.}</p>", "C320"); // interpolation, member
-    assert_flag_only_rejection("<p $title={count ===}>t</p>", "C320"); // attr binding
-    assert_flag_only_rejection("<button $on.click={() =>}>x</button>", "C320"); // handler
-    assert_flag_only_rejection("{#if count ===}\n  <p>y</p>\n  {/if}", "C320"); // if-head
+    assert_flag_only_rejection("<p title={count ===}>t</p>", "C320"); // attr binding
+    assert_flag_only_rejection("<button on:click={() =>}>x</button>", "C320"); // handler
+    assert_flag_only_rejection("<p if={count ===}>y</p>", "C320"); // if-head
     assert_flag_only_rejection(
-        "{#each items. as it}\n  <p>{it}</p>\n  {/each}", // each-list
+        "<p each={it of items.}>{it}</p>", // each-list
         "C320",
     );
     assert_flag_only_rejection(
-        "{#each items as it (it.)}\n  <p>{it}</p>\n  {/each}", // each-key
+        "<p each={it of items} key={it.}>{it}</p>", // each-key
         "C320",
     );
-    assert_flag_only_rejection("{@html user.}", "C320"); // @html
+    assert_flag_only_rejection("<div html={user.}></div>", "C320"); // @html
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn contract_violations_are_c321_with_flag_only() {
     assert_flag_only_rejection("<p>{const x = 1}</p>", "C321");
     assert_flag_only_rejection("<p>{count, extra}</p>", "C321");
     assert_flag_only_rejection("<p>{count = 5}</p>", "C321");
-    assert_flag_only_rejection("<p $title={count++}>t</p>", "C321");
+    assert_flag_only_rejection("<p title={count++}>t</p>", "C321");
     assert_flag_only_rejection("<p>{setCount(1); count}</p>", "C321");
 }
 
@@ -160,8 +160,8 @@ fn assignment_is_permitted_in_handler_position() {
     // and leaves them alone. Both modes must still ACCEPT the source; the
     // AST-mode emission is asserted verbatim.
     for (body, ast_expected) in [
-        ("<button $on.click={count = 5}>set</button>", "onClick: count = 5"),
-        ("<button $on.click={count++}>inc</button>", "onClick: count++"),
+        ("<button on:click={count = 5}>set</button>", "onClick: count = 5"),
+        ("<button on:click={count++}>inc</button>", "onClick: count++"),
     ] {
         let source = src_with_template(body);
         compile_mode(&source, ExprParserMode::Legacy)

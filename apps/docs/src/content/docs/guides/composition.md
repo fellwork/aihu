@@ -48,7 +48,7 @@ always matches the `user-card` element that `UserCard.aihu` defines.
 > **Passing props: one consequence to know.** Plain-curly attribute props
 > (`comment={item}`) are only accepted on a **PascalCase** reference —
 > `<UserCard comment={item}>`. On a **hyphenated** reference you must
-> `$`-prefix them: `<user-card $comment={item}>`. Both normalize to the same
+> `$`-prefix them: `<user-card comment={item}>`. Both normalize to the same
 > `user-card` element, so pick whichever you prefer — PascalCase for
 > plain-curly ergonomics, or a hyphenated tag with `$`-props.
 
@@ -79,7 +79,7 @@ After — just reference the tag; the router registers it:
 
 ```html
 @template {
-  <hn-comment $comment={item} />
+  <hn-comment comment={item} />
 }
 ```
 
@@ -125,7 +125,7 @@ Then use it in any component:
 }
 
 @template {
-  <button $on.click={inc}>{count()}</button>
+  <button on:click={inc}>{count()}</button>
 }
 ```
 
@@ -200,7 +200,7 @@ Provide a **signal** and descendants read it reactively — no extra machinery:
   const theme = inject(ThemeContext)   // () => 'dark' | 'light'
 }
 @template {
-  <div $class={theme()}>…</div>   // tracks setTheme() updates
+  <div class={theme()}>…</div>   // tracks setTheme() updates
 }
 ```
 

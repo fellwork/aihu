@@ -16,9 +16,9 @@
   <section class="counter">
     <output class="count">{count}</output>
     <div class="controls">
-      <button $on.click={decrement} class="btn">−</button>
-      <button $on.click={reset} class="btn btn-ghost">Reset</button>
-      <button $on.click={increment} class="btn">+</button>
+      <button on:click={decrement} class="btn">−</button>
+      <button on:click={reset} class="btn btn-ghost">Reset</button>
+      <button on:click={increment} class="btn">+</button>
     </div>
   </section>
 }

@@ -1,5 +1,5 @@
 @template {
-  <ul $each="items" $key="getKey">
+  <ul each={item of items} key={getKey}>
     <li>item</li>
   </ul>
 }

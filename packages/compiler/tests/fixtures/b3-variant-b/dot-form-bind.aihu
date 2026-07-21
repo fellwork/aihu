@@ -6,8 +6,8 @@ const [text, setText] = signal('')
 }
 
 @template {
-  <input type="number" $bind.value={count} />
-  <input type="text" $bind.value={text} />
-  <button $on.click={() => setCount(count() + 1)}>+</button>
+  <input type="number" bind:value={count} />
+  <input type="text" bind:value={text} />
+  <button on:click={() => setCount(count() + 1)}>+</button>
   <p>Count: {count}</p>
 }

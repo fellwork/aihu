@@ -4,5 +4,5 @@
 }
 
 @template {
-  <div>{{ count }}</div>
+  <div>{count}</div>
 }

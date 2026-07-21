@@ -7,7 +7,7 @@
 
 @template {
   <div>
-    <span>{{ msg }}</span>
-    <button onclick="handleClick">Count: {{ count }}</button>
+    <span>{msg}</span>
+    <button onclick="handleClick">Count: {count}</button>
   </div>
 }

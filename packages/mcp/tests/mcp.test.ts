@@ -32,14 +32,14 @@ const FIXTURE_ENTRIES: CookbookEntry[] = [
     description: 'Minimal counter with signal and increment action',
     tags: ['signal', 'action', 'counter', 'minimal', '7guis', 'increment'],
     source:
-      '@state { count: number = 0\n$action: { increment: () => { count++ } } }\n@template { <p>{count}</p><button $on.click={increment}>+</button> }',
+      '@state { count: number = 0\n$action: { increment: () => { count++ } } }\n@template { <p>{count}</p><button on:click={increment}>+</button> }',
   },
   {
     filename: 'each-list.aihu',
     description: 'Todo list with each loop and keyed items',
     tags: ['each', 'list', 'todo', 'key', 'array', 'crud'],
     source:
-      '@state { items: Array<{id: string; text: string}> = [] }\n@template { <ul>{#each items as item (item.id)}<li>{item.text}</li>{/each}</ul> }',
+      '@state { items: Array<{id: string; text: string}> = [] }\n@template { <ul><group each={item of items} key={item.id}><li>{item.text}</li></group></ul> }',
   },
   {
     filename: 'lifecycle.aihu',
