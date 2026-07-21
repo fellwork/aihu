@@ -1,0 +1,9 @@
+{
+  "pattern": "/lexicon/[slug]",
+  "name": "governed-lexicon",
+  "middleware": [],
+  "ssr": true,
+  "layout": "",
+  "extract": { "read": { "scope": "members" }, "call": "anonymous" },
+  "data": { "type": "LexiconEntry", "preview": ["headword"] }
+}

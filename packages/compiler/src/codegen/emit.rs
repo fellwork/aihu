@@ -429,13 +429,39 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         .map(|(_, decl)| *decl)
         .collect::<Vec<_>>()
         .join(" ");
+    // GX Phase 4 (#466, 70-governed-data-access §4.5) — the generated
+    // withheld-type contract for a `data:`-declared route. One authored type
+    // (the `$prop route` declared `data` member) derives the discriminated
+    // union the template sees: `route.data : __GxEntitled<T> | __GxWithheld<T, P>`,
+    // discriminated on `$gx.entitled`, with `__GxWithheld` carrying NO key of
+    // `T` beyond the declared `preview:` subset. `__gxEntitled` is the
+    // narrowing predicate the lifted template expressions are rewritten onto
+    // (TS does not narrow through the nested `$gx.entitled` discriminant
+    // itself — a checked fact, not a guess). G7g: unguarded `route.data` field
+    // access fails `tsc`; guarded access passes. `None` for every ungoverned
+    // route — their sidecars are byte-identical to before Phase 4.
+    let governed_data = unit.source.route.as_ref().and_then(|r| r.data.as_ref());
+    let gx_type_decls = match governed_data {
+        Some(_) => {
+            "type __GxEntitled<T> = T & { readonly $gx: { readonly entitled: true } }; \
+             type __GxWithheld<T, P extends PropertyKey = never> = { readonly $gx: { readonly \
+             entitled: false; readonly reason: 'auth' | 'scope' | 'entitlement' | 'unavailable' \
+             }; readonly preview?: { readonly [K in P & keyof T]?: T[K] } }; \
+             type __GxData<T, P extends PropertyKey = never> = __GxEntitled<T> | __GxWithheld<T, P>; \
+             type __GxRoute<R, P extends PropertyKey = never> = Omit<R, 'data'> & { readonly \
+             data: __GxData<R extends { data: infer D } ? D : unknown, P> }; \
+             declare function __gxEntitled<T, P extends PropertyKey>(d: __GxData<T, P>): d is __GxEntitled<T>; "
+        }
+        None => "",
+    };
     let preamble_line = format!(
-        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {} \
+        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {}{} \
          // {}.aihu type-check sidecar (generated, line-preserving)",
         globals,
         to_single_line(&emit_decl),
         to_single_line(&event_decl),
-        macro_binding_decls(script),
+        gx_type_decls,
+        macro_binding_decls(script, governed_data),
         tag_name
     );
 
@@ -575,15 +601,53 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         } else {
             0 // expr not found verbatim (normalized/rewritten) — stack after body
         };
+        // GX Phase 4 (#466) — governed-route rewrite (checked-in-tsc design):
+        // TypeScript does not narrow the `Entitled | Withheld` union through
+        // the nested `$gx.entitled` discriminant, so on a `data:` route every
+        // occurrence of the authored guard `route.data.$gx.entitled` is
+        // rewritten to the declared predicate `__gxEntitled(route.data)` —
+        // inside ternaries/`&&` chains this narrows in place. `{#if}`-guarded
+        // expressions additionally get their enclosing conditions prepended
+        // (`void (guard && (expr));`) so a branch body checks under its
+        // branch's narrowing, statement-flat layout preserved. Only guards
+        // that carry the entitlement discriminant are rendered — other
+        // conditions provide no narrowing and would only perturb output. The
+        // ORIGINAL `e.expr` (above) is what the line-recovery cursor searches,
+        // so line mapping is unaffected by the rewrite. Ungoverned routes:
+        // both transforms are identity.
+        const GX_GUARD: &str = "route.data.$gx.entitled";
+        const GX_PRED: &str = "__gxEntitled(route.data)";
+        let expr_text = if governed_data.is_some() {
+            e.expr.replace(GX_GUARD, GX_PRED)
+        } else {
+            e.expr.clone()
+        };
+        let guard_prefix: String = if governed_data.is_some() {
+            e.guards
+                .iter()
+                .filter(|g| g.contains(GX_GUARD))
+                .map(|g| format!("{} && ", to_single_line(&g.replace(GX_GUARD, GX_PRED))))
+                .collect()
+        } else {
+            String::new()
+        };
         let stmt = if e.is_handler {
             // Handlers are functions — pass in CALL position so inline arrow
             // params get a contextual `any` (a bare `void ((e) => …)` would leave
             // `e` implicit-any → TS7006). A non-function handler still errors here.
-            format!("__handler({});", to_single_line(&e.expr))
+            if guard_prefix.is_empty() {
+                format!("__handler({});", to_single_line(&expr_text))
+            } else {
+                format!("void ({}__handler({}));", guard_prefix, to_single_line(&expr_text))
+            }
         } else {
             // `void (...)` so the result type isn't checked beyond validity; tsc
             // still flags undefined identifiers and most type errors.
-            format!("void ({});", to_single_line(&e.expr))
+            if guard_prefix.is_empty() {
+                format!("void ({});", to_single_line(&expr_text))
+            } else {
+                format!("void ({}({}));", guard_prefix, to_single_line(&expr_text))
+            }
         };
         // Target line: the real source line when it sits below the function opener
         // (and so cannot collide with the preamble or the inlined script);
@@ -684,9 +748,18 @@ fn macro_line_set(script: &str) -> std::collections::BTreeSet<usize> {
 /// Module-scope `let`/`const` (not `declare const`): a binding may shadow a DOM
 /// global (`name`, `open`, `status`, `close`), and an ambient re-declaration of
 /// one collides with lib.dom (TS2451) where a module-scope binding shadows it.
-fn macro_binding_decls(script: &str) -> String {
+///
+/// GX Phase 4 (#466): on a governed (`data:`-declared) route the `route` prop
+/// is typed through the generated `__GxRoute` wrapper (§4.5) — its declared
+/// `data` member becomes the `__GxEntitled<T> | __GxWithheld<T, P>` union, so
+/// unguarded `route.data` field access is a type error (G7g). It is declared
+/// as a VALUE (not the accessor form): the lifted template expressions read
+/// the RAW authored `route.data.…` member chains (the `route()` call rewrite
+/// is a JS-emit concern), so the value typing is what makes them checkable.
+fn macro_binding_decls(script: &str, governed: Option<&crate::types::DataDecl>) -> String {
     let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
     let mut decls: Vec<String> = Vec::new();
+    let mut declared_route = false;
     for m in &macros {
         let crate::types::StateMacro::Collection { kind, entries } = m else {
             continue;
@@ -703,6 +776,15 @@ fn macro_binding_decls(script: &str) -> String {
                         .find(|(k, _)| k == "type")
                         .map(|(_, v)| unquote_ts_type(v.trim()))
                         .unwrap_or_else(|| "any".to_string());
+                    if let (Some(data), "route") = (governed, name.as_str()) {
+                        declared_route = true;
+                        decls.push(format!(
+                            "let route: __GxRoute<{}, {}> = null as any;",
+                            ty,
+                            data.preview_keys_ts()
+                        ));
+                        continue;
+                    }
                     // Accessor, not value: a prop is a Signal getter (`props.name()`).
                     decls.push(format!("let {}: () => {} = null as any;", name, ty));
                 }
@@ -725,6 +807,18 @@ fn macro_binding_decls(script: &str) -> String {
                 }
                 _ => decls.push(format!("let {}: any = null as any;", name)),
             }
+        }
+    }
+    // A governed route with no `$prop route` declaration still receives the
+    // generated loader's payload as `route.data`; declare the wrapper over the
+    // minimal route shape so the template contract holds (unguarded access
+    // still errors, `$gx` and declared previews are reachable).
+    if let Some(data) = governed {
+        if !declared_route {
+            decls.push(format!(
+                "let route: __GxRoute<{{ params: Record<string, string> }}, {}> = null as any;",
+                data.preview_keys_ts()
+            ));
         }
     }
     decls.join(" ")
@@ -1091,17 +1185,33 @@ fn expr_references_ident(expr: &str, name: &str) -> bool {
 /// A template expression collected for the type-check sidecar, tagged by
 /// whether it's an event-handler value (a function — emitted in call position
 /// so its inline arrow params get a contextual type) vs a plain value.
+///
+/// `guards` (GX Phase 4, #466) is the stack of `{#if}` conditions lexically
+/// enclosing the expression — branch conditions verbatim, prior same-block
+/// branch conditions negated (`!(cond)`) for `{:else}`/`{:else if}` bodies.
+/// Collected for EVERY template, rendered ONLY for governed routes (the
+/// `data:`-declared `route.data` narrowing, `emit_sidecar_ts`); ungoverned
+/// sidecar output is byte-identical to before the field existed.
 struct SidecarExpr {
     expr: String,
     is_handler: bool,
+    guards: Vec<String>,
 }
 
 /// Walk the template AST and collect every JS expression appearing in a
 /// curly-binding, $on handler, $bind expr, {#if cond}, {#each list as item},
 /// {@html expr}, or text interpolation.
 fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
+    collect_template_exprs_guarded(nodes, out, &[])
+}
+
+fn collect_template_exprs_guarded(
+    nodes: &[TemplateNode],
+    out: &mut Vec<SidecarExpr>,
+    guards: &[String],
+) {
     // Shared attribute handling for Element + MacroElement.
-    fn push_attrs(attrs: &[Attr], out: &mut Vec<SidecarExpr>) {
+    fn push_attrs(attrs: &[Attr], out: &mut Vec<SidecarExpr>, guards: &[String]) {
         for a in attrs {
             match a {
                 // `$each="list as item"` — collect the LIST expression (mirrors
@@ -1124,19 +1234,31 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                             .trim()
                             .to_string(),
                     };
-                    out.push(SidecarExpr { expr: list, is_handler: false });
+                    out.push(SidecarExpr { expr: list, is_handler: false, guards: guards.to_vec() });
                 }
                 // `$on.*={handler}` normalizes to an `on:<event>` attr — the
                 // value is a function, emitted in call position so inline arrow
                 // params (`(e) => …`) get a contextual `any` type (else TS7006).
                 Attr::Macro { name, value } if name.starts_with("on:") => {
-                    out.push(SidecarExpr { expr: macro_value_expr(value), is_handler: true });
+                    out.push(SidecarExpr {
+                        expr: macro_value_expr(value),
+                        is_handler: true,
+                        guards: guards.to_vec(),
+                    });
                 }
                 Attr::Binding { expr, .. } => {
-                    out.push(SidecarExpr { expr: expr.clone(), is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: expr.clone(),
+                        is_handler: false,
+                        guards: guards.to_vec(),
+                    });
                 }
                 Attr::Macro { value: MacroValue::Curly(s), .. } => {
-                    out.push(SidecarExpr { expr: s.clone(), is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: s.clone(),
+                        is_handler: false,
+                        guards: guards.to_vec(),
+                    });
                 }
                 _ => {}
             }
@@ -1146,18 +1268,34 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
         match node {
             TemplateNode::Element { attrs, children, .. }
             | TemplateNode::MacroElement { attrs, children, .. } => {
-                push_attrs(attrs, out);
-                collect_template_exprs(children, out);
+                push_attrs(attrs, out, guards);
+                collect_template_exprs_guarded(children, out, guards);
             }
-            TemplateNode::Interpolation(s) => {
-                out.push(SidecarExpr { expr: s.clone(), is_handler: false })
-            }
+            TemplateNode::Interpolation(s) => out.push(SidecarExpr {
+                expr: s.clone(),
+                is_handler: false,
+                guards: guards.to_vec(),
+            }),
             TemplateNode::IfBlock { branches } => {
+                // GX Phase 4 guard threading: branch N's body is guarded by its
+                // own condition plus the negation of every PRIOR branch's
+                // condition in the same block ({:else if} / {:else} semantics).
+                let mut prior: Vec<String> = Vec::new();
                 for (cond, body) in branches {
+                    let mut branch_guards: Vec<String> = guards.to_vec();
+                    branch_guards.extend(prior.iter().map(|c| format!("!({})", c)));
                     if !cond.is_empty() {
-                        out.push(SidecarExpr { expr: cond.clone(), is_handler: false });
+                        // The condition itself evaluates under the OUTER guards
+                        // only (it runs to decide the branch).
+                        out.push(SidecarExpr {
+                            expr: cond.clone(),
+                            is_handler: false,
+                            guards: guards.to_vec(),
+                        });
+                        branch_guards.push(cond.clone());
+                        prior.push(cond.clone());
                     }
-                    collect_template_exprs(body, out);
+                    collect_template_exprs_guarded(body, out, &branch_guards);
                 }
             }
             TemplateNode::EachBlock {
@@ -1167,18 +1305,28 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
                 empty_body,
                 ..
             } => {
-                out.push(SidecarExpr { expr: list_expr.clone(), is_handler: false });
+                out.push(SidecarExpr {
+                    expr: list_expr.clone(),
+                    is_handler: false,
+                    guards: guards.to_vec(),
+                });
                 if let Some(k) = key_expr {
-                    out.push(SidecarExpr { expr: k.clone(), is_handler: false });
+                    out.push(SidecarExpr {
+                        expr: k.clone(),
+                        is_handler: false,
+                        guards: guards.to_vec(),
+                    });
                 }
-                collect_template_exprs(body, out);
+                collect_template_exprs_guarded(body, out, guards);
                 if let Some(eb) = empty_body {
-                    collect_template_exprs(eb, out);
+                    collect_template_exprs_guarded(eb, out, guards);
                 }
             }
-            TemplateNode::HtmlBlock { expr } => {
-                out.push(SidecarExpr { expr: expr.clone(), is_handler: false })
-            }
+            TemplateNode::HtmlBlock { expr } => out.push(SidecarExpr {
+                expr: expr.clone(),
+                is_handler: false,
+                guards: guards.to_vec(),
+            }),
             TemplateNode::Text(_) => {}
         }
     }
@@ -1227,9 +1375,21 @@ fn emit_route_json(
     // "absent means default" — the recorded posture is explicit.
     let extract_member = format!(",\n  \"extract\": {}", extract.json_object());
 
+    // GX Phase 4 (#466) — the `data:` governed-resource declaration rides
+    // beside `extract` (70-governed-data-access §5: same three-artifact
+    // machinery). Absent entirely when the route declares no `data:`, so
+    // ungoverned routes stay byte-identical. Consumed by the server runtime's
+    // registry boot validation (§2.3) and generated-loader binding (§3), and
+    // by the router Vite layer's C486 sibling-loader conflict check (§4.7).
+    let data_member = match route.data.as_ref() {
+        Some(d) => format!(",\n  \"data\": {}", d.json_object()),
+        None => String::new(),
+    };
+
     format!(
-        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}{}{}\n}}",
-        pattern, name, middleware_json, ssr, layout, extract_member, head_member, components_member
+        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}{}{}{}\n}}",
+        pattern, name, middleware_json, ssr, layout, extract_member, data_member, head_member,
+        components_member
     )
 }
 
@@ -3241,17 +3401,37 @@ fn emit_function_form(
     let uses_ctx = uses_options_form;
 
     // GX P3 — the standalone-SSR shape applies only to the plain function form
-    // (no $prop/attrs config, no form-associated suffix). Options-form and
-    // $form components keep today's server emission until the stubbed server
-    // SetupContext grows prop/attr signal support.
+    // (no $prop/attrs config, no form-associated suffix). $form components
+    // keep today's server emission until the stubbed server SetupContext grows
+    // form-internals support.
     let ssr_standalone = ssr_entry && !uses_options_form && !has_form;
+
+    // GX P4 (#466, P3 item 2) — the options-form standalone-SSR shape: a
+    // non-agent `$prop` component (the loader-route case — `$prop route` is
+    // how a page receives `route.data`) also emits a hoisted setup + gated
+    // registration + `__ssr` entry, with the DECLARED props threaded through
+    // a host-less SetupContext (`__ssr(props)` wraps each value as an inert
+    // PropSignal-shaped getter). Exclusions, deliberately narrow:
+    //   - `$form` — form-internals have no server stub;
+    //   - `$extends` — evaluating a custom base class touches HTMLElement at
+    //     module scope in the BASE module, which this gate cannot reach;
+    //   - agent inputs — agent components are excluded from `ssr_entry`
+    //     already (their `inject_server_binding_registration` string-surgery
+    //     anchors on the legacy shape); the `!has_agent_inputs` term is a
+    //     belt-and-suspenders restatement of that exclusion.
+    let ssr_options = ssr_entry
+        && uses_options_form
+        && !has_form
+        && extends_base.is_none()
+        && !has_agent_inputs;
+    let ssr_no_dom = ssr_standalone || ssr_options;
 
     // Styles never reach server HTML (`renderToString` walks the arbor tree
     // only), and the style block is the module-scope DOM dependency that makes
     // a compiled artifact un-importable in plain Node/Bun (`new
     // CSSStyleSheet()` + `document.adoptedStyleSheets`). Gate it OUT of the
-    // standalone-SSR artifact entirely.
-    let (module_decl, style_injection) = if ssr_standalone {
+    // standalone-SSR artifacts entirely.
+    let (module_decl, style_injection) = if ssr_no_dom {
         (String::new(), String::new())
     } else if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
@@ -3263,7 +3443,7 @@ fn emit_function_form(
     // `ctx` is only needed for the style injection (`ctx.host`) or the
     // options-form config reads; the SSR artifact drops the style injection,
     // so it falls back to `_ctx` when nothing else needs the context.
-    let ctx_param = if uses_ctx || (!ssr_standalone && unit.source.style.is_some()) {
+    let ctx_param = if uses_ctx || (!ssr_no_dom && unit.source.style.is_some()) {
         "ctx"
     } else {
         "_ctx"
@@ -3415,7 +3595,42 @@ fn emit_function_form(
             config_lines.push(format!("  props: {{\n{}\n  }},", props_block));
         }
         let config_block = config_lines.join("\n");
-        if has_form {
+        if ssr_options {
+            // GX P4 (#466, P3 item 2) — options-form standalone-SSR artifact.
+            // Same three structural moves as the P3 plain-form shape (hoisted
+            // setup, DOM-gated registration, `export default __ssr`), plus
+            // prop threading: `__ssr(props)` receives PLAIN values (the
+            // router's governed loader passes `{ route: { params, data } }`)
+            // and wraps each DECLARED prop as an inert PropSignal-shaped
+            // getter (callable, `.set` no-op), so the setup body's
+            // `ctx.props.<name>` reads and the template's rewritten
+            // `<name>()` calls behave exactly as client-side. A declared
+            // `default:` applies when the caller omits the prop, mirroring
+            // the runtime's `def.value` fallback.
+            let ssr_prop_fields: Vec<String> = prop_entries
+                .iter()
+                .map(|entry| {
+                    let default_suffix = crate::parser::state_macros::meta_get(entry, "default")
+                        .map(|d| format!(" ?? {}", d.trim()))
+                        .unwrap_or_default();
+                    format!(
+                        "{name}: __aihu_ssr_prop(props.{name}{suffix})",
+                        name = entry.name,
+                        suffix = default_suffix
+                    )
+                })
+                .collect();
+            format!(
+                "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: __aihu_setup__,\n  }}))\n}}\n\n/** SSR entry (GX P4) — standalone arbor-tree factory with prop threading.\n * Host-less server SetupContext: no element, no shadow root; lifecycle\n * registration is not reachable from here (server render never mounts).\n * `props` values arrive plain (e.g. `{{ route: {{ params, data }} }}`) and are\n * wrapped as inert PropSignal-shaped getters — reads work, writes no-op. */\nconst __aihu_ssr_prop = (v: unknown) => Object.assign(() => v, {{ set: (_v: unknown) => {{}} }})\nexport const __ssr = (props: Record<string, unknown> = {{}}) => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{ {ssr_props} }} }})\nexport default __ssr\n",
+                merged_imports = merged_imports,
+                helpers_decl = helpers_decl,
+                ctx_param = ctx_param,
+                body = body,
+                tag_name = tag_name,
+                config_block = config_block,
+                ssr_props = ssr_prop_fields.join(", "),
+            )
+        } else if has_form {
             format!(
                 "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}))\n{form_associated_suffix}",
                 merged_imports = merged_imports,

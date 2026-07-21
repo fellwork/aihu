@@ -623,11 +623,13 @@ fn warn_undeclared(name: &str) {
 ///   `middleware`             — array literal `['auth', 'admin']`
 ///   `head`                   — nested `{...}` metadata object (B1, SEO arc)
 ///   `extract`                — GX two-axis policy `{ read: ..., call: ... }`
+///   `data`                   — GX governed-resource declaration
+///                              `{ type: '<Name>', preview: [...] }` (Phase 4)
 ///
-/// Fallible since GX Phase 1: a malformed `extract:` value is C483 (the
-/// declaration is a governed-extractability policy — silently dropping a
-/// mis-typed one would fail open). All other keys keep their lenient,
-/// best-effort semantics. `open_line` anchors the diagnostic.
+/// Fallible since GX Phase 1: a malformed `extract:` value is C483, a
+/// malformed `data:` value C485 (both are governed-extractability policy —
+/// silently dropping a mis-typed one would fail open). All other keys keep
+/// their lenient, best-effort semantics. `open_line` anchors the diagnostic.
 fn parse_route_body(body: &str, open_line: usize) -> Result<RouteBlock, CompileError> {
     let mut route = RouteBlock::default();
     // Parse each key: value pair. We do a simple line-by-line scan.
@@ -761,6 +763,33 @@ fn parse_route_body(body: &str, open_line: usize) -> Result<RouteBlock, CompileE
                             ),
                             ..Default::default()
                         });
+                    }
+                }
+            }
+            "data" => {
+                // GX Phase 4 (#466) — capture the balanced `{...}` governed-
+                // resource literal and delegate to the SHARED value parser in
+                // `data.rs` (also used by `route.rs`) — the same two-position
+                // seam `extract:` rides. A duplicate `data:` key in one block
+                // and every malformed shape are hard C485 (a governance
+                // declaration must never fail open); `$gx`-touching names are
+                // C487.
+                if route.data.is_some() {
+                    return Err(crate::data::c485(
+                        open_line,
+                        "duplicate `data:` key in one `@route` block",
+                    ));
+                }
+                match crate::parser::route::capture_balanced_literal(text, bytes, &mut pos) {
+                    Some(literal) => {
+                        route.data =
+                            Some(crate::data::parse_data_literal(&literal, open_line)?);
+                    }
+                    None => {
+                        return Err(crate::data::c485(
+                            open_line,
+                            "`data:` takes an object literal `{ type: '<Name>', preview: [...] }`",
+                        ));
                     }
                 }
             }

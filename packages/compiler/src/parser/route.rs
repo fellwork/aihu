@@ -80,6 +80,30 @@ pub fn parse_route(body: &str) -> Result<RouteBlock, CompileError> {
                     }
                 }
             }
+            "data" => {
+                // GX Phase 4 (#466) — the SHARED `data:` value parser
+                // (`data::parse_data_literal`, also used by the production
+                // parser in `sfc.rs`). Like `extract`, a non-object or
+                // malformed value is a hard C485 — a governance declaration
+                // must never fail open; `$gx`-touching names are C487.
+                if route.data.is_some() {
+                    return Err(crate::data::c485(
+                        0,
+                        "duplicate `data:` key in one `@route` block",
+                    ));
+                }
+                match capture_balanced_literal(body, bytes, &mut i) {
+                    Some(literal) => {
+                        route.data = Some(crate::data::parse_data_literal(&literal, 0)?);
+                    }
+                    None => {
+                        return Err(crate::data::c485(
+                            0,
+                            "`data:` takes an object literal `{ type: '<Name>', preview: [...] }`",
+                        ));
+                    }
+                }
+            }
             _ => skip_value(body, bytes, &mut i),
         }
     }

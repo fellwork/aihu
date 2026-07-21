@@ -1,5 +1,8 @@
 pub mod ast_export;
 pub mod codegen;
+// GX Phase 4 (#466): the `data:` governed-resource declaration — shared value
+// parser (C485/C487) + `.route.json` / withheld-type rendering.
+pub mod data;
 pub mod diagnostics;
 // GX Phase 1 (#437-GX): the `extract:` two-axis vocabulary — shared value
 // parser + declaration→derivation→default resolution.
@@ -28,11 +31,13 @@ pub use parser::sfc;
 pub use parser::stream_macros;
 pub use parser::state_macros::{is_magna_origin, parse_state_macros};
 pub use parser::template::parse_template;
+pub use data::parse_data_literal;
 pub use extract::{resolve_extract, ExtractOrigin, ResolvedExtract};
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, AuthMacroKind, BuildTarget,
     CollectionEntry,
-    CollectionKind, CompileError, CompileUnit, ExtractCall, ExtractDecl, ExtractRead, InputDecl,
+    CollectionKind, CompileError, CompileUnit, DataDecl, ExtractCall, ExtractDecl, ExtractRead,
+    InputDecl,
     InputKind, MacroValue, RouteBlock,
     ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
     TemplateNode,
@@ -148,6 +153,13 @@ pub fn compile_full_with_options<'a>(
     // C560/C561, so the contradiction rows exist before any artifact does.
     validate_extract_composition(source)?;
 
+    // GX Phase 4 (#466) — `data:` composition check: the `$gx` discriminant
+    // namespace is generated, never authored (70-governed-data-access §4.5).
+    // The declaration's own names are checked at parse time (`data.rs`); this
+    // catches the remaining authored surface — a governed route whose declared
+    // `route` prop type carries its own `$gx` member.
+    validate_data_composition(source)?;
+
     // DA4 phase 1 (#437) — W472: a route (page-level) component that does not
     // pin its shadow mode with `$shadow` changes behavior at the ratified DA4
     // default flip (next MAJOR): pages default to shadowMode 'none' (light
@@ -235,6 +247,52 @@ fn validate_extract_composition(source: &AihuSource) -> Result<(), CompileError>
         diagnostics::emit_warning(&w);
     }
 
+    Ok(())
+}
+
+/// GX Phase 4 (#466) — `data:` ∧ authored-`$gx` contradiction (C487, spec
+/// §4.5). The `Withheld<T>`/`Entitled<T>` union the framework generates is
+/// discriminated on `route.data.$gx.entitled`; a governed route whose declared
+/// `route` prop `type:` carries its own `$gx` member would collide with that
+/// generated discriminant, so it fails the build. Pure text containment over
+/// the declared type literal — `$gx` has no legitimate authored use in a
+/// governed route's prop type, so containment is exact enough and cannot
+/// false-negative. Ungoverned routes are untouched (no `data:` → no check).
+fn validate_data_composition(source: &AihuSource) -> Result<(), CompileError> {
+    let governed = source.route.as_ref().and_then(|r| r.data.as_ref()).is_some();
+    if !governed {
+        return Ok(());
+    }
+    let Some(script) = source.script else { return Ok(()) };
+    let Ok(macros) = parser::state_macros::parse_state_macros(script) else {
+        // A hard @state parse error is surfaced by the macro-validation block
+        // above; nothing to check here.
+        return Ok(());
+    };
+    for m in &macros {
+        let StateMacro::Collection { kind: CollectionKind::Prop, entries } = m else {
+            continue;
+        };
+        for e in entries {
+            if e.name != "route" {
+                continue;
+            }
+            let declared_type = e
+                .meta
+                .iter()
+                .find(|(k, _)| k == "type")
+                .map(|(_, v)| v.as_str())
+                .unwrap_or("");
+            if declared_type.contains("$gx") {
+                return Err(data::c487(
+                    0,
+                    "this governed route's `$prop route` declares a type carrying `$gx`; \
+                     the discriminated `Entitled<T> | Withheld<T>` shape of `route.data` is \
+                     generated from the `data:` declaration — remove the authored `$gx` member",
+                ));
+            }
+        }
+    }
     Ok(())
 }
 

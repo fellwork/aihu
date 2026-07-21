@@ -916,6 +916,15 @@ export interface RouteMeta {
    * normalize fail-closed (`deriveReadPolicy` in `@aihu/server`).
    */
   extract?: { read?: unknown; call?: unknown }
+  /**
+   * GX Phase 4 fan-out (#466): the `data:` governed-resource declaration
+   * (70-governed-data-access §2.1) — present only when the route declares one
+   * (0.1.14+). `type` keys the server registry's provider; `preview` lists
+   * the locked-state fields (omitted when none declared). Consumers: the
+   * server runtime's boot validation + generated loader, and the router Vite
+   * layer's C486 sibling-loader conflict check (§4.7).
+   */
+  data?: { type?: string; preview?: string[] }
 }
 
 /**
