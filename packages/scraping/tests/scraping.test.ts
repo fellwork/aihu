@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createBotDetectionMiddleware, createRateLimiter } from '../src/index.ts'
 
 // ─── Rate-limiter tests ───────────────────────────────────────────────────────
@@ -70,6 +70,41 @@ describe('createRateLimiter', () => {
     expect(limiter.checkRateLimit('500/hour', 'u')).toBe(false)
     t = 3_600_001
     expect(limiter.checkRateLimit('500/hour', 'u')).toBe(true)
+  })
+
+  // ── Fail-closed at capacity ─────────────────────────────────────────────
+  // A governed control must DENY what it cannot account for. The map-cap
+  // branch used to allow new keys ("safety valve") — the wrong direction.
+
+  it('at map capacity, a NEW (untracked) key is DENIED — fail-closed', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const limiter = createRateLimiter({ maxKeys: 1, now: () => 0 })
+      expect(limiter.checkRateLimit('3/min', 'key-a')).toBe(true) // occupies the only slot
+      expect(limiter.checkRateLimit('3/min', 'key-b')).toBe(false) // cap → denied, not allowed
+      expect(warn).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('already-tracked keys keep normal under-limit accounting at capacity (regression)', () => {
+    const limiter = createRateLimiter({ maxKeys: 1, now: () => 0 })
+    expect(limiter.checkRateLimit('2/min', 'key-a')).toBe(true)
+    expect(limiter.checkRateLimit('2/min', 'key-a')).toBe(true)
+    // Third call denied by QUOTA (normal behavior), not by the cap.
+    expect(limiter.checkRateLimit('2/min', 'key-a')).toBe(false)
+  })
+
+  it('an internal error (invalid rateSpec) denies instead of throwing — fail-closed', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const limiter = createRateLimiter({ now: () => 0 })
+      expect(limiter.checkRateLimit('not-a-spec', 'k')).toBe(false)
+      expect(warn).toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('O(1) invariant: 1 000 sequential calls to exhausted key complete in < 10 ms', () => {

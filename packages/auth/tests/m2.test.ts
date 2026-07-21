@@ -36,7 +36,10 @@ async function makeSignedJwt(
   const enc = new TextEncoder()
 
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
+  // `exp` default: verifyJwt now REQUIRES an expiry (registered-claim
+  // validation); fixtures get a fresh 1h one unless a test overrides it.
+  const withExp = { exp: Math.floor(Date.now() / 1000) + 3600, ...claims }
+  const payload = Buffer.from(JSON.stringify(withExp)).toString('base64url')
   const signingInput = `${header}.${payload}`
 
   const key = await crypto.subtle.importKey(

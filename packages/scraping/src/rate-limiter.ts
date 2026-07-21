@@ -55,6 +55,12 @@ function parseRateSpec(rateSpec: string): ParsedSpec {
  *
  * Each key gets its own window record in the map. Window resets happen
  * in-place on the relevant key's record — no global scans.
+ *
+ * Fail direction: CLOSED. When the limiter cannot positively account for a
+ * call (key-map at `maxKeys` capacity, or an internal error), it denies
+ * rather than allows. Note the store is PER-PROCESS (in-memory Map) — a
+ * multi-instance deployment multiplies the effective quota by instance
+ * count; distributed accounting is a separate, tracked concern.
  */
 export function createRateLimiter(options?: RateLimiterOptions): RateLimitPlugin {
   const maxKeys = options?.maxKeys ?? 100_000
@@ -78,34 +84,47 @@ export function createRateLimiter(options?: RateLimiterOptions): RateLimitPlugin
 
   return {
     checkRateLimit(rateSpec: string, key: string): boolean {
-      const { limit, windowMs } = getParsedSpec(rateSpec)
-      const ts = now()
+      // Fail CLOSED throughout: this is a governed control, so a call the
+      // limiter cannot positively account for is a call it must DENY —
+      // never wave through. Under-limit behavior is unchanged.
+      try {
+        const { limit, windowMs } = getParsedSpec(rateSpec)
+        const ts = now()
 
-      let state = store.get(key)
+        let state = store.get(key)
 
-      if (state === undefined) {
-        // Key not yet seen — check cap before inserting.
-        if (store.size >= maxKeys) {
-          console.warn(
-            `@aihu/scraping: rate-limiter map cap (${maxKeys}) reached; ` +
-              `allowing key "${key}" fail-open (safety valve).`,
-          )
-          return true
+        if (state === undefined) {
+          // Key not yet seen — check cap before inserting. At capacity the
+          // limiter cannot track (account for) this key, so it must deny.
+          // The previous behavior here allowed the call ("safety valve"),
+          // which turned memory pressure into an unlimited bypass for every
+          // new key — the wrong failure direction for a rate limit.
+          if (store.size >= maxKeys) {
+            console.warn(
+              `@aihu/scraping: rate-limiter map cap (${maxKeys}) reached; ` +
+                `denying untracked key "${key}" (fail-closed).`,
+            )
+            return false
+          }
+          state = { count: 0, windowStart: ts }
+          store.set(key, state)
+        } else if (ts - state.windowStart >= windowMs) {
+          // Window expired — reset in-place (O(1), no new allocation on hot path).
+          state.count = 0
+          state.windowStart = ts
         }
-        state = { count: 0, windowStart: ts }
-        store.set(key, state)
-      } else if (ts - state.windowStart >= windowMs) {
-        // Window expired — reset in-place (O(1), no new allocation on hot path).
-        state.count = 0
-        state.windowStart = ts
-      }
 
-      if (state.count >= limit) {
+        if (state.count >= limit) {
+          return false
+        }
+
+        state.count += 1
+        return true
+      } catch (err) {
+        // Store/spec error — the call cannot be accounted for, so deny it.
+        console.warn(`@aihu/scraping: rate-limiter error (denying, fail-closed): ${String(err)}`)
         return false
       }
-
-      state.count += 1
-      return true
     },
   }
 }
