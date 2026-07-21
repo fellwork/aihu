@@ -88,6 +88,14 @@
  *          entitled surfaces) has no shipped surface on main yet — that leg
  *          activates when one lands; nothing here should be read as covering it.
  *
+ *   DA-g   SHADOW-PAGE CENSUS (#437, DA4): an informational per-page census of
+ *          the AUTHORED shadow state over the same conformance corpus (pin from
+ *          the `// @aihu:shadow` golden marker, source `$shadow` fallback;
+ *          unpinned reports "default"). `$shadow` is pure encapsulation — the
+ *          census is never a finding. The ONE hard case is the explicit
+ *          self-contradiction: `ssr: true` + public `read:` + a `$shadow` pin
+ *          to open/closed, all three author-declared, never the default.
+ *
  * DA-c and DA-d are separate findings because they are separate defects in
  * separate files with separate fixes: DA3 repairing the router does not repair
  * the SSG writer. Grouping them would let one fix silently decrement a baseline
@@ -988,6 +996,91 @@ async function runDaF3(mode: ProbeMode): Promise<{ bad: string[]; finding: Findi
   }
 }
 
+// ─── DA-g (#437 DA4): shadow-page census over the conformance corpus ─────────
+//
+// The ratified DA4 shape: `$shadow` is PURE ENCAPSULATION with ZERO
+// extractability semantics, and extractability policy is NEVER inferred from
+// rendering mode. A "page is shadow → fail" rule would re-derive policy from
+// rendering mode — the exact anti-pattern the GX thesis forbids. So the census
+// below is INFORMATIONAL: it prints each route fixture's AUTHORED shadow
+// state (an explicit `$shadow` pin shows its pin; an unpinned page shows
+// "default" — light DOM post-flip) and is never a finding on its own.
+//
+// ONE narrow HARD case rides the census: a route that declares `ssr: true`
+// AND a public `read:` (`all` | `agents` | `search`) AND an EXPLICIT
+// `$shadow` pin to `open`/`closed`. That combination is self-contradictory —
+// the author declared crawl-reachability and simultaneously pinned the mode
+// that seals the served DOM against non-JS adoption (the same
+// `shadowrootmode` unreachability DA-c/DA-d assert on). Every leg is an
+// explicit author declaration; nothing keys on the rendering-mode DEFAULT,
+// so the rule survives the DA4 default flip unchanged and does not violate
+// the never-infer-from-rendering-mode ratification.
+//
+// Pin detection: the `// @aihu:shadow <mode>` marker in the committed golden
+// exists iff the author wrote `$shadow` (`route_shadow_warning.rs` pins that
+// no synthetic marker is ever emitted), so the marker IS the authored state
+// for fixtures with a golden; fixtures without one (03-route-with-head) fall
+// back to the `$shadow` declaration in the source. Same text-shape posture as
+// DA-e: no Rust binary required on a plain checkout.
+
+type ShadowPin = 'open' | 'closed' | 'none'
+
+interface ShadowCensusRow {
+  readonly rel: string
+  readonly pattern: string
+  readonly ssr: boolean
+  /** Canonical `read:` token from the census sidecar, or null when absent. */
+  readonly read: string | null
+  /** The EXPLICIT author pin, or null when unpinned (the default applies). */
+  readonly pin: ShadowPin | null
+  readonly pinSource: 'marker' | 'source' | null
+}
+
+const SHADOW_MARKER_RE = /^\/\/ @aihu:shadow (open|closed|none)\b/m
+const SHADOW_SOURCE_RE = /^\s*\$shadow\s*:\s*['"](open|closed|none)['"]/m
+
+function shadowCensusRow(e: RouteArtifactEntry): ShadowCensusRow {
+  const marker = (e.golden?.match(SHADOW_MARKER_RE)?.[1] ?? null) as ShadowPin | null
+  const authored = (e.source.match(SHADOW_SOURCE_RE)?.[1] ?? null) as ShadowPin | null
+  const pin = marker ?? authored
+  const extract = e.routeJson?.extract as { read?: unknown } | undefined
+  return {
+    rel: e.rel,
+    pattern: String(e.routeJson?.pattern ?? '(no .route.json)'),
+    ssr: e.routeJson?.ssr === true,
+    read: canonicalExtractToken(extract?.read),
+    pin,
+    pinSource: marker !== null ? 'marker' : authored !== null ? 'source' : null,
+  }
+}
+
+/** The `read:` values that declare the surface publicly crawlable. */
+const PUBLIC_READS: ReadonlySet<string> = new Set(['all', 'agents', 'search'])
+
+/** The one hard case — explicit contradiction only, never the default. */
+function daGFindings(rows: ReadonlyArray<ShadowCensusRow>): Finding[] {
+  const findings: Finding[] = []
+  for (const r of rows) {
+    const publicRead = r.read !== null && PUBLIC_READS.has(r.read)
+    const shadowPinned = r.pin === 'open' || r.pin === 'closed'
+    if (r.ssr && publicRead && shadowPinned) {
+      findings.push({
+        where: r.rel,
+        rule: 'DA-g',
+        message:
+          `self-contradictory declarations on '${r.pattern}': \`ssr: true\` + public ` +
+          `\`read: '${r.read}'\` + an explicit \`$shadow: '${r.pin}'\` pin. The author declared ` +
+          'crawl-reachability (SSR + a public read: policy) and simultaneously pinned the ' +
+          'rendering mode that seals the served DOM inside a shadow root non-JS agents cannot ' +
+          'adopt. All three legs are explicit author declarations — nothing here is inferred ' +
+          "from the rendering-mode default. Resolve by dropping the pin (or pinning 'none'), " +
+          'or by narrowing the read: policy to match the intended audience.',
+      })
+    }
+  }
+  return findings
+}
+
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 /** A fixture that DOES implement the resolver — DA-a's should-not-flag half. */
@@ -1138,6 +1231,68 @@ async function runSelfTest(): Promise<void> {
     expected: 2,
   })
 
+  // DA-g, both directions, on SYNTHETIC corpus entries. The hard case must
+  // bite on the explicit contradiction (ssr + public read + shadow pin) and
+  // must stay silent on every non-contradictory neighbor — most importantly
+  // the UNPINNED ssr+public page, because a rule that fired there would be
+  // keying on the rendering-mode DEFAULT, the ratified anti-pattern.
+  const daGContradictory: RouteArtifactEntry = {
+    rel: 'fixture/contradictory.aihu',
+    source:
+      "@state {\n  $shadow: 'open'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: '/leak',\n  ssr: true,\n  extract: { read: 'agents' }\n}\n",
+    golden: '// @aihu:shadow open\nexport default 1\n',
+    routeJson: { pattern: '/leak', ssr: true, extract: { read: 'agents', call: 'anonymous' } },
+  }
+  cases.push({
+    label: 'DA-g should-flag: ssr:true + public read + explicit $shadow pin (the contradiction)',
+    actual: daGFindings([shadowCensusRow(daGContradictory)]).length,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-g should-not-flag: pinned shadow without public+ssr; pin none; unpinned default',
+    actual: daGFindings(
+      [
+        // Pinned shadow, but a HARD read — no crawl-reachability was declared.
+        {
+          ...daGContradictory,
+          rel: 'fixture/hard-read.aihu',
+          routeJson: {
+            pattern: '/members',
+            ssr: true,
+            extract: { read: { scope: 'members' }, call: 'anonymous' },
+          },
+        },
+        // Pinned shadow + public read, but NO ssr — nothing served to seal.
+        {
+          ...daGContradictory,
+          rel: 'fixture/no-ssr.aihu',
+          routeJson: {
+            pattern: '/spa',
+            ssr: false,
+            extract: { read: 'agents', call: 'anonymous' },
+          },
+        },
+        // ssr + public read, pinned to 'none' — light DOM, the crawlable mode.
+        {
+          ...daGContradictory,
+          rel: 'fixture/light.aihu',
+          source:
+            "@state {\n  $shadow: 'none'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: '/light',\n  ssr: true,\n  extract: { read: 'agents' }\n}\n",
+          golden: '// @aihu:shadow none\nexport default 1\n',
+        },
+        // ssr + public read, UNPINNED — the default is never a finding.
+        {
+          ...daGContradictory,
+          rel: 'fixture/unpinned.aihu',
+          source:
+            "@template {\n  <div>hi</div>\n}\n@route {\n  path: '/plain',\n  ssr: true,\n  extract: { read: 'agents' }\n}\n",
+          golden: 'export default 1\n',
+        },
+      ].map(shadowCensusRow),
+    ).length,
+    expected: 0,
+  })
+
   // DA-f3, both directions: the real generators agree; hand-leaked documents
   // (a Disallow naming the governed path, an llms.txt row listing it) flag.
   cases.push({
@@ -1196,6 +1351,24 @@ for (const e of artifactEntries) {
 }
 for (const f of await daF2Findings(artifactEntries)) findings.push(f)
 for (const f of daF2RustLegFindings()) findings.push(f)
+
+// DA-g — the shadow-page census over the same corpus. INFORMATIONAL: a page's
+// shadow mode is never a finding by itself (`$shadow` is pure encapsulation;
+// policy is never inferred from rendering mode). Only the explicit
+// ssr+public-read+shadow-pin contradiction is a finding.
+const shadowRows = artifactEntries.map(shadowCensusRow)
+console.log(
+  `${NAME} — DA-g shadow-page census (${shadowRows.length} route fixture(s); informational — ` +
+    "a page's shadow mode is NEVER a finding on its own):",
+)
+for (const r of shadowRows) {
+  const mode =
+    r.pin === null
+      ? 'default (unpinned — light DOM post-flip)'
+      : `pinned '${r.pin}' (${r.pinSource})`
+  console.log(`  ${r.rel}  shadow=${mode}  ssr=${r.ssr} read=${r.read ?? '(absent)'}`)
+}
+for (const f of daGFindings(shadowRows)) findings.push(f)
 
 // DA-f3 — discovery agreement across the read-value vocabulary + the census.
 const daF3 = await runDaF3('live')
