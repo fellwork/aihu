@@ -5,7 +5,7 @@
 // (Vite/Rollup/Rolldown) chase the dynamic import and choke.
 // See .context/fw-agent/bug2.5-node-module-leak/investigation.md.
 
-import { renderToString } from '@aihu/server'
+import { deriveReadPolicy, renderToString } from '@aihu/server'
 import type { RouteDefinition, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
@@ -54,10 +54,17 @@ export function createServerRouter(routes: RouteDefinition[]): ServerRouter {
         ? `${html}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
         : html
 
-    return new Response(body, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    })
+    // GX Phase 3 (#437-GX): the compliance-tier noindex signal, derived from
+    // the route's compiled `extract.read` (spec §8). `read: 'none'` and every
+    // hard value (`'verified'`/`'human'`/`{ scope }`) — plus a malformed
+    // value, fail-closed — carry `X-Robots-Tag: noindex`. This is ADVISORY:
+    // honored by compliant crawlers, nothing more. Hard-tier withholding of
+    // the CONTENT itself is Phase 4; this handler still serves the full render
+    // to every requester, exactly as before.
+    const headers: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
+    if (deriveReadPolicy(route.extract?.read).noindex) headers['X-Robots-Tag'] = 'noindex'
+
+    return new Response(body, { status: 200, headers })
   }
 
   return { ...router, handle }

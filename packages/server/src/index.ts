@@ -16,6 +16,16 @@ export type {
 export { defineAihuConfig } from './config.ts'
 export type { DefinedLoader, LoadedRouteContext, LoaderFn, LoaderResult } from './data.ts'
 export { defineLoader } from './data.ts'
+// GX Phase 3 (#437-GX) — the read-axis derivation: one table for robots.txt,
+// noindex, and discovery-listing membership. Compliance-tier only (spec §1).
+export type {
+  CrawlerTier,
+  CrawlerTierAccess,
+  ExtractDeclarationLike,
+  NormalizedReadValue,
+  ReadDerivation,
+} from './extract-read-policy.ts'
+export { deriveReadPolicy, extractReadValue, isCallAdvertised } from './extract-read-policy.ts'
 // B3 (SEO arc) — pure mapper: route head metadata → renderable HeadConfig.
 export type { RouteHead, RouteHeadLowerOptions } from './head-lowering.ts'
 export { routeHeadToSsrHead } from './head-lowering.ts'

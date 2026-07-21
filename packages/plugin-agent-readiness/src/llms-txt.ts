@@ -1,3 +1,6 @@
+import { deriveReadPolicy, extractReadValue, isCallAdvertised } from '@aihu/server'
+import type { RouteReadPolicy } from './robots.ts'
+
 export interface LlmsTxtLink {
   readonly title: string
   readonly url: string
@@ -18,8 +21,30 @@ export interface LlmsTxtConfig {
    * Component metadata, rendered as a `## Components` section listing each
    * component's tag, description, callable actions, and readable state.
    * When empty (zero components) the section is omitted entirely.
+   *
+   * GX Phase 3 (#437-GX): the section is FILTERED by each component's
+   * compiled `extract` policy — a component whose `read` excludes
+   * user-directed AI fetchers (`'search'`/`'none'`/any hard value) or whose
+   * `call` is closed (`'none'`) is not advertised here (spec §8). Derived,
+   * fail-closed; components without an `extract` member (the pre-GX registry
+   * shape) are advertised exactly as before.
    */
   readonly components?: ReadonlyArray<ComponentMetaLike>
+  /**
+   * GX Phase 3 (#437-GX): the compiled route table (structurally,
+   * `@aihu/router` `RouteDefinition[]`). Rendered as a derived `## Routes`
+   * section listing exactly the routes whose declared `read:` admits
+   * user-directed AI fetchers (`'all'`/`'agents'`) — `'search'`/`'none'` and
+   * every hard value are absent from this agent-facing document (spec §8).
+   * One source (the compiled declarations), no hand-maintained route list.
+   * Omitted → no `## Routes` section (byte-identical to pre-GX output).
+   */
+  readonly routes?: ReadonlyArray<RouteReadPolicy>
+  /**
+   * Base URL for derived route links (e.g. `https://example.com`, no trailing
+   * slash). Without it, derived route entries render as bare patterns.
+   */
+  readonly baseUrl?: string
 }
 
 /** Minimal shape used for llms.txt link generation. Structurally compatible with @aihu/agent AgentMetadata. */
@@ -37,6 +62,13 @@ export interface ComponentMetaLike {
   readonly describes?: string
   readonly state?: Record<string, string>
   readonly actions?: Record<string, { readonly returns?: Record<string, { type: string }> }>
+  /**
+   * GX Phase 3: the compiled `extract` policy (rides `AgentMetadata`'s open
+   * index signature). Consulted — fail-closed — to decide whether the
+   * component is advertised in llms.txt at all. Absent → advertised (the
+   * resolved default, `read: 'agents'`).
+   */
+  readonly extract?: unknown
 }
 
 const renderLink = (link: LlmsTxtLink): string =>
@@ -75,6 +107,32 @@ export const renderComponentMarkdown = (meta: ComponentMetaLike): string[] => {
   return lines
 }
 
+/**
+ * GX Phase 3 (#437-GX): is this surface advertisable in an AGENT-facing
+ * discovery document? Derived from the compiled `extract` policy, fail-closed:
+ * the `read` axis must admit user-directed AI fetchers AND the `call` axis
+ * must not be closed. Absent policy → advertised (the resolved default).
+ * COMPLIANCE-TIER: absence from a listing hides nothing from a client that
+ * guesses URLs — the origin gate (Phases 2/4) is the enforcement.
+ */
+const advertisedToAgents = (extract: unknown): boolean =>
+  deriveReadPolicy(extractReadValue(extract)).agentDiscovery && isCallAdvertised(extract)
+
+/** Derived `## Routes` entries: exactly the agent-advertisable routes (spec §8). */
+const renderDerivedRoutes = (
+  routes: ReadonlyArray<RouteReadPolicy>,
+  baseUrl: string | undefined,
+): string[] => {
+  const advertised = routes.filter((r) => advertisedToAgents(r.extract))
+  if (advertised.length === 0) return []
+  const lines = ['## Routes']
+  for (const r of advertised) {
+    lines.push(baseUrl ? `- [${r.pattern}](${baseUrl}${r.pattern})` : `- ${r.pattern}`)
+  }
+  lines.push('')
+  return lines
+}
+
 const renderDocument = (config: LlmsTxtConfig, optionalHeading: string): string => {
   const lines: string[] = [`# ${config.name}`, '']
   if (config.summary) {
@@ -86,10 +144,16 @@ const renderDocument = (config: LlmsTxtConfig, optionalHeading: string): string 
     for (const link of section.links) lines.push(renderLink(link))
     lines.push('')
   }
+  // GX Phase 3: derived route listing — from the compiled declarations only.
+  if (config.routes?.length) {
+    lines.push(...renderDerivedRoutes(config.routes, config.baseUrl))
+  }
   // Components section: omitted entirely when zero components (no empty header).
-  if (config.components?.length) {
+  // GX Phase 3: filtered by each component's compiled extract policy.
+  const components = (config.components ?? []).filter((c) => advertisedToAgents(c.extract))
+  if (components.length > 0) {
     lines.push('## Components', '')
-    for (const meta of config.components) {
+    for (const meta of components) {
       lines.push(...renderComponentMarkdown(meta), '')
     }
   }

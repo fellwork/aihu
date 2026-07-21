@@ -18,7 +18,7 @@ export type { McpDiscovery, McpDiscoveryConfig, McpDiscoveryServer } from './mcp
 export { generateMcpDiscovery } from './mcp-discovery.ts'
 export type { AgentSkill, McpServerCard, McpServerCardConfig } from './mcp-server-card.ts'
 export { generateMcpServerCard, skillsFromRegistry } from './mcp-server-card.ts'
-export type { BotEntry, BotTier, RobotsConfig, RobotsRule } from './robots.ts'
+export type { BotEntry, BotTier, RobotsConfig, RobotsRule, RouteReadPolicy } from './robots.ts'
 export {
   AI_BOT_LIST,
   AI_TRAINING_CRAWLER_BOTS,

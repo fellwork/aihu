@@ -55,6 +55,14 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   readonly mcpDiscovery: RouteHandler
   readonly sitemapXml: RouteHandler
 } {
+  // GX Phase 3 (#437-GX): the compiled route table + site URL, threaded into
+  // the llms.txt generators so route listings and component sections derive
+  // from the declared `extract` policy (spec §8) — no hand-maintained lists.
+  const llmsDerivationInputs = {
+    ...(config.routes !== undefined ? { routes: config.routes } : {}),
+    ...(config.siteUrl !== undefined ? { baseUrl: config.siteUrl } : {}),
+  }
+
   const llmsTxt: RouteHandler = (_req) => {
     // Snapshot the component registry at request/build time, consistent with
     // how the rest of the config is read. Zero components → omitted section.
@@ -63,6 +71,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       name: config.name,
       sections: config.llmsSections ?? [],
       components,
+      ...llmsDerivationInputs,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
@@ -78,6 +87,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       name: config.name,
       sections: config.llmsSections ?? [],
       components,
+      ...llmsDerivationInputs,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
     })
@@ -104,6 +114,8 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
     const txt = generateRobotsTxt({
       ...(config.aiAgents !== undefined ? { aiAgents: config.aiAgents } : {}),
       ...(config.standardBots !== undefined ? { standard: config.standardBots } : {}),
+      // GX Phase 3: per-route directives derived from compiled `extract.read`.
+      ...(config.routes !== undefined ? { routes: config.routes } : {}),
       ...(config.sitemap !== undefined ? { sitemap: config.sitemap } : {}),
       ...(config.wildcard !== undefined ? { wildcard: config.wildcard } : {}),
     })
