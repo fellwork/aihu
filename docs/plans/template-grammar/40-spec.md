@@ -92,10 +92,12 @@ All examples use the shipped `examples/weather-card/weather-card.aihu` and
   emitted as-is.
 - **Reactive:** braces. `disabled={loading}`, `href={x}`, `value={query}`. Bare signal
   reads are written bare; the compiler inserts calls (the W3 rewrite, §5 step 1).
-- **Events fold into this layer:** `onclick={handler}`, `onkeydown={(e) => …}`,
-  `oninput={(e) => setQuery(e.target.value)}`. The event name is the lowercase DOM
-  attribute name (`onclick`, not `onClick`); handler position keeps the C321 allowance for
-  assignment/update at the root (`expr/mod.rs:106–122`, `ExprPosition::Handler`).
+- **Events are NOT this layer** — they are colon-namespace directives (`on:click`, §2.4).
+  Rationale: aihu event binding is a real listener with lifecycle and modifiers, not HTML's
+  string-valued `onclick` content attribute; a naked `onclick` would be a false friend
+  (looks like the HTML attribute, behaves like a framework directive). Events are a
+  name-parameterized framework capability HTML has no equivalent for, so they take the
+  `word:param` colon form alongside `class:`/`bind:`/`attr:`.
 - **Boolean attributes:** bare presence (`disabled`) or braces (`disabled={loading}`).
 
 **Static-attribute typing is normative:** a static string value type-checks **as a string
@@ -107,7 +109,7 @@ string on a boolean attribute** raises advisory warning **W602** [S], because
 
 ```aihu
 <input type="text" bind:value={location} placeholder="City name" />
-<button onclick={fetchForecast} class="refresh-btn" disabled={loading}>Refresh</button>
+<button on:click={fetchForecast} class="refresh-btn" disabled={loading}>Refresh</button>
 ```
 
 ### §2.3 Control flow — naked keyword attributes [R]
@@ -190,6 +192,7 @@ Reserved on every element. Unknown-word protection: §2.8.
 | `show` | expr | visibility toggle (lowers to `hidden` attr, unchanged from `$show` — `emit.rs` R3) | [R] |
 | `html` | expr | set innerHTML from a trusted expression (unchanged lowering from `$html`) | [R] |
 | `ref` | expr | element ref written at mount (unchanged from `$ref`) | [R] |
+| `on:<event>` | handler expr | event listener: `on:click={fetchForecast}`, `on:input={(e) => …}`; modifiers via dots: `on:click.prevent`, `on:submit.once` (v1 `$on.click` / `on:`, de-`$`-ed; the colon form + dotted modifiers is the existing internal shape — `parser/directives.rs:32,37–40`) | [R→] |
 | `bind:<prop>` | expr | two-way binding: `bind:value={location}`, `bind:checked={done}` (v1 `$bind.value` / `$bind:value`, de-`$`-ed; colon form is already the internal AST normalization — `parser/directives.rs:37–40`) | [R→] |
 | `class:<name>` | expr | conditional class toggle: `class:active={isOn}` (v1 `$class:active`, de-`$`-ed) | [R→] |
 | `once` | bare | render-once boundary (v1 `$once`) | [R→] |
@@ -199,10 +202,22 @@ Reserved on every element. Unknown-word protection: §2.8.
 The [R→] rows are the existing reserved vocabulary
 (`parser/directives.rs:32–40`: `if, each, key, show, once, memo, html, raw, ref` +
 `on:, bind:, class:, emit:` prefixes) carried through the one rule by stripping `$`.
-The `on:` prefix is NOT carried — events fold into naked HTML `on<event>` attributes
-(§2.2, founder-explicit). The `emit:` prefix has zero corpus usage and is dropped;
+The `on:` prefix **is carried** as a colon-namespace directive (`on:click`, with dotted
+modifiers) — events are name-parameterized framework listeners, not HTML's string `onclick`
+attribute, so they join the `word:param` family (§2.2, founder-ratified 2026-07-21). The
+`emit:` prefix has zero corpus usage and is dropped;
 `$let={x}` (loop alias on the v1 attribute form, 4 corpus occurrences) is subsumed by
 the `each` binder and gets a targeted fix hint (§4).
+
+**`class` composition (normative).** The naked `class` attribute (static `class="card"` or
+reactive whole-string `class={cls}`) and any number of `class:<name>={cond}` toggles
+**coexist on one element** and compose: the naked attribute owns the base class list, the
+colon directives own individual reactive toggles layered on top. This is the one attribute
+that is legitimately both static-base and reactive-toggle at once. Precedence [S]: when a
+reactive whole-string `class={expr}` and a `class:<name>` toggle both address the same
+class name, the **toggle is authoritative** (applied after the base string resolves), so a
+per-class directive always wins — matching Svelte's model. Static base + toggles (the
+common case) never overlap.
 
 ### §2.5 Framework elements — naked tags
 
