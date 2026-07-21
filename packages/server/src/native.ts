@@ -278,6 +278,46 @@ export function throwIfNativeFailed(state: NativeState): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Dialect guard (#465): the Rust renderer implements the LEGACY tree dialect
+ * — text leaves that carry `text`, tagged branches, plain-value attrs. The
+ * live arbor dialect has moved past it: text leaves carry `value` (possibly a
+ * `[read, write]` Signal tuple — functions vanish under JSON.stringify),
+ * element leaves exist (`leafKind: 'element'`), `branch(''|null)` is a
+ * fragment, `when()`/`each()` emit `kind: 'structural'` nodes whose branches
+ * are closures, and reactive attrs are tuples. Handing any of those to the
+ * addon silently DROPS or mangles content (the render.rs walker returns ''
+ * for unknown shapes). Until the native renderer is brought up to the current
+ * dialect, trees containing modern constructs take the TS path — "slower,
+ * always correct" — and the native fast path serves only what it can render
+ * byte-correctly. Returns true when the addon can render `node` faithfully.
+ */
+function _nativeDialectSupports(node: unknown): boolean {
+  if (typeof node !== 'object' || node === null) return true
+  const obj = node as Record<string, unknown>
+  if (obj.kind === 'structural') return false
+  if (obj.kind === 'leaf') {
+    // render.rs reads `obj.text` only; the live dialect's `value`/`leafKind`
+    // fields mean content the addon would drop (or an element leaf it has no
+    // case for).
+    return !('value' in obj) && !('leafKind' in obj)
+  }
+  if (obj.kind === 'branch') {
+    if (obj.tag === null || obj.tag === '') return false // fragment
+    const attrs = obj.attrs
+    if (typeof attrs === 'object' && attrs !== null) {
+      for (const v of Object.values(attrs as Record<string, unknown>)) {
+        if (typeof v === 'function' || Array.isArray(v)) return false // reactive/tuple attr
+      }
+    }
+    const children = obj.children
+    if (Array.isArray(children)) {
+      for (const c of children) if (!_nativeDialectSupports(c)) return false
+    }
+  }
+  return true
+}
+
+/**
  * Render via the native (Rust) renderer when available, falling back to the TS
  * implementation for edge / unsupported platforms. Throws AihuNativeError when
  * the platform is supported but the addon failed to load (failure-loud, §5).
@@ -304,6 +344,13 @@ export async function renderToStringNative(
 
   // Materialize the component; if the factory throws we let it propagate.
   const root = (component as () => unknown)()
+
+  // Dialect guard: modern-dialect trees (structural nodes, `value` leaves,
+  // fragments, reactive attrs) take the always-correct TS walker. The factory
+  // has already run; re-wrap its result so the tree is not built twice.
+  if (!_nativeDialectSupports(root)) {
+    return tsRenderToString(() => root, opts)
+  }
 
   const treeJson = JSON.stringify(root)
   const hydratable = opts?.hydratable ?? false

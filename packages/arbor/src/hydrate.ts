@@ -87,14 +87,94 @@ function _hydrateNode(
   errorHandler: ErrorHandler | undefined,
   textCursor: { i: number },
 ): void {
-  // Structural nodes (when/each): fall back to full materialize for the subtree.
-  // Hydrating structural nodes requires full reconciler integration (future).
+  // Structural nodes (when/each) — #465 adopt-by-replace.
+  //
+  // SSR now renders structural content, delimited in hydratable output by
+  // path-tagged comments: `<!--aihu:s:PATH-->` … `<!--aihu:/s:PATH-->` (the
+  // `-`→`_` transform below matches `_commentPath` in @aihu/server's ssr.ts —
+  // a wire-protocol pair like `_ROOT_PATH`). TRUE adoption (claiming the
+  // server's nodes into the reconciler's ChildScopes without a rebuild) needs
+  // reconciler integration and is future work; until then the server segment
+  // is REMOVED and freshly materialized content takes its exact position.
+  // That keeps the invariant that matters — content appears exactly once and
+  // in order — where the old unconditional `_materialize` fallback would have
+  // DUPLICATED every server-rendered structural subtree beside itself.
+  //
+  // Markerless hosts (legacy/terminal HTML, or SSR that predates the walk)
+  // keep the old behavior exactly: materialize appended at the end of host.
   if (node.kind === 'structural') {
+    const marker = pathBase.replace(/-/g, '_')
+    const cns = host.childNodes
+    let open: globalThis.Node | null = null
+    for (let i = 0; i < cns.length; i++) {
+      const c = cns[i]!
+      if (c.nodeType === 8 /* COMMENT_NODE */ && (c as Comment).data === `aihu:s:${marker}`) {
+        open = c
+        break
+      }
+    }
+    // Find the matching close by EXACT path — nested structural markers carry
+    // deeper paths, so they can never match and are swept up as content.
+    let close: globalThis.Node | null = null
+    if (open) {
+      const closeData = `aihu:/s:${marker}`
+      for (let n = open.nextSibling; n; n = n.nextSibling) {
+        if (n.nodeType === 8 && (n as Comment).data === closeData) {
+          close = n
+          break
+        }
+      }
+    }
+
+    // An unmatched open (malformed segment) is treated as markerless — never
+    // sweep to the end of the host on a guess.
+    const segment = open && close ? { open, close } : null
+    let insertRef: globalThis.Node | null = null
+    if (segment) {
+      insertRef = segment.close.nextSibling
+      let cur: globalThis.Node | null = segment.open
+      while (cur) {
+        const next: globalThis.Node | null = cur.nextSibling
+        host.removeChild(cur)
+        if (cur === segment.close) break
+        cur = next
+      }
+    }
+
+    // Materialize into a fragment, then move into position — the same
+    // build-then-move shape as the reconciler's `_mc`, so anchors resolve
+    // `parentNode` to `host` for every later reactive update.
+    const frag = document.createDocumentFragment()
     _mountDisposersStack.push(disposers)
     try {
-      _materialize(node, host, disposers, pathBase, _mountEffect, errorHandler, signalRegistry)
+      _materialize(
+        node,
+        frag as unknown as Element,
+        disposers,
+        pathBase,
+        _mountEffect,
+        errorHandler,
+        signalRegistry,
+      )
     } finally {
       _mountDisposersStack.pop()
+    }
+    while (frag.firstChild) host.insertBefore(frag.firstChild, insertRef)
+
+    if (segment) {
+      // Advance the shared text cursor past the inserted content so later
+      // sibling text leaves never claim a text node INSIDE this structural
+      // subtree (the segment sat mid-host, so fresh nodes now precede them).
+      let after = host.childNodes.length
+      if (insertRef) {
+        for (let i = 0; i < host.childNodes.length; i++) {
+          if (host.childNodes[i] === insertRef) {
+            after = i
+            break
+          }
+        }
+      }
+      if (after > textCursor.i) textCursor.i = after
     }
     return
   }
@@ -178,6 +258,29 @@ function _hydrateNode(
       } finally {
         _mountDisposersStack.pop()
       }
+    }
+    return
+  }
+
+  // Fragment branch (null/'' tag) — no wrapper element exists on either side
+  // (`_materialize` case 4; SSR renders children inline), so there is no path
+  // marker to look up. Recurse children into the SAME host, sharing the
+  // host's text cursor, exactly like materialize. Without this case the
+  // lookup below misses and the whole fragment — the compiler's `{#if}`/
+  // `{#each}` body shape — is rebuilt beside the server's DOM.
+  if (node.kind === 'branch' && (node.tag === null || node.tag === '')) {
+    const fch = node.children
+    for (let i = 0; i < fch.length; i++) {
+      _hydrateNode(
+        fch[i] as Node,
+        host,
+        `${pathBase}.${i}`,
+        disposers,
+        signalRegistry,
+        pathMap,
+        errorHandler,
+        textCursor,
+      )
     }
     return
   }
