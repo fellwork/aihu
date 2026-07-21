@@ -49,6 +49,18 @@ export interface AuthConfig {
   readonly cookieName?: string
   /** Cookie max-age in seconds. Default: `86400` (24 hours). */
   readonly maxAge?: number
+  /**
+   * Accept session JWTs that carry no `exp` claim. Default `false` —
+   * `getAuthState` rejects non-expiring tokens (see `VerifyJwtOptions`).
+   */
+  readonly allowNoExpiry?: boolean
+  /**
+   * Expected `aud` for session JWTs. When set, tokens whose `aud` claim does
+   * not include this value are rejected. When unset, `aud` is not checked.
+   */
+  readonly audience?: string
+  /** Clock-skew leeway in seconds for `exp`/`nbf` validation. Default 60. */
+  readonly clockSkewSec?: number
 }
 
 /**

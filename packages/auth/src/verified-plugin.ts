@@ -18,9 +18,9 @@
 
 import type { AuthPlugin, VerifiedClaims } from '@aihu/agent-service'
 import { decodeJwt, hasScope } from './jwt.ts'
-import { verifyJwt } from './server.ts'
+import { type VerifyJwtOptions, verifyJwt } from './server.ts'
 
-export interface VerifiedAuthPluginOptions {
+export interface VerifiedAuthPluginOptions extends VerifyJwtOptions {
   /**
    * HMAC-SHA-256 secret used to verify JWT signatures — the same secret the
    * `auth()` routes sign with (`AuthConfig.jwtSecret`).
@@ -36,8 +36,11 @@ function stripBearer(jwt: string): string {
 /**
  * Create a signature-verifying `AuthPlugin` for `@aihu/agent-service`.
  *
- * - `verify(jwt)` — HMAC-verifies the token and returns its claims, or
- *   `null` for any malformed/forged/unverifiable token. Never throws.
+ * - `verify(jwt)` — HMAC-verifies the token AND validates its registered
+ *   claims (`exp` required by default, `nbf`, future-`iat` sanity, and
+ *   `aud` when `options.audience` is set — see `VerifyJwtOptions`). Returns
+ *   the claims, or `null` for any malformed/forged/expired/not-yet-valid/
+ *   wrong-audience token. Never throws.
  * - `checkScope(jwt, scope)` — claim-membership check (`scope`/`scp`/
  *   `scopes`). The gate calls it only AFTER `verify` has authenticated the
  *   same token, so its decode reads verified claims.
@@ -52,7 +55,9 @@ export function createVerifiedAuthPlugin(options: VerifiedAuthPluginOptions): Au
     },
     async verify(jwt: string): Promise<VerifiedClaims | null> {
       if (typeof jwt !== 'string' || jwt === '') return null
-      return (await verifyJwt(stripBearer(jwt), jwtSecret)) as VerifiedClaims | null
+      // `options` carries the claim-validation knobs (allowNoExpiry,
+      // audience, clockSkewSec, now) alongside the secret.
+      return (await verifyJwt(stripBearer(jwt), jwtSecret, options)) as VerifiedClaims | null
     },
   }
 }

@@ -17,7 +17,10 @@ const WRONG_SECRET = 'this-is-not-the-signing-secret-at-all!!'
 async function makeSignedJwt(claims: Record<string, unknown>, secret = SECRET): Promise<string> {
   const enc = new TextEncoder()
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
+  // `exp` default: verifyJwt now REQUIRES an expiry; claim-validation
+  // specifics live in jwt-claims.test.ts — these fixtures just stay valid.
+  const withExp = { exp: Math.floor(Date.now() / 1000) + 3600, ...claims }
+  const payload = Buffer.from(JSON.stringify(withExp)).toString('base64url')
   const signingInput = `${header}.${payload}`
   const key = await crypto.subtle.importKey(
     'raw',

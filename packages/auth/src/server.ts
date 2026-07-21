@@ -112,10 +112,122 @@ function base64urlToUint8Array(s: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Verify an HMAC-SHA-256 signed JWT.
+ * Default clock-skew leeway (seconds) applied to `exp` / `nbf` / `iat`.
  *
- * Returns the decoded payload claims on success, or `null` on any failure
- * (malformed token, wrong secret, expired, etc.). Never throws.
+ * 60s is the common ceiling used by OIDC client libraries: it absorbs the
+ * clock drift of an un-NTP-synced container (seconds to tens of seconds)
+ * while staying negligible against real token lifetimes (minutes to hours),
+ * so it does not meaningfully extend the replay window.
+ */
+const DEFAULT_CLOCK_SKEW_SEC = 60
+
+/**
+ * Registered-claim validation options for `verifyJwt`.
+ *
+ * All fields are optional; the defaults are the fail-closed posture
+ * (`exp` required, no audience check unless one is configured, 60s leeway).
+ */
+export interface VerifyJwtOptions {
+  /**
+   * Accept tokens that carry no `exp` claim. Default **false**: a token
+   * without an expiry never stops being replayable, which is not acceptable
+   * for a verified principal. Opt in only for machine credentials that have
+   * an external revocation story.
+   */
+  readonly allowNoExpiry?: boolean
+  /**
+   * Expected audience. When set, the token's `aud` claim (string or array
+   * of strings, per RFC 7519 §4.1.3) must include this value or the token
+   * is rejected. When unset, `aud` is not checked.
+   */
+  readonly audience?: string
+  /**
+   * Clock-skew leeway in seconds applied to `exp` / `nbf` / `iat`.
+   * Default {@link DEFAULT_CLOCK_SKEW_SEC} (60).
+   */
+  readonly clockSkewSec?: number
+  /**
+   * Clock override returning milliseconds since epoch (same contract as
+   * `Date.now`). Default `Date.now`. Exists so tests can pin the clock.
+   */
+  readonly now?: () => number
+}
+
+/**
+ * Validate the registered temporal + audience claims of an ALREADY
+ * signature-verified payload. Returns false on any violation. All time
+ * comparisons are in seconds (JWT claims are NumericDate) with `leeway`
+ * absorbing clock drift between issuer and verifier.
+ */
+function validateRegisteredClaims(
+  claims: Record<string, unknown>,
+  options?: VerifyJwtOptions,
+): boolean {
+  const leeway = options?.clockSkewSec ?? DEFAULT_CLOCK_SKEW_SEC
+  const nowSec = Math.floor((options?.now ?? Date.now)() / 1000)
+
+  // `exp` — REQUIRED by default. A missing expiry is rejected unless the
+  // service explicitly opted in via `allowNoExpiry`. A present-but-non-numeric
+  // `exp` is malformed and always rejected (it is not "no expiry").
+  const exp = claims.exp
+  if (exp === undefined) {
+    if (options?.allowNoExpiry !== true) return false
+  } else {
+    if (typeof exp !== 'number' || !Number.isFinite(exp)) return false
+    if (nowSec >= exp + leeway) return false
+  }
+
+  // `nbf` — token not valid before this time (minus leeway).
+  const nbf = claims.nbf
+  if (nbf !== undefined) {
+    if (typeof nbf !== 'number' || !Number.isFinite(nbf)) return false
+    if (nowSec < nbf - leeway) return false
+  }
+
+  // `iat` sanity — a numeric issued-at further than `leeway` in the future
+  // means the issuer's clock (or the claim) cannot be trusted. Non-numeric
+  // `iat` is ignored rather than rejected: `iat` is informational and not a
+  // validity bound, so strictness here would only break odd-but-harmless
+  // issuers.
+  const iat = claims.iat
+  if (typeof iat === 'number' && Number.isFinite(iat) && iat > nowSec + leeway) {
+    return false
+  }
+
+  // `aud` — enforced only when the service configured an expected audience.
+  if (options?.audience !== undefined) {
+    const aud = claims.aud
+    const ok =
+      typeof aud === 'string'
+        ? aud === options.audience
+        : Array.isArray(aud)
+          ? aud.includes(options.audience)
+          : false
+    if (!ok) return false
+  }
+
+  return true
+}
+
+/**
+ * Verify an HMAC-SHA-256 signed JWT, then validate its registered claims.
+ *
+ * Validated, in order:
+ *   1. Signature (HMAC-SHA-256 via `crypto.subtle.verify`).
+ *   2. `exp` — token rejected once `now >= exp + leeway`. A token WITHOUT
+ *      `exp` is rejected unless `options.allowNoExpiry` is true.
+ *   3. `nbf` — token rejected while `now < nbf - leeway`.
+ *   4. `iat` sanity — a numeric `iat` more than `leeway` in the future is
+ *      rejected.
+ *   5. `aud` — when `options.audience` is set, the token's `aud` must equal
+ *      it (string form) or include it (array form). Skipped when unset.
+ *
+ * `leeway` is `options.clockSkewSec` (default 60s) — see
+ * {@link DEFAULT_CLOCK_SKEW_SEC} for the rationale.
+ *
+ * Returns the decoded payload claims on success, or `null` on ANY failure
+ * (malformed token, wrong secret, expired, not-yet-valid, wrong audience).
+ * Never throws.
  *
  * Exported (#420): this is THE signature-verifying primitive backing
  * `createVerifiedAuthPlugin` — the verified-claims source for the
@@ -125,6 +237,7 @@ function base64urlToUint8Array(s: string): Uint8Array<ArrayBuffer> {
 export async function verifyJwt(
   token: string,
   secret: string,
+  options?: VerifyJwtOptions,
 ): Promise<Record<string, unknown> | null> {
   try {
     const parts = token.split('.')
@@ -140,7 +253,14 @@ export async function verifyJwt(
     const valid = await crypto.subtle.verify('HMAC', key, signature, data)
     if (!valid) return null
 
-    return decodePayload(token)
+    const claims = decodePayload(token)
+    if (claims === null) return null
+
+    // Signature checks WHO minted the token; the registered claims check
+    // WHEN and FOR WHOM it is valid. Both must pass.
+    if (!validateRegisteredClaims(claims, options)) return null
+
+    return claims
   } catch {
     return null
   }
@@ -155,7 +275,9 @@ export async function verifyJwt(
  * and return the current `AuthState`.
  *
  * - Returns `{ user: null, scopes: [] }` when the cookie is absent.
- * - Returns `{ user: null, scopes: [] }` when the JWT is invalid/expired.
+ * - Returns `{ user: null, scopes: [] }` when the JWT is invalid, expired,
+ *   not yet valid (`nbf`), missing `exp` (unless `config.allowNoExpiry`),
+ *   or fails the configured `config.audience` check — see `verifyJwt`.
  * - Never throws — all errors are caught internally.
  *
  * @example
@@ -172,7 +294,10 @@ export async function getAuthState(ctx: RequestContext, config: AuthConfig): Pro
     const token = cookies.get(cookieName(config))
     if (!token) return { user: null, scopes: [] }
 
-    const claims = await verifyJwt(token, config.jwtSecret)
+    // `AuthConfig` structurally satisfies `VerifyJwtOptions` (audience,
+    // allowNoExpiry, clockSkewSec), so the claim-validation config flows
+    // through directly.
+    const claims = await verifyJwt(token, config.jwtSecret, config)
     if (!claims) return { user: null, scopes: [] }
 
     // Extract user fields from JWT claims.
