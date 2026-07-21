@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@aihu/agent": "workspace:*",
+    "@aihu/agent-service": "workspace:*",
     "@aihu/plugin": "workspace:*"
   },
   "optionalDependencies": {

@@ -11,6 +11,15 @@
  *               types (`Principal`, `EmissionDecision`, …)
  */
 export { createAgentService } from './agent-service.ts'
+// GX Phase 4 (#466) — the live-entitlement contract the call axis consults.
+// The engine lives in `@aihu/server` (`createGovernedRegistry`); these types
+// are the structural seam that keeps this package server-agnostic.
+export type {
+  EntitledPrincipal,
+  EntitlementMemo,
+  EntitlementsHandle,
+  EntitlementVerdict,
+} from './entitlements.ts'
 export type {
   AnonymousPrincipal,
   AnonymousUaTier,

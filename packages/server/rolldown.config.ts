@@ -48,6 +48,9 @@ export default defineConfig([
     input: 'src/index.ts',
     external: [
       '@aihu/agent',
+      // GX P4 (#466): the governed boundary consumes resolvePrincipal /
+      // decideEmission from the principal gate — external, never inlined.
+      '@aihu/agent-service',
       // @aihu/plugin is type-only at the @aihu/server boundary (config.ts
       // imports `Plugin` purely for the `plugins?: Plugin[]` field type). The
       // runtime bundle MUST NOT pull it in. Marked external to stay safe.

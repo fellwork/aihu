@@ -41,8 +41,8 @@
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 2546,
-    "limit": "2600 B"
+    "bytes": 2825,
+    "limit": "2900 B"
   },
   {
     "name": "@aihu/agent-acp",

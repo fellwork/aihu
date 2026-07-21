@@ -67,6 +67,16 @@ export interface RouteSidecar {
    * fail-closed via `@aihu/server`'s `deriveReadPolicy`.
    */
   extract?: { read?: unknown; call?: unknown }
+  /**
+   * GX Phase 4 (#466): the compiled `data:` declaration — the governed
+   * resource type binding (`type` keys the provider registry) and the
+   * declared locked-state `preview:` fields. INTEGRATION SEAM (Builder A):
+   * the Rust compiler parses the `@route` `data:` block and fans it into
+   * `.route.json` beside `extract`; this field threads it (sidecar or
+   * `compileRouteMeta`) into `RouteDefinition.data`, where
+   * `createServerRouter` normalizes it fail-closed (`normalizeGovernedData`).
+   */
+  data?: { type?: string; preview?: string[] }
 }
 
 /** Layout name → absolute file path (v0.6.8). Build-time scan result. */
@@ -325,7 +335,73 @@ const SK = [
   'head',
   'components',
   'extract',
+  'data',
 ] as const
+
+/**
+ * GX Phase 4 (#466): locate a page file's sibling loader
+ * (`<stem>.loader.ts|js|tsx|jsx`), the file `@aihu/router` picks up as the
+ * route's loader registration. Build-time only.
+ */
+function findLoaderSibling(f: string): string | null {
+  const stem = join(dirname(f), basename(f).replace(/\.[^.]+$/, ''))
+  for (const ext of ['.loader.ts', '.loader.js', '.loader.tsx', '.loader.jsx']) {
+    if (existsSync(stem + ext)) return stem + ext
+  }
+  return null
+}
+
+/** GX P4: is a compiled `read` value hard-tier? Mirrors `deriveReadPolicy`'s
+ * tier break (kept dependency-free here, like `componentTagFor`): absent →
+ * compliance default; the four anonymous values → compliance; everything
+ * else — `'verified'`/`'human'`/`{ scope }`/malformed — hard (fail-closed). */
+function isHardRead(read: unknown): boolean {
+  if (read === undefined || read === null) return false
+  return !(read === 'all' || read === 'agents' || read === 'search' || read === 'none')
+}
+
+/**
+ * GX Phase 4 (#466, spec §4.7): the build-layer governed-loader conflict
+ * checks — this is the layer that can SEE sibling files (the Rust compiler
+ * cannot), so C486/W48x live here.
+ *
+ * - C486 (build ERROR): `data:` + a sibling loader that is not the
+ *   `defineGovernedFetch` escape hatch — one data source per route; a
+ *   declared contradiction fails the build (R2), never resolves by silent
+ *   precedence.
+ * - W487 (build WARNING): a plain loader on a hard-tier `read:` route with
+ *   no `data:` — the generated ergonomics are declined; output falls back to
+ *   route-level T4 withholding at runtime.
+ *
+ * Detection of the escape hatch is textual (`defineGovernedFetch` in the
+ * sibling source): build-time, no module evaluation. Exported for tests.
+ */
+export function checkGovernedLoaderConflicts(f: string, meta: RouteSidecar | null): void {
+  const sibling = findLoaderSibling(f)
+  if (!sibling) return
+  let source = ''
+  try {
+    source = readFileSync(sibling, 'utf8')
+  } catch {
+    return
+  }
+  const isEscapeHatch = source.includes('defineGovernedFetch')
+  if (meta?.data !== undefined && !isEscapeHatch) {
+    throw new Error(
+      `[aihu-router] C486: route file '${f}' declares data: AND a sibling loader ` +
+        `('${sibling}') — one data source per route. Remove the sibling loader (the ` +
+        'framework generates the governed loader), or convert it to defineGovernedFetch ' +
+        '(replaces the provider stage only, never the gate).',
+    )
+  }
+  if (meta?.data === undefined && isHardRead(meta?.extract?.read) && !isEscapeHatch) {
+    console.warn(
+      `[aihu-router] W487: route file '${f}' has a hard-tier read: with a plain sibling ` +
+        `loader ('${sibling}') — its output is route-level withheld (T4 fallback). ` +
+        'Declare data: or use defineGovernedFetch for the per-field governed contract.',
+    )
+  }
+}
 
 function genR(
   files: string[],
@@ -347,6 +423,8 @@ function genR(
           meta = null
         }
       }
+      // GX P4 (#466): governed-loader conflict checks (C486 error / W487 warn).
+      checkGovernedLoaderConflicts(f, meta)
       const aihuMeta = !meta?.name && f.endsWith('.aihu') ? readAihuRouteMeta(f) : null
       const x = meta
         ? SK.filter((k) => meta[k] !== undefined)
