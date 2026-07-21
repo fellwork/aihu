@@ -329,14 +329,17 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 /// }
 /// ```
 ///
-/// The sidecar is intentionally minimal — it captures the curly-binding
-/// expressions, $on handler bodies, $bind LHS identifiers, and {#if}/{#each}
-/// header conditions/list expressions. `tsc --noEmit` flags type errors;
-/// concrete type-checking depth grows in later rounds.
+/// TS-gen steps 1–3 (#485, template-grammar 40-spec §5): the sidecar is no
+/// longer a flat lift. Every captured expression is REWRITTEN before it is
+/// lifted (`expr::rewrite_signal_reads` — bare signal/prop reads check at
+/// their authored value types, not as getter functions); `if=`/`elseif=`/
+/// `else` chains and `{#if}` blocks emit REAL `if/else if/else` blocks so
+/// TypeScript narrowing flows into branch bodies; and `each=`/`{#each}`
+/// loops emit `for (const [item, i] of __aihu_each(list))` against one
+/// overloaded helper so loop binders carry inferred element types instead
+/// of `any` params. `tsc --noEmit` flags type errors on real `.aihu` lines.
 fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     let nodes = unit.template_ast.as_ref()?;
-    let mut exprs: Vec<SidecarExpr> = Vec::new();
-    collect_template_exprs(nodes, &mut exprs);
     // Always emit a sidecar when a template is present so tsc has a per-SFC
     // surface to check, even if the @template happens to contain only static
     // markup at this moment.
@@ -454,85 +457,55 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         }
         None => "",
     };
+    // Steps 1–3 (#485): collect the template as a statement TREE, rewriting
+    // every captured expression (scope-aware signal-read rewrite + the GX
+    // predicate rewrite) and recovering each one's `.aihu` line via a single
+    // forward cursor over the ORIGINAL template text — the raw capture is what
+    // the cursor searches, so the rewrite never perturbs line mapping.
+    let template_text = unit.source.template.unwrap_or("");
+    let tmpl_first_line = unit.source.template_line; // 1-based; 0 if no @template
+    let mut collector = SidecarCollector {
+        template_text,
+        tmpl_first_line,
+        cursor: 0,
+        signal_map: sidecar_signal_map(script, governed_data.is_some()),
+        governed: governed_data.is_some(),
+        uses_each: false,
+        each_counter: 0,
+    };
+    let stmts = collector.collect(nodes, &std::collections::BTreeSet::new());
+
+    // Step 3 — the ONE overloaded loop helper (the Vue `__VLS_getVForSourceType`
+    // / svelte2tsx `ensureArray` pattern, 40-spec §5). Declared only when the
+    // template loops, so loop-free sidecars carry no dead scaffolding.
+    let each_helper = if collector.uses_each {
+        "declare function __aihu_each<T>(list: readonly T[]): ReadonlyArray<[T, number]>; \
+         declare function __aihu_each<T>(list: Iterable<T>): ReadonlyArray<[T, number]>; \
+         declare function __aihu_each(list: number): ReadonlyArray<[number, number]>; "
+    } else {
+        ""
+    };
+
     let preamble_line = format!(
-        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {}{} \
+        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {}{}{} \
          // {}.aihu type-check sidecar (generated, line-preserving)",
         globals,
         to_single_line(&emit_decl),
         to_single_line(&event_decl),
         gx_type_decls,
+        each_helper,
         macro_binding_decls(script, governed_data),
         tag_name
     );
 
-    // Declare each REFERENCED in-scope name as an `any` PARAMETER of
-    // __aihu_template (precise typing is a watched B3+ item). Parameters, not
-    // module-scope `declare const`, because a name may shadow a DOM global
-    // (`open`, `close`, `name`, `status`, `location`, …): an ambient
-    // `declare const open` collides with lib.dom's `open` (`TS2451`), whereas a
-    // parameter cleanly shadows it. Only names actually referenced by a template
-    // expression are emitted, so there are no unused params. The in-scope set
-    // spans @state binding names, signal setters, @state imports, and
-    // `$each`/`{#each}` loop aliases (see collect_sidecar_scope_names).
-    let scope_names = collect_sidecar_scope_names(script, nodes);
-    // W4 (advanced-js-template-expressions) — the referenced-ident harvest
-    // reads the oxc AST (`expr::referenced_idents`): every identifier READ a
-    // template expression makes, post-scope-model — reads inside
-    // template-literal `${…}` holes and after `...` spread now count (the
-    // token scan was blind to both, so valid components false-TS2304'd),
-    // while expression-internal shadows (arrow params, block `const`s),
-    // member properties, object keys, and TS type names never do. Always-on,
-    // not `--expr-parser`-gated: harvesting is type-check-side only (it
-    // changes which `any` params the sidecar declares, never the emitted
-    // JS). Captures that don't parse as a TS expression (possible under
-    // `--expr-parser legacy`) fall back to the token scan per-expression, so
-    // the sidecar never loses the coverage it had.
-    let mut referenced_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    for e in &exprs {
-        match crate::expr::referenced_idents(&e.expr) {
-            Some(reads) => referenced_names.extend(reads),
-            None => {
-                for name in &scope_names {
-                    if expr_references_ident(&e.expr, name) {
-                        referenced_names.insert(name.clone());
-                    }
-                }
-            }
-        }
-    }
-    let referenced: Vec<String> = scope_names
-        .into_iter()
-        .filter(|name| referenced_names.contains(name))
-        .collect();
-    // The @state body is INLINED verbatim below (at its real lines), so every
-    // name it binds — bindings, setters, imports — carries its true type. Only
-    // the loop aliases remain `any`: `{#each xs as m}` binds `m` in the TEMPLATE,
-    // so no declaration for it exists in the script to borrow a type from.
-    // (Deriving the element type from the iterable is the next step; until then
-    // an honest `any` beats a wrong type.)
-    //
-    // Everything else used to be an `any` param too, which is why a `@state` type
-    // error could never be caught: the script was never handed to tsc at all.
-    let loop_aliases: std::collections::BTreeSet<String> = {
-        let mut a = std::collections::BTreeSet::new();
-        collect_loop_aliases(nodes, &mut a);
-        a
-    };
-    let params = referenced
-        .iter()
-        .filter(|n| loop_aliases.contains(n.as_str()))
-        .map(|n| format!("{}: any", n))
-        .collect::<Vec<_>>()
-        .join(", ");
-
     // Line-preserving body. `lines[i]` is sidecar line i+1: line 1 = preamble,
     // then the @state body verbatim at its own source lines, then the template
-    // function whose lifted expressions each sit on their real `.aihu` line
-    // (recovered by a forward-cursor search of the @template text; exprs are
-    // collected in source order, so the cursor disambiguates repeats).
-    // Expressions are collapsed to a single physical line, so a multi-line source
-    // expression is reported at its START line, and several expressions sharing a
-    // source line share a sidecar line.
+    // function whose statements each sit on their real `.aihu` line (recovered
+    // by the collector's forward cursor; statements are collected in source
+    // order, so the cursor disambiguates repeats). Expressions are collapsed to
+    // a single physical line, so a multi-line source expression is reported at
+    // its START line, and several expressions sharing a source line share a
+    // sidecar line.
     //
     // @state precedes @template in every ordinary SFC, so the script's lines and
     // the template's lines never collide and both keep their true numbers. When a
@@ -540,8 +513,6 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // template function stacks after it — diagnostics inside @state stay exact,
     // and the template's may shift. `script_opener_line` is the last line we may
     // not write into.
-    let template_text = unit.source.template.unwrap_or("");
-    let tmpl_first_line = unit.source.template_line; // 1-based; 0 if no @template
     let mut lines: Vec<String> = vec![preamble_line];
 
     // The @state body, on its real lines, at module scope — so the template
@@ -585,91 +556,489 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         }
     }
 
-    // Open the template function on the first free line after the script.
+    // Open the template function on the first free line after the script. Loop
+    // binders are bound by real `for…of` heads now (step 3), so the function
+    // takes no parameters — every other name comes from the inlined @state
+    // body, the preamble declarations, or the `__aihu_ctx` value view, with
+    // its true type.
+    //
+    // `__aihu_ctx` is the declared VALUE view of the registered getters the
+    // step-1 rewrite targets: `ReturnType<typeof name>` derives each member's
+    // type from the getter binding the inlined @state body (or the preamble's
+    // macro decls) already carries — one authored type, no parallel table. It
+    // rides the opener line, AFTER the @state lines, so every `typeof` query
+    // resolves against the real bindings.
     let opener_line = lines.len().max(1) + 1;
     lines.resize(opener_line - 1, String::new());
-    lines.push(format!("function __aihu_template({}): void {{", params));
-    let mut cursor = 0usize;
-    for e in &exprs {
-        // Recover the expression's 1-based `.aihu` file line (0 = unknown).
-        let file_line = if tmpl_first_line == 0 {
-            0
-        } else if let Some(off) = template_text.get(cursor..).and_then(|s| s.find(e.expr.as_str())) {
-            let abs = cursor + off;
-            cursor = abs + e.expr.len();
-            tmpl_first_line + newlines_before(template_text, abs)
-        } else {
-            0 // expr not found verbatim (normalized/rewritten) — stack after body
-        };
-        // GX Phase 4 (#466) — governed-route rewrite (checked-in-tsc design):
-        // TypeScript does not narrow the `Entitled | Withheld` union through
-        // the nested `$gx.entitled` discriminant, so on a `data:` route every
-        // occurrence of the authored guard `route.data.$gx.entitled` is
-        // rewritten to the declared predicate `__gxEntitled(route.data)` —
-        // inside ternaries/`&&` chains this narrows in place. `{#if}`-guarded
-        // expressions additionally get their enclosing conditions prepended
-        // (`void (guard && (expr));`) so a branch body checks under its
-        // branch's narrowing, statement-flat layout preserved. Only guards
-        // that carry the entitlement discriminant are rendered — other
-        // conditions provide no narrowing and would only perturb output. The
-        // ORIGINAL `e.expr` (above) is what the line-recovery cursor searches,
-        // so line mapping is unaffected by the rewrite. Ungoverned routes:
-        // both transforms are identity.
-        const GX_GUARD: &str = "route.data.$gx.entitled";
-        const GX_PRED: &str = "__gxEntitled(route.data)";
-        let expr_text = if governed_data.is_some() {
-            e.expr.replace(GX_GUARD, GX_PRED)
-        } else {
-            e.expr.clone()
-        };
-        let guard_prefix: String = if governed_data.is_some() {
-            e.guards
-                .iter()
-                .filter(|g| g.contains(GX_GUARD))
-                .map(|g| format!("{} && ", to_single_line(&g.replace(GX_GUARD, GX_PRED))))
-                .collect()
-        } else {
-            String::new()
-        };
-        let stmt = if e.is_handler {
-            // Handlers are functions — pass in CALL position so inline arrow
-            // params get a contextual `any` (a bare `void ((e) => …)` would leave
-            // `e` implicit-any → TS7006). A non-function handler still errors here.
-            if guard_prefix.is_empty() {
-                format!("__handler({});", to_single_line(&expr_text))
-            } else {
-                format!("void ({}__handler({}));", guard_prefix, to_single_line(&expr_text))
-            }
-        } else {
-            // `void (...)` so the result type isn't checked beyond validity; tsc
-            // still flags undefined identifiers and most type errors.
-            if guard_prefix.is_empty() {
-                format!("void ({});", to_single_line(&expr_text))
-            } else {
-                format!("void ({}({}));", guard_prefix, to_single_line(&expr_text))
-            }
-        };
-        // Target line: the real source line when it sits below the function opener
-        // (and so cannot collide with the preamble or the inlined script);
-        // otherwise stack after the current body.
-        let target = if file_line > opener_line {
-            file_line
-        } else {
-            lines.len().max(opener_line) + 1
-        };
-        let idx = target - 1;
-        if idx >= lines.len() {
-            lines.resize(idx + 1, String::new()); // pad blank body lines
-            lines[idx] = stmt;
-        } else if lines[idx].is_empty() {
-            lines[idx] = stmt;
-        } else {
-            lines[idx].push(' '); // another expr shares this source line
-            lines[idx].push_str(&stmt);
-        }
-    }
+    let ctx_decl = if collector.signal_map.0.is_empty() {
+        String::new()
+    } else {
+        let members: Vec<String> = collector
+            .signal_map
+            .0
+            .keys()
+            .map(|k| format!("{k}: ReturnType<typeof {k}>", k = k))
+            .collect();
+        format!(
+            "declare const {}: {{ {} }}; ",
+            crate::expr::rewrite::TYPECHECK_CTX,
+            members.join("; ")
+        )
+    };
+    lines.push(format!("{}function __aihu_template(): void {{", ctx_decl));
+    let mut placer = SidecarPlacer { lines, opener_line };
+    emit_sidecar_stmts(&stmts, &mut placer);
+    let mut lines = placer.lines;
     lines.push("}".to_string());
     Some(format!("{}\n", lines.join("\n")))
+}
+
+// ─── #485 steps 1–3 — the sidecar statement tree ─────────────────────────────
+
+/// GX Phase 4 (#466): TypeScript does not narrow the `Entitled | Withheld`
+/// union through the nested `$gx.entitled` discriminant, so on a governed
+/// route every occurrence of the authored guard is rewritten to the declared
+/// narrowing predicate — in `if=` heads (where step 2's real `if` blocks make
+/// it narrow branch bodies) and inside ternaries/`&&` chains alike.
+const GX_GUARD: &str = "route.data.$gx.entitled";
+const GX_PRED: &str = "__gxEntitled(route.data)";
+
+/// A statement in the sidecar's template function: a lifted expression, a real
+/// `if/else if/else` chain (step 2 — narrowing), or a `for…of` loop over the
+/// `__aihu_each` helper (step 3 — inferred loop-binder types).
+enum SidecarStmt {
+    Expr {
+        /// Rewritten, single-line expression text (signal reads called, GX
+        /// predicate applied).
+        ts: String,
+        /// 1-based `.aihu` line (0 = unknown → stacked after the current body).
+        line: usize,
+        /// Handlers are functions — emitted in CALL position so inline arrow
+        /// params get a contextual `any` (a bare `void ((e) => …)` would leave
+        /// `e` implicit-any → TS7006).
+        is_handler: bool,
+    },
+    If {
+        branches: Vec<SidecarBranch>,
+    },
+    Each {
+        /// Tuple binding pattern for the loop head: `[item]`, `[item, i]`,
+        /// `[[k, v], i]` — the rejoined alias list wrapped as one pattern.
+        binders: String,
+        /// Rewritten list expression — evaluated OUTSIDE the alias scope, via
+        /// the intermediate const (the svelte2tsx alias-shadows-iterable
+        /// trick), so `each={items of items}` reads the outer binding.
+        list_ts: String,
+        line: usize,
+        id: usize,
+        body: Vec<SidecarStmt>,
+        /// `{:empty}` / `empty` sibling statements — checked OUTSIDE the loop
+        /// scope (the aliases are not in scope in an empty branch).
+        empty: Vec<SidecarStmt>,
+    },
+}
+
+struct SidecarBranch {
+    /// `None` for the trailing `else` branch.
+    cond_ts: Option<String>,
+    line: usize,
+    body: Vec<SidecarStmt>,
+}
+
+/// The signal/prop/computed getter names whose bare template reads the sidecar
+/// rewrites onto the `__aihu_ctx` value view — the same registration set the
+/// JS emitter's call rewrite uses (`resolve_signals` + `$computed`/`$prop`
+/// names), so the two surfaces share one expression semantics. Every name here
+/// must have a getter DECLARATION in the sidecar surface (the inlined @state
+/// body or `macro_binding_decls`) for `ReturnType<typeof name>` to resolve —
+/// which is why `$route` bindings (undeclared in the sidecar today) are not
+/// registered. On a governed route `route` is EXCLUDED: the sidecar declares
+/// it as a VALUE (`__GxRoute<…>`), so the authored `route.data.$gx.entitled`
+/// chains stay textually intact for the GX predicate rewrite.
+fn sidecar_signal_map(script: &str, governed: bool) -> SignalMap {
+    let mut map = crate::codegen::signals::resolve_signals(script);
+    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    for m in &macros {
+        if let crate::types::StateMacro::Collection { kind, entries } = m {
+            match kind {
+                crate::types::CollectionKind::Computed | crate::types::CollectionKind::Prop => {
+                    for e in entries {
+                        map.insert_computed(&e.name);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    if governed {
+        map.0.remove("route");
+    }
+    map
+}
+
+/// Walks the template AST into `SidecarStmt`s: rewrites every captured
+/// expression (scope-aware — loop binders shadow signals, mirroring
+/// `emit_each_block`'s alias-filtered maps) and recovers source lines with one
+/// forward cursor over the RAW template text, in source order.
+struct SidecarCollector<'a> {
+    template_text: &'a str,
+    /// 1-based `.aihu` line of the template body's first line; 0 if unknown.
+    tmpl_first_line: usize,
+    cursor: usize,
+    signal_map: SignalMap,
+    governed: bool,
+    uses_each: bool,
+    each_counter: usize,
+}
+
+impl SidecarCollector<'_> {
+    /// Recover a raw capture's 1-based `.aihu` line (0 = unknown). Forward-only
+    /// cursor: captures are visited in source order, so repeats disambiguate.
+    fn recover_line(&mut self, raw: &str) -> usize {
+        if self.tmpl_first_line == 0 || raw.is_empty() {
+            return 0;
+        }
+        match self.template_text.get(self.cursor..).and_then(|s| s.find(raw)) {
+            Some(off) => {
+                let abs = self.cursor + off;
+                self.cursor = abs + raw.len();
+                self.tmpl_first_line + newlines_before(self.template_text, abs)
+            }
+            None => 0,
+        }
+    }
+
+    /// Step 1 — rewrite-before-lift: bare reads of registered getters check at
+    /// their authored VALUE types via the `__aihu_ctx` view (`count > 0` →
+    /// `__aihu_ctx.count > 0`), scope-aware against the current loop-binder
+    /// shadow set. The value-view form (not the JS emitter's `count()` call
+    /// form) is what lets step 2's real `if` blocks narrow: TypeScript never
+    /// narrows a call result, but does narrow a const-rooted property chain.
+    /// Captures that don't parse fall back to the raw text (under the `ast`
+    /// default they were already rejected with C320/C321 before emit; under
+    /// `legacy` this preserves the old lift). The GX predicate rewrite applies
+    /// AFTER, on the textual guard chain.
+    fn rewrite(&self, raw: &str, shadow: &std::collections::BTreeSet<String>) -> String {
+        let rewritten = if shadow.iter().any(|n| self.signal_map.0.contains_key(n)) {
+            let filtered = SignalMap(
+                self.signal_map
+                    .0
+                    .iter()
+                    .filter(|(k, _)| !shadow.contains(*k))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            );
+            crate::expr::rewrite_signal_reads_typecheck(raw, &filtered)
+        } else {
+            crate::expr::rewrite_signal_reads_typecheck(raw, &self.signal_map)
+        };
+        let mut text = rewritten.map(|r| r.source).unwrap_or_else(|| raw.to_string());
+        if self.governed {
+            text = text.replace(GX_GUARD, GX_PRED);
+        }
+        to_single_line(&text)
+    }
+
+    fn collect(
+        &mut self,
+        nodes: &[TemplateNode],
+        shadow: &std::collections::BTreeSet<String>,
+    ) -> Vec<SidecarStmt> {
+        let mut out: Vec<SidecarStmt> = Vec::new();
+        for node in nodes {
+            match node {
+                TemplateNode::Element { attrs, children, .. }
+                | TemplateNode::MacroElement { attrs, children, .. } => {
+                    self.collect_element(attrs, children, shadow, &mut out);
+                }
+                TemplateNode::Interpolation(s) => {
+                    let line = self.recover_line(s);
+                    out.push(SidecarStmt::Expr {
+                        ts: self.rewrite(s, shadow),
+                        line,
+                        is_handler: false,
+                    });
+                }
+                TemplateNode::HtmlBlock { expr } => {
+                    let line = self.recover_line(expr);
+                    out.push(SidecarStmt::Expr {
+                        ts: self.rewrite(expr, shadow),
+                        line,
+                        is_handler: false,
+                    });
+                }
+                TemplateNode::IfBlock { branches } => {
+                    let mut sb: Vec<SidecarBranch> = Vec::new();
+                    for (cond, body) in branches {
+                        let (cond_ts, line) = if cond.trim().is_empty() {
+                            (None, 0)
+                        } else {
+                            let line = self.recover_line(cond);
+                            (Some(self.rewrite(cond, shadow)), line)
+                        };
+                        let body_stmts = self.collect(body, shadow);
+                        sb.push(SidecarBranch { cond_ts, line, body: body_stmts });
+                    }
+                    out.push(SidecarStmt::If { branches: sb });
+                }
+                TemplateNode::EachBlock {
+                    list_expr,
+                    item_alias,
+                    idx_alias,
+                    key_expr,
+                    body,
+                    empty_body,
+                } => {
+                    let line = self.recover_line(list_expr);
+                    let list_ts = self.rewrite(list_expr, shadow);
+                    let mut inner = shadow.clone();
+                    push_alias_bindings(item_alias, idx_alias.as_deref(), &mut inner);
+                    let binders =
+                        format!("[{}]", rejoin_alias_list(item_alias, idx_alias.as_deref()));
+                    let mut body_stmts: Vec<SidecarStmt> = Vec::new();
+                    if let Some(k) = key_expr {
+                        // The key runs with the aliases bound (per-item).
+                        let kline = self.recover_line(k);
+                        body_stmts.push(SidecarStmt::Expr {
+                            ts: self.rewrite(k, &inner),
+                            line: kline,
+                            is_handler: false,
+                        });
+                    }
+                    body_stmts.extend(self.collect(body, &inner));
+                    let empty = match empty_body {
+                        Some(eb) => self.collect(eb, shadow),
+                        None => Vec::new(),
+                    };
+                    self.uses_each = true;
+                    let id = self.each_counter;
+                    self.each_counter += 1;
+                    out.push(SidecarStmt::Each { binders, list_ts, line, id, body: body_stmts, empty });
+                }
+                TemplateNode::Text(_) => {}
+            }
+        }
+        out
+    }
+
+    /// An element's own captured attribute expressions plus its children, with
+    /// the element-level `if=`/`each=` directives lowered structurally. Loop
+    /// (`each`) is the OUTER wrapper and `if` the inner one, matching the
+    /// runtime composition in `emit_macro_effects` (the `if` evaluates per
+    /// item); the element's other attribute expressions and children evaluate
+    /// in the loop/branch scope, while the each LIST evaluates outside.
+    fn collect_element(
+        &mut self,
+        attrs: &[Attr],
+        children: &[TemplateNode],
+        shadow: &std::collections::BTreeSet<String>,
+        out: &mut Vec<SidecarStmt>,
+    ) {
+        struct RawExpr {
+            raw: String,
+            line: usize,
+            is_handler: bool,
+        }
+        // (list raw, head line, binder tuple pattern, bound names)
+        let mut each_head: Option<(String, usize, String, std::collections::BTreeSet<String>)> =
+            None;
+        let mut if_cond: Option<(String, usize)> = None;
+        let mut attr_exprs: Vec<RawExpr> = Vec::new();
+        // Attrs scan in source order so the line-recovery cursor stays sound.
+        for a in attrs {
+            match a {
+                Attr::Macro { name, value } if name == "each" => {
+                    let clause = macro_value_expr(value);
+                    match crate::parser::directives::parse_each_of_head(&clause) {
+                        Ok(head) => {
+                            let line = self.recover_line(&head.list);
+                            let mut bound = std::collections::BTreeSet::new();
+                            push_alias_bindings(&head.item, head.idx.as_deref(), &mut bound);
+                            let binders = format!(
+                                "[{}]",
+                                rejoin_alias_list(&head.item, head.idx.as_deref())
+                            );
+                            each_head = Some((head.list, line, binders, bound));
+                        }
+                        Err(_) => {
+                            // Malformed heads are rejected at parse time; keep
+                            // the list capture checked as a plain expression.
+                            let raw = clause.trim().to_string();
+                            let line = self.recover_line(&raw);
+                            attr_exprs.push(RawExpr { raw, line, is_handler: false });
+                        }
+                    }
+                }
+                Attr::Macro { name, value } if name == "if" => {
+                    let raw = macro_value_expr(value);
+                    let line = self.recover_line(&raw);
+                    if_cond = Some((raw, line));
+                }
+                Attr::Macro { name, value } if name.starts_with("on:") => {
+                    let raw = macro_value_expr(value);
+                    let line = self.recover_line(&raw);
+                    attr_exprs.push(RawExpr { raw, line, is_handler: true });
+                }
+                Attr::Binding { expr, .. } => {
+                    let line = self.recover_line(expr);
+                    attr_exprs.push(RawExpr { raw: expr.clone(), line, is_handler: false });
+                }
+                Attr::Macro { value: MacroValue::Curly(s), .. } => {
+                    let raw = s.clone();
+                    let line = self.recover_line(&raw);
+                    attr_exprs.push(RawExpr { raw, line, is_handler: false });
+                }
+                _ => {}
+            }
+        }
+        // Per-item scope: the each binders shadow outer names for the cond,
+        // the other attribute expressions, and the children.
+        let mut inner_storage;
+        let inner: &std::collections::BTreeSet<String> = match &each_head {
+            Some((_, _, _, bound)) => {
+                inner_storage = shadow.clone();
+                inner_storage.extend(bound.iter().cloned());
+                &inner_storage
+            }
+            None => shadow,
+        };
+        let mut current: Vec<SidecarStmt> = attr_exprs
+            .into_iter()
+            .map(|e| SidecarStmt::Expr {
+                ts: self.rewrite(&e.raw, inner),
+                line: e.line,
+                is_handler: e.is_handler,
+            })
+            .collect();
+        current.extend(self.collect(children, inner));
+        if let Some((cond_raw, line)) = if_cond {
+            if !cond_raw.trim().is_empty() {
+                current = vec![SidecarStmt::If {
+                    branches: vec![SidecarBranch {
+                        cond_ts: Some(self.rewrite(&cond_raw, inner)),
+                        line,
+                        body: current,
+                    }],
+                }];
+            }
+        }
+        if let Some((list_raw, line, binders, _)) = each_head {
+            self.uses_each = true;
+            let id = self.each_counter;
+            self.each_counter += 1;
+            let list_ts = self.rewrite(&list_raw, shadow); // OUTER scope
+            current = vec![SidecarStmt::Each {
+                binders,
+                list_ts,
+                line,
+                id,
+                body: current,
+                empty: Vec::new(),
+            }];
+        }
+        out.extend(current);
+    }
+}
+
+/// Line-preserving statement placer. Placement is MONOTONIC — each emitted
+/// token lands at or after the previous one — which is what keeps block
+/// structure (`if`/`for` opens and closes) physically nested. Source lines
+/// are monotonic in walk order (the collector's forward cursor), so real-line
+/// placement and structural correctness coincide; a capture whose line could
+/// not be recovered stacks on a fresh line inside the currently-open block.
+struct SidecarPlacer {
+    lines: Vec<String>,
+    /// 1-based line of `function __aihu_template…` — the last line statements
+    /// may never be placed at or before.
+    opener_line: usize,
+}
+
+impl SidecarPlacer {
+    fn place(&mut self, text: String, want: usize) {
+        if want > self.opener_line && want > self.lines.len() {
+            // Ahead of everything written — land on the real source line.
+            self.lines.resize(want - 1, String::new());
+            self.lines.push(text);
+        } else if want > self.opener_line && want == self.lines.len() {
+            // Shares the current last line (several captures on one line).
+            let last = self.lines.last_mut().expect("opener pushed");
+            if last.is_empty() {
+                *last = text;
+            } else {
+                last.push(' ');
+                last.push_str(&text);
+            }
+        } else {
+            // Unknown or behind the emission point — stack on a fresh line.
+            self.lines.push(text);
+        }
+    }
+
+    /// Append a structural token (`}`, `} else {`) to the current last line.
+    fn append(&mut self, text: &str) {
+        let last = self.lines.last_mut().expect("opener pushed");
+        if last.is_empty() {
+            last.push_str(text);
+        } else {
+            last.push(' ');
+            last.push_str(text);
+        }
+    }
+}
+
+fn emit_sidecar_stmts(stmts: &[SidecarStmt], p: &mut SidecarPlacer) {
+    for s in stmts {
+        match s {
+            SidecarStmt::Expr { ts, line, is_handler } => {
+                // `void (...)` so the result type isn't checked beyond
+                // validity; tsc still flags undefined identifiers and type
+                // errors. Handlers go in call position (contextual params).
+                let stmt = if *is_handler {
+                    format!("__handler({});", ts)
+                } else {
+                    format!("void ({});", ts)
+                };
+                p.place(stmt, *line);
+            }
+            SidecarStmt::If { branches } => {
+                // Step 2 — REAL `if/else if/else` blocks: heads sit on the
+                // control-flow source lines, so narrowing flows into branch
+                // bodies and diagnostics cite the authored condition's line.
+                // `else if` semantics carry prior-branch negation structurally.
+                for (i, b) in branches.iter().enumerate() {
+                    let head = match (&b.cond_ts, i) {
+                        (Some(c), 0) => format!("if ({}) {{", c),
+                        (Some(c), _) => format!("}} else if ({}) {{", c),
+                        (None, 0) => "if (true) {".to_string(),
+                        (None, _) => "} else {".to_string(),
+                    };
+                    if i == 0 || b.line > 0 {
+                        p.place(head, b.line);
+                    } else {
+                        p.append(&head);
+                    }
+                    emit_sidecar_stmts(&b.body, p);
+                }
+                p.append("}");
+            }
+            SidecarStmt::Each { binders, list_ts, line, id, body, empty } => {
+                // Step 3 — `for…of` over the overloaded helper. The
+                // intermediate const evaluates the list in the OUTER scope
+                // (alias-shadows-iterable), and the tuple binding gives every
+                // alias its inferred element/index type.
+                let head = format!(
+                    "const __each_{id} = __aihu_each({list}); for (const {binders} of __each_{id}) {{",
+                    id = id,
+                    list = list_ts,
+                    binders = binders
+                );
+                p.place(head, *line);
+                emit_sidecar_stmts(body, p);
+                p.append("}");
+                emit_sidecar_stmts(empty, p);
+            }
+        }
+    }
 }
 
 /// Top-level names the `@state` body itself binds — imports and `const`/`let`
@@ -848,44 +1217,6 @@ fn newlines_before(text: &str, offset: usize) -> usize {
     text[..offset].bytes().filter(|&b| b == b'\n').count()
 }
 
-/// Every name a `@template` expression could reference and that must therefore
-/// be in scope in the type-check sidecar — MINUS the framework globals the
-/// preamble already declares (re-declaring them would duplicate-identifier).
-/// Sources: @state binding names, signal setters, `@state` imports, and
-/// `$each`/`{#each}` loop aliases. Deduplicated and sorted for deterministic
-/// output.
-fn collect_sidecar_scope_names(script: &str, nodes: &[TemplateNode]) -> Vec<String> {
-    const PREAMBLE_GLOBALS: &[&str] = &[
-        "signal",
-        "computed",
-        "onMount",
-        "onCleanup",
-        "onAdopt",
-        "onAttributeChange",
-    ];
-    let mut names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-
-    // 1. @state binding names (getters, computeds, consts, $prop/$computed/… ).
-    for n in crate::codegen::signals::collect_state_decls(script).all {
-        names.insert(n);
-    }
-    // 2. Signal setters — `resolve_signals` maps getter -> setter; the values
-    //    are the setter names (empty for computeds, skipped).
-    for setter in crate::codegen::signals::resolve_signals(script).0.into_values() {
-        if !setter.is_empty() {
-            names.insert(setter);
-        }
-    }
-    // 3. Names imported into @state and usable directly in the template.
-    collect_imported_names(script, &mut names);
-    // 4. Loop aliases from $each attrs and {#each} blocks.
-    collect_loop_aliases(nodes, &mut names);
-
-    names
-        .into_iter()
-        .filter(|n| !PREAMBLE_GLOBALS.contains(&n.as_str()))
-        .collect()
-}
 
 /// True for a non-empty `[A-Za-z_$][A-Za-z0-9_$]*` token.
 fn is_js_ident(s: &str) -> bool {
@@ -1072,253 +1403,10 @@ fn push_alias_bindings(
     }
 }
 
-/// Walk the template AST collecting `$each`/`{#each}` loop aliases (`item` and
-/// optional `index` from `<list> as item[, index]`), which are in scope inside
-/// the loop body the sidecar flattens into `__aihu_template`. Destructuring
-/// aliases (`as [k, v]`, `as {a, b}`) bind each contained identifier.
-fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
-    fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
-        // Grammar v2: the head is `<binder> [, <index>] of <list-expr>` —
-        // split with the parser's scanner-aware `of`-head split (an ` of `
-        // inside a string/parens in the LIST never mis-splits), then bind
-        // the binder side from a real parse.
-        if let Ok(head) = crate::parser::directives::parse_each_of_head(clause) {
-            push_alias_bindings(&head.item, head.idx.as_deref(), out);
-        }
-    }
-    for node in nodes {
-        match node {
-            TemplateNode::Element { attrs, children, .. }
-            | TemplateNode::MacroElement { attrs, children, .. } => {
-                for a in attrs {
-                    if let Attr::Macro { name, value } = a {
-                        if name == "each" {
-                            push_clause(&macro_value_expr(value), out);
-                        }
-                    }
-                }
-                collect_loop_aliases(children, out);
-            }
-            TemplateNode::EachBlock {
-                item_alias,
-                idx_alias,
-                body,
-                empty_body,
-                ..
-            } => {
-                // item_alias may be a destructuring pattern (`{#each xs as
-                // [k, v]}`) — and until W5 the header split tears it across
-                // item/idx (`[k` + `v], i`), so the token extractor bound
-                // NOTHING and every body reference TS2304'd. W4 rejoins the
-                // alias list and really parses it.
-                push_alias_bindings(item_alias, idx_alias.as_deref(), out);
-                collect_loop_aliases(body, out);
-                if let Some(eb) = empty_body {
-                    collect_loop_aliases(eb, out);
-                }
-            }
-            TemplateNode::IfBlock { branches } => {
-                for (_, body) in branches {
-                    collect_loop_aliases(body, out);
-                }
-            }
-            _ => {}
-        }
-    }
-}
 
-/// True iff `name` appears as a standalone identifier token in `expr` (not a
-/// member access `obj.name`, not inside a string literal). Mirrors the scan in
-/// `expr_references_state`, specialized to one name.
-fn expr_references_ident(expr: &str, name: &str) -> bool {
-    let bytes = expr.as_bytes();
-    let mut i = 0usize;
-    let mut prev_significant: u8 = 0;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if c == b'\'' || c == b'"' || c == b'`' {
-            let quote = c;
-            i += 1;
-            while i < bytes.len() {
-                if bytes[i] == b'\\' && i + 1 < bytes.len() {
-                    i += 2;
-                    continue;
-                }
-                if bytes[i] == quote {
-                    i += 1;
-                    break;
-                }
-                i += 1;
-            }
-            prev_significant = quote;
-            continue;
-        }
-        if c.is_ascii_alphabetic() || c == b'_' || c == b'$' {
-            let start = i;
-            while i < bytes.len()
-                && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] == b'$')
-            {
-                i += 1;
-            }
-            // Member-access property (`.name`) is not a reference to the binding.
-            if prev_significant != b'.' && &expr[start..i] == name {
-                return true;
-            }
-            prev_significant = bytes[i - 1];
-            continue;
-        }
-        if !c.is_ascii_whitespace() {
-            prev_significant = c;
-        }
-        i += 1;
-    }
-    false
-}
 
-/// A template expression collected for the type-check sidecar, tagged by
-/// whether it's an event-handler value (a function — emitted in call position
-/// so its inline arrow params get a contextual type) vs a plain value.
-///
-/// `guards` (GX Phase 4, #466) is the stack of `{#if}` conditions lexically
-/// enclosing the expression — branch conditions verbatim, prior same-block
-/// branch conditions negated (`!(cond)`) for `{:else}`/`{:else if}` bodies.
-/// Collected for EVERY template, rendered ONLY for governed routes (the
-/// `data:`-declared `route.data` narrowing, `emit_sidecar_ts`); ungoverned
-/// sidecar output is byte-identical to before the field existed.
-struct SidecarExpr {
-    expr: String,
-    is_handler: bool,
-    guards: Vec<String>,
-}
 
-/// Walk the template AST and collect every JS expression appearing in a
-/// curly-binding, $on handler, $bind expr, {#if cond}, {#each list as item},
-/// {@html expr}, or text interpolation.
-fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
-    collect_template_exprs_guarded(nodes, out, &[])
-}
 
-fn collect_template_exprs_guarded(
-    nodes: &[TemplateNode],
-    out: &mut Vec<SidecarExpr>,
-    guards: &[String],
-) {
-    // Shared attribute handling for Element + MacroElement.
-    fn push_attrs(attrs: &[Attr], out: &mut Vec<SidecarExpr>, guards: &[String]) {
-        for a in attrs {
-            match a {
-                // `$each="list as item"` — collect the LIST expression (mirrors
-                // the {#each} block arm's `list_expr` push) so its reads are
-                // type-checked and an OUTER loop alias used only inside an inner
-                // each's iterable (`s` in `s.books as b`) still counts as
-                // referenced.
-                Attr::Macro { name, value } if name == "each" => {
-                    let clause = macro_value_expr(value);
-                    // Grammar v2: split the `of`-head with the scanner-aware
-                    // splitter so an ` of ` inside a string/parens in the LIST
-                    // doesn't tear it; fall back to the whole clause when the
-                    // head is malformed (the parser rejects those anyway).
-                    let list = match crate::parser::directives::parse_each_of_head(&clause) {
-                        Ok(head) => head.list,
-                        Err(_) => clause.trim().to_string(),
-                    };
-                    out.push(SidecarExpr { expr: list, is_handler: false, guards: guards.to_vec() });
-                }
-                // `$on.*={handler}` normalizes to an `on:<event>` attr — the
-                // value is a function, emitted in call position so inline arrow
-                // params (`(e) => …`) get a contextual `any` type (else TS7006).
-                Attr::Macro { name, value } if name.starts_with("on:") => {
-                    out.push(SidecarExpr {
-                        expr: macro_value_expr(value),
-                        is_handler: true,
-                        guards: guards.to_vec(),
-                    });
-                }
-                Attr::Binding { expr, .. } => {
-                    out.push(SidecarExpr {
-                        expr: expr.clone(),
-                        is_handler: false,
-                        guards: guards.to_vec(),
-                    });
-                }
-                Attr::Macro { value: MacroValue::Curly(s), .. } => {
-                    out.push(SidecarExpr {
-                        expr: s.clone(),
-                        is_handler: false,
-                        guards: guards.to_vec(),
-                    });
-                }
-                _ => {}
-            }
-        }
-    }
-    for node in nodes {
-        match node {
-            TemplateNode::Element { attrs, children, .. }
-            | TemplateNode::MacroElement { attrs, children, .. } => {
-                push_attrs(attrs, out, guards);
-                collect_template_exprs_guarded(children, out, guards);
-            }
-            TemplateNode::Interpolation(s) => out.push(SidecarExpr {
-                expr: s.clone(),
-                is_handler: false,
-                guards: guards.to_vec(),
-            }),
-            TemplateNode::IfBlock { branches } => {
-                // GX Phase 4 guard threading: branch N's body is guarded by its
-                // own condition plus the negation of every PRIOR branch's
-                // condition in the same block ({:else if} / {:else} semantics).
-                let mut prior: Vec<String> = Vec::new();
-                for (cond, body) in branches {
-                    let mut branch_guards: Vec<String> = guards.to_vec();
-                    branch_guards.extend(prior.iter().map(|c| format!("!({})", c)));
-                    if !cond.is_empty() {
-                        // The condition itself evaluates under the OUTER guards
-                        // only (it runs to decide the branch).
-                        out.push(SidecarExpr {
-                            expr: cond.clone(),
-                            is_handler: false,
-                            guards: guards.to_vec(),
-                        });
-                        branch_guards.push(cond.clone());
-                        prior.push(cond.clone());
-                    }
-                    collect_template_exprs_guarded(body, out, &branch_guards);
-                }
-            }
-            TemplateNode::EachBlock {
-                list_expr,
-                key_expr,
-                body,
-                empty_body,
-                ..
-            } => {
-                out.push(SidecarExpr {
-                    expr: list_expr.clone(),
-                    is_handler: false,
-                    guards: guards.to_vec(),
-                });
-                if let Some(k) = key_expr {
-                    out.push(SidecarExpr {
-                        expr: k.clone(),
-                        is_handler: false,
-                        guards: guards.to_vec(),
-                    });
-                }
-                collect_template_exprs_guarded(body, out, guards);
-                if let Some(eb) = empty_body {
-                    collect_template_exprs_guarded(eb, out, guards);
-                }
-            }
-            TemplateNode::HtmlBlock { expr } => out.push(SidecarExpr {
-                expr: expr.clone(),
-                is_handler: false,
-                guards: guards.to_vec(),
-            }),
-            TemplateNode::Text(_) => {}
-        }
-    }
-}
 
 // ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
 

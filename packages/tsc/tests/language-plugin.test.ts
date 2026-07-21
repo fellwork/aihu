@@ -117,4 +117,43 @@ describe('mappings put a diagnostic on the line the author wrote', () => {
     expect(second).toBeGreaterThan(first)
     expect(span(source, m1.sourceOffsets, m1.lengths)).toBe('a()')
   })
+
+  it('maps a value-view-rewritten expression back to the authored text (#485 step 1)', () => {
+    // The generator lifts `{count > 0}` as `void (__aihu_ctx.count > 0);` — the
+    // rewrite only INSERTS the `__aihu_ctx.` prefix, so stripping it recovers
+    // the authored expression. The spans differ in length; `generatedLengths`
+    // carries the generated side.
+    const source = '@state {\n}\n@template {\n  <p>{count > 0}</p>\n}\n'
+    const generated = 'declare const q: 1;\n\n\nvoid (__aihu_ctx.count > 0);\n'
+    const [m] = buildMappings(source, generated)
+    expect(m, 'a rewritten expression must not lose its mapping').toBeDefined()
+    if (!m) return
+    expect(span(source, m.sourceOffsets, m.lengths)).toBe('count > 0')
+    expect(span(generated, m.generatedOffsets, m.generatedLengths ?? m.lengths)).toBe(
+      '__aihu_ctx.count > 0',
+    )
+  })
+
+  it('maps a real if-head condition back to the authored cond (#485 step 2)', () => {
+    const source = '@state {\n}\n@template {\n  <p if={user}>{user.name}</p>\n}\n'
+    const generated =
+      'declare const q: 1;\n\n\nif (__aihu_ctx.user) { void (__aihu_ctx.user.name); }\n'
+    const ms = buildMappings(source, generated)
+    expect(ms.length).toBeGreaterThanOrEqual(2)
+    const [head, body] = ms
+    if (!head || !body) return
+    expect(span(source, head.sourceOffsets, head.lengths)).toBe('user')
+    expect(span(source, body.sourceOffsets, body.lengths)).toBe('user.name')
+  })
+
+  it('maps a for…of loop list back to the authored list (#485 step 3)', () => {
+    const source = '@state {\n}\n@template {\n  <li each={item of books}>{item.title}</li>\n}\n'
+    const generated =
+      'declare const q: 1;\n\n\nconst __each_0 = __aihu_each(__aihu_ctx.books); for (const [item] of __each_0) { void (item.title); }\n'
+    const ms = buildMappings(source, generated)
+    const listMapping = ms.find((m) => span(source, m.sourceOffsets, m.lengths) === 'books')
+    expect(listMapping, 'the loop list must map to the authored list expression').toBeDefined()
+    const bodyMapping = ms.find((m) => span(source, m.sourceOffsets, m.lengths) === 'item.title')
+    expect(bodyMapping, 'the loop body expression must map verbatim').toBeDefined()
+  })
 })

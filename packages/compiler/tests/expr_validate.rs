@@ -214,14 +214,23 @@ fn c321_diagnostic_uses_the_contract_steering_text() {
 // ─── Default plumbing ────────────────────────────────────────────────────────
 
 #[test]
-fn compile_full_with_target_defaults_to_legacy() {
-    // The pre-W2 public entry point must behave as if the flag were never
-    // passed — garbage that legacy accepts still compiles through it.
+fn compile_full_with_target_defaults_to_ast() {
+    // #485 (the W3-planned flip): the default entry point now VALIDATES —
+    // garbage that only legacy accepted is a C320 through it, and the opt-out
+    // spelling `--expr-parser legacy` still compiles it.
     let source = src_with_template("<p>{count +}</p>");
     let parsed = sfc::parse(&source).unwrap();
+    let err = compile_full_with_target(&parsed, BuildTarget::Universal)
+        .expect_err("compile_full_with_target must validate under the ast default");
+    assert_eq!(err.code.as_deref(), Some("C320"));
     assert!(
-        compile_full_with_target(&parsed, BuildTarget::Universal).is_ok(),
-        "compile_full_with_target must stay flag-off (legacy)"
+        aihu_compiler::compile_full_with_options(
+            &parsed,
+            BuildTarget::Universal,
+            ExprParserMode::Legacy
+        )
+        .is_ok(),
+        "`--expr-parser legacy` must remain the escape hatch"
     );
 }
 
@@ -230,5 +239,7 @@ fn mode_parsing_matches_flag_surface() {
     assert_eq!(ExprParserMode::parse("legacy"), Some(ExprParserMode::Legacy));
     assert_eq!(ExprParserMode::parse("ast"), Some(ExprParserMode::Ast));
     assert_eq!(ExprParserMode::parse("AST"), None);
-    assert_eq!(ExprParserMode::default(), ExprParserMode::Legacy);
+    // #485: `ast` is the default — emission and typecheck share one
+    // expression semantics; `legacy` is the opt-in escape hatch.
+    assert_eq!(ExprParserMode::default(), ExprParserMode::Ast);
 }
