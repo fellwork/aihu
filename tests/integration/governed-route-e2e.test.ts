@@ -24,9 +24,9 @@
  * undefined`.
  *
  * PROMOTED (#465): the structural SSR walk landed, so the fixture's
- * `<section class="gx-senses">` — the entitled-only `{#if}` branch — IS now
+ * `<section class="gx-senses">` — the entitled-only `if=` group — IS now
  * required in the entitled server HTML (dual-audience: the guarded content is
- * reachable without JS), and the withheld `{:else}` arm (`gx-locked`) renders
+ * reachable without JS), and the withheld `else` group (`gx-locked`) renders
  * for withheld principals. The `senses` byte-scan is now load-bearing over
  * BOTH channels: present in entitled HTML, byte-absent from every withheld
  * response (HTML and loader JSON alike — the E6-style hard sentinel).
@@ -218,13 +218,13 @@ describe.skipIf(!BINARY)('GX P4 e2e — compiled governed route through handle(r
     expect(html).toContain('gx-headword')
     expect(html).toContain('>logos</p>') // route.params threaded too
 
-    // #465 PROMOTION: the `{#if $gx.entitled}`-guarded section is now
+    // #465 PROMOTION: the `if={$gx.entitled}`-guarded group is now
     // server-rendered — the guarded governed content is IN the entitled HTML,
     // not just the loader JSON. This was the honest-ceiling caveat; it is now
     // load-bearing.
     expect(html).toContain('gx-senses')
     expect(html).toContain(`>${SECRET_SENSES}</section>`)
-    // The {:else} arm must NOT render for an entitled principal.
+    // The else arm must NOT render for an entitled principal.
     expect(html).not.toContain('gx-locked')
 
     // The loader JSON still carries the full Entitled<T> payload.
@@ -251,8 +251,8 @@ describe.skipIf(!BINARY)('GX P4 e2e — compiled governed route through handle(r
     // authored ternary renders server-side.
     expect(html).toContain(`>${PREVIEW_HEADWORD}</h1>`)
 
-    // #465: the `{:else}` arm renders for a withheld principal (the locked
-    // state is server-rendered too), and the entitled-only `{#if}` arm stays
+    // #465: the `else` arm renders for a withheld principal (the locked
+    // state is server-rendered too), and the entitled-only `if=` arm stays
     // byte-absent — down to its class name.
     expect(html).toContain('gx-locked')
     expect(html).toContain('>auth</p>')
@@ -277,7 +277,7 @@ describe.skipIf(!BINARY)('GX P4 e2e — compiled governed route through handle(r
     expect(res.status).toBe(403)
     const body = await res.text()
     expect(htmlOf(body)).toContain(`>${PREVIEW_HEADWORD}</h1>`)
-    expect(htmlOf(body)).toContain('>entitlement</p>') // #465: {:else} arm, reason threaded
+    expect(htmlOf(body)).toContain('>entitlement</p>') // #465: else arm, reason threaded
     expect(body).not.toContain('gx-senses')
     expect(body).not.toContain(SECRET_SENSES)
     expect((loaderJsonOf(body) as { $gx: { reason: string } }).$gx.reason).toBe('entitlement')

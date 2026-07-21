@@ -64,9 +64,9 @@ describe('structural SSR — when() conditionals', () => {
     expect(await renderToString(component)).toBe('<div>ok</div>')
   })
 
-  it('the compiled {#if}/{:else} pair (sibling when() nodes in a fragment) renders exactly one arm', async () => {
+  it('the compiled if/else group pair (sibling when() nodes in a fragment) renders exactly one arm', async () => {
     // Mirrors the compiler's lowering: `branch('', undefined, [when(cond, …),
-    // when(!cond, …)])` — the `{:else}` arm is a sibling with the negation.
+    // when(!cond, …)])` — the `else` arm is a sibling with the negation.
     const make = (entitled: boolean) => () =>
       branch('article', undefined, [
         branch('', undefined, [
@@ -131,7 +131,7 @@ describe('structural SSR — each() lists', () => {
     expect(await renderToString(component)).toBe('<ul></ul>')
   })
 
-  it('the compiled {:empty} lowering (sibling when() on `.length`) renders the empty arm', async () => {
+  it('the compiled `empty` arm lowering (sibling when() on `.length`) renders the empty arm', async () => {
     const empty: string[] = []
     const component = () =>
       branch('', undefined, [

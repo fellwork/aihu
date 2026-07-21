@@ -142,7 +142,7 @@ describe('SSR structural content survives hydration exactly once', () => {
     expect(h1TextNode?.nodeValue).toBe('updated-in-place')
   })
 
-  it('the compiled {#if}/{:else} pair hydrates to exactly one arm', async () => {
+  it('the compiled if/else group pair hydrates to exactly one arm', async () => {
     // The compiler's lowering: fragment wrapping two sibling when() nodes.
     const [entitled, setEntitled] = signal(true)
     const component = () =>

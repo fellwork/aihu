@@ -304,7 +304,7 @@ function _listItems(list: unknown): unknown[] {
  *   - conditional (true):  `${path}.conditional.true`
  *   - list item (key k):   `${path}.list.${String(k).replace(/\./g, '_')}`
  * A false conditional or an empty collection contributes nothing — the
- * compiler lowers `{:else}` / `{:empty}` arms to sibling `when()` nodes with
+ * compiler lowers `else` / `empty` arms to sibling `when()` nodes with
  * negated conditions, so every authored branch is its own conditional here.
  */
 function _structuralSubtrees(
