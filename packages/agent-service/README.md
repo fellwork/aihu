@@ -34,7 +34,7 @@ bun add @aihu/agent-service
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | C — Agent surface — server-side execution + tool dispatch |
-| **Bundle size** | 2.49 kB (gz) — limit 2900 B |
+| **Bundle size** | 2.76 kB (gz) — limit 2900 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

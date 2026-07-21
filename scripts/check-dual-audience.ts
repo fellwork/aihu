@@ -41,6 +41,53 @@
  * and `check:dual-audience` must still fail. `baselines.json` carries that
  * reason; the scorecard row moves 0/3 → 0/4 for the same reason.
  *
+ * ─── GX Phase 5 (#467) — the governed dual-audience seams (40-spec §10) ─────
+ *
+ * Three additional sub-checks make the Phase-4 governed boundary's
+ * dual-audience guarantees non-regressable. Shared fixture:
+ * `scripts/lib/governed-fixture.ts` (also driven by `check:governed` G4/G5),
+ * standing up the REAL `createServerRouter` + registry over the REAL compiled
+ * census row of `bench/compiler-conformance/route/04-governed-data.aihu`.
+ *
+ *   DA-f1  PER-VALUE SENTINEL BYTE CHECKS (E6 generalized into a standing
+ *          check): for a WITHHELD principal (anonymous AND lapsed-entitlement)
+ *          each governed value's sentinel is absent from the ENTIRE response —
+ *          HTML and the `__aihu_loader__` JSON channel scanned per sentinel;
+ *          the declared preview still renders. For an ENTITLED principal the
+ *          granted values are present AS GRANTED (headword in server HTML —
+ *          reachable without JS; the full payload on the loader channel).
+ *          Regression proven: a withheld response whose loader embed carries
+ *          the granted payload (the redact-at-serialize-instead-of-
+ *          never-fetch regression, §4.5's forbidden shape) is flagged.
+ *
+ *   DA-f2  THREE-ARTIFACT AGREEMENT over the committed conformance corpus:
+ *          the `// @aihu:extract` code marker and the `.route.json` sidecar
+ *          must carry the SAME policy for every route fixture, and a `data:`
+ *          declaration in the source must ride the census (present, well-formed
+ *          under the runtime's own `normalizeGovernedData`, type + preview
+ *          tokens agreeing with the source). The committed artifacts are
+ *          byte-pinned to the compiler by the Rust golden suite; the agent-meta
+ *          leg (manifest ≡ marker ≡ route.json) lives in
+ *          `extract_vocabulary.rs`'s `fan_out_three_artifacts_agree_*` tests —
+ *          this check asserts those pins still EXIST, so no leg of the fan-out
+ *          can be silently deleted. HONEST SCOPE: `data:` fans out to
+ *          `.route.json` (+ the type sidecar) only — the marker and agent-meta
+ *          do not carry it, so `data:` agreement is source ≡ census, not
+ *          three-way.
+ *
+ *   DA-f3  DISCOVERY AGREEMENT: the generated discovery artifacts —
+ *          robots.txt, llms.txt, and the served `X-Robots-Tag` header — must
+ *          agree with each surface's declared `read:` across the full value
+ *          vocabulary (all/agents/search/none/verified/human/{scope}/malformed,
+ *          plus the compiled census route): hard values are ABSENT from every
+ *          anonymous artifact (existence never advertised), `'none'` gets its
+ *          honest Disallow + noindex, public values stay listed. Regression
+ *          proven: hand-leaked documents (a Disallow line naming the governed
+ *          path; an llms.txt row listing it) are flagged. HONEST SCOPE:
+ *          per-principal discovery (an authenticated agent's OWN listing of
+ *          entitled surfaces) has no shipped surface on main yet — that leg
+ *          activates when one lands; nothing here should be read as covering it.
+ *
  * DA-c and DA-d are separate findings because they are separate defects in
  * separate files with separate fixes: DA3 repairing the router does not repair
  * the SSG writer. Grouping them would let one fix silently decrement a baseline
@@ -583,6 +630,363 @@ function aihuSources(base = ROOT): Array<{ rel: string; source: string }> {
   return out.sort((a, b) => a.rel.localeCompare(b.rel))
 }
 
+// ─── DA-f1 (GX P5 #467): per-value sentinel byte checks ──────────────────────
+
+async function runDaF1(mode: ProbeMode): Promise<{ finding: Finding | null }> {
+  const { GX_GOVERNED_SENTINELS, GX_PREVIEW_HEADWORD, GX_ENTITLED_HEADWORD, GX_SECRET } =
+    await import('./lib/governed-fixture.ts')
+  const { makeGovernedFixture, govReq, htmlOf, loaderJsonOf } = await import(
+    './lib/governed-fixture.ts'
+  )
+
+  const fx = await makeGovernedFixture()
+  let anonBody = await (await fx.router.handle(govReq(fx.path))).text()
+  const lapsedBody = await (await fx.router.handle(govReq(fx.path, 'lapsed-token'))).text()
+  const entitledBody = await (await fx.router.handle(govReq(fx.path, 'member-token'))).text()
+
+  if (mode === 'regressed') {
+    // The §4.5-forbidden regression: the withheld response is produced by
+    // SERIALIZING the granted payload (redaction downstream of a full fetch)
+    // instead of never fetching it — the loader embed leaks the sentinels
+    // while the HTML still looks locked. Composed, not live-mutated: the live
+    // pipeline correctly has no code path that fetches for a withheld request
+    // (G4a's spy proves that), which is the property itself.
+    const granted = JSON.stringify({
+      headword: GX_ENTITLED_HEADWORD,
+      senses: [GX_SECRET],
+      $gx: { entitled: false, reason: 'auth' },
+    })
+    anonBody = `${htmlOf(anonBody)}<script type="application/json" id="__aihu_loader__">${granted}</script>`
+  }
+
+  const bad: string[] = []
+  // Per-value scan, per withheld principal class — one line per leaked value
+  // so a partial leak (one field) is named, not rounded into a boolean.
+  for (const [label, body] of [
+    ['anonymous', anonBody],
+    ['lapsed-entitlement', lapsedBody],
+  ] as const) {
+    for (const sentinel of GX_GOVERNED_SENTINELS) {
+      if (body.includes(sentinel)) {
+        bad.push(`withheld (${label}) response carries governed value sentinel '${sentinel}'`)
+      }
+    }
+    if (!htmlOf(body).includes(GX_PREVIEW_HEADWORD)) {
+      bad.push(`withheld (${label}) response lost the DECLARED preview field`)
+    }
+  }
+  // Entitled: present AS GRANTED — headword in the no-JS-reachable HTML,
+  // full payload on the loader channel.
+  if (!htmlOf(entitledBody).includes(GX_ENTITLED_HEADWORD)) {
+    bad.push('entitled response is missing the granted headword in server HTML')
+  }
+  const entitledJson = loaderJsonOf(entitledBody) as { senses?: string[] } | null
+  if (!entitledJson?.senses?.includes(GX_SECRET)) {
+    bad.push('entitled loader channel is missing the granted governed payload')
+  }
+
+  if (bad.length === 0) return { finding: null }
+  return {
+    finding: {
+      where: 'packages/router/src/server.ts:244',
+      rule: 'DA-f1',
+      message:
+        `governed sentinel byte checks failed — ${bad.length} violation(s): ${bad.join('; ')}. ` +
+        'A withheld response must contain NO governed value on ANY channel (HTML or ' +
+        '__aihu_loader__ JSON), and an entitled response must carry what the gate granted.',
+    },
+  }
+}
+
+// ─── DA-f2 (GX P5 #467): three-artifact agreement over the census corpus ─────
+
+interface RouteArtifactEntry {
+  readonly rel: string
+  readonly source: string
+  readonly golden: string | null
+  readonly routeJson: Record<string, unknown> | null
+}
+
+/** Canonical single-token form of a compiled extract axis value — the TS
+ * mirror of `ExtractRead::marker_value` / `ExtractCall::marker_value`. */
+function canonicalExtractToken(value: unknown): string | null {
+  if (typeof value === 'string' && value !== '') return value
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { scope?: unknown }).scope === 'string' &&
+    (value as { scope: string }).scope !== ''
+  ) {
+    return `scope:${(value as { scope: string }).scope}`
+  }
+  return null
+}
+
+/**
+ * Pure agreement core (self-testable on synthetic entries). One finding per
+ * disagreeing fixture — each is its own drift with its own artifact to fix.
+ */
+async function daF2Findings(entries: ReadonlyArray<RouteArtifactEntry>): Promise<Finding[]> {
+  const { normalizeGovernedData } = await import('@aihu/server')
+  const findings: Finding[] = []
+
+  for (const e of entries) {
+    const problems: string[] = []
+    const extract = (e.routeJson?.extract ?? null) as { read?: unknown; call?: unknown } | null
+
+    if (e.golden !== null && e.routeJson !== null) {
+      const m = e.golden.match(/^\/\/ @aihu:extract read=(\S+) call=(\S+)/m)
+      if (!m) {
+        problems.push('the emitted JS carries no `// @aihu:extract` code marker')
+      } else if (extract === null) {
+        problems.push('.route.json carries no `extract` member while the marker exists')
+      } else {
+        const jsonRead = canonicalExtractToken(extract.read)
+        const jsonCall = canonicalExtractToken(extract.call)
+        if (m[1] !== jsonRead) {
+          problems.push(
+            `read axis disagrees: marker '${m[1]}' vs .route.json '${jsonRead}' — the §2.4 ` +
+              'fan-out drifted',
+          )
+        }
+        if (m[2] !== jsonCall) {
+          problems.push(`call axis disagrees: marker '${m[2]}' vs .route.json '${jsonCall}'`)
+        }
+      }
+    }
+
+    // `data:` agreement — source ≡ census (the artifacts that carry it).
+    if (e.routeJson !== null) {
+      const sourceDeclares = /^\s*data\s*:\s*\{/m.test(e.source)
+      const censusData = e.routeJson.data
+      if (sourceDeclares && censusData === undefined) {
+        problems.push(
+          'the source declares `data:` but the compiled census carries none — the governed ' +
+            'declaration was dropped in fan-out, so the route would BOOT UNGATED',
+        )
+      } else if (!sourceDeclares && censusData !== undefined) {
+        problems.push('the census carries `data:` the source never declared')
+      } else if (censusData !== undefined) {
+        const norm = normalizeGovernedData(censusData)
+        if (norm === 'malformed' || norm === null) {
+          problems.push('the census `data:` does not survive the runtime normalizer (malformed)')
+        } else {
+          if (!e.source.includes(`'${norm.type}'`) && !e.source.includes(`"${norm.type}"`)) {
+            problems.push(`census data.type '${norm.type}' does not appear in the source`)
+          }
+          for (const field of norm.preview ?? []) {
+            if (!e.source.includes(`'${field}'`) && !e.source.includes(`"${field}"`)) {
+              problems.push(`census preview field '${field}' does not appear in the source`)
+            }
+          }
+        }
+      }
+    }
+
+    if (problems.length > 0) {
+      findings.push({
+        where: e.rel,
+        rule: 'DA-f2',
+        message: `artifact agreement broken — ${problems.join('; ')}.`,
+      })
+    }
+  }
+  return findings
+}
+
+/** The committed conformance corpus: source + sibling artifacts. */
+function routeArtifactEntries(base = ROOT): RouteArtifactEntry[] {
+  const out: RouteArtifactEntry[] = []
+  for (const m of new Glob('bench/compiler-conformance/route/*.aihu').scanSync(base)) {
+    const rel = m.replaceAll('\\', '/')
+    const stem = rel.slice(0, -'.aihu'.length)
+    const goldenPath = join(base, `${stem}.golden.js`)
+    const routeJsonPath = join(base, `${stem}.route.json`)
+    out.push({
+      rel,
+      source: readFileSync(join(base, rel), 'utf8'),
+      golden: existsSync(goldenPath) ? readFileSync(goldenPath, 'utf8') : null,
+      routeJson: existsSync(routeJsonPath)
+        ? (JSON.parse(readFileSync(routeJsonPath, 'utf8')) as Record<string, unknown>)
+        : null,
+    })
+  }
+  return out.sort((a, b) => a.rel.localeCompare(b.rel))
+}
+
+/**
+ * The legs of the fan-out this script cannot re-derive live (no Rust binary
+ * on a plain checkout) are PINNED elsewhere; assert the pins still exist so
+ * deleting one is a DA-f2 finding, not a silent coverage loss:
+ *  - agent-meta ≡ marker ≡ route.json — `fan_out_three_artifacts_agree_*`;
+ *  - committed artifacts ≡ compiler output — the gx_data golden assertions.
+ */
+function daF2RustLegFindings(base = ROOT): Finding[] {
+  const findings: Finding[] = []
+  const legs: ReadonlyArray<[string, string, string]> = [
+    [
+      'packages/compiler/tests/extract_vocabulary.rs',
+      'fan_out_three_artifacts_agree_declared',
+      'the agent-meta three-artifact agreement tests',
+    ],
+    [
+      'packages/compiler/tests/gx_data.rs',
+      '04-governed-data.route.json',
+      'the golden pin binding the committed census to compiler output',
+    ],
+  ]
+  for (const [rel, needle, what] of legs) {
+    const abs = join(base, rel)
+    if (!existsSync(abs) || !readFileSync(abs, 'utf8').includes(needle)) {
+      findings.push({
+        where: rel,
+        rule: 'DA-f2',
+        message:
+          `${what} (\`${needle}\`) is GONE — this check's reliance on the committed ` +
+          'artifacts is no longer sound; the fan-out can drift undetected.',
+      })
+    }
+  }
+  return findings
+}
+
+// ─── DA-f3 (GX P5 #467): discovery agreement with the declared read: ─────────
+
+interface DaF3Docs {
+  readonly robots: string
+  readonly llms: string
+}
+
+interface DaF3Route {
+  readonly pattern: string
+  readonly extract?: { readonly read?: unknown; readonly call?: unknown }
+}
+
+/** Pure agreement core over generated documents (self-testable). */
+async function daF3Disagreements(
+  routes: ReadonlyArray<DaF3Route>,
+  docs: DaF3Docs,
+  noindexByPattern: ReadonlyMap<string, boolean>,
+): Promise<string[]> {
+  const { deriveReadPolicy, extractReadValue } = await import('@aihu/server')
+  const bad: string[] = []
+  for (const route of routes) {
+    const d = deriveReadPolicy(extractReadValue(route.extract))
+    const value = typeof d.value === 'string' ? d.value : `scope:${d.value.scope}`
+    // The static prefix is what a robots directive would name for this route.
+    const prefix = route.pattern.split('[')[0]!
+
+    if (!d.advertiseInRobots) {
+      // Hard/malformed: existence never advertised — no directive may NAME it.
+      if (docs.robots.includes(prefix)) {
+        bad.push(`robots.txt names hard surface '${route.pattern}' (read=${value})`)
+      }
+    } else if (d.value === 'none') {
+      if (!docs.robots.includes(`Disallow: ${prefix}`)) {
+        bad.push(`robots.txt lacks the Disallow for '${route.pattern}' (read='none')`)
+      }
+    }
+
+    if (d.agentDiscovery) {
+      if (!docs.llms.includes(route.pattern)) {
+        bad.push(`llms.txt does not list public surface '${route.pattern}' (read=${value})`)
+      }
+    } else if (docs.llms.includes(route.pattern)) {
+      bad.push(`llms.txt lists non-agent-discoverable surface '${route.pattern}' (read=${value})`)
+    }
+
+    const served = noindexByPattern.get(route.pattern)
+    if (served !== undefined && served !== d.noindex) {
+      bad.push(
+        `served X-Robots-Tag noindex=${served} disagrees with declared read=${value} ` +
+          `(derivation says noindex=${d.noindex}) for '${route.pattern}'`,
+      )
+    }
+  }
+  return bad
+}
+
+/** The full read-value vocabulary as a synthetic census, plus the REAL one. */
+function daF3RouteTable(census: DaF3Route): DaF3Route[] {
+  return [
+    { pattern: '/pub-all', extract: { read: 'all', call: 'anonymous' } },
+    { pattern: '/pub-agents', extract: { read: 'agents', call: 'anonymous' } },
+    { pattern: '/pub-search', extract: { read: 'search', call: 'anonymous' } },
+    { pattern: '/private-notes', extract: { read: 'none', call: 'anonymous' } },
+    { pattern: '/hard-verified', extract: { read: 'verified', call: 'anonymous' } },
+    { pattern: '/hard-human', extract: { read: 'human', call: 'anonymous' } },
+    { pattern: '/hard-scoped', extract: { read: { scope: 'members' }, call: 'anonymous' } },
+    { pattern: '/mal-formed', extract: { read: 42, call: 'anonymous' } },
+    census,
+  ]
+}
+
+async function runDaF3(mode: ProbeMode): Promise<{ bad: string[]; finding: Finding | null }> {
+  const { generateLlmsTxt, generateRobotsTxt } = await import('@aihu-plugin/agent-readiness')
+  const { createServerRouter } = await import('@aihu/router/server')
+  const { branch, leaf } = await import('@aihu/arbor')
+  const { loadGovernedCensus, makeGovernedFixture, govReq } = await import(
+    './lib/governed-fixture.ts'
+  )
+
+  const census = loadGovernedCensus()
+  const table = daF3RouteTable({ pattern: census.pattern, extract: census.extract })
+
+  // The REAL generators over the census (the artifacts a deploy ships).
+  let robots = generateRobotsTxt({ routes: table })
+  let llms = generateLlmsTxt({
+    name: 'discovery-probe',
+    sections: [],
+    routes: table,
+    baseUrl: 'https://probe.test',
+  })
+  if (mode === 'regressed') {
+    // The leak shape a generator regression would produce: the governed
+    // surface advertised in both anonymous artifacts. Composed onto the real
+    // documents so the assertions face otherwise-correct output.
+    robots += `\nUser-agent: *\nDisallow: ${census.pattern.split('[')[0]}`
+    llms += `\n- [${census.pattern}](https://probe.test${census.pattern})`
+  }
+
+  // The served-header leg: drive the REAL server router for every synthetic
+  // (ungoverned) route and record the noindex signal it actually sends.
+  const noindexByPattern = new Map<string, boolean>()
+  const syntheticRoutes = table.filter((r) => r.pattern !== census.pattern)
+  const routes = syntheticRoutes.map((r) => ({
+    pattern: r.pattern,
+    segments: [{ kind: 'static' as const, path: r.pattern.slice(1) }],
+    module: async () => ({ default: () => branch('main', undefined, [leaf('discovery probe')]) }),
+    extract: r.extract,
+  })) as never
+  const router = createServerRouter(routes)
+  for (const r of syntheticRoutes) {
+    const res = await router.handle(new Request(`http://discovery.probe${r.pattern}`))
+    noindexByPattern.set(r.pattern, res.headers.get('X-Robots-Tag')?.includes('noindex') ?? false)
+  }
+  // The governed census route is served by the governed pipeline — its
+  // noindex signal is asserted from the shared fixture's ENTITLED response
+  // (the header must ride even a granted emission).
+  const fx = await makeGovernedFixture()
+  const entitled = await fx.router.handle(govReq(fx.path, 'member-token'))
+  noindexByPattern.set(
+    census.pattern,
+    entitled.headers.get('X-Robots-Tag')?.includes('noindex') ?? false,
+  )
+
+  const bad = await daF3Disagreements(table, { robots, llms }, noindexByPattern)
+  if (bad.length === 0) return { bad, finding: null }
+  return {
+    bad,
+    finding: {
+      where: 'packages/plugin-agent-readiness/src/robots.ts:363',
+      rule: 'DA-f3',
+      message:
+        `discovery artifacts disagree with declared read: policies — ${bad.length} ` +
+        `disagreement(s): ${bad.join('; ')}.`,
+    },
+  }
+}
+
 // ─── Self-test ───────────────────────────────────────────────────────────────
 
 /** A fixture that DOES implement the resolver — DA-a's should-not-flag half. */
@@ -686,6 +1090,66 @@ async function runSelfTest(): Promise<void> {
     expected: 0,
   })
 
+  // DA-f1 (GX P5), both directions: the live governed pipeline is byte-clean;
+  // a withheld response serialized from the granted payload must flag.
+  cases.push({
+    label: 'DA-f1 should-flag: withheld loader embed carries the granted payload',
+    actual: (await runDaF1('regressed')).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-f1 should-not-flag: live governed responses (P4 landed)',
+    actual: (await runDaF1('live')).finding ? 1 : 0,
+    expected: 0,
+  })
+
+  // DA-f2, both directions, on SYNTHETIC entries — the checker must see a
+  // drifted marker and a dropped `data:` census member, and must pass a
+  // fixture whose artifacts genuinely agree.
+  const agreeing: RouteArtifactEntry = {
+    rel: 'fixture/agree.aihu',
+    source:
+      "@route {\n  path: '/x',\n  extract: { read: { scope: 'm' } },\n  data: { type: 'T', preview: ['a'] }\n}\n",
+    golden: '// @aihu:extract read=scope:m call=anonymous\nexport default 1\n',
+    routeJson: {
+      pattern: '/x',
+      extract: { read: { scope: 'm' }, call: 'anonymous' },
+      data: { type: 'T', preview: ['a'] },
+    },
+  }
+  cases.push({
+    label: 'DA-f2 should-not-flag: marker ≡ route.json ≡ source (agreeing fixture)',
+    actual: (await daF2Findings([agreeing])).length,
+    expected: 0,
+  })
+  cases.push({
+    label: 'DA-f2 should-flag: drifted marker + dropped data: census member',
+    actual: (
+      await daF2Findings([
+        { ...agreeing, golden: '// @aihu:extract read=agents call=anonymous\n' },
+        {
+          ...agreeing,
+          rel: 'fixture/dropped.aihu',
+          routeJson: { pattern: '/x', extract: agreeing.routeJson!.extract },
+        },
+      ])
+    ).length,
+    expected: 2,
+  })
+
+  // DA-f3, both directions: the real generators agree; hand-leaked documents
+  // (a Disallow naming the governed path, an llms.txt row listing it) flag.
+  cases.push({
+    label: 'DA-f3 should-flag: discovery documents advertising a hard surface',
+    actual: (await runDaF3('regressed')).finding ? 1 : 0,
+    expected: 1,
+  })
+  cases.push({
+    label: 'DA-f3 should-not-flag: live generators + served noindex signals',
+    actual: (await runDaF3('live')).finding ? 1 : 0,
+    expected: 0,
+  })
+
   selfTest(NAME, cases)
 }
 
@@ -709,6 +1173,38 @@ if (daC.finding) findings.push(daC.finding)
 
 const daD = await runDaD('live')
 if (daD.finding) findings.push(daD.finding)
+
+// DA-f1 — the standing byte check over the live governed pipeline.
+const daF1 = await runDaF1('live')
+if (daF1.finding) findings.push(daF1.finding)
+
+// DA-f2 — artifact agreement over the committed conformance corpus, plus the
+// existence pins for the legs the Rust suite owns. Census printed per run
+// (spec §10: "Census print every run").
+const artifactEntries = routeArtifactEntries()
+refuseVacuous(artifactEntries, NAME, 'conformance route fixtures (DA-f2)')
+console.log(`${NAME} — DA-f2 census (${artifactEntries.length} compiled route fixture(s)):`)
+for (const e of artifactEntries) {
+  const ex = (e.routeJson?.extract ?? {}) as { read?: unknown; call?: unknown }
+  const data = e.routeJson?.data as { type?: string; preview?: string[] } | undefined
+  console.log(
+    `  ${e.rel}  read=${canonicalExtractToken(ex.read) ?? '(absent)'} ` +
+      `call=${canonicalExtractToken(ex.call) ?? '(absent)'}` +
+      (data ? ` data=${data.type}[preview: ${(data.preview ?? []).join(', ')}]` : ''),
+  )
+}
+for (const f of await daF2Findings(artifactEntries)) findings.push(f)
+for (const f of daF2RustLegFindings()) findings.push(f)
+
+// DA-f3 — discovery agreement across the read-value vocabulary + the census.
+const daF3 = await runDaF3('live')
+if (daF3.finding) findings.push(daF3.finding)
+console.log(
+  `${NAME} — DA-f3: robots/llms/noindex agreement over ${daF3.bad.length === 0 ? 'all' : ''} ` +
+    `9 read-value surfaces (incl. the compiled census route). NOTE (honest scope): ` +
+    'per-principal discovery — an authenticated listing of entitled surfaces — has no ' +
+    'shipped surface yet; that leg activates when one lands.',
+)
 
 // DA-e — reported, NEVER pushed to `findings` in this phase (#437 phase 1).
 const aihuFiles = aihuSources()
