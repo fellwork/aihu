@@ -135,6 +135,46 @@ pub fn compile_full_with_options<'a>(
     if let Some(script) = source.script {
         let macros = parser::state_macros::parse_state_macros(script)?;
 
+        // #487 — the state-model wrapper dialect (state-model spec §1–§4).
+        // The scan raises its own hard diagnostics (C622 swapped args, C624
+        // nature/role mismatch, C629 malformed call, plus the carried-over
+        // C445/C446/C470/C471/C483 checks) at this error boundary.
+        let wrapper_scan = parser::state_wrappers::scan_state_wrappers(script)?;
+
+        // C625 — per-file dialect exclusivity (spec §7.2, wave 0): a file
+        // mixing `$`-forms and new wrappers never blends lexer/emitter
+        // branches. `$shadow`/`$extract` are exempt (config directives shared
+        // by both dialects); authored `signal()` tuples are orthogonal.
+        if !wrapper_scan.macros.is_empty() {
+            let has_old_forms = macros
+                .iter()
+                .any(|m| !matches!(m, StateMacro::Shadow { .. } | StateMacro::Extract { .. }));
+            if has_old_forms {
+                return Err(CompileError {
+                    message: "C625: this `@state` block mixes `$`-macro forms with the new \
+                              wrapper declarations (`state(…)`/`prop(…)`/`derived(…)`/…). A \
+                              file is one dialect or the other — migrate the remaining \
+                              `$`-forms to wrappers, or keep the file entirely `$`-form."
+                        .to_string(),
+                    line: 0,
+                    col: 0,
+                    code: Some("C625".to_string()),
+                    hint: Some(
+                        "migration is per-file (state-model spec §7); `$shadow`/`$extract` \
+                         directives and authored `signal()` tuples are exempt"
+                            .to_string(),
+                    ),
+                    ..Default::default()
+                });
+            }
+        }
+
+        // #487 §4.3/§4.6 — write-legality over the wrapper dialect's bodies:
+        // C624 (write to a const-natured prop / read-only binding), C626
+        // (destructuring into a reactive binding), C561-class (a write inside
+        // a derivation position).
+        validate_wrapper_writes(&wrapper_scan)?;
+
         // CO1: `$prop` write diagnostics. These run HERE rather than in emit
         // because emit's lowering chain returns `String`, not `Result` — this
         // is the pipeline's error boundary, and it runs before any codegen.
@@ -176,12 +216,282 @@ pub fn compile_full_with_options<'a>(
     // (`'light' | 'shadow'`; 'closed' never worked — it nulls
     // `this.shadowRoot` and misdetects as light DOM).
 
+    // #487 §4.4 — W627 inert-`let` staleness advisory (WARNING, ratified
+    // §9.6): a bare `@state` `let` that is both mutated and read by the
+    // template will render stale. Advisory only — deliberate
+    // mutate-before-mount idioms stay legal.
+    if let (Some(script), Some(ast)) = (source.script, template_ast.as_deref()) {
+        for w in state_staleness_warnings(script, ast) {
+            diagnostics::emit_warning(&w);
+        }
+    }
+
     Ok(CompileUnit {
         source: source.clone(),
         template_ast,
         target,
         expr_parser,
     })
+}
+
+/// #487 — write-legality validation over the wrapper dialect (state-model
+/// spec §4.3/§4.6). Runs the SAME `expr::rewrite_state_body` pass emit uses,
+/// here for its `Result` channel: C624 (write to a `const`-natured prop or a
+/// read-only reactive binding), C626 (destructuring into a reactive binding).
+/// Derivation positions (`derived`/`resource`/`stream`/`controller` bodies and
+/// `state` initializers) additionally reject ANY write to a reactive binding
+/// as C561 — the same category CO1 established for `$computed`/`$resource`.
+fn validate_wrapper_writes(
+    scan: &parser::state_wrappers::WrapperScan,
+) -> Result<(), CompileError> {
+    use crate::parser::state_macros::{meta_get, running_code};
+
+    if scan.macros.is_empty() {
+        return Ok(());
+    }
+    let targets = parser::state_wrappers::collect_wrapper_targets(&scan.macros);
+    let writable_names: std::collections::HashSet<String> = targets
+        .states
+        .keys()
+        .chain(targets.prop_lets.keys())
+        .cloned()
+        .chain(targets.prop_consts.iter().cloned())
+        .collect();
+
+    let check_imperative = |code: &str| -> Result<(), CompileError> {
+        expr::rewrite_state_body(code, "", false, &targets, true).map(|_| ())
+    };
+    let check_derivation = |code: &str, position: &str| -> Result<(), CompileError> {
+        if let Some(name) = expr::detect_prop_writes(code, "", false, &writable_names).first() {
+            return Err(CompileError {
+                message: format!(
+                    "C561: `{position}` bodies are derivations and must not write `{name}` — \
+                     move the write into an `action` (or an `effect`)."
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C561".to_string()),
+                ..Default::default()
+            });
+        }
+        expr::rewrite_state_body(code, "", false, &targets, true).map(|_| ())
+    };
+
+    for m in &scan.macros {
+        match m {
+            StateMacro::Collection { kind, entries } => {
+                for e in entries {
+                    if !e.wrapper {
+                        continue;
+                    }
+                    match kind {
+                        CollectionKind::Action
+                        | CollectionKind::Effect
+                        | CollectionKind::Lifecycle => {
+                            if let Some(code) = running_code(e) {
+                                check_imperative(code)?;
+                            }
+                        }
+                        CollectionKind::Computed | CollectionKind::Resource => {
+                            if let Some(code) = running_code(e) {
+                                let pos = if matches!(kind, CollectionKind::Computed) {
+                                    "derived"
+                                } else {
+                                    "resource"
+                                };
+                                check_derivation(code, pos)?;
+                            }
+                        }
+                        CollectionKind::Stream => {
+                            if let Some(code) = meta_get(e, "source") {
+                                check_derivation(code, "stream")?;
+                            }
+                        }
+                        CollectionKind::Controller => {
+                            if let Some(code) = meta_get(e, "value") {
+                                check_derivation(code, "controller")?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            StateMacro::StateLet { init, .. } => {
+                check_derivation(init, "state initializer")?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// #487 §4.4 — the W627 inert-`let` staleness DECISION, a pure function (the
+/// W472/W480 pattern: emission goes to stderr, so the decision is testable).
+///
+/// Fires for a bare (non-`state`) `@state` top-level `let` that is BOTH
+/// (a) assigned somewhere in `@state`-scope code or a template handler, AND
+/// (b) read by a template (non-handler) expression. The render-time
+/// memo-cache idiom (a `let` read only inside functions, never by the
+/// template) never fires it.
+pub fn state_staleness_warnings(script: &str, template_ast: &[TemplateNode]) -> Vec<CompileError> {
+    use std::collections::BTreeSet;
+
+    // Bare top-level `let` names — minus wrapper-dialect constructs (a
+    // `let x = state(0)` line is reactive, not bare).
+    let scan = parser::state_wrappers::scan_state_wrappers(script).unwrap_or_default();
+    let targets = parser::state_wrappers::collect_wrapper_targets(&scan.macros);
+    let mut bare_lets: BTreeSet<String> = BTreeSet::new();
+    for line in codegen::signals::plain_state_lines(script) {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("let ") {
+            if let Some(name) = rest
+                .trim_start()
+                .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '$'))
+                .next()
+                .filter(|s| !s.is_empty())
+            {
+                if !targets.reads.contains(name) {
+                    bare_lets.insert(name.to_string());
+                }
+            }
+        }
+    }
+    if bare_lets.is_empty() {
+        return Vec::new();
+    }
+    let bare_set: std::collections::HashSet<String> = bare_lets.iter().cloned().collect();
+
+    // (a) mutated — in macro bodies (both dialects), template handlers, or
+    // top-level/helper code.
+    let mut written: BTreeSet<String> = BTreeSet::new();
+    let mut macros = parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    macros.extend(scan.macros.iter().cloned());
+    for m in &macros {
+        if let StateMacro::Collection { kind, entries } = m {
+            if matches!(
+                kind,
+                CollectionKind::Action | CollectionKind::Effect | CollectionKind::Lifecycle
+            ) {
+                for e in entries {
+                    if let Some(code) = parser::state_macros::running_code(e) {
+                        written.extend(expr::detect_prop_writes(code, "", false, &bare_set));
+                    }
+                }
+            }
+        }
+    }
+    let plain_joined = codegen::signals::plain_state_lines(script).join("\n");
+    written.extend(expr::detect_prop_writes(&plain_joined, "", false, &bare_set));
+
+    // Template walk: handler expressions feed WRITES; everything else feeds
+    // READS.
+    let mut read_by_template: BTreeSet<String> = BTreeSet::new();
+    fn walk(
+        nodes: &[TemplateNode],
+        bare_set: &std::collections::HashSet<String>,
+        bare_lets: &std::collections::BTreeSet<String>,
+        written: &mut std::collections::BTreeSet<String>,
+        reads: &mut std::collections::BTreeSet<String>,
+    ) {
+        let read_scan = |expr: &str, reads: &mut std::collections::BTreeSet<String>| {
+            let names: std::collections::BTreeSet<String> = bare_lets.clone();
+            if let Some(hit) = codegen::signals::first_referenced_ident(expr, &names) {
+                reads.insert(hit);
+            }
+            // first_referenced_ident stops at the first hit; scan per-name for
+            // completeness (bare-let sets are tiny).
+            for n in bare_lets {
+                if expr.contains(n.as_str())
+                    && codegen::signals::first_referenced_ident(
+                        expr,
+                        &std::collections::BTreeSet::from([n.clone()]),
+                    )
+                    .is_some()
+                {
+                    reads.insert(n.clone());
+                }
+            }
+        };
+        for node in nodes {
+            match node {
+                TemplateNode::Element { attrs, children, .. }
+                | TemplateNode::MacroElement { attrs, children, .. } => {
+                    for a in attrs {
+                        match a {
+                            Attr::Binding { name, expr } => {
+                                let is_event = name.starts_with("on")
+                                    && name.len() > 2
+                                    && !name.contains('-');
+                                if is_event {
+                                    written.extend(expr::detect_prop_writes(
+                                        expr, "", false, bare_set,
+                                    ));
+                                } else {
+                                    read_scan(expr, reads);
+                                }
+                            }
+                            Attr::Macro { name, value } => {
+                                if let MacroValue::Curly(s) = value {
+                                    if name.starts_with("on:") {
+                                        written.extend(expr::detect_prop_writes(
+                                            s, "", false, bare_set,
+                                        ));
+                                    } else {
+                                        read_scan(s, reads);
+                                    }
+                                }
+                            }
+                            Attr::Static { .. } => {}
+                        }
+                    }
+                    walk(children, bare_set, bare_lets, written, reads);
+                }
+                TemplateNode::Interpolation(s) => read_scan(s, reads),
+                TemplateNode::HtmlBlock { expr } => read_scan(expr, reads),
+                TemplateNode::IfBlock { branches } => {
+                    for (cond, body) in branches {
+                        read_scan(cond, reads);
+                        walk(body, bare_set, bare_lets, written, reads);
+                    }
+                }
+                TemplateNode::EachBlock { list_expr, key_expr, body, empty_body, .. } => {
+                    read_scan(list_expr, reads);
+                    if let Some(k) = key_expr {
+                        read_scan(k, reads);
+                    }
+                    walk(body, bare_set, bare_lets, written, reads);
+                    if let Some(eb) = empty_body {
+                        walk(eb, bare_set, bare_lets, written, reads);
+                    }
+                }
+                TemplateNode::Text(_) => {}
+            }
+        }
+    }
+    walk(
+        template_ast,
+        &bare_set,
+        &bare_lets,
+        &mut written,
+        &mut read_by_template,
+    );
+
+    written
+        .intersection(&read_by_template)
+        .map(|name| CompileError {
+            message: format!(
+                "W627: `{name}` is mutated and read by the template, but isn't reactive — the \
+                 template will not update when it changes. Did you mean `let {name} = state(…)`? \
+                 (If the non-reactivity is intentional, read it through a function or mark the \
+                 read site.)"
+            ),
+            line: 0,
+            col: 0,
+            code: Some("W627".to_string()),
+            fix: Some(format!("let {name} = state(…)")),
+            ..Default::default()
+        })
+        .collect()
 }
 
 /// GX Phase 1 (#437-GX) — `extract:` composition checks (spec §3 rows 3, 8,

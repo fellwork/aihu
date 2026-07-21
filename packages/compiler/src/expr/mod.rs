@@ -55,6 +55,15 @@ pub use prop_write::{
     UPDATE_HELPER_DECL, UPDATE_HELPER_NAME,
 };
 
+// #487 — the state-model READ + WRITE rewrite over `@state`-scope code bodies
+// and template handler expressions (state-model spec §4.2/§4.3). CO1's pass
+// generalized to wrapper-declared `state`/`prop`/`derived` bindings; same
+// containment rule.
+pub mod state_rw;
+pub use state_rw::{
+    rewrite_state_body, StateRwResult, STATE_UPDATE_HELPER_DECL, STATE_UPDATE_HELPER_NAME,
+};
+
 use crate::types::{Attr, CompileError, MacroValue, TemplateNode};
 
 use oxc_allocator::Allocator;

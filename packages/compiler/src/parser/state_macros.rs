@@ -1213,6 +1213,8 @@ fn parse_object_collection(
             is_wrapped,
             value_raw,
             meta,
+            wrapper: false,
+            mutable: false,
         });
     }
 
@@ -1237,6 +1239,28 @@ pub fn strip_outer_braces_pub(s: &str) -> Option<String> {
 /// B5 `$context` sub-object parsing.
 pub fn parse_meta_pairs_pub(body: &str) -> Result<Vec<(String, String)>, crate::types::CompileError> {
     parse_meta_pairs(body)
+}
+
+/// Public wrapper for `split_top_level_commas` — used by the #487 wrapper
+/// scanner (`parser/state_wrappers.rs`) to split wrapper-call argument lists.
+pub fn split_top_level_commas_pub(s: &str) -> Vec<String> {
+    split_top_level_commas(s)
+}
+
+/// Public wrapper for `parse_object_collection` — used by the #487 wrapper
+/// scanner to parse `aria({ … })` / `form({ … })` statement-call configs with
+/// the SAME per-kind validation the `$aria`/`$form` macros get.
+pub fn parse_object_collection_pub(
+    inner: &str,
+    kind: CollectionKind,
+) -> Result<Vec<CollectionEntry>, CompileError> {
+    parse_object_collection(inner, kind)
+}
+
+/// Public wrapper for `check_prop_attribute_collisions` — used by the #487
+/// wrapper scanner so wrapper-dialect props carry the SAME C446 check.
+pub fn check_prop_attribute_collisions_pub(macros: &[StateMacro]) -> Option<CompileError> {
+    check_prop_attribute_collisions(macros)
 }
 
 /// True when a `$context` provide `value:` expression is function-shaped —
@@ -1713,6 +1737,77 @@ pub fn is_magna_origin(thunk_body: &str) -> bool {
     idx != 0 && after_data[idx..].starts_with(".query(")
 }
 
+// ─── #487 §6.1 — the ONE structured `expose:` resolver ──────────────────────
+
+/// Resolved GX `expose:` booleans — the shape everything downstream keys off
+/// (opaque member IDs, DE5 schema derivation, the write-exposed-props-are-
+/// never-tools rule, the unexposed-`describe`-never-emitted rule, C481/W481).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ExposeFlags {
+    pub read: bool,
+    pub write: bool,
+}
+
+/// Resolve an authored `expose:` value to `{ read, write }` booleans — the
+/// SINGLE source of truth consumed by both the server `__agentBinding` export
+/// and the client dispatcher (state-model spec §6.1, replacing the former
+/// string-`contains` in `collect_agent_members`).
+///
+/// Accepted forms, both dialects:
+/// - structured object: `{ read: true }`, `{ read: true, write: true }`
+/// - shorthand strings (wrapper configs): `'read'`, `'write'`, `'read write'`,
+///   and the documented alias `'public'` (= read + write).
+///
+/// Unknown/absent values resolve to `{ read: false, write: false }` — the
+/// closed default, matching the previous contains-check behavior.
+pub fn resolve_expose(raw: &str) -> ExposeFlags {
+    let v = raw.trim().trim_end_matches(',').trim();
+    if v.is_empty() {
+        return ExposeFlags::default();
+    }
+    // Shorthand string forms.
+    if (v.starts_with('\'') && v.ends_with('\'')) || (v.starts_with('"') && v.ends_with('"')) {
+        let inner = &v[1..v.len() - 1];
+        return match inner.trim() {
+            "public" => ExposeFlags { read: true, write: true },
+            s => {
+                let mut f = ExposeFlags::default();
+                for word in s.split_ascii_whitespace() {
+                    match word {
+                        "read" => f.read = true,
+                        "write" => f.write = true,
+                        _ => return ExposeFlags::default(), // unknown token → closed
+                    }
+                }
+                f
+            }
+        };
+    }
+    // Structured object form.
+    if v.starts_with('{') {
+        if let Some(inner) = strip_outer_braces(v) {
+            if let Ok(pairs) = parse_meta_pairs(inner) {
+                let mut f = ExposeFlags::default();
+                for (k, val) in &pairs {
+                    match (k.as_str(), val.trim()) {
+                        ("read", "true") => f.read = true,
+                        ("write", "true") => f.write = true,
+                        _ => {}
+                    }
+                }
+                return f;
+            }
+        }
+    }
+    ExposeFlags::default()
+}
+
+/// Resolve an entry's `expose:` metadata (absent → closed). Convenience over
+/// [`resolve_expose`] for the `CollectionEntry` callers.
+pub fn entry_expose(entry: &CollectionEntry) -> ExposeFlags {
+    meta_get(entry, "expose").map(resolve_expose).unwrap_or_default()
+}
+
 /// The deferred-SSR M3 codegen marker appended to a `$auth.session()` lowering.
 ///
 /// RFC-001's intent is that `$auth.session()` lowers to a `$shared` signal
@@ -1788,6 +1883,18 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
             // emitted as `// @aihu:shadow` / `// @aihu:extract` markers), so they
             // produce NO setup-body JS.
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
+            // #487 — new-dialect `let x = state(v)`: the signal tuple the
+            // runtime already serves (state-model spec §2.1).
+            StateMacro::StateLet { name, init, .. } => {
+                lines.push(format!(
+                    "const [{name}, {setter}] = signal({init});",
+                    setter = crate::parser::state_wrappers::state_setter_name(name)
+                ));
+            }
+            // #487 — new-dialect `const x = consume<T>('key')` (§3.2.4).
+            StateMacro::ConsumeBinding { name, key } => {
+                lines.push(format!("const {name} = inject(contextKey('{key}'))"));
+            }
         }
     }
     lines.join("\n")
@@ -2087,6 +2194,16 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
             }
             // §9.4 / GX — consumed by codegen::emit, no setup-body JS (see above).
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
+            // #487 — new-dialect wrapper bindings (state-model spec §2.1/§3.2.4).
+            StateMacro::StateLet { name, init, .. } => {
+                lines.push(format!(
+                    "{indent}const [{name}, {setter}] = signal({init});",
+                    setter = crate::parser::state_wrappers::state_setter_name(name)
+                ));
+            }
+            StateMacro::ConsumeBinding { name, key } => {
+                lines.push(format!("{indent}const {name} = inject(contextKey('{key}'))"));
+            }
         }
     }
     if lines.is_empty() {

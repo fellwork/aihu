@@ -162,6 +162,8 @@ mod tests {
                 is_wrapped: true,
                 value_raw: String::new(),
                 meta: vec![("source".to_string(), "() => null".to_string())],
+                wrapper: false,
+                mutable: false,
             }],
         }]
     }

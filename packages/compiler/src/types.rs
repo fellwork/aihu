@@ -498,6 +498,18 @@ pub struct CollectionEntry {
     /// For wrapped entries: parsed `(key, raw-source)` pairs from the
     /// metadata bag. Empty for bare.
     pub meta: Vec<(String, String)>,
+    /// #487 (state-model spec §2): `true` when this entry was authored in the
+    /// NEW wrapper dialect (`const x = prop(…)` / `derived(…)` / …) rather
+    /// than a `$`-collection macro. Wrapper-origin entries share every
+    /// lowering with macro-origin ones, but the sidecar keeps their authored
+    /// declaration inline (valid TS) instead of blanking + re-declaring, and
+    /// their bodies take the §4.2/§4.3 read/write rewrite.
+    pub wrapper: bool,
+    /// #487 (state-model spec §2.2/§9.1): the declaration's NATURE. `true`
+    /// for `let`-natured bindings (internally writable — `let x = prop(…)`),
+    /// `false` for `const`. Only meaningful for wrapper-origin entries;
+    /// always `false` for macro-origin.
+    pub mutable: bool,
 }
 
 /// One macro declaration inside an `@state { }` block.
@@ -570,6 +582,25 @@ pub enum StateMacro {
     /// same surface (two `$extract` lines, or `$extract` beside a route
     /// `extract:`) → C484.
     Extract { decl: ExtractDecl },
+    // ─── #487 — the @state reactive-declaration model (state-model spec) ─────
+    /// `let <name> = state(<init>)` — the NEW-dialect mutable reactive value
+    /// (state-model spec §2.1). Lowers to the signal tuple the runtime
+    /// already serves (`const [<name>, __<name>_set] = signal(<init>)`);
+    /// plain writes to `<name>` in `@state`-scope code and template handlers
+    /// are rewritten to the setter by the §4.3 write-rewrite pass.
+    /// `numeric_init` records whether `<init>` is a numeric literal — the
+    /// `++`/`--` inline fast-path proof obligation (mirrors CO1 §4.5).
+    StateLet {
+        name: String,
+        init: String,
+        numeric_init: bool,
+    },
+    /// `const <name> = consume<T>('<key>')` — the NEW-dialect context-consume
+    /// binding (state-model spec §3.2.4, ratified §9.4). Lowers to
+    /// `const <name> = inject(contextKey(<key>))` — the same prototype-chain
+    /// DI the `$context` consume entry lowers to, but with the binding name
+    /// decoupled from the key.
+    ConsumeBinding { name: String, key: String },
 }
 
 /// Which `$auth.*` method a [`StateMacro::Auth`] declaration resolved to.

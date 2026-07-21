@@ -5,6 +5,7 @@ pub(crate) mod expr_scan;
 pub mod route;
 pub mod sfc;
 pub mod state_macros;
+pub mod state_wrappers;
 pub mod stream_macros;
 pub mod style_macros;
 pub mod template;
