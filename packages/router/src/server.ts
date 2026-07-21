@@ -224,7 +224,18 @@ export function createServerRouter(
         })
       }
 
-      const component = mod.default as (() => unknown) | { toHtml(): string }
+      // P3 item 2 (the integration seam): the settled emission IS the render
+      // input. A compiled governed artifact's `__ssr` (mod.default) accepts
+      // `{ route: { params, data } }`, so the entitled render receives
+      // `route.data = Entitled<T>` and the withheld render `Withheld<T>` —
+      // server HTML carries exactly what the gate emitted, nothing else.
+      // Without this binding `renderToString` invokes the factory with no
+      // args and the template renders (or throws) against
+      // `route.data === undefined` while the payload rides only the JSON
+      // embed below. `{ toHtml() }` modules pass through unchanged.
+      const raw = mod.default as ((props?: unknown) => unknown) | { toHtml(): string }
+      const component =
+        typeof raw === 'function' ? () => raw({ route: { params, data: emission.data } }) : raw
       // `governed: true` — the P5/I2s guard: governed trees are not streamed;
       // a pending dataSource inside this render is refused fail-closed.
       const html = await renderToString(component, { hydratable: true, governed: true })
