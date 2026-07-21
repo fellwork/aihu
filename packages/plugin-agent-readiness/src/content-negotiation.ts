@@ -1,28 +1,30 @@
 import type { Middleware } from '@aihu/server'
-import { AI_BOT_LIST } from './robots.ts'
-
-const escapeForRegExp = (token: string): string => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-/**
- * Single source for "is this an AI crawler": the SAME `AI_BOT_LIST` that
- * robots.txt is generated from. A second bot list here would be exactly the
- * hand-maintained sync seam `check:derived` exists to forbid.
- */
-const AI_BOT_UA_PATTERN = new RegExp(AI_BOT_LIST.map(escapeForRegExp).join('|'), 'i')
+import { classifyBotUserAgent } from './robots.ts'
 
 /**
  * Does this user-agent belong to an AI crawler?
  *
+ * Single source (GX Phase 2 unification): the SAME classified `BOT_REGISTRY`
+ * that robots.txt is generated from, via `classifyBotUserAgent`. A second bot
+ * list here would be exactly the hand-maintained sync seam `check:derived`
+ * exists to forbid.
+ *
+ * "AI crawler" means the `user-fetcher` and `training-crawler` tiers — the 13
+ * bots of `AI_BOT_LIST`, exactly as before unification. The `searcher` tier
+ * (Googlebot, Bingbot, …) is NOT an AI crawler: search bots never trigger
+ * markdown negotiation. The classifier matches longest-token-first, so a
+ * `Googlebot-Extended` UA still classifies as the training-crawler it is,
+ * never as plain search.
+ *
  * Substring, case-insensitive — the matching robots.txt itself uses, and what
  * real crawler UAs require (`…compatible; GPTBot/1.1; +https://…`).
- *
- * Conservative in the over-application direction: no token in `AI_BOT_LIST`
- * occurs in a mainstream browser UA. In particular `Applebot` does not match
+ * Conservative in the over-application direction: no registry token occurs in
+ * a mainstream browser UA. In particular `Applebot` does not match
  * `AppleWebKit`, which every Safari and Chrome UA on macOS carries.
  */
 export function isAiCrawlerUserAgent(userAgent: string): boolean {
-  if (!userAgent) return false
-  return AI_BOT_UA_PATTERN.test(userAgent)
+  const tier = classifyBotUserAgent(userAgent)
+  return tier === 'user-fetcher' || tier === 'training-crawler'
 }
 
 /**

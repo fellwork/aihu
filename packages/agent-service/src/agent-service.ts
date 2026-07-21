@@ -10,6 +10,7 @@
  * This ordering is a security invariant — do NOT reorder.
  */
 import type { AgentMetadata } from '@aihu/agent'
+import { decideEmission, resolvePrincipal, surfaceCallPolicy } from './principal-gate.ts'
 import type {
   AgentManifest,
   AgentService,
@@ -191,99 +192,67 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       }
     }
 
-    // ── Step 2: 401 — verified principal (#420, supersedes Amendment 3) ───
+    // ── Steps 2+3: 401/403 — THE principal gate (#437-GX Phase 2) ─────────
     //
-    // A component with a `$scope` or `$rate-limit` is an auth-gated endpoint,
-    // and its principal comes EXCLUSIVELY from the signature-verified JWT
-    // `sub` claim. The caller-supplied `requestContext.userId` is never a
-    // policy input: it used to key the rate-limit bucket directly, so a
-    // caller reset its own quota by rotating it (issue #420).
+    // Refactored onto `resolvePrincipal` + `decideEmission`
+    // (`principal-gate.ts`) — the ONE gate the emission taps (Phase 3/4) will
+    // share, so the tool path and the content path can never diverge. The
+    // #420 posture is unchanged and carried inside the gate:
     //
-    // Fail-closed chain — every rung that cannot produce a verified
-    // principal refuses with 401 (never falls back to caller identity):
-    //   no authPlugin            → AUTH_MISSING       (Amendment 2 posture)
-    //   plugin without `verify`  → AUTH_UNVERIFIABLE  (cannot check signatures)
-    //   no JWT presented         → AUTH_REQUIRED
-    //   signature/format invalid → AUTH_INVALID       (verify returned null)
-    //   verified but no `sub`    → AUTH_INVALID
+    //   - The principal comes EXCLUSIVELY from `AuthPlugin.verify` (signature
+    //     verification; never `decodeJwt`, never caller-supplied `userId`).
+    //   - Fail-closed AUTH_* ladder, same rungs, same order, same messages:
+    //     no authPlugin → AUTH_MISSING; plugin without `verify` →
+    //     AUTH_UNVERIFIABLE; no JWT → AUTH_REQUIRED; invalid/sub-less →
+    //     AUTH_INVALID. Verification COMPLETES before any scope or rate-limit
+    //     consult (the await below settles before `decideEmission` runs).
     //
-    // Un-scoped, un-rate-limited components still require nothing
-    // (backward-compatible with adapters that don't carry auth context, e.g.
-    // the a2a/acp adapters in v0.3.0).
+    // NEW in Phase 2 — the `call` axis (spec §4.2 T1): the surface's compiled
+    // `extract.call` policy is enforced as a CEILING over the member gates:
+    //   'none'      → the agent surface is unavailable (404-shaped, below)
+    //   'anonymous' → today's semantics: only member `$scope`/`$rate-limit`
+    //                 demand a principal (needsPrincipal unchanged)
+    //   'verified'  → every member requires a verified principal
+    //   { scope }   → surface scope MET with the member's own `$scope`
+    //                 (both must pass; never a grant, never a widening).
+    //
+    // The scope predicate is injected as `authPlugin.checkScope(jwt, s)` so
+    // the member-scope decision is byte-for-byte the check this gate always
+    // ran (#420 discipline: checkScope's decode reads claims `verify` just
+    // authenticated; third-party checkScope semantics preserved).
     const scopeRequired = binding.scope()
     const rateLimitSpec = binding.rateLimit()
-    const needsPrincipal = scopeRequired !== null || rateLimitSpec !== null
-    let verifiedSub: string | null = null
-    if (needsPrincipal) {
-      if (!authPlugin) {
-        return {
-          ok: false,
-          envelope: jsonrpcError(
-            401,
-            'AUTH_MISSING: @aihu/auth middleware is not registered',
-            authDiscoveryUrl,
-          ),
-        }
+    const jwt = requestContext?.jwt ?? ''
+    const principal = await resolvePrincipal({ jwt: requestContext?.jwt ?? null }, { authPlugin })
+    const decision = decideEmission(
+      principal,
+      {
+        axis: 'call',
+        value: surfaceCallPolicy(meta),
+        memberScope: scopeRequired,
+        memberRateLimited: rateLimitSpec !== null,
+      },
+      { hasScope: (s) => authPlugin?.checkScope(jwt, s) === true },
+    )
+    if (!decision.allow) {
+      if (decision.code === 404) {
+        // `call: 'none'` — the surface is closed. Shaped EXACTLY like the
+        // absent-tag refusal so possession of a credential never
+        // distinguishes "closed" from "does not exist" (the Amendment 4
+        // ordering invariant's information-hiding posture).
+        return { ok: false, envelope: jsonrpcError(404, `no live instance: ${tag}`) }
       }
-      if (typeof authPlugin.verify !== 'function') {
-        // The registered plugin cannot signature-verify a credential. Falling
-        // back to decode-only claims (or to caller-supplied userId) would
-        // ship the #420 hole laundered through a "verified" API — refuse.
-        return {
-          ok: false,
-          envelope: jsonrpcError(
-            401,
-            'AUTH_UNVERIFIABLE: auth plugin cannot signature-verify JWTs; refusing unverified claims',
-            authDiscoveryUrl,
-          ),
-        }
-      }
-      const jwt = requestContext?.jwt
-      if (typeof jwt !== 'string' || jwt === '') {
-        return {
-          ok: false,
-          envelope: jsonrpcError(
-            401,
-            'AUTH_REQUIRED: a signed JWT is required for this tool',
-            authDiscoveryUrl,
-          ),
-        }
-      }
-      // Verification COMPLETES here — before the scope consult (step 3) and
-      // the rate-limit consult (step 4). Both read only this verified result.
-      const claims = await authPlugin.verify(jwt)
-      const sub = claims === null ? undefined : claims.sub
-      if (typeof sub !== 'string' || sub === '') {
-        return {
-          ok: false,
-          envelope: jsonrpcError(
-            401,
-            claims === null
-              ? 'AUTH_INVALID: JWT signature verification failed'
-              : 'AUTH_INVALID: verified JWT carries no usable `sub` claim',
-            authDiscoveryUrl,
-          ),
-        }
-      }
-      verifiedSub = sub
-    }
-
-    // ── Step 3: 403 — scope check (verified claims only) ─────────────────
-    // Reached only after step 2 authenticated the token, so `checkScope`'s
-    // decode reads the SAME claims `verify` just authenticated — a forged
-    // `scope` claim now requires a forged signature, which step 2 rejects.
-    if (scopeRequired !== null) {
-      const jwt = requestContext?.jwt ?? ''
-      // `authPlugin` is guaranteed by step 2 (scoped ⇒ needsPrincipal ⇒ the
-      // AUTH_MISSING return already fired if it were absent); the optional
-      // chain keeps this fail-closed rather than asserting.
-      if (authPlugin?.checkScope(jwt, scopeRequired) !== true) {
-        return {
-          ok: false,
-          envelope: jsonrpcError(403, `SCOPE_DENIED: JWT lacks required scope '${scopeRequired}'`),
-        }
+      // 401s carry the discovery pointer (#420); 403s never do.
+      return {
+        ok: false,
+        envelope: jsonrpcError(
+          decision.code,
+          decision.message,
+          decision.code === 401 ? authDiscoveryUrl : undefined,
+        ),
       }
     }
+    const verifiedSub: string | null = principal.class === 'anonymous' ? null : principal.sub
 
     // ── Step 4: 429 — rate limit ──────────────────────────────────────────
     //
