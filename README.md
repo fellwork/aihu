@@ -176,39 +176,39 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 420 B | 450 B | pass |
-| `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.70 kB | 2800 B | pass |
-| `@aihu/runtime` | 3.96 kB | 4100 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.67 kB | 1750 B | pass |
-| `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.32 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 2.01 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.83 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/primitives/separator` | 566 B | 4 KB | pass |
-| `@aihu/primitives/label` | 1.77 kB | 4 KB | pass |
-| `@aihu/primitives/input` | 1.43 kB | 4 KB | pass |
-| `@aihu/primitives/textarea` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
-| `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
-| `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/context` | — | 450 B | _no dist_ |
+| `@aihu/signals` | — | 1970 B | _no dist_ |
+| `@aihu/arbor` | — | 2800 B | _no dist_ |
+| `@aihu/runtime` | — | 4100 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 2900 B | _no dist_ |
+| `@aihu/agent-acp` | — | 800 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 3000 B | _no dist_ |
+| `@aihu/app` | — | 1750 B | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
+| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/separator` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/label` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/input` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/textarea` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -273,6 +273,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/tsc`](./packages/tsc) | `0.2.3` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
+| [`aihu-compiler`](./packages/compiler/pkg-wasm) | `0.1.0` | _no description_ |
 | [`create-aihu`](./packages/create-aihu) | `0.1.4` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 

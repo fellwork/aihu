@@ -53,6 +53,14 @@ jobs:
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
           toolchain: "1.95" # W2: oxc_parser 0.139 needs rustc >= 1.94; sync with rust-toolchain.toml
+          # wasm32: the docs prebuild builds the playground WASM from the
+          # WORKSPACE compiler (scripts/build-wasm-bundle.ts) so the playground
+          # grammar always matches the checkout — the old release-fetch served
+          # a stale grammar and broke every preset with C306 (#491).
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       # MUST build aihu-compile fresh from current source so docs are compiled
       # with the latest @style emission. The old actions/cache (restore-keys
@@ -138,6 +146,16 @@ jobs:
           name: aihu-compile-linux-x64
           path: packages/compiler/bin/aihu-compile
 
+      # The docs prebuild (scripts/build-wasm-bundle.ts) built pkg-wasm from
+      # the workspace compiler during "Build docs". Hand it to the deploy job
+      # (which has no Rust toolchain) — the build stamp inside lets the deploy
+      # job's prebuild verify it matches the checkout and reuse it.
+      - name: Upload WASM bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: aihu-compile-wasm-pkg
+          path: packages/compiler/pkg-wasm
+
   deploy:
     name: Build & deploy
     needs: test
@@ -153,6 +171,16 @@ jobs:
           path: packages/compiler/bin
 
       - run: chmod 0755 packages/compiler/bin/aihu-compile
+
+      # Reuse the test job's workspace-built WASM bundle: this job installs no
+      # Rust toolchain, and scripts/build-wasm-bundle.ts verifies the bundle's
+      # build stamp against the checkout before reusing it (same commit → same
+      # stamp), so the deployed playground grammar matches the deployed docs.
+      - name: Download WASM bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: aihu-compile-wasm-pkg
+          path: packages/compiler/pkg-wasm
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
