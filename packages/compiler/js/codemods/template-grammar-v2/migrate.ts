@@ -57,7 +57,9 @@ function foldEachLet(src: string): string {
     const list = (eachM[1] ?? eachM[2] ?? '').trim()
     let out = tag.replace(letM[0], '')
     out = out.replace(eachM[0], `each={${alias} of ${list}}`)
-    return out.replace(/\s+(\/?>)$/, '$1').replace(/\s{2,}/g, (ws) => (ws.includes('\n') ? ws : ' '))
+    return out
+      .replace(/\s+(\/?>)$/, '$1')
+      .replace(/\s{2,}/g, (ws) => (ws.includes('\n') ? ws : ' '))
   })
 }
 
@@ -72,12 +74,7 @@ function splitEachHead(
     const c = head[i]
     if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') depth--
-    else if (
-      depth === 0 &&
-      c === ' ' &&
-      head.startsWith('as ', i + 1) &&
-      asAt === -1
-    ) {
+    else if (depth === 0 && c === ' ' && head.startsWith('as ', i + 1) && asAt === -1) {
       asAt = i
     }
   }
@@ -125,15 +122,12 @@ function migrateBlocks(src: string): string {
   out = out.replace(/\{\/\s*if\s*\}/g, '</group>')
 
   // {#each head} → <group each={aliases of list} key={key}>
-  out = out.replace(
-    /\{#each\s+([^{}]+(?:\{[^{}]*\}[^{}]*)*)\}/g,
-    (m, head: string) => {
-      const parts = splitEachHead(head.trim())
-      if (!parts) return m
-      const keyPart = parts.key ? ` key={${parts.key}}` : ''
-      return `<group each={${parts.aliases} of ${parts.list}}${keyPart}>`
-    },
-  )
+  out = out.replace(/\{#each\s+([^{}]+(?:\{[^{}]*\}[^{}]*)*)\}/g, (m, head: string) => {
+    const parts = splitEachHead(head.trim())
+    if (!parts) return m
+    const keyPart = parts.key ? ` key={${parts.key}}` : ''
+    return `<group each={${parts.aliases} of ${parts.list}}${keyPart}>`
+  })
   // {:empty} → </group><group empty>
   out = out.replace(/\{:empty\}/g, '</group><group empty>')
   // {/each} → </group>

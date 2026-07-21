@@ -369,3 +369,99 @@ fn deprecated_slot_html_form_emits_create_slot_boundary() {
         output.js
     );
 }
+
+// ─── Grammar v2 §2.6 — enhanced <a> behavior fixtures (40-spec §8.1/§8.6) ────
+//
+// The element the author writes and the element the runtime renders are the
+// same element: an internal <a href> lowers to the same createLinkBoundary
+// call the retired <$link> compiled to; the auto-opt-outs and the explicit
+// `reload` render a plain branch('a', …) instead.
+
+#[cfg(test)]
+mod enhanced_anchor {
+    use aihu_compiler::{compile_full, emit, sfc};
+
+    fn compile(src: &str) -> String {
+        let parsed = sfc::parse(src).unwrap();
+        let unit = compile_full(&parsed).unwrap();
+        emit(&unit, "x-anchor").js
+    }
+
+    #[test]
+    fn internal_href_is_spa_enhanced() {
+        let js = compile("@template {\n  <a href=\"/about\" prefetch=\"hover\">About</a>\n}");
+        assert!(
+            js.contains("createLinkBoundary('/about', 'hover', false,"),
+            "internal <a> must lower to createLinkBoundary with prefetch parity: {}",
+            js
+        );
+        // The helper carries the runtime origin/scheme auto-opt-out.
+        assert!(
+            js.contains("_u.origin !== location.origin"),
+            "runtime origin check must be part of the link helper: {}",
+            js
+        );
+    }
+
+    #[test]
+    fn dynamic_href_is_enhanced_with_thunk() {
+        let js = compile("@template {\n  <a href={`/city/${slug}`}>Forecast</a>\n}");
+        assert!(
+            js.contains("createLinkBoundary(() => ("),
+            "dynamic href must pass a reactive thunk: {}",
+            js
+        );
+    }
+
+    #[test]
+    fn replace_carries_over() {
+        let js = compile("@template {\n  <a href=\"/x\" replace>go</a>\n}");
+        assert!(
+            js.contains("createLinkBoundary('/x', 'none', true,"),
+            "bare `replace` must lower to true: {}",
+            js
+        );
+    }
+
+    #[test]
+    fn target_blank_opts_out() {
+        let js = compile("@template {\n  <a href=\"/x\" target=\"_blank\">ext</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "target=_blank must opt out: {}", js);
+        assert!(js.contains("branch('a',"), "plain anchor expected: {}", js);
+    }
+
+    #[test]
+    fn download_opts_out() {
+        let js = compile("@template {\n  <a href=\"/file.pdf\" download>dl</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "download must opt out: {}", js);
+    }
+
+    #[test]
+    fn external_origin_opts_out() {
+        let js = compile("@template {\n  <a href=\"https://example.com/x\">ext</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "external origin must opt out: {}", js);
+    }
+
+    #[test]
+    fn non_http_scheme_opts_out() {
+        let js = compile("@template {\n  <a href=\"mailto:hi@example.com\">mail</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "mailto: must opt out: {}", js);
+    }
+
+    #[test]
+    fn explicit_reload_opts_out_and_is_not_rendered() {
+        let js = compile("@template {\n  <a href=\"/legacy\" reload>full load</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "`reload` must opt out: {}", js);
+        assert!(
+            !js.contains("reload"),
+            "`reload` is framework vocabulary — never a DOM attribute: {}",
+            js
+        );
+    }
+
+    #[test]
+    fn fragment_href_stays_plain() {
+        let js = compile("@template {\n  <a href=\"#section\">jump</a>\n}");
+        assert!(!js.contains("createLinkBoundary"), "fragment link must stay plain: {}", js);
+    }
+}

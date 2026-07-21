@@ -35,31 +35,13 @@
   {
     "filename": "aria-button.aihu",
     "description": "Accessible ARIA button with role, aria-label, keyboard support, and toggle state",
-    "tags": [
-      "aria",
-      "accessibility",
-      "button",
-      "keyboard",
-      "role",
-      "toggle",
-      "prop",
-      "event"
-    ],
+    "tags": ["aria", "accessibility", "button", "keyboard", "role", "toggle", "prop", "event"],
     "source": "<!-- @cookbook\ndescription: Accessible ARIA button with role, aria-label, keyboard support, and toggle state\ntags: aria, accessibility, button, keyboard, role, toggle, prop, event\n-->\n<!-- Recipe: aria-button \u2014 accessible button with role/aria-label + keyboard support -->\n<!-- TODO: requires B4 for $aria: { role, label } declarative form \u2014 stubbed as HTML attrs below -->\n\n@state {\n  $prop: {\n    label: { type: String, default: 'Action', reflect: true },\n    pressed: { type: Boolean, default: false, reflect: true },\n  }\n\n  $event: {\n    activate: { payload: { pressed: boolean }, describe: 'Button was activated by click or keyboard.' },\n  }\n\n  $action: {\n    toggle: () => {\n      pressed = !pressed\n      $emit.activate({ pressed })\n    },\n    handleKey: (e: KeyboardEvent) => {\n      if (e.key === 'Enter' || e.key === ' ') {\n        e.preventDefault()\n        toggle()\n      }\n    },\n  }\n}\n\n@template {\n  <span\n    role=\"button\"\n    tabindex=\"0\"\n    aria-pressed={String(pressed)}\n    aria-label={label}\n    class={['aria-btn', pressed && 'pressed']}\n    on:click={toggle}\n    on:keydown={handleKey}\n  >\n    {label}\n  </span>\n}\n\n@style {\n  .aria-btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; cursor: pointer; border: 2px solid var(--border, #ccc); border-radius: 4px; user-select: none; }\n  .aria-btn:focus-visible { outline: 2px solid var(--focus-ring, #06f); outline-offset: 2px; }\n  .aria-btn.pressed { background: var(--accent, #06f); color: white; border-color: var(--accent, #06f); }\n}\n"
   },
   {
     "filename": "class-binding.aihu",
     "description": "Dynamic class binding with array form including conditional and interpolated class names",
-    "tags": [
-      "class",
-      "binding",
-      "dynamic",
-      "array",
-      "conditional",
-      "prop",
-      "toggle",
-      "styling"
-    ],
+    "tags": ["class", "binding", "dynamic", "array", "conditional", "prop", "toggle", "styling"],
     "source": "<!-- @cookbook\ndescription: Dynamic class binding with array form including conditional and interpolated class names\ntags: class, binding, dynamic, array, conditional, prop, toggle, styling\n-->\n<!-- Recipe: class-binding \u2014 class={['base', isActive() && 'active', size()]} array form -->\n\n@state {\n  $prop: {\n    size: { type: String, default: 'md' },\n    variant: { type: String, default: 'primary' },\n  }\n\n  isActive: boolean = false\n  isDisabled: boolean = false\n\n  $action: {\n    toggleActive: () => { isActive = !isActive },\n    toggleDisabled: () => { isDisabled = !isDisabled },\n  }\n}\n\n@template {\n  <div class=\"demo\">\n    <div class={['card', `size-${size}`, `variant-${variant}`, isActive && 'active', isDisabled && 'disabled']}>\n      Card content\n    </div>\n    <div class=\"controls\">\n      <button on:click={toggleActive}>Toggle active</button>\n      <button on:click={toggleDisabled}>Toggle disabled</button>\n    </div>\n    <p class=\"classes-preview\">Applied: {['card', `size-${size}`, `variant-${variant}`, isActive && 'active', isDisabled && 'disabled'].filter(Boolean).join(' ')}</p>\n  </div>\n}\n\n@style {\n  .demo { display: grid; gap: 0.75rem; padding: 1rem; }\n  .card { padding: 1rem; border: 2px solid var(--border, #ccc); border-radius: 4px; transition: all 0.15s; }\n  .card.active { border-color: var(--accent, #06f); background: var(--accent-bg, #e8f0ff); }\n  .card.disabled { opacity: 0.4; pointer-events: none; }\n  .card.size-sm { font-size: 0.85rem; padding: 0.5rem; }\n  .card.size-lg { font-size: 1.2rem; padding: 1.5rem; }\n  .controls { display: flex; gap: 0.5rem; }\n  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .classes-preview { font-family: monospace; font-size: 0.8rem; color: var(--muted, #888); }\n}\n"
   },
   {
@@ -96,18 +78,7 @@
   {
     "filename": "each-list.aihu",
     "description": "Todo list with each loop, keyed items, empty state, add/toggle/remove actions",
-    "tags": [
-      "each",
-      "list",
-      "todo",
-      "key",
-      "empty",
-      "action",
-      "crud",
-      "items",
-      "loop",
-      "array"
-    ],
+    "tags": ["each", "list", "todo", "key", "empty", "action", "crud", "items", "loop", "array"],
     "source": "<!-- @cookbook\ndescription: Todo list with each loop, keyed items, empty state, add/toggle/remove actions\ntags: each, list, todo, key, empty, action, crud, items, loop, array\n-->\n<!-- Recipe: each-list \u2014 <group each={item of items} key={item.id}> with key + empty state </group><group empty> -->\n\n@state {\n  items: Array<{ id: string; text: string; done: boolean }> = [\n    { id: '1', text: 'Learn aihu', done: false },\n    { id: '2', text: 'Write an SFC', done: false },\n  ]\n\n  draft: string = ''\n\n  $action: {\n    add: () => {\n      const text = draft.trim()\n      if (!text) return\n      items = [...items, { id: crypto.randomUUID(), text, done: false }]\n      draft = ''\n    },\n    toggle: (id: string) => {\n      items = items.map(item => item.id === id ? { ...item, done: !item.done } : item)\n    },\n    remove: (id: string) => {\n      items = items.filter(item => item.id !== id)\n    },\n  }\n}\n\n@template {\n  <div class=\"list-demo\">\n    <form on:submit={(e) => { e.preventDefault(); add() }}>\n      <input bind:value={draft} placeholder=\"Add item\u2026\" />\n      <button type=\"submit\">Add</button>\n    </form>\n    <ul class=\"items\">\n      <group each={item of items} key={item.id}>\n        <li class={['item', item.done && 'done']}>\n          <input type=\"checkbox\" checked={item.done} on:change={() => toggle(item.id)} />\n          <span>{item.text}</span>\n          <button on:click={() => remove(item.id)} aria-label=\"Remove\">\u00d7</button>\n        </li>\n      </group><group empty>\n        <li class=\"empty\">Nothing here \u2014 add an item above.</li>\n      </group>\n    </ul>\n  </div>\n}\n\n@style {\n  .list-demo { display: grid; gap: 0.75rem; max-width: 28rem; }\n  form { display: flex; gap: 0.5rem; }\n  input[type=\"text\"] { flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n  .items { list-style: none; padding: 0; margin: 0; }\n  .item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border, #eee); }\n  .item.done span { text-decoration: line-through; color: var(--muted, #888); }\n  .empty { color: var(--muted, #888); font-style: italic; padding: 0.5rem 0; }\n  button { cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; padding: 0.2rem 0.5rem; }\n}\n"
   },
   {
@@ -144,18 +115,7 @@
   {
     "filename": "fetch-data.aihu",
     "description": "Async data fetching with $resource, loading/error/success states, and URL prop",
-    "tags": [
-      "fetch",
-      "async",
-      "resource",
-      "loading",
-      "error",
-      "data",
-      "api",
-      "http",
-      "prop",
-      "if"
-    ],
+    "tags": ["fetch", "async", "resource", "loading", "error", "data", "api", "http", "prop", "if"],
     "source": "<!-- @cookbook\ndescription: Async data fetching with $resource, loading/error/success states, and URL prop\ntags: fetch, async, resource, loading, error, data, api, http, prop, if\n-->\n<!-- Recipe: fetch-data \u2014 $resource for async fetch + if={\u2026} loading/error/success states -->\n\n@state {\n  $prop: {\n    url: { type: String, default: '/api/data' },\n  }\n\n  $resource: {\n    payload: async () => {\n      const res = await fetch(url)\n      if (!res.ok) throw new Error(`HTTP ${res.status}`)\n      return res.json()\n    },\n  }\n}\n\n@template {\n  <div class=\"fetch-data\">\n    <group if={payload.loading}>\n      <p class=\"state loading\">Loading\u2026</p>\n    </group><group elseif={payload.error}>\n      <p class=\"state error\">Error: {payload.error.message}</p>\n    </group><group else>\n      <pre class=\"result\">{JSON.stringify(payload.value, null, 2)}</pre>\n    </group>\n  </div>\n}\n\n@style {\n  .fetch-data { font-family: monospace; }\n  .state { padding: 1rem; border-radius: 4px; }\n  .loading { background: var(--info-bg, #e8f4fd); color: var(--info, #036); }\n  .error { background: var(--error-bg, #fde8e8); color: var(--error, #c00); }\n  .result { background: var(--code-bg, #f5f5f5); padding: 1rem; overflow: auto; border-radius: 4px; }\n}\n"
   },
   {
@@ -177,31 +137,13 @@
   {
     "filename": "html-unsafe.aihu",
     "description": "Raw HTML rendering with the html attribute and XSS risk documentation",
-    "tags": [
-      "html",
-      "raw",
-      "unsafe",
-      "xss",
-      "sanitize",
-      "content",
-      "prop",
-      "security"
-    ],
+    "tags": ["html", "raw", "unsafe", "xss", "sanitize", "content", "prop", "security"],
     "source": "<!-- @cookbook\ndescription: Raw HTML rendering with the html attribute and XSS risk documentation\ntags: html, raw, unsafe, xss, sanitize, content, prop, security\n-->\n<!-- Recipe: html-unsafe \u2014 <span html={sanitizedContent}></span> with explicit comment about XSS risk -->\n\n@state {\n  $prop: {\n    // WARNING: Always sanitize HTML before passing to this component.\n    // the html attribute renders raw HTML \u2014 never pass unsanitized user input.\n    // Use a sanitizer like DOMPurify: content = DOMPurify.sanitize(rawHtml)\n    content: { type: String, default: '<em>Hello</em> <strong>world</strong>' },\n  }\n}\n\n@template {\n  <article class=\"html-content\">\n    <span html={content}></span>\n  </article>\n}\n\n@style {\n  .html-content { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; line-height: 1.6; }\n  .html-content em { font-style: italic; }\n  .html-content strong { font-weight: bold; }\n}\n"
   },
   {
     "filename": "if-else.aihu",
     "description": "Conditional rendering with if/else-if/else chain and reactive computed condition",
-    "tags": [
-      "if",
-      "else",
-      "conditional",
-      "computed",
-      "reactive",
-      "template",
-      "grade",
-      "branch"
-    ],
+    "tags": ["if", "else", "conditional", "computed", "reactive", "template", "grade", "branch"],
     "source": "<!-- @cookbook\ndescription: Conditional rendering with if/else-if/else chain and reactive computed condition\ntags: if, else, conditional, computed, reactive, template, grade, branch\n-->\n<!-- Recipe: if-else \u2014 if / elseif / else chain + reactive condition -->\n\n@state {\n  $prop: {\n    score: { type: Number, default: 0 },\n  }\n\n  $computed: {\n    grade: () => {\n      if (score >= 90) return 'A'\n      if (score >= 80) return 'B'\n      if (score >= 70) return 'C'\n      if (score >= 60) return 'D'\n      return 'F'\n    },\n    passing: () => score >= 60,\n  }\n\n  $action: {\n    setScore: (v: number) => { score = Math.max(0, Math.min(100, v)) },\n  }\n}\n\n@template {\n  <div class=\"grade-display\">\n    <label>\n      Score (0\u2013100)\n      <input type=\"range\" min=\"0\" max=\"100\" bind:value={score} />\n      <output>{score}</output>\n    </label>\n\n    <group if={grade === 'A'}>\n      <p class=\"grade grade-a\">Excellent! Grade A</p>\n    </group><group elseif={grade === 'B'}>\n      <p class=\"grade grade-b\">Good work! Grade B</p>\n    </group><group elseif={grade === 'C'}>\n      <p class=\"grade grade-c\">Satisfactory. Grade C</p>\n    </group><group elseif={grade === 'D'}>\n      <p class=\"grade grade-d\">Needs improvement. Grade D</p>\n    </group><group else>\n      <p class=\"grade grade-f\">Not passing. Grade F</p>\n    </group>\n\n    <group if={passing}>\n      <span class=\"badge pass\">PASS</span>\n    </group><group else>\n      <span class=\"badge fail\">FAIL</span>\n    </group>\n  </div>\n}\n\n@style {\n  .grade-display { display: grid; gap: 0.75rem; max-width: 22rem; padding: 1rem; }\n  label { display: flex; flex-direction: column; gap: 0.25rem; }\n  .grade { font-size: 1.1rem; font-weight: bold; padding: 0.5rem; border-radius: 4px; }\n  .grade-a { color: #0a0; background: #e8fce8; }\n  .grade-b { color: #060; background: #f0fce8; }\n  .grade-c { color: #660; background: #fdfce0; }\n  .grade-d { color: #a50; background: #fef5e0; }\n  .grade-f { color: #c00; background: #fde8e8; }\n  .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.85rem; font-weight: bold; }\n  .pass { background: #0a0; color: white; }\n  .fail { background: #c00; color: white; }\n}\n"
   },
   {
@@ -239,16 +181,7 @@
   {
     "filename": "nested-parent.aihu",
     "description": "Parent component that composes a child component and listens to its selection event",
-    "tags": [
-      "nested",
-      "parent",
-      "composition",
-      "$on",
-      "event",
-      "child",
-      "action",
-      "handler"
-    ],
+    "tags": ["nested", "parent", "composition", "$on", "event", "child", "action", "handler"],
     "source": "<!-- @cookbook\ndescription: Parent component that composes a child component and listens to its selection event\ntags: nested, parent, composition, $on, event, child, action, handler\n-->\n<!-- Recipe: nested-component (parent) \u2014 composes nested-child; listens with on:selected -->\n<!-- Demonstrates parent\u2194child event composition: child $emit \u2192 parent $on handler -->\n\n@state {\n  lastSelection: string = '(none)'\n  selectionCount: number = 0\n\n  $action: {\n    handleSelected: (detail: { value: string; index: number }) => {\n      lastSelection = `${detail.value} (index ${detail.index})`\n      selectionCount++\n    },\n  }\n}\n\n@template {\n  <div class=\"parent-demo\">\n    <h3>Parent component</h3>\n    <p>Last selection: <strong>{lastSelection}</strong></p>\n    <p>Total selections: {selectionCount}</p>\n\n    <nested-child\n      on:selected={(e) => handleSelected(e.detail)}\n    ></nested-child>\n  </div>\n}\n\n@style {\n  .parent-demo { display: grid; gap: 1rem; padding: 1.5rem; max-width: 28rem; border: 1px solid var(--border, #ccc); border-radius: 4px; }\n}\n"
   },
   {
@@ -272,16 +205,7 @@
   {
     "filename": "ref-dom.aihu",
     "description": "DOM element reference with $ref and canvas drawing in lifecycle mount",
-    "tags": [
-      "ref",
-      "ref",
-      "dom",
-      "canvas",
-      "lifecycle",
-      "mount",
-      "element",
-      "access"
-    ],
+    "tags": ["ref", "ref", "dom", "canvas", "lifecycle", "mount", "element", "access"],
     "source": "<!-- @cookbook\ndescription: DOM element reference with $ref and canvas drawing in lifecycle mount\ntags: ref, $ref, dom, canvas, lifecycle, mount, element, access\n-->\n<!-- Recipe: ref-dom \u2014 ref={myRef} + accessing DOM element in $lifecycle.mount -->\n\n@state {\n  canvasEl: HTMLCanvasElement | null = null\n  width: number = 300\n  height: number = 150\n\n  $lifecycle: {\n    mount: () => {\n      if (!canvasEl) return\n      const ctx = canvasEl.getContext('2d')\n      if (!ctx) return\n      // Draw a simple gradient to prove the ref works.\n      const gradient = ctx.createLinearGradient(0, 0, width, 0)\n      gradient.addColorStop(0, '#06f')\n      gradient.addColorStop(1, '#f06')\n      ctx.fillStyle = gradient\n      ctx.fillRect(0, 0, width, height)\n      ctx.fillStyle = 'white'\n      ctx.font = 'bold 18px sans-serif'\n      ctx.textAlign = 'center'\n      ctx.fillText('$ref works!', width / 2, height / 2 + 6)\n    },\n  }\n}\n\n@template {\n  <div class=\"canvas-demo\">\n    <canvas\n      ref={canvasEl}\n      width={width}\n      height={height}\n      class=\"canvas\"\n    ></canvas>\n    <p class=\"caption\">Canvas drawn via $ref after mount</p>\n  </div>\n}\n\n@style {\n  .canvas-demo { display: grid; gap: 0.5rem; justify-items: center; padding: 1rem; }\n  .canvas { border: 1px solid var(--border, #ccc); border-radius: 4px; display: block; }\n  .caption { font-size: 0.85rem; color: var(--muted, #888); }\n}\n"
   },
   {
@@ -319,17 +243,7 @@
   {
     "filename": "show-hide.aihu",
     "description": "Show/hide with $show attribute vs if-block, demonstrating DOM presence trade-offs",
-    "tags": [
-      "show",
-      "hide",
-      "show",
-      "if",
-      "toggle",
-      "visibility",
-      "dom",
-      "attribute",
-      "action"
-    ],
+    "tags": ["show", "hide", "show", "if", "toggle", "visibility", "dom", "attribute", "action"],
     "source": "<!-- @cookbook\ndescription: Show/hide with $show attribute vs if-block, demonstrating DOM presence trade-offs\ntags: show, hide, $show, if, toggle, visibility, dom, attribute, action\n-->\n<!-- Recipe: show-hide \u2014 show={isVisible()} attribute vs if={\u2026} trade-off -->\n<!--\n  When to use show vs if:\n  - show={cond}  toggles the hidden attribute. The element STAYS in the DOM.\n                  Use when the element is expensive to re-create (canvas, video)\n                  or when you need CSS transitions on hide/show.\n  - #if cond      removes the element from the DOM entirely when false.\n                  Use when the subtree is large and rarely visible, or when\n                  you want to fully reset child state on hide.\n-->\n\n@state {\n  showPanel: boolean = false\n  showSection: boolean = true\n\n  $action: {\n    togglePanel: () => { showPanel = !showPanel },\n    toggleSection: () => { showSection = !showSection },\n  }\n}\n\n@template {\n  <div class=\"show-demo\">\n    <button on:click={togglePanel}>\n      Toggle panel ($show \u2014 stays in DOM)\n    </button>\n    <div show={showPanel} class=\"panel\">\n      I use $show \u2014 CSS transitions work on me, and I keep my internal state.\n    </div>\n\n    <button on:click={toggleSection}>\n      Toggle section (if-block \u2014 removed from DOM)\n    </button>\n    <group if={showSection}>\n      <div class=\"panel\">\n        I use if-block \u2014 I am fully removed from the DOM when hidden.\n      </div>\n    </group>\n  </div>\n}\n\n@style {\n  .show-demo { display: grid; gap: 0.75rem; padding: 1rem; max-width: 28rem; }\n  .panel { padding: 1rem; border: 1px solid var(--border, #ccc); border-radius: 4px; background: var(--panel-bg, #fafafa); transition: opacity 0.2s; }\n  [hidden] { opacity: 0; pointer-events: none; }\n  button { padding: 0.4rem 0.75rem; cursor: pointer; border: 1px solid var(--border, #ccc); border-radius: 4px; text-align: left; }\n}\n"
   }
 ]
