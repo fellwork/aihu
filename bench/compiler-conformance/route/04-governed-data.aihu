@@ -1,0 +1,27 @@
+@route {
+  path: '/lexicon/[slug]',
+  name: 'governed-lexicon',
+  ssr: true,
+  extract: { read: { scope: 'members' } },
+  data: { type: 'LexiconEntry', preview: ['headword'] }
+}
+
+@state {
+  $prop: {
+    route: {
+      type: { params: { slug: string }; data: { headword: string; senses: string[] } },
+    },
+  }
+}
+
+@template {
+  <article>
+    <h1 class="gx-headword">{route.data.$gx.entitled ? route.data.headword : (route.data.preview?.headword ?? 'locked')}</h1>
+    <p class="gx-slug">{route.params.slug}</p>
+    {#if route.data.$gx.entitled}
+      <section class="gx-senses">{route.data.senses.join(', ')}</section>
+    {:else}
+      <p class="gx-locked">{route.data.$gx.reason}</p>
+    {/if}
+  </article>
+}

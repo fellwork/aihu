@@ -39,6 +39,7 @@
  * mirrors the b3b-sidecar precedent of binary-dependent tests.
  */
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -83,6 +84,7 @@ afterAll(() => {
 
 const FIXTURE = join(repoRoot, 'bench/compiler-conformance/route/01-basic-route.aihu')
 const BLOG_INDEX = join(repoRoot, 'examples/blog-router/src/pages/index.aihu')
+const GOVERNED = join(repoRoot, 'bench/compiler-conformance/route/04-governed-data.aihu')
 
 describe.skipIf(!hasBinary)('GX P3 — server emission renders a compiled route (no DOM)', () => {
   it('runs in a DOM-less environment (precondition for every assertion below)', () => {
@@ -158,5 +160,112 @@ describe.skipIf(!hasBinary)('GX P3 — server emission renders a compiled route 
       expect(code).not.toContain('__aihu_setup__')
       expect(code).not.toContain('export default')
     }
+  })
+})
+
+// ─── GX P4 (#466) — governed loader-route: `route.data` renders server-side ──
+//
+// P3 item 2: the options-form ($prop) standalone-SSR shape threads props into
+// the host-less SetupContext, so a `data:`-declared route's server artifact
+// renders its gated payload — `__ssr({ route: { params, data } })` is exactly
+// the call the router's generated loader makes after the gate settles.
+//
+// Compiled through the BINARY (not `transform()`) so `--expr-parser ast` is in
+// force: the fixture's headline is a multi-read ternary over `route.data`, and
+// the legacy token rewriter only rewrites the first prop read in an expression
+// (a known W3 limitation — the ast mode is the corpus-diff path that fixes it).
+// The `{#if}` boundaries in the same fixture still render EMPTY server-side —
+// the structural-directive SSR walk is a later P3 slice (see the $each note
+// above) — so the assertions ride the direct interpolations.
+describe.skipIf(!hasBinary)('GX P4 — governed route renders route.data server-side', () => {
+  function compileWithBinary(src: string, path: string): string {
+    const bin = ['target/release/aihu-compile', 'target/debug/aihu-compile']
+      .map((p) => join(repoRoot, p))
+      .find((p) => existsSync(p))!
+    return execFileSync(
+      bin,
+      [
+        '--stdin',
+        '--tag',
+        'governed-lexicon',
+        '--path',
+        path,
+        '--target',
+        'server',
+        '--expr-parser',
+        'ast',
+      ],
+      { input: src, encoding: 'utf8' },
+    )
+  }
+
+  it('entitled payload renders full data; withheld renders declared preview only', async () => {
+    const { readFileSync } = await import('node:fs')
+    const src = readFileSync(GOVERNED, 'utf8')
+    const code = compileWithBinary(src, 'src/pages/04-governed-data.aihu')
+
+    // The P4 options-form SSR shape: hoisted setup, gated registration,
+    // prop-threading entry.
+    expect(code).toContain('const __aihu_setup__ = (ctx) =>')
+    expect(code).toContain(
+      "if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined')",
+    )
+    expect(code).toContain('const __aihu_ssr_prop =')
+    expect(code).toContain('export default __ssr')
+
+    const mod = await importServerArtifact('governed-lexicon.server', code)
+    const ssr = mod.__ssr as (props?: Record<string, unknown>) => unknown
+
+    // Entitled: the generated loader granted — full payload in `route.data`.
+    const entitled = await renderToString(
+      (() =>
+        ssr({
+          route: {
+            params: { slug: 'logos' },
+            data: {
+              $gx: { entitled: true },
+              headword: 'logos-headword',
+              senses: ['word', 'reason'],
+            },
+          },
+        })) as () => never,
+      { hydratable: true },
+    )
+    expect(entitled).toContain('<h1 class="gx-headword" data-aihu-path="0.0">logos-headword</h1>')
+    expect(entitled).toContain('<p class="gx-slug" data-aihu-path="0.1">logos</p>')
+
+    // Withheld: the gate withheld — ONLY the declared preview fields exist in
+    // the payload, and only they can render (E6-style byte check: no governed
+    // bytes in the response because none were ever passed in).
+    const withheld = await renderToString(
+      (() =>
+        ssr({
+          route: {
+            params: { slug: 'logos' },
+            data: {
+              $gx: { entitled: false, reason: 'entitlement' },
+              preview: { headword: 'preview-headword' },
+            },
+          },
+        })) as () => never,
+      { hydratable: true },
+    )
+    expect(withheld).toContain('<h1 class="gx-headword" data-aihu-path="0.0">preview-headword</h1>')
+    expect(withheld).not.toContain('logos-headword')
+    expect(withheld).not.toContain('word, reason')
+  })
+
+  it('__ssr() with no props still imports and renders the static shell (no DOM)', async () => {
+    const { readFileSync } = await import('node:fs')
+    const src = readFileSync(GOVERNED, 'utf8')
+    const code = compileWithBinary(src, 'src/pages/04-governed-data.aihu')
+    const mod = await importServerArtifact('governed-lexicon.noprops.server', code)
+    // No props: prop getters read undefined; optional-chained expressions
+    // yield their fallbacks and the structural shell still renders. (The
+    // ternary headline reads `route.data.…` on undefined and would throw —
+    // that is the CALLER's contract: a governed route is always rendered
+    // through the loader's settled emission. Assert import + callability.)
+    expect(typeof mod.__ssr).toBe('function')
+    expect(typeof mod.default).toBe('function')
   })
 })

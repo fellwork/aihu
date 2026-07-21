@@ -28,6 +28,26 @@ pub struct RouteBlock {
     /// `{ read: 'agents', call: 'anonymous' }`) and fanned out to the three
     /// emitted artifacts (code marker, `.route.json`, agent-meta sidecar).
     pub extract: Option<ExtractDecl>,
+    /// GX Phase 4 (#466) — optional per-route `data:` governed-resource
+    /// declaration (70-governed-data-access §2.1). Names the governed resource
+    /// type (the server registry's provider key) and, optionally, the fields
+    /// renderable in the locked/withheld state. Fanned into the `.route.json`
+    /// sidecar beside `extract` (same three-artifact agreement machinery);
+    /// enforcement (the generated loader) lives in the server runtime.
+    pub data: Option<DataDecl>,
+}
+
+// ─── GX Phase 4 (#466) — the `data:` governed-resource declaration ───────────
+
+/// A parsed `@route { data: { type: '<Name>', preview: [...] } }` declaration
+/// (70-governed-data-access §2.1). `type_name` keys the server-side provider
+/// registry (`createGovernedRegistry().provider(type, ...)`); `preview` is the
+/// author-declared public-tier field subset of the withheld state (§4.5) —
+/// empty when the route declares no preview fields.
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct DataDecl {
+    pub type_name: String,
+    pub preview: Vec<String>,
 }
 
 // ─── GX Phase 1 (#437-GX) — the `extract:` two-axis vocabulary ───────────────

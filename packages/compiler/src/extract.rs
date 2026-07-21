@@ -374,26 +374,30 @@ pub fn resolve_extract(source: &AihuSource) -> ResolvedExtract {
 }
 
 // ─── Tiny scanner helpers (local so this module is dependency-free) ──────────
+//
+// `pub(crate)` since GX Phase 4: the sibling `data:` declaration parser
+// (`data.rs`) shares these exact scanners so the two GX value grammars cannot
+// drift on whitespace/quoting semantics.
 
-fn strip_outer_braces(literal: &str) -> Option<&str> {
+pub(crate) fn strip_outer_braces(literal: &str) -> Option<&str> {
     let t = literal.trim();
     let inner = t.strip_prefix('{')?.strip_suffix('}')?;
     Some(inner)
 }
 
-fn skip_ws(bytes: &[u8], i: &mut usize) {
+pub(crate) fn skip_ws(bytes: &[u8], i: &mut usize) {
     while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t' | b'\n' | b'\r') {
         *i += 1;
     }
 }
 
-fn skip_ws_and_commas(bytes: &[u8], i: &mut usize) {
+pub(crate) fn skip_ws_and_commas(bytes: &[u8], i: &mut usize) {
     while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t' | b'\n' | b'\r' | b',') {
         *i += 1;
     }
 }
 
-fn parse_ident(text: &str, bytes: &[u8], i: &mut usize) -> Option<String> {
+pub(crate) fn parse_ident(text: &str, bytes: &[u8], i: &mut usize) -> Option<String> {
     let start = *i;
     while *i < bytes.len() && (bytes[*i].is_ascii_alphanumeric() || bytes[*i] == b'_') {
         *i += 1;
@@ -406,7 +410,7 @@ fn parse_ident(text: &str, bytes: &[u8], i: &mut usize) -> Option<String> {
 
 /// Parse a single- or double-quoted string value at `*i`; advances past the
 /// closing quote. Returns `None` when the value is not quoted.
-fn parse_quoted_word(text: &str, bytes: &[u8], i: &mut usize) -> Option<String> {
+pub(crate) fn parse_quoted_word(text: &str, bytes: &[u8], i: &mut usize) -> Option<String> {
     if *i >= bytes.len() {
         return None;
     }
