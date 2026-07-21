@@ -2,9 +2,11 @@
  * Full docs-site build script.
  *
  * Steps:
- *   0. Fetch the latest aihu-compile-wasm.tar.gz from GitHub Releases
- *      and extract it to `dist/wasm/` (Directive 1 — homepage
- *      playground). Skipped silently if no release is available.
+ *   0. Stage the compiler WASM bundle into `dist/wasm/` (Directive 1 —
+ *      homepage playground). Built from the WORKSPACE compiler source via
+ *      wasm-pack so the playground grammar always matches the checkout
+ *      (#491); falls back to the latest GitHub Release only when the wasm
+ *      toolchain is unavailable. Skipped silently if neither works.
  *   1. Recursively read every `.md` under `src/content/docs/**`, keying
  *      each page by its IA slug path (e.g. `introduction`,
  *      `guides/reactivity`, `packages/context`).
@@ -55,24 +57,24 @@ import type { HeadConfig } from '../../packages/server/src/ssr.ts'
 
 const __dir = fileURLToPath(new URL('.', import.meta.url))
 const docsDir = join(__dir, 'src/content/docs')
-const wasmFetcher = join(__dir, '../../scripts/fetch-wasm-bundle.ts')
+const wasmBundler = join(__dir, '../../scripts/build-wasm-bundle.ts')
 const wasmOutDir = join(__dir, 'dist/wasm')
 
-// ── 0. Fetch the WASM playground bundle ──────────────────────────
+// ── 0. Stage the WASM playground bundle ──────────────────────────
 
-console.log('Fetching WASM playground bundle…')
+console.log('Staging WASM playground bundle…')
 try {
-  execFileSync(process.execPath, [wasmFetcher, wasmOutDir], {
+  execFileSync(process.execPath, [wasmBundler, wasmOutDir], {
     cwd: __dir,
     stdio: 'inherit',
   })
 } catch (err) {
   // Soft-fail: prebuild prints its own diagnostics. Build continues
   // and the playground renders the runtime fallback.
-  console.warn(`WASM bundle fetch failed: ${(err as Error).message}`)
+  console.warn(`WASM bundle staging failed: ${(err as Error).message}`)
 }
 
-// Strip non-runtime files that land in dist/wasm/ from the tarball.
+// Strip non-runtime files that land in dist/wasm/ from the bundle.
 // Cloudflare Pages serves every file in dist/ — package.json, README, and
 // .d.ts files should not be publicly reachable.
 const wasmExtrasToRemove = [

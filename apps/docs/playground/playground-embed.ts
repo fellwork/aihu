@@ -14,10 +14,12 @@
  * Attributes:
  *   initial-source — starter source displayed in the editor on mount.
  *
- * The WASM bundle is fetched at build time by
- * `scripts/fetch-wasm-bundle.ts` and lives at `./wasm/` relative to
- * the docs root. If the bundle is unavailable (no release yet),
- * the playground renders a clear fallback message.
+ * The WASM bundle is staged at build time by
+ * `scripts/build-wasm-bundle.ts` (built from the workspace compiler so
+ * the playground grammar matches the checkout — #491) and lives at
+ * `./wasm/` relative to the docs root. If the bundle is unavailable
+ * (no wasm toolchain and no release), the playground renders a clear
+ * fallback message.
  *
  * The preview iframe uses `sandbox="allow-scripts"` (no allow-same-origin).
  * Each compile resets `iframe.srcdoc` to a fresh HTML document containing:
@@ -561,7 +563,7 @@ export class PlaygroundEmbed extends HTMLElement {
     const [mod, bundle] = await Promise.all([loadWasm(this), loadBundle(this)])
     if (mod === null) {
       this.setError(
-        'WASM bundle unavailable. Tag a v* release (or run release.yml) to populate ./wasm/.',
+        'WASM bundle unavailable. Install wasm-pack + the wasm32 target and rebuild docs (scripts/build-wasm-bundle.ts) to populate ./wasm/.',
       )
       return
     }

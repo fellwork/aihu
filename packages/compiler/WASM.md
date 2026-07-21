@@ -19,6 +19,7 @@ Build the WASM bundle:
 ```bash
 cd packages/compiler
 wasm-pack build --target web --out-dir pkg-wasm
+# or: bun run build:wasm
 ```
 
 Output (gitignored):
@@ -122,7 +123,7 @@ Per arch-4 §4 + §4.6, every `v*` tag push to `.github/workflows/release.yml` p
 |---|---|---|
 | `aihu-compile-darwin-arm64`, `…-darwin-x64`, `…-linux-x64`, `…-linux-arm64`, `…-windows-x64.exe` | `build` matrix (5 targets) | `js/postinstall.ts` — downloads the asset matching `process.platform` × `process.arch` on `npm install`. |
 | `<asset>.sha256` (one per binary) | `build` matrix | `js/postinstall.ts` — verified against `crypto.createHash('sha256')` of the downloaded binary; mismatch is a hard fail (binary deleted, `process.exit(1)`). |
-| `aihu-compile-wasm.tar.gz` | `build-wasm` job | Homepage playground (Directive 1) — fetched from `releases/latest/download/aihu-compile-wasm.tar.gz`, expanded into `pkg-wasm/`. |
+| `aihu-compile-wasm.tar.gz` | `build-wasm` job | FALLBACK ONLY for the homepage playground (Directive 1) — since #491 the docs prebuild (`scripts/build-wasm-bundle.ts`) builds `pkg-wasm/` from the workspace compiler so the playground grammar always matches the checkout; the release tarball is fetched only when the wasm toolchain is unavailable (and may lag the workspace grammar). |
 | `aihu-compile-wasm.tar.gz.sha256` | `build-wasm` job | Same — sidecar verification before extraction. |
 
 ### Cross-compilation for aarch64-linux

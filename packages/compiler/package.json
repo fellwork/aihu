@@ -24,6 +24,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "rolldown -c",
+    "build:wasm": "wasm-pack build --target web --out-dir pkg-wasm",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build",
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
