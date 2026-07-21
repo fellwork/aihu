@@ -358,7 +358,12 @@ function discoverPackages(): PkgInfo[] {
         rel.includes('node_modules') ||
         rel.includes('/dist/') ||
         rel.includes('/fixtures/') ||
-        rel.includes('/legacy-snapshot.golden/')
+        rel.includes('/legacy-snapshot.golden/') ||
+        // wasm-pack build output (gitignored): scripts/build-wasm-bundle.ts
+        // generates pkg-wasm/package.json locally; it is a build artifact,
+        // not a workspace package, and CI (no local wasm build) would flag
+        // any README/inventory row derived from it as drift (#491).
+        rel.includes('/pkg-wasm/')
       )
         continue
       if (seen.has(rel)) continue
