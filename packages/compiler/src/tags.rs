@@ -15,6 +15,66 @@
 //! - Plain lowercase HTML/SVG tags (`div`, `linearGradient`) are NOT component
 //!   tags and are never touched.
 
+/// Grammar-v2 (C611 protection) — the known HTML element vocabulary. A
+/// non-hyphenated tag must be (a) one of these, (b) a framework element
+/// (`parser::template::FRAMEWORK_ELEMENTS`), or (c) a hyphenated/PascalCase
+/// component reference; anything else is compile error C611. Sourced from the
+/// WHATWG HTML living standard (incl. deprecated-but-parsed elements) plus the
+/// SVG 2 and MathML Core element sets (SVG's camelCase tags start lowercase,
+/// so they land here, not in the component classifier).
+const KNOWN_HTML_ELEMENTS: &[&str] = &[
+    // Document / metadata / sectioning
+    "html", "head", "body", "title", "base", "link", "meta", "style", "address",
+    "article", "aside", "footer", "header", "h1", "h2", "h3", "h4", "h5", "h6",
+    "hgroup", "main", "nav", "section", "search",
+    // Grouping content
+    "blockquote", "dd", "div", "dl", "dt", "figcaption", "figure", "hr", "li",
+    "menu", "ol", "p", "pre", "ul",
+    // Text-level semantics
+    "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em",
+    "i", "kbd", "mark", "q", "rp", "rt", "ruby", "s", "samp", "small", "span",
+    "strong", "sub", "sup", "time", "u", "var", "wbr",
+    // Edits
+    "del", "ins",
+    // Embedded content
+    "area", "audio", "img", "map", "track", "video", "embed", "iframe",
+    "object", "param", "picture", "portal", "source",
+    // Scripting
+    "canvas", "noscript", "script", "template", "slot",
+    // Tables
+    "caption", "col", "colgroup", "table", "tbody", "td", "tfoot", "th",
+    "thead", "tr",
+    // Forms
+    "button", "datalist", "fieldset", "form", "input", "label", "legend",
+    "meter", "optgroup", "option", "output", "progress", "select", "textarea",
+    // Interactive
+    "details", "dialog", "summary",
+    // Deprecated but still parsed by browsers
+    "acronym", "big", "center", "dir", "font", "marquee", "nobr", "noembed",
+    "noframes", "plaintext", "rb", "rtc", "strike", "tt", "xmp",
+    // SVG (camelCase tags start lowercase — they are NOT component tags)
+    "svg", "animate", "animateMotion", "animateTransform", "circle", "clipPath",
+    "defs", "desc", "ellipse", "feBlend", "feColorMatrix", "feComponentTransfer",
+    "feComposite", "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap",
+    "feDistantLight", "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG",
+    "feFuncR", "feGaussianBlur", "feImage", "feMerge", "feMergeNode",
+    "feMorphology", "feOffset", "fePointLight", "feSpecularLighting",
+    "feSpotLight", "feTile", "feTurbulence", "filter", "foreignObject", "g",
+    "image", "line", "linearGradient", "marker", "mask", "metadata", "mpath",
+    "path", "pattern", "polygon", "polyline", "radialGradient", "rect", "set",
+    "stop", "switch", "symbol", "text", "textPath", "tspan", "use", "view",
+    // MathML Core
+    "math", "annotation", "maction", "merror", "mfrac", "mi", "mmultiscripts",
+    "mn", "mo", "mover", "mpadded", "mphantom", "mprescripts", "mroot", "mrow",
+    "ms", "mspace", "msqrt", "mstyle", "msub", "msubsup", "msup", "mtable",
+    "mtd", "mtext", "mtr", "munder", "munderover", "semantics",
+];
+
+/// True when `tag` is a known HTML/SVG/MathML element name.
+pub fn is_known_html_element(tag: &str) -> bool {
+    KNOWN_HTML_ELEMENTS.contains(&tag)
+}
+
 /// A tag references a user component (not a plain HTML/SVG element) when it
 /// contains a hyphen OR starts with an ASCII uppercase letter.
 pub fn is_component_tag(tag: &str) -> bool {

@@ -1078,19 +1078,12 @@ fn push_alias_bindings(
 /// aliases (`as [k, v]`, `as {a, b}`) bind each contained identifier.
 fn collect_loop_aliases(nodes: &[TemplateNode], out: &mut std::collections::BTreeSet<String>) {
     fn push_clause(clause: &str, out: &mut std::collections::BTreeSet<String>) {
-        // `<list> as <alias>` where <alias> is `item`, `item, idx`, or a
-        // destructuring pattern (`[a, b]`, `{a, b}`, `[a, b], idx`). W4: split
-        // with the parser's scanner-aware each-header split (an ` as ` inside
-        // a string/parens in the LIST no longer mis-splits; a trailing `(key)`
-        // group no longer swallows the idx alias), then bind the alias side
-        // from a real parse. The naive textual split stays as the fallback
-        // for clauses `parse_each_header` rejects.
-        if let Ok((_, item, idx, _)) = crate::parser::template::parse_each_header(clause) {
-            push_alias_bindings(&item, idx.as_deref(), out);
-        } else if let Some((_, rest)) = clause.split_once(" as ") {
-            for part in split_top_level_commas_pat(rest) {
-                extract_pattern_idents(&part, out);
-            }
+        // Grammar v2: the head is `<binder> [, <index>] of <list-expr>` —
+        // split with the parser's scanner-aware `of`-head split (an ` of `
+        // inside a string/parens in the LIST never mis-splits), then bind
+        // the binder side from a real parse.
+        if let Ok(head) = crate::parser::directives::parse_each_of_head(clause) {
+            push_alias_bindings(&head.item, head.idx.as_deref(), out);
         }
     }
     for node in nodes {
@@ -1221,18 +1214,13 @@ fn collect_template_exprs_guarded(
                 // referenced.
                 Attr::Macro { name, value } if name == "each" => {
                     let clause = macro_value_expr(value);
-                    // W4: locate the ` as ` with the parser's scanner-aware
-                    // header split so an ` as ` inside a string/parens in the
-                    // LIST doesn't tear it; the naive split stays as the
-                    // fallback for clauses `parse_each_header` rejects.
-                    let list = match crate::parser::template::parse_each_header(&clause) {
-                        Ok((list_expr, _, _, _)) => list_expr,
-                        Err(_) => clause
-                            .split_once(" as ")
-                            .map(|(l, _)| l)
-                            .unwrap_or(&clause)
-                            .trim()
-                            .to_string(),
+                    // Grammar v2: split the `of`-head with the scanner-aware
+                    // splitter so an ` of ` inside a string/parens in the LIST
+                    // doesn't tear it; fall back to the whole clause when the
+                    // head is malformed (the parser rejects those anyway).
+                    let list = match crate::parser::directives::parse_each_of_head(&clause) {
+                        Ok(head) => head.list,
+                        Err(_) => clause.trim().to_string(),
                     };
                     out.push(SidecarExpr { expr: list, is_handler: false, guards: guards.to_vec() });
                 }
@@ -1689,7 +1677,14 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                 scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
-            TemplateNode::Element { attrs, children, .. } => {
+            TemplateNode::Element { tag, attrs, children, .. } => {
+                // §2.6 — an enhanced <a> emits createLinkBoundary at its call
+                // site, so the helper (and the router namespace import) must
+                // be collected exactly as for the retired <$link>.
+                if tag == "a" && anchor_is_enhanced(attrs) {
+                    h.link_element = true;
+                    h.needs_effect = true; // aria-current is reactive
+                }
                 scan_attr_helpers(attrs, h);
                 collect_helpers_recursive(children, h);
             }
@@ -1765,8 +1760,8 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         lines.push("const createRouterBoundary = (router, vt, b) => {\n  const sig = __aihuRouter.createRouteSignal(router);\n  const ctx = { router, current: sig.read, viewTransitions: !!vt };\n  __aihuRouter.bindRouteSignalWriter(ctx, sig.write);\n  __aihuRouter.provideRouteContext(ctx);\n  onCleanup(() => sig.dispose());\n  return b();\n};");
     }
     if h.link_element {
-        // `<$link>` — render <a>, intercept clicks, set aria-current via effect.
-        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  // Compose any author `$on.click` with SPA navigation. Click is wired as an\n  // arbor event attr (owner-agnostic) so <$link> works inside $each/$if item\n  // factories, where there is no component-setup owner for onMount/effect.\n  // href may be a reactive thunk (dynamic `href={expr}`) or a static string.\n  // hrefVal() yields the current string for imperative reads (navigation,\n  // aria-current); the rendered <a> binds the thunk-array form so its href\n  // attribute tracks signal changes, mirroring a plain `<a $href={…}>`.\n  const hrefVal = typeof href === 'function' ? href : () => href;\n  const _userClick = attrs && typeof attrs.onClick === 'function' ? attrs.onClick : null;\n  const onClick = (e) => {\n    if (_userClick) _userClick(e);\n    if (e.defaultPrevented || e.button !== 0) return;\n    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n    // No reactive <$router> context (e.g. createApp): let the click bubble to\n    // @aihu/app's document-level delegation (or the browser) instead of a hard\n    // location.assign. With context present, navigate() does SPA nav here.\n    if (!__aihuRouter.useRouter()) return;\n    e.preventDefault();\n    void __aihuRouter.navigate(hrefVal(), { replace: !!replace });\n  };\n  const node = branch('a', { ...(attrs || {}), href: typeof href === 'function' ? [() => href()] : href, 'data-aihu-link': '', onClick }, children);\n  // Prefetch + aria-current need the live <a> at mount and use onMount, which\n  // requires a component-setup owner. Inside an each/if factory there is none,\n  // so guard the registration: looped links still navigate (onClick above) —\n  // they just skip prefetch + aria-current rather than throwing 'no owner'.\n  try {\n    onMount(() => {\n      const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n      const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n      if (!a) return () => {};\n      const ariaCompute = () => {\n        const r = __aihuRouter.useRoute();\n        return r && r.pathname === hrefVal() ? 'page' : null;\n      };\n      const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n      pf.attach(a, ariaCompute);\n      const stop = effect(() => {\n        const v = ariaCompute();\n        if (v) a.setAttribute('aria-current', v);\n        else a.removeAttribute('aria-current');\n      });\n      return () => { pf.detach(a); stop && stop(); };\n    });\n  } catch {}\n  return node;\n};");
+        // enhanced `<a>` — intercept clicks for SPA nav, set aria-current via effect.
+        lines.push("const createLinkBoundary = (href, prefetch, replace, attrs, children) => {\n  // Compose any author `on:click` with SPA navigation. Click is wired as an\n  // arbor event attr (owner-agnostic) so enhanced <a> works inside each/if item\n  // factories, where there is no component-setup owner for onMount/effect.\n  // href may be a reactive thunk (dynamic `href={expr}`) or a static string.\n  // hrefVal() yields the current string for imperative reads (navigation,\n  // aria-current); the rendered <a> binds the thunk-array form so its href\n  // attribute tracks signal changes, mirroring a plain `<a $href={…}>`.\n  const hrefVal = typeof href === 'function' ? href : () => href;\n  const _userClick = attrs && typeof attrs.onClick === 'function' ? attrs.onClick : null;\n  const onClick = (e) => {\n    if (_userClick) _userClick(e);\n    if (e.defaultPrevented || e.button !== 0) return;\n    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;\n    // Auto-opt-out (grammar v2 \u{a7}2.6): an external origin or a non-http(s)\n    // scheme is a plain full-document navigation \u{2014} never SPA-intercepted.\n    let _u; try { _u = new URL(hrefVal(), location.href); } catch { return; }\n    if (_u.origin !== location.origin || (_u.protocol !== 'http:' && _u.protocol !== 'https:')) return;\n    // No reactive <router> context (e.g. createApp): let the click bubble to\n    // @aihu/app's document-level delegation (or the browser) instead of a hard\n    // location.assign. With context present, navigate() does SPA nav here.\n    if (!__aihuRouter.useRouter()) return;\n    e.preventDefault();\n    void __aihuRouter.navigate(hrefVal(), { replace: !!replace });\n  };\n  const node = branch('a', { ...(attrs || {}), href: typeof href === 'function' ? [() => href()] : href, 'data-aihu-link': '', onClick }, children);\n  // Prefetch + aria-current need the live <a> at mount and use onMount, which\n  // requires a component-setup owner. Inside an each/if factory there is none,\n  // so guard the registration: looped links still navigate (onClick above) —\n  // they just skip prefetch + aria-current rather than throwing 'no owner'.\n  try {\n    onMount(() => {\n      const el = (typeof node === 'object' && node && 'el' in node ? node.el : null) || null;\n      const a = el && (el.tagName === 'A' ? el : el.querySelector?.('a')) || null;\n      if (!a) return () => {};\n      const ariaCompute = () => {\n        const r = __aihuRouter.useRoute();\n        return r && r.pathname === hrefVal() ? 'page' : null;\n      };\n      const pf = __aihuRouter.createPrefetcher(prefetch || 'none');\n      pf.attach(a, ariaCompute);\n      const stop = effect(() => {\n        const v = ariaCompute();\n        if (v) a.setAttribute('aria-current', v);\n        else a.removeAttribute('aria-current');\n      });\n      return () => { pf.detach(a); stop && stop(); };\n    });\n  } catch {}\n  return node;\n};");
     }
     if h.outlet_element {
         // `<$outlet>` — render the matched route component as a child custom element.
@@ -5097,25 +5092,40 @@ fn emit_node(
             attrs,
             children,
         } => {
-            // <slot> / <slot name="x"> — content projection via Shadow DOM.
-            // Emits slot() or slot('name') rather than branch()/leaf.element().
-            if tag == "slot" {
-                let name_attr = attrs.iter().find_map(|a| match a {
-                    crate::types::Attr::Static { name, value } if name == "name" => {
-                        Some(value.as_str())
-                    }
-                    _ => None,
-                });
-                return match name_attr {
-                    Some(n) => format!("slot('{}')", n),
-                    None => "slot()".to_string(),
+            // §2.6 — enhanced <a>: internal links carry the SPA behaviors the
+            // retired <$link> had (navigation, prefetch, replace, aria-current).
+            // Auto-opt-out (target="_blank", download, external/non-http static
+            // href) and explicit `reload` render a plain <a> instead.
+            if tag == "a" && anchor_is_enhanced(attrs) {
+                let base = emit_enhanced_anchor(
+                    attrs, children, signal_map, state_names, child_indent, mode,
+                );
+                let effects =
+                    emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
+                return if effects.is_empty() {
+                    base
+                } else {
+                    effects.into_iter().next().unwrap_or(base)
                 };
             }
 
-            // Check for $raw — if present, emit the element verbatim with no macro wrapping.
+            // Check for `raw` — if present, emit the element verbatim with no macro wrapping.
             let is_raw = attrs.iter().any(|a| matches!(a, Attr::Macro { name, value } if name == "raw" && *value == MacroValue::Boolean));
 
-            let attrs_str = emit_attrs(attrs, state_names, signal_map, mode);
+            // A plain (opted-out) <a> must not render the framework-only
+            // vocabulary words (`reload`, `prefetch`, `replace`) as DOM attrs.
+            let filtered_anchor_attrs: Vec<Attr>;
+            let attrs_for_emit: &[Attr] = if tag == "a" {
+                filtered_anchor_attrs = attrs
+                    .iter()
+                    .filter(|a| !matches!(attr_name(a), "reload" | "prefetch" | "replace"))
+                    .cloned()
+                    .collect();
+                &filtered_anchor_attrs
+            } else {
+                attrs
+            };
+            let attrs_str = emit_attrs(attrs_for_emit, state_names, signal_map, mode);
             let has_element_child = children
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
@@ -5531,7 +5541,19 @@ fn emit_macro_element(
     let next_indent = format!("{}  ", child_indent);
 
     match name {
-        // ── <$slot> ──────────────────────────────────────────────────────────
+        // ── <group> — §2.5 invisible fragment carrier ────────────────────────
+        // Renders no DOM element of its own; exists to carry `each`/`key`/`if`
+        // (and the other §2.4 words) over a multi-element body. The wrapping
+        // directives are applied by the caller (emit_node's MacroElement arm)
+        // via emit_macro_effects, exactly as for plain elements.
+        "group" => {
+            // emit_nodes already yields the leanest fragment shape: a single
+            // child passes through; multiple children wrap in a fragment
+            // branch; an empty group renders nothing.
+            emit_nodes(children, signal_map, state_names, &next_indent, mode)
+        }
+
+        // ── <slot> ───────────────────────────────────────────────────────────
         "slot" => {
             let expose_list = find_static_attr(attrs, "expose");
             let name_attr = find_static_attr(attrs, "name");
@@ -5902,6 +5924,126 @@ fn link_href_arg(
     })
 }
 
+/// The surface name of an attribute, whatever its form.
+fn attr_name(a: &Attr) -> &str {
+    match a {
+        Attr::Static { name, .. } => name.as_str(),
+        Attr::Binding { name, .. } => name.as_str(),
+        Attr::Macro { name, .. } => name.as_str(),
+    }
+}
+
+/// §2.6 — is this `<a>` SPA-enhanced? True when it has an `href` and none of
+/// the opt-outs apply: explicit `reload`, `download` present, static
+/// `target="_blank"` (or a dynamic `target` — conservative), a static href
+/// that is external-origin / non-http(s) / fragment-only. A dynamic href stays
+/// enhanced — the runtime handler re-checks origin+scheme per click.
+fn anchor_is_enhanced(attrs: &[Attr]) -> bool {
+    let mut has_href = false;
+    for a in attrs {
+        match attr_name(a) {
+            "reload" | "download" => return false,
+            "target" => match a {
+                Attr::Static { value, .. } if value == "_blank" => return false,
+                Attr::Binding { .. } => return false,
+                _ => {}
+            },
+            "href" => match a {
+                Attr::Static { value, .. } => {
+                    if !static_href_is_internal(value) {
+                        return false;
+                    }
+                    has_href = true;
+                }
+                Attr::Binding { .. } => {
+                    has_href = true;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+    has_href
+}
+
+/// A static href is an internal SPA destination when it is a same-origin
+/// path: rooted (`/x`, but not protocol-relative `//host`), explicit-relative
+/// (`./x`, `../x`), or a bare relative segment. Absolute URLs (any scheme —
+/// the origin is unknowable at compile time), `mailto:`/`tel:`, and
+/// fragment-only hrefs are plain navigation.
+fn static_href_is_internal(href: &str) -> bool {
+    let h = href.trim();
+    if h.is_empty() || h.starts_with('#') {
+        return false;
+    }
+    if h.starts_with("//") {
+        return false;
+    }
+    if h.starts_with('/') || h.starts_with("./") || h.starts_with("../") {
+        return true;
+    }
+    for c in h.chars() {
+        match c {
+            ':' => return false,
+            '/' | '?' | '#' => return true,
+            _ => {}
+        }
+    }
+    true
+}
+
+/// §2.6 — lower an enhanced `<a>` to the same `createLinkBoundary` call the
+/// retired `<$link>` compiled to: the element the author writes and the
+/// element the runtime renders are the same element.
+fn emit_enhanced_anchor(
+    attrs: &[Attr],
+    children: &[TemplateNode],
+    signal_map: &SignalMap,
+    state_names: &StateNames,
+    child_indent: &str,
+    mode: ExprParserMode,
+) -> String {
+    let next_indent = format!("{}  ", child_indent);
+    let href_expr = link_href_arg(attrs, signal_map, mode).unwrap_or_else(|| "'#'".to_string());
+    let prefetch_expr = find_static_or_binding_attr(attrs, "prefetch")
+        .unwrap_or_else(|| "'none'".to_string());
+    // Bare `replace` means true (boolean-attribute semantics).
+    let replace_expr = attrs
+        .iter()
+        .find_map(|a| match a {
+            Attr::Static { name, value } if name == "replace" => Some(
+                if value.is_empty() || value == "true" {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                },
+            ),
+            Attr::Binding { name, expr } if name == "replace" => Some(expr.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "false".to_string());
+    // Forward the author's OTHER attributes onto the rendered <a> (class, id,
+    // aria-*, on:click, bind:*) via the same path plain elements use.
+    // Structural/effect directives (each/if/key/class:/show) are NOT consumed
+    // here — emit_macro_effects applies them at the call site.
+    let forwarded: Vec<Attr> = attrs
+        .iter()
+        .filter(|a| !matches!(attr_name(a), "href" | "prefetch" | "replace" | "reload"))
+        .cloned()
+        .collect();
+    let attrs_obj = emit_attrs(&forwarded, state_names, signal_map, mode);
+    let children_subtree = if children.is_empty() {
+        "[]".to_string()
+    } else {
+        let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+        format!("[{}]", inner)
+    };
+    format!(
+        "createLinkBoundary({}, {}, {}, {}, {})",
+        href_expr, prefetch_expr, replace_expr, attrs_obj, children_subtree
+    )
+}
+
 fn find_static_or_binding_attr(attrs: &[crate::types::Attr], attr_name: &str) -> Option<String> {
     attrs.iter().find_map(|a| match a {
         crate::types::Attr::Static { name, value } if name == attr_name => {
@@ -6062,7 +6204,12 @@ fn emit_attrs(
                         format_attr_key(prop),
                         lower_attr_expr(&expr, state_names, signal_map, mode)
                     ))
-                } else if let Some(event) = name.strip_prefix("on:") {
+                } else if let Some(event_full) = name.strip_prefix("on:") {
+                    // §2.4 — dotted modifiers: `on:click.prevent`, `on:submit.once`.
+                    let (event, mods): (&str, Vec<&str>) = match event_full.split_once('.') {
+                        Some((e, m)) => (e, m.split('.').collect()),
+                        None => (event_full, Vec::new()),
+                    };
                     let handler = macro_value_expr(value);
                     // FEL-172: same handler-body rewrite as the Binding path.
                     let t = handler.trim();
@@ -6073,7 +6220,8 @@ fn emit_attrs(
                     } else {
                         rewrite_template_expr(t, signal_map, mode).source
                     };
-                    Some(format!("on{}: {}", capitalize_first(event), lowered_handler))
+                    let wrapped = wrap_event_modifiers(&lowered_handler, &mods);
+                    Some(format!("on{}: {}", capitalize_first(event), wrapped))
                 } else {
                     None
                 }
@@ -6641,6 +6789,34 @@ fn capitalize_first(s: &str) -> String {
     }
 }
 
+/// §2.4 — compose `on:<event>.<mods>` dotted modifiers around the handler.
+/// `.prevent` → preventDefault; `.stop` → stopPropagation; `.self` → only when
+/// the event target IS the element; `.once` → fire at most once.
+fn wrap_event_modifiers(handler: &str, mods: &[&str]) -> String {
+    if mods.is_empty() {
+        return handler.to_string();
+    }
+    let mut prelude = String::new();
+    if mods.contains(&"self") {
+        prelude.push_str("if (_e.target !== _e.currentTarget) return; ");
+    }
+    if mods.contains(&"prevent") {
+        prelude.push_str("_e.preventDefault(); ");
+    }
+    if mods.contains(&"stop") {
+        prelude.push_str("_e.stopPropagation(); ");
+    }
+    let core = format!("(_e) => {{ {}return ({})(_e); }}", prelude, handler);
+    if mods.contains(&"once") {
+        format!(
+            "((_h) => {{ let _fired = false; return (_e) => {{ if (_fired) return; _fired = true; return _h(_e); }}; }})({})",
+            core
+        )
+    } else {
+        core
+    }
+}
+
 fn macro_value_expr(value: &MacroValue) -> String {
     match value {
         MacroValue::Quoted(s) => s.clone(),
@@ -7047,20 +7223,19 @@ fn emit_macro_effects(
             "each" => {
                 has_each = true;
                 let raw = macro_value_expr(value);
-                // Parse "list as item" or "list as item, idx"
-                if let Some((list_part, rest)) = raw.split_once(" as ") {
-                    each_items = list_part.trim().to_string();
-                    // Depth-aware split: `as [name, desc]` must not tear at the
-                    // comma inside its own destructuring pattern. Tearing here
-                    // produced a key function of `([name) => name`.
-                    let (item, idx) = crate::parser::directives::split_each_alias(rest);
-                    item_alias = item;
-                    idx_alias = idx.unwrap_or_else(|| "i".to_string());
-                } else {
-                    // fallback for old form (should have been caught by parser, but be safe)
-                    each_items = raw;
-                    item_alias = "item".to_string();
-                    idx_alias = "i".to_string();
+                // Grammar v2 — parse the `of` head: `<binder> [, <index>] of <list>`.
+                match crate::parser::directives::parse_each_of_head(&raw) {
+                    Ok(head) => {
+                        each_items = head.list;
+                        item_alias = head.item;
+                        idx_alias = head.idx.unwrap_or_else(|| "i".to_string());
+                    }
+                    Err(_) => {
+                        // Malformed heads are rejected at parse time; be safe.
+                        each_items = raw;
+                        item_alias = "item".to_string();
+                        idx_alias = "i".to_string();
+                    }
                 }
             }
             "key" => {
