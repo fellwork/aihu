@@ -10,7 +10,12 @@
  * This ordering is a security invariant — do NOT reorder.
  */
 import type { AgentMetadata } from '@aihu/agent'
-import { decideEmission, resolvePrincipal, surfaceCallPolicy } from './principal-gate.ts'
+import {
+  decideEmission,
+  isScopeValue,
+  resolvePrincipal,
+  surfaceCallPolicy,
+} from './principal-gate.ts'
 import type {
   AgentManifest,
   AgentService,
@@ -48,6 +53,7 @@ function jsonrpcError(
   code: number
   jsonrpc?: { code: number; message: string }
   authDiscoveryUrl?: string
+  retryAfter?: number
 } {
   const rpcCode =
     code === 404
@@ -224,11 +230,12 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
     const rateLimitSpec = binding.rateLimit()
     const jwt = requestContext?.jwt ?? ''
     const principal = await resolvePrincipal({ jwt: requestContext?.jwt ?? null }, { authPlugin })
+    const surfacePolicy = surfaceCallPolicy(meta)
     const decision = decideEmission(
       principal,
       {
         axis: 'call',
-        value: surfaceCallPolicy(meta),
+        value: surfacePolicy,
         memberScope: scopeRequired,
         memberRateLimited: rateLimitSpec !== null,
       },
@@ -253,6 +260,61 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
       }
     }
     const verifiedSub: string | null = principal.class === 'anonymous' ? null : principal.sub
+
+    // ── Step 3b: live entitlement (GX Phase 4 #466, 70-spec §4.6) ─────────
+    //
+    // AFTER the static meet, BEFORE the rate limit. For every scope in the
+    // met set (surface `extract.call` scope ∧ member `$scope`), consult THE
+    // single live check — the same `check` the read axis's generated loader
+    // uses, through the same per-request memo when the host shares one via
+    // `RequestContext.entitlementMemo`. The §4.3 fail-closed ladder in the
+    // tool envelope:
+    //   resolver `false`         → 403 ENTITLEMENT_DENIED (a real verdict)
+    //   resolver throw / timeout → 503 ENTITLEMENT_UNAVAILABLE + Retry-After
+    //     (an outage is NEVER presented as a verdict — 503 teaches callers
+    //      to retry; a false 403 would corrode the meaning of real denials).
+    //
+    // ABSENT registry ⇒ this block does not run — byte-identical to Phase 2/3.
+    // Scopes with no live resolver (or registered 'token-only') return
+    // 'granted' from `check`: the static meet's verdict stands (§4.2).
+    const entitlements = options?.entitlements
+    if (entitlements && principal.class !== 'anonymous') {
+      const metScopes: string[] = []
+      if (isScopeValue(surfacePolicy)) metScopes.push(surfacePolicy.scope)
+      if (scopeRequired !== null && !metScopes.includes(scopeRequired)) {
+        metScopes.push(scopeRequired)
+      }
+      if (metScopes.length > 0) {
+        const memo = requestContext?.entitlementMemo ?? entitlements.createMemo()
+        for (const scope of metScopes) {
+          const verdict = await entitlements.check(scope, principal, memo)
+          if (verdict === 'denied') {
+            return {
+              ok: false,
+              envelope: jsonrpcError(
+                403,
+                `ENTITLEMENT_DENIED: live entitlement check refused scope '${scope}'`,
+              ),
+            }
+          }
+          if (verdict === 'unavailable') {
+            // Retry-After seconds — mirrored by the governed read axis
+            // (`@aihu/server` GOVERNED_RETRY_AFTER_SECONDS); keep in sync.
+            return {
+              ok: false,
+              envelope: {
+                ...jsonrpcError(
+                  503,
+                  `ENTITLEMENT_UNAVAILABLE: entitlement for scope '${scope}' could not be ` +
+                    'verified (resolver failure/timeout); refusing to serve, retry later',
+                ),
+                retryAfter: 30,
+              },
+            }
+          }
+        }
+      }
+    }
 
     // ── Step 4: 429 — rate limit ──────────────────────────────────────────
     //
@@ -373,13 +435,20 @@ function buildService(metas: AgentMetadata[], options?: AgentServiceOptions): Ag
         const ctx = options?.resolveAuth ? await options.resolveAuth(req) : undefined
         const out = (await this.handleToolCall(body.tool, body.params ?? null, ctx)) as {
           code?: number
+          retryAfter?: number
         }
         // G6f BUG 2 fix: propagate the JSON-RPC envelope's HTTP code (the helper
         // is keyed on HTTP codes, always 4xx/5xx — never 0) and stop double-
         // wrapping — return the envelope as-is. Success envelopes are already
         // `{ result }` (no `code`, so `|| 200`); error envelopes surface
         // `{ error, code, jsonrpc }` with the correct status.
-        return new Response(JSON.stringify(out), { status: out.code || 200, headers: CT })
+        // GX P4 (#466): a 503 ENTITLEMENT_UNAVAILABLE envelope carries
+        // `retryAfter` seconds — surfaced as the standard Retry-After header.
+        const headers: Record<string, string> =
+          out.code === 503 && typeof out.retryAfter === 'number'
+            ? { ...CT, 'Retry-After': String(out.retryAfter) }
+            : CT
+        return new Response(JSON.stringify(out), { status: out.code || 200, headers })
       }
     },
   }

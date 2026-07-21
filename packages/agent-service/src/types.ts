@@ -10,6 +10,7 @@
 export type { ActionSchema, InputSchema } from '@aihu/agent'
 
 import type { AgentMetadata } from '@aihu/agent'
+import type { EntitlementMemo, EntitlementsHandle } from './entitlements.ts'
 
 // ─── v0.3.0 — LiveBinding (RFC §2.2) ─────────────────────────────────────────
 
@@ -69,6 +70,15 @@ export interface RequestContext {
    * only after `AuthPlugin.verify` has checked its signature.
    */
   readonly jwt?: string | null
+  /**
+   * GX Phase 4 (#466, spec §4.4/§4.6): an OPTIONAL shared per-request
+   * entitlement memo. A host serving one page request that both renders a
+   * governed route and executes governed tool calls passes the same memo to
+   * both transports so a scope is live-resolved at most once per request.
+   * When absent, `runGate` creates a fresh memo per call. Never a policy
+   * input — only a deduplication scope.
+   */
+  readonly entitlementMemo?: EntitlementMemo
 }
 
 // ─── v0.3.0 — auth/scope plugin ──────────────────────────────────────────────
@@ -211,6 +221,18 @@ export interface AgentServiceOptions {
    * policy input. When unset, 401 envelopes carry no discovery field.
    */
   authDiscoveryUrl?: string
+  /**
+   * GX Phase 4 (#466, spec §4.6): the live-entitlement registry handle —
+   * pass the SAME `createGovernedRegistry()` instance (`@aihu/server`) the
+   * server router was constructed with, so one scope has one live meaning on
+   * both axes. When present, `runGate` gains one stage between the scope meet
+   * and the rate limit: every scope in the met set is consulted through the
+   * shared `check` (deny → 403 `ENTITLEMENT_DENIED`; resolver failure → 503
+   * `ENTITLEMENT_UNAVAILABLE` + Retry-After — the §4.3 ladder in the tool
+   * envelope). ABSENT ⇒ byte-identical behavior to today (the same injected
+   * posture as `resolveAuth`: no ambient state, trivially testable).
+   */
+  entitlements?: EntitlementsHandle
 }
 
 /**

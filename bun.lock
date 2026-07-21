@@ -639,11 +639,11 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.11",
-        "@aihu/compiler-darwin-x64": "0.1.11",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.11",
-        "@aihu/compiler-linux-x64-gnu": "0.1.11",
-        "@aihu/compiler-win32-x64-msvc": "0.1.11",
+        "@aihu/compiler-darwin-arm64": "0.1.13",
+        "@aihu/compiler-darwin-x64": "0.1.13",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.13",
+        "@aihu/compiler-linux-x64-gnu": "0.1.13",
+        "@aihu/compiler-win32-x64-msvc": "0.1.13",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -851,6 +851,7 @@
       "version": "0.2.1",
       "dependencies": {
         "@aihu/agent": "workspace:*",
+        "@aihu/agent-service": "workspace:*",
         "@aihu/plugin": "workspace:*",
       },
       "optionalDependencies": {

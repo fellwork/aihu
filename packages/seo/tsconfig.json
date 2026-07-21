@@ -10,6 +10,7 @@
     "paths": {
       "@aihu/seo": ["./src/index.ts"],
       "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/agent-service": ["../agent-service/src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],
       "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu-plugin/agent-readiness": ["../plugin-agent-readiness/src/index.ts"]

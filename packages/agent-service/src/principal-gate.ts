@@ -300,6 +300,22 @@ export type EmissionDenyReason =
   | 'HUMAN_ONLY'
   /** Compliance-tier: the declared crawler tier is refused by the `read` value (403). */
   | 'UA_REFUSED'
+  /**
+   * GX Phase 4 (#466, 70-governed-data-access §4.3/§5): the LIVE entitlement
+   * stage. These two reasons are produced by the governed-boundary stage that
+   * runs AFTER `decideEmission` — `decideEmission` itself NEVER returns them
+   * (its contract stays sync/pure/static). Additive widening only.
+   *
+   * `ENTITLEMENT_DENIED` (403): the registered resolver answered `false` —
+   * the principal's token carries the scope but the authority is not current.
+   */
+  | 'ENTITLEMENT_DENIED'
+  /**
+   * `ENTITLEMENT_UNAVAILABLE` (503 + Retry-After): the resolver threw or
+   * exceeded its deadline. An outage is NEVER presented as a verdict — this is
+   * fail-closed withholding, honestly labeled (spec §4.3).
+   */
+  | 'ENTITLEMENT_UNAVAILABLE'
 
 /** The decision for one principal × one surface policy. */
 export type EmissionDecision =
@@ -308,7 +324,11 @@ export type EmissionDecision =
       readonly allow: false
       readonly axis: 'call' | 'read'
       readonly tier: EnforcementTier
-      readonly code: 401 | 403 | 404
+      /**
+       * 503 is produced ONLY by the GX Phase 4 live-entitlement stage
+       * (`ENTITLEMENT_UNAVAILABLE`); `decideEmission` itself emits 401/403/404.
+       */
+      readonly code: 401 | 403 | 404 | 503
       readonly reason: EmissionDenyReason
       /** Human-readable message — for 401/403 this IS the envelope message. */
       readonly message: string

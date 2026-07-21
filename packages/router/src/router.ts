@@ -15,7 +15,17 @@ export type RouteSegment =
 
 export type RouteModule = {
   default: unknown
-  loader?: (params: Record<string, string>) => Promise<unknown>
+  /**
+   * The route's data loader. Either a plain server loader (the shipped,
+   * ungoverned contract — called with the matched params), or — GX Phase 4
+   * (#466) — the `defineGovernedFetch` escape hatch (structurally typed here
+   * so this browser-eligible file keeps zero `@aihu/server` imports): a
+   * route-local provider the generated loader gates. On a `data:`-declared
+   * route a PLAIN loader is a C486 build error (one data source per route).
+   */
+  loader?:
+    | ((params: Record<string, string>) => Promise<unknown>)
+    | { readonly _brand: 'DefinedGovernedFetch' }
 }
 
 /**
@@ -67,6 +77,17 @@ export type RouteDefinition = {
    * resolved default (`read: 'agents'`, `call: 'anonymous'`) applies.
    */
   extract?: { readonly read?: unknown; readonly call?: unknown }
+  /**
+   * GX Phase 4 (#466): the route's compiled `data:` declaration from the
+   * `.route.json` sidecar — `{ type, preview? }`, naming the governed
+   * resource type (the provider key) and the fields renderable in the locked
+   * state. Values are `unknown`: consumers normalize FAIL-CLOSED
+   * (`normalizeGovernedData` in `@aihu/server` — malformed is a boot
+   * refusal, never rounded to ungoverned). Presence makes the route governed:
+   * `createServerRouter.handle` replaces the ungated `mod.loader` path with
+   * the generated loader (70-governed-data-access §3).
+   */
+  data?: unknown
 }
 
 export type MatchResult = {

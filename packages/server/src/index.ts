@@ -26,6 +26,48 @@ export type {
   ReadDerivation,
 } from './extract-read-policy.ts'
 export { deriveReadPolicy, extractReadValue, isCallAdvertised } from './extract-read-policy.ts'
+// GX Phase 4 (#466) — the governed data-access boundary: registration surface
+// (createGovernedRegistry), the generated-loader pipeline, boot validation,
+// and the defineGovernedFetch escape hatch. Server-only by construction.
+export type {
+  DataProvider,
+  DefinedGovernedFetch,
+  Entitled,
+  EntitledPrincipal,
+  EntitlementContext,
+  EntitlementMemo,
+  EntitlementRegistration,
+  EntitlementsHandle,
+  EntitlementVerdict,
+  GeneratedLoader,
+  GovernedEmission,
+  GovernedFetchContext,
+  GovernedLoadContext,
+  GovernedRegistry,
+  GovernedRegistryStats,
+  GovernedRequestAuth,
+  GovernedRouteCensusEntry,
+  GovernedRouteDataDecl,
+  Principal,
+  PrincipalGateDeps,
+  PrincipalSource,
+  Withheld,
+  WithheldReason,
+} from './governed.ts'
+export {
+  checkEntitlement,
+  createGovernedRegistry,
+  DEFAULT_ENTITLEMENT_TIMEOUT_MS,
+  defineGovernedFetch,
+  GOVERNED_RETRY_AFTER_SECONDS,
+  governedHttpStatus,
+  isGovernedFetch,
+  materializeGeneratedLoader,
+  normalizeGovernedData,
+  passesRouteRead,
+  resolveRequestPrincipal,
+  validateGovernedBoot,
+} from './governed.ts'
 // B3 (SEO arc) — pure mapper: route head metadata → renderable HeadConfig.
 export type { RouteHead, RouteHeadLowerOptions } from './head-lowering.ts'
 export { routeHeadToSsrHead } from './head-lowering.ts'

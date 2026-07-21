@@ -11,6 +11,7 @@
       "@aihu/router": ["../router/src/index.ts"],
       "@aihu/router/plugin": ["../router/src/plugin.ts"],
       "@aihu-plugin/agent-readiness": ["../plugin-agent-readiness/src/index.ts"],
+      "@aihu/agent-service": ["../agent-service/src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],
       "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu/server/head-lowering": ["../server/src/head-lowering.ts"],

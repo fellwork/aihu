@@ -111,6 +111,16 @@ export interface SsrOptions {
     activate: (map: Map<symbol, unknown>) => void,
     deactivate: () => void,
   ) => void
+
+  /**
+   * GX Phase 4 (#466) — the P5/I2s guard: mark this render as a GOVERNED
+   * tree. Governed trees are never streamed — encountering a `pending`
+   * `dataSource` boundary in a governed render is refused fail-closed
+   * (`GOVERNED_UNGATED` posture, 40-spec §10) rather than suspended, because
+   * a streamed governed subtree would be an emission path the generated
+   * loader never gated. Set by the router's governed `handle` path.
+   */
+  readonly governed?: boolean
 }
 
 /**
@@ -369,6 +379,20 @@ async function renderNodeAsync(
         await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
       }
       controller.enqueue(`</${tag}>`)
+      return
+    }
+
+    // GX Phase 4 (#466) — P5/I2s guard: a governed tree must not stream. A
+    // `pending` dataSource here would suspend-and-emit governed content
+    // outside the generated loader's gate, so it is refused fail-closed (the
+    // GOVERNED_UNGATED posture, 40-spec §10) instead of registered.
+    if (pendingState.opts?.governed) {
+      controller.error(
+        new Error(
+          "GOVERNED_UNGATED: governed trees are not streamed — a 'pending' dataSource " +
+            'inside a governed render is refused (fail-closed)',
+        ),
+      )
       return
     }
 
