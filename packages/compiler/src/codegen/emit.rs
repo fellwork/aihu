@@ -3559,8 +3559,21 @@ fn emit_function_form(
     // Vite plugin reads to override its global shadowMode (drives both shadow
     // attachment and the css-engine light-DOM fold). Leading comment — survives
     // the downstream HMR/island passes untouched.
+    //
+    // DA4 (#437, the ratified flip): when the author did NOT pin `$shadow` and
+    // the unit is a PAGE (`@route` block present), emit the DISTINCT
+    // default-marker token `// @aihu:shadow-default none` instead. Pages
+    // default to light DOM so server-rendered content is reachable by non-JS
+    // crawlers. The token is deliberately NOT the pin marker: the Vite plugin
+    // ranks it BELOW an explicit plugin-global `shadowMode` config (pin >
+    // plugin-global > page/layout default 'none' > leaf default 'open'),
+    // whereas the pin marker outranks everything. Layout SFCs carry no
+    // `@route` block — the compiler cannot see layout-ness — so the plugin's
+    // `_isLayoutFile` applies the same 'none' default on its side.
     if let Some(mode) = shadow_mode {
         merged_imports = format!("// @aihu:shadow {}\n{}", mode, merged_imports);
+    } else if unit.source.route.is_some() {
+        merged_imports = format!("// @aihu:shadow-default none\n{}", merged_imports);
     }
 
     // D5 — $form: `static formAssociated = true` must be set on the returned

@@ -19,7 +19,7 @@
 }
 
 @template {
-  <main>
+  <main class="hn-user">
     <header>
       <$link href="/">&larr; back to top</$link>
     </header>
@@ -43,18 +43,20 @@
 }
 
 @style {
-  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
-  header { padding: 0.5rem; background: var(--hn-orange, #ff6600); }
-  header a { color: white; text-decoration: none; }
-  article { padding: 1rem 0; }
-  h1 { font-size: 1.3rem; margin: 0 0 0.5rem 0; color: var(--fg); }
-  dl { display: grid; grid-template-columns: 8rem 1fr; gap: 0.25rem 1rem; }
-  dt { color: var(--muted); }
-  dd { margin: 0; color: var(--fg); }
-  .about h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; }
+  /* DA4: light-DOM page — selectors scoped under the page root class so they
+     stay page-local in the global cascade. */
+  .hn-user { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
+  .hn-user header { padding: 0.5rem; background: var(--hn-orange, #ff6600); }
+  .hn-user header a { color: white; text-decoration: none; }
+  .hn-user article { padding: 1rem 0; }
+  .hn-user h1 { font-size: 1.3rem; margin: 0 0 0.5rem 0; color: var(--fg); }
+  .hn-user dl { display: grid; grid-template-columns: 8rem 1fr; gap: 0.25rem 1rem; }
+  .hn-user dt { color: var(--muted); }
+  .hn-user dd { margin: 0; color: var(--fg); }
+  .hn-user .about h2 { font-size: 1rem; margin: 1rem 0 0.5rem 0; }
 
   @media (max-width: 480px) {
-    main { padding: 0 0.5rem; }
-    dl { grid-template-columns: 6rem 1fr; }
+    .hn-user { padding: 0 0.5rem; }
+    .hn-user dl { grid-template-columns: 6rem 1fr; }
   }
 }

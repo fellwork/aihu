@@ -1,23 +1,33 @@
-//! DA4 phase 1 (#437) — W472: route component without `$shadow` warns ahead
-//! of the light-DOM default flip (next major).
+//! DA4 (#437) — the light-DOM default flip: an `@route` (page-level) unit
+//! with no `$shadow` pin emits the DISTINCT default-marker token
+//! `// @aihu:shadow-default none`, which the Vite plugin ranks BELOW an
+//! explicit plugin-global `shadowMode` config (pin > plugin-global >
+//! page/layout default 'none' > leaf default 'open').
 //!
-//! The classifier precedence triple (thesis §DA4, founder-ratified):
-//!   (a) `$shadow` present → NO warning, whatever else the file declares —
-//!       the macro always wins, so the flip cannot change the author's output.
-//!   (b) `@route` block, no `$shadow` → W472, with the machine rewrite.
-//!   (c) no `@route`, no `$shadow` → leaf component → no warning.
+//! The classifier precedence triple (thesis §DA4, founder-ratified) survives
+//! W472's retirement — it now selects the EMISSION instead of a warning:
+//!   (a) `$shadow` present → the pin marker `// @aihu:shadow <mode>`, never
+//!       the default marker — the macro always wins.
+//!   (b) `@route` block, no `$shadow` → the default marker (pages are light
+//!       DOM by default so non-JS crawlers can read server-rendered content).
+//!   (c) no `@route`, no `$shadow` → leaf component → NO marker of either
+//!       kind; the runtime's `options?.shadowMode ?? 'open'` keeps shadow DOM.
 //!
-//! Assertions go through the pure decision fn `route_shadow_flip_warning`;
-//! emission is stderr-only (`diagnostics::emit_warning`) and non-fatal by
-//! construction, which `warning_is_not_a_compile_error` pins: the same source
-//! that warns still compiles.
+//! W472 itself (the phase-1 advisory that predicted this default) is retired
+//! outright: the behavior it warned about is now the behavior, and there are
+//! no external consumers to migrate.
 
-use aihu_compiler::{compile, compile_full, compile_with_path, route_shadow_flip_warning, AihuSource};
+use aihu_compiler::{compile, compile_full, compile_with_path, AihuSource};
 
 /// Parse a page fixture under a `src/pages/` path (an `@route` block anywhere
 /// else is a C500 hard error, which is not what these tests measure).
 fn parse_page(src: &str) -> AihuSource<'_> {
     compile_with_path(src, Some("src/pages/index.aihu")).unwrap()
+}
+
+fn emit_js(source: &AihuSource) -> String {
+    let unit = compile_full(source).unwrap();
+    aihu_compiler::emit(&unit, "home-page").js
 }
 
 const PAGE_NO_SHADOW: &str = r#"@state {
@@ -75,84 +85,70 @@ const LEAF_NO_SHADOW: &str = r#"@state {
 }
 "#;
 
-/// (a) `$shadow` always wins — both escape hatches suppress W472.
+/// (b) The flip itself: an `@route` unit with no `$shadow` pin emits the
+/// leading default-marker token — the exact token the Vite plugin's
+/// `perFileShadowDefault` regex (`^// @aihu:shadow-default (open|closed|none)`)
+/// consumes at the page/layout-default tier of the precedence chain.
 #[test]
-fn route_with_shadow_macro_no_warning() {
-    for (label, src) in [("open", PAGE_SHADOW_OPEN), ("none", PAGE_SHADOW_NONE)] {
-        let source = parse_page(src);
+fn route_without_shadow_emits_default_marker() {
+    let source = parse_page(PAGE_NO_SHADOW);
+    let js = emit_js(&source);
+    assert!(
+        js.starts_with("// @aihu:shadow-default none\n"),
+        "a defaulted @route page must lead with the default-marker token; got:\n{}",
+        &js[..js.len().min(120)]
+    );
+}
+
+/// (b, distinctness) The default marker must NOT be readable as the pin
+/// marker: the plugin's pin regex is `^// @aihu:shadow (open|closed|none)`
+/// (a SPACE after `shadow`), and the pin tier outranks the plugin-global
+/// config while the default tier ranks below it. A default marker that
+/// matched the pin shape would silently promote the implicit default over an
+/// explicit plugin-global `shadowMode` — the precedence inversion the
+/// distinct token exists to prevent.
+#[test]
+fn default_marker_is_not_the_pin_marker() {
+    let source = parse_page(PAGE_NO_SHADOW);
+    let js = emit_js(&source);
+    for mode in ["open", "closed", "none"] {
         assert!(
-            route_shadow_flip_warning(&source).is_none(),
-            "`$shadow: '{label}'` must suppress W472 — the mode is pinned, the flip is a no-op"
+            !js.contains(&format!("// @aihu:shadow {mode}")),
+            "a defaulted page must not emit the PIN marker shape (`// @aihu:shadow {mode}`)"
         );
     }
 }
 
-/// (b) `@route` without `$shadow` → W472, warning-shaped (code + hint + fix +
-/// machine rewrite), with the ratified message.
+/// (a) `$shadow` always wins: a pinned page emits the pin marker as the
+/// leading line and never the default marker — the pin suppresses it.
 #[test]
-fn route_without_shadow_warns_w472() {
-    let source = parse_page(PAGE_NO_SHADOW);
-    let w = route_shadow_flip_warning(&source)
-        .expect("an @route unit with no $shadow must produce the W472 warning");
-    assert_eq!(w.code.as_deref(), Some("W472"));
-    assert!(
-        w.message.contains("shadowMode 'none'") && w.message.contains("next major"),
-        "message must name the flip and its semver weight; got: {}",
-        w.message
-    );
-    assert!(
-        w.message.contains("$shadow open") && w.message.contains("$shadow none"),
-        "message must offer BOTH escape hatches; got: {}",
-        w.message
-    );
-    // The uniform diagnostics tail (diagnostics.rs): hint + fix + a complete
-    // machine rewrite (from AND to — a half rewrite is not machine-applicable).
-    assert!(w.hint.is_some(), "W472 must carry a hint");
-    assert!(w.fix.is_some(), "W472 must carry a fix");
-    assert!(
-        w.from.is_some() && w.to.is_some(),
-        "W472 must carry the machine replace/with rewrite"
-    );
-}
-
-/// (c) no `@route`, no `$shadow` → leaf → no warning.
-#[test]
-fn leaf_without_shadow_no_warning() {
-    let source = compile(LEAF_NO_SHADOW).unwrap();
-    assert!(
-        route_shadow_flip_warning(&source).is_none(),
-        "a leaf (no @route) keeps shadow DOM at the flip; it must not warn"
-    );
-}
-
-/// W472 is a WARNING release, not the flip: the warning must not fail the
-/// build, and it must not change the emitted output's shadow behavior (no
-/// `// @aihu:shadow` marker appears that the author did not write).
-#[test]
-fn warning_is_not_a_compile_error_and_changes_no_output() {
-    let source = parse_page(PAGE_NO_SHADOW);
-    let unit = compile_full(&source).expect("a warning must never fail compile_full");
-    let js = aihu_compiler::emit(&unit, "home-page").js;
-    assert!(
-        !js.contains("@aihu:shadow"),
-        "phase 1 must not inject a shadow marker the author did not write"
-    );
-}
-
-/// The escape hatch is end-to-end real: `$shadow: 'open'` and `$shadow: 'none'`
-/// both emit the leading `// @aihu:shadow <mode>` marker the Vite plugin's
-/// `_injectShadowMode` consumes (packages/compiler/js/index.ts reads
-/// `^// @aihu:shadow (open|closed|none)`).
-#[test]
-fn shadow_macro_emits_marker_for_both_hatches() {
+fn route_with_shadow_macro_emits_pin_marker_only() {
     for (mode, src) in [("open", PAGE_SHADOW_OPEN), ("none", PAGE_SHADOW_NONE)] {
         let source = parse_page(src);
-        let unit = compile_full(&source).unwrap();
-        let js = aihu_compiler::emit(&unit, "home-page").js;
+        let js = emit_js(&source);
         assert!(
             js.starts_with(&format!("// @aihu:shadow {mode}\n")),
-            "`$shadow: '{mode}'` must emit its leading marker; got:\n{}",
+            "`$shadow: '{mode}'` must emit its leading pin marker; got:\n{}",
             &js[..js.len().min(120)]
         );
+        assert!(
+            !js.contains("@aihu:shadow-default"),
+            "a `$shadow`-pinned page must not also emit the default marker"
+        );
     }
+}
+
+/// (c) A leaf (no `@route`, no `$shadow`) emits NO shadow marker of either
+/// kind: the plugin injects nothing, and the runtime's
+/// `options?.shadowMode ?? 'open'` (define-element.ts) keeps leaves in
+/// shadow DOM — the flip is pages and layouts only.
+#[test]
+fn leaf_without_shadow_emits_no_marker() {
+    let source = compile(LEAF_NO_SHADOW).unwrap();
+    let js = emit_js(&source);
+    assert!(
+        !js.contains("@aihu:shadow"),
+        "a leaf must carry neither the pin nor the default marker; got:\n{}",
+        &js[..js.len().min(200)]
+    );
 }

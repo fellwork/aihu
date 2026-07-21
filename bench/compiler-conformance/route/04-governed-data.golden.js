@@ -1,3 +1,4 @@
+// @aihu:shadow-default none
 // @aihu:extract read=scope:members call=anonymous
 import { branch, leaf, slot, when } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'

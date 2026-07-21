@@ -4,7 +4,7 @@
 }
 
 @template {
-  <main>
+  <main class="blog-about">
     <h1>About this blog</h1>
     <p>This example demonstrates file-based routing in aihu.
        Each <code>.aihu</code> file under <code>src/pages/</code>
@@ -14,8 +14,10 @@
 }
 
 @style {
-  main { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; line-height: 1.55; }
-  code { background: #f5f5f5; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
-  a    { color: #0070f3; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  /* DA4: light-DOM page — selectors scoped under the page root class so they
+     stay page-local in the global cascade. */
+  .blog-about { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; line-height: 1.55; }
+  .blog-about code { background: #f5f5f5; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+  .blog-about a { color: #0070f3; text-decoration: none; }
+  .blog-about a:hover { text-decoration: underline; }
 }

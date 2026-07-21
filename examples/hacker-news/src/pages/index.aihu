@@ -30,7 +30,7 @@
 }
 
 @template {
-  <main>
+  <main class="hn-top">
     <header>
       <h1>aihu HN</h1>
       <nav>
@@ -58,24 +58,27 @@
 }
 
 @style {
-  main { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
-  header { display: flex; justify-content: space-between; align-items: baseline; padding: 0.5rem; background: var(--hn-orange, #ff6600); }
-  h1 { color: white; margin: 0; font-size: 1.1rem; }
-  nav { color: white; }
-  nav a, nav .page { color: white; text-decoration: none; padding: 0 0.4rem; }
-  nav a:hover { text-decoration: underline; }
-  .stories { padding-left: 2rem; }
-  .story { padding: 0.4rem 0; }
-  .title a { color: var(--fg); text-decoration: none; font-size: 1rem; }
-  .title a:hover { text-decoration: underline; }
-  .host { color: var(--muted); font-size: 0.85em; }
-  .meta { color: var(--muted); font-size: 0.85em; padding-top: 0.1rem; }
-  .meta a { color: var(--muted); }
-  .meta a:hover { text-decoration: underline; color: var(--fg); }
+  /* DA4: pages are light DOM by default, so this @style joins the GLOBAL
+     cascade — every selector is scoped under the page root class so bare
+     element selectors (main, header, h1, ...) don't bleed into other pages. */
+  .hn-top { max-width: 48rem; margin: 1.5rem auto; padding: 0 1rem; font-family: Verdana, system-ui, sans-serif; font-size: 13px; background: var(--bg); color: var(--fg); }
+  .hn-top header { display: flex; justify-content: space-between; align-items: baseline; padding: 0.5rem; background: var(--hn-orange, #ff6600); }
+  .hn-top h1 { color: white; margin: 0; font-size: 1.1rem; }
+  .hn-top nav { color: white; }
+  .hn-top nav a, .hn-top nav .page { color: white; text-decoration: none; padding: 0 0.4rem; }
+  .hn-top nav a:hover { text-decoration: underline; }
+  .hn-top .stories { padding-left: 2rem; }
+  .hn-top .story { padding: 0.4rem 0; }
+  .hn-top .title a { color: var(--fg); text-decoration: none; font-size: 1rem; }
+  .hn-top .title a:hover { text-decoration: underline; }
+  .hn-top .host { color: var(--muted); font-size: 0.85em; }
+  .hn-top .meta { color: var(--muted); font-size: 0.85em; padding-top: 0.1rem; }
+  .hn-top .meta a { color: var(--muted); }
+  .hn-top .meta a:hover { text-decoration: underline; color: var(--fg); }
 
   @media (max-width: 480px) {
-    main { padding: 0 0.5rem; }
-    .stories { padding-left: 1rem; }
-    .title a { font-size: 0.95rem; }
+    .hn-top { padding: 0 0.5rem; }
+    .hn-top .stories { padding-left: 1rem; }
+    .hn-top .title a { font-size: 0.95rem; }
   }
 }

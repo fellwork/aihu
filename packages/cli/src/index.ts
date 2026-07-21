@@ -153,16 +153,20 @@ export function appViteConfig(
   withCssEngine = false,
   shadowMode: ShadowChoice = 'open',
 ): string {
-  // Default path (css off) and css-engine in the default `open` mode both emit
-  // the SAME plugin options — `open` is the compiler default, so a redundant
-  // `css: { shadowMode: 'open' }` is never written. css-engine in open mode
-  // adds only a clarifying comment. Only `closed`/`none` emit an explicit
-  // `css: { shadowMode }` block.
-  const emitCssBlock = withCssEngine && shadowMode !== 'open'
+  // DA4 (#437, the flip): pages and layouts default to light DOM, so `open`
+  // is no longer the implicit default for the scaffolded index page — a
+  // css-engine scaffold whose user chose `--shadow open` must CARRY that
+  // choice as the explicit plugin-global `css: { shadowMode: 'open' }`, or
+  // the page default 'none' would silently override it. Every css-engine
+  // scaffold therefore emits its chosen mode explicitly. The plain (css-off)
+  // scaffold pins `$shadow: 'none'` per-file instead and emits no css block.
+  const emitCssBlock = withCssEngine
   const cssEngineComment = withCssEngine
     ? `      // @aihu/css-engine utility classes fold into each component's shadow
-      // <style> automatically. Set \`css: { shadowMode: 'none' }\` only to style
-      // light-DOM / external child elements (css-engine is scoped, not global).
+      // <style> automatically (or into the global cascade under 'none').
+      // DA4: pages default to light DOM, so the wizard's --shadow choice is
+      // carried explicitly here — the plugin-global config outranks the
+      // page/layout default (only a per-file $shadow pin outranks the config).
 `
     : ''
   const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
@@ -314,14 +318,14 @@ export function appIndexAihu(appName: string = 'app', withCssEngine = false): st
   // agent-readiness plugin reads the registry), never hand-mirrored in
   // vite.config — so the card cannot drift from the component.
   //
-  // DA4 (#437): the plain scaffold pins `$shadow: 'none'` — pages default to
-  // light DOM at the next major so non-JS crawlers can read server-rendered
-  // content; new apps adopt that now, and the pin silences the W472 warning a
-  // fresh scaffold would otherwise compile with. The css-engine scaffold does
-  // NOT pin: its shadow mode is the user's `--shadow` wizard choice, carried
-  // as the PLUGIN-GLOBAL `css: { shadowMode }` in vite.config.ts, and a
-  // per-file `$shadow` marker would override that choice (the `--shadow`
-  // semantics change belongs to the flip PR, not the warning release).
+  // DA4 (#437, flipped): pages default to light DOM now. The plain scaffold
+  // keeps its `$shadow: 'none'` pin — it is simply explicit about the default
+  // (and keeps the legacy-snapshot golden byte-stable across the flip). The
+  // css-engine scaffold still does NOT pin per-file: its shadow mode is the
+  // user's `--shadow` wizard choice, carried as the PLUGIN-GLOBAL
+  // `css: { shadowMode }` in vite.config.ts (now emitted for EVERY choice,
+  // `open` included — the config tier outranks the page default; a per-file
+  // `$shadow` marker would outrank the config and freeze the choice).
   const shadowPin = withCssEngine ? '' : "$shadow: 'none'\n\n"
   const stateBlock = `@state {
 ${shadowPin}import { signal } from '@aihu/signals'

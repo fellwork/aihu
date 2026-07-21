@@ -5,7 +5,7 @@
 }
 
 @template {
-  <section class="page">
+  <section class="dashboard-page">
     <h1>Dashboard</h1>
     <p>This page declares <code>layout: "compact"</code>, so navigating here from
        Home swaps the whole shell — proving the layout is resolved per route at
@@ -15,8 +15,11 @@
 }
 
 @style {
-  .page h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
-  .page p { line-height: 1.55; margin-bottom: 0.6rem; color: #334155; font-size: 0.95rem; }
-  .page a { color: #2563eb; }
-  .page code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+  /* DA4: light-DOM pages share the global cascade — the root class must be
+     UNIQUE per page (index.aihu had the same `.page` scope with different
+     values; last-loaded silently won). */
+  .dashboard-page h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+  .dashboard-page p { line-height: 1.55; margin-bottom: 0.6rem; color: #334155; font-size: 0.95rem; }
+  .dashboard-page a { color: #2563eb; }
+  .dashboard-page code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
 }

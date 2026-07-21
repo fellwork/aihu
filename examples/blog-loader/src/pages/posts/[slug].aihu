@@ -24,7 +24,7 @@
 }
 
 @template {
-  <article>
+  <article class="loader-post">
     <a href="/">&larr; Back</a>
 
     <$suspense source="route.data">
@@ -47,13 +47,16 @@
 }
 
 @style {
-  article { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; line-height: 1.55; }
-  h1      { margin-top: 1rem; }
-  .meta   { color: var(--text-muted); font-size: 0.9em; }
-  .loading { color: var(--text-muted); font-style: italic; }
-  a       { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .context-badge {
+  /* DA4: light-DOM page — selectors scoped under the page root class so they
+     stay page-local in the global cascade (generic names like `.meta` would
+     otherwise collide with other pages' rules). */
+  .loader-post { max-width: 38rem; margin: 2rem auto; font-family: system-ui, sans-serif; line-height: 1.55; }
+  .loader-post h1 { margin-top: 1rem; }
+  .loader-post .meta { color: var(--text-muted); font-size: 0.9em; }
+  .loader-post .loading { color: var(--text-muted); font-style: italic; }
+  .loader-post a { color: var(--accent); text-decoration: none; }
+  .loader-post a:hover { text-decoration: underline; }
+  .loader-post .context-badge {
     display: inline-block;
     margin-top: 0.75rem;
     padding: 0.2em 0.6em;
@@ -65,7 +68,7 @@
     font-family: monospace;
   }
   @media (max-width: 480px) {
-    article { margin: 1rem; }
-    .context-badge { font-size: 0.75em; }
+    .loader-post { margin: 1rem; }
+    .loader-post .context-badge { font-size: 0.75em; }
   }
 }

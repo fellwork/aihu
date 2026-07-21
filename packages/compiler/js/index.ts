@@ -1266,7 +1266,20 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           | 'closed'
           | 'none'
           | undefined
-        const effectiveShadow = perFileShadow ?? shadowMode
+        // DA4 (#437, the ratified flip) — the IMPLICIT page default: for an
+        // `@route` unit with no `$shadow` pin the compiler emits the DISTINCT
+        // default-marker token `// @aihu:shadow-default none`. Layout SFCs
+        // (no `@route` block, so no compiler marker) get the same 'none'
+        // default from `_isLayoutFile`. Precedence, ratified: `$shadow` pin >
+        // plugin-global `shadowMode` config > page/layout default 'none' >
+        // leaf default 'open' (the runtime's `?? 'open'` when nothing is
+        // injected) — so an explicit plugin-global config still outranks the
+        // implicit default, which is why this is not the pin marker.
+        const perFileShadowDefault = /^\/\/ @aihu:shadow-default (open|closed|none)\b/m.exec(
+          result.code,
+        )?.[1] as 'open' | 'closed' | 'none' | undefined
+        const impliedShadowDefault = perFileShadowDefault ?? (isLayout ? 'none' : undefined)
+        const effectiveShadow = perFileShadow ?? shadowMode ?? impliedShadowDefault
         let compiled =
           effectiveShadow != null ? _injectShadowMode(result.code, effectiveShadow) : result.code
         // Light-DOM: the authored `@style` block compiled to a per-instance
@@ -1321,10 +1334,17 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // a component with no signals has no setup state to hot-replace.
         // Static islands strip @aihu/runtime entirely — do NOT inject auto-wiring
         // (it would reference _setMount/_setSignal as undefined identifiers).
+        //
+        // DA4 (#437): like `hasBase`, a light-DOM component cannot take the
+        // static-island shim — the shim inlines `attachShadow({ mode: 'open' })`
+        // and cannot honor `shadowMode: 'none'` (and its tail rewrite does not
+        // match the injected options argument). Keep the full runtime path so
+        // the injected `{ shadowMode: 'none' }` reaches defineElement.
         if (
           islandsEnabled &&
           elementTag !== null &&
           !hasBase &&
+          effectiveShadow !== 'none' &&
           _classifyIsland(compiled) === 'static'
         ) {
           out = _buildStaticIsland(compiled, elementTag)
