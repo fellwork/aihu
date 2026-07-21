@@ -621,6 +621,11 @@ Nothing else shipped is modified.
 
 ## §7 Open questions for founder ratification
 
+> **RATIFIED 2026-07-21 (founder).** Q1 (2000 ms default timeout), Q2 (never cache
+> negatives), Q3 (strict mode on by default), **Q4 (preview placement — route-level /
+> per-surface)** — all approved. Q5 (E3 URL shape) — deferred to the #466 E2/E3 build (no
+> policy content). This design is the ratified spec Phase 4 (#466) implements.
+
 - **Q1 — default resolver timeout.** 2000 ms proposed (§3.1). Policy, not architecture;
   bounds the worst-case SSR latency added by a hung entitlement dependency.
 - **Q2 — negative-verdict caching.** Design says never cache negatives (§4.4). If a hot
