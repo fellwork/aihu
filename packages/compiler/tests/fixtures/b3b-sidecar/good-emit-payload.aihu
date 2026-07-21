@@ -10,5 +10,5 @@
 }
 
 @template {
-  <button $on.click={() => $emit.dayjump({ day: new Date() })}>x</button>
+  <button on:click={() => $emit.dayjump({ day: new Date() })}>x</button>
 }

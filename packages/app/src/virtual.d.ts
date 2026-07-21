@@ -20,7 +20,7 @@ declare module 'virtual:aihu-components' {
 /**
  * F1: runtime hook published by @aihu/app's client bootstrap (client.ts, module
  * top level) so COMPILER-EMITTED code can register a route's referenced
- * components. The nested `<$outlet>` boundary (`createOutletBoundary` in
+ * components. The nested `<outlet>` boundary (`createOutletBoundary` in
  * packages/compiler/src/codegen/emit.rs) has no build-graph import of
  * virtual:aihu-components, so it calls this global optional-chained:
  *

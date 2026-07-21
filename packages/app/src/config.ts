@@ -102,7 +102,7 @@ export interface CssConfig {
 /** Router-related app config (arch-5 M1, RFC-A5-012). */
 export interface RouterConfig {
   /**
-   * When `true`, `<$link>` navigation wraps in `document.startViewTransition()`
+   * When `true`, `<a>` navigation wraps in `document.startViewTransition()`
    * if the browser supports the View Transitions API. No-op in unsupported
    * browsers (graceful degradation). Default: `false`.
    *
@@ -159,7 +159,7 @@ export interface AihuConfig {
   readonly adapter?: AihuAdapter
   /**
    * Router-related app config (arch-5 M1).
-   * Currently exposes the `viewTransitions` opt-in for `<$link>`.
+   * Currently exposes the `viewTransitions` opt-in for `<a>`.
    */
   readonly router?: RouterConfig
   /**

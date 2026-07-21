@@ -6,7 +6,7 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
     // Form A static utilities + a Form C macro toggle whose class IS a real
     // utility (`rounded-lg`). The macro toggle's class is statically known.
     const source = `@template {
-  <button class="bg-primary p-4" $class:rounded-lg={busy}>Go</button>
+  <button class="bg-primary p-4" class:rounded-lg={busy}>Go</button>
 }`
     const css = compileSfc(source, 'Button.aihu')
 
@@ -16,7 +16,7 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
     expect(css).toContain('p-4')
     expect(css).toContain('padding: 1rem')
 
-    // Macro toggle class resolved (Form C: $class:rounded-lg → "rounded-lg").
+    // Macro toggle class resolved (Form C: class:rounded-lg → "rounded-lg").
     expect(css).toContain('rounded-lg')
     expect(css).toContain('border-radius: 0.5rem')
 
@@ -26,11 +26,11 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
   })
 
   it('defers (does not drop) reactive class bindings — extracts literals, flags identifiers', () => {
-    // Form B: $class={cn('shadow-md', size)} → the string literal 'shadow-md'
+    // Form B: class={cn('shadow-md', size)} → the string literal 'shadow-md'
     // is a real utility and IS compiled; `size` is a runtime identifier that
     // must NOT be compiled (and must not crash the pipeline).
     const source = `@template {
-  <span class="text-accent" $class={cn('shadow-md', size)}>x</span>
+  <span class="text-accent" class={cn('shadow-md', size)}>x</span>
 }`
     const css = compileSfc(source, 'Tag.aihu')
     // Static class from Form A.

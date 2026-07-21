@@ -210,7 +210,7 @@ fn v062_route_json_emitted_when_route_present() {
 
 /// route_json lists the page's component tags for route-scoped registration:
 /// custom-element (hyphenated) and PascalCase references, from nested elements
-/// and inside `{#if}`/`{#each}`. Plain HTML tags and `<$macro>` intrinsics are
+/// and inside `if`/`each` control flow. Plain HTML tags and framework intrinsics are
 /// excluded. O1a (tag naming): the manifest carries NORMALIZED tags —
 /// `<UserCard>` is listed as `user-card`, matching reference emission and the
 /// define-name.
@@ -223,7 +223,7 @@ fn route_json_components_lists_referenced_component_tags() {
     <UserCard comment={a} />
     <my-widget></my-widget>
     <p>plain</p>
-    {#if cond}<lazy-graph></lazy-graph>{/if}
+    <lazy-graph if={cond}></lazy-graph>
   </div>
 }
 "#;

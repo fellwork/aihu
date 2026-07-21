@@ -73,20 +73,20 @@
     <section class="request-section" aria-label="Send A2A Request">
       <button
         class="send-btn"
-        $on.click={sendA2aRequest}
-        $disabled={loading}
-        $aria-busy={loading}
+        on:click={sendA2aRequest}
+        disabled={loading}
+        aria-busy={loading}
       >
         {loading ? 'Sending...' : 'Send A2A Request'}
       </button>
     </section>
 
-    <section class="result-section" $if={result !== null} aria-label="A2A Result">
+    <section class="result-section" if={result !== null} aria-label="A2A Result">
       <h3 class="subsection-heading">Result</h3>
       <pre class="result-display">{result}</pre>
     </section>
 
-    <p class="result-placeholder" $if={result === null && !loading}>
+    <p class="result-placeholder" if={result === null && !loading}>
       No result yet — click "Send A2A Request" to make a request.
     </p>
   </div>

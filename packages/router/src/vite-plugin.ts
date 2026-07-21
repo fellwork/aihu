@@ -286,7 +286,7 @@ export function scanComponents(d: string): Record<string, string> {
  * `{…}` freely — `@if { }`, interpolations — so the `readAihuRouteMeta`-style
  * `[^}]*` regex would truncate). Inside it, element OPENINGS are matched with
  * `/<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])/g` — closing tags (`</x>`) and special
- * forms (`<$outlet>`) never match because the char after `<` must be a letter.
+ * forms (`<outlet>`) never match because the char after `<` must be a letter.
  * A matched tag counts as a component when it contains a hyphen OR starts with
  * an ASCII uppercase letter; winners are normalized via `componentTagFor`,
  * deduped, and sorted (deterministic output). Build-time only.

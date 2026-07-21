@@ -21,7 +21,7 @@
 @template {
   <main class="hn-user">
     <header>
-      <$link href="/">&larr; back to top</$link>
+      <a href="/">&larr; back to top</a>
     </header>
 
     <article>
@@ -34,9 +34,9 @@
         <dt>submissions</dt>
         <dd>{(route().data.user.submitted ?? []).length}</dd>
       </dl>
-      <section class="about" $if={!!route().data.user.about}>
+      <section class="about" if={!!route().data.user.about}>
         <h2>about</h2>
-        <div $html={route().data.user.about}></div>
+        <div html={route().data.user.about}></div>
       </section>
     </article>
   </main>

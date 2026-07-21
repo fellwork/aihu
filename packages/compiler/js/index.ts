@@ -98,7 +98,7 @@ export interface AihuCompilerPluginOptions {
    * `'src/layouts'`. Files under this directory are compiled in **layout mode**:
    * their custom element is registered under the namespaced tag
    * `aihu-layout-<stem>` (a layout stem like `app` is not a valid custom-element
-   * name on its own), and their `<$outlet>` lowers to a **passive**
+   * name on its own), and their `<outlet>` lowers to a **passive**
    * `data-aihu-outlet` marker rather than the reactive route-driven boundary —
    * because `@aihu/app`'s client renderer fills the marker imperatively and the
    * reactive boundary would otherwise clear it on mount.
@@ -284,7 +284,7 @@ export function kebabComponentTag(raw: string): string {
 }
 
 /**
- * Collapse the reactive `<$outlet>` boundary the Rust codegen emits into a
+ * Collapse the reactive `<outlet>` boundary the Rust codegen emits into a
  * passive `data-aihu-outlet` marker. Layout SFCs are rendered by `@aihu/app`'s
  * imperative client renderer, which fills the marker itself; the default
  * boundary's mount-time `effect()` reads `useRoute()` (null under the imperative
@@ -292,7 +292,7 @@ export function kebabComponentTag(raw: string): string {
  *
  * Anchors on the exact `const createOutletBoundary = () => { … return host; };`
  * block the codegen emits (`packages/compiler/src/codegen/emit.rs`). No-op when
- * the layout declares no `<$outlet>`.
+ * the layout declares no `<outlet>`.
  * @internal
  */
 export function _passivizeOutlet(code: string): string {
@@ -1248,7 +1248,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // hide it. A build has no business writing type-checker inputs at all.
         //
         // Layout SFCs (under the layouts dir) compile in layout mode: a
-        // namespaced `aihu-layout-<stem>` tag + a passive <$outlet> marker.
+        // namespaced `aihu-layout-<stem>` tag + a passive <outlet> marker.
         const isLayout = _isLayoutFile(rawId, layoutsDir)
         const layoutTag = isLayout ? _layoutTag(basename(rawId, '.aihu')) : undefined
         const tOpts = {

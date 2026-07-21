@@ -3,9 +3,9 @@
 //!
 //! Props compile to signal getters (`const section = ctx.props.section`), and
 //! plain dotted interpolations were already rewritten (`{section.label}` →
-//! `(section() as any).label`). But `$if` / `$each` / `$on.*` / attr-binding /
+//! `(section() as any).label`). But `if` / `each` / `on:*` / attr-binding /
 //! complex-interpolation expressions were emitted VERBATIM into thunks, so
-//! `$if={section.kind === 'prose'}` read `.kind` off the signal FUNCTION —
+//! `if={section.kind === 'prose'}` read `.kind` off the signal FUNCTION —
 //! always undefined — and the branch silently never rendered (fellwork-web
 //! exegesis-section). FEL-173 is the interpolation face of the same gap:
 //! `{count + 1}` stringified the getter function instead of tracking it.
@@ -38,7 +38,7 @@ const PROP_STATE: &str = r#"@state {
 #[test]
 fn fel172_prop_read_in_if_cond_is_rewritten() {
     let src = format!(
-        "{PROP_STATE}@template {{\n  <p $if={{section.kind === 'prose'}}>prose</p>\n}}"
+        "{PROP_STATE}@template {{\n  <p if={{section.kind === 'prose'}}>prose</p>\n}}"
     );
     let js = compile_to_js(&src, "x-fel172-if");
     assert!(
@@ -54,7 +54,7 @@ fn fel172_prop_read_in_if_cond_is_rewritten() {
 #[test]
 fn fel172_prop_read_in_each_list_is_rewritten() {
     let src = format!(
-        "{PROP_STATE}@template {{\n  <li $each=\"section.data as it\">{{it}}</li>\n}}"
+        "{PROP_STATE}@template {{\n  <li each={{it of section.data}}>{{it}}</li>\n}}"
     );
     let js = compile_to_js(&src, "x-fel172-each");
     assert!(
@@ -65,10 +65,10 @@ fn fel172_prop_read_in_each_list_is_rewritten() {
 
 #[test]
 fn fel172_explicit_call_workaround_is_not_double_called() {
-    // The shipped fellwork-web workaround (`$each="section().data as it"`)
+    // The shipped fellwork-web workaround (`each={it of section().data}`)
     // must keep compiling — the rewrite skips idents already followed by `(`.
     let src = format!(
-        "{PROP_STATE}@template {{\n  <li $each=\"section().data as it\">{{it}}</li>\n}}"
+        "{PROP_STATE}@template {{\n  <li each={{it of section().data}}>{{it}}</li>\n}}"
     );
     let js = compile_to_js(&src, "x-fel172-workaround");
     assert!(
@@ -84,7 +84,7 @@ fn fel172_explicit_call_workaround_is_not_double_called() {
 #[test]
 fn fel172_prop_read_in_handler_body_is_rewritten() {
     let src = format!(
-        "{PROP_STATE}@template {{\n  <button $on.click={{() => console.log(section)}}>go</button>\n}}"
+        "{PROP_STATE}@template {{\n  <button on:click={{() => console.log(section)}}>go</button>\n}}"
     );
     let js = compile_to_js(&src, "x-fel172-handler");
     assert!(
@@ -95,13 +95,13 @@ fn fel172_prop_read_in_handler_body_is_rewritten() {
 
 #[test]
 fn fel172_bare_ident_handler_stays_verbatim() {
-    // `$on.click={increment}` passes the function itself — not a read.
+    // `on:click={increment}` passes the function itself — not a read.
     let src = r#"@state {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 const increment = () => setCount(count() + 1)
 }
-@template { <button $on.click={increment}>+</button> }"#;
+@template { <button on:click={increment}>+</button> }"#;
     let js = compile_to_js(src, "x-fel172-bare");
     assert!(
         js.contains("onClick: increment") || js.contains("onclick: increment"),
@@ -117,7 +117,7 @@ fn fel172_arrow_param_shadow_is_not_rewritten() {
 import { signal } from '@aihu/signals'
 const [value, setValue] = signal('')
 }
-@template { <input $on.input={(value) => setValue(value)} /> }"#;
+@template { <input on:input={(value) => setValue(value)} /> }"#;
     let js = compile_to_js(src, "x-fel172-shadow");
     assert!(
         js.contains("(value) => setValue(value)"),
@@ -127,14 +127,14 @@ const [value, setValue] = signal('')
 
 #[test]
 fn fel172_signal_read_in_setter_arg_is_rewritten() {
-    // The classic counter: `$on.click={() => setCount(count + 1)}`.
+    // The classic counter: `on:click={() => setCount(count + 1)}`.
     // `setCount` is a setter (not a getter key) — untouched; `count` is a
     // bare getter read — rewritten.
     let src = r#"@state {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
-@template { <button $on.click={() => setCount(count + 1)}>+</button> }"#;
+@template { <button on:click={() => setCount(count + 1)}>+</button> }"#;
     let js = compile_to_js(src, "x-fel172-counter");
     assert!(
         js.contains("setCount(count() + 1)"),
@@ -145,12 +145,12 @@ const [count, setCount] = signal(0)
 #[test]
 fn fel172_block_if_cond_is_rewritten() {
     let src = format!(
-        "{PROP_STATE}@template {{\n  {{#if section.kind === 'prose'}}<p>prose</p>{{/if}}\n}}"
+        "{PROP_STATE}@template {{\n  <p if={{section.kind === 'prose'}}>prose</p>\n}}"
     );
     let js = compile_to_js(&src, "x-fel172-blockif");
     assert!(
         js.contains("section().kind === 'prose'"),
-        "FEL-172: {{#if}} cond must read the prop VALUE, got:\n{js}"
+        "FEL-172: `if` cond must read the prop VALUE, got:\n{js}"
     );
 }
 
@@ -198,7 +198,7 @@ fn fel173_loop_var_projection_still_eager() {
     // Guard: loop-var projections carry no getter and must STAY eager —
     // the rewrite must not invent calls on non-signal idents.
     let src = r#"@state { books: Array<{ name: string }> = [] }
-@template { <ul><li $each="books as b">{b.name}</li></ul> }"#;
+@template { <ul><li each={b of books}>{b.name}</li></ul> }"#;
     let js = compile_to_js(src, "x-fel173-loop");
     assert!(
         js.contains("leaf(b.name)"),
@@ -237,7 +237,7 @@ fn fel172_string_literal_contents_untouched() {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
-@template { <span $class={count > 0 ? 'count' : 'no-count'}>x</span> }"#;
+@template { <span class={count > 0 ? 'count' : 'no-count'}>x</span> }"#;
     let js = compile_to_js(src, "x-fel172-strlit");
     assert!(
         js.contains("count() > 0 ? 'count' : 'no-count'"),
@@ -253,7 +253,7 @@ import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 const log = (o: object) => console.log(o)
 }
-@template { <button $on.click={() => log({ count: 1 })}>x</button> }"#;
+@template { <button on:click={() => log({ count: 1 })}>x</button> }"#;
     let js = compile_to_js(src, "x-fel172-objkey");
     assert!(
         js.contains("log({ count: 1 })"),
@@ -339,9 +339,9 @@ fn w3_a12_object_spread_is_rewritten() {
 
 #[test]
 fn w3_b04_class_array_spread_is_rewritten() {
-    // b04: `$class={[...items, 'x']}` emitted `__aihu_cls([...items, 'x'])`
+    // b04: `class={[...items, 'x']}` emitted `__aihu_cls([...items, 'x'])`
     // with the getter spread verbatim → runtime crash.
-    let (legacy, ast) = both_modes("<div $class={[...items, 'x']}>c</div>", "x-w3-b04");
+    let (legacy, ast) = both_modes("<div class={[...items, 'x']}>c</div>", "x-w3-b04");
     assert!(
         legacy.contains("[() => __aihu_cls([...items, 'x'])]"),
         "legacy unchanged, got:\n{legacy}"
@@ -355,7 +355,7 @@ fn w3_b04_class_array_spread_is_rewritten() {
 #[test]
 fn w3_b08_template_literal_attr_binding_is_rewritten() {
     // b08: thunked but unrewritten (a06 class in attribute position).
-    let (legacy, ast) = both_modes("<p $title={`c=${count}`}>t</p>", "x-w3-b08");
+    let (legacy, ast) = both_modes("<p title={`c=${count}`}>t</p>", "x-w3-b08");
     assert!(legacy.contains("`c=${count}`"), "legacy unchanged, got:\n{legacy}");
     assert!(
         ast.contains("[() => (`c=${count()}`)]"),
@@ -367,7 +367,7 @@ fn w3_b08_template_literal_attr_binding_is_rewritten() {
 fn w3_b13_component_prop_spread_is_rewritten() {
     // b13: `<user-card items={[...items]} />` once spread the getter into the
     // prop; #391 fixed the legacy rewrite, so legacy now matches ast.
-    let (legacy, ast) = both_modes("<user-card $items={[...items]}></user-card>", "x-w3-b13");
+    let (legacy, ast) = both_modes("<user-card items={[...items]}></user-card>", "x-w3-b13");
     assert!(
         legacy.contains("[...items()]"),
         "legacy also rewrites the spread since #391, got:\n{legacy}"
@@ -380,10 +380,10 @@ fn w3_b13_component_prop_spread_is_rewritten() {
 
 #[test]
 fn w3_c12_each_list_spread_is_rewritten() {
-    // c12: `{#each [...items, extra] as it}` once crashed at runtime; #391
+    // c12: `each={it of [...items, extra]}` once crashed at runtime; #391
     // fixed the legacy spread rewrite, so legacy now matches ast.
     let (legacy, ast) = both_modes(
-        "{#each [...items, extra] as it}\n  <p>{it}</p>\n  {/each}",
+        "<p each={it of [...items, extra]}>{it}</p>",
         "x-w3-c12",
     );
     assert!(
@@ -419,11 +419,11 @@ fn w3_d01_dotted_base_arrow_body_is_rewritten() {
 
 #[test]
 fn w3_d03_each_alias_shadowing_a_signal_is_not_rewritten() {
-    // d03/d04: `{#each items as count}` — the alias shadows the signal, but
+    // d03/d04: `each={count of items}` — the alias shadows the signal, but
     // legacy emitted `leaf([count, setCount])` (the signal tuple) INSIDE the
     // loop callback.
     let (legacy, ast) = both_modes(
-        "{#each items as count}\n  <p>{count}</p>\n  {/each}",
+        "<p each={count of items}>{count}</p>",
         "x-w3-d03",
     );
     assert!(
@@ -442,9 +442,9 @@ fn w3_d03_each_alias_shadowing_a_signal_is_not_rewritten() {
 
 #[test]
 fn w3_d06_template_literal_if_cond_is_rewritten() {
-    // d06: `` {#if `${count}` === '3'} `` — unrewritten → the branch never fired.
+    // d06: `` if={`${count}` === '3'} `` — unrewritten → the branch never fired.
     let (legacy, ast) = both_modes(
-        "{#if `${count}` === '3'}\n  <p>three</p>\n  {/if}",
+        "<p if={`${count}` === '3'}>three</p>",
         "x-w3-d06",
     );
     assert!(legacy.contains("`${count}` === '3'"), "legacy unchanged, got:\n{legacy}");

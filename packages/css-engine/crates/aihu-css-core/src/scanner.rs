@@ -106,11 +106,11 @@ fn collect_attr(attr: &SfcAttr, out: &mut ScanResult) {
                 }
             }
         }
-        // Form B — $class={expr} / $class={[...]}.
+        // Form B — class={expr} / class={[...]}.
         SfcAttr::Binding { name, expr } if name == "class" => {
             collect_binding(expr, out);
         }
-        // Form C — $class:name={cond} → name after `class:` is the utility.
+        // Form C — class:name={cond} → name after `class:` is the utility.
         SfcAttr::Macro { name, .. } if name.starts_with("class:") => {
             if let Some(class) = name.strip_prefix("class:") {
                 if !class.is_empty() {
@@ -123,7 +123,7 @@ fn collect_attr(attr: &SfcAttr, out: &mut ScanResult) {
     }
 }
 
-/// Extract utility string-literals from a `$class={expr}` expression.
+/// Extract utility string-literals from a `class={expr}` expression.
 ///
 /// Two sub-cases (AST-hook spec §3 Form B):
 /// - **Array literal** (`[...]`): walk elements; string literals are utilities,

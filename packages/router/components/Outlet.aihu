@@ -3,12 +3,12 @@
   import { useRoute } from '../src/index.ts'
 
   /**
-   * `<$outlet>` — renders the matched route's component inside `<$router>`
+   * `<outlet>` — renders the matched route's component inside `<router>`
    * (RFC-A5-013). No props.
    *
    * The matched component is loaded via `route.module()` (see
    * `packages/router/src/router.ts` `RouteModule.default`). When no route
-   * matches, the outlet renders `null` — let `<$shield>` upstream catch the
+   * matches, the outlet renders `null` — let `<shield>` upstream catch the
    * 404 fall-through.
    */
   $resource: {
@@ -25,10 +25,10 @@
 }
 
 @template {
-  <$suspense source="matched">
+  <suspense source="matched">
     <slot name="fallback">
       <div data-aihu-outlet="loading" />
     </slot>
     <div data-aihu-outlet="ready" />
-  </$suspense>
+  </suspense>
 }

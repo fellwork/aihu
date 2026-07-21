@@ -1,6 +1,6 @@
-// B3 Variant B — block-tag control flow (canonical shape).
-// Exercises {#if cond}, {:else if}, {:else}, {#each list as item (key)}, {:empty},
-// and {@html expr} block forms together with the dot-form $on.click.
+// Grammar v2 — attribute control flow (canonical shape).
+// Exercises if/elseif/else chains on <group> carriers, each={item, idx of items}
+// with key + an empty sibling, and the on:click colon directive.
 
 @state {
   $prop: {
@@ -16,24 +16,24 @@
 }
 
 @template {
-  {#if view === 'list'}
+  <group if={view === 'list'}>
     <ul class="items">
-      {#each items as item, idx (idx)}
-        <li $class={['row', idx === selected && 'sel']} $on.click={() => select(idx)}>
+      <group each={item, idx of items} key={idx}>
+        <li class={['row', idx === selected && 'sel']} on:click={() => select(idx)}>
           {item}
         </li>
-      {:empty}
+      </group><group empty>
         <li class="empty">No items.</li>
-      {/each}
+      </group>
     </ul>
-  {:else if view === 'detail'}
+  </group><group elseif={view === 'detail'}>
     <article>
       <h2>Detail</h2>
       <p>Selected index: {selected}</p>
     </article>
-  {:else}
+  </group><group else>
     <p>Empty.</p>
-  {/if}
+  </group>
 }
 
 @style {

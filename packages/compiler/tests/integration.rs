@@ -17,7 +17,7 @@ export function quote() {
 }
 @template {
   <div class="airtime-quote">
-    <span>{{ total }}</span>
+    <span>{total}</span>
   </div>
 }"#
 }
@@ -244,7 +244,7 @@ $rate-limit 100
     fetchForecast: { expose: { read: true }, handler: () => fetch('/api/weather') },
   }
 }
-@template { <div>{{ location }}</div> }"#;
+@template { <div>{location}</div> }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "weather-card");
@@ -344,7 +344,7 @@ $rate-limit 100
     fetchForecast: { expose: { read: true }, handler: () => fetch('/api/weather') },
   }
 }
-@template { <div>{{ location }}</div> }"#
+@template { <div>{location}</div> }"#
 }
 
 /// T1-a: CLIENT build emits `__agentDispatcher` with opaque-ID keyed maps.

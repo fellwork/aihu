@@ -76,7 +76,7 @@ describe('when() — conditional rendering', () => {
 
   it('T9: when() driven by compiler-emitted [() => getter()] thunk array reacts to writes (bug1-reactivity regression)', () => {
     // Acceptance test for bug1-reactivity. The compiler emits
-    // `when([() => loading()], ...)` for `<p $if={loading()}>...`. The
+    // `when([() => loading()], ...)` for `<p if={loading()}>...`. The
     // mountEffect must subscribe to the signal read inside the thunk so
     // the conditional re-evaluates on writes. This test exercises that
     // exact shape against the single workspace-linked `@aihu/signals`

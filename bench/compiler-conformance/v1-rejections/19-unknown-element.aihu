@@ -1,0 +1,3 @@
+@template {
+  <grup each={item of items}><p>{item}</p></grup>
+}

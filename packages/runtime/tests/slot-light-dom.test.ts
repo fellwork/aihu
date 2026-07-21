@@ -1,10 +1,10 @@
 /**
- * Bug D — light-DOM <$slot> projection under `shadowMode: 'light'`.
+ * Bug D — light-DOM <slot> projection under `shadowMode: 'light'`.
  *
  * Spec (investigation §8 + Architect brief): when a custom element is
  * registered with `shadowMode: 'light'` the browser does NOT run native
  * <slot> projection; the compiler still emits a real <slot> DOM element
- * from `<$slot>`. Pre-fix, the layout's template was appended AFTER the
+ * from `<slot>`. Pre-fix, the layout's template was appended AFTER the
  * page's light-DOM children, producing the wrong order; the <slot>
  * placeholder was inert.
  *
@@ -30,7 +30,7 @@ import { defineElement } from '../src/define-element.ts'
 
 _setMount(mount)
 
-describe('Bug D — light-DOM <$slot> projection (shadowMode: "light")', () => {
+describe('Bug D — light-DOM <slot> projection (shadowMode: "light")', () => {
   it('projects light-DOM children at the <slot> position', () => {
     const Cmp = defineComponent(() =>
       branch('div', { class: 'layout' }, [leaf.element('nav', undefined), slot()]),

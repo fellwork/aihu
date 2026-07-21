@@ -20,11 +20,11 @@ fn counter_source() -> &'static str {
 ",
         "  <div class=\"counter\">
 ",
-        "    <span>{{ count }}</span>
+        "    <span>{count}</span>
 ",
-        // v1.0.8 — Amendment 04: `$on.click={fn}` canonical form. Legacy
+        // v1.0.8 — Amendment 04: `on:click={fn}` canonical form. Legacy
         // `@click="fn"` is now C305.
-        "    <button $on.click={increment}>+</button>
+        "    <button on:click={increment}>+</button>
 ",
         "  </div>
 ",
@@ -49,7 +49,7 @@ fn no_signals_plain_leaf() {
 ",
         "}
 ",
-        "@template { <p>{{ message }}</p> }"
+        "@template { <p>{message}</p> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -66,9 +66,9 @@ fn event_attr_onclick() {
 ",
         "}
 ",
-        // v1.0.8 — Amendment 04: canonical event handler form is `$on.click={fn}`.
+        // v1.0.8 — Amendment 04: canonical event handler form is `on:click={fn}`.
         // Legacy `@click="fn"` is now C305.
-        "@template { <button $on.click={handler}>click</button> }"
+        "@template { <button on:click={handler}>click</button> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -85,7 +85,7 @@ fn signal_leaf_cast() {
 ",
         "}
 ",
-        "@template { <span>{{ val }}</span> }"
+        "@template { <span>{val}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -102,7 +102,7 @@ fn plain_var_no_cast() {
 ",
         "}
 ",
-        "@template { <h1>{{ title }}</h1> }"
+        "@template { <h1>{title}</h1> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -146,7 +146,7 @@ fn fel228_loop_var_projection_stays_eager() {
     // the keyed item changes.
     let src = concat!(
         "@state { books: Array<{ name: string }> = [] }\n",
-        "@template { <ul><li $each=\"books as b\">{b.name}</li></ul> }"
+        "@template { <ul><li each={b of books}>{b.name}</li></ul> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -166,7 +166,7 @@ fn style_scoped_emits_css_in_function_form() {
 ",
         "}
 ",
-        "@template { <span>{{ count }}</span> }
+        "@template { <span>{count}</span> }
 ",
         "@style {
 ",
@@ -195,7 +195,7 @@ fn style_escapes_backtick_and_interpolation_for_template_literal() {
 ",
         "}
 ",
-        "@template { <span>{{ count }}</span> }
+        "@template { <span>{count}</span> }
 ",
         "@style {
 ",
@@ -232,7 +232,7 @@ fn ctx_param_present() {
 ",
         "}
 ",
-        "@template { <span>{{ val }}</span> }"
+        "@template { <span>{val}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -253,14 +253,14 @@ fn import_type_signal_present() {
 ",
         "}
 ",
-        "@template { <span>{{ val }}</span> }"
+        "@template { <span>{val}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-sig");
     assert!(
         output.js.contains("import type { Signal }"),
-        "output must contain import type {{ Signal }}"
+        "output must contain import type {{Signal}}"
     );
     insta::assert_snapshot!(output.js);
 }
@@ -274,7 +274,7 @@ fn no_export_default() {
 ",
         "}
 ",
-        "@template { <span>{{ val }}</span> }"
+        "@template { <span>{val}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -297,7 +297,7 @@ fn static_attr_passthrough() {
 
 // ─── Plan 1.4 / v0.5.1: slot codegen ────────────────────────────────────────
 // Note: <slot> HTML form is DEPRECATED in v0.5. It emits `createSlotBoundary`
-// just like <$slot> but also prints a DEPRECATED warning to stderr.
+// just like <slot> but also prints a DEPRECATED warning to stderr.
 
 #[test]
 fn slot_default_codegen() {
@@ -353,7 +353,7 @@ import {
 const fee = computed(() => 5)
 }
 @template {
-  <div>{{ fee }}</div>
+  <div>{fee}</div>
 }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -391,7 +391,7 @@ import '@aihu/polyfill'
 const fee = 5
 }
 @template {
-  <div>{{ fee }}</div>
+  <div>{fee}</div>
 }"#;
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -450,7 +450,7 @@ export function quote() {
 }
 @template {
   <div class="airtime-quote">
-    <span>{{ total }}</span>
+    <span>{total}</span>
   </div>
 }"#
 }
@@ -805,7 +805,7 @@ $form: {
 /// A destructured `$each` alias tore at the comma inside its own pattern:
 /// `as [name, desc]` split into `[name` + `desc]`, emitting `([name) => name`.
 /// The split existed in THREE places; the emit.rs copy was the one reached by
-/// the `$each="…"` attribute form.
+/// the `each={item of …}` attribute form.
 #[test]
 fn destructured_each_alias_does_not_tear() {
     let source = r#"@state {
@@ -814,7 +814,7 @@ const [rows, setRows] = signal([])
 }
 @template {
   <ul>
-    <li $each="rows as [name, desc]" $key="name">{name}</li>
+    <li each={[name, desc] of rows} key={name}>{name}</li>
   </ul>
 }"#;
     let parsed = sfc::parse(source).unwrap();
@@ -961,7 +961,7 @@ fn leaf_signal_interpolation_cast() {
         "@state {\n",
         "const [score, setScore] = signal(0)\n",
         "}\n",
-        "@template { <span>{{ score }}</span> }"
+        "@template { <span>{score}</span> }"
     );
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -1126,8 +1126,8 @@ fn non_ascii_string_literals_in_expressions_are_not_latin1_mangled() {
         "@template {\n",
         "  <span class=\"static\">λόγος שלום ▾</span>\n",
         "  <span>{tier() === 'study' ? 'λόγος' : 'word'}</span>\n",
-        "  <i $class={tier() === 'study' ? 'on ▾' : 'off ▸'}>x</i>\n",
-        "  <button $on.click={() => $emit.picked('χάρις')}>e</button>\n",
+        "  <i class={tier() === 'study' ? 'on ▾' : 'off ▸'}>x</i>\n",
+        "  <button on:click={() => $emit.picked('χάρις')}>e</button>\n",
         "}"
     );
     let parsed = sfc::parse(src).unwrap();

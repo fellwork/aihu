@@ -90,15 +90,15 @@
   <section class="theme-picker">
     <fieldset>
       <legend>HSL controls</legend>
-      <label><span>Hue {hue}°</span>        <input type="range" min="0" max="360" $bind.value="hue"        /></label>
-      <label><span>Saturation {saturation}%</span> <input type="range" min="0" max="100" $bind.value="saturation" /></label>
-      <label><span>Lightness {lightness}%</span>  <input type="range" min="0" max="100" $bind.value="lightness"  /></label>
+      <label><span>Hue {hue}°</span>        <input type="range" min="0" max="360" bind:value={hue}        /></label>
+      <label><span>Saturation {saturation}%</span> <input type="range" min="0" max="100" bind:value={saturation} /></label>
+      <label><span>Lightness {lightness}%</span>  <input type="range" min="0" max="100" bind:value={lightness}  /></label>
     </fieldset>
     <div class="presets">
-      <button $on.click={() => setPreset(215)}>Blue</button>
-      <button $on.click={() => setPreset(140)}>Green</button>
-      <button $on.click={() => setPreset(0)}>Red</button>
-      <button $on.click={() => setPreset(40)}>Amber</button>
+      <button on:click={() => setPreset(215)}>Blue</button>
+      <button on:click={() => setPreset(140)}>Green</button>
+      <button on:click={() => setPreset(0)}>Red</button>
+      <button on:click={() => setPreset(40)}>Amber</button>
     </div>
   </section>
 }

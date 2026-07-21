@@ -41,7 +41,7 @@ fn bug7_migrated_prop_plus_computed_compiles() {
   $prop: { active: { default: '', type: "string" } }
   $computed: { cls: () => active() === 'home' ? 'on' : '' }
 }
-@template { <a $class={cls}>Home</a> }
+@template { <a class={cls}>Home</a> }
 "#;
     assert!(
         try_compile(src).is_ok(),
@@ -67,7 +67,7 @@ fn bug7_genuinely_undeclared_single_curly_is_warning_not_error() {
     let src = r#"@state {
   $prop: { active: { default: '' } }
 }
-@template { <a $class={nope}>Home</a> }
+@template { <a class={nope}>Home</a> }
 "#;
     assert!(
         try_compile(src).is_ok(),
@@ -85,7 +85,7 @@ fn issue424_plain_const_reading_prop_now_compiles() {
   $prop: { active: { default: '', type: "string" } }
   const cls = active() ?? ''
 }
-@template { <a $class={cls}>Home</a> }
+@template { <a class={cls}>Home</a> }
 "#;
     assert!(
         try_compile(src).is_ok(),
@@ -102,7 +102,7 @@ fn issue424_prop_binding_is_emitted_before_plain_body() {
   $prop: { active: { default: '', type: "string" } }
   const cls = active() ?? ''
 }
-@template { <a $class={cls}>Home</a> }
+@template { <a class={cls}>Home</a> }
 "#;
     let js = emit_js(src, "x-issue424");
     let prop_pos = js
@@ -123,7 +123,7 @@ fn bug8_computed_form_compiles_clean() {
   $prop: { active: { default: '', type: "string" } }
   $computed: { cls: () => active() ?? '' }
 }
-@template { <a $class={cls}>Home</a> }
+@template { <a class={cls}>Home</a> }
 "#;
     assert!(
         try_compile(src).is_ok(),

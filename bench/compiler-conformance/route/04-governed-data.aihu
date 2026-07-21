@@ -18,10 +18,10 @@
   <article>
     <h1 class="gx-headword">{route.data.$gx.entitled ? route.data.headword : (route.data.preview?.headword ?? 'locked')}</h1>
     <p class="gx-slug">{route.params.slug}</p>
-    {#if route.data.$gx.entitled}
+    <group if={route.data.$gx.entitled}>
       <section class="gx-senses">{route.data.senses.join(', ')}</section>
-    {:else}
+    </group><group else>
       <p class="gx-locked">{route.data.$gx.reason}</p>
-    {/if}
+    </group>
   </article>
 }

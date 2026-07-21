@@ -32,23 +32,23 @@
 @template {
   <div class="tabs-component">
     <div class="tab-list" role="tablist">
-      {#each tabs as tab (tab.id)}
+      <group each={tab of tabs} key={tab.id}>
         <button
           role="tab"
-          $class={['tab-btn', activeId === tab.id && 'active']}
-          $aria-selected={activeId === tab.id}
-          $on.click={() => selectTab(tab.id)}
+          class={['tab-btn', activeId === tab.id && 'active']}
+          aria-selected={activeId === tab.id}
+          on:click={() => selectTab(tab.id)}
         >
           {tab.label}
         </button>
-      {/each}
+      </group>
     </div>
     <div class="tab-panel" role="tabpanel">
-      {#if selected}
+      <group if={selected}>
         <p>{selected.content}</p>
-      {:else}
+      </group><group else>
         <p class="empty">No tab selected.</p>
-      {/if}
+      </group>
     </div>
   </div>
 }

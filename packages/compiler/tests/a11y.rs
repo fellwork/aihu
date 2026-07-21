@@ -1,6 +1,6 @@
 /// arch-5 M1 — accessibility primitive integration tests.
-/// Covers parser + emit for `<$liveRegion>`, `<$focusTrap>`, `<$skipLink>`,
-/// `<$visuallyHidden>` and the `$announce(...)` action-body call site rewrite.
+/// Covers parser + emit for `<liveRegion>`, `<focusTrap>`, `<skipLink>`,
+/// `<visuallyHidden>` and the `$announce(...)` action-body call site rewrite.
 /// References RFC-A5-017..021 in `docs/roadmap/arch-5-sfc-primitives.md` §2.6.
 
 use aihu_compiler::{compile_full, emit, sfc, TemplateNode};
@@ -10,7 +10,7 @@ use aihu_compiler::parser::template::parse_template;
 
 #[test]
 fn dollar_live_region_parses_as_macro_element() {
-    let nodes = parse_template(r#"<$liveRegion politeness="polite"></$liveRegion>"#).unwrap();
+    let nodes = parse_template(r#"<liveRegion politeness="polite"></liveRegion>"#).unwrap();
     assert_eq!(nodes.len(), 1);
     match &nodes[0] {
         TemplateNode::MacroElement { name, attrs, .. } => {
@@ -25,7 +25,7 @@ fn dollar_live_region_parses_as_macro_element() {
 
 #[test]
 fn dollar_focus_trap_parses_as_macro_element() {
-    let nodes = parse_template(r#"<$focusTrap active={isOpen} returnFocus="true"></$focusTrap>"#)
+    let nodes = parse_template(r#"<focusTrap active={isOpen} returnFocus="true"></focusTrap>"#)
         .unwrap();
     assert_eq!(nodes.len(), 1);
     match &nodes[0] {
@@ -37,7 +37,7 @@ fn dollar_focus_trap_parses_as_macro_element() {
 #[test]
 fn dollar_skip_link_parses_as_macro_element() {
     let nodes = parse_template(
-        r##"<$skipLink target="#main-content">Skip</$skipLink>"##,
+        r##"<skipLink target="#main-content">Skip</skipLink>"##,
     )
     .unwrap();
     assert_eq!(nodes.len(), 1);
@@ -54,7 +54,7 @@ fn dollar_skip_link_parses_as_macro_element() {
 
 #[test]
 fn dollar_visually_hidden_parses_as_macro_element() {
-    let nodes = parse_template("<$visuallyHidden>Sort by date</$visuallyHidden>").unwrap();
+    let nodes = parse_template("<visuallyHidden>Sort by date</visuallyHidden>").unwrap();
     assert_eq!(nodes.len(), 1);
     match &nodes[0] {
         TemplateNode::MacroElement { name, .. } => assert_eq!(name, "visuallyHidden"),
@@ -62,11 +62,11 @@ fn dollar_visually_hidden_parses_as_macro_element() {
     }
 }
 
-// ─── Emit: <$liveRegion> ──────────────────────────────────────────────────────
+// ─── Emit: <liveRegion> ──────────────────────────────────────────────────────
 
 #[test]
 fn live_region_emit_default_polite_atomic() {
-    let src = "@template { <$liveRegion>{statusMessage}</$liveRegion> }";
+    let src = "@template { <liveRegion>{statusMessage}</liveRegion> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-live-region-default");
@@ -89,7 +89,7 @@ fn live_region_emit_default_polite_atomic() {
 
 #[test]
 fn live_region_emit_assertive() {
-    let src = r#"@template { <$liveRegion politeness="assertive">!</$liveRegion> }"#;
+    let src = r#"@template { <liveRegion politeness="assertive">!</liveRegion> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-live-region-assertive");
@@ -102,7 +102,7 @@ fn live_region_emit_assertive() {
 
 #[test]
 fn live_region_emit_atomic_false() {
-    let src = r#"@template { <$liveRegion atomic="false">x</$liveRegion> }"#;
+    let src = r#"@template { <liveRegion atomic="false">x</liveRegion> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-live-region-atomic-off");
@@ -113,11 +113,11 @@ fn live_region_emit_atomic_false() {
     );
 }
 
-// ─── Emit: <$visuallyHidden> ──────────────────────────────────────────────────
+// ─── Emit: <visuallyHidden> ──────────────────────────────────────────────────
 
 #[test]
 fn visually_hidden_emit_basic() {
-    let src = "@template { <$visuallyHidden>Hidden label</$visuallyHidden> }";
+    let src = "@template { <visuallyHidden>Hidden label</visuallyHidden> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-visually-hidden");
@@ -138,11 +138,11 @@ fn visually_hidden_emit_basic() {
     );
 }
 
-// ─── Emit: <$skipLink> ────────────────────────────────────────────────────────
+// ─── Emit: <skipLink> ────────────────────────────────────────────────────────
 
 #[test]
 fn skip_link_emit_basic() {
-    let src = r##"@template { <$skipLink target="#main-content">Skip to main content</$skipLink> }"##;
+    let src = r##"@template { <skipLink target="#main-content">Skip to main content</skipLink> }"##;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-skip-link");
@@ -163,11 +163,11 @@ fn skip_link_emit_basic() {
     );
 }
 
-// ─── Emit: <$focusTrap> ───────────────────────────────────────────────────────
+// ─── Emit: <focusTrap> ───────────────────────────────────────────────────────
 
 #[test]
 fn focus_trap_emit_with_curly_active() {
-    let src = "@template { <$focusTrap active={isOpen}><button>X</button></$focusTrap> }";
+    let src = "@template { <focusTrap active={isOpen}><button>X</button></focusTrap> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-focus-trap-curly");
@@ -191,7 +191,7 @@ fn focus_trap_emit_with_curly_active() {
 
 #[test]
 fn focus_trap_emit_with_initial_focus() {
-    let src = r##"@template { <$focusTrap active={isOpen} initialFocus=".close-btn"><span>x</span></$focusTrap> }"##;
+    let src = r##"@template { <focusTrap active={isOpen} initialFocus=".close-btn"><span>x</span></focusTrap> }"##;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-focus-trap-initial");
@@ -209,7 +209,7 @@ fn focus_trap_emit_with_initial_focus() {
 
 #[test]
 fn focus_trap_emit_with_return_focus_false() {
-    let src = r##"@template { <$focusTrap active={isOpen} returnFocus="false"><span>x</span></$focusTrap> }"##;
+    let src = r##"@template { <focusTrap active={isOpen} returnFocus="false"><span>x</span></focusTrap> }"##;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let output = emit(&unit, "x-focus-trap-return-false");
@@ -287,11 +287,11 @@ fn a11y_kit_sfc_emits_all_imports() {
   $action: { save: () => { $announce('Saved') } }
 }
 @template {
-  <$skipLink target="#main">Skip</$skipLink>
-  <$focusTrap active={modalOpen}>
-    <$liveRegion>{status}</$liveRegion>
-    <$visuallyHidden>Modal label</$visuallyHidden>
-  </$focusTrap>
+  <skipLink target="#main">Skip</skipLink>
+  <focusTrap active={modalOpen}>
+    <liveRegion>{status}</liveRegion>
+    <visuallyHidden>Modal label</visuallyHidden>
+  </focusTrap>
 }
 "##;
     let parsed = sfc::parse(src).unwrap();

@@ -165,7 +165,7 @@ export function _materialize(
   const tag = node.tag as string
   const el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
   // Set back-reference so compiler-emitted _onMount callbacks can reach the
-  // live DOM element via `_n.el` for $class: and @html bindings.
+  // live DOM element via `_n.el` for class: and html bindings.
   if (node.kind === 'branch') node.el = el
   _applyAttrs(el, node.attrs, disposers, pathBase, mountEffect, errorHandler, registry)
   if (node.kind === 'branch') {

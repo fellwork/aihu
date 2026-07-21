@@ -368,9 +368,9 @@ ${stateBlock}
       <h2 class="text-xl font-semibold">Control</h2>
       <p class="text-lg">Value: {count}</p>
       <div class="flex gap-2">
-        <button class="px-4 py-2 rounded-lg border" $on.click="decrement">−1</button>
-        <button class="px-4 py-2 rounded-lg border" $on.click="reset">Reset</button>
-        <button class="px-4 py-2 rounded-lg bg-primary text-white" $on.click="increment">+1</button>
+        <button class="px-4 py-2 rounded-lg border" on:click={decrement}>−1</button>
+        <button class="px-4 py-2 rounded-lg border" on:click={reset}>Reset</button>
+        <button class="px-4 py-2 rounded-lg bg-primary text-white" on:click={increment}>+1</button>
       </div>
     </section>
 
@@ -409,9 +409,9 @@ ${stateBlock}
       <h2>Control</h2>
       <p class="value">Value: {count}</p>
       <div class="controls">
-        <button $on.click="decrement">−1</button>
-        <button $on.click="reset">Reset</button>
-        <button $on.click="increment">+1</button>
+        <button on:click={decrement}>−1</button>
+        <button on:click={reset}>Reset</button>
+        <button on:click={increment}>+1</button>
       </div>
     </section>
 
@@ -540,8 +540,8 @@ const toggle = () => setOpen(v => !v)
       <a href="/">Home</a>
       <a href="/guide">Guide</a>
     </nav>
-    <button class="toggle" $on.click={toggle}>{open ? 'Hide' : 'Show'} details</button>
-    <section $if={open} class="details">
+    <button class="toggle" on:click={toggle}>{open ? 'Hide' : 'Show'} details</button>
+    <section if={open} class="details">
       <p>Edit <code>src/pages/index.aihu</code> to author your docs content.</p>
     </section>
   </div>

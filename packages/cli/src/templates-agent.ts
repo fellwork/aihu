@@ -471,7 +471,7 @@ export function agentComponentAihu(): string {
 }
 
 @template {
-  <section $class={['tl', variant()]}>
+  <section class={['tl', variant()]}>
     <header class="tl-head">
       <h2 class="tl-title">{label}</h2>
       <span class="tl-count">{tasks.length}</span>
@@ -481,16 +481,16 @@ export function agentComponentAihu(): string {
       <input
         id="tl-new"
         class="tl-input"
-        $value={draft}
-        $on.input={onDraft}
-        $on.keydown={(e) => e.key === 'Enter' && addFromInput()}
+        value={draft}
+        on:input={onDraft}
+        on:keydown={(e) => e.key === 'Enter' && addFromInput()}
         placeholder="Add a task and press Enter"
       />
-      <button class="tl-btn" $on.click={addFromInput}>Add</button>
-      <button class="tl-btn" $on.click={() => setTasks([])}>Clear</button>
+      <button class="tl-btn" on:click={addFromInput}>Add</button>
+      <button class="tl-btn" on:click={() => setTasks([])}>Clear</button>
     </div>
     <ul class="tl-items">
-      <li $each="tasks as task" $key="task.id" class="tl-item">
+      <li each={task of tasks} key={task.id} class="tl-item">
         <span class="tl-text">{task.text}</span>
       </li>
     </ul>

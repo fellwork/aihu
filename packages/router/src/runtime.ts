@@ -10,9 +10,9 @@
  * - `useRouter()` — get the active router instance
  * - Compiler hook seams for `$beforeNavigate` / `$afterNavigate`:
  *   `__router_registerBeforeGuard`, `__router_registerAfterGuard`
- * - `navigate(href, opts)` — programmatic SPA navigation (used by `<$link>` and
- *   `<$navigate>`)
- * - `createPrefetcher(href, mode)` — `<$link prefetch>` helper
+ * - `navigate(href, opts)` — programmatic SPA navigation (used by `<a>` and
+ *   `<navigate>`)
+ * - `createPrefetcher(href, mode)` — `<a prefetch>` helper
  *
  * Browser-only behavior is gated on `typeof window !== 'undefined'` so the
  * module is safe to import during SSR.
@@ -31,13 +31,13 @@ export interface RouteContextValue {
   router: Router
   /** Reactive read accessor for the current match. */
   current: () => MatchResult | null
-  /** @internal — view transitions opt-in (read by `<$link>`). */
+  /** @internal — view transitions opt-in (read by `<a>`). */
   viewTransitions?: boolean
 }
 
 /**
- * Context token for the active routing context. Provided by `<$router>` and
- * read by `<$link>`, `<$outlet>`, `<$navigate>`, and the `$route` macro.
+ * Context token for the active routing context. Provided by `<router>` and
+ * read by `<a>`, `<outlet>`, `<navigate>`, and the `$route` macro.
  */
 export const RouteContext = createContext<RouteContextValue | null>(null)
 
@@ -90,7 +90,7 @@ export function createRouteSignal(
 // ---------------------------------------------------------------------------
 
 /**
- * Read the current matched route from the nearest `<$router>` context.
+ * Read the current matched route from the nearest `<router>` context.
  *
  * `$route currentRoute` lowers to `const currentRoute = computed(() => useRoute())`.
  */
@@ -100,13 +100,13 @@ export function useRoute(): MatchResult | null {
   return ctx.current()
 }
 
-/** Get the active `Router` instance from the nearest `<$router>` context. */
+/** Get the active `Router` instance from the nearest `<router>` context. */
 export function useRouter(): Router | null {
   const ctx = inject(RouteContext)
   return ctx ? ctx.router : null
 }
 
-/** Provide the route context (used by `<$router>` SFC). */
+/** Provide the route context (used by `<router>` SFC). */
 export function provideRouteContext(value: RouteContextValue): void {
   provide(RouteContext, value)
 }
@@ -114,7 +114,7 @@ export function provideRouteContext(value: RouteContextValue): void {
 /**
  * @internal — compiler-emitted entry point for `$beforeNavigate(fn)` macro
  * lowering. Looks up the active router via context. If no router is active
- * (e.g. SSR or component mounted outside `<$router>`), the registration is a
+ * (e.g. SSR or component mounted outside `<router>`), the registration is a
  * no-op — the developer-facing `$beforeNavigate` is documented to require a
  * router ancestor.
  */
@@ -160,7 +160,7 @@ export async function navigate(
   if (!SAFE_WINDOW) return 'navigated' // SSR: trust the user's redirect handling
   const ctx = inject(RouteContext)
   if (!ctx) {
-    // Fall back to a hard nav so `<$link>` outside a router still works
+    // Fall back to a hard nav so `<a>` outside a router still works
     if (opts.replace) SAFE_WINDOW.location.replace(href)
     else SAFE_WINDOW.location.assign(href)
     return 'no-router'
@@ -249,13 +249,13 @@ function setRouteSignal(value: RouteContextValue, match: MatchResult | null): vo
 }
 
 // ---------------------------------------------------------------------------
-// createPrefetcher — `<$link prefetch>` (RFC-A5-012)
+// createPrefetcher — `<a prefetch>` (RFC-A5-012)
 // ---------------------------------------------------------------------------
 
 export type PrefetchMode = 'none' | 'hover' | 'visible'
 
 /**
- * Build the DOM hooks needed for a prefetch-enabled `<$link>`.
+ * Build the DOM hooks needed for a prefetch-enabled `<a>`.
  *
  * Returns `{ attach, detach }` — `attach(anchor, getMatch)` wires the hover
  * or IntersectionObserver listener; `detach(anchor)` cleans up.

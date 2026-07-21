@@ -51,12 +51,12 @@ export function useCurrentUser(): () => User | null {
 
 /**
  * Update the active scope list on both the user signal and the module-level
- * scope-signal singleton (used by `<$guard>` lowering via `getScopeSignal`).
+ * scope-signal singleton (used by `<guard>` lowering via `getScopeSignal`).
  *
  * Call after a successful login or token refresh that carries new scopes.
  */
 export function setCurrentScopes(scopes: string[]): void {
-  // Keep scope-signal singleton in sync (<$guard> consumers read from it).
+  // Keep scope-signal singleton in sync (<guard> consumers read from it).
   _setScopeSignal(scopes)
 }
 

@@ -78,22 +78,22 @@ describe('getMacroAtPosition', () => {
   })
 
   it('detects $if in template attribute', () => {
-    const line = '  <div $if={count > 0}>'
+    const line = '  <div if={count > 0}>'
     expect(getMacroAtPosition(line, 7)).toBe('$if')
   })
 
-  it('detects {#if block-tag form', () => {
-    const line = '{#if condition}'
-    expect(getMacroAtPosition(line, 1)).toBe('$if')
+  it('detects naked if on a <group> carrier', () => {
+    const line = '<group if={condition}>'
+    expect(getMacroAtPosition(line, 8)).toBe('$if')
   })
 
   it('detects $on namespaced directive', () => {
-    const line = '<button $on.click={handler}>'
+    const line = '<button on:click={handler}>'
     expect(getMacroAtPosition(line, 9)).toBe('$on')
   })
 
   it('detects $bind namespaced directive', () => {
-    const line = '<input $bind.value={signal}>'
+    const line = '<input bind:value={signal}>'
     expect(getMacroAtPosition(line, 8)).toBe('$bind')
   })
 
@@ -118,7 +118,7 @@ describe('getBlockContext', () => {
   })
 
   it('returns template when inside @template block', () => {
-    const lines = ['@template {', '  <div $if={x}>', '  </div>', '}']
+    const lines = ['@template {', '  <div if={x}>', '  </div>', '}']
     expect(getBlockContext(lines, 1)).toBe('template')
   })
 

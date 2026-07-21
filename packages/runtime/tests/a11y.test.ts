@@ -1,9 +1,9 @@
 /**
  * arch-5 M1 — accessibility primitive runtime tests.
  *
- * Covers RFC-A5-018 (`<$focusTrap>`), RFC-A5-021 (`$announce`), and the shared
- * sr-only / skip-link CSS injector. `<$liveRegion>`, `<$skipLink>`, and
- * `<$visuallyHidden>` are pure DOM/CSS lowerings exercised in the compiler
+ * Covers RFC-A5-018 (`<focusTrap>`), RFC-A5-021 (`$announce`), and the shared
+ * sr-only / skip-link CSS injector. `<liveRegion>`, `<skipLink>`, and
+ * `<visuallyHidden>` are pure DOM/CSS lowerings exercised in the compiler
  * test suite (`packages/compiler/tests/a11y.rs`); here we verify the runtime
  * helpers in `packages/runtime/src/a11y.ts`.
  */

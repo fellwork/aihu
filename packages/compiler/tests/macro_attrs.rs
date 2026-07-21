@@ -7,13 +7,13 @@ use aihu_compiler::parser::template::parse_template;
 
 #[test]
 fn macro_if_quoted_parses() {
-    let nodes = parse_template("<div $if=\"isVisible\"></div>").unwrap();
+    let nodes = parse_template("<div if={isVisible}></div>").unwrap();
     assert_eq!(nodes.len(), 1);
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
-                Attr::Macro { name, value } if name == "if" && *value == MacroValue::Quoted("isVisible".to_string())
+                Attr::Macro { name, value } if name == "if" && *value == MacroValue::Curly("isVisible".to_string())
             )));
         }
         _ => panic!("expected element"),
@@ -22,7 +22,7 @@ fn macro_if_quoted_parses() {
 
 #[test]
 fn macro_show_curly_parses() {
-    let nodes = parse_template("<span $show={count > 0}></span>").unwrap();
+    let nodes = parse_template("<span show={count > 0}></span>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -36,7 +36,7 @@ fn macro_show_curly_parses() {
 
 #[test]
 fn macro_once_boolean_parses() {
-    let nodes = parse_template("<div $once></div>").unwrap();
+    let nodes = parse_template("<div once></div>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -50,7 +50,7 @@ fn macro_once_boolean_parses() {
 
 #[test]
 fn macro_raw_boolean_parses() {
-    let nodes = parse_template("<div $raw></div>").unwrap();
+    let nodes = parse_template("<div raw></div>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -65,7 +65,7 @@ fn macro_raw_boolean_parses() {
 #[test]
 fn macro_each_and_key_parse() {
     // Updated to spec-idiomatic "list as item" form
-    let nodes = parse_template("<ul $each=\"items as item\" $key=\"getKey\"></ul>").unwrap();
+    let nodes = parse_template("<ul each={item of items} key={getKey}></ul>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(a, Attr::Macro { name, .. } if name == "each")));
@@ -77,12 +77,12 @@ fn macro_each_and_key_parse() {
 
 #[test]
 fn macro_bind_prop_parses() {
-    let nodes = parse_template("<div $bind.value=\"count\"></div>").unwrap();
+    let nodes = parse_template("<div bind:value={count}></div>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
-                Attr::Macro { name, value } if name == "bind:value" && *value == MacroValue::Quoted("count".to_string())
+                Attr::Macro { name, value } if name == "bind:value" && *value == MacroValue::Curly("count".to_string())
             )));
         }
         _ => panic!("expected element"),
@@ -91,12 +91,12 @@ fn macro_bind_prop_parses() {
 
 #[test]
 fn macro_on_event_parses() {
-    let nodes = parse_template("<button $on.click=\"handleClick\"></button>").unwrap();
+    let nodes = parse_template("<button on:click={handleClick}></button>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
                 a,
-                Attr::Macro { name, value } if name == "on:click" && *value == MacroValue::Quoted("handleClick".to_string())
+                Attr::Macro { name, value } if name == "on:click" && *value == MacroValue::Curly("handleClick".to_string())
             )));
         }
         _ => panic!("expected element"),
@@ -105,7 +105,7 @@ fn macro_on_event_parses() {
 
 #[test]
 fn macro_memo_curly_parses() {
-    let nodes = parse_template("<div $memo={[count]}></div>").unwrap();
+    let nodes = parse_template("<div memo={[count]}></div>").unwrap();
     match &nodes[0] {
         aihu_compiler::TemplateNode::Element { attrs, .. } => {
             assert!(attrs.iter().any(|a| matches!(
@@ -123,7 +123,7 @@ fn macro_memo_curly_parses() {
 fn macro_if_emits_create_if_boundary() {
     let src = r#"
 @template {
-  <div $if="isVisible"><p>hello</p></div>
+  <div if={isVisible}><p>hello</p></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -140,7 +140,7 @@ fn r3_ac1_macro_show_emits_toggle_hidden_attribute() {
     // !cond)` — true cond → hidden absent → element visible.
     let src = r#"
 @template {
-  <div $show={count > 0}></div>
+  <div show={count > 0}></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -171,7 +171,7 @@ fn macro_html_emits_replace_children_inside_on_mount() {
   const activeHtml = () => window.__DOCS__?.[activePage()]?.html ?? ''
 }
 @template {
-  <article $html={activeHtml()}></article>
+  <article html={activeHtml()}></article>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -196,7 +196,7 @@ fn macro_each_emits_create_each_boundary() {
     // Updated to spec-idiomatic "list as item" form
     let src = r#"
 @template {
-  <ul $each="items as item" $key="getKey"></ul>
+  <ul each={item of items} key={getKey}></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -213,7 +213,7 @@ fn macro_each_emits_create_each_boundary() {
 fn each_spec_form_posts_as_post_emits_correct_boundary() {
     let src = r#"
 @template {
-  <ul $each="posts as post"><li>item</li></ul>
+  <ul each={post of posts}><li>item</li></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -230,7 +230,7 @@ fn each_spec_form_posts_as_post_emits_correct_boundary() {
 fn each_spec_form_users_as_user_idx_emits_correct_aliases() {
     let src = r#"
 @template {
-  <ul $each="users as user, idx"><li>item</li></ul>
+  <ul each={user, idx of users}><li>item</li></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -247,7 +247,7 @@ fn each_spec_form_users_as_user_idx_emits_correct_aliases() {
 fn each_with_key_emits_key_as_function() {
     let src = r#"
 @template {
-  <ul $each="items as item" $key="item.id"><li>item</li></ul>
+  <ul each={item of items} key={item.id}><li>item</li></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -262,9 +262,10 @@ fn each_with_key_emits_key_as_function() {
 
 #[test]
 fn each_old_form_no_as_is_parse_error_c302() {
+    // An `each` head without ` of ` is a head-specific C302 (§3.2).
     let src = r#"
 @template {
-  <ul $each="items"><li>item</li></ul>
+  <ul each={items}><li>item</li></ul>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -281,7 +282,7 @@ fn each_old_form_no_as_is_parse_error_c302() {
 fn macro_once_emits_create_once_boundary() {
     let src = r#"
 @template {
-  <div $once><span>static</span></div>
+  <div once><span>static</span></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -294,7 +295,7 @@ fn macro_once_emits_create_once_boundary() {
 fn macro_memo_emits_create_memo_boundary() {
     let src = r#"
 @template {
-  <div $memo={[count]}><span>memo</span></div>
+  <div memo={[count]}><span>memo</span></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -305,7 +306,7 @@ fn macro_memo_emits_create_memo_boundary() {
 
 #[test]
 fn rejects_legacy_event_binding_in_template_c305() {
-    // v1.0.8 — Amendment 04: `@event=` is removed (C305). Use `$on.event=`.
+    // `@event=` is removed (C305). Use `on:<event>={fn}`.
     let src = r#"
 @template {
   <button @click="handleClick"></button>
@@ -314,12 +315,12 @@ fn rejects_legacy_event_binding_in_template_c305() {
     let parsed = sfc::parse(src).unwrap();
     let err = compile_full(&parsed).expect_err("legacy @event must reject with C305");
     assert_eq!(err.code.as_deref(), Some("C305"), "expected C305, got: {:?} (message: {})", err.code, err.message);
-    assert!(err.message.contains("npx aihu migrate"), "C305 must reference migrate tool, got: {}", err.message);
+    assert!(err.message.contains("on:click"), "C305 must point at the colon directive, got: {}", err.message);
 }
 
 #[test]
 fn rejects_legacy_colon_binding_in_template_c304() {
-    // v1.0.8 — Amendment 04: `:attr=` is removed (C304). Use `$attr={expr}`.
+    // v1.0.8 — Amendment 04: `:attr=` is removed (C304). Use `attr={expr}`.
     let src = r#"
 @template {
   <div :value="count"></div>
@@ -328,7 +329,7 @@ fn rejects_legacy_colon_binding_in_template_c304() {
     let parsed = sfc::parse(src).unwrap();
     let err = compile_full(&parsed).expect_err("legacy :attr must reject with C304");
     assert_eq!(err.code.as_deref(), Some("C304"), "expected C304, got: {:?} (message: {})", err.code, err.message);
-    assert!(err.message.contains("npx aihu migrate"), "C304 must reference migrate tool, got: {}", err.message);
+    assert!(err.message.contains("value={expr}"), "C304 must point at plain braces, got: {}", err.message);
 }
 
 #[test]
@@ -347,13 +348,13 @@ fn c300_bare_value_is_error() {
 fn macro_bind_and_on_emit_in_attrs_object() {
     let src = r#"
 @template {
-  <div $bind.value="count" $on.click="handleClick"></div>
+  <div bind:value={count} on:click={handleClick}></div>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
-    // $bind.value → value: count, $on.click → onClick: handleClick
+    // bind:value → value: count, on:click → onClick: handleClick
     assert!(result.js.contains("value:") || result.js.contains("count"), "Expected count in: {}", result.js);
 }
 
@@ -361,14 +362,14 @@ fn macro_bind_and_on_emit_in_attrs_object() {
 
 #[test]
 fn r4_ac1_bind_value_to_signal_emits_oninput_writeback() {
-    // R4: when `$bind.value` references a registered signal (with a setter),
+    // R4: when `bind:value` references a registered signal (with a setter),
     // the emit MUST also wire `oninput` to write the signal back. Without
     // this, $bind is read-only and userland edits in the input vanish.
     let src = r#"@state {
 const [name, setName] = signal('')
 }
 @template {
-  <input $bind.value="name">
+  <input bind:value={name}>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -390,13 +391,13 @@ const [name, setName] = signal('')
 
 #[test]
 fn r4_ac1_bind_checked_emits_onchange_writeback() {
-    // `$bind.checked` for checkbox/radio uses `change` (not `input`), and
+    // `bind:checked` for checkbox/radio uses `change` (not `input`), and
     // reads `e.target.checked`.
     let src = r#"@state {
 const [done, setDone] = signal(false)
 }
 @template {
-  <input type="checkbox" $bind.checked="done">
+  <input type="checkbox" bind:checked={done}>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -415,7 +416,7 @@ const [done, setDone] = signal(false)
 
 #[test]
 fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
-    // If the user already wrote `$on.input={fn}`, the bind write-back must
+    // If the user already wrote `on:input={fn}`, the bind write-back must
     // NOT clobber it. Userland intent wins; bind silently skips the
     // auto-emit. (Authors who want both behaviors compose them in the
     // explicit handler.)
@@ -423,7 +424,7 @@ fn r4_ac1_bind_value_does_not_overwrite_user_oninput() {
 const [name, setName] = signal('')
 }
 @template {
-  <input $bind.value="name" $on.input="customHandler">
+  <input bind:value={name} on:input={customHandler}>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -442,7 +443,7 @@ const [name, setName] = signal('')
     let auto_writeback_new = "__aihu_conv(name()";
     assert!(
         !result.js.contains(auto_writeback_old) && !result.js.contains(auto_writeback_new),
-        "User-supplied $on.input must override auto write-back; got:\n{}",
+        "User-supplied on:input must override auto write-back; got:\n{}",
         result.js
     );
     // User handler still emits.
@@ -460,7 +461,7 @@ fn r4_ac1_bind_to_non_signal_skips_writeback() {
     // identifier).
     let src = r#"
 @template {
-  <input $bind.value="literalName">
+  <input bind:value={literalName}>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -479,7 +480,7 @@ fn r4_ac1_bind_to_non_signal_skips_writeback() {
 #[test]
 fn r2_attr_referencing_state_class_property_wraps_in_thunk() {
     // Plain class-property declaration `events = []` declares state. The
-    // template binding `$events={events}` MUST lower to `events: [() => (events)]`
+    // template binding `events={events}` MUST lower to `events: [() => (events)]`
     // — otherwise arbor's `_applyAttrs` sees the raw `[]` value, treats
     // `Array.isArray` as a Signal tuple, and throws
     // `TypeError: c is not a function` when it invokes `value[0]()`.
@@ -496,7 +497,7 @@ fn r2_attr_referencing_state_class_property_wraps_in_thunk() {
   events: any[] = []
 }
 @template {
-  <CalendarGrid $events={events}></CalendarGrid>
+  <CalendarGrid events={events}></CalendarGrid>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -543,7 +544,7 @@ fn r2_attr_local_const_outside_state_does_not_wrap() {
     let src = r#"@state {
 const localConst = 'hello'
 }
-@template { <h1>{{ localConst }}</h1> }"#;
+@template { <h1>{localConst}</h1> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
@@ -556,18 +557,18 @@ const localConst = 'hello'
 
 #[test]
 fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
-    // `$class={view === 'week' ? 'active' : ''}` has a ternary expression
+    // `class={view === 'week' ? 'active' : ''}` has a ternary expression
     // referencing state (`view`). It MUST wrap as a single thunk — the
     // wrap is at the expression boundary, not per-identifier.
     //
     // v1.0.8 — Amendment 04: canonical reactive HTML attribute form is
-    // `$attr={expr}`. Plain `class={…}` is now C306.
+    // `attr={expr}`. Plain `class={…}` is now C306.
     let src = r#"
 @state {
   view: 'week' | 'month' = 'week'
 }
 @template {
-  <button $class={view === 'week' ? 'active' : ''}>Week</button>
+  <button class={view === 'week' ? 'active' : ''}>Week</button>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -582,7 +583,7 @@ fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
 
 #[test]
 fn r2_attr_event_handler_referencing_state_does_not_wrap() {
-    // Event handlers (`$on.click`, `@click`) take the runtime's Path 1
+    // Event handlers (`on:click`) take the runtime's Path 1
     // (typeof === 'function'). They MUST stay as plain function references
     // even when the body references state — wrapping would put a function
     // value inside an array and trigger Path 2 instead.
@@ -594,7 +595,7 @@ fn r2_attr_event_handler_referencing_state_does_not_wrap() {
   }
 }
 @template {
-  <button $on.click={inc}>+</button>
+  <button on:click={inc}>+</button>
 }
 "#;
     let parsed = sfc::parse(src).unwrap();
@@ -721,7 +722,7 @@ fn fel238_each_plus_show_composes_each_outermost() {
   const openVerse = (v) => {}
 }
 @template {
-  <div><span $each="para as v" $show={v.ok}><button $on.click={() => openVerse(v)}>{v.verse}</button></span></div>
+  <div><span each={v of para} show={v.ok}><button on:click={() => openVerse(v)}>{v.verse}</button></span></div>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
@@ -752,7 +753,7 @@ fn fel238_each_plus_show_composes_each_outermost() {
 
 #[test]
 fn fel238_each_plus_class_composes() {
-    // Same defect via `$class:` — the most common pairing in the field report
+    // Same defect via `class:` — the most common pairing in the field report
     // (`<span class=v $each>` over a verse list).
     let src = r#"@state {
   import { signal } from '@aihu/signals'
@@ -760,18 +761,18 @@ fn fel238_each_plus_class_composes() {
   const pick = (v) => {}
 }
 @template {
-  <ul><li $each="para as v" $class:on={v.active}><button $on.click={() => pick(v)}>x</button></li></ul>
+  <ul><li each={v of para} class:on={v.active}><button on:click={() => pick(v)}>x</button></li></ul>
 }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let js = emit(&unit, "x-fel238b").js;
     assert!(
         js.contains("each([para, setPara]"),
-        "FEL-238: $each must survive alongside $class:, got:\n{js}"
+        "FEL-238: each must survive alongside class:, got:\n{js}"
     );
     assert!(
         js.contains("classList.toggle('on'"),
-        "FEL-238: $class: must compose alongside $each, got:\n{js}"
+        "FEL-238: class: must compose alongside each, got:\n{js}"
     );
     let each_pos = js.find("each([para, setPara]").unwrap();
     let handler_pos = js.find("pick(v)").unwrap();

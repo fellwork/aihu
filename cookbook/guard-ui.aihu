@@ -6,13 +6,13 @@
 
 @template {
   <div class="guard-wrapper">
-    <$guard scope="admin">
+    <guard scope="admin">
       <section class="admin-panel">
         <h2>Admin Panel</h2>
         <p>This {label} is only visible to users with the "admin" scope.</p>
         <button class="action-btn">Perform admin action</button>
       </section>
-    </$guard>
+    </guard>
     <p class="fallback-note">
       Content outside the guard is always visible.
     </p>

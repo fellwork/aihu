@@ -16,13 +16,13 @@
 
 @template {
   <div class="fetch-resource">
-    {#if data.loading}
+    <group if={data.loading}>
       <p class="loading">Loading…</p>
-    {:else if data.error}
+    </group><group elseif={data.error}>
       <p class="error">Error: {data.error.message}</p>
-    {:else}
+    </group><group else>
       <pre class="result">{JSON.stringify(data.value, null, 2)}</pre>
-    {/if}
+    </group>
   </div>
 }
 

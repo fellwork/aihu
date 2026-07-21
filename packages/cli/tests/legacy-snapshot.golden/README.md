@@ -68,3 +68,8 @@ Delete this directory and run the test twice through the gates config:
 First run bootstraps a fresh golden (and fails loudly to say so); second run
 verifies. The harness REFUSES to bootstrap when `process.env.CI` is set.
 Record the regeneration here (why, date, emitter SHA) and commit.
+
+- 2026-07-21 — grammar v2 (the prefix-less template): the legacy scaffold's
+  generated `src/pages/index.aihu` now emits `on:click={…}` colon directives
+  instead of the retired dollar-prefixed event layer (C607), so the frozen artifact
+  compiles against the current `@aihu/compiler`. Emitter: feat/grammar-v2.

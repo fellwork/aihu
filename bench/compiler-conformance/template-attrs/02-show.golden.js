@@ -1,15 +1,9 @@
 // @aihu:extract read=agents call=anonymous
-// R3 (Director r6 §3.R3): $show={count > 0} → effect(() => { el.toggleAttribute('hidden', !(count > 0)) })
-// `hidden` is the platform attribute (WHATWG); userland CSS [hidden] { display: none !important }
-// applies. Shadow DOM consumers can override via :host([hidden]) { display: ... }.
 import { branch, leaf, slot } from '@aihu/arbor'
-import { defineComponent, defineElement } from '@aihu/runtime'
+import type { Signal } from '@aihu/signals'
+import { effect } from '@aihu/signals'
+import { defineComponent, defineElement, onMount } from '@aihu/runtime'
 
-defineElement(
-  'test-comp',
-  defineComponent((_ctx) => {
-    return effect(() => {
-      el.toggleAttribute('hidden', !(count > 0))
-    })
-  }),
-)
+defineElement('02-show', defineComponent((_ctx) => {
+  return     (() => { const _n = branch('span', undefined, [leaf('items')]); onMount(() => { const _el = _n && _n.el; if (!_el) return () => {}; const _s = effect(() => { _el.toggleAttribute('hidden', !(count > 0)) }); return () => { _s && _s(); }; }); return _n; })()
+}))

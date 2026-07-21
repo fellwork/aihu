@@ -1,10 +1,17 @@
 // @aihu:extract read=agents call=anonymous
-// $prop label: String → const label = computed(() => ctx.attrs.label)
-// $computed upper = expr → const upper = computed(() => label.toUpperCase())
-//
-// These are emitted via emit_state_macros() into the component setup body.
-// The parser strips $-prefix lines and the emitter lowers them to signals.
+import { branch, leaf, slot } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { signal, computed } from '@aihu/signals'
+import { defineComponent, defineElement } from '@aihu/runtime'
 
-// Expected lowerings (from emit_state_macros):
-// const label = computed(() => ctx.attrs.label);
-// const upper = computed(() => label.toUpperCase());
+defineElement('01-state-prop-computed', defineComponent({
+  props: {
+    label: { value: '' }
+  },
+  setup: (ctx) => {
+  const label = ctx.props.label
+
+  const upper = computed(() => label.toUpperCase());
+  return branch('div', undefined, [leaf('label')])
+  },
+}))

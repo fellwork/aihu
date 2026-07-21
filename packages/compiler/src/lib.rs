@@ -100,6 +100,15 @@ pub fn compile_full_with_options<'a>(
         validate_component_tags(ast)?;
     }
 
+    // W601 (grammar v2 §2.3) — a keyless `each` whose loop body contains
+    // components or stateful elements (`bind:*`, `ref`, component tags) is a
+    // reorder hazard: state follows position, not identity. Angular made
+    // `track` mandatory in `@for` on exactly this evidence; aihu softens
+    // mandatory to lint.
+    if let Some(ref ast) = template_ast {
+        lint_keyless_each(ast);
+    }
+
     // #433 (FEL-270): `$ref` co-located with a `$if`/`$each` directive on the
     // SAME element is a silent-blank trap. `$ref` lowers to an `onMount(...)`
     // wrapped IN the element node; `$if`/`$each` wrap that node again inside a
@@ -371,6 +380,117 @@ pub fn extract_policy_warnings(source: &AihuSource) -> Vec<CompileError> {
 /// Element/MacroElement children, `{#if}` branches, and `{#each}` bodies.
 /// `<$macro>` elements are compiler intrinsics — their own names are never
 /// component tags — but their children may contain components.
+/// W601 — walk the template AST and warn on every keyless `each` (attribute
+/// form or assembled `EachBlock`) whose loop subtree contains components or
+/// stateful elements.
+fn lint_keyless_each(nodes: &[TemplateNode]) {
+    use crate::types::Attr;
+
+    fn has_macro(attrs: &[Attr], name: &str) -> bool {
+        attrs
+            .iter()
+            .any(|a| matches!(a, Attr::Macro { name: n, .. } if n == name))
+    }
+
+    /// Does this subtree (including its roots) contain a component tag or an
+    /// element carrying `bind:*` / `ref`?
+    fn subtree_stateful(nodes: &[TemplateNode]) -> bool {
+        nodes.iter().any(node_stateful)
+    }
+
+    fn node_stateful(node: &TemplateNode) -> bool {
+        match node {
+            TemplateNode::Element { tag, attrs, children } => {
+                tags::is_component_tag(tag)
+                    || attrs.iter().any(|a| matches!(
+                        a,
+                        Attr::Macro { name, .. } if name == "ref" || name.starts_with("bind:")
+                    ))
+                    || subtree_stateful(children)
+            }
+            TemplateNode::MacroElement { attrs, children, .. } => {
+                attrs.iter().any(|a| matches!(
+                    a,
+                    Attr::Macro { name, .. } if name == "ref" || name.starts_with("bind:")
+                )) || subtree_stateful(children)
+            }
+            TemplateNode::IfBlock { branches } => {
+                branches.iter().any(|(_, body)| subtree_stateful(body))
+            }
+            TemplateNode::EachBlock { body, empty_body, .. } => {
+                subtree_stateful(body)
+                    || empty_body.as_deref().is_some_and(subtree_stateful)
+            }
+            _ => false,
+        }
+    }
+
+    fn warn(loop_desc: &str) {
+        crate::diagnostics::emit_warning(&CompileError {
+            message: format!(
+                "W601: keyless `each` ({}) whose body contains components or stateful \
+                 elements — state follows position, not identity, across reorders.",
+                loop_desc
+            ),
+            line: 0,
+            col: 0,
+            code: Some("W601".to_string()),
+            hint: Some(
+                "without `key={…}`, a reorder reuses DOM/state by index; components and \
+                 `bind:`/`ref` elements silently swap state"
+                    .to_string(),
+            ),
+            fix: Some("add `key={item.id}` (or another stable identity) to the loop".to_string()),
+            ..Default::default()
+        });
+    }
+
+    for node in nodes {
+        match node {
+            TemplateNode::Element { tag, attrs, children } => {
+                if has_macro(attrs, "each") && !has_macro(attrs, "key") {
+                    let elem_is_component = tags::is_component_tag(tag);
+                    if elem_is_component || subtree_stateful(children) {
+                        let head = attrs.iter().find_map(|a| match a {
+                            Attr::Macro { name, value } if name == "each" => match value {
+                                crate::types::MacroValue::Curly(s) => Some(s.clone()),
+                                _ => None,
+                            },
+                            _ => None,
+                        });
+                        warn(&format!("`each={{{}}}`", head.unwrap_or_default()));
+                    }
+                }
+                lint_keyless_each(children);
+            }
+            TemplateNode::MacroElement { attrs, children, .. } => {
+                if has_macro(attrs, "each")
+                    && !has_macro(attrs, "key")
+                    && subtree_stateful(children)
+                {
+                    warn("`each` on a framework element");
+                }
+                lint_keyless_each(children);
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches {
+                    lint_keyless_each(body);
+                }
+            }
+            TemplateNode::EachBlock { key_expr, body, empty_body, .. } => {
+                if key_expr.is_none() && subtree_stateful(body) {
+                    warn("`each` with `empty` sibling");
+                }
+                lint_keyless_each(body);
+                if let Some(eb) = empty_body {
+                    lint_keyless_each(eb);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn validate_component_tags(nodes: &[TemplateNode]) -> Result<(), CompileError> {
     for node in nodes {
         match node {

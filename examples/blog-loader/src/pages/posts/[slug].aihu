@@ -27,10 +27,10 @@
   <article class="loader-post">
     <a href="/">&larr; Back</a>
 
-    <$suspense source="route.data">
-      <$slot name="fallback">
+    <suspense source="route.data">
+      <slot name="fallback">
         <p class="loading">Loading post...</p>
-      </$slot>
+      </slot>
 
       <h1>{route.data.title}</h1>
       <p class="meta">
@@ -42,7 +42,7 @@
       <p class="context-badge">
         Context slug: {readingCtx?.slug ?? route.params.slug}
       </p>
-    </$suspense>
+    </suspense>
   </article>
 }
 

@@ -68,7 +68,7 @@
     </p>
 
     <div class="relative" data-anchor>
-      <article $class={cardClass}>
+      <article class={cardClass}>
         <h2 class="text-lg font-semibold m-0">Pro plan</h2>
         <p class="text-sm m-0">Everything in Starter, plus agent surfaces.</p>
         <code class="text-sm">{cardClass}</code>
@@ -77,8 +77,8 @@
     </div>
 
     <div class="controls flex gap-2">
-      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" $on.click="toggleAccent">Toggle accent</button>
-      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" $on.click="toggleRoomy">Toggle roomy padding</button>
+      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" on:click={toggleAccent}>Toggle accent</button>
+      <button class="btn rounded-md border border-border bg-surface text-foreground px-4 py-2 text-sm font-medium" on:click={toggleRoomy}>Toggle roomy padding</button>
     </div>
   </section>
 }

@@ -292,7 +292,7 @@ describe('useCurrentUser / setCurrentScopes / clearCurrentScopes', () => {
 
   it('setCurrentScopes updates the scope-signal', () => {
     // Import getScopeSignal from index and check it reflects the new scopes.
-    // (This bridges useCurrentUser + setCurrentScopes with the <$guard> system.)
+    // (This bridges useCurrentUser + setCurrentScopes with the <guard> system.)
     clearCurrentScopes()
     setCurrentScopes(['admin', 'read'])
     // Scope-signal should reflect the update.

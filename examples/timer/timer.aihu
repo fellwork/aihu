@@ -47,7 +47,7 @@
     <h1>Timer</h1>
     <label>
       <span>Elapsed</span>
-      <progress $value={progress} max="1"></progress>
+      <progress value={progress} max="1"></progress>
     </label>
     <p class="readout">{seconds}s / {maxSecs}s</p>
     <label>
@@ -57,11 +57,11 @@
         min="1000"
         max="30000"
         step="500"
-        $bind.value="duration"
+        bind:value={duration}
       >
     </label>
-    <button $on.click="reset">Reset</button>
-    <p class="status" $if={done}>Done.</p>
+    <button on:click={reset}>Reset</button>
+    <p class="status" if={done}>Done.</p>
   </section>
 }
 

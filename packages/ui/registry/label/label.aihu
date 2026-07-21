@@ -15,7 +15,7 @@
 }
 
 @template {
-  <label class="aihu-label" $for={htmlFor}><slot /></label>
+  <label class="aihu-label" for={htmlFor}><slot /></label>
 }
 
 @style {

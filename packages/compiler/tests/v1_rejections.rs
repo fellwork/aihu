@@ -8,11 +8,11 @@
 //! - C304: `:attr="expr"` Vue-shape one-way binding alias is removed.
 //! - C305: `@event="fn"` Vue-shape event alias is removed.
 //! - C306: plain `attr={expr}` on standard HTML attributes is removed
-//!         (`$attr={expr}` is now required — always `$`-prefix).
+//!         (`attr={expr}` is now required — always `$`-prefix).
 //!
 //! These tests load `.aihu` fixtures from `bench/compiler-conformance/v1-rejections/`
 //! and assert `sfc::parse(src)` (or `compile_full`) returns `Err` with the
-//! expected code and a message that points the user at `npx aihu migrate`.
+//! expected code and an actionable `fix:` migration hint.
 //! Inline `#[test]` cases without fixture I/O provide additional coverage.
 //!
 //! Routing: Builder R5.2a (v1.0.7) + R5.2b-2 (v1.0.8). Brief refs:
@@ -146,8 +146,8 @@ fn html_form_error_fires_on_first_offending_tag() {
 // ─── v1.0.8 / Amendment 04 — C304 / C305 / C306 attribute-binding rejections ─
 
 /// Helper: assert the given `.aihu` source rejects with the given error code
-/// and that the error message points the user at `npx aihu migrate`.
-fn assert_rejects_with(src: &str, expected_code: &str, label: &str) {
+/// and return the error for further message-level assertions.
+fn assert_rejects_with(src: &str, expected_code: &str, label: &str) -> aihu_compiler::CompileError {
     let parsed = sfc::parse(src)
         .unwrap_or_else(|e| panic!("sfc::parse should succeed for {} (so we can reach compile_full): {:?}", label, e));
     let err = compile_full(&parsed)
@@ -162,11 +162,40 @@ fn assert_rejects_with(src: &str, expected_code: &str, label: &str) {
         err.message
     );
     assert!(
-        err.message.contains("npx aihu migrate"),
-        "{} error message must include `npx aihu migrate`, got: {}",
+        err.fix.is_some(),
+        "{} must carry a fix: hint (the C471 pattern), got: {:?}",
         expected_code,
-        err.message
+        err
     );
+    err
+}
+
+/// Helper for the grammar-v2 retirement rows (§8.1): asserts code, `fix:`
+/// content, and the `from:` anchor (so `render_human_error` produces a real
+/// codeframe).
+fn assert_retired(
+    fixture: &str,
+    code: &str,
+    fix_contains: &str,
+    from_contains: &str,
+) -> aihu_compiler::CompileError {
+    let src = read_v1_rejection_fixture(fixture);
+    let err = assert_rejects_with(&src, code, fixture);
+    assert!(
+        err.fix.as_deref().unwrap_or("").contains(fix_contains),
+        "{} fix must contain `{}`, got: {:?}",
+        code,
+        fix_contains,
+        err.fix
+    );
+    assert!(
+        err.from.as_deref().unwrap_or("").contains(from_contains),
+        "{} from anchor must contain `{}`, got: {:?}",
+        code,
+        from_contains,
+        err.from
+    );
+    err
 }
 
 #[test]
@@ -181,11 +210,8 @@ fn rejects_legacy_event_binding_alias_c305() {
     assert_rejects_with(&src, "C305", "fixture 06 (`@click=`)");
 }
 
-#[test]
-fn rejects_plain_curly_html_binding_c306() {
-    let src = read_v1_rejection_fixture("07-plain-curly-html-binding.aihu");
-    assert_rejects_with(&src, "C306", "fixture 07 (`href={url}`)");
-}
+// (fixture 07 retired with C306 itself — plain `attr={expr}` is grammar v2's
+// canonical reactive binding; see `plain_curly_binding_parses_cleanly`.)
 
 // ─── Inline rejection cases (defensive duplicates without fixture I/O) ──────
 
@@ -202,9 +228,11 @@ fn rejects_inline_at_event_binding_alias_c305() {
 }
 
 #[test]
-fn rejects_inline_plain_curly_html_binding_c306() {
+fn plain_curly_binding_parses_cleanly() {
+    // Grammar v2 inverts C306: plain braces ARE the reactive binding.
     let src = "@template {\n  <a href={url}>link</a>\n}\n";
-    assert_rejects_with(src, "C306", "inline `href={url}`");
+    let parsed = sfc::parse(src).expect("parse should succeed");
+    compile_full(&parsed).expect("compile_full should succeed for `href={url}`");
 }
 
 // ─── Unknown top-level block rejection (C204) ───────────────────────────────
@@ -299,28 +327,118 @@ fn all_five_recognized_blocks_still_parse() {
     assert!(parsed.route.is_some(), "@route must parse");
 }
 
+// ─── Grammar v2 (40-spec §4) — the retirement table C601–C611 ───────────────
+//
+// One conformance fixture per row, each asserting the code, the `fix:` text,
+// and the `from:` anchor (§8.1 acceptance criterion). C605's fixture asserts
+// the tripwire fires even though corpus usage was zero.
+
+#[test]
+fn c601_if_block_is_retired() {
+    assert_retired("08-if-block.aihu", "C601", "if={e}", "{#if loading}");
+}
+
+#[test]
+fn c602_each_block_is_retired() {
+    assert_retired(
+        "09-each-block.aihu",
+        "C602",
+        "each={item, i of list}",
+        "{#each items as item, i (item.id)}",
+    );
+}
+
+#[test]
+fn c603_html_block_is_retired() {
+    assert_retired("10-html-block.aihu", "C603", "html={expr}", "{@html raw}");
+}
+
+#[test]
+fn c604_double_brace_is_retired() {
+    assert_retired("11-double-brace.aihu", "C604", "single braces", "{{count}}");
+}
+
+#[test]
+fn c605_macro_if_element_tripwire() {
+    assert_retired("12-macro-if-element.aihu", "C605", "if={…}", "<$if>");
+}
+
+#[test]
+fn c606_dollar_if_attr_is_retired() {
+    let err = assert_retired("13-dollar-if-attr.aihu", "C606", "if={loading}", "$if={loading}");
+    assert_eq!(err.to.as_deref(), Some("if={loading}"));
+}
+
+#[test]
+fn c606_dollar_each_string_dsl_is_retired() {
+    let err = assert_retired(
+        "14-dollar-each-string-dsl.aihu",
+        "C606",
+        "each={item of items}",
+        "$each=",
+    );
+    assert_eq!(err.to.as_deref(), Some("each={item of items}"));
+}
+
+#[test]
+fn c607_dollar_on_click_is_retired() {
+    let err = assert_retired(
+        "15-dollar-on-click.aihu",
+        "C607",
+        "on:click={fetchForecast}",
+        "$on.click=",
+    );
+    assert_eq!(err.to.as_deref(), Some("on:click={fetchForecast}"));
+}
+
+#[test]
+fn c608_link_element_is_retired() {
+    assert_retired("16-macro-link-element.aihu", "C608", "<a href=", "<$link>");
+}
+
+#[test]
+fn c609_slot_element_is_retired() {
+    let err = assert_retired("17-macro-slot-element.aihu", "C609", "<slot>", "<$slot>");
+    assert_eq!(err.to.as_deref(), Some("<slot>"));
+}
+
+#[test]
+fn c610_adjacency_violation_is_retired() {
+    assert_retired(
+        "18-adjacency-violation.aihu",
+        "C610",
+        "directly after its chain head",
+        "else",
+    );
+}
+
+#[test]
+fn c611_unknown_element_is_protected() {
+    assert_retired("19-unknown-element.aihu", "C611", "hyphenated", "<grup>");
+}
+
 // ─── Positive sanity tests — canonical v1.0.8 forms must parse cleanly ──────
 
 #[test]
 fn dollar_attr_curly_parses_cleanly() {
-    // `$class={cls}` (canonical reactive HTML attribute binding) must parse.
-    let src = "@template {\n  <span $class={cls}></span>\n}\n";
+    // `class={cls}` (canonical reactive HTML attribute binding) must parse.
+    let src = "@template {\n  <span class={cls}></span>\n}\n";
     let parsed = sfc::parse(src).expect("parse should succeed");
-    compile_full(&parsed).expect("compile_full should succeed for `$class={cls}`");
+    compile_full(&parsed).expect("compile_full should succeed for `class={cls}`");
 }
 
 #[test]
 fn dollar_on_dot_form_parses_cleanly() {
-    // `$on.click={fn}` (canonical event handler binding) must parse.
-    let src = "@template {\n  <button $on.click={handleClick}>click</button>\n}\n";
+    // `on:click={fn}` (canonical event handler binding) must parse.
+    let src = "@template {\n  <button on:click={handleClick}>click</button>\n}\n";
     let parsed = sfc::parse(src).expect("parse should succeed");
-    compile_full(&parsed).expect("compile_full should succeed for `$on.click={fn}`");
+    compile_full(&parsed).expect("compile_full should succeed for `on:click={fn}`");
 }
 
 #[test]
 fn dollar_bind_dot_form_parses_cleanly() {
-    // `$bind.value={x}` (canonical two-way binding) must parse.
-    let src = "@state {\nconst [name, setName] = signal('')\n}\n@template {\n  <input $bind.value={name}>\n}\n";
+    // `bind:value={x}` (canonical two-way binding) must parse.
+    let src = "@state {\nconst [name, setName] = signal('')\n}\n@template {\n  <input bind:value={name}>\n}\n";
     let parsed = sfc::parse(src).expect("parse should succeed");
-    compile_full(&parsed).expect("compile_full should succeed for `$bind.value={x}`");
+    compile_full(&parsed).expect("compile_full should succeed for `bind:value={x}`");
 }

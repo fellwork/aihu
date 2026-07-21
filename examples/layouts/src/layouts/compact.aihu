@@ -5,7 +5,7 @@
       <a href="/dashboard">Dashboard</a>
     </nav>
     <div class="compact-body">
-      <$outlet></$outlet>
+      <outlet></outlet>
     </div>
   </div>
 }

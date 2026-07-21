@@ -51,49 +51,47 @@
   <aside class="cart-drawer" aria-label="Shopping cart">
     <header class="cart-header">
       <h2 class="cart-title">Cart</h2>
-      <span class="cart-count-badge" $if={cartCount > 0}>{cartCount}</span>
+      <span class="cart-count-badge" if={cartCount > 0}>{cartCount}</span>
     </header>
 
     <div class="stub-badge">
       live Stripe binding pending arch-3
     </div>
 
-    <div class="empty-cart" $if={cartCount === 0}>
+    <div class="empty-cart" if={cartCount === 0}>
       <p>Your cart is empty.</p>
     </div>
 
-    <ul class="cart-items" $if={cartCount > 0}>
+    <ul class="cart-items" if={cartCount > 0}>
       <li
         class="cart-item"
-        $each={cartItems}
-        $key="id"
-        $let={item}
-      >
+        each={item of cartItems}
+        key={item.id}>
         <span class="item-name">{item.name}</span>
         <span class="item-price">${item.price.toFixed(2)}</span>
       </li>
     </ul>
 
-    <div class="cart-subtotal" $if={cartCount > 0}>
+    <div class="cart-subtotal" if={cartCount > 0}>
       <span class="subtotal-label">Subtotal</span>
       <span class="subtotal-amount">${total.toFixed(2)}</span>
     </div>
 
     <button
       class="checkout-btn"
-      $if={cartCount > 0}
-      $on.click={checkout}
-      $disabled={checkoutStatus() === 'pending'}
+      if={cartCount > 0}
+      on:click={checkout}
+      disabled={checkoutStatus() === 'pending'}
       aria-label="Proceed to checkout"
     >
       {checkoutStatus() === 'pending' ? 'Processing…' : 'Checkout'}
     </button>
 
-    <div class="status-ok" $if={checkoutStatus() === 'ok'} aria-live="polite" role="status">
+    <div class="status-ok" if={checkoutStatus() === 'ok'} aria-live="polite" role="status">
       Order placed successfully!
     </div>
 
-    <div class="status-error" $if={checkoutStatus() === 'error'} aria-live="polite" role="alert">
+    <div class="status-error" if={checkoutStatus() === 'error'} aria-live="polite" role="alert">
       Checkout failed. Please try again.
     </div>
   </aside>

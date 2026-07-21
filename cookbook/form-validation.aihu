@@ -33,19 +33,19 @@
     <span class="field-label">Name <span aria-hidden="true">*</span></span>
     <input
       type="text"
-      $class={['field-input', touched && !isValid && 'invalid']}
-      $value={value}
-      $on.input={onInput}
-      $on.blur={onBlur}
+      class={['field-input', touched && !isValid && 'invalid']}
+      value={value}
+      on:input={onInput}
+      on:blur={onBlur}
       required
       minlength="2"
     />
-    {#if errorMessage}
+    <group if={errorMessage}>
       <span class="error-msg" role="alert">{errorMessage}</span>
-    {/if}
-    {#if isValid}
+    </group>
+    <group if={isValid}>
       <span class="valid-msg">Looks good!</span>
-    {/if}
+    </group>
   </label>
 }
 

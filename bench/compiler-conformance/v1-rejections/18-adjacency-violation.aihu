@@ -1,0 +1,5 @@
+@template {
+  <p if={a}>A</p>
+  <span>interposed</span>
+  <p else>B</p>
+}

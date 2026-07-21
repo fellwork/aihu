@@ -1,0 +1,7 @@
+@template {
+  {#each items as item, i (item.id)}
+    <li>{item.label}</li>
+  {:empty}
+    <li>none</li>
+  {/each}
+}

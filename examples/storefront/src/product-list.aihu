@@ -34,21 +34,19 @@
   <section class="product-list">
     <h2 class="section-title">Products</h2>
 
-    <div class="loading-state" $if={products.state().status === 'loading'} aria-live="polite">
+    <div class="loading-state" if={products.state().status === 'loading'} aria-live="polite">
       Loading products…
     </div>
 
-    <div class="error-state" $if={products.state().status === 'error'} aria-live="polite" role="alert">
+    <div class="error-state" if={products.state().status === 'error'} aria-live="polite" role="alert">
       Failed to load products. Please try again.
     </div>
 
-    <div class="product-grid" $if={products.state().status === 'ready'}>
+    <div class="product-grid" if={products.state().status === 'ready'}>
       <article
         class="product-card"
-        $each={products.state().data}
-        $key="id"
-        $let={product}
-      >
+        each={product of products.state().data}
+        key={product.id}>
         <div class="product-info">
           <h3 class="product-name">{product.name}</h3>
           <p class="product-description">{product.description}</p>
@@ -56,15 +54,15 @@
         </div>
         <button
           class="add-btn"
-          $on.click={() => addToCart(product)}
-          $aria-label={"Add " + product.name + " to cart"}
+          on:click={() => addToCart(product)}
+          aria-label={"Add " + product.name + " to cart"}
         >
           Add to cart
         </button>
       </article>
     </div>
 
-    <div class="empty-state" $if={products.state().status === 'idle'}>
+    <div class="empty-state" if={products.state().status === 'idle'}>
       No products yet.
     </div>
   </section>

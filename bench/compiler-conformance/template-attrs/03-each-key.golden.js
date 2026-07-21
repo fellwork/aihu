@@ -1,13 +1,11 @@
 // @aihu:extract read=agents call=anonymous
-// $each="items" $key="getKey" → createEachBoundary(items, getKey, (item, i) => { return <subtree> })
-import { branch, leaf, slot } from '@aihu/arbor'
+import { branch, leaf, slot, each } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'
 
-defineElement(
-  'test-comp',
-  defineComponent((_ctx) => {
-    return createEachBoundary(items, getKey, (item, i) => {
-      return branch('ul', undefined, [branch('li', undefined, [leaf('item')])])
-    })
-  }),
-)
+const createEachBoundary = (items, key, itemFn) => each(items, key, itemFn);
+
+defineElement('03-each-key', defineComponent((_ctx) => {
+  return     createEachBoundary([() => (items)], (item) => getKey, (item, i) => { return branch('ul', undefined, [
+    branch('li', undefined, [leaf('item')])
+  ]) })
+}))

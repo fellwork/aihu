@@ -25,13 +25,13 @@
 @template {
   <input
     class="aihu-input"
-    $type={type}
-    $placeholder={placeholder}
-    $name={name}
-    $value={value}
-    $aria-label={ariaLabel}
-    $disabled={disabled}
-    $required={required} />
+    type={type}
+    placeholder={placeholder}
+    name={name}
+    value={value}
+    aria-label={ariaLabel}
+    disabled={disabled}
+    required={required} />
 }
 
 @style {

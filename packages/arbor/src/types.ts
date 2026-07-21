@@ -42,7 +42,7 @@ export type ChildList = ReadonlyArray<Branch | Leaf | StructuralNode>
  *
  * `el` is set by `_materialize` after the DOM element is created (non-null
  * only for tagged branches — null-tag fragments have no wrapper element).
- * The compiler-emitted `_onMount` callbacks for `$class:` and `@html`
+ * The compiler-emitted `_onMount` callbacks for `class:` and `html`
  * bindings read `_n.el` to reach the live DOM node.
  */
 export interface Branch {

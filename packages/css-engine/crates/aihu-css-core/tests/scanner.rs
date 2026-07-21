@@ -6,7 +6,7 @@ use aihu_css_core::{parse_ast, scan, scan_ast, SfcAst};
 
 fn fixture_ast() -> SfcAst {
     // From `aihu-compile --ast-json` for:
-    //   <button class="base" $class={cn('btn', size)} $class:loading={busy} $on.click={go}>Go</button>
+    //   <button class="base" class={cn('btn', size)} class:loading={busy} on:click={go}>Go</button>
     parse_ast(include_str!("fixtures/button.ast.json")).unwrap()
 }
 
@@ -36,12 +36,12 @@ fn flags_unresolved_binding_identifiers() {
 #[test]
 fn extracts_macro_class_toggle_form_c() {
     let set = scan_ast(&fixture_ast());
-    assert!(set.contains("loading"), "Form C $class:loading toggle missing");
+    assert!(set.contains("loading"), "Form C class:loading toggle missing");
 }
 
 #[test]
 fn skips_non_class_macros() {
-    // $on.click / $if must never enter the utility set.
+    // on:click / if must never enter the utility set.
     let set = scan_ast(&fixture_ast());
     assert!(
         !set.iter().any(|c| c.contains("click") || c == "if" || c.contains("on:")),
@@ -85,7 +85,7 @@ fn skips_component_node_class_attrs_edge_e10() {
 
 #[test]
 fn array_binding_extracts_literals_edge_e2() {
-    // $class={['a', cond && 'b']} → 'a','b' utilities, `cond` unresolved.
+    // class={['a', cond && 'b']} → 'a','b' utilities, `cond` unresolved.
     let json = r#"{
       "tag":"X","astVersion":1,"style":null,"meta":{"name":"X"},
       "template":[{"kind":"element","tag":"div","attrs":[

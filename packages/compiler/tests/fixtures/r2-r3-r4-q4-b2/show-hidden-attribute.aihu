@@ -8,7 +8,7 @@ function toggle() {
 }
 @template {
   <div>
-    <button $on.click="toggle">Toggle</button>
-    <div $show={isOpen()}>I appear when isOpen() is true</div>
+    <button on:click={toggle}>Toggle</button>
+    <div show={isOpen()}>I appear when isOpen() is true</div>
   </div>
 }

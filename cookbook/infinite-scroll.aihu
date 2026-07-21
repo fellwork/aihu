@@ -49,15 +49,15 @@
 @template {
   <div class="infinite-scroll">
     <ul class="item-list">
-      {#each items as item (item.id)}
+      <group each={item of items} key={item.id}>
         <li class="scroll-item">{item.text}</li>
-      {:empty}
+      </group><group empty>
         <li class="scroll-item empty">Loading initial items…</li>
-      {/each}
+      </group>
     </ul>
-    {#if loading}
+    <group if={loading}>
       <p class="loading-indicator">Loading more…</p>
-    {/if}
+    </group>
     <div class="scroll-sentinel" aria-hidden="true"></div>
   </div>
 }

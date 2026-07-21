@@ -5,7 +5,7 @@ import { signal } from '@aihu/signals'
 import { defineComponent, defineElement } from '@aihu/runtime'
 
 defineElement('state-basic', defineComponent((_ctx) => {
-  const [count, setCount] = signal(0)
+    const [count, setCount] = signal(0)
 
   return branch('div', undefined, [leaf([count, setCount] as unknown as Signal<string>)])
 }))

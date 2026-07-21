@@ -26,9 +26,9 @@ In a `@state` block, `$resource` binds an async fetcher to a reactive signal. It
 }
 
 @template {
-  <$suspense fallback="Spinner">
+  <suspense fallback="Spinner">
     <div>{user.value.name}</div>
-  </$suspense>
+  </suspense>
 }
 ```
 
@@ -50,12 +50,12 @@ All async data in aihu follows the 3-state pattern:
 | Success | `false` | data | `undefined` |
 | Error | `false` | `undefined` | Error |
 
-Use `<$suspense>` in templates to handle the pending state declaratively:
+Use `<suspense>` in templates to handle the pending state declaratively:
 
 ```html
-<$suspense fallback="Spinner">
+<suspense fallback="Spinner">
   <div>{user.value.name}</div>
-</$suspense>
+</suspense>
 ```
 
 ## `createResource` from `@aihu-plugin/data`
@@ -141,7 +141,7 @@ export const loader = defineLoader(async (ctx) => {
 }
 ```
 
-The runtime injects the resolved loader payload as `route.data` before mount. During streaming SSR or client-side re-validation, wrap the consumer in `<$suspense>` to declaratively handle the pending state.
+The runtime injects the resolved loader payload as `route.data` before mount. During streaming SSR or client-side re-validation, wrap the consumer in `<suspense>` to declaratively handle the pending state.
 
 ### Pattern B — `$resource` + `createServerCall`
 
@@ -168,13 +168,13 @@ export const searchPosts = createServerCall<[query: string], Post[]>('posts/sear
 }
 
 @template {
-  <input $bind.value="searchTerm" />
+  <input bind:value={searchTerm} />
 
-  <$suspense fallback="Spinner">
+  <suspense fallback="Spinner">
     <ul>
-      <li $each="matches.value as p" $key="p.slug">{p.title}</li>
+      <li each={p of matches.value} key={p.slug}>{p.title}</li>
     </ul>
-  </$suspense>
+  </suspense>
 }
 ```
 

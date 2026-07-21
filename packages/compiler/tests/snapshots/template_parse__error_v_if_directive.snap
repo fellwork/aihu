@@ -1,11 +1,10 @@
 ---
-source: tests/template_parse.rs
-assertion_line: 54
+source: packages/compiler/tests/template_parse.rs
 expression: result
 ---
 Err(
     CompileError {
-        message: "v-if / v-for directives are not supported in v0; see v1 roadmap",
+        message: "v-if / v-for directives are not supported; use `if={expr}` / `each={item of list}`",
         line: 1,
         col: 5,
         code: None,

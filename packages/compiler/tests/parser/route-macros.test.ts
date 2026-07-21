@@ -86,29 +86,29 @@ describe('$afterNavigate macro — RFC-A5-016', () => {
 })
 
 describe('macro elements — RFC-A5-011..014', () => {
-  it('<$router> emits createRouterBoundary and the router namespace import', () => {
+  it('<router> emits createRouterBoundary and the router namespace import', () => {
     const out = compile(`@template {
-  <$router router={myRouter}>
-    <$outlet></$outlet>
-  </$router>
+  <router router={myRouter}>
+    <outlet></outlet>
+  </router>
 }`)
     expect(out).toContain("import * as __aihuRouter from '@aihu/router'")
     expect(out).toContain('createRouterBoundary(myRouter')
     expect(out).toContain('createOutletBoundary()')
   })
 
-  it('<$link> emits createLinkBoundary with href + prefetch attrs', () => {
+  it('<a> emits createLinkBoundary with href + prefetch attrs', () => {
     const out = compile(`@template {
-  <$link href="/about" prefetch="hover">About</$link>
+  <a href="/about" prefetch="hover">About</a>
 }`)
     expect(out).toContain('createLinkBoundary(')
     expect(out).toContain("'/about'")
     expect(out).toContain("'hover'")
   })
 
-  it('<$navigate> emits createNavigateBoundary', () => {
+  it('<navigate> emits createNavigateBoundary', () => {
     const out = compile(`@template {
-  <$navigate to="/login" replace></$navigate>
+  <navigate to="/login" replace></navigate>
 }`)
     expect(out).toContain('createNavigateBoundary(')
     expect(out).toContain("'/login'")

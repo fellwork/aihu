@@ -247,7 +247,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     aihuCompilerPlugin({
       islands: false,
       // Compile layouts (under the same dir the router scans) in layout mode:
-      // namespaced tag + passive <$outlet> marker the client renderer fills.
+      // namespaced tag + passive <outlet> marker the client renderer fills.
       layoutsDir: routerOpts.layoutsDir,
       ...(config?.css?.shadowMode != null ? { shadowMode: config.css.shadowMode } : {}),
     }) as unknown as Plugin,

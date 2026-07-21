@@ -32,9 +32,9 @@ fn class_form_a_static() {
 
 #[test]
 fn class_form_b_binding() {
-    // Form B — reactive `$class={expr}` → Attr::Binding → kind:"binding".
+    // Form B — reactive `class={expr}` → Attr::Binding → kind:"binding".
     let json = ast_json(
-        r#"@template { <button $class={variant}>Go</button> }"#,
+        r#"@template { <button class={variant}>Go</button> }"#,
         Some("Button.aihu"),
     );
     insta::assert_snapshot!(json);
@@ -42,10 +42,10 @@ fn class_form_b_binding() {
 
 #[test]
 fn class_form_c_macro() {
-    // Form C — macro toggle `$class:active={cond}` → Attr::Macro →
+    // Form C — macro toggle `class:active={cond}` → Attr::Macro →
     // kind:"macro", name "class:active", value form:"curly".
     let json = ast_json(
-        r#"@template { <button $class:active={isActive}>Go</button> }"#,
+        r#"@template { <button class:active={isActive}>Go</button> }"#,
         Some("Button.aihu"),
     );
     insta::assert_snapshot!(json);
@@ -56,7 +56,7 @@ fn class_three_forms_combined() {
     // The spec §4.3 canonical sample: one binding, one static, one macro on a
     // single element. All three `kind` values must appear distinctly.
     let json = ast_json(
-        r#"@template { <button $class={cn('btn', variant)} class="base" $class:loading={busy}>Go</button> }"#,
+        r#"@template { <button class={cn('btn', variant)} class="base" class:loading={busy}>Go</button> }"#,
         Some("Button.aihu"),
     );
     insta::assert_snapshot!(json);
@@ -66,10 +66,10 @@ fn class_three_forms_combined() {
 
 #[test]
 fn e1_two_class_attrs_static_and_binding() {
-    // E1 — `class="base" $class={x}` → two separate attrs entries: one static,
+    // E1 — `class="base" class={x}` → two separate attrs entries: one static,
     // one binding. Scanner unions both.
     let json = ast_json(
-        r#"@template { <div class="base" $class={x}></div> }"#,
+        r#"@template { <div class="base" class={x}></div> }"#,
         Some("Card.aihu"),
     );
     insta::assert_snapshot!(json);
@@ -77,9 +77,9 @@ fn e1_two_class_attrs_static_and_binding() {
 
 #[test]
 fn e2_array_class_binding() {
-    // E2 — `$class={['a', cond && 'b']}` → binding { expr: "['a', cond && 'b']" }.
+    // E2 — `class={['a', cond && 'b']}` → binding { expr: "['a', cond && 'b']" }.
     let json = ast_json(
-        r#"@template { <div $class={['a', cond && 'b']}></div> }"#,
+        r#"@template { <div class={['a', cond && 'b']}></div> }"#,
         Some("Card.aihu"),
     );
     insta::assert_snapshot!(json);
@@ -147,7 +147,7 @@ fn e11_colon_form_is_parse_error_c500() {
         Some("Button.aihu"),
     )
     .expect_err("colon-form must reject with C500");
-    assert_eq!(err.code.as_deref(), Some("C500"));
+    assert_eq!(err.code.as_deref(), Some("C607"));
 }
 
 // ─── PR-2 T2.2 — @meta recipe-catalog fields in the emitted AST-JSON ──────────
@@ -163,7 +163,7 @@ fn meta_fields_emitted_for_meta_sfc() {
   dependencies: ['clsx'],
   registryDependencies: ['utils'],
 }
-@template { <button>{{ label }}</button> }"#,
+@template { <button>{label}</button> }"#,
         Some("Button.aihu"),
     );
     insta::assert_snapshot!(json);

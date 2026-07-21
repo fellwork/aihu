@@ -24,15 +24,15 @@
 }
 
 @template {
-  <form $on.submit={onSubmit} class="aria-form">
+  <form on:submit={onSubmit} class="aria-form">
     <p id="aria-form-hint" class="hint">All fields are required.</p>
     <label class="field">
       Name
-      <input $bind.value={name} placeholder="Your name" required />
+      <input bind:value={name} placeholder="Your name" required />
     </label>
     <label class="field">
       Email
-      <input type="email" $bind.value={email} placeholder="you@example.com" required />
+      <input type="email" bind:value={email} placeholder="you@example.com" required />
     </label>
     <button type="submit" class="submit-btn">Submit</button>
   </form>

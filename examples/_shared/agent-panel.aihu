@@ -24,14 +24,14 @@
 
 @template {
   <aside class="agent-panel" role="complementary" aria-label="Agent metadata panel">
-    <button class="agent-panel-toggle" $on.click={toggle} $aria-expanded={open}>
+    <button class="agent-panel-toggle" on:click={toggle} aria-expanded={open}>
       <span class="panel-icon" aria-hidden="true">&#x2713;</span>
       Agent surface
-      <span class="panel-count" $if={hasEntries}>({count})</span>
+      <span class="panel-count" if={hasEntries}>({count})</span>
       <span class="panel-chevron" aria-hidden="true">{open() ? '▲' : '▼'}</span>
     </button>
 
-    <div class="agent-panel-body" $if={open}>
+    <div class="agent-panel-body" if={open}>
       <p class="stub-badge" role="status">
         Tool call stubbed — live binding pending RFC #56 ratification.
       </p>
@@ -41,29 +41,29 @@
         <span class="protocol-indicator">ACP: stub</span>
       </div>
 
-      <p class="panel-empty" $if={!hasEntries}>
+      <p class="panel-empty" if={!hasEntries}>
         No @agent blocks registered. Ensure the .aihu component is loaded.
       </p>
 
-      <ul class="component-list" $if={hasEntries}>
-        <li $each="entries as entry" $key="entry.tag" class="component-entry">
+      <ul class="component-list" if={hasEntries}>
+        <li each={entry of entries} key={entry.tag} class="component-entry">
           <h3 class="component-tag">&lt;{entry.tag}&gt;</h3>
-          <p class="component-desc" $if={!!entry.describes}>{entry.describes}</p>
+          <p class="component-desc" if={!!entry.describes}>{entry.describes}</p>
 
-          <div $if={entry.state && Object.keys(entry.state).length > 0}>
+          <div if={entry.state && Object.keys(entry.state).length > 0}>
             <h4 class="section-label">Exposed state</h4>
             <ul class="field-list">
-              <li $each="Object.entries(entry.state ?? {}) as [name, desc]" $key="name" class="field-row">
+              <li each={[name, desc] of Object.entries(entry.state ?? {})} key={name} class="field-row">
                 <code class="field-name">{name}</code>
                 <span class="field-desc">{desc}</span>
               </li>
             </ul>
           </div>
 
-          <div $if={entry.actions && Object.keys(entry.actions).length > 0}>
+          <div if={entry.actions && Object.keys(entry.actions).length > 0}>
             <h4 class="section-label">Actions</h4>
             <ul class="field-list">
-              <li $each="Object.keys(entry.actions ?? {}) as name" $key="name" class="field-row action-row">
+              <li each={name of Object.keys(entry.actions ?? {})} key={name} class="field-row action-row">
                 <code class="field-name">{name}()</code>
                 <span class="stub-note">Stubbed — RFC #56</span>
               </li>

@@ -135,7 +135,7 @@ fn v035_undeclared_template_ref_is_warning_not_error() {
 const [count, setCount] = signal(0)
 }
 @template {
-  <div>{{ count }} {{ undeclaredName }}</div>
+  <div>{count} {undeclaredName}</div>
 }
 ";
     // Must not return an error — undeclared refs are v0.3.5 warnings.
@@ -155,7 +155,7 @@ import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
 }
 @template {
-  <div>{{ count }}</div>
+  <div>{count}</div>
 }
 ";
     let parsed = sfc::parse(src).unwrap();

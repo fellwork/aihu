@@ -34,7 +34,7 @@
 }
 
 @template {
-  <span data-slot="badge" $data-variant={variant} $class={cn('aihu-badge')}>
+  <span data-slot="badge" data-variant={variant} class={cn('aihu-badge')}>
     <slot />
   </span>
 }

@@ -108,7 +108,7 @@ fn route_extract_enum_shape_parses() {
 /// The `$extract` state-macro position (spec §2.2, non-route components).
 #[test]
 fn state_extract_macro_parses() {
-    let src = "@state {\n  $extract: { read: 'verified', call: 'verified' }\n  const balance = 0\n}\n@template { <div>{{ balance }}</div> }";
+    let src = "@state {\n  $extract: { read: 'verified', call: 'verified' }\n  const balance = 0\n}\n@template { <div>{balance}</div> }";
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-balance");
@@ -125,7 +125,7 @@ fn c481_expose_under_call_none_fails() {
   $extract: { read: 'all', call: 'none' }
   $computed: { total: { expose: { read: true }, value: () => 41 + 1 } }
 }
-@template { <div>{{ total }}</div> }"#;
+@template { <div>{total}</div> }"#;
     let parsed = sfc::parse(src).unwrap();
     let err = compile_full(&parsed).unwrap_err();
     assert_eq!(err.code.as_deref(), Some("C481"));
@@ -156,7 +156,7 @@ fn call_none_without_expose_is_legal() {
   $extract: { read: 'all', call: 'none' }
   const total = 42
 }
-@template { <div>{{ total }}</div> }"#;
+@template { <div>{total}</div> }"#;
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-open");
@@ -171,7 +171,7 @@ fn expose_under_open_call_is_legal() {
   $extract: { read: 'agents', call: 'anonymous' }
   $computed: { total: { expose: { read: true }, value: () => 42 } }
 }
-@template { <div>{{ total }}</div> }"#;
+@template { <div>{total}</div> }"#;
     let parsed = sfc::parse(src).unwrap();
     assert!(compile_full(&parsed).is_ok());
 }
@@ -313,7 +313,7 @@ fn component_scope_derives_fail_closed_read() {
 @agent {
   $scope "reports:read"
 }
-@template { <div>{{ total }}</div> }
+@template { <div>{total}</div> }
 "#;
     let parsed = sfc::parse(src).unwrap();
     let resolved = extract::resolve_extract(&parsed);
@@ -333,7 +333,7 @@ fn component_scope_derives_fail_closed_read() {
 
 #[test]
 fn no_declaration_resolves_to_ratified_default() {
-    let src = "@state {\n  const n = 1\n}\n@template { <div>{{ n }}</div> }";
+    let src = "@state {\n  const n = 1\n}\n@template { <div>{n}</div> }";
     let parsed = sfc::parse(src).unwrap();
     let resolved = extract::resolve_extract(&parsed);
     assert_eq!(resolved.read, aihu_compiler::ExtractRead::Agents);
@@ -363,7 +363,7 @@ fn fan_out_three_artifacts_agree_declared() {
 @state {
   $computed: { total: { expose: { read: true }, value: () => 42 } }
 }
-@template { <div>{{ total }}</div> }
+@template { <div>{total}</div> }
 "#;
     let result = compile_page(src);
 
@@ -413,7 +413,7 @@ fn fan_out_three_artifacts_agree_default() {
 @state {
   $computed: { total: { expose: { read: true }, value: () => 42 } }
 }
-@template { <div>{{ total }}</div> }
+@template { <div>{total}</div> }
 "#;
     let result = compile_page(src);
     let (read, call) = marker_tokens(&result.js);

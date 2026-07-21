@@ -19,8 +19,8 @@
  *   - Dotted/namespaced forms (`$effect.on`, `$lifecycle.mount`, `$emit.foo`)
  *     → resolver returns the BARE prefix (`$effect`, `$lifecycle`, `$emit`).
  *     This is the v1 behavior preserved into v2.
- *   - Template-element forms (`<$slot>`, ...) → resolver returns the angle-
- *     bracketed form `<$slot>` (the table key).
+ *   - Template-element forms (`<slot>`, ...) → resolver returns the angle-
+ *     bracketed form `<slot>` (the table key).
  *
  * The fixture below uses canonical lines for each name and selects a
  * character position that lands inside the macro token.
@@ -57,11 +57,11 @@ const HOVER_KEYS: readonly string[] = [
   '$raw',
   '$once',
   '$memo',
-  '<$slot>',
-  '<$suspense>',
-  '<$shield>',
-  '<$guard>',
-  '<$warp>',
+  '<slot>',
+  '<suspense>',
+  '<shield>',
+  '<guard>',
+  '<warp>',
   // @style additions (round-0)
   '$reactive',
   '$tokens',
@@ -143,33 +143,33 @@ const PROBES: Probe[] = [
     expected: '$lifecycle',
     hoverKey: '$lifecycle',
   },
-  { name: '$if', line: '  <div $if={c > 0}>', ch: 8, expected: '$if', hoverKey: '$if' },
+  { name: '$if', line: '  <div if={c > 0}>', ch: 8, expected: '$if', hoverKey: '$if' },
   {
     name: '$each',
-    line: '  <li $each="xs as x">',
+    line: '  <li each={x of xs}>',
     ch: 8,
     expected: '$each',
     hoverKey: '$each',
   },
-  { name: '$html', line: '  <div $html={raw} />', ch: 9, expected: '$html', hoverKey: '$html' },
-  { name: '$show', line: '  <div $show={ok}>', ch: 9, expected: '$show', hoverKey: '$show' },
+  { name: '$html', line: '  <div html={raw} />', ch: 9, expected: '$html', hoverKey: '$html' },
+  { name: '$show', line: '  <div show={ok}>', ch: 9, expected: '$show', hoverKey: '$show' },
   {
     name: '$on',
-    line: '  <button $on.click={save}>',
+    line: '  <button on:click={save}>',
     ch: 11,
     expected: '$on',
     hoverKey: '$on',
   },
   {
     name: '$bind',
-    line: '  <input $bind.value={n} />',
+    line: '  <input bind:value={n} />',
     ch: 10,
     expected: '$bind',
     hoverKey: '$bind',
   },
   {
     name: '$emit',
-    line: '  $on.click={() => $emit.dayjump({ day })}',
+    line: '  on:click={() => $emit.dayjump({ day })}',
     ch: 19,
     expected: '$emit',
     hoverKey: '$emit',
@@ -220,60 +220,60 @@ const PROBES: Probe[] = [
   // @template new
   {
     name: '$key',
-    line: '  <li $each="xs as x" $key="x.id">',
+    line: '  <li each={x of xs} key={x.id}>',
     ch: 23,
     expected: '$key',
     hoverKey: '$key',
   },
-  { name: '$raw', line: '  <pre $raw>raw</pre>', ch: 8, expected: '$raw', hoverKey: '$raw' },
+  { name: '$raw', line: '  <pre raw>raw</pre>', ch: 8, expected: '$raw', hoverKey: '$raw' },
   {
     name: '$once',
-    line: '  <header $once>title</header>',
+    line: '  <header once>title</header>',
     ch: 11,
     expected: '$once',
     hoverKey: '$once',
   },
   {
     name: '$memo',
-    line: '  <Chart $memo={[a, b]} />',
+    line: '  <Chart memo={[a, b]} />',
     ch: 11,
     expected: '$memo',
     hoverKey: '$memo',
   },
   {
-    name: '<$slot>',
-    line: '  <$slot name="header" />',
+    name: '<slot>',
+    line: '  <slot name="header" />',
     ch: 4,
-    expected: '<$slot>',
-    hoverKey: '<$slot>',
+    expected: '<slot>',
+    hoverKey: '<slot>',
   },
   {
-    name: '<$suspense>',
-    line: '  <$suspense fallback="Skeleton">',
+    name: '<suspense>',
+    line: '  <suspense fallback="Skeleton">',
     ch: 4,
-    expected: '<$suspense>',
-    hoverKey: '<$suspense>',
+    expected: '<suspense>',
+    hoverKey: '<suspense>',
   },
   {
-    name: '<$shield>',
-    line: '  <$shield fallback="ErrorMessage">',
+    name: '<shield>',
+    line: '  <shield fallback="ErrorMessage">',
     ch: 4,
-    expected: '<$shield>',
-    hoverKey: '<$shield>',
+    expected: '<shield>',
+    hoverKey: '<shield>',
   },
   {
-    name: '<$guard>',
-    line: '  <$guard scope="authenticated">',
+    name: '<guard>',
+    line: '  <guard scope="authenticated">',
     ch: 4,
-    expected: '<$guard>',
-    hoverKey: '<$guard>',
+    expected: '<guard>',
+    hoverKey: '<guard>',
   },
   {
-    name: '<$warp>',
-    line: '  <$warp to="#modal-root">',
+    name: '<warp>',
+    line: '  <warp to="#modal-root">',
     ch: 4,
-    expected: '<$warp>',
-    hoverKey: '<$warp>',
+    expected: '<warp>',
+    hoverKey: '<warp>',
   },
   // @style new
   {

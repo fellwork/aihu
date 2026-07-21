@@ -1,7 +1,7 @@
 @template {
   <div>
-    <$slot expose="user, index">
+    <slot expose="user, index">
       <span>default</span>
-    </$slot>
+    </slot>
   </div>
 }

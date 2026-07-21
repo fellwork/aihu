@@ -28,7 +28,7 @@
 }
 
 @template {
-  <div data-slot="card" $class={cn('aihu-card')}>
+  <div data-slot="card" class={cn('aihu-card')}>
     <div class="aihu-card-header" part="header"><slot name="header" /></div>
     <div class="aihu-card-body" part="body"><slot /></div>
     <div class="aihu-card-footer" part="footer"><slot name="footer" /></div>

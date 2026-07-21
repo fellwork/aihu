@@ -58,20 +58,20 @@
     <section class="request-section" aria-label="Send ACP Message">
       <button
         class="send-btn"
-        $on.click={sendAcpMessage}
-        $disabled={loading}
-        $aria-busy={loading}
+        on:click={sendAcpMessage}
+        disabled={loading}
+        aria-busy={loading}
       >
         {loading ? 'Sending...' : 'Send ACP Message'}
       </button>
     </section>
 
-    <section class="result-section" $if={result !== null} aria-label="ACP Result">
+    <section class="result-section" if={result !== null} aria-label="ACP Result">
       <h3 class="subsection-heading">Result</h3>
       <pre class="result-display">{result}</pre>
     </section>
 
-    <p class="result-placeholder" $if={result === null && !loading}>
+    <p class="result-placeholder" if={result === null && !loading}>
       No result yet — click "Send ACP Message" to make a request.
     </p>
   </div>

@@ -489,7 +489,7 @@ describe('defineComponent — R1 ($prop reactivity)', () => {
 //
 // These tests reproduce the arbor pre-connect ordering directly: assign the
 // property to a created-but-not-yet-connected element, THEN append it. They
-// also cover the layout-`<$slot>` shape (the element is a child appended into a
+// also cover the layout-`<slot>` shape (the element is a child appended into a
 // wrapper before the wrapper connects) and the nested-direct shape.
 describe('defineComponent — pre-connect reactive $prop binding', () => {
   it('PC1 (nested-direct): $prop set before connect arrives at first render', () => {
@@ -575,7 +575,7 @@ describe('defineComponent — pre-connect reactive $prop binding', () => {
     })
     defineElement('x-pc2', Cmp)
     // Build the child detached, write its prop, then nest it inside a wrapper
-    // that is itself detached — mirroring a layout <$slot>: the whole subtree
+    // that is itself detached — mirroring a layout <slot>: the whole subtree
     // is assembled before being attached to the document. The child does not
     // connect until the wrapper is appended to the live document.
     const child = document.createElement('x-pc2') as HTMLElement & { body: string }
@@ -747,7 +747,7 @@ describe('defineComponent — pre-connect reactive $prop binding', () => {
     el.setAttribute('label', 'from-attr')
     el.label = 'from-prop'
     document.body.appendChild(el)
-    // The property binding (what the compiler emits for `$label={...}`) wins.
+    // The property binding (what the compiler emits for `label={...}`) wins.
     expect(captured!()).toBe('from-prop')
     el.remove()
   })

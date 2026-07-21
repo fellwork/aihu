@@ -116,17 +116,17 @@
     <div class="row">
       <input
         type="text"
-        $bind.value="location"
+        bind:value={location}
         placeholder="City name"
       />
-      <button $on.click="fetchForecast">Get forecast</button>
+      <button on:click={fetchForecast}>Get forecast</button>
     </div>
 
-    <div class="result" $if={status === 'loading'}>
+    <div class="result" if={status === 'loading'}>
       <p>Loading forecast for {location}...</p>
     </div>
 
-    <div class="result ready" $if={status === 'ready' && forecast !== null}>
+    <div class="result ready" if={status === 'ready' && forecast !== null}>
       <p class="resolved">{forecast.resolvedName}</p>
       <p class="conditions">{forecast.conditions}</p>
       <dl>
@@ -135,7 +135,7 @@
       </dl>
     </div>
 
-    <p class="error-pill" role="status" $if={status === 'error'}>
+    <p class="error-pill" role="status" if={status === 'error'}>
       {errorMessage}
     </p>
   </article>

@@ -119,7 +119,7 @@ stylesheet and write semantic markup.
          <h2>Card</h2>
          <p>A aihu component styled by Pico.</p>
        </header>
-       <p>Click count: {{ count }}</p>
+       <p>Click count: {count}</p>
        <button onclick="increment">Increment</button>
      </article>
    }

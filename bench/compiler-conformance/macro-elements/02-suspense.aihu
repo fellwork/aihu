@@ -1,8 +1,8 @@
 @template {
-  <$suspense source="dataPromise">
-    <$slot name="fallback">
+  <suspense source="dataPromise">
+    <slot name="fallback">
       <span>Loading...</span>
-    </$slot>
+    </slot>
     <p>Loaded content</p>
-  </$suspense>
+  </suspense>
 }

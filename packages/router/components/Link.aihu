@@ -3,7 +3,7 @@
   import { createPrefetcher, navigate, useRoute, type PrefetchMode } from '../src/index.ts'
 
   /**
-   * `<$link href prefetch replace>` — accessible SPA navigation link
+   * `<a href prefetch replace>` — accessible SPA navigation link
    * (RFC-A5-012).
    *
    * Renders an `<a href>` and intercepts left-click navigation. Sets
@@ -54,7 +54,7 @@
 }
 
 @template {
-  <a $href={href} $aria-current={ariaCurrent} $on.click={onClick}>
-    <$slot />
+  <a href={href} aria-current={ariaCurrent} on:click={onClick}>
+    <slot />
   </a>
 }

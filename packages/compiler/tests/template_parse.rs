@@ -14,29 +14,29 @@ fn element_no_attrs() {
 
 #[test]
 fn text_interpolation_simple() {
-    let result = parse_template("<p>{{ count }}</p>");
+    let result = parse_template("<p>{count}</p>");
     insta::assert_debug_snapshot!(result);
 }
 
 #[test]
 fn text_interpolation_mixed() {
-    let result = parse_template("<p>hello {{ name }}</p>");
+    let result = parse_template("<p>hello {name}</p>");
     insta::assert_debug_snapshot!(result);
 }
 
 #[test]
 fn event_binding() {
-    // v1.0.8 — Amendment 04: canonical event handler form is `$on.event={fn}`.
+    // v1.0.8 — Amendment 04: canonical event handler form is `on:event={fn}`.
     // Legacy `@event="fn"` is now C305.
-    let result = parse_template(r#"<button $on.click={increment}></button>"#);
+    let result = parse_template(r#"<button on:click={increment}></button>"#);
     insta::assert_debug_snapshot!(result);
 }
 
 #[test]
 fn attr_binding() {
-    // v1.0.8 — Amendment 04: canonical reactive HTML attribute form is `$attr={expr}`.
+    // v1.0.8 — Amendment 04: canonical reactive HTML attribute form is `attr={expr}`.
     // Legacy `:attr="expr"` is now C304; plain `attr={expr}` is now C306.
-    let result = parse_template(r#"<span $class={cls}></span>"#);
+    let result = parse_template(r#"<span class={cls}></span>"#);
     insta::assert_debug_snapshot!(result);
 }
 
@@ -57,11 +57,11 @@ fn rejects_legacy_colon_binding_alias_c304() {
 }
 
 #[test]
-fn rejects_plain_curly_html_binding_c306() {
-    // v1.0.8: plain `class={cls}` is removed.
-    let result = parse_template(r#"<span class={cls}></span>"#);
-    let err = result.expect_err("plain curly HTML attr binding must reject with C306");
-    assert_eq!(err.code.as_deref(), Some("C306"));
+fn dollar_prefixed_attr_is_c607() {
+    // Grammar v2: the whole `$` attribute layer is retired.
+    let result = parse_template(r#"<span $class={cls}></span>"#);
+    let err = result.expect_err("`$class={…}` must reject with C607");
+    assert_eq!(err.code.as_deref(), Some("C607"));
 }
 
 #[test]
@@ -108,13 +108,13 @@ fn w1_a17_string_close_brace_accepted() {
 
 #[test]
 fn w1_b15_attr_string_close_brace_accepted() {
-    let result = parse_template(r#"<span $title={'}'}></span>"#);
+    let result = parse_template(r#"<span title={'}'}></span>"#);
     insta::assert_debug_snapshot!(result);
 }
 
 #[test]
 fn w1_c14_each_list_string_close_brace_accepted() {
-    let result = parse_template("{#each ['}'] as it}<li>x</li>{/each}");
+    let result = parse_template("<li each={it of ['}']}>x</li>");
     insta::assert_debug_snapshot!(result);
 }
 
@@ -125,33 +125,23 @@ fn w1_a06_template_literal_interpolation_accepted() {
 }
 
 #[test]
-fn w1_a21_double_brace_expression_diagnostic() {
-    // `{{count + 1}}` — the `{{` prefix hijacks expressions that start with
-    // an object literal; W1 keeps the v0 routing but the message now explains
-    // the form and how to escape it.
+fn w1_a21_double_brace_expression_is_c604() {
+    // `{{count + 1}}` — grammar v2 removes the double-brace form entirely
+    // (C604), killing the a21 hijack class by construction.
     let err = parse_template("<p>{{count + 1}}</p>").unwrap_err();
+    assert_eq!(err.code.as_deref(), Some("C604"), "{}", err.message);
     assert!(
-        err.message.contains("v0 single-identifier interpolation form"),
-        "{}",
-        err.message
-    );
-    assert!(
-        err.message.contains("single braces `{…}`"),
-        "{}",
-        err.message
-    );
-    assert!(
-        err.fix.as_deref().unwrap_or("").contains("$computed"),
-        "fix should suggest hoisting to $computed: {:?}",
+        err.fix.as_deref().unwrap_or("").contains("single braces"),
+        "fix should point at single braces: {:?}",
         err.fix
     );
 }
 
 #[test]
-fn w1_a20_double_brace_identifier_still_accepted() {
-    // The valid v0 form must keep parsing.
-    let result = parse_template("<p>{{count}}</p>");
-    insta::assert_debug_snapshot!(result);
+fn w1_a20_double_brace_identifier_is_c604() {
+    // The v0 form is retired — a compile error, not an interpolation.
+    let err = parse_template("<p>{{count}}</p>").unwrap_err();
+    assert_eq!(err.code.as_deref(), Some("C604"), "{}", err.message);
 }
 
 // ─── W1 — SFC block extractor (a18 class: braces in strings at @template scan) ─
@@ -189,6 +179,8 @@ fn w1_sfc_prose_apostrophes_still_inert() {
 
 #[test]
 fn w1_sfc_block_tags_still_extract() {
+    // The @template EXTRACTOR still skips retired block tails verbatim so the
+    // template parser can report the precise C601 retirement diagnostic.
     let src = "@template {\n  {#if cond}\n    <span>yes</span>\n  {/if}\n}";
     let parsed = aihu_compiler::sfc::parse(src).expect("template block must close");
     assert!(parsed.template.unwrap().contains("{/if}"));
@@ -215,7 +207,7 @@ fn w1_sfc_single_line_block_tags_extract() {
 
 #[test]
 fn w1_sfc_single_line_block_compiles_end_to_end() {
-    let src = "@template { {#if cond}<span>x</span>{/if} }";
+    let src = "@template { <span if={cond}>x</span> }";
     let parsed = aihu_compiler::sfc::parse(src).expect("parse");
     let unit = aihu_compiler::compile_full(&parsed).expect("compile");
     let js = aihu_compiler::emit(&unit, "x-w1-oneline").js;

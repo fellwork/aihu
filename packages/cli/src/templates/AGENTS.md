@@ -48,7 +48,7 @@ This is an aihu application. AI assistants working on `.aihu` SFC files should k
    import { branch, leaf, mount } from '@aihu/arbor'
    ```
 
-4. **Read signals as function calls in script; use bare names in template expressions**: Inside `@state`, signals are getter functions — always call them with `()`: `count()`, `items()`. In `@template` expressions, the compiler automatically invokes signal getters, so use the bare name without `()`: `{count}`, `$if={items.length > 0}`. Mixing these up causes either a stale render (bare name in script) or a rendered function reference (called signal in a template where the compiler re-wraps it).
+4. **Read signals as function calls in script; use bare names in template expressions**: Inside `@state`, signals are getter functions — always call them with `()`: `count()`, `items()`. In `@template` expressions, the compiler automatically invokes signal getters, so use the bare name without `()`: `{count}`, `if={items.length > 0}`. Mixing these up causes either a stale render (bare name in script) or a rendered function reference (called signal in a template where the compiler re-wraps it).
 
    ```ts
    // @state — always call signal getters
@@ -60,13 +60,13 @@ This is an aihu application. AI assistants working on `.aihu` SFC files should k
    @template {
      <!-- @template — bare name, no () -->
      <h1>{count}</h1>
-     <p $if={isEmpty}>No items</p>
+     <p if={isEmpty}>No items</p>
      <!-- Exception: inside inline JS expressions in templates, use () -->
      <button $on:click={() => setCount(count() + 1)}>+</button>
    }
    ```
 
-5. **`$on:event` and `$bind:value` use colon syntax in `@template`; dot syntax is for `@state` macros only**: In `@template`, event handlers use `$on:click`, `$on:input`, `$on:keydown` and two-way binding uses `$bind:value`. These are template attribute directives with a colon separator. The dot separator (`$emit.eventName`, `$lifecycle.mount`) appears only inside `@state` blocks for macro calls, not in template attributes. Generating `$on.click` or `$bind.value` as attribute names is always wrong.
+5. **Template directives are prefix-less colon forms; `$` belongs to `@state` macros only**: In `@template`, event handlers use `on:click`, `on:input`, `on:keydown` (dotted modifiers allowed: `on:click.prevent`) and two-way binding uses `bind:value`. Control flow is naked attributes: `if={…}`, `elseif={…}`, `else`, `each={item, i of items}`, `key={…}`, with `empty` on the sibling after an `each`. Reactive attribute values are plain braces (`disabled={loading}`); quoted strings are static. `$`-prefixed names (`$emit.eventName`, `$lifecycle.mount`, `$prop`, …) appear only inside `@state` blocks. Generating `$on.click`, `$bind.value`, `$if=`, or `$each=` as template attributes is always wrong (compile errors C606/C607).
 
    ```html
    @template {
@@ -76,6 +76,6 @@ This is an aihu application. AI assistants working on `.aihu` SFC files should k
      <form $on:submit={(e) => { e.preventDefault(); submit() }}>
 
      <!-- Wrong — dot form is not valid in @template attributes -->
-     <button $on.click="submit">Submit</button>
+     <button on:click={submit}>Submit</button>
    }
    ```

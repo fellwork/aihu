@@ -92,7 +92,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $if: [
-    '**aihu template directive: `$if` / `{#if}`**',
+    '**aihu template directive: `if={…}`** (chain with `elseif={…}` / `else` siblings)',
     '',
     'Conditional rendering.',
     '',
@@ -105,7 +105,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $each: [
-    '**aihu template directive: `$each` / `{#each}`**',
+    '**aihu template directive: `each={item, i of items}`** (pair with `key={…}`; `empty` sibling for the empty state)',
     '',
     'List rendering.',
     '',
@@ -118,7 +118,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $html: [
-    '**aihu template directive: `$html` / `{@html}`**',
+    '**aihu template directive: `html={expr}`**',
     '',
     'Raw HTML injection. Use with trusted content only.',
     '',
@@ -131,7 +131,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $show: [
-    '**aihu template directive: `$show`**',
+    '**aihu template directive: `show={…}`**',
     '',
     'Toggles element visibility without removing it from the DOM.',
     '',
@@ -144,7 +144,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $on: [
-    '**aihu template directive: `$on`**',
+    '**aihu template directive: `on:<event>={handler}`** (modifiers: `.prevent`, `.stop`, `.self`, `.once`)',
     '',
     'Attaches an event listener to a DOM element.',
     '',
@@ -153,13 +153,13 @@ const HOVER_TABLE: Record<string, string> = {
     'element.addEventListener("event", handler)',
     '```',
     '',
-    'Usage: `$on.click={handler}`',
+    'Usage: `on:click={handler}`',
     '',
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
 
   $bind: [
-    '**aihu template directive: `$bind`**',
+    '**aihu template directive: `bind:<prop>={signal}`**',
     '',
     'Two-way binding between a signal and an element attribute.',
     '',
@@ -169,7 +169,7 @@ const HOVER_TABLE: Record<string, string> = {
     'el.addEventListener("input", e => setSignal(e.target.value))',
     '```',
     '',
-    'Usage: `$bind.value={signal}`',
+    'Usage: `bind:value={signal}`',
     '',
     '[Template spec](docs/superpowers/specs/2026-05-05-spec-macro-vocabulary-v2.md)',
   ].join('\n'),
@@ -306,7 +306,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.6 lines 947-976
   $key: [
-    '**aihu template directive: `$key`**',
+    '**aihu template directive: `key={…}`**',
     '',
     'Stable identity for list reconciliation inside `$each`.',
     '',
@@ -315,28 +315,28 @@ const HOVER_TABLE: Record<string, string> = {
     'createEachBoundary({ key: (item) => keyExpr, ... })',
     '```',
     '',
-    'Usage: `<li $each="users as u" $key="u.id">{u.name}</li>`',
+    'Usage: `<li each={u of users} key={u.id}>{u.name}</li>`',
     '',
     '[v1 spec §3.6](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.8 lines 1006-1028
   $raw: [
-    '**aihu template directive: `$raw`**',
+    '**aihu template directive: `raw`**',
     '',
     'Skip compilation of the element subtree. Boolean-only (no value).',
     '',
     'Interpolations like `{x}`, macros, and bindings inside are NOT processed —',
     'the subtree renders as static content.',
     '',
-    "Usage: `<pre $raw>{this looks like interpolation but isn't}</pre>`",
+    "Usage: `<pre raw>{this looks like interpolation but isn't}</pre>`",
     '',
     '[v1 spec §3.8](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.9 lines 1030-1061
   $once: [
-    '**aihu template directive: `$once`**',
+    '**aihu template directive: `once`**',
     '',
     'Render subtree once at mount; never update. Boolean-only.',
     '',
@@ -352,7 +352,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.10 lines 1063-1097
   $memo: [
-    '**aihu template directive: `$memo`**',
+    '**aihu template directive: `memo={deps}`**',
     '',
     'Memoize an element subtree by explicit dependencies (curly form only).',
     '',
@@ -361,14 +361,14 @@ const HOVER_TABLE: Record<string, string> = {
     'createMemoBoundary({ deps: () => [dep1, dep2], build: () => subtree })',
     '```',
     '',
-    'Usage: `<ExpensiveChart $memo={[data, settings]} />`',
+    'Usage: `<ExpensiveChart memo={[data, settings]} />`',
     '',
     '[v1 spec §3.10](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.12 lines 1141-1194
-  '<$slot>': [
-    '**aihu template element: `<$slot>`**',
+  '<slot>': [
+    '**aihu template element: `<slot>`**',
     '',
     'Children passthrough or named slot.',
     '',
@@ -378,15 +378,15 @@ const HOVER_TABLE: Record<string, string> = {
     'slotN.render({ exposed: { user, index } })',
     '```',
     '',
-    'Usage: `<$slot />`, `<$slot name="header">default</$slot>`,',
-    '`<$slot name="row" expose="user, index" />`',
+    'Usage: `<slot />`, `<slot name="header">default</slot>`,',
+    '`<slot name="row" expose="user, index" />`',
     '',
     '[v1 spec §3.12](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.13 lines 1196-1244
-  '<$suspense>': [
-    '**aihu template element: `<$suspense>`**',
+  '<suspense>': [
+    '**aihu template element: `<suspense>`**',
     '',
     'Loading boundary for async data (`$resource`).',
     '',
@@ -402,8 +402,8 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.14 lines 1246-1290
-  '<$shield>': [
-    '**aihu template element: `<$shield>`**',
+  '<shield>': [
+    '**aihu template element: `<shield>`**',
     '',
     'Error boundary.',
     '',
@@ -419,8 +419,8 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.15 lines 1292-1349
-  '<$guard>': [
-    '**aihu template element: `<$guard>`**',
+  '<guard>': [
+    '**aihu template element: `<guard>`**',
     '',
     'Access-control boundary (scope, permissions, rate limit).',
     '',
@@ -429,15 +429,15 @@ const HOVER_TABLE: Record<string, string> = {
     'createGuardBoundary({ scope, permissions, rateLimit, fallback, redirect, onDeny, build })',
     '```',
     '',
-    'Usage: `<$guard scope="authenticated" fallback="LoginPrompt"><Page /></$guard>`',
+    'Usage: `<guard scope="authenticated" fallback="LoginPrompt"><Page /></guard>`',
     'Slot context: `guard.user`, `guard.reason`, `guard.path`.',
     '',
     '[v1 spec §3.15](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.16 lines 1351-1397
-  '<$warp>': [
-    '**aihu template element: `<$warp>`**',
+  '<warp>': [
+    '**aihu template element: `<warp>`**',
     '',
     'Render content into a different DOM location (portal).',
     '',
@@ -446,7 +446,7 @@ const HOVER_TABLE: Record<string, string> = {
     'createWarpBoundary({ target: () => to, condition: () => $if, build })',
     '```',
     '',
-    'Usage: `<$warp to="#modal-root"><Dialog /></$warp>`',
+    'Usage: `<warp to="#modal-root"><Dialog /></warp>`',
     '',
     '[v1 spec §3.16](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
@@ -618,42 +618,59 @@ export function getBlockContext(
 
 export function getMacroAtPosition(lineText: string, character: number): string | null {
   let m: RegExpExecArray | null
-  // Template-element forms: <$slot>, <$suspense>, <$shield>, <$guard>, <$warp>.
-  // Returns the bracketed form (e.g. `<$slot>`) so HOVER_TABLE entries keyed
-  // with the angle-bracketed form (per director-note §3.3) resolve correctly.
-  const elementRe = /<\$(slot|suspense|shield|guard|warp)\b/g
+  // Framework-element forms (grammar v2 naked words): <slot>, <suspense>,
+  // <shield>, <guard>, <warp>. Returns the bracketed form (e.g. `<slot>`) so
+  // HOVER_TABLE entries keyed with the angle-bracketed form resolve correctly.
+  const elementRe = /<(slot|suspense|shield|guard|warp)\b/g
   while ((m = elementRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
-      return `<$${m[1]!}>`
+      return `<${m[1]!}>`
     }
   }
-  // Namespaced/dotted forms. Returns the bare prefix (`$effect`, `$lifecycle`,
-  // `$expose`, `$emit`, `$on`, `$bind`) for dotted/colon-suffixed forms; the
+  // Colon directives (grammar v2): `on:click` (with dotted modifiers),
+  // `bind:value`. Returns the `$`-keyed family entry (`$on`, `$bind`) — the
+  // HOVER_TABLE keys are stable identifiers, not surface syntax.
+  const colonRe = /(?<![\w$:])(on|bind):[A-Za-z_$][\w$-]*(?:\.[a-z]+)*/g
+  while ((m = colonRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      return `$${m[1]!}`
+    }
+  }
+  // Naked template keywords with braced values (grammar v2): `if={…}`,
+  // `each={…}`, `key={…}`, `show={…}`, `html={…}`, `memo={…}`. The `={`
+  // lookahead keeps prose words inert. `elseif` folds into the `$if` entry.
+  const nakedExprRe = /(?<=[\s<])(if|elseif|each|key|show|html|memo)(?=\s*=\{)/g
+  while ((m = nakedExprRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      const word = m[1]!
+      return word === 'elseif' ? '$if' : `$${word}`
+    }
+  }
+  // Naked bare template words: `once`, `raw` (attribute position only).
+  const nakedBareRe = /(?<=\s)(once|raw)(?=[\s/>])/g
+  while ((m = nakedBareRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      return `$${m[1]!}`
+    }
+  }
+  // Namespaced/dotted `@state` forms. Returns the bare prefix (`$effect`,
+  // `$lifecycle`, `$expose`, `$emit`) for dotted/colon-suffixed forms; the
   // bare HOVER_TABLE entries cover the family by design (dotted-form folding
   // per director-note §3.8).
-  // Word-boundary after the captured prefix prevents accidental matches like
-  // `$once` getting absorbed by `$on` or `$effect.on` being absorbed by `$effect`
-  // when the bare regex would otherwise be the better resolver.
-  const namespacedRe = /\$(on|bind|effect|lifecycle|expose|emit)(?:[.:][A-Za-z_$][\w$]*)?\b/g
+  const namespacedRe = /\$(effect|lifecycle|expose|emit)(?:[.:][A-Za-z_$][\w$]*)?\b/g
   while ((m = namespacedRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
     }
   }
-  // Bare-form macros. `rate-limit` includes a hyphen — the regex captures it
-  // as a single token; we still return `$rate-limit` literally.
+  // Bare-form `@state`/`@style`/`@agent` macros (still `$`-prefixed — the `$`
+  // retreat applies to @template only). `rate-limit` includes a hyphen — the
+  // regex captures it as a single token; we still return `$rate-limit`.
   const bareRe =
-    /\$(prop|computed|action|resource|effect|lifecycle|emit|if|each|html|show|watch|shared|cookie|server|meta|key|raw|once|memo|reactive|tokens|global|media|when|scope|rate-limit|describe)\b/g
+    /\$(prop|computed|action|resource|effect|lifecycle|emit|watch|shared|cookie|server|meta|reactive|tokens|global|media|when|scope|rate-limit|describe)\b/g
   while ((m = bareRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
-    }
-  }
-  const blockRe = /\{(?:#(if|each)|@(html))\b/g
-  while ((m = blockRe.exec(lineText)) !== null) {
-    if (character >= m.index && character <= m.index + m[0].length) {
-      const keyword = m[1] ?? m[2]!
-      return `$${keyword}`
     }
   }
   return null
