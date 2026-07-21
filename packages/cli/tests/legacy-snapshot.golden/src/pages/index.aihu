@@ -39,9 +39,9 @@ $action: {
       <h2>Control</h2>
       <p class="value">Value: {count}</p>
       <div class="controls">
-        <button $on.click="decrement">−1</button>
-        <button $on.click="reset">Reset</button>
-        <button $on.click="increment">+1</button>
+        <button on:click={decrement}>−1</button>
+        <button on:click={reset}>Reset</button>
+        <button on:click={increment}>+1</button>
       </div>
     </section>
 

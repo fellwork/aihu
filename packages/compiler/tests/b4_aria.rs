@@ -5,7 +5,7 @@
 //! - Static values written once at connect (no effect wrapper)
 //! - Reactive thunk values wrapped in `effect(() => { ... })`
 //! - Auto-keyboard-promotion: keydown listener on Enter/Space when role is
-//!   button/link/menuitem/tab AND $on.click is declared AND root is not native interactive
+//!   button/link/menuitem/tab AND on:click is declared AND root is not native interactive
 //! - Default tabindex="0" injection for focusable roles unless already declared
 //! - Lazy-attach: `attachInternals()` only emitted when `$aria` is declared
 //! - Empty `$aria: {}` warns (produces no codegen)
@@ -80,7 +80,7 @@ fn b4_aria_reactive_label() {
     );
 }
 
-// ─── AC #3 — Auto-keyboard-promotion on <div> root with $on.click ─────────────
+// ─── AC #3 — Auto-keyboard-promotion on <div> root with on:click ─────────────
 
 #[test]
 fn b4_aria_keyboard_promotion() {

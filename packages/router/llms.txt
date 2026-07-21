@@ -2,7 +2,7 @@
 
 `@aihu/router` is aihu's isomorphic client-side router. It provides pattern-based route matching, reactive route signals, programmatic navigation, link prefetching, and navigation guards. The browser bundle ships as ≤ 2.4 kB gzipped (excluding peer dependencies). SSR routing is handled by the server adapter and shares the same `Router` type.
 
-In `.aihu` SFCs the router integrates via `@route` block declarations and `$route`, `$beforeNavigate`, `$afterNavigate` macros inside `@state`. The built-in `<$link>`, `<$outlet>`, `<$router>`, and `<$navigate>` macro elements handle routing UI.
+In `.aihu` SFCs the router integrates via `@route` block declarations and `$route`, `$beforeNavigate`, `$afterNavigate` macros inside `@state`. Enhanced `<a>` links plus the built-in `<outlet>`, `<router>`, and `<navigate>` framework elements handle routing UI.
 
 ## Right idioms
 
@@ -30,19 +30,19 @@ The compiler registers this route with the file-system router. Multiple `@route`
 }
 ```
 
-### 3. Use `<$link>` for SPA navigation — not bare `<a>` tags
+### 3. `<a>` is SPA-enhanced — internal links navigate client-side
 
 ```html
 @template {
   <nav>
-    <$link href="/" prefetch="hover">Home</$link>
-    <$link href="/posts" prefetch="visible">Posts</$link>
-    <$link href="/about">About</$link>
+    <a href="/" prefetch="hover">Home</a>
+    <a href="/posts" prefetch="visible">Posts</a>
+    <a href="/about">About</a>
   </nav>
 }
 ```
 
-`<$link>` intercepts left-click, calls `navigate()`, respects modifier keys (Cmd/Ctrl → open in new tab), and sets `aria-current="page"` on the active route.
+Internal `<a href>` links intercept left-click, call `navigate()`, respect modifier keys (Cmd/Ctrl → open in new tab), and set `aria-current="page"` on the active route. Links auto-opt-out of SPA handling for `target="_blank"`, `download`, external origins, and non-http(s) schemes; add the `reload` attribute to force a full document load.
 
 ### 4. Register navigation guards with `$beforeNavigate` / `$afterNavigate`
 
@@ -129,8 +129,8 @@ $beforeNavigate((to, from, next) => { next() })
 <!-- WRONG — full page reload; router state is lost -->
 <a href="/posts">Posts</a>
 
-<!-- CORRECT — SPA navigation via <$link> -->
-<$link href="/posts">Posts</$link>
+<!-- CORRECT — SPA navigation via <a> -->
+<a href="/posts">Posts</a>
 ```
 
 ## Canonical example files
@@ -138,9 +138,9 @@ $beforeNavigate((to, from, next) => { next() })
 - `packages/router/src/index.ts` — public API exports
 - `packages/router/src/runtime.ts` — `useRoute()`, `navigate()`, `createRouteSignal()`, `RouteContext`
 - `packages/router/src/router.ts` — `createRouter()`, `RouteDefinition`, pattern matching
-- `packages/router/components/Link.aihu` — `<$link>` implementation
-- `packages/router/components/Router.aihu` — `<$router>` implementation
-- `packages/router/components/Outlet.aihu` — `<$outlet>` implementation
+- `packages/router/components/Link.aihu` — `<a>` implementation
+- `packages/router/components/Router.aihu` — `<router>` implementation
+- `packages/router/components/Outlet.aihu` — `<outlet>` implementation
 - `examples/blog-router/src/pages/index.aihu` — basic routing with `$each` list
 - `examples/blog-router/src/pages/posts/[slug].aihu` — dynamic route param access
 - `examples/hacker-news/src/pages/index.aihu` — SSR route with loader data

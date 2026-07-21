@@ -1,6 +1,6 @@
 # Migration (v0 → v1 → v2)
 
-aihu v1 (shipped 2026-05-03, grammar Amendment 04 at v1.0.8) finalized the `.aihu` SFC grammar. Pre-v1 sources written against the older HTML-tag framing or the v0 macro forms will not compile against the current `@aihu/compiler`. This page consolidates every breaking change and maps each old form to its v1 replacement.
+aihu v1 (shipped 2026-05-03, grammar Amendment 04 at v1.0.8) finalized the `.aihu` SFC block grammar; **template grammar v2 (the prefix-less template, 2026-07) then retired the entire v1 `$`-attribute layer, the `{#if}`/`{#each}` block DSL, and the `<$…>` macro elements** — see §9. Sources written against any older surface will not compile against the current `@aihu/compiler`. This page consolidates every breaking change and maps each old form to its current replacement.
 
 > **Codemod first.** Most of these are mechanical. Run `npx aihu migrate <file>` (or point it at a directory) to rewrite pre-v1.0.8 sources automatically, then read the rest of this page for the cases the codemod flags but cannot resolve. Under the hood this is `migrateFile` / `migrateFiles` from `@aihu/cli`.
 
@@ -67,31 +67,30 @@ Reading a prop inside a plain `@state` `const`/`let` **compiles** — the prop g
 }
 ```
 
-## 4. Reactive attribute bindings — `$`-prefixed (C304 / C305 / C306)
+## 4. Reactive attribute bindings — plain braces + colon directives (C304 / C305)
 
-Amendment 04 requires every reactive HTML attribute binding to be `$`-prefixed. The old aliases are hard parse errors:
+Under grammar v2, reactive HTML attribute bindings are plain braces; events and two-way binds are colon directives. The v0 Vue-shape aliases are hard parse errors:
 
-| Old form | v1 form | Error if left unmigrated |
-|----------|---------|--------------------------|
+| Old form | Current form | Error if left unmigrated |
+|----------|--------------|--------------------------|
 | `:href="expr"` (Vue-shape colon attr) | `href={expr}` | **C304** |
-| `:on` + colon-form event/bind aliases | `$on.click=…`, `$bind.value=…` | **C305** |
-| `class={cond ? 'a' : ''}` (plain curly attr) | `class={cond ? 'a' : ''}` | **C306** |
+| `@click="fn"` (Vue-shape event alias) | `on:click={fn}` | **C305** |
 
-Component prop-passing keeps the plain-curly form (`<UserCard user={u} />`) and is unaffected.
+Component prop-passing uses the same plain-curly form (`<UserCard user={u} />`).
 
-## 5. Raw HTML — `$html` (W210)
+## 5. Raw HTML — the `html` attribute (W210)
 
-To set element innerHTML reactively, use the `$html` binding — not an `$on.<name>` handler against a non-event:
+To set element innerHTML reactively, use the `html={…}` attribute — not an `on:<name>` handler against a non-event:
 
 ```
-// wrong — $on.innerHTML is not a DOM event → W210 (dead handler)
+// wrong — on:innerHTML is not a DOM event → W210 (dead handler)
 <div on:innerHTML={markup}></div>
 
 // right
-<div html={markup}></div>     // or html={expr}
+<div html={markup}></div>
 ```
 
-`$on.<name>` referencing anything that is not a real DOM event compiles to a dead `on<name>` handler that never fires; the compiler warns with **W210**.
+`on:<name>` referencing anything that is not a real DOM event compiles to a dead `on<name>` handler that never fires; the compiler warns with **W210**.
 
 ## 6. Agent surface — per-name `describe:` / `expose:` (C440)
 
@@ -155,27 +154,49 @@ $lifecycle: {
 
 **`@agent` per-name macros → `describe:` / `expose:` on `@state` entries.** `$expose name`, `$expose name: <description>`, `$describe`, agent-bare `$action`, and ad-hoc tool declarations (`getX: { description: "…" }`) are all retired; the `@agent` block is dropped entirely when nothing but `$scope` / `$rate-limit` remains. See §6 for the target shape.
 
-**Quoted `$let` → curly form (C500).** The quoted `$attr="…"` form is reserved for built-in macros; `$let` passes a prop value and must use the curly form:
+**`$let` loop aliases → the `each` binder (C606).** The loop alias folds into the item-first `of` head (§9):
 
 ```
-// before (v1 → C500)          // after (v2)
-<item-card $let="item" />      <item-card let={item} />
+// before (v1 → C606)                          // after (grammar v2)
+<item-card $each={items} $let={item} />        <item-card each={item of items} />
 ```
 
-**Curly-form DOM event handlers → `$on.<event>` (C306).**
+**DOM event handlers → `on:<event>` colon directives.**
 
 ```
-// before (v1 → C306)                       // after (v2)
-<button onclick={() => bump()}>+1</button>  <button on:click={() => bump()}>+1</button>
+// before (v1 → C607)                          // after (grammar v2)
+<button $on.click={() => bump()}>+1</button>   <button on:click={() => bump()}>+1</button>
 ```
 
 ### Cases the codemod cannot resolve (hand-edit)
 
 - **`$action name: <arrow>` colon form** (e.g. `$action send: async () => { … }`) — rewrite by hand to a collection entry: `$action: { send: { describe: '…', expose: { read: true, write: true }, handler: async () => { … } } }`.
 - **`@agent` metadata naming a plain `signal()` binding** — `expose:`/`describe:` attach to *collection entries* (`$prop` / `$computed` / `$action` / `$resource`). A raw `const [x, setX] = signal(…)` has no entry to carry them; either wrap the value in a `$computed` entry or accept that the name is not agent-exposed. Plain `function f() { … }` helpers that should stay agent-callable are worth converting to `$action` entries by hand.
-- **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → `$<name>={…}` (e.g. `$attr.disabled` → `$disabled`), and dot-form class toggles `$class.name={…}` → the colon-namespaced `class:name={…}`.
+- **Stale template macro spellings** the codemod does not own: `$attr.<name>={…}` → the plain `<name>={…}` binding, and dot-form class toggles `$class.name={…}` → the colon-namespaced `class:name={…}`.
 
-## 8. The binary shadow API and light-DOM pages (the DA4 flip)
+## 8. Template grammar v2 — the prefix-less template (C601–C611)
+
+> **One rule:** naked keywords + naked HTML attributes + naked framework vocabulary. `{expr}` braces mean expression; quoted strings mean static; **`$` retreats to `@state` macros only.** Every retired template form is a hard compile error with a precise `fix:` hint — there is no deprecation period.
+
+**Codemod first.** `npx aihu migrate --v2 <files…>` runs the template-grammar pass as its final step (standalone: `packages/compiler/js/codemods/template-grammar-v2/migrate.ts`).
+
+| Retired form | Code | Write instead |
+|---|---|---|
+| `{#if e}…{:else if}…{:else}…{/if}` | C601 | `if={e}` on the governed element; `elseif={e}` / `else` on the immediately following siblings; wrap multi-element branches in `<group>` |
+| `{#each list as item, i (key)}…{:empty}…{/each}` | C602 | `each={item, i of list} key={keyExpr}` on the repeated element (or `<group>`); the `{:empty}` body moves to an `empty` sibling |
+| `{@html expr}` | C603 | the `html={expr}` attribute on the containing element |
+| `{{ident}}` double-brace | C604 | single braces `{ident}`; an expression starting with an object literal needs a space: `{ {…} }` |
+| `<$if>` / `<$else>` | C605 | `if={…}` / `else` attributes |
+| `$if=` / `$each=` (incl. `$each="list as item"`) / `$let=` | C606 | `if={e}`; `each={item of list}` — item-first, `of`-separated |
+| any other `$`-attribute (`$on.click`, `$bind.value`, `$class:x`, `$key`, `$show`, `$html`, `$ref`, `$once`, `$memo`, `$raw`, `$class={…}`, …) | C607 | `on:click={h}` (modifiers: `on:click.prevent`), `bind:value={x}`, `class:x={c}`, `key={…}`, `show={…}`, `html={…}`, `ref={…}`, bare `once`/`raw`, `memo={…}`, plain `class={…}` |
+| `<$link href prefetch replace>` | C608 | `<a href={…} prefetch="…">` — `<a>` carries SPA navigation, `prefetch`, `replace`, `aria-current`; auto-opts out for `target="_blank"`, `download`, external origins, and non-http(s) schemes; add `reload` to force a full document load |
+| any other `<$element>` | C609 | the naked word: `<slot>`, `<suspense>`, `<shield>`, `<outlet>`, `<router>`, `<navigate>`, `<guard>`, `<warp>` — plus the NEW `<group>` invisible fragment carrier |
+| `elseif`/`else`/`empty` not the immediate element sibling | C610 | move the branch element directly after its chain head; only whitespace/comments may sit between |
+| unknown non-hyphenated element | C611 | fix the typo, or hyphenate the component tag (custom-element rule) |
+
+Advisory lints: **W601** — keyless `each` whose body contains components/stateful elements (add `key={…}`); **W602** — non-empty static string on a boolean attribute (`disabled="false"` is truthy in HTML).
+
+## 9. The binary shadow API and light-DOM pages (the DA4 flip)
 
 > **Breaking (major), one change with two faces.** The shadow value set collapsed to a **binary** `ShadowMode = 'light' | 'shadow'` (`'open'`, `'closed'`, and `'none'` no longer exist), **and** pages and layouts now default to `'light'`. Leaf components keep shadow DOM.
 
@@ -213,11 +234,11 @@ Under the hood, an unpinned page compiles with a `// @aihu:shadow-default light`
 | C107 | HTML-tag SFC framing (`<template>`, `<script setup>`) | use `@state` / `@template` / `@style` blocks |
 | C204 | unknown `@block` (e.g. `@props`) | use a recognized block; declare props via `$prop:` in `@state` |
 | C304 | Vue-shape `:attr=` alias | `attr={expr}` |
-| C305 | colon-form event/bind alias | `$on.click=…`, `$bind.value=…` |
-| C306 | plain-curly attribute binding (`class={…}`) | `class={…}` |
+| C305 | `@event=` alias | `on:click={fn}` |
+| C601–C611 | retired v1 template grammar (blocks, `$`-attrs, `<$…>` elements) | see §8 — the prefix-less template |
 | C440 | removed v1 agent macros (`$expose`, `$describe`, …) | per-name `describe:` / `expose:` on collection entries |
-| C500 | quoted `$`-attr that is not a built-in macro (`$let="x"`) | curly form: `let={x}` |
-| W210 | `$on.<non-event>` → dead handler | use `$html` for innerHTML, or a real event |
+| C500 | quoted `$`-attr that is not a built-in macro | retired with the `$` layer — see §8 |
+| W210 | `on:<non-event>` → dead handler | use `html={…}` for innerHTML, or a real event |
 
 ## See also
 

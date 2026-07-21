@@ -101,22 +101,22 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     ),
   },
   {
-    label: '$on',
+    label: 'on:',
     kind: SNIPPET_KIND,
     insertTextFormat: SNIPPET_FORMAT,
-    detail: 'event listener attribute (template)',
-    sortText: '0_$on',
+    detail: 'event listener directive (template, grammar v2)',
+    sortText: '0_on:',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
-    insertText: '$on.${1:click}={${2:handler}}',
+    insertText: 'on:${1:click}={${2:handler}}',
   },
   {
-    label: '$bind',
+    label: 'bind:',
     kind: SNIPPET_KIND,
     insertTextFormat: SNIPPET_FORMAT,
-    detail: 'two-way attribute binding (template)',
-    sortText: '0_$bind',
+    detail: 'two-way binding directive (template, grammar v2)',
+    sortText: '0_bind:',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
-    insertText: '$bind.${1:value}={${2:signal}}',
+    insertText: 'bind:${1:value}={${2:signal}}',
   },
 ]
 

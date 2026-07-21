@@ -36,12 +36,12 @@ fn flags_unresolved_binding_identifiers() {
 #[test]
 fn extracts_macro_class_toggle_form_c() {
     let set = scan_ast(&fixture_ast());
-    assert!(set.contains("loading"), "Form C $class:loading toggle missing");
+    assert!(set.contains("loading"), "Form C class:loading toggle missing");
 }
 
 #[test]
 fn skips_non_class_macros() {
-    // $on.click / $if must never enter the utility set.
+    // on:click / if must never enter the utility set.
     let set = scan_ast(&fixture_ast());
     assert!(
         !set.iter().any(|c| c.contains("click") || c == "if" || c.contains("on:")),

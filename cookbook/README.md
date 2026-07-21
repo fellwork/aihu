@@ -21,11 +21,11 @@ Each compiles cleanly through the aihu Rust compiler; the harness exits 1 on any
 | `aihu-clock.aihu` | `$lifecycle.mount` starts `setInterval`; `dispose` clears it — real-time clock |
 | `aihu-accordion.aihu` | `$prop items` + `$action toggle`; `{#each}` + `$show` per panel |
 | `aihu-tabs.aihu` | `$prop tabs` + `$action selectTab`; `$computed selected` drives active panel |
-| `aihu-modal.aihu` | `$prop open`, `$action show/hide`, `$on.keydown` for Escape, `$aria` role=dialog |
+| `aihu-modal.aihu` | `$prop open`, `$action show/hide`, `on:keydown` for Escape, `$aria` role=dialog |
 | `aihu-toast.aihu` | `$prop message`, `$action dismiss`, auto-dismiss via `$lifecycle.mount` setTimeout |
 | `theme-toggle.aihu` | `$context provide:` theme + `$effect` toggling `document.documentElement` class |
 | `data-table.aihu` | `$prop rows`, `$action sort(col)`, `$computed sortedRows`, `$each` with `$key` |
-| `search-debounce.aihu` | `$bind.value` + `$effect` 300ms debounce + `$computed results` |
+| `search-debounce.aihu` | `bind:value` + `$effect` 300ms debounce + `$computed results` |
 | `infinite-scroll.aihu` | `$prop page`, `$action loadMore`, `IntersectionObserver` in `$controller` |
 
 ## Running the harness

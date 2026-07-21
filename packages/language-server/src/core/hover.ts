@@ -92,7 +92,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $if: [
-    '**aihu template directive: `$if` / `{#if}`**',
+    '**aihu template directive: `if={…}`** (chain with `elseif={…}` / `else` siblings)',
     '',
     'Conditional rendering.',
     '',
@@ -105,7 +105,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $each: [
-    '**aihu template directive: `$each` / `{#each}`**',
+    '**aihu template directive: `each={item, i of items}`** (pair with `key={…}`; `empty` sibling for the empty state)',
     '',
     'List rendering.',
     '',
@@ -118,7 +118,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $html: [
-    '**aihu template directive: `$html` / `{@html}`**',
+    '**aihu template directive: `html={expr}`**',
     '',
     'Raw HTML injection. Use with trusted content only.',
     '',
@@ -131,7 +131,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $show: [
-    '**aihu template directive: `$show`**',
+    '**aihu template directive: `show={…}`**',
     '',
     'Toggles element visibility without removing it from the DOM.',
     '',
@@ -144,7 +144,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $on: [
-    '**aihu template directive: `$on`**',
+    '**aihu template directive: `on:<event>={handler}`** (modifiers: `.prevent`, `.stop`, `.self`, `.once`)',
     '',
     'Attaches an event listener to a DOM element.',
     '',
@@ -159,7 +159,7 @@ const HOVER_TABLE: Record<string, string> = {
   ].join('\n'),
 
   $bind: [
-    '**aihu template directive: `$bind`**',
+    '**aihu template directive: `bind:<prop>={signal}`**',
     '',
     'Two-way binding between a signal and an element attribute.',
     '',
@@ -306,7 +306,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.6 lines 947-976
   $key: [
-    '**aihu template directive: `$key`**',
+    '**aihu template directive: `key={…}`**',
     '',
     'Stable identity for list reconciliation inside `$each`.',
     '',
@@ -322,7 +322,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.8 lines 1006-1028
   $raw: [
-    '**aihu template directive: `$raw`**',
+    '**aihu template directive: `raw`**',
     '',
     'Skip compilation of the element subtree. Boolean-only (no value).',
     '',
@@ -336,7 +336,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.9 lines 1030-1061
   $once: [
-    '**aihu template directive: `$once`**',
+    '**aihu template directive: `once`**',
     '',
     'Render subtree once at mount; never update. Boolean-only.',
     '',
@@ -352,7 +352,7 @@ const HOVER_TABLE: Record<string, string> = {
 
   // Source: 2026-05-02-spec-macro-vocabulary.md §3.10 lines 1063-1097
   $memo: [
-    '**aihu template directive: `$memo`**',
+    '**aihu template directive: `memo={deps}`**',
     '',
     'Memoize an element subtree by explicit dependencies (curly form only).',
     '',

@@ -139,11 +139,11 @@ always-`$`-prefixed canonical form. Component prop-passing on capitalized
 component tags (`<UserCard user={u} />`) and XML namespace prefixes (`xmlns:`,
 `xlink:`) are preserved untouched.
 
-| Legacy form        | v1.0 canonical form                       |
+| Legacy form        | Current (grammar v2) form                 |
 |--------------------|-------------------------------------------|
-| `:attr="expr"`     | `attr={expr}` (or `$bind.attr=` two-way) |
-| `@event="fn"`      | `on:event={fn}` (dot-form per B3c)       |
-| `attr={expr}`      | `attr={expr}`                            |
+| `:attr="expr"`     | `attr={expr}` (or `bind:attr={…}` two-way) |
+| `@event="fn"`      | `on:event={fn}` (colon directive)         |
+| `$attr={expr}`     | `attr={expr}` (plain braces)              |
 
 #### Pass 3 — package-name renames (v1.0.9 / Naming Scheme A)
 
@@ -167,9 +167,9 @@ run `npx aihu migrate <file>` to obtain the mechanical rewrite.
 | Code | Rejected form                                                              | Removed in | Canonical migration target                              |
 |------|----------------------------------------------------------------------------|------------|---------------------------------------------------------|
 | C107 | `<script setup>` / `<template>` / `<style>` / `<agent>` HTML-tag SFC framing | v1.0.7     | `@state { … }` / `@template { … }` / `@style { … }` / `@agent { … }` |
-| C304 | `:attr="expr"` Vue-shape one-way binding alias                              | v1.0.8     | `attr={expr}` (or `$bind.attr=` for two-way)           |
-| C305 | `@event="fn"` Vue-shape event alias                                         | v1.0.8     | `on:event={fn}` (dot-form)                             |
-| C306 | `attr={expr}` plain-curly HTML attribute binding (no `$`)                   | v1.0.8     | `attr={expr}`                                          |
+| C304 | `:attr="expr"` Vue-shape one-way binding alias                              | v1.0.8     | `attr={expr}` (or `bind:attr={…}` for two-way)         |
+| C305 | `@event="fn"` Vue-shape event alias                                         | v1.0.8     | `on:event={fn}` (colon directive)                      |
+| C601–C611 | the v1 template layer (`$`-attrs, `{#if}`/`{#each}` blocks, `<$…>` elements) | grammar v2 | see the Migration guide §8 — the prefix-less template |
 
 ## Dev → build → preview cycle
 

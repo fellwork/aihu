@@ -153,7 +153,7 @@ fn contract_violations_are_c321_with_flag_only() {
 
 #[test]
 fn assignment_is_permitted_in_handler_position() {
-    // The Contract carve-out: `$on.*` handlers may assign/update at the root.
+    // The Contract carve-out: `on:*` handlers may assign/update at the root.
     // W3 note: emission is NOT byte-identical here — the legacy token rewrite
     // splices `()` onto the WRITE target (`count() = 5`, `count()++` — both
     // invalid JS), while the AST rewrite recognizes assignment/update targets

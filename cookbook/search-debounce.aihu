@@ -1,4 +1,4 @@
-// search-debounce — $bind.value on input + $effect with 300ms debounce, $computed results
+// search-debounce — bind:value on input + $effect with 300ms debounce, $computed results
 
 @state {
   query: string = ''

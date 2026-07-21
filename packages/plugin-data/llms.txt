@@ -83,10 +83,10 @@ const payload = serialize()  // Record<string, unknown>
 
 ```ts
 @template {
-  <div $if={posts.loading()}>Loading...</div>
-  <div $if={posts.error()}>Error: {posts.error()?.message}</div>
-  <ul $if={!posts.loading() && !posts.error()}>
-    <li $each="posts.data() ?? [] as post" $key={post.id}>{post.title}</li>
+  <div if={posts.loading()}>Loading...</div>
+  <div if={posts.error()}>Error: {posts.error()?.message}</div>
+  <ul if={!posts.loading() && !posts.error()}>
+    <li each={post of posts.data() ?? []} key={post.id}>{post.title}</li>
   </ul>
 }
 ```

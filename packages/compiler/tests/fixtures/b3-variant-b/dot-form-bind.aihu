@@ -1,4 +1,4 @@
-// B3 Variant B — dot-form $on.input + $bind.value with R4 typed-conv at write site.
+// Grammar v2 — on:input + bind:value colon directives with R4 typed-conv at write site.
 
 @state {
 const [count, setCount] = signal(0)

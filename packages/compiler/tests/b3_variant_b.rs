@@ -20,7 +20,7 @@ fn compile_fixture(source: &str, tag: &str) -> String {
     emit(&unit, tag).js
 }
 
-// ─── AC #5 — {#if}/{#each}/{:else if}/{:else}/{:empty} block-tag syntax ──────
+// ─── AC #5 — if/elseif/else chains + each/empty sibling assembly ─────────────
 
 #[test]
 fn b3_ac5_block_if_lowers_to_when() {
@@ -54,7 +54,7 @@ fn b3_ac5_block_if_else_chain_lowers_to_negated_when_siblings() {
     // The else branch synthesizes a negated-conds thunk: !(a) && !(b)
     assert!(
         js.contains("!(a)") && js.contains("!(b)"),
-        "expected negated prior conds for {{:else}}: {}",
+        "expected negated prior conds for the `else` branch: {}",
         js
     );
 }
@@ -112,7 +112,7 @@ fn b3_ac5_block_each_lambda_lhs_unhoisted() {
     );
 }
 
-// ─── AC #6 — $on.click + $bind.value dot-form ────────────────────────────────
+// ─── AC #6 — on:click + bind:value colon directives ──────────────────────────
 
 #[test]
 fn b3_ac6_dot_form_on_click_lowers_to_onclick_attr() {
@@ -226,7 +226,7 @@ fn b3_ac7_class_string_unchanged() {
     );
 }
 
-// ─── AC #8 — {@html expr} Svelte-style raw HTML ──────────────────────────────
+// ─── AC #8 — html={expr} raw-HTML attribute ──────────────────────────────────
 
 #[test]
 fn b3_ac8_html_block_lowers_with_effect() {
@@ -239,7 +239,7 @@ fn b3_ac8_html_block_lowers_with_effect() {
     let js = compile_fixture(src, "x-b3-html-block");
     assert!(
         js.contains("createContextualFragment"),
-        "expected createContextualFragment in {{@html}} lowering: {}",
+        "expected createContextualFragment in `html` lowering: {}",
         js
     );
 }
@@ -274,7 +274,7 @@ const [count, setCount] = signal(0)
 
 #[test]
 fn b3_ac11_typed_conv_skipped_for_checked_bind() {
-    // `$bind.checked` reads `e.target.checked` (boolean by platform contract);
+    // `bind:checked` reads `e.target.checked` (boolean by platform contract);
     // typed-conv helper not needed at the write site.
     let src = r#"@state {
 const [done, setDone] = signal(false)
@@ -514,7 +514,7 @@ const [view, setView] = signal('list')
     );
     assert!(
         sidecar.contains("view === 'list'"),
-        "sidecar must include {{#if}} cond: {}",
+        "sidecar must include the `if` cond: {}",
         sidecar
     );
     assert!(
@@ -953,7 +953,7 @@ const [user, setUser] = signal({{ name: '' }})
 
 #[test]
 fn sidecar_binds_destructured_each_aliases() {
-    // W4 — `{#each pairs as [k, v], i (k)}`: the header split tears the
+    // W4 — `each={[k, v], i of pairs} key={k}`: a torn header once tore the
     // pattern across item/idx (`[k` + `v], i`), so the token extractor bound
     // NOTHING and k/v/i all TS2304'd in the sidecar. The harvest rejoins the
     // alias list and REALLY parses it as a parameter list.
@@ -1348,7 +1348,7 @@ fn b3c_ac16_c500_fires_on_colon_form_binary_stderr() {
     );
 }
 
-// ─── AC10 — Listener `$on.<custom-event>` with payload typing surface ────────
+// ─── AC10 — Listener `on:<custom-event>` with payload typing surface ─────────
 //
 // At the lowering level a custom-event listener (e.g. `on:dayjump={…}`) is
 // emitted byte-identically to a DOM listener (`onDayjump: …`). The

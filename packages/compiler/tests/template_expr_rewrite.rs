@@ -3,7 +3,7 @@
 //!
 //! Props compile to signal getters (`const section = ctx.props.section`), and
 //! plain dotted interpolations were already rewritten (`{section.label}` →
-//! `(section() as any).label`). But `$if` / `$each` / `$on.*` / attr-binding /
+//! `(section() as any).label`). But `if` / `each` / `on:*` / attr-binding /
 //! complex-interpolation expressions were emitted VERBATIM into thunks, so
 //! `if={section.kind === 'prose'}` read `.kind` off the signal FUNCTION —
 //! always undefined — and the branch silently never rendered (fellwork-web
@@ -150,7 +150,7 @@ fn fel172_block_if_cond_is_rewritten() {
     let js = compile_to_js(&src, "x-fel172-blockif");
     assert!(
         js.contains("section().kind === 'prose'"),
-        "FEL-172: {{#if}} cond must read the prop VALUE, got:\n{js}"
+        "FEL-172: `if` cond must read the prop VALUE, got:\n{js}"
     );
 }
 
@@ -380,7 +380,7 @@ fn w3_b13_component_prop_spread_is_rewritten() {
 
 #[test]
 fn w3_c12_each_list_spread_is_rewritten() {
-    // c12: `{#each [...items, extra] as it}` once crashed at runtime; #391
+    // c12: `each={it of [...items, extra]}` once crashed at runtime; #391
     // fixed the legacy spread rewrite, so legacy now matches ast.
     let (legacy, ast) = both_modes(
         "<p each={it of [...items, extra]}>{it}</p>",
@@ -419,7 +419,7 @@ fn w3_d01_dotted_base_arrow_body_is_rewritten() {
 
 #[test]
 fn w3_d03_each_alias_shadowing_a_signal_is_not_rewritten() {
-    // d03/d04: `{#each items as count}` — the alias shadows the signal, but
+    // d03/d04: `each={count of items}` — the alias shadows the signal, but
     // legacy emitted `leaf([count, setCount])` (the signal tuple) INSIDE the
     // loop callback.
     let (legacy, ast) = both_modes(
@@ -442,7 +442,7 @@ fn w3_d03_each_alias_shadowing_a_signal_is_not_rewritten() {
 
 #[test]
 fn w3_d06_template_literal_if_cond_is_rewritten() {
-    // d06: `` {#if `${count}` === '3'} `` — unrewritten → the branch never fired.
+    // d06: `` if={`${count}` === '3'} `` — unrewritten → the branch never fired.
     let (legacy, ast) = both_modes(
         "<p if={`${count}` === '3'}>three</p>",
         "x-w3-d06",

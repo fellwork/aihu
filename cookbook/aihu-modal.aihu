@@ -1,4 +1,4 @@
-// modal — $prop open, $action show/hide, $on.keydown for Escape, $aria for aria-modal+role="dialog"
+// modal — $prop open, $action show/hide, on:keydown for Escape, $aria for aria-modal+role="dialog"
 
 @state {
   $prop: {

@@ -139,7 +139,7 @@ fn link_element_emits_boundary_with_attrs() {
 #[test]
 fn link_forwards_class_and_event_attrs() {
     // Regression: `<a>` used to forward ONLY href, silently dropping
-    // class / $class / $on.click (and pruning their now-"unused" imports).
+    // class / class={…} / on:click (and pruning their now-"unused" imports).
     let source = r#"@state {
   close: () => void = () => {}
   isActive: (r: string) => boolean = () => false
@@ -154,11 +154,11 @@ fn link_forwards_class_and_event_attrs() {
     );
     // id forwarded onto the <a> attrs object.
     assert!(js.contains("id: 'home'"), "id should forward, got:\n{js}");
-    // $on.click forwarded as an onClick handler (and keeps `close` referenced
+    // on:click forwarded as an onClick handler (and keeps `close` referenced
     // so it is not pruned as an unused import).
     assert!(
         js.contains("onClick:") && js.contains("close()"),
-        "$on.click should forward as onClick, got:\n{js}"
+        "on:click should forward as onClick, got:\n{js}"
     );
     // $class forwarded as a (reactive) class binding.
     assert!(

@@ -1,5 +1,5 @@
 /**
- * R4 + Q3 — `$bind.value` two-way + reflect-loop guard tests.
+ * R4 + Q3 — `bind:value` two-way + reflect-loop guard tests.
  *
  * Spec: Director r6 §3.R4 + §2.Q3.
  *

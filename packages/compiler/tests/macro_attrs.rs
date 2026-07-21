@@ -306,7 +306,7 @@ fn macro_memo_emits_create_memo_boundary() {
 
 #[test]
 fn rejects_legacy_event_binding_in_template_c305() {
-    // v1.0.8 — Amendment 04: `@event=` is removed (C305). Use `$on.event=`.
+    // `@event=` is removed (C305). Use `on:<event>={fn}`.
     let src = r#"
 @template {
   <button @click="handleClick"></button>
@@ -354,7 +354,7 @@ fn macro_bind_and_on_emit_in_attrs_object() {
     let parsed = sfc::parse(src).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "my-comp");
-    // $bind.value → value: count, $on.click → onClick: handleClick
+    // bind:value → value: count, on:click → onClick: handleClick
     assert!(result.js.contains("value:") || result.js.contains("count"), "Expected count in: {}", result.js);
 }
 
@@ -362,7 +362,7 @@ fn macro_bind_and_on_emit_in_attrs_object() {
 
 #[test]
 fn r4_ac1_bind_value_to_signal_emits_oninput_writeback() {
-    // R4: when `$bind.value` references a registered signal (with a setter),
+    // R4: when `bind:value` references a registered signal (with a setter),
     // the emit MUST also wire `oninput` to write the signal back. Without
     // this, $bind is read-only and userland edits in the input vanish.
     let src = r#"@state {
@@ -391,7 +391,7 @@ const [name, setName] = signal('')
 
 #[test]
 fn r4_ac1_bind_checked_emits_onchange_writeback() {
-    // `$bind.checked` for checkbox/radio uses `change` (not `input`), and
+    // `bind:checked` for checkbox/radio uses `change` (not `input`), and
     // reads `e.target.checked`.
     let src = r#"@state {
 const [done, setDone] = signal(false)
@@ -443,7 +443,7 @@ const [name, setName] = signal('')
     let auto_writeback_new = "__aihu_conv(name()";
     assert!(
         !result.js.contains(auto_writeback_old) && !result.js.contains(auto_writeback_new),
-        "User-supplied $on.input must override auto write-back; got:\n{}",
+        "User-supplied on:input must override auto write-back; got:\n{}",
         result.js
     );
     // User handler still emits.
@@ -583,7 +583,7 @@ fn r2_attr_ternary_referencing_state_wraps_in_thunk() {
 
 #[test]
 fn r2_attr_event_handler_referencing_state_does_not_wrap() {
-    // Event handlers (`$on.click`, `@click`) take the runtime's Path 1
+    // Event handlers (`on:click`) take the runtime's Path 1
     // (typeof === 'function'). They MUST stay as plain function references
     // even when the body references state — wrapping would put a function
     // value inside an array and trigger Path 2 instead.
@@ -753,7 +753,7 @@ fn fel238_each_plus_show_composes_each_outermost() {
 
 #[test]
 fn fel238_each_plus_class_composes() {
-    // Same defect via `$class:` — the most common pairing in the field report
+    // Same defect via `class:` — the most common pairing in the field report
     // (`<span class=v $each>` over a verse list).
     let src = r#"@state {
   import { signal } from '@aihu/signals'
@@ -768,11 +768,11 @@ fn fel238_each_plus_class_composes() {
     let js = emit(&unit, "x-fel238b").js;
     assert!(
         js.contains("each([para, setPara]"),
-        "FEL-238: $each must survive alongside $class:, got:\n{js}"
+        "FEL-238: each must survive alongside class:, got:\n{js}"
     );
     assert!(
         js.contains("classList.toggle('on'"),
-        "FEL-238: $class: must compose alongside $each, got:\n{js}"
+        "FEL-238: class: must compose alongside each, got:\n{js}"
     );
     let each_pos = js.find("each([para, setPara]").unwrap();
     let handler_pos = js.find("pick(v)").unwrap();

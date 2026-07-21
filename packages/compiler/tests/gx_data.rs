@@ -242,7 +242,7 @@ fn governed_sidecar_types_route_data_as_discriminated_union() {
     // The authored nested discriminant is rewritten to the narrowing
     // predicate (TS does not narrow through `$gx.entitled` itself)...
     assert!(sidecar.contains("void (__gxEntitled(route.data) ? route.data.headword"));
-    // ...and {#if}-guarded branch bodies check under their branch's guard.
+    // ...and if-guarded branch bodies check under their branch's guard.
     assert!(sidecar.contains("void (__gxEntitled(route.data) && (route.data.senses.join(', ')));"));
     assert!(sidecar.contains("void (!(__gxEntitled(route.data)) && (route.data.$gx.reason));"));
 }

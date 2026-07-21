@@ -62,7 +62,9 @@ function foldEachLet(src: string): string {
 }
 
 /** `{#each LIST as ALIASES (KEY)}` head split, scanner-lite (paren/bracket depth). */
-function splitEachHead(head: string): { list: string; aliases: string; key?: string } | null {
+function splitEachHead(
+  head: string,
+): { list: string; aliases: string; key: string | undefined } | null {
   // Locate top-level ` as `.
   let depth = 0
   let asAt = -1

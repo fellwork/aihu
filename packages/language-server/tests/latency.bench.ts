@@ -47,7 +47,7 @@ const PROBES: Array<{ line: number; ch: number; label: string }> = [
   { line: 4, ch: 4, label: '$watch' }, // "  $watch(...)"
   { line: 5, ch: 4, label: '$effect.on' }, // "  $effect.on(...)"
   { line: 10, ch: 11, label: '$if' }, // "  <div if={..."
-  { line: 11, ch: 9, label: '$each' }, // "    <li $each=..."
+  { line: 11, ch: 9, label: '$each' }, // "    <li each=..."
   { line: 12, ch: 5, label: '<slot>' }, // "    <slot ..."
 ]
 

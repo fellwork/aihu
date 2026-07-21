@@ -16,7 +16,7 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
     expect(css).toContain('p-4')
     expect(css).toContain('padding: 1rem')
 
-    // Macro toggle class resolved (Form C: $class:rounded-lg → "rounded-lg").
+    // Macro toggle class resolved (Form C: class:rounded-lg → "rounded-lg").
     expect(css).toContain('rounded-lg')
     expect(css).toContain('border-radius: 0.5rem')
 
