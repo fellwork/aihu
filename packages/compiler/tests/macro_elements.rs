@@ -374,7 +374,7 @@ fn deprecated_slot_html_form_emits_create_slot_boundary() {
 //
 // The element the author writes and the element the runtime renders are the
 // same element: an internal <a href> lowers to the same createLinkBoundary
-// call the retired <$link> compiled to; the auto-opt-outs and the explicit
+// call the retired link macro element compiled to; the auto-opt-outs and the explicit
 // `reload` render a plain branch('a', …) instead.
 
 #[cfg(test)]
