@@ -72,6 +72,21 @@ export interface AgentReadinessConfig {
     readonly disallow?: ReadonlyArray<string>
     readonly crawlDelay?: number
   }>
+  /**
+   * GX Phase 3 (#437-GX): the COMPILED route table — structurally,
+   * `@aihu/router`'s `RouteDefinition[]` (e.g. `import routes from
+   * 'virtual:aihu-routes'`, the same array handed to `createServerRouter`).
+   * Each route's compiled `extract` declaration derives its robots.txt
+   * per-path directives and its presence in the agent-facing discovery
+   * documents (llms.txt). This is a conduit for compiled output, never a
+   * place to hand-author policy — the `.aihu` `extract:` declaration is the
+   * one source (spec §8). Omitted → global-policy-only robots.txt and no
+   * derived route listing, byte-identical to pre-GX output.
+   */
+  readonly routes?: ReadonlyArray<{
+    readonly pattern: string
+    readonly extract?: { readonly read?: unknown; readonly call?: unknown }
+  }>
   readonly sitemap?: string
   /**
    * robots.txt always ends with a `User-agent: * / Allow: /` block for

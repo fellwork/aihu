@@ -59,6 +59,14 @@ export interface RouteSidecar {
    * register a route's components on navigation instead of eager imports.
    */
   components?: string[]
+  /**
+   * GX Phase 3 (#437-GX): the compiled `extract` policy (Phase 1 fan-out —
+   * always present in a v0.1.12+ `.route.json`, the default recorded, never
+   * implied by absence). Values stay `unknown` here: the compiler validated
+   * them (C483), but sidecars can be hand-edited, so consumers normalize
+   * fail-closed via `@aihu/server`'s `deriveReadPolicy`.
+   */
+  extract?: { read?: unknown; call?: unknown }
 }
 
 /** Layout name → absolute file path (v0.6.8). Build-time scan result. */
@@ -308,7 +316,16 @@ export function readAihuLayoutComponents(f: string): string[] {
   }
 }
 
-const SK = ['name', 'middleware', 'ssr', 'layout', 'params', 'head', 'components'] as const
+const SK = [
+  'name',
+  'middleware',
+  'ssr',
+  'layout',
+  'params',
+  'head',
+  'components',
+  'extract',
+] as const
 
 function genR(
   files: string[],

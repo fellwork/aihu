@@ -57,6 +57,16 @@ export type RouteDefinition = {
   head?: RouteHead
   /** Normalized custom-element tags this route references; used for route-scoped registration (O1). */
   components?: readonly string[]
+  /**
+   * GX Phase 3 (#437-GX): the route's compiled `extract` policy from the
+   * `.route.json` sidecar (`{ read, call }`, the Phase 1 fan-out). Values are
+   * `unknown` — consumers normalize fail-closed (`deriveReadPolicy` in
+   * `@aihu/server`). Drives the compliance-tier noindex signal in
+   * `createServerRouter.handle` and the derived robots/discovery listings in
+   * `@aihu-plugin/agent-readiness`. Absent on hand-built routes → the
+   * resolved default (`read: 'agents'`, `call: 'anonymous'`) applies.
+   */
+  extract?: { readonly read?: unknown; readonly call?: unknown }
 }
 
 export type MatchResult = {

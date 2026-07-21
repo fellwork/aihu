@@ -14,6 +14,7 @@
 
 import type { AgentMetadata } from '@aihu/agent'
 import { getAllAgentMetadata } from '@aihu/agent'
+import { deriveReadPolicy, extractReadValue, isCallAdvertised } from '@aihu/server'
 import type { McpAuthConfig } from './types.ts'
 
 /** Minimal shape used for skill generation. Structurally compatible with @aihu/agent AgentMetadata. */
@@ -173,7 +174,21 @@ export function agentMetadataToSkills(meta: AgentMetadataLike): ReadonlyArray<Ag
 export function skillsFromRegistry(
   metas: readonly AgentMetadata[] = getAllAgentMetadata(),
 ): ReadonlyArray<AgentSkill> {
-  return metas.flatMap((m) => agentMetadataToSkills(m))
+  // GX Phase 3 (#437-GX): the tool listing is filtered by each surface's
+  // compiled `extract` policy (spec §8) — a surface whose `read` excludes
+  // user-directed AI fetchers ('search'/'none'/any hard value) is absent from
+  // this anonymous discovery document, and a `call: 'none'` (or malformed —
+  // fail-closed) surface has no advertisable agent surface at all. Entries
+  // without an `extract` member (the pre-GX registry shape) are advertised
+  // exactly as before. COMPLIANCE-TIER: absence from the card hides nothing
+  // from a caller that guesses tool names — the serving gate (Phase 2's call
+  // axis) is the enforcement.
+  return metas
+    .filter(
+      (m) =>
+        deriveReadPolicy(extractReadValue(m.extract)).agentDiscovery && isCallAdvertised(m.extract),
+    )
+    .flatMap((m) => agentMetadataToSkills(m))
 }
 
 /**

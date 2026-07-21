@@ -20,14 +20,25 @@
  * `@aihu/agent-service`). A second bot list anywhere would be exactly the
  * hand-maintained sync seam `check:derived` exists to forbid.
  *
- * GX Phase 2 scope note: this file CLASSIFIES; it does not yet derive
- * robots.txt output from per-route `extract.read` declarations — that is
- * Phase 3 (spec §12). `generateRobotsTxt` behavior is unchanged.
+ * GX Phase 3 (#437-GX): robots.txt output is now DERIVED per route from the
+ * compiled `extract.read` axis (spec §8). Pass the compiled route table as
+ * `RobotsConfig.routes` and each route's declared `read:` value fans out into
+ * per-path directives over the tiered registry — one declaration, no
+ * hand-maintained path lists. See {@link deriveRouteDirectives} for the
+ * per-value mapping. With no `routes` (or with every route at the recorded
+ * default `read: 'agents'`) the output is byte-identical to #430's tiered
+ * default.
  *
- * NOTE: robots.txt is ADVISORY (RFC 9309 compliance is voluntary). CDN-layer
- * controls — e.g. Cloudflare's default AI-crawler blocking — override whatever
- * is emitted here. See docs/site/agent-discovery.md §robots.txt.
+ * NOTE: robots.txt is ADVISORY (RFC 9309 compliance is voluntary) — the
+ * compliance tier of the honest ceiling (spec §1.1): it binds exactly the
+ * crawlers that identify themselves and honor it; a UA-spoofer is unaffected.
+ * CDN-layer controls — e.g. Cloudflare's default AI-crawler blocking —
+ * override whatever is emitted here. Hard enforcement of the verified `read`
+ * values is Phase 4 (SSR withholding + the bundle/data boundary), NOT this
+ * file. See docs/site/agent-discovery.md §robots.txt.
  */
+
+import { deriveReadPolicy, extractReadValue } from '@aihu/server'
 
 /** Crawler tier — the classification the GX `read:` axis consumes. */
 export type BotTier = 'searcher' | 'user-fetcher' | 'training-crawler'
@@ -229,6 +240,145 @@ export interface RobotsRule {
   readonly crawlDelay?: number
 }
 
+/**
+ * One compiled route's crawl policy — the `robots` projection of a
+ * `RouteDefinition` (`@aihu/router`) or `.route.json` sidecar. Structurally
+ * compatible with both, so the compiled route table is passed straight in:
+ * there is no hand-maintained path list to keep in sync (thesis §Derived).
+ */
+export interface RouteReadPolicy {
+  /** Route pattern, e.g. `/pricing` or `/reports/:id`. */
+  readonly pattern: string
+  /** The compiled `extract` object; only `read` is consulted here. */
+  readonly extract?: { readonly read?: unknown } | undefined
+}
+
+/**
+ * Robots path for a route pattern: the static prefix, with a trailing `/`
+ * when the pattern has dynamic segments (`/reports/:id` → `/reports/`;
+ * `/pricing` → `/pricing`; `/:anything` and `/*` → `/`). robots.txt matching
+ * is prefix-based (RFC 9309 §2.2.2), so the static prefix is the most
+ * precise honest expression of "this route's paths".
+ */
+function robotsPathForPattern(pattern: string): string {
+  const segments = pattern.split('/').filter(Boolean)
+  const staticPrefix: string[] = []
+  let truncated = false
+  for (const s of segments) {
+    if (s.startsWith(':') || s === '*' || s.startsWith('[')) {
+      truncated = true
+      break
+    }
+    staticPrefix.push(s)
+  }
+  if (staticPrefix.length === 0) return '/'
+  return `/${staticPrefix.join('/')}${truncated ? '/' : ''}`
+}
+
+/**
+ * Per-tier directive lines derived from the declared routes. `wildcard`
+ * carries the searcher/unknown-crawler refusals (search bots have no
+ * dedicated groups — they follow `*`, RFC 9309 §2.2.1 — and the wildcard is
+ * also the only place a compliant UNLISTED crawler can be told to stay out).
+ */
+interface DerivedRouteDirectives {
+  readonly 'user-fetcher': ReadonlyArray<string>
+  readonly 'training-crawler': ReadonlyArray<string>
+  readonly wildcard: ReadonlyArray<string>
+}
+
+const NO_DERIVED: DerivedRouteDirectives = {
+  'user-fetcher': [],
+  'training-crawler': [],
+  wildcard: [],
+}
+
+/**
+ * What each tier gets for paths with no per-route directive, under the given
+ * global policy. Searchers are never targeted by any AI policy (they follow
+ * the wildcard `Allow: /`), so their baseline is always allow.
+ *
+ * A custom rules array is operator-authored with per-bot semantics this
+ * function cannot model, so it takes the all-allow baseline: every declared
+ * RESTRICTION is emitted explicitly (redundant lines are harmless under
+ * RFC 9309), and no declared widening (`read: 'all'`) is ever emitted against
+ * operator rules — derivation may narrow an operator's policy, never open it.
+ * The named policies are the framework's own tiers, so both directions derive
+ * precisely there.
+ */
+function tierBaselines(
+  aiAgents: AiAgentsPolicy | ReadonlyArray<RobotsRule>,
+): Record<BotTier, boolean> {
+  if (aiAgents === 'deny-all') {
+    return { searcher: true, 'user-fetcher': false, 'training-crawler': false }
+  }
+  if (aiAgents === 'allow-agents') {
+    return { searcher: true, 'user-fetcher': true, 'training-crawler': false }
+  }
+  // 'allow-all' and custom rule arrays.
+  return { searcher: true, 'user-fetcher': true, 'training-crawler': true }
+}
+
+/**
+ * Derive per-path robots directives from each route's declared `read:` value
+ * (GX Phase 3; spec §8). The per-value mapping over the registry tiers:
+ *
+ *   - `read: 'all'`     → searchers ✓, user-fetchers ✓, trainers ✓
+ *   - `read: 'agents'`  → searchers ✓, user-fetchers ✓, trainers ✗ — the
+ *     ratified default. Emits NO per-route lines: this is exactly the #430
+ *     tiered global default, which already states it (`Allow`/`Disallow: /`
+ *     per bot). The recorded default defers to the global `aiAgents` policy,
+ *     which keeps undeclared apps byte-identical to #430 under every policy.
+ *   - `read: 'search'`  → searchers ✓, user-fetchers ✗, trainers ✗
+ *   - `read: 'none'`    → all declared crawlers ✗ (a `Disallow` under `*`
+ *     covers searchers and unknown compliant crawlers; humans are unaffected
+ *     — robots.txt binds crawlers only). Existence is not secret: the route
+ *     is served to anonymous humans, so Disallow lines naming it are honest.
+ *   - hard values (`'verified'` / `'human'` / `{ scope }`) and malformed
+ *     values → the path is NOT ADVERTISED at all: no directive names it
+ *     (spec §8 existence-advertising — a Disallow line would announce a
+ *     governed path to anyone who reads robots.txt). Its noindex signal is
+ *     carried by the served `X-Robots-Tag` header instead.
+ *
+ * A directive is emitted only where the declared access differs from the
+ * tier's baseline under the active global policy, so output stays minimal
+ * and byte-stable. Under the NAMED policies a declared non-default `read:`
+ * is authoritative for its path in both directions (e.g. `read: 'all'`
+ * punches a per-path `Allow` through `deny-all`'s per-bot `Disallow: /` —
+ * RFC 9309 longest-match gives the per-path line precedence); under an
+ * operator-authored rules ARRAY, derivation only ever narrows (see
+ * {@link tierBaselines}).
+ */
+function deriveRouteDirectives(
+  routes: ReadonlyArray<RouteReadPolicy>,
+  aiAgents: AiAgentsPolicy | ReadonlyArray<RobotsRule>,
+): DerivedRouteDirectives {
+  if (routes.length === 0) return NO_DERIVED
+  const baseline = tierBaselines(aiAgents)
+  const fetcher: string[] = []
+  const trainer: string[] = []
+  const wildcard: string[] = []
+  const seen = new Set<string>()
+  for (const route of routes) {
+    const d = deriveReadPolicy(extractReadValue(route.extract))
+    // Hard/malformed: absent from robots entirely. Default ('agents'): the
+    // global tiered policy already speaks for it (see docblock).
+    if (!d.advertiseInRobots || d.value === 'agents') continue
+    const path = robotsPathForPattern(route.pattern)
+    const key = `${path} ${String(d.value)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (d.crawl['user-fetcher'] !== baseline['user-fetcher']) {
+      fetcher.push(`${d.crawl['user-fetcher'] ? 'Allow' : 'Disallow'}: ${path}`)
+    }
+    if (d.crawl['training-crawler'] !== baseline['training-crawler']) {
+      trainer.push(`${d.crawl['training-crawler'] ? 'Allow' : 'Disallow'}: ${path}`)
+    }
+    if (!d.crawl.searcher) wildcard.push(`Disallow: ${path}`)
+  }
+  return { 'user-fetcher': fetcher, 'training-crawler': trainer, wildcard }
+}
+
 /** The three named AI-agent policies. Any other string throws at generation time. */
 const AI_AGENTS_POLICIES = ['allow-agents', 'allow-all', 'deny-all'] as const
 type AiAgentsPolicy = (typeof AI_AGENTS_POLICIES)[number]
@@ -242,6 +392,16 @@ export interface RobotsConfig {
    */
   readonly aiAgents?: AiAgentsPolicy | ReadonlyArray<RobotsRule>
   readonly standard?: ReadonlyArray<RobotsRule>
+  /**
+   * GX Phase 3 (#437-GX): the compiled route table (structurally, `@aihu/router`
+   * `RouteDefinition[]` — e.g. the `virtual:aihu-routes` module). Each route's
+   * compiled `extract.read` declaration derives per-path directives over the
+   * bot-registry tiers (see {@link deriveRouteDirectives} for the mapping).
+   * Omitted, or with every route at the recorded default (`read: 'agents'`),
+   * output is byte-identical to the #430 tiered default. COMPLIANCE-TIER:
+   * advisory for compliant crawlers; the origin gate is the authority.
+   */
+  readonly routes?: ReadonlyArray<RouteReadPolicy>
   readonly sitemap?: string
   /**
    * The trailing `User-agent: * / Allow: /` block is ALWAYS emitted for
@@ -298,13 +458,21 @@ export function generateRobotsTxt(config: RobotsConfig = {}): string {
     }
   }
 
+  // GX Phase 3: per-path directives derived from each route's compiled
+  // `extract.read` declaration. Empty (all-[]) when no routes are passed or
+  // every route sits at the recorded default — the appends below are then
+  // no-ops and output is byte-identical to #430.
+  const derived = deriveRouteDirectives(config.routes ?? [], aiAgents)
+  const tierLines = (tier: BotTier): string =>
+    tier === 'searcher' || derived[tier].length === 0 ? '' : `\n${derived[tier].join('\n')}`
+
   if (aiAgents === 'allow-all') {
-    for (const bot of AI_BOT_LIST) {
-      blocks.push(`User-agent: ${bot}\nAllow: /`)
+    for (const { agent, tier } of AI_BOT_REGISTRY) {
+      blocks.push(`User-agent: ${agent}\nAllow: /${tierLines(tier)}`)
     }
   } else if (aiAgents === 'deny-all') {
-    for (const bot of AI_BOT_LIST) {
-      blocks.push(`User-agent: ${bot}\nDisallow: /`)
+    for (const { agent, tier } of AI_BOT_REGISTRY) {
+      blocks.push(`User-agent: ${agent}\nDisallow: /${tierLines(tier)}`)
     }
   } else if (aiAgents === 'allow-agents') {
     // Tiered default: fetchers allowed, trainers explicit opt-in. Registry
@@ -312,24 +480,40 @@ export function generateRobotsTxt(config: RobotsConfig = {}): string {
     for (const { agent, tier } of AI_BOT_REGISTRY) {
       blocks.push(
         tier === 'user-fetcher'
-          ? `User-agent: ${agent}\nAllow: /`
-          : `User-agent: ${agent}\nDisallow: /`,
+          ? `User-agent: ${agent}\nAllow: /${tierLines(tier)}`
+          : `User-agent: ${agent}\nDisallow: /${tierLines(tier)}`,
       )
     }
   } else {
     for (const rule of aiAgents) {
       blocks.push(renderRule(rule))
     }
+    // Route-derived directives still apply under a custom rules array: append
+    // them as dedicated per-bot groups (RFC 9309 §2.2.1 — groups sharing a
+    // user agent are combined by the crawler), so operator rules stay
+    // untouched and the declared route policy is still stated.
+    for (const { agent, tier } of AI_BOT_REGISTRY) {
+      const lines = tierLines(tier)
+      if (lines !== '') blocks.push(`User-agent: ${agent}${lines}`)
+    }
   }
 
   // Wildcard block (#430 decision 7): always emit `User-agent: * / Allow: /`
   // unless explicitly suppressed (wildcard: false) or a user rule already
   // targets `*`. Never emit a blanket wildcard Disallow — that blocks humans.
+  // GX Phase 3: `read: 'none'` routes' Disallow lines ride this block — it is
+  // the group searchers and unknown compliant crawlers actually follow. When
+  // the operator owns the wildcard decision (suppressed or self-targeted),
+  // the declared refusals still must not vanish: they are emitted as a
+  // minimal derived `*` group (combined with the operator's per RFC 9309).
   const explicitWildcard =
     targetsWildcard(config.standard ?? []) ||
     (typeof aiAgents !== 'string' && targetsWildcard(aiAgents))
+  const wildcardDerived = [...derived.wildcard]
   if (config.wildcard !== false && !explicitWildcard) {
-    blocks.push('User-agent: *\nAllow: /')
+    blocks.push(['User-agent: *', ...wildcardDerived, 'Allow: /'].join('\n'))
+  } else if (wildcardDerived.length > 0) {
+    blocks.push(['User-agent: *', ...wildcardDerived].join('\n'))
   }
 
   let output = blocks.join('\n\n')

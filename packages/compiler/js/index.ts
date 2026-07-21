@@ -909,6 +909,13 @@ export interface RouteMeta {
   ssr?: boolean
   params?: string[]
   head?: unknown
+  /**
+   * GX Phase 1 fan-out (#437-GX): the resolved `extract` policy — always
+   * present in the binary's route-json output since 0.1.12 (the default is
+   * recorded, never implied by absence). Typed loose here: consumers
+   * normalize fail-closed (`deriveReadPolicy` in `@aihu/server`).
+   */
+  extract?: { read?: unknown; call?: unknown }
 }
 
 /**
