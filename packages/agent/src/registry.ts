@@ -62,6 +62,33 @@ export interface ActionSchema {
 }
 
 /**
+ * The `{ scope: '<name>' }` value shape shared by both `extract` axes (GX
+ * spec §3 row 6): the scope is part of the value by construction — "gated
+ * without a scope" is unrepresentable.
+ */
+export interface ExtractScopePolicy {
+  scope: string
+}
+
+/**
+ * The resolved `extract:` governance policy for a component surface (GX #468).
+ *
+ * Emitted by the compiler into the `registerAgentMetadata` payload from the
+ * SAME resolved value the agent-meta sidecar and `.route.json` record, so the
+ * live registry and the sidecars provably agree (DA-f2). The compiler always
+ * emits both axes; they are optional here because hand-authored metadata may
+ * carry a partial object — consumers apply each axis's documented default
+ * (`read: 'agents'`, `call: 'anonymous'`) for a missing key and fail closed
+ * on a malformed one (see `@aihu/agent-service`'s `surfaceCallPolicy`).
+ */
+export interface ExtractPolicy {
+  /** `read` (crawl-visibility) axis — GX spec §2.1. */
+  read?: 'all' | 'agents' | 'search' | 'none' | 'verified' | 'human' | ExtractScopePolicy
+  /** `call` (agent-callability) axis — GX spec §2.1. */
+  call?: 'none' | 'anonymous' | 'verified' | ExtractScopePolicy
+}
+
+/**
  * Static metadata describing a `<custom-tag>` component for AI-agent
  * consumption. Sourced from each component's `<agent>` SFC block; emitted by
  * the compiler as a frozen object.
@@ -79,6 +106,13 @@ export interface AgentMetadata {
   state?: Record<string, string>
   /** MCP tools — action names mapped to typed schemas. */
   actions?: Record<string, ActionSchema>
+  /**
+   * Resolved `extract:` governance policy (GX #468) — identical to the
+   * `"extract"` member of this component's agent-meta sidecar. Absent only in
+   * pre-GX compiled output or hand-authored metadata; consumers treat absence
+   * as the resolved default posture (`call: 'anonymous'`).
+   */
+  extract?: ExtractPolicy
   /** Unknown fields are preserved, not rejected (spec §9.1). */
   [key: string]: unknown
 }

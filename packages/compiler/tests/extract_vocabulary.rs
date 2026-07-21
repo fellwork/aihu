@@ -384,6 +384,22 @@ fn fan_out_three_artifacts_agree_declared() {
     // Agreement: the two sidecars are byte-identical on the policy object, and
     // the marker tokens are that object's canonical single-token forms.
     assert_eq!(route_extract, manifest_extract, "route.json and agent-meta must agree");
+
+    // Artifact 4 (GX #468) — the LIVE registry payload. The emitted
+    // `registerAgentMetadata({...})` call carries the same policy object,
+    // byte-identical to the sidecars, so a deployment reading
+    // `getAgentMetadata(tag).extract` instead of the sidecar sees the same
+    // governance the sidecar records.
+    assert!(
+        result.js.contains("registerAgentMetadata({"),
+        "agent surface must register live metadata:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains(&format!("  extract: {},", route_extract)),
+        "registerAgentMetadata must carry the sidecar-identical extract object:\n{}",
+        result.js
+    );
 }
 
 /// The DEFAULT also fans out consistently (recorded, never implied).
@@ -406,4 +422,10 @@ fn fan_out_three_artifacts_agree_default() {
     let manifest_extract = extract_object(&result.manifest_json);
     assert_eq!(route_extract, "{ \"read\": \"agents\", \"call\": \"anonymous\" }");
     assert_eq!(route_extract, manifest_extract);
+    // Artifact 4 (GX #468) — the recorded default also reaches the live registry.
+    assert!(
+        result.js.contains(&format!("  extract: {},", route_extract)),
+        "registerAgentMetadata must carry the recorded default:\n{}",
+        result.js
+    );
 }
