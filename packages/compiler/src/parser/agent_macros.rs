@@ -34,8 +34,34 @@ pub fn parse_agent_macros(body: &str) -> Result<Vec<AgentMacroDecl>, CompileErro
         };
 
         // ─── v2 retained: $scope "value" ─────────────────────────────────────
+        //
+        // GX Phase 1 (#437-GX, spec §2.3): the `@` prefix is a RESERVED
+        // class-scope namespace. Exactly two class-scopes exist — `@human`
+        // (verified human session only) and `@verified` (any verified
+        // principal); any other `@`-prefixed scope is C485 so the namespace
+        // stays reserved for the vocabulary instead of silently becoming an
+        // ordinary (and unsatisfiable-looking) scope string.
         if let Some(decl) = rest.strip_prefix("scope ") {
             let val = strip_quotes(decl.trim()).to_string();
+            if val.starts_with('@') && !matches!(val.as_str(), "@human" | "@verified") {
+                return Err(CompileError {
+                    message: format!(
+                        "C485: unknown class-scope '{}' (line {}) — the `@` scope namespace is \
+                         reserved; the defined class-scopes are `@human` (verified human session \
+                         only) and `@verified` (any verified principal)",
+                        val, line_no
+                    ),
+                    line: line_no,
+                    col: 0,
+                    code: Some("C485".to_string()),
+                    hint: Some(
+                        "ordinary authority scopes are plain names (e.g. \"reports:read\"); the \
+                         `@`-prefixed class-scopes express WHO may act, not WHAT they may act on"
+                            .to_string(),
+                    ),
+                    ..Default::default()
+                });
+            }
             result.push(AgentMacroDecl::Scope(val));
             continue;
         }
@@ -193,6 +219,22 @@ mod tests {
         let macros = parse_agent_macros("$scope \"user:read\"").unwrap();
         assert_eq!(macros.len(), 1);
         assert_eq!(macros[0], AgentMacroDecl::Scope("user:read".to_string()));
+    }
+
+    // ─── GX Phase 1 (#437-GX) — reserved `@` class-scope namespace ───────────
+
+    #[test]
+    fn parse_reserved_class_scopes() {
+        let macros = parse_agent_macros("$scope \"@human\"").unwrap();
+        assert_eq!(macros[0], AgentMacroDecl::Scope("@human".to_string()));
+        let macros = parse_agent_macros("$scope \"@verified\"").unwrap();
+        assert_eq!(macros[0], AgentMacroDecl::Scope("@verified".to_string()));
+    }
+
+    #[test]
+    fn c485_unknown_class_scope_rejected() {
+        let err = parse_agent_macros("$scope \"@admin\"").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C485"));
     }
 
     #[test]

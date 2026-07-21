@@ -65,11 +65,11 @@ bun add @aihu/compiler
 
 **Optional dependencies (platform-specific):**
 
-- `@aihu/compiler-darwin-arm64` — `0.1.11`
-- `@aihu/compiler-darwin-x64` — `0.1.11`
-- `@aihu/compiler-linux-x64-gnu` — `0.1.11`
-- `@aihu/compiler-linux-arm64-gnu` — `0.1.11`
-- `@aihu/compiler-win32-x64-msvc` — `0.1.11`
+- `@aihu/compiler-darwin-arm64` — `0.1.12`
+- `@aihu/compiler-darwin-x64` — `0.1.12`
+- `@aihu/compiler-linux-x64-gnu` — `0.1.12`
+- `@aihu/compiler-linux-arm64-gnu` — `0.1.12`
+- `@aihu/compiler-win32-x64-msvc` — `0.1.12`
 
 <sub><i>Auto-generated against `@aihu/compiler@0.11.0`.</i></sub>
 

@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // <$warp target="portal-root"> → createWarpBoundary(targetExpr, childFn)
 // NOTE(v0.5-stub): createWarpBoundary requires arbor.mount to accept an arbitrary
 // host node. If arbor.mount only accepts a custom-element host, this boundary

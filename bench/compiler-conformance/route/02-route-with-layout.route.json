@@ -3,5 +3,6 @@
   "name": "admin-users",
   "middleware": ["auth", "admin"],
   "ssr": true,
-  "layout": "admin"
+  "layout": "admin",
+  "extract": { "read": "agents", "call": "anonymous" }
 }

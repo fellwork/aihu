@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // <$slot expose="user, index"> → createSlotBoundary({ expose: ['user', 'index'] }, childFn)
 // Exposes named context identifiers to slot consumers.
 import { branch, leaf, slot } from '@aihu/arbor'

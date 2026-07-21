@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // <$suspense source="dataPromise"> → createSuspenseBoundary(promiseSource, fallbackFn, loadedFn)
 // Fallback subtree from <$slot name="fallback">; loaded subtree = remaining children.
 import { branch, leaf, slot } from '@aihu/arbor'

@@ -621,7 +621,14 @@ fn warn_undeclared(name: &str) {
 ///   `path`, `name`, `layout` — quoted strings
 ///   `ssr`                    — `true` or `false`
 ///   `middleware`             — array literal `['auth', 'admin']`
-fn parse_route_body(body: &str) -> RouteBlock {
+///   `head`                   — nested `{...}` metadata object (B1, SEO arc)
+///   `extract`                — GX two-axis policy `{ read: ..., call: ... }`
+///
+/// Fallible since GX Phase 1: a malformed `extract:` value is C483 (the
+/// declaration is a governed-extractability policy — silently dropping a
+/// mis-typed one would fail open). All other keys keep their lenient,
+/// best-effort semantics. `open_line` anchors the diagnostic.
+fn parse_route_body(body: &str, open_line: usize) -> Result<RouteBlock, CompileError> {
     let mut route = RouteBlock::default();
     // Parse each key: value pair. We do a simple line-by-line scan.
     let text: &str = body;
@@ -724,6 +731,39 @@ fn parse_route_body(body: &str) -> RouteBlock {
                     route.head = Some(crate::parser::route::parse_head_literal(&literal));
                 }
             }
+            "extract" => {
+                // GX Phase 1 (#437-GX) — capture the balanced `{...}` policy
+                // literal and delegate to the SHARED value parser in
+                // `extract.rs` (also used by `$extract` and `route.rs`), so
+                // the two authoring positions cannot drift. A duplicate
+                // `extract:` key in one block → C484; malformed → C483.
+                if route.extract.is_some() {
+                    return Err(crate::extract::c484(
+                        open_line,
+                        "duplicate `extract:` key in one `@route` block",
+                    ));
+                }
+                match crate::parser::route::capture_balanced_literal(text, bytes, &mut pos) {
+                    Some(literal) => {
+                        route.extract =
+                            Some(crate::extract::parse_extract_literal(&literal, open_line)?);
+                    }
+                    None => {
+                        return Err(CompileError {
+                            message: "C483: malformed `extract` policy value — `extract:` takes \
+                                      an object literal `{ read: ..., call: ... }`"
+                                .to_string(),
+                            line: open_line,
+                            col: 0,
+                            code: Some("C483".to_string()),
+                            fix: Some(
+                                "extract: { read: 'agents', call: 'anonymous' }".to_string(),
+                            ),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
             _ => {
                 // Unknown key — skip to end of value (next comma or `}`).
                 while pos < bytes.len() && !matches!(bytes[pos], b',' | b'}' | b'\n') {
@@ -732,7 +772,7 @@ fn parse_route_body(body: &str) -> RouteBlock {
             }
         }
     }
-    route
+    Ok(route)
 }
 
 /// Parse the body of an `@meta { … }` block into a `SfcMeta`.
@@ -1007,7 +1047,7 @@ pub fn parse_with_path<'a>(source: &'a str, file_path: Option<&str>) -> Result<A
                         ..Default::default()
                     });
                 }
-                route = Some(parse_route_body(body));
+                route = Some(parse_route_body(body, line_at(source, open_start))?);
             }
             BlockKind::Meta => {
                 if sfc_meta.is_some() {

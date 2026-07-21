@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // $once → createOnceBoundary(() => { return <subtree> })
 // $memo={[count, name]} → createMemoBoundary([count, name], () => { return <subtree> })
 import { branch, leaf, slot } from '@aihu/arbor'

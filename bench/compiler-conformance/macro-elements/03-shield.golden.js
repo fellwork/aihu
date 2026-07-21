@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // <$shield> → createShieldBoundary(mainFn, (shield) => fallbackFn)
 // shield.error = thrown value; shield.retry = remount function (available in fallback).
 import { branch, leaf, slot } from '@aihu/arbor'

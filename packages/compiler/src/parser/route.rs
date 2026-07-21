@@ -48,6 +48,38 @@ pub fn parse_route(body: &str) -> Result<RouteBlock, CompileError> {
                     route.head = Some(parse_head_body(&literal));
                 }
             }
+            "extract" => {
+                // GX Phase 1 (#437-GX) — the SHARED `extract` value parser
+                // (`extract::parse_extract_literal`, also used by the
+                // production parser in `sfc.rs` and the `$extract` macro).
+                // Unlike `head`, a non-object or malformed value is a hard
+                // C483 — a governance declaration must never fail open.
+                if route.extract.is_some() {
+                    return Err(crate::extract::c484(
+                        0,
+                        "duplicate `extract:` key in one `@route` block",
+                    ));
+                }
+                match capture_balanced_literal(body, bytes, &mut i) {
+                    Some(literal) => {
+                        route.extract = Some(crate::extract::parse_extract_literal(&literal, 0)?);
+                    }
+                    None => {
+                        return Err(CompileError {
+                            message: "C483: malformed `extract` policy value — `extract:` takes \
+                                      an object literal `{ read: ..., call: ... }`"
+                                .to_string(),
+                            line: 0,
+                            col: 0,
+                            code: Some("C483".to_string()),
+                            fix: Some(
+                                "extract: { read: 'agents', call: 'anonymous' }".to_string(),
+                            ),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
             _ => skip_value(body, bytes, &mut i),
         }
     }

@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // $each="items" $key="getKey" → createEachBoundary(items, getKey, (item, i) => { return <subtree> })
 import { branch, leaf, slot } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'

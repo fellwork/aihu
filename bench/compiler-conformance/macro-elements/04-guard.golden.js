@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // <$guard check="isAuthed"> → createGuardBoundary(checkExpr, mainFn, (guard) => fallbackFn)
 // guard.user, guard.reason, guard.path available in fallback subtree.
 import { branch, leaf, slot } from '@aihu/arbor'

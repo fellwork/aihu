@@ -639,11 +639,11 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.10",
-        "@aihu/compiler-darwin-x64": "0.1.10",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.10",
-        "@aihu/compiler-linux-x64-gnu": "0.1.10",
-        "@aihu/compiler-win32-x64-msvc": "0.1.10",
+        "@aihu/compiler-darwin-arm64": "0.1.11",
+        "@aihu/compiler-darwin-x64": "0.1.11",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.11",
+        "@aihu/compiler-linux-x64-gnu": "0.1.11",
+        "@aihu/compiler-win32-x64-msvc": "0.1.11",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -728,7 +728,7 @@
     },
     "packages/plugin-agent-readiness": {
       "name": "@aihu-plugin/agent-readiness",
-      "version": "2.0.4",
+      "version": "2.1.0",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/server": "workspace:*",
@@ -839,7 +839,7 @@
     },
     "packages/seo": {
       "name": "@aihu/seo",
-      "version": "0.2.1",
+      "version": "1.0.0",
       "dependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/plugin": "workspace:*",
