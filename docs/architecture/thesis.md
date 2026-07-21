@@ -227,3 +227,84 @@ named slots + default fallback`). Flipping the page-level default before that
 lands would break slotted content. Sequence: implement light-DOM slots first,
 then flip the default. Both are tracked as their own issues; this decision does
 NOT ship in the thesis-conformance PR.
+
+### GX — extractability is a declared, two-axis, principal-gated property of every surface (founder-ratified 2026-07-21)
+
+Full design: `docs/plans/governed-extractability/40-spec.md` (+ `50-credential-lifecycle.md`).
+
+**Decision (founder):** what any surface exposes to crawlers and agents is a first-class
+**declared** policy — a single `extract:` declaration per surface carrying two independent
+axes — derived into every emission and discovery surface, and enforced by one server-side
+principal gate. It is never inferred from rendering mode, component type, or the absence of
+`expose:`.
+
+- **Crawl-visibility axis** (`read:`) — who may index/read the rendered surface. Anonymous
+  values (`all` / `agents` / `search` / `none`) are **compliance-tier**: enforced at the
+  origin against declared, self-identifying crawlers — robots.txt with teeth — aligned with
+  the shipped tiered `allow-agents` robots default (#430). Verified values (`verified` /
+  `{ scope }` / `human`) are **hard-tier**.
+- **Agent-callability axis** (`call:`) — whether/what of the agent surface (`expose:`
+  members, MCP tools) is available and to whom (`none` / `anonymous` / `verified` /
+  `{ scope }`). Hard-tier, enforced at the serving gate. `expose:` remains the only
+  member-level grant; `call:` is a ceiling, never a grant.
+
+The axes are independent (crawlable-but-not-callable and callable-but-not-crawlable are
+both legitimate); there is no total order and no single "privacy level."
+
+**Governance gates both humans and machines.** Unverified/anonymous requesters — human or
+machine — receive the public tier only. Governed content requires a verified principal
+(a human session or a verified agent credential), resolved by one `resolvePrincipal` per
+request and decided by one `decideEmission` for every emission surface.
+
+**The hard tier is defined by the data layer, not by HTML.** Hard-governed content is
+**server-held**: never emitted into the client bundle, never present in anonymous SSR or
+prerender output, fetched per-principal through the gate. Withholding markup alone is not
+control — the framework's own hydration self-heal reconstructs withheld nodes from
+bundle-resident values; so the compiler emits hard-governed constants/initial-state into
+the server-only channel, governed modules split into gate-served chunks outside the public
+graph, and the client walker refuses to materialize withheld placeholders from local data.
+
+**Declared contradictions are compile errors,** never runtime precedence. Composition
+across nested surfaces is a meet — narrowing composes silently, widening is impossible.
+
+**The framework issues the credentials its own gate demands** — the loop is whole: declare
+→ **issue** → present → verify → enforce. Issuance is **site-issued and site-verified** (the
+"deliberately local" attribution posture): a new mint (`signJwt`) signs with the same secret
+the gate verifies — one trust root, no external PKI. It is OAuth-*shaped* (well-known
+discovery, authorization-code + PKCE, RFC 7009-shaped revocation) so agents self-navigate
+from a 401 to a token, but the human remains the trust mechanism: a person already
+authenticated on the site approves **"this agent, these scopes, this long,"** and the minted
+token carries exactly that — `sub` (delegating human), `act` (agent), `typ: 'agent'`,
+attenuated scopes (always a subset of the delegator's — issuance narrows, never widens),
+audience, expiry, and a revocation id. This **realizes Attribution Tier 1 (Delegated) and
+Tier 2 (Bounded)** as baseline capability. A site that declares no `issue:` config issues
+nothing and behaves byte-identically to today.
+
+**`$shadow` is pure encapsulation** — zero extractability semantics. The DA4 light-DOM flip
+lands *into* this control (sequencing B).
+
+**The honest ceiling (explicit scope).** (1) Anything an anonymous human can see, an
+anonymous scraper can extract; anonymous-crawl control is **compliance-tier** — honored by
+compliant, self-identifying crawlers, defeated by a determined UA-spoofer. (2) **Hard**
+control exists only for content behind a verified principal *and* server-held. (3) The hard
+tier is only as strong as the credential (expiry/audience verification + a revocation story
+are prerequisites, not enhancements). (4) No aihu artifact or claim may state control above
+this ceiling — doing so is this thesis's own named anti-pattern.
+
+**Ratified parameters (founder, 2026-07-21).**
+
+1. **Default posture** `extract: { read: 'agents', call: 'anonymous' }` — public content
+   crawlable by default (humans/search/user-directed fetchers; SEO intact, zero-break), the
+   agent axis opt-in, and #430's "training crawlers: Disallow" gains origin enforcement.
+2. **Hard-tier revocation** requires a fail-closed `RevocationStore` consult on the verify
+   path (immediate revocation at one store-read per governed request; the cost is stated).
+3. **Consent surface** is first-class plugin-served (scope vocabulary derived from the
+   compiled census), with app-replaceable presentation.
+4. **Default TTLs** — access 15 min, refresh 14 d, maximum human-granted delegation 24 h;
+   API keys non-expiring but listable + revocable.
+5. **API-key form** — opaque server-side reference, hashed at rest.
+
+**Sequencing + prerequisites.** Ships **before** the DA4 flip (#437, sequencing B). Phase 0
+hardens the auth-route and issuance surface (`exp`/`nbf`/`aud` verification already landed,
+#457; remaining items tracked in the spec). Then the phased build (declaration →
+gate/data-layer → issuance → invariants), then the flip lands into it.
