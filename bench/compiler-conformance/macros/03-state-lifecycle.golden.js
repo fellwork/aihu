@@ -1,9 +1,12 @@
 // @aihu:extract read=agents call=anonymous
-// $lifecycle.mount { body } → onMount(() => { body })
-// $lifecycle.dispose { body } → onCleanup(() => { body })
-// $action submit(data) { body } → function submit(data) { return batch(() => { body }) }
-//
-// Expected lowerings (from emit_state_macros):
-// onMount(() => { initializeWidget() });
-// onCleanup(() => { cleanup() });
-// function submit(data) { return batch(() => { sendForm(data) }) }
+import { branch, leaf, slot } from '@aihu/arbor'
+import type { Signal } from '@aihu/signals'
+import { batch } from '@aihu/signals'
+import { defineComponent, defineElement, onMount, onCleanup } from '@aihu/runtime'
+
+defineElement('03-state-lifecycle', defineComponent((_ctx) => {
+  onMount(() => { initializeWidget() });
+  onCleanup(() => { cleanup() });
+  function submit(data) { return batch(() => { sendForm(data) }) }
+  return branch('div', undefined, [leaf('widget')])
+}))

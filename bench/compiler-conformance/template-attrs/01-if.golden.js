@@ -1,14 +1,11 @@
 // @aihu:extract read=agents call=anonymous
-// $if="isVisible" → createIfBoundary(isVisible, () => { return <subtree> })
-// The compiler wraps the element subtree in a conditional boundary.
-import { branch, leaf, slot } from '@aihu/arbor'
+import { branch, leaf, slot, when } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'
 
-defineElement(
-  'test-comp',
-  defineComponent((_ctx) => {
-    return createIfBoundary(isVisible, () => {
-      return branch('div', undefined, [branch('p', undefined, [leaf('visible content')])])
-    })
-  }),
-)
+const createIfBoundary = (cond, grow) => when(cond, grow);
+
+defineElement('01-if', defineComponent((_ctx) => {
+  return     createIfBoundary([() => (isVisible)], () => { return branch('div', undefined, [
+    branch('p', undefined, [leaf('visible content')])
+  ]) })
+}))

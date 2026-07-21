@@ -82,9 +82,9 @@ describe('getMacroAtPosition', () => {
     expect(getMacroAtPosition(line, 7)).toBe('$if')
   })
 
-  it('detects {#if block-tag form', () => {
+  it('detects naked if on a <group> carrier', () => {
     const line = '<group if={condition}>'
-    expect(getMacroAtPosition(line, 1)).toBe('$if')
+    expect(getMacroAtPosition(line, 8)).toBe('$if')
   })
 
   it('detects $on namespaced directive', () => {

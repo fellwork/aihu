@@ -307,7 +307,7 @@ describe('runPrerender — layout composition', () => {
 
     const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
     expect(html).toContain('<h1>Home Content</h1>') // page still ships
-    expect(result.warnings.join('\n')).toMatch(/renders no <\$outlet>/)
+    expect(result.warnings.join('\n')).toMatch(/renders no <outlet>/)
   })
 })
 

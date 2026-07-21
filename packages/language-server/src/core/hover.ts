@@ -618,42 +618,59 @@ export function getBlockContext(
 
 export function getMacroAtPosition(lineText: string, character: number): string | null {
   let m: RegExpExecArray | null
-  // Template-element forms: <slot>, <suspense>, <shield>, <guard>, <warp>.
-  // Returns the bracketed form (e.g. `<slot>`) so HOVER_TABLE entries keyed
-  // with the angle-bracketed form (per director-note §3.3) resolve correctly.
-  const elementRe = /<\$(slot|suspense|shield|guard|warp)\b/g
+  // Framework-element forms (grammar v2 naked words): <slot>, <suspense>,
+  // <shield>, <guard>, <warp>. Returns the bracketed form (e.g. `<slot>`) so
+  // HOVER_TABLE entries keyed with the angle-bracketed form resolve correctly.
+  const elementRe = /<(slot|suspense|shield|guard|warp)\b/g
   while ((m = elementRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
-      return `<$${m[1]!}>`
+      return `<${m[1]!}>`
     }
   }
-  // Namespaced/dotted forms. Returns the bare prefix (`$effect`, `$lifecycle`,
-  // `$expose`, `$emit`, `$on`, `$bind`) for dotted/colon-suffixed forms; the
+  // Colon directives (grammar v2): `on:click` (with dotted modifiers),
+  // `bind:value`. Returns the `$`-keyed family entry (`$on`, `$bind`) — the
+  // HOVER_TABLE keys are stable identifiers, not surface syntax.
+  const colonRe = /(?<![\w$:])(on|bind):[A-Za-z_$][\w$-]*(?:\.[a-z]+)*/g
+  while ((m = colonRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      return `$${m[1]!}`
+    }
+  }
+  // Naked template keywords with braced values (grammar v2): `if={…}`,
+  // `each={…}`, `key={…}`, `show={…}`, `html={…}`, `memo={…}`. The `={`
+  // lookahead keeps prose words inert. `elseif` folds into the `$if` entry.
+  const nakedExprRe = /(?<=[\s<])(if|elseif|each|key|show|html|memo)(?=\s*=\{)/g
+  while ((m = nakedExprRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      const word = m[1]!
+      return word === 'elseif' ? '$if' : `$${word}`
+    }
+  }
+  // Naked bare template words: `once`, `raw` (attribute position only).
+  const nakedBareRe = /(?<=\s)(once|raw)(?=[\s/>])/g
+  while ((m = nakedBareRe.exec(lineText)) !== null) {
+    if (character >= m.index && character <= m.index + m[0].length) {
+      return `$${m[1]!}`
+    }
+  }
+  // Namespaced/dotted `@state` forms. Returns the bare prefix (`$effect`,
+  // `$lifecycle`, `$expose`, `$emit`) for dotted/colon-suffixed forms; the
   // bare HOVER_TABLE entries cover the family by design (dotted-form folding
   // per director-note §3.8).
-  // Word-boundary after the captured prefix prevents accidental matches like
-  // `$once` getting absorbed by `$on` or `$effect.on` being absorbed by `$effect`
-  // when the bare regex would otherwise be the better resolver.
-  const namespacedRe = /\$(on|bind|effect|lifecycle|expose|emit)(?:[.:][A-Za-z_$][\w$]*)?\b/g
+  const namespacedRe = /\$(effect|lifecycle|expose|emit)(?:[.:][A-Za-z_$][\w$]*)?\b/g
   while ((m = namespacedRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
     }
   }
-  // Bare-form macros. `rate-limit` includes a hyphen — the regex captures it
-  // as a single token; we still return `$rate-limit` literally.
+  // Bare-form `@state`/`@style`/`@agent` macros (still `$`-prefixed — the `$`
+  // retreat applies to @template only). `rate-limit` includes a hyphen — the
+  // regex captures it as a single token; we still return `$rate-limit`.
   const bareRe =
-    /\$(prop|computed|action|resource|effect|lifecycle|emit|if|each|html|show|watch|shared|cookie|server|meta|key|raw|once|memo|reactive|tokens|global|media|when|scope|rate-limit|describe)\b/g
+    /\$(prop|computed|action|resource|effect|lifecycle|emit|watch|shared|cookie|server|meta|reactive|tokens|global|media|when|scope|rate-limit|describe)\b/g
   while ((m = bareRe.exec(lineText)) !== null) {
     if (character >= m.index && character <= m.index + m[0].length) {
       return `$${m[1]!}`
-    }
-  }
-  const blockRe = /\{(?:#(if|each)|@(html))\b/g
-  while ((m = blockRe.exec(lineText)) !== null) {
-    if (character >= m.index && character <= m.index + m[0].length) {
-      const keyword = m[1] ?? m[2]!
-      return `$${keyword}`
     }
   }
   return null
