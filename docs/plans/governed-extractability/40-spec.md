@@ -3,8 +3,11 @@
 **Effort:** `governed-extractability` · **Track:** `da4-govern` · **Branch:** `design/govern-synth`
 **Status:** design synthesis — no implementation. Reconciles `20-design-A-declared-intent.md`,
 `21-design-B-unified-gate.md`, and `30-critique.md` under the founder-ratified constraints
-(D1–D3 below). Paired doc: `41-thesis-amendment-proposal.md` (the thesis-amendment text, for
-founder ratification — the thesis itself is base-layer and untouched).
+(D1–D3 below). Paired docs: `41-thesis-amendment-proposal.md` (the thesis-amendment text, for
+founder ratification — the thesis itself is base-layer and untouched) and
+`50-credential-lifecycle.md` (the issuance/consent/revocation half folded in by founder
+decision, so the ratifiable unit is the whole loop: declare → issue → present → verify →
+enforce).
 All file:line references are the survey/designs' citations, re-verified by the critique
 (30-critique.md §Verification note) against this worktree, 2026-07-20.
 
@@ -46,9 +49,13 @@ Stated first because every claim below is bounded by it (D2; critique §2):
    HTML withholding alone is not hard control: the framework's own hydration self-heal
    reconstructs withheld nodes from bundle-resident values (critique B-1, `hydrate.ts:186-196`,
    `materialize.ts`). The bundle/data boundary of §5 is what makes the hard tier hard.
-3. **The hard tier is as strong as the credential.** Today `verifyJwt` checks signature only —
-   no `exp`, `nbf`, or `aud` (`auth/src/server.ts:125-147`; critique §0.3). The Phase-0
-   prerequisites (§11) are not enhancements; each one open converts a hard cell to soft.
+3. **The hard tier is as strong as the credential.** On this branch `verifyJwt` checks
+   signature only — no `exp`, `nbf`, or `aud` (`auth/src/server.ts:125-147`; critique §0.3);
+   on `origin/main`, #457 (commit `11e4ae51`, 2026-07-20) landed those checks
+   (`VerifyJwtOptions`: `allowNoExpiry`/`audience`/`clockSkewSec`) — see §11 P1 and
+   `50-credential-lifecycle.md` §0.3. The Phase-0 prerequisites (§11) are not enhancements;
+   each one open converts a hard cell to soft. And a credential the framework can verify but
+   not **issue** leaves the gate correct and the loop open — issuance is in scope (§4.4).
 4. **The framework never markets above this ceiling.** A control that claims reach it does
    not have is the thesis's own named anti-pattern ("config that claims to control what it
    cannot reach… fails silently").
@@ -264,6 +271,42 @@ public surfaces) is **dropped**: the governance unit is the surface (§6.1), the
 is "governed values live in governed surfaces," and D1 already classifies
 anonymous-human-visible content as public tier.
 
+### 4.4 Issuance — where the presented credential comes from (folded in; full design: `50-credential-lifecycle.md`)
+
+§§4.1–4.3 verify a **presented** token; today aihu mints none — `@aihu/auth` is
+verify/decode/carry-only (no `crypto.subtle.sign` call exists; `createAuthRoutes` cookies a
+caller-supplied token, `auth/src/routes.ts:85-96`), and the discovery pointers
+(`authDiscoveryUrl`, `agent-service/src/types.ts:206-213`; server-card
+`authorizationServer`, `mcp-server-card.ts:121-122`) name operator-configured **external**
+endpoints the framework does not provide. Founder decision: issuance folds into GX so the
+gate's 401 leads somewhere real. Summary (design, invariants, and flagged decisions live in
+`50-credential-lifecycle.md`):
+
+- **Site-issued, site-verified; one trust root.** A new `signJwt` in `auth/src/server.ts`
+  (dual of `verifyJwt`, same HMAC secret, same #457 claim discipline) is the only mint.
+  OAuth-*shaped* (RFC 9728/8414/7009 document shapes, code+PKCE), never
+  OAuth-the-federation — no client registration, no external PKI (thesis: "deliberately
+  local").
+- **Discovery becomes real:** the auth plugin serves `/.well-known/oauth-protected-resource`
+  and `/.well-known/oauth-authorization-server`, with `scopes_supported` derived from the
+  compiled scope census (agent-meta sidecar `emit.rs:4388-4461` + `extract` scopes); the
+  gate's 401 `authDiscoveryUrl` defaults to the site's own well-known.
+- **Delegation ("steer your assistant") — Tier 1/2:** a session-authenticated human
+  approves `client_id` + scopes + TTL at `/auth/authorize` (consent surface);
+  `/auth/token` mints `{ sub: human, act: { sub: agent }, typ: 'agent', scope ⊆
+  delegator's, aud, exp, jti }` + rotating refresh. The minted scopes are exactly what the
+  `call:`/`read:{scope}` axes enforce; attenuation-only, never widening (R3 at the mint).
+- **Non-interactive:** `/auth/keys` mints listable, hashed-at-rest, instantly-revocable
+  opaque API keys resolved by a `resolvePrincipal` branch to the same `Principal` shape.
+- **Revocation, honestly:** short TTL + refresh-family kill as the floor (zero verify-path
+  cost, lag ≤ access TTL); an opt-in fail-closed `RevocationStore` consult on the verify
+  path (`verified-plugin.ts:53-56` seam) for the hard tier — cost stated: one store read
+  per governed request, per-process unless a shared store is configured. Which layer the
+  hard tier *requires* is an open founder decision (§13).
+- **Declared, like everything else:** `auth({ issue: {...} })` is the one declaration;
+  endpoints, well-knowns, 401 pointers, server-card auth block, and the consent screen's
+  scope list all derive from it. No `issue:` block → byte-identical to today.
+
 ---
 
 ## 5. The bundle/data boundary — where the hard tier becomes hard (the critique's addition)
@@ -360,9 +403,10 @@ of the mixed-mode e2e where the byte assertion inverts (governed sentinel **abse
 placeholder present), and the layout-shell prerender rendering under the same pinned
 anonymous principal as pages.
 
-Ordering: the flip stays **parked** until this design's Phases 1–5 ship (§12) — sequencing
-B, restated: crawlable-by-default lands only after crawlability is a governed, declared,
-per-surface property.
+Ordering: the flip stays **parked** until this design's Phases 1–5 ship (§12; Phase 2b —
+issuance — is not a flip gate: it completes the agent-principal loop, not crawlability) —
+sequencing B, restated: crawlable-by-default lands only after crawlability is a governed,
+declared, per-surface property.
 
 ---
 
@@ -382,6 +426,10 @@ One source of truth (thesis §Derived); no hand-maintained manifest anywhere.
 | MCP tools / agent-card skills / llms.txt capability lists | `call` × principal | `llms-txt.ts:104`; `a2a-card.ts:51`; `mcp-server-card.ts:105,:173` | hard (registry is compile-filtered; per-principal at serve time) |
 | Markdown body + capabilities section | both axes × principal | T5 `markdown-resolver.ts:110-127` | per-tier |
 | Discovery existence (below) | `read` | per-principal discovery | — |
+| OAuth well-knowns (`oauth-protected-resource`, `oauth-authorization-server`) + `scopes_supported` | `issue:` config × compiled scope census (`emit.rs:4388-4461` + `extract` scopes) | auth plugin routes (§4.4; `50-credential-lifecycle.md` §3) | issuance |
+| 401 `authDiscoveryUrl` default (tool gate + content gate) | `issue:` config | `agent-service.ts:67-70`; E3 AUTH_* ladder | issuance |
+| Consent-screen scope list + descriptions | compiled census + authored `describe:` | `/auth/authorize` surface (`50-credential-lifecycle.md` §4.1) | issuance |
+| Server-card `auth` block | `issue:` config (external `tokenUrl` override kept) | `mcp-server-card.ts:112-123` | issuance |
 
 **Existence advertising (critique #8.5, A-5 fixed):** discovery is itself an emission and
 goes through the same gate. The **anonymous** variants of llms.txt/cards/robots contain no
@@ -394,7 +442,7 @@ door without the door being on the anonymous map.
 
 ---
 
-## 9. Default posture — recommendation (the one remaining founder ratification)
+## 9. Default posture — recommendation (founder ratification required)
 
 **Recommended default: `extract: { read: 'agents', call: 'anonymous' }`.**
 
@@ -430,8 +478,11 @@ door without the door being on the anonymous map.
 recommended first authored line). This trades the "we enforce our own robots.txt" story for
 absolute zero-delta.
 
-**FLAGGED FOR RATIFICATION — this is the single remaining founder decision.** Everything
-else in this spec builds on already-ratified D1–D3.
+**FLAGGED FOR RATIFICATION — the principal remaining founder decision** on the
+declaration/enforcement half. Folding issuance in adds four more open calls — revocation
+requirement, consent-surface ownership, default TTLs, API-key form (§13;
+`50-credential-lifecycle.md` §10). Everything else in this spec builds on already-ratified
+D1–D3 and the ratified issuance fold.
 
 ---
 
@@ -479,12 +530,14 @@ until the interior-async mis-nesting is fixed (critique B-3, `ssr.ts:375-400`).
 
 | # | Prerequisite | Anchor |
 |---|---|---|
-| P1 | `verifyJwt` checks `exp`/`nbf`/`aud` + token-type separation (`typ:'agent'` / `act` claim); its false docstring corrected | `auth/src/server.ts:117-147`; critique §0.3 |
-| P2 | Revocation story: short-lived tokens + refresh at minimum; documented as part of the control ("hard until the first leak, then permanent" otherwise) | critique §2 |
+| P1 | `verifyJwt` checks `exp`/`nbf`/`aud` — **landed on `origin/main`** (#457, commit `11e4ae51`: `VerifyJwtOptions` with `allowNoExpiry`/`audience`/`clockSkewSec`, default-required `exp`). **Residual:** token-type separation (`typ:'agent'` / `act` claim) — settable only by a mint, so it moves into Phase 2b (§12); false docstring correction folded into P8 | `auth/src/server.ts:117-147`; critique §0.3; `50-credential-lifecycle.md` §0.3 |
+| P2 | Revocation story — **superseded by design**: `50-credential-lifecycle.md` §6 (TTL + refresh-family floor; opt-in fail-closed `RevocationStore` on the verify path). Open founder call: which layer the hard tier requires (§13) | critique §2; `50-credential-lifecycle.md` §6, §10 F1 |
 | P3 | Live SSR of compiled routes actually works (compiled `.aihu` exports no default renderable; `resolveComponent` returns null) — without it the SSR gate governs a near-empty channel | `prerender.ts:203-218`; `router/src/server.ts:40`; critique §0.1 |
 | P4 | Hydration rail activation: state-script emission wired in `handle` and the global-vs-per-tag contract mismatch fixed | `router/src/server.ts:50`; `ssr.ts:411-420` vs `define-element.ts:44-56`; critique §0.2 |
 | P5 | Streaming: fix `renderNodeAsync` mis-nesting or keep I2s refusal | `ssr.ts:375-400`; critique B-3 |
-| P6 | Rate limiter: fail-closed at `maxKeys` for governed routes; note per-process scope | `rate-limiter.ts:64`, `:88-94` |
+| P6 | Rate limiter: fail-closed at `maxKeys` — **landed on `origin/main`** (#457); per-process scope note stands | `rate-limiter.ts:64`, `:88-94` |
+| P7 | `/auth/sign-in` + `/auth/refresh` verify the supplied token **before** `Set-Cookie` — today any non-empty string becomes the session cookie | `auth/src/routes.ts:85-96`, `:137-148`; `50-credential-lifecycle.md` §0.1 |
+| P8 | False issuer docstrings corrected (`jwtSecret` "for signing"; "routes sign with") — no aihu route signs anything today | `auth/src/types.ts:40`; `verified-plugin.ts:25-27` |
 
 ---
 
@@ -497,8 +550,9 @@ Components carrying component-level `$scope` gain the derived fail-closed read (
 blast radius near zero today because compiled-component SSR barely exists (critique §0.1),
 and the census makes every affected surface visible. No codemod needed — no old syntax to
 rewrite. The compile errors + census are the migration tooling. Release shape: Phases 1–3
-are additive (minor); the default trainer-refusal and the flip ride the same semver-major
-train the flip already requires.
+(including 2b — issuance is strictly additive: no `issue:` block means no new endpoints and
+byte-identical verification) are additive (minor); the default trainer-refusal and the flip
+ride the same semver-major train the flip already requires.
 
 **Phased checklist (each phase green in isolation; a builder could execute in order):**
 
@@ -513,22 +567,31 @@ train the flip already requires.
    `decideEmission`); refactor `runGate` step 2 onto it; extend `needsPrincipal`
    (`agent-service.ts:213-215`) and the surface-scope meet (`:275-286`) for the `call` axis;
    bot registry unification + search tier (`content-negotiation.ts:7-23`, `robots.ts:33-107`).
-4. **Phase 3 — compliance-tier derivation.** Route-aware robots (`robots.ts:172`),
+4. **Phase 2b — issuance (the credential lifecycle, `50-credential-lifecycle.md`).**
+   `signJwt` in `auth/src/server.ts` (P1-residual `typ:'agent'`/`act` set here);
+   `/auth/authorize` consent surface + `/auth/token` (code+PKCE, refresh rotation with
+   family kill); `/auth/keys` + key-store branch in `resolvePrincipal`; `/auth/revoke` +
+   `RevocationStore` consult at the `verified-plugin.ts:53-56` seam (fail-closed); the two
+   OAuth well-knowns + derived `scopes_supported`; derived `authDiscoveryUrl` defaults;
+   `auth({ issue: {...} })` config; G6a–g invariants. Depends on Phase 2's
+   `resolvePrincipal`; nothing later depends on it (issuance-off deployments skip it), but
+   the hard tier is not *complete* for agent principals until it ships.
+5. **Phase 3 — compliance-tier derivation.** Route-aware robots (`robots.ts:172`),
    noindex/X-Robots-Tag headers, origin UA refusal in `handle`
    (`router/src/server.ts:31-60`), per-principal markdown/negotiation (T5,
    `markdown-resolver.ts:110-127`), per-principal discovery (§8), `Vary` discipline.
-5. **Phase 4 — hard tier / data layer.** E1 server-only emission (`emit.rs`, `$scope`
+6. **Phase 4 — hard tier / data layer.** E1 server-only emission (`emit.rs`, `$scope`
    precedent `:3943,:4211`); E2 governed chunks (`compiler/js/index.ts:1196-1201` seam);
    E3 gated chunk/data serving (`router/src/server.ts`); T2 placeholder + T3/T4 filters
    (`ssr.ts:248,:407`; `router/src/server.ts:52-55`); E5 client withheld-guard +
    full-subtree entitled materialization (`hydrate.ts`, `materialize.ts`); prerender pinned
    anonymous; I2/I2s.
-6. **Phase 5 — invariants.** G4a–c, G5a–c in `check:governed`; DA-f1–f3 + census in
+7. **Phase 5 — invariants.** G4a–c, G5a–c in `check:governed`; DA-f1–f3 + census in
    `check:dual-audience`; parity fixture with entitled-completeness.
-7. **Phase 6 — the DA4 flip lands** (its own spec §12 checklist, unmodified), plus the
+8. **Phase 6 — the DA4 flip lands** (its own spec §12 checklist, unmodified), plus the
    governed-fixture e2e variant and layout-prerender principal (§7). Same major release
    train as the default posture.
-8. **Docs:** the honest-ceiling statement (§1) verbatim in the security docs; "governed
+9. **Docs:** the honest-ceiling statement (§1) verbatim in the security docs; "governed
    protects server-sourced state and server-rendered content — not compiled templates, not
    literal initial values — *unless* the surface is hard-tier, where E1/E2 move those
    server-side"; shadow-for-privacy corrections (§7); static-hosting degradation (E3);
@@ -545,4 +608,9 @@ train the flip already requires.
 | `$shadow` = pure encapsulation; C480 retired | Synthesis (all three inputs agree; per ratified D3 + critique §4.2) |
 | Governance unit = surface, not interpolation; B's C1 member taint dropped | Synthesis (§6.1) |
 | Existence advertising: per-principal discovery; hard surfaces absent anonymously | Synthesis (§8; resolves critique #8.5/A-5) |
-| **Default posture `{ read: 'agents', call: 'anonymous' }`** (vs `read: 'all'`) | **OPEN — the one remaining founder ratification** (§9) |
+| Issuance folds into GX — the ratifiable unit is declare→issue→present→verify→enforce | **Ratified** (founder, 2026-07-20; design: `50-credential-lifecycle.md`) |
+| **Default posture `{ read: 'agents', call: 'anonymous' }`** (vs `read: 'all'`) | **OPEN — founder ratification** (§9) |
+| **Revocation requirement for the hard tier** (TTL-floor only vs required `RevocationStore` consult vs required shared store) | **OPEN — founder ratification** (`50-credential-lifecycle.md` §10 F1; recommended: store consult required) |
+| **Consent surface ownership** (first-class plugin-served + replaceable presentation vs scaffolded-and-app-owned) | **OPEN — founder ratification** (`50-credential-lifecycle.md` §10 F2; recommended: first-class) |
+| **Default TTLs** (access / refresh / max-delegation / API key) | **OPEN — founder ratification** (`50-credential-lifecycle.md` §10 F3) |
+| **API-key form** (opaque hashed reference vs long-lived JWT) | **OPEN — founder ratification** (`50-credential-lifecycle.md` §10 F4; recommended: opaque reference) |

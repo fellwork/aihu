@@ -4,7 +4,10 @@
 founder-ratified; this document is the amendment text offered for the founder to ratify,
 edit, or reject. If ratified, the section below is appended to the thesis's
 **"Ratified sub-decisions"** section, in the style of the existing DA4 entry.
-Full design: `docs/plans/governed-extractability/40-spec.md`.
+Full design: `docs/plans/governed-extractability/40-spec.md` (declaration + enforcement)
+and `50-credential-lifecycle.md` (issuance, consent, revocation — folded in by founder
+decision so the ratifiable unit is the whole loop: **declare → issue → present → verify →
+enforce**).
 
 ---
 
@@ -52,6 +55,29 @@ axis with an `expose:`d member, a malformed policy, or duplicate declarations on
 surface fail the build. Composition across nested surfaces is a meet — requirements union;
 narrowing composes silently, widening is impossible.
 
+**The framework issues the credentials its own gate demands.** Declaring a verified tier
+without providing a path to the credential would be a gate with no door — the loop is
+whole: declare → **issue** → present → verify → enforce. Issuance is **site-issued and
+site-verified** (the thesis's "deliberately local" attribution posture): a new mint
+(`signJwt`) signs with the same secret the gate verifies — one trust root, no external
+PKI, no client-registration federation. It is OAuth-*shaped* (the well-known discovery
+documents, authorization-code + PKCE, RFC 7009-shaped revocation) so agents can
+self-navigate from a 401 to a token, but the human remains the discovery and trust
+mechanism: a person already authenticated on the site approves **"this agent, these
+scopes, this long"** at a consent surface, and the minted token carries exactly that —
+`sub` (the delegating human), `act` (the agent), `typ: 'agent'`, attenuated scopes (always
+a subset of the delegator's own — issuance can narrow authority, never widen it), audience,
+expiry, and an audit/revocation id. Non-interactive consumers get listable, hashed-at-rest,
+instantly-revocable API keys. This **realizes Attribution Tier 1 (Delegated) and Tier 2
+(Bounded)** — previously marked "scoped work, not baseline" — as baseline capability:
+GX now ships the issuance those tiers require. Revocation is honest about statelessness:
+short expiry plus refresh-family kill is the floor; a fail-closed revocation-store consult
+on the verify path is the hard tier's option, and its cost (a store read per governed
+request) is stated, never hidden. Issuance is **declared** like everything else — one
+`issue:` config on the auth plugin fans into endpoints, discovery documents, 401 pointers,
+and the consent screen's scope vocabulary, all derived from the compiled scope census; a
+site that declares nothing issues nothing and behaves byte-identically to today.
+
 **`$shadow` is pure encapsulation.** Shadow vs light DOM carries **zero** extractability
 semantics in either direction. The DA4 light-DOM flip lands *into* this control
 (sequencing B): rendering mode derives from the DA4 classifier plus authored encapsulation
@@ -89,7 +115,13 @@ decision makes extractability governed the way invocation already is.
   path that lacks the gate refuses to render governed trees (fail-closed by construction).
 - **Attributed:** every SSR request now resolves a principal (tier-0 attribution extends
   to the render path); the verified tiers ride the same site-issued, site-verified
-  credential as tool calls — no second trust root.
+  credential as tool calls — no second trust root. And the deeper tiers stop being
+  aspirational: the delegation flow mints the Tier-1 claim ("this agent acts for
+  principal X, with scope Y") and the Tier-2 bounds ("within limit Z, time-boxed,
+  auditable") as literal token claims (`sub`/`act`/`scope`; `exp`/`jti` + the
+  member-declared rate budget), issued by the service and verified by the service. The
+  thesis's tier table row "scoped work, not baseline" is closed by this amendment: baseline
+  issuance exists, and any capability invocation can require it with one declared scope.
 
 **Scope.** Per-surface (route/component) granularity; governed values live in governed
 surfaces. Static hosting serves the anonymous variant only — verified tiers degrade to
@@ -105,12 +137,19 @@ claim.
   (2026-07-20).
 - **D2** — the honest ceiling accepted as the stated scope (2026-07-20).
 - **D3** — two independent axes, not a total-order lattice (2026-07-20).
+- **Issuance folds into GX** — the ratifiable unit is the whole loop (declare → issue →
+  present → verify → enforce), not enforcement alone (2026-07-20; design:
+  `50-credential-lifecycle.md`).
 - Charter: DA4-D1 (layouts default light), DA4-D2 (`@scope` CSS), sequencing B (this
   control ships before the flip).
 
-## Founder decision still needed before ratification
+## Founder decisions still needed before ratification
 
-**Default posture — the only open call.** Recommended (spec §9):
+Five open calls. The first concerns the declaration half; the other four arrived with the
+issuance fold (full option analysis: `50-credential-lifecycle.md` §10). None are decided
+here.
+
+**1. Default posture.** Recommended (spec §9):
 `extract: { read: 'agents', call: 'anonymous' }` — public content is crawlable by default
 (humans, search, user-directed AI fetchers; SEO intact; zero break for every legitimate
 audience), the agent axis stays opt-in (`expose:` is already default-hidden), and the
@@ -124,3 +163,27 @@ Alternative if any served-bytes delta is unacceptable: default `read: 'all'`
 
 The scaffold writes the chosen default explicitly and every build prints the per-value
 census, so the default is a declared fact in every repo, never a silent one.
+
+**2. Revocation requirement for the hard tier** (`50-credential-lifecycle.md` §6, §10 F1).
+(a) TTL floor only — short access tokens + refresh-family kill; zero verify-path cost;
+revocation lag bounded by the access TTL. (b) *Recommended:* a fail-closed
+`RevocationStore` consult on the verify path required for hard-tier surfaces — immediate
+per-instance revocation at the cost of one store read per governed request. (c) Shared
+store required — cross-instance immediacy, heaviest operational floor. The honest-ceiling
+clause "the hard tier is as strong as the credential" is why this is a ratification, not a
+default.
+
+**3. Consent-surface ownership** (§10 F2). *Recommended:* first-class plugin-served (the
+scope list, descriptions, and approve/deny contract derive from the compiled census —
+correct by construction), with app-replaceable presentation. Alternative:
+scaffolded-and-app-owned, accepting a "kept in sync" seam at the exact moment a human
+grants authority — the seam the thesis's Derived property calls a defect report.
+
+**4. Default TTLs** (§10 F3). Access token (recommended 15 min), refresh (14 d), maximum
+delegation TTL a human may grant (24 h), API-key default (non-expiring, listed +
+revocable). Policy numbers, founder's call.
+
+**5. API-key form** (§10 F4). *Recommended:* opaque server-side reference, hashed at rest
+(instantly revocable, listable, a store leak yields no usable credential). Alternative: a
+long-lived JWT under `allowNoExpiry` — stateless verification, but revocation degrades to
+the store consult and a leak is permanent until denylisted.
