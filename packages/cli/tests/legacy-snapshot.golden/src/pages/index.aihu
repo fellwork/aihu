@@ -3,7 +3,7 @@
 }
 
 @state {
-$shadow: 'none'
+$shadow: 'light'
 
 import { signal } from '@aihu/signals'
 

@@ -583,8 +583,8 @@ async function runDaD(mode: ProbeMode): Promise<{ body: string; finding: Finding
 //
 // The DA4 flip LANDED: the founder-ratified classifier
 // (`docs/architecture/thesis.md` §DA4) makes `@route`-block components pages,
-// and pages now DEFAULT to `shadowMode: 'none'` (light DOM) — the compiler
-// emits a `// @aihu:shadow-default none` marker for an unpinned page, and
+// and pages now DEFAULT to `shadowMode: 'light'` — the compiler emits a
+// `// @aihu:shadow-default light` marker for an unpinned page, and
 // W472 (the phase-1 advisory) is retired. An unpinned page is therefore no
 // longer future-behavior-changing; this scan remains an informational census
 // of pages riding the implicit default (vs pinning it explicitly). Promoting
@@ -1053,7 +1053,7 @@ async function runSelfTest(): Promise<void> {
 
   // DA-e detector, both directions. Informational today, but a detector that
   // cannot discriminate would report a meaningless count — same bar as the
-  // enforced rules. `$shadow: 'none'` and `$shadow: 'open'` must BOTH count as
+  // enforced rules. `$shadow: 'light'` and `$shadow: 'shadow'` must BOTH count as
   // pinned (the macro always wins in the ratified classifier), and a leaf with
   // no `@route` must never count.
   cases.push({
@@ -1072,7 +1072,7 @@ async function runSelfTest(): Promise<void> {
       {
         rel: 'fixture/pinned.aihu',
         source:
-          "@state {\n  $shadow: 'open'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n",
+          "@state {\n  $shadow: 'shadow'\n}\n@template {\n  <div>hi</div>\n}\n@route {\n  path: /\n}\n",
       },
       { rel: 'fixture/leaf.aihu', source: '@template {\n  <button>ok</button>\n}\n' },
     ]).length,

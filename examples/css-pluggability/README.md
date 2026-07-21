@@ -32,14 +32,14 @@ stylesheets from reaching your components.
 
 For Tailwind / UnoCSS / Pico to work, components mount in **light DOM**
 instead, and the framework's stylesheet is loaded once globally. This example
-uses `aihuCompilerPlugin({ shadowMode: 'none' })` (or in this case the
-direct `_injectShadowMode(code, 'none')` post-process — see `build.ts`) to
-register every component with `defineElement(tag, ctor, { shadowMode: 'none' })`.
+uses `aihuCompilerPlugin({ shadowMode: 'light' })` (or in this case the
+direct `_injectShadowMode(code, 'light')` post-process — see `build.ts`) to
+register every component with `defineElement(tag, ctor, { shadowMode: 'light' })`.
 
 The pipeline:
 
 1. **Compile** each `.aihu` file with `@aihu/compiler`'s `transform()`.
-2. **Post-process** the compiled JS with `_injectShadowMode(code, 'none')`
+2. **Post-process** the compiled JS with `_injectShadowMode(code, 'light')`
    so emitted `defineElement` calls register components in light DOM.
 3. **Bundle** the JS with Bun's bundler.
 4. **Compile Tailwind** with `bunx tailwindcss`, scanning the `.aihu`
@@ -54,7 +54,7 @@ Tailwind is the most-used CSS framework on npm (>11M weekly downloads) and
 its integration exercises every surface aihu exposes for CSS pluggability:
 
 - A build-time CSS pipeline.
-- The runtime light-DOM opt-out (`shadowMode: 'none'`).
+- The runtime light-DOM opt-out (`shadowMode: 'light'`).
 - A global stylesheet pattern.
 - The trade-off between style isolation and utility-class ergonomics.
 
@@ -125,7 +125,7 @@ stylesheet and write semantic markup.
    }
    ```
 
-5. Keep `shadowMode: 'none'` so Pico's global rules reach the components.
+5. Keep `shadowMode: 'light'` so Pico's global rules reach the components.
 
 Pico is the **lowest-friction** integration — pick this if you want a polished
 look with zero per-component styling work.
@@ -139,7 +139,7 @@ scoped stylesheet via `@style { }`.
 
 1. Drop `tailwindcss` from devDependencies.
 2. Drop the Tailwind CLI step from `build.ts`.
-3. Drop the `_injectShadowMode(..., 'none')` post-process step (so components
+3. Drop the `_injectShadowMode(..., 'light')` post-process step (so components
    default back to shadow DOM).
 4. Drop the `<link rel="stylesheet">` from `index.html`.
 5. Add an `@style { }` block to each component:

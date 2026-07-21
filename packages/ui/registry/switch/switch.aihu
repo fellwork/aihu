@@ -5,7 +5,7 @@
   EXTENDS the headless `AihuSwitchRoot` primitive (role=switch, binary
   aria-checked, Space/Enter toggle, form participation via a sibling hidden
   input) via the compiler's `$extends:` macro, so the host inherits all
-  behavior. The host renders in LIGHT DOM (`$shadow: 'none'`) so the hidden
+  behavior. The host renders in LIGHT DOM (`$shadow: 'light'`) so the hidden
   input joins the outer <form> and the recipe's tag/class-scoped CSS reaches
   the global cascade.
 
@@ -19,7 +19,7 @@
   import { AihuSwitchRoot } from '@aihu/primitives/switch'
 
   $extends: AihuSwitchRoot
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

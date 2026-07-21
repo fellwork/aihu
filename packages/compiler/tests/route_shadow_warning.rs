@@ -1,8 +1,8 @@
 //! DA4 (#437) — the light-DOM default flip: an `@route` (page-level) unit
 //! with no `$shadow` pin emits the DISTINCT default-marker token
-//! `// @aihu:shadow-default none`, which the Vite plugin ranks BELOW an
+//! `// @aihu:shadow-default light`, which the Vite plugin ranks BELOW an
 //! explicit plugin-global `shadowMode` config (pin > plugin-global >
-//! page/layout default 'none' > leaf default 'open').
+//! page/layout default 'light' > leaf default 'shadow').
 //!
 //! The classifier precedence triple (thesis §DA4, founder-ratified) survives
 //! W472's retirement — it now selects the EMISSION instead of a warning:
@@ -11,7 +11,7 @@
 //!   (b) `@route` block, no `$shadow` → the default marker (pages are light
 //!       DOM by default so non-JS crawlers can read server-rendered content).
 //!   (c) no `@route`, no `$shadow` → leaf component → NO marker of either
-//!       kind; the runtime's `options?.shadowMode ?? 'open'` keeps shadow DOM.
+//!       kind; the runtime's `options?.shadowMode ?? 'shadow'` keeps shadow DOM.
 //!
 //! W472 itself (the phase-1 advisory that predicted this default) is retired
 //! outright: the behavior it warned about is now the behavior, and there are
@@ -46,8 +46,8 @@ const PAGE_NO_SHADOW: &str = r#"@state {
 }
 "#;
 
-const PAGE_SHADOW_OPEN: &str = r#"@state {
-  $shadow: 'open'
+const PAGE_SHADOW_SHADOW: &str = r#"@state {
+  $shadow: 'shadow'
 }
 
 @template {
@@ -60,8 +60,8 @@ const PAGE_SHADOW_OPEN: &str = r#"@state {
 }
 "#;
 
-const PAGE_SHADOW_NONE: &str = r#"@state {
-  $shadow: 'none'
+const PAGE_SHADOW_LIGHT: &str = r#"@state {
+  $shadow: 'light'
 }
 
 @template {
@@ -87,21 +87,21 @@ const LEAF_NO_SHADOW: &str = r#"@state {
 
 /// (b) The flip itself: an `@route` unit with no `$shadow` pin emits the
 /// leading default-marker token — the exact token the Vite plugin's
-/// `perFileShadowDefault` regex (`^// @aihu:shadow-default (open|closed|none)`)
+/// `perFileShadowDefault` regex (`^// @aihu:shadow-default (light|shadow)`)
 /// consumes at the page/layout-default tier of the precedence chain.
 #[test]
 fn route_without_shadow_emits_default_marker() {
     let source = parse_page(PAGE_NO_SHADOW);
     let js = emit_js(&source);
     assert!(
-        js.starts_with("// @aihu:shadow-default none\n"),
+        js.starts_with("// @aihu:shadow-default light\n"),
         "a defaulted @route page must lead with the default-marker token; got:\n{}",
         &js[..js.len().min(120)]
     );
 }
 
 /// (b, distinctness) The default marker must NOT be readable as the pin
-/// marker: the plugin's pin regex is `^// @aihu:shadow (open|closed|none)`
+/// marker: the plugin's pin regex is `^// @aihu:shadow (light|shadow)`
 /// (a SPACE after `shadow`), and the pin tier outranks the plugin-global
 /// config while the default tier ranks below it. A default marker that
 /// matched the pin shape would silently promote the implicit default over an
@@ -111,7 +111,7 @@ fn route_without_shadow_emits_default_marker() {
 fn default_marker_is_not_the_pin_marker() {
     let source = parse_page(PAGE_NO_SHADOW);
     let js = emit_js(&source);
-    for mode in ["open", "closed", "none"] {
+    for mode in ["light", "shadow"] {
         assert!(
             !js.contains(&format!("// @aihu:shadow {mode}")),
             "a defaulted page must not emit the PIN marker shape (`// @aihu:shadow {mode}`)"
@@ -123,7 +123,7 @@ fn default_marker_is_not_the_pin_marker() {
 /// leading line and never the default marker — the pin suppresses it.
 #[test]
 fn route_with_shadow_macro_emits_pin_marker_only() {
-    for (mode, src) in [("open", PAGE_SHADOW_OPEN), ("none", PAGE_SHADOW_NONE)] {
+    for (mode, src) in [("shadow", PAGE_SHADOW_SHADOW), ("light", PAGE_SHADOW_LIGHT)] {
         let source = parse_page(src);
         let js = emit_js(&source);
         assert!(
@@ -140,7 +140,7 @@ fn route_with_shadow_macro_emits_pin_marker_only() {
 
 /// (c) A leaf (no `@route`, no `$shadow`) emits NO shadow marker of either
 /// kind: the plugin injects nothing, and the runtime's
-/// `options?.shadowMode ?? 'open'` (define-element.ts) keeps leaves in
+/// `options?.shadowMode ?? 'shadow'` (define-element.ts) keeps leaves in
 /// shadow DOM — the flip is pages and layouts only.
 #[test]
 fn leaf_without_shadow_emits_no_marker() {

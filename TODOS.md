@@ -208,7 +208,7 @@
 - 4. **A `hydrateFragment(node, host, pathPrefix, parentScope)` entry point.** Today `pathBase` is hardcoded and there is no way to hydrate against an EXISTING scope, so a fragment can't splice into its parent's disposal chain.
 - 5. **The endpoint layer.** No server-function / RPC / action concept exists anywhere in `router` or `server` (grepped: zero hits). Registry, stable IDs, protocol, and client-signal serialization all need building.
 - **Reusable as-is:** fragment-mode `renderToString` (omit `head`), the hydration walker's wire-don't-recreate algorithm, `ChildScope` + `_teardownChildScope` + `_mc` as the region swap primitive, `effect()` for invalidation, `defineApiRoute` as endpoint substrate.
-- **Recommendation:** restrict v1 shards to `shadowMode: 'none'` — those route CSS through `virtual:aihu-utility/<hash>.css` and sidestep the constructable-stylesheet problem entirely, since a server fragment cannot carry `adoptedStyleSheets`.
+- **Recommendation:** restrict v1 shards to `shadowMode: 'light'` — those route CSS through `virtual:aihu-utility/<hash>.css` and sidestep the constructable-stylesheet problem entirely, since a server fragment cannot carry `adoptedStyleSheets`.
 
 ### MCP tools still ship without parameter schemas
 - **What:** `buildToolDefinitions` emits `inputSchema: { properties: { args: { type: 'array' } } }` for every action — no arity, no parameter names, no types. `ActionSchema` carries `returns` and (now) `describe`, but no parameter information, so there is nothing to emit even in principle.

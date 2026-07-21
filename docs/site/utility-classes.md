@@ -9,7 +9,7 @@
 ## At a glance
 
 - Compiled by `@aihu/css-engine` from `.aihu` SFCs.
-- Output is scoped CSS (shadow DOM by default, light DOM via `shadowMode: 'none'`).
+- Output is scoped CSS (shadow DOM by default, light DOM via `shadowMode: 'light'`).
 - Unknown classes are silently dropped — there is no "JIT" and no global utility sheet.
 - Conflict resolution (`cn()`) is last-wins per property group.
 

@@ -96,9 +96,9 @@ describe('defineElement — Task 21 spec tests', () => {
     expect((caught as RuntimeError).code).toBe('SCR-R0001')
   })
 
-  it("shadowMode: 'none' skips shadow root attachment (#8)", () => {
+  it("shadowMode: 'light' skips shadow root attachment (#8)", () => {
     class T8 extends HTMLElement {}
-    defineElement('x-t8', T8, { shadowMode: 'none' })
+    defineElement('x-t8', T8, { shadowMode: 'light' })
     const el = document.createElement('x-t8')
     document.body.appendChild(el)
     expect(el.shadowRoot).toBeNull()
@@ -121,13 +121,22 @@ describe('defineElement — Task 21 spec tests', () => {
     b.remove()
   })
 
-  it("shadowMode: 'closed' does not throw at registration time (#10 smoke)", () => {
-    class T10 extends HTMLElement {}
-    expect(() => defineElement('x-t10', T10, { shadowMode: 'closed' })).not.toThrow()
-    const el = document.createElement('x-t10')
-    document.body.appendChild(el)
-    // Closed mode: this.shadowRoot is null externally (browser behavior).
-    expect(el.shadowRoot).toBeNull()
-    el.remove()
+  it("binary mode detection is unambiguous: 'shadow' → open non-null root, 'light' → null (#10)", () => {
+    // DA4 (#437): `'closed'` no longer exists — a closed root nulls
+    // `this.shadowRoot`, making it indistinguishable from light DOM (the very
+    // ambiguity the binary `'light' | 'shadow'` vocabulary removes).
+    class T10a extends HTMLElement {}
+    class T10b extends HTMLElement {}
+    defineElement('x-t10a', T10a, { shadowMode: 'shadow' })
+    defineElement('x-t10b', T10b, { shadowMode: 'light' })
+    const shadow = document.createElement('x-t10a')
+    const light = document.createElement('x-t10b')
+    document.body.appendChild(shadow)
+    document.body.appendChild(light)
+    expect(shadow.shadowRoot).toBeInstanceOf(ShadowRoot)
+    expect(shadow.shadowRoot?.mode).toBe('open')
+    expect(light.shadowRoot).toBeNull()
+    shadow.remove()
+    light.remove()
   })
 })

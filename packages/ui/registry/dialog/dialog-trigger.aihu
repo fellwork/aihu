@@ -3,7 +3,7 @@
 
   `<aihu-dialog-trigger>` EXTENDS the headless AihuDialogTrigger primitive
   (toggles the dialog, wires `aria-haspopup`/`aria-expanded`/`aria-controls`)
-  via the compiler's `$extends:` macro. Light DOM (`$shadow: 'none'`) so the
+  via the compiler's `$extends:` macro. Light DOM (`$shadow: 'light'`) so the
   context injection reaches the ancestor root. The trigger is usually the
   consumer's own button — styling is intentionally minimal.
 
@@ -14,7 +14,7 @@
   import { AihuDialogTrigger } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogTrigger
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

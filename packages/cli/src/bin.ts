@@ -63,7 +63,7 @@ function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
  *
  *   --css <engine|none>     include @aihu/css-engine OOTB (default: none)
  *   --css-engine            boolean alias for `--css engine`
- *   --shadow <open|closed|none>   shadow mode when css-engine is on (default: open)
+ *   --shadow <light|shadow>       shadow mode when css-engine is on (default: shadow)
  *
  * `--shadow` is only meaningful with css-engine; passed without it, we warn and
  * ignore so the semantics stay clear. Invalid values fall back to the default
@@ -83,16 +83,16 @@ function parseCssOptions(args: ReadonlyArray<string>): {
   }
 
   const shadowRaw = extractFlag(args, 'shadow')
-  let shadowMode: ShadowChoice = 'open'
-  if (shadowRaw === 'open' || shadowRaw === 'closed' || shadowRaw === 'none') {
+  let shadowMode: ShadowChoice = 'shadow'
+  if (shadowRaw === 'light' || shadowRaw === 'shadow') {
     shadowMode = shadowRaw
   } else if (shadowRaw !== undefined) {
-    process.stderr.write(`  ! Unknown --shadow value '${shadowRaw}'; using 'open'.\n`)
+    process.stderr.write(`  ! Unknown --shadow value '${shadowRaw}'; using 'shadow'.\n`)
   }
 
   if (css !== 'engine' && shadowRaw !== undefined) {
     process.stderr.write('  ! --shadow has no effect without --css engine; ignoring.\n')
-    shadowMode = 'open'
+    shadowMode = 'shadow'
   }
 
   return { css, shadowMode }
@@ -104,7 +104,7 @@ function usage(): never {
       'Usage:',
       '  aihu app <name> [--template=<id>]  Scaffold a new application (default: client-only SPA; e.g. --template=cf-team for the Cloudflare stack)',
       '      [--css engine|none]            Include @aihu/css-engine OOTB (utility classes); default none',
-      '      [--shadow open|closed|none]    Shadow mode when --css engine is set; default open (scoped shadow fold)',
+      '      [--shadow light|shadow]        Shadow mode when --css engine is set; default shadow (scoped shadow fold)',
       '  aihu page <route>       Scaffold a page file (e.g. /about)',
       '  aihu component <name>   Scaffold a component file',
       '  aihu plugin <name>      Scaffold a plugin package',
@@ -517,7 +517,7 @@ async function main(): Promise<void> {
       }
       // Legacy scaffold path — honor the OOTB css-engine flags. With no
       // css flags this stays byte-identical to the historical output
-      // (css defaults to 'none', shadow to 'open'); the legacy-snapshot
+      // (css defaults to 'none', shadow to 'shadow'); the legacy-snapshot
       // golden gates that.
       const { css, shadowMode } = parseCssOptions(rest)
       result = scaffoldApp(arg, undefined, { css, shadowMode })

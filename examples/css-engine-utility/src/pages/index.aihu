@@ -12,7 +12,7 @@
       <code>px-4</code>, <code>py-6</code>, <code>text-lg</code>,
       <code>font-bold</code>, <code>text-sm</code>) are compiled by
       <code>@aihu/css-engine</code> via the compiler hook wired into
-      <code>viteAihuPlugin</code>. Because <code>css.shadowMode: 'none'</code>
+      <code>viteAihuPlugin</code>. Because <code>css.shadowMode: 'light'</code>
       is set, the generated CSS lands in the document cascade.
     </p>
 

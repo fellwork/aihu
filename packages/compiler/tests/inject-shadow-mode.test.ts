@@ -2,7 +2,7 @@
  * Unit tests for `_injectShadowMode` (T4-E3 capability addition).
  *
  * Verifies the Vite-plugin post-process step that lets a project opt
- * its components out of shadow DOM (`shadowMode: 'none'`), required for
+ * its components out of shadow DOM (`shadowMode: 'light'`), required for
  * global utility-class CSS frameworks (Tailwind, UnoCSS, Pico).
  *
  * Tests hand-craft the compiled module shape so they do not require the
@@ -31,30 +31,24 @@ defineElement('x-counter', defineComponent((ctx) => {
 `
 
 describe('_injectShadowMode', () => {
-  it("injects { shadowMode: 'none' } as third arg to defineElement", () => {
-    const out = _injectShadowMode(COMPILED_STATIC, 'none')
+  it("injects { shadowMode: 'light' } as third arg to defineElement", () => {
+    const out = _injectShadowMode(COMPILED_STATIC, 'light')
     expect(out).toContain("defineElement('x-msg', defineComponent((_ctx) => {")
-    expect(out).toContain("}), { shadowMode: 'none' })")
+    expect(out).toContain("}), { shadowMode: 'light' })")
   })
 
-  it("injects { shadowMode: 'closed' } correctly", () => {
-    const out = _injectShadowMode(COMPILED_INTERACTIVE, 'closed')
-    expect(out).toContain("{ shadowMode: 'closed' })")
-    expect(out).not.toContain("'open'")
-  })
-
-  it("'open' is still injected explicitly when requested", () => {
-    const out = _injectShadowMode(COMPILED_STATIC, 'open')
-    expect(out).toContain("{ shadowMode: 'open' })")
+  it("'shadow' is still injected explicitly when requested", () => {
+    const out = _injectShadowMode(COMPILED_STATIC, 'shadow')
+    expect(out).toContain("{ shadowMode: 'shadow' })")
   })
 
   it('leaves code untouched when no defineElement(...) call is found', () => {
     const noDefine = `import { branch } from '@aihu/arbor'\nexport const tree = branch('div', undefined, [])\n`
-    expect(_injectShadowMode(noDefine, 'none')).toBe(noDefine)
+    expect(_injectShadowMode(noDefine, 'light')).toBe(noDefine)
   })
 
   it('preserves the original setup function body verbatim', () => {
-    const out = _injectShadowMode(COMPILED_INTERACTIVE, 'none')
+    const out = _injectShadowMode(COMPILED_INTERACTIVE, 'light')
     expect(out).toContain('const [count, setCount] = signal(0)')
     expect(out).toContain("branch('span'")
   })

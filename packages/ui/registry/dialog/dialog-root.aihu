@@ -4,7 +4,7 @@
   The state owner of the modal-dialog machine. `<aihu-dialog-root>` EXTENDS the
   headless AihuDialogRoot primitive (owns `open`/`modal`, provides the dialog
   context to descendant pieces, reflects `data-state`) via the compiler's
-  `$extends:` macro. Renders in LIGHT DOM (`$shadow: 'none'`) so the pieces it
+  `$extends:` macro. Renders in LIGHT DOM (`$shadow: 'light'`) so the pieces it
   wraps inject the context through the real DOM tree, and `display: contents`
   keeps the root visually transparent.
 
@@ -15,7 +15,7 @@
   import { AihuDialogRoot } from '@aihu/primitives/dialog'
 
   $extends: AihuDialogRoot
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

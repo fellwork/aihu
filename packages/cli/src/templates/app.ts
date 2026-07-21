@@ -6,7 +6,7 @@
 export const APP_INDEX_SCRIBE = `@state {
   // DA4 (#437): pages default to light DOM so crawlers that do not execute
   // JS can read server-rendered content. The pin makes the default explicit.
-  $shadow: 'none'
+  $shadow: 'light'
   $prop: {
     name: { default: 'world', type: "string" }
   }

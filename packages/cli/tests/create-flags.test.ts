@@ -16,7 +16,7 @@ describe('resolveCreateOptions — documented defaults', () => {
       template: 'minimal',
       pm: 'pnpm',
       css: 'none',
-      shadowMode: 'open',
+      shadowMode: 'shadow',
       initGit: true,
     })
   })
@@ -26,7 +26,7 @@ describe('resolveCreateOptions — documented defaults', () => {
       template: 'full',
       pm: 'npm',
       css: 'engine',
-      shadow: 'closed',
+      shadow: 'light',
       git: false,
       detected: 'bun',
     })
@@ -34,14 +34,14 @@ describe('resolveCreateOptions — documented defaults', () => {
       template: 'full',
       pm: 'npm',
       css: 'engine',
-      shadowMode: 'closed',
+      shadowMode: 'light',
       initGit: false,
     })
   })
 
-  it('ignores shadow when css is none (forces open)', () => {
-    const r = resolveCreateOptions({ css: 'none', shadow: 'closed', detected: 'bun' })
-    expect(r.shadowMode).toBe('open')
+  it('ignores shadow when css is none (forces shadow)', () => {
+    const r = resolveCreateOptions({ css: 'none', shadow: 'light', detected: 'bun' })
+    expect(r.shadowMode).toBe('shadow')
   })
 
   it('git defaults on; --no-git (git:false) turns it off', () => {

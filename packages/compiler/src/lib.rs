@@ -161,10 +161,12 @@ pub fn compile_full_with_options<'a>(
     validate_data_composition(source)?;
 
     // DA4 (#437) — the light-DOM default flip LANDED: pages (`@route` block,
-    // no `$shadow` pin) now default to shadowMode 'none' via the
-    // `// @aihu:shadow-default none` marker emitted in codegen (emit.rs).
+    // no `$shadow` pin) now default to shadowMode 'light' via the
+    // `// @aihu:shadow-default light` marker emitted in codegen (emit.rs).
     // The phase-1 advisory W472 that warned about this flip is retired — the
-    // behavior it predicted is now the behavior.
+    // behavior it predicted is now the behavior. The value set is BINARY
+    // (`'light' | 'shadow'`; 'closed' never worked — it nulls
+    // `this.shadowRoot` and misdetects as light DOM).
 
     Ok(CompileUnit {
         source: source.clone(),
@@ -357,11 +359,11 @@ pub fn extract_policy_warnings(source: &AihuSource) -> Vec<CompileError> {
 
 // DA4 (#437) — `route_shadow_flip_warning` (W472) lived here through the
 // phase-1 warning release and was retired when the flip landed: pages now
-// GET the light-DOM default (emit.rs prepends `// @aihu:shadow-default none`
+// GET the light-DOM default (emit.rs prepends `// @aihu:shadow-default light`
 // for an unpinned `@route` unit) instead of being warned about it. The
 // page-vs-leaf classifier it encoded (`$shadow` pin wins; `@route` block =
-// page → 'none'; otherwise leaf → 'open') moved into the emission itself and
-// is pinned by `tests/route_shadow_warning.rs`.
+// page → 'light'; otherwise leaf → 'shadow') moved into the emission itself
+// and is pinned by `tests/route_shadow_warning.rs`.
 
 /// O1a (tag naming): walk the template AST and reject any component tag that
 /// cannot normalize to a valid custom-element name (C450). The traversal shape

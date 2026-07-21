@@ -63,22 +63,25 @@ export interface AihuCompilerPluginOptions {
   islands?: boolean
 
   /**
-   * Project-wide shadow-DOM mode applied to every `.aihu` SFC compiled
+   * Project-wide rendering mode applied to every `.aihu` SFC compiled
    * by this plugin instance. When set, the plugin post-processes the
    * compiled JS to inject `, { shadowMode: '<mode>' }` as the third arg
    * to the emitted `defineElement(tag, defineComponent(...))` call.
    *
-   * - `'open'`   — default browser behaviour (shadow root, externally readable).
-   * - `'closed'` — shadow root, externally hidden.
-   * - `'none'`   — **no shadow root.** The component mounts into its own
-   *               element. Required for global utility-class CSS frameworks
-   *               like Tailwind, UnoCSS, Pico that rely on the cascade.
+   * BINARY vocabulary (DA4 #437):
+   * - `'shadow'` — shadow DOM (`attachShadow({ mode: 'open' })` internally;
+   *               open is the only browser mode aihu's composition/hydration
+   *               can use). `this.shadowRoot` is the non-null root.
+   * - `'light'`  — **no shadow root.** The component mounts into its own
+   *               element (`this.shadowRoot === null`). Required for global
+   *               utility-class CSS frameworks like Tailwind, UnoCSS, Pico
+   *               that rely on the cascade.
    *
-   * Per-component override is not yet supported via SFC syntax (post-v1).
-   * For per-component control today, hand-author the component with
-   * `defineElement(tag, Ctor, { shadowMode: '...' })`.
+   * Per-file override: the `$shadow: 'light' | 'shadow'` macro outranks this
+   * config. Unset, pages/layouts default to `'light'` and leaves to
+   * `'shadow'`.
    */
-  shadowMode?: 'open' | 'closed' | 'none'
+  shadowMode?: 'light' | 'shadow'
 
   /**
    * Build target threaded to the compiler binary (`--target`). Defaults to the
@@ -114,7 +117,7 @@ export interface AihuCompilerPluginOptions {
  *
  * @internal
  */
-export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'): string {
+export function _injectShadowMode(code: string, mode: 'light' | 'shadow'): string {
   // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
   // The compiler always emits this exact two-paren close as the final tokens of
   // the defineElement call — we anchor on it and append the options object.
@@ -125,7 +128,7 @@ export function _injectShadowMode(code: string, mode: 'open' | 'closed' | 'none'
 }
 
 /**
- * Light-DOM (`shadowMode:'none'`) recipes: redirect the authored `@style`
+ * Light-DOM (`shadowMode:'light'`) recipes: redirect the authored `@style`
  * block's per-instance `host.adoptedStyleSheets = [__style__]` assignment to
  * `document.adoptedStyleSheets` so the recipe's class-scoped CSS reaches the
  * global cascade (a light-DOM host has no shadow root, making the original
@@ -712,7 +715,7 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
 }
 
 /**
- * Virtual-module prefix used by the `shadowMode === 'none'` branch to route
+ * Virtual-module prefix used by the `shadowMode === 'light'` branch to route
  * per-SFC utility CSS through Vite's built-in CSS pipeline. The plugin
  * (`aihuCompilerPlugin`) implements `resolveId` + `load` for ids matching
  * `VIRTUAL_UTILITY_PREFIX + '<hash>.css'`, returning the stored CSS body so
@@ -747,7 +750,7 @@ export function _hashIdForUtilityCss(id: string): string {
 }
 
 /**
- * Bug 6 — `shadowMode === 'none'` branch.
+ * Bug 6 — `shadowMode === 'light'` branch.
  *
  * Routes utility CSS to Vite's CSS pipeline (which folds CSS imports into the
  * bundled `dist/assets/*.css` asset) instead of to `host.adoptedStyleSheets`
@@ -759,7 +762,7 @@ export function _hashIdForUtilityCss(id: string): string {
  * stylesheet that would be silently dropped by `HTMLElement`'s setter.
  *
  * Authored `@style` blocks still emit through the Rust codegen's `<style>`
- * node and are unaffected. (If a component opts into `shadowMode: 'none'` and
+ * node and are unaffected. (If a component opts into `shadowMode: 'light'` and
  * authors an `@style` block, the codegen still wires it through the
  * non-shadow path — that is the runtime's contract, not this hook's.)
  *
@@ -1201,7 +1204,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
 
   // Bug 6 — per-instance store of virtual utility-CSS modules. Keyed by the
   // full virtual id (NUL-prefixed). Populated by the transform hook when
-  // `shadowMode === 'none'` produces utility CSS; drained by the `load` hook
+  // `shadowMode === 'light'` produces utility CSS; drained by the `load` hook
   // when Vite's CSS pipeline asks for the module body. Lives on the plugin
   // instance so multiple `aihuCompilerPlugin()` calls in the same build don't
   // alias each other's css.
@@ -1261,24 +1264,23 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // §9.4 per-file shadow override: the Rust `$shadow` macro emits a leading
         // `// @aihu:shadow <mode>` marker; it wins over the plugin's global
         // shadowMode and drives BOTH _injectShadowMode and the css fold branch.
-        const perFileShadow = /^\/\/ @aihu:shadow (open|closed|none)\b/m.exec(result.code)?.[1] as
-          | 'open'
-          | 'closed'
-          | 'none'
+        const perFileShadow = /^\/\/ @aihu:shadow (light|shadow)\b/m.exec(result.code)?.[1] as
+          | 'light'
+          | 'shadow'
           | undefined
         // DA4 (#437, the ratified flip) — the IMPLICIT page default: for an
         // `@route` unit with no `$shadow` pin the compiler emits the DISTINCT
-        // default-marker token `// @aihu:shadow-default none`. Layout SFCs
-        // (no `@route` block, so no compiler marker) get the same 'none'
+        // default-marker token `// @aihu:shadow-default light`. Layout SFCs
+        // (no `@route` block, so no compiler marker) get the same 'light'
         // default from `_isLayoutFile`. Precedence, ratified: `$shadow` pin >
-        // plugin-global `shadowMode` config > page/layout default 'none' >
-        // leaf default 'open' (the runtime's `?? 'open'` when nothing is
+        // plugin-global `shadowMode` config > page/layout default 'light' >
+        // leaf default 'shadow' (the runtime's `?? 'shadow'` when nothing is
         // injected) — so an explicit plugin-global config still outranks the
         // implicit default, which is why this is not the pin marker.
-        const perFileShadowDefault = /^\/\/ @aihu:shadow-default (open|closed|none)\b/m.exec(
+        const perFileShadowDefault = /^\/\/ @aihu:shadow-default (light|shadow)\b/m.exec(
           result.code,
-        )?.[1] as 'open' | 'closed' | 'none' | undefined
-        const impliedShadowDefault = perFileShadowDefault ?? (isLayout ? 'none' : undefined)
+        )?.[1] as 'light' | 'shadow' | undefined
+        const impliedShadowDefault = perFileShadowDefault ?? (isLayout ? 'light' : undefined)
         const effectiveShadow = perFileShadow ?? shadowMode ?? impliedShadowDefault
         let compiled =
           effectiveShadow != null ? _injectShadowMode(result.code, effectiveShadow) : result.code
@@ -1287,7 +1289,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // shadow root so that setter is a no-op. Redirect the module-level
         // sheet to `document.adoptedStyleSheets` (idempotent) so authored recipe
         // CSS reaches the global cascade alongside the css-engine utility CSS.
-        if (effectiveShadow === 'none') compiled = _globalizeAuthoredStyle(compiled)
+        if (effectiveShadow === 'light') compiled = _globalizeAuthoredStyle(compiled)
         if (isLayout) compiled = _passivizeOutlet(compiled)
 
         // ── css-engine hook (optional, lazy, no circular dep) ──────────────
@@ -1301,7 +1303,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // with zero dependency cycle.
         const utilityCss = await _maybeCompileUtilityCss(code, rawId)
         if (utilityCss) {
-          if (effectiveShadow === 'none') {
+          if (effectiveShadow === 'light') {
             // Bug 6 — no shadow root → `host.adoptedStyleSheets` is a no-op.
             // Route utility CSS through Vite's CSS pipeline via a virtual
             // `.css` import so it lands in `dist/assets/*.css` and reaches the
@@ -1313,7 +1315,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
               compiled = folded.code
             }
           } else {
-            // `shadowMode: 'open' | 'closed'` (default): fold into the
+            // `shadowMode: 'shadow'`: fold into the
             // per-component `CSSStyleSheet` adopted by the shadow root.
             compiled = _foldCssEngineStyles(compiled, utilityCss)
           }
@@ -1337,14 +1339,14 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         //
         // DA4 (#437): like `hasBase`, a light-DOM component cannot take the
         // static-island shim — the shim inlines `attachShadow({ mode: 'open' })`
-        // and cannot honor `shadowMode: 'none'` (and its tail rewrite does not
+        // and cannot honor `shadowMode: 'light'` (and its tail rewrite does not
         // match the injected options argument). Keep the full runtime path so
-        // the injected `{ shadowMode: 'none' }` reaches defineElement.
+        // the injected `{ shadowMode: 'light' }` reaches defineElement.
         if (
           islandsEnabled &&
           elementTag !== null &&
           !hasBase &&
-          effectiveShadow !== 'none' &&
+          effectiveShadow !== 'light' &&
           _classifyIsland(compiled) === 'static'
         ) {
           out = _buildStaticIsland(compiled, elementTag)

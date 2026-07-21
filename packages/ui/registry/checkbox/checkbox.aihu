@@ -5,7 +5,7 @@
   EXTENDS the headless `AihuCheckboxRoot` primitive (role=checkbox, tri-state
   aria-checked, Space toggle, form participation via a sibling hidden input) via
   the compiler's `$extends:` macro, so the host inherits all behavior. The host
-  renders in LIGHT DOM (`$shadow: 'none'`) so the hidden input joins the outer
+  renders in LIGHT DOM (`$shadow: 'light'`) so the hidden input joins the outer
   <form> and the recipe's class-scoped CSS reaches the global cascade.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -18,7 +18,7 @@
   import { AihuCheckboxRoot } from '@aihu/primitives/checkbox'
 
   $extends: AihuCheckboxRoot
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

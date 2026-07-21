@@ -3,9 +3,9 @@ import { aihuCompilerPlugin } from '@aihu/compiler'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // shadowMode: 'none' so the headless primitives' DOM-walk context (root ↔
+  // shadowMode: 'light' so the headless primitives' DOM-walk context (root ↔
   // pieces) and our @style rules share a single light-DOM tree.
-  plugins: [aihuCompilerPlugin({ shadowMode: 'none' })],
+  plugins: [aihuCompilerPlugin({ shadowMode: 'light' })],
   resolve: {
     alias: {
       '@shared': resolve(__dirname, '../_shared'),

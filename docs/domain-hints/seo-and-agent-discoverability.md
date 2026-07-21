@@ -324,7 +324,7 @@ Recorded so the reasoning isn't re-derived. **These are conclusions, not ratifie
       ⚠️ **Do not conflate this with llms.txt** — that manifest has ~zero verified adoption
       (§5.1). This mitigation rides page fetches the crawler is *already making*, which is
       why it survives the llms.txt finding intact.
-   3. Light-DOM rendering for primary content (`shadowMode: 'none'` for page-level
+   3. Light-DOM rendering for primary content (`shadowMode: 'light'` for page-level
       components) — the structural fix; also simplifies the shard track.
 5. **Four audiences, not two.** The inverted-defaults bug exists because both packages
    modeled a binary that doesn't exist: `search` (Googlebot) · `ai-training` (GPTBot,

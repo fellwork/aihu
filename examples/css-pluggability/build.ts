@@ -7,7 +7,7 @@
  *
  *   1. Compile each .aihu SFC → .ts via `transform()`.
  *      For each compiled module, post-process the emitted defineElement
- *      call with `_injectShadowMode(..., 'none')` so the components
+ *      call with `_injectShadowMode(..., 'light')` so the components
  *      mount in light DOM and Tailwind classes reach them.
  *   2. Bundle the compiled .ts modules (and `src/main.ts`) into
  *      `dist/main.js` via Bun's bundler.
@@ -35,7 +35,7 @@ const distDir = resolve(__dirname, 'dist')
 mkdirSync(distDir, { recursive: true })
 mkdirSync(resolve(__dirname, 'src/components/.gen'), { recursive: true })
 
-// ─── Stage 1: compile .aihu → .ts (with shadowMode: 'none') ──────────────────
+// ─── Stage 1: compile .aihu → .ts (with shadowMode: 'light') ─────────────────
 const sfcs = readdirSync(componentsDir).filter((f) => f.endsWith('.aihu'))
 console.log(`[build] compiling ${sfcs.length} .aihu files...`)
 for (const sfc of sfcs) {
@@ -44,7 +44,7 @@ for (const sfc of sfcs) {
   const source = readFileSync(inPath, 'utf-8')
   const { code } = transform(source, inPath)
   // Capability addition: post-process for light-DOM mount so Tailwind classes apply.
-  const lightDom = _injectShadowMode(code, 'none')
+  const lightDom = _injectShadowMode(code, 'light')
   writeFileSync(outPath, lightDom)
   console.log(`  ${sfc} → ${basename(outPath)}`)
 }

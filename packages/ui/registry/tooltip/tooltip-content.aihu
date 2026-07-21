@@ -4,7 +4,7 @@
   `<aihu-tooltip-content>` EXTENDS the headless AihuTooltipContent primitive
   (`role=tooltip`, positions against the trigger via the css-engine shim,
   reflects `data-state`) via the compiler's `$extends:` macro. Light DOM
-  (`$shadow: 'none'`). Placement positioning is the primitive's job — no
+  (`$shadow: 'light'`). Placement positioning is the primitive's job — no
   side/align variants here.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -14,7 +14,7 @@
   import { AihuTooltipContent } from '@aihu/primitives/tooltip'
 
   $extends: AihuTooltipContent
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

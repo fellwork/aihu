@@ -4,7 +4,7 @@
   The state owner of the tooltip machine. `<aihu-tooltip-root>` EXTENDS the
   headless AihuTooltipRoot primitive (owns `open`/`placement`/delays, provides
   the tooltip context, reflects `data-state`) via the compiler's `$extends:`
-  macro. Light DOM (`$shadow: 'none'`) so descendant pieces inject the context;
+  macro. Light DOM (`$shadow: 'light'`) so descendant pieces inject the context;
   `display: contents` keeps the root visually transparent.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
@@ -14,7 +14,7 @@
   import { AihuTooltipRoot } from '@aihu/primitives/tooltip'
 
   $extends: AihuTooltipRoot
-  $shadow: 'none'
+  $shadow: 'light'
 }
 
 @template {

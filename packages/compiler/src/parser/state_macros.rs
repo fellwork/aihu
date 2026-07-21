@@ -280,11 +280,14 @@ fn try_parse_macro(
         return Ok(Some((StateMacro::Extends { base }, nl)));
     }
 
-    // ─── per-file shadow mode: `$shadow: 'open' | 'closed' | 'none'` ──────────
+    // ─── per-file shadow mode: `$shadow: 'light' | 'shadow'` ──────────────────
     //
     // Dedicated `:`-shorthand. Codegen emits a `// @aihu:shadow <mode>` marker
     // the Vite plugin reads to override the global shadow mode per file.
-    // Malformed → C471.
+    // BINARY vocabulary (DA4 #437): 'shadow' attaches an OPEN root (the only
+    // browser mode aihu's composition/hydration can use), 'light' attaches
+    // none. No 'closed' — a closed root nulls `this.shadowRoot` and is
+    // indistinguishable from light DOM. Malformed → C471.
     if let Some(decl) = rest.strip_prefix("shadow") {
         let nl = full_body[line_offset..]
             .find('\n')
@@ -298,10 +301,10 @@ fn try_parse_macro(
             .trim()
             .trim_matches(|c| c == '\'' || c == '"')
             .to_string();
-        if !matches!(mode.as_str(), "open" | "closed" | "none") {
+        if !matches!(mode.as_str(), "light" | "shadow") {
             return Err(CompileError {
                 message: format!(
-                    "$shadow must be 'open', 'closed', or 'none' — got '$shadow {}'",
+                    "$shadow must be 'light' or 'shadow' — got '$shadow {}'",
                     decl.trim()
                 ),
                 line: 0,

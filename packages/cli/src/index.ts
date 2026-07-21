@@ -58,7 +58,7 @@ export type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent'
 /** Out-of-the-box CSS strategy for a scaffolded app. */
 export type CssChoice = 'engine' | 'none'
 /** Shadow-DOM mode threaded into the compiler when css-engine is opted in. */
-export type ShadowChoice = 'open' | 'closed' | 'none'
+export type ShadowChoice = 'light' | 'shadow'
 
 // ---------------------------------------------------------------------------
 // App template generators (Vite + viteAihuPlugin, v1 syntax)
@@ -151,15 +151,15 @@ export function appPackageJson(
 export function appViteConfig(
   appName = 'app',
   withCssEngine = false,
-  shadowMode: ShadowChoice = 'open',
+  shadowMode: ShadowChoice = 'shadow',
 ): string {
-  // DA4 (#437, the flip): pages and layouts default to light DOM, so `open`
+  // DA4 (#437, the flip): pages and layouts default to light DOM, so shadow
   // is no longer the implicit default for the scaffolded index page — a
-  // css-engine scaffold whose user chose `--shadow open` must CARRY that
-  // choice as the explicit plugin-global `css: { shadowMode: 'open' }`, or
-  // the page default 'none' would silently override it. Every css-engine
+  // css-engine scaffold whose user chose `--shadow shadow` must CARRY that
+  // choice as the explicit plugin-global `css: { shadowMode: 'shadow' }`, or
+  // the page default 'light' would silently override it. Every css-engine
   // scaffold therefore emits its chosen mode explicitly. The plain (css-off)
-  // scaffold pins `$shadow: 'none'` per-file instead and emits no css block.
+  // scaffold pins `$shadow: 'light'` per-file instead and emits no css block.
   const emitCssBlock = withCssEngine
   const cssEngineComment = withCssEngine
     ? `      // @aihu/css-engine utility classes fold into each component's shadow
@@ -319,14 +319,14 @@ export function appIndexAihu(appName: string = 'app', withCssEngine = false): st
   // vite.config — so the card cannot drift from the component.
   //
   // DA4 (#437, flipped): pages default to light DOM now. The plain scaffold
-  // keeps its `$shadow: 'none'` pin — it is simply explicit about the default
-  // (and keeps the legacy-snapshot golden byte-stable across the flip). The
+  // keeps a `$shadow: 'light'` pin — it is simply explicit about the default
+  // (the legacy-snapshot golden regenerates with the binary token). The
   // css-engine scaffold still does NOT pin per-file: its shadow mode is the
   // user's `--shadow` wizard choice, carried as the PLUGIN-GLOBAL
   // `css: { shadowMode }` in vite.config.ts (now emitted for EVERY choice,
   // `open` included — the config tier outranks the page default; a per-file
   // `$shadow` marker would outrank the config and freeze the choice).
-  const shadowPin = withCssEngine ? '' : "$shadow: 'none'\n\n"
+  const shadowPin = withCssEngine ? '' : "$shadow: 'light'\n\n"
   const stateBlock = `@state {
 ${shadowPin}import { signal } from '@aihu/signals'
 
@@ -664,14 +664,14 @@ export function scaffoldApp(
     template?: AppTemplate
     /** `'engine'` includes `@aihu/css-engine` OOTB; `'none'` (default) is the plain scaffold. */
     css?: CssChoice
-    /** Shadow mode when css-engine is opted in. Default `'open'` (scoped shadow fold). */
+    /** Shadow mode when css-engine is opted in. Default `'shadow'` (scoped shadow fold). */
     shadowMode?: ShadowChoice
   },
 ): ScaffoldResult {
   const pm = opts?.pm ?? 'bun'
   const template: AppTemplate = opts?.template ?? 'minimal'
   const withCssEngine = opts?.css === 'engine'
-  const shadowMode = opts?.shadowMode ?? 'open'
+  const shadowMode = opts?.shadowMode ?? 'shadow'
   const root = resolve(outDir ?? '.', name)
 
   // `agent` is the showcase template: a durable component driven by both a human

@@ -654,7 +654,7 @@ describe('createApp — per-route <head> on navigation', () => {
 // These prove the page renders INSIDE the layout's `data-aihu-outlet` marker,
 // not in the root outlet. The layout element mirrors a compiled layout SFC: a
 // passive marker inside a shell, in shadow DOM (default) or light DOM (css
-// `shadowMode: 'none'`).
+// `shadowMode: 'light'`).
 
 /**
  * Register a fake compiled-layout custom element under `tag`. On connect it
@@ -741,7 +741,7 @@ describe('createApp — layout rendering', () => {
     expect(page.getAttribute('userId')).toBe('7')
   })
 
-  it('fills a light-DOM (shadowMode: none) layout marker', async () => {
+  it('fills a light-DOM (shadowMode: light) layout marker', async () => {
     mockLayouts.bare = {
       tag: 'aihu-layout-bare',
       load: vi.fn(async () => defineTestLayout('aihu-layout-bare', { shadow: false })),

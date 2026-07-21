@@ -9,6 +9,24 @@ output).
 
 ## Regeneration log
 
+### 2026-07-21 — DA4 flip: binary shadow vocabulary, pin becomes `$shadow: 'light'` (#437)
+
+- **Why it moved:** the founder-ratified DA4 flip landed together with the
+  binary `ShadowMode = 'light' | 'shadow'` API (`'open'`/`'closed'`/`'none'`
+  retired; `'closed'` never worked — it nulls `this.shadowRoot` and
+  misdetects as light DOM). The legacy scaffold emitter
+  (`packages/cli/src/index.ts::appIndexAihu`, plain/non-css branch) now pins
+  `$shadow: 'light'` — the same light-DOM posture as before, spelled in the
+  new vocabulary. Pages default to light DOM as of this release, so the pin
+  is simply explicit about the default.
+- **Regenerated:** 2026-07-21, on `feat/da4-light-dom-flip` (base
+  `origin/main` at `89d9c9d5`). Only `src/pages/index.aihu` moved; verified
+  byte-identical by a full harness run
+  (`vitest run packages/cli/tests/legacy-snapshot.test.ts --config
+  vitest.gates.config.ts`).
+- **Diff vs previous golden:** exactly one line, in `src/pages/index.aihu` —
+  `$shadow: 'none'` → `$shadow: 'light'`. No other file changed.
+
 ### 2026-07-20 — DA4 scaffold `$shadow: 'none'` pin (#437)
 
 - **Why it moved:** DA4 phase 1 (founder-ratified, issue #437) intentionally

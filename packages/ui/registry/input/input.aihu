@@ -3,13 +3,13 @@
 
   Wraps a NATIVE <input> and forwards props. NO `$extends` — the native control
   plus light DOM is enough for forms; extending a primitive would fight the
-  template-rendered native element. `$shadow: 'none'` so the native <input>
+  template-rendered native element. `$shadow: 'light'` so the native <input>
   joins the outer <form>, and the recipe's class-scoped CSS reaches the global
   cascade. `aihu add` rewrites the `aihu-` prefix at copy time.
 -->
 
 @state {
-  $shadow: 'none'
+  $shadow: 'light'
 
   $prop: {
     type: { type: String, default: 'text' },

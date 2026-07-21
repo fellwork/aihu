@@ -15,7 +15,7 @@ element that owns focus, keyboard, and ARIA wiring while emitting **zero CSS**:
 The primitives are registered in `@state`; the elements are rendered in
 `@template`; **all** styling lives in `@style` and targets the `data-state`
 attributes each primitive reflects (`open`/`closed`, `on`/`off`). Rendered with
-`shadowMode: 'none'` so the primitives' DOM-walk context and the styles share
+`shadowMode: 'light'` so the primitives' DOM-walk context and the styles share
 one light-DOM tree.
 
 ## Run
