@@ -681,11 +681,24 @@ machine-readable `from`/`to`, codemod pointer (`state_macros.rs:794–860`).
 
 ---
 
-## §9 Open questions for founder ratification
+## §9 Ratified (founder, 2026-07-21)
 
-Genuine forks and entailments this spec surfaced while making the ratified points
-precise. Everything else in the document is resolved; these are flagged because the
-precise form either extends or could be read against a ratified sentence.
+All six entailments below are **RATIFIED as written** unless noted:
+1. **`let`-natured props — ACCEPTED.** The nature axis governs prop writability: `const x =
+   prop(…)` read-only, `let x = prop(…)` internally writable (CO1 lowering). Extends "a prop
+   is const" through the axes.
+2. **Retire the bare typed colon-declaration into `state()` — ACCEPTED.**
+3. **`$extends` → `base:` — ACCEPTED.**
+4. **`provide(…)` statement / `const x = consume(key)` binding split — ACCEPTED.**
+5. **`$auth` → plain runtime import (drop C461) — ACCEPTED.** The C461 method-vocabulary gate
+   is redundant: the lowering is `const user = useCurrentUser()` from `@aihu/auth`, and tsc
+   already checks the import surface. Not a wrapper. (Keeps the session-SSR marker.)
+6. **W627 staleness diagnostic severity — WARNING** (not error), so deliberate inert-`let`
+   mutate-before-mount idioms stay legal.
+
+---
+
+### (original §9, for the record) Open questions surfaced while making the ratified points precise
 
 1. **`let`-natured props (§2.2).** The ratified example is `const city = prop(…)` and
    the founder insight is "a prop is const" — but the shipped CO1 machinery exists
