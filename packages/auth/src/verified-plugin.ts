@@ -23,7 +23,9 @@ import { type VerifyJwtOptions, verifyJwt } from './server.ts'
 export interface VerifiedAuthPluginOptions extends VerifyJwtOptions {
   /**
    * HMAC-SHA-256 secret used to verify JWT signatures — the same secret the
-   * `auth()` routes sign with (`AuthConfig.jwtSecret`).
+   * `auth()` routes verify against (`AuthConfig.jwtSecret`). aihu only
+   * VERIFIES tokens; it does not sign or issue them (issuance lands in the
+   * GX issuance phase), so the token's issuer must sign with this secret.
    */
   readonly jwtSecret: string
 }

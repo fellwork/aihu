@@ -37,7 +37,11 @@ export interface AuthState {
  * All path and cookie fields are optional with secure defaults.
  */
 export interface AuthConfig {
-  /** HMAC-SHA-256 secret for JWT signing/verification. */
+  /**
+   * HMAC-SHA-256 secret used to VERIFY session JWTs. aihu does not sign or
+   * issue tokens today — tokens come from your identity provider, signed
+   * with this shared secret. (Issuance lands in the GX issuance phase.)
+   */
   readonly jwtSecret: string
   /** Path for the sign-in endpoint. Default: `/auth/sign-in`. */
   readonly signInPath?: string

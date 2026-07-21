@@ -335,17 +335,18 @@ describe('createAuthRoutes', () => {
   })
 
   describe('signIn route', () => {
-    it('returns 200 and sets cookie on valid token body', async () => {
+    it('returns 200 and sets cookie on a validly-signed token body', async () => {
       const { signIn: signInRoute } = createAuthRoutes(config)
+      const token = await makeSignedJwt({ sub: 'user-route' })
       const req = new Request('https://example.com/auth/sign-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: 'my-jwt-token' }),
+        body: JSON.stringify({ token }),
       })
       const res = await signInRoute(req, { params: {}, url: new URL(req.url) })
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie')
-      expect(setCookie).toContain('aihu_session=my-jwt-token')
+      expect(setCookie).toContain(`aihu_session=${token}`)
       expect(setCookie).toContain('HttpOnly')
     })
 
@@ -362,13 +363,14 @@ describe('createAuthRoutes', () => {
 
     it('uses custom cookieName from config', async () => {
       const { signIn: signInRoute } = createAuthRoutes({ ...config, cookieName: 'my_sess' })
+      const token = await makeSignedJwt({ sub: 'user-cookie' })
       const req = new Request('https://example.com/auth/sign-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: 'tok' }),
+        body: JSON.stringify({ token }),
       })
       const res = await signInRoute(req, { params: {}, url: new URL(req.url) })
-      expect(res.headers.get('set-cookie')).toContain('my_sess=tok')
+      expect(res.headers.get('set-cookie')).toContain(`my_sess=${token}`)
     })
   })
 
@@ -384,16 +386,17 @@ describe('createAuthRoutes', () => {
   })
 
   describe('refresh route', () => {
-    it('returns 200 and updates the session cookie', async () => {
+    it('returns 200 and updates the session cookie for a validly-signed token', async () => {
       const { refresh } = createAuthRoutes(config)
+      const token = await makeSignedJwt({ sub: 'user-refresh' })
       const req = new Request('https://example.com/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: 'new-token' }),
+        body: JSON.stringify({ token }),
       })
       const res = await refresh(req, { params: {}, url: new URL(req.url) })
       expect(res.status).toBe(200)
-      expect(res.headers.get('set-cookie')).toContain('aihu_session=new-token')
+      expect(res.headers.get('set-cookie')).toContain(`aihu_session=${token}`)
     })
 
     it('returns 400 for missing token', async () => {
@@ -405,6 +408,141 @@ describe('createAuthRoutes', () => {
       })
       const res = await refresh(req, { params: {}, url: new URL(req.url) })
       expect(res.status).toBe(400)
+    })
+  })
+
+  // ── Token verification before cookieing (GX Phase 0) ─────────────────────
+  // The routes must never persist a credential they have not verified:
+  // signature via `verifyJwt`, then the registered-claim validation
+  // (`exp`/`nbf`/`aud`) added in #457. Rejections carry NO Set-Cookie.
+
+  describe('token verification before cookieing', () => {
+    function postToken(path: string, token: string): Request {
+      return new Request(`https://example.com${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+    }
+
+    it('signIn rejects an unsigned/forged token with 401 and sets NO cookie', async () => {
+      const { signIn: signInRoute } = createAuthRoutes(config)
+      const forged = makeUnsignedJwt({ sub: 'attacker', scope: 'admin' })
+      const res = await signInRoute(postToken('/auth/sign-in', forged), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('signIn rejects a token signed with the wrong secret (401, no cookie)', async () => {
+      const { signIn: signInRoute } = createAuthRoutes(config)
+      const wrongKey = await makeSignedJwt({ sub: 'attacker' }, 'some-other-secret-entirely!!')
+      const res = await signInRoute(postToken('/auth/sign-in', wrongKey), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('signIn rejects a non-JWT opaque string (401, no cookie)', async () => {
+      const { signIn: signInRoute } = createAuthRoutes(config)
+      const res = await signInRoute(postToken('/auth/sign-in', 'not-a-jwt-at-all'), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('signIn rejects an expired token (401, no cookie) — #457 claim validation', async () => {
+      const { signIn: signInRoute } = createAuthRoutes(config)
+      const expired = await makeSignedJwt({
+        sub: 'user-late',
+        exp: Math.floor(Date.now() / 1000) - 3600,
+      })
+      const res = await signInRoute(postToken('/auth/sign-in', expired), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('signIn rejects a not-yet-valid (future nbf) token (401, no cookie)', async () => {
+      const { signIn: signInRoute } = createAuthRoutes(config)
+      const early = await makeSignedJwt({
+        sub: 'user-early',
+        nbf: Math.floor(Date.now() / 1000) + 3600,
+      })
+      const res = await signInRoute(postToken('/auth/sign-in', early), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('signIn enforces configured audience (401 on mismatch, no cookie)', async () => {
+      const { signIn: signInRoute } = createAuthRoutes({ ...config, audience: 'my-app' })
+      const wrongAud = await makeSignedJwt({ sub: 'user-aud', aud: 'other-app' })
+      const res = await signInRoute(postToken('/auth/sign-in', wrongAud), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+
+      const rightAud = await makeSignedJwt({ sub: 'user-aud', aud: 'my-app' })
+      const ok = await signInRoute(postToken('/auth/sign-in', rightAud), {
+        params: {},
+        url: new URL('https://example.com/auth/sign-in'),
+      })
+      expect(ok.status).toBe(200)
+      expect(ok.headers.get('set-cookie')).toContain(`aihu_session=${rightAud}`)
+    })
+
+    it('refresh rejects a forged token with 401 and sets NO cookie', async () => {
+      const { refresh } = createAuthRoutes(config)
+      const forged = makeUnsignedJwt({ sub: 'attacker' })
+      const res = await refresh(postToken('/auth/refresh', forged), {
+        params: {},
+        url: new URL('https://example.com/auth/refresh'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('refresh rejects an expired token (401, no cookie)', async () => {
+      const { refresh } = createAuthRoutes(config)
+      const expired = await makeSignedJwt({
+        sub: 'user-late',
+        exp: Math.floor(Date.now() / 1000) - 3600,
+      })
+      const res = await refresh(postToken('/auth/refresh', expired), {
+        params: {},
+        url: new URL('https://example.com/auth/refresh'),
+      })
+      expect(res.status).toBe(401)
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('fails closed when no jwtSecret is configured (500, no cookie)', async () => {
+      const { signIn: signInRoute, refresh } = createAuthRoutes({ jwtSecret: '' })
+      const token = await makeSignedJwt({ sub: 'user-x' })
+      for (const [path, handler] of [
+        ['/auth/sign-in', signInRoute],
+        ['/auth/refresh', refresh],
+      ] as const) {
+        const res = await handler(postToken(path, token), {
+          params: {},
+          url: new URL(`https://example.com${path}`),
+        })
+        expect(res.status).toBe(500)
+        expect(res.headers.get('set-cookie')).toBeNull()
+      }
     })
   })
 })
