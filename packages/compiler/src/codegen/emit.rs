@@ -123,6 +123,14 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 
     let target = unit.target;
 
+    // GX Phase 1 (#437-GX) — resolve the ONE effective extract policy
+    // (declaration → component-$scope derivation → the ratified default
+    // `{ read: 'agents', call: 'anonymous' }`) exactly ONCE per compile. All
+    // three emitted artifacts — the code marker, the `.route.json` sidecar,
+    // and the agent-meta manifest — render from THIS value, so they agree by
+    // construction (spec §2.4 / DA-f2: the fan-out cannot drift).
+    let extract = crate::extract::resolve_extract(&unit.source);
+
     // A component is agent-enabled when it EXPOSES anything — an `@agent` block
     // is not required.
     //
@@ -163,7 +171,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         // the agent `input` coercions (number/boolean/enum → computed) regardless
         // of build target. Server-only `__agentBinding`/registration are appended
         // below; client-only opaque-ID dispatcher likewise.
-        let mut base_js = emit_function_form(unit, tag_name, unit.source.agent.as_ref());
+        let mut base_js = emit_function_form(unit, tag_name, unit.source.agent.as_ref(), &extract);
         // v0.4.0: append __streamBinding export for server artifacts.
         if let Some(stream_block) = &unit.source.stream {
             if elide_stream {
@@ -259,7 +267,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     } else if is_agent_component {
         let empty_agent = AgentBlock::default();
         let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
-        emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""))
+        emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""), &extract)
     } else {
         String::new()
     };
@@ -277,7 +285,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         .source
         .route
         .as_ref()
-        .map(|r| emit_route_json(r, &component_tags));
+        .map(|r| emit_route_json(r, &component_tags, &extract));
 
     // B3 — Per-SFC `.aihu.ts` sidecar (Architect spec §7 path (i)). Generates
     // a typed function body containing the template expressions so `tsc
@@ -1157,7 +1165,11 @@ fn collect_template_exprs(nodes: &[TemplateNode], out: &mut Vec<SidecarExpr>) {
 
 // ─── v0.6.2 — Route JSON sidecar ─────────────────────────────────────────────
 
-fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeSet<String>) -> String {
+fn emit_route_json(
+    route: &RouteBlock,
+    component_tags: &std::collections::BTreeSet<String>,
+    extract: &crate::extract::ResolvedExtract,
+) -> String {
     let pattern = route.path.as_deref().unwrap_or("");
     let name = route.name.as_deref().unwrap_or("");
     let ssr = route.ssr.unwrap_or(false);
@@ -1187,9 +1199,16 @@ fn emit_route_json(route: &RouteBlock, component_tags: &std::collections::BTreeS
         format!(",\n  \"components\": [{}]", items.join(", "))
     };
 
+    // GX Phase 1 (#437-GX) — artifact 2 of the fan-out (spec §2.4): the
+    // resolved policy (default included) rides the `.route.json` sidecar,
+    // rendered from the SAME `ResolvedExtract` as the code marker and the
+    // agent-meta manifest. Always present, so a consumer never has to encode
+    // "absent means default" — the recorded posture is explicit.
+    let extract_member = format!(",\n  \"extract\": {}", extract.json_object());
+
     format!(
-        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}{}\n}}",
-        pattern, name, middleware_json, ssr, layout, head_member, components_member
+        "{{\n  \"pattern\": \"{}\",\n  \"name\": \"{}\",\n  \"middleware\": {},\n  \"ssr\": {},\n  \"layout\": \"{}\"{}{}{}\n}}",
+        pattern, name, middleware_json, ssr, layout, extract_member, head_member, components_member
     )
 }
 
@@ -1757,9 +1776,10 @@ fn process_state_body(
                 si.needs_use_current_user = true;
                 state_names.insert(name);
             }
-            // §9.4 — declaration-only macros consumed at the defineComponent
-            // assembly layer; they introduce no state binding here.
-            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
+            // §9.4 / GX Phase 1 — declaration-only macros consumed at the
+            // defineComponent assembly layer (or, for $extract, resolved into
+            // the artifact fan-out); they introduce no state binding here.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
         }
     }
 
@@ -2603,8 +2623,8 @@ fn emit_state_macro_code(
                     crate::parser::state_macros::auth_session_todo(*method)
                 ));
             }
-            // §9.4 — consumed at the defineComponent assembly layer; no body JS.
-            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
+            // §9.4 / GX — consumed at the assembly/fan-out layer; no body JS.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
         }
     }
     let code = if lines.is_empty() {
@@ -3040,7 +3060,12 @@ fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
 
 // ─── Function form (no agent block) ──────────────────────────────────────────
 
-fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBlock>) -> String {
+fn emit_function_form(
+    unit: &CompileUnit,
+    tag_name: &str,
+    agent: Option<&AgentBlock>,
+    extract: &crate::extract::ResolvedExtract,
+) -> String {
     let raw_script = unit.source.script.unwrap_or("");
 
     // @agent `input` declarations lower to per-instance coercion bindings over
@@ -3281,6 +3306,24 @@ fn emit_function_form(unit: &CompileUnit, tag_name: &str, agent: Option<&AgentBl
     // re-binding an identifier (`import { signal } from 'x'` twice is a
     // SyntaxError), so we union named-import sets per source.
     let mut merged_imports = merge_imports(&imports, &user_imports);
+
+    // GX Phase 1 (#437-GX) — the shadow-adjacent extract marker, artifact 1 of
+    // the three-way fan-out (spec §2.4). Emitted for every server/universal
+    // build (the resolved default included) so the recorded posture is
+    // explicit in every artifact, never implied by absence. Read by the Vite
+    // plugin's per-file seam — Phase 1 uses it only for the build census;
+    // Phase 4 (E2) will use it for governed chunk routing.
+    //
+    // NOT emitted for `BuildTarget::Client`: the marker is POLICY (a scope
+    // name is a `$scope` value in another position), and policy never reaches
+    // client artifacts — the same gate that elides `__agentBinding` and the
+    // manifest (T1-b: client output must contain no scope/rateLimit bytes).
+    //
+    // Prepended FIRST so the `$shadow` marker (when present) keeps its
+    // documented position as the file's leading line.
+    if unit.target != BuildTarget::Client {
+        merged_imports = format!("{}\n{}", extract.marker_line(), merged_imports);
+    }
 
     // §9.4 per-file shadow mode: prepend a `// @aihu:shadow <mode>` marker the
     // Vite plugin reads to override its global shadowMode (drives both shadow
@@ -3687,6 +3730,16 @@ struct AgentMembers {
     /// handler parsed and every parameter could be named; absent otherwise, so
     /// the server falls back to the legacy positional `args` schema.
     action_params: BTreeMap<String, String>,
+}
+
+/// GX Phase 1 (#437-GX) — whether ANY member of the SFC is `expose:`d
+/// (read, write, or action). This is the "any `expose:` member on the
+/// surface" predicate C481 and W481 compose against; it walks the SAME
+/// `collect_agent_members` metadata the emitted artifacts are built from, so
+/// the compile-time check and the emitted agent surface cannot disagree.
+pub fn has_exposed_agent_members(raw_script: &str) -> bool {
+    let members = collect_agent_members(raw_script);
+    !members.actions.is_empty() || !members.reads.is_empty() || !members.writes.is_empty()
 }
 
 /// Walk the `@state` collections of an SFC and collect the names of members
@@ -4330,7 +4383,12 @@ fn js_literal_to_json_body(raw: &str) -> Option<String> {
     Some(inner.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-fn emit_manifest(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String {
+fn emit_manifest(
+    tag_name: &str,
+    agent: &AgentBlock,
+    raw_script: &str,
+    extract: &crate::extract::ResolvedExtract,
+) -> String {
     // v2 members live on `@state` entries, not on the `@agent` block. Collected
     // from the SAME walk that feeds `__agentBinding` and
     // `registerAgentMetadata`, so the sidecar cannot drift from the live
@@ -4479,6 +4537,13 @@ fn emit_manifest(tag_name: &str, agent: &AgentBlock, raw_script: &str) -> String
             }
         }
     }
+
+    // GX Phase 1 (#437-GX) — artifact 3 of the fan-out (spec §2.4): the
+    // resolved extract policy on the agent-meta sidecar, rendered from the
+    // SAME `ResolvedExtract` as the code marker and `.route.json`. Always
+    // present on agent components, so the registry → serving-gate path (Phase
+    // 2) reads a recorded posture, never infers one.
+    extra_fields.push_str(&format!(",\n    \"extract\": {}", extract.json_object()));
 
     format!(
         "{{\n  \"tools\": [{{\n    \"name\": \"{}\",\n    \"tag\": \"{}\",\n    \"inputs\": {},\n    \"actions\": {},\n    \"state\": {}{}\n  }}]\n}}",

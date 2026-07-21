@@ -1,3 +1,4 @@
+// @aihu:extract read=agents call=anonymous
 // $if="isVisible" → createIfBoundary(isVisible, () => { return <subtree> })
 // The compiler wraps the element subtree in a conditional boundary.
 import { branch, leaf, slot } from '@aihu/arbor'

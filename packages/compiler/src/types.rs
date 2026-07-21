@@ -21,6 +21,132 @@ pub struct RouteBlock {
     /// `.route.json` sidecar as a `head` object. Downstream Builders (router
     /// threading, head-lowering, SSG prerender) consume this exact shape.
     pub head: Option<RouteHead>,
+    /// GX Phase 1 (#437-GX) — optional per-route `extract:` governed-
+    /// extractability declaration (spec §2: two independent axes, `read`
+    /// crawl-visibility and `call` agent-callability). Parsed but NOT
+    /// enforced in this phase; it is resolved (with the ratified default
+    /// `{ read: 'agents', call: 'anonymous' }`) and fanned out to the three
+    /// emitted artifacts (code marker, `.route.json`, agent-meta sidecar).
+    pub extract: Option<ExtractDecl>,
+}
+
+// ─── GX Phase 1 (#437-GX) — the `extract:` two-axis vocabulary ───────────────
+//
+// One declaration, two positions (`@route { extract: {...} }` for routes,
+// `$extract: {...}` in `@state` for non-route components), both lowering to
+// the SAME `ExtractDecl`. Spec: docs/plans/governed-extractability/40-spec.md
+// §2. The `{ scope: '<name>' }` value SHAPE carries its scope, which makes
+// design A's C482 ("gated without a scope") unrepresentable by construction —
+// an empty/missing scope name is a malformed value (C483), not a state.
+
+/// `read` axis — crawl-visibility: who may index/read this surface's rendered
+/// content. Anonymous values (`All`/`Agents`/`Search`/`None`) are
+/// compliance-tier; `Verified`/`Human`/`Scope` are hard-tier (spec §2.1).
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ExtractRead {
+    /// `'all'` — everyone, including declared training crawlers.
+    All,
+    /// `'agents'` — humans, search, user-directed AI fetchers; declared
+    /// training crawlers refused (the shipped #430 tier split). The ratified
+    /// default posture's read value.
+    Agents,
+    /// `'search'` — humans + traditional search only.
+    Search,
+    /// `'none'` — anonymous humans only; all declared crawlers refused.
+    None,
+    /// `'verified'` — any verified principal (human session or agent JWT).
+    Verified,
+    /// `'human'` — verified human session only; no agent credential qualifies.
+    Human,
+    /// `{ scope: '<name>' }` — verified principal whose claims carry the scope.
+    Scope(String),
+}
+
+/// `call` axis — agent-callability: whether/what of this surface's agent
+/// surface (`expose:` members, MCP tools) is available, and to whom.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ExtractCall {
+    /// `'none'` — no agent surface. Any `expose:` member on this surface is a
+    /// compile error (C481).
+    None,
+    /// `'anonymous'` — today's semantics exactly: `expose:` stays per-member
+    /// opt-in; member `$scope`/`$rate-limit` gate as they do now. The ratified
+    /// default posture's call value.
+    Anonymous,
+    /// `'verified'` — every exposed member requires a verified principal.
+    Verified,
+    /// `{ scope: '<name>' }` — surface-level scope, met with each member's own
+    /// `$scope` (both must pass).
+    Scope(String),
+}
+
+impl ExtractRead {
+    /// Canonical single-token rendering used by the `// @aihu:extract` code
+    /// marker: the enum word, or `scope:<name>` for the scope shape. Scope
+    /// names are validated at parse time (no whitespace), so the token never
+    /// needs quoting.
+    pub fn marker_value(&self) -> String {
+        match self {
+            ExtractRead::All => "all".to_string(),
+            ExtractRead::Agents => "agents".to_string(),
+            ExtractRead::Search => "search".to_string(),
+            ExtractRead::None => "none".to_string(),
+            ExtractRead::Verified => "verified".to_string(),
+            ExtractRead::Human => "human".to_string(),
+            ExtractRead::Scope(s) => format!("scope:{}", s),
+        }
+    }
+
+    /// Canonical JSON rendering used by BOTH sidecars (`.route.json` and the
+    /// agent-meta manifest): a JSON string for enum values, `{ "scope": "x" }`
+    /// for the scope shape.
+    pub fn json_value(&self) -> String {
+        match self {
+            ExtractRead::Scope(s) => format!("{{ \"scope\": \"{}\" }}", s),
+            other => format!("\"{}\"", other.marker_value()),
+        }
+    }
+
+    /// True for the anonymous/compliance-tier values (spec §2.1's tier break):
+    /// everything an anonymous human can already see. Used by W480 — deriving
+    /// nothing, only informing when an explicit public-tier `read` overrides
+    /// the component-`$scope` fail-closed derivation.
+    pub fn is_compliance_tier(&self) -> bool {
+        matches!(
+            self,
+            ExtractRead::All | ExtractRead::Agents | ExtractRead::Search | ExtractRead::None
+        )
+    }
+}
+
+impl ExtractCall {
+    /// Canonical single-token rendering (see [`ExtractRead::marker_value`]).
+    pub fn marker_value(&self) -> String {
+        match self {
+            ExtractCall::None => "none".to_string(),
+            ExtractCall::Anonymous => "anonymous".to_string(),
+            ExtractCall::Verified => "verified".to_string(),
+            ExtractCall::Scope(s) => format!("scope:{}", s),
+        }
+    }
+
+    /// Canonical JSON rendering (see [`ExtractRead::json_value`]).
+    pub fn json_value(&self) -> String {
+        match self {
+            ExtractCall::Scope(s) => format!("{{ \"scope\": \"{}\" }}", s),
+            other => format!("\"{}\"", other.marker_value()),
+        }
+    }
+}
+
+/// A parsed `extract:` / `$extract` declaration. Each axis is independently
+/// optional: an omitted axis resolves through the derivation chain
+/// (component-`$scope` → read) and then the ratified default
+/// (`read: 'agents'`, `call: 'anonymous'`) — see `extract::resolve_extract`.
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct ExtractDecl {
+    pub read: Option<ExtractRead>,
+    pub call: Option<ExtractCall>,
 }
 
 // ─── B1 (SEO arc) — per-route <head> metadata ────────────────────────────────
@@ -414,6 +540,15 @@ pub enum StateMacro {
     /// both shadow attachment and the css-engine light-DOM fold, overriding the
     /// plugin's global `shadowMode`. Malformed → C471.
     Shadow { mode: String },
+    // ─── GX Phase 1 (#437-GX) — governed extractability ──────────────────────
+    /// `$extract: { read: <value>, call: <value> }` — the non-route position
+    /// of the one `extract:` declaration (spec §2.2), parallel to `$shadow`
+    /// (a dedicated `:`-shorthand, NOT collection-form, NOT subject to C440).
+    /// Lowers to the SAME `ExtractDecl` as `@route { extract: {...} }`.
+    /// Malformed value → C483 (mirror of C471); a second declaration on the
+    /// same surface (two `$extract` lines, or `$extract` beside a route
+    /// `extract:`) → C484.
+    Extract { decl: ExtractDecl },
 }
 
 /// Which `$auth.*` method a [`StateMacro::Auth`] declaration resolved to.

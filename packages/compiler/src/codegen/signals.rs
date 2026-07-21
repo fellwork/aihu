@@ -152,9 +152,10 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
             | StateMacro::Watch { .. }
             | StateMacro::BeforeNavigate { .. }
             | StateMacro::AfterNavigate { .. }
-            // §9.4 — declaration-only; introduce no reference-able binding name.
+            // §9.4 / GX — declaration-only; introduce no reference-able binding name.
             | StateMacro::Extends { .. }
-            | StateMacro::Shadow { .. } => {}
+            | StateMacro::Shadow { .. }
+            | StateMacro::Extract { .. } => {}
         }
     }
 

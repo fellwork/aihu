@@ -42,6 +42,8 @@ interface VitePlugin {
     code: string,
     id: string,
   ) => Promise<{ code: string; map: null }> | { code: string; map: null } | null | undefined
+  /** GX Phase 1 (#437-GX) — end-of-build hook; prints the extract census. */
+  buildEnd?: (error?: Error) => void | Promise<void>
 }
 
 /**
@@ -171,6 +173,42 @@ export function _classifyIsland(compiledCode: string): 'static' | 'interactive' 
   return /\b(?:signal|computed|effect|setSignal|onMount|onCleanup)\s*\(/.test(compiledCode)
     ? 'interactive'
     : 'static'
+}
+
+/**
+ * GX Phase 1 (#437-GX) — parse the `// @aihu:extract read=<v> call=<v>` code
+ * marker the Rust compiler emits for every server/universal build (the
+ * resolved policy, the ratified default included). Phase 1 consumes it only
+ * for the build census below; Phase 4 (E2) will read the SAME marker for
+ * governed chunk routing.
+ * @internal
+ */
+export function _parseExtractMarker(code: string): { read: string; call: string } | null {
+  const m = /^\/\/ @aihu:extract read=(\S+) call=(\S+)$/m.exec(code)
+  return m ? { read: m[1] as string, call: m[2] as string } : null
+}
+
+/**
+ * GX Phase 1 (#437-GX) — format the per-value extract census (the DA-e census
+ * pattern from #437: every build PRINTS the posture distribution, so the
+ * default-vs-declared migration story stays visible rather than silent).
+ * Returns the printable lines; pure so tests can assert the counts.
+ * @internal
+ */
+export function _formatExtractCensus(
+  census: ReadonlyMap<string, { read: string; call: string }>,
+): string[] {
+  if (census.size === 0) return []
+  const readCounts = new Map<string, number>()
+  const callCounts = new Map<string, number>()
+  for (const { read, call } of census.values()) {
+    readCounts.set(read, (readCounts.get(read) ?? 0) + 1)
+    callCounts.set(call, (callCounts.get(call) ?? 0) + 1)
+  }
+  const lines = [`[aihu] extract census — ${census.size} surface(s)`]
+  for (const [value, n] of [...readCounts.entries()].sort()) lines.push(`  read=${value}: ${n}`)
+  for (const [value, n] of [...callCounts.entries()].sort()) lines.push(`  call=${value}: ${n}`)
+  return lines
 }
 
 /**
@@ -1153,9 +1191,18 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
   // alias each other's css.
   const utilityCssStore = new Map<string, string>()
 
+  // GX Phase 1 (#437-GX) — per-instance extract census. Keyed by rawId,
+  // populated in transform from the compiler's `// @aihu:extract` marker;
+  // printed per-value in buildEnd. Every build prints the posture
+  // distribution (the DA-e census pattern from #437).
+  const extractCensus = new Map<string, { read: string; call: string }>()
+
   return {
     name: 'aihu-compiler',
     enforce: 'pre',
+    buildEnd() {
+      for (const line of _formatExtractCensus(extractCensus)) console.info(line)
+    },
     resolveId(source) {
       // Own all `\0virtual:aihu-utility/<hash>.css` ids so Vite's resolver
       // doesn't try to find them on disk. Returning the id verbatim is the
@@ -1190,6 +1237,11 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           ...(layoutTag ? { tag: layoutTag } : {}),
         }
         const result = transform(code, rawId, tOpts)
+        // GX Phase 1 (#437-GX) — record this surface's resolved extract policy
+        // for the build census (client-target builds carry no marker: policy
+        // never reaches client artifacts).
+        const extractMarker = _parseExtractMarker(result.code)
+        if (extractMarker) extractCensus.set(rawId, extractMarker)
         // §9.4 per-file shadow override: the Rust `$shadow` macro emits a leading
         // `// @aihu:shadow <mode>` marker; it wins over the plugin's global
         // shadowMode and drives BOTH _injectShadowMode and the css fold branch.

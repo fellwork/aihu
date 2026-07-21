@@ -3,5 +3,6 @@
   "name": "users-list",
   "middleware": ["auth"],
   "ssr": true,
-  "layout": ""
+  "layout": "",
+  "extract": { "read": "agents", "call": "anonymous" }
 }

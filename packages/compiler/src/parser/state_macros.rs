@@ -89,6 +89,21 @@ pub fn parse_state_macros(body: &str) -> Result<Vec<StateMacro>, CompileError> {
         });
     }
 
+    // GX Phase 1 (#437-GX): one `$extract` declaration per surface (spec §3
+    // row 8 — the same multiplicity discipline as C441's anonymous-$effect
+    // check). The route-vs-state duplicate is checked at the `compile_full`
+    // boundary, where both positions are visible.
+    let extract_count = result
+        .iter()
+        .filter(|m| matches!(m, StateMacro::Extract { .. }))
+        .count();
+    if extract_count > 1 {
+        return Err(crate::extract::c484(
+            0,
+            "two `$extract` declarations in the same `@state` block",
+        ));
+    }
+
     // Q4 (Director r6 §2.Q4): observedAttributes name-collision compile-time
     // check. After parsing every `$prop` collection, walk all entries and
     // compute the resolved attribute name (explicit `attribute:` override OR
@@ -296,6 +311,69 @@ fn try_parse_macro(
             });
         }
         return Ok(Some((StateMacro::Shadow { mode }, nl)));
+    }
+
+    // ─── GX Phase 1 (#437-GX): `$extract: { read: ..., call: ... }` ───────────
+    //
+    // The non-route position of the one `extract:` declaration (spec §2.2),
+    // a dedicated `:`-shorthand parallel to `$shadow` — NOT collection-form,
+    // NOT subject to C440. The value is a balanced `{...}` object literal
+    // (may span lines) parsed by the SHARED `extract::parse_extract_literal`,
+    // so this position and `@route { extract: {...} }` cannot drift.
+    // Malformed value → C483; a second declaration on the surface → C484.
+    if let Some(after_kw) = rest.strip_prefix("extract") {
+        // Guard: `$extract` exactly (next char is `:`/whitespace/`{`/EOL), so
+        // an unrelated `$extractFoo` identifier is not captured.
+        if after_kw.is_empty()
+            || after_kw.starts_with(':')
+            || after_kw.starts_with(' ')
+            || after_kw.starts_with('\t')
+            || after_kw.starts_with('{')
+        {
+            // Scan forward in FULL_BODY (the value may be multi-line):
+            // `$extract` starts at line_offset, so the value search begins
+            // just past the keyword.
+            let mut p = line_offset + 1 + "extract".len();
+            let bytes = full_body.as_bytes();
+            while p < bytes.len() && matches!(bytes[p], b' ' | b'\t') {
+                p += 1;
+            }
+            if p < bytes.len() && bytes[p] == b':' {
+                p += 1;
+            }
+            while p < bytes.len() && matches!(bytes[p], b' ' | b'\t' | b'\n' | b'\r') {
+                p += 1;
+            }
+            if p >= bytes.len() || bytes[p] != b'{' {
+                return Err(CompileError {
+                    message: format!(
+                        "C483: malformed `extract` policy value — `$extract` takes an object literal, expected `$extract: {{ read: ..., call: ... }}`, got '$extract {}'",
+                        after_kw.trim()
+                    ),
+                    line: 0,
+                    col: 0,
+                    code: Some("C483".to_string()),
+                    hint: Some(
+                        "the declaration has two independent axes: `read:` (crawl-visibility) \
+                         and `call:` (agent-callability)"
+                            .to_string(),
+                    ),
+                    fix: Some("$extract: { read: 'agents', call: 'anonymous' }".to_string()),
+                    ..Default::default()
+                });
+            }
+            let close = find_brace_close_js(full_body, p + 1).ok_or_else(|| CompileError {
+                message: "C483: malformed `extract` policy value — unbalanced `{` in `$extract`"
+                    .to_string(),
+                line: 0,
+                col: 0,
+                code: Some("C483".to_string()),
+                ..Default::default()
+            })?;
+            let literal = &full_body[p..=close];
+            let decl = crate::extract::parse_extract_literal(literal, 0)?;
+            return Ok(Some((StateMacro::Extract { decl }, close + 1)));
+        }
     }
 
     // ─── arch-3 M2 — magna `$query` macro (RFC-003) ──────────────────────────
@@ -1702,10 +1780,11 @@ pub fn emit_state_macros(macros: &[StateMacro]) -> String {
                     auth_session_todo(*method)
                 ));
             }
-            // §9.4 recipe class-extension + per-file shadow mode: consumed by
-            // codegen::emit (threaded into the defineComponent options / emitted
-            // as a `// @aihu:shadow` marker), so they produce NO setup-body JS.
-            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
+            // §9.4 recipe class-extension + per-file shadow mode + GX $extract:
+            // consumed by codegen::emit (threaded into the defineComponent options /
+            // emitted as `// @aihu:shadow` / `// @aihu:extract` markers), so they
+            // produce NO setup-body JS.
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
         }
     }
     lines.join("\n")
@@ -2003,8 +2082,8 @@ pub fn emit_state_macros_indented(macros: &[StateMacro], indent: &str) -> String
                     auth_session_todo(*method)
                 ));
             }
-            // §9.4 — consumed by codegen::emit, no setup-body JS (see above).
-            StateMacro::Extends { .. } | StateMacro::Shadow { .. } => {}
+            // §9.4 / GX — consumed by codegen::emit, no setup-body JS (see above).
+            StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
         }
     }
     if lines.is_empty() {
@@ -2025,6 +2104,58 @@ mod tests {
             StateMacro::Collection { kind, entries } => (kind, entries),
             other => panic!("expected Collection, got {:?}", other),
         }
+    }
+
+    // ─── GX Phase 1 (#437-GX) — `$extract` state macro ───────────────────────
+
+    #[test]
+    fn parse_extract_macro_single_line() {
+        use crate::types::{ExtractCall, ExtractRead};
+        let macros =
+            parse_state_macros("$extract: { read: 'verified', call: 'verified' }").unwrap();
+        assert_eq!(macros.len(), 1);
+        match &macros[0] {
+            StateMacro::Extract { decl } => {
+                assert_eq!(decl.read, Some(ExtractRead::Verified));
+                assert_eq!(decl.call, Some(ExtractCall::Verified));
+            }
+            other => panic!("expected Extract, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_extract_macro_multiline_scope_shape() {
+        use crate::types::{ExtractCall, ExtractRead};
+        let src = "$extract: {\n  read: { scope: 'reports:read' },\n  call: { scope: 'reports:read' },\n}\nconst n = 1";
+        let macros = parse_state_macros(src).unwrap();
+        match &macros[0] {
+            StateMacro::Extract { decl } => {
+                assert_eq!(decl.read, Some(ExtractRead::Scope("reports:read".to_string())));
+                assert_eq!(decl.call, Some(ExtractCall::Scope("reports:read".to_string())));
+            }
+            other => panic!("expected Extract, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn extract_macro_malformed_value_c483() {
+        let err = parse_state_macros("$extract: { read: 'everyone' }").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C483"));
+    }
+
+    #[test]
+    fn extract_macro_non_object_c483() {
+        let err = parse_state_macros("$extract: 'agents'").unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C483"));
+    }
+
+    #[test]
+    fn extract_macro_duplicate_c484() {
+        let err = parse_state_macros(
+            "$extract: { read: 'human' }\n$extract: { call: 'verified' }",
+        )
+        .unwrap_err();
+        assert_eq!(err.code.as_deref(), Some("C484"));
     }
 
     // ─── v2 collection-form parsing ──────────────────────────────────────────

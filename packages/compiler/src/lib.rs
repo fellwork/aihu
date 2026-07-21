@@ -1,6 +1,9 @@
 pub mod ast_export;
 pub mod codegen;
 pub mod diagnostics;
+// GX Phase 1 (#437-GX): the `extract:` two-axis vocabulary — shared value
+// parser + declaration→derivation→default resolution.
+pub mod extract;
 // W2 (advanced-js-template-expressions): oxc-backed expression validation
 // behind `--expr-parser <legacy|ast>`. ALL oxc types are contained in this
 // module (plan §Risks 1 — oxc AST churn stays localized).
@@ -25,10 +28,12 @@ pub use parser::sfc;
 pub use parser::stream_macros;
 pub use parser::state_macros::{is_magna_origin, parse_state_macros};
 pub use parser::template::parse_template;
+pub use extract::{resolve_extract, ExtractOrigin, ResolvedExtract};
 pub use types::{
     ActionDecl, AgentBlock, AgentMacroDecl, AihuSource, Attr, AuthMacroKind, BuildTarget,
     CollectionEntry,
-    CollectionKind, CompileError, CompileUnit, InputDecl, InputKind, MacroValue, RouteBlock,
+    CollectionKind, CompileError, CompileUnit, ExtractCall, ExtractDecl, ExtractRead, InputDecl,
+    InputKind, MacroValue, RouteBlock,
     ScriptMeta, SfcMeta, StateDecl, StateMacro, StreamBlock, StyleBlock, StyleMacro, StyleScope,
     TemplateNode,
 };
@@ -136,6 +141,13 @@ pub fn compile_full_with_options<'a>(
         // remain safe. No genuinely TDZ-unsafe construct depended on this guard.
     }
 
+    // GX Phase 1 (#437-GX) — `extract:` composition checks (spec §3). Hard
+    // errors first (C484 one-declaration-per-surface, C481 closed-call
+    // contradiction), then the advisory warnings (W480/W481). These run at the
+    // compile_full boundary — the pipeline's error channel — like CO1's
+    // C560/C561, so the contradiction rows exist before any artifact does.
+    validate_extract_composition(source)?;
+
     // DA4 phase 1 (#437) — W472: a route (page-level) component that does not
     // pin its shadow mode with `$shadow` changes behavior at the ratified DA4
     // default flip (next MAJOR): pages default to shadowMode 'none' (light
@@ -154,6 +166,141 @@ pub fn compile_full_with_options<'a>(
         target,
         expr_parser,
     })
+}
+
+/// GX Phase 1 (#437-GX) — `extract:` composition checks (spec §3 rows 3, 8,
+/// 11, 12). Pure over the parsed source; raises the hard errors through the
+/// `Result` channel and emits the advisory warnings to stderr via
+/// `diagnostics::emit_warning` (the W472 pattern — non-fatal by construction).
+///
+/// * **C484** — `@route { extract: ... }` ∧ `$extract` in the same file: one
+///   declaration per surface (row 8). (Two `$extract` lines in one `@state`
+///   are C484'd by `parse_state_macros` itself, like C441.)
+/// * **C481** — a declared-closed call axis (`call: 'none'`) with any
+///   `expose:`d member on the surface is a contradiction: one declaration
+///   promises what another forbids (row 3 — narrowed per critique A-3 to fire
+///   only when the CALL axis is closed, never when content is).
+/// * **W480** — a component-level `$scope` plus an explicit public-tier
+///   `extract.read`: the author overrode the fail-closed derivation; both
+///   statements are visible, so this informs rather than errors (row 12).
+/// * **W481** — `call: { scope }` with no exposed member anywhere: a
+///   declaration with nothing to govern (row 11).
+fn validate_extract_composition(source: &AihuSource) -> Result<(), CompileError> {
+    let route_decl = source.route.as_ref().and_then(|r| r.extract.as_ref());
+    let state_decl = extract::state_extract_decl(source);
+
+    // C484 — one declaration per surface (row 8).
+    if route_decl.is_some() && state_decl.is_some() {
+        return Err(extract::c484(
+            0,
+            "this file declares BOTH `@route { extract: ... }` and `$extract` in `@state`; \
+             a route surface declares its policy in the `@route` block only",
+        ));
+    }
+
+    let resolved = extract::resolve_extract(source);
+    let has_exposed = source
+        .script
+        .is_some_and(codegen::has_exposed_agent_members);
+
+    // C481 — `call: 'none'` ∧ any `expose:` member (row 3). Fires only on the
+    // DECLARED value: the default/derived call axis is never 'none'.
+    if resolved.call == ExtractCall::None && has_exposed {
+        return Err(CompileError {
+            message: "C481: this surface declares `call: 'none'` (no agent surface) but carries \
+                      `expose:`d members — one declaration promises what the other forbids"
+                .to_string(),
+            line: 0,
+            col: 0,
+            code: Some("C481".to_string()),
+            hint: Some(
+                "`extract.call` is a ceiling over the member-level `expose:` grants, never a \
+                 grant itself; a closed call axis and an exposed member cannot both hold"
+                    .to_string(),
+            ),
+            fix: Some(
+                "either remove the `expose:` keys from the `@state` entries, or declare a call \
+                 value that admits an agent surface ('anonymous' | 'verified' | { scope: '<name>' })"
+                    .to_string(),
+            ),
+            from: Some("call: 'none'".to_string()),
+            to: Some("call: 'anonymous'".to_string()),
+        });
+    }
+
+    // W480/W481 — advisory only; computed by the pure decision function (the
+    // W472 pattern: emission goes to stderr and cannot be asserted from an
+    // integration test, so the DECISION is a testable pure function).
+    for w in extract_policy_warnings(source) {
+        diagnostics::emit_warning(&w);
+    }
+
+    Ok(())
+}
+
+/// GX Phase 1 (#437-GX) — the W480/W481 decisions, as a pure function so the
+/// warning rows of the spec-§3 composition table are directly testable.
+/// Returns the (possibly empty) list of advisory warnings for a source file;
+/// `validate_extract_composition` emits them to stderr, never the `Result`
+/// channel — the build cannot fail on them.
+pub fn extract_policy_warnings(source: &AihuSource) -> Vec<CompileError> {
+    let mut warnings = Vec::new();
+    let route_decl = source.route.as_ref().and_then(|r| r.extract.as_ref());
+    let state_decl = extract::state_extract_decl(source);
+    let resolved = extract::resolve_extract(source);
+    let has_exposed = source
+        .script
+        .is_some_and(codegen::has_exposed_agent_members);
+
+    // W480 — explicit public-tier read over a component-$scope derivation (row 12).
+    let declared_read = route_decl
+        .and_then(|d| d.read.clone())
+        .or_else(|| state_decl.as_ref().and_then(|d| d.read.clone()));
+    if let (Some(read), Some(scope)) = (&declared_read, extract::component_scope(source)) {
+        if read.is_compliance_tier() {
+            warnings.push(CompileError {
+                message: format!(
+                    "this component carries `$scope \"{}\"` but declares the public-tier \
+                     `read: '{}'` — the explicit value wins over the fail-closed \
+                     `read: {{ scope: '{}' }}` derivation",
+                    scope,
+                    read.marker_value(),
+                    scope
+                ),
+                line: 0,
+                col: 0,
+                code: Some("W480".to_string()),
+                hint: Some(
+                    "a component-level $scope normally derives a fail-closed read default so a \
+                     surface gated at the tool gate does not leak at SSR; declaring a public read \
+                     re-opens the content surface — both statements are visible in source, so \
+                     this is informational"
+                        .to_string(),
+                ),
+                ..Default::default()
+            });
+        }
+    }
+
+    // W481 — a surface-level call scope with nothing to govern (row 11).
+    if matches!(resolved.call, ExtractCall::Scope(_)) && !has_exposed {
+        warnings.push(CompileError {
+            message: "`call: { scope: ... }` is declared but no member on this surface is \
+                      `expose:`d — the declaration governs nothing"
+                .to_string(),
+            line: 0,
+            col: 0,
+            code: Some("W481".to_string()),
+            hint: Some(
+                "`expose:` on a `@state` entry is the only member-level grant; a surface-level \
+                 call scope is a ceiling over those grants"
+                    .to_string(),
+            ),
+            ..Default::default()
+        });
+    }
+
+    warnings
 }
 
 /// DA4 phase 1 (#437) — the W472 decision, as a pure function so the
