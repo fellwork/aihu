@@ -163,6 +163,21 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // v0.4.0: @stream block is server-only. Elide in client builds.
     let elide_stream = target == BuildTarget::Client && unit.source.stream.is_some();
 
+    // GX P3 (server emission, keystone slice) — a `--target server` build of a
+    // NON-agent component emits a standalone SSR entry: setup is hoisted to a
+    // named module const, the `defineElement(...)` registration is gated behind
+    // a DOM-globals check, and `export default __ssr` exposes a host-less
+    // arbor-tree factory that `@aihu/server`'s `renderToString` and
+    // `@aihu/app`'s `resolveComponent` (`mod.default`) consume directly.
+    //
+    // Agent components are EXCLUDED for now: their server artifact is consumed
+    // by the `@aihu/agent-service` headless mount path, whose string-surgery
+    // injectors (`inject_server_binding_registration`) anchor on the
+    // `defineComponent((_ctx) => {` shape — restructuring it would silently
+    // drop the LiveBinding registration. That lane gets its SSR entry when the
+    // stubbed server SetupContext grows attr/prop signal support (full P3).
+    let emit_ssr_entry = target == BuildTarget::Server && !is_agent_component;
+
     let js = {
         // Unified lowering engine. `emit_function_form` runs `process_state_body`
         // (full $prop/$action/$computed/magna/$auth/... lowering) for EVERY
@@ -171,7 +186,13 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
         // the agent `input` coercions (number/boolean/enum → computed) regardless
         // of build target. Server-only `__agentBinding`/registration are appended
         // below; client-only opaque-ID dispatcher likewise.
-        let mut base_js = emit_function_form(unit, tag_name, unit.source.agent.as_ref(), &extract);
+        let mut base_js = emit_function_form(
+            unit,
+            tag_name,
+            unit.source.agent.as_ref(),
+            &extract,
+            emit_ssr_entry,
+        );
         // v0.4.0: append __streamBinding export for server artifacts.
         if let Some(stream_block) = &unit.source.stream {
             if elide_stream {
@@ -3065,6 +3086,10 @@ fn emit_function_form(
     tag_name: &str,
     agent: Option<&AgentBlock>,
     extract: &crate::extract::ResolvedExtract,
+    // GX P3 — when true (server build, non-agent component) the plain function
+    // form emits the standalone-SSR shape: hoisted setup const, DOM-gated
+    // registration, `export default __ssr`. See the caller in `emit()`.
+    ssr_entry: bool,
 ) -> String {
     let raw_script = unit.source.script.unwrap_or("");
 
@@ -3186,17 +3211,14 @@ fn emit_function_form(
         unit.expr_parser,
     );
 
-    let (module_decl, style_injection) = if let Some(style) = &unit.source.style {
-        let (decl, injection) = emit_style_block(style);
-        (decl, format!("  {}\n", injection))
-    } else {
-        (String::new(), String::new())
-    };
-
     // R1 — when `$prop` entries exist, switch to the options-form
     // `defineComponent({ props, setup })` so the runtime can synthesize
     // observedAttributes + attributeChangedCallback. Otherwise stay in the
     // bare-arrow function form (smaller emit; no behavioral diff).
+    //
+    // (GX P3: computed BEFORE the style block below so `ssr_standalone` can
+    // gate the style emission — the ordering is data-independent; style code
+    // reads only `unit.source.style`.)
     let prop_entries = collect_prop_entries(&macros);
     // @agent inputs require the options-form shape too (they read `ctx.attrs`),
     // so an @agent component with inputs but no $prop still switches to options
@@ -3217,7 +3239,35 @@ fn emit_function_form(
     });
     let uses_options_form = uses_props || has_agent_inputs || extends_base.is_some();
     let uses_ctx = uses_options_form;
-    let ctx_param = if uses_ctx || unit.source.style.is_some() { "ctx" } else { "_ctx" };
+
+    // GX P3 — the standalone-SSR shape applies only to the plain function form
+    // (no $prop/attrs config, no form-associated suffix). Options-form and
+    // $form components keep today's server emission until the stubbed server
+    // SetupContext grows prop/attr signal support.
+    let ssr_standalone = ssr_entry && !uses_options_form && !has_form;
+
+    // Styles never reach server HTML (`renderToString` walks the arbor tree
+    // only), and the style block is the module-scope DOM dependency that makes
+    // a compiled artifact un-importable in plain Node/Bun (`new
+    // CSSStyleSheet()` + `document.adoptedStyleSheets`). Gate it OUT of the
+    // standalone-SSR artifact entirely.
+    let (module_decl, style_injection) = if ssr_standalone {
+        (String::new(), String::new())
+    } else if let Some(style) = &unit.source.style {
+        let (decl, injection) = emit_style_block(style);
+        (decl, format!("  {}\n", injection))
+    } else {
+        (String::new(), String::new())
+    };
+
+    // `ctx` is only needed for the style injection (`ctx.host`) or the
+    // options-form config reads; the SSR artifact drops the style injection,
+    // so it falls back to `_ctx` when nothing else needs the context.
+    let ctx_param = if uses_ctx || (!ssr_standalone && unit.source.style.is_some()) {
+        "ctx"
+    } else {
+        "_ctx"
+    };
 
     let (macro_code, needs_prop_upd_helper) = emit_state_macro_code(&macros, &signal_map);
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
@@ -3402,6 +3452,36 @@ fn emit_function_form(
             ctx_param = ctx_param,
             body = body,
             form_associated_suffix = form_associated_suffix,
+        )
+    } else if ssr_standalone {
+        // GX P3 — standalone-SSR server artifact. Three structural changes vs.
+        // the client shape (which stays byte-identical — this branch is
+        // `--target server` only):
+        //
+        //  1. Setup is hoisted to a named module const so it is reachable
+        //     WITHOUT constructing a custom element (the client shape traps it
+        //     inside `defineComponent`'s class closure, reachable only via
+        //     `connectedCallback`/`_build`).
+        //  2. The `defineElement` registration — whose `defineComponent` call
+        //     evaluates `class extends HTMLElement` — is gated behind a
+        //     DOM-globals check, so the module evaluates in plain Node/Bun
+        //     (no DOM shim) while a DOM-shimmed host still registers the
+        //     element exactly as before.
+        //  3. `export const __ssr` / `export default` expose a host-less
+        //     arbor-tree factory: the `ComponentDescription` shape
+        //     (`() => arborTree`) that `@aihu/server`'s `renderToString` /
+        //     `renderToStream` accept and `@aihu/app`'s `resolveComponent`
+        //     finds as `mod.default`. The stub SetupContext carries no host
+        //     element and empty attr/prop maps — sufficient for the plain
+        //     function form, which never reads them (props/attrs force the
+        //     options-form, excluded from this branch).
+        format!(
+            "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n",
+            merged_imports = merged_imports,
+            helpers_decl = helpers_decl,
+            ctx_param = ctx_param,
+            body = body,
+            tag_name = tag_name,
         )
     } else {
         format!(
