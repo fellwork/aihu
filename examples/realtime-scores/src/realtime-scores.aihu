@@ -106,7 +106,7 @@
         <template
           if={scores().length > 0}
           each={item of scores()}
-          key={id}
+          key={row.id}
           let={row}
         >
           <tr>
@@ -119,7 +119,7 @@
         <template
           if={scores().length === 0 && initialScores.state().status === 'ready'}
           each={row of initialScores.state().data}
-          key={id}>
+          key={row.id}>
           <tr>
             <td>{row.team}</td>
             <td class="score">{row.score}</td>

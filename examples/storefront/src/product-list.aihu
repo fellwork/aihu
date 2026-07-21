@@ -46,7 +46,7 @@
       <article
         class="product-card"
         each={product of products.state().data}
-        key={id}>
+        key={product.id}>
         <div class="product-info">
           <h3 class="product-name">{product.name}</h3>
           <p class="product-description">{product.description}</p>
