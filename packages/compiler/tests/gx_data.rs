@@ -242,16 +242,21 @@ fn governed_sidecar_types_route_data_as_discriminated_union() {
     // The authored nested discriminant is rewritten to the narrowing
     // predicate (TS does not narrow through `$gx.entitled` itself)...
     assert!(sidecar.contains("void (__gxEntitled(route.data) ? route.data.headword"));
-    // ...and if-guarded branch bodies check under their branch's guard.
-    assert!(sidecar.contains("void (__gxEntitled(route.data) && (route.data.senses.join(', ')));"));
-    assert!(sidecar.contains("void (!(__gxEntitled(route.data)) && (route.data.$gx.reason));"));
+    // ...and (#485 step 2) if-guarded branch bodies check inside REAL
+    // `if/else` blocks headed by the predicate, so narrowing flows for the
+    // entitled branch and the else branch sees the withheld variant.
+    assert!(sidecar.contains("if (__gxEntitled(route.data)) {"));
+    assert!(sidecar.contains("void (route.data.senses.join(', '));"));
+    assert!(sidecar.contains("} else {"));
+    assert!(sidecar.contains("void (route.data.$gx.reason); }"));
 }
 
 #[test]
 fn ungoverned_sidecar_is_untouched() {
     // A route with the same template but NO data: declaration keeps the
-    // accessor prop typing and raw expression lifting — byte-level guarantee
-    // that the GX sidecar machinery is invisible outside governed routes.
+    // accessor prop typing and the ordinary value-view lift — the GX sidecar
+    // machinery (types, predicate, VALUE-typed route) is invisible outside
+    // governed routes.
     let with = fixture_src();
     let without: String = with
         .lines()
@@ -263,7 +268,14 @@ fn ungoverned_sidecar_is_untouched() {
     let sidecar = emit(&unit, "governed-lexicon").sidecar_ts.expect("sidecar present");
     assert!(!sidecar.contains("__Gx"), "no GX types on ungoverned routes:\n{}", sidecar);
     assert!(sidecar.contains("let route: () => {"), "accessor typing preserved");
-    assert!(sidecar.contains("void (route.data.$gx.entitled ? route.data.headword"), "raw lift preserved");
+    // The prop read lifts through the ordinary `__aihu_ctx` value view (#485
+    // step 1) — no `__gxEntitled` predicate rewrite anywhere.
+    assert!(
+        sidecar.contains("void (__aihu_ctx.route.data.$gx.entitled ? __aihu_ctx.route.data.headword"),
+        "ordinary value-view lift preserved:\n{}",
+        sidecar
+    );
+    assert!(!sidecar.contains("__gxEntitled"), "no predicate on ungoverned routes");
 }
 
 #[test]

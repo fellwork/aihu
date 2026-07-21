@@ -26,6 +26,16 @@ fn compile_to_js_ast(source: &str, tag: &str) -> String {
     emit(&unit, tag).js
 }
 
+/// Compile under `--expr-parser legacy` — the opt-in escape hatch since #485
+/// flipped the default to `ast`. The truth-table rows below pin BOTH mode
+/// behaviors explicitly.
+fn compile_to_js_legacy(source: &str, tag: &str) -> String {
+    let parsed = sfc::parse(source).unwrap();
+    let unit = compile_full_with_options(&parsed, BuildTarget::Universal, ExprParserMode::Legacy)
+        .unwrap_or_else(|e| panic!("legacy mode rejected fixture: {}", e.message));
+    emit(&unit, tag).js
+}
+
 const PROP_STATE: &str = r#"@state {
   $prop: {
     section: { default: null, type: object },
@@ -278,7 +288,7 @@ const extra = 'x'
 
 fn both_modes(template_body: &str, tag: &str) -> (String, String) {
     let src = format!("{SIGNAL_STATE}@template {{\n  {template_body}\n}}");
-    (compile_to_js(&src, tag), compile_to_js_ast(&src, tag))
+    (compile_to_js_legacy(&src, tag), compile_to_js_ast(&src, tag))
 }
 
 #[test]
@@ -496,19 +506,25 @@ fn w3_shadowed_arrow_param_suppresses_rewrite_in_ast_mode() {
 }
 
 #[test]
-fn w3_legacy_default_is_untouched_end_to_end() {
-    // The whole fixture family compiles identically through `compile_full`
-    // (no flag) and `compile_full_with_options(..., Legacy)`.
+fn w3_default_is_ast_end_to_end() {
+    // #485 (the W3-planned flip): the whole fixture family compiles
+    // identically through `compile_full` (no flag) and
+    // `compile_full_with_options(..., Ast)` — the default IS the AST rewrite,
+    // so emission and typecheck share one expression semantics.
     let src = format!(
         "{SIGNAL_STATE}@template {{\n  <p>{{`c=${{count}}`}}</p>\n  <p>{{Math.max(...nums)}}</p>\n}}"
     );
     let parsed = sfc::parse(&src).unwrap();
     let implicit = emit(&compile_full(&parsed).unwrap(), "x-w3-default").js;
     let explicit = emit(
-        &compile_full_with_options(&parsed, BuildTarget::Universal, ExprParserMode::Legacy)
+        &compile_full_with_options(&parsed, BuildTarget::Universal, ExprParserMode::Ast)
             .unwrap(),
         "x-w3-default",
     )
     .js;
-    assert_eq!(implicit, explicit, "legacy flag-off path must be byte-identical");
+    assert_eq!(implicit, explicit, "the flag-off path must be byte-identical to ast");
+    assert!(
+        implicit.contains("`c=${count()}`"),
+        "the default emission rewrites template-literal holes:\n{implicit}"
+    );
 }

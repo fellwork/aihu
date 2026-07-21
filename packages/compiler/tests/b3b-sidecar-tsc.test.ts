@@ -111,9 +111,10 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     // expressions. Before W4 the token harvest missed every one of them and this
     // fixture failed tsc with false TS2304s.
     //
-    // How a name gets into scope changed: @state bindings (`count`, `nums`) are
-    // now bound by the INLINED @state body, carrying their real types, and only
-    // the template-only loop aliases (`i`, `k`, `v`) remain `any` params. So the
+    // How a name gets into scope changed twice: @state bindings (`count`,
+    // `nums`) are bound by the INLINED @state body, carrying their real types,
+    // and (#485 step 3) the loop aliases (`i`, `k`, `v`) are bound by a real
+    // `for…of` head over `__aihu_each`, carrying inferred element types. So the
     // check is "does tsc resolve it", not "is it in the parameter list" — the old
     // assertion pinned the sidecar to a shape in which every binding was `any` and
     // a type error in @state could never be caught.
@@ -124,12 +125,11 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
       transform(src, join(tmp, 'w4-advanced-exprs.aihu'), { sidecarOut })
       const ts = readFileSync(sidecarOut, 'utf8')
       const sig = ts.split('\n').find((l) => l.includes('function __aihu_template')) ?? ''
-      // Loop aliases have no declaration to borrow a type from — they stay params.
-      for (const param of ['i: any', 'k: any', 'v: any']) {
-        expect(sig).toContain(param)
-      }
+      // #485 step 3: loop aliases are bound by the `for…of` head over the
+      // `__aihu_each` helper — inferred element types, no `any` params left.
+      expect(ts).toContain('for (const [[k, v], i] of')
+      expect(sig).not.toContain(': any')
       // @state bindings come from the inlined body instead.
-      expect(sig).not.toContain('count: any')
       expect(ts).toContain('count')
       expect(ts).toContain('nums')
       // The real check: tsc resolves every one of them. A missed harvest is a TS2304.

@@ -79,6 +79,30 @@ pub struct RewriteResult {
     pub reads_signal: bool,
 }
 
+/// How a bare signal read is rewritten.
+///
+/// `Call` is the JS-emission form (`count` → `count()`) — the runtime reads a
+/// getter. `CtxProperty` is the TYPE-CHECK form (#485 step 1/2): `count` →
+/// `__aihu_ctx.count`, a property access on a declared VALUE view of the
+/// signals. The distinction is load-bearing for step 2's narrowing: TypeScript
+/// never narrows a call result (`if (user()) { user().name }` stays "possibly
+/// null" — each call is a fresh value), but it does narrow a property chain
+/// rooted in a const (`if (__aihu_ctx.user) { __aihu_ctx.user.name }`) — the
+/// same reason vue-language-tools checks templates through `__VLS_ctx.x`
+/// property accesses. A signal already in CALLEE position (`count()`) is left
+/// alone in both styles — under `CtxProperty` it still resolves to the real
+/// getter binding, so the authored call form keeps checking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RewriteStyle {
+    Call,
+    CtxProperty,
+}
+
+/// The name of the declared value view the `CtxProperty` style rewrites onto.
+/// The sidecar generator declares it as
+/// `declare const __aihu_ctx: { <name>: ReturnType<typeof <name>>, … }`.
+pub const TYPECHECK_CTX: &str = "__aihu_ctx";
+
 /// Rewrite bare reads of registered reactive getters (the keys of
 /// `signal_map`) to getter CALLS, scope-aware, via span edits over the oxc
 /// AST. Returns `None` when the capture does not parse as a TS expression —
@@ -86,6 +110,26 @@ pub struct RewriteResult {
 /// (under `--expr-parser ast` such captures were already rejected with
 /// C320/C321 by `expr::validate_template` before emit runs).
 pub fn rewrite_signal_reads(source: &str, signal_map: &SignalMap) -> Option<RewriteResult> {
+    rewrite_with_style(source, signal_map, RewriteStyle::Call)
+}
+
+/// #485 step 1 — the TYPE-CHECK rewrite: bare reads (and handler-position
+/// writes/updates) of registered getters become `__aihu_ctx.<name>` property
+/// accesses, so lifted template expressions check at the authored VALUE types
+/// and step 2's real `if` blocks narrow them. Same scope model, same parse,
+/// same `None`-on-unparseable contract as `rewrite_signal_reads`.
+pub fn rewrite_signal_reads_typecheck(
+    source: &str,
+    signal_map: &SignalMap,
+) -> Option<RewriteResult> {
+    rewrite_with_style(source, signal_map, RewriteStyle::CtxProperty)
+}
+
+fn rewrite_with_style(
+    source: &str,
+    signal_map: &SignalMap,
+    style: RewriteStyle,
+) -> Option<RewriteResult> {
     if signal_map.0.is_empty() || source.trim().is_empty() {
         return Some(RewriteResult {
             source: source.to_string(),
@@ -99,6 +143,7 @@ pub fn rewrite_signal_reads(source: &str, signal_map: &SignalMap) -> Option<Rewr
 
     let mut visitor = RewriteVisitor {
         signal_map,
+        style,
         // Root frame: bindings introduced at the top level of the expression
         // itself (e.g. a named function expression's name).
         scopes: vec![HashSet::new()],
@@ -138,6 +183,7 @@ pub fn rewrite_signal_reads(source: &str, signal_map: &SignalMap) -> Option<Rewr
 
 struct RewriteVisitor<'m> {
     signal_map: &'m SignalMap,
+    style: RewriteStyle,
     /// Lexical scope stack. A frame is pushed/popped by oxc's own
     /// `enter_scope`/`leave_scope` walk hooks (functions, arrows, blocks,
     /// catch clauses, for-heads, classes — every scope-carrying node), and
@@ -181,7 +227,12 @@ impl<'a> Visit<'a> for RewriteVisitor<'_> {
     // ─── The rewrite ─────────────────────────────────────────────────────────
     fn visit_identifier_reference(&mut self, it: &IdentifierReference<'a>) {
         if self.is_signal_read(&it.name) {
-            self.edits.push((it.span.end, "()".to_string()));
+            match self.style {
+                RewriteStyle::Call => self.edits.push((it.span.end, "()".to_string())),
+                RewriteStyle::CtxProperty => self
+                    .edits
+                    .push((it.span.start, format!("{}.", TYPECHECK_CTX))),
+            }
             self.reads_signal = true;
         }
     }
@@ -222,7 +273,15 @@ impl<'a> Visit<'a> for RewriteVisitor<'_> {
         if it.shorthand {
             if let Expression::Identifier(id) = &it.value {
                 if self.is_signal_read(&id.name) {
-                    self.edits.push((id.span.end, format!(": {}()", id.name)));
+                    match self.style {
+                        RewriteStyle::Call => {
+                            self.edits.push((id.span.end, format!(": {}()", id.name)));
+                        }
+                        RewriteStyle::CtxProperty => {
+                            self.edits
+                                .push((id.span.end, format!(": {}.{}", TYPECHECK_CTX, id.name)));
+                        }
+                    }
                     self.reads_signal = true;
                 }
             }
@@ -233,11 +292,19 @@ impl<'a> Visit<'a> for RewriteVisitor<'_> {
 
     /// Assignment/update WRITE targets (`count = 1`, `count++` — legal at the
     /// root only in `$on.*` handler position, per the W2 contract check) are
-    /// writes, not reads: never splice `()` onto them. Non-identifier targets
-    /// (member expressions, TS wrappers) still walk — their OBJECT part is a
-    /// read (`user.name = 1` reads `user`).
+    /// writes, not reads: never splice `()` onto them (that would emit invalid
+    /// JS). Under `CtxProperty` the target IS redirected onto the value view
+    /// (`__aihu_ctx.count = 1`) so a handler write type-checks against the
+    /// authored value type instead of TS2588-ing on the const getter binding.
+    /// Non-identifier targets (member expressions, TS wrappers) still walk —
+    /// their OBJECT part is a read (`user.name = 1` reads `user`).
     fn visit_simple_assignment_target(&mut self, it: &SimpleAssignmentTarget<'a>) {
-        if matches!(it, SimpleAssignmentTarget::AssignmentTargetIdentifier(_)) {
+        if let SimpleAssignmentTarget::AssignmentTargetIdentifier(id) = it {
+            if self.style == RewriteStyle::CtxProperty && self.is_signal_read(&id.name) {
+                self.edits
+                    .push((id.span.start, format!("{}.", TYPECHECK_CTX)));
+                self.reads_signal = true;
+            }
             return;
         }
         walk::walk_simple_assignment_target(self, it);

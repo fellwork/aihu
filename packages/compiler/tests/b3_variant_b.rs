@@ -648,7 +648,7 @@ const bad: number = 'not a number'
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or_default();
     assert!(
-        sig == "function __aihu_template(): void {",
+        sig.ends_with("function __aihu_template(): void {") && !sig.contains(": any"),
         "an inlined binding must NOT also arrive as an `any` param (that erases its type):\n{sig}"
     );
 }
@@ -796,21 +796,23 @@ const chaptersOf = (bk: string) => []
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "x-sidecar-gaps");
     let sidecar = result.sidecar_ts.expect("sidecar must be emitted");
-    let sig = sidecar
-        .lines()
-        .find(|l| l.contains("function __aihu_template"))
-        .unwrap_or("");
+    // @state bindings and imports come from the inlined body, with real types.
     for name in [
         "setSel",      // signal setter
-        "s",           // loop alias (call iterable)
-        "b",           // loop alias (member iterable)
-        "c",           // loop alias — NESTED-CALL iterable (the big gap)
         "closeNav",    // imported, used in handler
         "activeStudy", // imported, used in interpolation
     ] {
         assert!(
             in_scope(&sidecar, name),
-            "sidecar __aihu_template must declare `{name}`:\n{sig}"
+            "sidecar must declare `{name}`:\n{sidecar}"
+        );
+    }
+    // #485 step 3: loop aliases are bound by real `for…of` heads over the
+    // `__aihu_each` helper — inferred element types, not `any` params.
+    for binder in ["for (const [s] of", "for (const [b] of", "for (const [c] of"] {
+        assert!(
+            sidecar.contains(binder),
+            "sidecar must bind the loop alias via `{binder} …`:\n{sidecar}"
         );
     }
 }
@@ -861,10 +863,11 @@ const openTerm = (e: Event, t: unknown) => {}
         sidecar.contains("__handler((e) => openTerm(e, showLine()))"),
         "inline handler must be emitted via __handler(...):\n{sidecar}"
     );
-    // Plain value expressions still use `void (...)`, not __handler.
+    // #485 step 2: the element-level `if={showLine}` cond is a real `if` head
+    // now (narrowing), not a flat `void (...)` lift.
     assert!(
-        sidecar.contains("void (showLine)"),
-        "non-handler exprs stay `void (...)`:\n{sidecar}"
+        sidecar.contains("if (showLine) {"),
+        "the `if=` cond must emit a real `if` head:\n{sidecar}"
     );
 }
 
@@ -973,12 +976,13 @@ const [pairs, setPairs] = signal([['a', 1]])
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    for name in ["k", "v", "i", "pairs"] {
-        assert!(
-            in_scope(&sidecar, name),
-            "sidecar must declare destructured each alias `{name}`:\n{sig}"
-        );
-    }
+    assert!(in_scope(&sidecar, "pairs"), "the list read must be in scope:\n{sig}");
+    // #485 step 3: the destructured aliases are bound by the `for…of` head —
+    // real element types from the iterable, not `any` params.
+    assert!(
+        sidecar.contains("for (const [[k, v], i] of"),
+        "the for…of head must bind the destructured aliases:\n{sidecar}"
+    );
 }
 
 #[test]
@@ -1000,13 +1004,14 @@ const [users, setUsers] = signal([])
         .lines()
         .find(|l| l.contains("function __aihu_template"))
         .unwrap_or("");
-    for name in ["name", "rid"] {
-        assert!(in_scope(&sidecar, name), "sidecar must bind `{name}`:\n{sig}");
-    }
-    // Param-boundary check (`rid: any` contains the substring `id: any`).
+    // #485 step 3: the object pattern (rename included) is the for…of binding.
     assert!(
-        !sig.contains("(id: any") && !sig.contains(", id: any"),
-        "the rename's KEY side must not bind:\n{sig}"
+        sidecar.contains("for (const [{ name, id: rid }] of"),
+        "the for…of head must bind the object-pattern alias verbatim:\n{sidecar}"
+    );
+    assert!(
+        !sig.contains(": any"),
+        "no alias arrives as an `any` param anymore:\n{sig}"
     );
 }
 
@@ -1036,19 +1041,25 @@ fn sidecar_line_mapping_holds_for_newly_harvested_forms() {
         in_scope(&sidecar, "count"),
         "the template-literal read must be in scope:\n{sidecar}"
     );
+    // #485 step 1: the bare `count` read is rewritten onto the `__aihu_ctx`
+    // value view (so it checks as `number`, not as the getter function) — and
+    // the statement still sits on its real `.aihu` line: the line-recovery
+    // cursor searches the ORIGINAL capture, so the rewrite never moves it.
     assert_eq!(
         lines.get(6).copied(),
-        Some("void (`Count: ${count}`);"),
+        Some("void (`Count: ${__aihu_ctx.count}`);"),
         "the template-literal expr must sit on sidecar line 7 (its .aihu line):\n{sidecar}"
     );
 }
 
 #[test]
-fn sidecar_falls_back_to_token_harvest_for_unparseable_captures() {
-    // Under `--expr-parser legacy` (the default) a capture that is not a
-    // parseable TS expression can reach emit. The AST harvest returns None
-    // for it and the per-expression token-scan fallback keeps declaring what
-    // it can — the sidecar never loses the coverage it had.
+fn sidecar_falls_back_to_raw_lift_for_unparseable_captures() {
+    // Under `--expr-parser legacy` (the opt-in escape hatch — `ast` is the
+    // default since #485 and rejects this capture with C320 at compile_full)
+    // a capture that is not a parseable TS expression can reach emit. The
+    // rewrite returns None for it and the sidecar lifts the RAW text — the
+    // sidecar never loses the coverage it had, and `count` stays in scope via
+    // the inlined @state body.
     let src = r#"@state {
 import { signal } from '@aihu/signals'
 const [count, setCount] = signal(0)
@@ -1057,15 +1068,20 @@ const [count, setCount] = signal(0)
   <span>{count +}</span>
 }"#;
     let parsed = sfc::parse(src).unwrap();
-    let unit = compile_full(&parsed).unwrap();
+    let unit = aihu_compiler::compile_full_with_options(
+        &parsed,
+        aihu_compiler::BuildTarget::Universal,
+        aihu_compiler::ExprParserMode::Legacy,
+    )
+    .unwrap();
     let sidecar = emit(&unit, "x-w4-fallback").sidecar_ts.expect("sidecar must be emitted");
-    let sig = sidecar
-        .lines()
-        .find(|l| l.contains("function __aihu_template"))
-        .unwrap_or("");
     assert!(
         in_scope(&sidecar, "count"),
-        "token fallback must still declare `count`:\n{sig}"
+        "the inlined @state body must still declare `count`:\n{sidecar}"
+    );
+    assert!(
+        sidecar.contains("void (count +);"),
+        "an unparseable capture lifts raw (no rewrite, no drop):\n{sidecar}"
     );
 }
 

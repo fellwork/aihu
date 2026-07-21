@@ -30,7 +30,7 @@
 // signal-read rewrite (span edits over the same oxc parse). Consumed by
 // `codegen/emit.rs` when the unit was compiled with `--expr-parser ast`.
 pub mod rewrite;
-pub use rewrite::{rewrite_signal_reads, RewriteResult};
+pub use rewrite::{rewrite_signal_reads, rewrite_signal_reads_typecheck, RewriteResult};
 
 // W4 (advanced-js-template-expressions): AST-derived sidecar harvest — the
 // identifier-READ set of a captured expression and the identifier-BINDING
@@ -67,15 +67,17 @@ use oxc_span::{GetSpan, SourceType};
 /// Which expression front-end validates template expressions.
 ///
 /// Mirrors the `--machine-errors` / `AIHU_MACHINE_ERRORS` gating pattern in
-/// `bin/main.rs`. Default is `Legacy` (flag off → behavior byte-identical to
-/// before W2). W3 flips the default to `Ast` after the corpus diff is clean.
+/// `bin/main.rs`. Default is `Ast` — the W3-planned flip, landed with the
+/// TS-generator work (#485): emission and typecheck share one expression
+/// semantics (oxc validation + the scope-aware AST signal-read rewrite).
+/// `--expr-parser legacy` remains available as an escape hatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExprParserMode {
-    /// Hand-rolled token pipeline only (today's behavior). Default.
-    #[default]
+    /// Hand-rolled token pipeline only (pre-W3 behavior). Opt-in escape hatch.
     Legacy,
-    /// Legacy pipeline PLUS oxc `parse_expression` validation of every
-    /// captured expression (validate-only; codegen unchanged).
+    /// oxc `parse_expression` validation of every captured expression, plus
+    /// the scope-aware AST signal-read rewrite in codegen. Default.
+    #[default]
     Ast,
 }
 

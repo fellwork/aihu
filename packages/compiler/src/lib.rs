@@ -59,18 +59,17 @@ pub fn compile_full_with_target<'a>(
     source: &'a AihuSource<'a>,
     target: BuildTarget,
 ) -> Result<CompileUnit<'a>, CompileError> {
-    compile_full_with_options(source, target, ExprParserMode::Legacy)
+    compile_full_with_options(source, target, ExprParserMode::default())
 }
 
 /// W2/W3 (advanced-js-template-expressions): `compile_full_with_target` plus
-/// the `--expr-parser` mode. `ExprParserMode::Legacy` (the default everywhere)
-/// is byte-identical to `compile_full_with_target`. `ExprParserMode::Ast`
-/// VALIDATES every captured template expression with oxc (parse failure →
-/// C320/C321) and — W3 — routes the emitter's signal-read rewrite through the
-/// scope-aware AST rewrite (`expr::rewrite_signal_reads`) instead of the
-/// legacy token scanner, fixing the plan's silent-miscompile classes (spread,
-/// template-literal `${…}` holes, dotted-base arrow bodies, `{#each}` alias
-/// shadowing).
+/// the `--expr-parser` mode. `ExprParserMode::Ast` (the default since #485's
+/// W3-planned flip) VALIDATES every captured template expression with oxc
+/// (parse failure → C320/C321) and routes the emitter's signal-read rewrite
+/// through the scope-aware AST rewrite (`expr::rewrite_signal_reads`),
+/// fixing the plan's silent-miscompile classes (spread, template-literal
+/// `${…}` holes, dotted-base arrow bodies, `{#each}` alias shadowing).
+/// `ExprParserMode::Legacy` restores the pre-W3 token pipeline.
 pub fn compile_full_with_options<'a>(
     source: &'a AihuSource<'a>,
     target: BuildTarget,
