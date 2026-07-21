@@ -18,12 +18,15 @@ export type { McpDiscovery, McpDiscoveryConfig, McpDiscoveryServer } from './mcp
 export { generateMcpDiscovery } from './mcp-discovery.ts'
 export type { AgentSkill, McpServerCard, McpServerCardConfig } from './mcp-server-card.ts'
 export { generateMcpServerCard, skillsFromRegistry } from './mcp-server-card.ts'
-export type { RobotsConfig, RobotsRule } from './robots.ts'
+export type { BotEntry, BotTier, RobotsConfig, RobotsRule } from './robots.ts'
 export {
   AI_BOT_LIST,
   AI_TRAINING_CRAWLER_BOTS,
   AI_USER_FETCHER_BOTS,
+  BOT_REGISTRY,
+  classifyBotUserAgent,
   generateRobotsTxt,
+  SEARCH_BOTS,
 } from './robots.ts'
 export type { SitemapChangefreq, SitemapConfig, SitemapUrl } from './sitemap.ts'
 export { generateSitemapXml } from './sitemap.ts'
