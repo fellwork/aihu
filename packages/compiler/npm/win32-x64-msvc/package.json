@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler-win32-x64-msvc",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "license": "MIT",
   "os": [
     "win32"

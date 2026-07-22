@@ -208,3 +208,29 @@ describe('state-wrapper codemod — abort classes', () => {
     expect(out.rewritten).toBe(src)
   })
 })
+
+describe('state-wrapper codemod — prop read de-calling (#502)', () => {
+  it('de-calls prop reads in @state and template (prop() returns a value)', () => {
+    const src = state(
+      `  $prop: {\n    section: { default: null },\n    lang: { default: 'grc', type: string },\n  }\n\n  const label = () => (section() ? section().name : '')`,
+      `<div lang={lang()}>{label()}</div>`,
+    )
+    const out = migrateStateWrappers(src)
+    expect(out.skipped).toBe(false)
+    expect(out.rewritten).toContain('(section ? section.name')
+    expect(out.rewritten).toContain('<div lang={lang}>')
+    expect(out.rewritten).toContain('{label()}') // real function stays called
+    expect(out.rewritten).not.toMatch(/\bsection\(\)/)
+    expect(out.rewritten).not.toMatch(/\blang\(\)/)
+  })
+
+  it('preserves a function-valued prop invoke (name()() -> name())', () => {
+    const src = state(
+      `  $prop: {\n    onSave: { default: null },\n  }`,
+      `<button on:click={() => onSave()()}>x</button>`,
+    )
+    const out = migrateStateWrappers(src)
+    expect(out.rewritten).toContain('onSave()')
+    expect(out.rewritten).not.toContain('onSave()()')
+  })
+})

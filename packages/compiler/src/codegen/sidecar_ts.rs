@@ -214,9 +214,12 @@ pub(crate) fn emit_sidecar_ts(
     // / svelte2tsx `ensureArray` pattern, 40-spec §5). Declared only when the
     // template loops, so loop-free sidecars carry no dead scaffolding.
     let each_helper = if collector.uses_each {
-        "declare function __aihu_each<T>(list: readonly T[]): ReadonlyArray<[T, number]>; \
-         declare function __aihu_each<T>(list: Iterable<T>): ReadonlyArray<[T, number]>; \
-         declare function __aihu_each(list: number): ReadonlyArray<[number, number]>; "
+        // One conditional-typed generic instead of three overloads (#503): an
+        // `any` iterable must degrade to `any` loop bindings, not `unknown`.
+        // Overload resolution picked `Iterable<T>` and inferred T=unknown for
+        // `any`; the leading `0 extends (1 & T)` IsAny guard forces `any` first,
+        // then the array/iterable/number cases infer the element as before.
+        "declare function __aihu_each<T>(list: T): ReadonlyArray<[0 extends (1 & T) ? any : T extends readonly (infer E)[] ? E : T extends Iterable<infer E> ? E : T extends number ? number : unknown, number]>; "
     } else {
         ""
     };

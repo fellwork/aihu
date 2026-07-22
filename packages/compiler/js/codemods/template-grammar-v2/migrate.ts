@@ -153,9 +153,12 @@ function migrateAttrs(src: string): string {
   out = out.replace(/\$bind\.([A-Za-z][\w-]*)=\{/g, 'bind:$1={')
   out = out.replace(/\$bind\.([A-Za-z][\w-]*)="([^"]*)"/g, 'bind:$1={$2}')
 
-  // Class toggles.
-  out = out.replace(/\$class:([A-Za-z][\w-]*)=\{/g, 'class:$1={')
-  out = out.replace(/\$class:([A-Za-z][\w-]*)="([^"]*)"/g, 'class:$1={$2}')
+  // Class toggles. Accept BOTH the colon spelling (`$class:active`) and the
+  // dot spelling (`$class.active`) — the v1 attribute layer permitted the dot
+  // form by analogy with `$on.`/`$bind.`, and it was silently passed through
+  // untouched (#502). Both normalize to the v2 `class:` directive.
+  out = out.replace(/\$class[:.]([A-Za-z][\w-]*)=\{/g, 'class:$1={')
+  out = out.replace(/\$class[:.]([A-Za-z][\w-]*)="([^"]*)"/g, 'class:$1={$2}')
 
   // $each string-DSL and curly `list as alias` forms → item-first `of` head.
   out = out.replace(/\$each="([^"]+?) as ([^"]+?)"/g, 'each={$2 of $1}')
