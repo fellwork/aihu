@@ -298,6 +298,83 @@ fn main() {
         (src, stem, label, Some(path_copy))
     };
 
+    // Envelope mode — `--envelope <options-json>`: single-parse, multi-target,
+    // multi-output compile emitting ONE JSON envelope to stdout. Checked BEFORE
+    // the legacy single-output flags so a caller may pass BOTH (e.g.
+    // `--ast-json --envelope {...}`): a binary that knows `--envelope` answers
+    // with the envelope; an older binary ignores the unknown flag and answers
+    // with the legacy artifact — which is how the JS driver feature-detects
+    // envelope support without a probe spawn (the envelope JSON carries the
+    // `"envelope"` discriminant field; legacy outputs never do).
+    //
+    // The options JSON (`EnvelopeOptions`, camelCase) carries tag/path/targets/
+    // emits/exprParser; the legacy `--tag`/`--path`/`--target` flags fill any
+    // OMITTED fields so existing spawn call-sites can add `--envelope` without
+    // restating themselves.
+    if let Some(i) = args.iter().position(|a| a == "--envelope") {
+        let on_err = |e: &aihu_compiler::CompileError| -> ! {
+            if machine_errors {
+                emit_machine_error(e);
+                eprintln!("{}:{}: {}", file_label, e.line, e.message);
+            } else {
+                render_human_error(e, &file_label, &source);
+            }
+            process::exit(1);
+        };
+        let opts_json = match args.get(i + 1).filter(|a| !a.starts_with("--")) {
+            Some(j) => j.clone(),
+            None => "{}".to_string(),
+        };
+        let mut opts: aihu_compiler::EnvelopeOptions = match serde_json::from_str(&opts_json) {
+            Ok(o) => o,
+            Err(e) => {
+                eprintln!("error: --envelope options are not valid JSON: {}", e);
+                process::exit(1);
+            }
+        };
+        // Fill omitted fields from the legacy flags / file-mode derivations.
+        if opts.tag.is_none() {
+            opts.tag = Some(file_stem.clone());
+        }
+        if opts.path.is_none() {
+            opts.path = file_path_opt.clone();
+        }
+        if opts.targets.is_empty() {
+            opts.targets = vec![match target {
+                aihu_compiler::BuildTarget::Client => "client",
+                aihu_compiler::BuildTarget::Server => "server",
+                aihu_compiler::BuildTarget::Universal => "universal",
+            }
+            .to_string()];
+        }
+        if opts.expr_parser.is_none() {
+            // The CLI flag/env already resolved above; thread it through so the
+            // envelope and legacy paths cannot disagree.
+            opts.expr_parser = Some(
+                match expr_parser {
+                    aihu_compiler::ExprParserMode::Legacy => "legacy",
+                    aihu_compiler::ExprParserMode::Ast => "ast",
+                }
+                .to_string(),
+            );
+        }
+        if !opts.strict_templates {
+            opts.strict_templates = args.iter().any(|a| a == "--strict-templates");
+        }
+        let envelope =
+            aihu_compiler::compile_envelope(&source, &opts).unwrap_or_else(|e| on_err(&e));
+        match serde_json::to_string(&envelope) {
+            Ok(json) => {
+                println!("{}", json);
+                process::exit(0);
+            }
+            Err(e) => {
+                eprintln!("error serializing envelope: {}", e);
+                process::exit(1);
+            }
+        }
+    }
+
     // v1.0.10a — `--ast-json`: parse → owned AST → emit JSON to stdout, then
     // short-circuit BEFORE codegen (no TS produced). Purely additive: existing
     // flags/behavior below are untouched. Respects the same `--machine-errors`
