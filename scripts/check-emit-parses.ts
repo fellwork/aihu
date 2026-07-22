@@ -21,9 +21,9 @@
  *   `compile` — the .aihu itself no longer compiles (stale v1 syntax)
  *   `parse`   — it compiled, but the emitted JS is not valid
  *
- * NOT yet wired into CI. As of #425 (examples migrated to v2) the baseline is
- * 0 compile / 0 parse failures — wire it into `plan-a.yml` with
- * `--expect-compile 0 --expect-parse 0` so it can ratchet. See TODOS.md.
+ * Wired into CI (`plan-a.yml`) with `--expect-compile 0 --expect-parse 0` so
+ * it ratchets: as of #425 (examples migrated to v2) the baseline is
+ * 0 compile / 0 parse failures across every cookbook + examples component.
  * Run manually: `bun run check:emit-parses`
  */
 import { execFileSync } from 'node:child_process'

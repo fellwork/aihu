@@ -29,7 +29,7 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "check:lint": "biome ci .",
-    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:runtime-purity && bun run check:grammar-v2",
+    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:runtime-purity && bun run check:grammar-v2 && bun run check:cookbook",
     "check:pre-push": "bun run check:lint && bun run typecheck",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",
@@ -55,7 +55,8 @@
     "check:dual-audience": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-dual-audience.ts",
     "check:hydration-adoption": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-hydration-adoption.ts",
     "check:thesis": "bun run check:derived && bun run check:attributed && bun run check:governed && bun run check:dual-audience && bun run check:hydration-adoption",
-    "check:grammar-v2": "bun scripts/check-grammar-v2.ts"
+    "check:grammar-v2": "bun scripts/check-grammar-v2.ts",
+    "check:cookbook": "bun scripts/check-cookbook-index.ts"
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "workspace:*",

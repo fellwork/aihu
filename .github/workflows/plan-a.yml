@@ -126,6 +126,16 @@ jobs:
       # newest-first by the script), and no built dist, so it can fail fast
       # before the coverage run.
       - run: bun scripts/check-emit-parses.ts --expect-parse 0 --expect-compile 0
+      # cookbook corpus (P0 — corpus unification): the cookbook is the single
+      # source of truth for every fluency surface. check:cookbook validates the
+      # <!-- @cookbook --> frontmatter schema on all recipes and diffs the three
+      # generated artifacts (mcp cookbook-index.json, llms-cookbook.txt,
+      # playground presets.generated.ts) against a fresh build — a stale or
+      # hand-edited artifact is a red PR, which is what prevents the pre-#497
+      # fossil-index state from recurring. test:cookbook is the compile harness
+      # (needs the aihu-compile binary staged above, like emit-parses).
+      - run: bun run check:cookbook
+      - run: bun run test:cookbook
       # CLI templates B1.3 — scaffold-and-compile harness exercises the
       # template against an isolated tmpdir and asserts typecheck passes
       # against the emitted scaffold. Skipped on Windows runners (matches
