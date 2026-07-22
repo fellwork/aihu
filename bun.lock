@@ -639,11 +639,11 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.16",
-        "@aihu/compiler-darwin-x64": "0.1.16",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.16",
-        "@aihu/compiler-linux-x64-gnu": "0.1.16",
-        "@aihu/compiler-win32-x64-msvc": "0.1.16",
+        "@aihu/compiler-darwin-arm64": "0.1.20",
+        "@aihu/compiler-darwin-x64": "0.1.20",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.20",
+        "@aihu/compiler-linux-x64-gnu": "0.1.20",
+        "@aihu/compiler-win32-x64-msvc": "0.1.20",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
