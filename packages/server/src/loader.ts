@@ -50,7 +50,20 @@ export async function renderToString(
   // (Spec §1 non-goals: serializer, contextSetup. Spec §2.3: { toHtml } stays
   // JS.) Resolving them here keeps the lazy native import off the hot path for
   // the JS-only cases.
-  if (opts?.serializer || opts?.contextSetup || typeof component !== 'function') {
+  //
+  // Wave-3: a component carrying a compiled string renderer
+  // (`__aihu_ssr_string__`, attached by `--target server` artifacts) also
+  // routes to the TS entry — its renderToStream takes the string fast path,
+  // which beats the tree-build + JSON-serialize + FFI round trip the native
+  // addon needs, and is byte-identical to both walkers by contract.
+  // `AIHU_SSR_STRING=0` disables the fast path inside ssr.ts, in which case
+  // this routing still lands on the correct TS walker output.
+  if (
+    opts?.serializer ||
+    opts?.contextSetup ||
+    typeof component !== 'function' ||
+    typeof (component as { __aihu_ssr_string__?: unknown }).__aihu_ssr_string__ === 'function'
+  ) {
     return tsRenderToString(component, opts)
   }
 

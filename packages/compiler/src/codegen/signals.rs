@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Template emission uses this map to decide whether to emit a reactive leaf
 /// (`leaf([getter, setter])` or `leaf([() => name[0]().prop, () => {}])`) or a
 /// plain leaf (`leaf(expr)`).
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct SignalMap(pub BTreeMap<String, String>);
 
 /// All identifiers declared in `@state` — the union of signals + computed

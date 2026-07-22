@@ -520,6 +520,12 @@ fn collect_helpers_recursive(nodes: &[TemplateNode], h: &mut NeededHelpers) {
                 h.each_boundary = true;
                 collect_helpers_recursive(body, h);
                 if let Some(eb) = empty_body {
+                    // The `empty` arm lowers to two sibling `createIfBoundary`
+                    // wrappers (populated / empty) around the each — a
+                    // template whose ONLY conditional is an each-empty arm
+                    // previously emitted the call with no helper definition
+                    // (ReferenceError at setup).
+                    h.if_boundary = true;
                     collect_helpers_recursive(eb, h);
                 }
             }
@@ -739,7 +745,7 @@ pub(crate) fn emit_function_form(
     // D5 — $form wiring always uses `effect`; include in the effect flag.
     let form_needs_effect = has_form && !form_wiring.is_empty();
 
-    let imports = build_function_imports(
+    let mut imports = build_function_imports(
         &signal_map,
         // B4 — OR in aria's effect requirement so `effect` is imported when
         // $aria thunks are declared (even if no other effect is needed).
@@ -816,6 +822,34 @@ pub(crate) fn emit_function_form(
         && !has_agent_inputs;
     let ssr_no_dom = ssr_standalone || ssr_options;
 
+    // Wave-3 keystone — the SSR string fast path. Attempt to lower the
+    // template to a compiled string renderer for every standalone-SSR
+    // artifact. `None` (a template using constructs outside the lowerable
+    // set) is not an error: the module simply ships without `__ssrString`
+    // and @aihu/server keeps using the tree walker for it.
+    let ssr_string_fn = if ssr_no_dom {
+        super::ssr_string_emit::emit_ssr_string_body(
+            template_nodes,
+            &signal_map,
+            &state_names,
+            unit.expr_parser,
+        )
+    } else {
+        None
+    };
+    if let Some(f) = &ssr_string_fn {
+        if !f.helpers.is_empty() {
+            // Runtime escape/serialize helpers used by the generated string
+            // code. `@aihu/runtime/ssr` is the SERVER-ONLY subpath entry —
+            // deliberately not the root entry, so the helpers never enter a
+            // client bundle's size budget.
+            imports.push_str(&format!(
+                "\nimport {{ {} }} from '@aihu/runtime/ssr'",
+                f.helpers.join(", ")
+            ));
+        }
+    }
+
     // Styles never reach server HTML (`renderToString` walks the arbor tree
     // only), and the style block is the module-scope DOM dependency that makes
     // a compiled artifact un-importable in plain Node/Bun (`new
@@ -880,7 +914,7 @@ pub(crate) fn emit_function_form(
         prop_upd_decl
     };
 
-    let body = {
+    let (body, ssr_body_prefix) = {
         let mut b = String::new();
         b.push_str(&style_injection);
         // arch-5 M1: inject sr-only / skip-link CSS once when the template uses
@@ -947,8 +981,37 @@ pub(crate) fn emit_function_form(
             b.push_str(&form_wiring);
             b.push('\n');
         }
+        // The SSR string renderer re-runs the SAME setup preamble (state,
+        // computeds, actions, effects registration) and then builds a string
+        // instead of returning the tree — capture the body without the
+        // `return <tree>` tail for it.
+        let prefix = b.clone();
         b.push_str(&format!("  return {}\n", return_expr));
-        b
+        (b, prefix)
+    };
+
+    // Wave-3 — the `__ssrString` export block appended to standalone-SSR
+    // artifacts when the template lowered. Shape:
+    //   * `__aihu_ssr_string_setup__(ctx, opts)` — setup preamble + compiled
+    //     string body (so state reads resolve exactly as in `__aihu_setup__`);
+    //   * `export const __ssrString(props, opts)` — the module-level entry
+    //     (props-first, mirroring `__ssr(props)`);
+    //   * `__ssr.__aihu_ssr_string__` — an opts-only renderer attached to the
+    //     component function itself, so @aihu/server's renderToString /
+    //     renderToStream can take the fast path when handed `mod.default`
+    //     directly (callers that bind props re-attach via `mod.__ssrString`).
+    let ssr_string_suffix = |ctx_arg: &str, props_sig: &str| -> String {
+        match &ssr_string_fn {
+            None => String::new(),
+            Some(f) => format!(
+                "\n/** SSR string fast path (wave-3) — compile-time lowering of the template to\n * straight-line string concatenation. Byte-identical to @aihu/server's\n * tree-walk renderer for the same component+state; hydration markers and\n * `data-aihu-path` attrs are emitted when `opts.hydratable`. */\nconst __aihu_ssr_string_setup__ = ({ctx_param}, __opts: {{ hydratable?: boolean }} = {{}}) => {{\n{prefix}{string_body}}}\n\nexport const __ssrString = ({props_sig}, opts: {{ hydratable?: boolean }} = {{}}) => __aihu_ssr_string_setup__({ctx_arg}, opts)\n;(__ssr as unknown as {{ __aihu_ssr_string__?: (opts?: {{ hydratable?: boolean }}) => string }}).__aihu_ssr_string__ = (opts?: {{ hydratable?: boolean }}) => __ssrString({{}}, opts)\n",
+                ctx_param = ctx_param,
+                prefix = ssr_body_prefix,
+                string_body = f.body,
+                props_sig = props_sig,
+                ctx_arg = ctx_arg,
+            ),
+        }
     };
 
     // Merge user-lifted imports into the framework imports block, deduping
@@ -1053,15 +1116,24 @@ pub(crate) fn emit_function_form(
                     )
                 })
                 .collect();
+            let ssr_props = ssr_prop_fields.join(", ");
+            let string_export = ssr_string_suffix(
+                &format!(
+                    "{{ host: null, element: null, attrs: {{}}, props: {{ {} }} }}",
+                    ssr_props
+                ),
+                "props: Record<string, unknown> = {}",
+            );
             format!(
-                "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: __aihu_setup__,\n  }}))\n}}\n\n/** SSR entry (GX P4) — standalone arbor-tree factory with prop threading.\n * Host-less server SetupContext: no element, no shadow root; lifecycle\n * registration is not reachable from here (server render never mounts).\n * `props` values arrive plain (e.g. `{{ route: {{ params, data }} }}`) and are\n * wrapped as inert PropSignal-shaped getters — reads work, writes no-op. */\nconst __aihu_ssr_prop = (v: unknown) => Object.assign(() => v, {{ set: (_v: unknown) => {{}} }})\nexport const __ssr = (props: Record<string, unknown> = {{}}) => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{ {ssr_props} }} }})\nexport default __ssr\n",
+                "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: __aihu_setup__,\n  }}))\n}}\n\n/** SSR entry (GX P4) — standalone arbor-tree factory with prop threading.\n * Host-less server SetupContext: no element, no shadow root; lifecycle\n * registration is not reachable from here (server render never mounts).\n * `props` values arrive plain (e.g. `{{ route: {{ params, data }} }}`) and are\n * wrapped as inert PropSignal-shaped getters — reads work, writes no-op. */\nconst __aihu_ssr_prop = (v: unknown) => Object.assign(() => v, {{ set: (_v: unknown) => {{}} }})\nexport const __ssr = (props: Record<string, unknown> = {{}}) => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{ {ssr_props} }} }})\nexport default __ssr\n{string_export}",
                 merged_imports = merged_imports,
                 helpers_decl = helpers_decl,
                 ctx_param = ctx_param,
                 body = body,
                 tag_name = tag_name,
                 config_block = config_block,
-                ssr_props = ssr_prop_fields.join(", "),
+                ssr_props = ssr_props,
+                string_export = string_export,
             )
         } else if has_form {
             format!(
@@ -1123,13 +1195,18 @@ pub(crate) fn emit_function_form(
         //     element and empty attr/prop maps — sufficient for the plain
         //     function form, which never reads them (props/attrs force the
         //     options-form, excluded from this branch).
+        let string_export = ssr_string_suffix(
+            "{ host: null, element: null, attrs: {}, props: {} }",
+            "_props: Record<string, unknown> = {}",
+        );
         format!(
-            "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n",
+            "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n{string_export}",
             merged_imports = merged_imports,
             helpers_decl = helpers_decl,
             ctx_param = ctx_param,
             body = body,
             tag_name = tag_name,
+            string_export = string_export,
         )
     } else {
         format!(
