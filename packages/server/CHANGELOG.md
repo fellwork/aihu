@@ -119,7 +119,7 @@ var __require = createRequire(import.meta.url)` instead of the default
   downstream bundler — e.g. Vite 8's Rolldown config loader — re-bundled a
   transitive `@aihu/server` import into an ESM scope with no `require`. The native
   loader's `createRequire(...)('@aihu/server-<platform>')` call then threw,
-  surfacing as `AIHU_NATIVE_LOAD_FAILED` and breaking
+  surfacing as `SCRIBE_NATIVE_LOAD_FAILED` and breaking
   `viteAgentReadinessIntegration` (and any plugin that imports `@aihu/server`
   transitively) inside `vite.config.ts`.
 
