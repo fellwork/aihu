@@ -125,7 +125,10 @@ export function _materialize(
   }
 
   // Case 4: fragment branch (null tag) — recurse children directly into host.
-  if (node.kind === 'branch' && node.tag === null) {
+  // `''` is fragment too: the compiler emits `branch('', …)` for `{#if}`/
+  // `{#each}` bodies, and `createElement('')` throws (InvalidCharacterError),
+  // so an empty-string tag could never have been an element.
+  if (node.kind === 'branch' && (node.tag === null || node.tag === '')) {
     const appended: globalThis.Node[] = []
     const fChildren = node.children
     try {

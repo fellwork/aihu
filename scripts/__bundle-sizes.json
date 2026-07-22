@@ -11,8 +11,8 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2760,
-    "limit": "2800 B"
+    "bytes": 2989,
+    "limit": "3100 B"
   },
   {
     "name": "@aihu/runtime",

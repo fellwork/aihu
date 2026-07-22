@@ -255,6 +255,126 @@ function _textBoundaryBefore(children: unknown[], i: number, hydratable: boolean
  */
 const ROOT_PATH = '0'
 
+// ---------------------------------------------------------------------------
+// #465 — the structural walk. `when()`/`each()` nodes (the compiled output of
+// `{#if}`/`{#each}` and the upcoming attribute grammar) carry their branches
+// as closures and their conditions/collections as Signal-shaped values; both
+// are synchronously readable server-side, so SSR renders the ACTIVE branch.
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a structural condition's current boolean value.
+ *
+ * Accepted shapes (all observed in compiled output / arbor's contract):
+ *   - `[read, write]` Signal tuple or `[() => expr]` thunk-array — the
+ *     compiler's `createIfBoundary` forms; read via `cond[0]()`, exactly the
+ *     client reconciler's read (`_reconcileWhen` in arbor/structural.ts).
+ *   - a plain closure `() => boolean` — hand-built trees.
+ *   - anything else — coerced with Boolean (fail-safe: no content).
+ */
+function _condTruthy(cond: unknown): boolean {
+  if (Array.isArray(cond)) {
+    const get = cond[0]
+    return typeof get === 'function' ? Boolean((get as () => unknown)()) : Boolean(get)
+  }
+  return typeof cond === 'function' ? Boolean((cond as () => unknown)()) : Boolean(cond)
+}
+
+/**
+ * Read a structural list's current items. Same shape latitude as
+ * `_condTruthy`: Signal tuple / thunk-array (`list[0]()` — the client
+ * reconciler's read in `_reconcileEach`), plain closure, or a plain array.
+ * Non-array reads render as empty (fail-safe).
+ */
+function _listItems(list: unknown): unknown[] {
+  let items: unknown = list
+  if (Array.isArray(list) && typeof list[0] === 'function') {
+    items = (list[0] as () => unknown)()
+  } else if (typeof list === 'function') {
+    items = (list as () => unknown)()
+  }
+  return Array.isArray(items) ? items : []
+}
+
+/**
+ * The subtrees a structural node contributes to the render, with the path
+ * each subtree continues under. Paths MIRROR the client materializer
+ * (`arbor/src/structural.ts`) so `data-aihu-path` markers inside structural
+ * content address the key space the hydration walker asks for:
+ *   - conditional (true):  `${path}.conditional.true`
+ *   - list item (key k):   `${path}.list.${String(k).replace(/\./g, '_')}`
+ * A false conditional or an empty collection contributes nothing — the
+ * compiler lowers `else` / `empty` arms to sibling `when()` nodes with
+ * negated conditions, so every authored branch is its own conditional here.
+ */
+function _structuralSubtrees(
+  obj: Record<string, unknown>,
+  path: string,
+): Array<{ node: unknown; path: string }> {
+  if (obj.structuralKind === 'conditional') {
+    const grow = obj.grow
+    if (typeof grow !== 'function' || !_condTruthy(obj.condition)) return []
+    return [{ node: (grow as () => unknown)(), path: `${path}.conditional.true` }]
+  }
+  if (obj.structuralKind === 'list') {
+    const grow = obj.listGrow
+    if (typeof grow !== 'function') return []
+    const items = _listItems(obj.list)
+    const keyFn = typeof obj.keyFn === 'function' ? (obj.keyFn as (i: unknown) => unknown) : null
+    const out: Array<{ node: unknown; path: string }> = []
+    for (let i = 0; i < items.length; i++) {
+      const key = String(keyFn ? keyFn(items[i]) : i).replace(/\./g, '_')
+      out.push({
+        node: (grow as (i: unknown, idx: number) => unknown)(items[i], i),
+        path: `${path}.list.${key}`,
+      })
+    }
+    return out
+  }
+  return []
+}
+
+/**
+ * Comment-safe form of a path for the structural delimiters below: `-` → `_`
+ * so no `--` sequence can terminate the comment early (list keys are
+ * arbitrary strings — slugs with hyphens are routine). The client walker
+ * (`arbor/src/hydrate.ts`) applies the SAME transform when computing the
+ * marker it looks for; the two must never diverge.
+ */
+function _commentPath(path: string): string {
+  return path.replace(/-/g, '_')
+}
+
+/**
+ * Structural delimiters emitted around a structural node's output in
+ * HYDRATABLE renders only: `<!--aihu:s:PATH-->` … `<!--aihu:/s:PATH-->`.
+ * They serve two roles:
+ *   1. The client walker locates the server-rendered structural segment by
+ *      exact path match and REPLACES it in position (adopt-by-replace — see
+ *      the structural case in `arbor/src/hydrate.ts`), so hydration never
+ *      duplicates content beside the server's DOM.
+ *   2. As comments they keep a text leaf before the structural node and one
+ *      after it from coalescing into a single DOM Text node (the same
+ *      cursor-alignment concern `TEXT_LEAF_BOUNDARY` covers).
+ * Like `data-aihu-path`, they are destination properties: terminal
+ * (non-hydratable) output carries no markers and no extra bytes.
+ */
+function _structuralMarkers(path: string, hydratable: boolean): { open: string; close: string } {
+  if (!hydratable) return { open: '', close: '' }
+  const p = _commentPath(path)
+  return { open: `<!--aihu:s:${p}-->`, close: `<!--aihu:/s:${p}-->` }
+}
+
+/** A branch with a `null` or `''` tag is a FRAGMENT: no wrapper element, no
+ * path marker of its own; children continue at `${path}.${i}` in the same
+ * host — mirroring `_materialize` case 4 (`arbor/src/materialize.ts`). The
+ * compiler emits `branch('', …)` for `{#if}`/`{#each}` bodies, so structural
+ * SSR is impossible without this case; previously a null tag rendered a
+ * spurious `<div>` wrapper the client never creates. */
+function _isFragment(obj: Record<string, unknown>): boolean {
+  return obj.tag === null || obj.tag === ''
+}
+
 function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   if (typeof node !== 'object' || node === null) return ''
   const obj = node as Record<string, unknown>
@@ -265,16 +385,26 @@ function _renderNode(node: unknown, path: string, hydratable: boolean): string {
   }
 
   if (obj.kind === 'branch') {
-    const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    let attrStr = serializeAttrs(asAttrMap(obj.attrs))
-    if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     const children = Array.isArray(obj.children) ? obj.children : []
     let inner = ''
     for (let i = 0; i < children.length; i++) {
       inner += _textBoundaryBefore(children, i, hydratable)
       inner += _renderNode(children[i], `${path}.${i}`, hydratable)
     }
+    if (_isFragment(obj)) return inner
+    const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
+    let attrStr = serializeAttrs(asAttrMap(obj.attrs))
+    if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     return `<${tag}${attrStr}>${inner}</${tag}>`
+  }
+
+  if (obj.kind === 'structural') {
+    const { open, close } = _structuralMarkers(path, hydratable)
+    let inner = ''
+    for (const sub of _structuralSubtrees(obj, path)) {
+      inner += _renderNode(sub.node, sub.path, hydratable)
+    }
+    return open + inner + close
   }
 
   return ''
@@ -331,6 +461,33 @@ async function renderNodeAsync(
 
   if (obj.kind === 'leaf') {
     controller.enqueue(renderLeaf(obj))
+    return
+  }
+
+  if (obj.kind === 'structural') {
+    // #465 — structural nodes render their active branch. Children recurse
+    // through THIS walker, so a `dataSource` boundary inside a structural
+    // subtree keeps its semantics — including the P5/I2s governed refusal on
+    // `pending` (a governed structural render still never streams).
+    const { open, close } = _structuralMarkers(path, hydratable)
+    if (open) controller.enqueue(open)
+    for (const sub of _structuralSubtrees(obj, path)) {
+      await renderNodeAsync(sub.node, sub.path, hydratable, controller, pendingState)
+    }
+    if (close) controller.enqueue(close)
+    return
+  }
+
+  if (obj.kind === 'branch' && _isFragment(obj)) {
+    // Fragment (null/'' tag): no wrapper, no path marker, no dataSource
+    // boundary of its own — children continue at `${path}.${i}` directly,
+    // mirroring `_materialize` case 4 in arbor.
+    const children = Array.isArray(obj.children) ? obj.children : []
+    for (let i = 0; i < children.length; i++) {
+      const b = _textBoundaryBefore(children, i, hydratable)
+      if (b) controller.enqueue(b)
+      await renderNodeAsync(children[i], `${path}.${i}`, hydratable, controller, pendingState)
+    }
     return
   }
 
