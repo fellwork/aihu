@@ -249,6 +249,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
 | `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/store` | 1.81 kB | 2.5 KB | pass |
 | `@aihu/auth` | — | 1.5 KB | _no dist_ |
 | `@aihu/magna` | — | 1.8 KB | _no dist_ |
 | `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
@@ -313,6 +314,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/seo`](./packages/seo) | `1.0.1` | DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD). |
 | [`@aihu/server`](./packages/server) | `0.3.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
 | [`@aihu/signals`](./packages/signals) | `0.3.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
+| [`@aihu/store`](./packages/store) | `0.1.0` | Pinia-style global stores on aihu signals — defineStore, SSR-safe per-request instances, registry-based serialize/hydrate, plugins. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/tsc`](./packages/tsc) | `0.2.4` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |

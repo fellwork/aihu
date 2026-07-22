@@ -871,6 +871,14 @@
       "name": "@aihu/signals",
       "version": "0.3.0",
     },
+    "packages/store": {
+      "name": "@aihu/store",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/context": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+    },
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
       "version": "3.0.1",
@@ -1047,6 +1055,8 @@
     "@aihu/server-win32-x64-msvc": ["@aihu/server-win32-x64-msvc@0.1.2", "", { "os": "win32", "cpu": "x64" }, "sha512-ZdgbZdYS3Q/WzrQ+jJH8z8FFDy7tIxFaYbzokojMbqopQFkAbgLtYFzv4XWTD+pk8+RzsKjFeewOVimyMV6lpw=="],
 
     "@aihu/signals": ["@aihu/signals@workspace:packages/signals"],
+
+    "@aihu/store": ["@aihu/store@workspace:packages/store"],
 
     "@aihu/templates-cf-team": ["@aihu/templates-cf-team@workspace:packages/templates/cf-team"],
 

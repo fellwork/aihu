@@ -227,6 +227,13 @@
     "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
   },
   {
+    "name": "@aihu/store",
+    "path": "packages/store/dist/index.js",
+    "limit": "2.5 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/context"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",
