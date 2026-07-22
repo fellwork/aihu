@@ -1,0 +1,16 @@
+{
+  "name": "@aihu/compiler-native-win32-x64-msvc",
+  "version": "0.1.0",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "main": "aihu-compiler-native.win32-x64-msvc.node",
+  "files": [
+    "aihu-compiler-native.win32-x64-msvc.node"
+  ],
+  "description": "aihu compiler native addon (napi) — win32-x64-msvc platform binary."
+}
