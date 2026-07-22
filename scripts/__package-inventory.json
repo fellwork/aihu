@@ -210,6 +210,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/editor",
+    "version": "0.1.0",
+    "dir": "packages/editor",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/language-server",
     "version": "0.3.0",
     "dir": "packages/language-server",

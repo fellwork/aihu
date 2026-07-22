@@ -1,0 +1,96 @@
+// <aihu-editor-toolbar> — separate, composable toolbar (architecture.md §9.2).
+//
+// Finds its editor (`for` attribute → element id, else the nearest
+// <aihu-editor> sibling/ancestor scope) and talks ONLY through the element
+// API: exec(command) / can(command) / activeState(). No private coupling —
+// any element implementing that API works.
+
+@state {
+  let forId = prop({ default: '', describe: 'Element id of the editor to control' })
+
+  let tick = state(0)
+
+  let editorEl = null
+  let offTransaction = null
+
+  const editor = () => editorEl
+
+  const findEditor = () => {
+    if (forId) return _host.ownerDocument.getElementById(forId)
+    let cur = _host.parentElement
+    while (cur) {
+      const found = cur.querySelector('aihu-editor')
+      if (found) return found
+      cur = cur.parentElement
+    }
+    return null
+  }
+
+  const st = derived(() => {
+    tick // re-read on every editor transaction/selection change
+    const el = editor()
+    return el && el.activeState ? el.activeState() : null
+  })
+  const marks = derived(() => st?.marks ?? new Set())
+  const canUndo = derived(() => !!st?.canUndo)
+  const canRedo = derived(() => !!st?.canRedo)
+
+  const exec = action((cmd) => {
+    const el = editor()
+    if (el && el.exec) {
+      el.exec(Array.isArray(cmd) ? cmd[0] : cmd)
+      tick = tick + 1
+      el.focus?.()
+    }
+  })
+
+  const bump = () => {
+    tick = tick + 1
+  }
+
+  onMount(() => {
+    editorEl = findEditor()
+    if (editorEl) {
+      editorEl.addEventListener('transaction', bump)
+      editorEl.addEventListener('editor-selectionchange', bump)
+      offTransaction = () => {
+        editorEl.removeEventListener('transaction', bump)
+        editorEl.removeEventListener('editor-selectionchange', bump)
+      }
+      bump()
+    }
+  })
+
+  onDispose(() => {
+    offTransaction?.()
+  })
+}
+
+@template {
+  <div class="editor-toolbar" role="toolbar" aria-label="Text formatting">
+    <button on:click={() => exec({ type: 'toggleMark', mark: 'strong' })} data-active={marks.has('strong')} aria-label="Bold" title="Bold (Mod+B)"><b>B</b></button>
+    <button on:click={() => exec({ type: 'toggleMark', mark: 'em' })} data-active={marks.has('em')} aria-label="Italic" title="Italic (Mod+I)"><i>I</i></button>
+    <button on:click={() => exec({ type: 'toggleMark', mark: 'code' })} data-active={marks.has('code')} aria-label="Inline code" title="Inline code"><code>{'<>'}</code></button>
+    <span class="sep"></span>
+    <button on:click={() => exec({ type: 'setBlockType', block: 'heading', level: 1 })} data-active={st?.headingLevel === 1} aria-label="Heading 1">H1</button>
+    <button on:click={() => exec({ type: 'setBlockType', block: 'heading', level: 2 })} data-active={st?.headingLevel === 2} aria-label="Heading 2">H2</button>
+    <button on:click={() => exec({ type: 'setBlockType', block: 'heading', level: 3 })} data-active={st?.headingLevel === 3} aria-label="Heading 3">H3</button>
+    <button on:click={() => exec({ type: 'setBlockType', block: 'blockquote' })} data-active={st?.blockType === 'blockquote'} aria-label="Blockquote">&ldquo;&rdquo;</button>
+    <span class="sep"></span>
+    <button on:click={() => exec({ type: 'toggleList', ordered: false })} data-active={st?.blockType === 'listItem' && st?.listOrdered === false} aria-label="Bullet list">&bull;&equiv;</button>
+    <button on:click={() => exec({ type: 'toggleList', ordered: true })} data-active={st?.blockType === 'listItem' && st?.listOrdered === true} aria-label="Numbered list">1&equiv;</button>
+    <button on:click={() => exec({ type: 'insertHr' })} aria-label="Horizontal rule">&mdash;</button>
+    <span class="sep"></span>
+    <button on:click={() => exec({ type: 'undo' })} disabled={!canUndo} aria-label="Undo" title="Undo (Mod+Z)">&#8630;</button>
+    <button on:click={() => exec({ type: 'redo' })} disabled={!canRedo} aria-label="Redo" title="Redo (Mod+Shift+Z)">&#8631;</button>
+  </div>
+}
+
+@style {
+  .editor-toolbar { display: flex; align-items: center; gap: 0.15rem; padding: 0.25rem; border: 1px solid var(--border, #ddd); border-radius: 6px; background: var(--panel-bg, #fafafa); flex-wrap: wrap; }
+  button { min-width: 1.9rem; height: 1.9rem; padding: 0 0.35rem; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer; font-size: 0.85rem; color: var(--fg, #222); }
+  button:hover { background: var(--hover-bg, #eee); }
+  button[data-active="true"] { background: var(--active-bg, #e2e8ff); border-color: var(--active-border, #aab8ff); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .sep { width: 1px; height: 1.2rem; background: var(--border, #ddd); margin: 0 0.25rem; }
+}

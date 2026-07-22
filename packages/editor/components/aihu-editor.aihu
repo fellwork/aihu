@@ -1,0 +1,257 @@
+// <aihu-editor> — the GX-governed rich-text editor SFC (architecture.md §9).
+//
+// Thin chrome around @aihu/editor's EditorView: the SFC owns props, events,
+// the agentAccess knob, the suggest-mode accept/reject bar, and the GX
+// surface. All editing logic lives in the package (EditorCore/EditorView);
+// every agent action delegates to the AgentGateway, which validates through
+// the SAME EditorCore.apply() door as keystrokes (G1) and lands in the same
+// undo history (G2) with origin `agent:<tool>` (G3).
+//
+// `mode: 'source'` is the §11 fallback: a plain markdown textarea sharing
+// the same props/events/serializers — consumers lose WYSIWYG, never data.
+
+@state {
+  import { effect } from '@aihu/signals'
+  import {
+    AgentGateway,
+    EditorCore,
+    EditorView,
+    fromMarkdown,
+    toJSON,
+    toMarkdown,
+  } from '@aihu/editor'
+
+  let initialDoc = prop({
+    default: null,
+    describe: 'Initial document as canonical aihu-editor JSON (wins over markdown)',
+  })
+  let markdown = prop({
+    default: '',
+    describe: 'Convenience initial content as web-v1 dialect markdown',
+  })
+  let readonly = prop({ default: false, describe: 'Render-only: commands and input disabled' })
+  let features = prop({
+    default: null,
+    describe: 'FeaturesConfig: { headings?, lists?, blockquote?, link?, inputRules? }',
+  })
+  let agentAccess = prop({
+    default: 'read',
+    describe: "Agent surface tier: 'none' | 'read' | 'suggest' | 'write'. Default 'read'.",
+  })
+  let placeholder = prop({ default: '', describe: 'Hint shown while the document is empty' })
+  let mode = prop({
+    default: 'rich',
+    describe: "'rich' (contenteditable) or 'source' (markdown textarea fallback)",
+  })
+
+  let isEmpty = state(true)
+  let sourceText = state('')
+  let proposals = state([])
+
+  let core = null
+  let view = null
+  let gateway = null
+  let changeTimer = null
+
+  const emit = (type, detail) => {
+    _host.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }))
+  }
+
+  const emitChange = (docNow) => {
+    // debounced 150 ms trailing (spec §9.1)
+    if (changeTimer !== null) clearTimeout(changeTimer)
+    changeTimer = setTimeout(() => {
+      changeTimer = null
+      emit('change', { doc: toJSON(docNow()), markdown: toMarkdown(docNow()) })
+    }, 150)
+  }
+
+  const refreshEmpty = () => {
+    const d = core.doc()
+    isEmpty =
+      d.children.length === 1 &&
+      d.children[0].type === 'paragraph' &&
+      d.children[0].content.length === 0
+  }
+
+  const acceptProposal = action((id) => {
+    if (!gateway) return
+    gateway.accept(typeof id === 'string' ? id : id?.[0])
+  })
+  const rejectProposal = action((id) => {
+    if (!gateway) return
+    gateway.reject(typeof id === 'string' ? id : id?.[0])
+  })
+
+  // ----- GX read tier (spec §7.1) -----------------------------------------
+  const doc = derived(
+    {
+      describe:
+        'The current document as canonical aihu-editor JSON (schema/version/children). Block ids are stable addresses for write actions.',
+      expose: 'read',
+    },
+    () => (gateway ? gateway.doc() : initialDoc),
+  )
+  const docMarkdown = derived(
+    {
+      describe: 'The current document serialized to the web-v1 markdown dialect.',
+      expose: 'read',
+    },
+    () => (gateway ? gateway.docMarkdown() : markdown),
+  )
+  const docOutline = derived(
+    {
+      describe: 'Cheap outline: [{ id, type, level?, text }] per top-level block — read before editing.',
+      expose: 'read',
+    },
+    () => (gateway ? gateway.docOutline() : []),
+  )
+  const selectionContext = derived(
+    {
+      describe: 'The current selection plus up to 80 chars of surrounding text, for grounding edits.',
+      expose: 'read',
+    },
+    () => (gateway ? gateway.selectionContext() : null),
+  )
+
+  // ----- GX write tier (spec §7.1/§7.2) — all through gateway.call() ------
+  // Failure contract for every action: invalid ids/offsets/hrefs return a
+  // structured { ok: false, code } and NEVER partially apply. In 'suggest'
+  // mode a valid call stages a proposal ({ ok: true, proposalId }) instead
+  // of mutating; 'read'/'none' return { ok: false, code: 'access_denied' }.
+  const gwCall = (name, args) => {
+    if (!gateway) return { ok: false, code: 'not_mounted' }
+    const params = Array.isArray(args) ? args[0] : args
+    return gateway.call(name, params ?? {}, name)
+  }
+
+  const insertBlock = action(
+    {
+      describe:
+        'Insert a block node. Params: { after: blockId | null, node: BlockNode }. null = document start. Fresh ids are assigned. Fails closed: { ok: false, code } on invalid target or node.',
+      expose: 'read write',
+    },
+    (args) => gwCall('insertBlock', args))
+  const replaceRange = action(
+    {
+      describe:
+        'Replace text in ONE block. Params: { from: {block, offset}, to: {block, offset}, text }. Offsets are UTF-16 code units. Fails closed on unknown ids or bad offsets.',
+      expose: 'read write',
+    },
+    (args) => gwCall('replaceRange', args))
+  const applyMark = action(
+    {
+      describe:
+        "Set or clear a mark over a range. Params: { from, to, mark: {type: 'strong'|'em'|'code'} | {type:'link', attrs:{href}} | null }. Link hrefs must pass safeHref — unsafe hrefs return { ok:false, code:'bad_href' }.",
+      expose: 'read write',
+    },
+    (args) => gwCall('applyMark', args))
+  const applyTransaction = action(
+    {
+      describe:
+        'Apply raw steps atomically (the power tool). Params: { steps: Step[] }. Validated exactly like human input; rejection never partially applies.',
+      expose: 'read write',
+    },
+    (args) => gwCall('applyTransaction', args))
+
+  // ----- source-mode fallback ---------------------------------------------
+  const onSourceInput = action((e) => {
+    const text = e?.target?.value ?? ''
+    sourceText = text
+    if (changeTimer !== null) clearTimeout(changeTimer)
+    changeTimer = setTimeout(() => {
+      changeTimer = null
+      const d = fromMarkdown(text)
+      emit('change', { doc: toJSON(d), markdown: text })
+    }, 150)
+  })
+
+  onMount(() => {
+    const initial = initialDoc ?? (markdown ? fromMarkdown(markdown) : undefined)
+    core = new EditorCore(initial ?? undefined)
+    gateway = new AgentGateway(
+      core,
+      () => agentAccess,
+      (kind, proposal) => {
+        proposals = gateway.pendingProposals()
+        emit('agent-suggestion', { kind, proposal: { id: proposal.id, action: proposal.action, origin: proposal.origin } })
+      })
+    sourceText = toMarkdown(core.doc())
+
+    const surface = _host.querySelector('[data-editor-surface]')
+    if (surface && mode !== 'source') {
+      view = new EditorView(surface, core, {
+        features: features ?? undefined,
+        readonly: !!readonly,
+      })
+    }
+
+    core.onTransaction((tr, d) => {
+      emit('transaction', { tr, doc: d })
+      emitChange(core.doc)
+      refreshEmpty()
+      sourceText = toMarkdown(d)
+    })
+    effect(() => {
+      const sel = core.selection()
+      emit('editor-selectionchange', sel)
+    })
+    refreshEmpty()
+
+    // element API (spec §9.1) — hosts and the toolbar talk through these
+    _host.exec = (command) => (view ? view.exec(command) : false)
+    _host.can = (command) => (view ? view.can(command) : false)
+    _host.activeState = () => (view ? view.activeState() : null)
+    _host.getJSON = () => toJSON(core.doc())
+    _host.getMarkdown = () => toMarkdown(core.doc())
+    _host.setDoc = (d) => core.load(d)
+    _host.focus = () => view?.focus()
+  })
+
+  onDispose(() => {
+    if (changeTimer !== null) clearTimeout(changeTimer)
+    view?.destroy()
+  })
+}
+
+@template {
+  <div class="aihu-editor" data-mode={mode}>
+    <div class="agent-suggestions" if={proposals.length > 0} role="region" aria-label="Agent suggestions">
+      <div each={p of proposals} key={p.id} class="suggestion-row">
+        <span class="suggestion-label">agent proposes: <code>{p.action}</code></span>
+        <button class="accept" on:click={() => acceptProposal(p.id)}>Accept</button>
+        <button class="reject" on:click={() => rejectProposal(p.id)}>Reject</button>
+      </div>
+    </div>
+    <div class="surface-wrap" if={mode !== 'source'}>
+      <div class="surface" data-editor-surface></div>
+      <span class="placeholder" if={isEmpty && placeholder} aria-hidden="true">{placeholder}</span>
+    </div>
+    <textarea
+      if={mode === 'source'}
+      class="source"
+      bind:value={sourceText}
+      on:input={onSourceInput}
+      readonly={readonly}
+      placeholder={placeholder}
+    ></textarea>
+  </div>
+}
+
+@style {
+  .aihu-editor { position: relative; display: block; }
+  .surface-wrap { position: relative; }
+  .surface { min-height: 6rem; outline: none; padding: 0.5rem 0.75rem; }
+  .surface :where(p, h1, h2, h3, blockquote, ul, ol) { margin: 0.4em 0; }
+  .surface blockquote { border-left: 3px solid var(--border, #d0d0d0); padding-left: 0.75rem; color: var(--muted, #666); }
+  .surface code { background: var(--code-bg, #f4f4f4); padding: 0.1em 0.3em; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 0.92em; }
+  .surface hr { border: none; border-top: 1px solid var(--border, #d0d0d0); margin: 0.75em 0; }
+  .placeholder { position: absolute; top: 0.5rem; left: 0.75rem; color: var(--muted, #999); pointer-events: none; }
+  .source { width: 100%; min-height: 6rem; font-family: ui-monospace, monospace; font-size: 0.9rem; padding: 0.5rem 0.75rem; border: none; outline: none; resize: vertical; background: transparent; color: inherit; }
+  .agent-suggestions { display: grid; gap: 0.25rem; padding: 0.4rem 0.6rem; background: var(--agent-bg, #f6f8ff); border: 1px solid var(--agent-border, #ccd6ff); border-radius: 6px; margin-bottom: 0.5rem; }
+  .suggestion-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+  .suggestion-label { flex: 1; }
+  .suggestion-row button { padding: 0.15rem 0.6rem; border-radius: 4px; border: 1px solid var(--border, #ccc); background: var(--btn-bg, #fff); cursor: pointer; font-size: 0.8rem; }
+  .suggestion-row .accept { border-color: var(--ok, #2c7); }
+  .suggestion-row .reject { border-color: var(--warn, #c55); }
+}
