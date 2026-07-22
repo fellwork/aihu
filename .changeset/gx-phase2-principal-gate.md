@@ -1,6 +1,6 @@
 ---
 '@aihu/agent-service': minor
-'@aihu/plugin-agent-readiness': minor
+'@aihu-plugin/agent-readiness': minor
 ---
 
 GX Phase 2 — the principal gate, `call`-axis enforcement, and the unified bot registry (#437-GX).
