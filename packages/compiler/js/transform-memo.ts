@@ -44,6 +44,7 @@ export const _MEMO_MAX_ENTRIES = 1024
 const cache = new Map<string, string>()
 let hits = 0
 let misses = 0
+let seeds = 0
 
 /**
  * Identity stamp for the compiler binary: path + mtime + size when statable,
@@ -114,14 +115,48 @@ export function _memoizedSpawn(
   return out
 }
 
+/**
+ * Seed a memo entry WITHOUT a spawn — the envelope path's sibling-artifact
+ * write. One envelope compile of a file yields js + ast + route from a single
+ * parse; the js answers the current call, and the ast/route strings are
+ * seeded here under the exact keys `compileToAst` / `compileRouteMeta` will
+ * look up, so their later calls for the same source are pure cache hits.
+ * Never overwrites an existing entry; counts in the `seeds` stat, not
+ * hits/misses.
+ * @internal
+ */
+export function _seedMemo(
+  kind: string,
+  source: string,
+  id: string,
+  optionsFingerprint: string,
+  binPath: string,
+  value: string,
+): void {
+  const key = _memoKey(kind, source, id, optionsFingerprint, binPath)
+  if (cache.has(key)) return
+  if (cache.size >= _MEMO_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+  cache.set(key, value)
+  seeds++
+}
+
 /** Test/diagnostic hook — wipe the memo and its counters. @internal */
 export function _clearTransformMemo(): void {
   cache.clear()
   hits = 0
   misses = 0
+  seeds = 0
 }
 
-/** Test/diagnostic hook — current memo size + hit/miss counters. @internal */
-export function _transformMemoStats(): { size: number; hits: number; misses: number } {
-  return { size: cache.size, hits, misses }
+/** Test/diagnostic hook — current memo size + hit/miss/seed counters. @internal */
+export function _transformMemoStats(): {
+  size: number
+  hits: number
+  misses: number
+  seeds: number
+} {
+  return { size: cache.size, hits, misses, seeds }
 }
