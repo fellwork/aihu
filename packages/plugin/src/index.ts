@@ -143,9 +143,10 @@ export interface Macro {
   readonly lowering: MacroLowering
   readonly validation?: MacroValidation
   /**
-   * When true, the macro emits server-only output (per spec §6.5.2). The
-   * compiler treats it analogously to `$server`: lowered output goes to the
-   * server artifact and client code accessing it gets RPC stubs.
+   * When true, the macro emits server-only output (per spec §6.5.2): the
+   * lowered output goes to the server artifact and is elided from the client
+   * bundle. (The `$server` macro that this once mirrored has been retired —
+   * see Macro Vocabulary spec §2.12.)
    */
   readonly serverOnly?: boolean
 }

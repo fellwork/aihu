@@ -33,7 +33,7 @@ Macros are visually marked with the `$` prefix. The prefix is the discriminator 
 
 | Block | Count | Macros |
 |---|---|---|
-| `@state` | 12 | `$prop`, `$computed`, `$resource`, `$effect`, `$effect.on`, `$watch`, `$action`, `$lifecycle.mount`, `$lifecycle.dispose`, `$expose`, `$shared`, `$cookie`, `$server`, `$meta` |
+| `@state` | 12 | `$prop`, `$computed`, `$resource`, `$effect`, `$effect.on`, `$watch`, `$action`, `$lifecycle.mount`, `$lifecycle.dispose`, `$expose`, `$shared`, `$cookie`, `$meta` (`$server` **retired** — see §2.12) |
 | `@template` | 16 | `$if`, `$show`, `$each`, `$bind:*`, `$on:*`, `$key`, `$html`, `$raw`, `$once`, `$memo`, `$action` (form attr), `<$slot>`, `<$suspense>`, `<$shield>`, `<$guard>`, `<$warp>` |
 | `@style` | 5 | `$reactive`, `$tokens`, `$global`, `$media`, `$when` |
 | `@agent` | 6 | `$expose`, `$expose.write`, `$action`, `$scope`, `$rate-limit`, `$describe` |
@@ -652,53 +652,32 @@ const name = useCookie<type>('name', { defaultValue, ...options })
 }
 ```
 
-### 2.12 `$server`
+### 2.12 `$server` — **RETIRED**
 
-**Purpose:** Declare a function that runs only on the server, callable from the client.
-
-**Form:** Declaration statement.
-
-**Syntax:**
-```
-$server function name(args): ReturnType { body }
-$server async function name(args): Promise<ReturnType> { body }
-```
-
-**Lowering:**
-```typescript
-// Compiler emits two artifacts (per Block Structure Spec §11.5):
-
-// Server-side: actual implementation in _aihu-server/actions/{component-id}/{name}.ts
-export async function name(args) { body }
-
-// Client-side: RPC stub in component
-const name = createServerCall<Args, Return>('component-id/name')
-```
-
-**Runtime behavior:**
-- Function body executes on the server only; never bundled to client
-- Client calls invoke an HTTP request to the generated endpoint
-- Arguments and return values must be serializable
-- Errors thrown server-side are propagated to the client with sanitized messages
-
-**Error cases:**
-- `$server` outside `@state` — error
-- Function references client-only APIs (window, document) — compile error
-- Non-serializable arguments or return type — compile error
-
-**Examples:**
-```
-@state {
-  $server async function getUser(id: string): Promise<User> {
-    return await db.users.findUnique({ where: { id } })
-  }
-  
-  $server async function deletePost(id: string): Promise<void> {
-    await requireAuth()
-    await db.posts.delete({ where: { id } })
-  }
-}
-```
+> **Retired (chore/retire-server-macro).** The `$server` macro and its
+> client-side `createServerCall` RPC bridge have been removed from the
+> language. The feature never fully shipped: the compiler recognized
+> `$server` only as a substring and, on a `--target client` build, emitted a
+> `// [client build] $server macro reference elided` comment while leaving the
+> `$server.*` reference untouched in the output — no server artifact and no
+> `createServerCall` stub were ever generated, so the reference resolved to an
+> undefined identifier at type-check / runtime. Rather than finish a
+> half-wired surface, it is retired.
+>
+> **No drop-in replacement ships.** There is no `$server` equivalent for
+> "declare an arbitrary function that runs server-only and is callable from
+> the client over RPC." Server-only logic today lives in the shipped
+> server-side surfaces — route/loader server code (`defineLoader`,
+> `defineStreamRoute`), the governed data-access boundary
+> (`createGovernedRegistry` / `defineGovernedFetch`), and `--target server`
+> component emission — none of which is a 1:1 RPC replacement. **Open
+> question flagged to the director:** if a first-class client→server RPC
+> primitive is still wanted, it needs a fresh design; this section is retired
+> plainly, not redirected to a specific successor.
+>
+> The historical `$server` syntax, lowering contract, and examples are
+> preserved in git history and in the applied amendments
+> (`applied-amendments/2026-05-02-AMD-02-applied.md`, `-AMD-03-applied.md`).
 
 ### 2.13 `$meta`
 
@@ -1870,7 +1849,7 @@ Quick reference: which macros are valid in which blocks.
 | `$expose.write` | | | | ✓ | |
 | `$shared` | ✓ | | | | |
 | `$cookie` | ✓ | | | | |
-| `$server` | ✓ | | | | |
+| `$server` | — | | | | **Retired** — see §2.12 |
 | `$meta` | ✓ | | | | |
 | `$if` | | ✓ | | | |
 | `$show` | | ✓ | | | |

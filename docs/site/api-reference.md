@@ -87,7 +87,6 @@ Build-time Vite plugin. Import from `@aihu/router/plugin` in `vite.config.ts` â€
 | `defineApiRoute(opts)` | Define a REST API route |
 | `defineLoader(fn)` | Define a server-side data loader |
 | `defineAihuConfig(config)` | Define the aihu app configuration |
-| `createServerCall<A, R>(endpoint)` | Create a typed client fetch stub for a server action |
 | `defineStreamRoute(opts)` | Define a streaming HTTP route (v0.4.0+) |
 | `json(data, status?)` | Return a JSON response |
 | `notFound(msg?)` | Return a 404 response |
