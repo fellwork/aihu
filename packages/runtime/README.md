@@ -50,6 +50,7 @@ bun add @aihu/runtime
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./ssr` | `./dist/ssr-string.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/runtime@3.0.0`.</i></sub>
 

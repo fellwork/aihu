@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./ssr": {
+      "types": "./dist/ssr-string.d.ts",
+      "import": "./dist/ssr-string.js"
     }
   },
   "files": [

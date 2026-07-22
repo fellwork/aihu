@@ -22,6 +22,10 @@ export default defineConfig({
     alias: {
       '@aihu/signals': new URL('../packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('../packages/arbor/src/index.ts', import.meta.url).pathname,
+      // Subpath before package (wave-3): '@aihu/runtime/ssr' must not resolve
+      // through the package alias as '<index.ts>/ssr'.
+      '@aihu/runtime/ssr': new URL('../packages/runtime/src/ssr-string.ts', import.meta.url)
+        .pathname,
       '@aihu/runtime': new URL('../packages/runtime/src/index.ts', import.meta.url).pathname,
       // Added for `ssr-hydrate-path-parity.test.ts`, which is cross-package by
       // nature: it pipes real `@aihu/server` output into `@aihu/arbor`'s

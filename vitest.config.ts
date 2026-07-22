@@ -59,6 +59,11 @@ export default defineConfig({
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
       '@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias or
+      // '@aihu/runtime/ssr' resolves as '<index.ts>/ssr' (same pattern as
+      // '@aihu/context/ssr' above).
+      '@aihu/runtime/ssr': new URL('./packages/runtime/src/ssr-string.ts', import.meta.url)
+        .pathname,
       '@aihu/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@aihu/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
       '@aihu/server/head-lowering': new URL(
