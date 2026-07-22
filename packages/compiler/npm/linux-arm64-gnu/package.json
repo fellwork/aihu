@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler-linux-arm64-gnu",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "license": "MIT",
   "os": [
     "linux"

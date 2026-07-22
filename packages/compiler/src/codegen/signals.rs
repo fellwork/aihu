@@ -92,7 +92,11 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
         decls.all.insert(k.clone());
     }
 
-    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let mut macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    // #487 — the wrapper dialect declares bindings through the same IR.
+    if let Ok(scan) = crate::parser::state_wrappers::scan_state_wrappers(script) {
+        macros.extend(scan.macros);
+    }
     for mac in &macros {
         match mac {
             StateMacro::Collection { kind, entries } => match kind {
@@ -145,6 +149,14 @@ pub fn collect_state_decls(script: &str) -> StateDecls {
             }
             // arch-3 M2 / A3 G2 (RFC-001): `$auth name` introduces a binding name.
             StateMacro::Auth { name, .. } => {
+                decls.all.insert(name.clone());
+            }
+            // #487 — new-dialect `let x = state(v)` / `const x = consume(key)`
+            // introduce reference-able binding names.
+            StateMacro::StateLet { name, .. } => {
+                decls.all.insert(name.clone());
+            }
+            StateMacro::ConsumeBinding { name, .. } => {
                 decls.all.insert(name.clone());
             }
             StateMacro::EffectAnon { .. }
@@ -221,7 +233,7 @@ fn extract_destructure_names(line: &str) -> Vec<String> {
 /// about which lines are top-level `@state` declarations.
 ///
 /// Returns trimmed line slices' owned copies. Read-only; never mutates codegen.
-fn plain_state_lines(raw_script: &str) -> Vec<String> {
+pub(crate) fn plain_state_lines(raw_script: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let bytes = raw_script.as_bytes();
     let mut i = 0usize;
@@ -453,7 +465,7 @@ fn initializer_rhs(line: &str) -> Option<&str> {
 /// Scan `expr` for the first identifier that is a member of `names`, ignoring
 /// string/template literals, comments, and member-access positions (`obj.name`).
 /// Mirrors emit.rs `expr_references_state`'s tokenizer.
-fn first_referenced_ident(expr: &str, names: &BTreeSet<String>) -> Option<String> {
+pub(crate) fn first_referenced_ident(expr: &str, names: &BTreeSet<String>) -> Option<String> {
     let bytes = expr.as_bytes();
     let mut i = 0usize;
     let mut prev_significant: u8 = 0;

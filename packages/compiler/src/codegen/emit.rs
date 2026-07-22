@@ -353,7 +353,12 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // a strongly-typed dispatcher: `dayjump: (payload: { day: Date }) => void`.
     // Falls back to the permissive `unknown` shape when no $event collection
     // is declared so existing fixtures continue to type-check.
-    let macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    let mut macros = crate::parser::state_macros::parse_state_macros(script).unwrap_or_default();
+    // #487 — the wrapper dialect's `event<P>('name', …)` statement calls feed
+    // the same typed `$emit` derivation (state-model spec §3.2.6).
+    let wrapper_scan =
+        crate::parser::state_wrappers::scan_state_wrappers(script).unwrap_or_default();
+    macros.extend(wrapper_scan.macros.iter().cloned());
     let event_entries: Vec<(&str, Option<&str>)> = macros
         .iter()
         .flat_map(|m| {
@@ -426,12 +431,50 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
         ),
     ];
     let script_bound = script_bound_names(script);
-    let globals: String = FRAMEWORK_GLOBALS
+    let mut globals: String = FRAMEWORK_GLOBALS
         .iter()
         .filter(|(name, _)| !script_bound.contains(*name))
         .map(|(_, decl)| *decl)
         .collect::<Vec<_>>()
         .join(" ");
+    // #487 §5 — the identity-typed intrinsic declarations (state-model spec
+    // §5.1). Emitted ONLY for a wrapper-dialect file, so old-dialect sidecars
+    // stay byte-identical. Wrapper declarations are valid TS checked IN PLACE
+    // (§5.4) — the binding a wrapper declares carries the author-facing VALUE
+    // type, so `const city = prop<string>({ default: 'London' })` types
+    // `city: string` and template expressions close over it directly.
+    // Names an authored import shadows are skipped (same discipline as the
+    // framework globals above).
+    if !wrapper_scan.macros.is_empty() {
+        const WRAPPER_TYPE_DECLS: &str = "type __AihuExpose = 'read' | 'write' | 'read write' | 'public' | { read?: boolean; write?: boolean }; interface __AihuMemberConfig { describe?: string; expose?: __AihuExpose } interface __AihuPropConfig<T> { default?: T; required?: boolean; describe?: string; expose?: __AihuExpose; attribute?: string | boolean; reflect?: boolean } interface __AihuResource<T> { readonly loading: boolean; readonly data: T | null; readonly error: Error | null; refetch(): Promise<void> } interface __AihuStream { readonly value: string; readonly delta: string; readonly status: string; readonly error: Error | null; start(source?: unknown): Promise<void>; stop(): void }";
+        const WRAPPER_INTRINSIC_DECLS: &[(&str, &str)] = &[
+            ("state", "declare function state<T>(initial: T): T;"),
+            ("prop", "declare function prop<T>(config: __AihuPropConfig<T> & { default: T }): T; declare function prop<T>(config: __AihuPropConfig<T> & { required: true }): T; declare function prop<T>(config?: __AihuPropConfig<T>): T | undefined;"),
+            ("derived", "declare function derived<T>(fn: () => T): T; declare function derived<T>(config: __AihuMemberConfig, fn: () => T): T;"),
+            ("action", "declare function action<F extends (...args: any[]) => any>(fn: F): F; declare function action<F extends (...args: any[]) => any>(config: __AihuMemberConfig, fn: F): F;"),
+            ("resource", "declare function resource<T>(fn: () => T | Promise<T>): __AihuResource<T>; declare function resource<T>(config: __AihuMemberConfig, fn: () => T | Promise<T>): __AihuResource<T>;"),
+            ("stream", "declare function stream<T>(source: () => T): __AihuStream; declare function stream<T>(config: { describe?: string }, source: () => T): __AihuStream;"),
+            ("controller", "declare function controller<C>(factory: () => C): C; declare function controller<C>(config: { describe?: string }, factory: () => C): C;"),
+            ("route", "declare function route(): any;"),
+            ("consume", "declare function consume<T = unknown>(key: string): T;"),
+            ("effect", "declare function effect(fn: () => void): void; declare function effect(config: { on: readonly unknown[] }, fn: () => void): void;"),
+            ("onDispose", "declare function onDispose(fn: () => void): void;"),
+            ("aria", "declare function aria(config: Record<string, unknown>): void;"),
+            ("provide", "declare function provide(key: string, value: unknown): void;"),
+            ("form", "declare function form(config: { value?: unknown; validity?: unknown }): void;"),
+            ("event", "declare function event<P = unknown>(name: string, config?: { describe?: string; bubbles?: boolean; composed?: boolean }): void;"),
+            ("beforeNavigate", "declare function beforeNavigate(fn: (...args: any[]) => any): void;"),
+            ("afterNavigate", "declare function afterNavigate(fn: (...args: any[]) => any): void;"),
+        ];
+        globals.push(' ');
+        globals.push_str(WRAPPER_TYPE_DECLS);
+        for (name, decl) in WRAPPER_INTRINSIC_DECLS {
+            if !script_bound.contains(*name) {
+                globals.push(' ');
+                globals.push_str(decl);
+            }
+        }
+    }
     // GX Phase 4 (#466, 70-governed-data-access §4.5) — the generated
     // withheld-type contract for a `data:`-declared route. One authored type
     // (the `$prop route` declared `data` member) derives the discriminated
@@ -525,7 +568,20 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     // position), so feeding them to tsc raises syntax errors on code the author
     // never wrote. What the macros BIND is declared instead, on the preamble line
     // — with the prop's real declared type where `type:` gives one.
-    let macro_lines = macro_line_set(script);
+    let mut macro_lines = macro_line_set(script);
+    // #487 §6.4 — the naked `extract: { … }` directive is NOT valid TS in
+    // label position, so its lines keep the sidecar blanking `$extract` had.
+    // (`shadow:`/`base:` are valid labeled statements and stay in place, as
+    // do all wrapper declarations — that is the point of the model.)
+    for (m, (s, e)) in wrapper_scan.macros.iter().zip(wrapper_scan.spans.iter()) {
+        if matches!(m, crate::types::StateMacro::Extract { .. }) {
+            let first = newlines_before(script, (*s).min(script.len()));
+            let last = newlines_before(script, (*e).min(script.len()));
+            for l in first..=last {
+                macro_lines.insert(l);
+            }
+        }
+    }
     let script_first_line = unit.source.script_line; // 1-based; 0 if no @state
     if script_first_line > 0 && !script.is_empty() {
         for (n, text) in script.lines().enumerate() {
@@ -590,6 +646,12 @@ fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
     emit_sidecar_stmts(&stmts, &mut placer);
     let mut lines = placer.lines;
     lines.push("}".to_string());
+    // #487 — a wrapper-dialect sidecar is forced into MODULE scope so its
+    // `declare function` intrinsics never collide with lib.dom script-scope
+    // globals (`event`); no-op when the inlined @state body already imports.
+    if !wrapper_scan.macros.is_empty() {
+        lines.push("export {}".to_string());
+    }
     Some(format!("{}\n", lines.join("\n")))
 }
 
@@ -1891,7 +1953,15 @@ fn process_state_body(
     use crate::parser::state_macros::parse_state_macros;
     use crate::types::StateMacro;
 
-    let macros = parse_state_macros(raw_script).unwrap_or_default();
+    let mut macros = parse_state_macros(raw_script).unwrap_or_default();
+    // #487 — the new wrapper dialect lowers onto the SAME `StateMacro` IR
+    // (state-model spec §2/§3), so one macros list serves both dialects.
+    // Scan errors were already raised at the compile_full boundary; here the
+    // non-regressive default is an empty scan. Wrapper construct spans are
+    // excluded from the plain body exactly as `$`-macro spans are.
+    let wrapper_scan =
+        crate::parser::state_wrappers::scan_state_wrappers(raw_script).unwrap_or_default();
+    macros.extend(wrapper_scan.macros.iter().cloned());
     let mut si = StateImports::default();
 
     // R2 (Defect B): collect every identifier declared in `@state`. Includes
@@ -2044,6 +2114,22 @@ fn process_state_body(
             // defineComponent assembly layer (or, for $extract, resolved into
             // the artifact fan-out); they introduce no state binding here.
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
+            // #487 — `let x = state(v)` registers a REAL signal (getter named
+            // `x`, setter `__x_set`), so template reads flow through the
+            // shipped signal-read rewrite and `bind:` write-backs find the
+            // setter (state-model spec §2.1/§4.2).
+            StateMacro::StateLet { name, .. } => {
+                signal_map.insert_signal(
+                    name,
+                    &crate::parser::state_wrappers::state_setter_name(name),
+                );
+                state_names.insert(name);
+            }
+            // #487 — `const x = consume(key)` lowers through @aihu/context.
+            StateMacro::ConsumeBinding { name, .. } => {
+                si.needs_context = true;
+                state_names.insert(name);
+            }
         }
     }
 
@@ -2054,12 +2140,24 @@ fn process_state_body(
     let mut current_import: Vec<String> = Vec::new();
     // Scratch buffer reused across iterations to own an `export `-stripped line
     // (the borrow checker needs a binding outliving the per-iteration `&str`).
-    let mut stripped_export_line = String::new();
+    let mut stripped_export_line;
     let bytes = raw_script.as_bytes();
     while i < bytes.len() {
         let nl = raw_script[i..].find('\n').map(|r| i + r).unwrap_or(raw_script.len());
         let line_raw = &raw_script[i..nl];
         let line = line_raw.trim();
+
+        // #487 — skip recognized wrapper-construct spans (they are lowered
+        // from `macros`, exactly like `$`-macro spans below). Spans start at
+        // the construct's first non-whitespace byte.
+        let line_start = i + (line_raw.len() - line_raw.trim_start().len());
+        if let Some(end) = wrapper_scan.skip_to(line_start) {
+            i = end;
+            if i < bytes.len() && bytes[i] == b'\n' {
+                i += 1;
+            }
+            continue;
+        }
 
         // Collect import lines from @state and lift them to module scope.
         if line.starts_with("import ") || line.starts_with("import\t") {
@@ -2069,6 +2167,23 @@ fn process_state_body(
                 continue;
             }
             let opens_block = line.contains('{') && !line.contains('}');
+            // #487 §3.3.2 (ratified §9.5) — `$auth` retired to the plain
+            // runtime import; the deferred-SSR marker is now keyed on the
+            // `useCurrentUser` import itself (kept until the M3 SSR work).
+            // Wrapper-dialect files only, so old-dialect emission stays
+            // byte-identical.
+            if !wrapper_scan.macros.is_empty()
+                && line.contains("useCurrentUser")
+                && line.contains("@aihu/auth")
+            {
+                plain_lines.push(
+                    crate::parser::state_macros::auth_session_todo(
+                        crate::types::AuthMacroKind::Session,
+                    )
+                    .trim()
+                    .to_string(),
+                );
+            }
             current_import.push(line_raw.to_string());
             if opens_block {
                 in_import = true;
@@ -2452,12 +2567,44 @@ fn collect_prop_write_targets(
     use crate::parser::state_macros::meta_get;
     let mut out = std::collections::HashMap::new();
     for entry in collect_prop_entries(macros) {
+        // #487 — wrapper-origin props take the state-model §4.3 pass instead
+        // (which honors the nature axis: `.set` for `let`-props, C624 for
+        // `const`-props); running CO1 over them too would double-rewrite.
+        if entry.wrapper {
+            continue;
+        }
         let numeric_default = meta_get(entry, "default")
             .map(|d| d.trim().parse::<f64>().is_ok())
             .unwrap_or(false);
         out.insert(entry.name.clone(), numeric_default);
     }
     out
+}
+
+/// #487 — pre-rewrite a wrapper-origin running-code expression (an arrow or
+/// thunk, WHOLE expression text) through the state-model read/write pass
+/// (spec §4.2/§4.3). The arrow's own params shadow via the oxc scope model
+/// (they are inside the parsed text). Non-regressive: errors and parse
+/// failures splice the code as authored (they were raised as hard errors at
+/// the compile_full boundary already).
+fn rewrite_wrapper_code(
+    code: &str,
+    targets: &crate::parser::state_wrappers::WrapperTargets,
+    needs_state_helper: &mut bool,
+    needs_prop_helper: &mut bool,
+) -> String {
+    match crate::expr::rewrite_state_body(code, "", false, targets, true) {
+        Ok(Some(r)) => {
+            if r.needs_state_update_helper {
+                *needs_state_helper = true;
+            }
+            if r.needs_prop_update_helper {
+                *needs_prop_helper = true;
+            }
+            r.source
+        }
+        _ => code.to_string(),
+    }
 }
 
 /// CO1: rewrite `$prop` writes inside one macro body, or return it unchanged.
@@ -2486,12 +2633,13 @@ fn rewrite_prop_writes_in(
     }
 }
 
-/// Returns the emitted `@state` macro code and whether it needs the lazily
-/// declared `__aihu_prop_upd` helper (spec §4.5).
+/// Returns the emitted `@state` macro code, whether it needs the lazily
+/// declared `__aihu_prop_upd` helper (spec §4.5), and whether it needs the
+/// #487 `__aihu_state_upd` helper (state-model spec §4.3).
 fn emit_state_macro_code(
     macros: &[crate::types::StateMacro],
     signal_map: &SignalMap,
-) -> (String, bool) {
+) -> (String, bool, bool) {
     use crate::parser::state_macros::{
         arrow_args, arrow_async_prefix, arrow_body, arrow_body_spliceable, meta_get, running_code,
     };
@@ -2502,6 +2650,9 @@ fn emit_state_macro_code(
     // imperative-position macro body below.
     let prop_targets = collect_prop_write_targets(macros);
     let mut needs_prop_upd_helper = false;
+    // #487 — wrapper-dialect rewrite targets (empty for old-dialect files).
+    let wrapper_targets = crate::parser::state_wrappers::collect_wrapper_targets(macros);
+    let mut needs_state_upd_helper = false;
     for mac in macros {
         match mac {
             StateMacro::Collection { kind, entries } => {
@@ -2530,9 +2681,23 @@ fn emit_state_macro_code(
                             // was the root cause of the TDZ ReferenceError.
                         }
                         CollectionKind::Computed => {
-                            let thunk = match running_code(entry) {
+                            let thunk_raw = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
+                            };
+                            // #487 — wrapper `derived` thunks read bindings
+                            // BARE (§4.2); splice getter calls before lowering.
+                            let thunk_owned;
+                            let thunk: &str = if entry.wrapper {
+                                thunk_owned = rewrite_wrapper_code(
+                                    thunk_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &thunk_owned
+                            } else {
+                                thunk_raw
                             };
                             let body = arrow_body_spliceable(thunk)
                                 .unwrap_or_else(|| thunk.to_string());
@@ -2543,9 +2708,21 @@ fn emit_state_macro_code(
                             ));
                         }
                         CollectionKind::Resource => {
-                            let thunk = match running_code(entry) {
+                            let thunk_raw = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
+                            };
+                            let thunk_owned;
+                            let thunk: &str = if entry.wrapper {
+                                thunk_owned = rewrite_wrapper_code(
+                                    thunk_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &thunk_owned
+                            } else {
+                                thunk_raw
                             };
                             let am = arrow_async_prefix(thunk);
                             let body = arrow_body_spliceable(thunk)
@@ -2569,21 +2746,50 @@ fn emit_state_macro_code(
                         CollectionKind::Stream => {
                             // v0.4.0 — emit `const <name> = createStream(<source_factory>)`
                             // The source factory is the verbatim value from the `source:` key.
-                            let source_factory = entry
+                            let source_raw = entry
                                 .meta
                                 .iter()
                                 .find(|(k, _)| k == "source")
                                 .map(|(_, v)| v.trim())
                                 .unwrap_or("() => null");
+                            let source_owned;
+                            let source_factory: &str = if entry.wrapper {
+                                source_owned = rewrite_wrapper_code(
+                                    source_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &source_owned
+                            } else {
+                                source_raw
+                            };
                             lines.push(format!(
                                 "{indent}const {} = createStream({source_factory});",
                                 entry.name
                             ));
                         }
                         CollectionKind::Action => {
-                            let arrow = match running_code(entry) {
+                            let arrow_raw = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
+                            };
+                            // #487 — wrapper `action` bodies take the §4.2/§4.3
+                            // read/write pass over the WHOLE arrow (its params
+                            // shadow via the oxc scope model); the CO1
+                            // `$prop`-write pass below then sees no wrapper
+                            // props (collect_prop_write_targets excludes them).
+                            let arrow_owned;
+                            let arrow: &str = if entry.wrapper {
+                                arrow_owned = rewrite_wrapper_code(
+                                    arrow_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &arrow_owned
+                            } else {
+                                arrow_raw
                             };
                             let args = arrow_args(arrow).unwrap_or_default();
                             let body = arrow_body(arrow).unwrap_or_default();
@@ -2634,9 +2840,21 @@ fn emit_state_macro_code(
                             }
                         }
                         CollectionKind::Effect => {
-                            let thunk = match running_code(entry) {
+                            let thunk_raw = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
+                            };
+                            let thunk_owned;
+                            let thunk: &str = if entry.wrapper {
+                                thunk_owned = rewrite_wrapper_code(
+                                    thunk_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &thunk_owned
+                            } else {
+                                thunk_raw
                             };
                             let body =
                                 arrow_body(thunk).unwrap_or_else(|| thunk.to_string());
@@ -2660,10 +2878,25 @@ fn emit_state_macro_code(
                                     .trim()
                                     .strip_prefix('[')
                                     .and_then(|s| s.strip_suffix(']'))
-                                    .unwrap_or(deps_raw);
+                                    .unwrap_or(deps_raw)
+                                    .trim()
+                                    .to_string();
+                                // #487 — wrapper `effect({ on: [x] }, …)` deps
+                                // are VALUE reads; splice the getter calls so
+                                // the tracking read actually subscribes.
+                                let deps_inner = if entry.wrapper {
+                                    rewrite_wrapper_code(
+                                        &deps_inner,
+                                        &wrapper_targets,
+                                        &mut needs_state_upd_helper,
+                                        &mut needs_prop_upd_helper,
+                                    )
+                                } else {
+                                    deps_inner
+                                };
                                 lines.push(format!(
                                     "{indent}effect({am}() => {{ {dep}; {body} }});",
-                                    dep = deps_inner.trim()
+                                    dep = deps_inner
                                 ));
                             } else {
                                 lines.push(format!("{indent}effect({am}() => {{ {body} }});"));
@@ -2677,9 +2910,21 @@ fn emit_state_macro_code(
                             // element's adoptedCallback / attributeChangedCallback
                             // by the runtime; userland's attributeChange runs
                             // AFTER R1's $prop signal-update (Director r6 §3.R2).
-                            let arrow = match running_code(entry) {
+                            let arrow_raw = match running_code(entry) {
                                 Some(t) => t,
                                 None => continue,
+                            };
+                            let arrow_owned;
+                            let arrow: &str = if entry.wrapper {
+                                arrow_owned = rewrite_wrapper_code(
+                                    arrow_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &arrow_owned
+                            } else {
+                                arrow_raw
                             };
                             let body =
                                 arrow_body(arrow).unwrap_or_else(|| arrow.to_string());
@@ -2734,9 +2979,21 @@ fn emit_state_macro_code(
                             // called once; if the returned object has
                             // `hostConnected`/`hostDisconnected` methods they are
                             // wired into onMount/onCleanup respectively.
-                            let factory = match crate::parser::state_macros::meta_get(entry, "value") {
+                            let factory_raw = match crate::parser::state_macros::meta_get(entry, "value") {
                                 Some(f) => f.trim(),
                                 None => continue,
+                            };
+                            let factory_owned;
+                            let factory: &str = if entry.wrapper {
+                                factory_owned = rewrite_wrapper_code(
+                                    factory_raw,
+                                    &wrapper_targets,
+                                    &mut needs_state_upd_helper,
+                                    &mut needs_prop_upd_helper,
+                                );
+                                &factory_owned
+                            } else {
+                                factory_raw
                             };
                             let name = &entry.name;
                             lines.push(format!(
@@ -2790,6 +3047,19 @@ fn emit_state_macro_code(
                                     let val_factory = match sub_meta.iter().find(|(mk, _)| mk == "value").map(|(_, mv)| mv.trim().to_string()) {
                                         Some(f) => f,
                                         None => continue,
+                                    };
+                                    // #487 — wrapper `provide(key, factory)`:
+                                    // bare reads in the factory are VALUE
+                                    // reads (§4.2).
+                                    let val_factory = if entry.wrapper {
+                                        rewrite_wrapper_code(
+                                            &val_factory,
+                                            &wrapper_targets,
+                                            &mut needs_state_upd_helper,
+                                            &mut needs_prop_upd_helper,
+                                        )
+                                    } else {
+                                        val_factory
                                     };
                                     // Function-shaped values are factories:
                                     // wrap-and-call. Static values
@@ -2889,6 +3159,26 @@ fn emit_state_macro_code(
             }
             // §9.4 / GX — consumed at the assembly/fan-out layer; no body JS.
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
+            // #487 — `let x = state(v)` lowers to the signal tuple the runtime
+            // already serves (state-model spec §2.1). The initializer takes
+            // the read rewrite (it may read earlier-declared bindings).
+            StateMacro::StateLet { name, init, .. } => {
+                let init_rw = rewrite_wrapper_code(
+                    init,
+                    &wrapper_targets,
+                    &mut needs_state_upd_helper,
+                    &mut needs_prop_upd_helper,
+                );
+                lines.push(format!(
+                    "{indent}const [{name}, {setter}] = signal({init_rw});",
+                    setter = crate::parser::state_wrappers::state_setter_name(name)
+                ));
+            }
+            // #487 — `const x = consume(key)`: the shipped synchronous
+            // prototype-chain DI, binding name decoupled from the key.
+            StateMacro::ConsumeBinding { name, key } => {
+                lines.push(format!("{indent}const {name} = inject(contextKey('{key}'))"));
+            }
         }
     }
     let code = if lines.is_empty() {
@@ -2896,7 +3186,7 @@ fn emit_state_macro_code(
     } else {
         lines.join("\n") + "\n"
     };
-    (code, needs_prop_upd_helper)
+    (code, needs_prop_upd_helper, needs_state_upd_helper)
 }
 
 // ─── R1 — $prop options-form lowering helpers ───────────────────────────────
@@ -3368,12 +3658,27 @@ fn emit_function_form(
     // before any downstream emit walks the template AST. Operates on a
     // working clone of the AST so the immutable `unit` reference is preserved.
     let event_names = collect_event_names(&macros);
+    // #487 — wrapper-dialect rewrite targets (empty for old-dialect files;
+    // every use below is a strict no-op then).
+    let wrapper_targets = crate::parser::state_wrappers::collect_wrapper_targets(&macros);
+    let mut handler_needs_state_helper = false;
+    let mut handler_needs_prop_helper = false;
     let mut template_owned: Vec<TemplateNode> = unit
         .template_ast
         .as_deref()
         .map(|n| {
             let mut cloned: Vec<TemplateNode> = n.to_vec();
             apply_emit_lowering_nodes(&mut cloned, &event_names);
+            // #487 §4.3 — handler-position writes to wrapper bindings lower
+            // to the setter forms BEFORE the read rewrite walks the tree.
+            if wrapper_targets.has_writes() {
+                apply_state_write_lowering_nodes(
+                    &mut cloned,
+                    &wrapper_targets,
+                    &mut handler_needs_state_helper,
+                    &mut handler_needs_prop_helper,
+                );
+            }
             cloned
         })
         .unwrap_or_default();
@@ -3532,7 +3837,31 @@ fn emit_function_form(
         "_ctx"
     };
 
-    let (macro_code, needs_prop_upd_helper) = emit_state_macro_code(&macros, &signal_map);
+    let (macro_code, mut needs_prop_upd_helper, mut needs_state_upd_helper) =
+        emit_state_macro_code(&macros, &signal_map);
+    needs_state_upd_helper |= handler_needs_state_helper;
+    needs_prop_upd_helper |= handler_needs_prop_helper;
+
+    // #487 — the state-model §4.2/§4.3 pass over the PLAIN body (top-level
+    // statements and helper functions declared in `@state`). Old-dialect
+    // files have no wrapper targets, so their plain body is byte-identical.
+    let plain_body = if wrapper_targets.reads.is_empty() && !wrapper_targets.has_writes() {
+        plain_body
+    } else {
+        match crate::expr::rewrite_state_body(&plain_body, "", false, &wrapper_targets, true) {
+            Ok(Some(r)) => {
+                if r.needs_state_update_helper {
+                    needs_state_upd_helper = true;
+                }
+                if r.needs_prop_update_helper {
+                    needs_prop_upd_helper = true;
+                }
+                r.source
+            }
+            _ => plain_body,
+        }
+    };
+
     let helpers_decl = emit_boundary_helpers(&helpers_needed);
     // CO1 §4.5: the `++`/`--` ToNumeric helper, declared once per component and
     // ONLY when some emitted form actually calls it. `cookbook/aihu-counter`
@@ -3541,6 +3870,12 @@ fn emit_function_form(
         format!("  {}\n", crate::expr::UPDATE_HELPER_DECL)
     } else {
         String::new()
+    };
+    // #487 §4.3 — the `state` sibling of the CO1 helper.
+    let prop_upd_decl = if needs_state_upd_helper {
+        format!("{}  {}\n", prop_upd_decl, crate::expr::STATE_UPDATE_HELPER_DECL)
+    } else {
+        prop_upd_decl
     };
 
     let body = {
@@ -4138,19 +4473,29 @@ pub fn has_exposed_agent_members(raw_script: &str) -> bool {
 /// client opaque-ID dispatcher so the two stay structurally in sync.
 fn collect_agent_members(raw_script: &str) -> AgentMembers {
     use crate::parser::state_macros::{
-        arrow_args, arrow_is_async, meta_get, parse_state_macros, running_code,
+        arrow_args, arrow_is_async, entry_expose, meta_get, parse_state_macros, running_code,
     };
     use crate::types::{CollectionKind, StateMacro};
 
-    let macros = parse_state_macros(raw_script).unwrap_or_default();
+    // #487 — BOTH dialects contribute members: `$`-collections and the new
+    // wrapper declarations lower onto one `StateMacro` IR (C625 bars mixing,
+    // so a file is one dialect or the other).
+    let mut macros = parse_state_macros(raw_script).unwrap_or_default();
+    if let Ok(scan) = crate::parser::state_wrappers::scan_state_wrappers(raw_script) {
+        macros.extend(scan.macros);
+    }
     let mut members = AgentMembers::default();
 
     for mac in &macros {
         if let StateMacro::Collection { kind, entries } = mac {
             for entry in entries {
-                let expose_raw = meta_get(entry, "expose").unwrap_or("");
-                let has_read = expose_raw.contains("read: true");
-                let has_write = expose_raw.contains("write: true");
+                // #487 §6.1 — the ONE structured expose resolver (shorthand
+                // strings + the structured object) replaces the former
+                // string-`contains`; server export and client dispatcher both
+                // flow through this single function.
+                let expose = entry_expose(entry);
+                let has_read = expose.read;
+                let has_write = expose.write;
 
                 match kind {
                     CollectionKind::Action => {
@@ -7137,6 +7482,115 @@ fn apply_emit_lowering_attr(
             }
         }
         Attr::Static { .. } => {}
+    }
+}
+
+/// #487 §4.3 — the HANDLER-position write rewrite: walk the template AST and
+/// rewrite plain writes to wrapper-declared bindings inside event-handler
+/// expressions (`onclick={() => count++}` → `() => __count_set(count() + 1)`).
+///
+/// Writes-ONLY mode: reads are left for the shipped template read-pass that
+/// runs downstream (`rewrite_template_expr`), so nothing double-splices.
+/// Non-handler template expressions are untouched — `expr/rewrite.rs`'s
+/// refusal of write targets in read position stands. A no-op for old-dialect
+/// files (empty targets never reach here).
+fn apply_state_write_lowering_nodes(
+    nodes: &mut [TemplateNode],
+    targets: &crate::parser::state_wrappers::WrapperTargets,
+    needs_state_helper: &mut bool,
+    needs_prop_helper: &mut bool,
+) {
+    // Alias-shadow discipline (mirrors `emit_each_block`'s filtered maps): an
+    // each alias that shares a wrapper binding's name shadows it for the loop
+    // body and the element's own handlers.
+    fn targets_minus(
+        t: &crate::parser::state_wrappers::WrapperTargets,
+        names: &std::collections::BTreeSet<String>,
+    ) -> crate::parser::state_wrappers::WrapperTargets {
+        let mut out = t.clone();
+        for n in names {
+            out.states.remove(n);
+            out.prop_lets.remove(n);
+            out.prop_consts.remove(n);
+            out.reads.remove(n);
+        }
+        out
+    }
+
+    for node in nodes.iter_mut() {
+        match node {
+            TemplateNode::Element { attrs, children, .. }
+            | TemplateNode::MacroElement { attrs, children, .. } => {
+                // Element-level `each=` aliases shadow for this element's own
+                // handlers and its children.
+                let mut alias_bound = std::collections::BTreeSet::new();
+                for a in attrs.iter() {
+                    if let Attr::Macro { name, value } = a {
+                        if name == "each" {
+                            let clause = macro_value_expr(value);
+                            if let Ok(head) =
+                                crate::parser::directives::parse_each_of_head(&clause)
+                            {
+                                push_alias_bindings(
+                                    &head.item,
+                                    head.idx.as_deref(),
+                                    &mut alias_bound,
+                                );
+                            }
+                        }
+                    }
+                }
+                let filtered_storage;
+                let t: &crate::parser::state_wrappers::WrapperTargets = if alias_bound.is_empty() {
+                    targets
+                } else {
+                    filtered_storage = targets_minus(targets, &alias_bound);
+                    &filtered_storage
+                };
+                for a in attrs.iter_mut() {
+                    let handler: Option<&mut String> = match a {
+                        Attr::Binding { name, expr } if is_event_attr_name(name) => Some(expr),
+                        Attr::Macro { name, value } if name.starts_with("on:") => {
+                            if let MacroValue::Curly(s) = value {
+                                Some(s)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+                    if let Some(expr) = handler {
+                        if let Ok(Some(r)) =
+                            crate::expr::rewrite_state_body(expr, "", false, t, false)
+                        {
+                            if r.needs_state_update_helper {
+                                *needs_state_helper = true;
+                            }
+                            if r.needs_prop_update_helper {
+                                *needs_prop_helper = true;
+                            }
+                            *expr = r.source;
+                        }
+                    }
+                }
+                apply_state_write_lowering_nodes(children, t, needs_state_helper, needs_prop_helper);
+            }
+            TemplateNode::IfBlock { branches } => {
+                for (_, body) in branches.iter_mut() {
+                    apply_state_write_lowering_nodes(body, targets, needs_state_helper, needs_prop_helper);
+                }
+            }
+            TemplateNode::EachBlock { item_alias, idx_alias, body, empty_body, .. } => {
+                let mut alias_bound = std::collections::BTreeSet::new();
+                push_alias_bindings(item_alias, idx_alias.as_deref(), &mut alias_bound);
+                let filtered = targets_minus(targets, &alias_bound);
+                apply_state_write_lowering_nodes(body, &filtered, needs_state_helper, needs_prop_helper);
+                if let Some(eb) = empty_body {
+                    apply_state_write_lowering_nodes(eb, targets, needs_state_helper, needs_prop_helper);
+                }
+            }
+            TemplateNode::Interpolation(_) | TemplateNode::HtmlBlock { .. } | TemplateNode::Text(_) => {}
+        }
     }
 }
 

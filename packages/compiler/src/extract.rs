@@ -316,7 +316,13 @@ pub fn declared_extract(source: &AihuSource) -> Option<ExtractDecl> {
 /// the hard parse error first, so nothing downstream acts on the `None`.
 pub fn state_extract_decl(source: &AihuSource) -> Option<ExtractDecl> {
     let script = source.script?;
-    let macros = crate::parser::state_macros::parse_state_macros(script).ok()?;
+    let mut macros = crate::parser::state_macros::parse_state_macros(script).ok()?;
+    // #487 — the wrapper dialect's naked `extract: { … }` directive parses to
+    // the SAME `StateMacro::Extract` (state-model spec §6.4); include it so
+    // both dialects resolve through one path.
+    if let Ok(scan) = crate::parser::state_wrappers::scan_state_wrappers(script) {
+        macros.extend(scan.macros);
+    }
     macros.iter().find_map(|m| match m {
         StateMacro::Extract { decl } => Some(decl.clone()),
         _ => None,
