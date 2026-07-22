@@ -9,6 +9,21 @@ name: Release aihu-compile binaries
 #   - manual workflow_dispatch with optional `tag` input (dry run; binaries
 #     are uploaded as workflow artifacts but no GitHub Release is created
 #     unless the input parses as an actual `v*` tag).
+#   - manual workflow_dispatch with `canary: true` — CANARY SNAPSHOT release:
+#     every publish job first runs `changeset version --snapshot canary`
+#     (+ scripts/stamp-platform-snapshot.ts for the native platform packages),
+#     producing `0.0.0-canary-<shortsha>` versions, then publishes to the
+#     `canary` npm dist-tag so `latest` (and every plain `npm install`) is
+#     UNAFFECTED. Consumers pin with `npm install @aihu/app@canary` or the
+#     exact snapshot version. `dry_run` defaults to TRUE: the default canary
+#     run versions + builds + packs with `npm publish --dry-run` (no network
+#     write); a human must explicitly pass dry_run=false to publish for real.
+#     The snapshot suffix is the COMMIT hash (.changeset/config.json
+#     `snapshot.prereleaseTemplate: "{tag}-{commit}"`), so the independent
+#     publish jobs below all compute the IDENTICAL version from the same
+#     checked-out SHA — no cross-job version handoff needed. Snapshot bumps
+#     are ephemeral (never committed); no GitHub Release and no git tag is
+#     created for canaries.
 #
 # Consumed by:
 #   - packages/compiler/js/postinstall.ts via the
@@ -27,6 +42,16 @@ name: Release aihu-compile binaries
         description: 'Optional tag to dry-run the build against (no release created)'
         required: false
         default: ''
+      canary:
+        description: 'Canary snapshot release: version 0.0.0-canary-<sha> and publish to the `canary` npm dist-tag'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Canary only: pack + validate with npm publish --dry-run (no network write). Set to false to publish for real.'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -316,7 +341,10 @@ jobs:
     name: Publish @aihu/server-* platform packages
     needs: build-native
     runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag push (stable) OR canary workflow_dispatch. On a plain dispatch
+    # (canary=false) this job still skips, preserving the old dry-run-build
+    # behavior of the `tag` input path.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -327,6 +355,30 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup Bun (canary)
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Snapshot version (canary)
+        # Ephemeral 0.0.0-canary-<sha> versions — computed identically in every
+        # canary publish job from the same SHA (snapshot.prereleaseTemplate is
+        # "{tag}-{commit}"). stamp-platform-snapshot.ts then syncs the non-
+        # workspace packages/*/npm/* platform packages + host optionalDependencies
+        # pins to the same snapshot version.
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        env:
+          HUSKY: '0'
+          # @changesets/changelog-github requires a token even for snapshot
+          # changelog assembly.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bun install --frozen-lockfile --ignore-scripts
+          bun scripts/canary-catchall-changeset.ts
+          bun changeset version --snapshot canary
+          bun scripts/stamp-platform-snapshot.ts
+
       - name: Download all native artifacts
         uses: actions/download-artifact@v4
         with:
@@ -335,8 +387,15 @@ jobs:
       - name: Stage and publish each platform package (idempotent)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CANARY: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary) && '1' || '' }}
+          CANARY_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary && inputs.dry_run) && '1' || '' }}
         run: |
           set -euo pipefail
+          # Canary → publish under the `canary` dist-tag (latest untouched);
+          # dry-run canary → pack + validate only, no network write.
+          NPM_EXTRA=""
+          if [ -n "${CANARY:-}" ]; then NPM_EXTRA="--tag canary"; fi
+          if [ -n "${CANARY_DRY_RUN:-}" ]; then NPM_EXTRA="$NPM_EXTRA --dry-run"; fi
           for dir in packages/server/npm/*/; do
             platform=$(basename "$dir")
             node_file=$(ls native-artifacts/native-$platform/*.node 2>/dev/null || true)
@@ -362,7 +421,7 @@ jobs:
               echo "${pkg_name}@${pkg_version} already published — skipping"
               continue
             fi
-            ( cd "$dir" && npm publish --access public )
+            ( cd "$dir" && npm publish --access public $NPM_EXTRA )
           done
 
   # ---------------------------------------------------------------------------
@@ -441,7 +500,8 @@ jobs:
     name: Publish @aihu/css-engine-* platform packages
     needs: build-css-native
     runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag push (stable) OR canary workflow_dispatch (see publish-native).
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -452,6 +512,26 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup Bun (canary)
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Snapshot version (canary)
+        # See publish-native's snapshot step — identical, deterministic per SHA.
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        env:
+          HUSKY: '0'
+          # @changesets/changelog-github requires a token even for snapshot
+          # changelog assembly.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bun install --frozen-lockfile --ignore-scripts
+          bun scripts/canary-catchall-changeset.ts
+          bun changeset version --snapshot canary
+          bun scripts/stamp-platform-snapshot.ts
+
       - name: Download all css-native artifacts
         uses: actions/download-artifact@v4
         with:
@@ -460,8 +540,14 @@ jobs:
       - name: Stage and publish each platform package (idempotent)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CANARY: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary) && '1' || '' }}
+          CANARY_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary && inputs.dry_run) && '1' || '' }}
         run: |
           set -euo pipefail
+          # Canary dist-tag / dry-run flags (see publish-native).
+          NPM_EXTRA=""
+          if [ -n "${CANARY:-}" ]; then NPM_EXTRA="--tag canary"; fi
+          if [ -n "${CANARY_DRY_RUN:-}" ]; then NPM_EXTRA="$NPM_EXTRA --dry-run"; fi
           for dir in packages/css-engine/npm/*/; do
             platform=$(basename "$dir")
             # The css binary is a raw executable named aihu-css-compile[.exe];
@@ -490,7 +576,7 @@ jobs:
               echo "${pkg_name}@${pkg_version} already published — skipping"
               continue
             fi
-            ( cd "$dir" && npm publish --access public )
+            ( cd "$dir" && npm publish --access public $NPM_EXTRA )
           done
 
   # ---------------------------------------------------------------------------
@@ -512,7 +598,8 @@ jobs:
     name: Publish @aihu/compiler-* platform packages
     needs: build
     runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag push (stable) OR canary workflow_dispatch (see publish-native).
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -523,6 +610,26 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup Bun (canary)
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Snapshot version (canary)
+        # See publish-native's snapshot step — identical, deterministic per SHA.
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        env:
+          HUSKY: '0'
+          # @changesets/changelog-github requires a token even for snapshot
+          # changelog assembly.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bun install --frozen-lockfile --ignore-scripts
+          bun scripts/canary-catchall-changeset.ts
+          bun changeset version --snapshot canary
+          bun scripts/stamp-platform-snapshot.ts
+
       - name: Download all compiler binary artifacts
         uses: actions/download-artifact@v4
         with:
@@ -531,8 +638,14 @@ jobs:
       - name: Stage and publish each platform package (idempotent, hard-fail)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CANARY: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary) && '1' || '' }}
+          CANARY_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary && inputs.dry_run) && '1' || '' }}
         run: |
           set -euo pipefail
+          # Canary dist-tag / dry-run flags (see publish-native).
+          NPM_EXTRA=""
+          if [ -n "${CANARY:-}" ]; then NPM_EXTRA="--tag canary"; fi
+          if [ -n "${CANARY_DRY_RUN:-}" ]; then NPM_EXTRA="$NPM_EXTRA --dry-run"; fi
           # Explicit npm-dir → (build artifact name, dest file) map. The `build`
           # job uploads artifacts named aihu-compile-<asset>; download-artifact@v4
           # places each under compiler-artifacts/<artifact-name>/<artifact-name>.
@@ -585,7 +698,7 @@ jobs:
               echo "${pkg_name}@${pkg_version} already published — skipping"
               continue
             fi
-            ( cd "$dir" && npm publish --access public )
+            ( cd "$dir" && npm publish --access public $NPM_EXTRA )
           done
 
   # ---------------------------------------------------------------------------
@@ -606,7 +719,9 @@ jobs:
     name: Publish @aihu/* packages to npm
     needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native]
     runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tag push (stable) OR canary workflow_dispatch. In canary mode the needed
+    # publish-* jobs above all run (canary condition), so `needs` still chains.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     permissions:
       contents: read
       id-token: write
@@ -636,6 +751,24 @@ jobs:
 
       - name: Install workspace
         run: bun install --frozen-lockfile
+
+      - name: Snapshot version (canary)
+        # Ephemeral 0.0.0-canary-<sha> versions, identical to the ones the
+        # publish-*-native jobs computed (deterministic {tag}-{commit} template
+        # from the same SHA). Re-run `bun install` afterwards so bun.lock
+        # matches the bumped versions before packing — publish-all.sh's
+        # workspace:* rewrite reads lock-resolved versions.
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        env:
+          HUSKY: '0'
+          # @changesets/changelog-github requires a token even for snapshot
+          # changelog assembly.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bun scripts/canary-catchall-changeset.ts
+          bun changeset version --snapshot canary
+          bun scripts/stamp-platform-snapshot.ts
+          bun install
 
       - name: Download compiler binaries
         # The compiler's `build` job produced the freshly-built per-platform
@@ -676,4 +809,17 @@ jobs:
           # npmjs.com trusted-publisher config done.
           NPM_PROVENANCE_PKGS: ${{ vars.NPM_PROVENANCE_PKGS }}
           NPM_PROVENANCE: ${{ vars.NPM_PROVENANCE }}
-        run: bun run release
+          CANARY: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary) && '1' || '' }}
+          CANARY_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary && inputs.dry_run) && '1' || '' }}
+        # Stable (tag push): `bun run release` = build + publish-all.sh → latest.
+        # Canary: same build, then publish-all.sh --tag canary (+ --dry-run by
+        # default) — publish-all.sh itself refuses 0.0.0-* snapshots on `latest`.
+        run: |
+          if [ -n "${CANARY:-}" ]; then
+            bun run build
+            ARGS="--tag canary"
+            if [ -n "${CANARY_DRY_RUN:-}" ]; then ARGS="--dry-run $ARGS"; fi
+            bash scripts/publish-all.sh $ARGS
+          else
+            bun run release
+          fi

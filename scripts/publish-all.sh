@@ -14,8 +14,10 @@
 #   3. moon run :build  (or scripts/build-data-compiler.sh for missing pkgs)
 #
 # Usage:
-#   ./scripts/publish-all.sh            # live publish
-#   ./scripts/publish-all.sh --dry-run  # dry-run (no network write)
+#   ./scripts/publish-all.sh                        # live publish to `latest`
+#   ./scripts/publish-all.sh --dry-run              # dry-run (no network write)
+#   ./scripts/publish-all.sh --tag canary           # live publish to `canary` dist-tag
+#   ./scripts/publish-all.sh --dry-run --tag canary # canary dry-run (pack + validate only)
 
 set -euo pipefail
 
@@ -79,9 +81,25 @@ PKGS=(
   "_moved/agent-readiness"
 )
 
-DRY_RUN="${1:-}"
-NPM_FLAGS="--access public"
+# Args: --dry-run (no network write) and --tag <dist-tag> (default `latest`),
+# in any order. The canary release path (release.yml workflow_dispatch with
+# canary=true) publishes snapshot versions with `--tag canary` so the `latest`
+# dist-tag — and therefore every plain `npm install @aihu/*` — is unaffected.
+DRY_RUN=""
+DIST_TAG="latest"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY_RUN="--dry-run"; shift ;;
+    --tag)
+      [ $# -ge 2 ] || { echo "✗ --tag requires a value (e.g. --tag canary)" >&2; exit 1; }
+      DIST_TAG="$2"; shift 2 ;;
+    *) echo "✗ unknown argument: $1 (expected --dry-run and/or --tag <dist-tag>)" >&2; exit 1 ;;
+  esac
+done
+
+NPM_FLAGS="--access public --tag $DIST_TAG"
 [ "$DRY_RUN" = "--dry-run" ] && NPM_FLAGS="$NPM_FLAGS --dry-run"
+echo "dist-tag: $DIST_TAG${DRY_RUN:+  (dry-run — no network write)}"
 
 # Provenance allowlist — pass --provenance only for packages whose npmjs.com
 # trusted-publisher config is in place. Setting NPM_PROVENANCE=1 enables it
@@ -106,7 +124,19 @@ for pkg in "${PKGS[@]}"; do
     continue
   fi
   echo ""
-  echo "▶  publishing ${PKG_NAME} ..."
+  echo "▶  publishing ${PKG_NAME}@${PKG_VERSION} → dist-tag ${DIST_TAG}${DRY_RUN:+ [dry-run]} ..."
+
+  # Safety: a 0.0.0-* snapshot version must NEVER land on the `latest` dist-tag
+  # — that would make every plain `npm install @aihu/*` resolve the canary.
+  case "$PKG_VERSION" in
+    0.0.0-*)
+      if [ "$DIST_TAG" = "latest" ]; then
+        echo "✗ ${PKG_NAME}@${PKG_VERSION} is a snapshot version but dist-tag is 'latest'." >&2
+        echo "  Pass --tag canary (snapshot versions may not be published as latest)." >&2
+        exit 1
+      fi
+      ;;
+  esac
 
   # Idempotency: skip if the version already exists on npm. Mirrors the
   # publish-native pattern in release.yml so workflow re-runs are safe.
